@@ -1115,6 +1115,66 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "asks the live NEXRAD Level III archive for today's products"]
+    fn reads_what_a_site_is_tracking_right_now() {
+        // The committed fixtures prove the layout. This proves the bucket
+        // still answers the way it did, which is the half that can change
+        // without anybody touching this code: two of the four products this
+        // was written around stopped publishing in 2022 and nothing announced
+        // it.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        // A busy site somewhere. Storms are not guaranteed, but a published
+        // product is: the tracking product runs every volume whether or not
+        // it found anything.
+        // A site can be down for maintenance, so no single one of them is
+        // allowed to fail this on its own. What has to hold is that the
+        // bucket answers and at least one site is publishing now.
+        let mut answered = 0;
+        let mut current = 0;
+        for station in ["KTLX", "KJAX", "KTBW", "KDMX", "KGRR"] {
+            let Ok(report) = runtime.block_on(level3_cells(station.to_string()))
+            else {
+                continue;
+            };
+            answered += 1;
+            assert_eq!(report.station, station);
+            // The site's own position, from the product's own header.
+            assert!((-180.0..=180.0).contains(&report.site_longitude));
+            assert!((-90.0..=90.0).contains(&report.site_latitude));
+            let observed = DateTime::parse_from_rfc3339(&report.observed)
+                .expect("the volume time is a time");
+            let age = Utc::now() - observed.with_timezone(&Utc);
+            if age.num_minutes() < 90 {
+                current += 1;
+            }
+
+            for cell in &report.cells {
+                assert!(is_cell_id(&cell.id), "{} is not a cell id", cell.id);
+                assert!(cell.range_km < 500.0, "{} km out", cell.range_km);
+            }
+            println!(
+                "{station}: {} cells, {} rotations, volume {} ({} minutes old)",
+                report.cells.len(),
+                report.mesocyclones.len(),
+                report.observed,
+                age.num_minutes()
+            );
+        }
+        assert!(
+            answered > 0,
+            "no site answered at all, which means the bucket or the key format moved"
+        );
+        assert!(
+            current > 0,
+            "{answered} sites answered but none within the last ninety minutes,              which means the listing is finding old keys rather than new ones"
+        );
+    }
+
+    #[test]
     fn a_listing_gives_back_its_newest_key() {
         let listing = "<ListBucketResult>\
              <Contents><Key>TLX_NST_2026_08_30_23_50_11</Key></Contents>\
