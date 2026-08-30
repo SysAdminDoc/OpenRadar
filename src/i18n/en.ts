@@ -122,6 +122,10 @@ export const en = {
   "route.failedTitle": "The route could not be planned",
   "route.failed": "The route could not be planned.",
   "route.placeMissing": "One of those places could not be found.",
+  "route.routerRefused": "The road router answered {status}.",
+  "route.straightOffer": "Use a straight line instead",
+  "route.straightNote":
+    "No road shape: this is the straight line between the two places, and the times along it assume a steady 55 mph. The weather is real.",
   "route.summary": "{from} to {to} · {miles} miles · {minutes} min",
   "route.miles": "{value} mi",
   "route.noValue": "—",

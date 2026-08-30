@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Route weather asks the road router gently, and has an answer when it says no. The roads come from the OSRM demo server, which is run as a courtesy, asks for at most one request a second, and promises no uptime. Requests now queue behind each other instead of going out together. When it refuses anyway, the panel offers to use the straight line between the two places instead, and says plainly that there is no road shape and the times assume a steady 55 mph. The weather along it is real either way.
+
 - A machine that cannot draw the map now says so. MapLibre needs WebGL2 and there is no fallback, so a window without it used to fail from somewhere inside the renderer and report that the interface could not finish drawing, which is true and no help. OpenRadar asks before it starts, and if the answer is no it names the likely cause: hardware acceleration switched off, a virtual machine with no graphics passthrough, or a remote desktop session. Diagnostics lists the graphics card as well.
 
 - Velocity is unfolded before it is drawn. A radar can only measure wind up to a limit of its own, and anything faster wraps around: a sixty knot outbound gust is reported as an inbound one, so a green streak turns red in the middle of a straight wind and rotation that is not there appears to be. OpenRadar now splits the sweep into patches of air that plainly belong together, works out how many folds separate each patch from its neighbours, and shifts whole patches back. The tilt line beside the map says UNFOLDED while it is on, and the switch in the radar product sheet turns it off for the radar's own reading.

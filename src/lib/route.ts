@@ -2,6 +2,35 @@ import { haversineMiles, type GeoPoint } from "./geo";
 import { translate } from "../i18n";
 
 const OSRM_URL = "https://router.project-osrm.org/route/v1/driving";
+
+/**
+ * The OSRM demo server asks for at most one request a second and promises no
+ * uptime, so requests queue behind each other rather than going out together.
+ * It is a courtesy server run for demonstrations, and this is the whole of what
+ * it asks in return.
+ */
+export const OSRM_MIN_GAP_MS = 1_000;
+
+let osrmQueue: Promise<void> = Promise.resolve();
+let osrmLastAt = 0;
+
+/** Waits for this caller's turn on the demo server. */
+function osrmTurn(now: () => number, wait: (ms: number) => Promise<void>) {
+  const mine = osrmQueue.then(async () => {
+    const since = now() - osrmLastAt;
+    if (since < OSRM_MIN_GAP_MS) await wait(OSRM_MIN_GAP_MS - since);
+    osrmLastAt = now();
+  });
+  // A rejected turn must not stop the queue for everyone behind it.
+  osrmQueue = mine.catch(() => {});
+  return mine;
+}
+
+/** Only for tests, which cannot wait a real second between cases. */
+export function resetOsrmThrottle() {
+  osrmQueue = Promise.resolve();
+  osrmLastAt = 0;
+}
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
 /** How far apart the weather samples along a route are placed. */
@@ -13,6 +42,35 @@ export interface RouteShape {
   coordinates: Array<[number, number]>;
   distanceMiles: number;
   durationSeconds: number;
+  /**
+   * True when this is a straight line between the two places rather than a
+   * road, because the router could not be reached. The times along it are a
+   * guess and the panel says so.
+   */
+  estimated?: boolean;
+}
+
+/** What a car averages door to door, near enough to time a straight line by. */
+const ESTIMATED_MPH = 55;
+
+/**
+ * The line between two places, for when the router refuses.
+ *
+ * It is not a route and does not pretend to be one: no roads, no turns, and a
+ * duration from an average speed. What it is good for is the weather, which
+ * does not care which road you take.
+ */
+export function straightRoute(from: GeoPoint, to: GeoPoint): RouteShape {
+  const distanceMiles = haversineMiles(from, to);
+  return {
+    coordinates: [
+      [from.lon, from.lat],
+      [to.lon, to.lat],
+    ],
+    distanceMiles,
+    durationSeconds: (distanceMiles / ESTIMATED_MPH) * 3600,
+    estimated: true,
+  };
 }
 
 export interface RouteSample {
@@ -68,14 +126,21 @@ export async function fetchRoute(
   from: GeoPoint,
   to: GeoPoint,
   signal?: AbortSignal,
+  // Injected so a test does not have to wait a real second.
+  now: () => number = Date.now,
+  wait: (ms: number) => Promise<void> = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<RouteShape> {
   const path = `${from.lon.toFixed(5)},${from.lat.toFixed(5)};${to.lon.toFixed(5)},${to.lat.toFixed(5)}`;
+  await osrmTurn(now, wait);
   const response = await fetch(
     `${OSRM_URL}/${path}?overview=simplified&geometries=geojson`,
     { signal, headers: { Accept: "application/json" } },
   );
   if (!response.ok) {
-    throw new Error(`The router returned ${response.status}.`);
+    throw new Error(
+      translate("route.routerRefused", { status: response.status }),
+    );
   }
   const route = parseRoute(await response.json());
   if (!route) throw new Error(translate("route.noRoad"));
