@@ -111,3 +111,73 @@ describe("watched area", () => {
     ]);
   });
 });
+
+describe("a warning the office upgrades", () => {
+  const collection = (features: OverlayData["features"]): OverlayData => ({
+    type: "FeatureCollection",
+    features,
+  });
+
+  it("is announced again, once, and not a third time", () => {
+    // An office can upgrade a warning already in force. That is the office
+    // saying the thing got worse, and it is worth interrupting somebody for a
+    // second time. What it must not do is interrupt them on every refresh
+    // afterwards.
+    const announced = new Set<string>();
+
+    const ordinary = collection([
+      alert("Tornado Warning", "extreme", near, { impact: "" }),
+    ]);
+    const first = alertsToAnnounce(ordinary, watch, announced, now);
+    expect(first).toHaveLength(1);
+    for (const one of first) announced.add(one.id);
+
+    // The same warning, still in force, still ordinary.
+    expect(alertsToAnnounce(ordinary, watch, announced, now)).toHaveLength(0);
+
+    const upgraded = collection([
+      alert("Tornado Warning", "extreme", near, { impact: "considerable" }),
+    ]);
+    const second = alertsToAnnounce(upgraded, watch, announced, now);
+    expect(second).toHaveLength(1);
+    expect(second[0].impact).toBe("considerable");
+    for (const one of second) announced.add(one.id);
+
+    // And then quiet again, however many times it is checked.
+    expect(alertsToAnnounce(upgraded, watch, announced, now)).toHaveLength(0);
+    expect(alertsToAnnounce(upgraded, watch, announced, now)).toHaveLength(0);
+
+    // Upgraded once more, which is a third thing worth saying.
+    const worse = collection([
+      alert("Tornado Warning", "extreme", near, { impact: "destructive" }),
+    ]);
+    const third = alertsToAnnounce(worse, watch, announced, now);
+    expect(third).toHaveLength(1);
+    expect(third[0].impact).toBe("destructive");
+  });
+
+  it("says which tag it was given, so the second one reads differently", () => {
+    const plain = alertsToAnnounce(
+      collection([alert("Tornado Warning", "extreme", near)]),
+      watch,
+      new Set(),
+      now,
+    )[0];
+    const tagged = alertsToAnnounce(
+      collection([
+        alert("Tornado Warning", "extreme", near, { impact: "destructive" }),
+      ]),
+      watch,
+      new Set(),
+      now,
+    )[0];
+
+    const plainBody = watchAlertBody(plain);
+    const taggedBody = watchAlertBody(tagged);
+    expect(plainBody).not.toContain("destructive");
+    expect(taggedBody).toContain("destructive");
+    // The rest of the sentence is the same, so somebody woken twice can see
+    // what changed rather than reading two unrelated lines.
+    expect(taggedBody.startsWith(plainBody)).toBe(true);
+  });
+});

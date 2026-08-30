@@ -25,6 +25,7 @@ const SERVED_HOSTS: &[&str] = &[
     "opengeo.ncep.noaa.gov",
     "nowcoast.noaa.gov",
     "mapservices.weather.noaa.gov",
+    "api.weather.gov",
     "tilecache.rainviewer.com",
     "api.rainviewer.com",
     "geo.weather.gc.ca",

@@ -17,6 +17,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "opengeo.ncep.noaa.gov",
     "nowcoast.noaa.gov",
     "mapservices.weather.noaa.gov",
+    "api.weather.gov",
     "earthquake.usgs.gov",
     "services3.arcgis.com",
     "mesonet.agron.iastate.edu",

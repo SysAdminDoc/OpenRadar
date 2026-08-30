@@ -2489,3 +2489,25 @@ input[type="range"] {
   small {
   color: var(--accent-strong);
 }
+
+/* The damage threat an office attached to a warning, beside its name. Most
+   warnings carry none; the ones that do are the reason to read the panel. */
+.alert-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1c0f0c;
+  background: #fbbf24;
+  vertical-align: middle;
+}
+
+.alert-tag[data-impact="destructive"],
+.alert-tag[data-impact="catastrophic"] {
+  color: #fff5f5;
+  background: #b91c1c;
+}

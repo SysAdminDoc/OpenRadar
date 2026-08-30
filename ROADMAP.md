@@ -31,13 +31,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: the single-site image updates within 30 seconds of a new chunk with the swept sector drawn over the previous full sweep; the legend says "live, N s old"; a Rust test assembles a fixture volume from chunks; the live test compares the chunk sweep with the archive sweep for the same volume.
   Complexity: L
 
-- [ ] P2 — Warning impact tags and escalation tiers in the alert layer and panel
-  Why: NWS alerts carry tornado and thunderstorm damage-threat parameters that distinguish a considerable or destructive warning; RadarScope 5.6 added the tags in 2026 and HookEcho draws escalation tiers.
-  Evidence: https://apps.apple.com/us/app/radarscope/id288419283 (5.6 notes); https://github.com/d4vid87/hookecho ; https://api.weather.gov/openapi.json (`parameters.tornadoDamageThreat`, `thunderstormDamageThreat`).
-  Touches: src/lib/overlays/alerts.ts (parse parameters, style by tier), src/panels/AlertsPanel.tsx, src/hooks/useAlertWatch.ts (announce an upgrade once), src/i18n
-  Acceptance: a considerable or destructive warning draws with a heavier outline and a badge in the panel; the watch announces an upgrade of an already-announced warning exactly once; fixtures cover both tags.
-  Complexity: M
-
 - [ ] P2 — Per-type alert filters and opt-in sounds
   Why: every competitor filters by warning type; Supercell Wx users ask for sound only on a tornado upgrade (#617) and per-type sounds (#652).
   Evidence: https://github.com/dpaulat/supercell-wx/issues/617 ; https://github.com/dpaulat/supercell-wx/discussions/652 ; https://www.dtn.com/radarscope-4-0/ (per-type warning filters).

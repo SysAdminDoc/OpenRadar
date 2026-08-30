@@ -12,7 +12,87 @@ import { formatClock } from "../units";
 const SERVICE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1/query";
 const FIELDS =
-  "objectid,prod_type,msg_type,phenom,sig,wfo,url,onset,ends,expiration,issuance";
+  "objectid,cap_id,prod_type,msg_type,phenom,sig,wfo,url,onset,ends,expiration,issuance";
+
+/**
+ * The active alerts as the National Weather Service publishes them.
+ *
+ * The map service the polygons come from carries no damage threat: its fields
+ * are the product type, the office and the times, and nothing else. The tag
+ * that separates a considerable warning from an ordinary one lives only in the
+ * alert feed, which has no geometry worth drawing. So both are asked for and
+ * joined on the common alert identifier, which the two sources spell the same
+ * way.
+ */
+const ALERT_FEED = "https://api.weather.gov/alerts/active?status=actual";
+
+/** How much damage the office said to expect, when they said anything. */
+export type ImpactTag = "considerable" | "destructive" | "catastrophic";
+
+export const IMPACT_RANK: Record<ImpactTag, number> = {
+  considerable: 1,
+  destructive: 2,
+  catastrophic: 3,
+};
+
+function impactOf(word: unknown): ImpactTag | null {
+  const named = typeof word === "string" ? word.trim().toLowerCase() : "";
+  if (named === "considerable") return "considerable";
+  if (named === "destructive") return "destructive";
+  if (named === "catastrophic") return "catastrophic";
+  return null;
+}
+
+/** A parameter in the feed is a list, because one alert can carry several. */
+function firstParameter(parameters: unknown, name: string): unknown {
+  if (!parameters || typeof parameters !== "object") return null;
+  const found = (parameters as Record<string, unknown>)[name];
+  return Array.isArray(found) ? found[0] : found;
+}
+
+export interface AlertTags {
+  impact: ImpactTag | null;
+  /** The larger of the two threats, since a warning can carry both. */
+  hailSize: string;
+  motion: string;
+}
+
+/**
+ * The tags in the alert feed, by the identifier the polygons also carry.
+ *
+ * A tornado warning and a thunderstorm warning name their threat in different
+ * parameters, and the stronger of the two is the one worth drawing.
+ */
+export function parseAlertTags(payload: unknown): Map<string, AlertTags> {
+  const raw = payload as { features?: unknown };
+  const features = Array.isArray(raw?.features) ? raw.features : [];
+  const out = new Map<string, AlertTags>();
+  for (const item of features) {
+    if (!item || typeof item !== "object") continue;
+    const properties = (item as { properties?: Record<string, unknown> })
+      .properties;
+    if (!properties) continue;
+    const id = text(properties.id);
+    if (!id) continue;
+    const parameters = properties.parameters;
+    const tornado = impactOf(firstParameter(parameters, "tornadoDamageThreat"));
+    const thunderstorm = impactOf(
+      firstParameter(parameters, "thunderstormDamageThreat"),
+    );
+    const impact =
+      tornado && thunderstorm
+        ? IMPACT_RANK[tornado] >= IMPACT_RANK[thunderstorm]
+          ? tornado
+          : thunderstorm
+        : (tornado ?? thunderstorm);
+    out.set(id, {
+      impact,
+      hailSize: text(firstParameter(parameters, "maxHailSize")),
+      motion: text(firstParameter(parameters, "eventMotionDescription")),
+    });
+  }
+  return out;
+}
 
 export type AlertSeverity = "extreme" | "severe" | "moderate" | "minor";
 
@@ -73,7 +153,10 @@ function epoch(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function parseAlerts(payload: unknown): OverlayData {
+export function parseAlerts(
+  payload: unknown,
+  tags: Map<string, AlertTags> = new Map(),
+): OverlayData {
   const raw = payload as { features?: unknown };
   const features = Array.isArray(raw?.features) ? raw.features : [];
   const parsed: OverlayFeature[] = [];
@@ -88,6 +171,8 @@ export function parseAlerts(payload: unknown): OverlayData {
     const properties = feature.properties ?? {};
     const prodType = text(properties.prod_type) || "Weather alert";
     const severity = alertSeverity(prodType, text(properties.sig));
+    const capId = text(properties.cap_id);
+    const tagged = tags.get(capId);
 
     parsed.push({
       type: "Feature",
@@ -96,6 +181,13 @@ export function parseAlerts(payload: unknown): OverlayData {
         headline: prodType,
         severity,
         severityRank: SEVERITY_RANK[severity],
+        capId,
+        // A polygon with no tag is an ordinary warning, which is most of them,
+        // and is drawn as it always was.
+        impact: tagged?.impact ?? "",
+        impactRank: tagged?.impact ? IMPACT_RANK[tagged.impact] : 0,
+        hailSize: tagged?.hailSize ?? "",
+        motion: tagged?.motion ?? "",
         office: text(properties.wfo),
         url: text(properties.url),
         issued: epoch(properties.issuance) ?? epoch(properties.onset),
@@ -104,10 +196,13 @@ export function parseAlerts(payload: unknown): OverlayData {
     });
   }
 
+  // A destructive warning goes on top of an ordinary one of the same kind, so
+  // the tag is part of the order rather than only part of the outline.
   parsed.sort(
     (left, right) =>
       Number(right.properties.severityRank) -
-      Number(left.properties.severityRank),
+        Number(left.properties.severityRank) ||
+      Number(right.properties.impactRank) - Number(left.properties.impactRank),
   );
   return { type: "FeatureCollection", features: parsed };
 }
@@ -144,14 +239,25 @@ export const alertsOverlay: OverlayAdapter = {
       resultRecordCount: "300",
       f: "geojson",
     });
-    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
-      signal,
-      headers: { Accept: "application/json" },
-    });
+    // The polygons and the tags are asked for together. A warning with no
+    // tag is an ordinary warning, which is most of them, so losing the tag
+    // feed must not lose the alerts: the map is the thing people act on.
+    const [response, tagged] = await Promise.all([
+      fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
+        signal,
+        headers: { Accept: "application/json" },
+      }),
+      fetch(cachedUrl(ALERT_FEED), {
+        signal,
+        headers: { Accept: "application/geo+json" },
+      })
+        .then((answer) => (answer.ok ? answer.json() : null))
+        .catch(() => null),
+    ]);
     if (!response.ok) {
       throw new Error(`NWS alerts returned ${response.status}.`);
     }
-    return parseAlerts(await response.json());
+    return parseAlerts(await response.json(), parseAlertTags(tagged));
   },
   layers: (sourceId) => [
     {
@@ -191,7 +297,19 @@ export const alertsOverlay: OverlayAdapter = {
           SEVERITY_COLOR.moderate,
           SEVERITY_COLOR.minor,
         ],
-        "line-width": ["case", [">=", ["get", "severityRank"], 2], 2.2, 1.2],
+        // A tagged warning is drawn heavier than an ordinary one of the same
+        // kind, because that is exactly the distinction the tag makes: the
+        // office is saying this one will do more damage than the usual.
+        "line-width": [
+          "case",
+          [">=", ["get", "impactRank"], 2],
+          4,
+          [">=", ["get", "impactRank"], 1],
+          3,
+          [">=", ["get", "severityRank"], 2],
+          2.2,
+          1.2,
+        ],
       },
     },
   ],
@@ -200,6 +318,18 @@ export const alertsOverlay: OverlayAdapter = {
     lines: [
       translate("popup.issued", { when: timeLabel(properties.issued) }),
       translate("popup.expires", { when: timeLabel(properties.expires) }),
+      ...(properties.impact
+        ? [
+            translate("alerts.impactLine", {
+              tag: translate(
+                `alerts.impact.${String(properties.impact)}` as never,
+              ),
+            }),
+          ]
+        : []),
+      ...(properties.hailSize
+        ? [translate("alerts.hailTo", { size: String(properties.hailSize) })]
+        : []),
       translate("popup.alertSource", {
         office:
           String(properties.office ?? "").trim() ||

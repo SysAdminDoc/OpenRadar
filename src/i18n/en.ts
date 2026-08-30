@@ -39,6 +39,12 @@ export const en = {
   "alerts.issued": "Issued {issued} · expires {expires}",
   "alerts.unknownTime": "unknown",
   "alerts.openProduct": "Open the official product",
+  "alerts.impact.considerable": "considerable damage",
+  "alerts.impact.destructive": "destructive",
+  "alerts.impact.catastrophic": "catastrophic",
+  "alerts.impactLine": "The office tagged this one {tag}.",
+  "alerts.impactBadge": "{tag}",
+  "alerts.hailTo": "Hail to {size} inches.",
   "alerts.noneTitle": "No active alerts in view",
   "alerts.noneBody":
     "Pan the map or zoom out to check a wider area. Alerts refresh every minute.",
