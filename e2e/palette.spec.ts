@@ -92,7 +92,7 @@ test("takes a colour table and hands it to the renderers", async ({ page }) => {
   // What was read out of the file, said plainly rather than left to guess at.
   await expect(page.getByText(/reflectivity\.pal applied/)).toBeVisible();
   await expect(
-    page.getByText(/3 colours, for dBZ, iconfile left out/),
+    page.getByText(/3 colours, for dBZ, iconfile, product and step left out/),
   ).toBeVisible();
 
   const sent = await page.evaluate(() =>
@@ -140,6 +140,37 @@ test("draws the legend from the table rather than the built-in ramp", async ({
   await expect(ramp).toHaveAttribute("style", /rgb\(255, 255, 255\)/);
   // The middle stop is where the table puts it, not where an even spread would.
   await expect(ramp).toHaveAttribute("style", /rgb\(128, 128, 128\) 64\./);
+});
+
+test("can be taken off again long after the toast has gone", async ({
+  page,
+}) => {
+  await loadPalette(page);
+
+  // The toast offers Remove, but it clears itself after a few seconds and the
+  // table stays on. The panel that loaded it has to be able to take it off.
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  const row = page.locator("[data-palette='reflectivity.pal']");
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("3 colours");
+
+  await page.getByRole("button", { name: "Use the built-in colours" }).click();
+  await expect(row).toHaveCount(0);
+
+  // And the renderer is told, rather than being left drawing the old table.
+  const cleared = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __paletteCalls: Array<{
+          command: string;
+          args: Record<string, unknown>;
+        }>;
+      }
+    ).__paletteCalls
+      .filter((call) => call.command === "set_palette")
+      .at(-1),
+  );
+  expect(cleared?.args).toMatchObject({ units: null, stops: [] });
 });
 
 test("refuses a file with no colours in it", async ({ page }) => {

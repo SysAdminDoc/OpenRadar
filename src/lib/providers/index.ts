@@ -79,8 +79,11 @@ const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
  */
 export function providerChain(lon: number, lat: number): RadarProvider[] {
   // Canada's own service leads over its own country, even where the American
-  // mosaics reach across the border.
-  if (isCanadianViewport(lon, lat)) return [geometProvider];
+  // mosaics reach across the border. RainViewer stays behind it so an outage
+  // means a worse picture rather than none.
+  if (isCanadianViewport(lon, lat)) {
+    return [geometProvider, rainviewerProvider];
+  }
 
   const noaa = NOAA_PROVIDERS.filter(
     (provider) =>
@@ -91,8 +94,12 @@ export function providerChain(lon: number, lat: number): RadarProvider[] {
   );
   if (noaa.length) return noaa;
   // Canada has its own service, and it is a better answer there than a
-  // personal-use feed. RainViewer is what is left for everywhere else.
-  if (covers(geometProvider, lon, lat)) return [geometProvider];
+  // personal-use feed. RainViewer is what is left for everywhere else, and it
+  // stays on the end of the Canadian chain too: GeoMet going down should mean
+  // a worse picture, not no picture.
+  if (covers(geometProvider, lon, lat)) {
+    return [geometProvider, rainviewerProvider];
+  }
   return [rainviewerProvider];
 }
 

@@ -61,21 +61,43 @@ export const RAIN_RATE_SCALE: LegendScale = {
  */
 export function paletteLegend(palette: Palette, unit: string): LegendScale {
   const { min, max } = paletteRange(palette);
-  const step = Math.max(1, Math.ceil(palette.stops.length / 5));
+  const span = max - min;
+  const at = (value: number) => (span > 0 ? ((value - min) / span) * 100 : 0);
+
+  // The bar has to be the ramp the map is painted with, which means the second
+  // colour on a line and a solid stop holding its colour to the next one. A
+  // gradient of first colours alone describes a different picture.
+  const parts: string[] = [];
+  for (const [index, stop] of palette.stops.entries()) {
+    const next = palette.stops[index + 1];
+    parts.push(`${stop.color} ${at(stop.value)}%`);
+    if (!next) continue;
+    if (stop.toColor) {
+      parts.push(`${stop.toColor} ${at(next.value)}%`);
+    } else {
+      // Solid to the next stop, so the colour is repeated at its far edge.
+      parts.push(`${stop.color} ${at(next.value)}%`);
+    }
+  }
+  // A single stop is one colour everywhere, and one colour is not a gradient.
+  if (parts.length < 2) parts.push(`${palette.stops[0].color} 100%`);
+
+  // Up to five labels, always including the last, because the top of the scale
+  // is the part anyone reads first.
+  const step = Math.max(1, Math.ceil((palette.stops.length - 1) / 4));
+  const labels = palette.stops
+    .filter((_, index) => index % step === 0)
+    .map((stop) => stop.value);
+  if (labels.at(-1) !== max) labels.push(max);
+
   return {
     min,
-    max,
-    stops: palette.stops
-      .filter((_, at) => at % step === 0)
-      .map((stop) => stop.value),
+    // A table whose stops are all one value would divide by nothing.
+    max: span > 0 ? max : min + 1,
+    stops: labels,
     unit: palette.units ?? unit,
     ramp: "legend-ramp",
-    gradient: `linear-gradient(90deg, ${palette.stops
-      .map(
-        (stop) =>
-          `${stop.color} ${max > min ? ((stop.value - min) / (max - min)) * 100 : 0}%`,
-      )
-      .join(", ")})`,
+    gradient: `linear-gradient(90deg, ${parts.join(", ")})`,
   };
 }
 

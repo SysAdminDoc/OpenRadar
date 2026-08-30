@@ -392,6 +392,9 @@ export default function App() {
         onAlertSelect={actions.flyToBounds}
         onFollowStorm={actions.followStorm}
         onCommand={runCommand}
+        onClearPalette={() =>
+          applySettings({ ...settingsRef.current, palette: null })
+        }
         onHistoryStorm={showStorm}
         onReplayStorm={replayStorm}
         onStopReplay={() => setReplay(null)}

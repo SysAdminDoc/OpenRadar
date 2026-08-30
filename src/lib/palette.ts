@@ -20,6 +20,8 @@
 export interface PaletteStop {
   value: number;
   color: string;
+  /** True for a `SolidColor:` line, which holds its colour to the next stop. */
+  solid?: boolean;
   /**
    * The second colour on a `Color:` line, which the file blends towards up to
    * the next stop. A `SolidColor:` line has none.
@@ -96,6 +98,9 @@ export function parsePalette(text: string, name: string): Palette | null {
 
     if (key === "product") {
       palette.product = rest || null;
+      // Read and reported, but which product a table applies to is decided by
+      // its units rather than by this name.
+      skipped.add(key);
       continue;
     }
     if (key === "units") {
@@ -105,6 +110,8 @@ export function parsePalette(text: string, name: string): Palette | null {
     if (key === "step") {
       const [step] = numbers(rest);
       palette.step = Number.isFinite(step) ? step : null;
+      // Read, but nothing here draws in steps: the ramp is continuous.
+      skipped.add(key);
       continue;
     }
     if (key === "rf") {
@@ -128,6 +135,7 @@ export function parsePalette(text: string, name: string): Palette | null {
       palette.stops.push({
         value,
         color: hex(first[0], first[1], first[2]),
+        solid: key === "solidcolor",
         toColor:
           key !== "solidcolor" && second.length === 3
             ? hex(second[0], second[1], second[2])
@@ -161,11 +169,12 @@ export function paletteColor(palette: Palette, value: number): string {
     // Half open: a value sitting exactly on the next stop belongs to that
     // stop, not to the end of the blend running into it.
     if (value >= high.value) continue;
+    // A solid stop holds its colour to the next one. Blending it into the next
+    // stop's colour would erase the distinction the format draws.
+    if (!low.toColor) return low.color;
     const span = high.value - low.value;
     const position = span > 0 ? (value - low.value) / span : 0;
-    // A stop with a second colour blends towards it; one without blends
-    // towards whatever comes next.
-    return blend(low.color, low.toColor ?? high.color, position);
+    return blend(low.color, low.toColor, position);
   }
 
   const last = stops[stops.length - 1];
@@ -212,7 +221,10 @@ export function paletteForRenderer(
 
 /** The products a palette can be applied to, by what it says it is for. */
 export function paletteApplies(palette: Palette, unit: string): boolean {
-  if (!palette.units) return true;
+  // A table that does not say what it is for is a reflectivity table, which is
+  // what the format is for. The native side makes the same call, and the two
+  // have to agree or the legend describes something the map is not drawing.
+  if (!palette.units) return unit.trim().toLowerCase() === "dbz";
   return palette.units.trim().toLowerCase() === unit.trim().toLowerCase();
 }
 

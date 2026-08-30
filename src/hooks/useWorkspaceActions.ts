@@ -40,6 +40,12 @@ export interface WorkspaceActions {
  * take files. They all need the map handle and the newest settings, so they sit
  * together rather than in the component that draws the workspace.
  */
+/** A list written the way a person writes one, not joined with "and"s. */
+function inWords(items: string[]): string {
+  if (items.length < 3) return items.join(" and ");
+  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
 export function useWorkspaceActions(options: {
   hydrated: boolean;
   mapRef: RefObject<MapViewportHandle | null>;
@@ -257,7 +263,7 @@ export function useWorkspaceActions(options: {
           const notes = [`${palette.stops.length} colours`];
           if (palette.units) notes.push(`for ${palette.units}`);
           if (palette.skipped.length) {
-            notes.push(`${palette.skipped.join(" and ")} left out`);
+            notes.push(`${inWords(palette.skipped)} left out`);
           }
           pushToast({
             title: `${file.name} applied`,
@@ -285,7 +291,7 @@ export function useWorkspaceActions(options: {
             );
           }
           if (placefile.skipped.length) {
-            notes.push(`${placefile.skipped.join(" and ")} left out`);
+            notes.push(`${inWords(placefile.skipped)} left out`);
           }
           if (placefile.truncated) notes.push("the file ended mid-shape");
           detail = `${notes.join(", ")}.`;

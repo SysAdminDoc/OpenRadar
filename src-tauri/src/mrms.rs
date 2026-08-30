@@ -861,15 +861,25 @@ pub async fn grid_for(key: &str) -> Result<(), MrmsError> {
     .await
     .map_err(|error| MrmsError::Decode(error.to_string()))??;
 
-    if let Ok(mut cache) = CACHE.lock() {
-        if !cache.iter().any(|entry| entry.key == owned) {
-            cache.push_back(CachedGrid { key: owned, grid });
-            while cache.len() > CACHE_CAPACITY {
-                cache.pop_front();
-            }
-        }
-    }
+    remember_grid(&owned, grid);
     Ok(())
+}
+
+/// Puts a decoded grid in the cache, evicting the oldest when it is full.
+fn remember_grid(key: &str, grid: Grid) {
+    let Ok(mut cache) = CACHE.lock() else {
+        return;
+    };
+    if cache.iter().any(|entry| entry.key == key) {
+        return;
+    }
+    cache.push_back(CachedGrid {
+        key: key.to_string(),
+        grid,
+    });
+    while cache.len() > CACHE_CAPACITY {
+        cache.pop_front();
+    }
 }
 
 /// Draws a tile from a grid already decoded, without holding it across an await.
@@ -1602,6 +1612,7 @@ mod tests {
         // A table saying fifty dBZ is black.
         crate::palette::set_palette(
             Some("dBZ".into()),
+            None,
             vec![crate::palette::Stop {
                 value: 5.0,
                 color: "#000000".into(),
@@ -1617,6 +1628,7 @@ mod tests {
         // A table for a different unit leaves reflectivity alone.
         crate::palette::set_palette(
             Some("mm".into()),
+            None,
             vec![crate::palette::Stop {
                 value: 5.0,
                 color: "#000000".into(),
@@ -1626,7 +1638,7 @@ mod tests {
         assert_eq!(color_at(6, 15, 23), Some(built_in));
 
         // And clearing it puts the built-in ramp back.
-        crate::palette::set_palette(None, Vec::new());
+        crate::palette::set_palette(None, None, Vec::new());
         assert_eq!(color_at(6, 15, 23), Some(built_in));
         clear_caches();
     }
@@ -1706,6 +1718,7 @@ mod tests {
             PRODUCTS.len()
         );
 
+        let _turn = live_test();
         clear_caches();
         let grid = || Grid {
             columns: 1,
@@ -1719,14 +1732,10 @@ mod tests {
             decimal: 1,
             samples: vec![10_500],
         };
-        // One grid per product, as a screen with every layer on would have.
+        // One grid per product, put in the way the app puts them in, so the
+        // eviction this is about actually runs.
         for entry in PRODUCTS {
-            if let Ok(mut cache) = CACHE.lock() {
-                cache.push_back(CachedGrid {
-                    key: entry.id.to_string(),
-                    grid: grid(),
-                });
-            }
+            remember_grid(entry.id, grid());
         }
         for entry in PRODUCTS {
             assert!(
@@ -1735,6 +1744,18 @@ mod tests {
                 entry.id
             );
         }
+
+        // Past capacity the oldest goes, which is the point of the spare slot:
+        // a single-site sweep can sit beside every MRMS product without
+        // costing one of them its grid.
+        for extra in 0..(CACHE_CAPACITY - PRODUCTS.len() + 1) {
+            remember_grid(&format!("extra {extra}"), grid());
+        }
+        assert!(
+            !is_cached(PRODUCTS[0].id),
+            "the cache grew past its budget instead of evicting"
+        );
+        assert!(is_cached("extra 0"));
         clear_caches();
     }
 
