@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- A machine that cannot draw the map now says so. MapLibre needs WebGL2 and there is no fallback, so a window without it used to fail from somewhere inside the renderer and report that the interface could not finish drawing, which is true and no help. OpenRadar asks before it starts, and if the answer is no it names the likely cause: hardware acceleration switched off, a virtual machine with no graphics passthrough, or a remote desktop session. Diagnostics lists the graphics card as well.
+
 - Velocity is unfolded before it is drawn. A radar can only measure wind up to a limit of its own, and anything faster wraps around: a sixty knot outbound gust is reported as an inbound one, so a green streak turns red in the middle of a straight wind and rotation that is not there appears to be. OpenRadar now splits the sweep into patches of air that plainly belong together, works out how many folds separate each patch from its neighbours, and shifts whole patches back. The tilt line beside the map says UNFOLDED while it is on, and the switch in the radar product sheet turns it off for the radar's own reading.
 
 - A close-in view is handed to a site that is actually publishing. The nearest radar was chosen by distance alone, so one down for maintenance took the view and showed an error where the site next to it would have shown weather. The nearest few are now asked whether they have published anything in the last twenty minutes, and the first that has takes the view. If none of them has, the nearest is still named, so what you see is that site's own trouble rather than an empty map.

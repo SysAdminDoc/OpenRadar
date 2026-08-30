@@ -166,6 +166,7 @@ export const es: Catalogue = {
   "diagnostics.title": "Diagnóstico",
   "diagnostics.renderer": "Motor del mapa",
   "diagnostics.rendererReady": "Listo",
+  "diagnostics.rendererUnknown": "La tarjeta gráfica no dio su nombre",
   "diagnostics.rendererStarting": "Arrancando",
   "diagnostics.timeline": "Línea de tiempo del radar",
   "diagnostics.receiving": "{source} · recibiendo cuadros",
@@ -453,6 +454,12 @@ export const es: Catalogue = {
   "chrome.cached": "Mostrando la última vista",
   "chrome.cachedAge": "Mostrando la última vista · de hace {count} min",
 
+  "gpu.eyebrow": "OpenRadar no puede dibujar el mapa",
+  "gpu.title": "Esta máquina no tiene WebGL2.",
+  "gpu.body":
+    "El mapa se dibuja en la tarjeta gráfica, y esta ventana no llega a ninguna. Todo lo demás en OpenRadar depende del mapa, así que no queda nada útil que mostrar detrás de esto.",
+  "gpu.hint":
+    "Casi siempre es la aceleración por hardware desactivada, una máquina virtual sin acceso a la tarjeta, o una sesión de escritorio remoto. Volver a activar la aceleración por hardware y abrir OpenRadar de nuevo lo resuelve.",
   "fatal.eyebrow": "OpenRadar recuperó la ventana",
   "fatal.title": "La interfaz no pudo terminar de dibujarse.",
   "fatal.reload": "Recargar OpenRadar",

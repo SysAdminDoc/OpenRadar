@@ -163,6 +163,7 @@ export const en = {
   "diagnostics.title": "Diagnostics",
   "diagnostics.renderer": "Map renderer",
   "diagnostics.rendererReady": "Ready",
+  "diagnostics.rendererUnknown": "The graphics card did not give its name",
   "diagnostics.rendererStarting": "Starting",
   "diagnostics.timeline": "Radar timeline",
   "diagnostics.receiving": "{source} · receiving frames",
@@ -445,6 +446,12 @@ export const en = {
   "chrome.cached": "Showing the last view",
   "chrome.cachedAge": "Showing the last view · {count} min old",
 
+  "gpu.eyebrow": "OpenRadar cannot draw the map",
+  "gpu.title": "This machine has no WebGL2.",
+  "gpu.body":
+    "The map is drawn on the graphics card, and this window cannot reach one. Everything else in OpenRadar depends on the map, so there is nothing useful to show behind this.",
+  "gpu.hint":
+    "This is usually hardware acceleration being switched off, a virtual machine with no graphics passthrough, or a remote desktop session. Turning hardware acceleration back on and reopening OpenRadar is the fix.",
   "fatal.eyebrow": "OpenRadar recovered the window",
   "fatal.title": "The interface could not finish drawing.",
   "fatal.reload": "Reload OpenRadar",
