@@ -59,6 +59,12 @@ export interface LayerSettings {
   rotationTracks: boolean;
   /** MRMS maximum estimated hail size. */
   hail: boolean;
+  hailSwath: boolean;
+  echoTops: boolean;
+  vil: boolean;
+  precipRate: boolean;
+  qpeHour: boolean;
+  qpeDay: boolean;
   /** MRMS cloud-to-ground flash density over the past five minutes. */
   lightningDensity: boolean;
   /** GLM total-lightning flashes from GOES-East. */
@@ -144,6 +150,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     customOverlay: false,
     rotationTracks: false,
     hail: false,
+    hailSwath: false,
+    echoTops: false,
+    vil: false,
+    precipRate: false,
+    qpeHour: false,
+    qpeDay: false,
     lightningDensity: false,
     lightningFlashes: false,
     wind: false,
@@ -423,6 +435,12 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.rotationTracks,
       ),
       hail: bool(layers.hail, DEFAULT_SETTINGS.layers.hail),
+      hailSwath: bool(layers.hailSwath, DEFAULT_SETTINGS.layers.hailSwath),
+      echoTops: bool(layers.echoTops, DEFAULT_SETTINGS.layers.echoTops),
+      vil: bool(layers.vil, DEFAULT_SETTINGS.layers.vil),
+      precipRate: bool(layers.precipRate, DEFAULT_SETTINGS.layers.precipRate),
+      qpeHour: bool(layers.qpeHour, DEFAULT_SETTINGS.layers.qpeHour),
+      qpeDay: bool(layers.qpeDay, DEFAULT_SETTINGS.layers.qpeDay),
       lightningDensity: bool(
         layers.lightningDensity,
         DEFAULT_SETTINGS.layers.lightningDensity,
