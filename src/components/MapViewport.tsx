@@ -17,7 +17,12 @@ import {
   type OverlayId,
 } from "../lib/overlays";
 import { log } from "../lib/log";
-import { guardRadarRequest } from "../lib/providers";
+import {
+  SATELLITE_ATTRIBUTION,
+  SATELLITE_MAX_ZOOM,
+  guardRadarRequest,
+  satelliteTileUrl,
+} from "../lib/providers";
 import type { RadarFrame } from "../lib/radar";
 import {
   cameraKey,
@@ -28,6 +33,8 @@ import {
 } from "../lib/settings";
 import type { ToolMode } from "./CommandBar";
 
+const SATELLITE_SOURCE_ID = "openradar-satellite-source";
+const SATELLITE_LAYER_ID = "openradar-satellite-layer";
 const RADAR_SOURCE_ID = "openradar-radar-source";
 const RADAR_LAYER_ID = "openradar-radar-layer";
 
@@ -60,6 +67,8 @@ interface MapViewportProps {
   radarFrame?: RadarFrame;
   radarVisible: boolean;
   radarOpacity: number;
+  /** The published image time to show, or null when the layer is off. */
+  satelliteTime?: number | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
   customOverlay?: Record<string, unknown> | null;
   toolMode?: ToolMode;
@@ -76,6 +85,10 @@ const CUSTOM_LAYER_IDS = [
   CUSTOM_POINT_LAYER_ID,
 ];
 const TOOL_LAYER_IDS = [TOOL_LINE_LAYER_ID, TOOL_POINT_LAYER_ID];
+const RADAR_LANE_LAYER_IDS = [
+  `${RADAR_LAYER_ID}-observed`,
+  `${RADAR_LAYER_ID}-forecast`,
+];
 
 /**
  * Keeps a late-arriving layer under everything that belongs above it. The
@@ -124,6 +137,7 @@ function MapViewportInner(
     radarFrame,
     radarVisible,
     radarOpacity,
+    satelliteTime = null,
     overlays = {},
     customOverlay = null,
     toolMode = null,
@@ -143,6 +157,7 @@ function MapViewportInner(
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
+  const satelliteTimeRef = useRef(satelliteTime);
   const overlaysRef = useRef(overlays);
   const projectionRef = useRef(projection);
   const mapStyleRef = useRef(mapStyle);
@@ -254,6 +269,54 @@ function MapViewportInner(
       source = map.getSource(TOOL_SOURCE_ID) as maplibregl.GeoJSONSource;
     }
     source.setData({ type: "FeatureCollection", features } as never);
+  };
+
+  const syncSatellite = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    const time = satelliteTimeRef.current;
+
+    if (time === null) {
+      if (map.getSource(SATELLITE_SOURCE_ID)) {
+        if (map.getLayer(SATELLITE_LAYER_ID))
+          map.removeLayer(SATELLITE_LAYER_ID);
+        map.removeSource(SATELLITE_SOURCE_ID);
+        publishLayers();
+      }
+      return;
+    }
+
+    const url = satelliteTileUrl(time);
+    const source = map.getSource(SATELLITE_SOURCE_ID) as
+      maplibregl.RasterTileSource | undefined;
+    if (source) {
+      source.setTiles?.([url]);
+      return;
+    }
+
+    map.addSource(SATELLITE_SOURCE_ID, {
+      type: "raster",
+      tiles: [url],
+      tileSize: 256,
+      maxzoom: SATELLITE_MAX_ZOOM,
+      attribution: SATELLITE_ATTRIBUTION,
+    });
+    // Satellite sits under everything, radar included.
+    map.addLayer(
+      {
+        id: SATELLITE_LAYER_ID,
+        type: "raster",
+        source: SATELLITE_SOURCE_ID,
+        paint: { "raster-opacity": 0.85 },
+      },
+      firstExisting(map, [
+        ...RADAR_LANE_LAYER_IDS,
+        ...overlayLayerOrder(),
+        ...CUSTOM_LAYER_IDS,
+        ...TOOL_LAYER_IDS,
+      ]),
+    );
+    publishLayers();
   };
 
   const syncRadarLane = (lane: RadarLane, frame: RadarFrame | undefined) => {
@@ -576,6 +639,7 @@ function MapViewportInner(
     const onStyleLoad = () => {
       styleReadyRef.current = true;
       map.setProjection({ type: projectionRef.current });
+      syncSatellite();
       syncRadar();
       renderTools();
       syncOverlays();
@@ -681,6 +745,14 @@ function MapViewportInner(
     // would rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radarFrame, radarVisible, radarOpacity]);
+
+  useEffect(() => {
+    satelliteTimeRef.current = satelliteTime;
+    syncSatellite();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [satelliteTime]);
 
   useEffect(() => {
     overlaysRef.current = overlays;

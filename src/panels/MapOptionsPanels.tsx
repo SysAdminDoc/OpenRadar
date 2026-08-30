@@ -6,6 +6,7 @@ import {
   Map,
   RadioTower,
   RotateCcw,
+  Satellite,
   Tornado,
   Waves,
 } from "lucide-react";
@@ -115,6 +116,12 @@ const LAYER_OPTIONS: Array<{
     label: "Tropical",
     detail: "NHC cones, tracks, and development outlooks",
     icon: Tornado,
+  },
+  {
+    key: "satellite",
+    label: "Satellite",
+    detail: "GOES-East GeoColor under the radar",
+    icon: Satellite,
   },
   {
     key: "customOverlay",
