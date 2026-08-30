@@ -20,6 +20,7 @@ use crate::dealias;
 use crate::http;
 use crate::palette;
 use crate::palette::Palette;
+use crate::vad;
 
 const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
 /// The image is square because a sweep is a circle; this is its side in pixels.
@@ -95,6 +96,9 @@ pub struct SweepImage {
     /// True when the velocity in this sweep has been unfolded, so the legend
     /// can say the picture is no longer the radar's raw reading.
     pub dealiased: bool,
+    /// The motion taken out of a storm relative sweep, in metres a second and
+    /// the compass direction it comes from. Absent on every other product.
+    pub storm_motion: Option<StormMotion>,
     pub unit: String,
     pub elevation_degrees: f32,
     /// Every tilt this volume holds, ascending, so the panel can offer them.
@@ -110,6 +114,17 @@ pub struct SweepImage {
     pub image: String,
     /// The volume key, so a caller can tell one scan from the next.
     pub volume: String,
+}
+
+/// What was subtracted to make a sweep storm relative.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StormMotion {
+    pub speed_ms: f32,
+    pub from_degrees: f32,
+    /// True when the viewer gave the motion rather than the sweep being read
+    /// for it, so the panel can say which it is looking at.
+    pub manual: bool,
 }
 
 struct CachedVolume {
@@ -131,6 +146,8 @@ pub fn product_from_name(name: &str) -> Option<(Product, &'static str, &'static 
     match name {
         "reflectivity" => Some((Product::Reflectivity, "Reflectivity", "dBZ")),
         "velocity" => Some((Product::Velocity, "Velocity", "m/s")),
+        // Drawn from the same moment, with the storm's own motion taken out.
+        "storm-relative-velocity" => Some((Product::Velocity, "Storm relative velocity", "m/s")),
         "spectrum-width" => Some((Product::SpectrumWidth, "Spectrum width", "m/s")),
         "differential-reflectivity" => Some((
             Product::DifferentialReflectivity,
@@ -435,6 +452,71 @@ fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
 /// three claims none of which the change supports.
 const MIN_UNFOLD_SHARE: f32 = 0.005;
 
+/// The wind the sweep is moving in, fitted from the readings themselves.
+///
+/// Rings are taken across the middle of the sweep: close in the beam is too low
+/// and full of clutter, far out it is above the wind anyone means. Each ring is
+/// fitted on its own and the middle answer is kept, so one ring sitting inside
+/// a storm cannot carry the result away with it.
+fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
+    let azimuths = field.azimuth_count();
+    let gates = field.gate_count();
+    if azimuths == 0 || gates == 0 {
+        return None;
+    }
+    let elevation = field.elevation_degrees();
+    let angles = field.azimuths();
+
+    let mut rings = Vec::new();
+    // A handful spread across the useful part of the sweep.
+    for step in 1..=8 {
+        let gate = gates * step / 10;
+        if gate >= gates {
+            continue;
+        }
+        let mut samples = Vec::with_capacity(azimuths);
+        for azimuth in 0..azimuths {
+            let (value, status) = field.get(azimuth, gate);
+            if !matches!(status, GateStatus::Valid) {
+                continue;
+            }
+            let Some(angle) = angles.get(azimuth) else {
+                continue;
+            };
+            samples.push((*angle, value));
+        }
+        if let Some(wind) = vad::fit_ring(&samples, elevation) {
+            rings.push(wind);
+        }
+    }
+    vad::median_wind(&rings)
+}
+
+/// Takes a wind out of a velocity field, in place.
+///
+/// What is left is what the picture would look like if the whole storm were
+/// standing still, which is the only way a couplet shows through sixty knots of
+/// ambient flow.
+fn make_storm_relative(field: &mut SweepField, wind: vad::Wind) {
+    let azimuths = field.azimuth_count();
+    let gates = field.gate_count();
+    let elevation = field.elevation_degrees();
+    let angles = field.azimuths().to_vec();
+    for azimuth in 0..azimuths {
+        let Some(angle) = angles.get(azimuth).copied() else {
+            continue;
+        };
+        let along = wind.along_beam(angle, elevation);
+        for gate in 0..gates {
+            let (value, status) = field.get(azimuth, gate);
+            if !matches!(status, GateStatus::Valid) {
+                continue;
+            }
+            field.set(azimuth, gate, value - along, GateStatus::Valid);
+        }
+    }
+}
+
 /// Shifts a velocity field back onto the flow it belongs to, in place.
 /// Returns the share of its readings that moved.
 fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> f32 {
@@ -664,6 +746,7 @@ pub fn sweep_from_volume(
     product_name: &str,
     tilt_index: usize,
     unfold: bool,
+    manual_motion: Option<vad::Wind>,
 ) -> Result<SweepImage, Level2Error> {
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -686,6 +769,25 @@ pub fn sweep_from_volume(
     if unfold && product == Product::Velocity {
         if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
             dealiased = unfold_velocity(&mut chosen.field, nyquist) >= MIN_UNFOLD_SHARE;
+        }
+    }
+
+    // Storm relative is the same moment with the ambient wind taken out, so it
+    // has to happen after unfolding: subtracting a wind from a folded field
+    // moves the fold rather than removing it.
+    let mut storm_motion = None;
+    if product_name == "storm-relative-velocity" {
+        let wind = match manual_motion {
+            Some(given) => Some(given),
+            None => fitted_wind(&chosen.field),
+        };
+        if let Some(wind) = wind {
+            make_storm_relative(&mut chosen.field, wind);
+            storm_motion = Some(StormMotion {
+                speed_ms: wind.speed(),
+                from_degrees: wind.coming_from_degrees(),
+                manual: manual_motion.is_some(),
+            });
         }
     }
 
@@ -722,6 +824,7 @@ pub fn sweep_from_volume(
         product: label.to_string(),
         unit: unit.to_string(),
         dealiased,
+        storm_motion,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts(&scan),
         tilt_index,
@@ -887,6 +990,9 @@ pub async fn level2_sweep(
     product: String,
     tilt: usize,
     dealias: bool,
+    // Speed in metres a second and the direction it comes from, when the viewer
+    // would rather say than have the sweep read for it.
+    motion: Option<(f32, f32)>,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     if registry::site_by_id(&station).is_none() {
@@ -896,7 +1002,16 @@ pub async fn level2_sweep(
     // Decoding and drawing a volume is CPU work; it must not sit on the async
     // runtime the whole time.
     tauri::async_runtime::spawn_blocking(move || {
-        sweep_from_volume(&station, &key, data, &product, tilt, dealias)
+        let manual = motion.map(|(speed, from_degrees)| {
+            // A wind named by where it comes from, turned back into the
+            // components the subtraction needs.
+            let towards = (from_degrees + 180.0).to_radians();
+            vad::Wind {
+                east: speed * towards.sin(),
+                north: speed * towards.cos(),
+            }
+        });
+        sweep_from_volume(&station, &key, data, &product, tilt, dealias, manual)
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -1358,7 +1473,7 @@ mod tests {
         );
 
         let drawing = std::time::Instant::now();
-        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0, false)
+        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0, false, None)
             .expect("the lowest reflectivity tilt should decode");
         let drawn = drawing.elapsed();
 
@@ -1437,7 +1552,7 @@ mod tests {
         );
 
         // Velocity comes off the same volume, so the second product is free.
-        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1, true)
+        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1, true, None)
             .expect("a Doppler cut should decode");
         assert_eq!(velocity.product_id, "velocity");
         assert_eq!(velocity.unit, "m/s");
@@ -1610,6 +1725,73 @@ mod tests {
         assert!(
             share < 0.01,
             "{after} of {pairs} neighbouring gates still jump a fold apart"
+        );
+    }
+
+    #[test]
+    #[ignore = "fetches a live volume from the NEXRAD archive"]
+    fn the_wind_read_off_a_live_sweep_is_a_wind() {
+        // The fit has to hold up on real returns, not only on a ring drawn from
+        // the formula it inverts. There is no truth to compare against out of
+        // the archive, so what is checked is that the answer is a wind a
+        // forecaster would recognise, and that taking it out is what storm
+        // relative velocity means: the ambient flow goes to about nothing while
+        // anything rotating keeps its own signature.
+        clear_cache();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let (_key, data) = runtime
+            .block_on(latest_volume("KDMX"))
+            .expect("KDMX publishes a volume every few minutes");
+
+        let file = volume::File::new(data);
+        let scan = file.scan().expect("the volume should decode");
+        let mut chosen =
+            sweep_field(&scan, Product::Velocity, 1).expect("a volume carries a Doppler cut");
+        if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
+            unfold_velocity(&mut chosen.field, nyquist);
+        }
+
+        let wind = fitted_wind(&chosen.field).expect("a sweep with returns has a wind in it");
+        println!(
+            "wind {:.1} m/s from {:.0} degrees",
+            wind.speed(),
+            wind.coming_from_degrees()
+        );
+        assert!(
+            wind.speed() < 60.0,
+            "{} m/s is not a wind, it is a fit that ran away",
+            wind.speed()
+        );
+        assert!((0.0..360.0).contains(&wind.coming_from_degrees()));
+
+        // Taking it out has to leave the sweep centred on nothing: that is the
+        // whole point, and a sign error would leave it centred on twice the
+        // wind instead.
+        let mean = |field: &SweepField| {
+            let mut total = 0.0f64;
+            let mut count = 0usize;
+            for azimuth in 0..field.azimuth_count() {
+                for gate in 0..field.gate_count() {
+                    let (value, status) = field.get(azimuth, gate);
+                    if matches!(status, GateStatus::Valid) {
+                        total += value as f64;
+                        count += 1;
+                    }
+                }
+            }
+            if count == 0 { 0.0 } else { total / count as f64 }
+        };
+
+        let before = mean(&chosen.field);
+        make_storm_relative(&mut chosen.field, wind);
+        let after = mean(&chosen.field);
+        println!("mean radial velocity {before:.2} -> {after:.2} m/s");
+        assert!(
+            after.abs() <= before.abs() + 0.5,
+            "taking the wind out moved the sweep further from still air,              {before:.2} to {after:.2}"
         );
     }
 

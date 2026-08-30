@@ -16,6 +16,7 @@ const sweep: SweepImage = {
   productId: "reflectivity",
   paletteApplied: false,
   dealiased: false,
+  stormMotion: null,
   product: "Reflectivity",
   unit: "dBZ",
   elevationDegrees: 0.48,

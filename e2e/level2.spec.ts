@@ -15,6 +15,7 @@ async function fakeNativeSide(page: Page) {
         product: string,
         tilt: number,
         dealias: boolean,
+        motion: [number, number] | null,
       ) => {
         const products: Record<string, [string, string]> = {
           reflectivity: ["Reflectivity", "dBZ"],
@@ -22,6 +23,7 @@ async function fakeNativeSide(page: Page) {
           "spectrum-width": ["Spectrum width", "m/s"],
           "differential-reflectivity": ["Differential reflectivity", "dB"],
           "correlation-coefficient": ["Correlation coefficient", ""],
+          "storm-relative-velocity": ["Storm relative velocity", "m/s"],
         };
         const tilts = [0.48, 0.87, 1.31, 1.8];
         const [label, unit] = products[product] ?? ["Reflectivity", "dBZ"];
@@ -31,6 +33,16 @@ async function fakeNativeSide(page: Page) {
           productId: product,
           paletteApplied: false,
           dealiased: dealias && product === "velocity",
+          stormMotion:
+            product === "storm-relative-velocity"
+              ? // Either what the caller asked for, or what the sweep was read
+                // to be moving in.
+                {
+                  speedMs: motion ? motion[0] : 18.4,
+                  fromDegrees: motion ? motion[1] : 235,
+                  manual: motion !== null,
+                }
+              : null,
           product: label,
           unit,
           elevationDegrees: tilts[Math.min(tilt, tilts.length - 1)],
@@ -72,6 +84,7 @@ async function fakeNativeSide(page: Page) {
                 String(args.product),
                 Number(args.tilt),
                 Boolean(args.dealias),
+                (args.motion as [number, number] | null) ?? null,
               ),
             );
           }
@@ -274,4 +287,40 @@ test("says how high the beam is over the point you click", async ({ page }) => {
   ).toBeVisible();
   // The coordinates are still there beside it.
   await expect(page.getByText(/°, .*° · zoom 9/)).toBeVisible();
+});
+
+test("reads the storm motion off the sweep, and takes yours instead", async ({
+  page,
+}) => {
+  // Velocity with the ambient wind still in it buries a couplet under sixty
+  // knots of flow. What the sweep is moving in has to be visible, and
+  // correctable, or the product is guesswork with extra steps.
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  await page
+    .getByRole("combobox", { name: "Level II product" })
+    .selectOption("storm-relative-velocity");
+
+  await expect(page.getByText("KDMX Storm relative velocity")).toBeVisible();
+  const motion = page.locator("[data-storm-motion]");
+  await expect(motion).toContainText("Read from the sweep");
+  await expect(motion).toContainText("41 mph");
+  await expect(motion).toContainText("235");
+
+  // Giving one replaces it, and the next sweep is asked for with it.
+  await motion.getByRole("spinbutton", { name: "From" }).fill("270");
+  // The speed it was read at is kept, and the direction is the one given.
+  await expect(motion).toContainText("Yours: 41 mph from 270°");
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level2_sweep"),
+  );
+  expect(asked.at(-1)?.args.motion).toEqual([18.4, 270]);
+
+  // And it can be handed back to the sweep to work out again.
+  await motion.getByRole("button", { name: /Read it from the sweep/ }).click();
+  await expect(motion).toContainText("Read from the sweep");
 });

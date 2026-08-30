@@ -104,6 +104,9 @@ export function useSingleSiteRadar(options: {
           product,
           radar.tilt,
           radar.dealias,
+          radar.stormMotion
+            ? [radar.stormMotion.speedMs, radar.stormMotion.fromDegrees]
+            : null,
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
@@ -146,6 +149,7 @@ export function useSingleSiteRadar(options: {
     paletteGeneration,
     radar.dealias,
     radar.product,
+    radar.stormMotion,
     radar.tilt,
     station,
     wanted,
