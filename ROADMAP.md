@@ -92,10 +92,3 @@
   Touches: new src/i18n/, every panel, Settings language picker.
   Acceptance: switching language updates all panel titles and copy without restart; a pseudolocale run shows no clipped labels at 1024x720.
   Complexity: L
-
-- [ ] P3: Mouse-driven command palette listing every layer and product
-  Why: HookEcho's Ctrl+K palette is the fastest way to a product; the project rule forbids shortcuts, so surface it as a button.
-  Evidence: HookEcho README; RadarScope "fast layer access" praise.
-  Touches: new src/components/CommandPalette.tsx wired to the layer registry from the P1 refactor.
-  Acceptance: typing "meso" in the palette toggles rotation tracks; the palette is reachable from the command bar and closes on selection.
-  Complexity: S

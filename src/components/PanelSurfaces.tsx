@@ -11,11 +11,13 @@ import type {
   RadarSettings,
 } from "../lib/settings";
 import type { Storm } from "../lib/hurdat";
+import type { CommandAction } from "../lib/commands";
 import type { PlaceResult } from "../lib/weather";
 import type { OverlayStates } from "../hooks/useOverlays";
 import type { ExportState } from "../hooks/useExport";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
+import { CommandPalette } from "./CommandPalette";
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
@@ -61,6 +63,7 @@ interface PanelSurfacesProps {
   onPlace: (place: PlaceResult) => void;
   onAlertSelect: (bounds: OverlayBounds) => void;
   onFollowStorm: (point: GeoPoint, name: string) => void;
+  onCommand: (action: CommandAction) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -77,6 +80,14 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
 
   return (
     <>
+      {activeSurface === "commands" ? (
+        <CommandPalette
+          settings={settings}
+          onRun={props.onCommand}
+          onClose={onClose}
+        />
+      ) : null}
+
       {activeSurface === "search" ? (
         <SearchPanel onClose={onClose} onSelect={props.onPlace} />
       ) : null}

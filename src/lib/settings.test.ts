@@ -169,3 +169,51 @@ describe("settings normalization", () => {
     });
   });
 });
+
+describe("a stored palette", () => {
+  const loaded = {
+    name: "reflectivity.pal",
+    product: "BR",
+    units: "dBZ",
+    step: 5,
+    stops: [
+      { value: 5, color: "#04e9e7", toColor: "#019ff4" },
+      { value: 50, color: "#fd0000", toColor: null },
+    ],
+    rangeFolded: "#77007d",
+    skipped: [],
+  };
+
+  it("comes back the way it went in", () => {
+    const settings = normalizeSettings({ palette: loaded });
+    expect(settings.palette).toEqual(loaded);
+  });
+
+  it("is read again rather than trusted, so a hand-edited file cannot inject", () => {
+    const meddled = normalizeSettings({
+      palette: {
+        ...loaded,
+        // A colour that is not a colour, and a value that is not a number.
+        stops: [
+          { value: 5, color: "javascript:alert(1)", toColor: null },
+          { value: "twenty", color: "#04e9e7", toColor: null },
+          { value: 50, color: "#fd0000", toColor: null },
+        ],
+      },
+    });
+    // Only the one stop that survives the parser.
+    expect(meddled.palette?.stops).toEqual([
+      { value: 50, color: "#fd0000", toColor: null },
+    ]);
+  });
+
+  it("is nothing when there is nothing usable in it", () => {
+    expect(normalizeSettings({}).palette).toBeNull();
+    expect(normalizeSettings({ palette: null }).palette).toBeNull();
+    expect(normalizeSettings({ palette: "a string" }).palette).toBeNull();
+    expect(normalizeSettings({ palette: { stops: [] } }).palette).toBeNull();
+    expect(
+      normalizeSettings({ palette: { stops: [{ value: 1 }] } }).palette,
+    ).toBeNull();
+  });
+});

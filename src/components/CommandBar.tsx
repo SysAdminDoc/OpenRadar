@@ -21,6 +21,7 @@ import {
   Tornado,
   Route,
   History,
+  Command,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -29,6 +30,7 @@ export type SurfaceId =
   | "alerts"
   | "tropical"
   | "history"
+  | "commands"
   | "route"
   | "map-type"
   | "layers"
@@ -111,6 +113,13 @@ export function CommandBar({
     <nav className="command-bar" aria-label="Map commands">
       <div className="command-group command-group--primary">
         <CommandButton icon={LocateFixed} label="Location" onClick={onLocate} />
+        <CommandButton
+          icon={Command}
+          label="Commands"
+          active={activeSurface === "commands"}
+          detail="Every layer, product, and panel in one list"
+          onClick={() => toggleSurface("commands")}
+        />
         <CommandButton
           icon={Search}
           label="Search"
