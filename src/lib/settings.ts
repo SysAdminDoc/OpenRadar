@@ -33,6 +33,8 @@ export interface RadarSettings {
   futureRadar: boolean;
   /** Hand a close-in view over to the nearest site's own radar. */
   singleSite: boolean;
+  /** Unfold velocity past the radar's folding limit before drawing it. */
+  dealias: boolean;
   /** The site to hold, or null to follow whichever one the view is over. */
   station: string | null;
   product: Level2ProductId;
@@ -111,6 +113,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     loopMinutes: 120,
     futureRadar: false,
     singleSite: true,
+    dealias: true,
     station: null,
     product: "reflectivity",
     tilt: 0,
@@ -332,6 +335,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         0.5,
       ),
       singleSite: bool(radar.singleSite, DEFAULT_SETTINGS.radar.singleSite),
+      dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
       station:
         typeof radar.station === "string" && /^[A-Za-z]{4}$/.test(radar.station)
           ? radar.station.toUpperCase()

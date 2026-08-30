@@ -45,6 +45,8 @@ export interface SweepImage {
   productId: Level2ProductId;
   /** True when a loaded colour table drew this rather than the built-in ramp. */
   paletteApplied: boolean;
+  /** True when the velocity drawn here has been unfolded. */
+  dealiased: boolean;
   product: string;
   unit: string;
   elevationDegrees: number;
@@ -86,9 +88,15 @@ export async function fetchSweep(
   station: string,
   product: Level2ProductId,
   tilt: number,
+  dealias: boolean,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<SweepImage>("level2_sweep", { station, product, tilt });
+  return invoke<SweepImage>("level2_sweep", {
+    station,
+    product,
+    tilt,
+    dealias,
+  });
 }
 
 /** The four corners MapLibre wants, clockwise from the top left. */

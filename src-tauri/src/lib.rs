@@ -2,6 +2,7 @@
 mod http;
 
 mod cache;
+mod dealias;
 mod exports;
 mod gfs;
 mod level2;

@@ -166,7 +166,7 @@ export function WorkspaceChrome({
         }
         eyebrow={
           sweep
-            ? t("chrome.tilt", {
+            ? t(sweep.dealiased ? "chrome.tiltDealiased" : "chrome.tilt", {
                 degrees: sweep.elevationDegrees.toFixed(2),
               })
             : t("chrome.liveProduct")

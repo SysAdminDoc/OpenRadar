@@ -219,6 +219,9 @@ export const es: Catalogue = {
   "radar.singleSite": "Un solo radar de cerca",
   "radar.singleSiteDetail":
     "Pasado el nivel de acercamiento {zoom}, el barrido Level II del radar NEXRAD más cercano sustituye al mosaico nacional",
+  "radar.dealias": "Desplegar la velocidad",
+  "radar.dealiasDetail":
+    "Un viento más rápido de lo que el radar puede medir se enrolla y se dibuja como si soplara al revés. Esto lo devuelve a su sitio.",
   "radar.sweepLine": "{station} · {site} · {product} a {tilt}° · {age}",
   "radar.justIn": "recién llegado",
   "radar.minutesOld": "de hace {count} min",
@@ -423,6 +426,7 @@ export const es: Catalogue = {
   "chrome.composite": "Radar compuesto",
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "ELEVACIÓN {degrees}°",
+  "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
   "chrome.liveProduct": "PRODUCTO EN VIVO",
   "chrome.extraScales": "Escalas de otros productos",
   "chrome.wind": "Viento",
