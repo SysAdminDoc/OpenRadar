@@ -30,6 +30,8 @@ import type { ToolMode } from "./CommandBar";
 
 const RADAR_SOURCE_ID = "openradar-radar-source";
 const RADAR_LAYER_ID = "openradar-radar-layer";
+
+type RadarLane = "observed" | "forecast";
 const TOOL_SOURCE_ID = "openradar-tool-source";
 const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 const TOOL_POINT_LAYER_ID = "openradar-tool-points";
@@ -75,9 +77,17 @@ const CUSTOM_LAYER_IDS = [
 ];
 const TOOL_LAYER_IDS = [TOOL_LINE_LAYER_ID, TOOL_POINT_LAYER_ID];
 
-/** Keeps a late-arriving layer under everything that belongs above it. */
+/**
+ * Keeps a late-arriving layer under everything that belongs above it. The
+ * anchor has to be read from the style, because layers are added in whatever
+ * order their data arrives, not in the order the adapters are declared.
+ */
 function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
-  return ids.find((id) => map.getLayer(id));
+  const wanted = new Set(ids);
+  for (const layer of map.getStyle().layers ?? []) {
+    if (wanted.has(layer.id)) return layer.id;
+  }
+  return undefined;
 }
 
 function overlayLayerOrder(): string[] {
@@ -142,7 +152,10 @@ function MapViewportInner(
   const rangeEndRef = useRef<GeoPoint | null>(null);
   const loggedMapErrorsRef = useRef(new Set<string>());
   const suppressCameraEventsRef = useRef(0);
-  const radarSourceKeyRef = useRef<string | null>(null);
+  const radarSourceKeysRef = useRef<Record<RadarLane, string | null>>({
+    observed: null,
+    forecast: null,
+  });
   // isStyleLoaded() also waits on tiles, so it can report false long after the
   // style is ready for new sources. The style.load event is the real signal.
   const styleReadyRef = useRef(false);
@@ -243,55 +256,73 @@ function MapViewportInner(
     source.setData({ type: "FeatureCollection", features } as never);
   };
 
+  const syncRadarLane = (lane: RadarLane, frame: RadarFrame | undefined) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const sourceId = `${RADAR_SOURCE_ID}-${lane}`;
+    const layerId = `${RADAR_LAYER_ID}-${lane}`;
+
+    if (frame) {
+      // Tile size, native zoom, and credit belong to the source, so a change of
+      // provider inside one lane still means a fresh source.
+      const key = `${frame.providerId}:${frame.tileSize}:${frame.maxZoom}`;
+      if (map.getSource(sourceId) && radarSourceKeysRef.current[lane] !== key) {
+        if (map.getLayer(layerId)) map.removeLayer(layerId);
+        map.removeSource(sourceId);
+      }
+      radarSourceKeysRef.current[lane] = key;
+
+      const source = map.getSource(sourceId) as
+        maplibregl.RasterTileSource | undefined;
+      if (source) {
+        source.setTiles?.([frame.tileUrl]);
+      } else {
+        map.addSource(sourceId, {
+          type: "raster",
+          tiles: [frame.tileUrl],
+          tileSize: frame.tileSize,
+          maxzoom: frame.maxZoom,
+          attribution: frame.attribution,
+        });
+        map.addLayer(
+          {
+            id: layerId,
+            type: "raster",
+            source: sourceId,
+            paint: { "raster-opacity": 0 },
+          },
+          firstExisting(map, [
+            ...overlayLayerOrder(),
+            ...CUSTOM_LAYER_IDS,
+            ...TOOL_LAYER_IDS,
+          ]),
+        );
+        publishLayers();
+      }
+    }
+
+    if (map.getLayer(layerId)) {
+      map.setPaintProperty(
+        layerId,
+        "raster-opacity",
+        frame && radarVisibleRef.current ? radarOpacityRef.current : 0,
+      );
+      map.setPaintProperty(layerId, "raster-fade-duration", 150);
+    }
+  };
+
+  /**
+   * Observed and forecast tiles keep separate sources. Scrubbing across the
+   * boundary then only changes which one is opaque, instead of tearing down a
+   * source and throwing away every tile it had cached.
+   */
   const syncRadar = () => {
     const map = mapRef.current;
     const frame = radarFrameRef.current;
     if (!map || !styleReadyRef.current || !frame) return;
-
-    // A different provider changes tile size, native zoom, and credit, none of
-    // which a raster source can be reconfigured with in place.
-    const key = `${frame.providerId}:${frame.tileSize}:${frame.maxZoom}`;
-    if (map.getSource(RADAR_SOURCE_ID) && radarSourceKeyRef.current !== key) {
-      if (map.getLayer(RADAR_LAYER_ID)) map.removeLayer(RADAR_LAYER_ID);
-      map.removeSource(RADAR_SOURCE_ID);
-    }
-    radarSourceKeyRef.current = key;
-
-    const source = map.getSource(RADAR_SOURCE_ID) as
-      maplibregl.RasterTileSource | undefined;
-    if (source) {
-      source.setTiles?.([frame.tileUrl]);
-    } else {
-      map.addSource(RADAR_SOURCE_ID, {
-        type: "raster",
-        tiles: [frame.tileUrl],
-        tileSize: frame.tileSize,
-        maxzoom: frame.maxZoom,
-        attribution: frame.attribution,
-      });
-      map.addLayer(
-        {
-          id: RADAR_LAYER_ID,
-          type: "raster",
-          source: RADAR_SOURCE_ID,
-          paint: { "raster-opacity": 0 },
-        },
-        firstExisting(map, [
-          ...overlayLayerOrder(),
-          ...CUSTOM_LAYER_IDS,
-          ...TOOL_LAYER_IDS,
-        ]),
-      );
-    }
-    if (map.getLayer(RADAR_LAYER_ID)) {
-      map.setPaintProperty(
-        RADAR_LAYER_ID,
-        "raster-opacity",
-        radarVisibleRef.current ? radarOpacityRef.current : 0,
-      );
-      map.setPaintProperty(RADAR_LAYER_ID, "raster-fade-duration", 150);
-    }
-    publishLayers();
+    const lane: RadarLane = frame.forecast ? "forecast" : "observed";
+    syncRadarLane(lane, frame);
+    syncRadarLane(lane === "observed" ? "forecast" : "observed", undefined);
   };
 
   const overlayLayerIds = () => {
@@ -632,7 +663,7 @@ function MapViewportInner(
     if (!map || mapStyleRef.current === mapStyle) return;
     mapStyleRef.current = mapStyle;
     styleReadyRef.current = false;
-    radarSourceKeyRef.current = null;
+    radarSourceKeysRef.current = { observed: null, forecast: null };
     map.setStyle(mapStyleDefinition(mapStyle));
   }, [mapStyle]);
 

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import type { LogEntry } from "../lib/log";
-import { RADAR_PROVIDERS, type ProviderHealth } from "../lib/providers";
+import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
 
 interface CloseOnlyProps {
@@ -145,7 +145,7 @@ export function MorePanel({
             </small>
           </span>
         </div>
-        {RADAR_PROVIDERS.map((provider) => {
+        {DIAGNOSTIC_SOURCES.map((provider) => {
           const record = health.find((item) => item.id === provider.id);
           const healthy = Boolean(record?.lastSuccess) && !record?.lastError;
           return (

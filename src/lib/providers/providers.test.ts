@@ -261,3 +261,20 @@ describe("RainViewer adapter", () => {
     ).toEqual([]);
   });
 });
+
+describe("long time intervals", () => {
+  it("keeps the newest instants a long interval covers", () => {
+    const document = `<?xml version="1.0"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Capability><Layer><Layer>
+    <Name>conus_bref_qcd</Name>
+    <Dimension name="time" units="ISO8601">2026-08-01T00:00:00.000Z/2026-08-30T06:00:00.000Z/PT2M</Dimension>
+  </Layer></Layer></Capability>
+</WMS_Capabilities>`;
+    const steps = parseWmsTimeSteps(document, "conus_bref_qcd");
+    expect(steps).toHaveLength(240);
+    expect(steps.at(-1)?.iso).toBe("2026-08-30T06:00:00.000Z");
+    // Eight hours back at two-minute steps, not the first day of the month.
+    expect(steps[0].iso).toBe("2026-08-29T22:02:00.000Z");
+  });
+});

@@ -4,7 +4,10 @@ import {
   fetchHrrrRun,
   fetchRadarTimeline,
   hrrrFrames,
-  providerChain,
+  isConusViewport,
+  recordFailure,
+  recordSuccess,
+  type HrrrRun,
   type RadarProvider,
 } from "../lib/providers";
 import { log } from "../lib/log";
@@ -20,6 +23,8 @@ export interface RadarTimelineState {
   playing: boolean;
   source: RadarProvider | null;
   error: string | null;
+  /** The newest observation, which is what staleness is measured against. */
+  newestObserved: RadarFrame | undefined;
   setPlaying: (playing: boolean) => void;
   selectFrame: (index: number) => void;
 }
@@ -50,6 +55,30 @@ export function nextSelection(
   return incoming.some((frame) => frame.time === selected) ? selected : newest;
 }
 
+/**
+ * When the selected frame disappears, the nearest surviving time is far less
+ * jarring than jumping to whichever end of the loop happens to be last.
+ */
+export function nearestFrameIndex(
+  frames: RadarFrame[],
+  selected: number | null,
+): number {
+  if (!frames.length) return 0;
+  if (selected === null) return frames.length - 1;
+
+  let bestIndex = frames.length - 1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const [index, frame] of frames.entries()) {
+    if (frame.time === selected) return index;
+    const distance = Math.abs(frame.time - selected);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+  return bestIndex;
+}
+
 export function useRadarTimeline(options: {
   ready: boolean;
   center: [number, number];
@@ -66,27 +95,40 @@ export function useRadarTimeline(options: {
     futureRadar,
     pageVisible,
   } = options;
-  const [allFrames, setAllFrames] = useState<RadarFrame[]>([]);
-  const [forecastFrames, setForecastFrames] = useState<RadarFrame[]>([]);
+  const [observed, setObserved] = useState<RadarFrame[]>([]);
+  const [run, setRun] = useState<HrrrRun | null>(null);
   const [source, setSource] = useState<RadarProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [playing, setPlaying] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
-  // What a refresh needs to know without re-subscribing on every change.
-  const liveRef = useRef({ frames: allFrames, selected, playing, center });
-  useEffect(() => {
-    liveRef.current = { frames: allFrames, selected, playing, center };
-  }, [allFrames, selected, playing, center]);
 
   // Panning inside one provider's footprint must not refetch, so the effect
   // keys on the covering chain rather than the raw center.
   const coverage = coverageKey(center[0], center[1]);
-  // Forecast reflectivity only exists over the CONUS model domain.
-  const inModelDomain = providerChain(center[0], center[1]).some(
-    (provider) => provider.id !== "rainviewer",
+  // HRRR reflectivity covers the lower forty-eight only, so Alaska, Hawaii,
+  // Puerto Rico, and Guam get no forecast tail even though NOAA radar reaches
+  // them.
+  const inModelDomain = isConusViewport(center[0], center[1]);
+  const newestObservedTime = observed.at(-1)?.time ?? 0;
+
+  const forecast = useMemo(
+    () =>
+      // The tail is only meaningful next to an observation, and recomputing it
+      // from the newest one means it can never open a gap or double back over a
+      // frame that has since been observed.
+      run && futureRadar && inModelDomain && newestObservedTime
+        ? hrrrFrames(run, newestObservedTime)
+        : [],
+    [futureRadar, inModelDomain, newestObservedTime, run],
   );
+
+  // What a refresh needs to know without re-subscribing on every change.
+  const liveRef = useRef({ selected, playing, center, forecast, observed });
+  useEffect(() => {
+    liveRef.current = { selected, playing, center, forecast, observed };
+  }, [center, forecast, observed, playing, selected]);
 
   useEffect(() => {
     if (!ready) return;
@@ -94,28 +136,30 @@ export function useRadarTimeline(options: {
     let mounted = true;
 
     const refresh = async () => {
-      const live = liveRef.current;
       try {
         const timeline = await fetchRadarTimeline(
-          live.center,
+          liveRef.current.center,
           MAX_LOOP_MINUTES,
           controller.signal,
         );
         if (!mounted) return;
+        const live = liveRef.current;
+        // The playhead may be sitting on a forecast frame, which this refresh
+        // does not replace, so both halves take part in the decision.
         const kept = nextSelection(
-          liveRef.current.frames,
-          liveRef.current.selected,
-          timeline.frames,
-          liveRef.current.playing,
+          [...live.observed, ...live.forecast],
+          live.selected,
+          [...timeline.frames, ...live.forecast],
+          live.playing,
         );
         liveRef.current = {
-          ...liveRef.current,
-          frames: timeline.frames,
+          ...live,
+          observed: timeline.frames,
           selected: kept,
         };
         setSource(timeline.provider);
         setError(null);
-        setAllFrames(timeline.frames);
+        setObserved(timeline.frames);
         setSelected(kept);
       } catch (failure) {
         if (
@@ -145,16 +189,14 @@ export function useRadarTimeline(options: {
 
   useEffect(() => {
     if (!ready || !futureRadar || !inModelDomain) return;
-
     const controller = new AbortController();
     let mounted = true;
 
     const refresh = async () => {
       try {
-        const run = await fetchHrrrRun(controller.signal);
+        const next = await fetchHrrrRun(controller.signal);
         if (!mounted) return;
-        const newest = liveRef.current.frames.at(-1)?.time ?? Date.now() / 1000;
-        setForecastFrames(hrrrFrames(run, newest));
+        setRun(next);
       } catch (failure) {
         if (
           !mounted ||
@@ -162,13 +204,10 @@ export function useRadarTimeline(options: {
         ) {
           return;
         }
-        log.warn(
-          "radar",
-          failure instanceof Error
-            ? `Future radar failed: ${failure.message}`
-            : "Future radar failed",
-        );
-        setForecastFrames([]);
+        const message =
+          failure instanceof Error ? failure.message : "The request failed.";
+        recordFailure("hrrr", message);
+        log.warn("radar", `Future radar failed: ${message}`);
       }
     };
 
@@ -179,34 +218,36 @@ export function useRadarTimeline(options: {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [coverage, futureRadar, inModelDomain, ready]);
+  }, [futureRadar, inModelDomain, ready]);
+
+  useEffect(() => {
+    if (forecast.length) recordSuccess("hrrr", forecast.length);
+  }, [forecast]);
 
   // The loop window applies to what has been observed. Forecast frames extend
   // the tail, so they must not drag the cutoff forward with them.
   const frames = useMemo(
-    () => [
-      ...framesWithinLoop(allFrames, loopMinutes),
-      ...(futureRadar && inModelDomain ? forecastFrames : []),
-    ],
-    [allFrames, forecastFrames, futureRadar, inModelDomain, loopMinutes],
+    () => [...framesWithinLoop(observed, loopMinutes), ...forecast],
+    [forecast, loopMinutes, observed],
   );
 
-  const frameIndex = useMemo(() => {
-    if (!frames.length) return 0;
-    const index = frames.findIndex((frame) => frame.time === selected);
-    return index >= 0 ? index : frames.length - 1;
-  }, [frames, selected]);
+  const frameIndex = useMemo(
+    () => nearestFrameIndex(frames, selected),
+    [frames, selected],
+  );
 
   useEffect(() => {
     if (!playing || !pageVisible || frames.length < 2) return;
     const timer = window.setInterval(() => {
       setSelected((current) => {
-        const index = frames.findIndex((frame) => frame.time === current);
+        const index = nearestFrameIndex(frames, current);
         return frames[(index + 1) % frames.length].time;
       });
     }, animationIntervalMs(animationSpeed));
     return () => window.clearInterval(timer);
   }, [animationSpeed, frames, pageVisible, playing]);
+
+  const newestObserved = observed.at(-1);
 
   return useMemo(
     () => ({
@@ -215,6 +256,7 @@ export function useRadarTimeline(options: {
       playing,
       source,
       error,
+      newestObserved,
       setPlaying,
       selectFrame: (index: number) => {
         const frame = frames[index];
@@ -223,6 +265,6 @@ export function useRadarTimeline(options: {
         setSelected(frame.time);
       },
     }),
-    [error, frameIndex, frames, playing, source],
+    [error, frameIndex, frames, newestObserved, playing, source],
   );
 }

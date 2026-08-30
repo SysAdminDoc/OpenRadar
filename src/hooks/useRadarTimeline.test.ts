@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { framesWithinLoop, nextSelection } from "./useRadarTimeline";
+import {
+  framesWithinLoop,
+  nearestFrameIndex,
+  nextSelection,
+} from "./useRadarTimeline";
 import type { RadarFrame } from "../lib/radar";
 
 function frames(times: number[]): RadarFrame[] {
@@ -70,5 +74,42 @@ describe("playhead across a refresh", () => {
   it("selects the newest frame on the first load", () => {
     expect(nextSelection([], null, incoming, false)).toBe(base + 6 * minute);
     expect(nextSelection([], null, [], false)).toBeNull();
+  });
+});
+
+describe("playhead when frames move", () => {
+  const observed = frames([base, base + 2 * minute, base + 4 * minute]);
+  const forecast: RadarFrame[] = frames([
+    base + 19 * minute,
+    base + 34 * minute,
+  ]).map((frame) => ({
+    ...frame,
+    providerId: "hrrr",
+    forecast: { initUtc: "2026-08-30T05:00:00Z", leadMinutes: 15 },
+  }));
+
+  it("keeps a forecast frame across an observed refresh", () => {
+    const incomingObserved = frames([
+      base + 2 * minute,
+      base + 4 * minute,
+      base + 6 * minute,
+    ]);
+    expect(
+      nextSelection(
+        [...observed, ...forecast],
+        base + 34 * minute,
+        [...incomingObserved, ...forecast],
+        false,
+      ),
+    ).toBe(base + 34 * minute);
+  });
+
+  it("moves to the nearest surviving frame when the loop shrinks", () => {
+    const windowed = frames([base + 4 * minute, base + 6 * minute]);
+    // The frame the user was on aged out, so the oldest survivor is nearest.
+    expect(nearestFrameIndex(windowed, base)).toBe(0);
+    expect(nearestFrameIndex(windowed, base + 6 * minute)).toBe(1);
+    expect(nearestFrameIndex([], base)).toBe(0);
+    expect(nearestFrameIndex(windowed, null)).toBe(1);
   });
 });

@@ -9,7 +9,12 @@ import { HRRR_HOST } from "./hrrr";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
 import { ridgeProvider } from "./ridge";
-import { covers, type RadarFrame, type RadarProvider } from "./types";
+import {
+  covers,
+  type ProviderId,
+  type RadarFrame,
+  type RadarProvider,
+} from "./types";
 
 export const NOAA_PROVIDERS: RadarProvider[] = [
   ridgeProvider,
@@ -21,6 +26,15 @@ export const RADAR_PROVIDERS: RadarProvider[] = [
 ];
 
 type BudgetKind = "tile" | "discovery";
+
+/** What the Diagnostics panel lists, including sources outside the chain. */
+export const DIAGNOSTIC_SOURCES: Array<{ id: ProviderId; label: string }> = [
+  ...RADAR_PROVIDERS.map((provider) => ({
+    id: provider.id,
+    label: provider.label,
+  })),
+  { id: "hrrr", label: "HRRR forecast" },
+];
 
 const budgets = new Map<string, RequestBudget>();
 
@@ -60,6 +74,11 @@ const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
 export function providerChain(lon: number, lat: number): RadarProvider[] {
   const noaa = NOAA_PROVIDERS.filter((provider) => covers(provider, lon, lat));
   return noaa.length ? noaa : [rainviewerProvider];
+}
+
+/** The lower forty-eight, which is the only ground the HRRR model covers. */
+export function isConusViewport(lon: number, lat: number): boolean {
+  return covers(ridgeProvider, lon, lat);
 }
 
 export function coverageKey(lon: number, lat: number): string {
@@ -147,6 +166,8 @@ export function resetRadarBudgets() {
 export { BLANK_TILE_URL } from "./budget";
 export {
   providerHealth,
+  recordFailure,
+  recordSuccess,
   resetHealth,
   subscribeHealth,
   type ProviderHealth,

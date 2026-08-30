@@ -72,12 +72,14 @@ function expandTimeValue(value: string): WmsStep[] {
   const stepSeconds = durationSeconds(period ?? "");
   if (!Number.isFinite(from) || !Number.isFinite(to) || !stepSeconds) return [];
 
+  const stepMs = stepSeconds * 1000;
+  // A month-long interval would otherwise fill the cap with instants from its
+  // first day, and every one of them would fall outside the loop window.
+  const total = Math.floor((to - from) / stepMs) + 1;
+  const first = total > MAX_STEPS ? to - (MAX_STEPS - 1) * stepMs : from;
+
   const steps: WmsStep[] = [];
-  for (
-    let at = from;
-    at <= to && steps.length < MAX_STEPS;
-    at += stepSeconds * 1000
-  ) {
+  for (let at = first; at <= to; at += stepMs) {
     steps.push({
       time: Math.floor(at / 1000),
       iso: new Date(at).toISOString(),

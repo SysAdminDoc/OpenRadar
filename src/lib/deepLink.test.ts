@@ -62,3 +62,29 @@ describe("share links", () => {
     expect(parsed?.projection).toBe("mercator");
   });
 });
+
+describe("incomplete links", () => {
+  const fallback = DEFAULT_SETTINGS.camera;
+
+  it("refuses a link that is missing part of the camera", () => {
+    expect(viewFromDeepLink("openradar://view?lon=-96.8", fallback)).toBeNull();
+    expect(
+      viewFromDeepLink("openradar://view?lon=-96.8&lat=32.8&zoom=7", fallback),
+    ).toBeNull();
+  });
+
+  it("refuses a link whose numbers are not numbers", () => {
+    expect(
+      viewFromDeepLink(
+        "openradar://view?lon=abc&lat=1&zoom=5&bearing=0&pitch=0",
+        fallback,
+      ),
+    ).toBeNull();
+    expect(
+      viewFromDeepLink(
+        "openradar://view?lon=&lat=1&zoom=5&bearing=0&pitch=0",
+        fallback,
+      ),
+    ).toBeNull();
+  });
+});

@@ -2,9 +2,16 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Fixed a refresh throwing away the playhead when it was parked on a forecast frame, and a shrinking loop jumping to the far end of the forecast instead of the nearest surviving frame.
+- Fixed the forecast tail anchoring on the wall clock instead of the newest observation, which could open a gap or double back over a frame that had since been observed.
+- Fixed future radar offering a tail over Alaska, Hawaii, Puerto Rico, and Guam, where the model has no data.
+- Fixed future radar hiding the stale-radar warning, which is measured on the newest observation again.
+- Observed and forecast radar keep separate map sources, so scrubbing across the boundary no longer throws away every cached tile.
+- Fixed a half-written share link knocking the map out of globe projection instead of being refused.
+- Fixed a long WMS time interval yielding only its oldest instants, which read as no radar at all.
 - Put a host allowlist in front of anything the desktop side may fetch, before the first native request exists. It refuses a host that is not on the list, a plain-text address, and a redirect that would leave the list.
 - Added tropical products: forecast cones, tracks, and Saffir-Simpson coloured forecast points, coastal watches, and the development outlook areas, with a panel that lists active storms strongest first and flies the map to any of them.
-- Added future radar. Switch it on over the United States and the scrubber carries six hours past the newest observation in quarter-hour steps, with the model run and lead named on the timeline.
+- Added future radar. Switch it on over the lower forty-eight and the scrubber carries up to six hours past the newest observation in quarter-hour steps, with the model run and lead named on the timeline.
 - Share now copies an `openradar://` link that opens the running app on that view instead of an address that leads nowhere. A second launch hands its link to the window already open.
 - The timeline chip now reports the radar age next to the source, not only once the loop has gone stale.
 - RIDGE II is claimed only over the ground its mosaic covers, so the Gulf, Cuba, and the Bahamas fall back to a worldwide source instead of showing an empty layer.
