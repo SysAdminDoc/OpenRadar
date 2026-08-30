@@ -330,3 +330,74 @@ test("records a failed radar source in diagnostics", async ({ page }) => {
     page.getByRole("button", { name: /Open log folder/ }),
   ).toBeVisible();
 });
+
+test("keeps radar under the alert polygons", async ({ page }) => {
+  await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [-86, 26],
+                  [-85, 26],
+                  [-85, 27],
+                  [-86, 27],
+                  [-86, 26],
+                ],
+              ],
+            },
+            properties: { prod_type: "Tornado Warning", sig: "W" },
+          },
+        ],
+      }),
+    });
+  });
+  await page.reload();
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /alerts-fill/);
+
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  expect(stack.indexOf("openradar-radar-layer")).toBeGreaterThanOrEqual(0);
+  expect(stack.indexOf("openradar-radar-layer")).toBeLessThan(
+    stack.indexOf("openradar-overlay-alerts-fill"),
+  );
+});
+
+test("removes an imported overlay when its switch goes off", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "shapes.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-85.5, 25.5] },
+            properties: {},
+          },
+        ],
+      }),
+    ),
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Custom Overlay/ }).uncheck();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /custom-points/);
+});

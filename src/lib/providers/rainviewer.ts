@@ -70,7 +70,8 @@ export const rainviewerProvider: RadarProvider = {
   attributionUrl: "https://www.rainviewer.com/",
   host: "rainviewer.com",
   coverage: [],
-  budgetLimit: 90,
+  tileBudgetLimit: 90,
+  discoveryBudgetLimit: 10,
   budgetWindowMs: 60_000,
   fetchFrames: async (loopMinutes, signal) => {
     const response = await fetch(DISCOVERY_URL, {

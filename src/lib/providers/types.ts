@@ -24,8 +24,13 @@ export interface RadarProvider {
   attributionUrl: string;
   /** Regions the provider covers. An empty list means worldwide. */
   coverage: BoundingBox[];
-  /** Requests the provider tolerates inside `budgetWindowMs`. */
-  budgetLimit: number;
+  /**
+   * Tile and discovery traffic are counted apart. Playback re-requests every
+   * visible tile on each frame, so one shared counter would starve the much
+   * smaller stream of capabilities requests and fake a provider outage.
+   */
+  tileBudgetLimit: number;
+  discoveryBudgetLimit: number;
   budgetWindowMs: number;
   /** Host used to attribute tile requests back to this provider. */
   host: string;

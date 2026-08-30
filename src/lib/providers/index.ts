@@ -4,16 +4,11 @@ import {
   type RequestBudget,
 } from "./budget";
 import { log } from "../log";
-import { recordBudget, recordFailure, recordSuccess } from "./health";
+import { recordFailure, recordSuccess } from "./health";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
 import { ridgeProvider } from "./ridge";
-import {
-  covers,
-  type ProviderId,
-  type RadarFrame,
-  type RadarProvider,
-} from "./types";
+import { covers, type RadarFrame, type RadarProvider } from "./types";
 
 export const NOAA_PROVIDERS: RadarProvider[] = [
   ridgeProvider,
@@ -24,16 +19,19 @@ export const RADAR_PROVIDERS: RadarProvider[] = [
   rainviewerProvider,
 ];
 
-const budgets = new Map<ProviderId, RequestBudget>();
+type BudgetKind = "tile" | "discovery";
 
-function budgetFor(provider: RadarProvider): RequestBudget {
-  const existing = budgets.get(provider.id);
+const budgets = new Map<string, RequestBudget>();
+
+function budgetFor(provider: RadarProvider, kind: BudgetKind): RequestBudget {
+  const key = `${provider.id}:${kind}`;
+  const existing = budgets.get(key);
   if (existing) return existing;
   const created = createRollingRequestBudget(
-    provider.budgetLimit,
+    kind === "tile" ? provider.tileBudgetLimit : provider.discoveryBudgetLimit,
     provider.budgetWindowMs,
   );
-  budgets.set(provider.id, created);
+  budgets.set(key, created);
   return created;
 }
 
@@ -67,14 +65,13 @@ export async function fetchRadarTimeline(
   const failures: string[] = [];
 
   for (const provider of chain) {
-    const budget = budgetFor(provider);
+    const budget = budgetFor(provider, "discovery");
     if (!budget.tryConsume()) {
       recordFailure(provider.id, "Request budget reached");
       log.warn("radar", `${provider.label} is over its request budget`);
       failures.push(`${provider.label} is over its request budget`);
       continue;
     }
-    recordBudget(provider.id, budget.remaining());
 
     try {
       const frames = await provider.fetchFrames(loopMinutes, signal);
@@ -83,6 +80,9 @@ export async function fetchRadarTimeline(
       log.info("radar", `${provider.label} returned ${frames.length} frames`);
       return { provider, frames };
     } catch (error) {
+      // A caller that aborted mid-response can surface a TypeError rather than
+      // an AbortError, and that is not a provider failure.
+      if (signal?.aborted) throw error;
       if (error instanceof DOMException && error.name === "AbortError")
         throw error;
       const message =
@@ -118,9 +118,8 @@ export function guardRadarRequest(url: string): string {
   );
   if (!provider) return url;
 
-  const budget = budgetFor(provider);
+  const budget = budgetFor(provider, "tile");
   if (!budget.tryConsume()) return BLANK_TILE_URL;
-  recordBudget(provider.id, budget.remaining());
   return url;
 }
 

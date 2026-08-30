@@ -34,6 +34,8 @@ export interface OverlayAdapter {
   host: string;
   /** How long a snapshot stays fresh before the map asks for another one. */
   refreshMs: number;
+  /** A worldwide feed that ignores the viewport it is handed. */
+  global?: boolean;
   fetchData: (
     bounds: OverlayBounds,
     signal?: AbortSignal,

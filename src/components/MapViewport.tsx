@@ -67,6 +67,26 @@ interface MapViewportProps {
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
 
+const CUSTOM_LAYER_IDS = [
+  CUSTOM_FILL_LAYER_ID,
+  CUSTOM_LINE_LAYER_ID,
+  CUSTOM_POINT_LAYER_ID,
+];
+const TOOL_LAYER_IDS = [TOOL_LINE_LAYER_ID, TOOL_POINT_LAYER_ID];
+
+/** Keeps a late-arriving layer under everything that belongs above it. */
+function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
+  return ids.find((id) => map.getLayer(id));
+}
+
+function overlayLayerOrder(): string[] {
+  return OVERLAY_ADAPTERS.flatMap((adapter) =>
+    adapter
+      .layers(`${OVERLAY_SOURCE_PREFIX}${adapter.id}`)
+      .map((layer) => layer.id),
+  );
+}
+
 function asCamera(map: maplibregl.Map): CameraState {
   const center = map.getCenter();
   return {
@@ -136,6 +156,19 @@ function MapViewportInner(
       next.bearing.toFixed(2),
       next.pitch.toFixed(2),
     ].join(",");
+  };
+
+  const publishLayers = () => {
+    const map = mapRef.current;
+    const container = containerRef.current;
+    if (!map || !container || !styleReadyRef.current) return;
+    const ids = (map.getStyle().layers ?? [])
+      .map((layer) => layer.id)
+      .filter((id) => id.startsWith("openradar-"));
+    container.dataset.layerStack = ids.join(" ");
+    container.dataset.overlayLayers = ids
+      .filter((id) => id.startsWith(OVERLAY_SOURCE_PREFIX))
+      .join(" ");
   };
 
   const renderTools = () => {
@@ -241,12 +274,19 @@ function MapViewportInner(
         maxzoom: frame.maxZoom,
         attribution: frame.attribution,
       });
-      map.addLayer({
-        id: RADAR_LAYER_ID,
-        type: "raster",
-        source: RADAR_SOURCE_ID,
-        paint: { "raster-opacity": 0 },
-      });
+      map.addLayer(
+        {
+          id: RADAR_LAYER_ID,
+          type: "raster",
+          source: RADAR_SOURCE_ID,
+          paint: { "raster-opacity": 0 },
+        },
+        firstExisting(map, [
+          ...overlayLayerOrder(),
+          ...CUSTOM_LAYER_IDS,
+          ...TOOL_LAYER_IDS,
+        ]),
+      );
     }
     if (map.getLayer(RADAR_LAYER_ID)) {
       map.setPaintProperty(
@@ -256,6 +296,7 @@ function MapViewportInner(
       );
       map.setPaintProperty(RADAR_LAYER_ID, "raster-fade-duration", 150);
     }
+    publishLayers();
   };
 
   const overlayLayerIds = () => {
@@ -298,19 +339,15 @@ function MapViewportInner(
         data: data as never,
         attribution: adapter.attribution,
       });
-      // Overlays sit above radar but below the measuring tools.
-      const before = map.getLayer(TOOL_LINE_LAYER_ID)
-        ? TOOL_LINE_LAYER_ID
-        : undefined;
+      // Overlays sit above radar but below the imported shapes and the tools.
+      const before = firstExisting(map, [
+        ...CUSTOM_LAYER_IDS,
+        ...TOOL_LAYER_IDS,
+      ]);
       for (const layer of adapter.layers(sourceId)) map.addLayer(layer, before);
     }
 
-    if (containerRef.current) {
-      containerRef.current.dataset.overlayLayers = (map.getStyle().layers ?? [])
-        .map((layer) => layer.id)
-        .filter((id) => id.startsWith(OVERLAY_SOURCE_PREFIX))
-        .join(" ");
-    }
+    publishLayers();
   };
 
   const showOverlayPopup = (event: maplibregl.MapMouseEvent) => {
@@ -355,47 +392,70 @@ function MapViewportInner(
   const syncCustomOverlay = () => {
     const map = mapRef.current;
     const overlay = customOverlayRef.current;
-    if (!map || !styleReadyRef.current || !overlay) return;
+    if (!map || !styleReadyRef.current) return;
+
     let source = map.getSource(CUSTOM_SOURCE_ID) as
       maplibregl.GeoJSONSource | undefined;
+    if (!overlay) {
+      // Switching the layer off has to take the shapes with it.
+      if (source) {
+        for (const id of CUSTOM_LAYER_IDS) {
+          if (map.getLayer(id)) map.removeLayer(id);
+        }
+        map.removeSource(CUSTOM_SOURCE_ID);
+      }
+      publishLayers();
+      return;
+    }
     if (!source) {
       map.addSource(CUSTOM_SOURCE_ID, {
         type: "geojson",
         data: overlay as never,
       });
-      map.addLayer({
-        id: CUSTOM_FILL_LAYER_ID,
-        type: "fill",
-        source: CUSTOM_SOURCE_ID,
-        filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "fill-color": "#60a5fa", "fill-opacity": 0.18 },
-      });
-      map.addLayer({
-        id: CUSTOM_LINE_LAYER_ID,
-        type: "line",
-        source: CUSTOM_SOURCE_ID,
-        filter: [
-          "in",
-          ["geometry-type"],
-          ["literal", ["LineString", "Polygon"]],
-        ],
-        paint: { "line-color": "#93c5fd", "line-width": 2 },
-      });
-      map.addLayer({
-        id: CUSTOM_POINT_LAYER_ID,
-        type: "circle",
-        source: CUSTOM_SOURCE_ID,
-        filter: ["==", ["geometry-type"], "Point"],
-        paint: {
-          "circle-radius": 6,
-          "circle-color": "#60a5fa",
-          "circle-stroke-color": "#eff6ff",
-          "circle-stroke-width": 1.5,
+      const beforeTools = firstExisting(map, TOOL_LAYER_IDS);
+      map.addLayer(
+        {
+          id: CUSTOM_FILL_LAYER_ID,
+          type: "fill",
+          source: CUSTOM_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "Polygon"],
+          paint: { "fill-color": "#60a5fa", "fill-opacity": 0.18 },
         },
-      });
+        beforeTools,
+      );
+      map.addLayer(
+        {
+          id: CUSTOM_LINE_LAYER_ID,
+          type: "line",
+          source: CUSTOM_SOURCE_ID,
+          filter: [
+            "in",
+            ["geometry-type"],
+            ["literal", ["LineString", "Polygon"]],
+          ],
+          paint: { "line-color": "#93c5fd", "line-width": 2 },
+        },
+        beforeTools,
+      );
+      map.addLayer(
+        {
+          id: CUSTOM_POINT_LAYER_ID,
+          type: "circle",
+          source: CUSTOM_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: {
+            "circle-radius": 6,
+            "circle-color": "#60a5fa",
+            "circle-stroke-color": "#eff6ff",
+            "circle-stroke-width": 1.5,
+          },
+        },
+        beforeTools,
+      );
       source = map.getSource(CUSTOM_SOURCE_ID) as maplibregl.GeoJSONSource;
     }
     source.setData(overlay as never);
+    publishLayers();
   };
 
   useImperativeHandle(ref, () => ({
@@ -591,16 +651,25 @@ function MapViewportInner(
         : "";
     }
     syncRadar();
+    // The sync functions read the refs above; adding them as dependencies
+    // would rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radarFrame, radarVisible, radarOpacity]);
 
   useEffect(() => {
     overlaysRef.current = overlays;
     syncOverlays();
+    // The sync functions read the refs above; adding them as dependencies
+    // would rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlays]);
 
   useEffect(() => {
     customOverlayRef.current = customOverlay;
     syncCustomOverlay();
+    // The sync functions read the refs above; adding them as dependencies
+    // would rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customOverlay]);
 
   useEffect(() => {

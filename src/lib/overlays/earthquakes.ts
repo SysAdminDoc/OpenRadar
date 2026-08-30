@@ -57,6 +57,7 @@ export const earthquakesOverlay: OverlayAdapter = {
   attributionUrl: "https://earthquake.usgs.gov/",
   host: "earthquake.usgs.gov",
   refreshMs: 5 * 60_000,
+  global: true,
   // The summary feed is worldwide and small, so the viewport does not filter it.
   fetchData: async (_bounds, signal) => {
     const response = await fetch(FEED, {

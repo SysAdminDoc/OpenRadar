@@ -136,6 +136,32 @@ describe("request budget", () => {
     expect(budget.tryConsume(1101)).toBe(true);
   });
 
+  it("keeps a tile soak from starving the timeline request", async () => {
+    const start = Date.UTC(2026, 7, 30, 6, 0, 0);
+    let clock = start;
+    const spy = vi.spyOn(Date, "now").mockImplementation(() => clock);
+
+    // A minute of playback at a rate no real session reaches.
+    for (let second = 0; second < 60; second += 1) {
+      clock = start + second * 1000;
+      for (let tile = 0; tile < 60; tile += 1) {
+        guardRadarRequest(
+          "https://opengeo.ncep.noaa.gov/geoserver/conus/ows?bbox=1",
+        );
+      }
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(RIDGE_CAPABILITIES, { status: 200 })),
+    );
+    const timeline = await fetchRadarTimeline([-96.8, 32.8], 120);
+    spy.mockRestore();
+
+    expect(timeline.provider.id).toBe("ridge");
+    expect(timeline.frames).toHaveLength(3);
+  });
+
   it("holds a ten minute tile soak inside the RIDGE budget", () => {
     const start = Date.UTC(2026, 7, 30, 6, 0, 0);
     let allowed = 0;
@@ -143,10 +169,10 @@ describe("request budget", () => {
     let clock = start;
     const spy = vi.spyOn(Date, "now").mockImplementation(() => clock);
 
-    // Fifteen tile requests a second for ten minutes, well past the ceiling.
+    // Sixty tile requests a second for ten minutes, well past the ceiling.
     for (let second = 0; second < 600; second += 1) {
       clock = start + second * 1000;
-      for (let tile = 0; tile < 15; tile += 1) {
+      for (let tile = 0; tile < 60; tile += 1) {
         const url = guardRadarRequest(
           "https://opengeo.ncep.noaa.gov/geoserver/conus/ows?bbox=1",
         );
@@ -157,8 +183,8 @@ describe("request budget", () => {
     spy.mockRestore();
 
     expect(blocked).toBeGreaterThan(0);
-    // Ten windows of 600 requests is the hard ceiling for the soak.
-    expect(allowed).toBeLessThanOrEqual(6000);
+    // Ten windows of 3,000 requests is the hard ceiling for the soak.
+    expect(allowed).toBeLessThanOrEqual(30_000);
     expect(allowed).toBeGreaterThan(0);
   });
 

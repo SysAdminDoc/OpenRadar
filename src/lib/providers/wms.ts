@@ -16,7 +16,8 @@ export interface WmsProviderConfig {
   owsUrl: string;
   layer: string;
   coverage: BoundingBox[];
-  budgetLimit: number;
+  tileBudgetLimit: number;
+  discoveryBudgetLimit: number;
   budgetWindowMs: number;
   maxZoom: number;
   maxFrames: number;
@@ -100,7 +101,8 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
     attribution: config.attribution,
     attributionUrl: config.attributionUrl,
     coverage: config.coverage,
-    budgetLimit: config.budgetLimit,
+    tileBudgetLimit: config.tileBudgetLimit,
+    discoveryBudgetLimit: config.discoveryBudgetLimit,
     budgetWindowMs: config.budgetWindowMs,
     host: config.host,
     fetchFrames: async (loopMinutes, signal) => {

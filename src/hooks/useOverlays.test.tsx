@@ -76,8 +76,9 @@ describe("useOverlays", () => {
     );
 
     fetchData.mockRejectedValueOnce(new Error("NWS alerts returned 500."));
-    // Panning outside the padded box is what forces the next request.
-    rerender({ bounds: { west: -60, south: 10, east: -50, north: 20 } });
+    // Just outside the padded box, so the hook asks again for an area the old
+    // snapshot still covers.
+    rerender({ bounds: { west: -90, south: 30, east: -80, north: 40 } });
 
     await waitFor(() => expect(result.current.alerts.error).toBeTruthy());
     expect(result.current.alerts.data.features).toHaveLength(1);
@@ -124,5 +125,57 @@ describe("useOverlays", () => {
     });
 
     expect(fetchData).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("snapshot scoping", () => {
+  it("stops showing a snapshot once the map has left its area", async () => {
+    fetchData.mockResolvedValue(collection("Flood Warning"));
+
+    const { result, rerender } = renderHook(
+      ({ bounds }) =>
+        useOverlays(
+          { alerts: true, earthquakes: false, wildfires: false },
+          bounds,
+        ),
+      { initialProps: { bounds: viewport } },
+    );
+
+    await waitFor(() =>
+      expect(result.current.alerts.data.features).toHaveLength(1),
+    );
+
+    fetchData.mockReturnValue(new Promise(() => {}));
+    rerender({ bounds: { west: -60, south: 10, east: -50, north: 20 } });
+
+    expect(result.current.alerts.data.features).toHaveLength(0);
+  });
+
+  it("keeps a worldwide feed through a pan and asks for it once", async () => {
+    const usgs = OVERLAY_ADAPTERS[1];
+    const usgsFetch = vi
+      .spyOn(usgs, "fetchData")
+      .mockResolvedValue(collection("M 5.8 Somewhere"));
+
+    const { result, rerender } = renderHook(
+      ({ bounds }) =>
+        useOverlays(
+          { alerts: false, earthquakes: true, wildfires: false },
+          bounds,
+        ),
+      { initialProps: { bounds: viewport } },
+    );
+
+    await waitFor(() =>
+      expect(result.current.earthquakes.data.features).toHaveLength(1),
+    );
+
+    rerender({ bounds: { west: 100, south: -40, east: 120, north: -20 } });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.earthquakes.data.features).toHaveLength(1);
+    expect(usgsFetch).toHaveBeenCalledTimes(1);
   });
 });

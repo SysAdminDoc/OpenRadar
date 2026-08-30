@@ -7,7 +7,6 @@ export interface ProviderHealth {
   lastError: string | null;
   consecutiveFailures: number;
   frameCount: number;
-  budgetRemaining: number;
 }
 
 type Listener = () => void;
@@ -25,7 +24,6 @@ function entry(id: ProviderId): ProviderHealth {
     lastError: null,
     consecutiveFailures: 0,
     frameCount: 0,
-    budgetRemaining: 0,
   };
   health.set(id, created);
   return created;
@@ -61,10 +59,6 @@ export function recordFailure(
   record.lastError = message;
   record.consecutiveFailures += 1;
   announce();
-}
-
-export function recordBudget(id: ProviderId, remaining: number) {
-  entry(id).budgetRemaining = remaining;
 }
 
 /** A stable snapshot so React can subscribe without re-rendering on every read. */
