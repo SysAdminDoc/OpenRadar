@@ -19,6 +19,8 @@ export interface WatchSettings {
 export interface WatchAlert {
   id: string;
   headline: string;
+  /** The damage threat the office attached, or empty for most warnings. */
+  impact: string;
   severity: AlertSeverity;
   expires: number | null;
   distanceMiles: number;
@@ -55,16 +57,27 @@ function nearestCorner(bounds: OverlayBounds, point: GeoPoint): number {
  * The same alert has to answer to the same id on every poll. The list is sorted
  * by severity, so a position in it is not an identity.
  */
+/**
+ * What makes one announcement different from another.
+ *
+ * The damage threat is part of it. An office can upgrade a warning already in
+ * force, from nothing to considerable or from considerable to destructive, and
+ * that is worth interrupting somebody for a second time: it is the office
+ * saying the thing got worse. Leaving the tag out of the identity would keep
+ * the upgrade quiet, and putting the whole alert in would announce it again on
+ * every unrelated correction.
+ */
 function alertId(
   properties: Record<string, unknown>,
   bounds: OverlayBounds,
 ): string {
+  const impact = String(properties.impact ?? "");
   const url = String(properties.url ?? "");
-  if (url) return url;
+  if (url) return impact ? `${url}#${impact}` : url;
   const where = [bounds.west, bounds.south, bounds.east, bounds.north]
     .map((value) => value.toFixed(3))
     .join(",");
-  return `${String(properties.headline ?? "alert")}-${String(properties.issued ?? "")}-${where}`;
+  return `${String(properties.headline ?? "alert")}-${String(properties.issued ?? "")}-${where}-${impact}`;
 }
 
 /**
@@ -101,6 +114,7 @@ export function alertsToAnnounce(
     found.push({
       id,
       headline: String(feature.properties.headline ?? translate("watch.alert")),
+      impact: String(feature.properties.impact ?? ""),
       severity,
       expires: typeof expires === "number" ? expires : null,
       distanceMiles: distance,
@@ -122,5 +136,12 @@ export function watchAlertBody(alert: WatchAlert): string {
           miles: distanceValue(alert.distanceMiles),
           unit: distanceUnit(),
         });
-  return translate("watch.body", { headline: alert.headline, where });
+  const body = translate("watch.body", { headline: alert.headline, where });
+  // The tag goes in the notification too. Somebody woken by this needs to know
+  // straight away that the office called it destructive rather than reading
+  // the same sentence they read for the ordinary one an hour ago.
+  if (!alert.impact) return body;
+  return `${body} ${translate("alerts.impactLine", {
+    tag: translate(`alerts.impact.${alert.impact}` as never),
+  })}`;
 }

@@ -38,6 +38,12 @@ export const es: Catalogue = {
   "alerts.issued": "Emitido {issued} · vence {expires}",
   "alerts.unknownTime": "sin fecha",
   "alerts.openProduct": "Abrir el producto oficial",
+  "alerts.impact.considerable": "daños considerables",
+  "alerts.impact.destructive": "destructivo",
+  "alerts.impact.catastrophic": "catastrófico",
+  "alerts.impactLine": "La oficina la marcó como {tag}.",
+  "alerts.impactBadge": "{tag}",
+  "alerts.hailTo": "Granizo de hasta {size} pulgadas.",
   "alerts.noneTitle": "No hay alertas activas a la vista",
   "alerts.noneBody":
     "Mueve el mapa o aléjalo para ver una zona más amplia. Las alertas se actualizan cada minuto.",

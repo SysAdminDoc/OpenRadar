@@ -21,6 +21,7 @@ export const CACHED_HOSTS = [
   "opengeo.ncep.noaa.gov",
   "nowcoast.noaa.gov",
   "mapservices.weather.noaa.gov",
+  "api.weather.gov",
   "api.tidesandcurrents.noaa.gov",
   "api.open-meteo.com",
   "tilecache.rainviewer.com",

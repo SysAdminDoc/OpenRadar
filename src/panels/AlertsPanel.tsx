@@ -81,6 +81,9 @@ export function AlertsPanel({
               feature.properties.severity ?? "minor",
             ) as AlertSeverity;
             const url = String(feature.properties.url ?? "");
+            // The damage threat the office attached, when they attached one.
+            // Most warnings carry none, and those read exactly as before.
+            const impact = String(feature.properties.impact ?? "");
             return (
               <div
                 className="alert-row"
@@ -89,7 +92,16 @@ export function AlertsPanel({
                 <button type="button" onClick={() => onSelect(bounds)}>
                   <i style={{ background: SEVERITY_COLOR[severity] }} />
                   <span>
-                    <strong>{String(feature.properties.headline)}</strong>
+                    <strong>
+                      {String(feature.properties.headline)}
+                      {impact ? (
+                        <em className="alert-tag" data-impact={impact}>
+                          {t("alerts.impactBadge", {
+                            tag: t(`alerts.impact.${impact}` as never),
+                          })}
+                        </em>
+                      ) : null}
+                    </strong>
                     <small>
                       {t("alerts.issued", {
                         issued: timeLabel(feature.properties.issued),

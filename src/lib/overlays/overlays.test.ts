@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { alertSeverity, alertsOverlay, parseAlerts } from "./alerts";
+import {
+  alertSeverity,
+  alertsOverlay,
+  parseAlertTags,
+  parseAlerts,
+} from "./alerts";
 import { earthquakesOverlay, parseEarthquakes } from "./earthquakes";
 import { parseWildfires, wildfiresOverlay } from "./wildfires";
 import {
@@ -258,5 +263,154 @@ describe("bounds helpers", () => {
     expect(relativeTime(now - 20 * 60_000, now)).toBe("20 min ago");
     expect(relativeTime(now - 5 * 3_600_000, now)).toBe("5 h ago");
     expect(relativeTime(now - 4 * 86_400_000, now)).toBe("4 days ago");
+  });
+});
+
+describe("the damage threat an office attaches to a warning", () => {
+  // The shape the alert feed actually publishes: every parameter is a list,
+  // because one alert can carry several of the same kind. Taken from a live
+  // response on 2026-08-30, which had one tagged warning in three hundred.
+  const feed = {
+    type: "FeatureCollection",
+    features: [
+      {
+        properties: {
+          id: "urn:oid:2.49.0.1.840.0.aaa.001.1",
+          event: "Severe Thunderstorm Warning",
+          parameters: {
+            AWIPSidentifier: ["SVRFWD"],
+            thunderstormDamageThreat: ["CONSIDERABLE"],
+            maxHailSize: ["2.00"],
+            eventMotionDescription: [
+              "2026-08-30T19:53:00-00:00...storm...260DEG",
+            ],
+          },
+        },
+      },
+      {
+        properties: {
+          id: "urn:oid:2.49.0.1.840.0.bbb.001.1",
+          event: "Tornado Warning",
+          parameters: { tornadoDamageThreat: ["DESTRUCTIVE"] },
+        },
+      },
+      {
+        properties: {
+          id: "urn:oid:2.49.0.1.840.0.ccc.001.1",
+          event: "Flood Warning",
+          parameters: { AWIPSidentifier: ["FLWFWD"] },
+        },
+      },
+    ],
+  };
+
+  it("reads both kinds of threat, and nothing where there is none", () => {
+    const tags = parseAlertTags(feed);
+    expect(tags.get("urn:oid:2.49.0.1.840.0.aaa.001.1")?.impact).toBe(
+      "considerable",
+    );
+    expect(tags.get("urn:oid:2.49.0.1.840.0.aaa.001.1")?.hailSize).toBe("2.00");
+    expect(tags.get("urn:oid:2.49.0.1.840.0.bbb.001.1")?.impact).toBe(
+      "destructive",
+    );
+    // Most warnings carry no threat at all and must read exactly as before.
+    expect(tags.get("urn:oid:2.49.0.1.840.0.ccc.001.1")?.impact).toBeNull();
+    expect(parseAlertTags(null).size).toBe(0);
+    expect(parseAlertTags({ features: "not a list" }).size).toBe(0);
+  });
+
+  it("keeps the stronger of two threats on one warning", () => {
+    const both = parseAlertTags({
+      features: [
+        {
+          properties: {
+            id: "x",
+            parameters: {
+              tornadoDamageThreat: ["CONSIDERABLE"],
+              thunderstormDamageThreat: ["DESTRUCTIVE"],
+            },
+          },
+        },
+      ],
+    });
+    expect(both.get("x")?.impact).toBe("destructive");
+  });
+
+  it("joins the tag to the polygon by the identifier both carry", () => {
+    // The polygons come from one service and the tags from another. The
+    // service the polygons come from has no threat field at all: its columns
+    // are the product type, the office and the times.
+    const polygons = {
+      features: [
+        {
+          geometry: { type: "Polygon", coordinates: [[[0, 0]]] },
+          properties: {
+            cap_id: "urn:oid:2.49.0.1.840.0.bbb.001.1",
+            prod_type: "Tornado Warning",
+            sig: "W",
+          },
+        },
+        {
+          geometry: { type: "Polygon", coordinates: [[[0, 0]]] },
+          properties: {
+            cap_id: "urn:oid:2.49.0.1.840.0.ccc.001.1",
+            prod_type: "Flood Warning",
+            sig: "W",
+          },
+        },
+      ],
+    };
+    const drawn = parseAlerts(polygons, parseAlertTags(feed));
+    const tornado = drawn.features.find(
+      (feature) => feature.properties.headline === "Tornado Warning",
+    );
+    const flood = drawn.features.find(
+      (feature) => feature.properties.headline === "Flood Warning",
+    );
+    expect(tornado?.properties.impact).toBe("destructive");
+    expect(tornado?.properties.impactRank).toBe(2);
+    expect(flood?.properties.impact).toBe("");
+    expect(flood?.properties.impactRank).toBe(0);
+  });
+
+  it("draws the alerts even when the tag feed does not answer", () => {
+    // The map is the thing people act on. A warning with no tag is an
+    // ordinary warning; a warning that never appeared is a warning nobody saw.
+    const polygons = {
+      features: [
+        {
+          geometry: { type: "Polygon", coordinates: [[[0, 0]]] },
+          properties: { cap_id: "x", prod_type: "Tornado Warning", sig: "W" },
+        },
+      ],
+    };
+    const drawn = parseAlerts(polygons, parseAlertTags(null));
+    expect(drawn.features).toHaveLength(1);
+    expect(drawn.features[0].properties.impact).toBe("");
+  });
+
+  it("puts a tagged warning over an untagged one of the same kind", () => {
+    const polygons = {
+      features: [
+        {
+          geometry: { type: "Polygon", coordinates: [[[0, 0]]] },
+          properties: {
+            cap_id: "ccc-none",
+            prod_type: "Tornado Warning",
+            sig: "W",
+          },
+        },
+        {
+          geometry: { type: "Polygon", coordinates: [[[0, 0]]] },
+          properties: {
+            cap_id: "urn:oid:2.49.0.1.840.0.bbb.001.1",
+            prod_type: "Tornado Warning",
+            sig: "W",
+          },
+        },
+      ],
+    };
+    const drawn = parseAlerts(polygons, parseAlertTags(feed));
+    expect(drawn.features[0].properties.impact).toBe("destructive");
   });
 });
