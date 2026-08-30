@@ -1,12 +1,14 @@
 // The network boundary every Rust-side fetch goes through.
 mod http;
 
+mod cache;
 mod exports;
 mod gfs;
 mod level2;
 mod lightning;
 mod mrms;
 mod palette;
+mod tiles;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -68,6 +70,28 @@ pub fn run() {
                 );
             });
         })
+        // Tiles and the small documents the overlays are drawn from, kept on
+        // disk so a launch with no network opens on the last view rather than
+        // an empty map.
+        .register_asynchronous_uri_scheme_protocol("cached", |_app, request, responder| {
+            let uri = request.uri().to_string();
+            tauri::async_runtime::spawn(async move {
+                let served = tiles::serve(&uri).await;
+                responder.respond(
+                    tauri::http::Response::builder()
+                        .status(served.status)
+                        .header("Content-Type", served.content_type)
+                        .header("Access-Control-Allow-Origin", "*")
+                        .header("Cache-Control", "no-store")
+                        // Read by the page so it can say how old the picture
+                        // is rather than passing stale tiles off as live.
+                        .header("X-OpenRadar-Age", served.age.as_secs().to_string())
+                        .header("Access-Control-Expose-Headers", "X-OpenRadar-Age")
+                        .body(served.body)
+                        .expect("a cached response is well formed"),
+                );
+            });
+        })
         .invoke_handler(tauri::generate_handler![
             exports::save_export,
             level2::level2_sweep,
@@ -79,6 +103,16 @@ pub fn run() {
             gfs::gfs_wind
         ])
         .setup(|_app| {
+            // The cache lives beside the logs rather than in the roaming
+            // profile: it is rebuildable, and it can run to a few hundred
+            // megabytes.
+            match _app.path().app_cache_dir() {
+                Ok(dir) => cache::init(&dir),
+                Err(error) => {
+                    log::warn!("OpenRadar has nowhere to keep its cache: {error}");
+                }
+            }
+
             // Development builds are not installed, so the scheme has to be
             // claimed at runtime for a link to reach the app at all.
             #[cfg(all(desktop, debug_assertions))]

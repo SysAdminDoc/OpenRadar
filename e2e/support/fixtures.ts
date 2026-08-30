@@ -172,6 +172,18 @@ export const stormRecord = {
  * needs different data re-routes the host it cares about and reloads.
  */
 export async function routeWorkspace(page: Page) {
+  // A spec that fakes the native side gets the cached scheme with it, because
+  // the app routes its requests through Rust whenever Tauri is there. Nothing
+  // is listening on that host in a browser, so the request is sent back to the
+  // address it names, which is where the rest of these routes are waiting.
+  await page.route("http://cached.localhost/**", async (route) => {
+    const inner = new URL(route.request().url()).searchParams.get("u");
+    if (!inner) {
+      await route.fulfill({ status: 400, body: "no address" });
+      return;
+    }
+    await route.fulfill({ status: 302, headers: { location: inner } });
+  });
   await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
     const url = route.request().url();
     const body = url.includes("/tropical/")

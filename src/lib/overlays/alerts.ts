@@ -5,6 +5,7 @@ import {
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
+import { cachedUrl } from "../tileCache";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1/query";
@@ -141,7 +142,7 @@ export const alertsOverlay: OverlayAdapter = {
       resultRecordCount: "300",
       f: "geojson",
     });
-    const response = await fetch(`${SERVICE}?${query.toString()}`, {
+    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
       signal,
       headers: { Accept: "application/json" },
     });

@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useSyncExternalStore,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { isOnline, isOnlineOnServer, subscribeOnline } from "../lib/online";
 import {
   coverageKey,
   fetchHrrrRun,
@@ -43,6 +50,12 @@ export interface RadarTimelineState {
   /** The credit for whoever served the frames on screen. */
   attribution: { label: string; url: string } | null;
   error: string | null;
+  /**
+   * True while the loop on screen is the last one that arrived rather than a
+   * fresh one. The frames are still worth showing, but the user has to be told
+   * they are not live.
+   */
+  cached: boolean;
   /** The newest observation, which is what staleness is measured against. */
   newestObserved: RadarFrame | undefined;
   setPlaying: (playing: boolean) => void;
@@ -130,6 +143,15 @@ export function useRadarTimeline(options: {
   const [run, setRun] = useState<HrrrRun | null>(null);
   const [source, setSource] = useState<RadarProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefreshFailed, setLastRefreshFailed] = useState(false);
+  // A machine with no network is showing the last view whether or not the most
+  // recent refresh happened to fail: the tiles under it came off the disk.
+  const online = useSyncExternalStore(
+    subscribeOnline,
+    isOnline,
+    isOnlineOnServer,
+  );
+  const cached = lastRefreshFailed || !online;
   // The playhead remembers which loop it was set in. A time picked in one
   // replay says nothing about where to sit in another, or back on live radar,
   // so a selection from a different loop is simply ignored rather than having
@@ -219,6 +241,7 @@ export function useRadarTimeline(options: {
         };
         setSource(timeline.provider);
         setError(null);
+        setLastRefreshFailed(false);
         setObserved(timeline.frames);
         // A refresh only ever decides where the live loop should sit. While a
         // replay is up it must leave the playhead alone: writing to the live
@@ -240,7 +263,17 @@ export function useRadarTimeline(options: {
             ? failure.message
             : "The radar request failed",
         );
-        setError("Radar temporarily unavailable");
+        // Frames already on screen are worth more than an error message in
+        // their place. They came from the cache or from the last refresh that
+        // worked, and either way the map still shows weather; it just has to
+        // say so rather than passing them off as live.
+        if (liveRef.current.observed.length) {
+          setLastRefreshFailed(true);
+          setError(null);
+        } else {
+          setLastRefreshFailed(false);
+          setError("Radar temporarily unavailable");
+        }
       }
     };
 
@@ -353,6 +386,7 @@ export function useRadarTimeline(options: {
       sourceLabel,
       attribution,
       error,
+      cached,
       newestObserved,
       setPlaying,
       selectFrame: (index: number) => {
@@ -364,6 +398,7 @@ export function useRadarTimeline(options: {
     }),
     [
       attribution,
+      cached,
       error,
       frameIndex,
       frames,

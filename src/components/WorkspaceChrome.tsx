@@ -105,6 +105,14 @@ export function WorkspaceChrome({
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
       ? `Radar is stale · ${radarAgeMinutes} min old`
       : null;
+  // Frames that are on screen because the network is gone, not because they
+  // just arrived. Saying which is the difference between a map you can trust
+  // and one that quietly lies about the weather.
+  const cached = timeline.cached
+    ? radarAgeMinutes === null
+      ? "Showing the last view"
+      : `Showing the last view · ${radarAgeMinutes} min old`
+    : null;
   // Canada's radar is a rain rate in millimetres an hour, not reflectivity in
   // dBZ. Showing a dBZ scale over it would be describing the wrong quantity.
   const rainRate = frames[timeline.frameIndex]?.providerId === "geomet";
@@ -249,7 +257,7 @@ export function WorkspaceChrome({
         playing={timeline.playing}
         sourceLabel={timeline.sourceLabel}
         ageMinutes={radarAgeMinutes}
-        error={timeline.error ?? stale}
+        error={timeline.error ?? cached ?? stale}
         onFrameIndex={timeline.selectFrame}
         onPlaying={timeline.setPlaying}
       />

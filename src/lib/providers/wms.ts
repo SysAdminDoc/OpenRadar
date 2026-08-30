@@ -1,5 +1,6 @@
 import { withinLoop, type BoundingBox, type ProviderId } from "./types";
 import type { RadarFrame, RadarProvider } from "./types";
+import { cachedUrl } from "../tileCache";
 
 export interface WmsStep {
   time: number;
@@ -177,7 +178,7 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
     budgetWindowMs: config.budgetWindowMs,
     host: config.host,
     fetchFrames: async (loopMinutes, signal) => {
-      const response = await fetch(capabilitiesUrl, {
+      const response = await fetch(cachedUrl(capabilitiesUrl), {
         signal,
         headers: { Accept: "application/xml" },
         cache: "no-store",
