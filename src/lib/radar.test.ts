@@ -1,48 +1,30 @@
 import { describe, expect, it } from "vitest";
-import {
-  animationIntervalMs,
-  parseRadarFrames,
-  radarTileTemplate,
-} from "./radar";
+import { animationIntervalMs, formatFrameTime, frameAgeMinutes } from "./radar";
+import type { RadarFrame } from "./providers/types";
 
-describe("radar discovery", () => {
-  it("normalizes, deduplicates, and sorts trusted frames", () => {
-    const frames = parseRadarFrames({
-      host: "https://tilecache.rainviewer.com",
-      radar: {
-        past: [
-          { time: 200, path: "/v2/radar/200" },
-          { time: 100, path: "/v2/radar/100" },
-          { time: 200, path: "/v2/radar/200" },
-          { time: "300", path: "/v2/radar/300" },
-        ],
-      },
-    });
+const frame: RadarFrame = {
+  providerId: "ridge",
+  time: 1788068400,
+  tileUrl: "https://example.test/tile",
+  tileSize: 256,
+  maxZoom: 12,
+  attribution: "NOAA",
+};
 
-    expect(frames.map((frame) => frame.time)).toEqual([100, 200]);
-    expect(radarTileTemplate(frames[0])).toBe(
-      "https://tilecache.rainviewer.com/v2/radar/100/512/{z}/{x}/{y}/2/1_1.png",
-    );
-  });
-
-  it("rejects untrusted hosts and malformed paths", () => {
-    expect(
-      parseRadarFrames({
-        host: "https://rainviewer.com.example.net",
-        radar: { past: [{ time: 100, path: "/v2/radar/100" }] },
-      }),
-    ).toEqual([]);
-    expect(
-      parseRadarFrames({
-        host: "https://tilecache.rainviewer.com",
-        radar: { past: [{ time: 100, path: "https://example.net/tile" }] },
-      }),
-    ).toEqual([]);
-  });
-
+describe("radar timing", () => {
   it("maps the observed speed range to bounded frame timing", () => {
     expect(animationIntervalMs(-0.8)).toBe(1800);
     expect(animationIntervalMs(0.5)).toBe(350);
     expect(animationIntervalMs(10)).toBe(350);
+  });
+
+  it("reports whole minutes of age and never a negative one", () => {
+    expect(frameAgeMinutes(frame, frame.time * 1000 + 8 * 60_000)).toBe(8);
+    expect(frameAgeMinutes(frame, frame.time * 1000 - 60_000)).toBe(0);
+  });
+
+  it("falls back to a waiting label with no frame", () => {
+    expect(formatFrameTime(undefined)).toBe("Waiting for radar");
+    expect(formatFrameTime(frame)).toMatch(/\d/);
   });
 });

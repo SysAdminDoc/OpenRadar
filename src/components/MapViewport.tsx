@@ -10,7 +10,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "../lib/maplibreWorker";
 import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
 import { mapStyleDefinition } from "../lib/mapStyles";
-import { radarTileTemplate, type RadarFrame } from "../lib/radar";
+import { guardRadarRequest } from "../lib/providers";
+import type { RadarFrame } from "../lib/radar";
 import {
   sameCamera,
   type CameraState,
@@ -108,6 +109,7 @@ function MapViewportInner(
   const rangeEndRef = useRef<GeoPoint | null>(null);
   const warnedMapErrorRef = useRef(false);
   const suppressCameraEventsRef = useRef(0);
+  const radarSourceKeyRef = useRef<string | null>(null);
 
   const publishCamera = (next: CameraState) => {
     const container = containerRef.current;
@@ -202,18 +204,27 @@ function MapViewportInner(
     const map = mapRef.current;
     const frame = radarFrameRef.current;
     if (!map || !map.isStyleLoaded() || !frame) return;
-    const template = radarTileTemplate(frame);
+
+    // A different provider changes tile size, native zoom, and credit, none of
+    // which a raster source can be reconfigured with in place.
+    const key = `${frame.providerId}:${frame.tileSize}:${frame.maxZoom}`;
+    if (map.getSource(RADAR_SOURCE_ID) && radarSourceKeyRef.current !== key) {
+      if (map.getLayer(RADAR_LAYER_ID)) map.removeLayer(RADAR_LAYER_ID);
+      map.removeSource(RADAR_SOURCE_ID);
+    }
+    radarSourceKeyRef.current = key;
+
     const source = map.getSource(RADAR_SOURCE_ID) as
       maplibregl.RasterTileSource | undefined;
     if (source) {
-      source.setTiles?.([template]);
+      source.setTiles?.([frame.tileUrl]);
     } else {
       map.addSource(RADAR_SOURCE_ID, {
         type: "raster",
-        tiles: [template],
-        tileSize: 512,
-        maxzoom: 7,
-        attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>',
+        tiles: [frame.tileUrl],
+        tileSize: frame.tileSize,
+        maxzoom: frame.maxZoom,
+        attribution: frame.attribution,
       });
       map.addLayer({
         id: RADAR_LAYER_ID,
@@ -337,6 +348,7 @@ function MapViewportInner(
       maxZoom: 15,
       attributionControl: false,
       canvasContextAttributes: { preserveDrawingBuffer: true },
+      transformRequest: (url) => ({ url: guardRadarRequest(url) }),
     });
     mapRef.current = map;
     map.setMissingStyleImageResolver((id) => {

@@ -10,7 +10,7 @@
 
 ## Next releases
 
-- [ ] Add NOAA MRMS and RIDGE radar with provider health and failover. (Research 2026-08-30: RIDGE II GeoServer WMS should be primary and RainViewer demoted; the P0 provider item below carries the endpoints.)
+- [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
 - [ ] Add live NHC storms, forecast cones, watches, and storm following. (Research 2026-08-30: keyless feeds and StormScope port path in the P1 tropical item below.)
 - [ ] Add model guidance, satellite, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
 - [ ] Add HURDAT2 history with archived radar playback.
@@ -40,13 +40,6 @@
   Touches: src-tauri/tauri.conf.json (set `devUrl` to `http://127.0.0.1:1420`) or vite.config.ts.
   Acceptance: `npm run tauri dev` opens the map without editing hosts; documented in CLAUDE.md gotchas.
   Complexity: S
-
-- [ ] P0: Replace RainViewer as primary with NWS RIDGE II WMS and add provider health, budget, and failover
-  Why: RainViewer's free tier became personal-use-only, zoom 7, 100 req/IP/min, Universal Blue only on 2026-01-01; shipping it as a distributed app's default layer violates those terms and caps quality. RIDGE II is keyless, ~2-minute, no access constraints.
-  Evidence: rainviewer.com/api/transition-faq.html; live weather-maps.json 2026-08-30 (13 past frames, empty nowcast); `https://opengeo.ncep.noaa.gov/geoserver/conus/ows` GetCapabilities (layers `conus_bref_qcd`, `conus_cref_qcd`, TIME ~2 h at 2-min steps); nowCOAST GeoServer `observations/weather_radar` (TIME ~8.5 h); StormScope `js/radar-providers.js` descriptors, `createRollingRequestBudget` line 351, and RIDGE parser lines 153-202.
-  Touches: new src/lib/providers/{types,ridge,nowcoast,rainviewer,budget,health}.ts; src/lib/radar.ts (becomes the RainViewer adapter); src/App.tsx timeline effect; src/components/MapViewport.tsx (raster source per frame time via WMS `TIME=` template, EPSG:3857); src-tauri/tauri.conf.json CSP (`opengeo.ncep.noaa.gov`, `nowcoast.noaa.gov`); MorePanel status list.
-  Acceptance: default loop is RIDGE `conus_bref_qcd` with 2-minute frames; when RIDGE fails a fixture test, nowCOAST takes over and the status chip names the source and age; RainViewer is used only when the viewport is outside CONUS/AK/HI/PR/Guam bounds; no provider exceeds its budget in a 10-minute soak.
-  Complexity: L
 
 - [ ] P0: Wire or remove the eleven settings toggles nothing reads
   Why: `layers.weatherAlerts/powerOutages/earthquakes/wildfires/avalanche/droughts` and `radar.stormCenters/satelliteEnhancement/lightning/flashes/markers/precipitationClassification` are persisted and shown as working switches but no code consumes them; the Layers panel says so in small print.

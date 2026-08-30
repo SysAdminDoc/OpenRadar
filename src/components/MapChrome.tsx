@@ -43,6 +43,7 @@ interface RadarTimelineProps {
   frameIndex: number;
   playing: boolean;
   error: string | null;
+  sourceLabel: string | null;
   onFrameIndex: (index: number) => void;
   onPlaying: (playing: boolean) => void;
 }
@@ -52,6 +53,7 @@ export function RadarTimeline({
   frameIndex,
   playing,
   error,
+  sourceLabel,
   onFrameIndex,
   onPlaying,
 }: RadarTimelineProps) {
@@ -76,7 +78,7 @@ export function RadarTimeline({
         <strong>{error ?? formatFrameTime(frame)}</strong>
         <span>
           {frames.length
-            ? `${frameIndex + 1} of ${frames.length} radar frames`
+            ? `${frameIndex + 1} of ${frames.length} radar frames${sourceLabel ? ` · ${sourceLabel}` : ""}`
             : "Connecting to radar"}
         </span>
       </div>

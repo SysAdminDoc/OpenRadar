@@ -1,5 +1,12 @@
 import { CloudRain, LoaderCircle, Radar, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   CommandBar,
   type SurfaceId,
@@ -15,11 +22,17 @@ import { ToastHost, type ToastMessage } from "./components/ToastHost";
 import type { GeoPoint } from "./lib/geo";
 import {
   animationIntervalMs,
-  fetchRadarFrames,
   formatFrameTime,
   frameAgeMinutes,
   type RadarFrame,
 } from "./lib/radar";
+import {
+  coverageKey,
+  fetchRadarTimeline,
+  providerHealth,
+  subscribeHealth,
+  type RadarProvider,
+} from "./lib/providers";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
@@ -63,6 +76,7 @@ export default function App() {
   const [dualPane, setDualPane] = useState(false);
   const [compareOffset, setCompareOffset] = useState(0);
   const [frames, setFrames] = useState<RadarFrame[]>([]);
+  const [source, setSource] = useState<RadarProvider | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -83,6 +97,15 @@ export default function App() {
   const secondMapRef = useRef<MapViewportHandle>(null);
   const toastIdRef = useRef(0);
   const cameraSaveTimerRef = useRef<number | null>(null);
+
+  const health = useSyncExternalStore(subscribeHealth, providerHealth);
+
+  // Panning inside one provider's footprint must not refetch the timeline, so
+  // the effect keys on the covering chain rather than the raw center.
+  const radarCoverage = useMemo(
+    () => coverageKey(settings.camera.center[0], settings.camera.center[1]),
+    [settings.camera.center],
+  );
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
@@ -163,13 +186,15 @@ export default function App() {
 
     const refresh = async () => {
       try {
-        const next = await fetchRadarFrames(controller.signal);
+        const timeline = await fetchRadarTimeline(
+          settingsRef.current.camera.center,
+          settingsRef.current.radar.loopMinutes,
+          controller.signal,
+        );
         if (!mounted) return;
-        const newest = next.at(-1)?.time ?? 0;
-        const cutoff = newest - settingsRef.current.radar.loopMinutes * 60;
-        const retained = next.filter((frame) => frame.time >= cutoff);
-        setFrames(retained);
-        setFrameIndex(Math.max(0, retained.length - 1));
+        setSource(timeline.provider);
+        setFrames(timeline.frames);
+        setFrameIndex(Math.max(0, timeline.frames.length - 1));
         setRadarError(null);
       } catch (error) {
         if (
@@ -188,7 +213,7 @@ export default function App() {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [hydrated]);
+  }, [hydrated, radarCoverage]);
 
   useEffect(() => {
     if (!playing || !pageVisible || frames.length < 2) return;
@@ -450,7 +475,9 @@ export default function App() {
   );
   const activeFrame = frames[frameIndex];
   const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
-  const radarAge = activeFrame ? frameAgeMinutes(activeFrame) : null;
+  // Staleness is a property of the feed, not of the frame the user scrubbed to.
+  const newestFrame = frames.at(-1);
+  const radarAge = newestFrame ? frameAgeMinutes(newestFrame) : null;
 
   if (!hydrated) {
     return (
@@ -577,6 +604,8 @@ export default function App() {
         <MorePanel
           mapReady={mapStatus === "ready"}
           radarReady={frames.length > 0}
+          activeSource={source?.label ?? null}
+          health={health}
           onClose={() => setActiveSurface(null)}
         />
       ) : null}
@@ -624,6 +653,7 @@ export default function App() {
         frames={frames}
         frameIndex={frameIndex}
         playing={playing}
+        sourceLabel={source?.label ?? null}
         error={
           radarError ??
           (radarAge !== null && radarAge >= 20
@@ -677,9 +707,11 @@ export default function App() {
         >
           © OpenStreetMap
         </a>
-        <a href="https://www.rainviewer.com/" target="_blank" rel="noreferrer">
-          RainViewer
-        </a>
+        {source ? (
+          <a href={source.attributionUrl} target="_blank" rel="noreferrer">
+            {source.label}
+          </a>
+        ) : null}
       </div>
       <div className="map-watermark" aria-hidden="true">
         <CloudRain size={18} />

@@ -13,8 +13,9 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 ## What works
 
 - Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
-- A live two-hour composite radar loop with pause, scrub, speed, and opacity controls
-- Seven map styles, layer controls, saved views, dual pane, draw, range, and point inspection tools
+- A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
+- Automatic failover between radar sources, with per-source status and a request budget
+- Seven map styles, layer controls, saved views, linked dual panes, draw, range, and point inspection tools
 - Place search, map-centered forecasts, local GeoJSON import, shareable camera links, dark and light themes
 - Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
 
@@ -46,7 +47,8 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 ## Data and map credits
 
 - Basemap data comes from OpenStreetMap through OpenFreeMap.
-- The initial radar loop uses RainViewer's public Weather Maps API. OpenRadar shows its attribution in the map.
-- NOAA radar, NWS alerts, forecasts, and tropical products are planned as first-party operational sources.
+- Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
+- RainViewer only appears for viewports the NOAA mosaics do not reach.
+- NWS alerts and tropical products are planned as first-party operational sources.
 
 OpenRadar v0.1.0 is an early working release. It is not an official source for warnings or life-safety decisions.

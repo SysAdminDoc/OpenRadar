@@ -29,7 +29,7 @@ export function RadarProductPanel({
         <CloudRain size={21} />
         <span>
           <strong>Composite reflectivity</strong>
-          <small>Universal Blue, two-hour loop</small>
+          <small>Two-hour loop from the active source</small>
         </span>
         <Check size={17} />
       </button>
