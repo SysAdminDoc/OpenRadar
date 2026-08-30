@@ -22,6 +22,7 @@ import type {
   MapStyleId,
   ProjectionMode,
 } from "../lib/settings";
+import { LANGUAGES, useT, type StringKey } from "../i18n";
 
 interface MapTypePanelProps {
   mapStyle: MapStyleId;
@@ -38,21 +39,22 @@ export function MapTypePanel({
   onProjection,
   onClose,
 }: MapTypePanelProps) {
+  const t = useT();
   return (
     <PanelShell
-      eyebrow="Basemap and camera"
-      title="Map Type"
+      eyebrow={t("mapType.eyebrow")}
+      title={t("mapType.title")}
       onClose={onClose}
       className="surface-panel--left surface-panel--wide"
     >
-      <div className="segmented-control" aria-label="Map projection">
+      <div className="segmented-control" aria-label={t("mapType.projection")}>
         <button
           type="button"
           className={projection === "mercator" ? "is-active" : ""}
           aria-pressed={projection === "mercator"}
           onClick={() => onProjection("mercator")}
         >
-          <Map size={17} /> Flat
+          <Map size={17} /> {t("mapType.flat")}
         </button>
         <button
           type="button"
@@ -60,7 +62,7 @@ export function MapTypePanel({
           aria-pressed={projection === "globe"}
           onClick={() => onProjection("globe")}
         >
-          <Globe2 size={17} /> Globe
+          <Globe2 size={17} /> {t("mapType.globe")}
         </button>
       </div>
       <div className="map-style-grid">
@@ -74,8 +76,8 @@ export function MapTypePanel({
           >
             <i style={{ background: style.swatch }} />
             <span>
-              <strong>{style.label}</strong>
-              <small>{style.detail}</small>
+              <strong>{t(style.key)}</strong>
+              <small>{t(style.detailKey)}</small>
             </span>
             {mapStyle === style.id ? <Check size={16} /> : null}
           </button>
@@ -93,93 +95,94 @@ interface LayersPanelProps {
 
 const LAYER_OPTIONS: Array<{
   key: keyof LayerSettings;
-  label: string;
-  detail: string;
+  labelKey: StringKey;
+  detailKey: StringKey;
   icon: typeof BellRing;
 }> = [
   {
     key: "weatherAlerts",
-    label: "Weather Alerts",
-    detail: "Official watches and warnings",
+    labelKey: "layer.weatherAlerts",
+    detailKey: "layers.alertsDetail",
     icon: BellRing,
   },
   {
     key: "earthquakes",
-    label: "Earthquakes",
-    detail: "USGS events above magnitude 2.5 in the past day",
+    labelKey: "layer.earthquakes",
+    detailKey: "layers.earthquakesDetail",
     icon: Waves,
   },
   {
     key: "wildfires",
-    label: "Wildfires",
-    detail: "NIFC perimeters over 100 acres",
+    labelKey: "layer.wildfires",
+    detailKey: "layers.wildfiresDetail",
     icon: Flame,
   },
   {
     key: "tropical",
-    label: "Tropical",
-    detail: "NHC cones, tracks, and development outlooks",
+    labelKey: "layer.tropical",
+    detailKey: "layers.tropicalDetail",
     icon: Tornado,
   },
   {
     key: "satellite",
-    label: "Satellite",
-    detail: "GOES-East GeoColor under the radar",
+    labelKey: "layer.satellite",
+    detailKey: "layers.satelliteDetail",
     icon: Satellite,
   },
   {
     key: "rotationTracks",
-    label: "Rotation Tracks",
-    detail: "MRMS azimuthal shear over the past hour",
+    labelKey: "layer.rotationTracks",
+    detailKey: "layers.rotationDetail",
     icon: Tornado,
   },
   {
     key: "hail",
-    label: "Hail Size",
-    detail: "MRMS maximum estimated hail size",
+    labelKey: "layer.hail",
+    detailKey: "layers.hailDetail",
     icon: CloudHail,
   },
   {
     key: "lightningDensity",
-    label: "Lightning Density",
-    detail: "MRMS cloud-to-ground flashes over the past five minutes",
+    labelKey: "layer.lightningDensity",
+    detailKey: "layers.lightningDensityDetail",
     icon: Zap,
   },
   {
     key: "lightningFlashes",
-    label: "Lightning Flashes",
-    detail: "GOES-East total lightning, cloud flashes included",
+    labelKey: "layer.lightningFlashes",
+    detailKey: "layers.lightningFlashesDetail",
     icon: Zap,
   },
   {
     key: "wind",
-    label: "Wind",
-    detail: "Animated GFS wind at ten metres",
+    labelKey: "layers.wind",
+    detailKey: "layers.windDetail",
     icon: Wind,
   },
   {
     key: "customOverlay",
-    label: "Custom Overlay",
-    detail: "Local GeoJSON workspace",
+    labelKey: "layer.customOverlay",
+    detailKey: "layers.customDetail",
     icon: RadioTower,
   },
 ];
 
 export function LayersPanel({ layers, onLayers, onClose }: LayersPanelProps) {
+  const t = useT();
   return (
     <PanelShell
-      eyebrow="Visible information"
-      title="Layers"
+      eyebrow={t("layers.eyebrow")}
+      title={t("layers.title")}
       onClose={onClose}
       className="surface-panel--left"
     >
       <div className="setting-list">
-        {LAYER_OPTIONS.map(({ key, label, detail, icon: Icon }) => (
+        {LAYER_OPTIONS.map(({ key, labelKey, detailKey, icon: Icon }) => (
           <label className="toggle-row" key={key}>
             <Icon size={19} />
             <span>
-              <strong>{label}</strong>
-              <small>{detail}</small>
+              <strong>{t(labelKey)}</strong>
+              <small>{t(detailKey)}</small>
             </span>
             <input
               type="checkbox"
@@ -192,11 +195,7 @@ export function LayersPanel({ layers, onLayers, onClose }: LayersPanelProps) {
           </label>
         ))}
       </div>
-      <p className="source-note">
-        Layer switches save immediately and take effect on the map right away.
-        Alerts come from the NWS, earthquakes from the USGS, and fire perimeters
-        from NIFC.
-      </p>
+      <p className="source-note">{t("layers.note")}</p>
     </PanelShell>
   );
 }
@@ -245,24 +244,25 @@ export function SettingsPanel({
   onReset,
   onClose,
 }: SettingsPanelProps) {
+  const t = useT();
   const updateRadar = (patch: Partial<AppSettings["radar"]>) =>
     onSettings({ ...settings, radar: { ...settings.radar, ...patch } });
 
   return (
     <PanelShell
-      eyebrow="OpenRadar preferences"
-      title="Settings"
+      eyebrow={t("settings.eyebrow")}
+      title={t("settings.title")}
       onClose={onClose}
       className="surface-panel--right surface-panel--settings"
     >
       <div className="settings-section">
         <div className="settings-section__title">
-          <span>Appearance</span>
-          <small>Applies immediately</small>
+          <span>{t("settings.appearance")}</span>
+          <small>{t("settings.appliesNow")}</small>
         </div>
         <div
           className="segmented-control segmented-control--full"
-          aria-label="Theme"
+          aria-label={t("settings.theme")}
         >
           <button
             type="button"
@@ -270,7 +270,7 @@ export function SettingsPanel({
             aria-pressed={settings.theme === "dark"}
             onClick={() => onSettings({ ...settings, theme: "dark" })}
           >
-            Dark
+            {t("settings.dark")}
           </button>
           <button
             type="button"
@@ -278,19 +278,42 @@ export function SettingsPanel({
             aria-pressed={settings.theme === "light"}
             onClick={() => onSettings({ ...settings, theme: "light" })}
           >
-            Light
+            {t("settings.light")}
           </button>
         </div>
       </div>
 
       <div className="settings-section">
         <div className="settings-section__title">
-          <span>Composite Radar</span>
-          <small>Base reflectivity</small>
+          <span>{t("settings.language")}</span>
+          <small>{t("settings.languageNote")}</small>
+        </div>
+        <div
+          className="segmented-control segmented-control--full"
+          aria-label={t("settings.language")}
+        >
+          {LANGUAGES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={settings.language === option.id ? "is-active" : ""}
+              aria-pressed={settings.language === option.id}
+              onClick={() => onSettings({ ...settings, language: option.id })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.radar")}</span>
+          <small>{t("settings.baseReflectivity")}</small>
         </div>
         <label className="range-row">
           <span>
-            <strong>Opacity</strong>
+            <strong>{t("settings.opacity")}</strong>
             <output>{Math.round(settings.radar.opacity * 100)}%</output>
           </span>
           <input
@@ -298,7 +321,7 @@ export function SettingsPanel({
             min="0.05"
             max="1"
             step="0.05"
-            aria-label="Radar opacity"
+            aria-label={t("settings.opacityLabel")}
             value={settings.radar.opacity}
             onChange={(event) =>
               updateRadar({ opacity: Number(event.target.value) })
@@ -307,7 +330,7 @@ export function SettingsPanel({
         </label>
         <label className="range-row">
           <span>
-            <strong>Animation speed</strong>
+            <strong>{t("settings.animationSpeed")}</strong>
             <output>{settings.radar.animationSpeed.toFixed(1)}</output>
           </span>
           <input
@@ -315,7 +338,7 @@ export function SettingsPanel({
             min="-0.8"
             max="0.5"
             step="0.1"
-            aria-label="Radar animation speed"
+            aria-label={t("settings.animationSpeedLabel")}
             value={settings.radar.animationSpeed}
             onChange={(event) =>
               updateRadar({ animationSpeed: Number(event.target.value) })
@@ -324,15 +347,17 @@ export function SettingsPanel({
         </label>
         <label className="range-row">
           <span>
-            <strong>Loop length</strong>
-            <output>{settings.radar.loopMinutes} min</output>
+            <strong>{t("settings.loopLength")}</strong>
+            <output>
+              {t("settings.minutes", { count: settings.radar.loopMinutes })}
+            </output>
           </span>
           <input
             type="range"
             min="60"
             max="120"
             step="10"
-            aria-label="Loop length in minutes"
+            aria-label={t("settings.loopLengthLabel")}
             value={settings.radar.loopMinutes}
             onChange={(event) =>
               updateRadar({ loopMinutes: Number(event.target.value) })
@@ -340,14 +365,14 @@ export function SettingsPanel({
           />
         </label>
         <ToggleSetting
-          label="Future radar"
-          detail="Extend the loop with HRRR forecast reflectivity over the lower forty-eight"
+          label={t("settings.futureRadar")}
+          detail={t("settings.futureRadarDetail")}
           checked={settings.radar.futureRadar}
           onChange={(futureRadar) => updateRadar({ futureRadar })}
         />
         <ToggleSetting
-          label="Show radar"
-          detail="Keep the basemap visible when radar is hidden"
+          label={t("settings.showRadar")}
+          detail={t("settings.showRadarDetail")}
           checked={settings.radar.enabled}
           onChange={(enabled) => updateRadar({ enabled })}
         />
@@ -355,12 +380,12 @@ export function SettingsPanel({
 
       <div className="settings-section">
         <div className="settings-section__title">
-          <span>Watched area</span>
-          <small>Warnings near one place</small>
+          <span>{t("settings.watchedArea")}</span>
+          <small>{t("settings.watchedAreaNote")}</small>
         </div>
         <ToggleSetting
-          label="Tell me about warnings"
-          detail="Watch one point even when the map is looking elsewhere"
+          label={t("settings.tellMe")}
+          detail={t("settings.tellMeDetail")}
           checked={settings.watch.enabled}
           onChange={(enabled) =>
             onSettings({ ...settings, watch: { ...settings.watch, enabled } })
@@ -368,15 +393,17 @@ export function SettingsPanel({
         />
         <label className="range-row">
           <span>
-            <strong>Radius</strong>
-            <output>{settings.watch.radiusMiles} mi</output>
+            <strong>{t("settings.radius")}</strong>
+            <output>
+              {t("settings.radiusValue", { count: settings.watch.radiusMiles })}
+            </output>
           </span>
           <input
             type="range"
             min="5"
             max="200"
             step="5"
-            aria-label="Watched radius in miles"
+            aria-label={t("settings.radiusLabel")}
             value={settings.watch.radiusMiles}
             onChange={(event) =>
               onSettings({
@@ -394,34 +421,40 @@ export function SettingsPanel({
           className="secondary-button"
           onClick={onWatchHere}
         >
-          <Crosshair size={16} /> Watch the map centre
+          <Crosshair size={16} /> {t("settings.watchCentre")}
         </button>
         <p className="source-note">
-          Watching {settings.watch.center[1].toFixed(2)},{" "}
-          {settings.watch.center[0].toFixed(2)} for warnings and worse.
+          {t("settings.watching", {
+            lat: settings.watch.center[1].toFixed(2),
+            lon: settings.watch.center[0].toFixed(2),
+          })}
         </p>
       </div>
 
       <div className="settings-section settings-section--camera">
         <div className="settings-section__title">
-          <span>Camera state</span>
-          <small>{settings.projection === "globe" ? "Globe" : "Flat"}</small>
+          <span>{t("settings.camera")}</span>
+          <small>
+            {settings.projection === "globe"
+              ? t("mapType.globe")
+              : t("mapType.flat")}
+          </small>
         </div>
         <dl className="camera-grid">
           <div>
-            <dt>Zoom</dt>
+            <dt>{t("settings.zoom")}</dt>
             <dd>{settings.camera.zoom.toFixed(2)}</dd>
           </div>
           <div>
-            <dt>Bearing</dt>
+            <dt>{t("settings.bearing")}</dt>
             <dd>{settings.camera.bearing.toFixed(1)}°</dd>
           </div>
           <div>
-            <dt>Pitch</dt>
+            <dt>{t("settings.pitch")}</dt>
             <dd>{settings.camera.pitch.toFixed(1)}°</dd>
           </div>
           <div>
-            <dt>Center</dt>
+            <dt>{t("settings.center")}</dt>
             <dd>
               {settings.camera.center[1].toFixed(2)},{" "}
               {settings.camera.center[0].toFixed(2)}
@@ -431,7 +464,7 @@ export function SettingsPanel({
       </div>
 
       <button type="button" className="secondary-button" onClick={onReset}>
-        <RotateCcw size={16} /> Reset settings
+        <RotateCcw size={16} /> {t("settings.reset")}
       </button>
     </PanelShell>
   );

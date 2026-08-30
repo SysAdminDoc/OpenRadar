@@ -1,4 +1,5 @@
 import { APP_VERSION, isDesktopRuntime } from "./settings";
+import { translate } from "../i18n";
 
 export interface UpdateOffer {
   version: string;
@@ -51,7 +52,7 @@ export async function installUpdate(
     import("@tauri-apps/plugin-process"),
   ]);
   const found = await check();
-  if (!found) throw new Error("The update is no longer being offered.");
+  if (!found) throw new Error(translate("update.notOffered"));
 
   let total = 0;
   let taken = 0;

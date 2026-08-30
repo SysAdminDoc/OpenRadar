@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { translate } from "../i18n";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -27,11 +28,11 @@ export class ErrorBoundary extends Component<
     return (
       <main className="fatal-error" role="alert">
         <div className="fatal-error__mark">!</div>
-        <p className="eyebrow">OpenRadar recovered the window</p>
-        <h1>The interface could not finish drawing.</h1>
+        <p className="eyebrow">{translate("fatal.eyebrow")}</p>
+        <h1>{translate("fatal.title")}</h1>
         <p>{this.state.error.message}</p>
         <button type="button" onClick={() => window.location.reload()}>
-          Reload OpenRadar
+          {translate("fatal.reload")}
         </button>
       </main>
     );

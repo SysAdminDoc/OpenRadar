@@ -6,6 +6,7 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
+import { translate } from "../../i18n";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1/query";
@@ -194,11 +195,15 @@ export const alertsOverlay: OverlayAdapter = {
     },
   ],
   describe: (properties) => ({
-    title: String(properties.headline ?? "Weather alert"),
+    title: String(properties.headline ?? translate("popup.alert")),
     lines: [
-      `Issued ${timeLabel(properties.issued)}`,
-      `Expires ${timeLabel(properties.expires)}`,
-      `Source: NWS ${String(properties.office ?? "").trim() || "watches and warnings"}`,
+      translate("popup.issued", { when: timeLabel(properties.issued) }),
+      translate("popup.expires", { when: timeLabel(properties.expires) }),
+      translate("popup.alertSource", {
+        office:
+          String(properties.office ?? "").trim() ||
+          translate("popup.alertOffice"),
+      }),
     ],
     url: typeof properties.url === "string" ? properties.url : undefined,
   }),

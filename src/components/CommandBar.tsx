@@ -24,6 +24,7 @@ import {
   Command,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { useT } from "../i18n";
 
 export type SurfaceId =
   | "search"
@@ -104,43 +105,48 @@ export function CommandBar({
   onPreset,
   onShare,
 }: CommandBarProps) {
+  const t = useT();
   const toggleSurface = (surface: Exclude<SurfaceId, null>) =>
     onSurface(activeSurface === surface ? null : surface);
   const toggleTool = (tool: Exclude<ToolMode, null>) =>
     onTool(activeTool === tool ? null : tool);
 
   return (
-    <nav className="command-bar" aria-label="Map commands">
+    <nav className="command-bar" aria-label={t("bar.label")}>
       <div className="command-group command-group--primary">
-        <CommandButton icon={LocateFixed} label="Location" onClick={onLocate} />
+        <CommandButton
+          icon={LocateFixed}
+          label={t("bar.location")}
+          onClick={onLocate}
+        />
         <CommandButton
           icon={Command}
-          label="Commands"
+          label={t("bar.commands")}
           active={activeSurface === "commands"}
-          detail="Every layer, product, and panel in one list"
+          detail={t("bar.commandsDetail")}
           onClick={() => toggleSurface("commands")}
         />
         <CommandButton
           icon={Search}
-          label="Search"
+          label={t("panel.search")}
           active={activeSurface === "search"}
           onClick={() => toggleSurface("search")}
         />
         <CommandButton
           icon={Map}
-          label="Map Type"
+          label={t("panel.mapType")}
           active={activeSurface === "map-type"}
           onClick={() => toggleSurface("map-type")}
         />
         <CommandButton
           icon={Layers3}
-          label="Layers"
+          label={t("panel.layers")}
           active={activeSurface === "layers"}
           onClick={() => toggleSurface("layers")}
         />
         <CommandButton
           icon={PanelLeftClose}
-          label="Dual Pane"
+          label={t("bar.dualPane")}
           active={dualPane}
           onClick={onDualPane}
         />
@@ -151,9 +157,11 @@ export function CommandBar({
       <div className="command-group command-group--scenes">
         <CommandButton
           icon={projection === "globe" ? Globe2 : Radar}
-          label={projection === "globe" ? "Flat" : "Globe"}
+          label={
+            projection === "globe" ? t("mapType.flat") : t("mapType.globe")
+          }
           onClick={onProjection}
-          detail={`Switch to ${projection === "globe" ? "flat" : "globe"} map`}
+          detail={projection === "globe" ? t("bar.toFlat") : t("bar.toGlobe")}
         />
         {presets.map((saved, index) => (
           <button
@@ -161,10 +169,14 @@ export function CommandBar({
             type="button"
             key={index}
             aria-label={
-              saved ? `Open preset ${index + 1}` : `Save preset ${index + 1}`
+              saved
+                ? t("bar.openPreset", { number: index + 1 })
+                : t("bar.savePreset", { number: index + 1 })
             }
             title={
-              saved ? `Open preset ${index + 1}` : `Save preset ${index + 1}`
+              saved
+                ? t("bar.openPreset", { number: index + 1 })
+                : t("bar.savePreset", { number: index + 1 })
             }
             onClick={() => onPreset(index)}
           >
@@ -179,19 +191,19 @@ export function CommandBar({
       <div className="command-group command-group--tools">
         <CommandButton
           icon={Pencil}
-          label="Draw"
+          label={t("tool.draw")}
           active={activeTool === "draw"}
           onClick={() => toggleTool("draw")}
         />
         <CommandButton
           icon={Crosshair}
-          label="Range"
+          label={t("tool.range")}
           active={activeTool === "range"}
           onClick={() => toggleTool("range")}
         />
         <CommandButton
           icon={MousePointer2}
-          label="Inspector"
+          label={t("tool.inspect")}
           active={activeTool === "inspect"}
           onClick={() => toggleTool("inspect")}
         />
@@ -202,73 +214,77 @@ export function CommandBar({
       <div className="command-group command-group--secondary">
         <CommandButton
           icon={BellRing}
-          label="Alerts"
+          label={t("panel.alerts")}
           active={activeSurface === "alerts"}
           onClick={() => toggleSurface("alerts")}
         />
         <CommandButton
           icon={Tornado}
-          label="Tropical"
+          label={t("layer.tropical")}
           active={activeSurface === "tropical"}
           onClick={() => toggleSurface("tropical")}
         />
         <CommandButton
           icon={History}
-          label="History"
+          label={t("bar.history")}
           active={activeSurface === "history"}
           onClick={() => toggleSurface("history")}
         />
         <CommandButton
           icon={Route}
-          label="Route"
+          label={t("panel.route")}
           active={activeSurface === "route"}
           onClick={() => toggleSurface("route")}
         />
         <CommandButton
           icon={Film}
-          label="Export"
+          label={t("panel.export")}
           active={activeSurface === "export"}
           onClick={() => toggleSurface("export")}
         />
-        <CommandButton icon={Share2} label="Share" onClick={onShare} />
+        <CommandButton icon={Share2} label={t("bar.share")} onClick={onShare} />
         <CommandButton
           icon={Download}
-          label="Upload"
+          label={t("panel.upload")}
           active={activeSurface === "upload"}
           onClick={() => toggleSurface("upload")}
         />
         <CommandButton
           icon={CloudSun}
-          label="Forecast"
+          label={t("panel.forecast")}
           active={activeSurface === "forecast"}
           onClick={() => toggleSurface("forecast")}
         />
         <CommandButton
           icon={Settings}
-          label="Settings"
+          label={t("panel.settings")}
           active={activeSurface === "settings"}
           onClick={() => toggleSurface("settings")}
         />
         <CommandButton
           icon={Ellipsis}
-          label="Diagnostics"
+          label={t("panel.more")}
           active={activeSurface === "more"}
           onClick={() => toggleSurface("more")}
         />
       </div>
 
-      <div className="compact-command-group" aria-label="Compact commands">
-        <CommandButton icon={MapPin} label="Locate" onClick={onLocate} />
+      <div className="compact-command-group" aria-label={t("bar.compact")}>
+        <CommandButton
+          icon={MapPin}
+          label={t("bar.locate")}
+          onClick={onLocate}
+        />
         <CommandButton
           icon={Layers3}
-          label="Layers"
+          label={t("panel.layers")}
           active={activeSurface === "layers"}
           onClick={() => toggleSurface("layers")}
         />
-        <CommandButton icon={Send} label="Share" onClick={onShare} />
+        <CommandButton icon={Send} label={t("bar.share")} onClick={onShare} />
         <CommandButton
           icon={Settings}
-          label="Settings"
+          label={t("panel.settings")}
           active={activeSurface === "settings"}
           onClick={() => toggleSurface("settings")}
         />

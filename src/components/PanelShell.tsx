@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useT } from "../i18n";
 
 interface PanelShellProps {
   eyebrow: string;
@@ -16,6 +17,7 @@ export function PanelShell({
   onClose,
   className = "",
 }: PanelShellProps) {
+  const t = useT();
   return (
     <section className={`surface-panel ${className}`} aria-label={title}>
       <header className="surface-panel__header">
@@ -26,7 +28,7 @@ export function PanelShell({
         <button
           className="icon-button"
           type="button"
-          aria-label={`Close ${title}`}
+          aria-label={t("panel.close", { title })}
           onClick={onClose}
         >
           <X size={18} />

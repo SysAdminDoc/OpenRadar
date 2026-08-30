@@ -12,6 +12,7 @@ import type { RadarProvider } from "../lib/providers";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import { saveFile } from "../lib/saveFile";
 import type { RadarTimelineState } from "./useRadarTimeline";
+import { translate } from "../i18n";
 
 export interface ExportState {
   /** Which export is running, or null when none is. */
@@ -45,8 +46,10 @@ export function useExport(options: {
             ? `${formatFrameTime(frame)} forecast`
             : formatFrameTime(frame),
           frame?.forecast
-            ? `HRRR, ${frame.forecast.leadMinutes} min out`
-            : (source?.label ?? "Radar"),
+            ? translate("export.hrrr", {
+                minutes: frame.forecast.leadMinutes,
+              })
+            : (source?.label ?? translate("export.radar")),
         ].filter(Boolean),
         attribution: "OpenRadar · OpenStreetMap · NOAA",
       };
@@ -58,9 +61,9 @@ export function useExport(options: {
     async (name: string, blob: Blob) => {
       const saved = await saveFile(name, blob);
       pushToast({
-        title: `${name} saved`,
-        detail: saved.path ?? "Check your downloads folder.",
-        actionLabel: saved.path ? "Show" : undefined,
+        title: translate("export.saved", { name }),
+        detail: saved.path ?? translate("export.downloads"),
+        actionLabel: saved.path ? translate("export.show") : undefined,
         onAction: saved.path
           ? () =>
               void import("@tauri-apps/plugin-opener").then((opener) =>
@@ -83,9 +86,11 @@ export function useExport(options: {
       } catch (failure) {
         log.warn(
           "export",
-          failure instanceof Error ? failure.message : "The export failed",
+          failure instanceof Error
+            ? failure.message
+            : translate("export.failed"),
         );
-        pushToast({ title: "The image could not be exported" });
+        pushToast({ title: translate("export.imageFailed") });
       } finally {
         setBusy(null);
       }
@@ -113,12 +118,16 @@ export function useExport(options: {
       } catch (failure) {
         log.warn(
           "export",
-          failure instanceof Error ? failure.message : "The export failed",
+          failure instanceof Error
+            ? failure.message
+            : translate("export.failed"),
         );
         pushToast({
-          title: "The loop could not be exported",
+          title: translate("export.loopFailed"),
           detail:
-            failure instanceof Error ? failure.message : "Nothing was written.",
+            failure instanceof Error
+              ? failure.message
+              : translate("export.nothingWritten"),
         });
       } finally {
         setBusy(null);

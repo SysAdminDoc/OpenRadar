@@ -15,6 +15,7 @@ import {
   weatherCodeLabel,
   type ForecastData,
 } from "../lib/weather";
+import { locale, useLanguage, useT } from "../i18n";
 
 interface ForecastPanelProps {
   point: GeoPoint;
@@ -22,6 +23,8 @@ interface ForecastPanelProps {
 }
 
 export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
+  const t = useT();
+  const language = useLanguage();
   const [forecast, setForecast] = useState<ForecastData | null>(null);
   const [error, setError] = useState(false);
   const requestedRef = useRef<GeoPoint | null>(null);
@@ -72,22 +75,22 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
 
   return (
     <PanelShell
-      eyebrow="Map center"
-      title="Forecast"
+      eyebrow={t("forecast.eyebrow")}
+      title={t("forecast.title")}
       onClose={onClose}
       className="surface-panel--right"
     >
       {!forecast && !error ? (
         <div className="panel-loading">
           <LoaderCircle className="spin" size={22} />
-          <span>Loading the latest forecast</span>
+          <span>{t("forecast.loading")}</span>
         </div>
       ) : null}
       {error ? (
         <div className="panel-error">
           <CloudRain size={24} />
-          <strong>Forecast is unavailable</strong>
-          <span>The radar and map are still live.</span>
+          <strong>{t("forecast.failedTitle")}</strong>
+          <span>{t("forecast.failedBody")}</span>
         </div>
       ) : null}
       {forecast ? (
@@ -100,23 +103,29 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
               </span>
               <strong>{weatherCodeLabel(forecast.weatherCode)}</strong>
               <small>
-                Feels like {Math.round(forecast.apparentTemperature)}°
+                {t("forecast.feelsLike", {
+                  value: Math.round(forecast.apparentTemperature),
+                })}
               </small>
             </div>
           </div>
           <div className="forecast-facts">
             <span>
-              <Navigation size={15} /> {Math.round(forecast.windSpeed)} mph wind
+              <Navigation size={15} />{" "}
+              {t("forecast.wind", { value: Math.round(forecast.windSpeed) })}
             </span>
             <span>
-              <Droplets size={15} /> {forecast.precipitation.toFixed(2)} in now
+              <Droplets size={15} />{" "}
+              {t("forecast.rainNow", {
+                value: forecast.precipitation.toFixed(2),
+              })}
             </span>
           </div>
           <div className="forecast-days">
             {forecast.days.map((day) => (
               <div className="forecast-day" key={day.date}>
                 <span>
-                  {new Intl.DateTimeFormat(undefined, {
+                  {new Intl.DateTimeFormat(locale(language), {
                     weekday: "short",
                   }).format(new Date(`${day.date}T12:00:00`))}
                 </span>
@@ -127,10 +136,7 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
               </div>
             ))}
           </div>
-          <p className="source-note">
-            Forecast by Open-Meteo. Check official warnings for safety
-            decisions.
-          </p>
+          <p className="source-note">{t("forecast.note")}</p>
         </>
       ) : null}
     </PanelShell>

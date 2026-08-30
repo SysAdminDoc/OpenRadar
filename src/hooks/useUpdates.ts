@@ -7,6 +7,7 @@ import {
   type UpdateOffer,
   type UpdateState,
 } from "../lib/updates";
+import { translate } from "../i18n";
 
 export interface UpdatesState {
   state: UpdateState;
@@ -52,12 +53,15 @@ export function useUpdates(options: {
           setState({ status: "ready" });
         })
         .catch((failure: unknown) => {
-          const message = messageFor(failure, "The update did not install.");
+          const message = messageFor(failure, translate("update.notInstalled"));
           log.error("app", message);
           // A restart that never came leaves the offer standing, so the button
           // says install rather than sticking on a restart that is not coming.
           setState({ status: "error", message });
-          onToast({ title: "The update did not install", detail: message });
+          onToast({
+            title: translate("update.notInstalledTitle"),
+            detail: message,
+          });
         })
         .finally(done);
       return;
@@ -69,17 +73,17 @@ export function useUpdates(options: {
         offerRef.current = offer;
         if (!offer) {
           setState({ status: "current" });
-          onToast({ title: "OpenRadar is up to date" });
+          onToast({ title: translate("update.upToDate") });
           return;
         }
         setState({ status: "available", offer });
         onToast({
-          title: `OpenRadar ${offer.version} is available`,
-          detail: "Install it from Diagnostics.",
+          title: translate("update.available", { version: offer.version }),
+          detail: translate("update.installFrom"),
         });
       })
       .catch((failure: unknown) => {
-        const message = messageFor(failure, "The update check failed.");
+        const message = messageFor(failure, translate("update.checkFailed"));
         log.warn("app", message);
         offerRef.current = null;
         setState({ status: "error", message });

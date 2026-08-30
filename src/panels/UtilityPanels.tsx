@@ -12,6 +12,7 @@ import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
+import { locale, translate, useT } from "../i18n";
 
 interface CloseOnlyProps {
   onClose: () => void;
@@ -30,20 +31,18 @@ export function UploadPanel({
   palette,
   onClearPalette,
 }: UploadPanelProps) {
+  const t = useT();
   return (
     <PanelShell
-      eyebrow="Local data"
-      title="Upload"
+      eyebrow={t("upload.eyebrow")}
+      title={t("upload.title")}
       onClose={onClose}
       className="surface-panel--right"
     >
       <label className="drop-zone">
         <FileUp size={30} />
-        <strong>Add an overlay or a colour table</strong>
-        <span>
-          Choose a local GeoJSON file, a GRLevelX placefile, or a .pal colour
-          table. Nothing is sent to a server.
-        </span>
+        <strong>{t("upload.dropTitle")}</strong>
+        <span>{t("upload.dropBody")}</span>
         <input
           type="file"
           accept=".geojson,.json,.txt,.php,.pal,application/geo+json,application/json,text/plain"
@@ -60,16 +59,20 @@ export function UploadPanel({
           <div>
             <strong>{palette.name}</strong>
             <small>
-              {palette.stops.length} colours
-              {palette.units ? ` · ${palette.units}` : " · reflectivity"}
+              {t("upload.colours", { count: palette.stops.length })}
+              {palette.units
+                ? t("upload.forUnits", { units: palette.units })
+                : t("upload.forReflectivity")}
             </small>
             {palette.skipped.length ? (
-              <small>{palette.skipped.join(", ")} left out</small>
+              <small>
+                {t("upload.skipped", { names: palette.skipped.join(", ") })}
+              </small>
             ) : null}
           </div>
           <div className="storm-row__actions">
             <button type="button" onClick={onClearPalette}>
-              <X size={14} /> Use the built-in colours
+              <X size={14} /> {t("upload.clearPalette")}
             </button>
           </div>
         </div>
@@ -92,7 +95,7 @@ interface MorePanelProps extends CloseOnlyProps {
 }
 
 function clockLabel(at: number): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale(), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -100,10 +103,10 @@ function clockLabel(at: number): string {
 }
 
 function ageLabel(at: number | null): string {
-  if (at === null) return "not contacted yet";
+  if (at === null) return translate("diagnostics.neverContacted");
   const minutes = Math.max(0, Math.floor((Date.now() - at) / 60_000));
-  if (minutes < 1) return "less than a minute ago";
-  return `${minutes} min ago`;
+  if (minutes < 1) return translate("diagnostics.underAMinute");
+  return translate("diagnostics.minutesAgo", { count: minutes });
 }
 
 export function MorePanel({
@@ -117,10 +120,11 @@ export function MorePanel({
   log,
   onOpenLogFolder,
 }: MorePanelProps) {
+  const t = useT();
   return (
     <PanelShell
-      eyebrow={`OpenRadar v${APP_VERSION}`}
-      title="Diagnostics"
+      eyebrow={t("diagnostics.eyebrow", { version: APP_VERSION })}
+      title={t("diagnostics.title")}
       onClose={onClose}
       className="surface-panel--right"
     >
@@ -128,18 +132,24 @@ export function MorePanel({
         <div>
           <span className={mapReady ? "status-dot is-live" : "status-dot"} />
           <span>
-            <strong>Map renderer</strong>
-            <small>{mapReady ? "Ready" : "Starting"}</small>
+            <strong>{t("diagnostics.renderer")}</strong>
+            <small>
+              {mapReady
+                ? t("diagnostics.rendererReady")
+                : t("diagnostics.rendererStarting")}
+            </small>
           </span>
         </div>
         <div>
           <span className={radarReady ? "status-dot is-live" : "status-dot"} />
           <span>
-            <strong>Radar timeline</strong>
+            <strong>{t("diagnostics.timeline")}</strong>
             <small>
               {radarReady
-                ? `${activeSource ?? "Live"} · receiving frames`
-                : "Waiting for data"}
+                ? t("diagnostics.receiving", {
+                    source: activeSource ?? t("diagnostics.live"),
+                  })
+                : t("diagnostics.waiting")}
             </small>
           </span>
         </div>
@@ -153,12 +163,20 @@ export function MorePanel({
                 <strong>{provider.label}</strong>
                 <small>
                   {record?.lastError
-                    ? `${record.lastError} (${record.consecutiveFailures} in a row)`
+                    ? t("diagnostics.failing", {
+                        error: record.lastError,
+                        count: record.consecutiveFailures,
+                      })
                     : record?.lastSuccess
                       ? record.frameCount
-                        ? `${record.frameCount} frames, ${ageLabel(record.lastSuccess)}`
-                        : `Answered ${ageLabel(record.lastSuccess)}`
-                      : "Standing by"}
+                        ? t("diagnostics.frames", {
+                            count: record.frameCount,
+                            when: ageLabel(record.lastSuccess),
+                          })
+                        : t("diagnostics.answered", {
+                            when: ageLabel(record.lastSuccess),
+                          })
+                      : t("diagnostics.standingBy")}
                 </small>
               </span>
             </div>
@@ -167,9 +185,9 @@ export function MorePanel({
       </div>
       <div className="diagnostics-log">
         <div className="diagnostics-log__title">
-          <span>Recent events</span>
+          <span>{t("diagnostics.recentEvents")}</span>
           <button type="button" onClick={onOpenLogFolder}>
-            <FolderOpen size={14} /> Open log folder
+            <FolderOpen size={14} /> {t("diagnostics.openLogs")}
           </button>
         </div>
         {log.length ? (
@@ -189,7 +207,7 @@ export function MorePanel({
               ))}
           </ol>
         ) : (
-          <p className="source-note">Nothing has gone wrong yet.</p>
+          <p className="source-note">{t("diagnostics.nothingWrong")}</p>
         )}
       </div>
       <div className="feature-card" data-update-state={update.status}>
@@ -197,26 +215,30 @@ export function MorePanel({
         <div>
           <strong>
             {update.status === "available"
-              ? `OpenRadar ${update.offer.version} is out`
+              ? t("diagnostics.updateAvailable", {
+                  version: update.offer.version,
+                })
               : update.status === "ready"
-                ? "Restarting into the new version"
+                ? t("diagnostics.updateReady")
                 : update.status === "downloading"
-                  ? `Downloading, ${update.percent}%`
+                  ? t("diagnostics.updateDownloading", {
+                      percent: update.percent,
+                    })
                   : update.status === "checking"
-                    ? "Checking for a newer version"
+                    ? t("diagnostics.updateChecking")
                     : update.status === "error"
-                      ? "The update check failed"
-                      : `OpenRadar v${APP_VERSION}`}
+                      ? t("diagnostics.updateFailed")
+                      : t("diagnostics.version", { version: APP_VERSION })}
           </strong>
           <span>
             {update.status === "available"
               ? update.offer.notes.split("\n")[0] ||
-                "Install it and OpenRadar restarts into it."
+                t("diagnostics.updateFallbackNotes")
               : update.status === "error"
                 ? update.message
                 : update.status === "current"
-                  ? "This is the newest version."
-                  : "Updates are downloaded from the project's own releases."}
+                  ? t("diagnostics.upToDate")
+                  : t("diagnostics.updateSource")}
           </span>
           {onUpdate ? (
             <button
@@ -230,8 +252,8 @@ export function MorePanel({
               onClick={onUpdate}
             >
               {update.status === "available"
-                ? `Install ${update.offer.version}`
-                : "Check for updates"}
+                ? t("diagnostics.install", { version: update.offer.version })
+                : t("diagnostics.check")}
             </button>
           ) : null}
         </div>
@@ -239,18 +261,15 @@ export function MorePanel({
       <div className="feature-card">
         <ShieldCheck size={24} />
         <div>
-          <strong>Private by default</strong>
-          <span>Settings and imported overlays stay on this device.</span>
+          <strong>{t("diagnostics.privateTitle")}</strong>
+          <span>{t("diagnostics.privateBody")}</span>
         </div>
       </div>
       <div className="feature-card">
         <Info size={24} />
         <div>
-          <strong>Operational disclaimer</strong>
-          <span>
-            Use official warnings and local authorities for life-safety
-            decisions.
-          </span>
+          <strong>{t("diagnostics.disclaimerTitle")}</strong>
+          <span>{t("diagnostics.disclaimerBody")}</span>
         </div>
       </div>
     </PanelShell>

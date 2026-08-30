@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { setLanguage } from "../i18n";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
@@ -90,6 +91,16 @@ export function useSettings(options: {
       active = false;
     };
   }, []);
+
+  // The language store is external state the whole tree reads, kept in step
+  // with the setting the same way the theme attribute is.
+  useEffect(() => {
+    setLanguage(settings.language);
+    // The pseudolocale is not a language anyone speaks, so the document keeps
+    // saying English: a screen reader should not try to pronounce it.
+    document.documentElement.lang =
+      settings.language === "pseudo" ? "en" : settings.language;
+  }, [settings.language]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;

@@ -8,6 +8,7 @@ import {
   type CommandAction,
 } from "../lib/commands";
 import type { AppSettings } from "../lib/settings";
+import { useLanguage, useT } from "../i18n";
 
 interface CommandPaletteProps {
   settings: AppSettings;
@@ -40,12 +41,16 @@ export function CommandPalette({
   onRun,
   onClose,
 }: CommandPaletteProps) {
+  const t = useT();
+  const language = useLanguage();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => inputRef.current?.focus(), []);
 
-  const commands = useMemo(() => allCommands(), []);
+  // Rebuilt when the language changes: the labels are what the list is
+  // searched by, and they are not the same words in every language.
+  const commands = useMemo(() => allCommands(), [language]);
   const results = useMemo(
     () => searchCommands(commands, query),
     [commands, query],
@@ -53,8 +58,8 @@ export function CommandPalette({
 
   return (
     <PanelShell
-      eyebrow="Everything, in one list"
-      title="Commands"
+      eyebrow={t("palette.eyebrow")}
+      title={t("palette.title")}
       onClose={onClose}
       className="surface-panel--left"
     >
@@ -65,9 +70,9 @@ export function CommandPalette({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Try meso, hail, or export"
+          placeholder={t("palette.placeholder")}
           autoComplete="off"
-          aria-label="Search every layer, product, and panel"
+          aria-label={t("palette.label")}
         />
       </label>
 
@@ -90,16 +95,14 @@ export function CommandPalette({
                 <strong>{command.label}</strong>
                 <small>
                   {command.group}
-                  {on === null ? "" : on ? " · on" : " · off"}
+                  {on === null ? "" : on ? t("palette.on") : t("palette.off")}
                 </small>
               </span>
             </button>
           );
         })}
         {query.trim() && !results.length ? (
-          <p className="empty-copy">
-            Nothing here matches that. Try a shorter word.
-          </p>
+          <p className="empty-copy">{t("palette.none")}</p>
         ) : null}
       </div>
     </PanelShell>

@@ -14,6 +14,7 @@ import {
   type LegendScaleId,
 } from "../lib/legend";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
+import { useT } from "../i18n";
 
 function initLabel(initUtc: string): string {
   const at = new Date(initUtc);
@@ -42,6 +43,7 @@ export function RadarLegend({
   paletteScale = null,
   onToggle,
 }: RadarLegendProps) {
+  const t = useT();
   const reading = paletteScale ?? legendScale(scale);
 
   return (
@@ -53,7 +55,7 @@ export function RadarLegend({
     >
       <Radar size={18} />
       <span>
-        <small>{radarEnabled ? eyebrow : "PRODUCT HIDDEN"}</small>
+        <small>{radarEnabled ? eyebrow : t("legend.hidden")}</small>
         <strong>{productLabel}</strong>
       </span>
       <ChevronDown size={16} />
@@ -68,7 +70,12 @@ export function RadarLegend({
           />
           <span
             className="legend-scale"
-            aria-label={`${productLabel} from ${reading.min} to ${reading.max} ${reading.unit}`}
+            aria-label={t("legend.scale", {
+              product: productLabel,
+              min: reading.min,
+              max: reading.max,
+              unit: reading.unit,
+            })}
           >
             {reading.stops.map((stop) => (
               <em
@@ -106,17 +113,18 @@ export function RadarTimeline({
   onFrameIndex,
   onPlaying,
 }: RadarTimelineProps) {
+  const t = useT();
   const frame = frames[frameIndex];
   const forecast = frame?.forecast;
   return (
     <div
       className={`radar-timeline ${forecast ? "is-forecast" : ""}`}
-      aria-label="Radar animation"
+      aria-label={t("timeline.label")}
     >
       <button
         className="play-button"
         type="button"
-        aria-label={playing ? "Pause radar animation" : "Play radar animation"}
+        aria-label={playing ? t("timeline.pause") : t("timeline.play")}
         aria-pressed={playing}
         disabled={!frames.length}
         onClick={() => onPlaying(!playing)}
@@ -131,27 +139,33 @@ export function RadarTimeline({
         <strong>
           {error ??
             (forecast
-              ? `${formatFrameTime(frame)} forecast`
+              ? t("timeline.forecastAt", { time: formatFrameTime(frame) })
               : formatFrameTime(frame))}
         </strong>
         <span>
           {frames.length
             ? [
-                `${frameIndex + 1} of ${frames.length} radar frames`,
+                t("timeline.frames", {
+                  index: frameIndex + 1,
+                  total: frames.length,
+                }),
                 forecast
-                  ? `HRRR init ${initLabel(forecast.initUtc)}, +${forecast.leadMinutes} min`
+                  ? t("timeline.hrrr", {
+                      init: initLabel(forecast.initUtc),
+                      lead: forecast.leadMinutes,
+                    })
                   : sourceLabel,
                 forecast
                   ? null
                   : ageMinutes === null
                     ? null
                     : ageMinutes < 1
-                      ? "live"
-                      : `${ageMinutes} min old`,
+                      ? t("timeline.live")
+                      : t("timeline.minutesOld", { count: ageMinutes }),
               ]
                 .filter(Boolean)
                 .join(" · ")
-            : "Connecting to radar"}
+            : t("timeline.connecting")}
         </span>
       </div>
       <input
@@ -160,7 +174,7 @@ export function RadarTimeline({
         max={Math.max(0, frames.length - 1)}
         value={Math.min(frameIndex, Math.max(0, frames.length - 1))}
         disabled={!frames.length}
-        aria-label="Radar frame"
+        aria-label={t("timeline.frame")}
         onChange={(event) => onFrameIndex(Number(event.target.value))}
       />
     </div>
@@ -180,19 +194,20 @@ export function ZoomControls({
   onZoomOut,
   onResetNorth,
 }: ZoomControlsProps) {
+  const t = useT();
   return (
-    <div className="zoom-controls" aria-label="Map navigation controls">
+    <div className="zoom-controls" aria-label={t("zoom.controls")}>
       <button
         type="button"
-        aria-label="Reset north and pitch"
+        aria-label={t("zoom.resetNorth")}
         onClick={onResetNorth}
       >
         <Compass size={20} style={{ transform: `rotate(${-bearing}deg)` }} />
       </button>
-      <button type="button" aria-label="Zoom in" onClick={onZoomIn}>
+      <button type="button" aria-label={t("zoom.in")} onClick={onZoomIn}>
         <Plus size={20} />
       </button>
-      <button type="button" aria-label="Zoom out" onClick={onZoomOut}>
+      <button type="button" aria-label={t("zoom.out")} onClick={onZoomOut}>
         <Minus size={20} />
       </button>
     </div>

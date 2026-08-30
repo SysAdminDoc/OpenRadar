@@ -1,49 +1,56 @@
 import type { StyleSpecification } from "maplibre-gl";
 import type { MapStyleId } from "./settings";
+import type { StringKey } from "../i18n";
 
 export interface MapStyleOption {
   id: MapStyleId;
-  label: string;
-  detail: string;
+  /** What the style is called, read through the catalogue when it is shown. */
+  key: StringKey;
+  detailKey: StringKey;
   swatch: string;
 }
 
 export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
   {
     id: "grayscale",
-    label: "Grayscale",
-    detail: "Quiet labels",
+    key: "style.grayscale",
+    detailKey: "style.grayscaleDetail",
     swatch: "#d6d8dc",
   },
-  { id: "roads", label: "Roads", detail: "Street detail", swatch: "#e8d9b5" },
+  {
+    id: "roads",
+    key: "style.roads",
+    detailKey: "style.roadsDetail",
+    swatch: "#e8d9b5",
+  },
   {
     id: "aerial",
-    label: "Aerial",
-    detail: "USGS orthoimagery, United States",
+    key: "style.aerial",
+    detailKey: "style.aerialDetail",
     swatch: "#446448",
   },
   {
     id: "topography",
-    label: "Topography",
-    detail: "Terrain and contours",
+    key: "style.topography",
+    detailKey: "style.topographyDetail",
     swatch: "#99a77e",
   },
   {
     id: "pro-dark",
-    label: "Radar Dark",
-    detail: "Low-glare radar",
+    key: "style.radarDark",
+    detailKey: "style.radarDarkDetail",
     swatch: "#151b26",
   },
   {
     id: "pro-light",
-    label: "Radar Light",
-    detail: "Bright canvas",
+    key: "style.radarLight",
+    detailKey: "style.radarLightDetail",
     swatch: "#edf0ef",
   },
   {
     id: "daylight",
-    label: "Daylight",
-    detail: "High visibility",
+    key: "style.daylight",
+    detailKey: "style.daylightDetail",
     swatch: "#9fd6f0",
   },
 ];

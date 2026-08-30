@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "./settings";
+import { translate, type StringKey } from "../i18n";
 
 /** Below this the national mosaic is the better picture, and cheaper. */
 export const SINGLE_SITE_MIN_ZOOM = 8;
@@ -6,20 +7,30 @@ export const SINGLE_SITE_MIN_ZOOM = 8;
 export const SWEEP_REFRESH_MS = 2 * 60_000;
 
 export const LEVEL2_PRODUCTS = [
-  { id: "reflectivity", label: "Reflectivity", unit: "dBZ" },
-  { id: "velocity", label: "Velocity", unit: "m/s" },
-  { id: "spectrum-width", label: "Spectrum width", unit: "m/s" },
+  { id: "reflectivity", key: "product.reflectivity", unit: "dBZ" },
+  { id: "velocity", key: "product.velocity", unit: "m/s" },
+  { id: "spectrum-width", key: "product.spectrumWidth", unit: "m/s" },
   {
     id: "differential-reflectivity",
-    label: "Differential reflectivity",
+    key: "product.differential",
     unit: "dB",
   },
   {
     id: "correlation-coefficient",
-    label: "Correlation coefficient",
+    key: "product.correlation",
     unit: "",
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  key: StringKey;
+  unit: string;
+}>;
+
+/** What a product is called, in whatever language the workspace is in. */
+export function level2ProductLabel(id: Level2ProductId): string {
+  const found = LEVEL2_PRODUCTS.find((product) => product.id === id);
+  return found ? translate(found.key) : id;
+}
 
 export type Level2ProductId = (typeof LEVEL2_PRODUCTS)[number]["id"];
 

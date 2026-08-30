@@ -5,6 +5,7 @@ import {
   type OverlayBounds,
   type OverlayData,
 } from "./overlays";
+import { translate } from "../i18n";
 
 export interface WatchSettings {
   enabled: boolean;
@@ -98,7 +99,7 @@ export function alertsToAnnounce(
 
     found.push({
       id,
-      headline: String(feature.properties.headline ?? "Weather alert"),
+      headline: String(feature.properties.headline ?? translate("watch.alert")),
       severity,
       expires: typeof expires === "number" ? expires : null,
       distanceMiles: distance,
@@ -115,7 +116,9 @@ export function alertsToAnnounce(
 export function watchAlertBody(alert: WatchAlert): string {
   const where =
     alert.distanceMiles < 1
-      ? "where you are watching"
-      : `${Math.round(alert.distanceMiles)} miles from the point you watch`;
-  return `${alert.headline} ${where}.`;
+      ? translate("watch.here")
+      : translate("watch.milesAway", {
+          miles: Math.round(alert.distanceMiles),
+        });
+  return translate("watch.body", { headline: alert.headline, where });
 }

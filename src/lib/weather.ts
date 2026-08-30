@@ -1,4 +1,5 @@
 import { haversineMiles, type GeoPoint } from "./geo";
+import { translate } from "../i18n";
 
 /** Open-Meteo allows 600 requests a minute, and a pan burst can reach it. */
 export const FORECAST_DEBOUNCE_MS = 1500;
@@ -161,13 +162,13 @@ export async function fetchForecast(
 }
 
 export function weatherCodeLabel(code: number): string {
-  if (code === 0) return "Clear";
-  if (code <= 3) return "Partly cloudy";
-  if (code === 45 || code === 48) return "Fog";
-  if (code >= 51 && code <= 67) return "Rain";
-  if (code >= 71 && code <= 77) return "Snow";
-  if (code >= 80 && code <= 82) return "Showers";
-  if (code >= 85 && code <= 86) return "Snow showers";
-  if (code >= 95) return "Thunderstorms";
-  return "Mixed conditions";
+  if (code === 0) return translate("weather.clear");
+  if (code <= 3) return translate("weather.partlyCloudy");
+  if (code === 45 || code === 48) return translate("weather.fog");
+  if (code >= 51 && code <= 67) return translate("weather.rain");
+  if (code >= 71 && code <= 77) return translate("weather.snow");
+  if (code >= 80 && code <= 82) return translate("weather.showers");
+  if (code >= 85 && code <= 86) return translate("weather.snowShowers");
+  if (code >= 95) return translate("weather.thunderstorms");
+  return translate("weather.mixed");
 }

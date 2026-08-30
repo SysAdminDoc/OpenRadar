@@ -1,6 +1,7 @@
 import { MAP_STYLE_OPTIONS } from "./mapStyles";
 import { LEVEL2_PRODUCTS } from "./level2";
 import type { LayerSettings, MapStyleId } from "./settings";
+import { translate, type StringKey } from "../i18n";
 
 export type CommandAction =
   | { kind: "layer"; layer: keyof LayerSettings }
@@ -25,37 +26,45 @@ export interface Command {
 /** Every layer, with the words people reach for instead of its label. */
 const LAYER_COMMANDS: Array<{
   layer: keyof LayerSettings;
-  label: string;
+  key: StringKey;
+  /** Words to search by in the current language, beyond the English ones. */
+  extra: StringKey;
   keywords: string[];
 }> = [
   {
     layer: "weatherAlerts",
-    label: "Weather Alerts",
+    key: "layer.weatherAlerts",
+    extra: "keywords.weatherAlerts",
     keywords: ["warning", "watch", "tornado", "severe", "nws", "polygon"],
   },
   {
     layer: "earthquakes",
-    label: "Earthquakes",
+    key: "layer.earthquakes",
+    extra: "keywords.earthquakes",
     keywords: ["quake", "seismic", "usgs", "magnitude"],
   },
   {
     layer: "wildfires",
-    label: "Wildfires",
+    key: "layer.wildfires",
+    extra: "keywords.wildfires",
     keywords: ["fire", "burn", "perimeter", "nifc", "smoke"],
   },
   {
     layer: "tropical",
-    label: "Tropical",
+    key: "layer.tropical",
+    extra: "keywords.tropical",
     keywords: ["hurricane", "cyclone", "cone", "nhc", "storm", "typhoon"],
   },
   {
     layer: "satellite",
-    label: "Satellite",
+    key: "layer.satellite",
+    extra: "keywords.satellite",
     keywords: ["goes", "geocolor", "cloud", "imagery", "visible", "infrared"],
   },
   {
     layer: "rotationTracks",
-    label: "Rotation Tracks",
+    key: "layer.rotationTracks",
+    extra: "keywords.rotationTracks",
     keywords: [
       "meso",
       "mesocyclone",
@@ -68,130 +77,181 @@ const LAYER_COMMANDS: Array<{
   },
   {
     layer: "hail",
-    label: "Hail Size",
+    key: "layer.hail",
+    extra: "keywords.hail",
     keywords: ["mesh", "hail", "stones", "size", "severe"],
   },
   {
     layer: "lightningDensity",
-    label: "Lightning Density",
+    key: "layer.lightningDensity",
+    extra: "keywords.lightningDensity",
     keywords: ["lightning", "strike", "cloud to ground", "cg", "nldn", "flash"],
   },
   {
     layer: "lightningFlashes",
-    label: "Lightning Flashes",
+    key: "layer.lightningFlashes",
+    extra: "keywords.lightningFlashes",
     keywords: ["lightning", "glm", "flash", "total", "satellite", "strike"],
   },
   {
     layer: "customOverlay",
-    label: "Custom Overlay",
+    key: "layer.customOverlay",
+    extra: "keywords.customOverlay",
     keywords: ["geojson", "placefile", "import", "upload", "shapes"],
   },
 ];
 
 const SURFACE_COMMANDS: Array<{
   surface: string;
-  label: string;
+  key: StringKey;
+  extra: StringKey;
   keywords: string[];
 }> = [
   {
     surface: "search",
-    label: "Search",
+    key: "panel.search",
+    extra: "keywords.search",
     keywords: ["place", "city", "find", "go to"],
   },
   {
     surface: "alerts",
-    label: "Alerts",
+    key: "panel.alerts",
+    extra: "keywords.alerts",
     keywords: ["warning", "watch", "list"],
   },
   {
     surface: "tropical",
-    label: "Tropical panel",
+    key: "panel.tropical",
+    extra: "keywords.tropicalPanel",
     keywords: ["hurricane", "storm", "advisory", "cone"],
   },
   {
     surface: "history",
-    label: "Storm history",
+    key: "panel.history",
+    extra: "keywords.history",
     keywords: ["hurdat", "past", "archive", "replay", "track", "ace"],
   },
   {
     surface: "route",
-    label: "Route",
+    key: "panel.route",
+    extra: "keywords.route",
     keywords: ["drive", "trip", "journey", "rain along"],
   },
   {
     surface: "forecast",
-    label: "Forecast",
+    key: "panel.forecast",
+    extra: "keywords.forecast",
     keywords: ["weather", "hourly", "temperature", "rain"],
   },
   {
     surface: "export",
-    label: "Export",
+    key: "panel.export",
+    extra: "keywords.export",
     keywords: ["save", "picture", "video", "share", "png", "webm"],
   },
   {
     surface: "upload",
-    label: "Upload",
+    key: "panel.upload",
+    extra: "keywords.upload",
     keywords: ["import", "geojson", "placefile", "palette", "pal", "colour"],
   },
   {
     surface: "layers",
-    label: "Layers",
+    key: "panel.layers",
+    extra: "keywords.layers",
     keywords: ["overlay", "switches", "show", "hide"],
   },
   {
     surface: "map-type",
-    label: "Map Type",
+    key: "panel.mapType",
+    extra: "keywords.mapType",
     keywords: ["basemap", "style", "theme", "terrain"],
   },
   {
     surface: "settings",
-    label: "Settings",
+    key: "panel.settings",
+    extra: "keywords.settings",
     keywords: ["options", "preferences", "configure"],
   },
   {
     surface: "more",
-    label: "Diagnostics",
+    key: "panel.more",
+    extra: "keywords.more",
     keywords: ["status", "health", "log", "version", "update", "sources"],
   },
 ];
 
 const TOOL_COMMANDS: Array<{
   tool: string;
-  label: string;
+  key: StringKey;
+  extra: StringKey;
   keywords: string[];
 }> = [
   {
     tool: "draw",
-    label: "Draw",
+    key: "tool.draw",
+    extra: "keywords.draw",
     keywords: ["measure", "path", "line", "distance"],
   },
   {
     tool: "range",
-    label: "Range",
+    key: "tool.range",
+    extra: "keywords.range",
     keywords: ["distance", "measure", "how far", "miles"],
   },
   {
     tool: "inspect",
-    label: "Inspector",
+    key: "tool.inspect",
+    extra: "keywords.inspect",
     keywords: ["value", "point", "query", "what is"],
   },
 ];
+
+/**
+ * The words a command answers to, in English and in the current language.
+ *
+ * The English terms stay whatever the language is: someone reading a Spanish
+ * window may still type "mesh", and losing that would make the list worse
+ * rather than better.
+ */
+function searchTerms(english: string[], extra: StringKey): string[] {
+  const translated = translate(extra).split(/\s+/).filter(Boolean);
+  return [...english, ...translated];
+}
+
+/** The Spanish words for a Level II product, added to its English ones. */
+function productTerms(id: string): string[] {
+  const key: StringKey | null =
+    id === "reflectivity"
+      ? "keywords.reflectivity"
+      : id === "velocity"
+        ? "keywords.velocity"
+        : id === "spectrum-width"
+          ? "keywords.spectrumWidth"
+          : id === "differential-reflectivity"
+            ? "keywords.differential"
+            : id === "correlation-coefficient"
+              ? "keywords.correlation"
+              : null;
+  return key ? translate(key).split(/\s+/).filter(Boolean) : [];
+}
 
 /** Everything the palette can do, built from the same registries the panels use. */
 export function allCommands(): Command[] {
   return [
     ...LAYER_COMMANDS.map((entry): Command => ({
       id: `layer:${entry.layer}`,
-      label: entry.label,
-      group: "Layer",
-      keywords: entry.keywords,
+      label: translate(entry.key),
+      group: translate("command.group.layer"),
+      keywords: searchTerms(entry.keywords, entry.extra),
       action: { kind: "layer", layer: entry.layer },
     })),
     ...LEVEL2_PRODUCTS.map((product): Command => ({
       id: `product:${product.id}`,
-      label: product.label,
-      group: "Radar product",
+      label: translate(product.key),
+      group: translate("command.group.product"),
       keywords: [
+        ...productTerms(product.id),
         product.unit,
         "level 2",
         "single site",
@@ -208,23 +268,23 @@ export function allCommands(): Command[] {
     })),
     ...MAP_STYLE_OPTIONS.map((style): Command => ({
       id: `style:${style.id}`,
-      label: style.label,
-      group: "Map type",
-      keywords: ["basemap", "style", "theme"],
+      label: translate(style.key),
+      group: translate("command.group.style"),
+      keywords: searchTerms(["basemap", "style", "theme"], "keywords.mapType"),
       action: { kind: "style", style: style.id },
     })),
     ...SURFACE_COMMANDS.map((entry): Command => ({
       id: `surface:${entry.surface}`,
-      label: entry.label,
-      group: "Panel",
-      keywords: entry.keywords,
+      label: translate(entry.key),
+      group: translate("command.group.panel"),
+      keywords: searchTerms(entry.keywords, entry.extra),
       action: { kind: "surface", surface: entry.surface },
     })),
     ...TOOL_COMMANDS.map((entry): Command => ({
       id: `tool:${entry.tool}`,
-      label: entry.label,
-      group: "Tool",
-      keywords: entry.keywords,
+      label: translate(entry.key),
+      group: translate("command.group.tool"),
+      keywords: searchTerms(entry.keywords, entry.extra),
       action: { kind: "tool", tool: entry.tool },
     })),
   ];

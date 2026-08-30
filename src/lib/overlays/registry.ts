@@ -1,4 +1,5 @@
 import type { LayerSpecification } from "maplibre-gl";
+import { translate } from "../../i18n";
 
 export type OverlayId = "alerts" | "earthquakes" | "wildfires" | "tropical";
 
@@ -126,9 +127,9 @@ export function boundsOverlap(
 
 export function relativeTime(at: number, now = Date.now()): string {
   const minutes = Math.floor((now - at) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 1) return translate("time.justNow");
+  if (minutes < 60) return translate("time.minutesAgo", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 48) return `${hours} h ago`;
-  return `${Math.round(hours / 24)} days ago`;
+  if (hours < 48) return translate("time.hoursAgo", { count: hours });
+  return translate("time.daysAgo", { count: Math.round(hours / 24) });
 }

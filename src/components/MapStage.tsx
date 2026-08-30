@@ -8,6 +8,7 @@ import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
+import { locale, useLanguage, useT } from "../i18n";
 
 /** How many frames back the compare pane can be held. */
 const COMPARE_OFFSETS = [0, 3, 6, 12];
@@ -71,6 +72,8 @@ export function MapStage({
   onToolResult,
   onMapStatus,
 }: MapStageProps) {
+  const t = useT();
+  const language = useLanguage();
   const shared = {
     projection: settings.projection,
     mapStyle: settings.mapStyle,
@@ -104,7 +107,7 @@ export function MapStage({
       {dualPane ? (
         <MapViewport
           ref={secondMapRef}
-          label="Secondary interactive weather map"
+          label={t("stage.secondary")}
           camera={settings.camera}
           radarFrame={compareFrame}
           satelliteTime={compareSatelliteTime}
@@ -119,24 +122,24 @@ export function MapStage({
         <div className="satellite-chip">
           <strong>GOES-East GeoColor</strong>
           <small>
-            {new Intl.DateTimeFormat(undefined, {
+            {new Intl.DateTimeFormat(locale(language), {
               hour: "numeric",
               minute: "2-digit",
             }).format(new Date(satelliteTime * 1000))}
             {satelliteAgeMinutes === null
               ? ""
-              : ` · ${satelliteAgeMinutes} min old`}
+              : t("stage.satelliteAge", { count: satelliteAgeMinutes })}
           </small>
         </div>
       ) : null}
 
       {dualPane ? (
         <div className="pane-compare">
-          <strong>Compare</strong>
+          <strong>{t("stage.compare")}</strong>
           <div
             className="segmented-control"
             role="group"
-            aria-label="Secondary pane frame offset"
+            aria-label={t("stage.compareOffset")}
           >
             {COMPARE_OFFSETS.map((offset) => (
               <button
@@ -146,7 +149,9 @@ export function MapStage({
                 aria-pressed={compareOffset === offset}
                 onClick={() => onCompareOffset(offset)}
               >
-                {offset === 0 ? "Live" : `${offset} back`}
+                {offset === 0
+                  ? t("stage.live")
+                  : t("stage.back", { count: offset })}
               </button>
             ))}
           </div>

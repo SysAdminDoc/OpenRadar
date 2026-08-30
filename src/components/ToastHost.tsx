@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useT } from "../i18n";
 
 export interface ToastMessage {
   id: number;
@@ -14,6 +15,7 @@ interface ToastHostProps {
 }
 
 export function ToastHost({ messages, onDismiss }: ToastHostProps) {
+  const t = useT();
   return (
     <div className="toast-host" aria-live="polite" aria-atomic="false">
       {messages.map((message) => (
@@ -37,7 +39,7 @@ export function ToastHost({ messages, onDismiss }: ToastHostProps) {
           <button
             className="icon-button toast__close"
             type="button"
-            aria-label="Dismiss notification"
+            aria-label={t("toast.dismiss")}
             onClick={() => onDismiss(message.id)}
           >
             <X size={15} />

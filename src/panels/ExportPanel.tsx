@@ -1,6 +1,6 @@
 import { Camera, Film, LoaderCircle } from "lucide-react";
-import { useState } from "react";
 import { PanelShell } from "../components/PanelShell";
+import { useT } from "../i18n";
 
 interface ExportPanelProps {
   frameCount: number;
@@ -19,14 +19,12 @@ export function ExportPanel({
   onExportLoop,
   onClose,
 }: ExportPanelProps) {
-  const [note] = useState(
-    "Both go straight to your downloads folder. Nothing is uploaded.",
-  );
+  const t = useT();
 
   return (
     <PanelShell
-      eyebrow="Take it with you"
-      title="Export"
+      eyebrow={t("export.eyebrow")}
+      title={t("export.title")}
       onClose={onClose}
       className="surface-panel--right"
     >
@@ -41,7 +39,7 @@ export function ExportPanel({
         ) : (
           <Camera size={16} />
         )}
-        Export image
+        {t("export.image")}
       </button>
 
       <button
@@ -55,29 +53,28 @@ export function ExportPanel({
         ) : (
           <Film size={16} />
         )}
-        Export loop
-        {frameCount > 1 ? ` (${frameCount} frames)` : ""}
+        {t("export.loop")}
+        {frameCount > 1 ? t("export.loopFrames", { count: frameCount }) : ""}
       </button>
 
       {progress ? (
         <p className="source-note" role="status">
-          Recording frame {progress.done} of {progress.total}. Leave the window
-          in front while it runs.
+          {t("export.recording", {
+            done: progress.done,
+            total: progress.total,
+          })}
         </p>
       ) : null}
 
       <div className="feature-card">
         <Film size={24} />
         <div>
-          <strong>What lands in the file</strong>
-          <span>
-            The map exactly as it is now, with the frame time, the radar source,
-            and the credits burned into the corner.
-          </span>
+          <strong>{t("export.cardTitle")}</strong>
+          <span>{t("export.cardBody")}</span>
         </div>
       </div>
 
-      <p className="source-note">{note}</p>
+      <p className="source-note">{t("export.note")}</p>
     </PanelShell>
   );
 }

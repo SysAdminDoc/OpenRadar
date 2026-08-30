@@ -7,6 +7,7 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
+import { translate } from "../../i18n";
 
 const SERVICE =
   "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query";
@@ -103,15 +104,20 @@ export const wildfiresOverlay: OverlayAdapter = {
     const acres = Number(properties.acres);
     const updated = Number(properties.updated);
     return {
-      title: String(properties.name ?? "Wildfire"),
+      title: String(properties.name ?? translate("popup.wildfire")),
       lines: [
         Number.isFinite(acres)
-          ? `${Math.round(acres).toLocaleString()} acres, ${Number(properties.contained) || 0}% contained`
-          : "Size unknown",
+          ? translate("popup.acres", {
+              acres: Math.round(acres).toLocaleString(),
+              contained: Number(properties.contained) || 0,
+            })
+          : translate("popup.sizeUnknown"),
         Number.isFinite(updated)
-          ? `Perimeter updated ${relativeTime(updated)}`
-          : "Perimeter date unknown",
-        "Source: NIFC WFIGS",
+          ? translate("popup.perimeterUpdated", {
+              when: relativeTime(updated),
+            })
+          : translate("popup.perimeterUnknown"),
+        translate("popup.nifc"),
       ],
     };
   },
