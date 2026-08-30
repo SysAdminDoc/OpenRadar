@@ -1,5 +1,6 @@
 import { haversineMiles, type GeoPoint } from "./geo";
 import { translate } from "../i18n";
+import { forecastUnits } from "./units";
 
 /** Open-Meteo allows 600 requests a minute, and a pan burst can reach it. */
 export const FORECAST_DEBOUNCE_MS = 1500;
@@ -115,9 +116,9 @@ export async function fetchForecast(
     "daily",
     "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
   );
-  url.searchParams.set("temperature_unit", "fahrenheit");
-  url.searchParams.set("wind_speed_unit", "mph");
-  url.searchParams.set("precipitation_unit", "inch");
+  for (const [key, value] of Object.entries(forecastUnits())) {
+    url.searchParams.set(key, value);
+  }
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("forecast_days", "7");
 

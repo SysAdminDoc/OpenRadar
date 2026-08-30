@@ -48,6 +48,18 @@ export const en = {
   "alerts.noteLoading": "Loading NWS watches and warnings.",
   "alerts.noteSafety": "Use official warnings for life-safety decisions.",
 
+  "units.miles": "miles",
+  "units.kilometres": "kilometres",
+  "settings.units": "Units",
+  "settings.unitsImperial": "Feet and Fahrenheit",
+  "settings.unitsMetric": "Metres and Celsius",
+  "settings.clock": "Clock",
+  "settings.clockLocal": "This machine",
+  "settings.clockUtc": "UTC",
+  "settings.clockDetail":
+    "Every weather product is stamped in UTC, so reading the map in it saves converting in your head",
+  "settings.textSize": "Text size",
+  "settings.textSizeDetail": "Everything in the workspace, drawn larger",
   "settings.language": "Language",
   "settings.languageNote": "Applies immediately",
 
@@ -57,7 +69,7 @@ export const en = {
   "forecast.failedTitle": "Forecast is unavailable",
   "forecast.failedBody": "The radar and map are still live.",
   "forecast.feelsLike": "Feels like {value}°",
-  "forecast.wind": "{value} mph wind",
+  "forecast.wind": "{value} {unit} wind",
   "forecast.rainNow": "{value} in now",
   "forecast.note":
     "Forecast by Open-Meteo. Check official warnings for safety decisions.",
@@ -129,7 +141,7 @@ export const en = {
   "route.straightNote":
     "No road shape: this is the straight line between the two places, and the times along it assume a steady 55 mph. The weather is real.",
   "route.summary": "{from} to {to} · {miles} miles · {minutes} min",
-  "route.miles": "{value} mi",
+  "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":
     "Roads from the OSRM demo server, weather from Open-Meteo. Every stop on the drive is covered by a single forecast request, so give the servers a moment between tries.",
@@ -591,7 +603,7 @@ export const en = {
   "export.empty": "The recording came out empty.",
   "watch.alert": "Weather alert",
   "watch.here": "where you are watching",
-  "watch.milesAway": "{miles} miles from the point you watch",
+  "watch.milesAway": "{miles} {unit} from the point you watch",
   "watch.body": "{headline} {where}.",
   "watch.failed": "The watch check failed",
   "guidance.gfs": "GFS",
@@ -644,12 +656,11 @@ export const en = {
   "tides.failedTitle": "The tide could not be read",
   "tides.unknown": "The tide request failed.",
   "tides.stationWithState": "{name}, {state}",
-  "tides.distance": "{miles} miles from the middle of the map",
+  "tides.distance": "{miles} {unit} from the middle of the map",
   "tides.rising": "coming in",
   "tides.falling": "going out",
   "tides.high": "High",
   "tides.low": "Low",
-  "tides.feet": "{feet} ft",
   "tides.noneLeft": "Nothing more in the next three days.",
   "tides.note":
     "Predictions from NOAA CO-OPS, in feet above mean lower low water, shown in your own time zone. Surge rides on top of these, so a storm arriving at high water reaches further.",
@@ -688,7 +699,7 @@ export const en = {
   "tool.startHint": "Select the start point",
   "tool.endHint": "Select the end point",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
-  "tool.beamHeight": "beam {feet} ft above the radar at {tilt}°",
+  "tool.beamHeight": "beam {height} above the radar at {tilt}°",
   "tool.pathPoints": "{count} in path",
   "tool.rangeResult": "Range {distance}",
   "tool.inspectHint": "Click the map to inspect a point",

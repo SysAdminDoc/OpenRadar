@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
+import { TEXT_SCALES } from "../lib/units";
 import type {
   AppSettings,
   LayerSettings,
@@ -377,6 +378,78 @@ export function SettingsPanel({
               onClick={() => onSettings({ ...settings, language: option.id })}
             >
               {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.units")}</span>
+        </div>
+        <div
+          className="segmented-control segmented-control--full"
+          aria-label={t("settings.units")}
+        >
+          {(["imperial", "metric"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={settings.units === option ? "is-active" : ""}
+              aria-pressed={settings.units === option}
+              onClick={() => onSettings({ ...settings, units: option })}
+            >
+              {option === "imperial"
+                ? t("settings.unitsImperial")
+                : t("settings.unitsMetric")}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.clock")}</span>
+          <small>{t("settings.clockDetail")}</small>
+        </div>
+        <div
+          className="segmented-control segmented-control--full"
+          aria-label={t("settings.clock")}
+        >
+          {(["local", "utc"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={settings.clock === option ? "is-active" : ""}
+              aria-pressed={settings.clock === option}
+              onClick={() => onSettings({ ...settings, clock: option })}
+            >
+              {option === "local"
+                ? t("settings.clockLocal")
+                : t("settings.clockUtc")}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.textSize")}</span>
+          <small>{t("settings.textSizeDetail")}</small>
+        </div>
+        <div
+          className="segmented-control segmented-control--full"
+          aria-label={t("settings.textSize")}
+        >
+          {TEXT_SCALES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={settings.textScale === option ? "is-active" : ""}
+              aria-pressed={settings.textScale === option}
+              onClick={() => onSettings({ ...settings, textScale: option })}
+            >
+              {option}%
             </button>
           ))}
         </div>

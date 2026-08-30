@@ -6,6 +6,7 @@ import {
   type OverlayData,
 } from "./overlays";
 import { translate } from "../i18n";
+import { distanceUnit, distanceValue } from "./units";
 
 export interface WatchSettings {
   enabled: boolean;
@@ -118,7 +119,8 @@ export function watchAlertBody(alert: WatchAlert): string {
     alert.distanceMiles < 1
       ? translate("watch.here")
       : translate("watch.milesAway", {
-          miles: Math.round(alert.distanceMiles),
+          miles: distanceValue(alert.distanceMiles),
+          unit: distanceUnit(),
         });
   return translate("watch.body", { headline: alert.headline, where });
 }

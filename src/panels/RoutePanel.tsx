@@ -14,7 +14,8 @@ import {
   weatherCodeLabel,
   type PlaceResult,
 } from "../lib/weather";
-import { locale, translate, useT } from "../i18n";
+import { translate, useT } from "../i18n";
+import { distanceUnit, distanceValue, formatClock } from "../lib/units";
 
 interface RoutePanelProps {
   onRoute: (route: Record<string, unknown> | null) => void;
@@ -27,11 +28,11 @@ function departureValue(at: Date): string {
 }
 
 function clockLabel(at: number): string {
-  return new Intl.DateTimeFormat(locale(), {
+  return formatClock(at, {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(at));
+  });
 }
 
 export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
@@ -99,7 +100,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
           translate("route.summary", {
             from: origin.name,
             to: destination.name,
-            miles: Math.round(route.distanceMiles),
+            miles: distanceValue(route.distanceMiles),
             minutes: Math.round(route.durationSeconds / 60),
           }),
         );
@@ -194,7 +195,10 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
             <div className="route-row" key={sample.index}>
               <span>{clockLabel(sample.arrival)}</span>
               <strong>
-                {t("route.miles", { value: Math.round(sample.distanceMiles) })}
+                {t("route.miles", {
+                  value: distanceValue(sample.distanceMiles),
+                  unit: distanceUnit(),
+                })}
               </strong>
               <span>
                 {sample.temperature === null

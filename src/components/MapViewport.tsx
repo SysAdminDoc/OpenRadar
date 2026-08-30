@@ -34,6 +34,7 @@ import {
 import { createWindLayer } from "../lib/windLayer";
 import type { WindField } from "../lib/wind";
 import type { RadarFrame } from "../lib/radar";
+import { formatHeight } from "../lib/units";
 import {
   cameraKey,
   sameCamera,
@@ -47,7 +48,7 @@ import {
   surgeTileUrl,
   type SurgeCategory,
 } from "../lib/surge";
-import { locale, translate } from "../i18n";
+import { translate } from "../i18n";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
@@ -1210,9 +1211,9 @@ function MapViewportInner(
           if (rangeKm <= MAX_SWEEP_RANGE_KM) {
             lines.push(
               translate("tool.beamHeight", {
-                feet: Math.round(
+                height: formatHeight(
                   beamHeightFeet(rangeKm, drawn.elevationDegrees),
-                ).toLocaleString(locale()),
+                ),
                 tilt: drawn.elevationDegrees.toFixed(2),
               }),
             );

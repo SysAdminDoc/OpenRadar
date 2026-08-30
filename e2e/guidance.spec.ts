@@ -237,3 +237,26 @@ test("closing a panel cancels the request it left in flight", async ({
     .poll(() => cancelled.length, { timeout: 10_000 })
     .toBeGreaterThan(0);
 });
+
+test("switches the whole workspace to metric and to UTC", async ({ page }) => {
+  await page.goto("/?testMode=1&lon=-90.07&lat=29.95&zoom=8&bearing=0&pitch=0");
+
+  // Imperial to start, which is what a fresh install shows.
+  await page.getByRole("button", { name: "Tides", exact: true }).click();
+  await expect(
+    page.getByText(/miles from the middle of the map/),
+  ).toBeVisible();
+  await expect(page.locator(".route-row").first()).toContainText(" ft");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Metres and Celsius" }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // The measurement and the word for it change together: a label reading
+  // kilometres over a figure still counted in miles would be worse than either.
+  await page.getByRole("button", { name: "Tides", exact: true }).click();
+  await expect(
+    page.getByText(/kilometres from the middle of the map/),
+  ).toBeVisible();
+  await expect(page.locator(".route-row").first()).toContainText(" m");
+});

@@ -13,6 +13,7 @@ import {
 } from "../lib/tides";
 import { locale, useLanguage, useT } from "../i18n";
 import { translate } from "../i18n";
+import { distanceUnit, distanceValue, formatTideHeight } from "../lib/units";
 
 interface TidesPanelProps {
   point: GeoPoint;
@@ -156,7 +157,8 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
               </strong>
               <small>
                 {t("tides.distance", {
-                  miles: Math.round(reading.distanceMiles),
+                  unit: distanceUnit(),
+                  miles: distanceValue(reading.distanceMiles),
                 })}
               </small>
               {now ? (
@@ -176,9 +178,7 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
                   <strong>
                     {extreme.high ? t("tides.high") : t("tides.low")}
                   </strong>
-                  <span>
-                    {t("tides.feet", { feet: extreme.feet.toFixed(1) })}
-                  </span>
+                  <span>{formatTideHeight(extreme.feet)}</span>
                 </div>
               ))}
             </div>

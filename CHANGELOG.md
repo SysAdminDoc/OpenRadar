@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Units, clock and text size are yours to pick. Metres and Celsius throughout, or feet and Fahrenheit; the forecast is asked for in the units it will be read in rather than converted after the fact, and the word beside a number always matches the number. The clock reads UTC if you want it, which is what every weather product is stamped in, and it says so with a Z rather than leaving you to wonder. Text size goes to 115 or 130 percent and takes the whole workspace with it, panels and all.
+- The radar's own scales stay as they are. Reflectivity is in dBZ and velocity in metres a second wherever you are, because that is what the products are.
+
 - Storm Reports puts what people on the ground actually saw on the map: hail with the size someone measured, wind damage, tornadoes, flooding, for the last twenty-four hours, with the remark whoever called it in wrote. It sits over the outlook and under the warnings, because a report is what happened rather than what might. Reports with nothing measured say nothing rather than nought.
 
 - The Inspector says how high the beam is. Click anywhere inside a single-site view and it gives the height above the radar in feet along with the tilt, worked out the way the beam actually travels through the air. The same picture at the same tilt means something different eighty miles out, because by then the beam is a mile up and looking over the top of what is happening underneath it.

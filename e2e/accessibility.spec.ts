@@ -143,3 +143,23 @@ test("Escape closes the panel that has the focus", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Layers" })).toHaveCount(0);
 });
+
+test("draws the whole workspace larger when the reader asks", async ({
+  page,
+}) => {
+  const button = page.getByRole("button", { name: "Layers", exact: true });
+  const before = (await button.boundingBox())!;
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "130%", exact: true }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  const after = (await button.boundingBox())!;
+  expect(after.height).toBeGreaterThan(before.height * 1.2);
+
+  // And the map is still a map at the new size.
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+});

@@ -1,5 +1,6 @@
 import { haversineMiles, type GeoPoint } from "./geo";
 import { translate } from "../i18n";
+import { forecastUnits } from "./units";
 
 const OSRM_URL = "https://router.project-osrm.org/route/v1/driving";
 
@@ -296,7 +297,9 @@ export async function fetchRouteForecast(
     "hourly",
     "temperature_2m,precipitation_probability,weather_code",
   );
-  url.searchParams.set("temperature_unit", "fahrenheit");
+  for (const [key, value] of Object.entries(forecastUnits())) {
+    url.searchParams.set(key, value);
+  }
   url.searchParams.set("timezone", "UTC");
   url.searchParams.set("forecast_days", "3");
 
