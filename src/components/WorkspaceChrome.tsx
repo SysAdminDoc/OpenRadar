@@ -4,6 +4,8 @@ import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
 import type { GeoPoint } from "../lib/geo";
 import type { FlashWindow } from "../hooks/useLightning";
+import { paletteLegend } from "../lib/legend";
+import { paletteApplies } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
@@ -99,6 +101,18 @@ export function WorkspaceChrome({
   // Canada's radar is a rain rate in millimetres an hour, not reflectivity in
   // dBZ. Showing a dBZ scale over it would be describing the wrong quantity.
   const rainRate = frames[timeline.frameIndex]?.providerId === "geomet";
+  // A loaded colour table describes what is on screen only where it was
+  // actually applied, which is the locally decoded products and no others.
+  const drawnUnit = sweep?.unit ?? (rainRate ? "mm/h" : "dBZ");
+  const paletteApplied = sweep
+    ? sweep.paletteApplied
+    : frames[timeline.frameIndex]?.providerId === "mrms";
+  const paletteScale =
+    settings.palette &&
+    paletteApplied &&
+    paletteApplies(settings.palette, drawnUnit)
+      ? paletteLegend(settings.palette, drawnUnit)
+      : null;
 
   return (
     <>
@@ -144,6 +158,7 @@ export function WorkspaceChrome({
               ? "rain-rate"
               : "reflectivity"
         }
+        paletteScale={paletteScale}
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length || lightning ? (

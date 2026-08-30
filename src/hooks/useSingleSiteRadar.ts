@@ -33,8 +33,11 @@ export function useSingleSiteRadar(options: {
   center: [number, number];
   zoom: number;
   pageVisible: boolean;
+  /** Bumped when a colour table is loaded, so the sweep is drawn again. */
+  paletteGeneration: number;
 }): SingleSiteState {
-  const { ready, radar, center, zoom, pageVisible } = options;
+  const { ready, radar, center, zoom, pageVisible, paletteGeneration } =
+    options;
   // The site, and the coarse position it was resolved for. A site found for
   // somewhere else is not an answer to where the map is now, which is what
   // kept KDMX on screen over Bermuda.
@@ -132,7 +135,15 @@ export function useSingleSiteRadar(options: {
       open = false;
       window.clearInterval(timer);
     };
-  }, [pageVisible, radar.product, radar.tilt, station, wanted]);
+    // A new colour table redraws the sweep, which is drawn natively.
+  }, [
+    pageVisible,
+    paletteGeneration,
+    radar.product,
+    radar.tilt,
+    station,
+    wanted,
+  ]);
 
   return useMemo(() => {
     // A sweep of a different site, product, or tilt is not an answer to the

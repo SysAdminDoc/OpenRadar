@@ -106,10 +106,11 @@ test("leads with the MRMS grid rather than the mosaic", async ({ page }) => {
   await expect(page.getByText(/of 20 radar frames · NOAA MRMS/)).toBeVisible();
 
   await expect.poll(() => tiles.length, { timeout: 15_000 }).toBeGreaterThan(0);
-  // Every tile names the product and the moment it belongs to.
+  // Every tile names the product, the moment it belongs to, and the colour
+  // table it was drawn with.
   expect(
     tiles.every((url) =>
-      /\/composite\/17880\d{5}\/\d+\/\d+\/\d+\.png$/.test(url),
+      /\/composite\/17880\d{5}\/\d+\/\d+\/\d+\.png\?p=\d+$/.test(url),
     ),
   ).toBe(true);
 });

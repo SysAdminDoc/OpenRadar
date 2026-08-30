@@ -12,6 +12,7 @@ const sweep: SweepImage = {
   station: "KDMX",
   siteName: "Des Moines, IA",
   productId: "reflectivity",
+  paletteApplied: false,
   product: "Reflectivity",
   unit: "dBZ",
   elevationDegrees: 0.48,

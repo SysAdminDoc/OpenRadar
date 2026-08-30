@@ -11,13 +11,23 @@ import { covers } from "./types";
 describe("MRMS tiles", () => {
   it("builds a tile template the map can substitute into", () => {
     expect(tileUrl("http://mrms.localhost/", "composite", 1788083202)).toBe(
-      "http://mrms.localhost/composite/1788083202/{z}/{x}/{y}.png",
+      "http://mrms.localhost/composite/1788083202/{z}/{x}/{y}.png?p=0",
     );
     // The scheme is spelled differently away from Windows, and the template
     // has to follow whatever Tauri hands over.
     expect(tileUrl("mrms://localhost/", "mesh", 1)).toBe(
-      "mrms://localhost/mesh/1/{z}/{x}/{y}.png",
+      "mrms://localhost/mesh/1/{z}/{x}/{y}.png?p=0",
     );
+  });
+
+  it("gives a tile a new address when a colour table is loaded", () => {
+    // The map caches tiles by address, so a table that is not in the address
+    // would leave the old colours on screen until every tile happened to be
+    // asked for again.
+    const before = tileUrl("http://mrms.localhost/", "composite", 1, 0);
+    const after = tileUrl("http://mrms.localhost/", "composite", 1, 3);
+    expect(after).not.toBe(before);
+    expect(after).toContain("p=3");
   });
 
   it("asks for one frame per two minutes of loop, within reason", () => {

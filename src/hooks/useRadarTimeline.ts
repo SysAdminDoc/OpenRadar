@@ -113,6 +113,8 @@ export function useRadarTimeline(options: {
   pageVisible: boolean;
   /** Frames from a past event, which stand in for the live loop while set. */
   archive?: ArchiveReplay | null;
+  /** Bumped when a colour table is loaded, so locally drawn tiles refresh. */
+  paletteGeneration?: number;
 }): RadarTimelineState {
   const {
     ready,
@@ -122,6 +124,7 @@ export function useRadarTimeline(options: {
     futureRadar,
     pageVisible,
     archive = null,
+    paletteGeneration = 0,
   } = options;
   const [observed, setObserved] = useState<RadarFrame[]>([]);
   const [run, setRun] = useState<HrrrRun | null>(null);
@@ -248,7 +251,9 @@ export function useRadarTimeline(options: {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [ready, coverage]);
+    // A new colour table means the locally drawn tiles have to be asked for
+    // again under their new address.
+  }, [ready, coverage, paletteGeneration]);
 
   useEffect(() => {
     if (!ready || !futureRadar || !inModelDomain) return;

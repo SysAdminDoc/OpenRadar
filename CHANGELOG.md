@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Load a GRLevelX `.pal` colour table and the radar is drawn with it. Drop one on the Upload panel and it colours the single-site sweep and the MRMS products, which are the ones OpenRadar decodes itself and so the ones a palette has raw values to act on. The scale beside the map is rebuilt from the table's own stops, so the bar you read is the bar the map was painted with. It says how many colours it found, what the table is for, and what it skipped. Clearing it puts the built-in ramp back.
+
 - Canada has radar now. The American mosaics stop at the border, so a Canadian view used to fall through to a feed licensed for personal use only. Environment and Climate Change Canada publishes its own one kilometre composite every six minutes, and that is what the map shows over Canada, with three hours of it to scrub through. It measures rain rate in millimetres an hour rather than reflectivity, so the scale beside it changes to match rather than describing the wrong thing.
 
 - A Commands button opens one list with every layer, radar product, map type, panel, and tool in it. Type what you call the thing rather than what it is labelled: meso finds rotation tracks, mesh finds hail size, debris finds correlation coefficient. Switches show whether they are already on, so you are not toggling something to find out.

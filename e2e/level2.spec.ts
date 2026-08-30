@@ -24,6 +24,7 @@ async function fakeNativeSide(page: Page) {
           station,
           siteName: "Des Moines, IA",
           productId: product,
+          paletteApplied: false,
           product: label,
           unit,
           elevationDegrees: tilts[Math.min(tilt, tilts.length - 1)],
