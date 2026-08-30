@@ -163,3 +163,105 @@ test("draws the whole workspace larger when the reader asks", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
 });
+
+/**
+ * Anything that cannot be brought into view, whatever is scrolled.
+ *
+ * Position alone says nothing: the command bar scrolls on purpose, so a button
+ * sitting at a negative coordinate may simply be scrolled past. What matters
+ * is whether it lies inside the scrollable extent of whatever holds it. A
+ * button before the start of that extent can never be reached.
+ */
+async function unreachable(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const scrollerOf = (element: HTMLElement): HTMLElement => {
+      let at = element.parentElement;
+      while (at && at !== document.documentElement) {
+        const overflow = getComputedStyle(at).overflowX;
+        if (overflow === "auto" || overflow === "scroll") return at;
+        at = at.parentElement;
+      }
+      return document.documentElement;
+    };
+    // A bounding box comes back in drawn pixels and scrollWidth in layout
+    // pixels, and zoom is the difference between them. Comparing the two
+    // without dividing makes everything look 30 percent too far right.
+    const scale =
+      Number(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--text-scale",
+        ),
+      ) || 1;
+    const out: string[] = [];
+    for (const element of document.querySelectorAll<HTMLElement>(
+      ".command-bar button, .radar-timeline, .top-status, .tool-hud, .surface-panel",
+    )) {
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) continue;
+      const scroller = scrollerOf(element);
+      const frame = scroller.getBoundingClientRect();
+      const left = (box.left - frame.left) / scale + scroller.scrollLeft;
+      const right = left + box.width / scale;
+      // Two pixels of rounding is not a layout fault.
+      if (left < -2 || right > scroller.scrollWidth + 2) {
+        out.push(
+          `${element.className || element.tagName} ${Math.round(left)}..${Math.round(right)} of ${scroller.scrollWidth}`,
+        );
+      }
+    }
+    return out;
+  });
+}
+
+for (const scale of ["100%", "115%", "130%"] as const) {
+  test(`nothing becomes unreachable at ${scale}`, async ({ page }) => {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: scale, exact: true }).click();
+    await page.getByRole("button", { name: "Close Settings" }).click();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+
+    expect(await unreachable(page), `at ${scale}`).toEqual([]);
+    // And the page itself never scrolls sideways, whatever the bar does.
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
+      `page scrolls sideways at ${scale}`,
+    ).toBeLessThanOrEqual(2);
+
+    // With a panel open, which is the widest the workspace ever gets.
+    await page.getByRole("button", { name: "Layers", exact: true }).click();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(await unreachable(page), `at ${scale} with Layers open`).toEqual([]);
+  });
+}
+
+test("lays out for the room it has rather than the room the screen has", async ({
+  page,
+}) => {
+  // Zoom scales the drawing and not the numbers a media query compares
+  // against, so a workspace at 130 percent has a third less room than the
+  // stylesheet would otherwise believe. The scene and tool buttons drop their
+  // labels below 1320, and at 130 percent every screen this suite runs on is
+  // below 1320 once divided.
+  const label = page.locator(".command-group--scenes .command-button span");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "130%", exact: true }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+
+  const room = await page.evaluate(() => {
+    const scale = getComputedStyle(document.documentElement).getPropertyValue(
+      "--text-scale",
+    );
+    return {
+      narrow: document.documentElement.dataset.narrow ?? "",
+      effective: Math.round(window.innerWidth / Number(scale)),
+    };
+  });
+  expect(room.effective).toBeLessThan(1320);
+  expect(room.narrow.split(" ")).toContain("1320");
+  await expect(label.first()).toBeHidden();
+});
