@@ -76,6 +76,7 @@ interface PanelSurfacesProps {
   onUpload: (file: File) => void;
   onWatchHere: () => void;
   onOpenLogFolder: () => void;
+  onCopyDiagnostics: () => void;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
 }
@@ -215,6 +216,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           health={props.health}
           log={props.log}
           onOpenLogFolder={props.onOpenLogFolder}
+          onCopyDiagnostics={props.onCopyDiagnostics}
           onClose={onClose}
         />
       ) : null}

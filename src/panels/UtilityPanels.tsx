@@ -1,6 +1,7 @@
 import {
   Download,
   FileUp,
+  ClipboardCopy,
   FolderOpen,
   Info,
   ShieldCheck,
@@ -94,6 +95,7 @@ interface MorePanelProps extends CloseOnlyProps {
   health: ProviderHealth[];
   log: LogEntry[];
   onOpenLogFolder: () => void;
+  onCopyDiagnostics: () => void;
 }
 
 function clockLabel(at: number): string {
@@ -121,6 +123,7 @@ export function MorePanel({
   health,
   log,
   onOpenLogFolder,
+  onCopyDiagnostics,
 }: MorePanelProps) {
   const t = useT();
   return (
@@ -191,6 +194,9 @@ export function MorePanel({
       <div className="diagnostics-log">
         <div className="diagnostics-log__title">
           <span>{t("diagnostics.recentEvents")}</span>
+          <button type="button" onClick={onCopyDiagnostics}>
+            <ClipboardCopy size={14} /> {t("diagnostics.copy")}
+          </button>
           <button type="button" onClick={onOpenLogFolder}>
             <FolderOpen size={14} /> {t("diagnostics.openLogs")}
           </button>
