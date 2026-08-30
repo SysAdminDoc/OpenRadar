@@ -91,6 +91,63 @@ export function forecastUnits(): Record<string, string> {
       };
 }
 
+/**
+ * A speed the reader can set, in the units they are reading in.
+ *
+ * The radar works in metres a second and the setting is stored that way, so
+ * this is only for the box they type into.
+ */
+export function speedFromMetres(metresPerSecond: number): number {
+  return units === "metric"
+    ? metresPerSecond * 3.6
+    : metresPerSecond * 2.2369363;
+}
+
+/** The same conversion back, for what they typed. */
+export function speedToMetres(shown: number): number {
+  return units === "metric" ? shown / 3.6 : shown / 2.2369363;
+}
+
+/**
+ * A storm report as the spotter measured it, in the units of the reader.
+ *
+ * The feed names its own unit per report: hail in inches, wind in miles an
+ * hour, snow in inches. Leaving those as they arrive puts an inch of hail in
+ * front of somebody who set the workspace to metric.
+ */
+export function formatReportMagnitude(value: number, unit: string): string {
+  const named = unit.trim().toUpperCase();
+  if (units === "imperial") {
+    return translate("reports.measured", {
+      value: String(value),
+      unit: unit || "",
+    }).trim();
+  }
+  if (named === "MPH" || named === "KTS" || named === "KNOTS") {
+    const mph = named === "MPH" ? value : value * 1.15078;
+    return translate("reports.measured", {
+      value: Math.round(mph * 1.609344).toString(),
+      unit: "km/h",
+    });
+  }
+  if (named === "INCH" || named === "IN" || named === "INCHES") {
+    return translate("reports.measured", {
+      value: (value * 2.54).toFixed(1),
+      unit: "cm",
+    });
+  }
+  if (named === "F") {
+    return translate("reports.measured", {
+      value: (((value - 32) * 5) / 9).toFixed(0),
+      unit: "°C",
+    });
+  }
+  return translate("reports.measured", {
+    value: String(value),
+    unit: unit || "",
+  }).trim();
+}
+
 /** What a depth of rain arrives in, which is what it has to be labelled as. */
 export function precipitationUnit(): string {
   return units === "metric" ? "mm" : "in";

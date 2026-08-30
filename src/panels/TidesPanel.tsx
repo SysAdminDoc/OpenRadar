@@ -17,6 +17,7 @@ import {
   distanceUnit,
   distanceValue,
   formatClock,
+  formatDistance,
   formatTideHeight,
 } from "../lib/units";
 
@@ -133,7 +134,11 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
           <Waves size={24} />
           <div>
             <strong>{t("tides.inlandTitle")}</strong>
-            <span>{t("tides.inlandBody", { miles: MAX_STATION_MILES })}</span>
+            <span>
+              {t("tides.inlandBody", {
+                distance: formatDistance(MAX_STATION_MILES),
+              })}
+            </span>
           </div>
         </div>
       ) : null}

@@ -8,7 +8,7 @@ import {
 } from "../lib/level2";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { RadarSettings } from "../lib/settings";
-import { speedUnit } from "../lib/units";
+import { speedFromMetres, speedToMetres, speedUnit } from "../lib/units";
 import { translate, useT } from "../i18n";
 
 /**
@@ -221,23 +221,31 @@ export function RadarProductPanel({
                     </small>
                   </div>
                   <label className="select-row">
-                    <span>{t("radar.stormMotionSpeed")}</span>
+                    <span>
+                      {t("radar.stormMotionSpeed", { unit: speedUnit() })}
+                    </span>
                     <input
                       type="number"
                       min={0}
-                      max={80}
+                      max={Math.round(speedFromMetres(80))}
                       step={1}
+                      // The box is in the reader's own units; the sweep is
+                      // always given the metres a second it works in.
                       value={Math.round(
-                        radar.stormMotion?.speedMs ??
-                          sweep?.stormMotion?.speedMs ??
-                          0,
+                        speedFromMetres(
+                          radar.stormMotion?.speedMs ??
+                            sweep?.stormMotion?.speedMs ??
+                            0,
+                        ),
                       )}
-                      aria-label={t("radar.stormMotionSpeed")}
+                      aria-label={t("radar.stormMotionSpeed", {
+                        unit: speedUnit(),
+                      })}
                       onChange={(event) =>
                         onRadar({
                           ...radar,
                           stormMotion: {
-                            speedMs: Number(event.target.value),
+                            speedMs: speedToMetres(Number(event.target.value)),
                             fromDegrees:
                               radar.stormMotion?.fromDegrees ??
                               sweep?.stormMotion?.fromDegrees ??

@@ -7,9 +7,12 @@ import {
   formatClock,
   formatDistance,
   formatHeight,
+  formatReportMagnitude,
   formatTideHeight,
   setClockZone,
   setUnits,
+  speedFromMetres,
+  speedToMetres,
   speedUnit,
   useMeasurements,
 } from "./units";
@@ -117,6 +120,31 @@ describe("the units the workspace reads in", () => {
     const settled = result.current;
     act(() => setUnits("metric"));
     expect(result.current).toBe(settled);
+  });
+
+  it("puts a spotter's measurement in the reader's units", () => {
+    // The report feed names its own unit per report, so a metric reader was
+    // being shown hail in inches and wind in miles an hour.
+    expect(formatReportMagnitude(1.75, "INCH")).toBe("1.75 INCH");
+    expect(formatReportMagnitude(60, "MPH")).toBe("60 MPH");
+
+    setUnits("metric");
+    expect(formatReportMagnitude(1.75, "INCH")).toBe("4.4 cm");
+    expect(formatReportMagnitude(60, "MPH")).toBe("97 km/h");
+    expect(formatReportMagnitude(52, "KTS")).toBe("96 km/h");
+    // A unit the feed uses that nothing converts is passed through rather than
+    // relabelled as something it is not.
+    expect(formatReportMagnitude(3, "E")).toBe("3 E");
+  });
+
+  it("takes a storm motion in the units it was typed in", () => {
+    // The sweep is always handed metres a second. The box is not.
+    expect(Math.round(speedFromMetres(10))).toBe(22);
+    expect(speedToMetres(speedFromMetres(13.5))).toBeCloseTo(13.5, 5);
+
+    setUnits("metric");
+    expect(Math.round(speedFromMetres(10))).toBe(36);
+    expect(speedToMetres(36)).toBeCloseTo(10, 5);
   });
 
   it("stops telling a component that has gone", () => {

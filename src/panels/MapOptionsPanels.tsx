@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
-import { TEXT_SCALES } from "../lib/units";
+import { formatDistance, TEXT_SCALES } from "../lib/units";
 import type {
   AppSettings,
   LayerSettings,
@@ -34,6 +34,7 @@ import { LANGUAGES, useT, type StringKey } from "../i18n";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
+  surgeDepthLabel,
   surgeCategoryKey,
   type SurgeCategory,
 } from "../lib/surge";
@@ -301,10 +302,10 @@ export function LayersPanel({
             ))}
           </div>
           <ol className="surge-ramp">
-            {SURGE_RAMP.map(([color, key]) => (
-              <li key={key}>
+            {SURGE_RAMP.map(([color, feet, over]) => (
+              <li key={color}>
                 <i style={{ background: color }} aria-hidden="true" />
-                {t(key)}
+                {surgeDepthLabel(feet, over)}
               </li>
             ))}
           </ol>
@@ -600,7 +601,9 @@ export function SettingsPanel({
           <span>
             <strong>{t("settings.radius")}</strong>
             <output>
-              {t("settings.radiusValue", { count: settings.watch.radiusMiles })}
+              {t("settings.radiusValue", {
+                distance: formatDistance(settings.watch.radiusMiles),
+              })}
             </output>
           </span>
           <input

@@ -1,5 +1,6 @@
 import { translate } from "../../i18n";
 import { cachedUrl, noteCachedResponse } from "../tileCache";
+import { formatReportMagnitude } from "../units";
 import {
   relativeTime,
   type OverlayAdapter,
@@ -155,9 +156,7 @@ export const stormReportsOverlay: OverlayAdapter = {
     const lines: string[] = [];
 
     if (typeof magnitude === "number" && unit) {
-      lines.push(
-        translate("reports.measured", { value: String(magnitude), unit }),
-      );
+      lines.push(formatReportMagnitude(magnitude, unit));
     }
     lines.push(
       Number.isFinite(at)
