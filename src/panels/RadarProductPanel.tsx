@@ -16,9 +16,7 @@ import { translate, useT } from "../i18n";
  * The sweep carries it in metres a second, which is what the radar works in.
  */
 function formatSpeed(metresPerSecond: number): string {
-  const perHour =
-    speedUnit() === "mph" ? metresPerSecond * 2.23694 : metresPerSecond * 3.6;
-  return `${Math.round(perHour)} ${speedUnit()}`;
+  return `${Math.round(speedFromMetres(metresPerSecond))} ${speedUnit()}`;
 }
 
 /**
@@ -64,6 +62,7 @@ export function RadarProductPanel({
   const t = useT();
   const sweep = singleSite?.sweep ?? null;
   const threshold = radar.thresholds[radar.product] ?? null;
+  const unfoldForced = radar.product === "storm-relative-velocity";
   const productUnit =
     LEVEL2_PRODUCTS.find((product) => product.id === radar.product)?.unit ?? "";
   const tilts = sweep?.tilts ?? [];
@@ -146,11 +145,20 @@ export function RadarProductPanel({
           <label className="toggle-row toggle-row--plain">
             <span>
               <strong>{t("radar.dealias")}</strong>
-              <small>{t("radar.dealiasDetail")}</small>
+              <small>
+                {/* Storm relative reads its wind off the sweep, and a fit
+                    against a folded field collapses, so it unfolds whatever
+                    this says. The control says so rather than sitting
+                    unchecked over a sweep that has been unfolded anyway. */}
+                {unfoldForced
+                  ? t("radar.dealiasForced")
+                  : t("radar.dealiasDetail")}
+              </small>
             </span>
             <input
               type="checkbox"
-              checked={radar.dealias}
+              checked={radar.dealias || unfoldForced}
+              disabled={unfoldForced}
               onChange={(event) =>
                 onRadar({ ...radar, dealias: event.target.checked })
               }

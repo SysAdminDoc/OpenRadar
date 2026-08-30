@@ -11,7 +11,7 @@
  * category, drawn per region, which is why one category names several layers.
  */
 import { translate, type StringKey } from "../i18n";
-import { formatHeight } from "./units";
+import { formatDepth } from "./units";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/StormSurgeRisk/MapServer/export";
@@ -56,7 +56,7 @@ export const SURGE_RAMP: Array<[colour: string, feet: number, over: boolean]> =
 /** One line of that legend, in the units the reader asked for. */
 export function surgeDepthLabel(feet: number, over: boolean): string {
   return translate(over ? "surge.over" : "surge.upTo", {
-    depth: formatHeight(feet),
+    depth: formatDepth(feet),
   });
 }
 

@@ -77,9 +77,41 @@ pub enum Level2Error {
     Http(#[from] http::HttpError),
 }
 
+impl Level2Error {
+    /// A name for this kind of failure, and whatever it names.
+    ///
+    /// The workspace is translated and these are not, so a Spanish reader used
+    /// to get an English sentence in a panel where everything else was in
+    /// Spanish. Sending a code and its parts lets the page write the sentence
+    /// itself, and the English text still rides along for anything the page
+    /// has no wording for.
+    fn parts(&self) -> (&'static str, Vec<String>) {
+        match self {
+            Self::UnknownSite(site) => ("unknownSite", vec![site.clone()]),
+            Self::NoVolume(site) => ("noVolume", vec![site.clone()]),
+            Self::BadListing => ("badListing", Vec::new()),
+            Self::Decode(why) => ("decode", vec![why.clone()]),
+            Self::NoSweep(site, product) => {
+                ("noSweep", vec![site.clone(), product.clone()])
+            }
+            Self::NoStormMotion(site) => ("noStormMotion", vec![site.clone()]),
+            Self::Encode(why) => ("encode", vec![why.clone()]),
+            Self::Http(_) => ("http", vec![self.to_string()]),
+        }
+    }
+}
+
 impl Serialize for Level2Error {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
+        use serde::ser::SerializeStruct;
+        let (code, args) = self.parts();
+        let mut out = serializer.serialize_struct("Level2Error", 3)?;
+        out.serialize_field("code", code)?;
+        out.serialize_field("args", &args)?;
+        // What the native side would have said, for anything the page has no
+        // wording of its own for.
+        out.serialize_field("text", &self.to_string())?;
+        out.end()
     }
 }
 
@@ -553,8 +585,12 @@ fn make_storm_relative(field: &mut SweepField, wind: vad::Wind) {
 }
 
 /// Shifts a velocity field back onto the flow it belongs to, in place.
-/// Returns the share of its readings that moved.
-fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> f32 {
+///
+/// Answers whether the picture actually changed: enough readings moved that
+/// the sweep is a different one and has to be drawn and labelled as such. When
+/// it answers no, nothing is written and the field is left as the radar gave
+/// it.
+fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
     let azimuths = field.azimuth_count();
     let gates = field.gate_count();
     let mut values = field.values().to_vec();
@@ -565,21 +601,26 @@ fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> f32 {
         .collect();
 
     let moved = dealias::dealias(&mut values, &valid, azimuths, gates, nyquist);
-    if moved > 0 {
-        for azimuth in 0..azimuths {
-            for gate in 0..gates {
-                let at = azimuth * gates + gate;
-                if valid[at] {
-                    field.set(azimuth, gate, values[at], GateStatus::Valid);
-                }
+    let readings = valid.iter().filter(|held| **held).count();
+    if readings == 0 {
+        return false;
+    }
+    // Deciding here rather than at the call site is what keeps the two
+    // answers together. Writing back a handful of moved gates and then
+    // reporting the sweep as not unfolded drew it on the narrow scale with
+    // readings pushed outside the limit that scale is drawn to.
+    if (moved as f32 / readings as f32) < MIN_UNFOLD_SHARE {
+        return false;
+    }
+    for azimuth in 0..azimuths {
+        for gate in 0..gates {
+            let at = azimuth * gates + gate;
+            if valid[at] {
+                field.set(azimuth, gate, values[at], GateStatus::Valid);
             }
         }
     }
-    let readings = valid.iter().filter(|held| **held).count();
-    if readings == 0 {
-        return 0.0;
-    }
-    moved as f32 / readings as f32
+    true
 }
 
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
@@ -838,7 +879,7 @@ pub fn sweep_from_volume(
     let mut dealiased = false;
     if (unfold || storm_relative) && product == Product::Velocity {
         if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
-            dealiased = unfold_velocity(&mut chosen.field, nyquist) >= MIN_UNFOLD_SHARE;
+            dealiased = unfold_velocity(&mut chosen.field, nyquist);
         } else if storm_relative && manual_motion.is_none() {
             // No Nyquist velocity means no unfolding, and a wind read off a
             // sweep that may still be folded is not a wind. A motion the
@@ -1992,9 +2033,9 @@ mod tests {
             planted.len()
         );
 
-        let share = unfold_velocity(&mut chosen.field, nyquist);
+        let unfolded = unfold_velocity(&mut chosen.field, nyquist);
         let (after, _) = fold_jumps(&chosen.field, nyquist);
-        assert!(share > 0.0, "nothing was unfolded");
+        assert!(unfolded, "nothing was unfolded");
 
         // How far each gate ended up from where it started, in whole intervals.
         let interval = 2.0 * nyquist;
@@ -2031,7 +2072,7 @@ mod tests {
         let rejoined = inside.get(&common).copied().unwrap_or(0);
 
         println!(
-            "nyquist {nyquist:.1} m/s, {untouched} natural folds, {} planted,              sweep moved {common} intervals, {rejoined} of the wedge came with it,              {share:.4} of the sweep moved, {after} jumps of {pairs} pairs"
+            "nyquist {nyquist:.1} m/s, {untouched} natural folds, {} planted,              sweep moved {common} intervals, {rejoined} of the wedge came with it,              the sweep counted as unfolded: {unfolded}, {after} jumps of {pairs} pairs"
         , planted.len());
 
         assert!(

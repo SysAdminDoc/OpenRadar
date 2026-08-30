@@ -1,5 +1,6 @@
 import { isDesktopRuntime } from "./settings";
-import type { StringKey } from "../i18n";
+import { translate, type StringKey } from "../i18n";
+import { en } from "../i18n/en";
 
 /** Below this the national mosaic is the better picture, and cheaper. */
 export const SINGLE_SITE_MIN_ZOOM = 8;
@@ -111,6 +112,37 @@ export async function fetchSweep(
     motion,
     threshold,
   });
+}
+
+/**
+ * What the native side said went wrong, in the reader's own language.
+ *
+ * The command rejects with a code, the parts of the message, and the English
+ * sentence it would otherwise have sent. Anything with wording of its own is
+ * written here; anything without falls back to that sentence, which is better
+ * than a code nobody can read.
+ */
+export function sweepErrorText(failure: unknown): string {
+  if (failure && typeof failure === "object" && "code" in failure) {
+    const named = failure as {
+      code?: unknown;
+      args?: unknown;
+      text?: unknown;
+    };
+    const args = Array.isArray(named.args) ? named.args : [];
+    const params: Record<string, string> = {};
+    args.forEach((value, at) => {
+      params[String(at)] = String(value);
+    });
+    const key = `radar.error.${String(named.code)}`;
+    // A build that has never heard of this failure has no wording for it, and
+    // asking for one that is not there throws rather than answering.
+    if (key in en) return translate(key as StringKey, params);
+    if (typeof named.text === "string" && named.text) return named.text;
+  }
+  if (typeof failure === "string") return failure;
+  if (failure instanceof Error) return failure.message;
+  return translate("radar.error.badListing");
 }
 
 /** The four corners MapLibre wants, clockwise from the top left. */

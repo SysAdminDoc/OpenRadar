@@ -260,3 +260,31 @@ test("switches the whole workspace to metric and to UTC", async ({ page }) => {
   ).toBeVisible();
   await expect(page.locator(".route-row").first()).toContainText(" m");
 });
+
+test("a measurement already on the map follows the units", async ({ page }) => {
+  // The map and the strip above it are mounted for the life of the window, so
+  // a switch to metric has to reach them. And the readout is written when the
+  // click happens, so a measurement taken in miles cannot become kilometres by
+  // being re-rendered: it has to be composed again.
+  await page.goto("/?testMode=1&lon=-93.7&lat=41.7&zoom=7&bearing=0&pitch=0");
+
+  await page.getByRole("button", { name: "Range", exact: true }).click();
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const box = (await pane.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.35, box.y + box.height * 0.4);
+  await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.6);
+
+  const hud = page.locator(".tool-hud");
+  await expect(hud).toContainText(/Range \d+ mi\b/);
+  const imperial = (await hud.textContent()) ?? "";
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Metres and Celsius" }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // Same measurement, said in the other units, without touching the map again.
+  await expect(hud).toContainText(/Range \d+ km\b/);
+  expect(await hud.textContent()).not.toBe(imperial);
+});

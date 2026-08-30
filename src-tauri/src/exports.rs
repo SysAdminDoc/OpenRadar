@@ -20,11 +20,23 @@ const RESERVED_NAMES: &[&str] = &[
     "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 
+/// The allowed kinds as a reader would say them: "png, webm and json".
+///
+/// Joining the whole list with " and " read as "png and webm and json" the
+/// moment there were three of them, and this message goes to the screen.
+fn allowed_in_words() -> String {
+    match ALLOWED_EXTENSIONS.split_last() {
+        Some((last, [])) => (*last).to_string(),
+        Some((last, rest)) => format!("{} and {last}", rest.join(", ")),
+        None => String::new(),
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ExportError {
     #[error("that file name cannot be used")]
     BadName,
-    #[error("only {0} files can be exported", ALLOWED_EXTENSIONS.join(" and "))]
+    #[error("only {0} files can be exported", allowed_in_words())]
     BadExtension,
     #[error("the export is larger than the {MAX_BYTES} byte limit")]
     TooLarge,
@@ -104,6 +116,40 @@ pub fn save_export(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The three kinds of file this app actually writes.
+    ///
+    /// This exists because the settings export was impossible in a packaged
+    /// build for as long as json was missing from the list, and nothing
+    /// noticed. It is the caller in useWorkspaceActions, spelled out.
+    #[test]
+    fn every_file_this_app_writes_can_be_written() {
+        for name in [
+            "openradar-2026-08-30.png",
+            "openradar-loop.webm",
+            "openradar-settings.json",
+        ] {
+            assert!(
+                sanitize_file_name(name).is_ok(),
+                "{name} is a file this app offers to save"
+            );
+        }
+        // And nothing else, however it is spelled.
+        for name in ["notes.txt", "script.exe", "page.html", "archive.zip"] {
+            assert!(matches!(
+                sanitize_file_name(name),
+                Err(ExportError::BadExtension)
+            ));
+        }
+    }
+
+    #[test]
+    fn the_refusal_reads_as_a_sentence() {
+        // Joining the whole list with " and " gave "png and webm and json" as
+        // soon as there were three of them, and this reaches the screen.
+        let said = ExportError::BadExtension.to_string();
+        assert_eq!(said, "only png, webm and json files can be exported");
+    }
 
     #[test]
     fn keeps_a_plain_name() {

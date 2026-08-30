@@ -28,13 +28,13 @@ function dateLabel(seconds: number): string {
   // An archive day is a UTC day, because that is how the bucket is keyed, so
   // this one stays in UTC whatever the clock setting says. It now says so
   // rather than quietly showing a date the reader's own evening disagrees with.
-  const text = new Intl.DateTimeFormat(locale(), {
+  const date = new Intl.DateTimeFormat(locale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(seconds * 1000));
-  return `${text} UTC`;
+  return translate("history.archiveDate", { date });
 }
 
 export function HistoryPanel({

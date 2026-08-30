@@ -23,7 +23,13 @@ import {
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
-import { formatDistance, TEXT_SCALES } from "../lib/units";
+import {
+  distanceUnit,
+  distanceValue,
+  formatDistance,
+  milesFromDistance,
+  TEXT_SCALES,
+} from "../lib/units";
 import type {
   AppSettings,
   LayerSettings,
@@ -608,17 +614,21 @@ export function SettingsPanel({
           </span>
           <input
             type="range"
-            min="5"
-            max="200"
-            step="5"
-            aria-label={t("settings.radiusLabel")}
-            value={settings.watch.radiusMiles}
+            // The slider steps in whatever the reader is reading in, so a
+            // metric reader gets round numbers of kilometres rather than the
+            // eight, sixteen and twenty-four that stepping in miles produces.
+            min={Math.round(distanceValue(5))}
+            max={Math.round(distanceValue(200))}
+            step={distanceUnit() === "miles" ? 5 : 10}
+            aria-label={t("settings.radiusLabel", { unit: distanceUnit() })}
+            value={Math.round(distanceValue(settings.watch.radiusMiles))}
             onChange={(event) =>
               onSettings({
                 ...settings,
                 watch: {
                   ...settings.watch,
-                  radiusMiles: Number(event.target.value),
+                  // Stored in miles, which is what the watch works in.
+                  radiusMiles: milesFromDistance(Number(event.target.value)),
                 },
               })
             }
