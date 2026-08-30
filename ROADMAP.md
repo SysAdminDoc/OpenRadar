@@ -85,13 +85,6 @@
   Acceptance: `cargo test` has at least one passing test proving a non-allowlisted host is refused and a redirect to one is refused; no command accepts a raw URL from the frontend.
   Complexity: M
 
-- [ ] P1: Replace Esri World Imagery with a compliant aerial option and keep OpenTopoMap opt-in with exact attribution
-  Why: Esri tiles outside Esri software require an ArcGIS Location Platform account; OpenTopoMap asks for notification and its precise CC-BY-SA credit.
-  Evidence: `src/lib/mapStyles.ts:60-72`; location.arcgis.com/pricing (2M tiles/month free with key); opentopomap.org/about.
-  Touches: src/lib/mapStyles.ts (remove Esri default; add an optional user-supplied ArcGIS key field in Settings, or drop aerial), CSP, attribution strings, README credits.
-  Acceptance: no request to `server.arcgisonline.com` is made without a user-entered key; OpenTopoMap shows "Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung: © OpenTopoMap (CC-BY-SA)" in the attribution control.
-  Complexity: S
-
 - [ ] P1: Extract `useSettings` out of `App.tsx` (the timeline hook and the layer registry landed on 2026-08-30)
   Why: `App.tsx` is 684 lines and every P1 overlay would land in it; the sibling repos show the cost of one giant controller.
   Evidence: `src/App.tsx`; StormScope `js/context-layers.js` single `syncOverlays` pattern.
