@@ -103,3 +103,43 @@ test("labels the reflectivity ramp in dBZ", async ({ page }) => {
   const legend = page.locator(".legend-scale");
   await expect(legend).toHaveText("520355065");
 });
+
+test("a panel announces itself and gives the focus back", async ({ page }) => {
+  // Two things a screen reader needs and neither of which axe can see: that
+  // the panel is a dialog with a name, and that closing it puts the focus
+  // back where it came from instead of dropping it on the body, where the
+  // next Tab starts again from the top of the window.
+  const opener = page.getByRole("button", { name: "Layers", exact: true });
+  await opener.focus();
+  await opener.click();
+
+  const panel = page.getByRole("dialog", { name: "Layers" });
+  await expect(panel).toBeVisible();
+
+  // Focus moved into the panel, onto its heading.
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.activeElement?.textContent?.trim() ?? ""),
+    )
+    .toBe("Layers");
+
+  await page.getByRole("button", { name: "Close Layers" }).click();
+  await expect(panel).toHaveCount(0);
+
+  // And it came back to the button that opened it.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.activeElement?.getAttribute("aria-label")?.trim(),
+      ),
+    )
+    .toBe("Layers");
+});
+
+test("Escape closes the panel that has the focus", async ({ page }) => {
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Layers" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Layers" })).toHaveCount(0);
+});
