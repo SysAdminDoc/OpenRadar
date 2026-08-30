@@ -524,6 +524,104 @@ input[type="range"] {
   background: var(--surface-hover);
 }
 
+.map-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #101722;
+  font-size: 12px;
+}
+
+.map-popup strong {
+  font-size: 13px;
+}
+
+.map-popup small {
+  color: #4e5b6e;
+  font-size: 11px;
+}
+
+.map-popup a {
+  margin-top: 2px;
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.alert-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.alert-row > button {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color 130ms ease,
+    background 130ms ease;
+}
+
+.alert-row > button:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.alert-row > button i {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 30px;
+  border-radius: 2px;
+}
+
+.alert-row > button span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.alert-row > button strong {
+  font-size: 12.5px;
+}
+
+.alert-row > button small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.alert-row > a {
+  display: grid;
+  width: 34px;
+  place-items: center;
+  color: var(--muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.alert-row > a:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
 .pane-compare {
   position: absolute;
   z-index: 18;

@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Added an NWS watches and warnings layer with severity colouring, click-through detail, and an Alerts panel that lists what intersects the view and flies to any of it.
+- Added USGS earthquake and NIFC wildfire perimeter overlays with popups that carry the source and how fresh the data is.
+- Removed the ten radar and layer switches that had no data behind them. Stored settings from the first release still load, minus those keys.
+- Fixed map layers that could fail to attach because the readiness check also waited on tiles.
 - Replaced RainViewer as the default radar with the NWS RIDGE II mosaic, added NOAA nowCOAST as the failover, and kept RainViewer for viewports outside NOAA coverage.
 - Added a rolling request budget per radar source and per-source health in the More panel.
 - Named the active radar source in the timeline and in the map credits.

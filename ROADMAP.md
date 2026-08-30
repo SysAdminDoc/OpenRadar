@@ -41,13 +41,6 @@
   Acceptance: `npm run tauri dev` opens the map without editing hosts; documented in CLAUDE.md gotchas.
   Complexity: S
 
-- [ ] P0: Wire or remove the eleven settings toggles nothing reads
-  Why: `layers.weatherAlerts/powerOutages/earthquakes/wildfires/avalanche/droughts` and `radar.stormCenters/satelliteEnhancement/lightning/flashes/markers/precipitationClassification` are persisted and shown as working switches but no code consumes them; the Layers panel says so in small print.
-  Evidence: `grep` on 2026-08-30 finds them only in `src/lib/settings.ts`, `src/lib/settings.test.ts`, `src/panels/MapOptionsPanels.tsx`; fleet trap "Settings toggles no code reads" (ZeusWatch 2026-08-29).
-  Touches: src/panels/MapOptionsPanels.tsx, src/panels/RadarProductPanel.tsx, src/lib/settings.ts, and the overlay adapters landed by the P1 items below.
-  Acceptance: every visible toggle either changes what the map renders (covered by a test that flips it and asserts a layer id appears/disappears) or is removed from the UI and from `AppSettings` with a schema migration; Power Outages, Avalanche, and Droughts are removed until a source exists.
-  Complexity: M
-
 - [x] P0: Rename MyRadar-derived product and style names
   Why: "Hi Def Radar", "Pro Dark", "Pro Light", and the copied layer list are MyRadar's labels; `docs/asset-ledger.md` already marks the reference screenshots "AUTHORIZATION_NEEDED".
   Evidence: `src/components/MapChrome.tsx` RadarLegend; `src/panels/RadarProductPanel.tsx`; `src/panels/SettingsPanel` section title; `src/lib/mapStyles.ts` MAP_STYLE_OPTIONS; myradar.com feature names.
@@ -83,20 +76,6 @@
   Evidence: `src/App.tsx:356`; StormDeck uses `stormdeck://` via `tauri-plugin-deep-link` 2.4.9 and `tauri-plugin-single-instance` 2.4.3.
   Touches: src-tauri/Cargo.toml, src-tauri/tauri.conf.json (`plugins.deep-link.desktop.schemes`), src-tauri/src/lib.rs, src-tauri/capabilities/default.json, src/App.tsx (parse camera from the deep-link payload as `cameraFromUrl` does now).
   Acceptance: clicking a copied `openradar://view?lon=..&lat=..&zoom=..&projection=globe` link in a browser focuses the running app and flies the camera; a second launch does not open a second window.
-  Complexity: M
-
-- [ ] P1: NWS alerts layer with polygons, zone geometry, and click-to-fly list
-  Why: `layers.weatherAlerts` defaults on and does nothing; alerts are the most-reacted open ask on Supercell Wx (#433, #637) and free in every competitor; users leave MyRadar over alerts for towns 15 miles away, which viewport scoping fixes.
-  Evidence: StormScope `js/nws-alerts.js` (30 s poll, backoff to 15 min, VTEC dedupe); StormDeck `src-tauri/src/providers/nws_alerts.rs` (`resolve_ugc_geometry` for the ~80% of features with null geometry on 2026-07-29); `https://api.weather.gov/alerts/active` with mandatory two-part User-Agent; WWA MapServer `mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer` for ready polygons.
-  Touches: new src/lib/overlays/alerts.ts, src/components/MapViewport.tsx (fill/line layers by severity below tools), new src/panels/AlertsPanel.tsx (worst-first list, click flies camera), src-tauri/tauri.conf.json CSP, src/lib/settings.ts (severity filter).
-  Acceptance: with the toggle on, active tornado/severe/flash-flood polygons render in the viewport within 30 s of app start; a fixture-driven test renders zone-only alerts via `/zones/{type}/{id}`; the panel lists alerts intersecting the viewport with issued/expires times and a source line.
-  Complexity: M
-
-- [ ] P1: Earthquakes (USGS) and wildfire perimeters (NIFC WFIGS) overlay adapters
-  Why: both toggles exist and do nothing; both are free in MyRadar and keyless upstream.
-  Evidence: `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson` (updated every minute); NIFC WFIGS FeatureServer/0 with `resultOffset` pagination and `editingInfo.dataLastEditDate` freshness (StormScope `js/context-layers.js:180-269`, `js/earthquakes.js`; StormDeck `src/lib/overlays/{earthquakes,wildfire}.ts`).
-  Touches: new src/lib/overlays/{earthquakes,wildfires}.ts, src/components/MapViewport.tsx circle/fill layers with popups, CSP, LayersPanel copy (magnitude and age filters).
-  Acceptance: toggling each layer adds features within 5 s, shows freshness in the popup and attribution in the legend, and keeps the last good snapshot when the feed fails (unit test with a 500 response).
   Complexity: M
 
 - [ ] P1: HRRR future radar on the timeline tail from IEM `hrrr::REFD` tiles

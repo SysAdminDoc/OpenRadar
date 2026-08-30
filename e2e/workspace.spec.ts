@@ -31,7 +31,25 @@ const nowcoastCapabilities = `<?xml version="1.0" encoding="UTF-8"?>
   </Capability>
 </WMS_Capabilities>`;
 
+const emptyCollection = JSON.stringify({
+  type: "FeatureCollection",
+  features: [],
+});
+
 test.beforeEach(async ({ page }) => {
+  // Overlay feeds answer empty by default so no test reaches a live service.
+  for (const host of [
+    "https://mapservices.weather.noaa.gov/**",
+    "https://earthquake.usgs.gov/**",
+    "https://services3.arcgis.com/**",
+  ]) {
+    await page.route(host, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: emptyCollection,
+      });
+    });
+  }
   await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {
     if (route.request().url().includes("GetCapabilities")) {
       await route.fulfill({
@@ -169,4 +187,99 @@ test("names the radar source and fails over to nowCOAST", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await expect(page.getByText(/NWS RIDGE II/).first()).toBeVisible();
   await expect(page.getByText(/returned 503/)).toBeVisible();
+});
+
+test("adds and removes a map layer when a toggle changes", async ({ page }) => {
+  await page.route("https://earthquake.usgs.gov/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        features: [
+          {
+            geometry: { type: "Point", coordinates: [-95, 35, 8] },
+            properties: {
+              mag: 4.4,
+              place: "Test County",
+              time: 1788068400000,
+              url: "https://earthquake.usgs.gov/x",
+            },
+          },
+        ],
+      }),
+    });
+  });
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).not.toHaveAttribute(
+    "data-overlay-layers",
+    /earthquakes-circle/,
+  );
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Earthquakes/ }).check();
+  await expect(pane).toHaveAttribute(
+    "data-overlay-layers",
+    /openradar-overlay-earthquakes-circle/,
+  );
+
+  await page.getByRole("checkbox", { name: /Earthquakes/ }).uncheck();
+  await expect(pane).not.toHaveAttribute(
+    "data-overlay-layers",
+    /earthquakes-circle/,
+  );
+});
+
+test("lists viewport alerts and flies to one", async ({ page }) => {
+  await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [-86, 26],
+                  [-85, 26],
+                  [-85, 27],
+                  [-86, 27],
+                  [-86, 26],
+                ],
+              ],
+            },
+            properties: {
+              prod_type: "Tornado Warning",
+              sig: "W",
+              wfo: "MFL",
+              issuance: "2026-08-30T05:00:00Z",
+              expiration: "2026-08-30T06:00:00Z",
+              url: "https://api.weather.gov/alerts/test",
+            },
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.reload();
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute(
+    "data-overlay-layers",
+    /openradar-overlay-alerts-fill/,
+  );
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Alerts" })).toBeVisible();
+  await expect(page.getByText("Tornado Warning")).toBeVisible();
+
+  const before = await pane.getAttribute("data-camera");
+  await page.getByText("Tornado Warning").click();
+  await expect.poll(() => pane.getAttribute("data-camera")).not.toBe(before);
 });

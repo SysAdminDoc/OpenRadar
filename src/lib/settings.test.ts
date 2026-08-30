@@ -12,10 +12,8 @@ describe("settings normalization", () => {
     expect(settings.radar.opacity).toBe(0.7);
     expect(settings.radar.animationSpeed).toBe(-0.1);
     expect(settings.radar.loopMinutes).toBe(120);
-    expect(settings.radar.lightning).toBe(true);
-    expect(settings.radar.markers).toBe(false);
     expect(settings.layers.weatherAlerts).toBe(true);
-    expect(settings.layers.powerOutages).toBe(true);
+    expect(settings.layers.earthquakes).toBe(false);
   });
 
   it("clamps corrupt camera and radar values", () => {
@@ -34,6 +32,40 @@ describe("settings normalization", () => {
     expect(settings.radar.opacity).toBe(0.05);
     expect(settings.radar.animationSpeed).toBe(0.5);
     expect(settings.radar.loopMinutes).toBe(60);
+  });
+
+  it("loads a schema 1 file without the switches that had no source", () => {
+    const settings = normalizeSettings({
+      schemaVersion: 1,
+      theme: "light",
+      mapStyle: "pro-dark",
+      radar: {
+        opacity: 0.4,
+        lightning: true,
+        flashes: true,
+        stormCenters: true,
+        precipitationClassification: true,
+      },
+      layers: { weatherAlerts: false, powerOutages: true, droughts: true },
+    });
+
+    expect(settings.schemaVersion).toBe(2);
+    expect(settings.theme).toBe("light");
+    expect(settings.mapStyle).toBe("pro-dark");
+    expect(settings.radar.opacity).toBe(0.4);
+    expect(settings.layers.weatherAlerts).toBe(false);
+    expect(Object.keys(settings.radar).sort()).toEqual([
+      "animationSpeed",
+      "enabled",
+      "loopMinutes",
+      "opacity",
+    ]);
+    expect(Object.keys(settings.layers).sort()).toEqual([
+      "customOverlay",
+      "earthquakes",
+      "weatherAlerts",
+      "wildfires",
+    ]);
   });
 
   it("always returns four safe preset slots", () => {
