@@ -18,6 +18,8 @@ import {
   type RadarFrame,
   type RadarProvider,
 } from "./types";
+import { cachedSince } from "../tileCache";
+import { translate } from "../../i18n";
 
 export const NOAA_PROVIDERS: RadarProvider[] = [
   mrmsProvider,
@@ -117,6 +119,11 @@ export function coverageKey(lon: number, lat: number): string {
 export interface RadarTimeline {
   provider: RadarProvider;
   frames: RadarFrame[];
+  /**
+   * How old the bytes behind this loop are, when the native side answered
+   * from its cache rather than from the network. Null for a live answer.
+   */
+  cachedAgeSeconds: number | null;
 }
 
 export async function fetchRadarTimeline(
@@ -126,11 +133,13 @@ export async function fetchRadarTimeline(
 ): Promise<RadarTimeline> {
   const chain = providerChain(center[0], center[1]);
   const failures: string[] = [];
+  // Anything reported as cached after this moment belongs to this attempt.
+  const startedAt = Date.now();
 
   for (const provider of chain) {
     const budget = budgetFor(provider, "discovery");
     if (!budget.tryConsume()) {
-      recordFailure(provider.id, "Request budget reached");
+      recordFailure(provider.id, translate("radar.budgetReached"));
       log.warn("radar", `${provider.label} is over its request budget`);
       failures.push(`${provider.label} is over its request budget`);
       continue;
@@ -138,10 +147,16 @@ export async function fetchRadarTimeline(
 
     try {
       const frames = await provider.fetchFrames(loopMinutes, signal);
-      if (!frames.length) throw new Error("No frames were published.");
+      if (!frames.length) throw new Error(translate("radar.noFrames"));
       recordSuccess(provider.id, frames.length);
       log.info("radar", `${provider.label} returned ${frames.length} frames`);
-      return { provider, frames };
+      // A reply that came off the disk is still a reply, and the map is right
+      // to draw it. It is not live, though, and the timeline has to say so.
+      return {
+        provider,
+        frames,
+        cachedAgeSeconds: cachedSince(startedAt),
+      };
     } catch (error) {
       // A caller that aborted mid-response can surface a TypeError rather than
       // an AbortError, and that is not a provider failure.
@@ -149,7 +164,9 @@ export async function fetchRadarTimeline(
       if (error instanceof DOMException && error.name === "AbortError")
         throw error;
       const message =
-        error instanceof Error ? error.message : "The request failed.";
+        error instanceof Error
+          ? error.message
+          : translate("radar.requestFailedShort");
       recordFailure(provider.id, message);
       log.warn("radar", `${provider.label} failed: ${message}`);
       failures.push(`${provider.label}: ${message}`);
@@ -157,7 +174,7 @@ export async function fetchRadarTimeline(
   }
 
   throw new Error(
-    failures.length ? failures.join(" ") : "No radar provider is available.",
+    failures.length ? failures.join(" ") : translate("radar.noProvider"),
   );
 }
 

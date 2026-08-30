@@ -1,4 +1,5 @@
 import type { RadarFrame } from "./providers/types";
+import { translate } from "../i18n";
 
 export type { RadarFrame };
 
@@ -13,7 +14,7 @@ export function frameAgeMinutes(frame: RadarFrame, now = Date.now()): number {
 }
 
 export function formatFrameTime(frame: RadarFrame | undefined): string {
-  if (!frame) return "Waiting for radar";
+  if (!frame) return translate("radar.waiting");
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",

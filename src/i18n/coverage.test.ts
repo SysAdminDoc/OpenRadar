@@ -83,6 +83,41 @@ function untranslated(source: string): string[] {
   return found;
 }
 
+/**
+ * Copy hiding in a string literal rather than in markup.
+ *
+ * Only the places a literal actually reaches a person: a thrown message, which
+ * becomes a toast or a panel's error line; the fields of a toast; and text
+ * written onto a DOM node by hand.
+ *
+ * Log lines are deliberately not included. They are developer-facing, they
+ * carry service text verbatim, and the project's own rule keeps them in
+ * English along with code comments.
+ */
+function untranslatedStrings(source: string): string[] {
+  const found: string[] = [];
+  const patterns: Array<[string, RegExp]> = [
+    ["thrown", /throw new Error\(\s*"([^"]{8,})"/g],
+    ["toast", /\b(?:title|detail|actionLabel|eyebrow):\s*"([^"]{4,})"/g],
+    ["written", /\.textContent\s*=\s*"([^"]{4,})"/g],
+    ["label", /\blabel\s*=\s*"([^"]{4,})"/g],
+    // Anything handed straight to a state setter, which is how an error line
+    // or a summary reaches the screen without ever passing through markup.
+    ["set", /\bset[A-Z]\w*\(\s*"([^"]{8,})"/g],
+  ];
+  for (const [kind, pattern] of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      const text = match[1];
+      // Two words or more, starting like a sentence: an identifier, a unit,
+      // or a machine value is none of those.
+      if (!/^[A-Z][a-z]/.test(text)) continue;
+      if (!/ /.test(text.trim())) continue;
+      found.push(`${kind} "${text}"`);
+    }
+  }
+  return found;
+}
+
 describe("the workspace is translated", () => {
   it("has a Spanish string for every English one", () => {
     const english = Object.keys(en).sort();
@@ -119,6 +154,36 @@ describe("the workspace is translated", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("leaves no copy behind in the hooks and the libraries either", () => {
+    // Copy does not only live in markup. A thrown message becomes a toast, a
+    // toast title is copy, and text written straight onto a DOM node is copy
+    // that no JSX scan will ever see.
+    const offenders: string[] = [];
+    for (const path of [
+      ...sourceFiles(join(ROOT, "hooks")),
+      ...sourceFiles(join(ROOT, "lib")),
+      ...sourceFiles(join(ROOT, "panels")),
+      ...sourceFiles(join(ROOT, "components")),
+      join(ROOT, "App.tsx"),
+    ]) {
+      for (const item of untranslatedStrings(readFileSync(path, "utf8"))) {
+        offenders.push(`${path.slice(ROOT.length + 1)}: ${item}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("fills in the same blanks in both languages", () => {
+    // A translation that drops a placeholder does not fail to build and does
+    // not throw: it simply never shows the number. One that invents a new one
+    // renders the braces on screen.
+    const names = (value: string) =>
+      [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+    for (const key of Object.keys(en) as Array<keyof typeof en>) {
+      expect(names(es[key]), key).toEqual(names(en[key]));
+    }
   });
 
   it("makes the pseudolocale longer than the original", () => {

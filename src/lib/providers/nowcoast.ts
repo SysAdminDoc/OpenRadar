@@ -8,7 +8,6 @@ import { createWmsProvider } from "./wms";
 export const nowcoastProvider = createWmsProvider({
   id: "nowcoast",
   label: "NOAA nowCOAST",
-  detail: "National base reflectivity mosaic",
   attribution: '<a href="https://nowcoast.noaa.gov/">NOAA nowCOAST</a>',
   attributionUrl: "https://nowcoast.noaa.gov/",
   host: "nowcoast.noaa.gov",

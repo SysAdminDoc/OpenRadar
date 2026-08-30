@@ -27,7 +27,6 @@ export interface BoundingBox {
 export interface RadarProvider {
   id: ProviderId;
   label: string;
-  detail: string;
   attribution: string;
   attributionUrl: string;
   /** Regions the provider covers. An empty list means worldwide. */

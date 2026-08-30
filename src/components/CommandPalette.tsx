@@ -50,7 +50,7 @@ export function CommandPalette({
 
   // Rebuilt when the language changes: the labels are what the list is
   // searched by, and they are not the same words in every language.
-  const commands = useMemo(() => allCommands(), [language]);
+  const commands = useMemo(() => allCommands(language), [language]);
   const results = useMemo(
     () => searchCommands(commands, query),
     [commands, query],

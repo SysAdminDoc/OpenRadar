@@ -207,7 +207,15 @@ pub fn put(url: &str, content_type: &str, body: &[u8]) {
 
     let stored_at = now_secs();
     let encoded = encode(url, content_type, stored_at, body);
-    let temporary = root.join(format!("{name}.{stored_at}.tmp"));
+    // The temporary name has to be this writer's alone. Two panes asking for
+    // the same tile at once land here in the same second, and a shared name
+    // means one truncates the other's buffer and the rename publishes the
+    // pieces.
+    let temporary = root.join(format!(
+        "{name}.{}.{}.tmp",
+        std::process::id(),
+        next_write()
+    ));
     // Written beside the entry and renamed, so a reader never sees half a file
     // and a crash mid-write leaves the old entry intact.
     let written = fs::File::create(&temporary).and_then(|mut file| {

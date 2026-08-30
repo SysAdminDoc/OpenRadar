@@ -1,4 +1,5 @@
 import { haversineMiles, type GeoPoint } from "./geo";
+import { translate } from "../i18n";
 
 const OSRM_URL = "https://router.project-osrm.org/route/v1/driving";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
@@ -77,7 +78,7 @@ export async function fetchRoute(
     throw new Error(`The router returned ${response.status}.`);
   }
   const route = parseRoute(await response.json());
-  if (!route) throw new Error("No road route connects those two places.");
+  if (!route) throw new Error(translate("route.noRoad"));
   return route;
 }
 

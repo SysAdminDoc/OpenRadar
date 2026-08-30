@@ -252,11 +252,20 @@ a {
   border-top: 1px solid var(--border-strong);
   box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(22px) saturate(125%);
+  /* Labels run longer in other languages, and a button that has slid off the
+     end of the bar is a button nobody can press. The bar scrolls rather than
+     hiding what does not fit. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .command-group {
   display: flex;
-  min-width: 0;
+  /* No shrinking: a squeezed group used to overlap its neighbour, which put
+     one button on top of another and made the one underneath unclickable.
+     The bar scrolls instead. */
+  flex: 0 0 auto;
   align-items: stretch;
 }
 
@@ -276,6 +285,7 @@ a {
 .preset-button {
   position: relative;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -358,6 +368,9 @@ a {
   align-items: center;
   width: 188px;
   min-height: 58px;
+  /* The chip grows downwards when the words in it are longer, which is what
+     the two-line grid above is for. */
+  height: auto;
   padding: 8px 10px;
   gap: 2px 9px;
   color: var(--text);
@@ -387,9 +400,9 @@ a {
 
 .radar-legend small,
 .radar-legend strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps onto a second line rather than losing the end of the product name,
+     which in a longer language is most of it. */
+  overflow-wrap: anywhere;
 }
 
 .radar-legend small {
@@ -2361,4 +2374,78 @@ input[type="range"] {
     #590085 93.8%,
     #31004a 100%
   );
+}
+
+/* The bands of water on the storm surge picture, beside the category picker. */
+.surge-ramp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: 10px;
+  color: var(--muted);
+  list-style: none;
+}
+
+.surge-ramp li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.surge-ramp i {
+  width: 12px;
+  height: 9px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+/* Several models' own runs for the same hours, side by side. */
+.guidance-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guidance-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  color: var(--muted);
+  table-layout: fixed;
+}
+
+.guidance-table th,
+.guidance-table td {
+  padding: 3px 2px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.guidance-table thead th {
+  font-weight: 500;
+  color: var(--subtle);
+  border-bottom: 1px solid var(--border);
+}
+
+.guidance-table tbody th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guidance-table tbody tr + tr th,
+.guidance-table tbody tr + tr td {
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+/* A block the models disagree about is worth looking at twice. */
+.guidance-block[data-spread="1.00"] .settings-section__title small,
+.guidance-block:not([data-spread^="0.0"]):not([data-spread^="0.1"]):not(
+    [data-spread^="0.2"]
+  ):not([data-spread^="0.3"])
+  .settings-section__title
+  small {
+  color: var(--accent-strong);
 }

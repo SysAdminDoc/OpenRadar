@@ -47,6 +47,22 @@ describe("who serves which viewport", () => {
   });
 
   it("never takes a piece of the United States", () => {
+    // The two places a box drawn to the forty-ninth parallel gets wrong: the
+    // Alaska Panhandle runs down the coast east of the hundred and
+    // forty-first meridian, and Minnesota's Northwest Angle is north of the
+    // parallel. Both were inside the first version of these boxes.
+    for (const [lon, lat, place] of [
+      [-131.65, 55.34, "Ketchikan"],
+      [-134.42, 58.3, "Juneau"],
+      [-135.33, 57.05, "Sitka"],
+      [-95.05, 49.34, "Angle Inlet"],
+    ] as Array<[number, number, string]>) {
+      expect(
+        providerChain(lon, lat).map((entry) => entry.id),
+        place,
+      ).not.toContain("geomet");
+    }
+
     // Every one of these is inside a box drawn generously enough to hold the
     // Canadian side of the same border.
     for (const [lon, lat, place] of [

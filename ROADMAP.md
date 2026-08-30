@@ -1,10 +1,3 @@
 # OpenRadar Roadmap
 
-## Next releases
-
-- [ ] Add model guidance, tides, and surge.
-
-## Research-Driven Additions
-
-### P3
-
+Nothing is outstanding. New work goes here as it is decided.

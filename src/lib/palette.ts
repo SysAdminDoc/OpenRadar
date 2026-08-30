@@ -169,12 +169,13 @@ export function paletteColor(palette: Palette, value: number): string {
     // Half open: a value sitting exactly on the next stop belongs to that
     // stop, not to the end of the blend running into it.
     if (value >= high.value) continue;
-    // A solid stop holds its colour to the next one. Blending it into the next
-    // stop's colour would erase the distinction the format draws.
-    if (!low.toColor) return low.color;
+    // A SolidColor line holds its colour to the next stop. A Color line with
+    // one colour does not: it ramps into the next stop, which is what the
+    // format says and what every other reader does.
+    if (low.solid) return low.color;
     const span = high.value - low.value;
     const position = span > 0 ? (value - low.value) / span : 0;
-    return blend(low.color, low.toColor, position);
+    return blend(low.color, low.toColor ?? high.color, position);
   }
 
   const last = stops[stops.length - 1];
@@ -215,8 +216,16 @@ export function paletteRange(palette: Palette): { min: number; max: number } {
  */
 export function paletteForRenderer(
   palette: Palette,
-): Array<[number, string, string | null]> {
-  return palette.stops.map((stop) => [stop.value, stop.color, stop.toColor]);
+): Array<[number, string, string | null, boolean]> {
+  // Whether a stop is solid travels with it. Without it the native side
+  // cannot tell a SolidColor line from a Color line with one colour, and the
+  // two are drawn differently.
+  return palette.stops.map((stop) => [
+    stop.value,
+    stop.color,
+    stop.toColor,
+    Boolean(stop.solid),
+  ]);
 }
 
 /** The products a palette can be applied to, by what it says it is for. */

@@ -37,9 +37,17 @@ import {
   type ProjectionMode,
 } from "../lib/settings";
 import type { ToolMode } from "./CommandBar";
+import {
+  SURGE_ATTRIBUTION,
+  surgeTileUrl,
+  type SurgeCategory,
+} from "../lib/surge";
+import { translate } from "../i18n";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
+const SURGE_SOURCE_ID = "openradar-surge-source";
+const SURGE_LAYER_ID = "openradar-surge-layer";
 const MRMS_SOURCE_PREFIX = "openradar-mrms-";
 const WIND_LAYER_ID = "openradar-wind";
 const FLASH_SOURCE_ID = "openradar-flash-source";
@@ -98,6 +106,8 @@ interface MapViewportProps {
   wind?: WindField | null;
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
+  /** The hurricane category the surge picture is for, or null for no picture. */
+  surgeCategory?: SurgeCategory | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
   route?: Record<string, unknown> | null;
   customOverlay?: Record<string, unknown> | null;
@@ -176,6 +186,9 @@ function overlayLayerOrder(): string[] {
 function layerStackOrder(): string[] {
   return [
     SATELLITE_LAYER_ID,
+    // Surge sits above the satellite and under the radar: it is the ground
+    // the weather is happening over, not weather itself.
+    SURGE_LAYER_ID,
     ...RADAR_LANE_LAYER_IDS,
     SWEEP_LAYER_ID,
     ...MRMS_LAYER_IDS,
@@ -216,7 +229,7 @@ function emptyTools() {
 
 function MapViewportInner(
   {
-    label = "Interactive weather map",
+    label = translate("map.label"),
     camera,
     projection,
     mapStyle,
@@ -228,6 +241,7 @@ function MapViewportInner(
     flashes = null,
     wind = null,
     satelliteTime = null,
+    surgeCategory = null,
     overlays = {},
     route = null,
     customOverlay = null,
@@ -256,6 +270,7 @@ function MapViewportInner(
   );
   const stormTrackRef = useRef<Record<string, unknown> | null>(stormTrack);
   const satelliteTimeRef = useRef(satelliteTime);
+  const surgeCategoryRef = useRef(surgeCategory);
   const overlaysRef = useRef(overlays);
   const routeRef = useRef(route);
   const projectionRef = useRef(projection);
@@ -416,6 +431,46 @@ function MapViewportInner(
     publishLayers();
   };
 
+  const syncSurge = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    const category = surgeCategoryRef.current;
+
+    if (category === null) {
+      if (map.getSource(SURGE_SOURCE_ID)) {
+        if (map.getLayer(SURGE_LAYER_ID)) map.removeLayer(SURGE_LAYER_ID);
+        map.removeSource(SURGE_SOURCE_ID);
+        publishLayers();
+      }
+      return;
+    }
+
+    const url = surgeTileUrl(category);
+    const source = map.getSource(SURGE_SOURCE_ID) as
+      maplibregl.RasterTileSource | undefined;
+    if (source) {
+      source.setTiles?.([url]);
+      return;
+    }
+
+    map.addSource(SURGE_SOURCE_ID, {
+      type: "raster",
+      tiles: [url],
+      tileSize: 256,
+      attribution: SURGE_ATTRIBUTION,
+    });
+    map.addLayer(
+      {
+        id: SURGE_LAYER_ID,
+        type: "raster",
+        source: SURGE_SOURCE_ID,
+        paint: { "raster-opacity": 0.7 },
+      },
+      firstExisting(map, layersAbove(SURGE_LAYER_ID)),
+    );
+    publishLayers();
+  };
+
   const syncRadarLane = (lane: RadarLane, frame: RadarFrame | undefined) => {
     const map = mapRef.current;
     if (!map) return;
@@ -565,7 +620,7 @@ function MapViewportInner(
       link.href = description.url;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = "Open the official product";
+      link.textContent = translate("popup.openProduct");
       node.append(link);
     }
 
@@ -1091,6 +1146,7 @@ function MapViewportInner(
       styleReadyRef.current = true;
       map.setProjection({ type: projectionRef.current });
       syncSatellite();
+      syncSurge();
       syncRadar();
       syncSweep();
       syncMrmsLayers();
@@ -1136,7 +1192,7 @@ function MapViewportInner(
         if (!rangeStartRef.current || rangeEndRef.current) {
           rangeStartRef.current = point;
           rangeEndRef.current = null;
-          onToolResult?.("Select the end point");
+          onToolResult?.(translate("tool.endHint"));
         } else {
           rangeEndRef.current = point;
           const miles = haversineMiles(rangeStartRef.current, point);
@@ -1214,6 +1270,14 @@ function MapViewportInner(
   }, [satelliteTime]);
 
   useEffect(() => {
+    surgeCategoryRef.current = surgeCategory;
+    syncSurge();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surgeCategory]);
+
+  useEffect(() => {
     overlaysRef.current = overlays;
     syncOverlays();
     // The sync functions read the refs above; adding them as dependencies
@@ -1277,11 +1341,11 @@ function MapViewportInner(
     rangeEndRef.current = null;
     onToolResult?.(
       toolMode === "draw"
-        ? "Click the map to draw a path"
+        ? translate("tool.drawHint")
         : toolMode === "range"
-          ? "Select the start point"
+          ? translate("tool.startHint")
           : toolMode === "inspect"
-            ? "Click the map to inspect a point"
+            ? translate("tool.inspectHint")
             : null,
     );
   }, [toolMode, onToolResult]);

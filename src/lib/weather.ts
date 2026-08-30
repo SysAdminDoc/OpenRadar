@@ -137,7 +137,7 @@ export async function fetchForecast(
 
   const currentTemperature = Number(current.temperature_2m);
   if (!Number.isFinite(currentTemperature) || !dates.length) {
-    throw new Error("Forecast response was incomplete.");
+    throw new Error(translate("weather.incomplete"));
   }
 
   return {

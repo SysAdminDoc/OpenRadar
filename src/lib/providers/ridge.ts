@@ -7,7 +7,6 @@ import { createWmsProvider } from "./wms";
 export const ridgeProvider = createWmsProvider({
   id: "ridge",
   label: "NWS RIDGE II",
-  detail: "CONUS base reflectivity, two-minute mosaic",
   attribution:
     '<a href="https://opengeo.ncep.noaa.gov/geoserver/web/">NOAA NWS RIDGE II</a>',
   attributionUrl: "https://opengeo.ncep.noaa.gov/geoserver/web/",

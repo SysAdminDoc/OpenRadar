@@ -51,10 +51,11 @@ describe("routing the map's requests through the native side", () => {
         "cached.localhost",
       );
     }
-    // And a subdomain of one, which is how the ArcGIS services are addressed.
-    expect(cachedUrl("https://tiles.services3.arcgis.com/a.png")).toContain(
-      "cached.localhost",
-    );
+    // And nothing else, not even a subdomain of one: the native side matches
+    // the host exactly, so routing a subdomain would send it to something
+    // that refuses it and lose the layer without saying why.
+    const subdomain = "https://tiles.services3.arcgis.com/a.png";
+    expect(cachedUrl(subdomain)).toBe(subdomain);
   });
 
   it("leaves alone anything it has no business fetching", async () => {
@@ -72,6 +73,18 @@ describe("routing the map's requests through the native side", () => {
       "http://mrms.localhost/composite/3/1/2.png",
       "/fonts/glyphs.pbf",
       "http://tiles.openfreemap.org/styles/dark",
+    ]) {
+      expect(cachedUrl(url), url).toBe(url);
+    }
+  });
+
+  it("leaves an address with credentials or a port alone", async () => {
+    await primeTileCache();
+    // The native side refuses both, so routing them would only lose the
+    // request. They are also not what was allowed in the first place.
+    for (const url of [
+      "https://user:secret@nowcoast.noaa.gov/tile.png",
+      "https://nowcoast.noaa.gov:8443/tile.png",
     ]) {
       expect(cachedUrl(url), url).toBe(url);
     }

@@ -1,9 +1,10 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
 import { parsePalette, type Palette } from "./palette";
-import { isLanguage, type LanguageId } from "../i18n";
+import { isLanguage, translate, type LanguageId } from "../i18n";
+import { isSurgeCategory, type SurgeCategory } from "./surge";
 
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
 
 export type ThemeMode = "dark" | "light";
 export type ProjectionMode = "mercator" | "globe";
@@ -55,6 +56,8 @@ export interface LayerSettings {
   lightningFlashes: boolean;
   /** Animated GFS wind particles. */
   wind: boolean;
+  /** The NHC storm surge risk picture, for one hurricane category. */
+  surge: boolean;
 }
 
 export interface WatchState {
@@ -83,6 +86,8 @@ export interface AppSettings {
   layers: LayerSettings;
   /** A GRLevelX colour table, applied to whatever it says it is for. */
   palette: Palette | null;
+  /** Which hurricane the surge picture is about, when that layer is on. */
+  surgeCategory: SurgeCategory;
   watch: WatchState;
   presets: Array<PresetState | null>;
 }
@@ -122,8 +127,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     lightningDensity: false,
     lightningFlashes: false,
     wind: false,
+    surge: false,
   },
   palette: null,
+  surgeCategory: 3,
   watch: {
     enabled: false,
     center: [-96.8, 32.78],
@@ -233,7 +240,7 @@ function normalizePreset(value: unknown): PresetState | null {
     name:
       typeof raw.name === "string" && raw.name.trim()
         ? raw.name.slice(0, 40)
-        : "Saved view",
+        : translate("app.savedView"),
     camera: normalizeCamera(raw.camera),
     projection,
     mapStyle: isMapStyle(raw.mapStyle)
@@ -371,11 +378,15 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.lightningFlashes,
       ),
       wind: bool(layers.wind, DEFAULT_SETTINGS.layers.wind),
+      surge: bool(layers.surge, DEFAULT_SETTINGS.layers.surge),
     },
     // A palette is re-read from its own text rather than trusted as an
     // object, so a hand-edited settings file cannot put anything on the map
     // that the parser would not have produced itself.
     palette: normalizePalette(raw.palette),
+    surgeCategory: isSurgeCategory(raw.surgeCategory)
+      ? raw.surgeCategory
+      : DEFAULT_SETTINGS.surgeCategory,
     watch: normalizeWatch(raw.watch),
     presets,
   };

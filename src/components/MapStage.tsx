@@ -87,6 +87,7 @@ export function MapStage({
     mrmsLayers,
     flashes,
     wind,
+    surgeCategory: settings.layers.surge ? settings.surgeCategory : null,
     toolMode: activeTool,
   };
 

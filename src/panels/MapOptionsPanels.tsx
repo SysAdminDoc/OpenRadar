@@ -23,6 +23,12 @@ import type {
   ProjectionMode,
 } from "../lib/settings";
 import { LANGUAGES, useT, type StringKey } from "../i18n";
+import {
+  SURGE_CATEGORIES,
+  SURGE_RAMP,
+  surgeCategoryKey,
+  type SurgeCategory,
+} from "../lib/surge";
 
 interface MapTypePanelProps {
   mapStyle: MapStyleId;
@@ -89,7 +95,10 @@ export function MapTypePanel({
 
 interface LayersPanelProps {
   layers: LayerSettings;
+  /** Which hurricane the surge picture is about. */
+  surgeCategory: SurgeCategory;
   onLayers: (layers: LayerSettings) => void;
+  onSurgeCategory: (category: SurgeCategory) => void;
   onClose: () => void;
 }
 
@@ -160,6 +169,12 @@ const LAYER_OPTIONS: Array<{
     icon: Wind,
   },
   {
+    key: "surge",
+    labelKey: "layer.surge",
+    detailKey: "layers.surgeDetail",
+    icon: Waves,
+  },
+  {
     key: "customOverlay",
     labelKey: "layer.customOverlay",
     detailKey: "layers.customDetail",
@@ -167,7 +182,13 @@ const LAYER_OPTIONS: Array<{
   },
 ];
 
-export function LayersPanel({ layers, onLayers, onClose }: LayersPanelProps) {
+export function LayersPanel({
+  layers,
+  surgeCategory,
+  onLayers,
+  onSurgeCategory,
+  onClose,
+}: LayersPanelProps) {
   const t = useT();
   return (
     <PanelShell
@@ -195,6 +216,40 @@ export function LayersPanel({ layers, onLayers, onClose }: LayersPanelProps) {
           </label>
         ))}
       </div>
+      {layers.surge ? (
+        <div className="settings-section" data-surge-category={surgeCategory}>
+          <div className="settings-section__title">
+            <span>{t("layers.surgeCategory")}</span>
+            <small>{t(surgeCategoryKey(surgeCategory))}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.surgeCategory")}
+          >
+            {SURGE_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={surgeCategory === category ? "is-active" : ""}
+                aria-pressed={surgeCategory === category}
+                onClick={() => onSurgeCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          <ol className="surge-ramp">
+            {SURGE_RAMP.map(([color, key]) => (
+              <li key={key}>
+                <i style={{ background: color }} aria-hidden="true" />
+                {t(key)}
+              </li>
+            ))}
+          </ol>
+          <p className="source-note">{t("layers.surgeNote")}</p>
+        </div>
+      ) : null}
+
       <p className="source-note">{t("layers.note")}</p>
     </PanelShell>
   );

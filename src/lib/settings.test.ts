@@ -104,6 +104,7 @@ describe("settings normalization", () => {
       "lightningFlashes",
       "rotationTracks",
       "satellite",
+      "surge",
       "tropical",
       "weatherAlerts",
       "wildfires",

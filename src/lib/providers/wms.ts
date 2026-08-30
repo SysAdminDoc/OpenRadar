@@ -1,6 +1,8 @@
 import { withinLoop, type BoundingBox, type ProviderId } from "./types";
 import type { RadarFrame, RadarProvider } from "./types";
 import { cachedUrl } from "../tileCache";
+import { noteCachedResponse } from "../tileCache";
+import { translate } from "../../i18n";
 
 export interface WmsStep {
   time: number;
@@ -10,7 +12,6 @@ export interface WmsStep {
 export interface WmsProviderConfig {
   id: ProviderId;
   label: string;
-  detail: string;
   attribution: string;
   attributionUrl: string;
   host: string;
@@ -169,7 +170,6 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
   return {
     id: config.id,
     label: config.label,
-    detail: config.detail,
     attribution: config.attribution,
     attributionUrl: config.attributionUrl,
     coverage: config.coverage,
@@ -183,12 +183,13 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
         headers: { Accept: "application/xml" },
         cache: "no-store",
       });
+      noteCachedResponse(response);
       if (!response.ok) {
         throw new Error(`The service returned ${response.status}.`);
       }
       const steps = parseWmsTimeSteps(await response.text(), config.layer);
       if (!steps.length) {
-        throw new Error("No radar times were published.");
+        throw new Error(translate("radar.noTimes"));
       }
 
       const frames: RadarFrame[] = steps.map((step) => ({

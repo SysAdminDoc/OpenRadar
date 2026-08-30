@@ -72,15 +72,22 @@ export function paletteLegend(palette: Palette, unit: string): LegendScale {
     const next = palette.stops[index + 1];
     parts.push(`${stop.color} ${at(stop.value)}%`);
     if (!next) continue;
-    if (stop.toColor) {
-      parts.push(`${stop.toColor} ${at(next.value)}%`);
-    } else {
+    if (stop.solid) {
       // Solid to the next stop, so the colour is repeated at its far edge.
       parts.push(`${stop.color} ${at(next.value)}%`);
+    } else {
+      // A line with one colour ramps into the next stop, so the bar does too.
+      parts.push(`${stop.toColor ?? next.color} ${at(next.value)}%`);
     }
   }
   // A single stop is one colour everywhere, and one colour is not a gradient.
-  if (parts.length < 2) parts.push(`${palette.stops[0].color} 100%`);
+  // A table with no stops at all cannot be built, but the guard costs nothing
+  // and beats an exception thrown from a legend.
+  if (parts.length < 2) {
+    parts.push(`${palette.stops[0]?.color ?? "#000000"} 100%`);
+    if (parts.length < 2)
+      parts.unshift(`${palette.stops[0]?.color ?? "#000000"} 0%`);
+  }
 
   // Up to five labels, always including the last, because the top of the scale
   // is the part anyone reads first.
