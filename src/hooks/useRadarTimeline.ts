@@ -4,6 +4,7 @@ import {
   fetchRadarTimeline,
   type RadarProvider,
 } from "../lib/providers";
+import { log } from "../lib/log";
 import { animationIntervalMs, type RadarFrame } from "../lib/radar";
 
 const REFRESH_MS = 5 * 60_000;
@@ -107,6 +108,12 @@ export function useRadarTimeline(options: {
         ) {
           return;
         }
+        log.error(
+          "radar",
+          failure instanceof Error
+            ? failure.message
+            : "The radar request failed",
+        );
         setError("Radar temporarily unavailable");
       }
     };

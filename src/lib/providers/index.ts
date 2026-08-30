@@ -3,6 +3,7 @@ import {
   createRollingRequestBudget,
   type RequestBudget,
 } from "./budget";
+import { log } from "../log";
 import { recordBudget, recordFailure, recordSuccess } from "./health";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
@@ -69,6 +70,7 @@ export async function fetchRadarTimeline(
     const budget = budgetFor(provider);
     if (!budget.tryConsume()) {
       recordFailure(provider.id, "Request budget reached");
+      log.warn("radar", `${provider.label} is over its request budget`);
       failures.push(`${provider.label} is over its request budget`);
       continue;
     }
@@ -78,6 +80,7 @@ export async function fetchRadarTimeline(
       const frames = await provider.fetchFrames(loopMinutes, signal);
       if (!frames.length) throw new Error("No frames were published.");
       recordSuccess(provider.id, frames.length);
+      log.info("radar", `${provider.label} returned ${frames.length} frames`);
       return { provider, frames };
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError")
@@ -85,6 +88,7 @@ export async function fetchRadarTimeline(
       const message =
         error instanceof Error ? error.message : "The request failed.";
       recordFailure(provider.id, message);
+      log.warn("radar", `${provider.label} failed: ${message}`);
       failures.push(`${provider.label}: ${message}`);
     }
   }

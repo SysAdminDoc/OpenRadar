@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { log } from "../lib/log";
 import {
   EMPTY_OVERLAY,
   OVERLAY_ADAPTERS,
@@ -108,6 +109,7 @@ export function useOverlays(
             if (controller.signal.aborted) return;
             const message =
               error instanceof Error ? error.message : "The request failed.";
+            log.warn("overlay", `${adapter.label} failed: ${message}`);
             // The last good snapshot stays on the map; only the label changes.
             setStates((current) => ({
               ...current,

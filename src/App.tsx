@@ -22,6 +22,9 @@ import { ToastHost, type ToastMessage } from "./components/ToastHost";
 import type { GeoPoint } from "./lib/geo";
 import { formatFrameTime, frameAgeMinutes } from "./lib/radar";
 import { providerHealth, subscribeHealth } from "./lib/providers";
+import { recentLog, subscribeLog } from "./lib/log";
+import { appLogDir } from "@tauri-apps/api/path";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
@@ -85,6 +88,7 @@ export default function App() {
   const cameraSaveTimerRef = useRef<number | null>(null);
 
   const health = useSyncExternalStore(subscribeHealth, providerHealth);
+  const logEntries = useSyncExternalStore(subscribeLog, recentLog);
 
   const overlayToggles = useMemo(
     () => ({
@@ -130,6 +134,19 @@ export default function App() {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, 5200);
   }, []);
+
+  const handleOpenLogFolder = useCallback(() => {
+    void (async () => {
+      try {
+        await revealItemInDir(await appLogDir());
+      } catch {
+        pushToast({
+          title: "The log folder could not be opened",
+          detail: "Logs are only written by the desktop app.",
+        });
+      }
+    })();
+  }, [pushToast]);
 
   const persist = useCallback(
     (next: AppSettings) => {
@@ -607,6 +624,8 @@ export default function App() {
           radarReady={frames.length > 0}
           activeSource={source?.label ?? null}
           health={health}
+          log={logEntries}
+          onOpenLogFolder={handleOpenLogFolder}
           onClose={() => setActiveSurface(null)}
         />
       ) : null}
