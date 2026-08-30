@@ -30,6 +30,11 @@ import { providerHealth, resetHealth } from "./providers/health";
 const bounds = { west: -100, south: 30, east: -90, north: 40 };
 const point = { lon: -95, lat: 35 };
 
+/** Lets any promise chain the call sets up run before we look at it. */
+async function flush(turns = 8) {
+  for (let turn = 0; turn < turns; turn += 1) await Promise.resolve();
+}
+
 /** A fetch that never answers, and rejects the way the real one does. */
 function hangingFetch(): typeof globalThis.fetch {
   return vi.fn((_input: unknown, init?: { signal?: AbortSignal }) => {
@@ -121,7 +126,9 @@ describe("a request nobody is waiting for is cancelled", () => {
       const pending = call(controller.signal);
       // Swallowed here; the assertion below is about what fetch was given.
       pending.catch(() => {});
-      await Promise.resolve();
+      // Several turns, not one: a request can sit behind a queue of its own
+      // before it is issued, which is what the OSRM route does.
+      await flush();
 
       expect(stub).toHaveBeenCalled();
       // Every request, not just the first: the tropical overlay fetches one

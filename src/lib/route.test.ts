@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_SAMPLES,
+  OSRM_MIN_GAP_MS,
+  fetchRoute,
   parseRoute,
+  resetOsrmThrottle,
+  straightRoute as lineBetween,
   readRouteForecast,
   routeGeoJson,
   sampleRoute,
@@ -215,5 +219,96 @@ describe("an arrival past the forecast", () => {
     );
     expect(conditions[0].temperature).toBeNull();
     expect(conditions[0].precipitationChance).toBeNull();
+  });
+});
+
+describe("the demo router is used gently", () => {
+  beforeEach(() => {
+    resetOsrmThrottle();
+  });
+
+  it("sends one request a second, however many are asked for at once", async () => {
+    // The OSRM demo server asks for at most one request a second and promises
+    // no uptime. Two panels planning at the same moment, or a person pressing
+    // the button twice, must not become two requests in the same instant.
+    const sent: number[] = [];
+    let clock = 10_000;
+    const now = () => clock;
+    const wait = (ms: number) => {
+      clock += ms;
+      return Promise.resolve();
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        sent.push(clock);
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: "Ok",
+              routes: [
+                {
+                  distance: 1609.344,
+                  duration: 60,
+                  geometry: {
+                    coordinates: [
+                      [-96.8, 32.78],
+                      [-95.37, 29.76],
+                    ],
+                  },
+                },
+              ],
+            }),
+            { headers: { "content-type": "application/json" } },
+          ),
+        );
+      }),
+    );
+
+    const from = { lon: -96.8, lat: 32.78 };
+    const to = { lon: -95.37, lat: 29.76 };
+    await Promise.all([
+      fetchRoute(from, to, undefined, now, wait),
+      fetchRoute(from, to, undefined, now, wait),
+      fetchRoute(from, to, undefined, now, wait),
+    ]);
+
+    expect(sent).toHaveLength(3);
+    for (const [at, when] of sent.entries()) {
+      if (at === 0) continue;
+      expect(
+        when - sent[at - 1],
+        `request ${at} followed the one before it too closely`,
+      ).toBeGreaterThanOrEqual(OSRM_MIN_GAP_MS);
+    }
+    vi.unstubAllGlobals();
+  });
+
+  it("draws the line between two places when there is no road shape", () => {
+    // Not a route, and it does not pretend to be one. What it is for is the
+    // weather, which does not care which road you take.
+    const from = { lon: -96.8, lat: 32.78 };
+    const to = { lon: -95.37, lat: 29.76 };
+    const line = lineBetween(from, to);
+
+    expect(line.estimated).toBe(true);
+    expect(line.coordinates).toEqual([
+      [-96.8, 32.78],
+      [-95.37, 29.76],
+    ]);
+    // Dallas to Houston is about 225 miles as the crow flies.
+    expect(line.distanceMiles).toBeGreaterThan(200);
+    expect(line.distanceMiles).toBeLessThan(250);
+    // And the time is a plain function of that distance, not a fabrication
+    // borrowed from a route nobody fetched.
+    expect(line.durationSeconds).toBeCloseTo(
+      (line.distanceMiles / 55) * 3600,
+      3,
+    );
+
+    // It still samples like a route, so the forecast path is unchanged.
+    const samples = sampleRoute(line);
+    expect(samples.length).toBeGreaterThan(1);
+    expect(samples[0].distanceMiles).toBe(0);
   });
 });

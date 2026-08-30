@@ -104,3 +104,30 @@ test("plans a drive and draws it coloured by the chance of rain", async ({
     /openradar-route-line/,
   );
 });
+
+test("offers the straight line when the road router refuses", async ({
+  page,
+}) => {
+  // The demo router promises no uptime, and the weather along the way does not
+  // depend on which road you take, so a refusal is not the end of the question.
+  await page.route("https://router.project-osrm.org/**", async (route) => {
+    await route.fulfill({ status: 429, body: "slow down" });
+  });
+
+  await page.getByRole("button", { name: "Route", exact: true }).click();
+  await page.getByLabel("Start").fill("Dallas");
+  await page.getByLabel("Destination").fill("Houston");
+  await page.getByRole("button", { name: "Plan the drive" }).click();
+
+  const failure = page.locator(".panel-error");
+  await expect(failure).toBeVisible();
+  await expect(failure).toContainText("429");
+
+  await failure.getByRole("button", { name: "Use a straight line" }).click();
+
+  // The drive is planned, and the panel says what it is looking at.
+  await expect(
+    page.getByText(/straight line between the two places/i),
+  ).toBeVisible();
+  await expect(page.locator(".route-row").first()).toBeVisible();
+});
