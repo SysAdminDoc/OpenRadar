@@ -28,18 +28,15 @@ import { appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   DEFAULT_SETTINGS,
-  cameraFromSearch,
   isDesktopRuntime,
-  loadSettings,
   normalizeSettings,
-  saveSettings,
-  type AppSettings,
   type CameraState,
   type MapStyleId,
   type ProjectionMode,
   type RadarSettings,
 } from "./lib/settings";
 import { useOverlays } from "./hooks/useOverlays";
+import { useSettings } from "./hooks/useSettings";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import type { OverlayBounds } from "./lib/overlays";
 import { AlertsPanel } from "./panels/AlertsPanel";
@@ -55,19 +52,9 @@ import { SearchPanel } from "./panels/SearchPanel";
 import { MorePanel, UploadPanel, VideosPanel } from "./panels/UtilityPanels";
 import type { PlaceResult } from "./lib/weather";
 
-const CAMERA_SAVE_DELAY_MS = 450;
 const COMPARE_OFFSETS = [0, 3, 6, 12];
 
-function cameraFromUrl(fallback: CameraState): CameraState {
-  return cameraFromSearch(window.location.search, fallback);
-}
-
 export default function App() {
-  const [settings, setSettings] = useState<AppSettings>(() =>
-    normalizeSettings(DEFAULT_SETTINGS),
-  );
-  const settingsRef = useRef(settings);
-  const [hydrated, setHydrated] = useState(false);
   const [activeSurface, setActiveSurface] = useState<SurfaceId>(null);
   const [productOpen, setProductOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>(null);
@@ -88,10 +75,30 @@ export default function App() {
   const mapRef = useRef<MapViewportHandle>(null);
   const secondMapRef = useRef<MapViewportHandle>(null);
   const toastIdRef = useRef(0);
-  const cameraSaveTimerRef = useRef<number | null>(null);
 
   const health = useSyncExternalStore(subscribeHealth, providerHealth);
   const logEntries = useSyncExternalStore(subscribeLog, recentLog);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const pushToast = useCallback((message: Omit<ToastMessage, "id">) => {
+    const id = ++toastIdRef.current;
+    setToasts((current) => [...current.slice(-2), { ...message, id }]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 5200);
+  }, []);
+
+  const onPersistError = useCallback(() => {
+    pushToast({
+      title: "Settings were not saved",
+      detail: "The current window is still using your changes.",
+    });
+  }, [pushToast]);
+  const { settings, hydrated, settingsRef, applySettings, updateCamera } =
+    useSettings({ onPersistError });
 
   const overlayToggles = useMemo(
     () => ({
@@ -130,18 +137,6 @@ export default function App() {
   });
   const { frames, frameIndex, playing, source } = timeline;
 
-  const dismissToast = useCallback((id: number) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
-  }, []);
-
-  const pushToast = useCallback((message: Omit<ToastMessage, "id">) => {
-    const id = ++toastIdRef.current;
-    setToasts((current) => [...current.slice(-2), { ...message, id }]);
-    window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.id !== id));
-    }, 5200);
-  }, []);
-
   const handleOpenLogFolder = useCallback(() => {
     void (async () => {
       try {
@@ -155,49 +150,6 @@ export default function App() {
     })();
   }, [pushToast]);
 
-  const persist = useCallback(
-    (next: AppSettings) => {
-      void saveSettings(next).catch(() => {
-        pushToast({
-          title: "Settings were not saved",
-          detail: "The current window is still using your changes.",
-        });
-      });
-    },
-    [pushToast],
-  );
-
-  const applySettings = useCallback(
-    (next: AppSettings) => {
-      const normalized = normalizeSettings(next);
-      settingsRef.current = normalized;
-      setSettings(normalized);
-      persist(normalized);
-    },
-    [persist],
-  );
-
-  useEffect(() => {
-    let active = true;
-    void loadSettings().then((stored) => {
-      if (!active) return;
-      const params = new URLSearchParams(window.location.search);
-      const projection: ProjectionMode =
-        params.get("projection") === "globe" ? "globe" : stored.projection;
-      const next = normalizeSettings({
-        ...stored,
-        projection,
-        camera: cameraFromUrl(stored.camera),
-      });
-      settingsRef.current = next;
-      setSettings(next);
-      setHydrated(true);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const applySharedView = useCallback(
     (link: string) => {
       const view = viewFromDeepLink(link, settingsRef.current.camera);
@@ -210,7 +162,7 @@ export default function App() {
       mapRef.current?.flyTo(view.camera);
       pushToast({ title: "Opened a shared view" });
     },
-    [applySettings, pushToast],
+    [applySettings, pushToast, settingsRef],
   );
 
   useEffect(() => {
@@ -242,44 +194,17 @@ export default function App() {
   }, [applySharedView, hydrated]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme;
-    const meta = document.querySelector<HTMLMetaElement>(
-      'meta[name="theme-color"]',
-    );
-    meta?.setAttribute(
-      "content",
-      settings.theme === "dark" ? "#090b10" : "#eef2f6",
-    );
-  }, [settings.theme]);
-
-  useEffect(() => {
     const onVisibility = () => setPageVisible(!document.hidden);
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (cameraSaveTimerRef.current !== null)
-        window.clearTimeout(cameraSaveTimerRef.current);
-    },
-    [],
-  );
-
   const handleCameraChange = useCallback(
     (camera: CameraState) => {
-      const next = normalizeSettings({ ...settingsRef.current, camera });
-      settingsRef.current = next;
-      setSettings(next);
+      updateCamera(camera);
       setViewport(mapRef.current?.bounds() ?? null);
-      if (cameraSaveTimerRef.current !== null)
-        window.clearTimeout(cameraSaveTimerRef.current);
-      cameraSaveTimerRef.current = window.setTimeout(
-        () => persist(next),
-        CAMERA_SAVE_DELAY_MS,
-      );
     },
-    [persist],
+    [updateCamera],
   );
 
   const handleMapStatus = useCallback(
@@ -324,7 +249,7 @@ export default function App() {
   const handleMapStyle = useCallback(
     (mapStyle: MapStyleId) =>
       applySettings({ ...settingsRef.current, mapStyle }),
-    [applySettings],
+    [applySettings, settingsRef],
   );
 
   const handleProjection = useCallback(
@@ -336,12 +261,12 @@ export default function App() {
         detail: "Your center, zoom, bearing, and pitch are unchanged.",
       });
     },
-    [applySettings, pushToast],
+    [applySettings, pushToast, settingsRef],
   );
 
   const handleRadar = useCallback(
     (radar: RadarSettings) => applySettings({ ...settingsRef.current, radar }),
-    [applySettings],
+    [applySettings, settingsRef],
   );
 
   const handleSurface = useCallback((surface: SurfaceId) => {
@@ -386,7 +311,7 @@ export default function App() {
         }),
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
     );
-  }, [pushToast]);
+  }, [pushToast, settingsRef]);
 
   const handlePlace = useCallback(
     (place: PlaceResult) => {
@@ -403,7 +328,7 @@ export default function App() {
         detail: place.region || place.country,
       });
     },
-    [pushToast],
+    [pushToast, settingsRef],
   );
 
   const handlePreset = useCallback(
@@ -443,7 +368,7 @@ export default function App() {
         },
       });
     },
-    [applySettings, pushToast],
+    [applySettings, pushToast, settingsRef],
   );
 
   const handleShare = useCallback(async () => {
@@ -469,7 +394,7 @@ export default function App() {
       if (error instanceof DOMException && error.name === "AbortError") return;
       pushToast({ title: "The map link could not be copied" });
     }
-  }, [pushToast]);
+  }, [pushToast, settingsRef]);
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -516,7 +441,7 @@ export default function App() {
         });
       }
     },
-    [applySettings, pushToast],
+    [applySettings, pushToast, settingsRef],
   );
 
   const resetSettings = useCallback(() => {
@@ -532,7 +457,7 @@ export default function App() {
         mapRef.current?.flyTo(previous.camera);
       },
     });
-  }, [applySettings, pushToast]);
+  }, [applySettings, pushToast, settingsRef]);
 
   const centerPoint = useMemo<GeoPoint>(
     () => ({ lon: settings.camera.center[0], lat: settings.camera.center[1] }),
