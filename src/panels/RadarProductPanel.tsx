@@ -111,6 +111,21 @@ export function RadarProductPanel({
             <i className="toggle-track" aria-hidden="true" />
           </label>
 
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("radar.dealias")}</strong>
+              <small>{t("radar.dealiasDetail")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={radar.dealias}
+              onChange={(event) =>
+                onRadar({ ...radar, dealias: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+
           {radar.singleSite ? (
             <div
               className="site-controls"

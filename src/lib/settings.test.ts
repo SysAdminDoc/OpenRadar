@@ -79,6 +79,7 @@ describe("settings normalization", () => {
     expect(settings.layers.weatherAlerts).toBe(false);
     expect(Object.keys(settings.radar).sort()).toEqual([
       "animationSpeed",
+      "dealias",
       "enabled",
       "futureRadar",
       "loopMinutes",
@@ -93,6 +94,9 @@ describe("settings normalization", () => {
     // So did single site, and a file written before it existed gets the
     // defaults rather than an undefined the panel would have to guard.
     expect(settings.radar.singleSite).toBe(true);
+    // Unfolding is on for a file that predates it: a folded sweep is wrong,
+    // not a preference.
+    expect(settings.radar.dealias).toBe(true);
     expect(settings.radar.station).toBeNull();
     expect(settings.radar.product).toBe("reflectivity");
     expect(settings.radar.tilt).toBe(0);

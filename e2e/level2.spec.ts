@@ -10,7 +10,12 @@ import { routeWorkspace, transparentPng } from "./support/fixtures";
 async function fakeNativeSide(page: Page) {
   await page.addInitScript(
     ({ png }: { png: string }) => {
-      const sweep = (station: string, product: string, tilt: number) => {
+      const sweep = (
+        station: string,
+        product: string,
+        tilt: number,
+        dealias: boolean,
+      ) => {
         const products: Record<string, [string, string]> = {
           reflectivity: ["Reflectivity", "dBZ"],
           velocity: ["Velocity", "m/s"],
@@ -25,6 +30,7 @@ async function fakeNativeSide(page: Page) {
           siteName: "Des Moines, IA",
           productId: product,
           paletteApplied: false,
+          dealiased: dealias && product === "velocity",
           product: label,
           unit,
           elevationDegrees: tilts[Math.min(tilt, tilts.length - 1)],
@@ -65,6 +71,7 @@ async function fakeNativeSide(page: Page) {
                 String(args.station),
                 String(args.product),
                 Number(args.tilt),
+                Boolean(args.dealias),
               ),
             );
           }
@@ -207,4 +214,36 @@ test("gives the map back when the view leaves every site's coverage", async ({
   // the Atlantic.
   await expect(page.getByText(/KDMX/)).toBeHidden();
   await expect(page.getByText("Composite Radar")).toBeVisible();
+});
+
+test("unfolds velocity by default and says so, and can be turned off", async ({
+  page,
+}) => {
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  await page
+    .getByRole("combobox", { name: "Level II product" })
+    .selectOption("velocity");
+  await expect(page.getByText("KDMX Velocity")).toBeVisible();
+
+  // On by default: a folded sweep is wrong rather than a matter of taste.
+  await expect(page.getByText("0.48° TILT · UNFOLDED")).toBeVisible();
+  const asked = async () =>
+    await page.evaluate(() =>
+      (
+        window as unknown as {
+          __sweepCalls: Array<{
+            command: string;
+            args: Record<string, unknown>;
+          }>;
+        }
+      ).__sweepCalls.filter((call) => call.command === "level2_sweep"),
+    );
+  expect((await asked()).at(-1)?.args).toMatchObject({ dealias: true });
+
+  // Turning it off asks for the radar's own reading, and the legend stops
+  // claiming the picture has been changed.
+  await page.getByRole("checkbox", { name: /Unfold velocity/ }).uncheck();
+  await expect(page.getByText("0.48° TILT", { exact: true })).toBeVisible();
+  expect((await asked()).at(-1)?.args).toMatchObject({ dealias: false });
 });

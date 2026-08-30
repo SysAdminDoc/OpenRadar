@@ -10,11 +10,13 @@ use std::sync::Mutex;
 use base64::Engine;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use nexrad_data::volume;
+use nexrad_decode::messages::MessageContents;
 use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 use nexrad_model::geo::{GeoPoint, RadarCoordinateSystem};
 use nexrad_model::meta::registry;
 use serde::Serialize;
 
+use crate::dealias;
 use crate::http;
 use crate::palette;
 use crate::palette::Palette;
@@ -76,6 +78,9 @@ pub struct SweepImage {
     pub product: String,
     /// True when a loaded colour table drew this rather than the built-in ramp.
     pub palette_applied: bool,
+    /// True when the velocity in this sweep has been unfolded, so the legend
+    /// can say the picture is no longer the radar's raw reading.
+    pub dealiased: bool,
     pub unit: String,
     pub elevation_degrees: f32,
     /// Every tilt this volume holds, ascending, so the panel can offer them.
@@ -346,7 +351,73 @@ pub fn tilts(scan: &Scan) -> Vec<f32> {
 pub struct ChosenSweep {
     pub field: SweepField,
     pub elevation_degrees: f32,
+    /// The cut's number within the volume, which is how the raw messages name
+    /// it and therefore how its Nyquist velocity is found again.
+    pub elevation_number: u8,
     pub collected: Option<DateTime<Utc>>,
+}
+
+/// The velocity a cut folds at.
+///
+/// The sweep the model hands back does not carry it, so it is read from the
+/// radial header in the raw messages. Only the first radial of the cut is
+/// needed, and records are read in order, so this stops as soon as it finds one
+/// rather than parsing the whole volume a second time.
+fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
+    let records = file.records().ok()?;
+    for record in records {
+        let record = if record.compressed() {
+            record.decompress().ok()?
+        } else {
+            record
+        };
+        let Ok(messages) = record.messages() else {
+            continue;
+        };
+        for message in messages {
+            let MessageContents::DigitalRadarData(data) = message.contents() else {
+                continue;
+            };
+            if data.header().elevation_number() != elevation_number {
+                continue;
+            }
+            let Some(block) = data.radial_data_block() else {
+                continue;
+            };
+            // Published as hundredths of a metre per second.
+            let nyquist = block.nyquist_velocity_raw() as f32 * 0.01;
+            if nyquist > 0.0 {
+                return Some(nyquist);
+            }
+        }
+    }
+    None
+}
+
+/// Shifts a velocity field back onto the flow it belongs to, in place.
+/// Returns how many gates moved.
+fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> usize {
+    let azimuths = field.azimuth_count();
+    let gates = field.gate_count();
+    let mut values = field.values().to_vec();
+    let valid: Vec<bool> = field
+        .statuses()
+        .iter()
+        .map(|status| matches!(status, GateStatus::Valid))
+        .collect();
+
+    let moved = dealias::dealias(&mut values, &valid, azimuths, gates, nyquist);
+    if moved > 0 {
+        for azimuth in 0..azimuths {
+            for gate in 0..gates {
+                let at = azimuth * gates + gate;
+                if valid[at] {
+                    field.set(azimuth, gate, values[at], GateStatus::Valid);
+                }
+            }
+        }
+    }
+    moved
 }
 
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
@@ -383,6 +454,7 @@ pub fn sweep_field(scan: &Scan, product: Product, tilt_index: usize) -> Option<C
             best = Some(ChosenSweep {
                 field,
                 elevation_degrees: angle,
+                elevation_number: sweep.elevation_number(),
                 collected,
             });
         }
@@ -536,6 +608,7 @@ pub fn sweep_from_volume(
     data: Vec<u8>,
     product_name: &str,
     tilt_index: usize,
+    unfold: bool,
 ) -> Result<SweepImage, Level2Error> {
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -545,8 +618,19 @@ pub fn sweep_from_volume(
         .scan()
         .map_err(|error| Level2Error::Decode(error.to_string()))?;
 
-    let chosen = sweep_field(&scan, product, tilt_index)
+    let mut chosen = sweep_field(&scan, product, tilt_index)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+
+    // Velocity past the folding limit wraps around, so a strong outbound wind
+    // is drawn as if it were inbound. Only velocity folds, and only if the
+    // volume says what it folds at.
+    let mut dealiased = false;
+    if unfold && product == Product::Velocity {
+        if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
+            unfold_velocity(&mut chosen.field, nyquist);
+            dealiased = true;
+        }
+    }
 
     // The volume carries its own site position; the registry is only the
     // fallback for a header that did not survive.
@@ -580,6 +664,7 @@ pub fn sweep_from_volume(
             .unwrap_or_else(|| station.to_string()),
         product: label.to_string(),
         unit: unit.to_string(),
+        dealiased,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts(&scan),
         tilt_index,
@@ -735,6 +820,7 @@ pub async fn level2_sweep(
     station: String,
     product: String,
     tilt: usize,
+    dealias: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     if registry::site_by_id(&station).is_none() {
@@ -744,7 +830,7 @@ pub async fn level2_sweep(
     // Decoding and drawing a volume is CPU work; it must not sit on the async
     // runtime the whole time.
     tauri::async_runtime::spawn_blocking(move || {
-        sweep_from_volume(&station, &key, data, &product, tilt)
+        sweep_from_volume(&station, &key, data, &product, tilt, dealias)
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -1147,7 +1233,7 @@ mod tests {
         );
 
         let drawing = std::time::Instant::now();
-        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0)
+        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0, false)
             .expect("the lowest reflectivity tilt should decode");
         let drawn = drawing.elapsed();
 
@@ -1225,7 +1311,7 @@ mod tests {
         );
 
         // Velocity comes off the same volume, so the second product is free.
-        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1)
+        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1, true)
             .expect("a Doppler cut should decode");
         assert_eq!(velocity.product_id, "velocity");
         assert_eq!(velocity.unit, "m/s");
@@ -1236,6 +1322,80 @@ mod tests {
         assert!(
             fetched + drawn < std::time::Duration::from_secs(5),
             "fetch took {fetched:?} and drawing took {drawn:?}"
+        );
+    }
+
+    /// How many neighbouring gate pairs jump further than the radar could
+    /// have measured, which is the signature a fold leaves.
+    ///
+    /// A sign change on its own is not evidence: every sweep has a line across
+    /// it where the flow crosses the beam and the velocity passes through zero
+    /// honestly. A jump of more than the Nyquist velocity between two gates a
+    /// quarter of a degree apart is not honest.
+    fn fold_jumps(field: &SweepField, nyquist: f32) -> (usize, usize) {
+        let azimuths = field.azimuth_count();
+        let gates = field.gate_count();
+        let mut jumps = 0;
+        let mut pairs = 0;
+        for azimuth in 0..azimuths {
+            let next = (azimuth + 1) % azimuths;
+            for gate in 0..gates {
+                let (here, here_status) = field.get(azimuth, gate);
+                let (there, there_status) = field.get(next, gate);
+                if !matches!(here_status, GateStatus::Valid)
+                    || !matches!(there_status, GateStatus::Valid)
+                {
+                    continue;
+                }
+                pairs += 1;
+                if (here - there).abs() > nyquist {
+                    jumps += 1;
+                }
+            }
+        }
+        (jumps, pairs)
+    }
+
+    #[test]
+    #[ignore = "fetches a live volume from the NEXRAD archive"]
+    fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
+        clear_cache();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let (_key, data) = runtime
+            .block_on(latest_volume("KDMX"))
+            .expect("KDMX publishes a volume every few minutes");
+
+        let file = volume::File::new(data);
+        let scan = file.scan().expect("the volume should decode");
+        let mut chosen = sweep_field(&scan, Product::Velocity, 1)
+            .expect("a volume carries a Doppler cut");
+        let nyquist = nyquist_velocity(&file, chosen.elevation_number)
+            .expect("the radial header carries the velocity the cut folds at");
+        assert!(
+            (5.0..80.0).contains(&nyquist),
+            "{nyquist} m/s is not a plausible Nyquist velocity"
+        );
+
+        let (before, pairs) = fold_jumps(&chosen.field, nyquist);
+        assert!(pairs > 10_000, "only {pairs} gate pairs had readings");
+
+        unfold_velocity(&mut chosen.field, nyquist);
+        let (after, _) = fold_jumps(&chosen.field, nyquist);
+
+        println!(
+            "nyquist {nyquist:.1} m/s, {before} folds before and {after} after, out of {pairs} pairs"
+        );
+        let share = after as f64 / pairs as f64;
+        assert!(
+            share < 0.01,
+            "{after} of {pairs} neighbouring gates still jump a fold apart"
+        );
+        assert!(
+            after <= before,
+            "unfolding made the sweep more discontinuous, not less"
         );
     }
 

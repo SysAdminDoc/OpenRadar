@@ -99,7 +99,12 @@ export function useSingleSiteRadar(options: {
       const request = ++requestRef.current;
       setLoading(true);
       try {
-        const next = await fetchSweep(station, product, radar.tilt);
+        const next = await fetchSweep(
+          station,
+          product,
+          radar.tilt,
+          radar.dealias,
+        );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
         setError(null);
@@ -139,6 +144,7 @@ export function useSingleSiteRadar(options: {
   }, [
     pageVisible,
     paletteGeneration,
+    radar.dealias,
     radar.product,
     radar.tilt,
     station,

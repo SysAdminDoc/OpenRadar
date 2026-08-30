@@ -13,6 +13,7 @@ const sweep: SweepImage = {
   siteName: "Des Moines, IA",
   productId: "reflectivity",
   paletteApplied: false,
+  dealiased: false,
   product: "Reflectivity",
   unit: "dBZ",
   elevationDegrees: 0.48,
