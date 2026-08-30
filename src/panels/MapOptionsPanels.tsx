@@ -256,7 +256,7 @@ export function SettingsPanel({
       <div className="settings-section">
         <div className="settings-section__title">
           <span>Composite Radar</span>
-          <small>Universal Blue</small>
+          <small>Base reflectivity</small>
         </div>
         <label className="range-row">
           <span>

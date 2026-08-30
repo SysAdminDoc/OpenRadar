@@ -5,23 +5,41 @@ const transparentPng = Buffer.from(
   "base64",
 );
 
+const ridgeCapabilities = `<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Capability>
+    <Layer>
+      <Name>conus</Name>
+      <Layer queryable="1">
+        <Name>conus_bref_qcd</Name>
+        <Title>Base Reflectivity</Title>
+        <Dimension name="time" units="ISO8601" default="2026-08-30T05:40:00.000Z">2026-08-30T05:20:00.000Z,2026-08-30T05:30:00.000Z,2026-08-30T05:40:00.000Z</Dimension>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>`;
+
+const nowcoastCapabilities = `<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Capability>
+    <Layer>
+      <Layer queryable="1">
+        <Name>base_reflectivity_mosaic</Name>
+        <Dimension name="time" units="ISO8601">2026-08-30T05:24:00.000Z,2026-08-30T05:28:00.000Z</Dimension>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>`;
+
 test.beforeEach(async ({ page }) => {
-  await page.route("https://api.rainviewer.com/public/weather-maps.json", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        host: "https://tilecache.rainviewer.com",
-        radar: {
-          past: [
-            { time: 1788067200, path: "/v2/radar/1788067200" },
-            { time: 1788067800, path: "/v2/radar/1788067800" },
-            { time: 1788068400, path: "/v2/radar/1788068400" },
-          ],
-        },
-      }),
-    });
-  });
-  await page.route("https://tilecache.rainviewer.com/**", async (route) => {
+  await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {
+    if (route.request().url().includes("GetCapabilities")) {
+      await route.fulfill({
+        contentType: "application/xml",
+        body: ridgeCapabilities,
+      });
+      return;
+    }
     await route.fulfill({ contentType: "image/png", body: transparentPng });
   });
   await page.goto("/?testMode=1");
@@ -30,11 +48,15 @@ test.beforeEach(async ({ page }) => {
   ).toBeVisible();
 });
 
-test("switches globe projection without changing the radar timeline", async ({ page }) => {
+test("switches globe projection without changing the radar timeline", async ({
+  page,
+}) => {
   const timeline = page.getByLabel("Radar animation", { exact: true });
   await expect(timeline).toContainText("3 radar frames");
   await page.getByRole("button", { name: "Globe", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Flat", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Flat", exact: true }),
+  ).toBeVisible();
   await expect(timeline).toContainText("3 radar frames");
 });
 
@@ -120,4 +142,31 @@ test("shows an earlier radar frame in the compare pane", async ({ page }) => {
   await page.getByRole("button", { name: "Live", exact: true }).click();
   await expect(compare).toHaveText(live);
   await expect(panes.nth(1)).toHaveAttribute("data-radar-frame", "1788068400");
+});
+
+test("names the radar source and fails over to nowCOAST", async ({ page }) => {
+  const timeline = page.getByLabel("Radar animation", { exact: true });
+  await expect(timeline).toContainText("NWS RIDGE II");
+
+  await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {
+    await route.fulfill({ status: 503, body: "" });
+  });
+  await page.route("https://nowcoast.noaa.gov/**", async (route) => {
+    if (route.request().url().includes("GetCapabilities")) {
+      await route.fulfill({
+        contentType: "application/xml",
+        body: nowcoastCapabilities,
+      });
+      return;
+    }
+    await route.fulfill({ contentType: "image/png", body: transparentPng });
+  });
+  await page.reload();
+
+  await expect(timeline).toContainText("NOAA nowCOAST");
+  await expect(timeline).toContainText("2 radar frames");
+
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await expect(page.getByText(/NWS RIDGE II/).first()).toBeVisible();
+  await expect(page.getByText(/returned 503/)).toBeVisible();
 });

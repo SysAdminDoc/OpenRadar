@@ -7,6 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
+import { RADAR_PROVIDERS, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
 
 interface CloseOnlyProps {
@@ -86,9 +87,24 @@ export function UploadPanel({ onClose, onFile }: UploadPanelProps) {
 interface MorePanelProps extends CloseOnlyProps {
   radarReady: boolean;
   mapReady: boolean;
+  activeSource: string | null;
+  health: ProviderHealth[];
 }
 
-export function MorePanel({ onClose, radarReady, mapReady }: MorePanelProps) {
+function ageLabel(at: number | null): string {
+  if (at === null) return "not contacted yet";
+  const minutes = Math.max(0, Math.floor((Date.now() - at) / 60_000));
+  if (minutes < 1) return "less than a minute ago";
+  return `${minutes} min ago`;
+}
+
+export function MorePanel({
+  onClose,
+  radarReady,
+  mapReady,
+  activeSource,
+  health,
+}: MorePanelProps) {
   return (
     <PanelShell
       eyebrow={`OpenRadar v${APP_VERSION}`}
@@ -109,10 +125,31 @@ export function MorePanel({ onClose, radarReady, mapReady }: MorePanelProps) {
           <span>
             <strong>Radar timeline</strong>
             <small>
-              {radarReady ? "Receiving frames" : "Waiting for data"}
+              {radarReady
+                ? `${activeSource ?? "Live"} · receiving frames`
+                : "Waiting for data"}
             </small>
           </span>
         </div>
+        {RADAR_PROVIDERS.map((provider) => {
+          const record = health.find((item) => item.id === provider.id);
+          const healthy = Boolean(record?.lastSuccess) && !record?.lastError;
+          return (
+            <div key={provider.id}>
+              <span className={healthy ? "status-dot is-live" : "status-dot"} />
+              <span>
+                <strong>{provider.label}</strong>
+                <small>
+                  {record?.lastError
+                    ? `${record.lastError} (${record.consecutiveFailures} in a row)`
+                    : record?.lastSuccess
+                      ? `${record.frameCount} frames, ${ageLabel(record.lastSuccess)}`
+                      : "Standing by"}
+                </small>
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div className="feature-card">
         <ShieldCheck size={24} />
