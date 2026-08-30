@@ -4,4 +4,3 @@
 fn main() {
     openradar_lib::run();
 }
-

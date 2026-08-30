@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { MapViewport, type MapViewportHandle } from "./MapViewport";
 import type { ToolMode } from "./CommandBar";
 import type { GeoPoint } from "../lib/geo";
+import type { SweepImage } from "../lib/level2";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
@@ -23,6 +24,8 @@ interface MapStageProps {
   route: Record<string, unknown> | null;
   customOverlay: Record<string, unknown> | null;
   stormTrack: Record<string, unknown> | null;
+  /** One site's own sweep, drawn in place of the mosaic when it is set. */
+  sweep: SweepImage | null;
   activeTool: ToolMode;
   dualPane: boolean;
   compareOffset: number;
@@ -48,6 +51,7 @@ export function MapStage({
   route,
   customOverlay,
   stormTrack,
+  sweep,
   activeTool,
   dualPane,
   compareOffset,
@@ -68,6 +72,7 @@ export function MapStage({
     route,
     customOverlay: settings.layers.customOverlay ? customOverlay : null,
     stormTrack,
+    sweep,
     toolMode: activeTool,
   };
 

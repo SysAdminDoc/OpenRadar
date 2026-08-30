@@ -1,9 +1,8 @@
-// The network boundary is in place before the first native fetch, so nothing
-// calls it yet. Every future Rust-side fetch has to go through it.
-#[allow(dead_code)]
+// The network boundary every Rust-side fetch goes through.
 mod http;
 
 mod exports;
+mod level2;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -46,7 +45,11 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
-        .invoke_handler(tauri::generate_handler![exports::save_export])
+        .invoke_handler(tauri::generate_handler![
+            exports::save_export,
+            level2::level2_sweep,
+            level2::level2_nearest_site
+        ])
         .setup(|_app| {
             // Development builds are not installed, so the scheme has to be
             // claimed at runtime for a link to reach the app at all.

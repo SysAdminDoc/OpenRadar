@@ -23,6 +23,7 @@ import {
   guardRadarRequest,
   satelliteTileUrl,
 } from "../lib/providers";
+import { sweepCorners, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import {
   cameraKey,
@@ -35,6 +36,8 @@ import type { ToolMode } from "./CommandBar";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
+const SWEEP_SOURCE_ID = "openradar-sweep-source";
+const SWEEP_LAYER_ID = "openradar-sweep-layer";
 const RADAR_SOURCE_ID = "openradar-radar-source";
 const RADAR_LAYER_ID = "openradar-radar-layer";
 
@@ -75,6 +78,8 @@ interface MapViewportProps {
   radarFrame?: RadarFrame;
   radarVisible: boolean;
   radarOpacity: number;
+  /** One site's own sweep, which stands in for the mosaic while it is set. */
+  sweep?: SweepImage | null;
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
@@ -147,6 +152,7 @@ function layerStackOrder(): string[] {
   return [
     SATELLITE_LAYER_ID,
     ...RADAR_LANE_LAYER_IDS,
+    SWEEP_LAYER_ID,
     ...overlayLayerOrder(),
     ...TRACK_LAYER_IDS,
     ROUTE_LAYER_ID,
@@ -191,6 +197,7 @@ function MapViewportInner(
     radarFrame,
     radarVisible,
     radarOpacity,
+    sweep = null,
     satelliteTime = null,
     overlays = {},
     route = null,
@@ -210,6 +217,7 @@ function MapViewportInner(
   const radarFrameRef = useRef<RadarFrame | undefined>(radarFrame);
   const radarVisibleRef = useRef(radarVisible);
   const radarOpacityRef = useRef(radarOpacity);
+  const sweepRef = useRef<SweepImage | null>(sweep);
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
@@ -414,12 +422,17 @@ function MapViewportInner(
     }
 
     if (map.getLayer(layerId)) {
-      map.setPaintProperty(
-        layerId,
-        "raster-opacity",
-        frame && radarVisibleRef.current ? radarOpacityRef.current : 0,
-      );
+      const opacity =
+        frame && radarVisibleRef.current && !sweepRef.current
+          ? radarOpacityRef.current
+          : 0;
+      map.setPaintProperty(layerId, "raster-opacity", opacity);
       map.setPaintProperty(layerId, "raster-fade-duration", 150);
+      if (lane === "observed" && containerRef.current) {
+        // What the mosaic is actually contributing, which is zero while a
+        // single site has the map.
+        containerRef.current.dataset.mosaicOpacity = opacity.toFixed(2);
+      }
     }
   };
 
@@ -579,6 +592,57 @@ function MapViewportInner(
       },
       firstExisting(map, layersAbove(ROUTE_LAYER_ID)),
     );
+    publishLayers();
+  };
+
+  const syncSweep = () => {
+    const map = mapRef.current;
+    const next = sweepRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    const source = map.getSource(SWEEP_SOURCE_ID) as
+      maplibregl.ImageSource | undefined;
+    if (!next || !radarVisibleRef.current) {
+      if (source) {
+        if (map.getLayer(SWEEP_LAYER_ID)) map.removeLayer(SWEEP_LAYER_ID);
+        map.removeSource(SWEEP_SOURCE_ID);
+      }
+      publishLayers();
+      return;
+    }
+
+    const corners = sweepCorners(next);
+    if (!source) {
+      map.addSource(SWEEP_SOURCE_ID, {
+        type: "image",
+        url: next.image,
+        coordinates: corners,
+      });
+      map.addLayer(
+        {
+          id: SWEEP_LAYER_ID,
+          type: "raster",
+          source: SWEEP_SOURCE_ID,
+          paint: {
+            "raster-opacity": radarOpacityRef.current,
+            // The sweep is already drawn at the resolution it was decoded at,
+            // and smoothing it turns gates into mush.
+            "raster-resampling": "nearest",
+            "raster-fade-duration": 0,
+          },
+        },
+        firstExisting(map, layersAbove(SWEEP_LAYER_ID)),
+      );
+    } else {
+      // updateImage takes both together, which is what keeps a new volume from
+      // being drawn over the previous one's footprint for a frame.
+      source.updateImage({ url: next.image, coordinates: corners });
+      map.setPaintProperty(
+        SWEEP_LAYER_ID,
+        "raster-opacity",
+        radarOpacityRef.current,
+      );
+    }
     publishLayers();
   };
 
@@ -839,6 +903,7 @@ function MapViewportInner(
       map.setProjection({ type: projectionRef.current });
       syncSatellite();
       syncRadar();
+      syncSweep();
       renderTools();
       syncOverlays();
       syncRoute();
@@ -935,16 +1000,18 @@ function MapViewportInner(
     radarFrameRef.current = radarFrame;
     radarVisibleRef.current = radarVisible;
     radarOpacityRef.current = radarOpacity;
+    sweepRef.current = sweep;
     if (containerRef.current) {
       containerRef.current.dataset.radarFrame = radarFrame
         ? String(radarFrame.time)
         : "";
     }
     syncRadar();
+    syncSweep();
     // The sync functions read the refs above; adding them as dependencies
     // would rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [radarFrame, radarVisible, radarOpacity]);
+  }, [radarFrame, radarVisible, radarOpacity, sweep]);
 
   useEffect(() => {
     satelliteTimeRef.current = satelliteTime;

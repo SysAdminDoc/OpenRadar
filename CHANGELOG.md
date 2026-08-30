@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Zoom past 8 over the United States and the map switches from the national mosaic to the nearest NEXRAD site's own Level II radar, decoded on this machine. The site, the tilt, and the moment are yours to pick in the radar product sheet: reflectivity, velocity, spectrum width, differential reflectivity, and correlation coefficient, on every elevation the volume holds. Zoom back out and the mosaic takes over again.
+- The legend follows what is on screen. It names the site and the tilt during a single-site view, and swaps to the velocity scale when velocity is what is drawn.
+
 - New Storm history panel. Search any Atlantic or eastern Pacific storm back to 1851 by name, year, or both, and its best track draws on the map with every six-hourly fix coloured by the wind it carried. The panel shows the peak intensity, the accumulated cyclone energy, and how many fixes the record holds.
 - Storms from 2003 onward replay the radar. Pick one and OpenRadar loads the national mosaic for three hours either side of its peak from the Iowa State archive, so you can watch a landfall the way it happened. The timeline credits the archive while a replay is running and hands the map back to live radar when you close it.
 

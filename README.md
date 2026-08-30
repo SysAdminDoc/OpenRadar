@@ -14,6 +14,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 
 - Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
 - A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
+- Single-site NEXRAD Level II up close: past zoom 8 the nearest site's own sweep replaces the mosaic, with tilt and product selection, decoded locally in Rust
 - Automatic failover between radar sources, with per-source status and a request budget
 - Optional future radar: up to six hours of HRRR forecast reflectivity on the tail of the same timeline
 - GOES-East GeoColor satellite imagery under the radar, following the same timeline
@@ -57,6 +58,7 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 
 - Basemap data comes from OpenStreetMap through OpenFreeMap.
 - Aerial imagery is USGS orthoimagery from The National Map, and the topographic style is OpenTopoMap under CC-BY-SA.
+- Single-site radar is NEXRAD Level II from the Unidata archive on AWS, decoded on your machine rather than fetched as pictures.
 - Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
 - RainViewer only appears for viewports the NOAA mosaics do not reach.
 - Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS.

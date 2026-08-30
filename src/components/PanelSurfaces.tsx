@@ -14,6 +14,7 @@ import type { Storm } from "../lib/hurdat";
 import type { PlaceResult } from "../lib/weather";
 import type { OverlayStates } from "../hooks/useOverlays";
 import type { ExportState } from "../hooks/useExport";
+import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
@@ -42,6 +43,7 @@ interface PanelSurfacesProps {
   health: ProviderHealth[];
   log: LogEntry[];
   exportState: ExportState;
+  singleSite: SingleSiteState | null;
   historyStormId: string | null;
   replayId: string | null;
   onClose: () => void;
@@ -177,6 +179,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {props.productOpen ? (
         <RadarProductPanel
           radar={settings.radar}
+          singleSite={props.singleSite}
           onRadar={props.onRadar}
           onClose={props.onCloseProduct}
         />

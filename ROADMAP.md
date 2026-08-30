@@ -57,13 +57,6 @@
 
 ### P2
 
-- [ ] P2: Zoom-tiered single-site Level II radar decoded in Rust
-  Why: per-station radar with tilt and velocity is MyRadar's Premium and RadarScope's core; RadrView's z8+ handoff is the UX model; the decoders already exist under MIT.
-  Evidence: `unidata-nexrad-level2` bucket (legacy `noaa-nexrad-level2` frozen 2025-09-01), `unidata-nexrad-level2-chunks` for real time; StormDeck `src-tauri/src/nexrad_level2/{source,cache,render}.rs` with `nexrad-data`/`nexrad-model` crates (MIT); RadrView README.
-  Touches: new crates/openradar-providers (port from stormdeck-providers), src-tauri/src/nexrad_level2/, IPC command returning PNG tiles or a float32 polar texture, new custom WebGL2 layer in MapViewport using `defaultProjectionData.mainMatrix`, RadarProductPanel (site, tilt, REF/VEL/ZDR/CC), site picker from `api.weather.gov/radar/stations`.
-  Acceptance: zooming past z8 over CONUS switches to the nearest site's latest 0.5° reflectivity within 5 s; velocity and tilt selection work; the ignored live-decode test passes against a KDMX archive file; memory stays under 512 MB with four volumes cached.
-  Complexity: XL
-
 - [ ] P2: MRMS national composite and rotation/MESH products from `noaa-mrms-pds`
   Why: MRMS is "generally much better than RIDGE" per HN and is Supercell's #78; rotation tracks and MESH are RadarScope Tier 2 paywalls.
   Evidence: registry.opendata.aws/noaa-mrms-pds (2-min cadence, PNG-packed GRIB2 template 5.41, grids now 14,000x7,000); StormDeck `src-tauri/src/mrms.rs` and `crates/stormdeck-providers/src/mrms_grib.rs`; gribberish 1.7.0 (MIT) with PNG packing.

@@ -266,6 +266,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -381,6 +387,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "bzip2"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a53fac24f34a81bc9954b5d6cfce0c21e18ec6959f44f56e8e90e4bb7c346c"
+dependencies = [
+ "libbz2-rs-sys",
 ]
 
 [[package]]
@@ -519,8 +534,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link 0.2.1",
 ]
 
@@ -2180,6 +2197,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libbz2-rs-sys"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34b357333733e8260735ba5894eb928c02ecc69c78715f01a8019e7fa7f2db4c"
+
+[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2373,6 +2396,50 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "nexrad-data"
+version = "1.0.0-rc.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ce26289c04c4736b662997d719b41f2343e700c4ed568f6cb4ba93d3bd923da"
+dependencies = [
+ "bzip2",
+ "chrono",
+ "flate2",
+ "log",
+ "nexrad-decode",
+ "nexrad-model",
+ "thiserror 2.0.20",
+ "zerocopy",
+]
+
+[[package]]
+name = "nexrad-decode"
+version = "1.0.0-rc.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19a6928b9f7bb9a2ac7c7f4bcb04ad9104ef307d6c4dee251c36cd4b69a47bc1"
+dependencies = [
+ "chrono",
+ "hex",
+ "log",
+ "nexrad-model",
+ "sha2",
+ "thiserror 2.0.20",
+ "uom",
+ "zerocopy",
+]
+
+[[package]]
+name = "nexrad-model"
+version = "1.0.0-rc.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e2e15c56d3f5869b78eef326ca33debd6d144a4a3348ff4829e8579c6d2a9ea"
+dependencies = [
+ "chrono",
+ "hex",
+ "sha2",
+ "thiserror 2.0.20",
+]
 
 [[package]]
 name = "notify-rust"
@@ -2651,7 +2718,13 @@ dependencies = [
 name = "openradar"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "chrono",
  "log",
+ "nexrad-data",
+ "nexrad-decode",
+ "nexrad-model",
+ "png 0.18.1",
  "reqwest",
  "serde",
  "serde_json",
@@ -4813,6 +4886,16 @@ name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
+name = "uom"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a739f83872836c82a4f2527d4e54b37007b3de68cafe7edde95fd695968bf4b9"
+dependencies = [
+ "num-traits",
+ "typenum",
+]
 
 [[package]]
 name = "url"
