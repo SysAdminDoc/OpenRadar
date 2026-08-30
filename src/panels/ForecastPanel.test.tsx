@@ -95,4 +95,36 @@ describe("ForecastPanel", () => {
 
     expect(getByText("88°")).toBeTruthy();
   });
+
+  it("shows the error line when the service really fails", async () => {
+    // The control for the test below: without it, "no error is shown" would
+    // pass against a panel that could not show one at all.
+    fetchForecast.mockRejectedValueOnce(new Error("the service is down"));
+    const { container } = render(
+      <ForecastPanel point={{ lat: 32.78, lon: -96.8 }} onClose={() => {}} />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(container.querySelector(".panel-error")).not.toBeNull();
+  });
+
+  it("shows no error when its own request was cancelled", async () => {
+    // A cancelled request is the map moving on, not the service failing. If the
+    // panel wrote that rejection into its error line, panning would replace the
+    // forecast with a complaint.
+    fetchForecast.mockRejectedValueOnce(
+      new DOMException("The operation was aborted.", "AbortError"),
+    );
+    const { container } = render(
+      <ForecastPanel point={{ lat: 32.78, lon: -96.8 }} onClose={() => {}} />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(fetchForecast).toHaveBeenCalledTimes(1);
+    expect(container.querySelector(".panel-error")).toBeNull();
+  });
 });

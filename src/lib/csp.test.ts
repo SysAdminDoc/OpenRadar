@@ -141,6 +141,34 @@ describe("the packaged app's content security policy", () => {
     }
   });
 
+  it("still lets the basemap fetch its sprites and glyphs", () => {
+    // connect-src is not the whole story. A vector style pulls its sprite
+    // sheet under img-src and its glyph ranges under font-src, and a policy
+    // that dropped either would leave a map with no labels in a packaged build
+    // and nowhere else, which is the failure this file exists to prevent.
+    const styles = readFileSync(
+      join(process.cwd(), "src", "lib", "mapStyles.ts"),
+      "utf8",
+    );
+    const hosts = new Set(
+      [...styles.matchAll(/https:\/\/([a-z0-9.-]+)\/styles\//g)].map(
+        (match) => match[1],
+      ),
+    );
+    expect(hosts.size, "no basemap style host was found").toBeGreaterThan(0);
+
+    for (const host of hosts) {
+      for (const directive of ["img-src", "font-src"]) {
+        expect(
+          csp[directive].includes(`https://${host}`),
+          `${directive} is missing ${host}, so the basemap loses its ${
+            directive === "font-src" ? "labels" : "icons"
+          }`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("does not let the page reach anything by default", () => {
     // The catch-all stays narrow: a directive that is forgotten should fail
     // closed rather than inherit the web.
