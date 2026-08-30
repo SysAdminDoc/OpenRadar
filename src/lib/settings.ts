@@ -127,14 +127,23 @@ function normalizeCamera(value: unknown): CameraState {
   };
 }
 
+/**
+ * One rounded string stands for a camera position. Comparing the same string
+ * the map publishes keeps "close enough to skip the jump" and "reported as the
+ * same position" from ever disagreeing.
+ */
+export function cameraKey(camera: CameraState): string {
+  return [
+    camera.center[0].toFixed(5),
+    camera.center[1].toFixed(5),
+    camera.zoom.toFixed(3),
+    camera.bearing.toFixed(2),
+    camera.pitch.toFixed(2),
+  ].join(",");
+}
+
 export function sameCamera(left: CameraState, right: CameraState): boolean {
-  return (
-    Math.abs(left.center[0] - right.center[0]) < 1e-6 &&
-    Math.abs(left.center[1] - right.center[1]) < 1e-6 &&
-    Math.abs(left.zoom - right.zoom) < 1e-4 &&
-    Math.abs(left.bearing - right.bearing) < 1e-3 &&
-    Math.abs(left.pitch - right.pitch) < 1e-3
-  );
+  return cameraKey(left) === cameraKey(right);
 }
 
 function normalizePreset(value: unknown): PresetState | null {

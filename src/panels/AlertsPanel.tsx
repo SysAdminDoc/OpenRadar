@@ -15,6 +15,8 @@ interface AlertsPanelProps {
   viewport: OverlayBounds | null;
   fetchedAt: number | null;
   error: string | null;
+  layerOn: boolean;
+  onEnableLayer: () => void;
   onSelect: (bounds: OverlayBounds) => void;
   onClose: () => void;
 }
@@ -34,6 +36,8 @@ export function AlertsPanel({
   viewport,
   fetchedAt,
   error,
+  layerOn,
+  onEnableLayer,
   onSelect,
   onClose,
 }: AlertsPanelProps) {
@@ -51,7 +55,22 @@ export function AlertsPanel({
       onClose={onClose}
       className="surface-panel--right"
     >
-      {visible.length ? (
+      {!layerOn ? (
+        <div className="feature-card">
+          <BellRing size={24} />
+          <div>
+            <strong>The alerts layer is switched off</strong>
+            <span>Turn it back on to see watches and warnings.</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onEnableLayer}
+            >
+              Turn on Weather Alerts
+            </button>
+          </div>
+        </div>
+      ) : visible.length ? (
         <div className="alert-list">
           {visible.map(({ feature, bounds }, index) => {
             const severity = String(
@@ -100,11 +119,13 @@ export function AlertsPanel({
         </div>
       )}
       <p className="source-note">
-        {error
-          ? `Showing the last good list. ${error}`
-          : fetchedAt
-            ? `NWS watches and warnings, checked ${relativeTime(fetchedAt)}.`
-            : "Loading NWS watches and warnings."}{" "}
+        {!layerOn
+          ? "Nothing is being fetched while the layer is off."
+          : error
+            ? `Showing the last good list. ${error}`
+            : fetchedAt
+              ? `NWS watches and warnings, checked ${relativeTime(fetchedAt)}.`
+              : "Loading NWS watches and warnings."}{" "}
         Use official warnings for life-safety decisions.
       </p>
     </PanelShell>

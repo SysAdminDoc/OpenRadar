@@ -14,7 +14,9 @@ export const ridgeProvider = createWmsProvider({
   host: "opengeo.ncep.noaa.gov",
   owsUrl: "https://opengeo.ncep.noaa.gov/geoserver/conus/ows",
   layer: "conus_bref_qcd",
-  coverage: [{ west: -130, south: 20, east: -60, north: 55 }],
+  // The mosaic itself is the CONUS land extent. A wider box would claim the
+  // Gulf, Cuba, and the Bahamas, where it has nothing to draw.
+  coverage: [{ west: -125, south: 24.4, east: -66.9, north: 49.4 }],
   tileBudgetLimit: 3000,
   discoveryBudgetLimit: 30,
   budgetWindowMs: 60_000,

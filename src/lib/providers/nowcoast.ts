@@ -15,10 +15,10 @@ export const nowcoastProvider = createWmsProvider({
   owsUrl: "https://nowcoast.noaa.gov/geoserver/observations/weather_radar/ows",
   layer: "base_reflectivity_mosaic",
   coverage: [
-    { west: -130, south: 20, east: -60, north: 55 },
+    { west: -125, south: 24.4, east: -66.9, north: 49.4 },
     { west: -180, south: 50, east: -125, north: 72 },
     { west: -165, south: 15, east: -150, north: 25 },
-    { west: -70, south: 15, east: -60, north: 22 },
+    { west: -68, south: 17, east: -64, north: 19 },
     { west: 140, south: 10, east: 150, north: 20 },
   ],
   tileBudgetLimit: 2400,
