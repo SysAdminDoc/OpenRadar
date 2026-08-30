@@ -26,13 +26,13 @@
     "security": {
       "csp": {
         "default-src": "'self' customprotocol: asset:",
-        "connect-src": "ipc: data: http://ipc.localhost mrms: http://mrms.localhost cached: http://cached.localhost https://api.tidesandcurrents.noaa.gov https://geo.weather.gc.ca https://noaa-mrms-pds.s3.amazonaws.com https://unidata-nexrad-level2.s3.amazonaws.com https://router.project-osrm.org https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://mapservices.weather.noaa.gov https://earthquake.usgs.gov https://services3.arcgis.com https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://api.rainviewer.com https://*.rainviewer.com https://tiles.openfreemap.org https://assets.openfreemap.com https://*.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org https://geocoding-api.open-meteo.com https://api.open-meteo.com",
+        "connect-src": "ipc: data: http://ipc.localhost mrms: http://mrms.localhost cached: http://cached.localhost https://api.tidesandcurrents.noaa.gov https://geo.weather.gc.ca https://noaa-mrms-pds.s3.amazonaws.com https://unidata-nexrad-level2.s3.amazonaws.com https://router.project-osrm.org https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://mapservices.weather.noaa.gov https://earthquake.usgs.gov https://services3.arcgis.com https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://api.rainviewer.com https://*.rainviewer.com https://tiles.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org https://geocoding-api.open-meteo.com https://api.open-meteo.com",
         "script-src": "'self' 'wasm-unsafe-eval'",
         "style-src": "'self' 'unsafe-inline'",
-        "img-src": "'self' asset: http://asset.localhost mrms: http://mrms.localhost cached: http://cached.localhost blob: data: https://geo.weather.gc.ca https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://*.rainviewer.com https://tiles.openfreemap.org https://assets.openfreemap.com https://*.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org",
+        "img-src": "'self' asset: http://asset.localhost mrms: http://mrms.localhost cached: http://cached.localhost blob: data: https://geo.weather.gc.ca https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://*.rainviewer.com https://tiles.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org",
         "worker-src": "'self' blob:",
         "child-src": "'self' blob:",
-        "font-src": "'self' data: cached: http://cached.localhost https://tiles.openfreemap.org https://assets.openfreemap.com https://*.openfreemap.org",
+        "font-src": "'self' data: cached: http://cached.localhost https://tiles.openfreemap.org",
         "frame-src": "'self'"
       }
     }
