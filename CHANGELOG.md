@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Fixed playback eating the radar request budget and faking a source outage. Tile traffic and source discovery are now counted separately.
+- Fixed the radar layer landing on top of the alert, earthquake, and fire layers on a cold start.
+- Fixed the Custom Overlay switch, which could add imported shapes but never remove them.
+- Overlay data no longer lingers on screen after the map moves away from the area it was fetched for.
 - Swapped the aerial basemap from Esri World Imagery, which needs an ArcGIS account outside Esri software, to public-domain USGS orthoimagery, and gave OpenTopoMap the exact credit line it asks for.
 - Turned the More panel into Diagnostics: per-source radar health, the last dozen events, and a button that opens the log folder.
 - Radar, overlay, and map failures now go to the desktop log file instead of the browser console.

@@ -26,7 +26,7 @@
     "security": {
       "csp": {
         "default-src": "'self' customprotocol: asset:",
-        "connect-src": "ipc: http://ipc.localhost https://mapservices.weather.noaa.gov https://earthquake.usgs.gov https://services3.arcgis.com https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://api.rainviewer.com https://*.rainviewer.com https://tiles.openfreemap.org https://assets.openfreemap.com https://*.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org https://geocoding-api.open-meteo.com https://api.open-meteo.com",
+        "connect-src": "ipc: data: http://ipc.localhost https://mapservices.weather.noaa.gov https://earthquake.usgs.gov https://services3.arcgis.com https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://api.rainviewer.com https://*.rainviewer.com https://tiles.openfreemap.org https://assets.openfreemap.com https://*.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org https://geocoding-api.open-meteo.com https://api.open-meteo.com",
         "script-src": "'self' 'wasm-unsafe-eval'",
         "style-src": "'self' 'unsafe-inline'",
         "img-src": "'self' asset: http://asset.localhost blob: data: https://opengeo.ncep.noaa.gov https://nowcoast.noaa.gov https://*.rainviewer.com https://tiles.openfreemap.org https://assets.openfreemap.com https://*.openfreemap.org https://basemap.nationalmap.gov https://tile.opentopomap.org",

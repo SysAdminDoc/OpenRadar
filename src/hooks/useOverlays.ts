@@ -4,6 +4,7 @@ import {
   EMPTY_OVERLAY,
   OVERLAY_ADAPTERS,
   boundsContain,
+  boundsOverlap,
   padBounds,
   type OverlayAdapter,
   type OverlayBounds,
@@ -13,6 +14,8 @@ import {
 
 export interface OverlayState {
   data: OverlayData;
+  /** The padded box the snapshot was fetched for, or null for a global feed. */
+  bounds: OverlayBounds | null;
   fetchedAt: number | null;
   error: string | null;
 }
@@ -21,6 +24,7 @@ export type OverlayStates = Record<OverlayId, OverlayState>;
 
 export const IDLE_OVERLAY: OverlayState = {
   data: EMPTY_OVERLAY,
+  bounds: null,
   fetchedAt: null,
   error: null,
 };
@@ -42,7 +46,19 @@ export function shouldRefetch(
 ): boolean {
   if (!coverage) return true;
   if (now - coverage.at >= adapter.refreshMs) return true;
+  // A worldwide feed already holds every feature, so panning changes nothing.
+  if (adapter.global) return false;
   return !boundsContain(coverage.bounds, viewport);
+}
+
+/** A snapshot from somewhere else must not be drawn over the current view. */
+export function coversViewport(
+  adapter: OverlayAdapter,
+  state: OverlayState,
+  viewport: OverlayBounds | null,
+): boolean {
+  if (adapter.global || !state.bounds || !viewport) return true;
+  return boundsOverlap(state.bounds, viewport);
 }
 
 function boundsKey(bounds: OverlayBounds | null): string {
@@ -62,7 +78,12 @@ export function useOverlays(
     wildfires: IDLE_OVERLAY,
   }));
   const coverageRef = useRef<Partial<Record<OverlayId, Coverage>>>({});
-  const controllersRef = useRef(new Map<OverlayId, AbortController>());
+  const requestsRef = useRef(
+    new Map<
+      OverlayId,
+      { controller: AbortController; bounds: OverlayBounds }
+    >(),
+  );
 
   const enabledKey = OVERLAY_ADAPTERS.map((adapter) =>
     enabled[adapter.id] ? adapter.id : "",
@@ -70,23 +91,33 @@ export function useOverlays(
   const viewportKey = boundsKey(viewport);
 
   useEffect(() => {
-    const controllers = controllersRef.current;
+    const requests = requestsRef.current;
     const coverage = coverageRef.current;
 
     for (const adapter of OVERLAY_ADAPTERS) {
       if (enabled[adapter.id]) continue;
-      controllers.get(adapter.id)?.abort();
-      controllers.delete(adapter.id);
+      requests.get(adapter.id)?.controller.abort();
+      requests.delete(adapter.id);
       delete coverage[adapter.id];
     }
 
     if (!viewport) return;
     const padded = padBounds(viewport, BOUNDS_PADDING);
 
+    // A request issued for an area the user has left would stamp coverage with
+    // the wrong box and leave the map showing somewhere else.
+    for (const [id, request] of requests) {
+      const adapter = OVERLAY_ADAPTERS.find((candidate) => candidate.id === id);
+      if (!adapter || adapter.global) continue;
+      if (boundsContain(request.bounds, viewport)) continue;
+      request.controller.abort();
+      requests.delete(id);
+    }
+
     const run = () => {
       for (const adapter of OVERLAY_ADAPTERS) {
         if (!enabled[adapter.id]) continue;
-        if (controllers.has(adapter.id)) continue;
+        if (requests.has(adapter.id)) continue;
         if (
           !shouldRefetch(adapter, coverage[adapter.id], viewport, Date.now())
         ) {
@@ -94,7 +125,7 @@ export function useOverlays(
         }
 
         const controller = new AbortController();
-        controllers.set(adapter.id, controller);
+        requests.set(adapter.id, { controller, bounds: padded });
         void adapter
           .fetchData(padded, controller.signal)
           .then((data) => {
@@ -102,7 +133,12 @@ export function useOverlays(
             coverage[adapter.id] = { bounds: padded, at: Date.now() };
             setStates((current) => ({
               ...current,
-              [adapter.id]: { data, fetchedAt: Date.now(), error: null },
+              [adapter.id]: {
+                data,
+                bounds: adapter.global ? null : padded,
+                fetchedAt: Date.now(),
+                error: null,
+              },
             }));
           })
           .catch((error: unknown) => {
@@ -117,7 +153,10 @@ export function useOverlays(
             }));
           })
           .finally(() => {
-            controllers.delete(adapter.id);
+            // A newer request may already own the slot.
+            if (requests.get(adapter.id)?.controller === controller) {
+              requests.delete(adapter.id);
+            }
           });
       }
     };
@@ -130,21 +169,24 @@ export function useOverlays(
   }, [enabledKey, viewportKey]);
 
   useEffect(() => {
-    const controllers = controllersRef.current;
+    const requests = requestsRef.current;
     return () => {
-      for (const controller of controllers.values()) controller.abort();
-      controllers.clear();
+      for (const request of requests.values()) request.controller.abort();
+      requests.clear();
     };
   }, []);
 
-  // A disabled overlay reports nothing, so the map drops its layers without a
-  // second render pass.
-  return useMemo(
-    () => ({
-      alerts: enabled.alerts ? states.alerts : IDLE_OVERLAY,
-      earthquakes: enabled.earthquakes ? states.earthquakes : IDLE_OVERLAY,
-      wildfires: enabled.wildfires ? states.wildfires : IDLE_OVERLAY,
-    }),
-    [enabled.alerts, enabled.earthquakes, enabled.wildfires, states],
-  );
+  // A disabled layer reports nothing, and so does a snapshot of somewhere the
+  // user has already left, so the map drops both without a second render pass.
+  return useMemo(() => {
+    const visible = {} as OverlayStates;
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const state = states[adapter.id];
+      visible[adapter.id] =
+        enabled[adapter.id] && coversViewport(adapter, state, viewport)
+          ? state
+          : IDLE_OVERLAY;
+    }
+    return visible;
+  }, [enabled, states, viewport]);
 }
