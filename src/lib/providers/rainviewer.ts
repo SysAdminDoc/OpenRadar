@@ -1,5 +1,7 @@
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
 import { cachedUrl } from "../tileCache";
+import { noteCachedResponse } from "../tileCache";
+import { translate } from "../../i18n";
 
 interface RainViewerPayload {
   host?: unknown;
@@ -66,7 +68,6 @@ export function parseRainViewerFrames(payload: unknown): RadarFrame[] {
 export const rainviewerProvider: RadarProvider = {
   id: "rainviewer",
   label: "RainViewer",
-  detail: "Worldwide composite outside NOAA coverage",
   attribution: ATTRIBUTION,
   attributionUrl: "https://www.rainviewer.com/",
   host: "rainviewer.com",
@@ -80,12 +81,13 @@ export const rainviewerProvider: RadarProvider = {
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
+    noteCachedResponse(response);
     if (!response.ok) {
       throw new Error(`The service returned ${response.status}.`);
     }
     const frames = parseRainViewerFrames(await response.json());
     if (!frames.length) {
-      throw new Error("RainViewer returned no usable frames.");
+      throw new Error(translate("radar.rainviewerEmpty"));
     }
     return withinLoop(frames, loopMinutes);
   },

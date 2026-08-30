@@ -22,6 +22,8 @@ import {
   Route,
   History,
   Command,
+  Rows3,
+  Waves,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useT } from "../i18n";
@@ -33,6 +35,8 @@ export type SurfaceId =
   | "history"
   | "commands"
   | "route"
+  | "guidance"
+  | "tides"
   | "map-type"
   | "layers"
   | "export"
@@ -235,6 +239,18 @@ export function CommandBar({
           label={t("panel.route")}
           active={activeSurface === "route"}
           onClick={() => toggleSurface("route")}
+        />
+        <CommandButton
+          icon={Rows3}
+          label={t("panel.guidance")}
+          active={activeSurface === "guidance"}
+          onClick={() => toggleSurface("guidance")}
+        />
+        <CommandButton
+          icon={Waves}
+          label={t("panel.tides")}
+          active={activeSurface === "tides"}
+          onClick={() => toggleSurface("tides")}
         />
         <CommandButton
           icon={Film}

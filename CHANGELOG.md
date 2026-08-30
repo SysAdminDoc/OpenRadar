@@ -1,6 +1,14 @@
 # Changelog
 
-## OpenRadar v0.2.0 (unreleased)
+## OpenRadar v0.2.0
+
+- Three new things for the coast and for the day after tomorrow.
+
+  Guidance puts four forecast models next to each other for the middle of the map: GFS, ECMWF, ICON, and GEM, each from its own centre's run rather than blended into an average. Temperature, rain, and wind every three hours, with a line saying whether they agree. Where they do not, none of them knows yet, and that is worth seeing.
+
+  Tides finds the nearest NOAA station, says whether the water is coming in or going out, and lists the next high and low waters with their heights. The station list is bundled, so finding the nearest one works with no network.
+
+  Storm Surge Risk draws how far the water could reach for a hurricane of each category, from the National Hurricane Center's own maps, with a picker for the category and a legend for the depth. It is not a forecast and the panel says so twice: NOAA built it by running thousands of simulated hurricanes at every stretch of coast and keeping the worst water each one made, at high tide.
 
 - The whole workspace speaks Spanish. Pick it in Settings and every panel, button, legend, popup, and notification changes where you are standing, with no restart and nothing lost from the view you had. Weather terms follow the National Weather Service's own Spanish, so a warning is an aviso and a watch is a vigilancia. Searching the command list works in either language: type huracán or hurricane and you land on the same thing.
 

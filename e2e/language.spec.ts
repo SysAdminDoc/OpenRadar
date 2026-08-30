@@ -26,27 +26,79 @@ async function startIn(page: Page, language: string) {
   }, language);
   await routeWorkspace(page);
   await page.goto("/?testMode=1");
-  await expect(
-    page.getByRole("application", { name: "Interactive weather map" }),
-  ).toBeVisible();
+  // Named in whatever language is on, so the wait does not depend on which.
+  await expect(page.getByRole("application")).toBeVisible();
 }
 
 /**
- * Text that does not fit the box it was given. Only boxes that actually clip
- * count: a list that scrolls is doing its job, and so is the map canvas.
+ * Text that does not fit the box it was given.
+ *
+ * Wider than "the box clips it", deliberately. An earlier version only looked
+ * at elements with `overflow-x: hidden`, which meant the way to make it pass
+ * was to remove the overflow rule rather than to make the label fit. This
+ * counts any text wider or taller than its own box, and skips only the
+ * elements that are meant to scroll.
  */
 async function clipped(page: Page) {
   return page.evaluate(() => {
-    const bad: string[] = [];
-    for (const element of document.querySelectorAll<HTMLElement>(
-      ".surface-panel *, .command-bar *, .radar-timeline *, .product-legends *",
-    )) {
+    const scrolls = (element: Element) => {
       const style = getComputedStyle(element);
-      if (style.overflowX !== "hidden") continue;
-      if (!element.textContent?.trim()) continue;
-      if (element.scrollWidth > element.clientWidth + 1) {
+      return (
+        style.overflowX === "auto" ||
+        style.overflowX === "scroll" ||
+        style.overflowY === "auto" ||
+        style.overflowY === "scroll"
+      );
+    };
+    const bad: string[] = [];
+    const scope = [
+      ".surface-panel",
+      ".command-bar",
+      ".radar-timeline",
+      ".radar-legend",
+      ".product-legends",
+      ".satellite-chip",
+      ".pane-compare",
+      ".tool-hud",
+      ".toast",
+      ".zoom-controls",
+    ].join(", ");
+    for (const root of document.querySelectorAll<HTMLElement>(scope)) {
+      for (const element of [
+        root,
+        ...root.querySelectorAll<HTMLElement>("*"),
+      ]) {
+        // A box that is meant to scroll is doing its job, and so is anything
+        // inside one: the point of a scroller is that its contents are allowed
+        // to be bigger than it is.
+        if (scrolls(element)) continue;
+        let inScroller = false;
+        for (
+          let parent = element.parentElement;
+          parent;
+          parent = parent.parentElement
+        ) {
+          if (scrolls(parent)) {
+            inScroller = true;
+            break;
+          }
+        }
+        if (inScroller) continue;
+        if (element.tagName === "CANVAS" || element.tagName === "INPUT") {
+          continue;
+        }
+        // The one caption allowed to end in an ellipsis. It sits under an
+        // icon in a bar of fixed height, and the whole label is on the
+        // button's tooltip and its accessible name, so nothing is lost by
+        // shortening what is drawn. The bar itself scrolls, so no button
+        // becomes unreachable however long the words get.
+        if (element.closest(".command-button")) continue;
+        if (!element.textContent?.trim()) continue;
+        const wide = element.scrollWidth > element.clientWidth + 1;
+        const tall = element.scrollHeight > element.clientHeight + 1;
+        if (!wide && !tall) continue;
         bad.push(
-          `${element.className || element.tagName}: ${element.textContent
+          `${element.className || element.tagName} ${wide ? "wide" : "tall"}: ${element.textContent
             .trim()
             .slice(0, 40)}`,
         );

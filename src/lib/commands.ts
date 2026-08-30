@@ -1,7 +1,7 @@
 import { MAP_STYLE_OPTIONS } from "./mapStyles";
 import { LEVEL2_PRODUCTS } from "./level2";
 import type { LayerSettings, MapStyleId } from "./settings";
-import { translate, type StringKey } from "../i18n";
+import { translate, type LanguageId, type StringKey } from "../i18n";
 
 export type CommandAction =
   | { kind: "layer"; layer: keyof LayerSettings }
@@ -94,6 +94,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["lightning", "glm", "flash", "total", "satellite", "strike"],
   },
   {
+    layer: "surge",
+    key: "layer.surge",
+    extra: "keywords.surge",
+    keywords: ["surge", "flood", "inundation", "coast", "water", "hurricane"],
+  },
+  {
     layer: "customOverlay",
     key: "layer.customOverlay",
     extra: "keywords.customOverlay",
@@ -142,6 +148,18 @@ const SURFACE_COMMANDS: Array<{
     key: "panel.forecast",
     extra: "keywords.forecast",
     keywords: ["weather", "hourly", "temperature", "rain"],
+  },
+  {
+    surface: "guidance",
+    key: "panel.guidance",
+    extra: "keywords.guidance",
+    keywords: ["model", "ensemble", "compare", "gfs", "ecmwf", "icon"],
+  },
+  {
+    surface: "tides",
+    key: "panel.tides",
+    extra: "keywords.tides",
+    keywords: ["tide", "high water", "low water", "coast", "noaa"],
   },
   {
     surface: "export",
@@ -214,13 +232,19 @@ const TOOL_COMMANDS: Array<{
  * window may still type "mesh", and losing that would make the list worse
  * rather than better.
  */
-function searchTerms(english: string[], extra: StringKey): string[] {
-  const translated = translate(extra).split(/\s+/).filter(Boolean);
+function searchTerms(
+  english: string[],
+  extra: StringKey,
+  which?: LanguageId,
+): string[] {
+  const translated = translate(extra, undefined, which)
+    .split(/\s+/)
+    .filter(Boolean);
   return [...english, ...translated];
 }
 
 /** The Spanish words for a Level II product, added to its English ones. */
-function productTerms(id: string): string[] {
+function productTerms(id: string, which?: LanguageId): string[] {
   const key: StringKey | null =
     id === "reflectivity"
       ? "keywords.reflectivity"
@@ -233,25 +257,33 @@ function productTerms(id: string): string[] {
             : id === "correlation-coefficient"
               ? "keywords.correlation"
               : null;
-  return key ? translate(key).split(/\s+/).filter(Boolean) : [];
+  return key
+    ? translate(key, undefined, which).split(/\s+/).filter(Boolean)
+    : [];
 }
 
-/** Everything the palette can do, built from the same registries the panels use. */
-export function allCommands(): Command[] {
+/**
+ * Everything the palette can do, built from the same registries the panels use.
+ *
+ * The language is a parameter rather than read from the store, because the
+ * list is memoised by its caller and a hidden read would leave yesterday's
+ * words in it after a switch.
+ */
+export function allCommands(which?: LanguageId): Command[] {
   return [
     ...LAYER_COMMANDS.map((entry): Command => ({
       id: `layer:${entry.layer}`,
-      label: translate(entry.key),
-      group: translate("command.group.layer"),
-      keywords: searchTerms(entry.keywords, entry.extra),
+      label: translate(entry.key, undefined, which),
+      group: translate("command.group.layer", undefined, which),
+      keywords: searchTerms(entry.keywords, entry.extra, which),
       action: { kind: "layer", layer: entry.layer },
     })),
     ...LEVEL2_PRODUCTS.map((product): Command => ({
       id: `product:${product.id}`,
-      label: translate(product.key),
-      group: translate("command.group.product"),
+      label: translate(product.key, undefined, which),
+      group: translate("command.group.product", undefined, which),
       keywords: [
-        ...productTerms(product.id),
+        ...productTerms(product.id, which),
         product.unit,
         "level 2",
         "single site",
@@ -268,23 +300,27 @@ export function allCommands(): Command[] {
     })),
     ...MAP_STYLE_OPTIONS.map((style): Command => ({
       id: `style:${style.id}`,
-      label: translate(style.key),
-      group: translate("command.group.style"),
-      keywords: searchTerms(["basemap", "style", "theme"], "keywords.mapType"),
+      label: translate(style.key, undefined, which),
+      group: translate("command.group.style", undefined, which),
+      keywords: searchTerms(
+        ["basemap", "style", "theme"],
+        "keywords.mapType",
+        which,
+      ),
       action: { kind: "style", style: style.id },
     })),
     ...SURFACE_COMMANDS.map((entry): Command => ({
       id: `surface:${entry.surface}`,
-      label: translate(entry.key),
-      group: translate("command.group.panel"),
-      keywords: searchTerms(entry.keywords, entry.extra),
+      label: translate(entry.key, undefined, which),
+      group: translate("command.group.panel", undefined, which),
+      keywords: searchTerms(entry.keywords, entry.extra, which),
       action: { kind: "surface", surface: entry.surface },
     })),
     ...TOOL_COMMANDS.map((entry): Command => ({
       id: `tool:${entry.tool}`,
-      label: translate(entry.key),
-      group: translate("command.group.tool"),
-      keywords: searchTerms(entry.keywords, entry.extra),
+      label: translate(entry.key, undefined, which),
+      group: translate("command.group.tool", undefined, which),
+      keywords: searchTerms(entry.keywords, entry.extra, which),
       action: { kind: "tool", tool: entry.tool },
     })),
   ];

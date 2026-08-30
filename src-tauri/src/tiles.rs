@@ -12,6 +12,33 @@ use reqwest::Url;
 use crate::cache;
 use crate::http;
 
+/**
+ * The hosts this scheme will fetch for.
+ *
+ * Narrower than the native allowlist on purpose. Rust reaches several storage
+ * buckets the page itself may not, and a scheme the page can call would hand
+ * it those too, with the response's own origin checks stripped off. This list
+ * is the tiles and documents the map draws, and matches the one the frontend
+ * routes through here.
+ */
+const SERVED_HOSTS: &[&str] = &[
+    "opengeo.ncep.noaa.gov",
+    "nowcoast.noaa.gov",
+    "mapservices.weather.noaa.gov",
+    "tilecache.rainviewer.com",
+    "api.rainviewer.com",
+    "geo.weather.gc.ca",
+    "mesonet.agron.iastate.edu",
+    "gibs.earthdata.nasa.gov",
+    "tiles.openfreemap.org",
+    "basemap.nationalmap.gov",
+    "tile.opentopomap.org",
+    "earthquake.usgs.gov",
+    "services3.arcgis.com",
+    "api.tidesandcurrents.noaa.gov",
+    "api.open-meteo.com",
+];
+
 /// What came back, and whether it came off the disk.
 pub struct Served {
     pub status: u16,
@@ -37,6 +64,10 @@ pub fn requested_url(uri: &str) -> Option<String> {
     // reach. A page that talked to this scheme directly gets no further than a
     // page that talked to the network directly.
     if target.scheme() != "https" || !http::is_allowed(&target) {
+        return None;
+    }
+    let host = target.host_str()?.to_ascii_lowercase();
+    if !SERVED_HOSTS.contains(&host.as_str()) {
         return None;
     }
     Some(target.to_string())
@@ -122,6 +153,59 @@ mod tests {
             "http://cached.localhost/?u=http%3A%2F%2Fnowcoast.noaa.gov%2Ftile.png"
         )
         .is_none());
+        // A host the native side may reach but the page may not. The scheme
+        // must not become a way for the page to borrow Rust's reach.
+        assert!(requested_url(
+            "http://cached.localhost/?u=https%3A%2F%2Fnoaa-goes19.s3.amazonaws.com%2Ffile.nc"
+        )
+        .is_none());
+        assert!(requested_url(
+            "http://cached.localhost/?u=https%3A%2F%2Funidata-nexrad-level2.s3.amazonaws.com%2Ffile"
+        )
+        .is_none());
+        // Credentials and a port are part of an address, and neither was
+        // allowed. Both would change who answers and what is sent.
+        assert!(requested_url(
+            "http://cached.localhost/?u=https%3A%2F%2Fuser%3Apass%40nowcoast.noaa.gov%2Ftile.png"
+        )
+        .is_none());
+        assert!(requested_url(
+            "http://cached.localhost/?u=https%3A%2F%2Fnowcoast.noaa.gov%3A8443%2Ftile.png"
+        )
+        .is_none());
+    }
+
+    /// The list the page routes through here and the list this serves have to
+    /// be the same list, or a layer is routed and then refused.
+    #[test]
+    fn serves_the_hosts_the_page_routes_here() {
+        let frontend =
+            std::fs::read_to_string("../src/lib/tileCache.ts").expect("the frontend list");
+        for host in SERVED_HOSTS {
+            assert!(
+                frontend.contains(&format!("\"{host}\"")),
+                "{host} is served here but the page never routes it"
+            );
+        }
+        let routed: Vec<String> = frontend
+            .lines()
+            .skip_while(|line| !line.contains("CACHED_HOSTS"))
+            .take_while(|line| !line.contains("];"))
+            .filter_map(|line| {
+                let trimmed = line.trim().trim_end_matches(',');
+                trimmed
+                    .strip_prefix('"')
+                    .and_then(|rest| rest.strip_suffix('"'))
+                    .map(|host| host.to_string())
+            })
+            .collect();
+        assert!(!routed.is_empty(), "the frontend list could not be read");
+        for host in routed {
+            assert!(
+                SERVED_HOSTS.contains(&host.as_str()),
+                "{host} is routed here but this refuses it"
+            );
+        }
     }
 
     /// A real fetch through the whole path, kept, and then served back when

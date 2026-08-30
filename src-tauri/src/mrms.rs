@@ -1617,6 +1617,7 @@ mod tests {
                 value: 5.0,
                 color: "#000000".into(),
                 to_color: None,
+                solid: false,
             }],
         );
         assert_eq!(
@@ -1633,6 +1634,7 @@ mod tests {
                 value: 5.0,
                 color: "#000000".into(),
                 to_color: None,
+                solid: false,
             }],
         );
         assert_eq!(color_at(6, 15, 23), Some(built_in));

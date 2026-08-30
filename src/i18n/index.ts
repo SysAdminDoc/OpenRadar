@@ -10,7 +10,7 @@
  * `useT()` and re-renders when the language changes, so switching takes effect
  * where you are rather than on the next restart.
  */
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { en, type Catalogue, type StringKey } from "./en";
 import { es } from "./es";
 import { pseudo } from "./pseudo";
@@ -89,7 +89,12 @@ export function translate(
 /** The translate function, and a re-render when the language changes. */
 export function useT(): (key: StringKey, params?: Params) => string {
   const which = useSyncExternalStore(subscribe, language, () => "en" as const);
-  return (key, params) => translate(key, params, which);
+  // Stable while the language is, so an effect that depends on it runs when
+  // the language changes and not on every render.
+  return useCallback(
+    (key: StringKey, params?: Params) => translate(key, params, which),
+    [which],
+  );
 }
 
 /** The current language, for a component that needs to know which it is. */

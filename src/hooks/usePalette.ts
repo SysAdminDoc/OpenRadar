@@ -40,7 +40,7 @@ export function usePalette(options: {
           ? (JSON.parse(sent) as [
               string | null,
               string | null,
-              Array<[number, string, string | null]>,
+              Array<[number, string, string | null, boolean]>,
             ])
           : [null, null, []];
         const next = await invoke<number>("set_palette", {

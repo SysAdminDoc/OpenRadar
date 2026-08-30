@@ -1,5 +1,6 @@
 import type * as maplibregl from "maplibre-gl";
 import type { WindField } from "./wind";
+import { translate } from "../i18n";
 
 /**
  * Animated wind particles, drawn straight into the map's own GL context.
@@ -123,7 +124,7 @@ function compile(
   source: string,
 ): WebGLShader {
   const shader = gl.createShader(type);
-  if (!shader) throw new Error("The wind layer could not create a shader.");
+  if (!shader) throw new Error(translate("wind.noShader"));
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -140,7 +141,7 @@ function link(
   fragment: string,
 ): WebGLProgram {
   const program = gl.createProgram();
-  if (!program) throw new Error("The wind layer could not create a program.");
+  if (!program) throw new Error(translate("wind.noProgram"));
   gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, vertex));
   gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, fragment));
   gl.linkProgram(program);

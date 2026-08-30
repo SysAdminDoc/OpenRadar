@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRadarTimeline } from "./useRadarTimeline";
+import { fetchRadarTimeline } from "../lib/providers";
 import type { RadarFrame } from "../lib/radar";
 
 const NOW = 1_788_083_202;
@@ -33,6 +34,12 @@ const provider = {
 
 /** Flipped by each test to say what the next refresh should do. */
 let refreshFails = false;
+/**
+ * What the native side reported about the last reply: null for a live fetch,
+ * a number of seconds for one it served off its own disk. This is the field
+ * the real fetchRadarTimeline fills in from the response header.
+ */
+let cachedAgeSeconds: number | null = null;
 
 vi.mock("../lib/providers", async () => {
   const actual =
@@ -43,7 +50,11 @@ vi.mock("../lib/providers", async () => {
     ...actual,
     fetchRadarTimeline: vi.fn(async () => {
       if (refreshFails) throw new Error("The radar service is unreachable.");
-      return { provider, frames: [0, 1, 2].map((step) => frame(NOW + step)) };
+      return {
+        provider,
+        frames: [0, 1, 2].map((step) => frame(NOW + step)),
+        cachedAgeSeconds,
+      };
     }),
     fetchHrrrRun: vi.fn(async () => {
       throw new Error("not used");
@@ -61,6 +72,7 @@ function setOnline(online: boolean) {
 
 beforeEach(() => {
   refreshFails = false;
+  cachedAgeSeconds = null;
   setOnline(true);
   window.matchMedia = vi.fn().mockReturnValue({
     matches: false,
@@ -122,6 +134,53 @@ describe("a loop with no network behind it", () => {
     expect(result.current.cached).toBe(true);
 
     act(() => setOnline(true));
+    expect(result.current.cached).toBe(false);
+  });
+
+  it("says so when the reply came off the disk rather than the network", async () => {
+    const { result } = renderHook(() => useRadarTimeline(options));
+    await waitFor(() => expect(result.current.frames).toHaveLength(3));
+    expect(result.current.cached).toBe(false);
+
+    // The machine still believes it has a network and the request still
+    // succeeds, because the native side answered from its cache. This is what
+    // a captive portal and a dead service both look like from here, and the
+    // only thing that knows is the age the native side reported.
+    cachedAgeSeconds = 900;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(REFRESH_MS + 1);
+    });
+    await waitFor(() => expect(result.current.cached).toBe(true));
+    expect(result.current.frames).toHaveLength(3);
+    expect(result.current.error).toBeNull();
+
+    // And a live answer puts it back.
+    cachedAgeSeconds = null;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(REFRESH_MS + 1);
+    });
+    await waitFor(() => expect(result.current.cached).toBe(false));
+  });
+
+  it("asks again the moment the network comes back", async () => {
+    const { result } = renderHook(() => useRadarTimeline(options));
+    await waitFor(() => expect(result.current.frames).toHaveLength(3));
+    const asked = vi.mocked(fetchRadarTimeline).mock.calls.length;
+
+    act(() => setOnline(false));
+    expect(result.current.cached).toBe(true);
+
+    // Coming back must not mean sitting on an outage-old loop until the next
+    // interval, which is five minutes away.
+    await act(async () => {
+      setOnline(true);
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    await waitFor(() =>
+      expect(vi.mocked(fetchRadarTimeline).mock.calls.length).toBeGreaterThan(
+        asked,
+      ),
+    );
     expect(result.current.cached).toBe(false);
   });
 

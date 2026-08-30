@@ -1,6 +1,6 @@
 # OpenRadar
 
-![Version](https://img.shields.io/badge/version-0.1.0-68d7ff)
+![Version](https://img.shields.io/badge/version-0.2.0-68d7ff)
 ![License](https://img.shields.io/badge/license-MIT-8bd5ca)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
 
@@ -32,6 +32,9 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Storm history: every Atlantic and eastern Pacific cyclone since 1851, with its best track drawn by intensity, and archive radar replay of the ones since 2003
 - GRLevelX `.pal` colour tables applied to the locally decoded radar, with the legend rebuilt from the table
 - Place search, map-centered forecasts, local GeoJSON and GRLevelX placefile import, shareable camera links, dark and light themes
+- Model guidance: what GFS, ECMWF, ICON, and GEM each say about the middle of the map, side by side, so you can see where they disagree
+- Tides from the nearest NOAA station, with the next high and low water, because surge rides on top of the tide
+- Storm surge risk: how far the water could reach for a hurricane of each category, from the National Hurricane Center's own maps
 - English and Spanish, switched in Settings and applied where you are standing rather than on the next launch
 - An offline last view: tiles, radar frames, and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and says how old it is
 - Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
@@ -58,7 +61,7 @@ Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://gi
 Windows will show a SmartScreen warning on first run. The installer is not signed with an Authenticode certificate yet, and SmartScreen warns about anything it has not seen before. Choose More info, then Run anyway. If you would rather check the download first, every release ships a `SHA256SUMS` file:
 
 ```powershell
-Get-FileHash OpenRadar_0.1.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash OpenRadar_0.2.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Once installed, OpenRadar checks for new versions when you ask it to, from Diagnostics. Updates are signed with the project's own key and refused if the signature does not match, so the SmartScreen gap does not extend to what arrives afterwards.
@@ -71,7 +74,7 @@ npm run tauri build -- --bundles nsis
 
 The Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
 
-The v0.1.0 installer was exercised with a silent install and uninstall. It is not Authenticode-signed because no code-signing certificate is configured on the build machine.
+The v0.2.0 installer was exercised with a silent install and uninstall. It is not Authenticode-signed because no code-signing certificate is configured on the build machine.
 
 ## Data and map credits
 
@@ -88,4 +91,4 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 - Tropical cones, tracks, watches, and outlooks come from the NHC tropical map service.
 - Past storm tracks come from the NOAA HURDAT2 best track, and archive radar for a replay comes from the Iowa State Mesonet.
 
-OpenRadar v0.1.0 is an early working release. It is not an official source for warnings or life-safety decisions.
+OpenRadar v0.2.0 is an early working release. It is not an official source for warnings or life-safety decisions.

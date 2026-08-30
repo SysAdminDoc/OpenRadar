@@ -21,6 +21,8 @@ import { CommandPalette } from "./CommandPalette";
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
+import { GuidancePanel } from "../panels/GuidancePanel";
+import { TidesPanel } from "../panels/TidesPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
 import {
   LayersPanel,
@@ -32,6 +34,7 @@ import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { TropicalPanel } from "../panels/TropicalPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
+import type { SurgeCategory } from "../lib/surge";
 
 interface PanelSurfacesProps {
   activeSurface: SurfaceId;
@@ -65,6 +68,7 @@ interface PanelSurfacesProps {
   onFollowStorm: (point: GeoPoint, name: string) => void;
   onCommand: (action: CommandAction) => void;
   onClearPalette: () => void;
+  onSurgeCategory: (category: SurgeCategory) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -106,7 +110,9 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "layers" ? (
         <LayersPanel
           layers={settings.layers}
+          surgeCategory={settings.surgeCategory}
           onLayers={props.onLayers}
+          onSurgeCategory={props.onSurgeCategory}
           onClose={onClose}
         />
       ) : null}
@@ -142,6 +148,18 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
 
       {activeSurface === "forecast" ? (
         <ForecastPanel point={props.centerPoint} onClose={onClose} />
+      ) : null}
+
+      {activeSurface === "guidance" ? (
+        <GuidancePanel point={props.centerPoint} onClose={onClose} />
+      ) : null}
+
+      {activeSurface === "tides" ? (
+        <TidesPanel
+          point={props.centerPoint}
+          clock={props.clock}
+          onClose={onClose}
+        />
       ) : null}
 
       {activeSurface === "settings" ? (

@@ -640,11 +640,13 @@ mod tests {
                     value: 5.0,
                     color: "#04e9e7".into(),
                     to_color: None,
+                    solid: false,
                 },
                 palette::Stop {
                     value: 50.0,
                     color: "#fd0000".into(),
                     to_color: None,
+                    solid: false,
                 },
             ],
         )

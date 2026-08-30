@@ -19,6 +19,7 @@ import {
 } from "../lib/providers";
 import { log } from "../lib/log";
 import { animationIntervalMs, type RadarFrame } from "../lib/radar";
+import { translate } from "../i18n";
 
 export interface ArchiveReplay {
   /** Identifies the replay, so selecting the same one twice changes nothing. */
@@ -144,6 +145,13 @@ export function useRadarTimeline(options: {
   const [source, setSource] = useState<RadarProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshFailed, setLastRefreshFailed] = useState(false);
+  // Set from the age the native side reports on a reply it served from disk,
+  // which is the only thing here that actually knows where the bytes came
+  // from. Guessing from navigator.onLine misses a captive portal and a dead
+  // service, both of which look online and both of which come off the cache.
+  const [servedFromCache, setServedFromCache] = useState(false);
+  const refreshRef = useRef<(() => void) | null>(null);
+  const wasOfflineRef = useRef(false);
   // A machine with no network is showing the last view whether or not the most
   // recent refresh happened to fail: the tiles under it came off the disk.
   const online = useSyncExternalStore(
@@ -151,7 +159,7 @@ export function useRadarTimeline(options: {
     isOnline,
     isOnlineOnServer,
   );
-  const cached = lastRefreshFailed || !online;
+  const cached = lastRefreshFailed || servedFromCache || !online;
   // The playhead remembers which loop it was set in. A time picked in one
   // replay says nothing about where to sit in another, or back on live radar,
   // so a selection from a different loop is simply ignored rather than having
@@ -242,6 +250,7 @@ export function useRadarTimeline(options: {
         setSource(timeline.provider);
         setError(null);
         setLastRefreshFailed(false);
+        setServedFromCache(timeline.cachedAgeSeconds !== null);
         setObserved(timeline.frames);
         // A refresh only ever decides where the live loop should sit. While a
         // replay is up it must leave the playhead alone: writing to the live
@@ -261,7 +270,7 @@ export function useRadarTimeline(options: {
           "radar",
           failure instanceof Error
             ? failure.message
-            : "The radar request failed",
+            : translate("radar.requestFailed"),
         );
         // Frames already on screen are worth more than an error message in
         // their place. They came from the cache or from the last refresh that
@@ -272,21 +281,39 @@ export function useRadarTimeline(options: {
           setError(null);
         } else {
           setLastRefreshFailed(false);
-          setError("Radar temporarily unavailable");
+          setError(translate("radar.unavailable"));
         }
       }
     };
 
     void refresh();
+    // Held so a reconnection can ask for a fresh loop straight away rather
+    // than waiting out the rest of the interval. Five minutes of stale radar
+    // labelled as live is exactly what the label exists to prevent.
+    refreshRef.current = () => void refresh();
     const timer = window.setInterval(() => void refresh(), REFRESH_MS);
     return () => {
       mounted = false;
+      refreshRef.current = null;
       controller.abort();
       window.clearInterval(timer);
     };
     // A new colour table means the locally drawn tiles have to be asked for
     // again under their new address.
   }, [ready, coverage, paletteGeneration]);
+
+  // A machine that has just found the network again has a loop on screen
+  // that is at least as old as the outage. Asking again now is the difference
+  // between coming back within a second and coming back within five minutes.
+  useEffect(() => {
+    if (!online) {
+      wasOfflineRef.current = true;
+      return;
+    }
+    if (!wasOfflineRef.current) return;
+    wasOfflineRef.current = false;
+    refreshRef.current?.();
+  }, [online]);
 
   useEffect(() => {
     if (!ready || !futureRadar || !inModelDomain) return;

@@ -17,7 +17,6 @@ export const GEOMET_HOST = "geo.weather.gc.ca";
 export const geometProvider = createWmsProvider({
   id: "geomet",
   label: "ECCC GeoMet",
-  detail: "Canadian one kilometre rain rate, six-minute composite",
   attribution:
     '<a href="https://eccc-msc.github.io/open-data/licence/readme_en/">Environment and Climate Change Canada</a>',
   attributionUrl: "https://eccc-msc.github.io/open-data/licence/readme_en/",
@@ -46,27 +45,34 @@ export const geometProvider = createWmsProvider({
  * The border is not a rectangle, though, and a box drawn generously enough to
  * hold southern Ontario also holds Michigan and Ohio.
  *
- * So the rule is the other way round: the boxes below are the parts of Canada
- * a rectangle can claim without taking a piece of the United States with it.
- * The land border runs along the forty-ninth parallel from the Pacific to
- * Lake of the Woods, so everything north of it out west is Canada. East of the
- * lakes the border wanders, and no rectangle separates Maine from New
- * Brunswick or Vermont from Quebec, so those boxes start where the American
- * states end: north of the forty-eighth in Quebec, and north of the
- * forty-eighth in the Maritimes, which is short of Halifax but takes nothing
- * that is not Canadian.
+ * So the rule is the other way round: every box below has to be provably
+ * Canadian, and the border does not make that easy. It is not the forty-ninth
+ * parallel all the way: the Alaska Panhandle reaches down the coast to
+ * fifty-four and a half, well east of the hundred and forty-first meridian,
+ * and Minnesota's Northwest Angle pokes north of forty-nine at ninety-five
+ * degrees west. A box drawn to the parallel takes both.
  *
- * What that leaves out is the populated strip along the lakes and the lower
- * Saint Lawrence, plus Nova Scotia. Those fall through to the ordinary chain,
- * which reaches them: the NOAA mosaics cover the lakes, and past the mosaics'
- * eastern edge GeoMet is picked up as the coverage fallback anyway.
+ * What that leaves out is the outer British Columbia coast, the populated
+ * strip along the lakes, and the lower Saint Lawrence. Those fall through to
+ * the ordinary chain, which reaches them: the NOAA mosaics cover the lakes and
+ * the Pacific Northwest, and past the mosaics' eastern edge GeoMet is picked
+ * up as the coverage fallback anyway.
  */
 const CANADA: BoundingBox[] = [
-  // The prairie and mountain border, which is the forty-ninth parallel exactly.
-  { west: -141, south: 49.0, east: -95, north: 84 },
-  // Northern Ontario and Quebec, clear of Minnesota, Michigan, and New York.
-  { west: -95, south: 49.0, east: -66.9, north: 84 },
-  // East of the American mosaics entirely.
+  // Yukon, the Northwest Territories, and Nunavut. Alaska's mainland is west
+  // of the hundred and forty-first meridian, and its Panhandle stops short of
+  // sixty, so nothing here is American.
+  { west: -141, south: 60.0, east: -95, north: 84 },
+  // The interior west, from the coast range to Lake of the Woods. The eastern
+  // edge stops short of Minnesota's Northwest Angle, which is the one piece of
+  // the lower forty-eight north of the forty-ninth parallel, and the western
+  // edge stops short of the Alaska Panhandle, which costs the outer coast.
+  { west: -130, south: 49.0, east: -95.2, north: 60 },
+  // Northern Ontario and Quebec, above the Angle and well clear of Michigan
+  // and New York.
+  { west: -95.2, south: 49.4, east: -66.9, north: 84 },
+  // East of Maine, which is the easternmost American land there is, so this
+  // one can run all the way down.
   { west: -66.9, south: 41, east: -52, north: 84 },
 ];
 

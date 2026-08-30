@@ -108,7 +108,6 @@ export function thinFrames<T>(frames: T[], most = MAX_LOOP_FRAMES): T[] {
 export const mrmsProvider: RadarProvider & { paletteGeneration: number } = {
   id: "mrms",
   label: "NOAA MRMS",
-  detail: "One kilometre national composite, two-minute grids",
   attribution:
     '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
   attributionUrl: "https://www.nssl.noaa.gov/projects/mrms/",

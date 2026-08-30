@@ -26,6 +26,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "tile.opentopomap.org",
     "tiles.openfreemap.org",
     "api.open-meteo.com",
+    "api.tidesandcurrents.noaa.gov",
     "geocoding-api.open-meteo.com",
     "router.project-osrm.org",
     "gibs.earthdata.nasa.gov",
@@ -63,6 +64,15 @@ pub enum HttpError {
 /// HTTPS only, and the host has to match an entry exactly. A lookalike such as
 /// `nowcoast.noaa.gov.example.net` is refused because it is a different host.
 pub fn is_allowed(url: &Url) -> bool {
+    // Credentials in an address decide what the client sends as its
+    // Authorization header, and a port decides which service on the host
+    // answers. Neither is part of what was allowed, so neither is accepted.
+    if !url.username().is_empty() || url.password().is_some() {
+        return false;
+    }
+    if url.port().is_some() {
+        return false;
+    }
     if url.scheme() != "https" {
         return false;
     }
@@ -129,6 +139,15 @@ pub fn client() -> Result<Client, HttpError> {
 /// change once it exists, so the copy is either the same bytes or a picture of
 /// an older moment, which the timeline already dates for the user.
 pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
+    // Checked before the cache is consulted. An address that is no longer
+    // allowed must not keep being served from a copy taken when it was.
+    let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
+    if !is_allowed(&parsed) {
+        return Err(HttpError::HostNotAllowed(
+            parsed.host_str().unwrap_or(url).to_string(),
+        ));
+    }
+
     match fetch_bytes(url).await {
         Ok(body) => {
             cache::put(url, "application/octet-stream", &body);

@@ -23,6 +23,11 @@ pub struct Stop {
     pub value: f32,
     pub color: String,
     pub to_color: Option<String>,
+    /// True for a SolidColor line, which holds its colour to the next stop.
+    /// A Color line with one colour ramps into the next stop instead, and
+    /// without this the two are indistinguishable here.
+    #[serde(default)]
+    pub solid: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -33,7 +38,17 @@ pub struct Palette {
     /// The colour the table gives range-folded gates, which are not a value on
     /// the scale and so have a line of their own in the format.
     pub range_folded: Option<[u8; 3]>,
-    stops: Vec<(f32, [u8; 3], Option<[u8; 3]>)>,
+    stops: Vec<Held>,
+}
+
+/// One stop, as it is drawn: a value, a colour, what it blends towards, and
+/// whether it holds instead of blending at all.
+#[derive(Debug, Clone, Copy)]
+struct Held {
+    value: f32,
+    color: [u8; 3],
+    to: Option<[u8; 3]>,
+    solid: bool,
 }
 
 static LOADED: RwLock<Option<Palette>> = RwLock::new(None);
@@ -63,7 +78,7 @@ impl Palette {
         range_folded: Option<&str>,
         stops: &[Stop],
     ) -> Option<Self> {
-        let mut read: Vec<(f32, [u8; 3], Option<[u8; 3]>)> = stops
+        let mut read: Vec<Held> = stops
             .iter()
             .filter_map(|stop| {
                 if !stop.value.is_finite() {
@@ -71,15 +86,20 @@ impl Palette {
                 }
                 let color = parse_hex(&stop.color)?;
                 let to = stop.to_color.as_deref().and_then(parse_hex);
-                Some((stop.value, color, to))
+                Some(Held {
+                    value: stop.value,
+                    color,
+                    to,
+                    solid: stop.solid,
+                })
             })
             .collect();
         if read.is_empty() {
             return None;
         }
         read.sort_by(|left, right| {
-            left.0
-                .partial_cmp(&right.0)
+            left.value
+                .partial_cmp(&right.value)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         Some(Palette {
@@ -106,36 +126,37 @@ impl Palette {
     /// The colour a value gets, blending between stops the way the format does.
     pub fn color(&self, value: f32) -> [u8; 3] {
         let first = self.stops[0];
-        if value <= first.0 {
-            return first.1;
+        if value <= first.value {
+            return first.color;
         }
         for pair in self.stops.windows(2) {
-            let (low_value, low_color, low_to) = pair[0];
-            let (high_value, _high_color, _) = pair[1];
+            let (low, high) = (pair[0], pair[1]);
             // Half open: a value sitting exactly on the next stop belongs to
             // that stop, not to the end of the blend running into it.
-            if value >= high_value {
+            if value >= high.value {
                 continue;
             }
-            let Some(to) = low_to else {
-                // A solid stop holds its colour to the next one.
-                return low_color;
-            };
-            let span = high_value - low_value;
+            // A SolidColor line holds its colour to the next stop. A Color
+            // line with one colour ramps into the next stop instead, which is
+            // what the format says and what every other reader does.
+            if low.solid {
+                return low.color;
+            }
+            let span = high.value - low.value;
             let position = if span > 0.0 {
-                (value - low_value) / span
+                (value - low.value) / span
             } else {
                 0.0
             };
-            return blend(low_color, to, position);
+            return blend(low.color, low.to.unwrap_or(high.color), position);
         }
         let last = self.stops[self.stops.len() - 1];
-        last.2.unwrap_or(last.1)
+        last.to.unwrap_or(last.color)
     }
 
     /// The value the table starts at, below which nothing is drawn.
     pub fn floor(&self) -> f32 {
-        self.stops[0].0
+        self.stops[0].value
     }
 }
 
@@ -191,6 +212,16 @@ mod tests {
             value,
             color: color.to_string(),
             to_color: to.map(str::to_string),
+            solid: false,
+        }
+    }
+
+    fn solid(value: f32, color: &str) -> Stop {
+        Stop {
+            value,
+            color: color.to_string(),
+            to_color: None,
+            solid: true,
         }
     }
 
@@ -248,16 +279,33 @@ mod tests {
             None,
             &[
                 stop(5.0, "#04e9e7", None),
-                stop(20.0, "#fd0000", None),
+                solid(20.0, "#fd0000"),
                 stop(50.0, "#000000", None),
             ],
         )
         .expect("a palette");
-        // A file that says flat red from twenty to fifty is drawn flat red.
+        // A file that says SolidColor at twenty is drawn flat red to fifty.
         assert_eq!(palette.color(20.0), [0xfd, 0x00, 0x00]);
         assert_eq!(palette.color(35.0), [0xfd, 0x00, 0x00]);
         assert_eq!(palette.color(49.9), [0xfd, 0x00, 0x00]);
         assert_eq!(palette.color(50.0), [0x00, 0x00, 0x00]);
+    }
+
+    /// The other half of the same rule, and the one that is easy to get wrong:
+    /// a Color line with a single colour is not solid. It ramps into the next
+    /// stop, and holding it instead would flatten most of the tables people
+    /// actually pass round.
+    #[test]
+    fn a_plain_line_with_one_colour_ramps_into_the_next_stop() {
+        let palette = Palette::new(
+            None,
+            &[stop(5.0, "#ff0000", None), stop(25.0, "#0000ff", None)],
+        )
+        .expect("a palette");
+        assert_eq!(palette.color(5.0), [0xff, 0x00, 0x00]);
+        // Halfway between the two stops is halfway between the two colours.
+        assert_eq!(palette.color(15.0), [0x80, 0x00, 0x80]);
+        assert_eq!(palette.color(25.0), [0x00, 0x00, 0xff]);
     }
 
     #[test]

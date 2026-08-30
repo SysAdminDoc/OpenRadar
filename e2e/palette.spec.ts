@@ -170,7 +170,13 @@ test("can be taken off again long after the toast has gone", async ({
       .filter((call) => call.command === "set_palette")
       .at(-1),
   );
-  expect(cleared?.args).toMatchObject({ units: null, stops: [] });
+  // Every field, not just the two that are easy to name: leaving the folded
+  // colour behind would keep the old table's purple on the map.
+  expect(cleared?.args).toEqual({
+    units: null,
+    rangeFolded: null,
+    stops: [],
+  });
 });
 
 test("refuses a file with no colours in it", async ({ page }) => {

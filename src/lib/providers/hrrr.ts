@@ -1,5 +1,7 @@
 import type { RadarFrame } from "./types";
 import { cachedUrl } from "../tileCache";
+import { noteCachedResponse } from "../tileCache";
+import { translate } from "../../i18n";
 
 export const HRRR_HOST = "mesonet.agron.iastate.edu";
 const RUN_URL = `https://${HRRR_HOST}/data/gis/images/4326/hrrr/refd_1080.json`;
@@ -39,11 +41,12 @@ export async function fetchHrrrRun(signal?: AbortSignal): Promise<HrrrRun> {
     headers: { Accept: "application/json" },
     cache: "no-store",
   });
+  noteCachedResponse(response);
   if (!response.ok) {
     throw new Error(`The forecast index returned ${response.status}.`);
   }
   const run = parseHrrrRun(await response.json());
-  if (!run) throw new Error("The forecast index named no model run.");
+  if (!run) throw new Error(translate("radar.noRun"));
   return run;
 }
 

@@ -50,6 +50,7 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
+import { translate } from "./i18n";
 
 export default function App() {
   const [activeSurface, setActiveSurface] = useState<SurfaceId>(null);
@@ -83,8 +84,8 @@ export default function App() {
   const onPersistError = useCallback(
     () =>
       pushToast({
-        title: "Settings were not saved",
-        detail: "The current window is still using your changes.",
+        title: translate("app.settingsNotSaved"),
+        detail: translate("app.settingsNotSavedBody"),
       }),
     [pushToast],
   );
@@ -394,6 +395,9 @@ export default function App() {
         onCommand={runCommand}
         onClearPalette={() =>
           applySettings({ ...settingsRef.current, palette: null })
+        }
+        onSurgeCategory={(surgeCategory) =>
+          applySettings({ ...settingsRef.current, surgeCategory })
         }
         onHistoryStorm={showStorm}
         onReplayStorm={replayStorm}

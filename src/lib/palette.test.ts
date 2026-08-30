@@ -113,6 +113,19 @@ describe("colouring a value", () => {
     expect(paletteColor(palette!, 12.5)).toBe("#03c4ee");
   });
 
+  it("ramps out of a plain line with one colour", () => {
+    // The other half of the same rule. A Color line with a single colour is
+    // not solid: it ramps into the next stop. Holding it instead would flatten
+    // most of the tables people pass round.
+    const ramp = parsePalette(
+      ["Color: 5 255 0 0", "Color: 25 0 0 255"].join(String.fromCharCode(10)),
+      "ramp.pal",
+    );
+    expect(paletteColor(ramp!, 5)).toBe("#ff0000");
+    expect(paletteColor(ramp!, 15)).toBe("#800080");
+    expect(paletteColor(ramp!, 25)).toBe("#0000ff");
+  });
+
   it("holds a solid stop rather than blending out of it", () => {
     const solid = parsePalette(
       ["Color: 5 4 233 231", "SolidColor: 20 253 0 0", "Color: 50 0 0 0"].join(
@@ -138,11 +151,14 @@ describe("colouring a value", () => {
 describe("handing a palette to the renderer", () => {
   it("sends the stops in order as plain pairs", () => {
     const palette = parsePalette(FILE, "reflectivity.pal");
+    // Whether a stop is solid travels with it: without that the native side
+    // cannot tell a SolidColor line from a Color line with one colour, and
+    // draws the second as though it were the first.
     expect(paletteForRenderer(palette!)).toEqual([
-      [5, "#04e9e7", "#019ff4"],
-      [20, "#02fd02", "#01c501"],
-      [50, "#fd0000", "#d40000"],
-      [75, "#fdfdfd", null],
+      [5, "#04e9e7", "#019ff4", false],
+      [20, "#02fd02", "#01c501", false],
+      [50, "#fd0000", "#d40000", false],
+      [75, "#fdfdfd", null, true],
     ]);
   });
 
