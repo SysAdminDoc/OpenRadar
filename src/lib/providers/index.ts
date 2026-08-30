@@ -146,7 +146,7 @@ export async function fetchRadarTimeline(
     }
 
     try {
-      const frames = await provider.fetchFrames(loopMinutes, signal);
+      const frames = await provider.fetchFrames(loopMinutes, signal, center);
       if (!frames.length) throw new Error(translate("radar.noFrames"));
       recordSuccess(provider.id, frames.length);
       log.info("radar", `${provider.label} returned ${frames.length} frames`);

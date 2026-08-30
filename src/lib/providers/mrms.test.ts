@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_LOOP_FRAMES,
+  domainFor,
   frameLimit,
+  MAX_LOOP_FRAMES,
   mrmsProvider,
   thinFrames,
   tileUrl,
@@ -10,14 +11,64 @@ import { covers } from "./types";
 
 describe("MRMS tiles", () => {
   it("builds a tile template the map can substitute into", () => {
+    // The region leads the address, because each one is a separate grid and
+    // two regions' tiles must never be served for one another.
     expect(tileUrl("http://mrms.localhost/", "composite", 1788083202)).toBe(
-      "http://mrms.localhost/composite/1788083202/{z}/{x}/{y}.png?p=0",
+      "http://mrms.localhost/CONUS/composite/1788083202/{z}/{x}/{y}.png?p=0",
     );
     // The scheme is spelled differently away from Windows, and the template
     // has to follow whatever Tauri hands over.
     expect(tileUrl("mrms://localhost/", "mesh", 1)).toBe(
-      "mrms://localhost/mesh/1/{z}/{x}/{y}.png?p=0",
+      "mrms://localhost/CONUS/mesh/1/{z}/{x}/{y}.png?p=0",
     );
+    expect(
+      tileUrl("mrms://localhost/", "composite", 1, 0, null, "HAWAII"),
+    ).toBe("mrms://localhost/HAWAII/composite/1/{z}/{x}/{y}.png?p=0");
+  });
+
+  it("knows which region a place falls in", () => {
+    expect(domainFor([-93.7, 41.7])?.id).toBe("CONUS");
+    expect(domainFor([-149.9, 61.2])?.id).toBe("ALASKA");
+    expect(domainFor([-157.8, 21.3])?.id).toBe("HAWAII");
+    expect(domainFor([144.8, 13.5])?.id).toBe("GUAM");
+    expect(domainFor([-66.1, 18.4])?.id).toBe("CARIB");
+    // Nowhere the network publishes.
+    expect(domainFor([2.35, 48.85])).toBeNull();
+    expect(domainFor(undefined)).toBeNull();
+  });
+
+  it("has somewhere that unambiguously belongs to each region", () => {
+    // The boxes are not quite disjoint: CONUS and Alaska share a corner
+    // between 130 and 126 west above 50 north, which is open Pacific either
+    // way. What has to hold is that every region is reachable, or one of them
+    // would be dead code and the map would fall through to a personal-use
+    // tier for everybody in it.
+    const reached = new Set(
+      (
+        [
+          [-93.7, 41.7],
+          [-149.9, 61.2],
+          [-157.8, 21.3],
+          [144.8, 13.5],
+          [-66.1, 18.4],
+        ] as Array<[number, number]>
+      ).map((place) => domainFor(place)?.id),
+    );
+    expect([...reached].sort()).toEqual([
+      "ALASKA",
+      "CARIB",
+      "CONUS",
+      "GUAM",
+      "HAWAII",
+    ]);
+  });
+
+  it("answers the same way twice where two regions meet", () => {
+    // In the corner they share, one of them has to win and it has to be the
+    // same one every time, or the map would swap grids as the view drifted.
+    const corner: [number, number] = [-128, 52];
+    expect(domainFor(corner)?.id).toBe(domainFor(corner)?.id);
+    expect(domainFor(corner)?.id).toBe("CONUS");
   });
 
   it("gives a tile a new address when a colour table is loaded", () => {
@@ -40,15 +91,21 @@ describe("MRMS tiles", () => {
 });
 
 describe("MRMS coverage", () => {
-  it("claims the published CONUS domain and nothing outside it", () => {
+  it("claims every region the network publishes, and nothing outside them", () => {
+    // This used to be the lower forty-eight alone, and the map fell through to
+    // a personal-use tier everywhere else. The other four are published on the
+    // same bucket, at the same cadence, and are decoded by the same code: the
+    // grid geometry comes out of the file rather than being written down here.
     expect(covers(mrmsProvider, -93.7, 41.7)).toBe(true);
     expect(covers(mrmsProvider, -122.3, 47.6)).toBe(true);
     expect(covers(mrmsProvider, -80.2, 25.8)).toBe(true);
-    // Alaska, Hawaii, and Europe are published as separate domains or not at
-    // all, so the composite must not claim them.
-    expect(covers(mrmsProvider, -149.9, 61.2)).toBe(false);
-    expect(covers(mrmsProvider, -157.8, 21.3)).toBe(false);
+    expect(covers(mrmsProvider, -149.9, 61.2)).toBe(true);
+    expect(covers(mrmsProvider, -157.8, 21.3)).toBe(true);
+    expect(covers(mrmsProvider, 144.8, 13.5)).toBe(true);
+    expect(covers(mrmsProvider, -66.1, 18.4)).toBe(true);
+    // And still nothing where there is no radar to read.
     expect(covers(mrmsProvider, 2.35, 48.85)).toBe(false);
+    expect(covers(mrmsProvider, 151.2, -33.9)).toBe(false);
   });
 
   it("leads with a national grid rather than a mosaic of pictures", () => {

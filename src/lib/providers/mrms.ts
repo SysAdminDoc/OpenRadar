@@ -60,6 +60,57 @@ export function resetTileBase() {
  * is fetched by the map and cached by the map. A new colour table means a new
  * address, so nothing drawn with the old one is shown again.
  */
+/**
+ * The regions the network publishes separately, with the extent of each read
+ * out of the grids themselves rather than taken from documentation.
+ *
+ * They do not overlap and they are not one picture: each is its own
+ * projection at its own resolution, so a view over Honolulu has to ask for
+ * the Hawaii grid and not a CONUS one that stops two thousand miles short.
+ */
+export const DOMAINS: Array<{
+  id: string;
+  box: { west: number; south: number; east: number; north: number };
+}> = [
+  {
+    id: "CONUS",
+    box: { west: -129.995, south: 19.995, east: -59.995, north: 54.995 },
+  },
+  {
+    id: "ALASKA",
+    box: { west: -175.995, south: 49.995, east: -125.995, north: 71.995 },
+  },
+  {
+    id: "HAWAII",
+    box: { west: -163.9975, south: 14.9975, east: -150.9975, north: 25.9975 },
+  },
+  {
+    id: "GUAM",
+    box: { west: 140.0025, south: 8.9975, east: 150.0025, north: 17.9975 },
+  },
+  {
+    id: "CARIB",
+    box: { west: -89.995, south: 9.995, east: -59.995, north: 24.995 },
+  },
+];
+
+/** Which region a place falls in, or nothing when it falls in none. */
+export function domainFor(
+  center: [number, number] | undefined,
+): (typeof DOMAINS)[number] | null {
+  if (!center) return null;
+  const [lon, lat] = center;
+  return (
+    DOMAINS.find(
+      ({ box }) =>
+        lon >= box.west &&
+        lon <= box.east &&
+        lat >= box.south &&
+        lat <= box.north,
+    ) ?? null
+  );
+}
+
 export function tileUrl(
   root: string,
   product: MrmsProductId,
@@ -69,10 +120,12 @@ export function tileUrl(
   // address for the same reason the palette is: a different threshold is a
   // different picture and must not be served out of the map's own cache.
   threshold: number | null = null,
+  /** Which region's grid, since each is published on its own. */
+  domain = "CONUS",
 ): string {
   const floor =
     threshold !== null && Number.isFinite(threshold) ? `&min=${threshold}` : "";
-  return `${root}${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}`;
+  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}`;
 }
 
 /** The base URL for the local tile scheme, once Tauri has spelled it out. */
@@ -88,9 +141,11 @@ export async function mrmsProducts(): Promise<MrmsProductInfo[]> {
 export async function mrmsFrames(
   product: MrmsProductId,
   limit: number,
+  /** Which region's grid, since each is published on its own. */
+  domain?: string,
 ): Promise<MrmsFrame[]> {
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<MrmsFrame[]>("mrms_frames", { product, limit });
+  return invoke<MrmsFrame[]>("mrms_frames", { product, limit, domain });
 }
 
 /** The grids are decoded here, so a browser preview has none of this. */
@@ -131,8 +186,8 @@ export const mrmsProvider: RadarProvider & {
     '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
   attributionUrl: "https://www.nssl.noaa.gov/projects/mrms/",
   host: MRMS_HOST,
-  // The published CONUS domain, which is where the grids have any data.
-  coverage: [{ west: -129.995, south: 20.005, east: -60.005, north: 54.995 }],
+  // Every region the network publishes.
+  coverage: DOMAINS.map((domain) => domain.box),
   // Tiles are drawn locally, so the only budget that matters is the listing.
   tileBudgetLimit: 100_000,
   discoveryBudgetLimit: 30,
@@ -141,10 +196,18 @@ export const mrmsProvider: RadarProvider & {
   paletteGeneration: 0,
   /** Hide anything below this, in dBZ, as the reader asked. */
   threshold: null,
-  fetchFrames: async (loopMinutes: number) => {
+  fetchFrames: async (
+    loopMinutes: number,
+    _signal?: AbortSignal,
+    center?: [number, number],
+  ) => {
+    // Which region the view is over. Falling back to the lower forty-eight
+    // keeps a view outside every grid drawing the picture it drew before,
+    // which is nothing, rather than failing the whole chain.
+    const domain = domainFor(center) ?? DOMAINS[0];
     const [root, frames] = await Promise.all([
       base(),
-      mrmsFrames("composite", frameLimit(loopMinutes)),
+      mrmsFrames("composite", frameLimit(loopMinutes), domain.id),
     ]);
     return withinLoop(
       thinFrames(frames).map((frame): RadarFrame => ({
@@ -156,6 +219,7 @@ export const mrmsProvider: RadarProvider & {
           frame.time,
           mrmsProvider.paletteGeneration,
           mrmsProvider.threshold,
+          domain.id,
         ),
         tileSize: 256,
         // The grid is one kilometre, which runs out of detail past here.
