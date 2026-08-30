@@ -44,6 +44,13 @@ export interface RadarProvider {
   fetchFrames: (
     loopMinutes: number,
     signal?: AbortSignal,
+    /**
+     * Where the map is looking. Every provider is already chosen by this, and
+     * one of them publishes a different grid for each region of the country,
+     * so it has to know which one to ask for rather than guessing from the
+     * coverage box it was matched on.
+     */
+    center?: [number, number],
   ) => Promise<RadarFrame[]>;
 }
 

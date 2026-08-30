@@ -17,13 +17,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: polygons with ProbTor/ProbHail/ProbWind percentages draw above MRMS and below warnings; a popup lists the v3 attributes; a Rust test parses a fixture file; an e2e test asserts stack order.
   Complexity: M
 
-- [ ] P2 — MRMS for Alaska, Hawaii, Guam and the Caribbean
-  Why: the domains exist on the bucket today with 148 to 166 products each; the map falls to RainViewer's personal-use tier there now.
-  Evidence: https://noaa-mrms-pds.s3.amazonaws.com/?list-type=2&delimiter=/ (`ALASKA/`, `HAWAII/`, `GUAM/`, `CARIB/`); `src/lib/providers/mrms.ts` coverage box.
-  Touches: src-tauri/src/mrms.rs (domain-aware grid geometry from the GRIB2 section 3), src/lib/providers/mrms.ts (per-domain boxes), src/lib/providers/index.ts chain
-  Acceptance: a viewport over Anchorage, Honolulu, Guam or San Juan draws the MRMS composite from that domain; a Rust test reads the grid definition of a fixture from each domain; RainViewer no longer appears in Diagnostics for those views.
-  Complexity: M
-
 - [ ] P2 — Real-time Level II from the chunks bucket, drawing arriving radials over the previous tilt
   Why: the archive object lands only after a volume completes, so the single-site view runs several minutes behind; the chunks bucket updates every 11 to 12 seconds. RadarOmega sells this as RapidSweep at $84.99/yr; BowEcho v0.35.0 ships it free.
   Evidence: https://unidata-nexrad-level2-chunks.s3.amazonaws.com/?list-type=2&prefix=KTLX/&max-keys=8 (`SITE/VOLUME/YYYYMMDD-HHMMSS-NNN-{S,I,E}`); https://registry.opendata.aws/noaa-nexrad/ ; https://www.radaromega.com/ ; https://github.com/FahrenheitResearch/bowecho/releases

@@ -581,9 +581,23 @@ fn gunzip(bytes: &[u8]) -> Result<Vec<u8>, MrmsError> {
     Ok(out)
 }
 
-fn listing_url(folder: &str, day: DateTime<Utc>) -> String {
+/// The regions the network publishes separately.
+///
+/// The grids do not overlap and are not one picture: each is its own
+/// projection with its own resolution, published on its own schedule. The
+/// decoder reads the geometry out of the file, so all any of this needs is
+/// which folder to look in.
+pub const DOMAINS: &[&str] = &["CONUS", "ALASKA", "HAWAII", "GUAM", "CARIB"];
+
+/// Whether a name is one the bucket has, so nothing built from a request can
+/// reach for a folder that is not there.
+pub fn is_domain(name: &str) -> bool {
+    DOMAINS.contains(&name)
+}
+
+fn listing_url(domain: &str, folder: &str, day: DateTime<Utc>) -> String {
     format!(
-        "{BUCKET}/?list-type=2&prefix=CONUS/{folder}/{:04}{:02}{:02}/",
+        "{BUCKET}/?list-type=2&prefix={domain}/{folder}/{:04}{:02}{:02}/",
         day.year(),
         day.month(),
         day.day()
@@ -603,18 +617,23 @@ pub fn key_time(key: &str) -> Option<i64> {
 /// The object a product's grid for one moment lives in. The folder name is
 /// repeated inside the file name, which is what makes this derivable rather
 /// than something the frontend has to carry around.
-pub fn key_for(entry: &MrmsProduct, time: i64) -> Option<String> {
+pub fn key_for(domain: &str, entry: &MrmsProduct, time: i64) -> Option<String> {
+    if !is_domain(domain) {
+        return None;
+    }
     let at = DateTime::from_timestamp(time, 0)?;
     let day = at.format("%Y%m%d");
     let stamp = at.format("%Y%m%d-%H%M%S");
     Some(format!(
-        "CONUS/{folder}/{day}/MRMS_{folder}_{stamp}.grib2.gz",
+        "{domain}/{folder}/{day}/MRMS_{folder}_{stamp}.grib2.gz",
         folder = entry.folder
     ))
 }
 
 /// What one tile request asks for.
 pub struct TileRequest {
+    /// Which of the network's regions the tile is from.
+    pub domain: String,
     pub entry: &'static MrmsProduct,
     pub time: i64,
     pub zoom: u32,
@@ -624,7 +643,11 @@ pub struct TileRequest {
     pub threshold: Option<f32>,
 }
 
-/// Reads `/product/time/z/x/y.png`, and an optional `?min=`, off a request.
+/// Reads `/domain/product/time/z/x/y.png`, and an optional `?min=`.
+///
+/// The domain may be left out, and then it is the lower forty-eight: that is
+/// the address every tile had before the other regions were read, and a
+/// bookmarked or cached one still has to work.
 pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
     let path = path.trim_start_matches('/');
     let (path, query) = match path.split_once('?') {
@@ -643,7 +666,16 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         .and_then(|value| value.parse::<f32>().ok())
         .filter(|value| value.is_finite());
     let stem = path.strip_suffix(".png").unwrap_or(path);
-    let mut parts = stem.split('/');
+    let mut parts = stem.split('/').peekable();
+    // A leading segment that names a region, or nothing and the old shape.
+    let domain = match parts.peek() {
+        Some(first) if is_domain(first) => {
+            let named = (*first).to_string();
+            parts.next();
+            named
+        }
+        _ => "CONUS".to_string(),
+    };
     let entry = product_by_id(parts.next()?)?;
     let time = parts.next()?.parse::<i64>().ok()?;
     let zoom = parts.next()?.parse::<u32>().ok()?;
@@ -653,6 +685,7 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         return None;
     }
     Some(TileRequest {
+        domain,
         entry,
         time,
         zoom,
@@ -670,6 +703,7 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         return EMPTY_TILE.to_vec();
     };
     let TileRequest {
+        domain,
         entry,
         time,
         zoom,
@@ -677,12 +711,14 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         y,
         threshold,
     } = asked;
-    let Some(key) = key_for(entry, time) else {
+    let Some(key) = key_for(&domain, entry, time) else {
         return EMPTY_TILE.to_vec();
     };
 
     // A frame that has been drawn once never decodes again, which is what
     // makes replaying the loop cheap.
+    // The key already names the region, so it separates one region's tiles
+    // from another's without anything else being said.
     let drawn = tile_key(&key, zoom, x, y, threshold);
     if let Some(bytes) = cached_tile(&drawn) {
         return bytes;
@@ -759,7 +795,17 @@ pub fn mrms_products() -> Vec<MrmsProductInfo> {
 
 /// The newest grids a product has published, oldest first.
 #[tauri::command]
-pub async fn mrms_frames(product: String, limit: usize) -> Result<Vec<MrmsFrame>, MrmsError> {
+pub async fn mrms_frames(
+    product: String,
+    limit: usize,
+    // Which of the network's regions to read. Absent means the lower
+    // forty-eight, which is what every caller wanted before there were others.
+    domain: Option<String>,
+) -> Result<Vec<MrmsFrame>, MrmsError> {
+    let domain = domain.unwrap_or_else(|| "CONUS".to_string());
+    if !is_domain(&domain) {
+        return Err(MrmsError::UnknownProduct(domain));
+    }
     let entry = product_by_id(&product).ok_or(MrmsError::UnknownProduct(product.clone()))?;
     let limit = limit.clamp(1, 60);
     let now = Utc::now();
@@ -768,7 +814,7 @@ pub async fn mrms_frames(product: String, limit: usize) -> Result<Vec<MrmsFrame>
     // Just after midnight UTC the day's folder holds only a frame or two, so
     // yesterday has to make up the rest of the loop.
     for day in [now - Duration::days(1), now] {
-        let listing = http::get_bytes(&listing_url(entry.folder, day)).await?;
+        let listing = http::get_bytes(&listing_url(&domain, entry.folder, day)).await?;
         let listing = String::from_utf8_lossy(&listing);
         if !listing.contains("<ListBucketResult") {
             return Err(MrmsError::BadListing);
@@ -1205,7 +1251,7 @@ mod tests {
         let entry = product_by_id("composite").expect("the composite product");
 
         let frames = runtime
-            .block_on(mrms_frames("composite".into(), 10))
+            .block_on(mrms_frames("composite".into(), 10, None))
             .expect("MRMS publishes a grid every two minutes");
         assert!(frames.len() >= 5, "got {} frames", frames.len());
         assert!(
@@ -1221,7 +1267,7 @@ mod tests {
 
         let newest = frames.last().unwrap();
         assert_eq!(
-            key_for(entry, newest.time).as_deref(),
+            key_for("CONUS", entry, newest.time).as_deref(),
             Some(newest.key.as_str()),
             "the derived key has to match the one the bucket published"
         );
@@ -1306,7 +1352,7 @@ mod tests {
             .expect("a runtime");
 
         let frames = runtime
-            .block_on(mrms_frames("composite".into(), 3))
+            .block_on(mrms_frames("composite".into(), 3, None))
             .expect("MRMS publishes grids");
         let time = frames.last().expect("a frame").time;
 
@@ -1495,7 +1541,7 @@ mod tests {
             .build()
             .expect("a runtime");
         let frames = runtime
-            .block_on(mrms_frames("composite".into(), 1))
+            .block_on(mrms_frames("composite".into(), 1, None))
             .expect("MRMS publishes grids");
         let time = frames.last().expect("a frame").time;
 
@@ -1558,7 +1604,7 @@ mod tests {
         for product in PRODUCTS {
             clear_caches();
             let frames = runtime
-                .block_on(mrms_frames(product.id.into(), 1))
+                .block_on(mrms_frames(product.id.into(), 1, None))
                 .unwrap_or_else(|error| {
                     panic!(
                         "{} publishes nothing at {}: {error}",
@@ -1637,7 +1683,7 @@ mod tests {
         // something somewhere in the country to draw.
         let entry = product_by_id("rotation").expect("the rotation product");
         let frames = runtime
-            .block_on(mrms_frames("rotation".into(), 1))
+            .block_on(mrms_frames("rotation".into(), 1, None))
             .expect("MRMS publishes rotation tracks");
         let key = frames.last().expect("a frame").key.clone();
         runtime.block_on(grid_for(&key)).expect("the grid decodes");
@@ -1986,11 +2032,66 @@ mod tests {
     fn a_moment_names_the_object_it_was_published_in() {
         let entry = product_by_id("composite").expect("the composite product");
         assert_eq!(
-            key_for(entry, 1788083202).as_deref(),
+            key_for("CONUS", entry, 1788083202).as_deref(),
             Some(
                 "CONUS/MergedReflectivityQCComposite_00.50/20260830/MRMS_MergedReflectivityQCComposite_00.50_20260830-094642.grib2.gz"
             )
         );
+    }
+
+    #[test]
+    #[ignore = "asks the live MRMS bucket for every region"]
+    fn every_region_the_network_publishes_decodes_and_draws() {
+        // Four of these were unreachable until now: the map fell through the
+        // whole chain to a personal-use tier for anybody in Alaska, Hawaii,
+        // Guam or Puerto Rico. Each grid is its own projection at its own
+        // resolution, so the only way to know the decoder reads them is to
+        // read them.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let entry = product_by_id("composite").expect("composite");
+
+        for domain in DOMAINS {
+            let frames = runtime
+                .block_on(mrms_frames("composite".into(), 1, Some((*domain).into())))
+                .unwrap_or_else(|failure| panic!("{domain}: {failure}"));
+            let newest = frames.last().unwrap_or_else(|| panic!("{domain}: no frames"));
+
+            let key = key_for(domain, entry, newest.time)
+                .unwrap_or_else(|| panic!("{domain}: no key"));
+            assert!(key.starts_with(domain), "{key} is not in {domain}");
+
+            runtime
+                .block_on(grid_for(&key))
+                .unwrap_or_else(|failure| panic!("{domain}: {failure}"));
+
+            // The geometry comes out of the file, so this is the file saying
+            // where it is rather than anything written down here.
+            let (west, north, south, east, columns, rows) = {
+                let cache = CACHE.lock().expect("the cache");
+                let held = cache
+                    .iter()
+                    .find(|held| held.key == key)
+                    .unwrap_or_else(|| panic!("{domain}: nothing decoded"));
+                let grid = &held.grid;
+                (
+                    grid.west,
+                    grid.north,
+                    grid.north - grid.d_lat * grid.rows as f64,
+                    grid.west + grid.d_lon * grid.columns as f64,
+                    grid.columns,
+                    grid.rows,
+                )
+            };
+            assert!(columns > 100 && rows > 100, "{domain} is tiny");
+            assert!((-180.0..=180.0).contains(&west), "{domain} west");
+            assert!((-90.0..=90.0).contains(&south), "{domain} south");
+            println!(
+                "{domain}: {west:.2} to {east:.2} east, {south:.2} to {north:.2} north, {columns}x{rows}"
+            );
+        }
     }
 
     #[test]
