@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"OpenRadar main map window","local":true,"windows":["main"],"permissions":["core:default","store:default","log:default","opener:default","deep-link:default","notification:default"]}}
+{"default":{"identifier":"default","description":"OpenRadar main map window","local":true,"windows":["main"],"permissions":["core:default","store:default","log:default","opener:default","deep-link:default","notification:default","updater:default","process:allow-restart"]}}
