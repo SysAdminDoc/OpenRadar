@@ -10,7 +10,8 @@
  * They come from the National Hurricane Center's map service as a picture per
  * category, drawn per region, which is why one category names several layers.
  */
-import type { StringKey } from "../i18n";
+import { translate, type StringKey } from "../i18n";
+import { formatHeight } from "./units";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/StormSurgeRisk/MapServer/export";
@@ -37,13 +38,27 @@ const IMAGE_LAYERS: Record<SurgeCategory, number[]> = {
   5: [21, 42, 63, 84, 132, 153],
 };
 
-/** What the colours on the picture mean, which is depth of water on the ground. */
-export const SURGE_RAMP: Array<[string, StringKey]> = [
-  ["#c6dbef", "surge.upTo3"],
-  ["#6baed6", "surge.over3"],
-  ["#2171b5", "surge.over6"],
-  ["#08306b", "surge.over9"],
-];
+/**
+ * What the colours on the picture mean, which is depth of water on the ground.
+ *
+ * The depth is held in feet, because that is what the National Hurricane
+ * Center publishes the picture in, and written out in the reader's own units
+ * when the legend is drawn.
+ */
+export const SURGE_RAMP: Array<[colour: string, feet: number, over: boolean]> =
+  [
+    ["#c6dbef", 3, false],
+    ["#6baed6", 3, true],
+    ["#2171b5", 6, true],
+    ["#08306b", 9, true],
+  ];
+
+/** One line of that legend, in the units the reader asked for. */
+export function surgeDepthLabel(feet: number, over: boolean): string {
+  return translate(over ? "surge.over" : "surge.upTo", {
+    depth: formatHeight(feet),
+  });
+}
 
 export function surgeCategoryKey(category: SurgeCategory): StringKey {
   return `surge.category${category}` as StringKey;

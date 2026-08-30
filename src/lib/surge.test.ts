@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
+  surgeDepthLabel,
   isSurgeCategory,
   surgeCategoryKey,
   surgeTileUrl,
@@ -55,8 +56,12 @@ describe("the storm surge risk picture", () => {
         `category ${category}`,
       ).toBeTruthy();
     }
-    for (const [, key] of SURGE_RAMP) {
-      expect(en[key as keyof typeof en], key).toBeTruthy();
+    // The legend writes its own depths now, so what has to exist is the two
+    // sentences it writes them into rather than one string per band.
+    expect(en["surge.upTo"]).toBeTruthy();
+    expect(en["surge.over"]).toBeTruthy();
+    for (const [, feet, over] of SURGE_RAMP) {
+      expect(surgeDepthLabel(feet, over), `${feet} ${over}`).toMatch(/\d/);
     }
   });
 

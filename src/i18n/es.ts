@@ -237,7 +237,7 @@ export const es: Catalogue = {
   "radar.stormMotionRead": "Leído del barrido: {speed} desde {from}°",
   "radar.stormMotionGiven": "El tuyo: {speed} desde {from}°",
   "radar.stormMotionNone": "No se pudo leer el movimiento de este barrido",
-  "radar.stormMotionSpeed": "Velocidad",
+  "radar.stormMotionSpeed": "Velocidad ({unit})",
   "radar.stormMotionFrom": "Desde",
   "radar.stormMotionClear": "Leerlo del barrido",
   "product.velocity": "Velocidad",
@@ -453,7 +453,7 @@ export const es: Catalogue = {
   "settings.tellMeDetail":
     "Vigila un punto aunque el mapa esté viendo otra cosa",
   "settings.radius": "Radio",
-  "settings.radiusValue": "{count} mi",
+  "settings.radiusValue": "{distance}",
   "settings.radiusLabel": "Radio vigilado en millas",
   "settings.watchCentre": "Vigilar el centro del mapa",
   "settings.watching": "Vigilando {lat}, {lon} por avisos y cosas peores.",
@@ -672,10 +672,8 @@ export const es: Catalogue = {
   "surge.category3": "Categoría 3",
   "surge.category4": "Categoría 4",
   "surge.category5": "Categoría 5",
-  "surge.upTo3": "hasta 3 pies",
-  "surge.over3": "más de 3 pies",
-  "surge.over6": "más de 6 pies",
-  "surge.over9": "más de 9 pies",
+  "surge.upTo": "hasta {depth}",
+  "surge.over": "más de {depth}",
 
   "layer.surge": "Riesgo de marejada",
   "layers.surgeDetail":
@@ -705,7 +703,7 @@ export const es: Catalogue = {
   "tides.loading": "Buscando la estación más cercana",
   "tides.inlandTitle": "No hay estación cerca de esta vista",
   "tides.inlandBody":
-    "La más cercana está a más de {miles} millas, lo que no dice nada del agua de aquí.",
+    "La más cercana está a más de {distance}, lo que no dice nada del agua de aquí.",
   "tides.failedTitle": "No se pudo leer la marea",
   "tides.unknown": "La consulta de mareas falló.",
   "tides.stationWithState": "{name}, {state}",

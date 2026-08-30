@@ -234,7 +234,7 @@ export const en = {
   "radar.stormMotionRead": "Read from the sweep: {speed} from {from}°",
   "radar.stormMotionGiven": "Yours: {speed} from {from}°",
   "radar.stormMotionNone": "No motion could be read from this sweep",
-  "radar.stormMotionSpeed": "Speed",
+  "radar.stormMotionSpeed": "Speed ({unit})",
   "radar.stormMotionFrom": "From",
   "radar.stormMotionClear": "Read it from the sweep instead",
   "product.velocity": "Velocity",
@@ -444,7 +444,7 @@ export const en = {
   "settings.tellMeDetail":
     "Watch one point even when the map is looking elsewhere",
   "settings.radius": "Radius",
-  "settings.radiusValue": "{count} mi",
+  "settings.radiusValue": "{distance}",
   "settings.radiusLabel": "Watched radius in miles",
   "settings.watchCentre": "Watch the map centre",
   "settings.watching": "Watching {lat}, {lon} for warnings and worse.",
@@ -659,10 +659,8 @@ export const en = {
   "surge.category3": "Category 3",
   "surge.category4": "Category 4",
   "surge.category5": "Category 5",
-  "surge.upTo3": "up to 3 ft",
-  "surge.over3": "over 3 ft",
-  "surge.over6": "over 6 ft",
-  "surge.over9": "over 9 ft",
+  "surge.upTo": "up to {depth}",
+  "surge.over": "over {depth}",
 
   "layer.surge": "Storm Surge Risk",
   "layers.surgeDetail":
@@ -692,7 +690,7 @@ export const en = {
   "tides.loading": "Finding the nearest station",
   "tides.inlandTitle": "No station near this view",
   "tides.inlandBody":
-    "The nearest one is more than {miles} miles away, which says nothing about the water here.",
+    "The nearest one is more than {distance} away, which says nothing about the water here.",
   "tides.failedTitle": "The tide could not be read",
   "tides.unknown": "The tide request failed.",
   "tides.stationWithState": "{name}, {state}",
