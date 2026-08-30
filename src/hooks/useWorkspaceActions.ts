@@ -9,6 +9,7 @@ import { looksLikePalette, parsePalette } from "../lib/palette";
 import {
   DEFAULT_SETTINGS,
   isDesktopRuntime,
+  looksLikeSettings,
   normalizeSettings,
   type AppSettings,
   type CameraState,
@@ -18,11 +19,14 @@ import type { GeoPoint } from "../lib/geo";
 import type { OverlayBounds } from "../lib/overlays";
 import type { PlaceResult } from "../lib/weather";
 import { translate } from "../i18n";
+import { saveFile } from "../lib/saveFile";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_OVERLAY_FEATURES = 5000;
 
 export interface WorkspaceActions {
+  /** Writes the whole workspace out as readable JSON. */
+  exportSettings: () => Promise<void>;
   flyToBounds: (bounds: OverlayBounds) => void;
   followStorm: (point: GeoPoint, name?: string) => void;
   setProjection: (projection: ProjectionMode) => void;
@@ -255,6 +259,31 @@ export function useWorkspaceActions(options: {
     }
   }, [mapRef, pushToast, settingsRef]);
 
+  /**
+   * Writes the whole workspace out as the same readable JSON it is stored in,
+   * so a second machine or a reinstall can pick it back up.
+   */
+  const exportSettings = useCallback(async () => {
+    try {
+      const blob = new Blob([JSON.stringify(settingsRef.current, null, 2)], {
+        type: "application/json",
+      });
+      const saved = await saveFile("openradar-settings.json", blob);
+      pushToast({
+        title: translate("toast.settingsSaved"),
+        detail: saved.path ?? translate("toast.settingsSavedBody"),
+      });
+    } catch (failure) {
+      pushToast({
+        title: translate("toast.settingsSaveFailed"),
+        detail:
+          failure instanceof Error
+            ? failure.message
+            : translate("toast.settingsSaveFailedBody"),
+      });
+    }
+  }, [pushToast]);
+
   const uploadOverlay = useCallback(
     async (file: File) => {
       try {
@@ -289,6 +318,23 @@ export function useWorkspaceActions(options: {
             actionLabel: translate("toast.remove"),
             onAction: () =>
               applySettings({ ...settingsRef.current, palette: null }),
+          });
+          return;
+        }
+
+        // A settings file is not an overlay either: it replaces the whole
+        // workspace rather than drawing on it. Recognised by what it carries,
+        // since a GeoJSON document never has a schema version.
+        if (looksLikeSettings(text)) {
+          const previous = settingsRef.current;
+          const restored = normalizeSettings(JSON.parse(text));
+          applySettings(restored);
+          setActiveSurface(null);
+          pushToast({
+            title: translate("toast.settingsRestored"),
+            detail: translate("toast.settingsRestoredBody"),
+            actionLabel: translate("toast.undo"),
+            onAction: () => applySettings(previous),
           });
           return;
         }
@@ -455,6 +501,7 @@ export function useWorkspaceActions(options: {
   }, [applySharedView, hydrated]);
 
   return {
+    exportSettings,
     flyToBounds,
     followStorm,
     setProjection,

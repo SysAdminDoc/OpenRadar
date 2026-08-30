@@ -77,6 +77,7 @@ interface PanelSurfacesProps {
   onWatchHere: () => void;
   onOpenLogFolder: () => void;
   onReset: () => void;
+  onExportSettings: () => Promise<void>;
 }
 
 /** Every surface the command bar opens, and the radar product sheet. */
@@ -168,6 +169,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onSettings={props.onSettings}
           onWatchHere={props.onWatchHere}
           onReset={props.onReset}
+          onExportSettings={props.onExportSettings}
           onClose={onClose}
         />
       ) : null}

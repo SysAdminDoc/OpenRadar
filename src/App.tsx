@@ -97,6 +97,7 @@ export default function App() {
     viewport,
     pushToast,
     setActiveSurface,
+    replaying: replay !== null,
   });
 
   const paletteGeneration = usePalette({
@@ -410,6 +411,7 @@ export default function App() {
         onWatchHere={actions.watchHere}
         onOpenLogFolder={actions.openLogFolder}
         onReset={actions.resetSettings}
+        onExportSettings={actions.exportSettings}
       />
 
       <WorkspaceChrome

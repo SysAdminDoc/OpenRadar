@@ -21,10 +21,13 @@ export interface WorkspaceOverlays {
 export function useWorkspaceOverlays(options: {
   settings: AppSettings;
   viewport: OverlayBounds | null;
+  /** True while archive radar from another day is on the map. */
+  replaying: boolean;
   pushToast: (message: Omit<ToastMessage, "id">) => void;
   setActiveSurface: (surface: SurfaceId) => void;
 }): WorkspaceOverlays {
-  const { settings, viewport, pushToast, setActiveSurface } = options;
+  const { settings, viewport, pushToast, setActiveSurface, replaying } =
+    options;
   const { weatherAlerts, earthquakes, wildfires, tropical } = settings.layers;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
 
@@ -34,13 +37,17 @@ export function useWorkspaceOverlays(options: {
       earthquakes,
       wildfires,
       tropical,
-      spcOutlooks,
-      spcDiscussions,
-      stormReports,
+      // The Storm Prediction Center publishes what it thinks about today, and
+      // a replay is showing some other day's weather. Painting this morning's
+      // risk over Katrina would be worse than showing nothing.
+      spcOutlooks: spcOutlooks && !replaying,
+      spcDiscussions: spcDiscussions && !replaying,
+      stormReports: stormReports && !replaying,
     }),
     [
       earthquakes,
       spcDiscussions,
+      replaying,
       spcOutlooks,
       stormReports,
       tropical,

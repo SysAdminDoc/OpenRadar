@@ -427,9 +427,17 @@ fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
     None
 }
 
+/// How much of a sweep has to move before the picture is a different one.
+///
+/// A calm volume has a handful of noisy gates that unfold, a few hundred in
+/// nearly a million. Calling that sweep unfolded, drawing it on a scale twice
+/// as wide and telling the reader it is no longer the radar's own reading, is
+/// three claims none of which the change supports.
+const MIN_UNFOLD_SHARE: f32 = 0.005;
+
 /// Shifts a velocity field back onto the flow it belongs to, in place.
-/// Returns how many gates moved.
-fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> usize {
+/// Returns the share of its readings that moved.
+fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> f32 {
     let azimuths = field.azimuth_count();
     let gates = field.gate_count();
     let mut values = field.values().to_vec();
@@ -450,7 +458,11 @@ fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> usize {
             }
         }
     }
-    moved
+    let readings = valid.iter().filter(|held| **held).count();
+    if readings == 0 {
+        return 0.0;
+    }
+    moved as f32 / readings as f32
 }
 
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
@@ -673,7 +685,7 @@ pub fn sweep_from_volume(
     let mut dealiased = false;
     if unfold && product == Product::Velocity {
         if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
-            dealiased = unfold_velocity(&mut chosen.field, nyquist) > 0;
+            dealiased = unfold_velocity(&mut chosen.field, nyquist) >= MIN_UNFOLD_SHARE;
         }
     }
 
@@ -1483,21 +1495,27 @@ mod tests {
     /// a million. Asserting the folds went away is then satisfied by doing
     /// nothing at all. Folding a wedge of the real sweep by hand gives a known
     /// number to take back out.
-    fn fold_a_wedge(field: &mut SweepField, nyquist: f32) -> usize {
+    fn fold_a_wedge(field: &mut SweepField, nyquist: f32) -> Vec<(usize, usize, f32)> {
         let azimuths = field.azimuth_count();
         let gates = field.gate_count();
         let interval = 2.0 * nyquist;
-        let mut folded = 0;
+        let mut folded = Vec::new();
         for azimuth in (azimuths / 4)..(azimuths / 2) {
             for gate in 0..gates {
                 let (value, status) = field.get(azimuth, gate);
                 if !matches!(status, GateStatus::Valid) {
                     continue;
                 }
-                // Wrapped the way the radar would have, so the result is a
-                // sweep that could have come off the air this way.
+                // An interval down, which puts the wedge outside the range the
+                // radar itself could report. That is deliberate and it is the
+                // only thing that works: a fold is invisible in a single
+                // reading and shows only as a step between neighbours, so
+                // wrapping the wedge back into range would hand back the exact
+                // values it started with and plant nothing at all. What this
+                // does plant is the spatial signature unfolding exists to
+                // remove, which is what the test is about.
                 field.set(azimuth, gate, value - interval, GateStatus::Valid);
-                folded += 1;
+                folded.push((azimuth, gate, value));
             }
         }
         folded
@@ -1529,32 +1547,64 @@ mod tests {
         let (untouched, pairs) = fold_jumps(&chosen.field, nyquist);
         assert!(pairs > 10_000, "only {pairs} gate pairs had readings");
 
-        // A quarter of the real sweep pushed a whole interval down, which is a
-        // fold the radar could have produced and one this has to find.
+        // The whole sweep as it arrived, to measure against afterwards.
+        let azimuths = chosen.field.azimuth_count();
+        let gates = chosen.field.gate_count();
+        let before: Vec<f32> = chosen.field.values().to_vec();
+
         let planted = fold_a_wedge(&mut chosen.field, nyquist);
-        assert!(planted > 1_000, "only {planted} gates were folded");
-        let (before, _) = fold_jumps(&chosen.field, nyquist);
         assert!(
-            before > untouched + 100,
-            "planting a wedge should have made the sweep visibly discontinuous,              {untouched} to {before}"
+            planted.len() > 1_000,
+            "only {} gates were folded",
+            planted.len()
         );
 
-        let moved = unfold_velocity(&mut chosen.field, nyquist);
+        let share = unfold_velocity(&mut chosen.field, nyquist);
         let (after, _) = fold_jumps(&chosen.field, nyquist);
+        assert!(share > 0.0, "nothing was unfolded");
+
+        // How far each gate ended up from where it started, in whole intervals.
+        let interval = 2.0 * nyquist;
+        let wedge: std::collections::BTreeSet<(usize, usize)> =
+            planted.iter().map(|(a, g, _)| (*a, *g)).collect();
+        let mut outside: BTreeMap<i32, usize> = BTreeMap::new();
+        let mut inside: BTreeMap<i32, usize> = BTreeMap::new();
+        for azimuth in 0..azimuths {
+            for gate in 0..gates {
+                let (now, status) = chosen.field.get(azimuth, gate);
+                if !matches!(status, GateStatus::Valid) {
+                    continue;
+                }
+                let was = before[azimuth * gates + gate];
+                let steps = ((now - was) / interval).round() as i32;
+                if wedge.contains(&(azimuth, gate)) {
+                    *inside.entry(steps).or_default() += 1;
+                } else {
+                    *outside.entry(steps).or_default() += 1;
+                }
+            }
+        }
+
+        // The sweep as a whole can come back a whole interval out, because
+        // boundaries only place patches relative to each other. Whichever way
+        // it went, the wedge has to have rejoined the rest of it: the gates
+        // outside the wedge and the gates inside it must have taken the same
+        // step, or the seam is still there.
+        let common = outside
+            .iter()
+            .max_by_key(|(_, count)| **count)
+            .map(|(steps, _)| *steps)
+            .unwrap_or(0);
+        let rejoined = inside.get(&common).copied().unwrap_or(0);
 
         println!(
-            "nyquist {nyquist:.1} m/s, {untouched} folds untouched, {before} with a planted wedge,              {after} after unfolding {moved} gates, out of {pairs} pairs"
-        );
-        assert!(moved > 0, "nothing was unfolded");
-        // Measured against what the sweep looked like before the wedge was
-        // planted, not against zero: whatever the weather was doing is not this
-        // test's business, and on a calm day it is most of the small number
-        // left. At least half of what the wedge introduced has to come out.
-        let planted_jumps = before.saturating_sub(untouched);
-        let left = after.saturating_sub(untouched);
+            "nyquist {nyquist:.1} m/s, {untouched} natural folds, {} planted,              sweep moved {common} intervals, {rejoined} of the wedge came with it,              {share:.4} of the sweep moved, {after} jumps of {pairs} pairs"
+        , planted.len());
+
         assert!(
-            left * 2 < planted_jumps,
-            "{left} of the {planted_jumps} jumps the wedge introduced are still there"
+            rejoined * 20 > planted.len() * 19,
+            "only {rejoined} of {} planted gates rejoined the sweep; steps inside {inside:?} outside {outside:?}",
+            planted.len()
         );
         let share = after as f64 / pairs as f64;
         assert!(

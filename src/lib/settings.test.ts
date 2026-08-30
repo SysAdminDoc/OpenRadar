@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
   cameraKey,
+  looksLikeSettings,
   normalizeSettings,
   sameCamera,
 } from "./settings";
@@ -227,5 +228,42 @@ describe("a stored palette", () => {
     expect(
       normalizeSettings({ palette: { stops: [{ value: 1 }] } }).palette,
     ).toBeNull();
+  });
+});
+
+describe("a settings file dropped back in", () => {
+  it("tells a settings export from something to draw", () => {
+    // The Upload panel takes GeoJSON, placefiles, colour tables and now this,
+    // so the four have to be told apart from their contents alone.
+    expect(looksLikeSettings(JSON.stringify(DEFAULT_SETTINGS))).toBe(true);
+    expect(
+      looksLikeSettings(
+        JSON.stringify({ type: "FeatureCollection", features: [] }),
+      ),
+    ).toBe(false);
+    expect(
+      looksLikeSettings(
+        JSON.stringify({ type: "Feature", schemaVersion: 2, geometry: {} }),
+      ),
+    ).toBe(false);
+    expect(looksLikeSettings("Threshold: 5")).toBe(false);
+    expect(looksLikeSettings("")).toBe(false);
+    expect(looksLikeSettings("null")).toBe(false);
+  });
+
+  it("comes back through the same normalizer a stored file does", () => {
+    // An exported file is hand-editable, so it is not trusted any further than
+    // the settings file on disk is.
+    const exported = JSON.stringify({
+      ...DEFAULT_SETTINGS,
+      radar: { ...DEFAULT_SETTINGS.radar, opacity: 40, tilt: -3 },
+      units: "klingon",
+      textScale: 900,
+    });
+    const restored = normalizeSettings(JSON.parse(exported));
+    expect(restored.radar.opacity).toBeLessThanOrEqual(1);
+    expect(restored.radar.tilt).toBeGreaterThanOrEqual(0);
+    expect(restored.units).toBe("imperial");
+    expect(restored.textScale).toBe(100);
   });
 });

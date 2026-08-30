@@ -54,10 +54,12 @@ describe("the Storm Prediction Center's outlook", () => {
     expect(outlookTime(20260830163_0)).toBeNull();
   });
 
-  it("draws the strongest risk on top of the ones containing it", () => {
-    // The areas are nested rings rather than cut out of each other, so a High
-    // sits inside the Moderate that contains it. In the order the service
-    // happened to answer, the strongest would be buried under the weakest.
+  it("hands the strongest risk to the map last", () => {
+    // A GeoJSON source draws its features in order, so the last one wins where
+    // two overlap. The service returns them cut out of each other rather than
+    // nested, so today this changes nothing that can be seen; it is here so
+    // that a service which stops doing that, or a probabilistic layer where
+    // the areas do overlap, cannot bury a High under a Marginal.
     const parsed = parseOutlooks({
       features: [
         outlookFeature(6, "HIGH", "High Risk", "#FF00FF", "#CC00CC"),

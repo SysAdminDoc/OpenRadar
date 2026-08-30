@@ -282,6 +282,7 @@ interface SettingsPanelProps {
   onSettings: (settings: AppSettings) => void;
   onWatchHere: () => void;
   onReset: () => void;
+  onExportSettings: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -319,6 +320,7 @@ export function SettingsPanel({
   onSettings,
   onWatchHere,
   onReset,
+  onExportSettings,
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
@@ -381,6 +383,20 @@ export function SettingsPanel({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>{t("settings.backup")}</span>
+          <small>{t("settings.backupDetail")}</small>
+        </div>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => void onExportSettings()}
+        >
+          {t("settings.export")}
+        </button>
       </div>
 
       <div className="settings-section">

@@ -458,6 +458,27 @@ async function getStore(): Promise<Store> {
   return storePromise;
 }
 
+/**
+ * Whether a dropped file is a settings export rather than something to draw.
+ *
+ * A GeoJSON document never carries a schema version, and a settings file
+ * always does, so the two cannot be confused for one another.
+ */
+export function looksLikeSettings(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object") return false;
+    const record = parsed as Record<string, unknown>;
+    return (
+      typeof record.schemaVersion === "number" &&
+      record.type !== "FeatureCollection" &&
+      record.type !== "Feature"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function loadSettings(): Promise<AppSettings> {
   try {
     if (isDesktopRuntime()) {
