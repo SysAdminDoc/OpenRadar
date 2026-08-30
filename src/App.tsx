@@ -121,6 +121,7 @@ export default function App() {
     center: settings.camera.center,
     loopMinutes: settings.radar.loopMinutes,
     animationSpeed: settings.radar.animationSpeed,
+    futureRadar: settings.radar.futureRadar,
     pageVisible,
   });
   const { frames, frameIndex, playing, source } = timeline;

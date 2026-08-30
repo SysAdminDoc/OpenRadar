@@ -5,6 +5,7 @@ import {
 } from "./budget";
 import { log } from "../log";
 import { recordFailure, recordSuccess } from "./health";
+import { HRRR_HOST } from "./hrrr";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
 import { ridgeProvider } from "./ridge";
@@ -23,17 +24,33 @@ type BudgetKind = "tile" | "discovery";
 
 const budgets = new Map<string, RequestBudget>();
 
-function budgetFor(provider: RadarProvider, kind: BudgetKind): RequestBudget {
-  const key = `${provider.id}:${kind}`;
+function budget(key: string, limit: number, windowMs: number): RequestBudget {
   const existing = budgets.get(key);
   if (existing) return existing;
-  const created = createRollingRequestBudget(
-    kind === "tile" ? provider.tileBudgetLimit : provider.discoveryBudgetLimit,
-    provider.budgetWindowMs,
-  );
+  const created = createRollingRequestBudget(limit, windowMs);
   budgets.set(key, created);
   return created;
 }
+
+function budgetFor(provider: RadarProvider, kind: BudgetKind): RequestBudget {
+  return budget(
+    `${provider.id}:${kind}`,
+    kind === "tile" ? provider.tileBudgetLimit : provider.discoveryBudgetLimit,
+    provider.budgetWindowMs,
+  );
+}
+
+/** Hosts whose tiles are counted, including sources outside the failover chain. */
+const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
+  [
+    ...RADAR_PROVIDERS.map((provider) => ({
+      host: provider.host,
+      key: `${provider.id}:tile`,
+      limit: provider.tileBudgetLimit,
+    })),
+    // The Iowa State cache is a courtesy service and asks for restraint.
+    { host: HRRR_HOST, key: "hrrr:tile", limit: 900 },
+  ];
 
 /**
  * NOAA sources win wherever they reach. RainViewer is personal-use only, so it
@@ -113,13 +130,13 @@ function hostMatches(url: string, host: string): boolean {
  * service past its budget.
  */
 export function guardRadarRequest(url: string): string {
-  const provider = RADAR_PROVIDERS.find((candidate) =>
+  const guarded = GUARDED_TILE_HOSTS.find((candidate) =>
     hostMatches(url, candidate.host),
   );
-  if (!provider) return url;
+  if (!guarded) return url;
 
-  const budget = budgetFor(provider, "tile");
-  if (!budget.tryConsume()) return BLANK_TILE_URL;
+  const counter = budget(guarded.key, guarded.limit, 60_000);
+  if (!counter.tryConsume()) return BLANK_TILE_URL;
   return url;
 }
 
@@ -134,4 +151,15 @@ export {
   subscribeHealth,
   type ProviderHealth,
 } from "./health";
-export type { ProviderId, RadarFrame, RadarProvider } from "./types";
+export type {
+  ForecastStamp,
+  ProviderId,
+  RadarFrame,
+  RadarProvider,
+} from "./types";
+export {
+  HRRR_MAX_FRAMES,
+  fetchHrrrRun,
+  hrrrFrames,
+  type HrrrRun,
+} from "./hrrr";

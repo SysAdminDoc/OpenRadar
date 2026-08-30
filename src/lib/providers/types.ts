@@ -1,4 +1,9 @@
-export type ProviderId = "ridge" | "nowcoast" | "rainviewer";
+export type ProviderId = "ridge" | "nowcoast" | "rainviewer" | "hrrr";
+
+export interface ForecastStamp {
+  initUtc: string;
+  leadMinutes: number;
+}
 
 export interface RadarFrame {
   providerId: ProviderId;
@@ -7,6 +12,8 @@ export interface RadarFrame {
   tileSize: number;
   maxZoom: number;
   attribution: string;
+  /** Present only on frames that have not happened yet. */
+  forecast?: ForecastStamp;
 }
 
 export interface BoundingBox {

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   coverageKey,
+  fetchHrrrRun,
   fetchRadarTimeline,
+  hrrrFrames,
+  providerChain,
   type RadarProvider,
 } from "../lib/providers";
 import { log } from "../lib/log";
@@ -52,10 +55,19 @@ export function useRadarTimeline(options: {
   center: [number, number];
   loopMinutes: number;
   animationSpeed: number;
+  futureRadar: boolean;
   pageVisible: boolean;
 }): RadarTimelineState {
-  const { ready, center, loopMinutes, animationSpeed, pageVisible } = options;
+  const {
+    ready,
+    center,
+    loopMinutes,
+    animationSpeed,
+    futureRadar,
+    pageVisible,
+  } = options;
   const [allFrames, setAllFrames] = useState<RadarFrame[]>([]);
+  const [forecastFrames, setForecastFrames] = useState<RadarFrame[]>([]);
   const [source, setSource] = useState<RadarProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -71,6 +83,10 @@ export function useRadarTimeline(options: {
   // Panning inside one provider's footprint must not refetch, so the effect
   // keys on the covering chain rather than the raw center.
   const coverage = coverageKey(center[0], center[1]);
+  // Forecast reflectivity only exists over the CONUS model domain.
+  const inModelDomain = providerChain(center[0], center[1]).some(
+    (provider) => provider.id !== "rainviewer",
+  );
 
   useEffect(() => {
     if (!ready) return;
@@ -127,9 +143,52 @@ export function useRadarTimeline(options: {
     };
   }, [ready, coverage]);
 
+  useEffect(() => {
+    if (!ready || !futureRadar || !inModelDomain) return;
+
+    const controller = new AbortController();
+    let mounted = true;
+
+    const refresh = async () => {
+      try {
+        const run = await fetchHrrrRun(controller.signal);
+        if (!mounted) return;
+        const newest = liveRef.current.frames.at(-1)?.time ?? Date.now() / 1000;
+        setForecastFrames(hrrrFrames(run, newest));
+      } catch (failure) {
+        if (
+          !mounted ||
+          (failure instanceof DOMException && failure.name === "AbortError")
+        ) {
+          return;
+        }
+        log.warn(
+          "radar",
+          failure instanceof Error
+            ? `Future radar failed: ${failure.message}`
+            : "Future radar failed",
+        );
+        setForecastFrames([]);
+      }
+    };
+
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), REFRESH_MS);
+    return () => {
+      mounted = false;
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [coverage, futureRadar, inModelDomain, ready]);
+
+  // The loop window applies to what has been observed. Forecast frames extend
+  // the tail, so they must not drag the cutoff forward with them.
   const frames = useMemo(
-    () => framesWithinLoop(allFrames, loopMinutes),
-    [allFrames, loopMinutes],
+    () => [
+      ...framesWithinLoop(allFrames, loopMinutes),
+      ...(futureRadar && inModelDomain ? forecastFrames : []),
+    ],
+    [allFrames, forecastFrames, futureRadar, inModelDomain, loopMinutes],
   );
 
   const frameIndex = useMemo(() => {

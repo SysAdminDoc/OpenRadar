@@ -26,6 +26,7 @@ export interface RadarSettings {
   opacity: number;
   animationSpeed: number;
   loopMinutes: number;
+  futureRadar: boolean;
 }
 
 export interface LayerSettings {
@@ -69,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     opacity: 0.7,
     animationSpeed: -0.1,
     loopMinutes: 120,
+    futureRadar: false,
   },
   layers: {
     weatherAlerts: true,
@@ -206,6 +208,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         60,
         120,
       ),
+      futureRadar: bool(radar.futureRadar, DEFAULT_SETTINGS.radar.futureRadar),
     },
     layers: {
       weatherAlerts: bool(

@@ -609,6 +609,15 @@ input[type="range"] {
   color: var(--danger);
 }
 
+.radar-timeline.is-forecast {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--border-strong));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--amber) 28%, transparent);
+}
+
+.radar-timeline.is-forecast .timeline-copy strong {
+  color: var(--amber);
+}
+
 .map-popup {
   display: flex;
   flex-direction: column;
