@@ -49,7 +49,9 @@ test("writes a still of the current view", async ({ page }) => {
   expect(captionPixels).toBeGreaterThan(80);
 });
 
-test("records the loop with the frame time burned in", async ({ page }) => {
+// The still test proves the caption is burned in; reading it back out of a
+// WebM would mean decoding video, so this covers the recording itself.
+test("records the loop as a WebM the size cap allows", async ({ page }) => {
   await page.getByRole("button", { name: "Export", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /Export loop \(3 frames\)/ }),
@@ -68,4 +70,9 @@ test("records the loop with the frame time burned in", async ({ page }) => {
   // The Matroska magic every WebM starts with, and well under the size cap.
   expect(bytes.subarray(0, 4).toString("hex")).toBe("1a45dfa3");
   expect(bytes.byteLength).toBeLessThan(20 * 1024 * 1024);
+  // A recording with no frames in it is only headers. The test map is a flat
+  // dark canvas, so three frames of it compress hard but still land well past
+  // an empty container.
+  expect(bytes.byteLength).toBeGreaterThan(2_500);
+  await expect(page.getByText(/.webm saved/)).toBeVisible();
 });

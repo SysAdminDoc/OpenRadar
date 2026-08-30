@@ -10,7 +10,7 @@ interface TropicalPanelProps {
   error: string | null;
   layerOn: boolean;
   onEnableLayer: () => void;
-  onFollow: (point: GeoPoint) => void;
+  onFollow: (point: GeoPoint, name: string) => void;
   onClose: () => void;
 }
 
@@ -69,7 +69,9 @@ export function TropicalPanel({
               <div className="storm-row__actions">
                 <button
                   type="button"
-                  onClick={() => onFollow({ lat: storm.lat, lon: storm.lon })}
+                  onClick={() =>
+                    onFollow({ lat: storm.lat, lon: storm.lon }, storm.name)
+                  }
                 >
                   <Navigation size={14} /> Follow
                 </button>

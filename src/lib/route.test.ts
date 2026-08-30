@@ -72,8 +72,18 @@ describe("route sampling", () => {
 
 describe("route forecast", () => {
   const samples = [
-    { point: { lat: 33, lon: -96.8 }, distanceMiles: 0, offsetSeconds: 0 },
-    { point: { lat: 31, lon: -96.8 }, distanceMiles: 138, offsetSeconds: 7200 },
+    {
+      point: { lat: 33, lon: -96.8 },
+      distanceMiles: 0,
+      offsetSeconds: 0,
+      index: 0,
+    },
+    {
+      point: { lat: 31, lon: -96.8 },
+      distanceMiles: 138,
+      offsetSeconds: 7200,
+      index: 2,
+    },
   ];
   const departure = Date.parse("2026-08-30T12:00:00Z");
 
@@ -119,5 +129,91 @@ describe("route forecast", () => {
     };
     expect(geojson.features).toHaveLength(1);
     expect(geojson.features[0].properties.precipitationChance).toBe(70);
+  });
+});
+
+describe("routes that cross themselves", () => {
+  const loop = {
+    coordinates: [
+      [-97, 35.3],
+      [-96.5, 35.3],
+      [-96.5, 35.8],
+      [-97, 35.8],
+      [-97, 35.3],
+      [-97.5, 35.3],
+    ] as Array<[number, number]>,
+    distanceMiles: 120,
+    durationSeconds: 7200,
+  };
+
+  it("draws each leg once, even where the road returns to a junction", () => {
+    const samples = sampleRoute(loop, 20);
+    const conditions = samples.map((sample, index) => ({
+      ...sample,
+      arrival: 0,
+      temperature: 70,
+      precipitationChance: index * 10,
+      weatherCode: 1,
+    }));
+    const geojson = routeGeoJson(loop, conditions) as {
+      features: Array<{
+        geometry: { coordinates: Array<[number, number]> };
+      }>;
+    };
+
+    // Every leg walks forward along the polyline, so no coordinate is drawn
+    // twice within one leg.
+    for (const feature of geojson.features) {
+      const seen = new Set(
+        feature.geometry.coordinates.map((pair) => pair.join(",")),
+      );
+      expect(seen.size).toBe(feature.geometry.coordinates.length);
+    }
+  });
+
+  it("never repeats a sample where the polyline repeats a vertex", () => {
+    const samples = sampleRoute(
+      {
+        coordinates: [
+          [-97, 35],
+          [-97, 35.3],
+          [-97, 35.3],
+        ],
+        distanceMiles: 21,
+        durationSeconds: 1800,
+      },
+      10,
+    );
+    const distances = samples.map((sample) => sample.distanceMiles);
+    expect(new Set(distances).size).toBe(distances.length);
+  });
+});
+
+describe("an arrival past the forecast", () => {
+  it("reports nothing rather than the nearest hour it has", () => {
+    const samples = [
+      {
+        point: { lat: 33, lon: -96.8 },
+        distanceMiles: 0,
+        offsetSeconds: 0,
+        index: 0,
+      },
+    ];
+    const conditions = readRouteForecast(
+      [
+        {
+          hourly: {
+            time: ["2026-08-30T12:00", "2026-08-30T13:00"],
+            temperature_2m: [80, 84],
+            precipitation_probability: [10, 90],
+            weather_code: [1, 95],
+          },
+        },
+      ],
+      samples,
+      Date.parse("2026-09-05T12:00:00Z"),
+    );
+    expect(conditions[0].temperature).toBeNull();
+    expect(conditions[0].precipitationChance).toBeNull();
   });
 });

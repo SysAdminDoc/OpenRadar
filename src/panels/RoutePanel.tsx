@@ -161,7 +161,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       {conditions?.length ? (
         <div className="route-table">
           {conditions.map((sample) => (
-            <div className="route-row" key={sample.distanceMiles}>
+            <div className="route-row" key={sample.index}>
               <span>{clockLabel(sample.arrival)}</span>
               <strong>{Math.round(sample.distanceMiles)} mi</strong>
               <span>
@@ -185,8 +185,9 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       ) : null}
 
       <p className="source-note">
-        Roads from the OSRM demo server, weather from Open-Meteo. One request
-        per plan, so give the server a moment between tries.
+        Roads from the OSRM demo server, weather from Open-Meteo. Every stop on
+        the drive is covered by a single forecast request, so give the servers a
+        moment between tries.
       </p>
     </PanelShell>
   );

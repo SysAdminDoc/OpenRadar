@@ -57,7 +57,7 @@ describe("placefile parsing", () => {
   });
 
   it("says which directives it could not draw instead of dropping them", () => {
-    expect(placefile.skipped.sort()).toEqual(["Icon", "IconFile"]);
+    expect(placefile.skipped.sort()).toEqual(["Icon"]);
   });
 
   it("recognises a placefile without being handed a file name", () => {
@@ -68,5 +68,53 @@ describe("placefile parsing", () => {
   it("ignores a shape with too few points to draw", () => {
     const parsed = parsePlacefile("Line: 2\n 35.0, -97.0\nEnd:\n");
     expect(parsed.data.features).toEqual([]);
+  });
+});
+
+describe("blocks that are not plain coordinates", () => {
+  it("does not read a colour inside a block as a vertex", () => {
+    const parsed = parsePlacefile(
+      [
+        'Line: 2, 0, "front"',
+        " 35.0, -97.0",
+        "Color: 80, 40, 20",
+        " 36.0, -96.0",
+        "End:",
+      ].join("\n"),
+    );
+    expect(parsed.data.features[0].geometry.coordinates).toEqual([
+      [-97, 35],
+      [-96, 36],
+    ]);
+    // The colour still takes effect from where it appears.
+    expect(parsed.data.features[0].properties.color).toBe("#502814");
+  });
+
+  it("steps over an object block instead of drawing its pixel offsets", () => {
+    const parsed = parsePlacefile(
+      [
+        "Object: 35.0,-97.0",
+        "Threshold: 999",
+        "Line: 2, 0",
+        " -10, -10",
+        " 10, -10",
+        " 10, 10",
+        "End:",
+        "End:",
+        'Place: 30.0, -90.0, "after"',
+      ].join("\n"),
+    );
+    expect(parsed.skipped).toEqual(["Object"]);
+    // Only the place after the block, never the block's own offsets.
+    expect(parsed.data.features).toHaveLength(1);
+    expect(parsed.data.features[0].properties.label).toBe("after");
+  });
+
+  it("keeps what a truncated file managed to say and says it was cut off", () => {
+    const parsed = parsePlacefile(
+      ['Line: 2, 0, "front"', " 35.0, -97.0", " 36.0, -96.0"].join("\n"),
+    );
+    expect(parsed.truncated).toBe(true);
+    expect(parsed.data.features).toHaveLength(1);
   });
 });

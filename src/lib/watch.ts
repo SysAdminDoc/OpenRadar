@@ -49,10 +49,20 @@ function nearestCorner(bounds: OverlayBounds, point: GeoPoint): number {
   return haversineMiles(point, { lon, lat });
 }
 
-function alertId(properties: Record<string, unknown>, index: number): string {
+/**
+ * The same alert has to answer to the same id on every poll. The list is sorted
+ * by severity, so a position in it is not an identity.
+ */
+function alertId(
+  properties: Record<string, unknown>,
+  bounds: OverlayBounds,
+): string {
   const url = String(properties.url ?? "");
   if (url) return url;
-  return `${String(properties.headline ?? "alert")}-${String(properties.issued ?? index)}`;
+  const where = [bounds.west, bounds.south, bounds.east, bounds.north]
+    .map((value) => value.toFixed(3))
+    .join(",");
+  return `${String(properties.headline ?? "alert")}-${String(properties.issued ?? "")}-${where}`;
 }
 
 /**
@@ -70,7 +80,7 @@ export function alertsToAnnounce(
   const point: GeoPoint = { lon: watch.center[0], lat: watch.center[1] };
 
   const found: WatchAlert[] = [];
-  for (const [index, feature] of alerts.features.entries()) {
+  for (const feature of alerts.features) {
     const severity = String(feature.properties.severity ?? "") as AlertSeverity;
     if (!(severity in SEVERITY_RANK)) continue;
     if (SEVERITY_RANK[severity] < floor) continue;
@@ -83,7 +93,7 @@ export function alertsToAnnounce(
     const distance = nearestCorner(bounds, point);
     if (distance > watch.radiusMiles) continue;
 
-    const id = alertId(feature.properties, index);
+    const id = alertId(feature.properties, bounds);
     if (announced.has(id)) continue;
 
     found.push({

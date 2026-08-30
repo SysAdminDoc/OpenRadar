@@ -2,7 +2,12 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
-- You can watch one place for warnings. Pick a point and a radius in Settings and OpenRadar checks it every forty-five seconds even when the map is looking somewhere else, raising a system notification on the desktop and an in-app one in a browser. It never repeats an alert it has already given you.
+- Fixed a drawn route re-tracing whole loops wherever the road crosses itself, and a departure time past the forecast being answered with the nearest hour it had rather than nothing.
+- A stretch of road with no forecast reading is drawn in its own colour instead of the colour for no rain.
+- Fixed an alert being announced twice when one check overran the next.
+- Following a storm now keeps the view in the first free preset slot and says which one.
+
+- You can watch one place for warnings. Pick a point and a radius in Settings and OpenRadar checks it every forty-five seconds even when the map is looking somewhere else, raising a system notification on the desktop and an in-app one in a browser. It says each alert once per session, and moving the watch starts the list over.
 
 - Added export. Save the view as a PNG or record the whole loop as a WebM, both with the frame time, the source, and the credits burned into the corner, and both written straight to your downloads folder.
 - Replaced the Videos placeholder, which only ever promised a feature, with the Export panel.
@@ -14,7 +19,7 @@
 - Fixed the dBZ labels sitting over the wrong colours, and gave the ramp a description for screen readers.
 - A tropical record with no forecast hour is no longer read as a storm's current position.
 
-- The Upload panel now reads GRLevelX placefiles as well as GeoJSON, drawing their lines, polygons, and points in the colours the file asks for and saying which directives needed image files it left out.
+- The Upload panel now reads GRLevelX placefiles as well as GeoJSON, drawing their lines, polygons, and points in the colours and widths the file asks for, stepping over object blocks whose contents are positioned in screen pixels, and reporting the refresh interval, anything left out, and whether the file was cut off.
 - Added route weather. Give it two places and a departure time and it draws the drive coloured by the chance of rain when you would reach each stretch, with a table of arrival time, temperature, and conditions.
 - Added a GOES-East GeoColor satellite layer under the radar. It follows the frame you are looking at, holds back to the newest image the archive has published, and says which image it is showing.
 - The radar legend now shows the National Weather Service reflectivity ramp with dBZ labels instead of an unlabelled gradient.
