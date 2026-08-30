@@ -19,6 +19,7 @@ import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts } from "./hooks/useToasts";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
+import { useLightning } from "./hooks/useLightning";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
@@ -113,6 +114,11 @@ export default function App() {
   const mrms = useMrmsOverlays({
     ready: hydrated,
     layers: settings.layers,
+    pageVisible,
+  });
+  const lightning = useLightning({
+    ready: hydrated,
+    enabled: settings.layers.lightningFlashes,
     pageVisible,
   });
   const { frames, frameIndex, source } = timeline;
@@ -264,6 +270,7 @@ export default function App() {
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
+        flashes={lightning.points}
         activeTool={activeTool}
         dualPane={dualPane}
         compareOffset={compareOffset}
@@ -333,6 +340,7 @@ export default function App() {
         frames={frames}
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
+        lightning={lightning.window}
         clock={clock}
         radarAgeMinutes={radarAge}
         cursor={cursor}

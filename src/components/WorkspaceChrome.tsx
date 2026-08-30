@@ -3,6 +3,7 @@ import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
 import type { GeoPoint } from "../lib/geo";
+import type { FlashWindow } from "../hooks/useLightning";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
@@ -33,6 +34,8 @@ interface WorkspaceChromeProps {
   sweep: SweepImage | null;
   /** MRMS products drawn over the radar, each with its own scale. */
   mrmsLayers: MrmsLayer[];
+  /** The GOES flash window on the map, when that layer is on. */
+  lightning: FlashWindow | null;
   /** Milliseconds, ticking once a minute, for the freshness readouts. */
   clock: number;
   radarAgeMinutes: number | null;
@@ -65,6 +68,7 @@ export function WorkspaceChrome({
   frames,
   sweep,
   mrmsLayers,
+  lightning,
   clock,
   radarAgeMinutes,
   cursor,
@@ -133,8 +137,34 @@ export function WorkspaceChrome({
         }
         onToggle={onToggleProduct}
       />
-      {mrmsLayers.length ? (
+      {mrmsLayers.length || lightning ? (
         <div className="product-legends" aria-label="Extra product scales">
+          {lightning ? (
+            <div className="product-legend product-legend--flashes">
+              <strong>
+                Lightning flashes
+                <em>{gridAge(lightning.observed, clock)}</em>
+              </strong>
+              <ol>
+                <li>
+                  <i style={{ background: "#fef9c3" }} aria-hidden="true" />
+                  now
+                </li>
+                <li>
+                  <i style={{ background: "#f59e0b" }} aria-hidden="true" />
+                  {lightning.windowMinutes} min
+                </li>
+                <li>
+                  {lightning.flashes.length.toLocaleString()} from{" "}
+                  {lightning.satellite}
+                </li>
+              </ol>
+              <small>
+                Total lightning, not a strike report. Use official warnings for
+                life-safety decisions.
+              </small>
+            </div>
+          ) : null}
           {mrmsLayers.map((layer) => (
             <div key={layer.product} className="product-legend">
               <strong>

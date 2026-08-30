@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Two lightning layers, from the two things that actually watch for it. Lightning Density is the national grid of cloud-to-ground flashes over the past five minutes. Lightning Flashes is what the GOES-East satellite sees, cloud flashes included, with the newest drawn brightest so you can tell which way a storm is moving. Neither is a strike report, and the legend says so.
+
 - OpenRadar can update itself. Diagnostics has a button that checks the project's own releases, tells you what is new, and installs it if you say so. Nothing downloads on its own, because an app that decides to update itself in the middle of a storm is not much use to anyone. Every release carries a checksum file and a signature, and a build that is not signed by the project's key is refused.
 
 - MRMS now leads the radar. NOAA builds it by merging every radar in the network onto a one kilometre national grid every two minutes, and it is cleaner and finer than the picture services. The grids are GRIB2, so OpenRadar decodes them here and hands the map ordinary tiles: scrubbing, the loop, dual panes, and export all work on them the way they always did.

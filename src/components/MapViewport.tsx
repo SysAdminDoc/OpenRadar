@@ -38,6 +38,8 @@ import type { ToolMode } from "./CommandBar";
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
 const MRMS_SOURCE_PREFIX = "openradar-mrms-";
+const FLASH_SOURCE_ID = "openradar-flash-source";
+const FLASH_LAYER_ID = "openradar-flash-points";
 const SWEEP_SOURCE_ID = "openradar-sweep-source";
 const SWEEP_LAYER_ID = "openradar-sweep-layer";
 const RADAR_SOURCE_ID = "openradar-radar-source";
@@ -86,6 +88,8 @@ interface MapViewportProps {
   sweep?: SweepImage | null;
   /** Locally decoded MRMS products drawn over the radar. */
   mrmsLayers?: MrmsLayer[];
+  /** GOES lightning flashes, newest brightest. */
+  flashes?: Record<string, unknown> | null;
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
@@ -105,6 +109,8 @@ interface MapViewportProps {
 const MRMS_LAYER_IDS = [
   `${MRMS_SOURCE_PREFIX}rotation`,
   `${MRMS_SOURCE_PREFIX}mesh`,
+  `${MRMS_SOURCE_PREFIX}lightning`,
+  FLASH_LAYER_ID,
 ];
 
 const TRACK_LAYER_IDS = [TRACK_LINE_LAYER_ID, TRACK_POINT_LAYER_ID];
@@ -212,6 +218,7 @@ function MapViewportInner(
     radarOpacity,
     sweep = null,
     mrmsLayers = [],
+    flashes = null,
     satelliteTime = null,
     overlays = {},
     route = null,
@@ -233,6 +240,7 @@ function MapViewportInner(
   const radarOpacityRef = useRef(radarOpacity);
   const sweepRef = useRef<SweepImage | null>(sweep);
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
+  const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
@@ -607,6 +615,64 @@ function MapViewportInner(
       },
       firstExisting(map, layersAbove(ROUTE_LAYER_ID)),
     );
+    publishLayers();
+  };
+
+  const syncFlashes = () => {
+    const map = mapRef.current;
+    const points = flashesRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    let source = map.getSource(FLASH_SOURCE_ID) as
+      maplibregl.GeoJSONSource | undefined;
+    if (!points) {
+      if (source) {
+        if (map.getLayer(FLASH_LAYER_ID)) map.removeLayer(FLASH_LAYER_ID);
+        map.removeSource(FLASH_SOURCE_ID);
+      }
+      publishLayers();
+      return;
+    }
+    if (!source) {
+      map.addSource(FLASH_SOURCE_ID, {
+        type: "geojson",
+        data: points as never,
+      });
+      map.addLayer(
+        {
+          id: FLASH_LAYER_ID,
+          type: "circle",
+          source: FLASH_SOURCE_ID,
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 9, 5],
+            // A flash from a minute ago is bright; one from five minutes ago is
+            // a faint trail behind the storm.
+            "circle-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "age"],
+              0,
+              "#fef9c3",
+              1,
+              "#f59e0b",
+            ],
+            "circle-opacity": [
+              "interpolate",
+              ["linear"],
+              ["get", "age"],
+              0,
+              0.95,
+              1,
+              0.25,
+            ],
+            "circle-stroke-width": 0,
+          },
+        },
+        firstExisting(map, layersAbove(FLASH_LAYER_ID)),
+      );
+      source = map.getSource(FLASH_SOURCE_ID) as maplibregl.GeoJSONSource;
+    }
+    source.setData(points as never);
     publishLayers();
   };
 
@@ -987,6 +1053,7 @@ function MapViewportInner(
       syncRadar();
       syncSweep();
       syncMrmsLayers();
+      syncFlashes();
       renderTools();
       syncOverlays();
       syncRoute();
@@ -1127,6 +1194,14 @@ function MapViewportInner(
     // rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customOverlay]);
+
+  useEffect(() => {
+    flashesRef.current = flashes;
+    syncFlashes();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flashes]);
 
   useEffect(() => {
     mrmsLayersRef.current = mrmsLayers;

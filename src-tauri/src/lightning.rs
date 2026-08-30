@@ -177,27 +177,33 @@ pub fn decode_flashes(bytes: &[u8], time: i64) -> Result<Vec<Flash>, LightningEr
 
     Ok((0..count)
         .filter_map(|index| {
-            let latitude = latitudes[index] as f32;
-            let longitude = longitudes[index] as f32;
-            let energy_joules = energies[index] as f32;
-            let area_square_km = areas[index] as f32;
-            // Anything but zero means the instrument flagged the flash itself.
-            (quality[index] == 0.0
-                && latitude.is_finite()
-                && longitude.is_finite()
-                && energy_joules.is_finite()
-                && area_square_km.is_finite()
-                && (-90.0..=90.0).contains(&latitude)
-                && (-180.0..=180.0).contains(&longitude))
-            .then_some(Flash {
-                latitude,
-                longitude,
-                energy_joules,
-                area_square_km,
+            let flash = Flash {
+                latitude: latitudes[index] as f32,
+                longitude: longitudes[index] as f32,
+                energy_joules: energies[index] as f32,
+                area_square_km: areas[index] as f32,
                 time,
-            })
+            };
+            keep_flash(&flash, quality[index]).then_some(flash)
         })
         .collect())
+}
+
+/// Whether a decoded row is a flash worth drawing.
+///
+/// The quality flag is the instrument's own verdict: anything but zero means
+/// it does not stand behind the fix, and a bad fix on a map is worse than a
+/// missing one. The rest guards against the packed fill values coming through
+/// as real numbers, which is what putting a flash in the middle of the ocean
+/// or off the edge of the world would look like.
+pub fn keep_flash(flash: &Flash, quality_flag: f64) -> bool {
+    quality_flag == 0.0
+        && flash.latitude.is_finite()
+        && flash.longitude.is_finite()
+        && flash.energy_joules.is_finite()
+        && flash.area_square_km.is_finite()
+        && (-90.0..=90.0).contains(&flash.latitude)
+        && (-180.0..=180.0).contains(&flash.longitude)
 }
 
 fn read_variable(file: &NcFile, name: &str) -> Result<Vec<f64>, LightningError> {
@@ -274,6 +280,49 @@ pub async fn lightning_flashes() -> Result<FlashWindow, LightningError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn flash(latitude: f32, longitude: f32) -> Flash {
+        Flash {
+            latitude,
+            longitude,
+            energy_joules: 1.2e-14,
+            area_square_km: 128.0,
+            time: 1_788_083_202,
+        }
+    }
+
+    #[test]
+    fn keeps_only_the_flashes_the_instrument_stands_behind() {
+        assert!(keep_flash(&flash(27.5, -83.5), 0.0));
+
+        // Every non-zero flag is a flash the instrument itself doubted.
+        for flag in [1.0, 3.0, 5.0, -1.0] {
+            assert!(
+                !keep_flash(&flash(27.5, -83.5), flag),
+                "a flash flagged {flag} was drawn anyway"
+            );
+        }
+    }
+
+    #[test]
+    fn throws_out_a_fill_value_that_came_through_as_a_number() {
+        // What an unpacked fill value looks like once it is a float.
+        assert!(!keep_flash(&flash(f32::NAN, -83.5), 0.0));
+        assert!(!keep_flash(&flash(27.5, f32::INFINITY), 0.0));
+        assert!(!keep_flash(&flash(900.0, -83.5), 0.0));
+        assert!(!keep_flash(&flash(27.5, -999.0), 0.0));
+
+        let mut odd = flash(27.5, -83.5);
+        odd.energy_joules = f32::NAN;
+        assert!(!keep_flash(&odd, 0.0));
+        odd = flash(27.5, -83.5);
+        odd.area_square_km = f32::NEG_INFINITY;
+        assert!(!keep_flash(&odd, 0.0));
+
+        // The corners of the world are real places.
+        assert!(keep_flash(&flash(90.0, 180.0), 0.0));
+        assert!(keep_flash(&flash(-90.0, -180.0), 0.0));
+    }
 
     #[test]
     fn reads_the_start_time_out_of_a_key() {

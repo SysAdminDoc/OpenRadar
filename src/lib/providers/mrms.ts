@@ -9,7 +9,7 @@ import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
  */
 export const MRMS_HOST = "mrms.localhost";
 
-export type MrmsProductId = "composite" | "rotation" | "mesh";
+export type MrmsProductId = "composite" | "rotation" | "mesh" | "lightning";
 
 export interface MrmsProductInfo {
   id: MrmsProductId;
