@@ -22,7 +22,11 @@ export function usePalette(options: {
 
   // A table is only sent when it changes, and its own contents are the key.
   const sent = palette
-    ? JSON.stringify([palette.units, paletteForRenderer(palette)])
+    ? JSON.stringify([
+        palette.units,
+        palette.rangeFolded,
+        paletteForRenderer(palette),
+      ])
     : "";
 
   useEffect(() => {
@@ -32,14 +36,16 @@ export function usePalette(options: {
     void (async () => {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        const [units, stops] = sent
+        const [units, rangeFolded, stops] = sent
           ? (JSON.parse(sent) as [
+              string | null,
               string | null,
               Array<[number, string, string | null]>,
             ])
-          : [null, []];
+          : [null, null, []];
         const next = await invoke<number>("set_palette", {
           units,
+          rangeFolded,
           stops: stops.map(([value, color, toColor]) => ({
             value,
             color,

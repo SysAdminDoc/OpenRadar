@@ -179,11 +179,13 @@ describe("a stored palette", () => {
     units: "dBZ",
     step: 5,
     stops: [
-      { value: 5, color: "#04e9e7", toColor: "#019ff4" },
-      { value: 50, color: "#fd0000", toColor: null },
+      { value: 5, color: "#04e9e7", solid: false, toColor: "#019ff4" },
+      { value: 50, color: "#fd0000", solid: true, toColor: null },
     ],
     rangeFolded: "#77007d",
-    skipped: [],
+    // Both are kept in the object and neither changes how the map is drawn,
+    // which is what the panel reports them as.
+    skipped: ["product", "step"],
   };
 
   it("comes back the way it went in", () => {
@@ -199,13 +201,13 @@ describe("a stored palette", () => {
         stops: [
           { value: 5, color: "javascript:alert(1)", toColor: null },
           { value: "twenty", color: "#04e9e7", toColor: null },
-          { value: 50, color: "#fd0000", toColor: null },
+          { value: 50, color: "#fd0000", solid: true, toColor: null },
         ],
       },
     });
     // Only the one stop that survives the parser.
     expect(meddled.palette?.stops).toEqual([
-      { value: 50, color: "#fd0000", toColor: null },
+      { value: 50, color: "#fd0000", solid: true, toColor: null },
     ]);
   });
 

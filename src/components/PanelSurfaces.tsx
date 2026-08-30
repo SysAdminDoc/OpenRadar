@@ -64,6 +64,7 @@ interface PanelSurfacesProps {
   onAlertSelect: (bounds: OverlayBounds) => void;
   onFollowStorm: (point: GeoPoint, name: string) => void;
   onCommand: (action: CommandAction) => void;
+  onClearPalette: () => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -176,7 +177,12 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "upload" ? (
-        <UploadPanel onClose={onClose} onFile={props.onUpload} />
+        <UploadPanel
+          onClose={onClose}
+          onFile={props.onUpload}
+          palette={settings.palette}
+          onClearPalette={props.onClearPalette}
+        />
       ) : null}
 
       {activeSurface === "more" ? (

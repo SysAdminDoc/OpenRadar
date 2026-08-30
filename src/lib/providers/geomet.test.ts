@@ -28,33 +28,56 @@ describe("who serves which viewport", () => {
       [-113.5, 53.5, "Edmonton"],
       [-123.1, 49.3, "Vancouver"],
       [-97.1, 49.9, "Winnipeg"],
-      [-75.7, 45.4, "Ottawa"],
-      [-73.6, 45.5, "Montreal"],
-      [-63.6, 44.6, "Halifax"],
+      [-75.7, 50.5, "northern Quebec"],
+      [-63.6, 46.2, "Prince Edward Island"],
       [-52.7, 47.6, "St John's"],
     ] as Array<[number, number, string]>) {
-      expect(
-        providerChain(lon, lat).map((entry) => entry.id),
-        place,
-      ).toEqual(["geomet"]);
+      const chain = providerChain(lon, lat).map((entry) => entry.id);
+      expect(chain[0], place).toBe("geomet");
     }
   });
 
-  it("leaves the Windsor to Toronto strip on the American mosaic", () => {
-    // No rectangle separates southern Ontario from Michigan and Ohio, and the
-    // mosaic covers it, so that corridor keeps what it has.
-    expect(providerChain(-79.4, 43.7).map((entry) => entry.id)).toContain(
-      "ridge",
-    );
+  it("keeps something behind GeoMet rather than nothing", () => {
+    // A service outage or a tripped budget over Canada should mean a worse
+    // picture, not a blank map.
+    expect(providerChain(-113.5, 53.5).map((entry) => entry.id)).toEqual([
+      "geomet",
+      "rainviewer",
+    ]);
   });
 
-  it("still gives the United States to NOAA", () => {
-    // GeoMet's own box reaches over the northern states, and must not take
-    // them from the mosaics.
-    const seattle = providerChain(-122.3, 47.6).map((p) => p.id);
-    expect(seattle).toContain("ridge");
-    expect(seattle).not.toContain("geomet");
-    expect(providerChain(-93.7, 41.7).map((p) => p.id)).toContain("ridge");
+  it("never takes a piece of the United States", () => {
+    // Every one of these is inside a box drawn generously enough to hold the
+    // Canadian side of the same border.
+    for (const [lon, lat, place] of [
+      [-122.3, 47.6, "Seattle"],
+      [-93.7, 41.7, "Des Moines"],
+      [-68.8, 44.8, "Bangor, Maine"],
+      [-70.3, 43.7, "Portland, Maine"],
+      [-73.2, 44.5, "Burlington, Vermont"],
+      [-71.5, 43.2, "Concord, New Hampshire"],
+      [-92.1, 46.8, "Duluth, Minnesota"],
+      [-87.4, 46.5, "Marquette, Michigan"],
+      [-73.5, 44.7, "Plattsburgh, New York"],
+      [-83.0, 42.3, "Detroit"],
+    ] as Array<[number, number, string]>) {
+      const chain = providerChain(lon, lat).map((entry) => entry.id);
+      expect(chain, place).not.toContain("geomet");
+      // MRMS leads on the desktop and RIDGE in a browser preview; either way
+      // an American viewport gets an American mosaic.
+      expect(["mrms", "ridge"], place).toContain(chain[0]);
+    }
+  });
+
+  it("keeps RainViewer behind GeoMet outside the claimed boxes too", () => {
+    // The Pacific west of Vancouver Island: GeoMet claims it, the American
+    // mosaics stop short of it, and it is south of the parallel the claimed
+    // boxes start at. It reaches GeoMet through coverage rather than through
+    // the Canadian rule, and that path needs a fallback as much as the other.
+    expect(providerChain(-132, 48).map((entry) => entry.id)).toEqual([
+      "geomet",
+      "rainviewer",
+    ]);
   });
 
   it("falls to RainViewer where neither reaches", () => {

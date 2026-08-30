@@ -17,6 +17,7 @@ use serde::Serialize;
 
 use crate::http;
 use crate::palette;
+use crate::palette::Palette;
 
 const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
 /// The image is square because a sweep is a circle; this is its side in pixels.
@@ -419,41 +420,9 @@ pub fn render_sweep(
                 continue;
             };
 
-            let (color, alpha) = match status {
-                GateStatus::Valid => match &table {
-                    Some(table) => {
-                        if value < table.floor() {
-                            continue;
-                        }
-                        (table.color(value), MAX_ALPHA)
-                    }
-                    None => match product {
-                        Product::Reflectivity => {
-                            // Below the lowest ramp stop there is nothing the
-                            // legend could name, so the ground shows through.
-                            if value < FADE_FLOOR_DBZ {
-                                continue;
-                            }
-                            (
-                                ramp_color(REFLECTIVITY_RAMP, value),
-                                reflectivity_alpha(value),
-                            )
-                        }
-                        Product::Velocity => (ramp_color(VELOCITY_RAMP, value), MAX_ALPHA),
-                        _ => {
-                            let (low, high) = range.unwrap_or((0.0, 1.0));
-                            let span = high - low;
-                            let scaled = if span > 0.0 {
-                                (value - low) / span
-                            } else {
-                                0.0
-                            };
-                            (ramp_color(GENERIC_RAMP, scaled), MAX_ALPHA)
-                        }
-                    },
-                },
-                GateStatus::RangeFolded => (RANGE_FOLDED, MAX_ALPHA),
-                GateStatus::BelowThreshold | GateStatus::NoData => continue,
+            let Some((color, alpha)) = gate_color(&status, value, product, table.as_ref(), range)
+            else {
+                continue;
             };
 
             let at = (row * IMAGE_SIZE + column) * 4;
@@ -465,6 +434,60 @@ pub fn render_sweep(
     }
 
     (pixels, [west, south, east, north])
+}
+
+/// The colour and opacity one gate is drawn in, or None to leave it clear so
+/// the map shows through.
+fn gate_color(
+    status: &GateStatus,
+    value: f32,
+    product: Product,
+    table: Option<&Palette>,
+    range: Option<(f32, f32)>,
+) -> Option<([u8; 3], u8)> {
+    match status {
+        GateStatus::Valid => match table {
+            Some(table) => {
+                if value < table.floor() {
+                    return None;
+                }
+                Some((table.color(value), MAX_ALPHA))
+            }
+            None => match product {
+                Product::Reflectivity => {
+                    // Below the lowest ramp stop there is nothing the legend
+                    // could name, so the ground shows through.
+                    if value < FADE_FLOOR_DBZ {
+                        return None;
+                    }
+                    Some((
+                        ramp_color(REFLECTIVITY_RAMP, value),
+                        reflectivity_alpha(value),
+                    ))
+                }
+                Product::Velocity => Some((ramp_color(VELOCITY_RAMP, value), MAX_ALPHA)),
+                _ => {
+                    let (low, high) = range.unwrap_or((0.0, 1.0));
+                    let span = high - low;
+                    let scaled = if span > 0.0 {
+                        (value - low) / span
+                    } else {
+                        0.0
+                    };
+                    Some((ramp_color(GENERIC_RAMP, scaled), MAX_ALPHA))
+                }
+            },
+        },
+        // A folded gate has no value on the scale, so it takes the colour the
+        // loaded table names for it and falls back to the built-in purple.
+        GateStatus::RangeFolded => Some((
+            table
+                .and_then(|table| table.range_folded)
+                .unwrap_or(RANGE_FOLDED),
+            MAX_ALPHA,
+        )),
+        GateStatus::BelowThreshold | GateStatus::NoData => None,
+    }
 }
 
 fn encode_png(pixels: &[u8]) -> Result<Vec<u8>, Level2Error> {
@@ -607,6 +630,109 @@ pub async fn level2_sweep(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn table(range_folded: Option<&str>) -> Palette {
+        Palette::with_range_folded(
+            Some("dBZ".into()),
+            range_folded,
+            &[
+                palette::Stop {
+                    value: 5.0,
+                    color: "#04e9e7".into(),
+                    to_color: None,
+                },
+                palette::Stop {
+                    value: 50.0,
+                    color: "#fd0000".into(),
+                    to_color: None,
+                },
+            ],
+        )
+        .expect("a palette")
+    }
+
+    /// A loaded table names a colour for folded gates. Drawing the built-in
+    /// purple instead puts a colour on screen that is on no legend the user
+    /// can see, in the one place the format was explicit about.
+    #[test]
+    fn a_folded_gate_takes_the_loaded_table_s_colour() {
+        let named = table(Some("#77007d"));
+        assert_eq!(
+            gate_color(
+                &GateStatus::RangeFolded,
+                0.0,
+                Product::Velocity,
+                Some(&named),
+                None
+            ),
+            Some(([0x77, 0x00, 0x7d], MAX_ALPHA))
+        );
+
+        // A table that says nothing about folding keeps the built-in colour,
+        // and so does having no table at all.
+        let silent = table(None);
+        assert_eq!(
+            gate_color(
+                &GateStatus::RangeFolded,
+                0.0,
+                Product::Velocity,
+                Some(&silent),
+                None
+            ),
+            Some((RANGE_FOLDED, MAX_ALPHA))
+        );
+        assert_eq!(
+            gate_color(&GateStatus::RangeFolded, 0.0, Product::Velocity, None, None),
+            Some((RANGE_FOLDED, MAX_ALPHA))
+        );
+    }
+
+    #[test]
+    fn a_gate_under_the_table_s_floor_is_left_clear() {
+        let named = table(None);
+        assert_eq!(
+            gate_color(
+                &GateStatus::Valid,
+                4.9,
+                Product::Reflectivity,
+                Some(&named),
+                None
+            ),
+            None,
+            "a value below the lowest stop was painted the lowest stop's colour"
+        );
+        assert_eq!(
+            gate_color(
+                &GateStatus::Valid,
+                5.0,
+                Product::Reflectivity,
+                Some(&named),
+                None
+            ),
+            Some(([0x04, 0xe9, 0xe7], MAX_ALPHA))
+        );
+        // Nothing is drawn where the radar saw nothing.
+        assert_eq!(
+            gate_color(
+                &GateStatus::NoData,
+                40.0,
+                Product::Reflectivity,
+                Some(&named),
+                None
+            ),
+            None
+        );
+        assert_eq!(
+            gate_color(
+                &GateStatus::BelowThreshold,
+                40.0,
+                Product::Reflectivity,
+                None,
+                None
+            ),
+            None
+        );
+    }
 
     #[test]
     fn picks_the_newest_whole_volume_from_a_listing() {

@@ -18,6 +18,7 @@ use serde::Deserialize;
 /// One stop: the value it starts at, its colour, and the colour it blends
 /// towards before the next stop. A solid stop has nothing to blend towards.
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Stop {
     pub value: f32,
     pub color: String,
@@ -29,6 +30,9 @@ pub struct Palette {
     /// What the table says it is for, so it is not applied to a product
     /// measured in something else.
     pub units: Option<String>,
+    /// The colour the table gives range-folded gates, which are not a value on
+    /// the scale and so have a line of their own in the format.
+    pub range_folded: Option<[u8; 3]>,
     stops: Vec<(f32, [u8; 3], Option<[u8; 3]>)>,
 }
 
@@ -48,7 +52,17 @@ fn parse_hex(value: &str) -> Option<[u8; 3]> {
 }
 
 impl Palette {
+    /// Only the tests build a table without a range-folded colour.
+    #[cfg(test)]
     pub fn new(units: Option<String>, stops: &[Stop]) -> Option<Self> {
+        Self::with_range_folded(units, None, stops)
+    }
+
+    pub fn with_range_folded(
+        units: Option<String>,
+        range_folded: Option<&str>,
+        stops: &[Stop],
+    ) -> Option<Self> {
         let mut read: Vec<(f32, [u8; 3], Option<[u8; 3]>)> = stops
             .iter()
             .filter_map(|stop| {
@@ -68,14 +82,23 @@ impl Palette {
                 .partial_cmp(&right.0)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        Some(Palette { units, stops: read })
+        Some(Palette {
+            units,
+            range_folded: range_folded.and_then(parse_hex),
+            stops: read,
+        })
     }
 
     /// True when this table is meant for a product measured in this unit. A
     /// table that does not say is taken at the user's word.
     pub fn applies_to(&self, unit: &str) -> bool {
         match &self.units {
-            None => true,
+            // A table that does not say what it is for is a reflectivity
+            // table, which is what the format is for. Taking it as meant for
+            // everything would put a dBZ scale over rotation, hail, and
+            // lightning, whose values all sit below its lowest stop, and blank
+            // those layers with no explanation.
+            None => unit.trim().eq_ignore_ascii_case("dBZ"),
             Some(units) => units.trim().eq_ignore_ascii_case(unit.trim()),
         }
     }
@@ -88,19 +111,22 @@ impl Palette {
         }
         for pair in self.stops.windows(2) {
             let (low_value, low_color, low_to) = pair[0];
-            let (high_value, high_color, _) = pair[1];
+            let (high_value, _high_color, _) = pair[1];
             // Half open: a value sitting exactly on the next stop belongs to
             // that stop, not to the end of the blend running into it.
             if value >= high_value {
                 continue;
             }
+            let Some(to) = low_to else {
+                // A solid stop holds its colour to the next one.
+                return low_color;
+            };
             let span = high_value - low_value;
             let position = if span > 0.0 {
                 (value - low_value) / span
             } else {
                 0.0
             };
-            let to = low_to.unwrap_or(high_color);
             return blend(low_color, to, position);
         }
         let last = self.stops[self.stops.len() - 1];
@@ -137,11 +163,11 @@ pub fn generation() -> u64 {
 /// Loads a table, or clears the one in force. Answers with the generation the
 /// frontend puts in tile addresses so nothing drawn with the old one is reused.
 #[tauri::command]
-pub fn set_palette(units: Option<String>, stops: Vec<Stop>) -> u64 {
+pub fn set_palette(units: Option<String>, range_folded: Option<String>, stops: Vec<Stop>) -> u64 {
     let next = if stops.is_empty() {
         None
     } else {
-        Palette::new(units, &stops)
+        Palette::with_range_folded(units, range_folded.as_deref(), &stops)
     };
     if let Ok(mut held) = LOADED.write() {
         *held = next;
@@ -152,6 +178,13 @@ pub fn set_palette(units: Option<String>, stops: Vec<Stop>) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The loaded table is global, and the tile tests read it. Anything that
+    /// changes it has to take the same turn they do.
+    pub fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+        static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        TURN.lock().unwrap_or_else(|held| held.into_inner())
+    }
 
     fn stop(value: f32, color: &str, to: Option<&str>) -> Stop {
         Stop {
@@ -172,6 +205,59 @@ mod tests {
             ],
         )
         .expect("a palette")
+    }
+
+    /// The stops arrive as JSON from the frontend, and nothing else in the
+    /// crate looks at them on the way in. A field name that does not match is
+    /// not an error for an Option: serde fills it with None and the second
+    /// colour on every line is silently lost, which draws the top half of the
+    /// reflectivity scale in the wrong colours.
+    #[test]
+    fn reads_the_stops_exactly_as_the_frontend_sends_them() {
+        // Written the way usePalette builds it, not the way Rust names things.
+        let json = r##"[
+            {"value": 5.0, "color": "#04e9e7", "toColor": "#019ff4"},
+            {"value": 50.0, "color": "#fd0000", "toColor": "#d40000"},
+            {"value": 75.0, "color": "#fdfdfd", "toColor": null}
+        ]"##;
+        let stops: Vec<Stop> = serde_json::from_str(json).expect("the stops parse");
+        assert_eq!(stops.len(), 3);
+        assert_eq!(
+            stops[0].to_color.as_deref(),
+            Some("#019ff4"),
+            "the second colour did not survive the crossing"
+        );
+        assert_eq!(stops[1].to_color.as_deref(), Some("#d40000"));
+        assert_eq!(stops[2].to_color, None);
+
+        // And the table built from them blends to its own second colour rather
+        // than to the next stop's first one.
+        let palette = Palette::new(Some("dBZ".into()), &stops).expect("a palette");
+        assert_eq!(palette.color(50.0), [0xfd, 0x00, 0x00]);
+        // Three quarters of the way from 50 to 75, blending fd0000 to d40000.
+        let high = palette.color(68.75);
+        assert!(
+            high[0] < 0xfd && high[0] > 0xd4 && high[1] == 0 && high[2] == 0,
+            "68.75 dBZ came out {high:?}, which is not on this table's ramp"
+        );
+    }
+
+    #[test]
+    fn a_solid_stop_holds_its_colour_to_the_next_one() {
+        let palette = Palette::new(
+            None,
+            &[
+                stop(5.0, "#04e9e7", None),
+                stop(20.0, "#fd0000", None),
+                stop(50.0, "#000000", None),
+            ],
+        )
+        .expect("a palette");
+        // A file that says flat red from twenty to fifty is drawn flat red.
+        assert_eq!(palette.color(20.0), [0xfd, 0x00, 0x00]);
+        assert_eq!(palette.color(35.0), [0xfd, 0x00, 0x00]);
+        assert_eq!(palette.color(49.9), [0xfd, 0x00, 0x00]);
+        assert_eq!(palette.color(50.0), [0x00, 0x00, 0x00]);
     }
 
     #[test]
@@ -227,24 +313,36 @@ mod tests {
         assert!(palette.applies_to("dbz"));
         assert!(!palette.applies_to("m/s"));
 
-        // A table that does not say is taken at the user's word.
-        let anything = Palette::new(None, &[stop(5.0, "#04e9e7", None)]).expect("a palette");
-        assert!(anything.applies_to("m/s"));
+        // A table that does not say what it is for is a reflectivity table.
+        // Applying it to everything would blank the layers whose values are
+        // nowhere near a dBZ scale.
+        let unsaid = Palette::new(None, &[stop(5.0, "#04e9e7", None)]).expect("a palette");
+        assert!(unsaid.applies_to("dBZ"));
+        assert!(!unsaid.applies_to("m/s"));
+        assert!(!unsaid.applies_to("mm"));
+        assert!(!unsaid.applies_to("1/s"));
     }
 
     #[test]
     fn loading_one_bumps_the_generation_so_nothing_drawn_before_is_reused() {
+        let _turn = one_at_a_time();
         let before = generation();
         let after = set_palette(
             Some("dBZ".into()),
+            Some("#77007d".into()),
             vec![stop(5.0, "#04e9e7", None), stop(50.0, "#fd0000", None)],
+        );
+        assert_eq!(
+            for_unit("dBZ").and_then(|held| held.range_folded),
+            Some([0x77, 0x00, 0x7d]),
+            "the table's own range-folded colour was dropped"
         );
         assert!(after > before);
         assert!(for_unit("dBZ").is_some());
         assert!(for_unit("m/s").is_none());
 
         // Clearing it bumps again, and takes the table with it.
-        let cleared = set_palette(None, Vec::new());
+        let cleared = set_palette(None, None, Vec::new());
         assert!(cleared > after);
         assert!(for_unit("dBZ").is_none());
     }

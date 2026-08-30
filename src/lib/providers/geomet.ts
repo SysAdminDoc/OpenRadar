@@ -43,18 +43,31 @@ export const geometProvider = createWmsProvider({
  *
  * The mosaics are drawn over a rectangle that takes in a good deal of Canada,
  * so a fallback alone would leave Vancouver and Winnipeg on American radar.
- * These are the parts of the border that a rectangle can state honestly: the
- * forty-ninth parallel in the west, the forty-fifth from Ontario to Quebec,
- * and everything east of the Ottawa valley.
+ * The border is not a rectangle, though, and a box drawn generously enough to
+ * hold southern Ontario also holds Michigan and Ohio.
  *
- * What a rectangle cannot separate is the Windsor to Toronto corridor from
- * Michigan and Ohio, so that strip keeps the NOAA mosaic. It has radar there
- * either way, which is the thing that matters.
+ * So the rule is the other way round: the boxes below are the parts of Canada
+ * a rectangle can claim without taking a piece of the United States with it.
+ * The land border runs along the forty-ninth parallel from the Pacific to
+ * Lake of the Woods, so everything north of it out west is Canada. East of the
+ * lakes the border wanders, and no rectangle separates Maine from New
+ * Brunswick or Vermont from Quebec, so those boxes start where the American
+ * states end: north of the forty-eighth in Quebec, and north of the
+ * forty-eighth in the Maritimes, which is short of Halifax but takes nothing
+ * that is not Canadian.
+ *
+ * What that leaves out is the populated strip along the lakes and the lower
+ * Saint Lawrence, plus Nova Scotia. Those fall through to the ordinary chain,
+ * which reaches them: the NOAA mosaics cover the lakes, and past the mosaics'
+ * eastern edge GeoMet is picked up as the coverage fallback anyway.
  */
 const CANADA: BoundingBox[] = [
-  { west: -141, south: 49, east: -95, north: 70 },
-  { west: -95, south: 45, east: -74, north: 70 },
-  { west: -74, south: 43, east: -52, north: 70 },
+  // The prairie and mountain border, which is the forty-ninth parallel exactly.
+  { west: -141, south: 49.0, east: -95, north: 84 },
+  // Northern Ontario and Quebec, clear of Minnesota, Michigan, and New York.
+  { west: -95, south: 49.0, east: -66.9, north: 84 },
+  // East of the American mosaics entirely.
+  { west: -66.9, south: 41, east: -52, north: 84 },
 ];
 
 /** True where GeoMet should lead rather than merely fill a gap. */

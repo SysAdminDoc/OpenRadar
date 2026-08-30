@@ -252,9 +252,13 @@ function normalizePalette(value: unknown): Palette | null {
       const first = channels(stop?.color);
       if (!first) return "";
       const second = channels(stop?.toColor ?? null);
-      return second
-        ? `Color: ${value} ${first} ${second}`
-        : `SolidColor: ${value} ${first}`;
+      if (second) return `Color: ${value} ${first} ${second}`;
+      // A plain line with one colour is not the same as a solid one, and
+      // writing every one of them back as solid would change how the map is
+      // drawn each time the app restarts.
+      return stop?.solid
+        ? `SolidColor: ${value} ${first}`
+        : `Color: ${value} ${first}`;
     }),
     channels(raw.rangeFolded ?? null)
       ? `RF: ${channels(raw.rangeFolded ?? null)}`

@@ -36,12 +36,15 @@ describe("reading a palette", () => {
     expect(palette.stops[0]).toEqual({
       value: 5,
       color: "#04e9e7",
+      solid: false,
       toColor: "#019ff4",
     });
-    // A solid stop has no colour to blend towards.
+    // A solid stop has no colour to blend towards, and is marked so that
+    // storing and reloading the table cannot turn a plain line into one.
     expect(palette.stops[3]).toEqual({
       value: 75,
       color: "#fdfdfd",
+      solid: true,
       toColor: null,
     });
     expect(paletteRange(palette)).toEqual({ min: 5, max: 75 });
@@ -91,6 +94,7 @@ describe("reading a palette", () => {
     expect(palette?.stops[0]).toEqual({
       value: 5,
       color: "#04e9e7",
+      solid: false,
       toColor: "#019ff4",
     });
   });
@@ -116,8 +120,11 @@ describe("colouring a value", () => {
       ),
       "solid.pal",
     );
-    // The solid stop has no second colour, so it blends to the next stop.
+    // A file that says flat red from twenty to fifty is drawn flat red, not
+    // as a red to black ramp.
     expect(paletteColor(solid!, 20)).toBe("#fd0000");
+    expect(paletteColor(solid!, 30)).toBe("#fd0000");
+    expect(paletteColor(solid!, 49)).toBe("#fd0000");
     expect(paletteColor(solid!, 50)).toBe("#000000");
   });
 
@@ -145,8 +152,12 @@ describe("handing a palette to the renderer", () => {
     expect(paletteApplies(palette!, "dbz")).toBe(true);
     expect(paletteApplies(palette!, "m/s")).toBe(false);
 
-    // A file that does not say what it is for is taken at the user's word.
-    const anything = parsePalette("Color: 5 4 233 231", "any.pal");
-    expect(paletteApplies(anything!, "m/s")).toBe(true);
+    // A file that does not say what it is for is a reflectivity table, which
+    // is what the format is for. Taking it as meant for everything would put a
+    // dBZ scale over hail and lightning and blank those layers.
+    const unsaid = parsePalette("Color: 5 4 233 231", "any.pal");
+    expect(paletteApplies(unsaid!, "dBZ")).toBe(true);
+    expect(paletteApplies(unsaid!, "m/s")).toBe(false);
+    expect(paletteApplies(unsaid!, "mm")).toBe(false);
   });
 });

@@ -1,5 +1,13 @@
-import { Download, FileUp, FolderOpen, Info, ShieldCheck } from "lucide-react";
+import {
+  Download,
+  FileUp,
+  FolderOpen,
+  Info,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
+import type { Palette } from "../lib/palette";
 import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
@@ -11,9 +19,17 @@ interface CloseOnlyProps {
 
 interface UploadPanelProps extends CloseOnlyProps {
   onFile: (file: File) => void;
+  /** The colour table in force, if one has been loaded. */
+  palette: Palette | null;
+  onClearPalette: () => void;
 }
 
-export function UploadPanel({ onClose, onFile }: UploadPanelProps) {
+export function UploadPanel({
+  onClose,
+  onFile,
+  palette,
+  onClearPalette,
+}: UploadPanelProps) {
   return (
     <PanelShell
       eyebrow="Local data"
@@ -38,6 +54,26 @@ export function UploadPanel({ onClose, onFile }: UploadPanelProps) {
           }}
         />
       </label>
+
+      {palette ? (
+        <div className="storm-row" data-palette={palette.name}>
+          <div>
+            <strong>{palette.name}</strong>
+            <small>
+              {palette.stops.length} colours
+              {palette.units ? ` · ${palette.units}` : " · reflectivity"}
+            </small>
+            {palette.skipped.length ? (
+              <small>{palette.skipped.join(", ")} left out</small>
+            ) : null}
+          </div>
+          <div className="storm-row__actions">
+            <button type="button" onClick={onClearPalette}>
+              <X size={14} /> Use the built-in colours
+            </button>
+          </div>
+        </div>
+      ) : null}
     </PanelShell>
   );
 }
