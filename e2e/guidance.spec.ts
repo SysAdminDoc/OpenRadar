@@ -200,3 +200,40 @@ test("draws the surge picture for the hurricane you pick", async ({ page }) => {
     .poll(() => asked.some((url) => url.includes("layers=show%3A21")))
     .toBe(true);
 });
+
+test("closing a panel cancels the request it left in flight", async ({
+  page,
+}) => {
+  // A request nobody is waiting for still costs the service its answer, and
+  // its result would race whatever the panel asks for next. Closing the panel
+  // has to abort it.
+  const held: string[] = [];
+  const cancelled: string[] = [];
+  page.on("requestfailed", (request) => {
+    if (request.url().includes("models=")) cancelled.push(request.url());
+  });
+
+  // Answer nothing at all, so the request is still open when the panel closes.
+  await page.route("https://api.open-meteo.com/**", async (route) => {
+    const url = route.request().url();
+    if (!url.includes("models=")) {
+      await route.fulfill({ contentType: "application/json", body: "{}" });
+      return;
+    }
+    held.push(url);
+    await new Promise(() => {});
+  });
+
+  await page.getByRole("button", { name: "Guidance", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Guidance" })).toBeVisible();
+  await expect.poll(() => held.length).toBeGreaterThan(0);
+  // Still open, still waiting: nothing has been cancelled yet.
+  expect(cancelled).toHaveLength(0);
+
+  await page.getByRole("button", { name: "Close Guidance" }).click();
+  await expect(page.getByRole("heading", { name: "Guidance" })).toHaveCount(0);
+
+  await expect
+    .poll(() => cancelled.length, { timeout: 10_000 })
+    .toBeGreaterThan(0);
+});
