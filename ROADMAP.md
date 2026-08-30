@@ -38,13 +38,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: each overlay row has an opacity slider that applies live and persists; drag handles reorder overlays within the overlay band without letting them pass warnings; `data-layer-stack` reflects the order and the e2e test asserts it.
   Complexity: M
 
-- [ ] P2 — Tests for the untested hooks and the render-path components
-  Why: `MapViewport.tsx` (1,365 lines) and eight hooks have no tests; the v0.2.0 review found its only showstopper in a path no test covered.
-  Evidence: recon memo section 7 list; `src/lib/csp.test.ts` history in CHANGELOG.
-  Touches: src/hooks/*.test.ts (useAlertWatch, useExport, useUpdates, useWind, useWorkspaceActions, useWorkspaceOverlays), src/components/MapViewport.test.tsx with a MapLibre stub, src/lib/providers/{budget,health,nowcoast,ridge}.test.ts
-  Acceptance: each listed module has a test file whose assertions go red under at least one mutation recorded in the commit message; overall vitest count rises by at least 40.
-  Complexity: M
-
 ### P3
 
 - [ ] P3 — Optical-flow radar nowcast for the next 60 minutes on the timeline tail
