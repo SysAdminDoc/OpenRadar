@@ -52,7 +52,10 @@ const CALLS: Array<{
   name: string;
   call: (signal: AbortSignal) => Promise<unknown>;
 }> = [
-  { name: "guidance", call: (signal) => fetchGuidance(point, ["gfs"], signal) },
+  {
+    name: "guidance",
+    call: (signal) => fetchGuidance(point, ["gfs_seamless"], signal),
+  },
   {
     name: "tides",
     call: (signal) =>
