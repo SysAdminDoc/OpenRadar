@@ -150,3 +150,38 @@ test("covers the Pacific and says when a storm predates the radar archive", asyn
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toHaveAttribute("data-layer-stack", /track-line/);
 });
+
+test("searches before any track has been fetched", async ({ page }) => {
+  // The whole record is nearly three megabytes of six-hourly positions, and a
+  // search needs none of them. The index alone has to answer, or opening the
+  // panel stalls on a download nobody asked for.
+  const fetched: string[] = [];
+  page.on("request", (request) => {
+    const url = request.url();
+    if (url.includes("/hurdat/")) fetched.push(url.split("/").pop()!);
+  });
+  // Reopened with the listener attached, since the panel already loaded once.
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "History", exact: true }).click();
+
+  await findStorm(page, "Ian 2022");
+  await expect(page.getByRole("button", { name: /IAN 2022/ })).toBeVisible();
+  expect(fetched, "a search should read the index and nothing else").toEqual([
+    "index.json",
+  ]);
+
+  // Picking one fetches its decade, and only its decade.
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveAttribute("data-layer-stack", /track-line/);
+  await expect.poll(() => fetched).toEqual(["index.json", "2020.json"]);
+
+  // A second storm from the same decade reuses what is already in hand.
+  await findStorm(page, "Ian");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await expect.poll(() => fetched).toEqual(["index.json", "2020.json"]);
+});

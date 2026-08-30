@@ -43,6 +43,7 @@ function storm(overrides: Partial<Storm> = {}): Storm {
     peakWindKt: Math.max(...track.map((point) => point[3])),
     start: track[0][0],
     end: track[track.length - 1][0],
+    fixes: track.length,
     statuses,
     ...overrides,
     track,

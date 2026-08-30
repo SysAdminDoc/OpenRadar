@@ -218,10 +218,38 @@ export async function routeWorkspace(page: Page) {
       body: emptyCollection,
     });
   });
-  await page.route("**/hurdat.json", async (route) => {
+  // The shipped record is an index with no positions in it and one file of
+  // tracks per decade. One handler answers both, because a later route wins
+  // over an earlier one and two globs here would shadow each other.
+  await page.route("**/hurdat/*.json", async (route) => {
+    const file = new URL(route.request().url()).pathname.split("/").pop() ?? "";
+    if (file === "index.json") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          generated: stormRecord.generated,
+          statuses: stormRecord.statuses,
+          storms: stormRecord.storms.map((storm) => [
+            storm.i,
+            storm.n,
+            storm.a,
+            Math.max(...storm.p.map((point) => point[3])),
+            storm.p[0][0],
+            storm.p[storm.p.length - 1][0],
+            storm.p.length,
+          ]),
+        }),
+      });
+      return;
+    }
+    const decade = Number(file.replace(".json", ""));
+    const tracks: Record<string, unknown> = {};
+    for (const storm of stormRecord.storms) {
+      if (Math.floor(storm.y / 10) * 10 === decade) tracks[storm.i] = storm.p;
+    }
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify(stormRecord),
+      body: JSON.stringify(tracks),
     });
   });
   await page.route("https://geo.weather.gc.ca/**", async (route) => {

@@ -88,6 +88,8 @@ export const en = {
   "history.title": "Storm history",
   "history.placeholder": "Ian 2022",
   "history.searchLabel": "Search past storms by name or year",
+  "history.archiveStatus": "The storm archive answered {status}.",
+  "history.unknownStorm": "That storm is not in the record.",
   "history.failedTitle": "The storm archive did not load",
   "history.failedBody": "The storm archive did not load.",
   "history.peak": "{category} · {knots} kt peak",

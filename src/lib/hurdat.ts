@@ -1,7 +1,8 @@
 import type { RadarFrame } from "./radar";
 import { translate } from "../i18n";
 
-const RECORD_URL = "hurdat.json";
+const INDEX_URL = "hurdat/index.json";
+const TRACKS_URL = "hurdat";
 /** The Iowa State radar archive starts here, so nothing older can be replayed. */
 export const ARCHIVE_FIRST_YEAR = 2003;
 const ARCHIVE_STEP_MINUTES = 15;
@@ -26,22 +27,17 @@ export const RADAR_DOMAIN = {
   north: 50,
 };
 
-interface StoredStorm {
-  i: string;
-  n: string;
-  y: number;
-  b: string;
-  a: number;
-  p: TrackPoint[];
-}
+/** One row of the index: id, name, ACE, peak wind, first fix, last fix, fixes. */
+type StoredSummary = [string, string, number, number, number, number, number];
 
-interface StoredRecord {
+interface StoredIndex {
   generated: string;
   statuses: string[];
-  storms: StoredStorm[];
+  storms: StoredSummary[];
 }
 
-export interface Storm {
+/** Everything about a storm except where it went. */
+export interface StormSummary {
   id: string;
   name: string;
   year: number;
@@ -51,57 +47,117 @@ export interface Storm {
   peakWindKt: number;
   start: number;
   end: number;
+  /** How many six-hourly fixes the record holds. */
+  fixes: number;
+}
+
+export interface Storm extends StormSummary {
   track: TrackPoint[];
   statuses: string[];
 }
 
-let loaded: Promise<Storm[]> | null = null;
+let index: Promise<StormSummary[]> | null = null;
+let statuses: string[] = [];
+const decades = new Map<number, Promise<Record<string, TrackPoint[]>>>();
 
-function toStorm(stored: StoredStorm, statuses: string[]): Storm {
+/** The file a storm's track lives in. */
+function decadeOf(year: number): number {
+  return Math.floor(year / 10) * 10;
+}
+
+function toSummary(stored: StoredSummary): StormSummary {
+  const [id, name, ace, peakWindKt, start, end, fixes] = stored;
   return {
-    id: stored.i,
-    name: stored.n || "Unnamed",
-    year: stored.y,
-    basin: stored.b === "EP" ? "EP" : "AL",
-    ace: stored.a,
-    peakWindKt: stored.p.reduce((peak, point) => Math.max(peak, point[3]), 0),
-    start: stored.p[0][0],
-    end: stored.p[stored.p.length - 1][0],
-    track: stored.p,
-    statuses,
+    id,
+    name: name || "Unnamed",
+    // The id carries both: AL011851 is the first Atlantic storm of 1851, and
+    // a central Pacific CP id belongs to the eastern Pacific record.
+    year: Number(id.slice(4)),
+    basin: id.startsWith("AL") ? "AL" : "EP",
+    ace,
+    peakWindKt,
+    start,
+    end,
+    fixes,
   };
 }
 
 /**
- * Reads the bundled record once and keeps it for the session. The read is
- * shared between callers, so it deliberately takes no abort signal: one caller
- * going away must not cancel the load everyone else is waiting on.
+ * Every storm, without its track.
+ *
+ * The whole record is nearly three megabytes and a search does not need any of
+ * the positions in it, so this reads the index alone and the tracks arrive one
+ * decade at a time as storms are picked.
+ *
+ * The read is shared between callers, so it deliberately takes no abort
+ * signal: one caller going away must not cancel the load everyone else is
+ * waiting on.
  */
-export async function loadStorms(): Promise<Storm[]> {
-  loaded ??= (async () => {
-    const response = await fetch(RECORD_URL);
+export async function loadStorms(): Promise<StormSummary[]> {
+  index ??= (async () => {
+    const response = await fetch(INDEX_URL);
     if (!response.ok) {
-      throw new Error(`The storm archive returned ${response.status}.`);
+      throw new Error(
+        translate("history.archiveStatus", { status: response.status }),
+      );
     }
-    const record = (await response.json()) as StoredRecord;
-    return record.storms.map((storm) => toStorm(storm, record.statuses));
+    const record = (await response.json()) as StoredIndex;
+    statuses = record.statuses;
+    return record.storms.map(toSummary);
   })().catch((failure: unknown) => {
     // A failed load must not be cached, or the panel can never recover.
-    loaded = null;
+    index = null;
     throw failure;
   });
-  return loaded;
+  return index;
+}
+
+/** The tracks for one decade, fetched once and kept. */
+function loadDecade(decade: number): Promise<Record<string, TrackPoint[]>> {
+  let held = decades.get(decade);
+  if (!held) {
+    held = (async () => {
+      const response = await fetch(`${TRACKS_URL}/${decade}.json`);
+      if (!response.ok) {
+        throw new Error(
+          translate("history.archiveStatus", { status: response.status }),
+        );
+      }
+      return (await response.json()) as Record<string, TrackPoint[]>;
+    })().catch((failure: unknown) => {
+      decades.delete(decade);
+      throw failure;
+    });
+    decades.set(decade, held);
+  }
+  return held;
+}
+
+/** One storm with the track it needs to be drawn. */
+export async function loadStorm(id: string): Promise<Storm> {
+  const summaries = await loadStorms();
+  const summary = summaries.find((storm) => storm.id === id);
+  if (!summary) throw new Error(translate("history.unknownStorm"));
+  const byId = await loadDecade(decadeOf(summary.year));
+  const track = byId[id];
+  if (!track) throw new Error(translate("history.unknownStorm"));
+  return { ...summary, track, statuses };
 }
 
 export function resetStorms() {
-  loaded = null;
+  index = null;
+  statuses = [];
+  decades.clear();
 }
 
 /**
  * Matches on name and year together, so "ian 2022" finds one storm and "ian"
  * finds every one of them.
  */
-export function searchStorms(storms: Storm[], query: string): Storm[] {
+export function searchStorms<T extends StormSummary>(
+  storms: T[],
+  query: string,
+): T[] {
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 2) return [];
 

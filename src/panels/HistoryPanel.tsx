@@ -5,11 +5,13 @@ import {
   ARCHIVE_FIRST_YEAR,
   canReplay,
   categoryLabel,
+  loadStorm,
   loadStorms,
   replayFocus,
   searchStorms,
   trackColor,
   type Storm,
+  type StormSummary,
 } from "../lib/hurdat";
 import { locale, translate, useT } from "../i18n";
 
@@ -40,7 +42,8 @@ export function HistoryPanel({
   onClose,
 }: HistoryPanelProps) {
   const t = useT();
-  const [storms, setStorms] = useState<Storm[] | null>(null);
+  const [storms, setStorms] = useState<StormSummary[] | null>(null);
+  const [loadedStorm, setLoadedStorm] = useState<Storm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,14 +68,38 @@ export function HistoryPanel({
     };
   }, []);
 
+  const reportFailure = (failure: unknown) => {
+    setError(
+      failure instanceof Error
+        ? failure.message
+        : translate("history.failedBody"),
+    );
+  };
+
   const results = useMemo(
     () => (storms ? searchStorms(storms, query) : []),
     [query, storms],
   );
-  const selected = useMemo(
-    () => storms?.find((storm) => storm.id === selectedId) ?? null,
-    [selectedId, storms],
-  );
+  // The track for whichever storm is picked. The index the search runs on
+  // carries no positions, so this is where the decade it belongs to arrives.
+  // Derived rather than mirrored: a storm that is still loading, or one left
+  // over from the last pick, is simply not the selection yet.
+  const selected = loadedStorm?.id === selectedId ? loadedStorm : null;
+
+  useEffect(() => {
+    if (!selectedId || loadedStorm?.id === selectedId) return;
+    let open = true;
+    void loadStorm(selectedId)
+      .then((storm) => {
+        if (open) setLoadedStorm(storm);
+      })
+      .catch((failure: unknown) => {
+        if (open) reportFailure(failure);
+      });
+    return () => {
+      open = false;
+    };
+  }, [loadedStorm?.id, selectedId]);
   // What a replay would be about, which is what the note at the bottom names.
   const focus = useMemo(
     () => (selected && canReplay(selected) ? replayFocus(selected) : null),
@@ -167,7 +194,9 @@ export function HistoryPanel({
             type="button"
             className="result-row"
             key={storm.id}
-            onClick={() => onSelect(storm)}
+            onClick={() => {
+              void loadStorm(storm.id).then(onSelect).catch(reportFailure);
+            }}
           >
             <i
               className="track-swatch"
