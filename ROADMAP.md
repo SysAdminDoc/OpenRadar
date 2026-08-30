@@ -11,7 +11,7 @@
 ## Next releases
 
 - [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
-- [ ] Add model guidance, satellite, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
+- [ ] Add model guidance, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
 - [ ] Add HURDAT2 history with archived radar playback.
 - [ ] Add accessible export, notifications, and an offline cache.
 
@@ -84,13 +84,6 @@
   Evidence: business.myradar.com/capabilities/routecast-road-weather; StormDeck OSRM routing (`router.project-osrm.org`); Open-Meteo hourly forecast.
   Touches: new src/panels/RoutePanel.tsx (two geocoded points, departure time), new src/lib/route.ts (OSRM polyline, sample every 25 km, forecast at ETA per sample), MapViewport line layer colored by precipitation probability.
   Acceptance: entering two places draws the route with per-segment colors and a table of ETA, temperature, precipitation chance; changing departure time recolors within 2 s; OSRM demo-server fair-use (one request per route change) is respected.
-  Complexity: M
-
-- [ ] P2: GOES GeoColor satellite layer synced to the radar timeline
-  Why: `radar.satelliteEnhancement` defaults on with no source; satellite is free in Windy and RadarOmega's paywall; nowCOAST serves a time-enabled composite.
-  Evidence: nowCOAST `sat_meteo_imagery_time/MapServer` (15-min GOES E/W), StormScope `js/context-layers.js:96-121` (exportImage, antimeridian split); NESDIS `MERGEDGC_current` XYZ tiles (StormviewRadar).
-  Touches: new src/lib/overlays/satellite.ts, MapViewport raster layer below radar, timeline aligns satellite time to nearest 15-min frame, CSP.
-  Acceptance: toggling Satellite shows GeoColor under the radar with its own age readout; scrubbing changes both layers; attribution reads NOAA/NESDIS.
   Complexity: M
 
 - [ ] P2: Lightning from MRMS NLDN density or GLM, never Blitzortung

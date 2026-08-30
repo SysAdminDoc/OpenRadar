@@ -24,6 +24,7 @@ import { formatFrameTime, frameAgeMinutes } from "./lib/radar";
 import { providerHealth, subscribeHealth } from "./lib/providers";
 import { log, recentLog, subscribeLog } from "./lib/log";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./lib/deepLink";
+import { satelliteFrameTime } from "./lib/providers";
 import { appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -37,6 +38,7 @@ import {
 } from "./lib/settings";
 import { useOverlays } from "./hooks/useOverlays";
 import { useSettings } from "./hooks/useSettings";
+import { useMinuteClock } from "./hooks/useClock";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import type { OverlayBounds } from "./lib/overlays";
 import { AlertsPanel } from "./panels/AlertsPanel";
@@ -76,6 +78,7 @@ export default function App() {
   const secondMapRef = useRef<MapViewportHandle>(null);
   const toastIdRef = useRef(0);
 
+  const clock = useMinuteClock();
   const health = useSyncExternalStore(subscribeHealth, providerHealth);
   const logEntries = useSyncExternalStore(subscribeLog, recentLog);
 
@@ -136,6 +139,14 @@ export default function App() {
     pageVisible,
   });
   const { frames, frameIndex, playing, source } = timeline;
+  const activeFrame = frames[frameIndex];
+  const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
+  // The satellite image that stands for the frame on screen, held back to the
+  // newest slot the archive has actually published.
+  const satelliteTime =
+    settings.layers.satellite && activeFrame
+      ? satelliteFrameTime(activeFrame.time, Math.floor(clock / 1000))
+      : null;
 
   const handleOpenLogFolder = useCallback(() => {
     void (async () => {
@@ -463,12 +474,10 @@ export default function App() {
     () => ({ lon: settings.camera.center[0], lat: settings.camera.center[1] }),
     [settings.camera.center],
   );
-  const activeFrame = frames[frameIndex];
-  const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
   // Staleness is a property of the observed feed, not of the frame the user
   // scrubbed to and not of a forecast frame that is hours ahead by design.
   const radarAge = timeline.newestObserved
-    ? frameAgeMinutes(timeline.newestObserved)
+    ? frameAgeMinutes(timeline.newestObserved, clock)
     : null;
 
   if (!hydrated) {
@@ -495,6 +504,7 @@ export default function App() {
           radarFrame={activeFrame}
           radarVisible={settings.radar.enabled}
           radarOpacity={settings.radar.opacity}
+          satelliteTime={satelliteTime}
           overlays={overlayData}
           customOverlay={settings.layers.customOverlay ? customOverlay : null}
           toolMode={activeTool}
@@ -514,6 +524,7 @@ export default function App() {
             radarFrame={compareFrame}
             radarVisible={settings.radar.enabled}
             radarOpacity={settings.radar.opacity}
+            satelliteTime={satelliteTime}
             overlays={overlayData}
             customOverlay={settings.layers.customOverlay ? customOverlay : null}
             toolMode={activeTool}
@@ -521,6 +532,20 @@ export default function App() {
             onCameraMove={handleSecondaryMove}
             onToolResult={setToolResult}
           />
+        ) : null}
+        {satelliteTime !== null ? (
+          <div className="satellite-chip">
+            <strong>GOES-East GeoColor</strong>
+            <small>
+              {new Intl.DateTimeFormat(undefined, {
+                hour: "numeric",
+                minute: "2-digit",
+              }).format(new Date(satelliteTime * 1000))}
+              {" · "}
+              {frameAgeMinutes({ ...activeFrame!, time: satelliteTime })} min
+              old
+            </small>
+          </div>
         ) : null}
         {dualPane ? (
           <div className="pane-compare">

@@ -34,6 +34,7 @@ export interface LayerSettings {
   earthquakes: boolean;
   wildfires: boolean;
   tropical: boolean;
+  satellite: boolean;
   customOverlay: boolean;
 }
 
@@ -78,6 +79,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     earthquakes: false,
     wildfires: false,
     tropical: true,
+    satellite: false,
     customOverlay: false,
   },
   presets: [null, null, null, null],
@@ -223,6 +225,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ),
       wildfires: bool(layers.wildfires, DEFAULT_SETTINGS.layers.wildfires),
       tropical: bool(layers.tropical, DEFAULT_SETTINGS.layers.tropical),
+      satellite: bool(layers.satellite, DEFAULT_SETTINGS.layers.satellite),
       customOverlay: bool(
         layers.customOverlay,
         DEFAULT_SETTINGS.layers.customOverlay,

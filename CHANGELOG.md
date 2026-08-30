@@ -2,6 +2,7 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Added a GOES-East GeoColor satellite layer under the radar. It follows the frame you are looking at, holds back to the newest image the archive has published, and says which image it is showing.
 - The radar legend now shows the National Weather Service reflectivity ramp with dBZ labels instead of an unlabelled gradient.
 - Added a high-contrast pass for readers whose system asks for one.
 - Fixed command bar buttons being named after their tooltip in narrow windows, where the visible label is hidden.

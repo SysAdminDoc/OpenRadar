@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { routeWorkspace, transparentPng } from "./support/fixtures";
 
 /** Every switch in the Layers panel and the map layer it is meant to control. */
 const LAYERS: Array<{ label: RegExp; layerId: string; onByDefault: boolean }> =
@@ -106,4 +106,34 @@ test("saves, reopens, and undoes a preset", async ({ page }) => {
   await page.getByLabel("Save preset 3").click();
   await page.getByRole("button", { name: "Undo" }).last().click();
   await expect(page.getByLabel("Save preset 3")).toBeVisible();
+});
+
+test("puts satellite under the radar and names its own image time", async ({
+  page,
+}) => {
+  await page.route("https://gibs.earthdata.nasa.gov/**", async (route) => {
+    await route.fulfill({ contentType: "image/png", body: transparentPng });
+  });
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Satellite/ }).check();
+
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-satellite-layer/,
+  );
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  expect(stack.indexOf("openradar-satellite-layer")).toBeLessThan(
+    stack.indexOf("openradar-radar-layer-observed"),
+  );
+  await expect(page.locator(".satellite-chip small")).toContainText("min old");
+
+  await page.getByRole("checkbox", { name: /Satellite/ }).uncheck();
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /openradar-satellite-layer/,
+  );
 });

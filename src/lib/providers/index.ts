@@ -6,6 +6,7 @@ import {
 import { log } from "../log";
 import { recordFailure, recordSuccess } from "./health";
 import { HRRR_HOST } from "./hrrr";
+import { SATELLITE_HOST } from "./satellite";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
 import { ridgeProvider } from "./ridge";
@@ -64,6 +65,7 @@ const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
     })),
     // The Iowa State cache is a courtesy service and asks for restraint.
     { host: HRRR_HOST, key: "hrrr:tile", limit: 900 },
+    { host: SATELLITE_HOST, key: "satellite:tile", limit: 900 },
   ];
 
 /**
@@ -178,6 +180,12 @@ export type {
   RadarFrame,
   RadarProvider,
 } from "./types";
+export {
+  SATELLITE_ATTRIBUTION,
+  SATELLITE_MAX_ZOOM,
+  satelliteFrameTime,
+  satelliteTileUrl,
+} from "./satellite";
 export {
   HRRR_MAX_FRAMES,
   fetchHrrrRun,

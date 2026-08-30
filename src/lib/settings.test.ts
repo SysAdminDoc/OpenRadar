@@ -67,6 +67,7 @@ describe("settings normalization", () => {
     expect(Object.keys(settings.layers).sort()).toEqual([
       "customOverlay",
       "earthquakes",
+      "satellite",
       "tropical",
       "weatherAlerts",
       "wildfires",
