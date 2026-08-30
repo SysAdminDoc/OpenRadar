@@ -10,7 +10,7 @@
 
 ## Next releases
 
-- [ ] Add model guidance, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
+- [ ] Add model guidance, tides, and surge.
 - [ ] Add an offline cache of the last view.
 
 ## Research-Driven Additions
@@ -62,13 +62,6 @@
   Touches: new `src/lib/palette.ts` parser with its own tests, the Upload panel, a palette passed to the two Rust renderers through their commands, and the legend built from the loaded palette rather than the built-in ramp.
   Acceptance: loading a `.pal` recolours the single-site sweep and the MRMS composite to match it, the legend shows the palette's own stops and units, a file with a directive OpenRadar does not read says which one it skipped, and clearing the palette returns the built-in ramp.
   Complexity: M
-
-- [ ] P2: Lightning from MRMS NLDN density or GLM, never Blitzortung
-  Why: `radar.lightning/flashes/markers` default on with no source; Blitzortung's terms require approval and a private relay and forbid warning use.
-  Evidence: `noaa-mrms-pds` `NLDN_CG_005min_AvgDensity` (rotation-track cadence tables); StormDeck `src-tauri/src/lightning.rs` (GLM `GLM-L2-LCFA` from `noaa-goes19`, 2 MiB cap); blitzortung.org/en/contact.php; nowCOAST density explicitly "not for safety plans".
-  Touches: crates/openradar-providers (reuse mrms_grib), src-tauri/src/lightning.rs (port), overlay + legend, settings copy (replace "flashes/markers" with "density" and "flashes" as GLM points).
-  Acceptance: a 5-minute CG density raster renders with a legend and a "not a warning source" line; the GLM flash overlay updates every minute when enabled.
-  Complexity: L
 
 ### P3
 

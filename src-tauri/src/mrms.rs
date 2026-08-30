@@ -68,6 +68,7 @@ pub enum Sampling {
 }
 
 /// One MRMS product: where it lives in the bucket and how it is drawn.
+#[derive(Clone)]
 pub struct MrmsProduct {
     pub id: &'static str,
     pub folder: &'static str,
@@ -635,6 +636,12 @@ fn inverse_mercator_y(y: f64) -> f64 {
 /// Draws one slippy-map tile out of a decoded grid. Returns None when the tile
 /// holds nothing worth sending, which is most of the world.
 pub fn render_tile(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> Option<Vec<u8>> {
+    let pixels = tile_pixels(grid, entry, zoom, x, y)?;
+    encode_png(&pixels).ok()
+}
+
+/// The RGBA a tile comes out as, before it is encoded.
+pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> Option<Vec<u8>> {
     let scale = 2f64.powi(zoom as i32);
     if x as f64 >= scale || y as f64 >= scale {
         return None;
@@ -743,7 +750,7 @@ pub fn render_tile(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
     if !painted {
         return None;
     }
-    encode_png(&pixels).ok()
+    Some(pixels)
 }
 
 fn encode_png(pixels: &[u8]) -> Result<Vec<u8>, MrmsError> {
@@ -859,6 +866,18 @@ pub fn clear_caches() {
 mod tests {
     use super::*;
 
+    /// The grid cache, the tile cache, and the fetch counters are all shared,
+    /// so the live tests that touch them have to take turns. A panicking test
+    /// poisons this; the next one carries on rather than failing for a reason
+    /// that has nothing to do with it.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+    fn live_test() -> std::sync::MutexGuard<'static, ()> {
+        ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|held| held.into_inner())
+    }
+
     fn grid() -> Grid {
         // Four cells covering a degree, packed the way MRMS packs dBZ.
         Grid {
@@ -933,6 +952,7 @@ mod tests {
     #[test]
     #[ignore = "fetches a live grid from the MRMS archive"]
     fn decodes_and_draws_a_live_mrms_composite() {
+        let _turn = live_test();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -1034,6 +1054,7 @@ mod tests {
     #[test]
     #[ignore = "fetches a live grid from the MRMS archive"]
     fn serves_a_tile_the_way_the_map_asks_for_one() {
+        let _turn = live_test();
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -1202,6 +1223,7 @@ mod tests {
     #[test]
     #[ignore = "fetches a live grid from the MRMS archive"]
     fn a_screen_of_tiles_pays_for_the_grid_once() {
+        let _turn = live_test();
         use std::sync::atomic::Ordering;
 
         clear_caches();
@@ -1261,6 +1283,122 @@ mod tests {
         assert_eq!(again, tiles[0]);
     }
 
+    /// A five-minute lightning grid has a couple of hundred live cells in
+    /// twenty-four million. Asking each pixel what is under its centre draws an
+    /// empty map, so the sparse products walk the cells instead. Live, because
+    /// the sparseness is the point.
+    #[test]
+    #[ignore = "fetches a live grid from the MRMS archive"]
+    fn a_sparse_product_is_drawn_rather_than_missed() {
+        let _turn = live_test();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        // Rotation tracks hold an hour of shear, so there is nearly always
+        // something somewhere in the country to draw.
+        let entry = product_by_id("rotation").expect("the rotation product");
+        let frames = runtime
+            .block_on(mrms_frames("rotation".into(), 1))
+            .expect("MRMS publishes rotation tracks");
+        let key = frames.last().expect("a frame").key.clone();
+        runtime.block_on(grid_for(&key)).expect("the grid decodes");
+
+        let cache = CACHE.lock().expect("the cache");
+        let grid = &cache
+            .iter()
+            .find(|held| held.key == key)
+            .expect("the grid is cached")
+            .grid;
+
+        let live = (0..grid.rows)
+            .flat_map(|row| (0..grid.columns).map(move |column| (row, column)))
+            .filter(|(row, column)| grid.value(*row, *column) >= entry.floor)
+            .count();
+        assert!(live > 0, "no rotation anywhere in the country to draw");
+
+        // The same product drawn the other way, so the comparison does not
+        // depend on how busy the weather happens to be.
+        let by_pixel = MrmsProduct {
+            sampling: Sampling::Nearest,
+            ..*entry
+        };
+
+        // The country at zoom four, which is where a sparse product is easiest
+        // to lose.
+        let tiles: Vec<(u32, u32)> = (2..=5).flat_map(|x| (5..=6).map(move |y| (x, y))).collect();
+        let count = |product: &MrmsProduct| {
+            tiles
+                .iter()
+                .filter_map(|(x, y)| tile_pixels(grid, product, 4, *x, *y))
+                .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+                .sum::<usize>()
+        };
+        let walked = count(entry);
+        let sampled = count(&by_pixel);
+
+        println!("{live} live cells: {walked} pixels walking cells, {sampled} sampling pixels");
+        assert!(walked > 0, "{live} live cells and not one pixel drew any");
+        assert!(
+            walked > sampled,
+            "walking the cells drew {walked} pixels, sampling drew {sampled}"
+        );
+    }
+
+    /// The reason the sparse products walk their cells: one live cell in a
+    /// wide grid falls between pixel centres, and asking each pixel what is
+    /// under it draws nothing at all.
+    #[test]
+    fn a_lone_cell_is_drawn_rather_than_fallen_between_pixels() {
+        // A degree of grid at MRMS resolution, with a single live cell in it.
+        let mut samples = vec![0u16; 100 * 100];
+        samples[50 * 100 + 50] = 10_500;
+        let grid = Grid {
+            columns: 100,
+            rows: 100,
+            north: 42.0,
+            west: -95.0,
+            d_lat: 0.01,
+            d_lon: 0.01,
+            reference: -9990.0,
+            binary: 0,
+            decimal: 1,
+            samples,
+        };
+
+        let walking = product_by_id("mesh").expect("a sparse product");
+        let walking = MrmsProduct {
+            ramp: REFLECTIVITY_RAMP,
+            floor: 5.0,
+            sampling: Sampling::Cells,
+            ..*walking
+        };
+        let sampling = MrmsProduct {
+            sampling: Sampling::Nearest,
+            ..walking.clone()
+        };
+
+        // Zoom four over the plains: one pixel covers about forty grid cells,
+        // so a single live cell is a needle.
+        let painted = |product: &MrmsProduct| {
+            tile_pixels(&grid, product, 4, 3, 5)
+                .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+                .unwrap_or(0)
+        };
+
+        assert_eq!(
+            painted(&sampling),
+            0,
+            "the lone cell happened to sit under a pixel centre; move it"
+        );
+        assert_eq!(
+            painted(&walking),
+            1,
+            "walking the cells has to draw the one live cell, and only it"
+        );
+    }
+
     #[test]
     fn a_moment_names_the_object_it_was_published_in() {
         let entry = product_by_id("composite").expect("the composite product");
@@ -1317,6 +1455,25 @@ mod tests {
         for entry in &products {
             assert!(!entry.label.is_empty());
             assert!(!entry.stops.is_empty());
+        }
+    }
+
+    /// Which products walk their cells and which sample per pixel is not a
+    /// detail: a five-minute lightning grid sampled per pixel draws an empty
+    /// map, and a full reflectivity field walked cell by cell is slower for no
+    /// gain.
+    #[test]
+    fn every_product_is_drawn_the_way_its_data_is_shaped() {
+        let expected = [
+            ("composite", Sampling::Nearest),
+            ("rotation", Sampling::Cells),
+            ("mesh", Sampling::Cells),
+            ("lightning", Sampling::Cells),
+        ];
+        assert_eq!(expected.len(), PRODUCTS.len(), "a product has no verdict");
+        for (id, sampling) in expected {
+            let entry = product_by_id(id).unwrap_or_else(|| panic!("{id} is missing"));
+            assert_eq!(entry.sampling, sampling, "{id} is drawn the wrong way");
         }
     }
 

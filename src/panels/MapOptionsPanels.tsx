@@ -11,6 +11,7 @@ import {
   Satellite,
   Tornado,
   Waves,
+  Zap,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
@@ -136,6 +137,18 @@ const LAYER_OPTIONS: Array<{
     label: "Hail Size",
     detail: "MRMS maximum estimated hail size",
     icon: CloudHail,
+  },
+  {
+    key: "lightningDensity",
+    label: "Lightning Density",
+    detail: "MRMS cloud-to-ground flashes over the past five minutes",
+    icon: Zap,
+  },
+  {
+    key: "lightningFlashes",
+    label: "Lightning Flashes",
+    detail: "GOES-East total lightning, cloud flashes included",
+    icon: Zap,
   },
   {
     key: "customOverlay",

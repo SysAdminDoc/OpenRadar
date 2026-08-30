@@ -21,6 +21,7 @@ export const MRMS_LAYERS: Array<{
 }> = [
   { layer: "rotationTracks", product: "rotation" },
   { layer: "hail", product: "mesh" },
+  { layer: "lightningDensity", product: "lightning" },
 ];
 
 export interface MrmsLayer {

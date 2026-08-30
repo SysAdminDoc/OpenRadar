@@ -100,6 +100,8 @@ describe("settings normalization", () => {
       "customOverlay",
       "earthquakes",
       "hail",
+      "lightningDensity",
+      "lightningFlashes",
       "rotationTracks",
       "satellite",
       "tropical",
@@ -109,6 +111,8 @@ describe("settings normalization", () => {
     // The schema 1 file predates both MRMS switches, so they come back off.
     expect(settings.layers.rotationTracks).toBe(false);
     expect(settings.layers.hail).toBe(false);
+    expect(settings.layers.lightningDensity).toBe(false);
+    expect(settings.layers.lightningFlashes).toBe(false);
   });
 
   it("always returns four safe preset slots", () => {

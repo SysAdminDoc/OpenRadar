@@ -2330,3 +2330,12 @@ input[type="range"] {
   text-transform: none;
   letter-spacing: 0;
 }
+
+.product-legend--flashes small {
+  display: block;
+  max-width: 220px;
+  margin-top: 5px;
+  font-size: 9px;
+  line-height: 1.35;
+  color: var(--muted);
+}

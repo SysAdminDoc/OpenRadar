@@ -28,6 +28,7 @@ interface MapStageProps {
   /** One site's own sweep, drawn in place of the mosaic when it is set. */
   sweep: SweepImage | null;
   mrmsLayers: MrmsLayer[];
+  flashes: Record<string, unknown> | null;
   activeTool: ToolMode;
   dualPane: boolean;
   compareOffset: number;
@@ -55,6 +56,7 @@ export function MapStage({
   stormTrack,
   sweep,
   mrmsLayers,
+  flashes,
   activeTool,
   dualPane,
   compareOffset,
@@ -77,6 +79,7 @@ export function MapStage({
     stormTrack,
     sweep,
     mrmsLayers,
+    flashes,
     toolMode: activeTool,
   };
 

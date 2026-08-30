@@ -47,6 +47,10 @@ export interface LayerSettings {
   rotationTracks: boolean;
   /** MRMS maximum estimated hail size. */
   hail: boolean;
+  /** MRMS cloud-to-ground flash density over the past five minutes. */
+  lightningDensity: boolean;
+  /** GLM total-lightning flashes from GOES-East. */
+  lightningFlashes: boolean;
 }
 
 export interface WatchState {
@@ -106,6 +110,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     customOverlay: false,
     rotationTracks: false,
     hail: false,
+    lightningDensity: false,
+    lightningFlashes: false,
   },
   watch: {
     enabled: false,
@@ -300,6 +306,14 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.rotationTracks,
       ),
       hail: bool(layers.hail, DEFAULT_SETTINGS.layers.hail),
+      lightningDensity: bool(
+        layers.lightningDensity,
+        DEFAULT_SETTINGS.layers.lightningDensity,
+      ),
+      lightningFlashes: bool(
+        layers.lightningFlashes,
+        DEFAULT_SETTINGS.layers.lightningFlashes,
+      ),
     },
     watch: normalizeWatch(raw.watch),
     presets,
