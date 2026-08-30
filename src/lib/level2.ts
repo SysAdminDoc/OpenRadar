@@ -30,6 +30,8 @@ export function isLevel2Product(value: unknown): value is Level2ProductId {
 export interface SweepImage {
   station: string;
   siteName: string;
+  /** The product this sweep answers, as the panel asked for it. */
+  productId: Level2ProductId;
   product: string;
   unit: string;
   elevationDegrees: number;

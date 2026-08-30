@@ -23,6 +23,7 @@ async function fakeNativeSide(page: Page) {
         return {
           station,
           siteName: "Des Moines, IA",
+          productId: product,
           product: label,
           unit,
           elevationDegrees: tilts[Math.min(tilt, tilts.length - 1)],
@@ -48,7 +49,15 @@ async function fakeNativeSide(page: Page) {
           `http://${scheme}.localhost/${path}`,
         invoke: (command: string, args: Record<string, unknown>) => {
           calls.push({ command, args });
-          if (command === "level2_nearest_site") return Promise.resolve("KDMX");
+          if (command === "level2_nearest_site") {
+            // The real command answers nothing for a point no site can see,
+            // which is what the frontend has to cope with.
+            const longitude = Number(args.longitude);
+            return Promise.resolve(longitude < -70 ? "KDMX" : null);
+          }
+          if (command === "level2_sweep" && String(args.station) === "FAIL") {
+            return Promise.reject("the site did not answer");
+          }
           if (command === "level2_sweep") {
             return Promise.resolve(
               sweep(
@@ -173,4 +182,28 @@ test("turning single site off puts the mosaic back", async ({ page }) => {
 
   await expect(pane).not.toHaveAttribute("data-layer-stack", /sweep-layer/);
   await expect(pane).toHaveAttribute("data-mosaic-opacity", "0.70");
+});
+
+test("gives the map back when the view leaves every site's coverage", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await open(page, 9);
+  await expect(pane).toHaveAttribute("data-layer-stack", /sweep-layer/);
+  await expect(pane).toHaveAttribute("data-mosaic-opacity", "0.00");
+
+  // Bermuda, still zoomed in, but no NEXRAD site can see it. The last site's
+  // sweep must not stay on screen under a label naming a site a thousand
+  // miles away, and the mosaic has to come back.
+  await page.goto("/?testMode=1&lon=-64.8&lat=32.3&zoom=9&bearing=0&pitch=0");
+  await expect(pane).toBeVisible();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /sweep-layer/);
+  // Nothing of the old site is left on screen or in the legend. Out here the
+  // mosaics have nothing either, which is the honest answer for the middle of
+  // the Atlantic.
+  await expect(page.getByText(/KDMX/)).toBeHidden();
+  await expect(page.getByText("Composite Radar")).toBeVisible();
 });

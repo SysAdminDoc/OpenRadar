@@ -2320,3 +2320,13 @@ input[type="range"] {
   height: 9px;
   border-radius: 2px;
 }
+
+.product-legend strong em {
+  margin-left: 6px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}

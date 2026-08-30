@@ -6,7 +6,7 @@ import {
   canReplay,
   categoryLabel,
   loadStorms,
-  peakPoint,
+  replayFocus,
   searchStorms,
   trackColor,
   type Storm,
@@ -70,6 +70,11 @@ export function HistoryPanel({
   const selected = useMemo(
     () => storms?.find((storm) => storm.id === selectedId) ?? null,
     [selectedId, storms],
+  );
+  // What a replay would be about, which is what the note at the bottom names.
+  const focus = useMemo(
+    () => (selected && canReplay(selected) ? replayFocus(selected) : null),
+    [selected],
   );
 
   return (
@@ -142,8 +147,9 @@ export function HistoryPanel({
 
       {selected && !canReplay(selected) ? (
         <p className="inline-error">
-          The radar archive starts in {ARCHIVE_FIRST_YEAR}, so there is nothing
-          to replay for this one. The track is still on the map.
+          {selected.year < ARCHIVE_FIRST_YEAR
+            ? `The radar archive starts in ${ARCHIVE_FIRST_YEAR}, so there is nothing to replay for this one. The track is still on the map.`
+            : "This storm stayed outside the national radar mosaic, so there is nothing to replay. The track is still on the map."}
         </p>
       ) : null}
 
@@ -181,8 +187,8 @@ export function HistoryPanel({
         {storms
           ? `${storms.length} storms back to 1851, from the NOAA HURDAT2 best track.`
           : "Loading the best track archive."}{" "}
-        {selected && canReplay(selected)
-          ? `A replay covers three hours either side of the peak on ${dateLabel(peakPoint(selected)[0])}, from the Iowa State radar archive.`
+        {focus
+          ? `A replay covers three hours either side of ${focus.landfall ? "landfall" : "its closest approach"} on ${dateLabel(focus.point[0])}, from the Iowa State radar archive.`
           : "Replays come from the Iowa State radar archive."}
       </p>
     </PanelShell>

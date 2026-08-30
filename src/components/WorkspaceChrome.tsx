@@ -12,6 +12,13 @@ import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 /** Past this the loop is old enough that the timeline should say so. */
 const STALE_MINUTES = 20;
 
+/** How old a grid is, so a layer that has stopped updating cannot pass for live. */
+function gridAge(time: number, nowMs: number): string {
+  const minutes = Math.max(0, Math.floor(nowMs / 60_000 - time / 60));
+  if (minutes < 1) return "just in";
+  return `${minutes} min old`;
+}
+
 const TOOL_LABELS: Record<Exclude<ToolMode, null>, string> = {
   draw: "Draw",
   range: "Range",
@@ -26,6 +33,8 @@ interface WorkspaceChromeProps {
   sweep: SweepImage | null;
   /** MRMS products drawn over the radar, each with its own scale. */
   mrmsLayers: MrmsLayer[];
+  /** Milliseconds, ticking once a minute, for the freshness readouts. */
+  clock: number;
   radarAgeMinutes: number | null;
   cursor: GeoPoint | null;
   activeTool: ToolMode;
@@ -56,6 +65,7 @@ export function WorkspaceChrome({
   frames,
   sweep,
   mrmsLayers,
+  clock,
   radarAgeMinutes,
   cursor,
   activeTool,
@@ -130,6 +140,7 @@ export function WorkspaceChrome({
               <strong>
                 {layer.label}
                 {layer.unit ? ` (${layer.unit})` : ""}
+                <em>{gridAge(layer.time, clock)}</em>
               </strong>
               <ol>
                 {layer.stops.map(([value, color]) => (

@@ -63,6 +63,8 @@ export interface MapViewportHandle {
   zoomOut: () => void;
   resetNorth: () => void;
   flyTo: (camera: CameraState) => void;
+  /** Frames a box, choosing the zoom that fits it rather than a fixed one. */
+  fitBounds: (bounds: OverlayBounds) => void;
   syncCamera: (camera: CameraState) => void;
   clearTools: () => void;
   camera: () => CameraState | null;
@@ -876,6 +878,21 @@ function MapViewportInner(
       } finally {
         suppressCameraEventsRef.current -= 1;
       }
+    },
+    fitBounds: (bounds) => {
+      const map = mapRef.current;
+      if (!map) return;
+      // A box that crosses the date line is written with its east edge west of
+      // its west edge. MapLibre reads it correctly if the east edge is carried
+      // past 180 rather than wrapped back round.
+      const east = bounds.east < bounds.west ? bounds.east + 360 : bounds.east;
+      map.fitBounds(
+        [
+          [bounds.west, bounds.south],
+          [east, bounds.north],
+        ],
+        { padding: 80, maxZoom: 9, duration: 900 },
+      );
     },
     flyTo: (nextCamera) =>
       mapRef.current?.flyTo({

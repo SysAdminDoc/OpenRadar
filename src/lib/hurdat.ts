@@ -8,8 +8,22 @@ const ARCHIVE_HALF_WINDOW_MINUTES = 180;
 const ARCHIVE_ATTRIBUTION =
   '<a href="https://mesonet.agron.iastate.edu/">Iowa State Mesonet NEXRAD archive</a>';
 
-/** One track point: time, latitude, longitude, wind in knots, status index. */
-export type TrackPoint = [number, number, number, number, number];
+/**
+ * One track point: time, latitude, longitude, wind in knots, status index, and
+ * whether HURDAT2 marked it as a landfall.
+ */
+export type TrackPoint = [number, number, number, number, number, number];
+
+/**
+ * What the archive mosaic actually covers. A storm with no fix in here has no
+ * radar to replay, however strong it was.
+ */
+export const RADAR_DOMAIN = {
+  west: -127,
+  south: 23.5,
+  east: -65,
+  north: 50,
+};
 
 interface StoredStorm {
   i: string;
@@ -106,12 +120,32 @@ export function searchStorms(storms: Storm[], query: string): Storm[] {
     .slice(0, 40);
 }
 
+/**
+ * A track that crosses the date line has to be drawn as separate pieces. Left
+ * as one line, a step from 179.9 to -179.9 is drawn the long way round and
+ * stripes the whole map.
+ */
+export function trackSegments(track: TrackPoint[]): number[][][] {
+  const segments: number[][][] = [];
+  let current: number[][] = [];
+  for (const [index, point] of track.entries()) {
+    const previous = track[index - 1];
+    if (previous && Math.abs(point[2] - previous[2]) > 180) {
+      if (current.length > 1) segments.push(current);
+      current = [];
+    }
+    current.push([point[2], point[1]]);
+  }
+  if (current.length > 1) segments.push(current);
+  return segments;
+}
+
 export function stormTrack(storm: Storm): Record<string, unknown> {
   const line = {
     type: "Feature",
     geometry: {
-      type: "LineString",
-      coordinates: storm.track.map((point) => [point[2], point[1]]),
+      type: "MultiLineString",
+      coordinates: trackSegments(storm.track),
     },
     properties: { kind: "line", color: "#e2e8f0", width: 2 },
   };
@@ -152,18 +186,53 @@ export function categoryLabel(windKt: number): string {
 }
 
 export function peakPoint(storm: Storm): TrackPoint {
-  return storm.track.reduce(
-    (peak, point) => (point[3] > peak[3] ? point : peak),
-    storm.track[0],
+  return strongest(storm.track) ?? storm.track[0];
+}
+
+function strongest(points: TrackPoint[]): TrackPoint | null {
+  if (!points.length) return null;
+  return points.reduce((best, point) => (point[3] > best[3] ? point : best));
+}
+
+function withinRadar(point: TrackPoint): boolean {
+  return (
+    point[1] >= RADAR_DOMAIN.south &&
+    point[1] <= RADAR_DOMAIN.north &&
+    point[2] >= RADAR_DOMAIN.west &&
+    point[2] <= RADAR_DOMAIN.east
   );
+}
+
+export interface ReplayFocus {
+  point: TrackPoint;
+  /** True when the moment is a landfall rather than a closest approach. */
+  landfall: boolean;
+}
+
+/**
+ * The moment a replay is about. A landfall is what anyone looking a storm up
+ * wants to watch, and it is rarely the peak: Ian was strongest six hours out
+ * in the Gulf and came ashore later and weaker. Where a storm never came
+ * ashore, the strongest fix the radar could see is the next best thing.
+ */
+export function replayFocus(storm: Storm): ReplayFocus | null {
+  const reachable = storm.track.filter(withinRadar);
+  if (!reachable.length) return null;
+  const landfalls = reachable.filter((point) => point[5] === 1);
+  const point = strongest(landfalls.length ? landfalls : reachable);
+  return point ? { point, landfall: landfalls.length > 0 } : null;
 }
 
 function archiveStamp(time: number): string {
   return new Date(time * 1000).toISOString().replace(/\D/g, "").slice(0, 12);
 }
 
+/**
+ * The archive only holds the national mosaic, so a storm that stayed out of
+ * its reach has nothing to play even when the years line up.
+ */
 export function canReplay(storm: Storm): boolean {
-  return storm.year >= ARCHIVE_FIRST_YEAR;
+  return storm.year >= ARCHIVE_FIRST_YEAR && replayFocus(storm) !== null;
 }
 
 /**
@@ -171,8 +240,9 @@ export function canReplay(storm: Storm): boolean {
  * looking a storm up wants to watch.
  */
 export function archiveFrames(storm: Storm): RadarFrame[] {
-  if (!canReplay(storm)) return [];
-  const centre = peakPoint(storm)[0];
+  const focus = storm.year >= ARCHIVE_FIRST_YEAR ? replayFocus(storm) : null;
+  if (!focus) return [];
+  const centre = focus.point[0];
   const step = ARCHIVE_STEP_MINUTES * 60;
   const from =
     Math.floor((centre - ARCHIVE_HALF_WINDOW_MINUTES * 60) / step) * step;
@@ -190,4 +260,37 @@ export function archiveFrames(storm: Storm): RadarFrame[] {
     });
   }
   return frames;
+}
+
+/**
+ * The box a track fits in. A storm that crosses the date line is measured the
+ * short way round, so the box comes back with its east edge west of its west
+ * edge rather than wrapping the whole world.
+ */
+export function trackBounds(track: TrackPoint[]): {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+} {
+  const lats = track.map((point) => point[1]);
+  const lons = track.map((point) => point[2]);
+  const south = Math.min(...lats);
+  const north = Math.max(...lats);
+
+  const plain = { west: Math.min(...lons), east: Math.max(...lons) };
+  // Measured again with everything on one side of the date line. Whichever
+  // reading is narrower is the one that describes the storm.
+  const shifted = lons.map((lon) => (lon < 0 ? lon + 360 : lon));
+  const across = { west: Math.min(...shifted), east: Math.max(...shifted) };
+
+  if (across.east - across.west < plain.east - plain.west) {
+    return {
+      west: across.west > 180 ? across.west - 360 : across.west,
+      east: across.east > 180 ? across.east - 360 : across.east,
+      south,
+      north,
+    };
+  }
+  return { ...plain, south, north };
 }

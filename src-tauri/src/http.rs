@@ -28,6 +28,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "gibs.earthdata.nasa.gov",
     "unidata-nexrad-level2.s3.amazonaws.com",
     "noaa-mrms-pds.s3.amazonaws.com",
+    "noaa-goes19.s3.amazonaws.com",
 ];
 
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;

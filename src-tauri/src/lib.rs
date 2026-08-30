@@ -3,6 +3,7 @@ mod http;
 
 mod exports;
 mod level2;
+mod lightning;
 mod mrms;
 
 use tauri::Manager;
@@ -70,7 +71,8 @@ pub fn run() {
             level2::level2_sweep,
             level2::level2_nearest_site,
             mrms::mrms_frames,
-            mrms::mrms_products
+            mrms::mrms_products,
+            lightning::lightning_flashes
         ])
         .setup(|_app| {
             // Development builds are not installed, so the scheme has to be

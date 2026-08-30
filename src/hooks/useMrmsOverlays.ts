@@ -28,6 +28,7 @@ export interface MrmsLayer {
   label: string;
   unit: string;
   tileUrl: string;
+  /** When the grid was valid, so the legend can say how old it is. */
   time: number;
   stops: Array<[number, string]>;
 }
@@ -99,10 +100,10 @@ export function useMrmsOverlays(options: {
           }),
         );
         if (!open) return;
-        setTimes((current) => ({
-          ...current,
-          ...Object.fromEntries(found.filter(([, time]) => time > 0)),
-        }));
+        // Only what is switched on now. A product that was turned off and back
+        // on must not draw the grid it had an hour ago while it waits for a
+        // fresh one.
+        setTimes(Object.fromEntries(found.filter(([, time]) => time > 0)));
         setError(null);
       } catch (failure: unknown) {
         if (!open) return;
