@@ -2339,3 +2339,25 @@ input[type="range"] {
   line-height: 1.35;
   color: var(--muted);
 }
+
+.legend-ramp--rain-rate {
+  /* ECCC draws rain rate on a log axis, and so does the scale beside it, or
+     the labels sit where the colours are not. */
+  background: linear-gradient(
+    90deg,
+    #98cbfe 0%,
+    #00a5eb 30.3%,
+    #00f14c 39.4%,
+    #00ba00 48.5%,
+    #008100 57.7%,
+    #8ab800 63%,
+    #fedc00 66.8%,
+    #fea500 72.1%,
+    #fe6c00 75.9%,
+    #fe0400 81.8%,
+    #fa049b 85%,
+    #922cc5 90.9%,
+    #590085 93.8%,
+    #31004a 100%
+  );
+}

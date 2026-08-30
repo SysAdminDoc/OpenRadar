@@ -16,9 +16,16 @@ use serde::Serialize;
 use crate::http;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
-/// The whole grid decoded as scaled integers is about fifty megabytes, so only
-/// a couple are ever held. Drawn tiles are what the loop replays from.
-const CACHE_CAPACITY: usize = 2;
+/// Every product on the map keeps one grid live at a time, and the composite
+/// loop wants the next frame as well. Fewer slots than products means every
+/// tile evicts the grid the next tile needs, and one screen re-downloads the
+/// country once per layer.
+const CACHE_CAPACITY: usize = PRODUCTS.len() + 1;
+/// A decoded grid is columns × rows u16, which is fifty megabytes for the
+/// published CONUS domain. Checked when the crate is compiled.
+const GRID_BYTES: usize = 7000 * 3500 * 2;
+const CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
+const _: () = assert!(CACHE_CAPACITY * GRID_BYTES < CACHE_BUDGET_BYTES);
 /// A drawn tile is a few kilobytes, so thousands of them cost less than one
 /// grid. This is what makes a loop replay cheap: the second pass over a frame
 /// never decodes anything.
@@ -633,14 +640,9 @@ fn inverse_mercator_y(y: f64) -> f64 {
     (2.0 * y.exp().atan() - std::f64::consts::FRAC_PI_2).to_degrees()
 }
 
-/// Draws one slippy-map tile out of a decoded grid. Returns None when the tile
-/// holds nothing worth sending, which is most of the world.
-pub fn render_tile(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> Option<Vec<u8>> {
-    let pixels = tile_pixels(grid, entry, zoom, x, y)?;
-    encode_png(&pixels).ok()
-}
-
-/// The RGBA a tile comes out as, before it is encoded.
+/// Draws one slippy-map tile out of a decoded grid, as the RGBA it becomes
+/// before it is encoded. None when the tile holds nothing worth sending,
+/// which is most of the world.
 pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> Option<Vec<u8>> {
     let scale = 2f64.powi(zoom as i32);
     if x as f64 >= scale || y as f64 >= scale {
@@ -697,12 +699,14 @@ pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
         Sampling::Cells => {
             // The grid rows and columns this tile can see, so a tile over one
             // state never walks the whole country.
-            let first_row = grid_row_of(grid, inverse_mercator_y(top)).max(0) as usize;
-            let last_row = grid_row_of(grid, inverse_mercator_y(bottom))
+            // One cell either side, so a cell whose centre is just outside the
+            // tile but whose body reaches into it is still drawn.
+            let first_row = (grid_row_of(grid, inverse_mercator_y(top)) - 1).max(0) as usize;
+            let last_row = (grid_row_of(grid, inverse_mercator_y(bottom)) + 1)
                 .min(grid.rows as i64 - 1)
                 .max(0) as usize;
-            let first_column = grid_column_of(grid, left).max(0) as usize;
-            let last_column = grid_column_of(grid, right)
+            let first_column = (grid_column_of(grid, left) - 1).max(0) as usize;
+            let last_column = (grid_column_of(grid, right) + 1)
                 .min(grid.columns as i64 - 1)
                 .max(0) as usize;
             if first_row > last_row || first_column > last_column {
@@ -710,32 +714,54 @@ pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
             }
 
             // Several cells can land on one pixel at a wide zoom, and the
-            // strongest of them is the one worth seeing.
+            // strongest of them is the one worth seeing. Zoomed in the
+            // opposite is true: one cell covers many pixels, and painting a
+            // single one of them turns a solid hail swath into a dot lattice.
+            // Each cell is drawn over the pixels it actually covers, so both
+            // ends behave.
             let mut strongest = vec![f32::NEG_INFINITY; TILE_SIZE * TILE_SIZE];
+            let to_row =
+                |latitude: f64| ((top - mercator_of(latitude)) / (top - bottom)) * TILE_SIZE as f64;
+            let to_column =
+                |longitude: f64| ((longitude - left) / (right - left)) * TILE_SIZE as f64;
+
             for grid_row in first_row..=last_row {
-                let latitude = grid.north - grid.d_lat * grid_row as f64;
-                let mercator = mercator_of(latitude);
-                if mercator > top || mercator < bottom {
+                // The cell spans half a step either side of its centre.
+                let north_edge = grid.north - grid.d_lat * (grid_row as f64 - 0.5);
+                let south_edge = north_edge - grid.d_lat;
+                let row_from = to_row(north_edge).floor().max(0.0) as usize;
+                let row_to = (to_row(south_edge).ceil() as i64 - 1)
+                    .min(TILE_SIZE as i64 - 1)
+                    .max(-1);
+                if row_to < row_from as i64 {
                     continue;
                 }
-                let row = (((top - mercator) / (top - bottom)) * TILE_SIZE as f64) as usize;
-                if row >= TILE_SIZE {
-                    continue;
-                }
+
                 for grid_column in first_column..=last_column {
                     let value = grid.value(grid_row, grid_column);
                     if !value.is_finite() || value < entry.floor {
                         continue;
                     }
-                    let longitude = grid.west + grid.d_lon * grid_column as f64;
-                    let column =
-                        (((longitude - left) / (right - left)) * TILE_SIZE as f64) as usize;
-                    if column >= TILE_SIZE {
+                    let west_edge = grid.west + grid.d_lon * (grid_column as f64 - 0.5);
+                    let east_edge = west_edge + grid.d_lon;
+                    // A cell whose centre sits west of this tile belongs to the
+                    // tile before it, and without this the cast saturates and
+                    // draws it down column zero.
+                    let column_from = to_column(west_edge).floor();
+                    let column_to = to_column(east_edge).ceil() - 1.0;
+                    if column_to < 0.0 || column_from > TILE_SIZE as f64 - 1.0 {
                         continue;
                     }
-                    let at = row * TILE_SIZE + column;
-                    if value > strongest[at] {
-                        strongest[at] = value;
+                    let column_from = column_from.max(0.0) as usize;
+                    let column_to = (column_to as i64).min(TILE_SIZE as i64 - 1) as usize;
+
+                    for row in row_from..=(row_to as usize) {
+                        for column in column_from..=column_to {
+                            let at = row * TILE_SIZE + column;
+                            if value > strongest[at] {
+                                strongest[at] = value;
+                            }
+                        }
                     }
                 }
             }
@@ -838,9 +864,15 @@ pub fn tile_from_cache(
     x: u32,
     y: u32,
 ) -> Option<Vec<u8>> {
-    let cache = CACHE.lock().ok()?;
-    let held = cache.iter().find(|held| held.key == key)?;
-    render_tile(&held.grid, entry, zoom, x, y)
+    // The lock is held for the drawing, which reads the grid, and dropped
+    // before the encode, which does not. Holding it across the encode
+    // serialises every tile on the screen behind the slowest one.
+    let pixels = {
+        let cache = CACHE.lock().ok()?;
+        let held = cache.iter().find(|held| held.key == key)?;
+        tile_pixels(&held.grid, entry, zoom, x, y)?
+    };
+    encode_png(&pixels).ok()
 }
 
 /// Drops the decoded grids but keeps the drawn tiles, so a test can prove a
@@ -1207,14 +1239,14 @@ mod tests {
         // Zoom 4 tile 3/5 covers the middle of the country, so this tile does
         // overlap the grid; it simply has nothing worth drawing.
         assert!(
-            render_tile(&quiet, entry, 4, 3, 5).is_none(),
+            tile_pixels(&quiet, entry, 4, 3, 5).is_none(),
             "a tile of clear air should not be sent"
         );
 
         // The same tile with one gate of real rain in it does get sent.
         let mut wet = quiet;
         wet.samples = vec![10490, 10490, 10490, 10490];
-        assert!(render_tile(&wet, entry, 4, 3, 5).is_some());
+        assert!(tile_pixels(&wet, entry, 4, 3, 5).is_some());
     }
 
     /// One screen is a dozen tiles arriving at once, all wanting the same
@@ -1399,6 +1431,123 @@ mod tests {
         );
     }
 
+    /// A block of live cells over the plains, for the zoom tests below.
+    fn solid_block() -> Grid {
+        Grid {
+            columns: 100,
+            rows: 100,
+            north: 41.5,
+            west: -94.5,
+            d_lat: 0.01,
+            d_lon: 0.01,
+            reference: -9990.0,
+            binary: 0,
+            decimal: 1,
+            samples: vec![10_500; 100 * 100],
+        }
+    }
+
+    fn painted_count(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> usize {
+        tile_pixels(grid, entry, zoom, x, y)
+            .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+            .unwrap_or(0)
+    }
+
+    /// The tile covering a point at a zoom, which is how a viewer gets there.
+    fn tile_of(latitude: f64, longitude: f64, zoom: u32) -> (u32, u32) {
+        let scale = 2f64.powi(zoom as i32);
+        let x = ((longitude + 180.0) / 360.0 * scale) as u32;
+        let mercator = mercator_of(latitude);
+        let y = ((1.0 - mercator / std::f64::consts::PI) / 2.0 * scale) as u32;
+        (x, y)
+    }
+
+    /// Painting one pixel per cell only works while a cell is smaller than a
+    /// pixel. Zoomed in, a cell is several pixels across, and a solid swath
+    /// drawn a pixel at a time comes out as a lattice of dots with almost
+    /// nothing between them.
+    #[test]
+    fn a_solid_field_stays_solid_all_the_way_in() {
+        let grid = solid_block();
+        let entry = product_by_id("mesh").expect("a sparse product");
+        let entry = MrmsProduct {
+            ramp: REFLECTIVITY_RAMP,
+            floor: 5.0,
+            sampling: Sampling::Cells,
+            ..*entry
+        };
+
+        for zoom in [6u32, 8, 9, 10] {
+            let (x, y) = tile_of(41.0, -94.0, zoom);
+            let walked = painted_count(&grid, &entry, zoom, x, y);
+            let sampled = painted_count(
+                &grid,
+                &MrmsProduct {
+                    sampling: Sampling::Nearest,
+                    ..entry.clone()
+                },
+                zoom,
+                x,
+                y,
+            );
+            assert!(
+                walked >= sampled,
+                "at zoom {zoom} walking the cells drew {walked} pixels and sampling drew {sampled}"
+            );
+        }
+
+        // Zoom ten is the source's own maximum and a cell is seven pixels
+        // across there, so the field covers the whole tile.
+        let (x, y) = tile_of(41.0, -94.0, 10);
+        let deep = painted_count(&grid, &entry, 10, x, y);
+        assert!(
+            deep > TILE_SIZE * TILE_SIZE / 2,
+            "a solid field covered only {deep} of {} pixels at zoom ten",
+            TILE_SIZE * TILE_SIZE
+        );
+    }
+
+    /// A cell whose centre sits west of a tile belongs to the tile before it.
+    /// Casting a negative offset to an index saturates to zero, which draws a
+    /// stripe of somebody else's weather down the left edge.
+    #[test]
+    fn a_cell_west_of_a_tile_is_not_drawn_down_its_left_edge() {
+        let entry = product_by_id("mesh").expect("a sparse product");
+        let entry = MrmsProduct {
+            ramp: REFLECTIVITY_RAMP,
+            floor: 5.0,
+            sampling: Sampling::Cells,
+            ..*entry
+        };
+
+        let zoom = 10u32;
+        let (x, y) = tile_of(41.0, -94.0, zoom);
+        let scale = 2f64.powi(zoom as i32);
+        let left = (x as f64 / scale) * 360.0 - 180.0;
+
+        // One cell, two whole cells west of this tile's left edge.
+        let grid = Grid {
+            columns: 1,
+            rows: 1,
+            north: 41.0,
+            west: left - 0.02,
+            d_lat: 0.01,
+            d_lon: 0.01,
+            reference: -9990.0,
+            binary: 0,
+            decimal: 1,
+            samples: vec![10_500],
+        };
+
+        assert_eq!(
+            painted_count(&grid, &entry, zoom, x, y),
+            0,
+            "a cell west of the tile was drawn inside it"
+        );
+        // And it is drawn on the tile it does belong to.
+        assert!(painted_count(&grid, &entry, zoom, x - 1, y) > 0);
+    }
+
     #[test]
     fn a_moment_names_the_object_it_was_published_in() {
         let entry = product_by_id("composite").expect("the composite product");
@@ -1462,6 +1611,50 @@ mod tests {
     /// detail: a five-minute lightning grid sampled per pixel draws an empty
     /// map, and a full reflectivity field walked cell by cell is slower for no
     /// gain.
+    /// Every product on the map keeps one grid live. Fewer slots than that and
+    /// each tile evicts the grid the next tile wants, so one screen downloads
+    /// and decodes the whole country once per layer.
+    #[test]
+    fn the_cache_holds_every_product_at_once() {
+        assert!(
+            CACHE_CAPACITY > PRODUCTS.len(),
+            "{} slots for {} products leaves nothing for the next frame",
+            CACHE_CAPACITY,
+            PRODUCTS.len()
+        );
+
+        clear_caches();
+        let grid = || Grid {
+            columns: 1,
+            rows: 1,
+            north: 41.0,
+            west: -94.0,
+            d_lat: 0.01,
+            d_lon: 0.01,
+            reference: -9990.0,
+            binary: 0,
+            decimal: 1,
+            samples: vec![10_500],
+        };
+        // One grid per product, as a screen with every layer on would have.
+        for entry in PRODUCTS {
+            if let Ok(mut cache) = CACHE.lock() {
+                cache.push_back(CachedGrid {
+                    key: entry.id.to_string(),
+                    grid: grid(),
+                });
+            }
+        }
+        for entry in PRODUCTS {
+            assert!(
+                is_cached(entry.id),
+                "{}'s grid was evicted before the screen was drawn",
+                entry.id
+            );
+        }
+        clear_caches();
+    }
+
     #[test]
     fn every_product_is_drawn_the_way_its_data_is_shaped() {
         let expected = [
@@ -1493,9 +1686,9 @@ mod tests {
         let grid = grid();
         let entry = product_by_id("composite").expect("the composite product");
         // Zoom 4 tile over western Europe, nowhere near the grid.
-        assert!(render_tile(&grid, entry, 4, 8, 5).is_none());
+        assert!(tile_pixels(&grid, entry, 4, 8, 5).is_none());
         // A tile index that does not exist at its zoom.
-        assert!(render_tile(&grid, entry, 1, 4, 0).is_none());
+        assert!(tile_pixels(&grid, entry, 1, 4, 0).is_none());
     }
 
     #[test]

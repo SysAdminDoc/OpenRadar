@@ -72,13 +72,6 @@
   Acceptance: winds animate on the globe at 60 fps on the dev GPU with a model/init banner; disabled automatically under reduced motion.
   Complexity: L
 
-- [ ] P3: Canada radar via ECCC GeoMet and outside-CONUS fallback policy
-  Why: the README promises global navigation; RainViewer is now personal-use; GeoMet is keyless with a 6-minute 1 km composite.
-  Evidence: `https://geo.weather.gc.ca/geomet` layer `RADAR_1KM_RRAI` (mm/h, 3 h retained, no batch retrieval) in StormviewRadar CHANGELOG 2026-08-12.
-  Touches: src/lib/providers/geomet.ts, coverage bounds logic, legend in mm/h, CSP.
-  Acceptance: viewports over Canada show GeoMet frames with the licence attribution and mm/h legend; only displayed frames are requested.
-  Complexity: M
-
 - [ ] P3: Offline last-view cache of the app shell, last radar frames, and alert polygons
   Why: StormviewRadar and HookEcho ship offline last view; a desktop app that opens to a blank map without network is worse than the Store app.
   Evidence: StormviewRadar README "Offline Last View"; StormDeck `persistent_http_cache.rs` (versioned atomic disk cache, 2,048 entries / 256 MiB).

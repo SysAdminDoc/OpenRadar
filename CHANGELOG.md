@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Canada has radar now. The American mosaics stop at the border, so a Canadian view used to fall through to a feed licensed for personal use only. Environment and Climate Change Canada publishes its own one kilometre composite every six minutes, and that is what the map shows over Canada, with three hours of it to scrub through. It measures rain rate in millimetres an hour rather than reflectivity, so the scale beside it changes to match rather than describing the wrong thing.
+
 - A Commands button opens one list with every layer, radar product, map type, panel, and tool in it. Type what you call the thing rather than what it is labelled: meso finds rotation tracks, mesh finds hail size, debris finds correlation coefficient. Switches show whether they are already on, so you are not toggling something to find out.
 
 - Two lightning layers, from the two things that actually watch for it. Lightning Density is the national grid of cloud-to-ground flashes over the past five minutes. Lightning Flashes is what the GOES-East satellite sees, cloud flashes included, with the newest drawn brightest so you can tell which way a storm is moving. Neither is a strike report, and the legend says so.

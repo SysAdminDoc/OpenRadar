@@ -145,15 +145,20 @@ if (!publish) {
 const assets = fs
   .readdirSync(stageDir)
   .map((name) => path.join(stageDir, name));
+// cmd.exe reads only the first line of a command, and gh is a batch file on
+// Windows, so multi-line notes passed as an argument are silently cut after
+// the first bullet. A file has no such problem.
+const notesPath = path.join(stageDir, "release-notes.md");
+fs.writeFileSync(notesPath, `${notes}\n`);
 run("gh", [
   "release",
   "create",
   tag,
-  ...assets,
+  ...assets.filter((asset) => asset !== notesPath),
   "--title",
   `OpenRadar ${tag}`,
-  "--notes",
-  notes,
+  "--notes-file",
+  notesPath,
 ]);
 console.log(`\nPublished ${tag}.`);
 

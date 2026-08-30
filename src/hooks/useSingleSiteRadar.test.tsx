@@ -196,3 +196,36 @@ describe("a refresh that fails", () => {
     }
   });
 });
+
+describe("moving between sites", () => {
+  it("does not answer for the new place with the old place's site", async () => {
+    let settle: ((site: string) => void) | null = null;
+    const { result, rerender } = renderHook(
+      (props: { center: [number, number] }) =>
+        useSingleSiteRadar(options({ center: props.center })),
+      { initialProps: { center: [-93.7, 41.7] as [number, number] } },
+    );
+
+    await waitFor(() => expect(result.current.station).toBe("KDMX"));
+
+    // Oklahoma. The answer is slow, which is what a cold command call is.
+    nearestSite.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        }),
+    );
+    rerender({ center: [-97.5, 35.5] });
+
+    // KDMX was resolved for Iowa. Naming it over Oklahoma, and fetching its
+    // sweep, is answering a question nobody asked.
+    expect(result.current.station).toBeNull();
+    expect(result.current.sweep).toBeNull();
+
+    await act(async () => {
+      settle?.("KTLX");
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.station).toBe("KTLX"));
+  });
+});

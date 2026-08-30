@@ -27,9 +27,11 @@ test("draws a searched storm's track in its intensity colours", async ({
   // The best track reaches the map as a line and one point per fix.
   await expect(pane).toHaveAttribute("data-layer-stack", /track-line/);
   await expect(pane).toHaveAttribute("data-layer-stack", /track-points/);
+  // The published figure. Counting the off-hour landfall fixes as if they
+  // were synoptic observations put this at 17.96.
   await expect(page.locator("[data-history-ace]")).toHaveAttribute(
     "data-history-ace",
-    "17.96",
+    "17.47",
   );
   await expect(page.getByText(/Category 5 · 140 kt peak/)).toBeVisible();
 
@@ -84,8 +86,14 @@ test("plays the archive radar around the peak and gives the map back", async ({
   await page.getByRole("button", { name: /IAN 2022/ }).click();
   await page.getByRole("button", { name: /Replay radar/ }).click();
 
+  // The replay is about the landfall, not the peak seven hours before it out
+  // in the Gulf, and the toast says which.
   await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
-  // Three hours either side of the peak, every quarter hour.
+  await expect(page.getByText(/Archive radar around landfall/)).toBeVisible();
+  await expect(
+    page.getByText(/three hours either side of landfall on Sep 28, 2022/),
+  ).toBeVisible();
+  // Three hours either side of it, every quarter hour.
   await expect(page.getByText(/of 25 radar frames/)).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Iowa State radar archive" }),
@@ -98,9 +106,18 @@ test("plays the archive radar around the peak and gives the map back", async ({
       timeout: 15_000,
     })
     .toBeGreaterThan(0);
-  expect(tiles.some((url) => /USCOMP-N0Q-2022092[89]\d{4}/.test(url))).toBe(
-    true,
-  );
+  // Centred on the 19:05Z landfall, so the window runs 16:00Z to 22:00Z. A
+  // replay centred on the noon peak would run 09:00Z to 15:00Z and stop before
+  // the storm ever reached Florida. Only the frames the playhead has reached
+  // are fetched, so this checks where they fall rather than which ones came.
+  const stamps = tiles
+    .map((url) => url.match(/USCOMP-N0Q-(\d{12})/)?.[1])
+    .filter((stamp): stamp is string => Boolean(stamp));
+  expect(stamps.length).toBeGreaterThan(0);
+  expect(stamps).toContain("202209281900");
+  expect(
+    stamps.every((stamp) => stamp >= "202209281600" && stamp <= "202209282200"),
+  ).toBe(true);
 
   await page.getByRole("button", { name: /Live radar/ }).click();
   await expect(
@@ -118,6 +135,15 @@ test("covers the Pacific and says when a storm predates the radar archive", asyn
   await findStorm(page, "Andrew 1992");
   await page.getByRole("button", { name: /ANDREW 1992/ }).click();
   await expect(page.getByText(/radar archive starts in 2003/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Replay radar/ })).toBeHidden();
+
+  // Hilary is recent enough but never came within reach of the mosaic, so it
+  // is offered no replay either, and for a different reason.
+  await findStorm(page, "Hilary 2023");
+  await page.getByRole("button", { name: /HILARY 2023/ }).click();
+  await expect(
+    page.getByText(/stayed outside the national radar mosaic/),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: /Replay radar/ })).toBeHidden();
   // The track still draws; only the replay is unavailable.
   await expect(

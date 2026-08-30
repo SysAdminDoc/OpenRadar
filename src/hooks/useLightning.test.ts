@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { flashPoints, type FlashWindow } from "./useLightning";
 
 const NEWEST = 1_788_083_202;
@@ -9,6 +9,8 @@ function window_(overrides: Partial<FlashWindow> = {}): FlashWindow {
     windowMinutes: 5,
     observed: NEWEST,
     trimmed: false,
+    filesRead: 15,
+    filesExpected: 15,
     flashes: [
       // Five minutes old, the far end of the window.
       {
@@ -89,5 +91,45 @@ describe("drawing a flash window", () => {
     expect(points.features.every((point) => point.properties.age === 0)).toBe(
       true,
     );
+  });
+});
+
+describe("a window that has stopped being current", () => {
+  it("is not drawn as if it were", async () => {
+    const { renderHook, waitFor, cleanup } =
+      await import("@testing-library/react");
+    const { useLightning } = await import("./useLightning");
+    const invoke = vi.fn().mockResolvedValue(window_());
+    vi.stubGlobal("window", window);
+    (
+      window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
+    ).__TAURI_INTERNALS__ = { invoke, transformCallback: (c: unknown) => c };
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+
+    try {
+      const { result, rerender } = renderHook(
+        ({ clock }: { clock: number }) =>
+          useLightning({
+            ready: true,
+            enabled: true,
+            pageVisible: false,
+            clock,
+          }),
+        { initialProps: { clock: NEWEST * 1000 } },
+      );
+
+      await waitFor(() => expect(result.current.window).not.toBeNull());
+      expect(result.current.points).not.toBeNull();
+
+      // Half an hour later, with nothing new fetched: the same flashes must
+      // not still be drawn, least of all at full brightness.
+      rerender({ clock: (NEWEST + 30 * 60) * 1000 });
+      expect(result.current.window).toBeNull();
+      expect(result.current.points).toBeNull();
+    } finally {
+      cleanup();
+      vi.doUnmock("@tauri-apps/api/core");
+      delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+    }
   });
 });

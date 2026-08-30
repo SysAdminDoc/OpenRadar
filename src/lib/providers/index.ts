@@ -7,6 +7,7 @@ import { log } from "../log";
 import { recordFailure, recordSuccess } from "./health";
 import { HRRR_HOST } from "./hrrr";
 import { SATELLITE_HOST } from "./satellite";
+import { geometProvider, isCanadianViewport } from "./geomet";
 import { mrmsAvailable, mrmsProvider } from "./mrms";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
@@ -25,6 +26,7 @@ export const NOAA_PROVIDERS: RadarProvider[] = [
 ];
 export const RADAR_PROVIDERS: RadarProvider[] = [
   ...NOAA_PROVIDERS,
+  geometProvider,
   rainviewerProvider,
 ];
 
@@ -76,6 +78,10 @@ const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
  * failover inside them.
  */
 export function providerChain(lon: number, lat: number): RadarProvider[] {
+  // Canada's own service leads over its own country, even where the American
+  // mosaics reach across the border.
+  if (isCanadianViewport(lon, lat)) return [geometProvider];
+
   const noaa = NOAA_PROVIDERS.filter(
     (provider) =>
       covers(provider, lon, lat) &&
@@ -83,7 +89,11 @@ export function providerChain(lon: number, lat: number): RadarProvider[] {
       // and falls straight through to the mosaics.
       (provider.id !== "mrms" || mrmsAvailable()),
   );
-  return noaa.length ? noaa : [rainviewerProvider];
+  if (noaa.length) return noaa;
+  // Canada has its own service, and it is a better answer there than a
+  // personal-use feed. RainViewer is what is left for everywhere else.
+  if (covers(geometProvider, lon, lat)) return [geometProvider];
+  return [rainviewerProvider];
 }
 
 /** MRMS covers more than the model does, so the model asks the mosaic. */
