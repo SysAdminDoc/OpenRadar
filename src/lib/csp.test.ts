@@ -3,6 +3,21 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CACHED_HOSTS } from "./tileCache";
 
+/** Every host the native side may fetch, read from the Rust list itself. */
+function allowedHosts(): string[] {
+  const source = readFileSync(
+    join(process.cwd(), "src-tauri", "src", "http.rs"),
+    "utf8",
+  );
+  const list = source.slice(
+    source.indexOf("const ALLOWED_HOSTS"),
+    source.indexOf("const MAX_BODY_BYTES"),
+  );
+  return [...list.matchAll(/"([a-z0-9.-]+\.[a-z]{2,})"/g)].map(
+    (match) => match[1],
+  );
+}
+
 /**
  * The content security policy is the one thing in this project that cannot be
  * checked by running it here.
@@ -69,6 +84,60 @@ describe("the packaged app's content security policy", () => {
           `https://*.${host.split(".").slice(1).join(".")}`,
         );
       expect(allowed, `connect-src is missing ${host}`).toBe(true);
+    }
+  });
+
+  it("names no host the code cannot reach", () => {
+    // The other direction, and the one that rots quietly: a host left in the
+    // policy after the code that fetched it is gone widens the packaged app
+    // for nothing, and nothing else here would notice.
+    const union = new Set([...allowedHosts(), ...CACHED_HOSTS]);
+
+    // A wildcard is only honest when some code declares it trusts the whole
+    // suffix. RainViewer hands out its own tile origin at runtime, and the
+    // provider accepts any subdomain of rainviewer.com, so the policy has to
+    // as well.
+    const wildcards: Record<string, { file: string; trusts: string }> = {
+      "*.rainviewer.com": {
+        file: join("src", "lib", "providers", "rainviewer.ts"),
+        trusts: 'host.endsWith(".rainviewer.com")',
+      },
+    };
+
+    // Schemes, the local spellings Windows gives them, and the keywords.
+    const notHosts =
+      /^('self'|'wasm-unsafe-eval'|'unsafe-inline'|data:|blob:|ipc:|mrms:|cached:|asset:|customprotocol:|http:\/\/(ipc|mrms|cached|asset)\.localhost)$/;
+
+    for (const directive of ["connect-src", "img-src", "font-src"]) {
+      for (const token of csp[directive].split(/\s+/).filter(Boolean)) {
+        if (notHosts.test(token)) continue;
+        expect(token, `${directive} has an unexpected entry`).toMatch(
+          /^https:\/\//,
+        );
+        const host = token.slice("https://".length);
+
+        if (host.startsWith("*.")) {
+          const declared = wildcards[host];
+          expect(
+            declared,
+            `${directive} allows every subdomain of ${host.slice(2)} and no code says why`,
+          ).toBeDefined();
+          const source = readFileSync(
+            join(process.cwd(), declared.file),
+            "utf8",
+          );
+          expect(
+            source.includes(declared.trusts),
+            `${declared.file} no longer trusts ${host}, so the policy should not either`,
+          ).toBe(true);
+          continue;
+        }
+
+        expect(
+          union.has(host),
+          `${directive} allows ${host}, which is in neither ALLOWED_HOSTS nor CACHED_HOSTS`,
+        ).toBe(true);
+      }
     }
   });
 
