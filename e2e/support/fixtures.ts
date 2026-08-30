@@ -20,6 +20,19 @@ export const ridgeCapabilities = `<?xml version="1.0" encoding="UTF-8"?>
   </Capability>
 </WMS_Capabilities>`;
 
+export const geometCapabilities = `<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Capability>
+    <Layer>
+      <Layer queryable="1">
+        <Name>RADAR_1KM_RRAI</Name>
+        <Title>Radar precipitation rate for rain [mm/h]</Title>
+        <Dimension name="time" units="ISO8601" default="2026-08-30T11:00:00Z">2026-08-30T10:42:00Z/2026-08-30T11:00:00Z/PT6M</Dimension>
+      </Layer>
+    </Layer>
+  </Capability>
+</WMS_Capabilities>`;
+
 const emptyCollection = JSON.stringify({
   type: "FeatureCollection",
   features: [],
@@ -107,18 +120,24 @@ export const tropicalFeature = {
 export const stormRecord = {
   generated: "2026-08-30",
   statuses: ["TD", "TS", "HU", "EX", "SD", "SS", "LO"],
+  // Points are [time, lat, lon, wind, status, landfall], the same shape the
+  // shipped record has. Ian's figures are the published ones: the 140 kt peak
+  // at noon out in the Gulf, the 130 kt landfall at Cayo Costa seven hours
+  // later, and an energy of 17.47 rather than the 17.96 an earlier off-hour
+  // counting bug produced.
   storms: [
     {
       i: "AL092022",
       n: "IAN",
       y: 2022,
       b: "AL",
-      a: 17.96,
+      a: 17.47,
       p: [
-        [Date.parse("2022-09-26T00:00:00Z") / 1000, 20.0, -80.0, 45, 1],
-        [Date.parse("2022-09-27T00:00:00Z") / 1000, 22.5, -83.0, 125, 2],
-        [Date.parse("2022-09-28T18:00:00Z") / 1000, 26.7, -82.2, 140, 2],
-        [Date.parse("2022-09-30T00:00:00Z") / 1000, 32.8, -79.0, 70, 2],
+        [Date.parse("2022-09-26T00:00:00Z") / 1000, 20.0, -80.0, 45, 1, 0],
+        [Date.parse("2022-09-27T08:00:00Z") / 1000, 22.4, -83.6, 110, 2, 1],
+        [Date.parse("2022-09-28T12:00:00Z") / 1000, 26.0, -82.7, 140, 2, 0],
+        [Date.parse("2022-09-28T19:05:00Z") / 1000, 26.7, -82.2, 130, 2, 1],
+        [Date.parse("2022-09-30T00:00:00Z") / 1000, 32.8, -79.0, 70, 2, 0],
       ],
     },
     {
@@ -128,19 +147,21 @@ export const stormRecord = {
       b: "AL",
       a: 9.1,
       p: [
-        [Date.parse("1992-08-23T12:00:00Z") / 1000, 25.4, -74.2, 130, 2],
-        [Date.parse("1992-08-24T09:00:00Z") / 1000, 25.5, -80.3, 145, 2],
+        [Date.parse("1992-08-23T12:00:00Z") / 1000, 25.4, -74.2, 130, 2, 0],
+        [Date.parse("1992-08-24T09:00:00Z") / 1000, 25.5, -80.3, 145, 2, 1],
       ],
     },
     {
+      // Never came within reach of the national mosaic, so it is listed but
+      // cannot be replayed.
       i: "EP152023",
       n: "HILARY",
       y: 2023,
       b: "EP",
       a: 8.4,
       p: [
-        [Date.parse("2023-08-18T18:00:00Z") / 1000, 19.4, -110.2, 125, 2],
-        [Date.parse("2023-08-20T18:00:00Z") / 1000, 30.6, -115.9, 55, 1],
+        [Date.parse("2023-08-18T18:00:00Z") / 1000, 19.4, -110.2, 125, 2, 0],
+        [Date.parse("2023-08-19T18:00:00Z") / 1000, 22.0, -112.0, 110, 2, 0],
       ],
     },
   ],
@@ -190,6 +211,16 @@ export async function routeWorkspace(page: Page) {
       contentType: "application/json",
       body: JSON.stringify(stormRecord),
     });
+  });
+  await page.route("https://geo.weather.gc.ca/**", async (route) => {
+    if (route.request().url().includes("GetCapabilities")) {
+      await route.fulfill({
+        contentType: "application/xml",
+        body: geometCapabilities,
+      });
+      return;
+    }
+    await route.fulfill({ contentType: "image/png", body: transparentPng });
   });
   await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {
     if (route.request().url().includes("GetCapabilities")) {

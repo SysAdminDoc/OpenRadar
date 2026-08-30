@@ -14,6 +14,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 
 - Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
 - A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
+- Canadian radar from Environment and Climate Change Canada, with a rain rate scale of its own, wherever the NOAA mosaics stop
 - Lightning two ways: the MRMS cloud-to-ground density grid, and GOES-East total lightning decoded from the satellite's own files
 - NOAA MRMS leads on the desktop: the one kilometre national grid decoded locally from GRIB2, with rotation tracks and hail size as their own layers
 - Single-site NEXRAD Level II up close: past zoom 8 the nearest site's own sweep replaces the mosaic, with tilt and product selection, decoded locally in Rust
@@ -78,6 +79,7 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 - RainViewer only appears for viewports the NOAA mosaics do not reach.
 - Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS.
 - Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.
+- Canadian radar comes from Environment and Climate Change Canada through GeoMet, under their open data licence.
 - Tropical cones, tracks, watches, and outlooks come from the NHC tropical map service.
 - Past storm tracks come from the NOAA HURDAT2 best track, and archive radar for a replay comes from the Iowa State Mesonet.
 

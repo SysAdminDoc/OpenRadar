@@ -21,6 +21,8 @@ export interface WmsProviderConfig {
   budgetWindowMs: number;
   maxZoom: number;
   maxFrames: number;
+  /** How this server wants an instant written; ISO with milliseconds by default. */
+  timeFormat?: WmsTimeFormat;
 }
 
 const TILE_SIZE = 256;
@@ -126,6 +128,22 @@ export function parseWmsTimeSteps(xml: string, layer: string): WmsStep[] {
     .slice(-MAX_STEPS);
 }
 
+/**
+ * How a server wants an instant written back to it.
+ *
+ * GeoServer takes whatever ISO 8601 it published. GeoMet is strict: it names
+ * `%Y-%m-%dT%H:%M:%SZ` in its error and refuses a request carrying
+ * milliseconds, which is what `toISOString` produces. Sending the wrong one
+ * gets a service exception in place of every tile, and a service exception
+ * still arrives with a 200, so the map draws nothing and says nothing.
+ */
+export type WmsTimeFormat = "iso" | "seconds";
+
+export function formatWmsTime(iso: string, format: WmsTimeFormat): string {
+  if (format === "iso") return iso;
+  return iso.replace(/\.\d{1,3}(?=Z$)/, "");
+}
+
 export function wmsTileUrl(owsUrl: string, layer: string, iso: string): string {
   const query = new URLSearchParams({
     service: "WMS",
@@ -175,7 +193,11 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
       const frames: RadarFrame[] = steps.map((step) => ({
         providerId: config.id,
         time: step.time,
-        tileUrl: wmsTileUrl(config.owsUrl, config.layer, step.iso),
+        tileUrl: wmsTileUrl(
+          config.owsUrl,
+          config.layer,
+          formatWmsTime(step.iso, config.timeFormat ?? "iso"),
+        ),
         tileSize: TILE_SIZE,
         maxZoom: config.maxZoom,
         attribution: config.attribution,

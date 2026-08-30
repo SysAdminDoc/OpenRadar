@@ -7,45 +7,13 @@ import {
   Plus,
   Radar,
 } from "lucide-react";
+import { legendScale, stopPosition, type LegendScaleId } from "../lib/legend";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 
 function initLabel(initUtc: string): string {
   const at = new Date(initUtc);
   return `${String(at.getUTCHours()).padStart(2, "0")}Z`;
 }
-
-/** Labelled stops on the NWS reflectivity ramp the mosaics are drawn with. */
-const DBZ_MIN = 5;
-const DBZ_MAX = 75;
-const DBZ_STOPS = [5, 20, 35, 50, 65];
-/** The velocity ramp runs either side of still air rather than up from a floor. */
-const VELOCITY_MIN = -35;
-const VELOCITY_MAX = 35;
-const VELOCITY_STOPS = [-30, -15, 0, 15, 30];
-
-interface LegendScale {
-  min: number;
-  max: number;
-  stops: number[];
-  unit: string;
-  ramp: string;
-}
-
-const REFLECTIVITY_SCALE: LegendScale = {
-  min: DBZ_MIN,
-  max: DBZ_MAX,
-  stops: DBZ_STOPS,
-  unit: "dBZ",
-  ramp: "legend-ramp",
-};
-
-const VELOCITY_SCALE: LegendScale = {
-  min: VELOCITY_MIN,
-  max: VELOCITY_MAX,
-  stops: VELOCITY_STOPS,
-  unit: "m/s",
-  ramp: "legend-ramp legend-ramp--velocity",
-};
 
 interface RadarLegendProps {
   open: boolean;
@@ -54,7 +22,7 @@ interface RadarLegendProps {
   productLabel: string;
   eyebrow: string;
   /** A moment with no standard ramp has no scale to draw. */
-  scale: "reflectivity" | "velocity" | "none";
+  scale: LegendScaleId;
   onToggle: () => void;
 }
 
@@ -66,12 +34,7 @@ export function RadarLegend({
   scale,
   onToggle,
 }: RadarLegendProps) {
-  const reading =
-    scale === "reflectivity"
-      ? REFLECTIVITY_SCALE
-      : scale === "velocity"
-        ? VELOCITY_SCALE
-        : null;
+  const reading = legendScale(scale);
 
   return (
     <button
@@ -96,9 +59,7 @@ export function RadarLegend({
             {reading.stops.map((stop) => (
               <em
                 key={stop}
-                style={{
-                  left: `${((stop - reading.min) / (reading.max - reading.min)) * 100}%`,
-                }}
+                style={{ left: `${stopPosition(reading, stop)}%` }}
               >
                 {stop}
               </em>

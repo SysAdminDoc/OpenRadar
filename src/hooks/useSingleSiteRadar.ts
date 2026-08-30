@@ -35,7 +35,12 @@ export function useSingleSiteRadar(options: {
   pageVisible: boolean;
 }): SingleSiteState {
   const { ready, radar, center, zoom, pageVisible } = options;
-  const [nearby, setNearby] = useState<string | null>(null);
+  // The site, and the coarse position it was resolved for. A site found for
+  // somewhere else is not an answer to where the map is now, which is what
+  // kept KDMX on screen over Bermuda.
+  const [nearby, setNearby] = useState<{ site: string; near: string } | null>(
+    null,
+  );
   const [sweep, setSweep] = useState<SweepImage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,12 +52,12 @@ export function useSingleSiteRadar(options: {
     radar.singleSite &&
     isSingleSiteViewport(zoom);
 
-  // A held site wins outright, so nothing has to be resolved or stored for it.
-  const station = radar.station ?? nearby;
-
   // Panning within a site's coverage must not restart the fetch, so the site
   // is resolved from a coarse position rather than the exact centre.
   const near = `${center[0].toFixed(1)},${center[1].toFixed(1)}`;
+
+  // A held site wins outright, so nothing has to be resolved or stored for it.
+  const station = radar.station ?? (nearby?.near === near ? nearby.site : null);
 
   useEffect(() => {
     if (!wanted || radar.station) return;
@@ -60,9 +65,10 @@ export function useSingleSiteRadar(options: {
     const [lon, lat] = near.split(",").map(Number);
     void nearestSite(lon, lat)
       .then((found) => {
-        // No answer means the view has moved outside every site's coverage.
-        // Keeping the last one would draw Iowa's radar over the Atlantic.
-        if (open) setNearby(found ?? null);
+        // No answer means the view is outside every site's coverage, and the
+        // position it was asked about is remembered either way so a later
+        // view cannot inherit the answer.
+        if (open) setNearby(found ? { site: found, near } : null);
       })
       .catch((failure: unknown) => {
         if (!open) return;

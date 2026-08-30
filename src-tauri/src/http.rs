@@ -26,6 +26,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "geocoding-api.open-meteo.com",
     "router.project-osrm.org",
     "gibs.earthdata.nasa.gov",
+    "geo.weather.gc.ca",
     "unidata-nexrad-level2.s3.amazonaws.com",
     "noaa-mrms-pds.s3.amazonaws.com",
     "noaa-goes19.s3.amazonaws.com",

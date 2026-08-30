@@ -62,11 +62,16 @@ pub struct Flash {
 pub struct FlashWindow {
     pub satellite: String,
     pub window_minutes: i64,
-    /// The newest file read, which is how fresh the picture is.
+    /// The newest file actually read, which is how fresh the picture is.
     pub observed: i64,
     pub flashes: Vec<Flash>,
     /// True when the cap trimmed the window, so the panel can say so.
     pub trimmed: bool,
+    /// How many of the files in the window were read, and how many there were.
+    /// A window built from half its files is not the same picture as a whole
+    /// one, and the panel says which it is looking at.
+    pub files_read: usize,
+    pub files_expected: usize,
 }
 
 /// `OR_GLM-L2-LCFA_G19_s20262420900000_e20262420900200_c20262420900214.nc`
@@ -246,19 +251,42 @@ pub async fn lightning_flashes() -> Result<FlashWindow, LightningError> {
 
     let mut flashes = Vec::new();
     let mut observed = 0i64;
+    let mut read = 0usize;
     for key in &wanted {
         let time = key_time(key).unwrap_or_else(|| now.timestamp());
-        let bytes = http::get_bytes(&format!("{BUCKET}/{key}")).await?;
-        if bytes.len() > MAX_FILE_BYTES {
-            continue;
-        }
+        // One file that will not come or will not decode is a gap in the
+        // window, not the end of the layer. A five minute window is fifteen
+        // files and losing one of them is barely visible; losing all fifteen
+        // because of one is not.
+        let bytes = match http::get_bytes(&format!("{BUCKET}/{key}")).await {
+            Ok(bytes) if bytes.len() <= MAX_FILE_BYTES => bytes,
+            Ok(bytes) => {
+                log::warn!("GLM file {key} is {} bytes, past the cap", bytes.len());
+                continue;
+            }
+            Err(error) => {
+                log::warn!("GLM file {key} could not be fetched: {error}");
+                continue;
+            }
+        };
         // Decoding is CPU work and there are fifteen files, so it must not sit
         // on the async runtime.
         let decoded = tauri::async_runtime::spawn_blocking(move || decode_flashes(&bytes, time))
             .await
-            .map_err(|error| LightningError::Decode(error.to_string()))??;
-        observed = observed.max(time);
-        flashes.extend(decoded);
+            .map_err(|error| LightningError::Decode(error.to_string()))?;
+        match decoded {
+            Ok(decoded) => {
+                observed = observed.max(time);
+                read += 1;
+                flashes.extend(decoded);
+            }
+            Err(error) => log::warn!("GLM file {key} could not be read: {error}"),
+        }
+    }
+
+    // Nothing readable at all is a failure, not an empty sky.
+    if read == 0 {
+        return Err(LightningError::NoFiles(WINDOW_MINUTES));
     }
 
     // The newest flashes are the ones worth keeping when there are too many.
@@ -274,6 +302,8 @@ pub async fn lightning_flashes() -> Result<FlashWindow, LightningError> {
         observed,
         flashes,
         trimmed,
+        files_read: read,
+        files_expected: wanted.len(),
     })
 }
 
@@ -431,6 +461,9 @@ mod tests {
         let took = started.elapsed();
 
         assert_eq!(window.window_minutes, WINDOW_MINUTES);
+        assert!(window.files_read > 0);
+        assert!(window.files_read <= window.files_expected);
+        assert!(window.observed > 0, "a window with files read has a time");
         // The newest file read must be inside the window it claims.
         let age = Utc::now().timestamp() - window.observed;
         assert!(

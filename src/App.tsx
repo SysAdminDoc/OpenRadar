@@ -121,6 +121,7 @@ export default function App() {
     ready: hydrated,
     enabled: settings.layers.lightningFlashes,
     pageVisible,
+    clock,
   });
   const { frames, frameIndex, source } = timeline;
   const activeFrame = frames[frameIndex];

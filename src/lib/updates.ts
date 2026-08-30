@@ -28,6 +28,10 @@ export async function checkForUpdate(): Promise<UpdateOffer | null> {
   const { check } = await import("@tauri-apps/plugin-updater");
   const found = await check();
   if (!found) return null;
+  // The plugin decides what is newer from the manifest. A manifest that names
+  // this build or an older one is not an update, whatever it claims, and
+  // offering it would install the version already running.
+  if (!isNewer(found.version)) return null;
   return {
     version: found.version,
     notes: found.body ?? "",

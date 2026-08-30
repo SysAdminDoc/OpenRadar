@@ -18,7 +18,11 @@ export interface FlashWindow {
   windowMinutes: number;
   observed: number;
   flashes: Flash[];
+  /** True when the cap cut the window, so the legend can say so. */
   trimmed: boolean;
+  /** How many of the window's files were read, and how many there were. */
+  filesRead: number;
+  filesExpected: number;
 }
 
 export interface LightningState {
@@ -61,8 +65,10 @@ export function useLightning(options: {
   ready: boolean;
   enabled: boolean;
   pageVisible: boolean;
+  /** Milliseconds, ticking once a minute, for judging what is still current. */
+  clock: number;
 }): LightningState {
-  const { ready, enabled, pageVisible } = options;
+  const { ready, enabled, pageVisible, clock } = options;
   const [window_, setWindow] = useState<FlashWindow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,12 +114,20 @@ export function useLightning(options: {
     };
   }, [pageVisible, wanted]);
 
-  return useMemo(
-    () => ({
-      points: wanted && window_ ? flashPoints(window_) : null,
-      window: wanted ? window_ : null,
+  return useMemo(() => {
+    // A window is the picture only while it is recent. Switching the layer off
+    // and back on half an hour later would otherwise redraw those flashes at
+    // full brightness, and lightning that has stopped is exactly the thing a
+    // viewer needs to be told about.
+    const current =
+      window_ &&
+      clock - window_.observed * 1000 < (window_.windowMinutes + 5) * 60_000
+        ? window_
+        : null;
+    return {
+      points: wanted && current ? flashPoints(current) : null,
+      window: wanted ? current : null,
       error: wanted ? error : null,
-    }),
-    [error, wanted, window_],
-  );
+    };
+  }, [clock, error, wanted, window_]);
 }

@@ -108,6 +108,14 @@ test("draws the cloud-to-ground density grid with its own scale", async ({
   await expect(
     page.getByText("Cloud-to-ground lightning, 5 min (flashes/km2/min)"),
   ).toBeVisible();
+  // This is the layer that matters to anyone standing outside, and it must
+  // not pass for a warning on its own.
+  await expect(
+    page.getByText(/Where flashes were, not where the next one will be/),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Use official warnings for life-safety decisions/),
+  ).toBeVisible();
 });
 
 test("draws the satellite flashes and says what they are not", async ({

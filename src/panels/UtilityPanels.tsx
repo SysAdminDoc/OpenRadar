@@ -186,10 +186,10 @@ export function MorePanel({
             <button
               type="button"
               className="secondary-button"
+              // A restart that never comes must not leave this saying so
+              // with no way back; only work in flight disables it.
               disabled={
-                update.status === "checking" ||
-                update.status === "downloading" ||
-                update.status === "ready"
+                update.status === "checking" || update.status === "downloading"
               }
               onClick={onUpdate}
             >

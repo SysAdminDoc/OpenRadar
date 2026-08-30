@@ -96,6 +96,9 @@ export function WorkspaceChrome({
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
       ? `Radar is stale · ${radarAgeMinutes} min old`
       : null;
+  // Canada's radar is a rain rate in millimetres an hour, not reflectivity in
+  // dBZ. Showing a dBZ scale over it would be describing the wrong quantity.
+  const rainRate = frames[timeline.frameIndex]?.providerId === "geomet";
 
   return (
     <>
@@ -121,7 +124,11 @@ export function WorkspaceChrome({
         open={productOpen}
         radarEnabled={settings.radar.enabled}
         productLabel={
-          sweep ? `${sweep.station} ${sweep.product}` : "Composite Radar"
+          sweep
+            ? `${sweep.station} ${sweep.product}`
+            : rainRate
+              ? "Rain Rate"
+              : "Composite Radar"
         }
         eyebrow={
           sweep ? `${sweep.elevationDegrees.toFixed(2)}° TILT` : "LIVE PRODUCT"
@@ -133,7 +140,9 @@ export function WorkspaceChrome({
               : sweep.unit === "m/s" && sweep.product === "Velocity"
                 ? "velocity"
                 : "none"
-            : "reflectivity"
+            : rainRate
+              ? "rain-rate"
+              : "reflectivity"
         }
         onToggle={onToggleProduct}
       />
@@ -155,8 +164,11 @@ export function WorkspaceChrome({
                   {lightning.windowMinutes} min
                 </li>
                 <li>
-                  {lightning.flashes.length.toLocaleString()} from{" "}
-                  {lightning.satellite}
+                  {lightning.flashes.length.toLocaleString()}
+                  {lightning.trimmed ? "+" : ""} from {lightning.satellite}
+                  {lightning.filesRead < lightning.filesExpected
+                    ? ` · ${lightning.filesRead} of ${lightning.filesExpected} files`
+                    : ""}
                 </li>
               </ol>
               <small>
@@ -180,6 +192,12 @@ export function WorkspaceChrome({
                   </li>
                 ))}
               </ol>
+              {layer.product === "lightning" ? (
+                <small>
+                  Where flashes were, not where the next one will be. Use
+                  official warnings for life-safety decisions.
+                </small>
+              ) : null}
             </div>
           ))}
         </div>
