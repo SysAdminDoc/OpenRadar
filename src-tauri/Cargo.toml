@@ -33,6 +33,8 @@ png = "0.18.1"
 base64 = "0.23.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 flate2 = "1.1.10"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
 
 [dev-dependencies]
 tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "macros"] }

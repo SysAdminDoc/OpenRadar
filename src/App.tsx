@@ -20,6 +20,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useToasts } from "./hooks/useToasts";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
+import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { GeoPoint } from "./lib/geo";
 import { recentLog, subscribeLog } from "./lib/log";
@@ -120,6 +121,7 @@ export default function App() {
       : null;
   const satelliteTime = satelliteFor(activeFrame);
 
+  const updates = useUpdates({ onToast: pushToast });
   const actions = useWorkspaceActions({
     hydrated,
     mapRef,
@@ -287,6 +289,8 @@ export default function App() {
         frameCount={frames.length}
         sourceLabel={timeline.sourceLabel}
         singleSite={level2Available() ? singleSite : null}
+        update={updates.state}
+        onUpdate={updates.act}
         historyStormId={historyStorm?.id ?? null}
         replayId={replay?.id ?? null}
         mapReady={mapStatus === "ready"}

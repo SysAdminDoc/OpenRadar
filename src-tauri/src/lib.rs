@@ -46,6 +46,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // MRMS grids are decoded here and handed to the map as ordinary tiles,
         // so the timeline, scrubbing, and export all work on them unchanged.
         .register_asynchronous_uri_scheme_protocol("mrms", |_app, request, responder| {

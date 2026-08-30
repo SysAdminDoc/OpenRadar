@@ -56,11 +56,11 @@
 
 ### P2
 
-- [ ] P2: Signed Windows installer, SHA256SUMS, and static-JSON updater
-  Why: MyRadar's desktop weakness is update breakage; BowEcho and Supercell ship signed builds with checksums; an unsigned NSIS trips SmartScreen.
-  Evidence: azure.microsoft.com/en-us/products/artifact-signing ($9.99/mo Basic, individuals admitted); v2.tauri.app/plugin/updater (`tauri signer generate`, `{{target}}/{{arch}}/{{current_version}}` endpoints); BowEcho release page.
-  Touches: src-tauri/tauri.conf.json (`bundle.windows.signCommand`, `plugins.updater`), src-tauri/Cargo.toml (tauri-plugin-updater 2.10.1), a local release script producing SHA256SUMS and `latest.json` on GitHub Releases, README install section with the SmartScreen note.
-  Acceptance: `gh release view` shows the `.exe`, `.sig`, `SHA256SUMS`, and `latest.json`; a v0.1.x install updates itself to v0.1.y from the manifest; open question on signing cost is answered first.
+- [ ] P2: GRLevel3 `.pal` colour tables applied to the locally decoded products
+  Why: this was blocked while every radar pixel arrived as a picture NOAA had already coloured. Level II and MRMS are now decoded here, so a palette finally has raw values to act on, and a shared palette is how radar people compare the same storm across tools.
+  Evidence: the ramps are hard-coded in `src-tauri/src/level2.rs` and `src-tauri/src/mrms.rs` and mirrored in the legend; the Upload panel already reads placefiles and could read a `.pal` beside them; GRLevelX `.pal` is `Color: <value> <r> <g> <b> [<r2> <g2> <b2>]` with `Product:`, `Units:`, `Step:`, `RF:`, and `SolidColor:` directives.
+  Touches: new `src/lib/palette.ts` parser with its own tests, the Upload panel, a palette passed to the two Rust renderers through their commands, and the legend built from the loaded palette rather than the built-in ramp.
+  Acceptance: loading a `.pal` recolours the single-site sweep and the MRMS composite to match it, the legend shows the palette's own stops and units, a file with a directive OpenRadar does not read says which one it skipped, and clearing the palette returns the built-in ramp.
   Complexity: M
 
 - [ ] P2: Lightning from MRMS NLDN density or GLM, never Blitzortung

@@ -1,5 +1,6 @@
-import { FileUp, FolderOpen, Info, ShieldCheck } from "lucide-react";
+import { Download, FileUp, FolderOpen, Info, ShieldCheck } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
+import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
@@ -42,6 +43,10 @@ export function UploadPanel({ onClose, onFile }: UploadPanelProps) {
 }
 
 interface MorePanelProps extends CloseOnlyProps {
+  /** Where the update check has got to, and what it found. */
+  update: UpdateState;
+  /** Absent in a browser preview, which has nothing to update. */
+  onUpdate: (() => void) | null;
   radarReady: boolean;
   mapReady: boolean;
   activeSource: string | null;
@@ -67,6 +72,8 @@ function ageLabel(at: number | null): string {
 
 export function MorePanel({
   onClose,
+  update,
+  onUpdate,
   radarReady,
   mapReady,
   activeSource,
@@ -148,6 +155,50 @@ export function MorePanel({
         ) : (
           <p className="source-note">Nothing has gone wrong yet.</p>
         )}
+      </div>
+      <div className="feature-card" data-update-state={update.status}>
+        <Download size={24} />
+        <div>
+          <strong>
+            {update.status === "available"
+              ? `OpenRadar ${update.offer.version} is out`
+              : update.status === "ready"
+                ? "Restarting into the new version"
+                : update.status === "downloading"
+                  ? `Downloading, ${update.percent}%`
+                  : update.status === "checking"
+                    ? "Checking for a newer version"
+                    : update.status === "error"
+                      ? "The update check failed"
+                      : `OpenRadar v${APP_VERSION}`}
+          </strong>
+          <span>
+            {update.status === "available"
+              ? update.offer.notes.split("\n")[0] ||
+                "Install it and OpenRadar restarts into it."
+              : update.status === "error"
+                ? update.message
+                : update.status === "current"
+                  ? "This is the newest version."
+                  : "Updates are downloaded from the project's own releases."}
+          </span>
+          {onUpdate ? (
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={
+                update.status === "checking" ||
+                update.status === "downloading" ||
+                update.status === "ready"
+              }
+              onClick={onUpdate}
+            >
+              {update.status === "available"
+                ? `Install ${update.offer.version}`
+                : "Check for updates"}
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="feature-card">
         <ShieldCheck size={24} />

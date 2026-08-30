@@ -2,7 +2,8 @@
 
 ## Release prerequisites
 
-- Authenticode signing needs a code-signing certificate. No suitable certificate is installed in the current user or local machine certificate store.
+- Authenticode signing needs a code-signing certificate, and buying one is a spending decision rather than an implementation detail. No suitable certificate is installed in the current user or local machine certificate store. Azure Trusted Signing admits individuals at about ten dollars a month, which is the cheapest route found; until someone signs up for it, Windows will warn on first run and the README says so. Everything else about releases works without it: the installer builds, the updater signature is a separate key that costs nothing, and the manifest is published beside the installer.
+- Watching an installed v0.1.x replace itself with v0.1.y needs the desktop app on a real display, and this machine reserves that for an isolated session. What has been checked instead: the build produces the installer and an updater signature beside it, the signature verifies cryptographically against the public key in `tauri.conf.json` using the same BLAKE2b prehash the updater client uses, and `latest.json` carries that exact signature and a download URL matching the installer's own name. The version comparison the offer is judged by has its own tests.
 - The clean Windows validation VM at `192.168.1.12` was offline during the v0.1.0 build. A silent install and uninstall passed locally in a disposable directory.
 
 ## Verification that needs a desktop session
@@ -15,4 +16,4 @@
 ## Placefile parts the security model rules out
 
 - Loading a placefile from a URL the user types cannot work under a fixed content security policy, and the Rust boundary refuses an address handed over by the frontend for the same reason. Allowing arbitrary placefile hosts is a security decision, not an implementation detail, so it needs a call on whether to add a trusted-host list and what belongs on it. Local placefiles load today through the Upload panel, and the refresh interval the file asks for is read and reported back when it loads, even though nothing refetches a local file.
-- Applying a GRLevel3 `.pal` colour table to reflectivity needs raw values to colour. Radar arrives as tiles the NOAA services have already drawn, so a palette has nothing to act on until the Level II or MRMS decoding work lands.
+

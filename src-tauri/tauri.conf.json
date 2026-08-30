@@ -50,7 +50,8 @@
         "installMode": "currentUser",
         "displayLanguageSelector": false
       }
-    }
+    },
+    "createUpdaterArtifacts": true
   },
   "plugins": {
     "deep-link": {
@@ -58,6 +59,15 @@
         "schemes": [
           "openradar"
         ]
+      }
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/SysAdminDoc/OpenRadar/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4QUNCNDZEMEE3N0I1QjgKUldTNHRYY0tiYlNzeURTUW1uM2V5Ni9ENnU5dXozWFViem92K1B1dVlxek5CRE40djVCTVVKYnkK",
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

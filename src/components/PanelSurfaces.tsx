@@ -15,6 +15,7 @@ import type { PlaceResult } from "../lib/weather";
 import type { OverlayStates } from "../hooks/useOverlays";
 import type { ExportState } from "../hooks/useExport";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
+import type { UpdateState } from "../lib/updates";
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
@@ -44,6 +45,8 @@ interface PanelSurfacesProps {
   log: LogEntry[];
   exportState: ExportState;
   singleSite: SingleSiteState | null;
+  update: UpdateState;
+  onUpdate: (() => void) | null;
   historyStormId: string | null;
   replayId: string | null;
   onClose: () => void;
@@ -166,6 +169,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
 
       {activeSurface === "more" ? (
         <MorePanel
+          update={props.update}
+          onUpdate={props.onUpdate}
           mapReady={props.mapReady}
           radarReady={props.frameCount > 0}
           activeSource={props.sourceLabel}

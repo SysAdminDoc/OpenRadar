@@ -11,6 +11,8 @@
     "log:default",
     "opener:default",
     "deep-link:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }
