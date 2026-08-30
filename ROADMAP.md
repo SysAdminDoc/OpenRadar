@@ -56,13 +56,6 @@
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
 
-- [ ] P1: Extract `useSettings` out of `App.tsx` (the timeline hook and the layer registry landed on 2026-08-30)
-  Why: `App.tsx` is 684 lines and every P1 overlay would land in it; the sibling repos show the cost of one giant controller.
-  Evidence: `src/App.tsx`; StormScope `js/context-layers.js` single `syncOverlays` pattern.
-  Touches: src/App.tsx, new src/hooks/{useRadarTimeline,useSettings}.ts, new src/lib/overlays/registry.ts consumed by MapViewport.
-  Acceptance: `App.tsx` under 300 lines; timeline and settings hooks have unit tests; adding an overlay requires one adapter file plus one registry entry.
-  Complexity: M
-
 - [ ] P1: Playwright coverage for the workflows that broke unnoticed, plus an axe pass
   Why: the single e2e (`e2e/workspace.spec.ts`, 63 lines) cannot catch dual-pane drift, dead toggles, or the mislabeled button.
   Evidence: this research; StormDeck `e2e/support/{tauriMock,mapTileFixture}.ts` (real decodable PNG tiles, not 204s).
