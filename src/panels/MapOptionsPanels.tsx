@@ -6,6 +6,7 @@ import {
   Map,
   RadioTower,
   RotateCcw,
+  Tornado,
   Waves,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
@@ -108,6 +109,12 @@ const LAYER_OPTIONS: Array<{
     label: "Wildfires",
     detail: "NIFC perimeters over 100 acres",
     icon: Flame,
+  },
+  {
+    key: "tropical",
+    label: "Tropical",
+    detail: "NHC cones, tracks, and development outlooks",
+    icon: Tornado,
   },
   {
     key: "customOverlay",

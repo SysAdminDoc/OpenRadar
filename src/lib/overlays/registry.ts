@@ -1,6 +1,6 @@
 import type { LayerSpecification } from "maplibre-gl";
 
-export type OverlayId = "alerts" | "earthquakes" | "wildfires";
+export type OverlayId = "alerts" | "earthquakes" | "wildfires" | "tropical";
 
 export interface OverlayBounds {
   west: number;

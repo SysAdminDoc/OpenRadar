@@ -43,6 +43,7 @@ import { useOverlays } from "./hooks/useOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import type { OverlayBounds } from "./lib/overlays";
 import { AlertsPanel } from "./panels/AlertsPanel";
+import { TropicalPanel } from "./panels/TropicalPanel";
 import { ForecastPanel } from "./panels/ForecastPanel";
 import {
   LayersPanel,
@@ -97,11 +98,13 @@ export default function App() {
       alerts: settings.layers.weatherAlerts,
       earthquakes: settings.layers.earthquakes,
       wildfires: settings.layers.wildfires,
+      tropical: settings.layers.tropical,
     }),
     [
       settings.layers.weatherAlerts,
       settings.layers.earthquakes,
       settings.layers.wildfires,
+      settings.layers.tropical,
     ],
   );
   const overlays = useOverlays(overlayToggles, viewport);
@@ -112,6 +115,7 @@ export default function App() {
         ? overlays.earthquakes.data
         : null,
       wildfires: overlayToggles.wildfires ? overlays.wildfires.data : null,
+      tropical: overlayToggles.tropical ? overlays.tropical.data : null,
     }),
     [overlayToggles, overlays],
   );
@@ -293,6 +297,15 @@ export default function App() {
         (bounds.south + bounds.north) / 2,
       ],
       zoom: 7.5,
+      bearing: 0,
+      pitch: 0,
+    });
+  }, []);
+
+  const handleFollowStorm = useCallback((point: GeoPoint) => {
+    mapRef.current?.flyTo({
+      center: [point.lon, point.lat],
+      zoom: 5.5,
       bearing: 0,
       pitch: 0,
     });
@@ -645,6 +658,22 @@ export default function App() {
             })
           }
           onSelect={handleAlertSelect}
+          onClose={() => setActiveSurface(null)}
+        />
+      ) : null}
+      {activeSurface === "tropical" ? (
+        <TropicalPanel
+          products={overlays.tropical.data}
+          fetchedAt={overlays.tropical.fetchedAt}
+          error={overlays.tropical.error}
+          layerOn={settings.layers.tropical}
+          onEnableLayer={() =>
+            applySettings({
+              ...settingsRef.current,
+              layers: { ...settingsRef.current.layers, tropical: true },
+            })
+          }
+          onFollow={handleFollowStorm}
           onClose={() => setActiveSurface(null)}
         />
       ) : null}

@@ -18,12 +18,14 @@ import {
   Send,
   Settings,
   Share2,
+  Tornado,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
 export type SurfaceId =
   | "search"
   | "alerts"
+  | "tropical"
   | "map-type"
   | "layers"
   | "videos"
@@ -187,6 +189,12 @@ export function CommandBar({
           label="Alerts"
           active={activeSurface === "alerts"}
           onClick={() => toggleSurface("alerts")}
+        />
+        <CommandButton
+          icon={Tornado}
+          label="Tropical"
+          active={activeSurface === "tropical"}
+          onClick={() => toggleSurface("tropical")}
         />
         <CommandButton
           icon={Film}

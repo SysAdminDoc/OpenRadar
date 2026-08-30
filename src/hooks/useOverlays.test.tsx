@@ -42,7 +42,7 @@ describe("useOverlays", () => {
 
     const { result } = renderHook(() =>
       useOverlays(
-        { alerts: true, earthquakes: false, wildfires: false },
+        { alerts: true, earthquakes: false, wildfires: false, tropical: false },
         viewport,
       ),
     );
@@ -65,7 +65,12 @@ describe("useOverlays", () => {
     const { result, rerender } = renderHook(
       ({ bounds }) =>
         useOverlays(
-          { alerts: true, earthquakes: false, wildfires: false },
+          {
+            alerts: true,
+            earthquakes: false,
+            wildfires: false,
+            tropical: false,
+          },
           bounds,
         ),
       { initialProps: { bounds: viewport } },
@@ -92,7 +97,12 @@ describe("useOverlays", () => {
 
     const { result } = renderHook(() =>
       useOverlays(
-        { alerts: false, earthquakes: false, wildfires: false },
+        {
+          alerts: false,
+          earthquakes: false,
+          wildfires: false,
+          tropical: false,
+        },
         viewport,
       ),
     );
@@ -110,7 +120,12 @@ describe("useOverlays", () => {
     const { result, rerender } = renderHook(
       ({ bounds }) =>
         useOverlays(
-          { alerts: true, earthquakes: false, wildfires: false },
+          {
+            alerts: true,
+            earthquakes: false,
+            wildfires: false,
+            tropical: false,
+          },
           bounds,
         ),
       { initialProps: { bounds: viewport } },
@@ -135,7 +150,12 @@ describe("snapshot scoping", () => {
     const { result, rerender } = renderHook(
       ({ bounds }) =>
         useOverlays(
-          { alerts: true, earthquakes: false, wildfires: false },
+          {
+            alerts: true,
+            earthquakes: false,
+            wildfires: false,
+            tropical: false,
+          },
           bounds,
         ),
       { initialProps: { bounds: viewport } },
@@ -160,7 +180,12 @@ describe("snapshot scoping", () => {
     const { result, rerender } = renderHook(
       ({ bounds }) =>
         useOverlays(
-          { alerts: false, earthquakes: true, wildfires: false },
+          {
+            alerts: false,
+            earthquakes: true,
+            wildfires: false,
+            tropical: false,
+          },
           bounds,
         ),
       { initialProps: { bounds: viewport } },
