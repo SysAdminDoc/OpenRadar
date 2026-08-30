@@ -11,7 +11,6 @@
 ## Next releases
 
 - [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
-- [ ] Add live NHC storms, forecast cones, watches, and storm following. (Research 2026-08-30: keyless feeds and StormScope port path in the P1 tropical item below.)
 - [ ] Add model guidance, satellite, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
 - [ ] Add HURDAT2 history with archived radar playback.
 - [ ] Add accessible export, notifications, offline cache, and dual-pane workflows. (Research 2026-08-30: dual pane exists but does not sync cameras; P0 item below.)
@@ -56,13 +55,6 @@
   Touches: src/components/CommandBar.tsx (label "Globe"/"Flat" with the projection icon, or move projection into the Map Type panel only), src/App.tsx (initial `playing` from `matchMedia("(prefers-reduced-motion: reduce)")`).
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
-
-- [ ] P1: NHC tropical cone, track, watches, and storm following
-  Why: the Hurricane Tracker is MyRadar's headline paywall and Clime's; the data is keyless and already parsed in StormScope.
-  Evidence: `https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer` layers 5-8 (`f=geojson`), `https://www.nhc.noaa.gov/CurrentStorms.json` (verified 2026-08-30 with per-product advisory URLs), StormScope `js/tropical-cyclones.js`, StormDeck `src/lib/overlays/tropical.ts`.
-  Touches: new src/lib/overlays/tropical.ts, new src/panels/TropicalPanel.tsx (active storms, advisory number, intensity, "Follow" sets camera to the storm center and a preset), MapViewport layers (cone fill, track line, forecast points with Saffir-Simpson colors), CSP.
-  Acceptance: during an active storm the cone/track/points render and the panel lists advisories with official links; with no storms the panel shows the GTWO outlook text and last-checked time; a fixture test covers a two-storm payload.
-  Complexity: M
 
 - [ ] P1: Rust HTTP boundary with host allowlist before any native fetch lands
   Why: the plan moves NEXRAD/MRMS downloads into Rust, which bypasses the WebView CSP; StormDeck learned that the Rust allowlist is the real network boundary.

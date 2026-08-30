@@ -618,6 +618,65 @@ input[type="range"] {
   color: var(--amber);
 }
 
+.storm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.storm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.storm-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.storm-row strong {
+  font-size: 12.5px;
+}
+
+.storm-row small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.storm-row__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.storm-row__actions button,
+.storm-row__actions a {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.storm-row__actions button:hover,
+.storm-row__actions a:hover {
+  border-color: var(--border-strong);
+}
+
 .map-popup {
   display: flex;
   flex-direction: column;

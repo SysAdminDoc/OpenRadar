@@ -1,5 +1,6 @@
 import { alertsOverlay } from "./alerts";
 import { earthquakesOverlay } from "./earthquakes";
+import { tropicalOverlay } from "./tropical";
 import { wildfiresOverlay } from "./wildfires";
 import type { OverlayAdapter, OverlayId } from "./registry";
 
@@ -7,6 +8,7 @@ export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
   alertsOverlay,
   earthquakesOverlay,
   wildfiresOverlay,
+  tropicalOverlay,
 ];
 
 export function overlayAdapter(id: OverlayId): OverlayAdapter {
@@ -24,6 +26,7 @@ export type OverlaySnapshot = {
 };
 
 export { alertSeverity, SEVERITY_COLOR, SEVERITY_RANK } from "./alerts";
+export { stormCategory, type TropicalKind } from "./tropical";
 export {
   EMPTY_OVERLAY,
   boundsContain,
