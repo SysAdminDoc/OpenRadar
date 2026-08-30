@@ -4,7 +4,7 @@
 //! The mosaics OpenRadar leads with are national and smoothed. This is the
 //! radar itself, one site at a time, which is what a close-in view wants.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Mutex;
 
 use base64::Engine;
@@ -30,6 +30,15 @@ const MAX_RANGE_KM: f64 = 230.0;
 const SITE_REACH_KM: f64 = 250.0;
 /// Four volumes, as the roadmap asks. They are held compressed, not decoded.
 const CACHE_CAPACITY: usize = 4;
+
+/// How old a site's newest volume may be before it counts as down.
+const STALE_AFTER_MINUTES: i64 = 20;
+
+/// How long a site's answer about its own archive is reused for.
+const LIVENESS_TTL_SECONDS: i64 = 120;
+
+/// How many sites are asked before the nearest one is used regardless.
+const MAX_SITE_CANDIDATES: usize = 4;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Level2Error {
@@ -90,6 +99,12 @@ struct CachedVolume {
 }
 
 static CACHE: Mutex<VecDeque<CachedVolume>> = Mutex::new(VecDeque::new());
+
+/// A site's newest volume time, and the moment the archive was asked for it.
+type Liveness = BTreeMap<String, (DateTime<Utc>, Option<DateTime<Utc>>)>;
+
+/// What the archive last held for each site.
+static LIVENESS: Mutex<Liveness> = Mutex::new(BTreeMap::new());
 
 /// The products a caller may ask for, kept as plain names the frontend can send.
 pub fn product_from_name(name: &str) -> Option<(Product, &'static str, &'static str)> {
@@ -592,19 +607,127 @@ fn great_circle_km(
     6371.0 * 2.0 * a.sqrt().asin()
 }
 
-/// The nearest site to a point, so the frontend never has to ship its own
-/// table. A point no site can see gets no answer rather than the least distant
-/// one, which would otherwise draw Alaska's radar over the mid-Atlantic.
+/// Every site whose coverage reaches a point, nearest first.
+fn sites_in_reach(latitude: f32, longitude: f32) -> Vec<&'static registry::SiteEntry> {
+    let mut found: Vec<(f64, &'static registry::SiteEntry)> = registry::sites()
+        .iter()
+        .filter_map(|site| {
+            let distance = great_circle_km(
+                latitude as f64,
+                longitude as f64,
+                site.latitude as f64,
+                site.longitude as f64,
+            );
+            (distance <= SITE_REACH_KM).then_some((distance, site))
+        })
+        .collect();
+    found.sort_by(|left, right| left.0.total_cmp(&right.0));
+    found.into_iter().map(|(_, site)| site).collect()
+}
+
+/// Whether a site's newest volume is recent enough to be worth drawing.
+///
+/// A radar down for maintenance, or one whose upload to the archive has
+/// stalled, stops publishing volumes while its entry in the registry stays
+/// exactly where it was. The archive is the direct evidence: if no volume has
+/// landed in the last twenty minutes there is nothing to draw, whatever the
+/// site's published status says.
+fn volume_is_current(newest: Option<DateTime<Utc>>, now: DateTime<Utc>) -> bool {
+    let Some(at) = newest else {
+        return false;
+    };
+    let age = now.signed_duration_since(at);
+    // A clock skewed the other way would otherwise read as infinitely stale.
+    age <= Duration::minutes(STALE_AFTER_MINUTES) && age >= Duration::minutes(-5)
+}
+
+/// The first site that has something to draw, or the nearest one if none of
+/// them has.
+///
+/// Falling back to the nearest matters: when the whole region is quiet, or the
+/// archive itself is unreachable, the panel should report that site's own
+/// failure rather than behave as though the viewport were out of coverage.
+fn first_site_with_a_volume<'a>(
+    sites: &[&'a registry::SiteEntry],
+    newest: impl Fn(&str) -> Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> Option<&'a registry::SiteEntry> {
+    sites
+        .iter()
+        .find(|site| volume_is_current(newest(site.id), now))
+        .or_else(|| sites.first())
+        .copied()
+}
+
+/// The newest volume time the archive holds for a site, remembered briefly so
+/// that panning across a region does not re-list the bucket for every site it
+/// passes over.
+async fn newest_volume_time(station: &str) -> Option<DateTime<Utc>> {
+    let now = Utc::now();
+    if let Ok(seen) = LIVENESS.lock() {
+        if let Some((checked, newest)) = seen.get(station) {
+            if now.signed_duration_since(*checked) < Duration::seconds(LIVENESS_TTL_SECONDS) {
+                return *newest;
+            }
+        }
+    }
+
+    let mut newest = None;
+    for day in [now, now - Duration::days(1)] {
+        let Ok(listing) = http::get_bytes(&listing_url(station, day)).await else {
+            // Unreachable is not the same as down, and must not be remembered
+            // as an answer: leave the site unjudged so the nearest one is used.
+            return None;
+        };
+        let listing = String::from_utf8_lossy(&listing);
+        if let Some(key) = newest_key(&listing) {
+            newest = key_time(&key);
+            break;
+        }
+    }
+
+    if let Ok(mut seen) = LIVENESS.lock() {
+        seen.insert(station.to_string(), (now, newest));
+    }
+    newest
+}
+
+/// The nearest site to a point that is actually publishing volumes, so the
+/// frontend never has to ship its own table. A point no site can see gets no
+/// answer rather than the least distant one, which would otherwise draw
+/// Alaska's radar over the mid-Atlantic.
 #[tauri::command]
-pub fn level2_nearest_site(latitude: f32, longitude: f32) -> Option<String> {
-    let site = registry::nearest_site(latitude, longitude)?;
-    let distance = great_circle_km(
-        latitude as f64,
-        longitude as f64,
-        site.latitude as f64,
-        site.longitude as f64,
-    );
-    (distance <= SITE_REACH_KM).then(|| site.id.to_string())
+pub async fn level2_nearest_site(latitude: f32, longitude: f32) -> Option<String> {
+    let sites = sites_in_reach(latitude, longitude);
+    if sites.is_empty() {
+        return None;
+    }
+
+    // Only the closest few are worth asking about. Past that the beam is high
+    // enough over the viewport that a nearer site being down is the smaller
+    // problem, and each question costs a listing.
+    let asked: Vec<&'static registry::SiteEntry> =
+        sites.iter().take(MAX_SITE_CANDIDATES).copied().collect();
+    let mut times: Vec<(&str, Option<DateTime<Utc>>)> = Vec::with_capacity(asked.len());
+    for site in &asked {
+        times.push((site.id, newest_volume_time(site.id).await));
+        // The first one that answers is the answer; the rest go unasked.
+        if volume_is_current(times.last().expect("just pushed").1, Utc::now()) {
+            break;
+        }
+    }
+
+    first_site_with_a_volume(
+        &asked,
+        |id| {
+            times
+                .iter()
+                .find(|(site, _)| *site == id)
+                .and_then(|(_, at)| *at)
+        },
+        Utc::now(),
+    )
+    .map(|site| site.id.to_string())
 }
 
 #[tauri::command]
@@ -851,27 +974,116 @@ mod tests {
         assert!(product_from_name("").is_none());
     }
 
+    // The site a viewport is handed to is chosen in two steps: which sites can
+    // see it at all, and which of those has published anything lately. Only the
+    // second one needs the network, so the first is tested on its own here.
+
     #[test]
     fn the_nearest_site_is_the_one_a_viewer_is_standing_over() {
         assert_eq!(
-            level2_nearest_site(35.4676, -97.5164).as_deref(),
+            sites_in_reach(35.4676, -97.5164).first().map(|site| site.id),
             Some("KTLX")
         );
-        assert_eq!(level2_nearest_site(41.73, -93.72).as_deref(), Some("KDMX"));
+        assert_eq!(
+            sites_in_reach(41.73, -93.72).first().map(|site| site.id),
+            Some("KDMX")
+        );
         // Puerto Rico and Hawaii have their own sites and are not the mainland.
-        assert_eq!(level2_nearest_site(18.4, -66.1).as_deref(), Some("TJUA"));
+        assert_eq!(
+            sites_in_reach(18.4, -66.1).first().map(|site| site.id),
+            Some("TJUA")
+        );
     }
 
     #[test]
     fn a_place_no_site_can_see_gets_no_site() {
         // Mid-Atlantic, the middle of the Pacific, and central Europe.
         for (latitude, longitude) in [(30.0, -45.0), (10.0, -150.0), (48.9, 2.4)] {
-            assert_eq!(
-                level2_nearest_site(latitude, longitude),
-                None,
+            assert!(
+                sites_in_reach(latitude, longitude).is_empty(),
                 "{latitude},{longitude} is not in anyone's coverage"
             );
         }
+    }
+
+    #[test]
+    fn sites_in_reach_come_back_nearest_first() {
+        let near_oklahoma_city = sites_in_reach(35.4676, -97.5164);
+        assert!(
+            near_oklahoma_city.len() > 1,
+            "central Oklahoma is covered by more than one site"
+        );
+        let distances: Vec<f64> = near_oklahoma_city
+            .iter()
+            .map(|site| {
+                great_circle_km(
+                    35.4676,
+                    -97.5164,
+                    site.latitude as f64,
+                    site.longitude as f64,
+                )
+            })
+            .collect();
+        for pair in distances.windows(2) {
+            assert!(pair[0] <= pair[1], "{distances:?} is not sorted");
+        }
+    }
+
+    #[test]
+    fn a_site_that_stopped_publishing_is_passed_over() {
+        let now = "2026-08-30T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let sites = sites_in_reach(35.4676, -97.5164);
+        let nearest = sites[0].id;
+        let next = sites[1].id;
+
+        // The nearest site went down an hour ago; the next one is current.
+        let chosen = first_site_with_a_volume(
+            &sites,
+            |id| {
+                if id == nearest {
+                    Some(now - Duration::hours(1))
+                } else {
+                    Some(now - Duration::minutes(3))
+                }
+            },
+            now,
+        );
+        assert_eq!(chosen.map(|site| site.id), Some(next));
+
+        // With the nearest one publishing again it takes the view straight back.
+        let chosen = first_site_with_a_volume(&sites, |_| Some(now - Duration::minutes(3)), now);
+        assert_eq!(chosen.map(|site| site.id), Some(nearest));
+
+        // A site the archive holds nothing for is skipped the same way.
+        let chosen = first_site_with_a_volume(
+            &sites,
+            |id| (id != nearest).then(|| now - Duration::minutes(3)),
+            now,
+        );
+        assert_eq!(chosen.map(|site| site.id), Some(next));
+    }
+
+    #[test]
+    fn a_region_that_is_entirely_quiet_still_names_the_nearest_site() {
+        // Otherwise the viewport looks like it is outside coverage, and the
+        // panel says nothing at all rather than reporting the site's failure.
+        let now = "2026-08-30T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let sites = sites_in_reach(35.4676, -97.5164);
+        let chosen = first_site_with_a_volume(&sites, |_| None, now);
+        assert_eq!(chosen.map(|site| site.id), Some(sites[0].id));
+    }
+
+    #[test]
+    fn only_a_recent_volume_counts_as_current() {
+        let now = "2026-08-30T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        assert!(volume_is_current(Some(now - Duration::minutes(4)), now));
+        assert!(volume_is_current(Some(now - Duration::minutes(19)), now));
+        assert!(!volume_is_current(Some(now - Duration::minutes(21)), now));
+        assert!(!volume_is_current(None, now));
+        // A volume stamped slightly ahead of this machine's clock is a skewed
+        // clock, not a stale site.
+        assert!(volume_is_current(Some(now + Duration::minutes(2)), now));
+        assert!(!volume_is_current(Some(now + Duration::hours(3)), now));
     }
 
     #[test]
@@ -885,6 +1097,34 @@ mod tests {
     /// The one test that talks to NOAA. It is ignored by default so the normal
     /// gate stays offline, and run with
     /// `cargo test --lib -- --ignored level2` when the pipeline changes.
+    #[test]
+    #[ignore = "asks the live NEXRAD archive which sites are publishing"]
+    fn the_site_chosen_for_a_live_view_has_something_to_draw() {
+        // The whole point of choosing by the archive rather than by distance
+        // alone: whatever comes back has to have a volume recent enough to
+        // render, or the handover shows an error where radar should be.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        // Des Moines, which several sites can see.
+        let chosen = runtime
+            .block_on(level2_nearest_site(41.73, -93.72))
+            .expect("central Iowa is inside NEXRAD coverage");
+        let sites = sites_in_reach(41.73, -93.72);
+        assert!(
+            sites.iter().any(|site| site.id == chosen),
+            "{chosen} is not one of the sites that can see the point"
+        );
+
+        let newest = runtime.block_on(newest_volume_time(&chosen));
+        assert!(
+            volume_is_current(newest, Utc::now()),
+            "{chosen} was chosen but its newest volume is {newest:?}"
+        );
+    }
+
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
     fn decodes_and_draws_a_live_kdmx_volume() {
