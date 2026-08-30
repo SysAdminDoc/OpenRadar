@@ -151,6 +151,18 @@ export interface AppSettings {
    * a later build appears rather than arriving switched off.
    */
   alertTypes: Partial<Record<AlertType, boolean>>;
+  /**
+   * How solid each overlay is drawn, as a fraction of what it was designed
+   * to be. An overlay with no entry is drawn as designed, which is what every
+   * overlay does until somebody moves a slider.
+   */
+  overlayOpacity: Record<string, number>;
+  /**
+   * The order the overlays are drawn in, bottom first. Anything not named
+   * keeps its designed place, so an overlay added later appears where it was
+   * meant to rather than at whichever end a saved list happens to leave.
+   */
+  overlayOrder: string[];
   presets: Array<PresetState | null>;
 }
 
@@ -211,6 +223,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   palette: null,
   surgeCategory: 3,
   alertTypes: {},
+  overlayOpacity: {},
+  overlayOrder: [],
   watch: {
     enabled: false,
     center: [-96.8, 32.78],
@@ -467,6 +481,26 @@ function normalizeAlertTypes(
   return out;
 }
 
+/**
+ * The per-overlay opacities, with anything unusable dropped.
+ *
+ * Only entries that differ from full are kept, so an overlay added in a later
+ * build is drawn as designed rather than arriving at whatever a saved file
+ * happened to hold.
+ */
+function normalizeOverlayOpacity(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof entry !== "number" || !Number.isFinite(entry)) continue;
+    const clamped = Math.min(1, Math.max(0.1, entry));
+    // Full is the default, so storing it would only make a bigger file.
+    if (clamped >= 1) continue;
+    out[key] = clamped;
+  }
+  return out;
+}
+
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -593,6 +627,13 @@ export function normalizeSettings(value: unknown): AppSettings {
       : DEFAULT_SETTINGS.surgeCategory,
     watch: normalizeWatch(raw.watch),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
+    overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),
+    overlayOrder: Array.isArray(raw.overlayOrder)
+      ? raw.overlayOrder
+          .filter((id): id is string => typeof id === "string")
+          .filter((id, at, all) => all.indexOf(id) === at)
+          .slice(0, 32)
+      : [],
     presets,
   };
 }

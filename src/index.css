@@ -2511,3 +2511,51 @@ input[type="range"] {
   color: #fff5f5;
   background: #b91c1c;
 }
+
+/* The overlay arrangement: what is over what, top of the list first, which is
+   how somebody thinks about it even though the list itself is stored the other
+   way round. */
+.layer-order {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: 3px;
+  list-style: none;
+}
+
+.layer-order li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 62%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.layer-order button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.layer-order button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.layer-order button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

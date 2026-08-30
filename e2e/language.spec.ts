@@ -130,7 +130,11 @@ test.describe("a workspace in another language", () => {
     // And it holds across the panels, not just the one that was open.
     await page.getByRole("button", { name: "Capas", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Capas" })).toBeVisible();
-    await expect(page.getByText("Alertas meteorológicas")).toBeVisible();
+    // Scoped to the switch list. The layer name also appears in the opacity
+    // sliders below it now, so a bare lookup matches two things.
+    await expect(
+      page.locator(".setting-list").getByText("Alertas meteorológicas"),
+    ).toBeVisible();
 
     // Back to English, in place, with no restart.
     await page.getByRole("button", { name: "Ajustes", exact: true }).click();

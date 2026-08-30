@@ -17,13 +17,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: the single-site image updates within 30 seconds of a new chunk with the swept sector drawn over the previous full sweep; the legend says "live, N s old"; a Rust test assembles a fixture volume from chunks; the live test compares the chunk sweep with the archive sweep for the same volume.
   Complexity: L
 
-- [ ] P2 — Per-layer opacity and a layer order list
-  Why: the two most-requested layer controls in Supercell Wx in 2026 (#682 merged, #691 open); ForeFlight's per-layer sliders are the reference UX.
-  Evidence: https://github.com/dpaulat/supercell-wx/pull/682 ; https://github.com/dpaulat/supercell-wx/issues/691 ; https://www.foreflight.com/support/video-library/watch/?v=foreflight-quick-tip-opacity-sliders ; `src/components/MapViewport.tsx` declared layer stack.
-  Touches: src/lib/settings.ts (layers.opacity map, layers.order), src/panels/MapOptionsPanels.tsx, src/components/MapViewport.tsx, e2e/layers.spec.ts
-  Acceptance: each overlay row has an opacity slider that applies live and persists; drag handles reorder overlays within the overlay band without letting them pass warnings; `data-layer-stack` reflects the order and the e2e test asserts it.
-  Complexity: M
-
 ### P3
 
 - [ ] P3 — Optical-flow radar nowcast for the next 60 minutes on the timeline tail

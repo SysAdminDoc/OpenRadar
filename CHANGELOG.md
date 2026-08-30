@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Each overlay has its own opacity, so a layer can be faded rather than switched off, and you can say which one sits on top of which. Warnings are not in the arrangement: a warning is somebody telling you to take cover, and nothing should be able to put a wildfire perimeter over one.
+
 - Severe probability, from the model the paid apps put their badges on. The National Severe Storms Laboratory reads the radar, the satellite, the lightning and the air around each storm and publishes, every couple of minutes, how likely that storm is to turn severe in the next hour, and separately for hail, wind and a tornado. Click one for the numbers and the measurements behind them. It is guidance, not a warning: it draws under the warnings and it says so.
 
 - The national grid now covers Alaska, Hawaii, Guam and the Caribbean, not just the lower forty-eight. Those four are published on the same bucket at the same cadence and are read by the same decoder; the map simply never asked for them, and fell through to a personal-use tier for everybody in them. Each is its own grid at its own resolution, so the view picks the one it is over.

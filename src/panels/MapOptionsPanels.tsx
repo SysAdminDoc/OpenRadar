@@ -3,6 +3,8 @@ import {
   Check,
   CloudHail,
   CloudRain,
+  ChevronDown,
+  ChevronUp,
   Crosshair,
   Sigma,
   Droplets,
@@ -47,6 +49,7 @@ import {
   type SurgeCategory,
 } from "../lib/surge";
 import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
+import { overlayBandOrder } from "../lib/overlayOrder";
 
 interface MapTypePanelProps {
   mapStyle: MapStyleId;
@@ -111,8 +114,54 @@ export function MapTypePanel({
   );
 }
 
+/**
+ * The layer switches that draw an overlay, paired with the overlay they draw.
+ *
+ * Only these can be faded: the rest are pictures the native side draws, and a
+ * picture already has its own opacity control beside the radar.
+ */
+const OVERLAY_LAYERS: Array<{
+  key: keyof LayerSettings;
+  overlayId: string;
+  labelKey: StringKey;
+}> = [
+  {
+    key: "weatherAlerts",
+    overlayId: "alerts",
+    labelKey: "layer.weatherAlerts",
+  },
+  {
+    key: "spcOutlooks",
+    overlayId: "spcOutlooks",
+    labelKey: "layer.spcOutlooks",
+  },
+  {
+    key: "spcDiscussions",
+    overlayId: "spcDiscussions",
+    labelKey: "layer.spcDiscussions",
+  },
+  {
+    key: "stormReports",
+    overlayId: "stormReports",
+    labelKey: "layer.stormReports",
+  },
+  {
+    key: "earthquakes",
+    overlayId: "earthquakes",
+    labelKey: "layer.earthquakes",
+  },
+  { key: "wildfires", overlayId: "wildfires", labelKey: "layer.wildfires" },
+  { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
+];
+
 interface LayersPanelProps {
   layers: LayerSettings;
+  /** How solid each overlay is drawn, as a fraction of its own design. */
+  overlayOpacity: Record<string, number>;
+  onOverlayOpacity: (opacity: Record<string, number>) => void;
+  /** The order the overlays are drawn in, bottom first. */
+  overlayOrder: string[];
+  onOverlayOrder: (order: string[]) => void;
   /** Which kinds of alert to draw, by the switches below the alert layer. */
   alertTypes: Partial<Record<AlertType, boolean>>;
   /** Which hurricane the surge picture is about. */
@@ -271,6 +320,10 @@ const LAYER_OPTIONS: Array<{
 
 export function LayersPanel({
   layers,
+  overlayOpacity,
+  onOverlayOpacity,
+  overlayOrder,
+  onOverlayOrder,
   alertTypes,
   surgeCategory,
   onLayers,
@@ -279,6 +332,20 @@ export function LayersPanel({
   onClose,
 }: LayersPanelProps) {
   const t = useT();
+  // The overlays that are switched on and can be moved, bottom first.
+  // Warnings are not among them: nothing should be able to put a wildfire
+  // perimeter over somebody telling you to take cover.
+  const arrangeable = overlayBandOrder(overlayOrder).filter(
+    (overlayId) =>
+      overlayId !== "alerts" &&
+      OVERLAY_LAYERS.some(
+        (entry) => entry.overlayId === overlayId && layers[entry.key],
+      ),
+  );
+  const labelFor = (overlayId: string): StringKey =>
+    OVERLAY_LAYERS.find((entry) => entry.overlayId === overlayId)?.labelKey ??
+    "layer.weatherAlerts";
+
   return (
     <PanelShell
       eyebrow={t("layers.eyebrow")}
@@ -305,6 +372,91 @@ export function LayersPanel({
           </label>
         ))}
       </div>
+      {arrangeable.length > 1 ? (
+        <div className="settings-section" data-overlay-order>
+          <div className="settings-section__title">
+            <span>{t("layers.order")}</span>
+            <small>{t("layers.orderDetail")}</small>
+          </div>
+          <ol className="layer-order">
+            {[...arrangeable].reverse().map((overlayId, shown) => {
+              const label = t(labelFor(overlayId));
+              // Shown top first, which is how somebody thinks about what is
+              // over what, while the list itself is stored bottom first.
+              const at = arrangeable.length - 1 - shown;
+              const move = (to: number) => {
+                const next = [...arrangeable];
+                const [taken] = next.splice(at, 1);
+                next.splice(to, 0, taken);
+                onOverlayOrder(next);
+              };
+              return (
+                <li key={overlayId} data-overlay={overlayId}>
+                  <span>{label}</span>
+                  <button
+                    type="button"
+                    aria-label={t("layers.moveUp", { layer: label })}
+                    disabled={at === arrangeable.length - 1}
+                    onClick={() => move(at + 1)}
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("layers.moveDown", { layer: label })}
+                    disabled={at === 0}
+                    onClick={() => move(at - 1)}
+                  >
+                    <ChevronDown size={15} />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ) : null}
+
+      {OVERLAY_LAYERS.some(({ key }) => layers[key]) ? (
+        <div className="settings-section" data-overlay-opacity>
+          <div className="settings-section__title">
+            <span>{t("layers.opacity")}</span>
+            <small>{t("layers.opacityDetail")}</small>
+          </div>
+          {OVERLAY_LAYERS.filter(({ key }) => layers[key]).map(
+            ({ overlayId, labelKey }) => {
+              const solid = Math.round((overlayOpacity[overlayId] ?? 1) * 100);
+              return (
+                <label className="range-row" key={overlayId}>
+                  <span>
+                    <strong>{t(labelKey)}</strong>
+                    <output>{solid}%</output>
+                  </span>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    step={5}
+                    aria-label={t("layers.opacityFor", {
+                      layer: t(labelKey),
+                      percent: solid,
+                    })}
+                    value={solid}
+                    onChange={(event) => {
+                      const next = { ...overlayOpacity };
+                      const asked = Number(event.target.value) / 100;
+                      // Full is the default, so it is stored as nothing.
+                      if (asked >= 1) delete next[overlayId];
+                      else next[overlayId] = asked;
+                      onOverlayOpacity(next);
+                    }}
+                  />
+                </label>
+              );
+            },
+          )}
+        </div>
+      ) : null}
+
       {layers.weatherAlerts ? (
         <div className="settings-section" data-alert-kinds>
           <div className="settings-section__title">

@@ -54,6 +54,7 @@ import {
   type SurgeCategory,
 } from "../lib/surge";
 import { translate } from "../i18n";
+import { overlayBandOrder } from "../lib/overlayOrder";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
@@ -141,6 +142,10 @@ interface MapViewportProps {
   cells?: Record<string, unknown> | null;
   /** What the severe-probability model expects of each storm. */
   probSevere?: Record<string, unknown> | null;
+  /** How solid each overlay is drawn, as a fraction of its own design. */
+  overlayOpacity?: Record<string, number>;
+  /** The order the overlays are drawn in, bottom first. */
+  overlayOrder?: string[];
   /**
    * How long the flash window runs, in minutes, and the moment to fade
    * against. The fade is a paint property rather than part of the data, so it
@@ -216,21 +221,12 @@ function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
  * complete record, so adding an overlay without placing it in the stack is a
  * compile error rather than a layer that quietly sinks to the bottom.
  */
-const OVERLAY_DEPTH: Record<OverlayId, number> = {
-  // Guidance about what might happen sits under everything that is happening.
-  spcOutlooks: 0,
-  spcDiscussions: 1,
-  // What actually happened, over the guidance and under the warnings.
-  stormReports: 2,
-  tropical: 3,
-  wildfires: 4,
-  earthquakes: 5,
-  alerts: 6,
-};
+let overlayOrderChosen: string[] = [];
 
 function overlayLayerOrder(): string[] {
+  const order = overlayBandOrder(overlayOrderChosen);
   return [...OVERLAY_ADAPTERS]
-    .sort((left, right) => OVERLAY_DEPTH[left.id] - OVERLAY_DEPTH[right.id])
+    .sort((left, right) => order.indexOf(left.id) - order.indexOf(right.id))
     .flatMap((adapter) =>
       adapter
         .layers(`${OVERLAY_SOURCE_PREFIX}${adapter.id}`)
@@ -309,6 +305,8 @@ function MapViewportInner(
     flashes = null,
     cells = null,
     probSevere = null,
+    overlayOpacity = {},
+    overlayOrder = [],
     flashWindowMinutes = 5,
     flashClock,
     wind = null,
@@ -337,6 +335,7 @@ function MapViewportInner(
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
   const probSevereRef = useRef<Record<string, unknown> | null>(probSevere);
+  const overlayOpacityRef = useRef(overlayOpacity);
   const flashWindowRef = useRef(flashWindowMinutes);
   const flashClockRef = useRef(flashClock);
   const windRef = useRef<WindField | null>(wind);
@@ -661,10 +660,60 @@ function MapViewportInner(
       // not depend on which adapter answered first.
       for (const layer of adapter.layers(sourceId)) {
         map.addLayer(layer, firstExisting(map, layersAbove(layer.id)));
+        rememberBaseOpacity(layer);
       }
     }
 
+    applyOverlayOpacity();
     publishLayers();
+  };
+
+  /**
+   * The opacity each overlay layer was designed with.
+   *
+   * A reader's slider multiplies this rather than replacing it. Several of
+   * these are expressions rather than numbers, so the alert fill stays fainter
+   * than its outline and a faded flash stays fainter than a fresh one:
+   * flattening them to one value would throw away the design and leave the
+   * layer readable only at full.
+   */
+  const baseOpacityRef = useRef(new Map<string, [string, unknown]>());
+
+  const rememberBaseOpacity = (layer: maplibregl.LayerSpecification) => {
+    const property =
+      layer.type === "fill"
+        ? "fill-opacity"
+        : layer.type === "line"
+          ? "line-opacity"
+          : layer.type === "circle"
+            ? "circle-opacity"
+            : null;
+    if (!property) return;
+    const paint = (layer.paint ?? {}) as Record<string, unknown>;
+    // A layer that never said gets MapLibre's own default of one.
+    baseOpacityRef.current.set(layer.id, [property, paint[property] ?? 1]);
+  };
+
+  const applyOverlayOpacity = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const factor = overlayOpacityRef.current[adapter.id] ?? 1;
+      const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
+      for (const layer of adapter.layers(sourceId)) {
+        if (!map.getLayer(layer.id)) continue;
+        const held = baseOpacityRef.current.get(layer.id);
+        if (!held) continue;
+        const [property, base] = held;
+        map.setPaintProperty(
+          layer.id,
+          property as "fill-opacity",
+          factor >= 1
+            ? (base as never)
+            : (["*", base, factor] as unknown as never),
+        );
+      }
+    }
   };
 
   /** One popup, from a title and some lines. */
@@ -1704,6 +1753,33 @@ function MapViewportInner(
     // The fade function reads the refs above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flashClock, flashWindowMinutes]);
+
+  useEffect(() => {
+    // The stack is rebuilt from this, so it has to be in place before the
+    // overlays are put back.
+    overlayOrderChosen = overlayOrder;
+    const map = mapRef.current;
+    if (map && styleReadyRef.current) {
+      // Taking them all off and adding them again is what puts them in the
+      // new order: MapLibre places a layer relative to the ones already there.
+      for (const adapter of OVERLAY_ADAPTERS) {
+        const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
+        if (!map.getSource(sourceId)) continue;
+        for (const layer of adapter.layers(sourceId)) {
+          if (map.getLayer(layer.id)) map.removeLayer(layer.id);
+        }
+        map.removeSource(sourceId);
+      }
+      syncOverlays();
+    }
+    // The sync function reads refs rather than props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlayOrder]);
+
+  useEffect(() => {
+    overlayOpacityRef.current = overlayOpacity;
+    applyOverlayOpacity();
+  }, [overlayOpacity]);
 
   useEffect(() => {
     probSevereRef.current = probSevere;

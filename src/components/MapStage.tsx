@@ -37,6 +37,10 @@ interface MapStageProps {
   cells: Record<string, unknown> | null;
   /** What the severe-probability model expects of each storm. */
   probSevere: Record<string, unknown> | null;
+  /** How solid each overlay is drawn, as a fraction of its own design. */
+  overlayOpacity: Record<string, number>;
+  /** The order the overlays are drawn in, bottom first. */
+  overlayOrder: string[];
   /** The flash window and the moment the fade is measured against. */
   flashWindowMinutes: number;
   flashClock: number;
@@ -71,6 +75,8 @@ export function MapStage({
   flashes,
   cells,
   probSevere,
+  overlayOpacity,
+  overlayOrder,
   flashWindowMinutes,
   flashClock,
   wind,
@@ -105,6 +111,8 @@ export function MapStage({
     flashes,
     cells,
     probSevere,
+    overlayOpacity,
+    overlayOrder,
     flashWindowMinutes,
     flashClock,
     wind,

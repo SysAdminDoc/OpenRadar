@@ -71,6 +71,8 @@ interface PanelSurfacesProps {
   onCommand: (action: CommandAction) => void;
   onClearPalette: () => void;
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
+  onOverlayOpacity: (opacity: Record<string, number>) => void;
+  onOverlayOrder: (order: string[]) => void;
   /** What the radar's tracking algorithm is following, for the radar panel. */
   stormCells: StormCellState;
   onSurgeCategory: (category: SurgeCategory) => void;
@@ -117,6 +119,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "layers" ? (
         <LayersPanel
           layers={settings.layers}
+          overlayOpacity={settings.overlayOpacity}
+          onOverlayOpacity={props.onOverlayOpacity}
+          overlayOrder={settings.overlayOrder}
+          onOverlayOrder={props.onOverlayOrder}
           alertTypes={settings.alertTypes}
           surgeCategory={settings.surgeCategory}
           onLayers={props.onLayers}
