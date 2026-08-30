@@ -197,6 +197,59 @@ test("switches product and tilt on the site already on screen", async ({
   expect(sweeps.at(-1)?.args).toMatchObject({ product: "velocity", tilt: 2 });
 });
 
+test("hides the weak returns when the reader asks and puts them back", async ({
+  page,
+}) => {
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+
+  const slider = page.getByRole("slider", {
+    name: "Hide readings below this value",
+  });
+  // Nothing is hidden until somebody asks, so the sweep is read whole.
+  await expect(page.getByText("Everything")).toBeVisible();
+
+  await slider.fill("35");
+  await expect(page.getByText("35 dBZ")).toBeVisible();
+
+  const askedFor = async () => {
+    const calls = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __sweepCalls: Array<{
+              command: string;
+              args: Record<string, unknown>;
+            }>;
+          }
+        ).__sweepCalls,
+    );
+    return calls.filter((call) => call.command === "level2_sweep").at(-1)?.args
+      .threshold;
+  };
+  await expect.poll(askedFor).toBe(35);
+
+  // The threshold belongs to the product it was set on. Velocity keeps its
+  // own, which is none until it is given one.
+  await page
+    .getByRole("combobox", { name: "Level II product" })
+    .selectOption("velocity");
+  await expect(page.getByText("Everything")).toBeVisible();
+  await expect.poll(askedFor).toBe(null);
+
+  await page
+    .getByRole("combobox", { name: "Level II product" })
+    .selectOption("reflectivity");
+  await expect(page.getByText("35 dBZ")).toBeVisible();
+  await expect.poll(askedFor).toBe(35);
+
+  // Back to the bottom of the slider is off rather than a threshold of zero,
+  // which would redraw the sweep to hide nothing.
+  await slider.fill("0");
+  await expect(page.getByText("Everything")).toBeVisible();
+  await expect.poll(askedFor).toBe(null);
+});
+
 test("turning single site off puts the mosaic back", async ({ page }) => {
   const pane = page.getByRole("application", {
     name: "Interactive weather map",

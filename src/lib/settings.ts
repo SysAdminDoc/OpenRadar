@@ -43,6 +43,15 @@ export interface RadarSettings {
   station: string | null;
   product: Level2ProductId;
   tilt: number;
+  /**
+   * Hide anything weaker than this, per product, in the product's own unit.
+   *
+   * Keyed by product id so a product with no entry is drawn whole, which is
+   * what every product does until somebody asks otherwise. Velocity is
+   * compared on how fast rather than which way, since both directions are the
+   * storm.
+   */
+  thresholds: Record<string, number>;
 }
 
 export interface LayerSettings {
@@ -148,6 +157,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     station: null,
     product: "reflectivity",
     tilt: 0,
+    thresholds: {},
   },
   layers: {
     weatherAlerts: true,
@@ -388,6 +398,26 @@ export function restoreSettings(value: unknown): RestoredSettings {
   };
 }
 
+/**
+ * The per-product thresholds, with anything that is not a finite number
+ * dropped.
+ *
+ * A threshold that cannot be compared against would hide the whole picture, so
+ * a bad entry means no threshold for that product rather than a threshold of
+ * nothing. The file is hand-editable, which is why this is checked at all.
+ */
+function normalizeThresholds(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof entry !== "number" || !Number.isFinite(entry)) continue;
+    // Well outside anything any product reads, in either direction.
+    if (entry < -1000 || entry > 10000) continue;
+    out[key] = entry;
+  }
+  return out;
+}
+
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -451,6 +481,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         120,
       ),
       futureRadar: bool(radar.futureRadar, DEFAULT_SETTINGS.radar.futureRadar),
+      thresholds: normalizeThresholds(radar.thresholds),
     },
     layers: {
       weatherAlerts: bool(

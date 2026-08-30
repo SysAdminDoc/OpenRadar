@@ -21,6 +21,24 @@ function formatSpeed(metresPerSecond: number): string {
   return `${Math.round(perHour)} ${speedUnit()}`;
 }
 
+/**
+ * How far each product's threshold can be pushed, in the product's own unit.
+ *
+ * The bottom of each range is off rather than a threshold: setting it to the
+ * lowest reading would hide nothing and cost a redraw to say so.
+ */
+const THRESHOLD_RANGE: Record<
+  Level2ProductId,
+  { min: number; max: number; step: number }
+> = {
+  reflectivity: { min: 0, max: 70, step: 1 },
+  velocity: { min: 0, max: 60, step: 1 },
+  "storm-relative-velocity": { min: 0, max: 60, step: 1 },
+  "spectrum-width": { min: 0, max: 15, step: 1 },
+  "differential-reflectivity": { min: -2, max: 6, step: 0.5 },
+  "correlation-coefficient": { min: 0, max: 1, step: 0.01 },
+};
+
 interface RadarProductPanelProps {
   radar: RadarSettings;
   /** Milliseconds, ticking once a minute, for the freshness readout. */
@@ -45,6 +63,9 @@ export function RadarProductPanel({
 }: RadarProductPanelProps) {
   const t = useT();
   const sweep = singleSite?.sweep ?? null;
+  const threshold = radar.thresholds[radar.product] ?? null;
+  const productUnit =
+    LEVEL2_PRODUCTS.find((product) => product.id === radar.product)?.unit ?? "";
   const tilts = sweep?.tilts ?? [];
   return (
     <PanelShell
@@ -179,6 +200,49 @@ export function RadarProductPanel({
                   ))}
                 </select>
               </label>
+
+              <label className="range-row">
+                <span>
+                  <strong>{t("radar.threshold")}</strong>
+                  <output>
+                    {threshold === null
+                      ? t("radar.thresholdOff")
+                      : t("radar.thresholdValue", {
+                          value: threshold.toFixed(
+                            THRESHOLD_RANGE[radar.product].step < 1 ? 2 : 0,
+                          ),
+                          unit: productUnit,
+                        })}
+                  </output>
+                </span>
+                <input
+                  type="range"
+                  min={THRESHOLD_RANGE[radar.product].min}
+                  max={THRESHOLD_RANGE[radar.product].max}
+                  step={THRESHOLD_RANGE[radar.product].step}
+                  aria-label={t("radar.thresholdLabel")}
+                  value={threshold ?? THRESHOLD_RANGE[radar.product].min}
+                  onChange={(event) => {
+                    const asked = Number(event.target.value);
+                    // The bottom of the slider is off rather than a threshold
+                    // of the lowest reading, which would hide nothing anyway
+                    // and cost a redraw to say so.
+                    const next = { ...radar.thresholds };
+                    if (asked <= THRESHOLD_RANGE[radar.product].min) {
+                      delete next[radar.product];
+                    } else {
+                      next[radar.product] = asked;
+                    }
+                    onRadar({ ...radar, thresholds: next });
+                  }}
+                />
+              </label>
+              <p className="source-note">
+                {radar.product === "velocity" ||
+                radar.product === "storm-relative-velocity"
+                  ? t("radar.thresholdSpeed")
+                  : t("radar.thresholdDetail")}
+              </p>
 
               <label className="select-row">
                 <span>{t("radar.tilt")}</span>

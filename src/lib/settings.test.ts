@@ -91,6 +91,7 @@ describe("settings normalization", () => {
       "singleSite",
       "station",
       "stormMotion",
+      "thresholds",
       "tilt",
     ]);
     // Future radar came back as a real switch, off unless the file said on.

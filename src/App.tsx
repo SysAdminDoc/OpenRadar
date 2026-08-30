@@ -121,6 +121,9 @@ export default function App() {
     pageVisible,
     archive: replay,
     paletteGeneration,
+    // The mosaic is composite reflectivity, so it reads the threshold set for
+    // that product.
+    mosaicThreshold: settings.radar.thresholds.reflectivity ?? null,
   });
   const singleSite = useSingleSiteRadar({
     ready: hydrated,

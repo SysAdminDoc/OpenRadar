@@ -66,6 +66,9 @@ export function useSingleSiteRadar(options: {
   // values instead of the identity of the object carrying them.
   const motionSpeed = radar.stormMotion?.speedMs ?? null;
   const motionFrom = radar.stormMotion?.fromDegrees ?? null;
+  // A product with no entry is drawn whole, which is what every product does
+  // until somebody asks otherwise.
+  const threshold = radar.thresholds[radar.product] ?? null;
 
   useEffect(() => {
     if (!wanted || radar.station) return;
@@ -112,6 +115,7 @@ export function useSingleSiteRadar(options: {
           motionSpeed !== null && motionFrom !== null
             ? [motionSpeed, motionFrom]
             : null,
+          threshold,
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
@@ -159,6 +163,7 @@ export function useSingleSiteRadar(options: {
     // depending on the object refetched the sweep on every pan.
     motionSpeed,
     motionFrom,
+    threshold,
     radar.tilt,
     station,
     wanted,

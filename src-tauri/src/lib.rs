@@ -58,7 +58,13 @@ pub fn run() {
         // MRMS grids are decoded here and handed to the map as ordinary tiles,
         // so the timeline, scrubbing, and export all work on them unchanged.
         .register_asynchronous_uri_scheme_protocol("mrms", |_app, request, responder| {
-            let path = request.uri().path().to_string();
+            // Path and query together: the threshold the reader set rides
+            // along as ?min= and has to reach the drawing.
+            let path = request
+                .uri()
+                .path_and_query()
+                .map(|both| both.as_str().to_string())
+                .unwrap_or_else(|| request.uri().path().to_string());
             tauri::async_runtime::spawn(async move {
                 let body = mrms::serve_tile(&path).await;
                 responder.respond(

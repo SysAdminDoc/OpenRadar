@@ -272,6 +272,14 @@ export const en = {
   "radar.zoomIn": "Zoom past {zoom} over the United States to bring a site in.",
   "radar.product": "Product",
   "radar.productLabel": "Level II product",
+  "radar.threshold": "Hide below",
+  "radar.thresholdLabel": "Hide readings below this value",
+  "radar.thresholdOff": "Everything",
+  "radar.thresholdValue": "{value} {unit}",
+  "radar.thresholdDetail":
+    "Anything weaker than this is left off the picture, so the cores stand on their own",
+  "radar.thresholdSpeed":
+    "Velocity is hidden by how fast rather than which way, so both directions go together",
   "radar.tilt": "Tilt",
   "radar.tiltLabel": "Level II tilt",
   "radar.site": "Site",

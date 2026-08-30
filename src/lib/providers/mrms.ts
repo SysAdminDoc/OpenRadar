@@ -65,8 +65,14 @@ export function tileUrl(
   product: MrmsProductId,
   time: number,
   palette = 0,
+  // Hide anything below this, in the product's own unit. It is part of the
+  // address for the same reason the palette is: a different threshold is a
+  // different picture and must not be served out of the map's own cache.
+  threshold: number | null = null,
 ): string {
-  return `${root}${product}/${time}/{z}/{x}/{y}.png?p=${palette}`;
+  const floor =
+    threshold !== null && Number.isFinite(threshold) ? `&min=${threshold}` : "";
+  return `${root}${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}`;
 }
 
 /** The base URL for the local tile scheme, once Tauri has spelled it out. */
@@ -115,7 +121,10 @@ export function thinFrames<T>(frames: T[], most = MAX_LOOP_FRAMES): T[] {
   return kept;
 }
 
-export const mrmsProvider: RadarProvider & { paletteGeneration: number } = {
+export const mrmsProvider: RadarProvider & {
+  paletteGeneration: number;
+  threshold: number | null;
+} = {
   id: "mrms",
   label: "NOAA MRMS",
   attribution:
@@ -130,6 +139,8 @@ export const mrmsProvider: RadarProvider & { paletteGeneration: number } = {
   budgetWindowMs: 60_000,
   /** Bumped when a colour table is loaded, so the tiles are drawn again. */
   paletteGeneration: 0,
+  /** Hide anything below this, in dBZ, as the reader asked. */
+  threshold: null,
   fetchFrames: async (loopMinutes: number) => {
     const [root, frames] = await Promise.all([
       base(),
@@ -144,6 +155,7 @@ export const mrmsProvider: RadarProvider & { paletteGeneration: number } = {
           "composite",
           frame.time,
           mrmsProvider.paletteGeneration,
+          mrmsProvider.threshold,
         ),
         tileSize: 256,
         // The grid is one kilometre, which runs out of detail past here.
@@ -164,4 +176,19 @@ export const mrmsProvider: RadarProvider & { paletteGeneration: number } = {
  */
 export function setMrmsPaletteGeneration(generation: number) {
   mrmsProvider.paletteGeneration = generation;
+}
+
+/**
+ * The threshold in force for the mosaic, set the same way and for the same
+ * reason: it goes in every tile address, and the provider builds those inside
+ * fetchFrames where no such argument reaches.
+ *
+ * Returns whether it changed, since a changed threshold means every frame has
+ * to be asked for again.
+ */
+export function setMrmsThreshold(value: number | null): boolean {
+  const next = value !== null && Number.isFinite(value) ? value : null;
+  if (mrmsProvider.threshold === next) return false;
+  mrmsProvider.threshold = next;
+  return true;
 }
