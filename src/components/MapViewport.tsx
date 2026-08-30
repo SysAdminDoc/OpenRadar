@@ -12,7 +12,6 @@ import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
 import { mapStyleDefinition } from "../lib/mapStyles";
 import {
   OVERLAY_ADAPTERS,
-  overlayAdapter,
   type OverlayBounds,
   type OverlayData,
   type OverlayId,
@@ -110,20 +109,26 @@ function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
   return undefined;
 }
 
-/** Bottom to top among the overlays: context first, warnings last. */
-const OVERLAY_STACK: OverlayId[] = [
-  "tropical",
-  "wildfires",
-  "earthquakes",
-  "alerts",
-];
+/**
+ * Bottom to top among the overlays: context first, warnings last. Typed as a
+ * complete record, so adding an overlay without placing it in the stack is a
+ * compile error rather than a layer that quietly sinks to the bottom.
+ */
+const OVERLAY_DEPTH: Record<OverlayId, number> = {
+  tropical: 0,
+  wildfires: 1,
+  earthquakes: 2,
+  alerts: 3,
+};
 
 function overlayLayerOrder(): string[] {
-  return OVERLAY_STACK.flatMap((id) =>
-    overlayAdapter(id)
-      .layers(`${OVERLAY_SOURCE_PREFIX}${id}`)
-      .map((layer) => layer.id),
-  );
+  return [...OVERLAY_ADAPTERS]
+    .sort((left, right) => OVERLAY_DEPTH[left.id] - OVERLAY_DEPTH[right.id])
+    .flatMap((adapter) =>
+      adapter
+        .layers(`${OVERLAY_SOURCE_PREFIX}${adapter.id}`)
+        .map((layer) => layer.id),
+    );
 }
 
 /**
@@ -142,11 +147,14 @@ function layerStackOrder(): string[] {
   ];
 }
 
-/** The layers that belong above the one being added. */
+/**
+ * The layers that belong above the one being added. A layer the order does not
+ * know goes on top rather than under everything, which is the safer miss.
+ */
 function layersAbove(id: string): string[] {
   const order = layerStackOrder();
   const at = order.indexOf(id);
-  return at < 0 ? order : order.slice(at + 1);
+  return at < 0 ? [] : order.slice(at + 1);
 }
 
 function asCamera(map: maplibregl.Map): CameraState {
@@ -539,17 +547,23 @@ function MapViewportInner(
         paint: {
           "line-width": 5,
           "line-color": [
-            "interpolate",
-            ["linear"],
-            ["coalesce", ["get", "precipitationChance"], 0],
-            0,
-            "#4ade80",
-            30,
-            "#facc15",
-            60,
-            "#fb923c",
-            85,
-            "#f43f5e",
+            "case",
+            ["<", ["coalesce", ["get", "precipitationChance"], -1], 0],
+            // No reading for that hour, which is not the same as no rain.
+            "#94a3b8",
+            [
+              "interpolate",
+              ["linear"],
+              ["get", "precipitationChance"],
+              0,
+              "#4ade80",
+              30,
+              "#facc15",
+              60,
+              "#fb923c",
+              85,
+              "#f43f5e",
+            ],
           ],
         },
       },
@@ -588,7 +602,11 @@ function MapViewportInner(
           type: "fill",
           source: CUSTOM_SOURCE_ID,
           filter: ["==", ["geometry-type"], "Polygon"],
-          paint: { "fill-color": "#60a5fa", "fill-opacity": 0.18 },
+          // A placefile carries its own colours; plain GeoJSON does not.
+          paint: {
+            "fill-color": ["coalesce", ["get", "color"], "#60a5fa"],
+            "fill-opacity": 0.18,
+          },
         },
         beforeTools,
       );
@@ -602,7 +620,10 @@ function MapViewportInner(
             ["geometry-type"],
             ["literal", ["LineString", "Polygon"]],
           ],
-          paint: { "line-color": "#93c5fd", "line-width": 2 },
+          paint: {
+            "line-color": ["coalesce", ["get", "color"], "#93c5fd"],
+            "line-width": ["coalesce", ["get", "width"], 2],
+          },
         },
         beforeTools,
       );
@@ -614,7 +635,7 @@ function MapViewportInner(
           filter: ["==", ["geometry-type"], "Point"],
           paint: {
             "circle-radius": 6,
-            "circle-color": "#60a5fa",
+            "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
             "circle-stroke-color": "#eff6ff",
             "circle-stroke-width": 1.5,
           },
@@ -671,8 +692,12 @@ function MapViewportInner(
     },
     camera: () => (mapRef.current ? asCamera(mapRef.current) : null),
     canvas: () => mapRef.current?.getCanvas() ?? null,
-    onceIdle: () =>
-      new Promise<void>((resolve) => {
+    onceIdle: async () => {
+      // Let React flush the frame change and the map paint it before the wait
+      // starts, or an idle already in flight resolves against the old frame.
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      return new Promise<void>((resolve) => {
         const map = mapRef.current;
         if (!map) {
           resolve();
@@ -687,7 +712,8 @@ function MapViewportInner(
           resolve();
         }
         map.once("idle", finish);
-      }),
+      });
+    },
     bounds: () => {
       const map = mapRef.current;
       if (!map) return null;

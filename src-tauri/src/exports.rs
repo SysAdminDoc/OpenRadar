@@ -11,6 +11,12 @@ use tauri::{AppHandle, Manager};
 const MAX_STEM: usize = 80;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm"];
+/// Windows addresses these as devices no matter the extension or folder.
+const RESERVED_NAMES: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6",
+    "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6",
+    "LPT7", "LPT8", "LPT9",
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExportError {
@@ -32,9 +38,10 @@ impl serde::Serialize for ExportError {
     }
 }
 
-/// Keeps letters, digits, dashes, underscores, and dots; everything else
+/// Keeps letters, digits, dashes, and underscores; everything else in the stem
 /// becomes a dash. Separators and parent references cannot survive, so the
-/// result can only ever name a file inside the folder we picked.
+/// result can only ever name a file inside the folder we picked, and a name
+/// that would address a DOS device instead of a file is refused.
 pub fn sanitize_file_name(name: &str) -> Result<String, ExportError> {
     let (stem, extension) = name.rsplit_once('.').ok_or(ExportError::BadName)?;
     let extension = extension.to_ascii_lowercase();
@@ -58,6 +65,9 @@ pub fn sanitize_file_name(name: &str) -> Result<String, ExportError> {
     }
 
     let stem: String = cleaned.chars().take(MAX_STEM).collect();
+    if RESERVED_NAMES.contains(&stem.to_ascii_uppercase().as_str()) {
+        return Err(ExportError::BadName);
+    }
     Ok(format!("{stem}.{extension}"))
 }
 
@@ -141,6 +151,17 @@ mod tests {
             sanitize_file_name("....png"),
             Err(ExportError::BadName)
         ));
+    }
+
+    #[test]
+    fn refuses_a_name_windows_would_treat_as_a_device() {
+        for name in ["CON.png", "nul.webm", "Lpt1.png"] {
+            assert!(matches!(
+                sanitize_file_name(name),
+                Err(ExportError::BadName)
+            ));
+        }
+        assert!(sanitize_file_name("console.png").is_ok());
     }
 
     #[test]

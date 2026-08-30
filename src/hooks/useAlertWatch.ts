@@ -38,6 +38,7 @@ export function useAlertWatch(
   onFallback: (alert: WatchAlert) => void,
 ): void {
   const announcedRef = useRef(new Set<string>());
+  const checkingRef = useRef(false);
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
     fallbackRef.current = onFallback;
@@ -51,8 +52,15 @@ export function useAlertWatch(
     if (!watch.enabled) return;
     const controller = new AbortController();
     let mounted = true;
+    // A different point or radius is a different watch, so what was already
+    // said about the old one must not silence the new one.
+    announcedRef.current = new Set<string>();
 
     const check = async () => {
+      // A slow request must not have a second one running over the top of it,
+      // which is how the same alert gets announced twice.
+      if (checkingRef.current) return;
+      checkingRef.current = true;
       try {
         const alerts = await alertsOverlay.fetchData(
           watchBounds(watch),
@@ -86,6 +94,8 @@ export function useAlertWatch(
           "watch",
           failure instanceof Error ? failure.message : "The watch check failed",
         );
+      } finally {
+        checkingRef.current = false;
       }
     };
 

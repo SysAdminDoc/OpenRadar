@@ -22,7 +22,7 @@ const MAX_OVERLAY_FEATURES = 5000;
 
 export interface WorkspaceActions {
   flyToBounds: (bounds: OverlayBounds) => void;
-  followStorm: (point: GeoPoint) => void;
+  followStorm: (point: GeoPoint, name?: string) => void;
   setProjection: (projection: ProjectionMode) => void;
   locate: () => void;
   goToPlace: (place: PlaceResult) => void;
@@ -86,15 +86,41 @@ export function useWorkspaceActions(options: {
   );
 
   const followStorm = useCallback(
-    (point: GeoPoint) => {
-      mapRef.current?.flyTo({
+    (point: GeoPoint, name?: string) => {
+      const camera: CameraState = {
         center: [point.lon, point.lat],
         zoom: 5.5,
         bearing: 0,
         pitch: 0,
+      };
+      mapRef.current?.flyTo(camera);
+
+      // Following a storm is something you come back to, so it is kept in the
+      // first free slot rather than left for the user to save by hand.
+      const current = settingsRef.current;
+      const slot = current.presets.findIndex((preset) => preset === null);
+      if (slot < 0) {
+        pushToast({
+          title: `Following ${name ?? "the storm"}`,
+          detail: "Every preset slot is taken, so this view was not kept.",
+        });
+        return;
+      }
+
+      const presets = [...current.presets];
+      presets[slot] = {
+        name: name ?? "Storm",
+        camera,
+        projection: current.projection,
+        mapStyle: current.mapStyle,
+      };
+      applySettings(normalizeSettings({ ...current, presets }));
+      pushToast({
+        title: `Following ${name ?? "the storm"}`,
+        detail: `Kept as preset ${slot + 1}.`,
       });
     },
-    [mapRef],
+    [applySettings, mapRef, pushToast, settingsRef],
   );
 
   const setProjection = useCallback(
@@ -226,9 +252,17 @@ export function useWorkspaceActions(options: {
             throw new Error("That placefile has nothing this map can draw.");
           }
           payload = placefile.data as unknown as Record<string, unknown>;
-          detail = placefile.skipped.length
-            ? `${placefile.data.features.length} shapes. ${placefile.skipped.join(" and ")} need image files and were left out.`
-            : `${placefile.data.features.length} shapes from the placefile.`;
+          const notes = [`${placefile.data.features.length} shapes`];
+          if (placefile.refreshMinutes) {
+            notes.push(
+              `it asks to be refreshed every ${placefile.refreshMinutes} min`,
+            );
+          }
+          if (placefile.skipped.length) {
+            notes.push(`${placefile.skipped.join(" and ")} left out`);
+          }
+          if (placefile.truncated) notes.push("the file ended mid-shape");
+          detail = `${notes.join(", ")}.`;
         } else {
           payload = JSON.parse(text) as Record<string, unknown>;
           if (

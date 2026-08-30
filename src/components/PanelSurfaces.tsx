@@ -50,7 +50,7 @@ interface PanelSurfacesProps {
   onRadar: (radar: RadarSettings) => void;
   onPlace: (place: PlaceResult) => void;
   onAlertSelect: (bounds: OverlayBounds) => void;
-  onFollowStorm: (point: GeoPoint) => void;
+  onFollowStorm: (point: GeoPoint, name: string) => void;
   onRoute: (route: Record<string, unknown> | null) => void;
   onUpload: (file: File) => void;
   onWatchHere: () => void;

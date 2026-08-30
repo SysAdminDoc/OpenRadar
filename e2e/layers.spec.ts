@@ -151,21 +151,52 @@ test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
       [
         "Title: Test Reports",
         "Refresh: 5",
-        "Color: 255 200 0",
-        'Line: 3, 0, "Warned area"',
-        " 26.0, -86.0",
-        " 27.0, -85.0",
+        // Magenta, which nothing else in the workspace draws.
+        "Color: 255 0 255",
+        'Line: 12, 0, "Warned area"',
+        " 24.0, -88.0",
+        " 27.0, -83.0",
         "End:",
         'Place: 26.5, -85.5, "Hail 2.0 in"',
         'IconFile: 1, 15, 25, 8, 25, "https://example.test/icons.png"',
-      ].join("\n"),
+      ].join(String.fromCharCode(10)),
     ),
   });
 
   await expect(page.getByText(/reports.txt added/)).toBeVisible();
-  await expect(page.getByText(/IconFile need image files/)).toBeVisible();
+  await expect(page.getByText(/refreshed every 5 min/)).toBeVisible();
+  await expect(page.getByText(/Icon left out/)).toBeVisible();
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-line/);
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+
+  // The colour the file asked for reaches the map, not a house default.
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const canvas = document.querySelector("canvas");
+        if (!canvas) return 0;
+        const target = document.createElement("canvas");
+        target.width = canvas.width;
+        target.height = canvas.height;
+        const context = target.getContext("2d");
+        if (!context) return 0;
+        context.drawImage(canvas, 0, 0);
+        const pixels = context.getImageData(
+          0,
+          0,
+          target.width,
+          target.height,
+        ).data;
+        let magenta = 0;
+        for (let at = 0; at < pixels.length; at += 4) {
+          if (pixels[at] > 200 && pixels[at + 1] < 80 && pixels[at + 2] > 200) {
+            magenta += 1;
+          }
+        }
+        return magenta;
+      }),
+    )
+    .toBeGreaterThan(600);
 });
 
 test("keeps warnings above the context layers", async ({ page }) => {

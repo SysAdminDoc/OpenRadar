@@ -20,6 +20,8 @@ export interface RouteSample {
   distanceMiles: number;
   /** Seconds after departure the driver reaches this point. */
   offsetSeconds: number;
+  /** Where the sample sits on the route, so a leg can be sliced exactly. */
+  index: number;
 }
 
 export interface RouteConditions extends RouteSample {
@@ -94,6 +96,7 @@ export function sampleRoute(
       point: { lon: first[0], lat: first[1] },
       distanceMiles: 0,
       offsetSeconds: 0,
+      index: 0,
     },
   ];
 
@@ -112,12 +115,15 @@ export function sampleRoute(
     if (sinceLast < spacingMiles && !last) continue;
 
     sinceLast = 0;
+    // A repeated vertex would otherwise add a sample no distance from the last.
+    if (travelled <= samples[samples.length - 1].distanceMiles) continue;
     samples.push({
       point: { lon: current[0], lat: current[1] },
       distanceMiles: travelled,
       offsetSeconds: route.distanceMiles
         ? (travelled / route.distanceMiles) * route.durationSeconds
         : 0,
+      index,
     });
   }
 
@@ -131,8 +137,11 @@ export function sampleRoute(
   );
 }
 
-function hourIndex(times: string[], arrival: number): number {
-  let best = 0;
+/** Half an hour either side of an hourly stamp is still that hour. */
+const HOUR_TOLERANCE_MS = 31 * 60_000;
+
+function hourIndex(times: string[], arrival: number): number | null {
+  let best: number | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const [index, value] of times.entries()) {
     // Open-Meteo returns local-naive stamps; the request asks for UTC.
@@ -144,7 +153,9 @@ function hourIndex(times: string[], arrival: number): number {
       best = index;
     }
   }
-  return best;
+  // An arrival past the end of the forecast has no reading, and saying so beats
+  // clamping to the last hour and presenting it as the answer.
+  return best !== null && bestDistance <= HOUR_TOLERANCE_MS ? best : null;
 }
 
 export function readRouteForecast(
@@ -186,7 +197,7 @@ export function readRouteForecast(
 
     const at = hourIndex(times, arrival);
     const pick = (values: unknown): number | null => {
-      if (!Array.isArray(values)) return null;
+      if (at === null || !Array.isArray(values)) return null;
       const value = Number(values[at]);
       return Number.isFinite(value) ? value : null;
     };
@@ -240,18 +251,12 @@ export function routeGeoJson(
 ): Record<string, unknown> {
   const features = conditions.slice(0, -1).map((sample, index) => {
     const next = conditions[index + 1];
-    const legs = route.coordinates.filter((pair) => pair.length === 2) as Array<
-      [number, number]
-    >;
-    const from = legs.findIndex(
-      (pair) => pair[0] === sample.point.lon && pair[1] === sample.point.lat,
-    );
-    const to = legs.findIndex(
-      (pair) => pair[0] === next.point.lon && pair[1] === next.point.lat,
-    );
+    // Sliced by the indices the samples were taken at. Searching for the
+    // coordinates would re-trace the whole loop wherever a route crosses
+    // itself, which happens at every cloverleaf.
     const slice =
-      from >= 0 && to > from
-        ? legs.slice(from, to + 1)
+      next.index > sample.index
+        ? route.coordinates.slice(sample.index, next.index + 1)
         : [
             [sample.point.lon, sample.point.lat],
             [next.point.lon, next.point.lat],
@@ -261,7 +266,8 @@ export function routeGeoJson(
       type: "Feature",
       geometry: { type: "LineString", coordinates: slice },
       properties: {
-        precipitationChance: next.precipitationChance ?? 0,
+        // Negative marks "no reading", which the map paints in its own colour.
+        precipitationChance: next.precipitationChance ?? -1,
         arrival: next.arrival,
       },
     };

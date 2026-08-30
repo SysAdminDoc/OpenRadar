@@ -10,6 +10,8 @@ const CAPTION_PADDING = 12;
 const LOOP_BITS_PER_SECOND = 2_500_000;
 /** The acceptance for a shared loop is a file small enough to send. */
 export const MAX_LOOP_BYTES = 20 * 1024 * 1024;
+/** A WebM with no frames in it is a few hundred bytes of headers. */
+export const MIN_LOOP_BYTES = 2_000;
 
 function scaleFor(source: HTMLCanvasElement): number {
   return source.width > MAX_WIDTH ? MAX_WIDTH / source.width : 1;
@@ -117,42 +119,55 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
 
   const canvas = exportCanvas(source);
   const stream = canvas.captureStream(0);
-  const [track] = stream.getVideoTracks() as Array<
-    MediaStreamTrack & { requestFrame?: () => void }
-  >;
-  const recorder = new MediaRecorder(stream, {
-    mimeType: pickMimeType(),
-    videoBitsPerSecond: LOOP_BITS_PER_SECOND,
-  });
+  let blob: Blob;
 
-  const chunks: Blob[] = [];
-  recorder.ondataavailable = (event) => {
-    if (event.data.size) chunks.push(event.data);
-  };
-  const finished = new Promise<void>((resolve) => {
-    recorder.onstop = () => resolve();
-  });
-
-  recorder.start();
   try {
-    for (let index = 0; index < frameCount; index += 1) {
-      await showFrame(index);
-      drawFrame(canvas, source, captionFor(index));
-      track?.requestFrame?.();
-      onProgress?.(index + 1, frameCount);
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, frameDurationMs),
-      );
+    const [track] = stream.getVideoTracks() as Array<
+      MediaStreamTrack & { requestFrame?: () => void }
+    >;
+    // Without this the stream never emits a frame and the file comes out as
+    // headers with nothing in them.
+    if (typeof track?.requestFrame !== "function") {
+      throw new Error("This build cannot record a video.");
     }
+
+    const recorder = new MediaRecorder(stream, {
+      mimeType: pickMimeType(),
+      videoBitsPerSecond: LOOP_BITS_PER_SECOND,
+    });
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    const finished = new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+    });
+
+    recorder.start();
+    try {
+      for (let index = 0; index < frameCount; index += 1) {
+        await showFrame(index);
+        drawFrame(canvas, source, captionFor(index));
+        track.requestFrame();
+        onProgress?.(index + 1, frameCount);
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, frameDurationMs),
+        );
+      }
+    } finally {
+      recorder.stop();
+      await finished;
+    }
+    blob = new Blob(chunks, { type: recorder.mimeType });
   } finally {
-    recorder.stop();
-    await finished;
     for (const each of stream.getTracks()) each.stop();
   }
 
-  const blob = new Blob(chunks, { type: recorder.mimeType });
   if (blob.size > MAX_LOOP_BYTES) {
     throw new Error("The recording came out larger than 20 MB.");
+  }
+  if (blob.size < MIN_LOOP_BYTES) {
+    throw new Error("The recording came out empty.");
   }
   return blob;
 }

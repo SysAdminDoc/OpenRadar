@@ -56,13 +56,6 @@
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
 
-- [ ] P2: Let Follow save the storm view as a preset
-  Why: the tropical item asked for Follow to set the camera and a preset; only the camera move shipped.
-  Evidence: `handleFollowStorm` in src/App.tsx.
-  Touches: src/App.tsx, src/panels/TropicalPanel.tsx.
-  Acceptance: following a storm keeps the view in the first empty preset slot and says which one it used.
-  Complexity: S
-
 ### P2
 
 - [ ] P2: Zoom-tiered single-site Level II radar decoded in Rust
