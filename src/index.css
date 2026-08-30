@@ -524,6 +524,43 @@ input[type="range"] {
   background: var(--surface-hover);
 }
 
+.pane-compare {
+  position: absolute;
+  z-index: 18;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.pane-compare strong {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pane-compare .segmented-control {
+  padding: 2px;
+}
+
+.pane-compare .segmented-control button {
+  padding: 4px 9px;
+  font-size: 11px;
+}
+
+.pane-compare small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .map-readout {
   position: absolute;
   z-index: 16;

@@ -1,5 +1,9 @@
 # Changelog
 
+## OpenRadar v0.2.0 (unreleased)
+
+- Linked the dual panes so panning, zooming, rotating, or tilting either one moves the other, and gave the second pane its own frame offset for comparing the current loop against an earlier one.
+
 ## OpenRadar v0.1.0 (2026-08-30)
 
 - Started the Tauri 2 desktop application with React, TypeScript, Vite, and MapLibre.

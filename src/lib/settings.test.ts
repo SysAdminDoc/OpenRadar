@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
   normalizeSettings,
+  sameCamera,
 } from "./settings";
 
 describe("settings normalization", () => {
@@ -49,6 +50,26 @@ describe("settings normalization", () => {
     expect(cameraFromSearch("", DEFAULT_SETTINGS.camera)).toEqual(
       DEFAULT_SETTINGS.camera,
     );
+  });
+
+  it("treats near-identical cameras as equal so panes stop echoing", () => {
+    const base = DEFAULT_SETTINGS.camera;
+    expect(sameCamera(base, { ...base })).toBe(true);
+    expect(
+      sameCamera(base, {
+        ...base,
+        center: [base.center[0] + 1e-9, base.center[1]],
+      }),
+    ).toBe(true);
+    expect(
+      sameCamera(base, {
+        ...base,
+        center: [base.center[0] + 0.01, base.center[1]],
+      }),
+    ).toBe(false);
+    expect(sameCamera(base, { ...base, zoom: base.zoom + 0.5 })).toBe(false);
+    expect(sameCamera(base, { ...base, bearing: 12 })).toBe(false);
+    expect(sameCamera(base, { ...base, pitch: 30 })).toBe(false);
   });
 
   it("loads a complete shared-view camera", () => {
