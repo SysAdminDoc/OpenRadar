@@ -166,6 +166,25 @@ export const discussionFeature = {
   },
 };
 
+/** One local storm report, in the shape the Mesonet feed answers with. */
+export const stormReportFeature = {
+  type: "Feature",
+  geometry: { type: "Point", coordinates: [-85.4, 26.2] },
+  properties: {
+    wfo: "MFL",
+    type: "H",
+    magf: 1.75,
+    typetext: "HAIL",
+    city: "3 NE Testville",
+    state: "FL",
+    st: "FL",
+    source: "Trained Spotter",
+    unit: "Inch",
+    remark: "Golf ball sized hail covering the ground.",
+    valid: "2026-08-30T11:40:00Z",
+  },
+};
+
 export const stormRecord = {
   generated: "2026-08-30",
   statuses: ["TD", "TS", "HU", "EX", "SD", "SS", "LO"],
@@ -263,9 +282,18 @@ export async function routeWorkspace(page: Page) {
     });
   });
   await page.route("https://mesonet.agron.iastate.edu/**", async (route) => {
-    // The same host serves the placefile-style products and the radar archive.
-    if (route.request().url().includes("/tile.py/")) {
+    // The same host serves the placefile-style products, the radar archive,
+    // and the storm reports.
+    const url = route.request().url();
+    if (url.includes("/tile.py/")) {
       await route.fulfill({ contentType: "image/png", body: transparentPng });
+      return;
+    }
+    if (url.includes("/lsr.geojson")) {
+      await route.fulfill({
+        contentType: "application/json",
+        body: collection([stormReportFeature]),
+      });
       return;
     }
     await route.fulfill({

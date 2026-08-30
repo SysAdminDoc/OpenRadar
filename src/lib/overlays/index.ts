@@ -1,5 +1,6 @@
 import { alertsOverlay } from "./alerts";
 import { spcDiscussionsOverlay, spcOutlooksOverlay } from "./spc";
+import { stormReportsOverlay } from "./reports";
 import { earthquakesOverlay } from "./earthquakes";
 import { tropicalOverlay } from "./tropical";
 import { wildfiresOverlay } from "./wildfires";
@@ -9,6 +10,7 @@ export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
   alertsOverlay,
   spcOutlooksOverlay,
   spcDiscussionsOverlay,
+  stormReportsOverlay,
   earthquakesOverlay,
   wildfiresOverlay,
   tropicalOverlay,
@@ -31,6 +33,7 @@ export type OverlaySnapshot = {
 export { alertSeverity, SEVERITY_COLOR, SEVERITY_RANK } from "./alerts";
 export { stormCategory, type TropicalKind } from "./tropical";
 export { parseDiscussions, parseOutlooks, outlookTime } from "./spc";
+export { parseReports, REPORT_HOURS } from "./reports";
 export {
   EMPTY_OVERLAY,
   boundsContain,

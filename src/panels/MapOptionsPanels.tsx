@@ -6,6 +6,7 @@ import {
   Flame,
   Globe2,
   Map,
+  MapPin,
   MessageSquareWarning,
   RadioTower,
   RotateCcw,
@@ -127,6 +128,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.spcDiscussions",
     detailKey: "layers.spcDiscussionsDetail",
     icon: MessageSquareWarning,
+  },
+  {
+    key: "stormReports",
+    labelKey: "layer.stormReports",
+    detailKey: "layers.stormReportsDetail",
+    icon: MapPin,
   },
   {
     key: "earthquakes",

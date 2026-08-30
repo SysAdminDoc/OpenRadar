@@ -26,7 +26,7 @@ export function useWorkspaceOverlays(options: {
 }): WorkspaceOverlays {
   const { settings, viewport, pushToast, setActiveSurface } = options;
   const { weatherAlerts, earthquakes, wildfires, tropical } = settings.layers;
-  const { spcOutlooks, spcDiscussions } = settings.layers;
+  const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
 
   const toggles = useMemo(
     () => ({
@@ -36,11 +36,13 @@ export function useWorkspaceOverlays(options: {
       tropical,
       spcOutlooks,
       spcDiscussions,
+      stormReports,
     }),
     [
       earthquakes,
       spcDiscussions,
       spcOutlooks,
+      stormReports,
       tropical,
       weatherAlerts,
       wildfires,
@@ -68,6 +70,7 @@ export function useWorkspaceOverlays(options: {
       spcDiscussions: toggles.spcDiscussions
         ? states.spcDiscussions.data
         : null,
+      stormReports: toggles.stormReports ? states.stormReports.data : null,
     }),
     [states, toggles],
   );
