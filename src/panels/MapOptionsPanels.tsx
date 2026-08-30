@@ -11,6 +11,7 @@ import {
   Satellite,
   Tornado,
   Waves,
+  Wind,
   Zap,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
@@ -149,6 +150,12 @@ const LAYER_OPTIONS: Array<{
     label: "Lightning Flashes",
     detail: "GOES-East total lightning, cloud flashes included",
     icon: Zap,
+  },
+  {
+    key: "wind",
+    label: "Wind",
+    detail: "Animated GFS wind at ten metres",
+    icon: Wind,
   },
   {
     key: "customOverlay",

@@ -2,6 +2,7 @@
 mod http;
 
 mod exports;
+mod gfs;
 mod level2;
 mod lightning;
 mod mrms;
@@ -74,7 +75,8 @@ pub fn run() {
             mrms::mrms_frames,
             mrms::mrms_products,
             lightning::lightning_flashes,
-            palette::set_palette
+            palette::set_palette,
+            gfs::gfs_wind
         ])
         .setup(|_app| {
             // Development builds are not installed, so the scheme has to be

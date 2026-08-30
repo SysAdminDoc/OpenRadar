@@ -107,12 +107,14 @@ describe("settings normalization", () => {
       "tropical",
       "weatherAlerts",
       "wildfires",
+      "wind",
     ]);
     // The schema 1 file predates both MRMS switches, so they come back off.
     expect(settings.layers.rotationTracks).toBe(false);
     expect(settings.layers.hail).toBe(false);
     expect(settings.layers.lightningDensity).toBe(false);
     expect(settings.layers.lightningFlashes).toBe(false);
+    expect(settings.layers.wind).toBe(false);
   });
 
   it("always returns four safe preset slots", () => {

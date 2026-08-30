@@ -32,3 +32,24 @@ function subscribe(listener: () => void): () => void {
 export function useMinuteClock(): number {
   return useSyncExternalStore(subscribe, () => now);
 }
+
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+function subscribeMotion(listener: () => void): () => void {
+  const query = window.matchMedia(REDUCED_MOTION);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+/**
+ * Whether the viewer has asked for less movement. Read as a live value rather
+ * than once at startup, because it can be changed while the app is open and a
+ * layer that animates should stop when it is.
+ */
+export function useReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeMotion,
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    () => false,
+  );
+}

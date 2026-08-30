@@ -12,7 +12,7 @@ import { MapStage } from "./components/MapStage";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { PanelSurfaces } from "./components/PanelSurfaces";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
-import { useMinuteClock } from "./hooks/useClock";
+import { useMinuteClock, useReducedMotion } from "./hooks/useClock";
 import { useExport } from "./hooks/useExport";
 import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
@@ -21,6 +21,7 @@ import { useToasts } from "./hooks/useToasts";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
+import { useWind } from "./hooks/useWind";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
@@ -131,6 +132,14 @@ export default function App() {
     enabled: settings.layers.lightningFlashes,
     pageVisible,
     clock,
+  });
+  // Animated particles are motion for its own sake, so a viewer who has asked
+  // for less of it does not get them at all.
+  const reducedMotion = useReducedMotion();
+  const wind = useWind({
+    ready: hydrated,
+    enabled: settings.layers.wind && !reducedMotion,
+    pageVisible,
   });
   const { frames, frameIndex, source } = timeline;
   const activeFrame = frames[frameIndex];
@@ -328,6 +337,7 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
         flashes={lightning.points}
+        wind={wind.field}
         activeTool={activeTool}
         dualPane={dualPane}
         compareOffset={compareOffset}
@@ -399,6 +409,8 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
         lightning={lightning.window}
+        wind={wind.field}
+        windReduced={settings.layers.wind && reducedMotion}
         clock={clock}
         radarAgeMinutes={radarAge}
         cursor={cursor}

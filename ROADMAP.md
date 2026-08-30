@@ -58,13 +58,6 @@
 
 ### P3
 
-- [ ] P3: Wind particle layer on the globe from HRRR/GFS via `mapbox-exif-layer`
-  Why: MyRadar and Windy ship animated winds; MapLibre has no native particle layer and exactly one MIT package supports globe.
-  Evidence: github.com/zwang-geog/mapbox-exif-layer (1.3.4, `mapRuntime:'maplibre'`); maplibre discussion #5991; Open-Meteo OM S3 `data_spatial/<model>/latest.json` (GPL reader must not be bundled; write an own reader).
-  Touches: new src-tauri command producing float32 GeoTIFF u/v from GFS 0.25 (Herbie-style `.idx` byte ranges), new overlay using ParticleMotion.
-  Acceptance: winds animate on the globe at 60 fps on the dev GPU with a model/init banner; disabled automatically under reduced motion.
-  Complexity: L
-
 - [ ] P3: Offline last-view cache of the app shell, last radar frames, and alert polygons
   Why: StormviewRadar and HookEcho ship offline last view; a desktop app that opens to a blank map without network is worse than the Store app.
   Evidence: StormviewRadar README "Offline Last View"; StormDeck `persistent_http_cache.rs` (versioned atomic disk cache, 2,048 entries / 256 MiB).

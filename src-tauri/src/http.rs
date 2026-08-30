@@ -27,6 +27,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "router.project-osrm.org",
     "gibs.earthdata.nasa.gov",
     "geo.weather.gc.ca",
+    "noaa-gfs-bdp-pds.s3.amazonaws.com",
     "unidata-nexrad-level2.s3.amazonaws.com",
     "noaa-mrms-pds.s3.amazonaws.com",
     "noaa-goes19.s3.amazonaws.com",
@@ -130,6 +131,34 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     }
 
     let body = response.bytes().await?;
+    if body.len() > MAX_BODY_BYTES {
+        return Err(HttpError::TooLarge);
+    }
+    Ok(body.to_vec())
+}
+
+/// A byte range of a file, which is how one field is read out of a GRIB2
+/// file without downloading the four hundred megabytes around it.
+pub async fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, HttpError> {
+    let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
+    if !is_allowed(&parsed) {
+        return Err(HttpError::HostNotAllowed(
+            parsed.host_str().unwrap_or(url).to_string(),
+        ));
+    }
+    if end < start || end - start + 1 > MAX_BODY_BYTES as u64 {
+        return Err(HttpError::TooLarge);
+    }
+
+    let response = client()?
+        .get(parsed)
+        .header("Range", format!("bytes={start}-{end}"))
+        .send()
+        .await?;
+    if response.status().is_redirection() {
+        return Err(HttpError::RedirectRefused);
+    }
+    let body = response.error_for_status()?.bytes().await?;
     if body.len() > MAX_BODY_BYTES {
         return Err(HttpError::TooLarge);
     }
