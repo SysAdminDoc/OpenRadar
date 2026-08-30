@@ -375,8 +375,15 @@ static DECODING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// A drawn tile belongs to the grid it came from and to the colour table it
 /// was drawn with. Leaving the table out of the key would serve tiles in the
 /// old colours after a new one is loaded.
-fn tile_key(key: &str, zoom: u32, x: u32, y: u32) -> String {
-    format!("{key}|{zoom}/{x}/{y}|{}", palette::generation())
+fn tile_key(key: &str, zoom: u32, x: u32, y: u32, threshold: Option<f32>) -> String {
+    // The threshold is part of what the tile shows, so two tiles drawn at two
+    // thresholds are two tiles. Leaving it out of the key served the first one
+    // back for the second and the picture never changed.
+    let floor = match threshold {
+        Some(value) => format!("{value}"),
+        None => String::from("-"),
+    };
+    format!("{key}|{zoom}/{x}/{y}|{floor}|{}", palette::generation())
 }
 
 fn cached_tile(key: &str) -> Option<Vec<u8>> {
@@ -606,9 +613,35 @@ pub fn key_for(entry: &MrmsProduct, time: i64) -> Option<String> {
     ))
 }
 
-/// Reads `/product/time/z/x/y.png` off a tile request.
-pub fn parse_tile_path(path: &str) -> Option<(&'static MrmsProduct, i64, u32, u32, u32)> {
+/// What one tile request asks for.
+pub struct TileRequest {
+    pub entry: &'static MrmsProduct,
+    pub time: i64,
+    pub zoom: u32,
+    pub x: u32,
+    pub y: u32,
+    /// Hide anything below this, in the product's own unit.
+    pub threshold: Option<f32>,
+}
+
+/// Reads `/product/time/z/x/y.png`, and an optional `?min=`, off a request.
+pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
     let path = path.trim_start_matches('/');
+    let (path, query) = match path.split_once('?') {
+        Some((before, after)) => (before, Some(after)),
+        None => (path, None),
+    };
+    // A threshold that is not a finite number is no threshold at all, rather
+    // than a threshold of nothing, which would hide the whole picture.
+    let threshold = query
+        .and_then(|query| {
+            query
+                .split('&')
+                .find_map(|pair| pair.strip_prefix("min="))
+                .map(str::to_owned)
+        })
+        .and_then(|value| value.parse::<f32>().ok())
+        .filter(|value| value.is_finite());
     let stem = path.strip_suffix(".png").unwrap_or(path);
     let mut parts = stem.split('/');
     let entry = product_by_id(parts.next()?)?;
@@ -619,30 +652,46 @@ pub fn parse_tile_path(path: &str) -> Option<(&'static MrmsProduct, i64, u32, u3
     if parts.next().is_some() || zoom > 12 {
         return None;
     }
-    Some((entry, time, zoom, x, y))
+    Some(TileRequest {
+        entry,
+        time,
+        zoom,
+        x,
+        y,
+        threshold,
+    })
 }
 
 /// Answers one tile request: the bytes of a PNG, always. A tile with nothing
 /// in it is a transparent pixel rather than an error, because a raster source
 /// that gets a 404 logs a warning for every empty corner of the map.
 pub async fn serve_tile(path: &str) -> Vec<u8> {
-    let Some((entry, time, zoom, x, y)) = parse_tile_path(path) else {
+    let Some(asked) = parse_tile_path(path) else {
         return EMPTY_TILE.to_vec();
     };
+    let TileRequest {
+        entry,
+        time,
+        zoom,
+        x,
+        y,
+        threshold,
+    } = asked;
     let Some(key) = key_for(entry, time) else {
         return EMPTY_TILE.to_vec();
     };
 
     // A frame that has been drawn once never decodes again, which is what
     // makes replaying the loop cheap.
-    let drawn = tile_key(&key, zoom, x, y);
+    let drawn = tile_key(&key, zoom, x, y, threshold);
     if let Some(bytes) = cached_tile(&drawn) {
         return bytes;
     }
     if grid_for(&key).await.is_err() {
         return EMPTY_TILE.to_vec();
     }
-    let bytes = tile_from_cache(&key, entry, zoom, x, y).unwrap_or_else(|| EMPTY_TILE.to_vec());
+    let bytes =
+        tile_from_cache(&key, entry, zoom, x, y, threshold).unwrap_or_else(|| EMPTY_TILE.to_vec());
     remember_tile(drawn, &bytes);
     bytes
 }
@@ -771,7 +820,16 @@ fn inverse_mercator_y(y: f64) -> f64 {
 /// Draws one slippy-map tile out of a decoded grid, as the RGBA it becomes
 /// before it is encoded. None when the tile holds nothing worth sending,
 /// which is most of the world.
-pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> Option<Vec<u8>> {
+pub fn tile_pixels(
+    grid: &Grid,
+    entry: &MrmsProduct,
+    zoom: u32,
+    x: u32,
+    y: u32,
+    // Hide anything below this, on top of the product's own floor. It can only
+    // ever hide more, never bring back what the floor already excluded.
+    threshold: Option<f32>,
+) -> Option<Vec<u8>> {
     let scale = 2f64.powi(zoom as i32);
     if x as f64 >= scale || y as f64 >= scale {
         return None;
@@ -797,10 +855,14 @@ pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
     // for the same unit, so the same storm comes out the same colours in every
     // tool that reads the file.
     let table = palette::for_unit(entry.unit);
-    let floor = table
+    let own = table
         .as_ref()
         .map(|table| table.floor())
         .unwrap_or(entry.floor);
+    let floor = match threshold {
+        Some(asked) => own.max(asked),
+        None => own,
+    };
 
     let mut pixels = vec![0u8; TILE_SIZE * TILE_SIZE * 4];
     let mut painted = false;
@@ -1013,6 +1075,7 @@ pub fn tile_from_cache(
     zoom: u32,
     x: u32,
     y: u32,
+    threshold: Option<f32>,
 ) -> Option<Vec<u8>> {
     // The lock is held for the drawing, which reads the grid, and dropped
     // before the encode, which does not. Holding it across the encode
@@ -1020,7 +1083,7 @@ pub fn tile_from_cache(
     let pixels = {
         let cache = CACHE.lock().ok()?;
         let held = cache.iter().find(|held| held.key == key)?;
-        tile_pixels(&held.grid, entry, zoom, x, y)?
+        tile_pixels(&held.grid, entry, zoom, x, y, threshold)?
     };
     encode_png(&pixels).ok()
 }
@@ -1212,13 +1275,13 @@ mod tests {
 
         // A tile over the middle of the country draws; one over Europe does not.
         let drawing = std::time::Instant::now();
-        let tile = tile_from_cache(&newest.key, entry, 4, 3, 5);
+        let tile = tile_from_cache(&newest.key, entry, 4, 3, 5, None);
         let drawn = drawing.elapsed();
         assert!(
             tile.as_ref().is_some_and(|bytes| bytes.len() > 200),
             "the tile over the plains came out empty"
         );
-        assert!(tile_from_cache(&newest.key, entry, 4, 8, 5).is_none());
+        assert!(tile_from_cache(&newest.key, entry, 4, 8, 5, None).is_none());
 
         println!("decode {decoded:?}, tile {drawn:?}");
         assert!(
@@ -1389,14 +1452,14 @@ mod tests {
         // Zoom 4 tile 3/5 covers the middle of the country, so this tile does
         // overlap the grid; it simply has nothing worth drawing.
         assert!(
-            tile_pixels(&quiet, entry, 4, 3, 5).is_none(),
+            tile_pixels(&quiet, entry, 4, 3, 5, None).is_none(),
             "a tile of clear air should not be sent"
         );
 
         // The same tile with one gate of real rain in it does get sent.
         let mut wet = quiet;
         wet.samples = vec![10490, 10490, 10490, 10490];
-        assert!(tile_pixels(&wet, entry, 4, 3, 5).is_some());
+        assert!(tile_pixels(&wet, entry, 4, 3, 5, None).is_some());
     }
 
     /// One screen is a dozen tiles arriving at once, all wanting the same
@@ -1591,7 +1654,7 @@ mod tests {
         let count = |product: &MrmsProduct| {
             tiles
                 .iter()
-                .filter_map(|(x, y)| tile_pixels(grid, product, 4, *x, *y))
+                .filter_map(|(x, y)| tile_pixels(grid, product, 4, *x, *y, None))
                 .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
                 .sum::<usize>()
         };
@@ -1642,7 +1705,7 @@ mod tests {
         // Zoom four over the plains: one pixel covers about forty grid cells,
         // so a single live cell is a needle.
         let painted = |product: &MrmsProduct| {
-            tile_pixels(&grid, product, 4, 3, 5)
+            tile_pixels(&grid, product, 4, 3, 5, None)
                 .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
                 .unwrap_or(0)
         };
@@ -1676,7 +1739,7 @@ mod tests {
     }
 
     fn painted_count(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> usize {
-        tile_pixels(grid, entry, zoom, x, y)
+        tile_pixels(grid, entry, zoom, x, y, None)
             .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
             .unwrap_or(0)
     }
@@ -1799,7 +1862,7 @@ mod tests {
         };
 
         let color_at = |zoom, x, y| {
-            tile_pixels(&grid, entry, zoom, x, y).map(|pixels| {
+            tile_pixels(&grid, entry, zoom, x, y, None).map(|pixels| {
                 let first = pixels
                     .chunks_exact(4)
                     .find(|p| p[3] > 0)
@@ -1860,12 +1923,33 @@ mod tests {
 
     #[test]
     fn a_tile_request_is_read_strictly() {
-        let (entry, time, zoom, x, y) =
-            parse_tile_path("/composite/1788075402/6/14/24.png").expect("a tile");
-        assert_eq!(entry.id, "composite");
-        assert_eq!((time, zoom, x, y), (1788075402, 6, 14, 24));
+        let asked = parse_tile_path("/composite/1788075402/6/14/24.png").expect("a tile");
+        assert_eq!(asked.entry.id, "composite");
+        assert_eq!(
+            (asked.time, asked.zoom, asked.x, asked.y),
+            (1788075402, 6, 14, 24)
+        );
+        assert_eq!(asked.threshold, None);
         // The same path without the extension, which is how a source may ask.
         assert!(parse_tile_path("mesh/1788075402/3/1/2").is_some());
+
+        // The threshold rides along as a query, since the reader can change it
+        // without the frame or the tile changing.
+        let floored =
+            parse_tile_path("/composite/1788075402/6/14/24.png?min=35").expect("a tile");
+        assert_eq!(floored.threshold, Some(35.0));
+        assert_eq!(floored.entry.id, "composite");
+        assert_eq!(floored.zoom, 6);
+
+        // A threshold that is not a number is no threshold, rather than a
+        // threshold of nothing that would hide the whole picture.
+        for query in ["?min=", "?min=abc", "?min=NaN", "?other=3"] {
+            let asked = parse_tile_path(&format!(
+                "/composite/1788075402/6/14/24.png{query}"
+            ))
+            .expect("still a tile");
+            assert_eq!(asked.threshold, None, "{query}");
+        }
 
         // Nothing that is not exactly that shape is served.
         for path in [
@@ -2003,9 +2087,9 @@ mod tests {
         let grid = grid();
         let entry = product_by_id("composite").expect("the composite product");
         // Zoom 4 tile over western Europe, nowhere near the grid.
-        assert!(tile_pixels(&grid, entry, 4, 8, 5).is_none());
+        assert!(tile_pixels(&grid, entry, 4, 8, 5, None).is_none());
         // A tile index that does not exist at its zoom.
-        assert!(tile_pixels(&grid, entry, 1, 4, 0).is_none());
+        assert!(tile_pixels(&grid, entry, 1, 4, 0, None).is_none());
     }
 
     #[test]

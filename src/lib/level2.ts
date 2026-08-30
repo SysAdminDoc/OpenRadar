@@ -99,6 +99,8 @@ export async function fetchSweep(
   tilt: number,
   dealias: boolean,
   motion: [number, number] | null,
+  // Hide anything weaker than this, in the product's own unit.
+  threshold: number | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -107,6 +109,7 @@ export async function fetchSweep(
     tilt,
     dealias,
     motion,
+    threshold,
   });
 }
 

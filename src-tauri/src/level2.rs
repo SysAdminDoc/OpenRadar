@@ -454,12 +454,32 @@ fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
 /// three claims none of which the change supports.
 const MIN_UNFOLD_SHARE: f32 = 0.005;
 
+/// How close in a ring may be and still be the wind rather than the ground.
+///
+/// The first few kilometres of any sweep are ground clutter: buildings, trees
+/// and terrain sitting still, which drags a fit toward nothing at all.
+const WIND_NEAR_KM: f64 = 20.0;
+
+/// How far out a ring may be and still be the wind anyone means.
+///
+/// The beam climbs with range, so past this the fit is describing air a couple
+/// of kilometres up rather than the flow the storm is moving in.
+const WIND_FAR_KM: f64 = 150.0;
+
+/// How many rings are fitted across the sweep. More is slower and no more
+/// certain, since the median of a dozen honest rings is already stable.
+const WIND_RINGS: usize = 60;
+
 /// The wind the sweep is moving in, fitted from the readings themselves.
 ///
-/// Rings are taken across the middle of the sweep: close in the beam is too low
-/// and full of clutter, far out it is above the wind anyone means. Each ring is
-/// fitted on its own and the middle answer is kept, so one ring sitting inside
-/// a storm cannot carry the result away with it.
+/// Rings are searched for across the whole sweep and then the ones between
+/// twenty and a hundred and fifty kilometres are preferred: close in the beam
+/// is too low and full of clutter, far out it is above the wind anyone means.
+/// A sweep whose echo is all within thirty kilometres has nothing in that band
+/// at all, and rather than return no wind for it the search falls back to
+/// whatever rings it did find. Each ring is fitted on its own and the middle
+/// answer kept, so one ring sitting inside a storm cannot carry the result
+/// away with it.
 fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
     let azimuths = field.azimuth_count();
     let gates = field.gate_count();
@@ -468,15 +488,16 @@ fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
     }
     let elevation = field.elevation_degrees();
     let angles = field.azimuths();
+    let first_km = field.first_gate_range_km();
+    let interval_km = field.gate_interval_km();
 
-    // Rings are looked for where the returns are, not at fixed fractions of the
-    // gate count. A sweep whose echo is all within thirty kilometres has
-    // nothing at four tenths of its range, and picking by fraction came back
-    // with no wind at all for it.
-    let mut rings = Vec::new();
-    let stride = (gates / 60).max(1);
+    // Every ring that fits, right across the sweep, with how far out it was.
+    // Walking the whole range is what separates this from picking rings by
+    // position: the first twelve that happen to fit are all in the clutter.
+    let stride = (gates / WIND_RINGS).max(1);
+    let mut found: Vec<(f64, vad::Wind)> = Vec::new();
     let mut gate = 0;
-    while gate < gates && rings.len() < 12 {
+    while gate < gates {
         let mut samples = Vec::with_capacity(azimuths);
         for azimuth in 0..azimuths {
             let (value, status) = field.get(azimuth, gate);
@@ -489,10 +510,20 @@ fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
             samples.push((*angle, value));
         }
         if let Some(wind) = vad::fit_ring(&samples, elevation) {
-            rings.push(wind);
+            found.push((first_km + gate as f64 * interval_km, wind));
         }
         gate += stride;
     }
+
+    let middle: Vec<vad::Wind> = found
+        .iter()
+        .filter(|(range, _)| *range >= WIND_NEAR_KM && *range <= WIND_FAR_KM)
+        .map(|(_, wind)| *wind)
+        .collect();
+    if !middle.is_empty() {
+        return vad::median_wind(&middle);
+    }
+    let rings: Vec<vad::Wind> = found.into_iter().map(|(_, wind)| wind).collect();
     vad::median_wind(&rings)
 }
 
@@ -600,6 +631,9 @@ pub fn render_sweep(
     product: Product,
     unit: &str,
     unfolded: bool,
+    // Hide anything weaker than this. The reader sets it per product to clear
+    // the light returns off the picture and leave the cores.
+    threshold: Option<f32>,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
@@ -640,7 +674,15 @@ pub fn render_sweep(
             };
 
             let Some((color, alpha)) =
-                gate_color(&status, value, product, table.as_ref(), range, unfolded)
+                gate_color(
+                    &status,
+                    value,
+                    product,
+                    table.as_ref(),
+                    range,
+                    unfolded,
+                    threshold,
+                )
             else {
                 continue;
             };
@@ -665,49 +707,66 @@ fn gate_color(
     table: Option<&Palette>,
     range: Option<(f32, f32)>,
     unfolded: bool,
+    // Hide anything weaker than this, set by the reader per product.
+    threshold: Option<f32>,
 ) -> Option<([u8; 3], u8)> {
     match status {
-        GateStatus::Valid => match table {
-            Some(table) => {
-                if value < table.floor() {
-                    return None;
-                }
-                Some((table.color(value), MAX_ALPHA))
+        GateStatus::Valid => {
+            // Velocity runs either side of zero and both sides are the storm,
+            // so its threshold is on how fast rather than on which way.
+            // Everything else reads low to high and compares as it is.
+            let measured = if matches!(product, Product::Velocity) {
+                value.abs()
+            } else {
+                value
+            };
+            if threshold.is_some_and(|floor| measured < floor) {
+                return None;
             }
-            None => match product {
-                Product::Reflectivity => {
-                    // Below the lowest ramp stop there is nothing the legend
-                    // could name, so the ground shows through.
-                    if value < FADE_FLOOR_DBZ {
+            match table {
+                Some(table) => {
+                    if value < table.floor() {
                         return None;
                     }
-                    Some((
-                        ramp_color(REFLECTIVITY_RAMP, value),
-                        reflectivity_alpha(value),
-                    ))
+                    Some((table.color(value), MAX_ALPHA))
                 }
-                Product::Velocity => {
-                    let ramp = if unfolded {
-                        WIDE_VELOCITY_RAMP
-                    } else {
-                        VELOCITY_RAMP
-                    };
-                    Some((ramp_color(ramp, value), MAX_ALPHA))
-                }
-                _ => {
-                    let (low, high) = range.unwrap_or((0.0, 1.0));
-                    let span = high - low;
-                    let scaled = if span > 0.0 {
-                        (value - low) / span
-                    } else {
-                        0.0
-                    };
-                    Some((ramp_color(GENERIC_RAMP, scaled), MAX_ALPHA))
-                }
-            },
-        },
+                None => match product {
+                    Product::Reflectivity => {
+                        // Below the lowest ramp stop there is nothing the
+                        // legend could name, so the ground shows through.
+                        if value < FADE_FLOOR_DBZ {
+                            return None;
+                        }
+                        Some((
+                            ramp_color(REFLECTIVITY_RAMP, value),
+                            reflectivity_alpha(value),
+                        ))
+                    }
+                    Product::Velocity => {
+                        let ramp = if unfolded {
+                            WIDE_VELOCITY_RAMP
+                        } else {
+                            VELOCITY_RAMP
+                        };
+                        Some((ramp_color(ramp, value), MAX_ALPHA))
+                    }
+                    _ => {
+                        let (low, high) = range.unwrap_or((0.0, 1.0));
+                        let span = high - low;
+                        let scaled = if span > 0.0 {
+                            (value - low) / span
+                        } else {
+                            0.0
+                        };
+                        Some((ramp_color(GENERIC_RAMP, scaled), MAX_ALPHA))
+                    }
+                },
+            }
+        }
         // A folded gate has no value on the scale, so it takes the colour the
-        // loaded table names for it and falls back to the built-in purple.
+        // loaded table names for it and falls back to the built-in purple. A
+        // threshold cannot speak to it either way: there is no reading to
+        // compare, so hiding it would be inventing an answer.
         GateStatus::RangeFolded => Some((
             table
                 .and_then(|table| table.range_folded)
@@ -751,6 +810,8 @@ pub fn sweep_from_volume(
     tilt_index: usize,
     unfold: bool,
     manual_motion: Option<vad::Wind>,
+    // Gates weaker than this are left clear, in the product's own unit.
+    threshold: Option<f32>,
 ) -> Result<SweepImage, Level2Error> {
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -814,7 +875,7 @@ pub fn sweep_from_volume(
     let coordinates = RadarCoordinateSystem::new(&site);
 
     let (pixels, [west, south, east, north]) =
-        render_sweep(&chosen.field, &coordinates, product, unit, dealiased);
+        render_sweep(&chosen.field, &coordinates, product, unit, dealiased, threshold);
     let png_bytes = encode_png(&pixels)?;
 
     // The sweep's own time, not the volume's: under MESO-SAILS the lowest tilt
@@ -1006,6 +1067,9 @@ pub async fn level2_sweep(
     // Speed in metres a second and the direction it comes from, when the viewer
     // would rather say than have the sweep read for it.
     motion: Option<(f32, f32)>,
+    // Hide gates weaker than this, in the product's own unit. A value that is
+    // not a number is no threshold rather than a threshold of nothing.
+    threshold: Option<f32>,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     if registry::site_by_id(&station).is_none() {
@@ -1024,7 +1088,7 @@ pub async fn level2_sweep(
                 north: speed * towards.cos(),
             }
         });
-        sweep_from_volume(&station, &key, data, &product, tilt, dealias, manual)
+        sweep_from_volume(&station, &key, data, &product, tilt, dealias, manual, threshold)
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -1033,6 +1097,240 @@ pub async fn level2_sweep(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A sweep in a steady wind, with echo only over the range band given.
+    ///
+    /// Everything outside the band reads as no data, which is what a sweep
+    /// looks like when the weather is all in one place.
+    fn sweep_in_a_wind(
+        wind: vad::Wind,
+        elevation: f32,
+        echo_from_km: f64,
+        echo_to_km: f64,
+    ) -> SweepField {
+        let azimuths: Vec<f32> = (0..360).map(|at| at as f32).collect();
+        let gates = 1200;
+        let first_km = 2.125;
+        let interval_km = 0.25;
+        let mut field = SweepField::new_empty(
+            "Velocity",
+            "m/s",
+            elevation,
+            azimuths.clone(),
+            1.0,
+            first_km,
+            interval_km,
+            gates,
+        );
+        for (index, azimuth) in azimuths.iter().enumerate() {
+            for gate in 0..gates {
+                let range = first_km + gate as f64 * interval_km;
+                if range < echo_from_km || range > echo_to_km {
+                    continue;
+                }
+                field.set(
+                    index,
+                    gate,
+                    wind.along_beam(*azimuth, elevation),
+                    GateStatus::Valid,
+                );
+            }
+        }
+        field
+    }
+
+    /// A sweep with echo everywhere and a different wind in each range band.
+    ///
+    /// The beam climbs with range, so range is height, and a real wind changes
+    /// with height. That is the whole reason it matters which part of the
+    /// sweep the rings come from.
+    fn layered_sweep(bands: &[(f64, f64, vad::Wind)], elevation: f32) -> SweepField {
+        let azimuths: Vec<f32> = (0..360).map(|at| at as f32).collect();
+        let gates = 1200;
+        let first_km = 2.125;
+        let interval_km = 0.25;
+        let mut field = SweepField::new_empty(
+            "Velocity",
+            "m/s",
+            elevation,
+            azimuths.clone(),
+            1.0,
+            first_km,
+            interval_km,
+            gates,
+        );
+        for (index, azimuth) in azimuths.iter().enumerate() {
+            for gate in 0..gates {
+                let range = first_km + gate as f64 * interval_km;
+                let Some((_, _, wind)) = bands
+                    .iter()
+                    .find(|(from, to, _)| range >= *from && range < *to)
+                else {
+                    continue;
+                };
+                field.set(
+                    index,
+                    gate,
+                    wind.along_beam(*azimuth, elevation),
+                    GateStatus::Valid,
+                );
+            }
+        }
+        field
+    }
+
+    /// Twenty metres a second from the given direction.
+    fn wind_from(degrees: f32, speed: f32) -> vad::Wind {
+        let toward = (degrees + 180.0).to_radians();
+        vad::Wind {
+            east: speed * toward.sin(),
+            north: speed * toward.cos(),
+        }
+    }
+
+    #[test]
+    fn the_wind_is_read_from_across_the_whole_sweep() {
+        // The search walks every gate. A version that stopped after the first
+        // twelve rings it could fit never got past the innermost fifth, so a
+        // squall line eighty kilometres out was invisible to it and the wind
+        // came back as nothing at all.
+        let truth = wind_from(225.0, 20.0);
+        let field = sweep_in_a_wind(truth, 0.5, 80.0, 140.0);
+        let read = fitted_wind(&field).expect("a wind from where the echo is");
+        assert!((read.speed() - 20.0).abs() < 1.0, "{}", read.speed());
+        assert!(
+            (read.coming_from_degrees() - 225.0).abs() < 5.0,
+            "{}",
+            read.coming_from_degrees()
+        );
+    }
+
+    #[test]
+    fn the_flow_the_storm_is_in_outvotes_the_layer_at_each_end() {
+        // Three winds stacked the way a real sounding stacks them: a light
+        // surface layer, the flow the storm is actually moving in, and
+        // something else again above it. The middle one is the answer.
+        //
+        // A search that stops after twelve rings never leaves the surface
+        // layer and returns the four metres a second, which is what it did on
+        // a live volume. One with no preferred band takes the median across
+        // all three and lands between them, pointing nowhere in particular.
+        let surface = wind_from(180.0, 4.0);
+        let flow = wind_from(225.0, 20.0);
+        let aloft = wind_from(45.0, 20.0);
+        let field = layered_sweep(
+            &[
+                (0.0, 60.0, surface),
+                (60.0, WIND_FAR_KM, flow),
+                (WIND_FAR_KM, 300.0, aloft),
+            ],
+            0.5,
+        );
+        let read = fitted_wind(&field).expect("a wind");
+        assert!(
+            (read.speed() - 20.0).abs() < 2.0,
+            "read {} m/s, wanted the flow at 20",
+            read.speed()
+        );
+        let apart = (read.coming_from_degrees() - 225.0).abs();
+        assert!(
+            apart.min(360.0 - apart) < 10.0,
+            "read from {}, wanted 225",
+            read.coming_from_degrees()
+        );
+    }
+
+    #[test]
+    fn a_sweep_whose_echo_is_all_close_in_still_gives_a_wind() {
+        // The case the search was changed for. Everything within thirty
+        // kilometres means nothing at all in the preferred band, and picking
+        // rings by position returned no wind rather than the one available.
+        let truth = vad::Wind {
+            east: 0.0,
+            north: -18.0,
+        };
+        let field = sweep_in_a_wind(truth, 0.5, 3.0, 18.0);
+        let read = fitted_wind(&field).expect("a wind from what there is");
+        assert!((read.speed() - 18.0).abs() < 1.0, "{}", read.speed());
+        assert!(
+            (read.coming_from_degrees() - 0.0).abs() < 5.0
+                || (read.coming_from_degrees() - 360.0).abs() < 5.0,
+            "{}",
+            read.coming_from_degrees()
+        );
+    }
+
+    #[test]
+    fn a_sweep_with_nothing_in_it_has_no_wind_rather_than_a_made_up_one() {
+        let field = sweep_in_a_wind(
+            vad::Wind {
+                east: 10.0,
+                north: 0.0,
+            },
+            0.5,
+            // A band outside the sweep, so every gate stays as no data.
+            9000.0,
+            9001.0,
+        );
+        assert!(fitted_wind(&field).is_none());
+    }
+
+    /// A gate the reader has asked to hide leaves the map showing through, and
+    /// one exactly at the threshold is kept.
+    #[test]
+    fn a_threshold_hides_what_is_under_it_and_keeps_what_is_on_it() {
+        let draw = |value: f32, product: Product, floor: Option<f32>| {
+            gate_color(
+                &GateStatus::Valid,
+                value,
+                product,
+                None,
+                Some((0.0, 100.0)),
+                false,
+                floor,
+            )
+        };
+
+        // Reflectivity reads low to high, so the comparison is on the value.
+        assert!(draw(35.0, Product::Reflectivity, Some(35.0)).is_some());
+        assert!(draw(34.9, Product::Reflectivity, Some(35.0)).is_none());
+        // Without one, the product's own floor is the only thing hiding gates.
+        assert!(draw(34.9, Product::Reflectivity, None).is_some());
+        assert!(draw(FADE_FLOOR_DBZ - 1.0, Product::Reflectivity, None).is_none());
+
+        // Velocity runs either side of zero and both sides are the storm, so a
+        // threshold of 15 has to keep a 20 metre a second inbound gate. On the
+        // signed value that gate reads -20 and would vanish.
+        assert!(draw(-20.0, Product::Velocity, Some(15.0)).is_some());
+        assert!(draw(20.0, Product::Velocity, Some(15.0)).is_some());
+        assert!(draw(-9.0, Product::Velocity, Some(15.0)).is_none());
+        assert!(draw(9.0, Product::Velocity, Some(15.0)).is_none());
+
+        // A folded gate carries no reading on the scale, so a threshold has
+        // nothing to compare and must not silently drop it.
+        assert!(gate_color(
+            &GateStatus::RangeFolded,
+            0.0,
+            Product::Velocity,
+            None,
+            None,
+            false,
+            Some(60.0),
+        )
+        .is_some());
+
+        // And a gate the radar itself marked as nothing stays nothing.
+        assert!(gate_color(
+            &GateStatus::NoData,
+            0.0,
+            Product::Reflectivity,
+            None,
+            None,
+            false,
+            None,
+        )
+        .is_none());
+    }
 
     fn table(range_folded: Option<&str>) -> Palette {
         Palette::with_range_folded(
@@ -1070,6 +1368,7 @@ mod tests {
                 Some(&named),
                 None,
                 false,
+                None,
             ),
             Some(([0x77, 0x00, 0x7d], MAX_ALPHA))
         );
@@ -1085,6 +1384,7 @@ mod tests {
                 Some(&silent),
                 None,
                 false,
+                None,
             ),
             Some((RANGE_FOLDED, MAX_ALPHA))
         );
@@ -1096,6 +1396,7 @@ mod tests {
                 None,
                 None,
                 false,
+                None,
             ),
             Some((RANGE_FOLDED, MAX_ALPHA))
         );
@@ -1112,6 +1413,7 @@ mod tests {
                 Some(&named),
                 None,
                 false,
+                None,
             ),
             None,
             "a value below the lowest stop was painted the lowest stop's colour"
@@ -1124,6 +1426,7 @@ mod tests {
                 Some(&named),
                 None,
                 false,
+                None,
             ),
             Some(([0x04, 0xe9, 0xe7], MAX_ALPHA))
         );
@@ -1136,6 +1439,7 @@ mod tests {
                 Some(&named),
                 None,
                 false,
+                None,
             ),
             None
         );
@@ -1147,6 +1451,7 @@ mod tests {
                 None,
                 None,
                 false,
+                None,
             ),
             None
         );
@@ -1486,7 +1791,7 @@ mod tests {
         );
 
         let drawing = std::time::Instant::now();
-        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0, false, None)
+        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0, false, None, None)
             .expect("the lowest reflectivity tilt should decode");
         let drawn = drawing.elapsed();
 
@@ -1525,7 +1830,7 @@ mod tests {
                 .field
         };
         let (pixels, _) =
-            render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ", false);
+            render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ", false, None);
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         let total = IMAGE_SIZE * IMAGE_SIZE;
         assert!(
@@ -1565,7 +1870,7 @@ mod tests {
         );
 
         // Velocity comes off the same volume, so the second product is free.
-        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1, true, None)
+        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1, true, None, None)
             .expect("a Doppler cut should decode");
         assert_eq!(velocity.product_id, "velocity");
         assert_eq!(velocity.unit, "m/s");

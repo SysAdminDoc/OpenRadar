@@ -276,6 +276,14 @@ export const es: Catalogue = {
     "Acércate más allá de {zoom} sobre Estados Unidos para traer un radar.",
   "radar.product": "Producto",
   "radar.productLabel": "Producto Level II",
+  "radar.threshold": "Ocultar por debajo de",
+  "radar.thresholdLabel": "Ocultar lecturas por debajo de este valor",
+  "radar.thresholdOff": "Todo",
+  "radar.thresholdValue": "{value} {unit}",
+  "radar.thresholdDetail":
+    "Lo más débil que esto se deja fuera de la imagen, así los núcleos se ven solos",
+  "radar.thresholdSpeed":
+    "La velocidad se oculta por rapidez y no por sentido, así que ambas direcciones van juntas",
   "radar.tilt": "Elevación",
   "radar.tiltLabel": "Elevación Level II",
   "radar.site": "Radar",

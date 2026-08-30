@@ -145,13 +145,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: Export offers GIF with a frame cap of 24 and the same burned-in credits; the file opens in Windows Photos; `export.test.ts` covers the palette quantisation.
   Complexity: M
 
-- [ ] P3 — Remove the three dead exports and pin the LICENSE holder to the repo author
-  Why: `resetLog`, `resetStorms` and `level2ProductLabel` are referenced nowhere; the LICENSE names a company the global rules forbid as a project brand.
-  Evidence: `src/lib/log.ts:61`, `src/lib/hurdat.ts:96`, `src/lib/level2.ts:30`; `LICENSE` versus `src-tauri/Cargo.toml` authors.
-  Touches: those three files, LICENSE
-  Acceptance: `npm run check` passes with the exports gone; LICENSE reads "Copyright (c) 2026 SysAdminDoc".
-  Complexity: S
-
 - [ ] P3 — First-launch hint toast pointing at Commands and the Layers panel
   Why: there is no onboarding of any kind; the command list is the discoverability feature and nothing surfaces it. A single dismissible toast fits the no-dialog rule.
   Evidence: recon memo section 4 (no first-run state anywhere); `src/components/CommandPalette.tsx`.
