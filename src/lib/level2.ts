@@ -1,5 +1,5 @@
 import { isDesktopRuntime } from "./settings";
-import { translate, type StringKey } from "../i18n";
+import type { StringKey } from "../i18n";
 
 /** Below this the national mosaic is the better picture, and cheaper. */
 export const SINGLE_SITE_MIN_ZOOM = 8;
@@ -30,12 +30,6 @@ export const LEVEL2_PRODUCTS = [
   key: StringKey;
   unit: string;
 }>;
-
-/** What a product is called, in whatever language the workspace is in. */
-export function level2ProductLabel(id: Level2ProductId): string {
-  const found = LEVEL2_PRODUCTS.find((product) => product.id === id);
-  return found ? translate(found.key) : id;
-}
 
 export type Level2ProductId = (typeof LEVEL2_PRODUCTS)[number]["id"];
 

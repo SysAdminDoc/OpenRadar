@@ -144,12 +144,6 @@ export async function loadStorm(id: string): Promise<Storm> {
   return { ...summary, track, statuses };
 }
 
-export function resetStorms() {
-  index = null;
-  statuses = [];
-  decades.clear();
-}
-
 /**
  * Matches on name and year together, so "ian 2022" finds one storm and "ian"
  * finds every one of them.

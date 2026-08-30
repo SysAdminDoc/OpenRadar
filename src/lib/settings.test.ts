@@ -5,7 +5,9 @@ import {
   cameraKey,
   looksLikeSettings,
   normalizeSettings,
+  restoreSettings,
   sameCamera,
+  SCHEMA_VERSION,
 } from "./settings";
 
 describe("settings normalization", () => {
@@ -272,5 +274,35 @@ describe("a settings file dropped back in", () => {
     expect(restored.radar.tilt).toBeGreaterThanOrEqual(0);
     expect(restored.units).toBe("imperial");
     expect(restored.textScale).toBe(100);
+  });
+
+  it("says so when it could not take the whole file", () => {
+    // A file from a newer build loads with whatever this build understands,
+    // which is the right thing to do and the wrong thing to call a full
+    // restore. Reporting the same sentence either way told the reader their
+    // workspace was back when part of it had been dropped on the floor.
+    const plain = restoreSettings(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)));
+    expect(plain.fromNewerBuild).toBe(false);
+    expect(plain.unread).toEqual([]);
+
+    const newer = restoreSettings({
+      ...DEFAULT_SETTINGS,
+      schemaVersion: SCHEMA_VERSION + 1,
+      soundscape: { alerts: true },
+      lightningBuckets: 4,
+    });
+    expect(newer.fromNewerBuild).toBe(true);
+    expect(newer.unread).toEqual(["lightningBuckets", "soundscape"]);
+    // What it did understand still comes back.
+    expect(newer.settings.mapStyle).toBe(DEFAULT_SETTINGS.mapStyle);
+    expect(newer.settings.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+
+  it("does not call an older file partial", () => {
+    // Schema 1 files load whole, because everything dropped since then is
+    // simply not read. Warning about them would be noise.
+    const older = restoreSettings({ ...DEFAULT_SETTINGS, schemaVersion: 1 });
+    expect(older.fromNewerBuild).toBe(false);
+    expect(older.unread).toEqual([]);
   });
 });

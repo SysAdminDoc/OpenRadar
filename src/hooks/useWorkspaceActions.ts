@@ -10,6 +10,7 @@ import {
   DEFAULT_SETTINGS,
   isDesktopRuntime,
   looksLikeSettings,
+  restoreSettings,
   normalizeSettings,
   type AppSettings,
   type CameraState,
@@ -327,16 +328,50 @@ export function useWorkspaceActions(options: {
         // since a GeoJSON document never has a schema version.
         if (looksLikeSettings(text)) {
           const previous = settingsRef.current;
-          const restored = normalizeSettings(JSON.parse(text));
-          applySettings(restored);
+          const restored = restoreSettings(JSON.parse(text));
+          applySettings(restored.settings);
           setActiveSurface(null);
+          // A file from a newer build, or one carrying keys this build has no
+          // idea about, is not a full restore and must not be reported as one.
+          const notes: string[] = [];
+          if (restored.fromNewerBuild) {
+            notes.push(translate("toast.settingsFromNewer"));
+          }
+          if (restored.unread.length) {
+            notes.push(
+              translate("toast.settingsUnread", {
+                names: inWords(restored.unread),
+              }),
+            );
+          }
           pushToast({
-            title: translate("toast.settingsRestored"),
-            detail: translate("toast.settingsRestoredBody"),
+            title: translate(
+              notes.length
+                ? "toast.settingsRestoredPartly"
+                : "toast.settingsRestored",
+            ),
+            detail: notes.length
+              ? notes.join(" ")
+              : translate("toast.settingsRestoredBody"),
             actionLabel: translate("toast.undo"),
             onAction: () => applySettings(previous),
           });
           return;
+        }
+
+        // A settings file too broken to parse falls through to the overlay
+        // reader, which then refuses it for not being a map. Say what it
+        // actually is instead.
+        if (/\.json$/i.test(file.name)) {
+          try {
+            JSON.parse(text);
+          } catch {
+            pushToast({
+              title: translate("toast.settingsBroken"),
+              detail: translate("toast.settingsBrokenBody"),
+            });
+            return;
+          }
         }
 
         let payload: Record<string, unknown>;
