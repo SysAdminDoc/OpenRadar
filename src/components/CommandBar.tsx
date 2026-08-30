@@ -20,6 +20,7 @@ import {
   Share2,
   Tornado,
   Route,
+  History,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -27,6 +28,7 @@ export type SurfaceId =
   | "search"
   | "alerts"
   | "tropical"
+  | "history"
   | "route"
   | "map-type"
   | "layers"
@@ -200,6 +202,12 @@ export function CommandBar({
           label="Tropical"
           active={activeSurface === "tropical"}
           onClick={() => toggleSurface("tropical")}
+        />
+        <CommandButton
+          icon={History}
+          label="History"
+          active={activeSurface === "history"}
+          onClick={() => toggleSurface("history")}
         />
         <CommandButton
           icon={Route}

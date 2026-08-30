@@ -24,6 +24,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - A watched place that tells you about warnings near it wherever the map is pointed
 - Export the current view as a picture or the whole loop as a video, with the time and credits burned in
 - Route weather: a drive coloured by the chance of rain at the hour you reach each stretch
+- Storm history: every Atlantic and eastern Pacific cyclone since 1851, with its best track drawn by intensity, and archive radar replay of the ones since 2003
 - Place search, map-centered forecasts, local GeoJSON and GRLevelX placefile import, shareable camera links, dark and light themes
 - Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
 
@@ -61,5 +62,6 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 - Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS.
 - Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.
 - Tropical cones, tracks, watches, and outlooks come from the NHC tropical map service.
+- Past storm tracks come from the NOAA HURDAT2 best track, and archive radar for a replay comes from the Iowa State Mesonet.
 
 OpenRadar v0.1.0 is an early working release. It is not an official source for warnings or life-safety decisions.

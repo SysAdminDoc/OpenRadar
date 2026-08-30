@@ -10,12 +10,14 @@ import type {
   ProjectionMode,
   RadarSettings,
 } from "../lib/settings";
+import type { Storm } from "../lib/hurdat";
 import type { PlaceResult } from "../lib/weather";
 import type { OverlayStates } from "../hooks/useOverlays";
 import type { ExportState } from "../hooks/useExport";
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
+import { HistoryPanel } from "../panels/HistoryPanel";
 import {
   LayersPanel,
   MapTypePanel,
@@ -40,6 +42,8 @@ interface PanelSurfacesProps {
   health: ProviderHealth[];
   log: LogEntry[];
   exportState: ExportState;
+  historyStormId: string | null;
+  replayId: string | null;
   onClose: () => void;
   onCloseProduct: () => void;
   onLayers: (layers: LayerSettings) => void;
@@ -51,6 +55,9 @@ interface PanelSurfacesProps {
   onPlace: (place: PlaceResult) => void;
   onAlertSelect: (bounds: OverlayBounds) => void;
   onFollowStorm: (point: GeoPoint, name: string) => void;
+  onHistoryStorm: (storm: Storm | null) => void;
+  onReplayStorm: (storm: Storm) => void;
+  onStopReplay: () => void;
   onRoute: (route: Record<string, unknown> | null) => void;
   onUpload: (file: File) => void;
   onWatchHere: () => void;
@@ -125,6 +132,17 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onSettings={props.onSettings}
           onWatchHere={props.onWatchHere}
           onReset={props.onReset}
+          onClose={onClose}
+        />
+      ) : null}
+
+      {activeSurface === "history" ? (
+        <HistoryPanel
+          selectedId={props.historyStormId}
+          replayId={props.replayId}
+          onSelect={props.onHistoryStorm}
+          onReplay={props.onReplayStorm}
+          onStopReplay={props.onStopReplay}
           onClose={onClose}
         />
       ) : null}

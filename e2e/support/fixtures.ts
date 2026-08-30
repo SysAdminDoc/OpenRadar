@@ -101,6 +101,52 @@ export const tropicalFeature = {
 };
 
 /**
+ * A stand-in for the bundled HURDAT2 record. The real one is 2.5 MB, and a
+ * test that loads it is measuring the network rather than the panel.
+ */
+export const stormRecord = {
+  generated: "2026-08-30",
+  statuses: ["TD", "TS", "HU", "EX", "SD", "SS", "LO"],
+  storms: [
+    {
+      i: "AL092022",
+      n: "IAN",
+      y: 2022,
+      b: "AL",
+      a: 17.96,
+      p: [
+        [Date.parse("2022-09-26T00:00:00Z") / 1000, 20.0, -80.0, 45, 1],
+        [Date.parse("2022-09-27T00:00:00Z") / 1000, 22.5, -83.0, 125, 2],
+        [Date.parse("2022-09-28T18:00:00Z") / 1000, 26.7, -82.2, 140, 2],
+        [Date.parse("2022-09-30T00:00:00Z") / 1000, 32.8, -79.0, 70, 2],
+      ],
+    },
+    {
+      i: "AL041992",
+      n: "ANDREW",
+      y: 1992,
+      b: "AL",
+      a: 9.1,
+      p: [
+        [Date.parse("1992-08-23T12:00:00Z") / 1000, 25.4, -74.2, 130, 2],
+        [Date.parse("1992-08-24T09:00:00Z") / 1000, 25.5, -80.3, 145, 2],
+      ],
+    },
+    {
+      i: "EP152023",
+      n: "HILARY",
+      y: 2023,
+      b: "EP",
+      a: 8.4,
+      p: [
+        [Date.parse("2023-08-18T18:00:00Z") / 1000, 19.4, -110.2, 125, 2],
+        [Date.parse("2023-08-20T18:00:00Z") / 1000, 30.6, -115.9, 55, 1],
+      ],
+    },
+  ],
+};
+
+/**
  * Every network route the workspace touches, answered locally. A test that
  * needs different data re-routes the host it cares about and reloads.
  */
@@ -129,9 +175,20 @@ export async function routeWorkspace(page: Page) {
     });
   });
   await page.route("https://mesonet.agron.iastate.edu/**", async (route) => {
+    // The same host serves the placefile-style products and the radar archive.
+    if (route.request().url().includes("/tile.py/")) {
+      await route.fulfill({ contentType: "image/png", body: transparentPng });
+      return;
+    }
     await route.fulfill({
       contentType: "application/json",
       body: emptyCollection,
+    });
+  });
+  await page.route("**/hurdat.json", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(stormRecord),
     });
   });
   await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {

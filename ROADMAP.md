@@ -12,7 +12,6 @@
 
 - [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
 - [ ] Add model guidance, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
-- [ ] Add HURDAT2 history with archived radar playback.
 - [ ] Add an offline cache of the last view.
 
 ## Research-Driven Additions
@@ -84,13 +83,6 @@
   Evidence: `noaa-mrms-pds` `NLDN_CG_005min_AvgDensity` (rotation-track cadence tables); StormDeck `src-tauri/src/lightning.rs` (GLM `GLM-L2-LCFA` from `noaa-goes19`, 2 MiB cap); blitzortung.org/en/contact.php; nowCOAST density explicitly "not for safety plans".
   Touches: crates/openradar-providers (reuse mrms_grib), src-tauri/src/lightning.rs (port), overlay + legend, settings copy (replace "flashes/markers" with "density" and "flashes" as GLM points).
   Acceptance: a 5-minute CG density raster renders with a legend and a "not a warning source" line; the GLM flash overlay updates every minute when enabled.
-  Complexity: L
-
-- [ ] P2: HURDAT2 archive replay with ACE and per-storm track
-  Why: historical radar is a MyRadar Premium; no OSS desktop viewer ships HURDAT2 replay; the science is MIT in tropycal.
-  Evidence: `https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-02272026.txt` (6.8 MB, posted 2026-03-05), HurricaneMap `scripts/preprocess_hurdat2.py` gotchas (L marker CONUS-only, -1 = TS), tropycal ACE/SSHWS code, IEM `nexrad-n0q` archive since 2003 and `mrms::lcref` since 2015 for synced radar.
-  Touches: build-time preprocessor to a compact JSON (bundled), new src/panels/HistoryPanel.tsx (search by name/year, ACE, peak), MapViewport track/points layer, timeline replay of IEM archive frames for storms after 2003.
-  Acceptance: searching "Ian 2022" draws the track with 6-hourly intensity colors, shows ACE, and the timeline plays the IEM radar mosaic around landfall; Pacific file included.
   Complexity: L
 
 ### P3

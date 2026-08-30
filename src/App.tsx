@@ -28,6 +28,8 @@ import {
   subscribeHealth,
 } from "./lib/providers";
 import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
+import { archiveFrames, peakPoint, stormTrack, type Storm } from "./lib/hurdat";
+import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type {
   CameraState,
   LayerSettings,
@@ -53,6 +55,8 @@ export default function App() {
     string,
     unknown
   > | null>(null);
+  const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
+  const [replay, setReplay] = useState<ArchiveReplay | null>(null);
   const mapRef = useRef<MapViewportHandle>(null);
   const secondMapRef = useRef<MapViewportHandle>(null);
 
@@ -87,6 +91,7 @@ export default function App() {
     animationSpeed: settings.radar.animationSpeed,
     futureRadar: settings.radar.futureRadar,
     pageVisible,
+    archive: replay,
   });
   const { frames, frameIndex, source } = timeline;
   const activeFrame = frames[frameIndex];
@@ -150,6 +155,57 @@ export default function App() {
     }
   }, []);
 
+  const stormTrackData = useMemo(
+    () => (historyStorm ? stormTrack(historyStorm) : null),
+    [historyStorm],
+  );
+
+  // Picking a storm frames its whole track; replaying one goes to the landfall
+  // the radar is about, which is a much tighter view.
+  const showStorm = useCallback(
+    (storm: Storm | null) => {
+      setHistoryStorm(storm);
+      setReplay(null);
+      if (!storm) return;
+      const lats = storm.track.map((point) => point[1]);
+      const lons = storm.track.map((point) => point[2]);
+      actions.flyToBounds({
+        west: Math.min(...lons),
+        south: Math.min(...lats),
+        east: Math.max(...lons),
+        north: Math.max(...lats),
+      });
+    },
+    [actions],
+  );
+
+  const replayStorm = useCallback(
+    (storm: Storm) => {
+      const frames = archiveFrames(storm);
+      if (!frames.length) return;
+      const peak = peakPoint(storm);
+      setHistoryStorm(storm);
+      setReplay({
+        id: storm.id,
+        label: "Iowa State radar archive",
+        attributionUrl: "https://mesonet.agron.iastate.edu/",
+        frames,
+        focusTime: peak[0],
+      });
+      mapRef.current?.flyTo({
+        center: [peak[2], peak[1]],
+        zoom: 7,
+        bearing: 0,
+        pitch: 0,
+      });
+      pushToast({
+        title: `Replaying ${storm.name} ${storm.year}`,
+        detail: "Archive radar around the storm's peak. Close it to go live.",
+      });
+    },
+    [pushToast],
+  );
+
   const centerPoint = useMemo<GeoPoint>(
     () => ({ lon: settings.camera.center[0], lat: settings.camera.center[1] }),
     [settings.camera.center],
@@ -191,6 +247,7 @@ export default function App() {
         overlays={overlays.data}
         route={route}
         customOverlay={customOverlay}
+        stormTrack={stormTrackData}
         activeTool={activeTool}
         dualPane={dualPane}
         compareOffset={compareOffset}
@@ -211,7 +268,9 @@ export default function App() {
         viewport={viewport}
         centerPoint={centerPoint}
         frameCount={frames.length}
-        sourceLabel={source?.label ?? null}
+        sourceLabel={timeline.sourceLabel}
+        historyStormId={historyStorm?.id ?? null}
+        replayId={replay?.id ?? null}
         mapReady={mapStatus === "ready"}
         health={health}
         log={logEntries}
@@ -238,6 +297,9 @@ export default function App() {
         onPlace={actions.goToPlace}
         onAlertSelect={actions.flyToBounds}
         onFollowStorm={actions.followStorm}
+        onHistoryStorm={showStorm}
+        onReplayStorm={replayStorm}
+        onStopReplay={() => setReplay(null)}
         onRoute={setRoute}
         onUpload={actions.uploadOverlay}
         onWatchHere={actions.watchHere}
@@ -249,7 +311,6 @@ export default function App() {
         settings={settings}
         timeline={timeline}
         frames={frames}
-        source={source}
         radarAgeMinutes={radarAge}
         cursor={cursor}
         activeTool={activeTool}

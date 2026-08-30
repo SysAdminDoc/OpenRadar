@@ -2208,3 +2208,17 @@ input[type="range"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+.track-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  margin-right: 6px;
+  border: 1px solid rgb(15 23 42 / 60%);
+  border-radius: 50%;
+}
+
+.result-row > .track-swatch {
+  margin-right: 0;
+}

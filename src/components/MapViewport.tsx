@@ -45,6 +45,9 @@ const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
 const ROUTE_SOURCE_ID = "openradar-route-source";
 const ROUTE_LAYER_ID = "openradar-route-line";
+const TRACK_SOURCE_ID = "openradar-track-source";
+const TRACK_LINE_LAYER_ID = "openradar-track-line";
+const TRACK_POINT_LAYER_ID = "openradar-track-points";
 const CUSTOM_SOURCE_ID = "openradar-custom-source";
 const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
 const CUSTOM_LINE_LAYER_ID = "openradar-custom-line";
@@ -77,6 +80,8 @@ interface MapViewportProps {
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
   route?: Record<string, unknown> | null;
   customOverlay?: Record<string, unknown> | null;
+  /** A past storm's best track, drawn while one is picked in Storm history. */
+  stormTrack?: Record<string, unknown> | null;
   toolMode?: ToolMode;
   onCameraChange?: (camera: CameraState) => void;
   onCameraMove?: (camera: CameraState) => void;
@@ -84,6 +89,8 @@ interface MapViewportProps {
   onToolResult?: (message: string | null) => void;
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
+
+const TRACK_LAYER_IDS = [TRACK_LINE_LAYER_ID, TRACK_POINT_LAYER_ID];
 
 const CUSTOM_LAYER_IDS = [
   CUSTOM_FILL_LAYER_ID,
@@ -141,6 +148,7 @@ function layerStackOrder(): string[] {
     SATELLITE_LAYER_ID,
     ...RADAR_LANE_LAYER_IDS,
     ...overlayLayerOrder(),
+    ...TRACK_LAYER_IDS,
     ROUTE_LAYER_ID,
     ...CUSTOM_LAYER_IDS,
     ...TOOL_LAYER_IDS,
@@ -187,6 +195,7 @@ function MapViewportInner(
     overlays = {},
     route = null,
     customOverlay = null,
+    stormTrack = null,
     toolMode = null,
     onCameraChange,
     onCameraMove,
@@ -204,6 +213,7 @@ function MapViewportInner(
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
+  const stormTrackRef = useRef<Record<string, unknown> | null>(stormTrack);
   const satelliteTimeRef = useRef(satelliteTime);
   const overlaysRef = useRef(overlays);
   const routeRef = useRef(route);
@@ -572,6 +582,70 @@ function MapViewportInner(
     publishLayers();
   };
 
+  const syncStormTrack = () => {
+    const map = mapRef.current;
+    const track = stormTrackRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    let source = map.getSource(TRACK_SOURCE_ID) as
+      maplibregl.GeoJSONSource | undefined;
+    if (!track) {
+      if (source) {
+        for (const id of TRACK_LAYER_IDS) {
+          if (map.getLayer(id)) map.removeLayer(id);
+        }
+        map.removeSource(TRACK_SOURCE_ID);
+      }
+      publishLayers();
+      return;
+    }
+    if (!source) {
+      map.addSource(TRACK_SOURCE_ID, { type: "geojson", data: track as never });
+      const beforeTools = firstExisting(map, layersAbove(TRACK_LINE_LAYER_ID));
+      map.addLayer(
+        {
+          id: TRACK_LINE_LAYER_ID,
+          type: "line",
+          source: TRACK_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "LineString"],
+          paint: {
+            "line-color": ["coalesce", ["get", "color"], "#e2e8f0"],
+            "line-width": ["coalesce", ["get", "width"], 2],
+            "line-opacity": 0.85,
+          },
+        },
+        beforeTools,
+      );
+      map.addLayer(
+        {
+          id: TRACK_POINT_LAYER_ID,
+          type: "circle",
+          source: TRACK_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "Point"],
+          // Each six-hourly fix is coloured by the wind it carried.
+          paint: {
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              3,
+              3.5,
+              8,
+              7,
+            ],
+            "circle-color": ["coalesce", ["get", "color"], "#94a3b8"],
+            "circle-stroke-color": "#0f172a",
+            "circle-stroke-width": 1,
+          },
+        },
+        beforeTools,
+      );
+      source = map.getSource(TRACK_SOURCE_ID) as maplibregl.GeoJSONSource;
+    }
+    source.setData(track as never);
+    publishLayers();
+  };
+
   const syncCustomOverlay = () => {
     const map = mapRef.current;
     const overlay = customOverlayRef.current;
@@ -768,6 +842,7 @@ function MapViewportInner(
       renderTools();
       syncOverlays();
       syncRoute();
+      syncStormTrack();
       syncCustomOverlay();
       onMapStatus?.("ready");
     };
@@ -898,10 +973,18 @@ function MapViewportInner(
   useEffect(() => {
     customOverlayRef.current = customOverlay;
     syncCustomOverlay();
-    // The sync functions read the refs above; adding them as dependencies
-    // would rebuild the map layers on every render.
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customOverlay]);
+
+  useEffect(() => {
+    stormTrackRef.current = stormTrack;
+    syncStormTrack();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stormTrack]);
 
   useEffect(() => {
     toolModeRef.current = toolMode;

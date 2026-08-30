@@ -13,6 +13,22 @@ import {
 import { log } from "../lib/log";
 import { animationIntervalMs, type RadarFrame } from "../lib/radar";
 
+export interface ArchiveReplay {
+  /** Identifies the replay, so selecting the same one twice changes nothing. */
+  id: string;
+  label: string;
+  attributionUrl: string;
+  frames: RadarFrame[];
+  /** The moment the replay is about, which is where the playhead starts. */
+  focusTime: number;
+}
+
+interface Selection {
+  time: number | null;
+  /** The replay the time was picked in, or null for the live loop. */
+  replay: string | null;
+}
+
 const REFRESH_MS = 5 * 60_000;
 /** Always fetch the longest loop so changing the setting needs no new request. */
 export const MAX_LOOP_MINUTES = 120;
@@ -22,6 +38,10 @@ export interface RadarTimelineState {
   frameIndex: number;
   playing: boolean;
   source: RadarProvider | null;
+  /** What the timeline says it is showing, live provider or archive. */
+  sourceLabel: string | null;
+  /** The credit for whoever served the frames on screen. */
+  attribution: { label: string; url: string } | null;
   error: string | null;
   /** The newest observation, which is what staleness is measured against. */
   newestObserved: RadarFrame | undefined;
@@ -91,6 +111,8 @@ export function useRadarTimeline(options: {
   animationSpeed: number;
   futureRadar: boolean;
   pageVisible: boolean;
+  /** Frames from a past event, which stand in for the live loop while set. */
+  archive?: ArchiveReplay | null;
 }): RadarTimelineState {
   const {
     ready,
@@ -99,12 +121,20 @@ export function useRadarTimeline(options: {
     animationSpeed,
     futureRadar,
     pageVisible,
+    archive = null,
   } = options;
   const [observed, setObserved] = useState<RadarFrame[]>([]);
   const [run, setRun] = useState<HrrrRun | null>(null);
   const [source, setSource] = useState<RadarProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  // The playhead remembers which loop it was set in. A time picked in one
+  // replay says nothing about where to sit in another, or back on live radar,
+  // so a selection from a different loop is simply ignored rather than having
+  // to be cleared out by an effect.
+  const [selection, setSelection] = useState<Selection>({
+    time: null,
+    replay: null,
+  });
   const [playing, setPlaying] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
@@ -128,6 +158,14 @@ export function useRadarTimeline(options: {
         : [],
     [futureRadar, inModelDomain, newestObservedTime, run],
   );
+
+  // Entering a replay puts the playhead on the moment it is about; leaving one
+  // puts it back on the newest live frame.
+  const replayId = archive?.id ?? null;
+  const selected =
+    selection.replay === replayId
+      ? selection.time
+      : (archive?.focusTime ?? null);
 
   // What a refresh needs to know without re-subscribing on every change.
   const liveRef = useRef({ selected, playing, center, forecast, observed });
@@ -165,7 +203,7 @@ export function useRadarTimeline(options: {
         setSource(timeline.provider);
         setError(null);
         setObserved(timeline.frames);
-        setSelected(kept);
+        setSelection({ time: kept, replay: null });
       } catch (failure) {
         if (
           !mounted ||
@@ -230,8 +268,11 @@ export function useRadarTimeline(options: {
   // The loop window applies to what has been observed. Forecast frames extend
   // the tail, so they must not drag the cutoff forward with them.
   const frames = useMemo(
-    () => [...framesWithinLoop(observed, loopMinutes), ...forecast],
-    [forecast, loopMinutes, observed],
+    () =>
+      archive
+        ? archive.frames
+        : [...framesWithinLoop(observed, loopMinutes), ...forecast],
+    [archive, forecast, loopMinutes, observed],
   );
 
   const frameIndex = useMemo(
@@ -242,15 +283,41 @@ export function useRadarTimeline(options: {
   useEffect(() => {
     if (!playing || !pageVisible || frames.length < 2) return;
     const timer = window.setInterval(() => {
-      setSelected((current) => {
-        const index = nearestFrameIndex(frames, current);
-        return frames[(index + 1) % frames.length].time;
+      setSelection((current) => {
+        const at =
+          current.replay === replayId
+            ? current.time
+            : (archive?.focusTime ?? null);
+        const index = nearestFrameIndex(frames, at);
+        return {
+          time: frames[(index + 1) % frames.length].time,
+          replay: replayId,
+        };
       });
     }, animationIntervalMs(animationSpeed));
     return () => window.clearInterval(timer);
-  }, [animationSpeed, frames, pageVisible, playing]);
+  }, [
+    animationSpeed,
+    archive?.focusTime,
+    frames,
+    pageVisible,
+    playing,
+    replayId,
+  ]);
 
-  const newestObserved = observed.at(-1);
+  // Staleness is about the live feed. A replay is old on purpose, so it must
+  // not be measured against the clock.
+  const newestObserved = archive ? undefined : observed.at(-1);
+  const attribution = useMemo(
+    () =>
+      archive
+        ? { label: archive.label, url: archive.attributionUrl }
+        : source
+          ? { label: source.label, url: source.attributionUrl }
+          : null,
+    [archive, source],
+  );
+  const sourceLabel = attribution?.label ?? null;
 
   return useMemo(
     () => ({
@@ -258,6 +325,8 @@ export function useRadarTimeline(options: {
       frameIndex,
       playing,
       source,
+      sourceLabel,
+      attribution,
       error,
       newestObserved,
       setPlaying,
@@ -265,9 +334,19 @@ export function useRadarTimeline(options: {
         const frame = frames[index];
         if (!frame) return;
         setPlaying(false);
-        setSelected(frame.time);
+        setSelection({ time: frame.time, replay: replayId });
       },
     }),
-    [error, frameIndex, frames, newestObserved, playing, source],
+    [
+      attribution,
+      error,
+      frameIndex,
+      frames,
+      newestObserved,
+      playing,
+      replayId,
+      source,
+      sourceLabel,
+    ],
   );
 }

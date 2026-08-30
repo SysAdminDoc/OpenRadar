@@ -1,0 +1,126 @@
+import { expect, test } from "@playwright/test";
+import { routeWorkspace } from "./support/fixtures";
+
+test.beforeEach(async ({ page }) => {
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "History", exact: true }).click();
+});
+
+async function findStorm(page: import("@playwright/test").Page, query: string) {
+  await page.getByRole("searchbox", { name: /Search past storms/ }).fill(query);
+}
+
+test("draws a searched storm's track in its intensity colours", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+
+  // The best track reaches the map as a line and one point per fix.
+  await expect(pane).toHaveAttribute("data-layer-stack", /track-line/);
+  await expect(pane).toHaveAttribute("data-layer-stack", /track-points/);
+  await expect(page.locator("[data-history-ace]")).toHaveAttribute(
+    "data-history-ace",
+    "17.96",
+  );
+  await expect(page.getByText(/Category 5 · 140 kt peak/)).toBeVisible();
+
+  // The category five fix is drawn in its own colour rather than one flat
+  // track colour, which is what makes the intensity readable.
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const canvas = document.querySelector("canvas");
+          if (!canvas) return 0;
+          const target = document.createElement("canvas");
+          target.width = canvas.width;
+          target.height = canvas.height;
+          const context = target.getContext("2d");
+          if (!context) return 0;
+          context.drawImage(canvas, 0, 0);
+          const pixels = context.getImageData(
+            0,
+            0,
+            target.width,
+            target.height,
+          ).data;
+          let fuchsia = 0;
+          for (let at = 0; at < pixels.length; at += 4) {
+            if (
+              pixels[at] > 150 &&
+              pixels[at] < 235 &&
+              pixels[at + 1] < 90 &&
+              pixels[at + 2] > 160
+            ) {
+              fuchsia += 1;
+            }
+          }
+          return fuchsia;
+        }),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(10);
+});
+
+test("plays the archive radar around the peak and gives the map back", async ({
+  page,
+}) => {
+  const tiles: string[] = [];
+  page.on("request", (request) => {
+    const url = request.url();
+    if (url.includes("/tile.py/")) tiles.push(url);
+  });
+
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+
+  await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
+  // Three hours either side of the peak, every quarter hour.
+  await expect(page.getByText(/of 25 radar frames/)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Iowa State radar archive" }),
+  ).toBeVisible();
+
+  // The frames asked for are the archive mosaic for the day of the peak, not
+  // whatever the live feed happens to be serving.
+  await expect
+    .poll(() => tiles.filter((url) => url.includes("USCOMP-N0Q-2022")).length, {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
+  expect(tiles.some((url) => /USCOMP-N0Q-2022092[89]\d{4}/.test(url))).toBe(
+    true,
+  );
+
+  await page.getByRole("button", { name: /Live radar/ }).click();
+  await expect(
+    page.getByRole("link", { name: "Iowa State radar archive" }),
+  ).toBeHidden();
+  await expect(page.getByText(/of 25 radar frames/)).toBeHidden();
+});
+
+test("covers the Pacific and says when a storm predates the radar archive", async ({
+  page,
+}) => {
+  await findStorm(page, "Hilary");
+  await expect(page.getByText(/East Pacific · Category 4/)).toBeVisible();
+
+  await findStorm(page, "Andrew 1992");
+  await page.getByRole("button", { name: /ANDREW 1992/ }).click();
+  await expect(page.getByText(/radar archive starts in 2003/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Replay radar/ })).toBeHidden();
+  // The track still draws; only the replay is unavailable.
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveAttribute("data-layer-stack", /track-line/);
+});
