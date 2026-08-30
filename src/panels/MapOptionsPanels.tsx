@@ -298,7 +298,7 @@ export function SettingsPanel({
         </label>
         <ToggleSetting
           label="Future radar"
-          detail="Extend the loop six hours ahead with the HRRR forecast over the United States"
+          detail="Extend the loop with HRRR forecast reflectivity over the lower forty-eight"
           checked={settings.radar.futureRadar}
           onChange={(futureRadar) => updateRadar({ futureRadar })}
         />

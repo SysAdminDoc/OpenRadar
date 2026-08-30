@@ -365,8 +365,10 @@ test("keeps radar under the alert polygons", async ({ page }) => {
   await expect(pane).toHaveAttribute("data-layer-stack", /alerts-fill/);
 
   const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
-  expect(stack.indexOf("openradar-radar-layer")).toBeGreaterThanOrEqual(0);
-  expect(stack.indexOf("openradar-radar-layer")).toBeLessThan(
+  expect(
+    stack.indexOf("openradar-radar-layer-observed"),
+  ).toBeGreaterThanOrEqual(0);
+  expect(stack.indexOf("openradar-radar-layer-observed")).toBeLessThan(
     stack.indexOf("openradar-overlay-alerts-fill"),
   );
 });

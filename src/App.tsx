@@ -465,9 +465,11 @@ export default function App() {
   );
   const activeFrame = frames[frameIndex];
   const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
-  // Staleness is a property of the feed, not of the frame the user scrubbed to.
-  const newestFrame = frames.at(-1);
-  const radarAge = newestFrame ? frameAgeMinutes(newestFrame) : null;
+  // Staleness is a property of the observed feed, not of the frame the user
+  // scrubbed to and not of a forecast frame that is hours ahead by design.
+  const radarAge = timeline.newestObserved
+    ? frameAgeMinutes(timeline.newestObserved)
+    : null;
 
   if (!hydrated) {
     return (

@@ -57,10 +57,18 @@ export function viewFromDeepLink(
   const host = url.host || url.pathname.replace(/^\/+/, "").replace(/\/$/, "");
   if (host !== VIEW_HOST) return null;
 
+  // Every part has to be there and be a number. A half-written link would
+  // otherwise fly nowhere and still knock the projection back to flat.
+  const complete = ["lon", "lat", "zoom", "bearing", "pitch"].every((key) => {
+    const value = url.searchParams.get(key);
+    return (
+      value !== null && value.trim() !== "" && Number.isFinite(Number(value))
+    );
+  });
+  if (!complete) return null;
+
   const camera = cameraFromSearch(url.search, fallback);
   const projection: ProjectionMode =
     url.searchParams.get("projection") === "globe" ? "globe" : "mercator";
-  if (camera === fallback && !url.searchParams.get("lon")) return null;
-
   return { camera: normalizeSettings({ camera }).camera, projection };
 }

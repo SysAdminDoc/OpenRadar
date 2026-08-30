@@ -15,7 +15,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
 - A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
 - Automatic failover between radar sources, with per-source status and a request budget
-- Optional future radar: six hours of HRRR forecast reflectivity on the tail of the same timeline
+- Optional future radar: up to six hours of HRRR forecast reflectivity on the tail of the same timeline
 - NWS watches and warnings, USGS earthquakes, and NIFC wildfire perimeters, each with click-through detail and a freshness line
 - An Alerts panel listing what is active in the current view, worst first, with a link to the official product
 - Hurricane cones, forecast tracks, coastal watches, and development outlooks, with a storm list you can fly the map to
