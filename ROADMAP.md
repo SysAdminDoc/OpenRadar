@@ -50,13 +50,6 @@
 
 ### P1
 
-- [ ] P1: Stop the forecast panel refetching on every map move
-  Why: `point` derives from `settings.camera.center`, so each `moveend` fires an Open-Meteo request; a pan burst can hit the 600/min free ceiling and the panel flickers to its loading state.
-  Evidence: `src/App.tsx:442`; `src/panels/ForecastPanel.tsx:14-27`; open-meteo.com/en/terms (600/min, 5,000/h, 10,000/day).
-  Touches: src/panels/ForecastPanel.tsx (debounce 1.5 s, skip when the center moved < 5 km via `haversineMiles`, keep last data visible while loading), src/lib/weather.ts.
-  Acceptance: dragging the map for 10 s issues at most one forecast request; a unit test on the debounce/threshold helper passes.
-  Complexity: S
-
 - [ ] P1: Keep the playhead where the user left it across refreshes and apply loop length immediately
   Why: the 5-minute refresh jumps to the newest frame mid-scrub, and `loopMinutes` only takes effect at the next fetch.
   Evidence: `src/App.tsx:174,177`.

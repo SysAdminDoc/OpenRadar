@@ -5,11 +5,13 @@ import {
   LoaderCircle,
   Navigation,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
 import {
+  FORECAST_DEBOUNCE_MS,
   fetchForecast,
+  shouldRefetchForecast,
   weatherCodeLabel,
   type ForecastData,
 } from "../lib/weather";
@@ -22,23 +24,51 @@ interface ForecastPanelProps {
 export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
   const [forecast, setForecast] = useState<ForecastData | null>(null);
   const [error, setError] = useState(false);
+  const requestedRef = useRef<GeoPoint | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const inFlightRef = useRef<AbortController | null>(null);
   const latitude = point.lat;
   const longitude = point.lon;
 
   useEffect(() => {
+    const next = { lat: latitude, lon: longitude };
+    // A pan that lands close to the last request is not a new forecast, and
+    // aborting on every move would cancel the request already on its way.
+    if (!shouldRefetchForecast(requestedRef.current, next)) return;
+
+    const first = requestedRef.current === null;
+    requestedRef.current = next;
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    inFlightRef.current?.abort();
+
     const controller = new AbortController();
-    void fetchForecast({ lat: latitude, lon: longitude }, controller.signal)
-      .then((next) => {
-        setForecast(next);
-        setError(false);
-      })
-      .catch((reason: unknown) => {
-        if (reason instanceof DOMException && reason.name === "AbortError")
-          return;
-        setError(true);
-      });
-    return () => controller.abort();
+    inFlightRef.current = controller;
+    timerRef.current = window.setTimeout(
+      () => {
+        void fetchForecast(next, controller.signal)
+          .then((data) => {
+            setForecast(data);
+            setError(false);
+          })
+          .catch((reason: unknown) => {
+            if (reason instanceof DOMException && reason.name === "AbortError")
+              return;
+            // Let the next move try again rather than waiting out the threshold.
+            requestedRef.current = null;
+            setError(true);
+          });
+      },
+      first ? 0 : FORECAST_DEBOUNCE_MS,
+    );
   }, [latitude, longitude]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      inFlightRef.current?.abort();
+    },
+    [],
+  );
 
   return (
     <PanelShell
