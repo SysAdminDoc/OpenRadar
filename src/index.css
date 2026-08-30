@@ -2269,3 +2269,54 @@ input[type="range"] {
 .select-row select:disabled {
   opacity: 0.55;
 }
+
+.product-legends {
+  position: absolute;
+  right: 16px;
+  bottom: 148px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.product-legend {
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--surface-raised, rgb(15 23 42 / 82%));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  backdrop-filter: blur(9px);
+}
+
+.product-legend strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.product-legend ol {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  font-size: 10px;
+  color: var(--muted);
+  list-style: none;
+}
+
+.product-legend li {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.product-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}

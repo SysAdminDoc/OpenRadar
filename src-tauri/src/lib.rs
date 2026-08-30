@@ -3,6 +3,7 @@ mod http;
 
 mod exports;
 mod level2;
+mod mrms;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -45,10 +46,29 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        // MRMS grids are decoded here and handed to the map as ordinary tiles,
+        // so the timeline, scrubbing, and export all work on them unchanged.
+        .register_asynchronous_uri_scheme_protocol("mrms", |_app, request, responder| {
+            let path = request.uri().path().to_string();
+            tauri::async_runtime::spawn(async move {
+                let body = mrms::serve_tile(&path).await;
+                responder.respond(
+                    tauri::http::Response::builder()
+                        .status(200)
+                        .header("Content-Type", "image/png")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .header("Cache-Control", "public, max-age=300")
+                        .body(body)
+                        .expect("a tile response is well formed"),
+                );
+            });
+        })
         .invoke_handler(tauri::generate_handler![
             exports::save_export,
             level2::level2_sweep,
-            level2::level2_nearest_site
+            level2::level2_nearest_site,
+            mrms::mrms_frames,
+            mrms::mrms_products
         ])
         .setup(|_app| {
             // Development builds are not installed, so the scheme has to be

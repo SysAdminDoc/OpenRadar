@@ -7,6 +7,7 @@ import { log } from "../log";
 import { recordFailure, recordSuccess } from "./health";
 import { HRRR_HOST } from "./hrrr";
 import { SATELLITE_HOST } from "./satellite";
+import { mrmsAvailable, mrmsProvider } from "./mrms";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
 import { ridgeProvider } from "./ridge";
@@ -18,6 +19,7 @@ import {
 } from "./types";
 
 export const NOAA_PROVIDERS: RadarProvider[] = [
+  mrmsProvider,
   ridgeProvider,
   nowcoastProvider,
 ];
@@ -74,11 +76,17 @@ const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
  * failover inside them.
  */
 export function providerChain(lon: number, lat: number): RadarProvider[] {
-  const noaa = NOAA_PROVIDERS.filter((provider) => covers(provider, lon, lat));
+  const noaa = NOAA_PROVIDERS.filter(
+    (provider) =>
+      covers(provider, lon, lat) &&
+      // MRMS grids are decoded natively, so a browser preview never sees it
+      // and falls straight through to the mosaics.
+      (provider.id !== "mrms" || mrmsAvailable()),
+  );
   return noaa.length ? noaa : [rainviewerProvider];
 }
 
-/** The lower forty-eight, which is the only ground the HRRR model covers. */
+/** MRMS covers more than the model does, so the model asks the mosaic. */
 export function isConusViewport(lon: number, lat: number): boolean {
   return covers(ridgeProvider, lon, lat);
 }

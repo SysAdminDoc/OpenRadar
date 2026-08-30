@@ -43,6 +43,10 @@ export interface LayerSettings {
   tropical: boolean;
   satellite: boolean;
   customOverlay: boolean;
+  /** MRMS azimuthal shear over the past hour. */
+  rotationTracks: boolean;
+  /** MRMS maximum estimated hail size. */
+  hail: boolean;
 }
 
 export interface WatchState {
@@ -100,6 +104,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     tropical: true,
     satellite: false,
     customOverlay: false,
+    rotationTracks: false,
+    hail: false,
   },
   watch: {
     enabled: false,
@@ -289,6 +295,11 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.customOverlay,
         DEFAULT_SETTINGS.layers.customOverlay,
       ),
+      rotationTracks: bool(
+        layers.rotationTracks,
+        DEFAULT_SETTINGS.layers.rotationTracks,
+      ),
+      hail: bool(layers.hail, DEFAULT_SETTINGS.layers.hail),
     },
     watch: normalizeWatch(raw.watch),
     presets,

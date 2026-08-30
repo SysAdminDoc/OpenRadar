@@ -10,7 +10,6 @@
 
 ## Next releases
 
-- [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
 - [ ] Add model guidance, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
 - [ ] Add an offline cache of the last view.
 
@@ -56,13 +55,6 @@
   Complexity: S
 
 ### P2
-
-- [ ] P2: MRMS national composite and rotation/MESH products from `noaa-mrms-pds`
-  Why: MRMS is "generally much better than RIDGE" per HN and is Supercell's #78; rotation tracks and MESH are RadarScope Tier 2 paywalls.
-  Evidence: registry.opendata.aws/noaa-mrms-pds (2-min cadence, PNG-packed GRIB2 template 5.41, grids now 14,000x7,000); StormDeck `src-tauri/src/mrms.rs` and `crates/stormdeck-providers/src/mrms_grib.rs`; gribberish 1.7.0 (MIT) with PNG packing.
-  Touches: crates/openradar-providers/mrms_grib.rs (port), src-tauri/src/mrms.rs (bounded surface decode, never a full f32 grid), IPC tile command, product list (MergedReflectivityQCComposite, RotationTrack60min, MESH, PrecipFlag).
-  Acceptance: the MRMS composite renders CONUS at z2-7 as the primary product with a 2-minute cadence; rotation tracks and MESH are toggles with legends; decode of a live file completes under 3 s on the dev PC.
-  Complexity: L
 
 - [ ] P2: Signed Windows installer, SHA256SUMS, and static-JSON updater
   Why: MyRadar's desktop weakness is update breakage; BowEcho and Supercell ship signed builds with checksums; an unsigned NSIS trips SmartScreen.

@@ -1,5 +1,5 @@
 export type ProviderId =
-  "ridge" | "nowcoast" | "rainviewer" | "hrrr" | "archive";
+  "ridge" | "nowcoast" | "rainviewer" | "hrrr" | "archive" | "mrms";
 
 export interface ForecastStamp {
   initUtc: string;

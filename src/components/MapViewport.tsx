@@ -23,6 +23,7 @@ import {
   guardRadarRequest,
   satelliteTileUrl,
 } from "../lib/providers";
+import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import { sweepCorners, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import {
@@ -36,6 +37,7 @@ import type { ToolMode } from "./CommandBar";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
+const MRMS_SOURCE_PREFIX = "openradar-mrms-";
 const SWEEP_SOURCE_ID = "openradar-sweep-source";
 const SWEEP_LAYER_ID = "openradar-sweep-layer";
 const RADAR_SOURCE_ID = "openradar-radar-source";
@@ -80,6 +82,8 @@ interface MapViewportProps {
   radarOpacity: number;
   /** One site's own sweep, which stands in for the mosaic while it is set. */
   sweep?: SweepImage | null;
+  /** Locally decoded MRMS products drawn over the radar. */
+  mrmsLayers?: MrmsLayer[];
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
@@ -94,6 +98,12 @@ interface MapViewportProps {
   onToolResult?: (message: string | null) => void;
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
+
+/** Hail sits over rotation, because a hail core is the smaller target. */
+const MRMS_LAYER_IDS = [
+  `${MRMS_SOURCE_PREFIX}rotation`,
+  `${MRMS_SOURCE_PREFIX}mesh`,
+];
 
 const TRACK_LAYER_IDS = [TRACK_LINE_LAYER_ID, TRACK_POINT_LAYER_ID];
 
@@ -153,6 +163,7 @@ function layerStackOrder(): string[] {
     SATELLITE_LAYER_ID,
     ...RADAR_LANE_LAYER_IDS,
     SWEEP_LAYER_ID,
+    ...MRMS_LAYER_IDS,
     ...overlayLayerOrder(),
     ...TRACK_LAYER_IDS,
     ROUTE_LAYER_ID,
@@ -198,6 +209,7 @@ function MapViewportInner(
     radarVisible,
     radarOpacity,
     sweep = null,
+    mrmsLayers = [],
     satelliteTime = null,
     overlays = {},
     route = null,
@@ -218,6 +230,7 @@ function MapViewportInner(
   const radarVisibleRef = useRef(radarVisible);
   const radarOpacityRef = useRef(radarOpacity);
   const sweepRef = useRef<SweepImage | null>(sweep);
+  const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
@@ -595,6 +608,58 @@ function MapViewportInner(
     publishLayers();
   };
 
+  const syncMrmsLayers = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    const wanted = new Map(
+      mrmsLayersRef.current.map((layer) => [
+        `${MRMS_SOURCE_PREFIX}${layer.product}`,
+        layer,
+      ]),
+    );
+
+    for (const id of MRMS_LAYER_IDS) {
+      const layer = wanted.get(id);
+      const source = map.getSource(id) as
+        maplibregl.RasterTileSource | undefined;
+
+      if (!layer) {
+        if (source) {
+          if (map.getLayer(id)) map.removeLayer(id);
+          map.removeSource(id);
+        }
+        continue;
+      }
+
+      // A new grid is a new set of tiles, so the source is replaced rather
+      // than asked to refresh what it already has.
+      if (source && source.tiles?.[0] !== layer.tileUrl) {
+        if (map.getLayer(id)) map.removeLayer(id);
+        map.removeSource(id);
+      }
+      if (!map.getSource(id)) {
+        map.addSource(id, {
+          type: "raster",
+          tiles: [layer.tileUrl],
+          tileSize: 256,
+          maxzoom: 10,
+          attribution:
+            '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
+        });
+        map.addLayer(
+          {
+            id,
+            type: "raster",
+            source: id,
+            paint: { "raster-opacity": 0.85, "raster-fade-duration": 0 },
+          },
+          firstExisting(map, layersAbove(id)),
+        );
+      }
+    }
+    publishLayers();
+  };
+
   const syncSweep = () => {
     const map = mapRef.current;
     const next = sweepRef.current;
@@ -904,6 +969,7 @@ function MapViewportInner(
       syncSatellite();
       syncRadar();
       syncSweep();
+      syncMrmsLayers();
       renderTools();
       syncOverlays();
       syncRoute();
@@ -1044,6 +1110,14 @@ function MapViewportInner(
     // rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customOverlay]);
+
+  useEffect(() => {
+    mrmsLayersRef.current = mrmsLayers;
+    syncMrmsLayers();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mrmsLayers]);
 
   useEffect(() => {
     stormTrackRef.current = stormTrack;

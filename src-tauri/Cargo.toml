@@ -32,6 +32,7 @@ nexrad-model = { version = "=1.0.0-rc.2", features = ["chrono"] }
 png = "0.18.1"
 base64 = "0.23.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+flate2 = "1.1.10"
 
 [dev-dependencies]
 tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "macros"] }
