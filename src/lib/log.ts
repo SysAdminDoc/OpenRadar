@@ -57,8 +57,3 @@ export function subscribeLog(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
 }
-
-export function resetLog() {
-  recent = [];
-  for (const listener of listeners) listener();
-}

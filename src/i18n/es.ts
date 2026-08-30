@@ -56,6 +56,13 @@ export const es: Catalogue = {
   "toast.settingsSaveFailed": "No se pudieron guardar los ajustes",
   "toast.settingsSaveFailedBody": "No se escribió nada.",
   "toast.settingsRestored": "Ajustes restaurados",
+  "toast.settingsRestoredPartly": "Ajustes restaurados en parte",
+  "toast.settingsFromNewer":
+    "Este archivo lo escribió una versión más reciente, así que se ha dejado fuera lo que esta no conoce.",
+  "toast.settingsUnread": "No se leyó del archivo: {names}.",
+  "toast.settingsBroken": "No se pudo leer ese archivo de ajustes",
+  "toast.settingsBrokenBody":
+    "El archivo no es JSON válido, así que no se ha cambiado nada. Puede que se haya editado o que se escribiera a medias.",
   "toast.settingsRestoredBody":
     "Todo lo del archivo está en su sitio: vistas, capas, el punto vigilado y la tabla de colores.",
   "settings.backup": "Copia de seguridad",

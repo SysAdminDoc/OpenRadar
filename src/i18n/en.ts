@@ -57,6 +57,13 @@ export const en = {
   "toast.settingsRestored": "Settings restored",
   "toast.settingsRestoredBody":
     "Everything from the file is in place: views, layers, the watched place, and the colour table.",
+  "toast.settingsRestoredPartly": "Settings restored, in part",
+  "toast.settingsFromNewer":
+    "This file was written by a newer version, so anything it knows that this one does not has been left out.",
+  "toast.settingsUnread": "Not read from the file: {names}.",
+  "toast.settingsBroken": "That settings file could not be read",
+  "toast.settingsBrokenBody":
+    "The file is not valid JSON, so nothing has been changed. It may have been edited or only partly written.",
   "settings.backup": "Backup",
   "settings.backupDetail":
     "Save everything to a file, or drop one on the Upload panel to put it back",

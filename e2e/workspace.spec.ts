@@ -592,4 +592,34 @@ test("saves the whole workspace to a file and puts it back", async ({
   await expect(page.locator(".settings-section output").first()).toHaveText(
     "100%",
   );
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // A file from a build that knows more than this one loads with whatever
+  // this one understands, and says as much. Claiming a full restore over a
+  // file half of which was dropped is the failure this guards.
+  const newer = join(dirname(path), "newer-settings.json");
+  await writeFile(
+    newer,
+    JSON.stringify({
+      ...parsed,
+      schemaVersion: 99,
+      soundscape: { alerts: true },
+    }),
+  );
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.locator('.drop-zone input[type="file"]').setInputFiles(newer);
+  await expect(page.getByText("Settings restored, in part")).toBeVisible();
+  await expect(page.getByText(/newer version/)).toBeVisible();
+  await expect(page.getByText(/soundscape/)).toBeVisible();
+
+  // And one that is not JSON at all is named for what it is, rather than
+  // being handed to the map reader and refused for not being a map.
+  const broken = join(dirname(path), "broken-settings.json");
+  await writeFile(broken, '{"schemaVersion": 2, "theme": ');
+  // The panel closes itself on a restore, so it has to be opened again.
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.locator('.drop-zone input[type="file"]').setInputFiles(broken);
+  await expect(
+    page.getByText("That settings file could not be read"),
+  ).toBeVisible();
 });

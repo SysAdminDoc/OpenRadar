@@ -89,8 +89,19 @@ export interface PresetState {
   mapStyle: MapStyleId;
 }
 
+/**
+ * Which shape of settings file this build writes and understands.
+ *
+ * Adding a setting does not move this. Everything is read with a fallback, so
+ * a file without the new key loads with the default for it and a file with a
+ * key this build has dropped simply goes unread. It moves when an existing key
+ * changes meaning, which is the one case where reading the old value would be
+ * worse than ignoring it.
+ */
+export const SCHEMA_VERSION = 2;
+
 export interface AppSettings {
-  schemaVersion: 2;
+  schemaVersion: typeof SCHEMA_VERSION;
   theme: ThemeMode;
   /** Which language the workspace is written in. */
   language: LanguageId;
@@ -111,7 +122,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  schemaVersion: 2,
+  schemaVersion: SCHEMA_VERSION,
   theme: "dark",
   language: "en",
   units: "imperial",
@@ -338,6 +349,45 @@ function normalizeStormMotion(
   };
 }
 
+/** What came back from a settings file, and what did not. */
+export interface RestoredSettings {
+  settings: AppSettings;
+  /**
+   * The file was written by a build with a newer shape than this one, so
+   * anything that changed meaning has been read as this build understands it.
+   */
+  fromNewerBuild: boolean;
+  /**
+   * Keys the file carried that this build does not read. Either they belong to
+   * a newer version or the file was hand-edited.
+   */
+  unread: string[];
+}
+
+/**
+ * Reads a settings file and says what it could not take.
+ *
+ * Restoring used to report the same sentence whatever happened, which on a
+ * file from a newer build meant claiming everything was in place while
+ * quietly dropping the parts this build has no idea about.
+ */
+export function restoreSettings(value: unknown): RestoredSettings {
+  const settings = normalizeSettings(value);
+  const raw =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+  const version = raw.schemaVersion;
+  const known = new Set(Object.keys(DEFAULT_SETTINGS));
+  return {
+    settings,
+    fromNewerBuild: typeof version === "number" && version > SCHEMA_VERSION,
+    unread: Object.keys(raw)
+      .filter((key) => !known.has(key))
+      .sort(),
+  };
+}
+
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -354,7 +404,7 @@ export function normalizeSettings(value: unknown): AppSettings {
   // Schema 2 dropped the radar and layer switches that had no data source.
   // They are simply not read, so a schema 1 file loads with the rest intact.
   return {
-    schemaVersion: 2,
+    schemaVersion: SCHEMA_VERSION,
     theme: raw.theme === "light" ? "light" : "dark",
     // A language from a build that had one this build does not falls back to
     // English rather than painting the screen with missing keys.
