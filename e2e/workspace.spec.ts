@@ -106,6 +106,34 @@ test("applies the light theme from settings", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
+test("the basemap follows the theme until somebody picks one", async ({
+  page,
+}) => {
+  // Choosing Light used to leave the dark basemap under white panels, because
+  // the theme only ever set an attribute on the document.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-map-style", "pro-dark");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(pane).toHaveAttribute("data-map-style", "pro-light");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // A style chosen outright is the reader saying what they want, and the theme
+  // does not get to overrule it.
+  await page.getByRole("button", { name: "Map Type", exact: true }).click();
+  await page.getByRole("button", { name: /Roads/ }).click();
+  await expect(pane).toHaveAttribute("data-map-style", "roads");
+  await page.getByRole("button", { name: "Close Map Type" }).click();
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(pane).toHaveAttribute("data-map-style", "roads");
+});
+
 test("keeps both panes on one camera when the second pane is dragged", async ({
   page,
 }) => {

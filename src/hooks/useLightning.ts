@@ -38,12 +38,17 @@ export function lightningAvailable(): boolean {
 }
 
 /**
- * The newest flash is drawn brightest, so a viewer can tell which way a storm
- * is moving from the trail behind it.
+ * The flashes as the map draws them, each carrying when it happened.
+ *
+ * How old a flash is belongs to the clock, not to the collection, so it is not
+ * worked out here. Ageing them at build time meant rebuilding the whole
+ * collection and pushing it through setData on every tick of the clock, and
+ * since the ages were measured against the fetch's own newest flash rather
+ * than against now, the fade did not actually advance between fetches: the
+ * same collection was uploaded again every minute to no effect. The layer
+ * fades them from the clock instead, which is a repaint rather than a reload.
  */
 export function flashPoints(window: FlashWindow): Record<string, unknown> {
-  const newest = window.observed || window.flashes.at(-1)?.time || 0;
-  const span = window.windowMinutes * 60;
   return {
     type: "FeatureCollection",
     features: window.flashes.map((flash) => ({
@@ -53,12 +58,67 @@ export function flashPoints(window: FlashWindow): Record<string, unknown> {
         coordinates: [flash.longitude, flash.latitude],
       },
       properties: {
-        // One at the newest end of the window, nearly nothing at the oldest.
-        age:
-          span > 0 ? Math.max(0, Math.min(1, (newest - flash.time) / span)) : 0,
+        // Seconds, as the feed gives it.
+        at: flash.time,
       },
     })),
   };
+}
+
+/**
+ * How old each flash is now, as a fraction of the window it has used up.
+ *
+ * This is a MapLibre expression rather than a number because it is evaluated
+ * per feature at draw time. Handing it to the layer as a paint property means
+ * a tick of the clock is a repaint, not a reload of every flash on screen.
+ *
+ * `nowMs` is the clock in milliseconds; the feature's `at` is in seconds,
+ * which is what the feed gives.
+ */
+export function flashAgeExpression(
+  nowMs: number,
+  windowMinutes: number,
+): unknown {
+  // A window of no length would divide by zero and paint every flash the same
+  // colour with no way to tell which.
+  const span = Math.max(1, windowMinutes * 60);
+  return [
+    "min",
+    1,
+    ["max", 0, ["/", ["-", nowMs / 1000, ["get", "at"]], span]],
+  ];
+}
+
+/** The colour ramp, brightest at the newest end. */
+export function flashColorExpression(
+  nowMs: number,
+  windowMinutes: number,
+): unknown {
+  return [
+    "interpolate",
+    ["linear"],
+    flashAgeExpression(nowMs, windowMinutes),
+    0,
+    "#fef9c3",
+    1,
+    "#f59e0b",
+  ];
+}
+
+/** The fade, from nearly solid to a faint trail behind the storm. */
+export function flashOpacityExpression(
+  nowMs: number,
+  windowMinutes: number,
+): unknown {
+  return [
+    "interpolate",
+    ["linear"],
+    flashAgeExpression(nowMs, windowMinutes),
+    0,
+    0.95,
+    1,
+    0.25,
+  ];
 }
 
 export function useLightning(options: {
@@ -114,6 +174,13 @@ export function useLightning(options: {
     };
   }, [pageVisible, wanted]);
 
+  // Built once per fetch. What the map does with them changes every tick; what
+  // they are does not.
+  const points = useMemo(
+    () => (window_ ? flashPoints(window_) : null),
+    [window_],
+  );
+
   return useMemo(() => {
     // A window is the picture only while it is recent. Switching the layer off
     // and back on half an hour later would otherwise redraw those flashes at
@@ -125,9 +192,12 @@ export function useLightning(options: {
         ? window_
         : null;
     return {
-      points: wanted && current ? flashPoints(current) : null,
+      points: wanted && current ? points : null,
       window: wanted ? current : null,
       error: wanted ? error : null,
     };
-  }, [clock, error, wanted, window_]);
+    // The points themselves are built from the window alone, above, so a tick
+    // of the clock can decide the window is too old to draw without rebuilding
+    // every flash in it.
+  }, [clock, error, points, wanted, window_]);
 }

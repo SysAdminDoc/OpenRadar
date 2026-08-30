@@ -416,6 +416,8 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
         flashes={lightning.points}
+        flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
+        flashClock={clock}
         wind={wind.field}
         activeTool={activeTool}
         dualPane={dualPane}

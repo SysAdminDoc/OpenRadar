@@ -1,5 +1,5 @@
 import type { StyleSpecification } from "maplibre-gl";
-import type { MapStyleId } from "./settings";
+import type { MapStyleId, ThemeMode } from "./settings";
 import type { StringKey } from "../i18n";
 
 export interface MapStyleOption {
@@ -11,6 +11,13 @@ export interface MapStyleOption {
 }
 
 export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
+  {
+    id: "auto",
+    key: "style.auto",
+    detailKey: "style.autoDetail",
+    // Half of each, since it is whichever the workspace is.
+    swatch: "linear-gradient(135deg, #11151e 50%, #d6d8dc 50%)",
+  },
   {
     id: "grayscale",
     key: "style.grayscale",
@@ -85,6 +92,17 @@ function rasterStyle(
     },
     layers: [{ id: "basemap", type: "raster", source: "basemap" }],
   };
+}
+
+/**
+ * The style a setting actually draws, with Auto resolved against the theme.
+ *
+ * Choosing Light in Settings used to leave the dark basemap under white
+ * panels, because the theme only ever set an attribute on the document.
+ */
+export function resolvedMapStyle(id: MapStyleId, theme: ThemeMode): MapStyleId {
+  if (id !== "auto") return id;
+  return theme === "light" ? "pro-light" : "pro-dark";
 }
 
 export function mapStyleDefinition(

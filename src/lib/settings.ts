@@ -11,6 +11,12 @@ export const APP_VERSION = "0.2.0";
 export type ThemeMode = "dark" | "light";
 export type ProjectionMode = "mercator" | "globe";
 export type MapStyleId =
+  /**
+   * Follows the theme: the dark basemap under the dark workspace, the light
+   * one under the light. Choosing a style outright pins it, which is what
+   * somebody who wants roads under a dark workspace means.
+   */
+  | "auto"
   | "dark"
   | "grayscale"
   | "roads"
@@ -138,7 +144,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   clock: "local",
   textScale: 100,
   projection: "mercator",
-  mapStyle: "dark",
+  mapStyle: "auto",
   camera: {
     center: [-85.5, 25.5],
     zoom: 4.55,

@@ -419,6 +419,8 @@ export const es: Catalogue = {
   "keywords.differential": "zdr diferencial",
   "keywords.correlation": "cc escombros correlacion",
 
+  "style.auto": "Igual que el tema",
+  "style.autoDetail": "Oscuro con el espacio oscuro, claro con el claro",
   "style.grayscale": "Escala de grises",
   "style.grayscaleDetail": "Etiquetas discretas",
   "style.roads": "Carreteras",
