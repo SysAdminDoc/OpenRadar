@@ -12,6 +12,7 @@ import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
+import { gpuSupport } from "../lib/gpu";
 import { locale, translate, useT } from "../i18n";
 
 interface CloseOnlyProps {
@@ -137,6 +138,9 @@ export function MorePanel({
               {mapReady
                 ? t("diagnostics.rendererReady")
                 : t("diagnostics.rendererStarting")}
+            </small>
+            <small>
+              {gpuSupport().renderer ?? t("diagnostics.rendererUnknown")}
             </small>
           </span>
         </div>

@@ -496,3 +496,38 @@ test("extends the scrubber past now with the forecast run", async ({
   await expect(timeline).toContainText("HRRR init 05Z, +390 min");
   await expect(page.locator(".radar-timeline")).toHaveClass(/is-forecast/);
 });
+
+test("says what is wrong when the machine has no WebGL2", async ({ page }) => {
+  // MapLibre 6 dropped WebGL1, so a window that cannot make a WebGL2 context
+  // has no map. Without the check the failure arrives from inside the
+  // renderer, and the reader is told the interface could not finish drawing,
+  // which is true and useless.
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      kind: string,
+      ...rest: unknown[]
+    ) {
+      if (kind === "webgl2") return null;
+      return (
+        original as unknown as (
+          this: HTMLCanvasElement,
+          kind: string,
+          ...rest: unknown[]
+        ) => unknown
+      ).call(this, kind, ...rest);
+    } as typeof HTMLCanvasElement.prototype.getContext;
+  });
+  await page.goto("/?testMode=1");
+
+  const notice = page.getByRole("alert");
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("WebGL2");
+  // It names the setting to look at rather than only the symptom.
+  await expect(notice).toContainText(/hardware acceleration/i);
+  // And the map is not there to be interacted with.
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveCount(0);
+});
