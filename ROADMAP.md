@@ -86,13 +86,6 @@
   Acceptance: a 5-minute CG density raster renders with a legend and a "not a warning source" line; the GLM flash overlay updates every minute when enabled.
   Complexity: L
 
-- [ ] P2: Placefile and `.pal` color-table import
-  Why: the chaser audience's interchange standard (GRLevelX, Supercell Wx); the Upload panel only takes GeoJSON.
-  Evidence: saratoga-weather.org/grlevelx-placefiles.php; StormDeck `src-tauri/src/placefile.rs` (incl. Image triangles) and `crates/stormdeck-providers/src/palette.rs`; Supercell #614.
-  Touches: src-tauri/src/placefile.rs (port), src/panels/UtilityPanels.tsx UploadPanel (URL with refresh interval, local file), palette selector in RadarProductPanel.
-  Acceptance: an NWS-alerts placefile URL renders with its icons and tooltips and refreshes on its `Refresh:` interval; a GRLevel3 `.pal` applied to reflectivity changes the legend ramp.
-  Complexity: M
-
 - [ ] P2: HURDAT2 archive replay with ACE and per-storm track
   Why: historical radar is a MyRadar Premium; no OSS desktop viewer ships HURDAT2 replay; the science is MIT in tropycal.
   Evidence: `https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-02272026.txt` (6.8 MB, posted 2026-03-05), HurricaneMap `scripts/preprocess_hurdat2.py` gotchas (L marker CONUS-only, -1 = TS), tropycal ACE/SSHWS code, IEM `nexrad-n0q` archive since 2003 and `mrms::lcref` since 2015 for synced radar.

@@ -22,7 +22,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Hurricane cones, forecast tracks, coastal watches, and development outlooks, with a storm list you can fly the map to
 - Seven map styles, layer controls, saved views, linked dual panes, draw, range, and point inspection tools
 - Route weather: a drive coloured by the chance of rain at the hour you reach each stretch
-- Place search, map-centered forecasts, local GeoJSON import, shareable camera links, dark and light themes
+- Place search, map-centered forecasts, local GeoJSON and GRLevelX placefile import, shareable camera links, dark and light themes
 - Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
 
 ## Run it

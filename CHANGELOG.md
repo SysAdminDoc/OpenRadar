@@ -2,6 +2,7 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- The Upload panel now reads GRLevelX placefiles as well as GeoJSON, drawing their lines, polygons, and points in the colours the file asks for and saying which directives needed image files it left out.
 - Added route weather. Give it two places and a departure time and it draws the drive coloured by the chance of rain when you would reach each stretch, with a table of arrival time, temperature, and conditions.
 - Added a GOES-East GeoColor satellite layer under the radar. It follows the frame you are looking at, holds back to the newest image the archive has published, and says which image it is showing.
 - The radar legend now shows the National Weather Service reflectivity ramp with dBZ labels instead of an unlabelled gradient.

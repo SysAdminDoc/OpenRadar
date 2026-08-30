@@ -137,3 +137,33 @@ test("puts satellite under the radar and names its own image time", async ({
     /openradar-satellite-layer/,
   );
 });
+
+test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "reports.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      [
+        "Title: Test Reports",
+        "Refresh: 5",
+        "Color: 255 200 0",
+        'Line: 3, 0, "Warned area"',
+        " 26.0, -86.0",
+        " 27.0, -85.0",
+        "End:",
+        'Place: 26.5, -85.5, "Hail 2.0 in"',
+        'IconFile: 1, 15, 25, 8, 25, "https://example.test/icons.png"',
+      ].join("\n"),
+    ),
+  });
+
+  await expect(page.getByText(/reports.txt added/)).toBeVisible();
+  await expect(page.getByText(/IconFile need image files/)).toBeVisible();
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-line/);
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+});
