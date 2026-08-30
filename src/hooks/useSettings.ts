@@ -25,6 +25,13 @@ export interface SettingsState {
   updateCamera: (camera: CameraState) => void;
 }
 
+/**
+ * The widths the stylesheet changes the layout at, matching the
+ * `[data-narrow]` rules in index.css. Kept here because script is the only
+ * place that can divide the viewport by the text scale.
+ */
+const LAYOUT_WIDTHS = [1320, 980, 680] as const;
+
 export function useSettings(options: {
   onPersistError: () => void;
 }): SettingsState {
@@ -120,6 +127,23 @@ export function useSettings(options: {
       "--text-scale",
       String(settings.textScale / 100),
     );
+  }, [settings.textScale]);
+
+  useEffect(() => {
+    // Which of the layout's three widths the workspace is under. A media query
+    // reads the real viewport and knows nothing about the whole thing being
+    // drawn at 130 percent, so at that size a wide screen kept a wide layout
+    // in a space a third smaller than the query thought it was.
+    const measure = () => {
+      const width = window.innerWidth / (settings.textScale / 100);
+      const under = LAYOUT_WIDTHS.filter((edge) => width <= edge);
+      const root = document.documentElement;
+      if (under.length) root.dataset.narrow = under.join(" ");
+      else delete root.dataset.narrow;
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [settings.textScale]);
 
   useEffect(() => {

@@ -2070,124 +2070,125 @@ input[type="range"] {
   display: none !important;
 }
 
-@media (max-width: 1320px) {
-  .command-group--scenes .command-button span,
-  .command-group--tools .command-button span,
-  .command-group--secondary .command-button span {
-    display: none;
-  }
-
-  .command-group--scenes .command-button,
-  .command-group--tools .command-button,
-  .command-group--secondary .command-button {
-    min-width: 42px;
-  }
-
-  .radar-timeline {
-    left: auto;
-    right: 72px;
-    width: min(590px, calc(var(--screen-width) - 410px));
-    transform: none;
-  }
+/* The three widths the layout changes at.
+   These were media queries, which read the real viewport and know nothing
+   about the workspace being drawn at 130 percent. At that size a 1320 pixel
+   screen lays out in a thousand, so the wide arrangement stayed on in a space
+   that could not hold it and the command bar ran off the edge. The width is
+   divided by the scale in script and the answer put on the root element, so
+   these rules fire on the space the layout actually has. */
+:root[data-narrow~="1320"] .command-group--scenes .command-button span,
+:root[data-narrow~="1320"] .command-group--tools .command-button span,
+:root[data-narrow~="1320"] .command-group--secondary .command-button span {
+  display: none;
 }
 
-@media (max-width: 980px) {
-  .command-group,
-  .command-divider,
-  .command-spacer {
-    display: none;
-  }
-
-  .compact-command-group {
-    display: grid;
-    width: 100%;
-    grid-template-columns: repeat(4, 1fr);
-  }
-
-  .compact-command-group .command-button {
-    width: 100%;
-  }
-
-  .radar-timeline {
-    right: 62px;
-    left: 18px;
-    width: auto;
-    min-width: 0;
-    grid-template-columns: 39px minmax(110px, 180px) 1fr;
-  }
-
-  .radar-legend {
-    display: none;
-  }
-
-  .top-status__center {
-    justify-self: end;
-  }
-
-  .live-chip {
-    display: none;
-  }
-
-  .camera-chip {
-    border-left: 0;
-  }
-
-  .map-readout {
-    display: none;
-  }
+:root[data-narrow~="1320"] .command-group--scenes .command-button,
+:root[data-narrow~="1320"] .command-group--tools .command-button,
+:root[data-narrow~="1320"] .command-group--secondary .command-button {
+  min-width: 42px;
 }
 
-@media (max-width: 680px) {
-  .app-brand > span:last-child,
-  .timeline-copy,
-  .source-attribution,
-  .map-watermark {
-    display: none;
-  }
+:root[data-narrow~="1320"] .radar-timeline {
+  left: auto;
+  right: 72px;
+  width: min(590px, calc(var(--screen-width) - 410px));
+  transform: none;
+}
 
-  .top-status {
-    right: 64px;
-  }
+:root[data-narrow~="980"] .command-group,
+:root[data-narrow~="980"] .command-divider,
+:root[data-narrow~="980"] .command-spacer {
+  display: none;
+}
 
-  .radar-timeline {
-    right: 58px;
-    grid-template-columns: 36px 1fr;
-  }
+:root[data-narrow~="980"] .compact-command-group {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(4, 1fr);
+}
 
-  .radar-timeline input {
-    grid-column: 2;
-  }
+:root[data-narrow~="980"] .compact-command-group .command-button {
+  width: 100%;
+}
 
-  .surface-panel,
-  .surface-panel--left,
-  .surface-panel--right,
-  .surface-panel--settings,
-  .surface-panel--wide {
-    right: 8px;
-    bottom: calc(var(--command-height) + 8px);
-    left: 8px;
-    width: auto;
-  }
+:root[data-narrow~="980"] .radar-timeline {
+  right: 62px;
+  left: 18px;
+  width: auto;
+  min-width: 0;
+  grid-template-columns: 39px minmax(110px, 180px) 1fr;
+}
 
-  .map-style-grid {
-    grid-template-columns: 1fr;
-  }
+:root[data-narrow~="980"] .radar-legend {
+  display: none;
+}
 
-  .tool-hud {
-    top: auto;
-    right: 8px;
-    bottom: calc(var(--command-height) + 75px);
-    left: 8px;
-    min-width: 0;
-    transform: none;
-  }
+:root[data-narrow~="980"] .top-status__center {
+  justify-self: end;
+}
 
-  .toast-host {
-    top: 66px;
-    right: 8px;
-    left: 8px;
-    width: auto;
-  }
+:root[data-narrow~="980"] .live-chip {
+  display: none;
+}
+
+:root[data-narrow~="980"] .camera-chip {
+  border-left: 0;
+}
+
+:root[data-narrow~="980"] .map-readout {
+  display: none;
+}
+
+:root[data-narrow~="680"] .app-brand > span:last-child,
+:root[data-narrow~="680"] .timeline-copy,
+:root[data-narrow~="680"] .source-attribution,
+:root[data-narrow~="680"] .map-watermark {
+  display: none;
+}
+
+:root[data-narrow~="680"] .top-status {
+  right: 64px;
+}
+
+:root[data-narrow~="680"] .radar-timeline {
+  right: 58px;
+  grid-template-columns: 36px 1fr;
+}
+
+:root[data-narrow~="680"] .radar-timeline input {
+  grid-column: 2;
+}
+
+:root[data-narrow~="680"] .surface-panel,
+:root[data-narrow~="680"] .surface-panel--left,
+:root[data-narrow~="680"] .surface-panel--right,
+:root[data-narrow~="680"] .surface-panel--settings,
+:root[data-narrow~="680"] .surface-panel--wide {
+  right: 8px;
+  bottom: calc(var(--command-height) + 8px);
+  left: 8px;
+  width: auto;
+}
+
+:root[data-narrow~="680"] .map-style-grid {
+  grid-template-columns: 1fr;
+}
+
+:root[data-narrow~="680"] .tool-hud {
+  top: auto;
+  right: 8px;
+  bottom: calc(var(--command-height) + 75px);
+  left: 8px;
+  min-width: 0;
+  transform: none;
+}
+
+:root[data-narrow~="680"] .toast-host {
+  top: 66px;
+  right: 8px;
+  left: 8px;
+  width: auto;
 }
 
 /* Someone who has asked for more contrast gets firmer edges and brighter text
