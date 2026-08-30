@@ -7,6 +7,7 @@ import {
 } from "./registry";
 import { cachedUrl } from "../tileCache";
 import { translate } from "../../i18n";
+import { formatClock } from "../units";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1/query";
@@ -113,12 +114,12 @@ export function parseAlerts(payload: unknown): OverlayData {
 
 function timeLabel(value: unknown): string {
   if (typeof value !== "number") return "unknown";
-  return new Intl.DateTimeFormat(undefined, {
+  return formatClock(new Date(value), {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }
 
 export const alertsOverlay: OverlayAdapter = {

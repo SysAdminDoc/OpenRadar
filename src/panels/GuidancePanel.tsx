@@ -1,5 +1,5 @@
 import { LoaderCircle, Rows3 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
 import {
@@ -12,7 +12,8 @@ import {
   type GuidanceVariable,
 } from "../lib/guidance";
 import { FORECAST_DEBOUNCE_MS, shouldRefetchForecast } from "../lib/weather";
-import { locale, translate, useLanguage, useT, type StringKey } from "../i18n";
+import { translate, useT, type StringKey } from "../i18n";
+import { formatClock } from "../lib/units";
 
 interface GuidancePanelProps {
   point: GeoPoint;
@@ -34,7 +35,6 @@ function show(variable: GuidanceVariable, value: number): string {
 
 export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
   const t = useT();
-  const language = useLanguage();
   const [chosen, setChosen] = useState<GuidanceModelId[]>([
     "gfs_seamless",
     "ecmwf_ifs025",
@@ -112,14 +112,8 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
     [],
   );
 
-  const hourLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale(language), {
-        weekday: "short",
-        hour: "numeric",
-      }),
-    [language],
-  );
+  const hourLabel = (at: Date) =>
+    formatClock(at, { weekday: "short", hour: "numeric" });
 
   const answered = guidance ? modelsThatAnswered(guidance) : [];
 
@@ -199,7 +193,7 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
                       <th scope="col">{t("guidance.model")}</th>
                       {reading.hours.slice(0, 8).map((hour) => (
                         <th scope="col" key={hour.time}>
-                          {hourLabel.format(new Date(hour.time))}
+                          {hourLabel(new Date(hour.time))}
                         </th>
                       ))}
                     </tr>

@@ -127,7 +127,11 @@ interface MapViewportProps {
   onCameraChange?: (camera: CameraState) => void;
   onCameraMove?: (camera: CameraState) => void;
   onCursorChange?: (point: GeoPoint | null) => void;
-  onToolResult?: (message: string | null) => void;
+  /**
+   * How to write the readout, not the readout itself: it is held while the
+   * units can still change underneath it, so it has to be written on demand.
+   */
+  onToolResult?: (render: (() => string) | null) => void;
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
 
@@ -1194,47 +1198,56 @@ function MapViewportInner(
       if (!toolModeRef.current) {
         showOverlayPopup(event);
       } else if (toolModeRef.current === "inspect") {
-        const lines = [
-          translate("tool.inspectAt", {
-            lat: point.lat.toFixed(4),
-            lon: point.lon.toFixed(4),
-            zoom: map.getZoom().toFixed(2),
-          }),
-        ];
+        const zoom = map.getZoom();
         // During a single-site view, how high the beam is over the spot that
         // was clicked. The same picture at the same tilt means something else
         // eighty miles further out, because the beam has climbed.
         const drawn = sweepRef.current;
+        let beam: { feet: number; tilt: number } | null = null;
         if (drawn) {
           const site = sweepSite(drawn);
           const rangeKm = haversineMiles(site, point) * 1.609344;
           if (rangeKm <= MAX_SWEEP_RANGE_KM) {
+            beam = {
+              feet: beamHeightFeet(rangeKm, drawn.elevationDegrees),
+              tilt: drawn.elevationDegrees,
+            };
+          }
+        }
+        // The height is left in feet and written out later, because the units
+        // can change while this reading is still on screen.
+        onToolResult?.(() => {
+          const lines = [
+            translate("tool.inspectAt", {
+              lat: point.lat.toFixed(4),
+              lon: point.lon.toFixed(4),
+              zoom: zoom.toFixed(2),
+            }),
+          ];
+          if (beam) {
             lines.push(
               translate("tool.beamHeight", {
-                height: formatHeight(
-                  beamHeightFeet(rangeKm, drawn.elevationDegrees),
-                ),
-                tilt: drawn.elevationDegrees.toFixed(2),
+                height: formatHeight(beam.feet),
+                tilt: beam.tilt.toFixed(2),
               }),
             );
           }
-        }
-        onToolResult?.(lines.join(" · "));
+          return lines.join(" · ");
+        });
       } else if (toolModeRef.current === "draw") {
         drawPointsRef.current = [...drawPointsRef.current, point];
         renderTools();
-        onToolResult?.(
-          translate("tool.pathPoints", { count: drawPointsRef.current.length }),
-        );
+        const points = drawPointsRef.current.length;
+        onToolResult?.(() => translate("tool.pathPoints", { count: points }));
       } else if (toolModeRef.current === "range") {
         if (!rangeStartRef.current || rangeEndRef.current) {
           rangeStartRef.current = point;
           rangeEndRef.current = null;
-          onToolResult?.(translate("tool.endHint"));
+          onToolResult?.(() => translate("tool.endHint"));
         } else {
           rangeEndRef.current = point;
           const miles = haversineMiles(rangeStartRef.current, point);
-          onToolResult?.(
+          onToolResult?.(() =>
             translate("tool.rangeResult", { distance: formatDistance(miles) }),
           );
         }
@@ -1379,15 +1392,15 @@ function MapViewportInner(
     if (map) map.getCanvas().style.cursor = toolMode ? "crosshair" : "grab";
     rangeStartRef.current = null;
     rangeEndRef.current = null;
-    onToolResult?.(
+    const hint =
       toolMode === "draw"
-        ? translate("tool.drawHint")
+        ? "tool.drawHint"
         : toolMode === "range"
-          ? translate("tool.startHint")
+          ? "tool.startHint"
           : toolMode === "inspect"
-            ? translate("tool.inspectHint")
-            : null,
-    );
+            ? "tool.inspectHint"
+            : null;
+    onToolResult?.(hint === null ? null : () => translate(hint));
   }, [toolMode, onToolResult]);
 
   return (

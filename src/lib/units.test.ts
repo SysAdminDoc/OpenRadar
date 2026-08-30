@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   distanceUnit,
   distanceValue,
@@ -10,6 +11,7 @@ import {
   setClockZone,
   setUnits,
   speedUnit,
+  useMeasurements,
 } from "./units";
 
 afterEach(() => {
@@ -81,5 +83,51 @@ describe("the units the workspace reads in", () => {
 
     setClockZone("local");
     expect(formatClock(at)).not.toContain("Z");
+  });
+
+  it("marks a time and leaves a date alone", () => {
+    // A Z after a bare weekday says nothing true. It belongs on a clock, and
+    // on a format that already names the zone it would be said twice.
+    const at = Date.UTC(2026, 7, 30, 18, 5);
+    setClockZone("utc");
+    expect(formatClock(at, { weekday: "short" })).not.toContain("Z");
+    expect(
+      formatClock(at, { hour: "numeric", timeZoneName: "short" }),
+    ).not.toMatch(/Z$/);
+    expect(formatClock(at, { hour: "numeric", minute: "2-digit" })).toMatch(
+      /Z$/,
+    );
+  });
+
+  it("tells anything that is still on screen that the choice changed", () => {
+    // The map and the strip above it are mounted for the life of the window,
+    // so a switch to metric has to reach them. They used to go on showing
+    // miles until something unrelated happened to redraw them.
+    const { result } = renderHook(() => useMeasurements());
+    const before = result.current;
+    act(() => setUnits("metric"));
+    expect(result.current).not.toBe(before);
+    expect(distanceUnit()).toBe("kilometres");
+
+    const metric = result.current;
+    act(() => setClockZone("utc"));
+    expect(result.current).not.toBe(metric);
+
+    // Setting the same choice again is not a change and must not redraw.
+    const settled = result.current;
+    act(() => setUnits("metric"));
+    expect(result.current).toBe(settled);
+  });
+
+  it("stops telling a component that has gone", () => {
+    const listener = vi.fn();
+    const { unmount } = renderHook(() => {
+      listener();
+      return useMeasurements();
+    });
+    unmount();
+    listener.mockClear();
+    act(() => setUnits("metric"));
+    expect(listener).not.toHaveBeenCalled();
   });
 });

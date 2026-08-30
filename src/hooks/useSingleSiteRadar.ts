@@ -62,6 +62,11 @@ export function useSingleSiteRadar(options: {
   // A held site wins outright, so nothing has to be resolved or stored for it.
   const station = radar.station ?? (nearby?.near === near ? nearby.site : null);
 
+  // Pulled out of the settings object so the effect below can depend on the
+  // values instead of the identity of the object carrying them.
+  const motionSpeed = radar.stormMotion?.speedMs ?? null;
+  const motionFrom = radar.stormMotion?.fromDegrees ?? null;
+
   useEffect(() => {
     if (!wanted || radar.station) return;
     let open = true;
@@ -104,8 +109,8 @@ export function useSingleSiteRadar(options: {
           product,
           radar.tilt,
           radar.dealias,
-          radar.stormMotion
-            ? [radar.stormMotion.speedMs, radar.stormMotion.fromDegrees]
+          motionSpeed !== null && motionFrom !== null
+            ? [motionSpeed, motionFrom]
             : null,
         );
         if (!open || request !== requestRef.current) return;
@@ -149,7 +154,11 @@ export function useSingleSiteRadar(options: {
     paletteGeneration,
     radar.dealias,
     radar.product,
-    radar.stormMotion,
+    // The two numbers rather than the object holding them. A settings object is
+    // rebuilt whenever anything in it changes, including the map centre, so
+    // depending on the object refetched the sweep on every pan.
+    motionSpeed,
+    motionFrom,
     radar.tilt,
     station,
     wanted,

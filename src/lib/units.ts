@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { locale, translate } from "../i18n";
 
 /**
@@ -18,18 +19,55 @@ export type TextScale = (typeof TEXT_SCALES)[number];
 
 let units: UnitSystem = "imperial";
 let zone: ClockZone = "local";
+
 /**
- * Only one panel is on screen at a time, so a change made in Settings always
- * unmounts whatever was showing a measurement and the next one to open reads
- * the new choice. That is why this is plain module state and not a store with
- * subscribers: nothing stays mounted across the change that would need telling.
+ * Which choice is in force, as a value that changes when the choice does.
+ *
+ * This used to be plain module state on the reasoning that a settings change
+ * unmounts whatever was showing a measurement. That is not true: the map and
+ * the strip along the top of it are mounted for the life of the window, and
+ * they went on showing miles after the switch to kilometres until something
+ * else happened to redraw them.
  */
+let generation = "imperial|local";
+const listeners = new Set<() => void>();
+
+function moved() {
+  generation = `${units}|${zone}`;
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
+ * Redraws a component when the units or the clock change.
+ *
+ * Anything that formats a measurement and stays on screen has to call this.
+ * A panel that only opens after the change reads the new choice anyway.
+ */
+export function useMeasurements(): string {
+  return useSyncExternalStore(
+    subscribe,
+    () => generation,
+    () => generation,
+  );
+}
+
 export function setUnits(next: UnitSystem) {
+  if (units === next) return;
   units = next;
+  moved();
 }
 
 export function setClockZone(next: ClockZone) {
+  if (zone === next) return;
   zone = next;
+  moved();
 }
 
 const MILES_TO_KM = 1.609344;
@@ -119,5 +157,9 @@ export function formatClock(
   const text = new Intl.DateTimeFormat(locale(), settings).format(
     typeof at === "number" ? new Date(at) : at,
   );
-  return zone === "utc" ? `${text}Z` : text;
+  // Z marks a time, so it goes on anything carrying a clock and on nothing
+  // that does not. A format already asking for the zone by name says it once.
+  const marks =
+    options.hour !== undefined && options.timeZoneName === undefined;
+  return zone === "utc" && marks ? `${text}Z` : text;
 }

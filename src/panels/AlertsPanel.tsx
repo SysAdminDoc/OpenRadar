@@ -10,6 +10,7 @@ import {
 } from "../lib/overlays";
 import type { AlertSeverity } from "../lib/overlays/alerts";
 import { translate, useT } from "../i18n";
+import { formatClock } from "../lib/units";
 
 interface AlertsPanelProps {
   alerts: OverlayData;
@@ -25,12 +26,12 @@ interface AlertsPanelProps {
 function timeLabel(value: unknown): string {
   if (typeof value !== "number" || !Number.isFinite(value))
     return translate("alerts.unknownTime");
-  return new Intl.DateTimeFormat(undefined, {
+  return formatClock(new Date(value), {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }
 
 export function AlertsPanel({

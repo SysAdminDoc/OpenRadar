@@ -109,6 +109,39 @@ describe("choosing a site", () => {
     expect(result.current.active).toBe(false);
   });
 
+  it("does not read the volume again when the map moves within one site", async () => {
+    // The settings object is rebuilt whenever anything in it changes, and the
+    // map centre lives in the same settings. Depending on the storm motion
+    // object rather than the two numbers in it meant every pan looked like a
+    // new motion and pulled the whole volume down again.
+    const { result, rerender } = renderHook(
+      (props: { center: [number, number] }) =>
+        useSingleSiteRadar(
+          options({
+            center: props.center,
+            radar: {
+              product: "storm-relative-velocity",
+              // Rebuilt on each render, exactly as the settings state does it.
+              stormMotion: { speedMs: 14, fromDegrees: 230 },
+            },
+          }),
+        ),
+      { initialProps: { center: [-93.7, 41.7] as [number, number] } },
+    );
+
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    expect(fetchSweep).toHaveBeenCalledTimes(1);
+
+    // Inside one cell of the coarse grid the site is resolved on, so nothing
+    // about which site to read has changed.
+    rerender({ center: [-93.71, 41.71] });
+    rerender({ center: [-93.72, 41.72] });
+    rerender({ center: [-93.73, 41.73] });
+
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    expect(fetchSweep).toHaveBeenCalledTimes(1);
+  });
+
   it("holds a site the panel pinned rather than following the map", async () => {
     const { result } = renderHook(() =>
       useSingleSiteRadar(options({ radar: { station: "KTLX" } })),
