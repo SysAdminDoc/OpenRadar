@@ -4,6 +4,7 @@ import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
 import type { GeoPoint } from "../lib/geo";
 import type { FlashWindow } from "../hooks/useLightning";
+import { windLabel, type WindField } from "../lib/wind";
 import { paletteLegend } from "../lib/legend";
 import { paletteApplies } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
@@ -38,6 +39,10 @@ interface WorkspaceChromeProps {
   mrmsLayers: MrmsLayer[];
   /** The GOES flash window on the map, when that layer is on. */
   lightning: FlashWindow | null;
+  /** The wind field the particles follow, when that layer is on. */
+  wind: WindField | null;
+  /** True when the wind layer is switched on but held back for reduced motion. */
+  windReduced: boolean;
   /** Milliseconds, ticking once a minute, for the freshness readouts. */
   clock: number;
   radarAgeMinutes: number | null;
@@ -71,6 +76,8 @@ export function WorkspaceChrome({
   sweep,
   mrmsLayers,
   lightning,
+  wind,
+  windReduced,
   clock,
   radarAgeMinutes,
   cursor,
@@ -161,8 +168,27 @@ export function WorkspaceChrome({
         paletteScale={paletteScale}
         onToggle={onToggleProduct}
       />
-      {mrmsLayers.length || lightning ? (
+      {mrmsLayers.length || lightning || wind || windReduced ? (
         <div className="product-legends" aria-label="Extra product scales">
+          {windReduced ? (
+            <div className="product-legend">
+              <strong>Wind</strong>
+              <small>
+                Held back because this device asks for less movement.
+              </small>
+            </div>
+          ) : null}
+          {wind ? (
+            <div className="product-legend" data-wind-run={wind.init}>
+              <strong>
+                Wind at 10 m<em>{windLabel(wind, clock)}</em>
+              </strong>
+              <small>
+                Model guidance, not an observation. Particles show direction and
+                relative speed.
+              </small>
+            </div>
+          ) : null}
           {lightning ? (
             <div className="product-legend product-legend--flashes">
               <strong>

@@ -4,6 +4,7 @@ import type { ToolMode } from "./CommandBar";
 import type { GeoPoint } from "../lib/geo";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
+import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
@@ -29,6 +30,7 @@ interface MapStageProps {
   sweep: SweepImage | null;
   mrmsLayers: MrmsLayer[];
   flashes: Record<string, unknown> | null;
+  wind: WindField | null;
   activeTool: ToolMode;
   dualPane: boolean;
   compareOffset: number;
@@ -57,6 +59,7 @@ export function MapStage({
   sweep,
   mrmsLayers,
   flashes,
+  wind,
   activeTool,
   dualPane,
   compareOffset,
@@ -80,6 +83,7 @@ export function MapStage({
     sweep,
     mrmsLayers,
     flashes,
+    wind,
     toolMode: activeTool,
   };
 

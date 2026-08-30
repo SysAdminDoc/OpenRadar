@@ -52,6 +52,8 @@ export interface LayerSettings {
   lightningDensity: boolean;
   /** GLM total-lightning flashes from GOES-East. */
   lightningFlashes: boolean;
+  /** Animated GFS wind particles. */
+  wind: boolean;
 }
 
 export interface WatchState {
@@ -115,6 +117,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     hail: false,
     lightningDensity: false,
     lightningFlashes: false,
+    wind: false,
   },
   palette: null,
   watch: {
@@ -356,6 +359,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.lightningFlashes,
         DEFAULT_SETTINGS.layers.lightningFlashes,
       ),
+      wind: bool(layers.wind, DEFAULT_SETTINGS.layers.wind),
     },
     // A palette is re-read from its own text rather than trusted as an
     // object, so a hand-edited settings file cannot put anything on the map

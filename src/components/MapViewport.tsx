@@ -25,6 +25,8 @@ import {
 } from "../lib/providers";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import { sweepCorners, type SweepImage } from "../lib/level2";
+import { createWindLayer } from "../lib/windLayer";
+import type { WindField } from "../lib/wind";
 import type { RadarFrame } from "../lib/radar";
 import {
   cameraKey,
@@ -38,6 +40,7 @@ import type { ToolMode } from "./CommandBar";
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
 const MRMS_SOURCE_PREFIX = "openradar-mrms-";
+const WIND_LAYER_ID = "openradar-wind";
 const FLASH_SOURCE_ID = "openradar-flash-source";
 const FLASH_LAYER_ID = "openradar-flash-points";
 const SWEEP_SOURCE_ID = "openradar-sweep-source";
@@ -90,6 +93,8 @@ interface MapViewportProps {
   mrmsLayers?: MrmsLayer[];
   /** GOES lightning flashes, newest brightest. */
   flashes?: Record<string, unknown> | null;
+  /** The wind field the particles follow, or null when the layer is off. */
+  wind?: WindField | null;
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
@@ -111,6 +116,7 @@ const MRMS_LAYER_IDS = [
   `${MRMS_SOURCE_PREFIX}mesh`,
   `${MRMS_SOURCE_PREFIX}lightning`,
   FLASH_LAYER_ID,
+  WIND_LAYER_ID,
 ];
 
 const TRACK_LAYER_IDS = [TRACK_LINE_LAYER_ID, TRACK_POINT_LAYER_ID];
@@ -219,6 +225,7 @@ function MapViewportInner(
     sweep = null,
     mrmsLayers = [],
     flashes = null,
+    wind = null,
     satelliteTime = null,
     overlays = {},
     route = null,
@@ -241,6 +248,8 @@ function MapViewportInner(
   const sweepRef = useRef<SweepImage | null>(sweep);
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
+  const windRef = useRef<WindField | null>(wind);
+  const windLayerRef = useRef<ReturnType<typeof createWindLayer> | null>(null);
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
@@ -277,6 +286,9 @@ function MapViewportInner(
     const ids = (map.getStyle().layers ?? [])
       .map((layer) => layer.id)
       .filter((id) => id.startsWith("openradar-"));
+    // A custom layer has no entry in the style, so it has to be named here or
+    // nothing outside this file can tell whether it is on the map.
+    if (map.getLayer(WIND_LAYER_ID)) ids.push(WIND_LAYER_ID);
     container.dataset.layerStack = ids.join(" ");
     container.dataset.overlayLayers = ids
       .filter((id) => id.startsWith(OVERLAY_SOURCE_PREFIX))
@@ -615,6 +627,32 @@ function MapViewportInner(
       },
       firstExisting(map, layersAbove(ROUTE_LAYER_ID)),
     );
+    publishLayers();
+  };
+
+  const syncWind = () => {
+    const map = mapRef.current;
+    const field = windRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    if (!field) {
+      if (map.getLayer(WIND_LAYER_ID)) map.removeLayer(WIND_LAYER_ID);
+      windLayerRef.current = null;
+      publishLayers();
+      return;
+    }
+    if (windLayerRef.current && map.getLayer(WIND_LAYER_ID)) {
+      windLayerRef.current.setField(field);
+      return;
+    }
+
+    const layer = createWindLayer({
+      id: WIND_LAYER_ID,
+      field,
+      onError: (message) => log.warn("wind", message),
+    });
+    windLayerRef.current = layer;
+    map.addLayer(layer, firstExisting(map, layersAbove(WIND_LAYER_ID)));
     publishLayers();
   };
 
@@ -1054,6 +1092,7 @@ function MapViewportInner(
       syncSweep();
       syncMrmsLayers();
       syncFlashes();
+      syncWind();
       renderTools();
       syncOverlays();
       syncRoute();
@@ -1194,6 +1233,14 @@ function MapViewportInner(
     // rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customOverlay]);
+
+  useEffect(() => {
+    windRef.current = wind;
+    syncWind();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wind]);
 
   useEffect(() => {
     flashesRef.current = flashes;

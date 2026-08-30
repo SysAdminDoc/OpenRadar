@@ -14,6 +14,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 
 - Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
 - A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
+- Animated GFS wind particles on the flat map and the globe, decoded from GRIB2 locally
 - Canadian radar from Environment and Climate Change Canada, with a rain rate scale of its own, wherever the NOAA mosaics stop
 - Lightning two ways: the MRMS cloud-to-ground density grid, and GOES-East total lightning decoded from the satellite's own files
 - NOAA MRMS leads on the desktop: the one kilometre national grid decoded locally from GRIB2, with rotation tracks and hail size as their own layers
@@ -74,6 +75,7 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 
 - Basemap data comes from OpenStreetMap through OpenFreeMap.
 - Aerial imagery is USGS orthoimagery from The National Map, and the topographic style is OpenTopoMap under CC-BY-SA.
+- Wind comes from the NOAA GFS open data bucket on AWS, read a field at a time through the run index.
 - Lightning flashes come from the GOES-19 Geostationary Lightning Mapper on AWS. This is total lightning, not a strike report, and it is not a warning source.
 - MRMS grids come from the NOAA MRMS open data bucket on AWS and are decoded on your machine, as is single-site NEXRAD Level II from the Unidata archive.
 - Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
