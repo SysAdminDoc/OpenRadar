@@ -22,6 +22,7 @@ interface MapStageProps {
   overlays: Partial<Record<OverlayId, OverlayData | null>>;
   route: Record<string, unknown> | null;
   customOverlay: Record<string, unknown> | null;
+  stormTrack: Record<string, unknown> | null;
   activeTool: ToolMode;
   dualPane: boolean;
   compareOffset: number;
@@ -46,6 +47,7 @@ export function MapStage({
   overlays,
   route,
   customOverlay,
+  stormTrack,
   activeTool,
   dualPane,
   compareOffset,
@@ -65,6 +67,7 @@ export function MapStage({
     overlays,
     route,
     customOverlay: settings.layers.customOverlay ? customOverlay : null,
+    stormTrack,
     toolMode: activeTool,
   };
 

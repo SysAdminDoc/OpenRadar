@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- New Storm history panel. Search any Atlantic or eastern Pacific storm back to 1851 by name, year, or both, and its best track draws on the map with every six-hourly fix coloured by the wind it carried. The panel shows the peak intensity, the accumulated cyclone energy, and how many fixes the record holds.
+- Storms from 2003 onward replay the radar. Pick one and OpenRadar loads the national mosaic for three hours either side of its peak from the Iowa State archive, so you can watch a landfall the way it happened. The timeline credits the archive while a replay is running and hands the map back to live radar when you close it.
+
 - Fixed a drawn route re-tracing whole loops wherever the road crosses itself, and a departure time past the forecast being answered with the nearest hour it had rather than nothing.
 - A stretch of road with no forecast reading is drawn in its own colour instead of the colour for no rain.
 - Fixed an alert being announced twice when one check overran the next.

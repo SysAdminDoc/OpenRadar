@@ -3,7 +3,6 @@ import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
 import type { GeoPoint } from "../lib/geo";
-import type { RadarProvider } from "../lib/providers";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
@@ -21,7 +20,6 @@ interface WorkspaceChromeProps {
   settings: AppSettings;
   timeline: RadarTimelineState;
   frames: RadarFrame[];
-  source: RadarProvider | null;
   radarAgeMinutes: number | null;
   cursor: GeoPoint | null;
   activeTool: ToolMode;
@@ -50,7 +48,6 @@ export function WorkspaceChrome({
   settings,
   timeline,
   frames,
-  source,
   radarAgeMinutes,
   cursor,
   activeTool,
@@ -107,7 +104,7 @@ export function WorkspaceChrome({
         frames={frames}
         frameIndex={timeline.frameIndex}
         playing={timeline.playing}
-        sourceLabel={source?.label ?? null}
+        sourceLabel={timeline.sourceLabel}
         ageMinutes={radarAgeMinutes}
         error={timeline.error ?? stale}
         onFrameIndex={timeline.selectFrame}
@@ -146,9 +143,9 @@ export function WorkspaceChrome({
         >
           © OpenStreetMap
         </a>
-        {source ? (
-          <a href={source.attributionUrl} target="_blank" rel="noreferrer">
-            {source.label}
+        {timeline.attribution ? (
+          <a href={timeline.attribution.url} target="_blank" rel="noreferrer">
+            {timeline.attribution.label}
           </a>
         ) : null}
       </div>
