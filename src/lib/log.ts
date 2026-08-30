@@ -3,6 +3,7 @@ import {
   info as logInfo,
   warn as logWarn,
 } from "@tauri-apps/plugin-log";
+import { isDesktopRuntime } from "./settings";
 
 export type LogLevel = "info" | "warn" | "error";
 
@@ -17,10 +18,6 @@ const RECENT_LIMIT = 60;
 let recent: LogEntry[] = [];
 const listeners = new Set<() => void>();
 
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 function remember(entry: LogEntry) {
   recent = [...recent.slice(-(RECENT_LIMIT - 1)), entry];
   for (const listener of listeners) listener();
@@ -30,7 +27,7 @@ function write(level: LogLevel, scope: string, message: string) {
   const line = `[${scope}] ${message}`;
   remember({ at: Date.now(), level, scope, message });
 
-  if (!isTauriRuntime()) {
+  if (!isDesktopRuntime()) {
     // Browser previews have no log file, so the console is the only sink.
     if (level === "error") console.error(line);
     else if (level === "warn") console.warn(line);

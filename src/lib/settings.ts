@@ -244,7 +244,8 @@ export function cameraFromSearch(
   }).camera;
 }
 
-function isTauriRuntime(): boolean {
+/** True inside the Tauri window, false in a browser preview. */
+export function isDesktopRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
@@ -258,7 +259,7 @@ async function getStore(): Promise<Store> {
 
 export async function loadSettings(): Promise<AppSettings> {
   try {
-    if (isTauriRuntime()) {
+    if (isDesktopRuntime()) {
       const value = await (await getStore()).get<unknown>("settings");
       return normalizeSettings(value);
     }
@@ -271,7 +272,7 @@ export async function loadSettings(): Promise<AppSettings> {
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
   const normalized = normalizeSettings(settings);
-  if (isTauriRuntime()) {
+  if (isDesktopRuntime()) {
     const store = await getStore();
     await store.set("settings", normalized);
     await store.save();

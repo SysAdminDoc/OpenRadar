@@ -2,6 +2,7 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Share now copies an `openradar://` link that opens the running app on that view instead of an address that leads nowhere. A second launch hands its link to the window already open.
 - The timeline chip now reports the radar age next to the source, not only once the loop has gone stale.
 - RIDGE II is claimed only over the ground its mosaic covers, so the Gulf, Cuba, and the Bahamas fall back to a worldwide source instead of showing an empty layer.
 - The radar source reader accepts the interval form of a WMS time dimension, not only a list of instants.

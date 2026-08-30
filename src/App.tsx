@@ -22,12 +22,14 @@ import { ToastHost, type ToastMessage } from "./components/ToastHost";
 import type { GeoPoint } from "./lib/geo";
 import { formatFrameTime, frameAgeMinutes } from "./lib/radar";
 import { providerHealth, subscribeHealth } from "./lib/providers";
-import { recentLog, subscribeLog } from "./lib/log";
+import { log, recentLog, subscribeLog } from "./lib/log";
+import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./lib/deepLink";
 import { appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
+  isDesktopRuntime,
   loadSettings,
   normalizeSettings,
   saveSettings,
@@ -190,6 +192,49 @@ export default function App() {
       active = false;
     };
   }, []);
+
+  const applySharedView = useCallback(
+    (link: string) => {
+      const view = viewFromDeepLink(link, settingsRef.current.camera);
+      if (!view) return;
+      applySettings({
+        ...settingsRef.current,
+        camera: view.camera,
+        projection: view.projection,
+      });
+      mapRef.current?.flyTo(view.camera);
+      pushToast({ title: "Opened a shared view" });
+    },
+    [applySettings, pushToast],
+  );
+
+  useEffect(() => {
+    if (!hydrated || !isDesktopRuntime()) return;
+    let stop: (() => void) | null = null;
+    let active = true;
+
+    void (async () => {
+      const { getCurrent, onOpenUrl } =
+        await import("@tauri-apps/plugin-deep-link");
+      if (!active) return;
+      // A link that started the app arrives here; later ones come through the
+      // listener, because the single-instance plugin routes them to this window.
+      const startup = await getCurrent();
+      if (active && startup?.length) applySharedView(startup[0]);
+      const unlisten = await onOpenUrl((urls) => {
+        if (urls.length) applySharedView(urls[0]);
+      });
+      if (active) stop = unlisten;
+      else unlisten();
+    })().catch(() => {
+      log.warn("app", "Shared links are not available in this build.");
+    });
+
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [applySharedView, hydrated]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
@@ -388,23 +433,23 @@ export default function App() {
   );
 
   const handleShare = useCallback(async () => {
-    const camera = mapRef.current?.camera() ?? settingsRef.current.camera;
-    const url = new URL(window.location.href);
-    url.search = "";
-    url.searchParams.set("lon", camera.center[0].toFixed(5));
-    url.searchParams.set("lat", camera.center[1].toFixed(5));
-    url.searchParams.set("zoom", camera.zoom.toFixed(2));
-    url.searchParams.set("bearing", camera.bearing.toFixed(1));
-    url.searchParams.set("pitch", camera.pitch.toFixed(1));
-    url.searchParams.set("projection", settingsRef.current.projection);
+    const view = {
+      camera: mapRef.current?.camera() ?? settingsRef.current.camera,
+      projection: settingsRef.current.projection,
+    };
+    // Inside the app the address bar reads http://tauri.localhost, which opens
+    // nothing, so the desktop build hands out its own scheme instead.
+    const link = isDesktopRuntime()
+      ? deepLinkUrl(view)
+      : webLinkUrl(view, window.location.href);
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: "OpenRadar view", url: url.toString() });
+        await navigator.share({ title: "OpenRadar view", url: link });
         pushToast({ title: "Map view shared" });
       } else {
-        await navigator.clipboard.writeText(url.toString());
-        pushToast({ title: "Map link copied" });
+        await navigator.clipboard.writeText(link);
+        pushToast({ title: "Map link copied", detail: link });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;

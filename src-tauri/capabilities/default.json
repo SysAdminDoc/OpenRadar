@@ -2,12 +2,14 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "OpenRadar main map window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "store:default",
     "log:default",
-    "opener:default"
+    "opener:default",
+    "deep-link:default"
   ]
 }
-

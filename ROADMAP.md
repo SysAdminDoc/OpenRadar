@@ -57,13 +57,6 @@
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
 
-- [ ] P1: Register an `openradar://` deep link and make Share produce a usable link
-  Why: Share copies `window.location.href`, which inside Tauri is `http://tauri.localhost/?lon=...`; nothing can open it.
-  Evidence: `src/App.tsx:356`; StormDeck uses `stormdeck://` via `tauri-plugin-deep-link` 2.4.9 and `tauri-plugin-single-instance` 2.4.3.
-  Touches: src-tauri/Cargo.toml, src-tauri/tauri.conf.json (`plugins.deep-link.desktop.schemes`), src-tauri/src/lib.rs, src-tauri/capabilities/default.json, src/App.tsx (parse camera from the deep-link payload as `cameraFromUrl` does now).
-  Acceptance: clicking a copied `openradar://view?lon=..&lat=..&zoom=..&projection=globe` link in a browser focuses the running app and flies the camera; a second launch does not open a second window.
-  Complexity: M
-
 - [ ] P1: HRRR future radar on the timeline tail from IEM `hrrr::REFD` tiles
   Why: RainViewer nowcast is gone; TWC Storm Radar (2026-05-02) and Carrot make forecast radar table stakes; the `futureRadar` setting is hard-forced `false`.
   Evidence: `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/hrrr::REFD-F{mmmm}-{init}/{z}/{x}/{y}.png` with latest run from `.../data/gis/images/4326/hrrr/refd_1080.json` (StormviewRadar `index.html` 3813, 3830-3831; mesonet.agron.iastate.edu/GIS/model.phtml, F is minutes, 15-min steps to 18 h); IEM "servers will melt" plea means bounded prefetch only.

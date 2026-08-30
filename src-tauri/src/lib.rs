@@ -1,3 +1,4 @@
+use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 const LOG_MAX_FILE_SIZE_BYTES: u128 = 2_000_000;
@@ -10,6 +11,17 @@ pub fn run() {
     }));
 
     tauri::Builder::default()
+        // A second launch, including one from an openradar:// link, hands its
+        // arguments to the window that is already open instead of starting
+        // another one.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .targets([
@@ -26,7 +38,18 @@ pub fn run() {
         )
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .setup(|_app| {
+            // Development builds are not installed, so the scheme has to be
+            // claimed at runtime for a link to reach the app at all.
+            #[cfg(all(desktop, debug_assertions))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(error) = _app.deep_link().register_all() {
+                    log::warn!("OpenRadar could not register its link scheme: {error}");
+                }
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("OpenRadar could not start");
 }
-
