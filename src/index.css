@@ -2250,6 +2250,23 @@ input[type="range"] {
   );
 }
 
+/* The same ramp carried out to where unfolding puts things, so the bar beside
+   the map is the one the sweep was painted with. */
+.legend-ramp--velocity-wide {
+  background: linear-gradient(
+    90deg,
+    #99ff99 0%,
+    #00ff00 25%,
+    #00b400 36%,
+    #005a00 46%,
+    #6b6b6b 50%,
+    #5a0000 54%,
+    #b40000 64%,
+    #ff0000 75%,
+    #ff9999 100%
+  );
+}
+
 .site-controls {
   display: flex;
   flex-direction: column;

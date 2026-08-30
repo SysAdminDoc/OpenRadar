@@ -226,7 +226,7 @@ export default function App() {
       setHistoryStorm(storm);
       setReplay({
         id: storm.id,
-        label: "Iowa State radar archive",
+        label: translate("radar.archive"),
         attributionUrl: "https://mesonet.agron.iastate.edu/",
         frames,
         focusTime: focus.point[0],
@@ -238,10 +238,13 @@ export default function App() {
         pitch: 0,
       });
       pushToast({
-        title: `Replaying ${storm.name} ${storm.year}`,
-        detail: focus.landfall
-          ? "Archive radar around landfall. Close it to go live."
-          : "Archive radar around its closest approach. Close it to go live.",
+        title: translate("replay.title", {
+          name: storm.name,
+          year: storm.year,
+        }),
+        detail: translate(
+          focus.landfall ? "replay.atLandfall" : "replay.atClosest",
+        ),
       });
     },
     [pushToast],

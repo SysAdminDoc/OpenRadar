@@ -176,7 +176,9 @@ export function WorkspaceChrome({
             ? sweep.unit === "dBZ"
               ? "reflectivity"
               : sweep.unit === "m/s" && sweep.product === "Velocity"
-                ? "velocity"
+                ? sweep.dealiased
+                  ? "velocity-wide"
+                  : "velocity"
                 : "none"
             : rainRate
               ? "rain-rate"

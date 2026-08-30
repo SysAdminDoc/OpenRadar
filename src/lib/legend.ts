@@ -22,7 +22,8 @@ export interface LegendScale {
   logarithmic?: boolean;
 }
 
-export type LegendScaleId = "reflectivity" | "velocity" | "rain-rate" | "none";
+export type LegendScaleId =
+  "reflectivity" | "velocity" | "velocity-wide" | "rain-rate" | "none";
 
 export const REFLECTIVITY_SCALE: LegendScale = {
   min: DBZ_MIN,
@@ -38,6 +39,22 @@ export const VELOCITY_SCALE: LegendScale = {
   stops: VELOCITY_STOPS,
   unit: "m/s",
   ramp: "legend-ramp legend-ramp--velocity",
+};
+
+/**
+ * The scale an unfolded sweep is drawn on.
+ *
+ * Unfolding puts wind back past the limit the radar could measure, which is
+ * the whole point of it. Read against the ordinary scale everything beyond
+ * thirty-five metres a second is the same saturated red, so the bar has to
+ * reach as far as the picture does.
+ */
+export const WIDE_VELOCITY_SCALE: LegendScale = {
+  min: -70,
+  max: 70,
+  stops: [-60, -30, 0, 30, 60],
+  unit: "m/s",
+  ramp: "legend-ramp legend-ramp--velocity-wide",
 };
 
 /**
@@ -114,6 +131,8 @@ export function legendScale(id: LegendScaleId): LegendScale | null {
       return REFLECTIVITY_SCALE;
     case "velocity":
       return VELOCITY_SCALE;
+    case "velocity-wide":
+      return WIDE_VELOCITY_SCALE;
     case "rain-rate":
       return RAIN_RATE_SCALE;
     default:

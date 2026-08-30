@@ -157,7 +157,14 @@ test("switches product and tilt on the site already on screen", async ({
     .selectOption("velocity");
   await expect(page.getByText("KDMX Velocity")).toBeVisible();
   // The legend has to change scale with the product, not keep showing dBZ.
+  // Unfolding is on, and it puts wind back past the limit the radar could
+  // measure, so the bar has to reach as far as the picture does.
+  await expect(page.getByLabel(/Velocity from -70 to 70 m\/s/)).toBeVisible();
+
+  // Turned off, the picture is the radar's own reading and the bar says so.
+  await page.getByRole("checkbox", { name: /Unfold velocity/ }).uncheck();
   await expect(page.getByLabel(/Velocity from -35 to 35 m\/s/)).toBeVisible();
+  await page.getByRole("checkbox", { name: /Unfold velocity/ }).check();
 
   await page.getByRole("combobox", { name: "Level II tilt" }).selectOption("2");
   await expect(page.getByText("1.31° TILT")).toBeVisible();
