@@ -1,0 +1,189 @@
+//! The network boundary for anything OpenRadar fetches from Rust.
+//!
+//! The WebView content security policy only governs requests the page makes.
+//! A request issued here bypasses it entirely, so this allowlist is the real
+//! boundary and every native fetch has to come through it.
+
+use std::time::Duration;
+
+use reqwest::redirect::Policy;
+use reqwest::{Client, Url};
+
+/// Every host a native fetch may reach. Subdomains are not implied.
+const ALLOWED_HOSTS: &[&str] = &[
+    "opengeo.ncep.noaa.gov",
+    "nowcoast.noaa.gov",
+    "mapservices.weather.noaa.gov",
+    "earthquake.usgs.gov",
+    "services3.arcgis.com",
+    "mesonet.agron.iastate.edu",
+    "api.rainviewer.com",
+    "tilecache.rainviewer.com",
+    "basemap.nationalmap.gov",
+    "tile.opentopomap.org",
+    "tiles.openfreemap.org",
+    "api.open-meteo.com",
+    "geocoding-api.open-meteo.com",
+];
+
+const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_REDIRECTS: usize = 4;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum RedirectDecision {
+    Follow,
+    Refuse,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum HttpError {
+    #[error("{0} is not a host OpenRadar is allowed to reach")]
+    HostNotAllowed(String),
+    #[error("the address could not be read")]
+    BadUrl,
+    #[error("the response was larger than the {MAX_BODY_BYTES} byte limit")]
+    TooLarge,
+    #[error("the request failed: {0}")]
+    Transport(#[from] reqwest::Error),
+}
+
+/// HTTPS only, and the host has to match an entry exactly. A lookalike such as
+/// `nowcoast.noaa.gov.example.net` is refused because it is a different host.
+pub fn is_allowed(url: &Url) -> bool {
+    if url.scheme() != "https" {
+        return false;
+    }
+    match url.host_str() {
+        Some(host) => {
+            let host = host.to_ascii_lowercase();
+            ALLOWED_HOSTS.iter().any(|allowed| *allowed == host)
+        }
+        None => false,
+    }
+}
+
+/// A redirect is only followed when the destination passes the same check the
+/// original address did, which is what stops an open redirect from walking us
+/// off the list.
+pub fn decide_redirect(next: &Url, hops: usize) -> RedirectDecision {
+    if hops >= MAX_REDIRECTS || !is_allowed(next) {
+        RedirectDecision::Refuse
+    } else {
+        RedirectDecision::Follow
+    }
+}
+
+fn user_agent() -> String {
+    // NOAA asks for a contact address in the User-Agent on its public feeds.
+    format!(
+        "OpenRadar/{} (https://github.com/SysAdminDoc/OpenRadar)",
+        env!("CARGO_PKG_VERSION")
+    )
+}
+
+pub fn client() -> Result<Client, HttpError> {
+    let policy = Policy::custom(|attempt| {
+        match decide_redirect(attempt.url(), attempt.previous().len()) {
+            RedirectDecision::Follow => attempt.follow(),
+            RedirectDecision::Refuse => attempt.stop(),
+        }
+    });
+
+    Ok(Client::builder()
+        .user_agent(user_agent())
+        .timeout(REQUEST_TIMEOUT)
+        .redirect(policy)
+        .build()?)
+}
+
+/// The only way to fetch bytes from Rust. Callers pass a host they own, never
+/// an address handed over from the frontend.
+pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
+    let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
+    if !is_allowed(&parsed) {
+        return Err(HttpError::HostNotAllowed(
+            parsed.host_str().unwrap_or(url).to_string(),
+        ));
+    }
+
+    let response = client()?.get(parsed).send().await?.error_for_status()?;
+    if let Some(length) = response.content_length() {
+        if length as usize > MAX_BODY_BYTES {
+            return Err(HttpError::TooLarge);
+        }
+    }
+
+    let body = response.bytes().await?;
+    if body.len() > MAX_BODY_BYTES {
+        return Err(HttpError::TooLarge);
+    }
+    Ok(body.to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn url(value: &str) -> Url {
+        Url::parse(value).expect("test address should parse")
+    }
+
+    #[test]
+    fn allows_only_the_listed_hosts_over_https() {
+        assert!(is_allowed(&url(
+            "https://opengeo.ncep.noaa.gov/geoserver/conus/ows?service=WMS"
+        )));
+        assert!(is_allowed(&url("https://earthquake.usgs.gov/x.geojson")));
+
+        assert!(!is_allowed(&url("https://example.net/tiles")));
+        assert!(!is_allowed(&url("http://opengeo.ncep.noaa.gov/ows")));
+        assert!(!is_allowed(&url("https://opengeo.ncep.noaa.gov.example.net/")));
+        assert!(!is_allowed(&url("https://evil.opengeo.ncep.noaa.gov/")));
+        assert!(!is_allowed(&url("file:///c:/windows/system32")));
+    }
+
+    #[test]
+    fn refuses_a_redirect_that_leaves_the_list() {
+        assert_eq!(
+            decide_redirect(&url("https://nowcoast.noaa.gov/geoserver"), 1),
+            RedirectDecision::Follow
+        );
+        assert_eq!(
+            decide_redirect(&url("https://example.net/steal"), 1),
+            RedirectDecision::Refuse
+        );
+        assert_eq!(
+            decide_redirect(&url("http://nowcoast.noaa.gov/geoserver"), 1),
+            RedirectDecision::Refuse
+        );
+    }
+
+    #[test]
+    fn refuses_a_redirect_chain_that_will_not_end() {
+        assert_eq!(
+            decide_redirect(&url("https://nowcoast.noaa.gov/a"), MAX_REDIRECTS),
+            RedirectDecision::Refuse
+        );
+    }
+
+    #[tokio::test]
+    async fn refuses_an_off_list_address_without_sending_anything() {
+        let error = get_bytes("https://example.net/anything")
+            .await
+            .expect_err("an off-list host must be refused");
+        assert!(matches!(error, HttpError::HostNotAllowed(_)));
+
+        let error = get_bytes("not even an address")
+            .await
+            .expect_err("a malformed address must be refused");
+        assert!(matches!(error, HttpError::BadUrl));
+    }
+
+    #[test]
+    fn names_itself_and_a_contact_address() {
+        let agent = user_agent();
+        assert!(agent.starts_with("OpenRadar/"));
+        assert!(agent.contains("github.com/SysAdminDoc/OpenRadar"));
+    }
+}
