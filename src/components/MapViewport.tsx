@@ -10,6 +10,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "../lib/maplibreWorker";
 import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
 import { mapStyleDefinition } from "../lib/mapStyles";
+import {
+  OVERLAY_ADAPTERS,
+  type OverlayBounds,
+  type OverlayData,
+  type OverlayId,
+} from "../lib/overlays";
 import { guardRadarRequest } from "../lib/providers";
 import type { RadarFrame } from "../lib/radar";
 import {
@@ -25,6 +31,7 @@ const RADAR_LAYER_ID = "openradar-radar-layer";
 const TOOL_SOURCE_ID = "openradar-tool-source";
 const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 const TOOL_POINT_LAYER_ID = "openradar-tool-points";
+const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
 const CUSTOM_SOURCE_ID = "openradar-custom-source";
 const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
 const CUSTOM_LINE_LAYER_ID = "openradar-custom-line";
@@ -38,6 +45,7 @@ export interface MapViewportHandle {
   syncCamera: (camera: CameraState) => void;
   clearTools: () => void;
   camera: () => CameraState | null;
+  bounds: () => OverlayBounds | null;
 }
 
 interface MapViewportProps {
@@ -48,6 +56,7 @@ interface MapViewportProps {
   radarFrame?: RadarFrame;
   radarVisible: boolean;
   radarOpacity: number;
+  overlays?: Partial<Record<OverlayId, OverlayData | null>>;
   customOverlay?: Record<string, unknown> | null;
   toolMode?: ToolMode;
   onCameraChange?: (camera: CameraState) => void;
@@ -83,6 +92,7 @@ function MapViewportInner(
     radarFrame,
     radarVisible,
     radarOpacity,
+    overlays = {},
     customOverlay = null,
     toolMode = null,
     onCameraChange,
@@ -101,6 +111,7 @@ function MapViewportInner(
   const customOverlayRef = useRef<Record<string, unknown> | null>(
     customOverlay,
   );
+  const overlaysRef = useRef(overlays);
   const projectionRef = useRef(projection);
   const mapStyleRef = useRef(mapStyle);
   const toolModeRef = useRef<ToolMode>(toolMode);
@@ -110,6 +121,9 @@ function MapViewportInner(
   const warnedMapErrorRef = useRef(false);
   const suppressCameraEventsRef = useRef(0);
   const radarSourceKeyRef = useRef<string | null>(null);
+  // isStyleLoaded() also waits on tiles, so it can report false long after the
+  // style is ready for new sources. The style.load event is the real signal.
+  const styleReadyRef = useRef(false);
 
   const publishCamera = (next: CameraState) => {
     const container = containerRef.current;
@@ -125,7 +139,7 @@ function MapViewportInner(
 
   const renderTools = () => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map || !styleReadyRef.current) return;
 
     const features: Array<Record<string, unknown>> = [];
     const drawPoints = drawPointsRef.current;
@@ -203,7 +217,7 @@ function MapViewportInner(
   const syncRadar = () => {
     const map = mapRef.current;
     const frame = radarFrameRef.current;
-    if (!map || !map.isStyleLoaded() || !frame) return;
+    if (!map || !styleReadyRef.current || !frame) return;
 
     // A different provider changes tile size, native zoom, and credit, none of
     // which a raster source can be reconfigured with in place.
@@ -243,10 +257,104 @@ function MapViewportInner(
     }
   };
 
+  const overlayLayerIds = () => {
+    const map = mapRef.current;
+    if (!map) return [];
+    return OVERLAY_ADAPTERS.flatMap((adapter) =>
+      adapter
+        .layers(`${OVERLAY_SOURCE_PREFIX}${adapter.id}`)
+        .map((layer) => layer.id),
+    ).filter((id) => map.getLayer(id));
+  };
+
+  const syncOverlays = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
+      const data = overlaysRef.current[adapter.id] ?? null;
+      const existing = map.getSource(sourceId) as
+        maplibregl.GeoJSONSource | undefined;
+
+      if (!data) {
+        if (existing) {
+          for (const layer of adapter.layers(sourceId)) {
+            if (map.getLayer(layer.id)) map.removeLayer(layer.id);
+          }
+          map.removeSource(sourceId);
+        }
+        continue;
+      }
+
+      if (existing) {
+        existing.setData(data as never);
+        continue;
+      }
+
+      map.addSource(sourceId, {
+        type: "geojson",
+        data: data as never,
+        attribution: adapter.attribution,
+      });
+      // Overlays sit above radar but below the measuring tools.
+      const before = map.getLayer(TOOL_LINE_LAYER_ID)
+        ? TOOL_LINE_LAYER_ID
+        : undefined;
+      for (const layer of adapter.layers(sourceId)) map.addLayer(layer, before);
+    }
+
+    if (containerRef.current) {
+      containerRef.current.dataset.overlayLayers = (map.getStyle().layers ?? [])
+        .map((layer) => layer.id)
+        .filter((id) => id.startsWith(OVERLAY_SOURCE_PREFIX))
+        .join(" ");
+    }
+  };
+
+  const showOverlayPopup = (event: maplibregl.MapMouseEvent) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const layers = overlayLayerIds();
+    if (!layers.length) return;
+
+    const hit = map.queryRenderedFeatures(event.point, { layers })[0];
+    if (!hit) return;
+    const adapter = OVERLAY_ADAPTERS.find((candidate) =>
+      hit.layer.id.startsWith(`${OVERLAY_SOURCE_PREFIX}${candidate.id}`),
+    );
+    if (!adapter) return;
+
+    const description = adapter.describe(hit.properties ?? {});
+    const node = document.createElement("div");
+    node.className = "map-popup";
+    const title = document.createElement("strong");
+    title.textContent = description.title;
+    node.append(title);
+    for (const line of description.lines) {
+      const row = document.createElement("small");
+      row.textContent = line;
+      node.append(row);
+    }
+    if (description.url) {
+      const link = document.createElement("a");
+      link.href = description.url;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = "Open the official product";
+      node.append(link);
+    }
+
+    new maplibregl.Popup({ closeButton: true, maxWidth: "260px" })
+      .setLngLat(event.lngLat)
+      .setDOMContent(node)
+      .addTo(map);
+  };
+
   const syncCustomOverlay = () => {
     const map = mapRef.current;
     const overlay = customOverlayRef.current;
-    if (!map || !map.isStyleLoaded() || !overlay) return;
+    if (!map || !styleReadyRef.current || !overlay) return;
     let source = map.getSource(CUSTOM_SOURCE_ID) as
       maplibregl.GeoJSONSource | undefined;
     if (!source) {
@@ -332,6 +440,17 @@ function MapViewportInner(
       onToolResult?.(null);
     },
     camera: () => (mapRef.current ? asCamera(mapRef.current) : null),
+    bounds: () => {
+      const map = mapRef.current;
+      if (!map) return null;
+      const box = map.getBounds();
+      return {
+        west: box.getWest(),
+        south: box.getSouth(),
+        east: box.getEast(),
+        north: box.getNorth(),
+      };
+    },
   }));
 
   useEffect(() => {
@@ -368,9 +487,11 @@ function MapViewportInner(
     publishCamera(asCamera(map));
 
     const onStyleLoad = () => {
+      styleReadyRef.current = true;
       map.setProjection({ type: projectionRef.current });
       syncRadar();
       renderTools();
+      syncOverlays();
       syncCustomOverlay();
       onMapStatus?.("ready");
     };
@@ -391,7 +512,9 @@ function MapViewportInner(
     map.on("mouseout", () => onCursorChange?.(null));
     map.on("click", (event) => {
       const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
-      if (toolModeRef.current === "inspect") {
+      if (!toolModeRef.current) {
+        showOverlayPopup(event);
+      } else if (toolModeRef.current === "inspect") {
         onToolResult?.(
           `${point.lat.toFixed(4)}°, ${point.lon.toFixed(4)}° · zoom ${map.getZoom().toFixed(2)}`,
         );
@@ -449,6 +572,8 @@ function MapViewportInner(
     const map = mapRef.current;
     if (!map || mapStyleRef.current === mapStyle) return;
     mapStyleRef.current = mapStyle;
+    styleReadyRef.current = false;
+    radarSourceKeyRef.current = null;
     map.setStyle(mapStyleDefinition(mapStyle));
   }, [mapStyle]);
 
@@ -463,6 +588,11 @@ function MapViewportInner(
     }
     syncRadar();
   }, [radarFrame, radarVisible, radarOpacity]);
+
+  useEffect(() => {
+    overlaysRef.current = overlays;
+    syncOverlays();
+  }, [overlays]);
 
   useEffect(() => {
     customOverlayRef.current = customOverlay;

@@ -26,22 +26,12 @@ export interface RadarSettings {
   opacity: number;
   animationSpeed: number;
   loopMinutes: number;
-  stormCenters: boolean;
-  satelliteEnhancement: boolean;
-  futureRadar: boolean;
-  lightning: boolean;
-  flashes: boolean;
-  markers: boolean;
-  precipitationClassification: boolean;
 }
 
 export interface LayerSettings {
   weatherAlerts: boolean;
-  powerOutages: boolean;
   earthquakes: boolean;
   wildfires: boolean;
-  avalanche: boolean;
-  droughts: boolean;
   customOverlay: boolean;
 }
 
@@ -53,7 +43,7 @@ export interface PresetState {
 }
 
 export interface AppSettings {
-  schemaVersion: 1;
+  schemaVersion: 2;
   theme: ThemeMode;
   projection: ProjectionMode;
   mapStyle: MapStyleId;
@@ -64,7 +54,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   theme: "dark",
   projection: "mercator",
   mapStyle: "dark",
@@ -79,21 +69,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     opacity: 0.7,
     animationSpeed: -0.1,
     loopMinutes: 120,
-    stormCenters: false,
-    satelliteEnhancement: true,
-    futureRadar: false,
-    lightning: true,
-    flashes: true,
-    markers: false,
-    precipitationClassification: true,
   },
   layers: {
     weatherAlerts: true,
-    powerOutages: true,
     earthquakes: false,
     wildfires: false,
-    avalanche: false,
-    droughts: false,
     customOverlay: false,
   },
   presets: [null, null, null, null],
@@ -187,8 +167,10 @@ export function normalizeSettings(value: unknown): AppSettings {
 
   while (presets.length < 4) presets.push(null);
 
+  // Schema 2 dropped the radar and layer switches that had no data source.
+  // They are simply not read, so a schema 1 file loads with the rest intact.
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     theme: raw.theme === "light" ? "light" : "dark",
     projection: raw.projection === "globe" ? "globe" : "mercator",
     mapStyle: isMapStyle(raw.mapStyle)
@@ -215,39 +197,17 @@ export function normalizeSettings(value: unknown): AppSettings {
         60,
         120,
       ),
-      stormCenters: bool(
-        radar.stormCenters,
-        DEFAULT_SETTINGS.radar.stormCenters,
-      ),
-      satelliteEnhancement: bool(
-        radar.satelliteEnhancement,
-        DEFAULT_SETTINGS.radar.satelliteEnhancement,
-      ),
-      futureRadar: false,
-      lightning: bool(radar.lightning, DEFAULT_SETTINGS.radar.lightning),
-      flashes: bool(radar.flashes, DEFAULT_SETTINGS.radar.flashes),
-      markers: bool(radar.markers, DEFAULT_SETTINGS.radar.markers),
-      precipitationClassification: bool(
-        radar.precipitationClassification,
-        DEFAULT_SETTINGS.radar.precipitationClassification,
-      ),
     },
     layers: {
       weatherAlerts: bool(
         layers.weatherAlerts,
         DEFAULT_SETTINGS.layers.weatherAlerts,
       ),
-      powerOutages: bool(
-        layers.powerOutages,
-        DEFAULT_SETTINGS.layers.powerOutages,
-      ),
       earthquakes: bool(
         layers.earthquakes,
         DEFAULT_SETTINGS.layers.earthquakes,
       ),
       wildfires: bool(layers.wildfires, DEFAULT_SETTINGS.layers.wildfires),
-      avalanche: bool(layers.avalanche, DEFAULT_SETTINGS.layers.avalanche),
-      droughts: bool(layers.droughts, DEFAULT_SETTINGS.layers.droughts),
       customOverlay: bool(
         layers.customOverlay,
         DEFAULT_SETTINGS.layers.customOverlay,

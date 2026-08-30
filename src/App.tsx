@@ -45,6 +45,9 @@ import {
   type ProjectionMode,
   type RadarSettings,
 } from "./lib/settings";
+import { useOverlays } from "./hooks/useOverlays";
+import type { OverlayBounds } from "./lib/overlays";
+import { AlertsPanel } from "./panels/AlertsPanel";
 import { ForecastPanel } from "./panels/ForecastPanel";
 import {
   LayersPanel,
@@ -86,6 +89,7 @@ export default function App() {
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
+  const [viewport, setViewport] = useState<OverlayBounds | null>(null);
   const [cursor, setCursor] = useState<GeoPoint | null>(null);
   const [toolResult, setToolResult] = useState<string | null>(null);
   const [customOverlay, setCustomOverlay] = useState<Record<
@@ -99,6 +103,30 @@ export default function App() {
   const cameraSaveTimerRef = useRef<number | null>(null);
 
   const health = useSyncExternalStore(subscribeHealth, providerHealth);
+
+  const overlayToggles = useMemo(
+    () => ({
+      alerts: settings.layers.weatherAlerts,
+      earthquakes: settings.layers.earthquakes,
+      wildfires: settings.layers.wildfires,
+    }),
+    [
+      settings.layers.weatherAlerts,
+      settings.layers.earthquakes,
+      settings.layers.wildfires,
+    ],
+  );
+  const overlays = useOverlays(overlayToggles, viewport);
+  const overlayData = useMemo(
+    () => ({
+      alerts: overlayToggles.alerts ? overlays.alerts.data : null,
+      earthquakes: overlayToggles.earthquakes
+        ? overlays.earthquakes.data
+        : null,
+      wildfires: overlayToggles.wildfires ? overlays.wildfires.data : null,
+    }),
+    [overlayToggles, overlays],
+  );
 
   // Panning inside one provider's footprint must not refetch the timeline, so
   // the effect keys on the covering chain rather than the raw center.
@@ -236,6 +264,7 @@ export default function App() {
       const next = normalizeSettings({ ...settingsRef.current, camera });
       settingsRef.current = next;
       setSettings(next);
+      setViewport(mapRef.current?.bounds() ?? null);
       if (cameraSaveTimerRef.current !== null)
         window.clearTimeout(cameraSaveTimerRef.current);
       cameraSaveTimerRef.current = window.setTimeout(
@@ -245,6 +274,26 @@ export default function App() {
     },
     [persist],
   );
+
+  const handleMapStatus = useCallback(
+    (status: "loading" | "ready" | "error") => {
+      setMapStatus(status);
+      if (status === "ready") setViewport(mapRef.current?.bounds() ?? null);
+    },
+    [],
+  );
+
+  const handleAlertSelect = useCallback((bounds: OverlayBounds) => {
+    mapRef.current?.flyTo({
+      center: [
+        (bounds.west + bounds.east) / 2,
+        (bounds.south + bounds.north) / 2,
+      ],
+      zoom: 7.5,
+      bearing: 0,
+      pitch: 0,
+    });
+  }, []);
 
   const handlePrimaryMove = useCallback(
     (camera: CameraState) => secondMapRef.current?.syncCamera(camera),
@@ -503,13 +552,14 @@ export default function App() {
           radarFrame={activeFrame}
           radarVisible={settings.radar.enabled}
           radarOpacity={settings.radar.opacity}
+          overlays={overlayData}
           customOverlay={settings.layers.customOverlay ? customOverlay : null}
           toolMode={activeTool}
           onCameraChange={handleCameraChange}
           onCameraMove={handlePrimaryMove}
           onCursorChange={setCursor}
           onToolResult={setToolResult}
-          onMapStatus={setMapStatus}
+          onMapStatus={handleMapStatus}
         />
         {dualPane ? (
           <MapViewport
@@ -521,6 +571,7 @@ export default function App() {
             radarFrame={compareFrame}
             radarVisible={settings.radar.enabled}
             radarOpacity={settings.radar.opacity}
+            overlays={overlayData}
             customOverlay={settings.layers.customOverlay ? customOverlay : null}
             toolMode={activeTool}
             onCameraChange={handleCameraChange}
@@ -574,6 +625,16 @@ export default function App() {
           onLayers={(layers) =>
             applySettings({ ...settingsRef.current, layers })
           }
+          onClose={() => setActiveSurface(null)}
+        />
+      ) : null}
+      {activeSurface === "alerts" ? (
+        <AlertsPanel
+          alerts={overlays.alerts.data}
+          viewport={viewport}
+          fetchedAt={overlays.alerts.fetchedAt}
+          error={overlays.alerts.error}
+          onSelect={handleAlertSelect}
           onClose={() => setActiveSurface(null)}
         />
       ) : null}

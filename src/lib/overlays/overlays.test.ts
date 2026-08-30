@@ -1,0 +1,262 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { alertSeverity, alertsOverlay, parseAlerts } from "./alerts";
+import { earthquakesOverlay, parseEarthquakes } from "./earthquakes";
+import { parseWildfires, wildfiresOverlay } from "./wildfires";
+import {
+  boundsContain,
+  boundsOverlap,
+  featureBounds,
+  padBounds,
+  relativeTime,
+} from "./registry";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("alert severity", () => {
+  it("lifts life-threatening warnings above the CAP code", () => {
+    expect(alertSeverity("Tornado Warning", "W")).toBe("extreme");
+    expect(alertSeverity("Flash Flood Emergency", " ")).toBe("extreme");
+    expect(alertSeverity("Severe Thunderstorm Warning", "W")).toBe("severe");
+    expect(alertSeverity("Tornado Watch", "A")).toBe("moderate");
+    expect(alertSeverity("Heat Advisory", "Y")).toBe("minor");
+  });
+
+  it("falls back to the product name when the code is blank", () => {
+    expect(alertSeverity("Flood Warning", " ")).toBe("severe");
+    expect(alertSeverity("Fire Weather Watch", "")).toBe("moderate");
+    expect(alertSeverity("Special Weather Statement", " ")).toBe("minor");
+  });
+});
+
+describe("alert parsing", () => {
+  const payload = {
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-99, 41],
+              [-98, 41],
+              [-98, 42],
+              [-99, 41],
+            ],
+          ],
+        },
+        properties: {
+          prod_type: "Heat Advisory",
+          sig: "Y",
+          wfo: "OAX",
+          url: "https://api.weather.gov/alerts/a",
+          issuance: "2026-08-30T01:03:00-05:00",
+          expiration: "2026-08-30T21:00:00-05:00",
+        },
+      },
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-97, 35],
+              [-96, 35],
+              [-96, 36],
+              [-97, 35],
+            ],
+          ],
+        },
+        properties: { prod_type: "Tornado Warning", sig: "W" },
+      },
+      { type: "Feature", properties: { prod_type: "Broken" } },
+    ],
+  };
+
+  it("sorts the worst first and drops features with no geometry", () => {
+    const parsed = parseAlerts(payload);
+    expect(parsed.features).toHaveLength(2);
+    expect(parsed.features[0].properties.headline).toBe("Tornado Warning");
+    expect(parsed.features[0].properties.severity).toBe("extreme");
+    expect(parsed.features[1].properties.office).toBe("OAX");
+    expect(typeof parsed.features[1].properties.issued).toBe("number");
+  });
+
+  it("asks the service only for the requested envelope", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify(payload), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await alertsOverlay.fetchData({
+      west: -100,
+      south: 30,
+      east: -90,
+      north: 40,
+    });
+
+    const url = String((fetchMock.mock.calls[0] as unknown[])[0]);
+    expect(url).toContain("geometry=-100.0000%2C30.0000%2C-90.0000%2C40.0000");
+    expect(url).toContain("spatialRel=esriSpatialRelIntersects");
+  });
+
+  it("reports the status when the service fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 500 })),
+    );
+    await expect(
+      alertsOverlay.fetchData({ west: -1, south: -1, east: 1, north: 1 }),
+    ).rejects.toThrow(/500/);
+  });
+});
+
+describe("earthquake parsing", () => {
+  it("keeps magnitude ordering and drops entries with no magnitude", () => {
+    const parsed = parseEarthquakes({
+      features: [
+        {
+          geometry: { type: "Point", coordinates: [-66.4, 18.9, 12] },
+          properties: { mag: 4.2, place: "Puerto Rico", time: 1788068822828 },
+        },
+        {
+          geometry: { type: "Point", coordinates: [-120, 36, 5] },
+          properties: { mag: 5.8, place: "California", time: 1788068822828 },
+        },
+        {
+          geometry: { type: "Point", coordinates: [0, 0] },
+          properties: { place: "Nowhere" },
+        },
+      ],
+    });
+
+    expect(
+      parsed.features.map((feature) => feature.properties.magnitude),
+    ).toEqual([5.8, 4.2]);
+    expect(parsed.features[1].properties.depthKm).toBe(12);
+  });
+
+  it("describes an event with its age and depth", () => {
+    const description = earthquakesOverlay.describe({
+      magnitude: 4.2,
+      place: "Puerto Rico",
+      depthKm: 12,
+      time: Date.now() - 90 * 60_000,
+      url: "https://earthquake.usgs.gov/x",
+    });
+    expect(description.title).toBe("M 4.2 Puerto Rico");
+    expect(description.lines[0]).toContain("2 h ago");
+    expect(description.url).toBe("https://earthquake.usgs.gov/x");
+  });
+});
+
+describe("wildfire parsing", () => {
+  it("orders by acreage and reports containment", () => {
+    const parsed = parseWildfires({
+      features: [
+        {
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-120, 40],
+                [-119, 40],
+                [-119, 41],
+                [-120, 40],
+              ],
+            ],
+          },
+          properties: {
+            poly_IncidentName: "Small",
+            poly_GISAcres: 220,
+            attr_PercentContained: 40,
+            poly_DateCurrent: 1788000000000,
+          },
+        },
+        {
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-121, 40],
+                [-120, 40],
+                [-120, 41],
+                [-121, 40],
+              ],
+            ],
+          },
+          properties: { poly_IncidentName: "Large", poly_GISAcres: 9000 },
+        },
+      ],
+    });
+
+    expect(parsed.features[0].properties.name).toBe("Large");
+    const description = wildfiresOverlay.describe(
+      parsed.features[1].properties,
+    );
+    expect(description.lines[0]).toBe("220 acres, 40% contained");
+  });
+});
+
+describe("bounds helpers", () => {
+  it("measures a polygon and tests overlap and containment", () => {
+    const bounds = featureBounds({
+      type: "Polygon",
+      coordinates: [
+        [
+          [-99, 41],
+          [-98, 41],
+          [-98, 42],
+          [-99, 41],
+        ],
+      ],
+    });
+    expect(bounds).toEqual({ west: -99, south: 41, east: -98, north: 42 });
+    expect(
+      boundsOverlap(bounds!, {
+        west: -98.5,
+        south: 41.5,
+        east: -90,
+        north: 45,
+      }),
+    ).toBe(true);
+    expect(
+      boundsOverlap(bounds!, { west: -80, south: 30, east: -70, north: 35 }),
+    ).toBe(false);
+    expect(featureBounds({ type: "Polygon" })).toBeNull();
+  });
+
+  it("pads a viewport and reports what the padded box covers", () => {
+    const padded = padBounds(
+      { west: -100, south: 30, east: -90, north: 40 },
+      0.5,
+    );
+    expect(padded).toEqual({ west: -105, south: 25, east: -85, north: 45 });
+    expect(
+      boundsContain(padded, { west: -100, south: 30, east: -90, north: 40 }),
+    ).toBe(true);
+    expect(
+      boundsContain(padded, { west: -140, south: 30, east: -90, north: 40 }),
+    ).toBe(false);
+  });
+
+  it("keeps clamped padding inside the world", () => {
+    expect(
+      padBounds({ west: -179, south: -84, east: 179, north: 84 }, 0.5),
+    ).toEqual({
+      west: -180,
+      south: -85,
+      east: 180,
+      north: 85,
+    });
+  });
+
+  it("says how long ago a snapshot was taken", () => {
+    const now = Date.UTC(2026, 7, 30, 12, 0, 0);
+    expect(relativeTime(now - 30_000, now)).toBe("just now");
+    expect(relativeTime(now - 20 * 60_000, now)).toBe("20 min ago");
+    expect(relativeTime(now - 5 * 3_600_000, now)).toBe("5 h ago");
+    expect(relativeTime(now - 4 * 86_400_000, now)).toBe("4 days ago");
+  });
+});

@@ -1,4 +1,5 @@
 import {
+  BellRing,
   CloudSun,
   Crosshair,
   Download,
@@ -22,6 +23,7 @@ import type { ComponentType } from "react";
 
 export type SurfaceId =
   | "search"
+  | "alerts"
   | "map-type"
   | "layers"
   | "videos"
@@ -180,6 +182,12 @@ export function CommandBar({
       <div className="command-spacer" />
 
       <div className="command-group command-group--secondary">
+        <CommandButton
+          icon={BellRing}
+          label="Alerts"
+          active={activeSurface === "alerts"}
+          onClick={() => toggleSurface("alerts")}
+        />
         <CommandButton
           icon={Film}
           label="Videos"

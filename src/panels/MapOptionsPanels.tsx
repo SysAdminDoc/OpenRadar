@@ -4,12 +4,9 @@ import {
   Flame,
   Globe2,
   Map,
-  MountainSnow,
   RadioTower,
   RotateCcw,
-  Satellite,
   Waves,
-  Zap,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
@@ -101,34 +98,16 @@ const LAYER_OPTIONS: Array<{
     icon: BellRing,
   },
   {
-    key: "powerOutages",
-    label: "Power Outages",
-    detail: "Regional outage context",
-    icon: Zap,
-  },
-  {
     key: "earthquakes",
     label: "Earthquakes",
-    detail: "Significant events from the past day",
+    detail: "USGS events above magnitude 2.5 in the past day",
     icon: Waves,
   },
   {
     key: "wildfires",
     label: "Wildfires",
-    detail: "Significant incidents",
+    detail: "NIFC perimeters over 100 acres",
     icon: Flame,
-  },
-  {
-    key: "avalanche",
-    label: "Avalanche",
-    detail: "Forecast zones at 35% opacity",
-    icon: MountainSnow,
-  },
-  {
-    key: "droughts",
-    label: "Droughts",
-    detail: "Current outlook at 40% opacity",
-    icon: Satellite,
   },
   {
     key: "customOverlay",
@@ -166,8 +145,9 @@ export function LayersPanel({ layers, onLayers, onClose }: LayersPanelProps) {
         ))}
       </div>
       <p className="source-note">
-        Layer switches save immediately. Data adapters activate as each source
-        is added.
+        Layer switches save immediately and take effect on the map right away.
+        Alerts come from the NWS, earthquakes from the USGS, and fire perimeters
+        from NIFC.
       </p>
     </PanelShell>
   );
@@ -307,44 +287,10 @@ export function SettingsPanel({
           />
         </label>
         <ToggleSetting
-          label="Storm Centers"
-          detail="Show analyzed storm centers"
-          checked={settings.radar.stormCenters}
-          onChange={(stormCenters) => updateRadar({ stormCenters })}
-        />
-        <ToggleSetting
-          label="Global satellite enhancement"
-          detail="Improve radar context away from station coverage"
-          checked={settings.radar.satelliteEnhancement}
-          onChange={(satelliteEnhancement) =>
-            updateRadar({ satelliteEnhancement })
-          }
-        />
-        <ToggleSetting
-          label="Lightning"
-          detail="Show lightning with flash animation"
-          checked={settings.radar.lightning}
-          onChange={(lightning) => updateRadar({ lightning })}
-        />
-        <ToggleSetting
-          label="Show Flashes"
-          detail="Animate new lightning detections"
-          checked={settings.radar.flashes}
-          onChange={(flashes) => updateRadar({ flashes })}
-        />
-        <ToggleSetting
-          label="Show Markers"
-          detail="Keep lightning markers visible"
-          checked={settings.radar.markers}
-          onChange={(markers) => updateRadar({ markers })}
-        />
-        <ToggleSetting
-          label="Precipitation Classification"
-          detail="Separate rain, mix, and snow where available"
-          checked={settings.radar.precipitationClassification}
-          onChange={(precipitationClassification) =>
-            updateRadar({ precipitationClassification })
-          }
+          label="Show radar"
+          detail="Keep the basemap visible when radar is hidden"
+          checked={settings.radar.enabled}
+          onChange={(enabled) => updateRadar({ enabled })}
         />
       </div>
 
