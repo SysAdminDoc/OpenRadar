@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Six more national grids, decoded here like the rest: how high the storms reach, how much water the column is holding, how hard it is raining right now, how much has fallen in the last hour and the last day, and where the biggest hail has been since this time yesterday.
+- Rotation tracks are drawn correctly for the first time. The grid arrives in thousandths of a reciprocal second and the colours were written as though it were whole ones, so every cell with any rotation in it sat past the end of the scale and the layer was one flat colour. It has a range again.
+
 - Storm relative velocity, which is the product rotation is actually read from. A radar measures only the part of the wind coming at it, so in a sixty knot flow a couplet is buried under the ambient wind and you are guessing. OpenRadar reads what the sweep is moving in off the sweep itself, the way a Velocity Azimuth Display always has, and subtracts it: what is left is the picture as if the whole storm were standing still. It shows what it worked out, in your units, and if you would rather say than have it read, type the speed and direction and it uses yours.
 
 - Settings can be saved to a file and dropped back in. Everything travels: saved views, layers, the watched place, units, the colour table. Drop the file on the Upload panel to put it back, with an Undo on the notification if it was the wrong one. The file is plain readable JSON, and it comes back through the same checks the stored settings do, so a hand-edited one cannot ask for anything the sliders could not.

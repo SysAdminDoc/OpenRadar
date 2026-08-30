@@ -17,16 +17,27 @@ use crate::http;
 use crate::palette;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
-/// Every product on the map keeps one grid live at a time, and the composite
-/// loop wants the next frame as well. Fewer slots than products means every
-/// tile evicts the grid the next tile needs, and one screen re-downloads the
-/// country once per layer.
-const CACHE_CAPACITY: usize = PRODUCTS.len() + 1;
 /// A decoded grid is columns × rows u16, which is fifty megabytes for the
-/// published CONUS domain. Checked when the crate is compiled.
+/// published CONUS domain.
 const GRID_BYTES: usize = 7000 * 3500 * 2;
 const CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
-const _: () = assert!(CACHE_CAPACITY * GRID_BYTES < CACHE_BUDGET_BYTES);
+/// As many grids as half a gigabyte holds, which is ten.
+const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
+/// Every product on the map keeps one grid live at a time, and the composite
+/// loop wants the next frame as well. Fewer slots than products means a tile
+/// can evict the grid the next tile needs and one screen re-downloads the
+/// country, so the cache holds one per product where the memory allows it.
+///
+/// Past that the budget wins. There are more products than slots now, and
+/// somebody who turns on every layer at once will pay for it in downloads
+/// rather than in half a gigabyte of resident grids; nobody has all ten on.
+const CACHE_CAPACITY: usize = if PRODUCTS.len() + 1 < MAX_CACHE_SLOTS {
+    PRODUCTS.len() + 1
+} else {
+    MAX_CACHE_SLOTS
+};
+const _: () = assert!(CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES);
+const _: () = assert!(CACHE_CAPACITY >= 2);
 /// A drawn tile is a few kilobytes, so thousands of them cost less than one
 /// grid. This is what makes a loop replay cheap: the second pass over a frame
 /// never decodes anything.
@@ -107,15 +118,21 @@ const REFLECTIVITY_RAMP: &[(f32, [u8; 3])] = &[
     (75.0, [0xfd, 0xfd, 0xfd]),
 ];
 
-/// Azimuthal shear, in hundredths of a reciprocal second. Anything this strong
-/// is worth looking at, and the top of the ramp is tornadic.
+/// Azimuthal shear, in the units the product is published in: thousandths of a
+/// reciprocal second, per the NSSL product table. Two is worth a look and the
+/// top of the ramp is tornadic.
+///
+/// These stops used to be written as if the grid held reciprocal seconds, which
+/// is a thousand times smaller than what arrives, so every cell with any shear
+/// at all landed past the end of the ramp and the whole layer drew in one
+/// colour.
 const ROTATION_RAMP: &[(f32, [u8; 3])] = &[
-    (0.002, [0x38, 0xbd, 0xf8]),
-    (0.004, [0x4a, 0xde, 0x80]),
-    (0.006, [0xfa, 0xcc, 0x15]),
-    (0.008, [0xfb, 0x92, 0x3c]),
-    (0.010, [0xf4, 0x3f, 0x5e]),
-    (0.014, [0xc0, 0x26, 0xd3]),
+    (2.0, [0x38, 0xbd, 0xf8]),
+    (4.0, [0x4a, 0xde, 0x80]),
+    (6.0, [0xfa, 0xcc, 0x15]),
+    (8.0, [0xfb, 0x92, 0x3c]),
+    (10.0, [0xf4, 0x3f, 0x5e]),
+    (14.0, [0xc0, 0x26, 0xd3]),
 ];
 
 /// Maximum estimated hail size in millimetres, banded the way warnings are:
@@ -140,6 +157,59 @@ const LIGHTNING_RAMP: &[(f32, [u8; 3])] = &[
     (4.00, [0xc0, 0x26, 0xd3]),
 ];
 
+/// How high the eighteen dBZ echo reaches, in kilometres. A summer storm tops
+/// out around twelve; anything past fifteen is a serious updraft.
+const ECHO_TOP_RAMP: &[(f32, [u8; 3])] = &[
+    (3.0, [0x38, 0xbd, 0xf8]),
+    (6.0, [0x4a, 0xde, 0x80]),
+    (9.0, [0xfa, 0xcc, 0x15]),
+    (12.0, [0xfb, 0x92, 0x3c]),
+    (15.0, [0xf4, 0x3f, 0x5e]),
+    (18.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// Vertically integrated liquid, in kilograms per square metre: how much water
+/// the column is holding. Hail shows up here before it reaches the ground.
+const VIL_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, [0x38, 0xbd, 0xf8]),
+    (5.0, [0x4a, 0xde, 0x80]),
+    (12.0, [0xfa, 0xcc, 0x15]),
+    (25.0, [0xfb, 0x92, 0x3c]),
+    (40.0, [0xf4, 0x3f, 0x5e]),
+    (60.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// Rain rate in millimetres an hour. Fifty is a downpour; a hundred is the
+/// sort of rate that floods a street in twenty minutes.
+const PRECIP_RATE_RAMP: &[(f32, [u8; 3])] = &[
+    (0.2, [0x38, 0xbd, 0xf8]),
+    (1.0, [0x4a, 0xde, 0x80]),
+    (5.0, [0xfa, 0xcc, 0x15]),
+    (15.0, [0xfb, 0x92, 0x3c]),
+    (35.0, [0xf4, 0x3f, 0x5e]),
+    (75.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// An hour of rain, in millimetres.
+const QPE_HOUR_RAMP: &[(f32, [u8; 3])] = &[
+    (0.5, [0x38, 0xbd, 0xf8]),
+    (2.0, [0x4a, 0xde, 0x80]),
+    (6.0, [0xfa, 0xcc, 0x15]),
+    (15.0, [0xfb, 0x92, 0x3c]),
+    (30.0, [0xf4, 0x3f, 0x5e]),
+    (60.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// A day of rain, in millimetres. A hundred is a flood watch in most places.
+const QPE_DAY_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, [0x38, 0xbd, 0xf8]),
+    (10.0, [0x4a, 0xde, 0x80]),
+    (25.0, [0xfa, 0xcc, 0x15]),
+    (50.0, [0xfb, 0x92, 0x3c]),
+    (100.0, [0xf4, 0x3f, 0x5e]),
+    (200.0, [0xc0, 0x26, 0xd3]),
+];
+
 pub const PRODUCTS: &[MrmsProduct] = &[
     MrmsProduct {
         id: "composite",
@@ -154,15 +224,69 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         id: "rotation",
         folder: "RotationTrack60min_00.50",
         label: "Rotation tracks, past hour",
-        unit: "1/s",
+        unit: "0.001/s",
         ramp: ROTATION_RAMP,
-        floor: 0.002,
+        floor: 2.0,
         sampling: Sampling::Cells,
     },
     MrmsProduct {
         id: "mesh",
         folder: "MESH_00.50",
         label: "Maximum estimated hail size",
+        unit: "mm",
+        ramp: MESH_RAMP,
+        floor: 6.0,
+        sampling: Sampling::Cells,
+    },
+    MrmsProduct {
+        id: "echo-tops",
+        folder: "EchoTop_18_00.50",
+        label: "Echo tops",
+        unit: "km",
+        ramp: ECHO_TOP_RAMP,
+        floor: 3.0,
+        sampling: Sampling::Nearest,
+    },
+    MrmsProduct {
+        id: "vil",
+        folder: "VIL_00.50",
+        label: "Vertically integrated liquid",
+        unit: "kg/m2",
+        ramp: VIL_RAMP,
+        floor: 1.0,
+        sampling: Sampling::Nearest,
+    },
+    MrmsProduct {
+        id: "precip-rate",
+        folder: "PrecipRate_00.00",
+        label: "Rain rate",
+        unit: "mm/h",
+        ramp: PRECIP_RATE_RAMP,
+        floor: 0.2,
+        sampling: Sampling::Nearest,
+    },
+    MrmsProduct {
+        id: "qpe-hour",
+        folder: "RadarOnly_QPE_01H_00.00",
+        label: "Rain in the past hour",
+        unit: "mm",
+        ramp: QPE_HOUR_RAMP,
+        floor: 0.5,
+        sampling: Sampling::Nearest,
+    },
+    MrmsProduct {
+        id: "qpe-day",
+        folder: "RadarOnly_QPE_24H_00.00",
+        label: "Rain in the past day",
+        unit: "mm",
+        ramp: QPE_DAY_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Nearest,
+    },
+    MrmsProduct {
+        id: "hail-swath",
+        folder: "MESH_Max_1440min_00.50",
+        label: "Largest hail in the past day",
         unit: "mm",
         ramp: MESH_RAMP,
         floor: 6.0,
@@ -1341,6 +1465,84 @@ mod tests {
         assert_eq!(again, tiles[0]);
     }
 
+    /// Every product this offers has to actually be there and actually decode.
+    /// A folder name is a guess until the bucket answers, a ramp is a guess
+    /// until real values land on it, and a floor set too high draws nothing at
+    /// all while looking like a quiet day.
+    #[test]
+    #[ignore = "fetches a live grid from the MRMS archive"]
+    fn every_product_decodes_and_lands_on_its_own_ramp() {
+        let _turn = live_test();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        for product in PRODUCTS {
+            clear_caches();
+            let frames = runtime
+                .block_on(mrms_frames(product.id.into(), 1))
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} publishes nothing at {}: {error}",
+                        product.id, product.folder
+                    )
+                });
+            let key = frames
+                .last()
+                .unwrap_or_else(|| {
+                    panic!("{} has no recent grid in {}", product.id, product.folder)
+                })
+                .key
+                .clone();
+            runtime
+                .block_on(grid_for(&key))
+                .unwrap_or_else(|error| panic!("{} did not decode: {error}", product.id));
+
+            let cache = CACHE.lock().expect("the cache");
+            let grid = &cache
+                .iter()
+                .find(|held| held.key == key)
+                .expect("the grid is cached")
+                .grid;
+
+            // What the grid actually holds, against what the ramp expects.
+            let mut above_floor = 0usize;
+            let mut peak = f32::MIN;
+            for row in (0..grid.rows).step_by(7) {
+                for column in (0..grid.columns).step_by(7) {
+                    let value = grid.value(row, column);
+                    if !value.is_finite() {
+                        continue;
+                    }
+                    peak = peak.max(value);
+                    if value >= product.floor {
+                        above_floor += 1;
+                    }
+                }
+            }
+            let top = product.ramp[product.ramp.len() - 1].0;
+            println!(
+                "{}: {above_floor} sampled cells over the {} floor, peak {peak:.2} {}, ramp ends at {top}",
+                product.id, product.floor, product.unit
+            );
+
+            // The ramp has to be in the same world as the data. An order of
+            // magnitude either way and the map is one flat colour or nothing.
+            assert!(
+                peak.is_finite(),
+                "{} decoded to nothing readable",
+                product.id
+            );
+            assert!(
+                peak < top * 10.0,
+                "{}: peak {peak} is far past the {top} the ramp ends at",
+                product.id
+            );
+            drop(cache);
+        }
+    }
+
     /// A five-minute lightning grid has a couple of hundred live cells in
     /// twenty-four million. Asking each pixel what is under its centre draws an
     /// empty map, so the sparse products walk the cells instead. Live, because
@@ -1708,18 +1910,19 @@ mod tests {
     /// detail: a five-minute lightning grid sampled per pixel draws an empty
     /// map, and a full reflectivity field walked cell by cell is slower for no
     /// gain.
-    /// Every product on the map keeps one grid live. Fewer slots than that and
-    /// each tile evicts the grid the next tile wants, so one screen downloads
-    /// and decodes the whole country once per layer.
+    /// Every product on the map wants one grid live, and a slot each is what
+    /// keeps a screen from downloading the country once per layer. Half a
+    /// gigabyte only holds ten of them, so past that the budget wins and the
+    /// cache is as large as the memory allows rather than as large as the
+    /// product list. That is a real limit, not a rounding: a decoded CONUS grid
+    /// is fifty megabytes.
+    ///
+    /// The arithmetic itself is held by the `const _: () = assert!(...)` guards
+    /// beside the constants, which fail the build rather than a test run. What
+    /// is left to watch here is the eviction: that the cache drops the oldest
+    /// grid instead of growing past the budget it was given.
     #[test]
-    fn the_cache_holds_every_product_at_once() {
-        assert!(
-            CACHE_CAPACITY > PRODUCTS.len(),
-            "{} slots for {} products leaves nothing for the next frame",
-            CACHE_CAPACITY,
-            PRODUCTS.len()
-        );
-
+    fn the_cache_evicts_rather_than_growing_past_its_budget() {
         let _turn = live_test();
         clear_caches();
         let grid = || Grid {
@@ -1747,17 +1950,15 @@ mod tests {
             );
         }
 
-        // Past capacity the oldest goes, which is the point of the spare slot:
-        // a single-site sweep can sit beside every MRMS product without
-        // costing one of them its grid.
-        for extra in 0..(CACHE_CAPACITY - PRODUCTS.len() + 1) {
+        // Past capacity the oldest goes rather than the cache growing.
+        for extra in 0..=CACHE_CAPACITY {
             remember_grid(&format!("extra {extra}"), grid());
         }
         assert!(
             !is_cached(PRODUCTS[0].id),
             "the cache grew past its budget instead of evicting"
         );
-        assert!(is_cached("extra 0"));
+        assert!(is_cached(&format!("extra {CACHE_CAPACITY}")));
         clear_caches();
     }
 
@@ -1767,6 +1968,16 @@ mod tests {
             ("composite", Sampling::Nearest),
             ("rotation", Sampling::Cells),
             ("mesh", Sampling::Cells),
+            // The fields that cover the map are sampled per pixel; the ones
+            // that are scattered single cells are walked, because a per-pixel
+            // pass over a few hundred live cells in twenty-four million draws
+            // an empty map.
+            ("echo-tops", Sampling::Nearest),
+            ("vil", Sampling::Nearest),
+            ("precip-rate", Sampling::Nearest),
+            ("qpe-hour", Sampling::Nearest),
+            ("qpe-day", Sampling::Nearest),
+            ("hail-swath", Sampling::Cells),
             ("lightning", Sampling::Cells),
         ];
         assert_eq!(expected.len(), PRODUCTS.len(), "a product has no verdict");

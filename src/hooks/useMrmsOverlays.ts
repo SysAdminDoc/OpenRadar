@@ -21,7 +21,13 @@ export const MRMS_LAYERS: Array<{
 }> = [
   { layer: "rotationTracks", product: "rotation" },
   { layer: "hail", product: "mesh" },
+  { layer: "hailSwath", product: "hail-swath" },
   { layer: "lightningDensity", product: "lightning" },
+  { layer: "echoTops", product: "echo-tops" },
+  { layer: "vil", product: "vil" },
+  { layer: "precipRate", product: "precip-rate" },
+  { layer: "qpeHour", product: "qpe-hour" },
+  { layer: "qpeDay", product: "qpe-day" },
 ];
 
 export interface MrmsLayer {

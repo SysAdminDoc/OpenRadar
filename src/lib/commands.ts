@@ -100,6 +100,42 @@ const LAYER_COMMANDS: Array<{
     keywords: ["mesh", "hail", "stones", "size", "severe"],
   },
   {
+    layer: "hailSwath",
+    key: "layer.hailSwath",
+    extra: "keywords.hailSwath",
+    keywords: ["swath", "hail", "track", "yesterday", "past day"],
+  },
+  {
+    layer: "echoTops",
+    key: "layer.echoTops",
+    extra: "keywords.echoTops",
+    keywords: ["tops", "echo", "height", "eet", "updraft"],
+  },
+  {
+    layer: "vil",
+    key: "layer.vil",
+    extra: "keywords.vil",
+    keywords: ["vil", "liquid", "water", "column", "integrated"],
+  },
+  {
+    layer: "precipRate",
+    key: "layer.precipRate",
+    extra: "keywords.precipRate",
+    keywords: ["rate", "rain", "intensity", "how hard"],
+  },
+  {
+    layer: "qpeHour",
+    key: "layer.qpeHour",
+    extra: "keywords.qpeHour",
+    keywords: ["qpe", "accumulation", "hour", "how much"],
+  },
+  {
+    layer: "qpeDay",
+    key: "layer.qpeDay",
+    extra: "keywords.qpeDay",
+    keywords: ["qpe", "accumulation", "day", "24", "how much"],
+  },
+  {
     layer: "lightningDensity",
     key: "layer.lightningDensity",
     extra: "keywords.lightningDensity",
