@@ -37,6 +37,8 @@ export interface RadarSettings {
   singleSite: boolean;
   /** Unfold velocity past the radar's folding limit before drawing it. */
   dealias: boolean;
+  /** A motion the viewer gave, rather than one read off the sweep. */
+  stormMotion: { speedMs: number; fromDegrees: number } | null;
   /** The site to hold, or null to follow whichever one the view is over. */
   station: string | null;
   product: Level2ProductId;
@@ -125,6 +127,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     futureRadar: false,
     singleSite: true,
     dealias: true,
+    stormMotion: null,
     station: null,
     product: "reflectivity",
     tilt: 0,
@@ -308,6 +311,21 @@ function channels(color: unknown): string | null {
     .join(" ");
 }
 
+/** A hand-typed motion, held to something a storm could actually do. */
+function normalizeStormMotion(
+  value: unknown,
+): { speedMs: number; fromDegrees: number } | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const speedMs = Number(record.speedMs);
+  const fromDegrees = Number(record.fromDegrees);
+  if (!Number.isFinite(speedMs) || !Number.isFinite(fromDegrees)) return null;
+  return {
+    speedMs: Math.min(80, Math.max(0, speedMs)),
+    fromDegrees: ((fromDegrees % 360) + 360) % 360,
+  };
+}
+
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -355,6 +373,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ),
       singleSite: bool(radar.singleSite, DEFAULT_SETTINGS.radar.singleSite),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
+      stormMotion: normalizeStormMotion(radar.stormMotion),
       station:
         typeof radar.station === "string" && /^[A-Za-z]{4}$/.test(radar.station)
           ? radar.station.toUpperCase()

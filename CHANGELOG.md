@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Storm relative velocity, which is the product rotation is actually read from. A radar measures only the part of the wind coming at it, so in a sixty knot flow a couplet is buried under the ambient wind and you are guessing. OpenRadar reads what the sweep is moving in off the sweep itself, the way a Velocity Azimuth Display always has, and subtracts it: what is left is the picture as if the whole storm were standing still. It shows what it worked out, in your units, and if you would rather say than have it read, type the speed and direction and it uses yours.
+
 - Settings can be saved to a file and dropped back in. Everything travels: saved views, layers, the watched place, units, the colour table. Drop the file on the Upload panel to put it back, with an Undo on the notification if it was the wrong one. The file is plain readable JSON, and it comes back through the same checks the stored settings do, so a hand-edited one cannot ask for anything the sliders could not.
 
 - Units, clock and text size are yours to pick. Metres and Celsius throughout, or feet and Fahrenheit; the forecast is asked for in the units it will be read in rather than converted after the fact, and the word beside a number always matches the number. The clock reads UTC if you want it, which is what every weather product is stamped in, and it says so with a Z rather than leaving you to wonder. Text size goes to 115 or 130 percent and takes the whole workspace with it, panels and all.

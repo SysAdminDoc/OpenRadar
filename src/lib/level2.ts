@@ -9,6 +9,11 @@ export const SWEEP_REFRESH_MS = 2 * 60_000;
 export const LEVEL2_PRODUCTS = [
   { id: "reflectivity", key: "product.reflectivity", unit: "dBZ" },
   { id: "velocity", key: "product.velocity", unit: "m/s" },
+  {
+    id: "storm-relative-velocity",
+    key: "product.stormRelative",
+    unit: "m/s",
+  },
   { id: "spectrum-width", key: "product.spectrumWidth", unit: "m/s" },
   {
     id: "differential-reflectivity",
@@ -38,6 +43,14 @@ export function isLevel2Product(value: unknown): value is Level2ProductId {
   return LEVEL2_PRODUCTS.some((product) => product.id === value);
 }
 
+/** The motion subtracted from a storm relative sweep. */
+export interface StormMotion {
+  speedMs: number;
+  fromDegrees: number;
+  /** True when the viewer gave it rather than the sweep being read for it. */
+  manual: boolean;
+}
+
 export interface SweepImage {
   station: string;
   siteName: string;
@@ -47,6 +60,8 @@ export interface SweepImage {
   paletteApplied: boolean;
   /** True when the velocity drawn here has been unfolded. */
   dealiased: boolean;
+  /** What was taken out to make a storm relative sweep, when one was. */
+  stormMotion: StormMotion | null;
   product: string;
   unit: string;
   elevationDegrees: number;
@@ -89,6 +104,7 @@ export async function fetchSweep(
   product: Level2ProductId,
   tilt: number,
   dealias: boolean,
+  motion: [number, number] | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -96,6 +112,7 @@ export async function fetchSweep(
     product,
     tilt,
     dealias,
+    motion,
   });
 }
 

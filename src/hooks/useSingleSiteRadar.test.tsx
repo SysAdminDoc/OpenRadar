@@ -39,6 +39,7 @@ function sweepFor(
     productId: product,
     paletteApplied: false,
     dealiased: false,
+    stormMotion: null,
     product: product === "velocity" ? "Velocity" : "Reflectivity",
     unit: product === "velocity" ? "m/s" : "dBZ",
     elevationDegrees: [0.48, 0.87, 1.31][tilt] ?? 0.48,

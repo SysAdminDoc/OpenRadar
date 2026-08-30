@@ -10,6 +10,7 @@ mod lightning;
 mod mrms;
 mod palette;
 mod tiles;
+mod vad;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};

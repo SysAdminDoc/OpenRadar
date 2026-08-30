@@ -8,7 +8,18 @@ import {
 } from "../lib/level2";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { RadarSettings } from "../lib/settings";
+import { speedUnit } from "../lib/units";
 import { translate, useT } from "../i18n";
+
+/**
+ * A storm motion in the reader's own units, since it is a wind like any other.
+ * The sweep carries it in metres a second, which is what the radar works in.
+ */
+function formatSpeed(metresPerSecond: number): string {
+  const perHour =
+    speedUnit() === "mph" ? metresPerSecond * 2.23694 : metresPerSecond * 3.6;
+  return `${Math.round(perHour)} ${speedUnit()}`;
+}
 
 interface RadarProductPanelProps {
   radar: RadarSettings;
@@ -190,6 +201,90 @@ export function RadarProductPanel({
                   )}
                 </select>
               </label>
+
+              {radar.product === "storm-relative-velocity" ? (
+                <div className="settings-section" data-storm-motion>
+                  <div className="settings-section__title">
+                    <span>{t("radar.stormMotion")}</span>
+                    <small>
+                      {radar.stormMotion
+                        ? t("radar.stormMotionGiven", {
+                            speed: formatSpeed(radar.stormMotion.speedMs),
+                            from: Math.round(radar.stormMotion.fromDegrees),
+                          })
+                        : sweep?.stormMotion
+                          ? t("radar.stormMotionRead", {
+                              speed: formatSpeed(sweep.stormMotion.speedMs),
+                              from: Math.round(sweep.stormMotion.fromDegrees),
+                            })
+                          : t("radar.stormMotionNone")}
+                    </small>
+                  </div>
+                  <label className="select-row">
+                    <span>{t("radar.stormMotionSpeed")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={80}
+                      step={1}
+                      value={Math.round(
+                        radar.stormMotion?.speedMs ??
+                          sweep?.stormMotion?.speedMs ??
+                          0,
+                      )}
+                      aria-label={t("radar.stormMotionSpeed")}
+                      onChange={(event) =>
+                        onRadar({
+                          ...radar,
+                          stormMotion: {
+                            speedMs: Number(event.target.value),
+                            fromDegrees:
+                              radar.stormMotion?.fromDegrees ??
+                              sweep?.stormMotion?.fromDegrees ??
+                              0,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="select-row">
+                    <span>{t("radar.stormMotionFrom")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={359}
+                      step={5}
+                      value={Math.round(
+                        radar.stormMotion?.fromDegrees ??
+                          sweep?.stormMotion?.fromDegrees ??
+                          0,
+                      )}
+                      aria-label={t("radar.stormMotionFrom")}
+                      onChange={(event) =>
+                        onRadar({
+                          ...radar,
+                          stormMotion: {
+                            speedMs:
+                              radar.stormMotion?.speedMs ??
+                              sweep?.stormMotion?.speedMs ??
+                              0,
+                            fromDegrees: Number(event.target.value),
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  {radar.stormMotion ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => onRadar({ ...radar, stormMotion: null })}
+                    >
+                      {t("radar.stormMotionClear")}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               <label className="select-row">
                 <span>{t("radar.site")}</span>
