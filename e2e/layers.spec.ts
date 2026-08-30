@@ -383,3 +383,63 @@ test("switching a kind of alert off takes it out of what is drawn", async ({
   await page.getByRole("button", { name: "Alerts", exact: true }).click();
   await expect(page.getByText("Tornado Warning")).toBeVisible();
 });
+
+test("lets the reader say which overlay sits on top, but not over a warning", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const stackNow = async () =>
+    (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  // More than one movable overlay, or there is no order to arrange. Warnings
+  // are on by default and are not movable at all.
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Earthquakes/ })
+    .check();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Wildfires/ })
+    .check();
+
+  const before = await stackNow();
+  expect(before.indexOf("openradar-overlay-tropical-cone")).toBeLessThan(
+    before.indexOf("openradar-overlay-alerts-fill"),
+  );
+
+  // The list is shown top first, so the first row is what is currently over
+  // everything else in the movable band.
+  const rows = page.locator(".layer-order li");
+  await expect(rows.first()).toBeVisible();
+  const topmost = await rows.first().getAttribute("data-overlay");
+  expect(topmost).toBeTruthy();
+
+  // Push the bottom one all the way up.
+  const bottom = rows.last();
+  const moving = await bottom.getAttribute("data-overlay");
+  const count = await rows.count();
+  for (let step = 0; step < count - 1; step += 1) {
+    await page
+      .locator(`.layer-order li[data-overlay="${moving}"] button`)
+      .first()
+      .click();
+  }
+  await expect(rows.first()).toHaveAttribute("data-overlay", String(moving));
+
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  // The map followed, and the warnings are still on top of everything.
+  const after = await stackNow();
+  const alerts = after.indexOf("openradar-overlay-alerts-fill");
+  expect(alerts).toBeGreaterThan(-1);
+  for (const id of after) {
+    if (id.startsWith("openradar-overlay-") && !id.includes("alerts")) {
+      expect(after.indexOf(id), id).toBeLessThan(alerts);
+    }
+  }
+  // And the order of the two that moved actually changed.
+  expect(after.join(" ")).not.toBe(before.join(" "));
+});

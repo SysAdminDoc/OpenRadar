@@ -46,6 +46,15 @@ export const es: Catalogue = {
   "alertType.fire": "Incendio",
   "alertType.heat": "Calor",
   "alertType.other": "Todo lo demás",
+  "layers.order": "Qué capa queda encima",
+  "layers.orderDetail":
+    "Los avisos siempre quedan por encima, porque un aviso es alguien diciéndote que te resguardes",
+  "layers.moveUp": "Subir {layer}",
+  "layers.moveDown": "Bajar {layer}",
+  "layers.opacity": "Opacidad de las capas",
+  "layers.opacityDetail":
+    "Cada una por su cuenta, para atenuar una capa en vez de apagarla",
+  "layers.opacityFor": "{layer}, {percent}% de opacidad",
   "alerts.kinds": "Tipos de aviso",
   "alerts.kindsDetail": "Al desmarcar uno se quita del mapa y de esta lista",
   "alerts.sound": "Reproducir un sonido",

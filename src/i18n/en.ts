@@ -47,6 +47,15 @@ export const en = {
   "alertType.fire": "Fire",
   "alertType.heat": "Heat",
   "alertType.other": "Everything else",
+  "layers.order": "Which overlay sits on top",
+  "layers.orderDetail":
+    "Warnings always stay above the rest, because a warning is somebody telling you to take cover",
+  "layers.moveUp": "Move {layer} up",
+  "layers.moveDown": "Move {layer} down",
+  "layers.opacity": "How solid the overlays are",
+  "layers.opacityDetail":
+    "Each one on its own, so a layer can be faded rather than switched off",
+  "layers.opacityFor": "{layer}, {percent}% solid",
   "alerts.kinds": "Kinds of alert",
   "alerts.kindsDetail":
     "Unchecking one takes it off the map and out of this list",

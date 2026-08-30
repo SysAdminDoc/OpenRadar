@@ -438,6 +438,8 @@ export default function App() {
         mrmsLayers={mrms.layers}
         cells={stormCells.features}
         probSevere={probSevere.features}
+        overlayOpacity={settings.overlayOpacity}
+        overlayOrder={settings.overlayOrder}
         flashes={lightning.points}
         flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
         flashClock={clock}
@@ -500,6 +502,12 @@ export default function App() {
         onClearPalette={clearPalette}
         onAlertTypes={(alertTypes) =>
           applySettings({ ...settingsRef.current, alertTypes })
+        }
+        onOverlayOpacity={(overlayOpacity) =>
+          applySettings({ ...settingsRef.current, overlayOpacity })
+        }
+        onOverlayOrder={(overlayOrder) =>
+          applySettings({ ...settingsRef.current, overlayOrder })
         }
         onSurgeCategory={(surgeCategory) =>
           applySettings({ ...settingsRef.current, surgeCategory })
