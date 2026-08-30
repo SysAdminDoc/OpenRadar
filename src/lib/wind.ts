@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "./settings";
+import { translate } from "../i18n";
 
 export interface WindField {
   columns: number;
@@ -34,12 +35,14 @@ export function windLabel(field: WindField, nowMs: number): string {
   const init = Date.parse(field.init);
   const hour = Number.isFinite(init)
     ? `${String(new Date(init).getUTCHours()).padStart(2, "0")}Z`
-    : "unknown";
+    : translate("wind.unknownHour");
   const age = Number.isFinite(init)
     ? Math.max(0, Math.floor((nowMs - init) / 3_600_000))
     : 0;
-  const lead = field.leadHours ? ` +${field.leadHours} h` : "";
-  return `GFS ${hour}${lead} · ${age} h old`;
+  const lead = field.leadHours
+    ? translate("wind.lead", { hours: field.leadHours })
+    : "";
+  return translate("wind.label", { hour, lead, age });
 }
 
 /**

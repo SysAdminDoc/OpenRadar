@@ -9,6 +9,7 @@ import {
   type WatchAlert,
   type WatchSettings,
 } from "../lib/watch";
+import { translate } from "../i18n";
 
 /** Often enough to matter for a warning, rarely enough to be a good citizen. */
 const POLL_MS = 45_000;
@@ -92,7 +93,9 @@ export function useAlertWatch(
         }
         log.warn(
           "watch",
-          failure instanceof Error ? failure.message : "The watch check failed",
+          failure instanceof Error
+            ? failure.message
+            : translate("watch.failed"),
         );
       } finally {
         checkingRef.current = false;

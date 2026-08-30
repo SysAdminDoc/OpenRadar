@@ -1,6 +1,7 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
 import { parsePalette, type Palette } from "./palette";
+import { isLanguage, type LanguageId } from "../i18n";
 
 export const APP_VERSION = "0.1.0";
 
@@ -73,6 +74,8 @@ export interface PresetState {
 export interface AppSettings {
   schemaVersion: 2;
   theme: ThemeMode;
+  /** Which language the workspace is written in. */
+  language: LanguageId;
   projection: ProjectionMode;
   mapStyle: MapStyleId;
   camera: CameraState;
@@ -87,6 +90,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: 2,
   theme: "dark",
+  language: "en",
   projection: "mercator",
   mapStyle: "dark",
   camera: {
@@ -298,6 +302,9 @@ export function normalizeSettings(value: unknown): AppSettings {
   return {
     schemaVersion: 2,
     theme: raw.theme === "light" ? "light" : "dark",
+    // A language from a build that had one this build does not falls back to
+    // English rather than painting the screen with missing keys.
+    language: isLanguage(raw.language) ? raw.language : "en",
     projection: raw.projection === "globe" ? "globe" : "mercator",
     mapStyle: isMapStyle(raw.mapStyle)
       ? raw.mapStyle

@@ -2,6 +2,7 @@ import { LoaderCircle, MapPin, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { searchPlaces, type PlaceResult } from "../lib/weather";
 import { PanelShell } from "../components/PanelShell";
+import { useT } from "../i18n";
 
 interface SearchPanelProps {
   onClose: () => void;
@@ -9,6 +10,7 @@ interface SearchPanelProps {
 }
 
 export function SearchPanel({ onClose, onSelect }: SearchPanelProps) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -42,8 +44,8 @@ export function SearchPanel({ onClose, onSelect }: SearchPanelProps) {
 
   return (
     <PanelShell
-      eyebrow="Find a place"
-      title="Search"
+      eyebrow={t("search.eyebrow")}
+      title={t("search.title")}
       onClose={onClose}
       className="surface-panel--left"
     >
@@ -60,17 +62,15 @@ export function SearchPanel({ onClose, onSelect }: SearchPanelProps) {
               setStatus("idle");
             }
           }}
-          placeholder="City, region, or postal code"
-          aria-label="Search for a place"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.label")}
         />
         {status === "loading" ? (
           <LoaderCircle className="spin" size={17} />
         ) : null}
       </label>
       {status === "error" ? (
-        <p className="inline-error">
-          Place search is unavailable. The map stays usable.
-        </p>
+        <p className="inline-error">{t("search.unavailable")}</p>
       ) : null}
       <div className="result-list">
         {results.map((place) => (
@@ -92,10 +92,10 @@ export function SearchPanel({ onClose, onSelect }: SearchPanelProps) {
         {query.trim().length >= 2 &&
         status === "idle" &&
         results.length === 0 ? (
-          <p className="empty-copy">No matching places found.</p>
+          <p className="empty-copy">{t("search.none")}</p>
         ) : null}
       </div>
-      <p className="source-note">Location search by Open-Meteo and GeoNames.</p>
+      <p className="source-note">{t("search.note")}</p>
     </PanelShell>
   );
 }

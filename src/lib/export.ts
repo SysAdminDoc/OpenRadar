@@ -1,3 +1,5 @@
+import { translate } from "../i18n";
+
 export interface ExportCaption {
   /** Frame time, source name, and anything else that names the picture. */
   lines: string[];
@@ -27,7 +29,7 @@ export function drawFrame(
   caption: ExportCaption,
 ): void {
   const context = target.getContext("2d");
-  if (!context) throw new Error("This display cannot render an export.");
+  if (!context) throw new Error(translate("export.noCanvas"));
 
   context.drawImage(source, 0, 0, target.width, target.height);
 
@@ -76,7 +78,7 @@ export async function exportStill(
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/png"),
   );
-  if (!blob) throw new Error("The image could not be encoded.");
+  if (!blob) throw new Error(translate("export.notEncoded"));
   return blob;
 }
 
@@ -99,7 +101,7 @@ function pickMimeType(): string {
   ]) {
     if (MediaRecorder.isTypeSupported(candidate)) return candidate;
   }
-  throw new Error("This build cannot record a video.");
+  throw new Error(translate("export.noVideo"));
 }
 
 /**
@@ -115,7 +117,7 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
     frameDurationMs = 400,
     onProgress,
   } = options;
-  if (frameCount < 1) throw new Error("There are no frames to record.");
+  if (frameCount < 1) throw new Error(translate("export.noFrames"));
 
   const canvas = exportCanvas(source);
   const stream = canvas.captureStream(0);
@@ -128,7 +130,7 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
     // Without this the stream never emits a frame and the file comes out as
     // headers with nothing in them.
     if (typeof track?.requestFrame !== "function") {
-      throw new Error("This build cannot record a video.");
+      throw new Error(translate("export.noVideo"));
     }
 
     const recorder = new MediaRecorder(stream, {
@@ -164,10 +166,10 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
   }
 
   if (blob.size > MAX_LOOP_BYTES) {
-    throw new Error("The recording came out larger than 20 MB.");
+    throw new Error(translate("export.tooLarge"));
   }
   if (blob.size < MIN_LOOP_BYTES) {
-    throw new Error("The recording came out empty.");
+    throw new Error(translate("export.empty"));
   }
   return blob;
 }

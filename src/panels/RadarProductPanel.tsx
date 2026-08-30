@@ -8,6 +8,7 @@ import {
 } from "../lib/level2";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { RadarSettings } from "../lib/settings";
+import { translate, useT } from "../i18n";
 
 interface RadarProductPanelProps {
   radar: RadarSettings;
@@ -20,8 +21,8 @@ interface RadarProductPanelProps {
 }
 
 function ageLabel(minutes: number): string {
-  if (minutes < 1) return "just in";
-  return `${minutes} min old`;
+  if (minutes < 1) return translate("radar.justIn");
+  return translate("radar.minutesOld", { count: minutes });
 }
 
 export function RadarProductPanel({
@@ -31,12 +32,13 @@ export function RadarProductPanel({
   onRadar,
   onClose,
 }: RadarProductPanelProps) {
+  const t = useT();
   const sweep = singleSite?.sweep ?? null;
   const tilts = sweep?.tilts ?? [];
   return (
     <PanelShell
-      eyebrow="Radar product"
-      title="Composite Radar"
+      eyebrow={t("radar.eyebrow")}
+      title={t("radar.title")}
       onClose={onClose}
       className="surface-panel--product"
     >
@@ -48,8 +50,8 @@ export function RadarProductPanel({
       >
         <CloudRain size={21} />
         <span>
-          <strong>Composite reflectivity</strong>
-          <small>Two-hour loop from the active source</small>
+          <strong>{t("radar.composite")}</strong>
+          <small>{t("radar.compositeDetail")}</small>
         </span>
         <Check size={17} />
       </button>
@@ -58,28 +60,28 @@ export function RadarProductPanel({
           <Eye size={17} />
           <span>
             <strong>{Math.round(radar.opacity * 100)}%</strong>
-            <small>Opacity</small>
+            <small>{t("radar.opacity")}</small>
           </span>
         </div>
         <div>
           <Gauge size={17} />
           <span>
             <strong>{radar.animationSpeed.toFixed(1)}</strong>
-            <small>Speed</small>
+            <small>{t("radar.speed")}</small>
           </span>
         </div>
         <div>
           <RadioTower size={17} />
           <span>
-            <strong>{radar.loopMinutes} min</strong>
-            <small>History</small>
+            <strong>{t("radar.minutes", { count: radar.loopMinutes })}</strong>
+            <small>{t("radar.history")}</small>
           </span>
         </div>
       </div>
       <label className="toggle-row toggle-row--plain">
         <span>
-          <strong>Show radar</strong>
-          <small>Keep the basemap visible when radar is hidden</small>
+          <strong>{t("radar.show")}</strong>
+          <small>{t("radar.showDetail")}</small>
         </span>
         <input
           type="checkbox"
@@ -94,10 +96,9 @@ export function RadarProductPanel({
         <>
           <label className="toggle-row toggle-row--plain">
             <span>
-              <strong>Single site up close</strong>
+              <strong>{t("radar.singleSite")}</strong>
               <small>
-                Past zoom {SINGLE_SITE_MIN_ZOOM} the nearest NEXRAD site's own
-                Level II sweep replaces the national mosaic
+                {t("radar.singleSiteDetail", { zoom: SINGLE_SITE_MIN_ZOOM })}
               </small>
             </span>
             <input
@@ -119,17 +120,25 @@ export function RadarProductPanel({
                 {singleSite.error
                   ? singleSite.error
                   : sweep
-                    ? `${sweep.station} · ${sweep.siteName} · ${sweep.product} at ${sweep.elevationDegrees.toFixed(2)}° · ${ageLabel(sweepAgeMinutes(sweep, clock))}`
+                    ? t("radar.sweepLine", {
+                        station: sweep.station,
+                        site: sweep.siteName,
+                        product: sweep.product,
+                        tilt: sweep.elevationDegrees.toFixed(2),
+                        age: ageLabel(sweepAgeMinutes(sweep, clock)),
+                      })
                     : singleSite.loading
-                      ? `Reading the latest volume from ${singleSite.station ?? "the nearest site"}.`
-                      : `Zoom past ${SINGLE_SITE_MIN_ZOOM} over the United States to bring a site in.`}
+                      ? t("radar.reading", {
+                          station: singleSite.station ?? t("radar.nearestSite"),
+                        })
+                      : t("radar.zoomIn", { zoom: SINGLE_SITE_MIN_ZOOM })}
               </p>
 
               <label className="select-row">
-                <span>Product</span>
+                <span>{t("radar.product")}</span>
                 <select
                   value={radar.product}
-                  aria-label="Level II product"
+                  aria-label={t("radar.productLabel")}
                   onChange={(event) =>
                     onRadar({
                       ...radar,
@@ -139,17 +148,17 @@ export function RadarProductPanel({
                 >
                   {LEVEL2_PRODUCTS.map((product) => (
                     <option key={product.id} value={product.id}>
-                      {product.label}
+                      {t(product.key)}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label className="select-row">
-                <span>Tilt</span>
+                <span>{t("radar.tilt")}</span>
                 <select
                   value={Math.min(radar.tilt, Math.max(0, tilts.length - 1))}
-                  aria-label="Level II tilt"
+                  aria-label={t("radar.tiltLabel")}
                   disabled={!tilts.length}
                   onChange={(event) =>
                     onRadar({ ...radar, tilt: Number(event.target.value) })
@@ -168,17 +177,19 @@ export function RadarProductPanel({
               </label>
 
               <label className="select-row">
-                <span>Site</span>
+                <span>{t("radar.site")}</span>
                 <select
                   value={radar.station ?? ""}
-                  aria-label="Radar site"
+                  aria-label={t("radar.siteLabel")}
                   onChange={(event) =>
                     onRadar({ ...radar, station: event.target.value || null })
                   }
                 >
-                  <option value="">Follow the map</option>
+                  <option value="">{t("radar.followMap")}</option>
                   {sweep ? (
-                    <option value={sweep.station}>Hold {sweep.station}</option>
+                    <option value={sweep.station}>
+                      {t("radar.hold", { station: sweep.station })}
+                    </option>
                   ) : null}
                 </select>
               </label>
@@ -189,7 +200,7 @@ export function RadarProductPanel({
 
       <label className="range-row">
         <span>
-          <strong>Opacity</strong>
+          <strong>{t("radar.opacity")}</strong>
           <output>{Math.round(radar.opacity * 100)}%</output>
         </span>
         <input
@@ -197,7 +208,7 @@ export function RadarProductPanel({
           min="0.05"
           max="1"
           step="0.05"
-          aria-label="Radar opacity"
+          aria-label={t("radar.opacityLabel")}
           value={radar.opacity}
           onChange={(event) =>
             onRadar({ ...radar, opacity: Number(event.target.value) })

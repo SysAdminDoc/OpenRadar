@@ -12,6 +12,7 @@ import type { SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
+import { translate, useT, type StringKey } from "../i18n";
 
 /** Past this the loop is old enough that the timeline should say so. */
 const STALE_MINUTES = 20;
@@ -19,14 +20,14 @@ const STALE_MINUTES = 20;
 /** How old a grid is, so a layer that has stopped updating cannot pass for live. */
 function gridAge(time: number, nowMs: number): string {
   const minutes = Math.max(0, Math.floor(nowMs / 60_000 - time / 60));
-  if (minutes < 1) return "just in";
-  return `${minutes} min old`;
+  if (minutes < 1) return translate("chrome.justIn");
+  return translate("chrome.minutesOld", { count: minutes });
 }
 
-const TOOL_LABELS: Record<Exclude<ToolMode, null>, string> = {
-  draw: "Draw",
-  range: "Range",
-  inspect: "Inspector",
+const TOOL_LABELS: Record<Exclude<ToolMode, null>, StringKey> = {
+  draw: "tool.draw",
+  range: "tool.range",
+  inspect: "tool.inspect",
 };
 
 interface WorkspaceChromeProps {
@@ -101,17 +102,18 @@ export function WorkspaceChrome({
   onResetNorth,
   onDismissToast,
 }: WorkspaceChromeProps) {
+  const t = useT();
   const stale =
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
-      ? `Radar is stale · ${radarAgeMinutes} min old`
+      ? t("chrome.stale", { count: radarAgeMinutes })
       : null;
   // Frames that are on screen because the network is gone, not because they
   // just arrived. Saying which is the difference between a map you can trust
   // and one that quietly lies about the weather.
   const cached = timeline.cached
     ? radarAgeMinutes === null
-      ? "Showing the last view"
-      : `Showing the last view · ${radarAgeMinutes} min old`
+      ? t("chrome.cached")
+      : t("chrome.cachedAge", { count: radarAgeMinutes })
     : null;
   // Canada's radar is a rain rate in millimetres an hour, not reflectivity in
   // dBZ. Showing a dBZ scale over it would be describing the wrong quantity.
@@ -140,11 +142,11 @@ export function WorkspaceChrome({
       {activeTool ? (
         <div className="tool-hud">
           <span>
-            <strong>{TOOL_LABELS[activeTool]}</strong>
+            <strong>{t(TOOL_LABELS[activeTool])}</strong>
             {toolResult}
           </span>
           <button type="button" onClick={onClearTools}>
-            <Trash2 size={15} /> Clear
+            <Trash2 size={15} /> {t("chrome.toolClear")}
           </button>
         </div>
       ) : null}
@@ -154,13 +156,20 @@ export function WorkspaceChrome({
         radarEnabled={settings.radar.enabled}
         productLabel={
           sweep
-            ? `${sweep.station} ${sweep.product}`
+            ? t("chrome.sweepProduct", {
+                station: sweep.station,
+                product: sweep.product,
+              })
             : rainRate
-              ? "Rain Rate"
-              : "Composite Radar"
+              ? t("chrome.rainRate")
+              : t("chrome.composite")
         }
         eyebrow={
-          sweep ? `${sweep.elevationDegrees.toFixed(2)}° TILT` : "LIVE PRODUCT"
+          sweep
+            ? t("chrome.tilt", {
+                degrees: sweep.elevationDegrees.toFixed(2),
+              })
+            : t("chrome.liveProduct")
         }
         scale={
           sweep
@@ -177,60 +186,65 @@ export function WorkspaceChrome({
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length || lightning || wind || windReduced ? (
-        <div className="product-legends" aria-label="Extra product scales">
+        <div className="product-legends" aria-label={t("chrome.extraScales")}>
           {windReduced ? (
             <div className="product-legend">
-              <strong>Wind</strong>
-              <small>
-                Held back because this device asks for less movement.
-              </small>
+              <strong>{t("chrome.wind")}</strong>
+              <small>{t("chrome.windReduced")}</small>
             </div>
           ) : null}
           {wind ? (
             <div className="product-legend" data-wind-run={wind.init}>
               <strong>
-                Wind at 10 m<em>{windLabel(wind, clock)}</em>
+                {t("chrome.windAt10")}
+                <em>{windLabel(wind, clock)}</em>
               </strong>
-              <small>
-                Model guidance, not an observation. Particles show direction and
-                relative speed.
-              </small>
+              <small>{t("chrome.windNote")}</small>
             </div>
           ) : null}
           {lightning ? (
             <div className="product-legend product-legend--flashes">
               <strong>
-                Lightning flashes
+                {t("chrome.flashes")}
                 <em>{gridAge(lightning.observed, clock)}</em>
               </strong>
               <ol>
                 <li>
                   <i style={{ background: "#fef9c3" }} aria-hidden="true" />
-                  now
+                  {t("chrome.now")}
                 </li>
                 <li>
                   <i style={{ background: "#f59e0b" }} aria-hidden="true" />
-                  {lightning.windowMinutes} min
+                  {t("chrome.windowMinutes", {
+                    count: lightning.windowMinutes,
+                  })}
                 </li>
                 <li>
-                  {lightning.flashes.length.toLocaleString()}
-                  {lightning.trimmed ? "+" : ""} from {lightning.satellite}
+                  {t("chrome.flashCount", {
+                    count: lightning.flashes.length.toLocaleString(),
+                    more: lightning.trimmed ? "+" : "",
+                    satellite: lightning.satellite,
+                  })}
                   {lightning.filesRead < lightning.filesExpected
-                    ? ` · ${lightning.filesRead} of ${lightning.filesExpected} files`
+                    ? t("chrome.filesRead", {
+                        read: lightning.filesRead,
+                        expected: lightning.filesExpected,
+                      })
                     : ""}
                 </li>
               </ol>
-              <small>
-                Total lightning, not a strike report. Use official warnings for
-                life-safety decisions.
-              </small>
+              <small>{t("chrome.flashNote")}</small>
             </div>
           ) : null}
           {mrmsLayers.map((layer) => (
             <div key={layer.product} className="product-legend">
               <strong>
-                {layer.label}
-                {layer.unit ? ` (${layer.unit})` : ""}
+                {layer.unit
+                  ? t("chrome.layerUnit", {
+                      label: layer.label,
+                      unit: layer.unit,
+                    })
+                  : layer.label}
                 <em>{gridAge(layer.time, clock)}</em>
               </strong>
               <ol>
@@ -242,10 +256,7 @@ export function WorkspaceChrome({
                 ))}
               </ol>
               {layer.product === "lightning" ? (
-                <small>
-                  Where flashes were, not where the next one will be. Use
-                  official warnings for life-safety decisions.
-                </small>
+                <small>{t("chrome.densityNote")}</small>
               ) : null}
             </div>
           ))}

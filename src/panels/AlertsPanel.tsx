@@ -9,6 +9,7 @@ import {
   type OverlayData,
 } from "../lib/overlays";
 import type { AlertSeverity } from "../lib/overlays/alerts";
+import { translate, useT } from "../i18n";
 
 interface AlertsPanelProps {
   alerts: OverlayData;
@@ -22,7 +23,8 @@ interface AlertsPanelProps {
 }
 
 function timeLabel(value: unknown): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "unknown";
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return translate("alerts.unknownTime");
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
@@ -41,6 +43,7 @@ export function AlertsPanel({
   onSelect,
   onClose,
 }: AlertsPanelProps) {
+  const t = useT();
   const visible = alerts.features.flatMap((feature) => {
     const bounds = featureBounds(feature.geometry);
     if (!bounds) return [];
@@ -50,8 +53,8 @@ export function AlertsPanel({
 
   return (
     <PanelShell
-      eyebrow="Watches and warnings"
-      title="Alerts"
+      eyebrow={t("alerts.eyebrow")}
+      title={t("alerts.title")}
       onClose={onClose}
       className="surface-panel--right"
     >
@@ -59,14 +62,14 @@ export function AlertsPanel({
         <div className="feature-card">
           <BellRing size={24} />
           <div>
-            <strong>The alerts layer is switched off</strong>
-            <span>Turn it back on to see watches and warnings.</span>
+            <strong>{t("alerts.layerOffTitle")}</strong>
+            <span>{t("alerts.layerOffBody")}</span>
             <button
               type="button"
               className="secondary-button"
               onClick={onEnableLayer}
             >
-              Turn on Weather Alerts
+              {t("alerts.turnOn")}
             </button>
           </div>
         </div>
@@ -87,8 +90,10 @@ export function AlertsPanel({
                   <span>
                     <strong>{String(feature.properties.headline)}</strong>
                     <small>
-                      Issued {timeLabel(feature.properties.issued)} · expires{" "}
-                      {timeLabel(feature.properties.expires)}
+                      {t("alerts.issued", {
+                        issued: timeLabel(feature.properties.issued),
+                        expires: timeLabel(feature.properties.expires),
+                      })}
                     </small>
                   </span>
                 </button>
@@ -97,7 +102,7 @@ export function AlertsPanel({
                     href={url}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label="Open the official product"
+                    aria-label={t("alerts.openProduct")}
                   >
                     <ExternalLink size={15} />
                   </a>
@@ -110,23 +115,20 @@ export function AlertsPanel({
         <div className="feature-card">
           <BellRing size={24} />
           <div>
-            <strong>No active alerts in view</strong>
-            <span>
-              Pan the map or zoom out to check a wider area. Alerts refresh
-              every minute.
-            </span>
+            <strong>{t("alerts.noneTitle")}</strong>
+            <span>{t("alerts.noneBody")}</span>
           </div>
         </div>
       )}
       <p className="source-note">
         {!layerOn
-          ? "Nothing is being fetched while the layer is off."
+          ? t("alerts.noteOff")
           : error
-            ? `Showing the last good list. ${error}`
+            ? t("alerts.noteError", { error })
             : fetchedAt
-              ? `NWS watches and warnings, checked ${relativeTime(fetchedAt)}.`
-              : "Loading NWS watches and warnings."}{" "}
-        Use official warnings for life-safety decisions.
+              ? t("alerts.noteChecked", { when: relativeTime(fetchedAt) })
+              : t("alerts.noteLoading")}{" "}
+        {t("alerts.noteSafety")}
       </p>
     </PanelShell>
   );

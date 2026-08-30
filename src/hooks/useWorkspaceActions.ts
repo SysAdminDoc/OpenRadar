@@ -17,6 +17,7 @@ import {
 import type { GeoPoint } from "../lib/geo";
 import type { OverlayBounds } from "../lib/overlays";
 import type { PlaceResult } from "../lib/weather";
+import { translate } from "../i18n";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const MAX_OVERLAY_FEATURES = 5000;
@@ -108,23 +109,27 @@ export function useWorkspaceActions(options: {
       const slot = current.presets.findIndex((preset) => preset === null);
       if (slot < 0) {
         pushToast({
-          title: `Following ${name ?? "the storm"}`,
-          detail: "Every preset slot is taken, so this view was not kept.",
+          title: translate("toast.following", {
+            name: name ?? translate("toast.theStorm"),
+          }),
+          detail: translate("toast.presetsFull"),
         });
         return;
       }
 
       const presets = [...current.presets];
       presets[slot] = {
-        name: name ?? "Storm",
+        name: name ?? translate("toast.stormPreset"),
         camera,
         projection: current.projection,
         mapStyle: current.mapStyle,
       };
       applySettings(normalizeSettings({ ...current, presets }));
       pushToast({
-        title: `Following ${name ?? "the storm"}`,
-        detail: `Kept as preset ${slot + 1}.`,
+        title: translate("toast.following", {
+          name: name ?? translate("toast.theStorm"),
+        }),
+        detail: translate("toast.keptAs", { number: slot + 1 }),
       });
     },
     [applySettings, mapRef, pushToast, settingsRef],
@@ -135,8 +140,10 @@ export function useWorkspaceActions(options: {
       applySettings({ ...settingsRef.current, projection });
       pushToast({
         title:
-          projection === "globe" ? "Globe projection on" : "Flat projection on",
-        detail: "Your center, zoom, bearing, and pitch are unchanged.",
+          projection === "globe"
+            ? translate("toast.globeOn")
+            : translate("toast.flatOn"),
+        detail: translate("toast.cameraUnchanged"),
       });
     },
     [applySettings, pushToast, settingsRef],
@@ -145,21 +152,21 @@ export function useWorkspaceActions(options: {
   const locate = useCallback(() => {
     if (!navigator.geolocation) {
       pushToast({
-        title: "Location is not available",
-        detail: "Search can still move the map.",
+        title: translate("toast.noLocation"),
+        detail: translate("toast.searchInstead"),
       });
       return;
     }
-    pushToast({ title: "Finding your location" });
+    pushToast({ title: translate("toast.finding") });
     navigator.geolocation.getCurrentPosition(
       (position) => {
         flyToPoint(position.coords.longitude, position.coords.latitude, 8);
-        pushToast({ title: "Map centered on your location" });
+        pushToast({ title: translate("toast.centeredOnYou") });
       },
       () =>
         pushToast({
-          title: "Location permission was not available",
-          detail: "Nothing changed.",
+          title: translate("toast.noPermission"),
+          detail: translate("toast.nothingChanged"),
         }),
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
     );
@@ -170,7 +177,7 @@ export function useWorkspaceActions(options: {
       flyToPoint(place.lon, place.lat, 8);
       setActiveSurface(null);
       pushToast({
-        title: `Centered on ${place.name}`,
+        title: translate("toast.centeredOn", { name: place.name }),
         detail: place.region || place.country,
       });
     },
@@ -192,22 +199,24 @@ export function useWorkspaceActions(options: {
         );
         // The style change lands first; the camera follows once it has.
         window.setTimeout(() => mapRef.current?.flyTo(preset.camera), 80);
-        pushToast({ title: `${preset.name} opened` });
+        pushToast({
+          title: translate("toast.presetOpened", { name: preset.name }),
+        });
         return;
       }
 
       const camera: CameraState = mapRef.current?.camera() ?? current.camera;
       const presets = [...current.presets];
       presets[index] = {
-        name: `Preset ${index + 1}`,
+        name: translate("toast.presetName", { number: index + 1 }),
         camera,
         projection: current.projection,
         mapStyle: current.mapStyle,
       };
       applySettings(normalizeSettings({ ...current, presets }));
       pushToast({
-        title: `Preset ${index + 1} saved`,
-        actionLabel: "Undo",
+        title: translate("toast.presetSaved", { number: index + 1 }),
+        actionLabel: translate("toast.undo"),
         onAction: () => {
           const undone = [...settingsRef.current.presets];
           undone[index] = null;
@@ -231,15 +240,18 @@ export function useWorkspaceActions(options: {
 
     try {
       if (navigator.share) {
-        await navigator.share({ title: "OpenRadar view", url: link });
-        pushToast({ title: "Map view shared" });
+        await navigator.share({
+          title: translate("toast.shareTitle"),
+          url: link,
+        });
+        pushToast({ title: translate("toast.shared") });
       } else {
         await navigator.clipboard.writeText(link);
-        pushToast({ title: "Map link copied", detail: link });
+        pushToast({ title: translate("toast.linkCopied"), detail: link });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      pushToast({ title: "The map link could not be copied" });
+      pushToast({ title: translate("toast.linkFailed") });
     }
   }, [mapRef, pushToast, settingsRef]);
 
@@ -247,7 +259,7 @@ export function useWorkspaceActions(options: {
     async (file: File) => {
       try {
         if (file.size > MAX_UPLOAD_BYTES) {
-          throw new Error("The file is larger than 5 MB.");
+          throw new Error(translate("toast.fileTooBig"));
         }
         const text = await file.text();
 
@@ -256,19 +268,25 @@ export function useWorkspaceActions(options: {
         if (looksLikePalette(file.name, text)) {
           const palette = parsePalette(text, file.name);
           if (!palette) {
-            throw new Error("That palette has no colours this map can use.");
+            throw new Error(translate("toast.paletteEmpty"));
           }
           applySettings({ ...settingsRef.current, palette });
           setActiveSurface(null);
-          const notes = [`${palette.stops.length} colours`];
-          if (palette.units) notes.push(`for ${palette.units}`);
+          const notes = [
+            translate("toast.colours", { count: palette.stops.length }),
+          ];
+          if (palette.units) {
+            notes.push(translate("toast.forUnits", { units: palette.units }));
+          }
           if (palette.skipped.length) {
-            notes.push(`${inWords(palette.skipped)} left out`);
+            notes.push(
+              translate("toast.leftOut", { names: inWords(palette.skipped) }),
+            );
           }
           pushToast({
-            title: `${file.name} applied`,
+            title: translate("toast.paletteApplied", { name: file.name }),
             detail: `${notes.join(", ")}.`,
-            actionLabel: "Remove",
+            actionLabel: translate("toast.remove"),
             onAction: () =>
               applySettings({ ...settingsRef.current, palette: null }),
           });
@@ -276,24 +294,32 @@ export function useWorkspaceActions(options: {
         }
 
         let payload: Record<string, unknown>;
-        let detail = "The overlay stays on this device.";
+        let detail = translate("toast.overlayLocal");
 
         if (looksLikePlacefile(text)) {
           const placefile = parsePlacefile(text);
           if (!placefile.data.features.length) {
-            throw new Error("That placefile has nothing this map can draw.");
+            throw new Error(translate("toast.placefileEmpty"));
           }
           payload = placefile.data as unknown as Record<string, unknown>;
-          const notes = [`${placefile.data.features.length} shapes`];
+          const notes = [
+            translate("toast.shapes", {
+              count: placefile.data.features.length,
+            }),
+          ];
           if (placefile.refreshMinutes) {
             notes.push(
-              `it asks to be refreshed every ${placefile.refreshMinutes} min`,
+              translate("toast.refreshEvery", {
+                minutes: placefile.refreshMinutes,
+              }),
             );
           }
           if (placefile.skipped.length) {
-            notes.push(`${inWords(placefile.skipped)} left out`);
+            notes.push(
+              translate("toast.leftOut", { names: inWords(placefile.skipped) }),
+            );
           }
-          if (placefile.truncated) notes.push("the file ended mid-shape");
+          if (placefile.truncated) notes.push(translate("toast.truncated"));
           detail = `${notes.join(", ")}.`;
         } else {
           payload = JSON.parse(text) as Record<string, unknown>;
@@ -301,16 +327,14 @@ export function useWorkspaceActions(options: {
             !payload ||
             (payload.type !== "FeatureCollection" && payload.type !== "Feature")
           ) {
-            throw new Error("Choose a GeoJSON file or a GRLevelX placefile.");
+            throw new Error(translate("toast.notGeoJson"));
           }
           const features = payload.features;
           if (
             payload.type === "FeatureCollection" &&
             (!Array.isArray(features) || features.length > MAX_OVERLAY_FEATURES)
           ) {
-            throw new Error(
-              "A custom overlay can contain up to 5,000 features.",
-            );
+            throw new Error(translate("toast.tooManyFeatures"));
           }
         }
 
@@ -321,18 +345,18 @@ export function useWorkspaceActions(options: {
         });
         setActiveSurface(null);
         pushToast({
-          title: `${file.name} added`,
+          title: translate("toast.overlayAdded", { name: file.name }),
           detail,
-          actionLabel: "Remove",
+          actionLabel: translate("toast.remove"),
           onAction: () => setCustomOverlay(null),
         });
       } catch (error) {
         pushToast({
-          title: "Overlay could not be added",
+          title: translate("toast.overlayFailed"),
           detail:
             error instanceof Error
               ? error.message
-              : "The file could not be read.",
+              : translate("toast.unreadable"),
         });
       }
     },
@@ -350,8 +374,8 @@ export function useWorkspaceActions(options: {
       },
     });
     pushToast({
-      title: "Watching this point",
-      detail: "Warnings near it will interrupt you.",
+      title: translate("toast.watching"),
+      detail: translate("toast.watchingDetail"),
     });
   }, [applySettings, mapRef, pushToast, settingsRef]);
 
@@ -365,8 +389,8 @@ export function useWorkspaceActions(options: {
         await revealItemInDir(await appLogDir());
       } catch {
         pushToast({
-          title: "The log folder could not be opened",
-          detail: "Logs are only written by the desktop app.",
+          title: translate("toast.logsFailed"),
+          detail: translate("toast.logsDesktop"),
         });
       }
     })();
@@ -378,8 +402,8 @@ export function useWorkspaceActions(options: {
     applySettings(reset);
     mapRef.current?.flyTo(reset.camera);
     pushToast({
-      title: "Settings reset",
-      actionLabel: "Undo",
+      title: translate("toast.settingsReset"),
+      actionLabel: translate("toast.undo"),
       onAction: () => {
         applySettings(previous);
         mapRef.current?.flyTo(previous.camera);
@@ -397,7 +421,7 @@ export function useWorkspaceActions(options: {
         projection: view.projection,
       });
       mapRef.current?.flyTo(view.camera);
-      pushToast({ title: "Opened a shared view" });
+      pushToast({ title: translate("toast.sharedViewOpened") });
     },
     [applySettings, mapRef, pushToast, settingsRef],
   );

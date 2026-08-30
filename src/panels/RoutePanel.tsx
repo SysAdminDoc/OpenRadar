@@ -13,6 +13,7 @@ import {
   weatherCodeLabel,
   type PlaceResult,
 } from "../lib/weather";
+import { locale, translate, useT } from "../i18n";
 
 interface RoutePanelProps {
   onRoute: (route: Record<string, unknown> | null) => void;
@@ -25,7 +26,7 @@ function departureValue(at: Date): string {
 }
 
 function clockLabel(at: number): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale(), {
     weekday: "short",
     hour: "numeric",
     minute: "2-digit",
@@ -33,6 +34,7 @@ function clockLabel(at: number): string {
 }
 
 export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
+  const t = useT();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [departure, setDeparture] = useState(() => departureValue(new Date()));
@@ -70,7 +72,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       const origin: PlaceResult | undefined = start[0];
       const destination: PlaceResult | undefined = end[0];
       if (!origin || !destination) {
-        throw new Error("One of those places could not be found.");
+        throw new Error(translate("route.placeMissing"));
       }
 
       const route = await fetchRoute(origin, destination, controller.signal);
@@ -85,7 +87,12 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       if (controller.signal.aborted) return;
       setConditions(forecast);
       setSummary(
-        `${origin.name} to ${destination.name} · ${Math.round(route.distanceMiles)} miles · ${Math.round(route.durationSeconds / 60)} min`,
+        translate("route.summary", {
+          from: origin.name,
+          to: destination.name,
+          miles: Math.round(route.distanceMiles),
+          minutes: Math.round(route.durationSeconds / 60),
+        }),
       );
       setStatus("idle");
       onRouteRef.current(routeGeoJson(route, forecast));
@@ -93,40 +100,38 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       if (controller.signal.aborted) return;
       setStatus("failed");
       setError(
-        failure instanceof Error
-          ? failure.message
-          : "The route could not be planned.",
+        failure instanceof Error ? failure.message : translate("route.failed"),
       );
     }
   }, [departure, from, to]);
 
   return (
     <PanelShell
-      eyebrow="Weather along the way"
-      title="Route"
+      eyebrow={t("route.eyebrow")}
+      title={t("route.title")}
       onClose={onClose}
       className="surface-panel--right surface-panel--settings"
     >
       <label className="route-field">
-        <span>Start</span>
+        <span>{t("route.start")}</span>
         <input
           type="text"
           value={from}
-          placeholder="Dallas"
+          placeholder={t("route.startPlaceholder")}
           onChange={(event) => setFrom(event.target.value)}
         />
       </label>
       <label className="route-field">
-        <span>Destination</span>
+        <span>{t("route.destination")}</span>
         <input
           type="text"
           value={to}
-          placeholder="Houston"
+          placeholder={t("route.destinationPlaceholder")}
           onChange={(event) => setTo(event.target.value)}
         />
       </label>
       <label className="route-field">
-        <span>Leaving</span>
+        <span>{t("route.leaving")}</span>
         <input
           type="datetime-local"
           value={departure}
@@ -145,13 +150,13 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
         ) : (
           <Search size={16} />
         )}
-        Plan the drive
+        {t("route.plan")}
       </button>
 
       {error ? (
         <div className="panel-error">
           <Route size={24} />
-          <strong>The route could not be planned</strong>
+          <strong>{t("route.failedTitle")}</strong>
           <span>{error}</span>
         </div>
       ) : null}
@@ -163,15 +168,17 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
           {conditions.map((sample) => (
             <div className="route-row" key={sample.index}>
               <span>{clockLabel(sample.arrival)}</span>
-              <strong>{Math.round(sample.distanceMiles)} mi</strong>
+              <strong>
+                {t("route.miles", { value: Math.round(sample.distanceMiles) })}
+              </strong>
               <span>
                 {sample.temperature === null
-                  ? "—"
+                  ? t("route.noValue")
                   : `${Math.round(sample.temperature)}°`}
               </span>
               <span>
                 {sample.precipitationChance === null
-                  ? "—"
+                  ? t("route.noValue")
                   : `${sample.precipitationChance}%`}
               </span>
               <small>
@@ -184,11 +191,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
         </div>
       ) : null}
 
-      <p className="source-note">
-        Roads from the OSRM demo server, weather from Open-Meteo. Every stop on
-        the drive is covered by a single forecast request, so give the servers a
-        moment between tries.
-      </p>
+      <p className="source-note">{t("route.note")}</p>
     </PanelShell>
   );
 }

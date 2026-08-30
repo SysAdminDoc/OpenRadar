@@ -1,4 +1,5 @@
 import type { RadarFrame } from "./radar";
+import { translate } from "../i18n";
 
 const RECORD_URL = "hurdat.json";
 /** The Iowa State radar archive starts here, so nothing older can be replayed. */
@@ -176,13 +177,13 @@ export function trackColor(windKt: number): string {
 
 /** The Saffir-Simpson name for a peak wind, which is how storms get talked about. */
 export function categoryLabel(windKt: number): string {
-  if (windKt >= 137) return "Category 5";
-  if (windKt >= 113) return "Category 4";
-  if (windKt >= 96) return "Category 3";
-  if (windKt >= 83) return "Category 2";
-  if (windKt >= 64) return "Category 1";
-  if (windKt >= 34) return "Tropical storm";
-  return "Tropical depression";
+  if (windKt >= 137) return translate("storm.cat5");
+  if (windKt >= 113) return translate("storm.cat4");
+  if (windKt >= 96) return translate("storm.cat3");
+  if (windKt >= 83) return translate("storm.cat2");
+  if (windKt >= 64) return translate("storm.cat1");
+  if (windKt >= 34) return translate("storm.tropicalStorm");
+  return translate("storm.tropicalDepression");
 }
 
 export function peakPoint(storm: Storm): TrackPoint {

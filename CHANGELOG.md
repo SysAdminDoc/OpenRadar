@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- The whole workspace speaks Spanish. Pick it in Settings and every panel, button, legend, popup, and notification changes where you are standing, with no restart and nothing lost from the view you had. Weather terms follow the National Weather Service's own Spanish, so a warning is an aviso and a watch is a vigilancia. Searching the command list works in either language: type huracán or hurricane and you land on the same thing.
+
 - Open it with no network and the map is still a map. Tiles, radar frames, and alert polygons are kept on disk as they arrive, and when a request fails the last copy is served instead. The timeline says "Showing the last view" with the age of the frames rather than passing them off as live, and the first refresh that gets through puts it back on live radar. The cache holds a few hundred megabytes and drops the oldest first.
 
 - A wind layer, animated. Sixty-five thousand particles follow the GFS wind at ten metres, on the flat map and on the globe, with a banner saying which model run they came from and how old it is. Turn it on in Layers. If your device is set to show less movement it stays off and says so, because animation for its own sake is exactly what that setting is about.

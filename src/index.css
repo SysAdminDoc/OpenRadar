@@ -473,11 +473,12 @@ a {
   gap: 2px;
 }
 
+/* Both lines wrap rather than ending in an ellipsis. The sentence here names
+   the source and how old the picture is, and a language that runs longer than
+   English would lose the half that matters. */
 .timeline-copy strong,
 .timeline-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .timeline-copy strong {
@@ -1169,11 +1170,11 @@ input[type="range"] {
 }
 
 .map-style-card small {
-  overflow: hidden;
   color: var(--subtle);
   font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wraps for the same reason: the card grows by a line, which is better than
+     describing the style with half a sentence. */
+  overflow-wrap: anywhere;
 }
 
 .setting-list {

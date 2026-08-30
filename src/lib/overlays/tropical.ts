@@ -5,6 +5,7 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
+import { translate } from "../../i18n";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer";
@@ -40,13 +41,13 @@ export type TropicalKind = "cone" | "track" | "point" | "watch" | "outlook";
 
 /** Saffir-Simpson in knots, with the two sub-hurricane bands below it. */
 export function stormCategory(maxWindKt: number): string {
-  if (maxWindKt >= 137) return "Category 5";
-  if (maxWindKt >= 113) return "Category 4";
-  if (maxWindKt >= 96) return "Category 3";
-  if (maxWindKt >= 83) return "Category 2";
-  if (maxWindKt >= 64) return "Category 1";
-  if (maxWindKt >= 34) return "Tropical storm";
-  return "Tropical depression";
+  if (maxWindKt >= 137) return translate("storm.cat5");
+  if (maxWindKt >= 113) return translate("storm.cat4");
+  if (maxWindKt >= 96) return translate("storm.cat3");
+  if (maxWindKt >= 83) return translate("storm.cat2");
+  if (maxWindKt >= 64) return translate("storm.cat1");
+  if (maxWindKt >= 34) return translate("storm.tropicalStorm");
+  return translate("storm.tropicalDepression");
 }
 
 export const CATEGORY_COLORS = [
@@ -228,11 +229,19 @@ export const tropicalOverlay: OverlayAdapter = {
     const kind = String(properties.kind ?? "");
     if (kind === "outlook") {
       return {
-        title: `${String(properties.basin ?? "Tropical")} outlook`,
+        title: translate("popup.outlookTitle", {
+          basin: String(properties.basin ?? translate("popup.tropicalBasin")),
+        }),
         lines: [
-          `Two-day chance ${String(properties.prob2day ?? "unknown")} (${String(properties.risk2day ?? "unknown")})`,
-          `Seven-day chance ${String(properties.prob7day ?? "unknown")} (${String(properties.risk7day ?? "unknown")})`,
-          "Source: NOAA National Hurricane Center",
+          translate("popup.twoDay", {
+            chance: String(properties.prob2day ?? translate("popup.unknown")),
+            risk: String(properties.risk2day ?? translate("popup.unknown")),
+          }),
+          translate("popup.sevenDay", {
+            chance: String(properties.prob7day ?? translate("popup.unknown")),
+            risk: String(properties.risk7day ?? translate("popup.unknown")),
+          }),
+          translate("popup.nhc"),
         ],
       };
     }
@@ -240,16 +249,23 @@ export const tropicalOverlay: OverlayAdapter = {
     const maxWind = Number(properties.maxWind);
     const lines: string[] = [];
     if (Number.isFinite(maxWind)) {
-      lines.push(`${stormCategory(maxWind)}, ${maxWind} kt sustained`);
+      lines.push(
+        translate("popup.sustained", {
+          category: stormCategory(maxWind),
+          knots: maxWind,
+        }),
+      );
     }
     if (properties.pointLabel) lines.push(String(properties.pointLabel));
     if (properties.advisory) {
-      lines.push(`Advisory ${String(properties.advisory)}`);
+      lines.push(
+        translate("popup.advisory", { number: String(properties.advisory) }),
+      );
     }
-    lines.push("Source: NOAA National Hurricane Center");
+    lines.push(translate("popup.nhc"));
 
     return {
-      title: String(properties.name ?? "Tropical system"),
+      title: String(properties.name ?? translate("popup.tropicalSystem")),
       lines,
       url: "https://www.nhc.noaa.gov/",
     };

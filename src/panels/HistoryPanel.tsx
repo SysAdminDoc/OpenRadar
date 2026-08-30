@@ -11,6 +11,7 @@ import {
   trackColor,
   type Storm,
 } from "../lib/hurdat";
+import { locale, translate, useT } from "../i18n";
 
 interface HistoryPanelProps {
   selectedId: string | null;
@@ -22,7 +23,7 @@ interface HistoryPanelProps {
 }
 
 function dateLabel(seconds: number): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -38,6 +39,7 @@ export function HistoryPanel({
   onStopReplay,
   onClose,
 }: HistoryPanelProps) {
+  const t = useT();
   const [storms, setStorms] = useState<Storm[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -54,7 +56,7 @@ export function HistoryPanel({
         setError(
           failure instanceof Error
             ? failure.message
-            : "The storm archive did not load.",
+            : translate("history.failedBody"),
         );
       });
     inputRef.current?.focus();
@@ -79,8 +81,8 @@ export function HistoryPanel({
 
   return (
     <PanelShell
-      eyebrow="HURDAT2 best track"
-      title="Storm history"
+      eyebrow={t("history.eyebrow")}
+      title={t("history.title")}
       onClose={onClose}
       className="surface-panel--right"
     >
@@ -91,9 +93,9 @@ export function HistoryPanel({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Ian 2022"
+          placeholder={t("history.placeholder")}
           autoComplete="off"
-          aria-label="Search past storms by name or year"
+          aria-label={t("history.searchLabel")}
         />
       </label>
 
@@ -101,7 +103,7 @@ export function HistoryPanel({
         <div className="feature-card">
           <History size={24} />
           <div>
-            <strong>The storm archive did not load</strong>
+            <strong>{t("history.failedTitle")}</strong>
             <span>{error}</span>
           </div>
         </div>
@@ -118,28 +120,34 @@ export function HistoryPanel({
                 className="track-swatch"
                 style={{ background: trackColor(selected.peakWindKt) }}
               />
-              {categoryLabel(selected.peakWindKt)} · {selected.peakWindKt} kt
-              peak
+              {t("history.peak", {
+                category: categoryLabel(selected.peakWindKt),
+                knots: selected.peakWindKt,
+              })}
             </small>
             <small data-history-ace={selected.ace.toFixed(2)}>
-              ACE {selected.ace.toFixed(2)} · {selected.track.length} fixes ·{" "}
-              {dateLabel(selected.start)} to {dateLabel(selected.end)}
+              {t("history.ace", {
+                ace: selected.ace.toFixed(2),
+                fixes: selected.track.length,
+                start: dateLabel(selected.start),
+                end: dateLabel(selected.end),
+              })}
             </small>
           </div>
           <div className="storm-row__actions">
             {canReplay(selected) ? (
               replayId === selected.id ? (
                 <button type="button" onClick={onStopReplay}>
-                  <X size={14} /> Live radar
+                  <X size={14} /> {t("history.liveRadar")}
                 </button>
               ) : (
                 <button type="button" onClick={() => onReplay(selected)}>
-                  <Play size={14} /> Replay radar
+                  <Play size={14} /> {t("history.replayRadar")}
                 </button>
               )
             ) : null}
             <button type="button" onClick={() => onSelect(null)}>
-              <X size={14} /> Clear
+              <X size={14} /> {t("history.clear")}
             </button>
           </div>
         </div>
@@ -148,8 +156,8 @@ export function HistoryPanel({
       {selected && !canReplay(selected) ? (
         <p className="inline-error">
           {selected.year < ARCHIVE_FIRST_YEAR
-            ? `The radar archive starts in ${ARCHIVE_FIRST_YEAR}, so there is nothing to replay for this one. The track is still on the map.`
-            : "This storm stayed outside the national radar mosaic, so there is nothing to replay. The track is still on the map."}
+            ? t("history.tooOld", { year: ARCHIVE_FIRST_YEAR })
+            : t("history.outside")}
         </p>
       ) : null}
 
@@ -170,26 +178,35 @@ export function HistoryPanel({
                 {storm.name} {storm.year}
               </strong>
               <small>
-                {storm.basin === "AL" ? "Atlantic" : "East Pacific"} ·{" "}
-                {categoryLabel(storm.peakWindKt)} · ACE {storm.ace.toFixed(2)}
+                {t("history.result", {
+                  basin:
+                    storm.basin === "AL"
+                      ? t("history.basinAtlantic")
+                      : t("history.basinPacific"),
+                  category: categoryLabel(storm.peakWindKt),
+                  ace: storm.ace.toFixed(2),
+                })}
               </small>
             </span>
           </button>
         ))}
         {storms && !error && query.trim().length >= 2 && !results.length ? (
-          <p className="empty-copy">
-            Nothing matches that. Try a name, a year, or both.
-          </p>
+          <p className="empty-copy">{t("history.none")}</p>
         ) : null}
       </div>
 
       <p className="source-note">
         {storms
-          ? `${storms.length} storms back to 1851, from the NOAA HURDAT2 best track.`
-          : "Loading the best track archive."}{" "}
+          ? t("history.noteCount", { count: storms.length })
+          : t("history.noteLoading")}{" "}
         {focus
-          ? `A replay covers three hours either side of ${focus.landfall ? "landfall" : "its closest approach"} on ${dateLabel(focus.point[0])}, from the Iowa State radar archive.`
-          : "Replays come from the Iowa State radar archive."}
+          ? t("history.noteReplay", {
+              moment: focus.landfall
+                ? t("history.landfall")
+                : t("history.closestApproach"),
+              date: dateLabel(focus.point[0]),
+            })
+          : t("history.noteReplaySource")}
       </p>
     </PanelShell>
   );
