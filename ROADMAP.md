@@ -79,13 +79,6 @@
   Acceptance: `gh release view` shows the `.exe`, `.sig`, `SHA256SUMS`, and `latest.json`; a v0.1.x install updates itself to v0.1.y from the manifest; open question on signing cost is answered first.
   Complexity: M
 
-- [ ] P2: Route weather along an OSRM route with departure-time slices
-  Why: RouteCast is MyRadar's Premium headline and Windy's Route Planner is Premium; no OSS desktop viewer has it; OSRM and Open-Meteo hourly are keyless.
-  Evidence: business.myradar.com/capabilities/routecast-road-weather; StormDeck OSRM routing (`router.project-osrm.org`); Open-Meteo hourly forecast.
-  Touches: new src/panels/RoutePanel.tsx (two geocoded points, departure time), new src/lib/route.ts (OSRM polyline, sample every 25 km, forecast at ETA per sample), MapViewport line layer colored by precipitation probability.
-  Acceptance: entering two places draws the route with per-segment colors and a table of ETA, temperature, precipitation chance; changing departure time recolors within 2 s; OSRM demo-server fair-use (one request per route change) is respected.
-  Complexity: M
-
 - [ ] P2: Lightning from MRMS NLDN density or GLM, never Blitzortung
   Why: `radar.lightning/flashes/markers` default on with no source; Blitzortung's terms require approval and a private relay and forbid warning use.
   Evidence: `noaa-mrms-pds` `NLDN_CG_005min_AvgDensity` (rotation-track cadence tables); StormDeck `src-tauri/src/lightning.rs` (GLM `GLM-L2-LCFA` from `noaa-goes19`, 2 MiB cap); blitzortung.org/en/contact.php; nowCOAST density explicitly "not for safety plans".

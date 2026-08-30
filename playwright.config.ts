@@ -9,6 +9,9 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:1420",
+    // Fixed so tests that reason about local clock times do not depend on the
+    // machine they run on.
+    timezoneId: "America/New_York",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     serviceWorkers: "block",

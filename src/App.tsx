@@ -43,6 +43,7 @@ import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import type { OverlayBounds } from "./lib/overlays";
 import { AlertsPanel } from "./panels/AlertsPanel";
 import { TropicalPanel } from "./panels/TropicalPanel";
+import { RoutePanel } from "./panels/RoutePanel";
 import { ForecastPanel } from "./panels/ForecastPanel";
 import {
   LayersPanel,
@@ -69,6 +70,7 @@ export default function App() {
   const [viewport, setViewport] = useState<OverlayBounds | null>(null);
   const [cursor, setCursor] = useState<GeoPoint | null>(null);
   const [toolResult, setToolResult] = useState<string | null>(null);
+  const [route, setRoute] = useState<Record<string, unknown> | null>(null);
   const [customOverlay, setCustomOverlay] = useState<Record<
     string,
     unknown
@@ -506,6 +508,7 @@ export default function App() {
           radarOpacity={settings.radar.opacity}
           satelliteTime={satelliteTime}
           overlays={overlayData}
+          route={route}
           customOverlay={settings.layers.customOverlay ? customOverlay : null}
           toolMode={activeTool}
           onCameraChange={handleCameraChange}
@@ -526,6 +529,7 @@ export default function App() {
             radarOpacity={settings.radar.opacity}
             satelliteTime={satelliteTime}
             overlays={overlayData}
+            route={route}
             customOverlay={settings.layers.customOverlay ? customOverlay : null}
             toolMode={activeTool}
             onCameraChange={handleCameraChange}
@@ -628,6 +632,9 @@ export default function App() {
           onFollow={handleFollowStorm}
           onClose={() => setActiveSurface(null)}
         />
+      ) : null}
+      {activeSurface === "route" ? (
+        <RoutePanel onRoute={setRoute} onClose={() => setActiveSurface(null)} />
       ) : null}
       {activeSurface === "forecast" ? (
         <ForecastPanel
