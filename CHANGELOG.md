@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Fixed command bar buttons being named after their tooltip in narrow windows, where the visible label is hidden.
+- Fixed low-contrast text on the command bar in the light theme and on the Diagnostics timestamps.
+- The end-to-end suite now runs at 1024 by 720 as well, covers every layer switch and the preset save, recall, and undo path, and fails on any serious accessibility violation in either theme.
 - Fixed a refresh throwing away the playhead when it was parked on a forecast frame, and a shrinking loop jumping to the far end of the forecast instead of the nearest surviving frame.
 - Fixed the forecast tail anchoring on the wall clock instead of the newest observation, which could open a gap or double back over a frame that had since been observed.
 - Fixed future radar offering a tail over Alaska, Hawaii, Puerto Rico, and Guam, where the model has no data.

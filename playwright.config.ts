@@ -16,7 +16,18 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+      },
+    },
+    {
+      // The narrowest window the app allows, where the command bar collapses.
+      name: "compact",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1024, height: 720 },
+      },
     },
   ],
   webServer: {
@@ -26,4 +37,3 @@ export default defineConfig({
     timeout: 120_000,
   },
 });
-
