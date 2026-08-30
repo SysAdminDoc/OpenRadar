@@ -591,6 +591,13 @@ export default function App() {
           viewport={viewport}
           fetchedAt={overlays.alerts.fetchedAt}
           error={overlays.alerts.error}
+          layerOn={settings.layers.weatherAlerts}
+          onEnableLayer={() =>
+            applySettings({
+              ...settingsRef.current,
+              layers: { ...settingsRef.current.layers, weatherAlerts: true },
+            })
+          }
           onSelect={handleAlertSelect}
           onClose={() => setActiveSurface(null)}
         />
@@ -674,6 +681,7 @@ export default function App() {
         frameIndex={frameIndex}
         playing={playing}
         sourceLabel={source?.label ?? null}
+        ageMinutes={radarAge}
         error={
           timeline.error ??
           (radarAge !== null && radarAge >= 20

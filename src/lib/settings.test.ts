@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
+  cameraKey,
   normalizeSettings,
   sameCamera,
 } from "./settings";
@@ -93,6 +94,10 @@ describe("settings normalization", () => {
         center: [base.center[0] + 1e-9, base.center[1]],
       }),
     ).toBe(true);
+    // The published key and the equality test must agree exactly.
+    expect(cameraKey(base)).toBe(
+      cameraKey({ ...base, center: [base.center[0] + 1e-9, base.center[1]] }),
+    );
     expect(
       sameCamera(base, {
         ...base,

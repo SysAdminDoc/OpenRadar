@@ -24,6 +24,8 @@ export interface WmsProviderConfig {
 }
 
 const TILE_SIZE = 256;
+/** A ceiling on how many frames one capabilities document can produce. */
+const MAX_STEPS = 240;
 
 function localName(element: Element): string {
   return element.tagName.replace(/^.*:/, "");
@@ -34,6 +36,54 @@ function firstChild(parent: Element, tag: string): Element | null {
     if (localName(child) === tag) return child;
   }
   return null;
+}
+
+/** ISO 8601 durations, which is all a WMS TIME period may be. */
+export function durationSeconds(period: string): number | null {
+  const match =
+    /^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(
+      period.trim().toUpperCase(),
+    );
+  if (!match) return null;
+  const [, days, hours, minutes, seconds] = match;
+  const total =
+    Number(days ?? 0) * 86_400 +
+    Number(hours ?? 0) * 3_600 +
+    Number(minutes ?? 0) * 60 +
+    Number(seconds ?? 0);
+  return total > 0 ? total : null;
+}
+
+/**
+ * A TIME value is either one instant or a `start/end/period` interval. GeoServer
+ * usually lists instants, but the interval form is legal and would otherwise
+ * read as no times at all.
+ */
+function expandTimeValue(value: string): WmsStep[] {
+  if (!value.includes("/")) {
+    const parsed = Date.parse(value);
+    if (!Number.isFinite(parsed)) return [];
+    return [{ time: Math.floor(parsed / 1000), iso: value }];
+  }
+
+  const [start, end, period] = value.split("/");
+  const from = Date.parse(start ?? "");
+  const to = Date.parse(end ?? "");
+  const stepSeconds = durationSeconds(period ?? "");
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !stepSeconds) return [];
+
+  const steps: WmsStep[] = [];
+  for (
+    let at = from;
+    at <= to && steps.length < MAX_STEPS;
+    at += stepSeconds * 1000
+  ) {
+    steps.push({
+      time: Math.floor(at / 1000),
+      iso: new Date(at).toISOString(),
+    });
+  }
+  return steps;
 }
 
 /**
@@ -62,15 +112,16 @@ export function parseWmsTimeSteps(xml: string, layer: string): WmsStep[] {
 
   const byTime = new Map<number, WmsStep>();
   for (const part of raw.split(",")) {
-    const iso = part.trim();
-    if (!iso) continue;
-    const parsed = Date.parse(iso);
-    if (!Number.isFinite(parsed)) continue;
-    const time = Math.floor(parsed / 1000);
-    byTime.set(time, { time, iso });
+    const value = part.trim();
+    if (!value) continue;
+    for (const step of expandTimeValue(value)) {
+      byTime.set(step.time, step);
+    }
   }
 
-  return [...byTime.values()].sort((left, right) => left.time - right.time);
+  return [...byTime.values()]
+    .sort((left, right) => left.time - right.time)
+    .slice(-MAX_STEPS);
 }
 
 export function wmsTileUrl(owsUrl: string, layer: string, iso: string): string {

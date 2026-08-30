@@ -9,7 +9,7 @@ import {
   resetRadarBudgets,
 } from "./index";
 import { parseRainViewerFrames } from "./rainviewer";
-import { parseWmsTimeSteps, wmsTileUrl } from "./wms";
+import { durationSeconds, parseWmsTimeSteps, wmsTileUrl } from "./wms";
 import { resetHealth, providerHealth } from "./health";
 
 const RIDGE_CAPABILITIES = `<?xml version="1.0" encoding="UTF-8"?>
@@ -52,6 +52,32 @@ describe("WMS time dimension", () => {
     expect(parseWmsTimeSteps("not xml at all", "conus_bref_qcd")).toEqual([]);
   });
 
+  it("expands an interval into the instants it stands for", () => {
+    const document = `<?xml version="1.0"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Capability><Layer><Layer>
+    <Name>conus_bref_qcd</Name>
+    <Dimension name="time" units="ISO8601">2026-08-30T06:00:00.000Z/2026-08-30T06:08:00.000Z/PT2M</Dimension>
+  </Layer></Layer></Capability>
+</WMS_Capabilities>`;
+    const steps = parseWmsTimeSteps(document, "conus_bref_qcd");
+    expect(steps.map((step) => step.iso)).toEqual([
+      "2026-08-30T06:00:00.000Z",
+      "2026-08-30T06:02:00.000Z",
+      "2026-08-30T06:04:00.000Z",
+      "2026-08-30T06:06:00.000Z",
+      "2026-08-30T06:08:00.000Z",
+    ]);
+  });
+
+  it("reads the periods a WMS may publish", () => {
+    expect(durationSeconds("PT2M")).toBe(120);
+    expect(durationSeconds("PT1H30M")).toBe(5400);
+    expect(durationSeconds("P1D")).toBe(86_400);
+    expect(durationSeconds("PT0S")).toBeNull();
+    expect(durationSeconds("every two minutes")).toBeNull();
+  });
+
   it("builds a GetMap template MapLibre can substitute a bbox into", () => {
     const url = wmsTileUrl(
       "https://opengeo.ncep.noaa.gov/geoserver/conus/ows",
@@ -73,6 +99,10 @@ describe("provider selection", () => {
     ]);
     expect(providerChain(-149.9, 61.2).map((provider) => provider.id)).toEqual([
       "nowcoast",
+    ]);
+    // Havana sits inside a loose CONUS rectangle but has no NOAA mosaic.
+    expect(providerChain(-82.4, 23.1).map((provider) => provider.id)).toEqual([
+      "rainviewer",
     ]);
     expect(providerChain(2.35, 48.85).map((provider) => provider.id)).toEqual([
       "rainviewer",

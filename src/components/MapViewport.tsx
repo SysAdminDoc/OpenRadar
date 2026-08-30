@@ -20,6 +20,7 @@ import { log } from "../lib/log";
 import { guardRadarRequest } from "../lib/providers";
 import type { RadarFrame } from "../lib/radar";
 import {
+  cameraKey,
   sameCamera,
   type CameraState,
   type MapStyleId,
@@ -149,13 +150,7 @@ function MapViewportInner(
   const publishCamera = (next: CameraState) => {
     const container = containerRef.current;
     if (!container) return;
-    container.dataset.camera = [
-      next.center[0].toFixed(5),
-      next.center[1].toFixed(5),
-      next.zoom.toFixed(3),
-      next.bearing.toFixed(2),
-      next.pitch.toFixed(2),
-    ].join(",");
+    container.dataset.camera = cameraKey(next);
   };
 
   const publishLayers = () => {

@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- The timeline chip now reports the radar age next to the source, not only once the loop has gone stale.
+- RIDGE II is claimed only over the ground its mosaic covers, so the Gulf, Cuba, and the Bahamas fall back to a worldwide source instead of showing an empty layer.
+- The radar source reader accepts the interval form of a WMS time dimension, not only a list of instants.
+- Opening Alerts with the layer switched off now says so and offers to switch it back on.
 - Fixed playback eating the radar request budget and faking a source outage. Tile traffic and source discovery are now counted separately.
 - Fixed the radar layer landing on top of the alert, earthquake, and fire layers on a cold start.
 - Fixed the Custom Overlay switch, which could add imported shapes but never remove them.
