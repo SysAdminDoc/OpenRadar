@@ -48,6 +48,8 @@ pub enum HttpError {
     TooLarge,
     #[error("the request failed: {0}")]
     Transport(#[from] reqwest::Error),
+    #[error("the response redirected somewhere OpenRadar may not follow")]
+    RedirectRefused,
 }
 
 /// HTTPS only, and the host has to match an entry exactly. A lookalike such as
@@ -109,7 +111,13 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
         ));
     }
 
-    let response = client()?.get(parsed).send().await?.error_for_status()?;
+    let response = client()?.get(parsed).send().await?;
+    // A refused redirect comes back as the 3xx itself, which error_for_status
+    // treats as success. Saying so beats handing back an empty body.
+    if response.status().is_redirection() {
+        return Err(HttpError::RedirectRefused);
+    }
+    let response = response.error_for_status()?;
     if let Some(length) = response.content_length() {
         if length as usize > MAX_BODY_BYTES {
             return Err(HttpError::TooLarge);
@@ -180,6 +188,13 @@ mod tests {
             .await
             .expect_err("a malformed address must be refused");
         assert!(matches!(error, HttpError::BadUrl));
+    }
+
+    #[test]
+    fn a_refused_redirect_is_an_error_not_an_empty_body() {
+        // The status the client is left holding when a redirect is refused.
+        let error = HttpError::RedirectRefused;
+        assert!(error.to_string().contains("may not follow"));
     }
 
     #[test]

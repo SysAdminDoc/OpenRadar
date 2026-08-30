@@ -12,6 +12,7 @@ import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
 import { mapStyleDefinition } from "../lib/mapStyles";
 import {
   OVERLAY_ADAPTERS,
+  overlayAdapter,
   type OverlayBounds,
   type OverlayData,
   type OverlayId,
@@ -106,12 +107,43 @@ function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
   return undefined;
 }
 
+/** Bottom to top among the overlays: context first, warnings last. */
+const OVERLAY_STACK: OverlayId[] = [
+  "tropical",
+  "wildfires",
+  "earthquakes",
+  "alerts",
+];
+
 function overlayLayerOrder(): string[] {
-  return OVERLAY_ADAPTERS.flatMap((adapter) =>
-    adapter
-      .layers(`${OVERLAY_SOURCE_PREFIX}${adapter.id}`)
+  return OVERLAY_STACK.flatMap((id) =>
+    overlayAdapter(id)
+      .layers(`${OVERLAY_SOURCE_PREFIX}${id}`)
       .map((layer) => layer.id),
   );
+}
+
+/**
+ * Bottom to top, the order every OpenRadar layer belongs in. A layer is added
+ * before the first of these that is already on the map, which keeps the stack
+ * right no matter which data arrives first.
+ */
+function layerStackOrder(): string[] {
+  return [
+    SATELLITE_LAYER_ID,
+    ...RADAR_LANE_LAYER_IDS,
+    ...overlayLayerOrder(),
+    ROUTE_LAYER_ID,
+    ...CUSTOM_LAYER_IDS,
+    ...TOOL_LAYER_IDS,
+  ];
+}
+
+/** The layers that belong above the one being added. */
+function layersAbove(id: string): string[] {
+  const order = layerStackOrder();
+  const at = order.indexOf(id);
+  return at < 0 ? order : order.slice(at + 1);
 }
 
 function asCamera(map: maplibregl.Map): CameraState {
@@ -314,12 +346,7 @@ function MapViewportInner(
         source: SATELLITE_SOURCE_ID,
         paint: { "raster-opacity": 0.85 },
       },
-      firstExisting(map, [
-        ...RADAR_LANE_LAYER_IDS,
-        ...overlayLayerOrder(),
-        ...CUSTOM_LAYER_IDS,
-        ...TOOL_LAYER_IDS,
-      ]),
+      firstExisting(map, layersAbove(SATELLITE_LAYER_ID)),
     );
     publishLayers();
   };
@@ -359,11 +386,7 @@ function MapViewportInner(
             source: sourceId,
             paint: { "raster-opacity": 0 },
           },
-          firstExisting(map, [
-            ...overlayLayerOrder(),
-            ...CUSTOM_LAYER_IDS,
-            ...TOOL_LAYER_IDS,
-          ]),
+          firstExisting(map, layersAbove(layerId)),
         );
         publishLayers();
       }
@@ -433,12 +456,11 @@ function MapViewportInner(
         data: data as never,
         attribution: adapter.attribution,
       });
-      // Overlays sit above radar but below the imported shapes and the tools.
-      const before = firstExisting(map, [
-        ...CUSTOM_LAYER_IDS,
-        ...TOOL_LAYER_IDS,
-      ]);
-      for (const layer of adapter.layers(sourceId)) map.addLayer(layer, before);
+      // Each overlay goes under whatever belongs above it, so the stack does
+      // not depend on which adapter answered first.
+      for (const layer of adapter.layers(sourceId)) {
+        map.addLayer(layer, firstExisting(map, layersAbove(layer.id)));
+      }
     }
 
     publishLayers();
@@ -528,7 +550,7 @@ function MapViewportInner(
           ],
         },
       },
-      firstExisting(map, TOOL_LAYER_IDS),
+      firstExisting(map, layersAbove(ROUTE_LAYER_ID)),
     );
     publishLayers();
   };
@@ -556,7 +578,7 @@ function MapViewportInner(
         type: "geojson",
         data: overlay as never,
       });
-      const beforeTools = firstExisting(map, TOOL_LAYER_IDS);
+      const beforeTools = firstExisting(map, layersAbove(CUSTOM_FILL_LAYER_ID));
       map.addLayer(
         {
           id: CUSTOM_FILL_LAYER_ID,

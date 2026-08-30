@@ -9,7 +9,13 @@ const SERVICE =
   "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer";
 
 /** The layers that make up one advisory package. */
-const LAYERS: Array<{ id: number; kind: TropicalKind; fields: string }> = [
+const LAYERS: Array<{
+  id: number;
+  kind: TropicalKind;
+  fields: string;
+  orderBy?: string;
+  limit?: number;
+}> = [
   { id: 7, kind: "cone", fields: "stormname,stormtype,advisnum,advdate,basin" },
   { id: 6, kind: "track", fields: "stormname,stormtype,advisnum,basin" },
   {
@@ -17,6 +23,9 @@ const LAYERS: Array<{ id: number; kind: TropicalKind; fields: string }> = [
     kind: "point",
     fields:
       "stormname,stormtype,maxwind,gust,mslp,datelbl,tcdvlp,advisnum,advdate,basin,tau,binnumber",
+    // Hour zero first, so a cap can never drop the row the storm list needs.
+    orderBy: "tau ASC",
+    limit: 400,
   },
   { id: 8, kind: "watch", fields: "stormname,tcww,advisnum,basin" },
   {
@@ -85,7 +94,14 @@ export function parseTropicalLayer(
         gust: Number(properties.gust) || null,
         pressure: Number(properties.mslp) || null,
         pointLabel: text(properties.datelbl),
-        tau: Number(properties.tau),
+        // A missing forecast hour has to stay missing: Number(null) is zero,
+        // which is exactly the value that marks the current position.
+        tau:
+          properties.tau === null ||
+          properties.tau === undefined ||
+          properties.tau === ""
+            ? null
+            : Number(properties.tau),
         bin: text(properties.binnumber),
         watch: text(properties.tcww),
         prob2day: text(properties.prob2day),
@@ -118,9 +134,10 @@ export const tropicalOverlay: OverlayAdapter = {
           returnGeometry: "true",
           geometryPrecision: "3",
           outSR: "4326",
-          resultRecordCount: "60",
+          resultRecordCount: String(layer.limit ?? 60),
           f: "geojson",
         });
+        if (layer.orderBy) query.set("orderByFields", layer.orderBy);
         const response = await fetch(
           `${SERVICE}/${layer.id}/query?${query.toString()}`,
           { signal, headers: { Accept: "application/json" } },

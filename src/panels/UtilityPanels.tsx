@@ -158,7 +158,9 @@ export function MorePanel({
                   {record?.lastError
                     ? `${record.lastError} (${record.consecutiveFailures} in a row)`
                     : record?.lastSuccess
-                      ? `${record.frameCount} frames, ${ageLabel(record.lastSuccess)}`
+                      ? record.frameCount
+                        ? `${record.frameCount} frames, ${ageLabel(record.lastSuccess)}`
+                        : `Answered ${ageLabel(record.lastSuccess)}`
                       : "Standing by"}
                 </small>
               </span>

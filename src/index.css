@@ -745,10 +745,10 @@ input[type="range"] {
 
 /* More specific than .radar-legend > span, which lays its children in a column. */
 .radar-legend > .legend-scale {
+  position: relative;
   grid-column: 1 / -1;
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  display: block;
+  height: 12px;
   margin-top: 2px;
   color: var(--muted);
   font-size: 9px;
@@ -757,7 +757,10 @@ input[type="range"] {
 }
 
 .legend-scale em {
+  position: absolute;
   font-style: normal;
+  /* Each label is centred on the colour it names. */
+  transform: translateX(-50%);
 }
 
 .map-popup {

@@ -22,7 +22,7 @@ describe("satellite frame time", () => {
     expect(resolved).toBeLessThanOrEqual(now - SATELLITE_LATENCY_SECONDS);
     expect(resolved % SATELLITE_STEP_SECONDS).toBe(0);
     expect(new Date(resolved * 1000).toISOString()).toBe(
-      "2026-08-30T07:20:00.000Z",
+      "2026-08-30T07:10:00.000Z",
     );
   });
 

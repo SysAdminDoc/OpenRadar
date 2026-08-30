@@ -68,6 +68,21 @@ export const wildfireFeature = {
   properties: { poly_IncidentName: "Test Fire", poly_GISAcres: 4200 },
 };
 
+export const tropicalPointFeature = {
+  type: "Feature",
+  geometry: { type: "Point", coordinates: [-79, 25] },
+  properties: {
+    stormname: "Hurricane Test",
+    stormtype: "HU",
+    maxwind: 85,
+    mslp: 970,
+    advisnum: "7",
+    advdate: "500 PM EDT Sat Aug 29 2026",
+    tau: 0,
+    binnumber: "AT1",
+  },
+};
+
 export const tropicalFeature = {
   type: "Feature",
   geometry: {
@@ -93,7 +108,11 @@ export async function routeWorkspace(page: Page) {
   await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
     const url = route.request().url();
     const body = url.includes("/tropical/")
-      ? collection([tropicalFeature])
+      ? collection(
+          url.includes("MapServer/5/")
+            ? [tropicalPointFeature]
+            : [tropicalFeature],
+        )
       : collection([alertFeature]);
     await route.fulfill({ contentType: "application/json", body });
   });

@@ -20,7 +20,7 @@ import {
 } from "./components/MapChrome";
 import { ToastHost, type ToastMessage } from "./components/ToastHost";
 import type { GeoPoint } from "./lib/geo";
-import { formatFrameTime, frameAgeMinutes } from "./lib/radar";
+import { formatFrameTime, frameAgeMinutes, type RadarFrame } from "./lib/radar";
 import { providerHealth, subscribeHealth } from "./lib/providers";
 import { log, recentLog, subscribeLog } from "./lib/log";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./lib/deepLink";
@@ -146,10 +146,12 @@ export default function App() {
   const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
   // The satellite image that stands for the frame on screen, held back to the
   // newest slot the archive has actually published.
-  const satelliteTime =
-    settings.layers.satellite && activeFrame
-      ? satelliteFrameTime(activeFrame.time, Math.floor(clock / 1000))
+  const satelliteFor = (frame: RadarFrame | undefined) =>
+    settings.layers.satellite && frame
+      ? satelliteFrameTime(frame.time, Math.floor(clock / 1000))
       : null;
+  const satelliteTime = satelliteFor(activeFrame);
+  const compareSatelliteTime = satelliteFor(compareFrame);
 
   const handleOpenLogFolder = useCallback(() => {
     void (async () => {
@@ -541,7 +543,7 @@ export default function App() {
             radarFrame={compareFrame}
             radarVisible={settings.radar.enabled}
             radarOpacity={settings.radar.opacity}
-            satelliteTime={satelliteTime}
+            satelliteTime={compareSatelliteTime}
             overlays={overlayData}
             route={route}
             customOverlay={settings.layers.customOverlay ? customOverlay : null}
