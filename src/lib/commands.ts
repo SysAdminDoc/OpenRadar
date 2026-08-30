@@ -50,6 +50,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["md", "mesoscale", "discussion", "spc"],
   },
   {
+    layer: "stormReports",
+    key: "layer.stormReports",
+    extra: "keywords.stormReports",
+    keywords: ["lsr", "report", "hail", "damage", "spotter", "ground truth"],
+  },
+  {
     layer: "earthquakes",
     key: "layer.earthquakes",
     extra: "keywords.earthquakes",

@@ -305,3 +305,26 @@ test("draws the severe outlook under the warnings it is guidance about", async (
     stack.indexOf("openradar-overlay-alerts-fill"),
   );
 });
+
+test("shows what people on the ground reported, under the warnings", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Storm Reports/ }).check();
+
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-overlay-stormReports-points/,
+  );
+
+  // A report is what happened, so it belongs over the guidance about what
+  // might and under the warning that is still out.
+  const stack = (await pane.getAttribute("data-layer-stack"))!.split(" ");
+  expect(stack.indexOf("openradar-overlay-stormReports-points")).toBeLessThan(
+    stack.indexOf("openradar-overlay-alerts-fill"),
+  );
+});

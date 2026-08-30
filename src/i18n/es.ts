@@ -251,6 +251,15 @@ export const es: Catalogue = {
   "command.group.style": "Tipo de mapa",
   "command.group.panel": "Panel",
   "command.group.tool": "Herramienta",
+  "layer.stormReports": "Informes de tormenta",
+  "layers.stormReportsDetail":
+    "Lo que la gente vio de verdad en el último día: granizo, daños por viento, tornados, inundaciones",
+  "keywords.stormReports": "informe local tormenta observador",
+  "reports.serviceStatus": "El servicio de informes respondió {status}.",
+  "reports.measured": "{value} {unit}",
+  "reports.reported": "Informado {when}",
+  "reports.reportedUnknown": "Hora del informe desconocida",
+  "reports.source": "De {source}",
   "layer.spcOutlooks": "Riesgo de tormentas",
   "layers.spcOutlooksDetail":
     "El riesgo de tormentas severas hoy según el Storm Prediction Center, en sus propios colores",

@@ -174,10 +174,12 @@ const OVERLAY_DEPTH: Record<OverlayId, number> = {
   // Guidance about what might happen sits under everything that is happening.
   spcOutlooks: 0,
   spcDiscussions: 1,
-  tropical: 2,
-  wildfires: 3,
-  earthquakes: 4,
-  alerts: 5,
+  // What actually happened, over the guidance and under the warnings.
+  stormReports: 2,
+  tropical: 3,
+  wildfires: 4,
+  earthquakes: 5,
+  alerts: 6,
 };
 
 function overlayLayerOrder(): string[] {

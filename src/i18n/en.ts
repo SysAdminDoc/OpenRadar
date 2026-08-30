@@ -247,6 +247,15 @@ export const en = {
   "command.group.style": "Map type",
   "command.group.panel": "Panel",
   "command.group.tool": "Tool",
+  "layer.stormReports": "Storm Reports",
+  "layers.stormReportsDetail":
+    "What people on the ground actually saw in the last day: hail, wind damage, tornadoes, flooding",
+  "keywords.stormReports": "local storm report ground truth spotter",
+  "reports.serviceStatus": "The storm report service answered {status}.",
+  "reports.measured": "{value} {unit}",
+  "reports.reported": "Reported {when}",
+  "reports.reportedUnknown": "Report time unknown",
+  "reports.source": "From {source}",
   "layer.spcOutlooks": "Severe Outlook",
   "layers.spcOutlooksDetail":
     "The Storm Prediction Center's risk of severe storms today, in its own colours",
