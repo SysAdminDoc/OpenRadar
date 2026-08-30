@@ -10,13 +10,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P2
 
-- [ ] P2 — ProbSevere storm objects from the MRMS bucket as a layer with probability badges
-  Why: NOAA publishes ProbSevere as JSON every two minutes on the same bucket OpenRadar already reads; only HookEcho draws it, and it is the machine-learning severe probability behind the paid apps' cell badges.
-  Evidence: https://noaa-mrms-pds.s3.amazonaws.com/?list-type=2&prefix=ProbSevere/&max-keys=5 (`ProbSevere/YYYYMMDD/MRMS_PROBSEVERE_YYYYMMDD_HHMMSS.json`); https://www.weather.gov/idp/MRMS_v12.3_Supplemental (v3 attributes); https://github.com/d4vid87/hookecho
-  Touches: src-tauri/src/mrms.rs (a listing and fetch of the newest JSON via the existing single-flight cache), src/lib/overlays/probsevere.ts, MapViewport.tsx, MapOptionsPanels.tsx, settings.ts, i18n
-  Acceptance: polygons with ProbTor/ProbHail/ProbWind percentages draw above MRMS and below warnings; a popup lists the v3 attributes; a Rust test parses a fixture file; an e2e test asserts stack order.
-  Complexity: M
-
 - [ ] P2 — Real-time Level II from the chunks bucket, drawing arriving radials over the previous tilt
   Why: the archive object lands only after a volume completes, so the single-site view runs several minutes behind; the chunks bucket updates every 11 to 12 seconds. RadarOmega sells this as RapidSweep at $84.99/yr; BowEcho v0.35.0 ships it free.
   Evidence: https://unidata-nexrad-level2-chunks.s3.amazonaws.com/?list-type=2&prefix=KTLX/&max-keys=8 (`SITE/VOLUME/YYYYMMDD-HHMMSS-NNN-{S,I,E}`); https://registry.opendata.aws/noaa-nexrad/ ; https://www.radaromega.com/ ; https://github.com/FahrenheitResearch/bowecho/releases

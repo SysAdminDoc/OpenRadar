@@ -4,6 +4,7 @@ import {
   CloudHail,
   CloudRain,
   Crosshair,
+  Sigma,
   Droplets,
   Flame,
   Globe2,
@@ -157,6 +158,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.stormCells",
     detailKey: "layers.stormCellsDetail",
     icon: Crosshair,
+  },
+  {
+    key: "probSevere",
+    labelKey: "layer.probSevere",
+    detailKey: "layers.probSevereDetail",
+    icon: Sigma,
   },
   {
     key: "earthquakes",

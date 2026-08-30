@@ -53,6 +53,7 @@ import type {
 import { translate } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { useStormCells } from "./hooks/useStormCells";
+import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
 export default function App() {
@@ -144,6 +145,14 @@ export default function App() {
     ready: hydrated,
     enabled: settings.layers.stormCells,
     station: singleSite.station,
+    pageVisible,
+    clock,
+  });
+  // One reading covers the whole country, so there is nothing to key on the
+  // view: what is on screen is whatever part of it the map is over.
+  const probSevere = useProbSevere({
+    ready: hydrated,
+    enabled: settings.layers.probSevere,
     pageVisible,
     clock,
   });
@@ -428,6 +437,7 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
         cells={stormCells.features}
+        probSevere={probSevere.features}
         flashes={lightning.points}
         flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
         flashClock={clock}

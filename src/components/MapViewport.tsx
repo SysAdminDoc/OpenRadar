@@ -61,6 +61,14 @@ const SURGE_SOURCE_ID = "openradar-surge-source";
 const SURGE_LAYER_ID = "openradar-surge-layer";
 const MRMS_SOURCE_PREFIX = "openradar-mrms-";
 const WIND_LAYER_ID = "openradar-wind";
+const PROBSEVERE_SOURCE_ID = "openradar-probsevere-source";
+const PROBSEVERE_FILL_LAYER_ID = "openradar-probsevere-fill";
+const PROBSEVERE_LINE_LAYER_ID = "openradar-probsevere-line";
+const PROBSEVERE_LAYER_IDS = [
+  PROBSEVERE_FILL_LAYER_ID,
+  PROBSEVERE_LINE_LAYER_ID,
+];
+
 const CELL_SOURCE_ID = "openradar-cell-source";
 const CELL_TRACK_LAYER_ID = "openradar-cell-tracks";
 const CELL_FORECAST_LAYER_ID = "openradar-cell-forecast";
@@ -131,6 +139,8 @@ interface MapViewportProps {
   flashes?: Record<string, unknown> | null;
   /** Storm cells with their tracks, from the radar's own algorithm. */
   cells?: Record<string, unknown> | null;
+  /** What the severe-probability model expects of each storm. */
+  probSevere?: Record<string, unknown> | null;
   /**
    * How long the flash window runs, in minutes, and the moment to fade
    * against. The fade is a paint property rather than part of the data, so it
@@ -242,6 +252,10 @@ function layerStackOrder(): string[] {
     ...RADAR_LANE_LAYER_IDS,
     SWEEP_LAYER_ID,
     ...MRMS_LAYER_IDS,
+    // What a model expects goes over the pictures it was worked out from and
+    // under the warnings a person issued, because guidance belongs under a
+    // decision somebody has taken responsibility for.
+    ...PROBSEVERE_LAYER_IDS,
     ...overlayLayerOrder(),
     ...TRACK_LAYER_IDS,
     // Cells sit above the pictures they were found in and under the tools the
@@ -294,6 +308,7 @@ function MapViewportInner(
     mrmsLayers = [],
     flashes = null,
     cells = null,
+    probSevere = null,
     flashWindowMinutes = 5,
     flashClock,
     wind = null,
@@ -321,6 +336,7 @@ function MapViewportInner(
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
+  const probSevereRef = useRef<Record<string, unknown> | null>(probSevere);
   const flashWindowRef = useRef(flashWindowMinutes);
   const flashClockRef = useRef(flashClock);
   const windRef = useRef<WindField | null>(wind);
@@ -651,20 +667,12 @@ function MapViewportInner(
     publishLayers();
   };
 
-  const showOverlayPopup = (event: maplibregl.MapMouseEvent) => {
-    const map = mapRef.current;
-    if (!map) return;
-    const layers = overlayLayerIds();
-    if (!layers.length) return;
-
-    const hit = map.queryRenderedFeatures(event.point, { layers })[0];
-    if (!hit) return;
-    const adapter = OVERLAY_ADAPTERS.find((candidate) =>
-      hit.layer.id.startsWith(`${OVERLAY_SOURCE_PREFIX}${candidate.id}`),
-    );
-    if (!adapter) return;
-
-    const description = adapter.describe(hit.properties ?? {});
+  /** One popup, from a title and some lines. */
+  const openPopup = (
+    map: maplibregl.Map,
+    at: maplibregl.LngLat,
+    description: { title: string; lines: string[]; url?: string },
+  ) => {
     const node = document.createElement("div");
     node.className = "map-popup";
     const title = document.createElement("strong");
@@ -683,11 +691,56 @@ function MapViewportInner(
       link.textContent = translate("popup.openProduct");
       node.append(link);
     }
-
     new maplibregl.Popup({ closeButton: true, maxWidth: "260px" })
-      .setLngLat(event.lngLat)
+      .setLngLat(at)
       .setDOMContent(node)
       .addTo(map);
+  };
+
+  const showOverlayPopup = (event: maplibregl.MapMouseEvent) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // The model's own reading comes first, because it is drawn over the
+    // pictures and a click on it should say what it says rather than what is
+    // underneath it.
+    if (map.getLayer(PROBSEVERE_FILL_LAYER_ID)) {
+      const guess = map.queryRenderedFeatures(event.point, {
+        layers: [PROBSEVERE_FILL_LAYER_ID],
+      })[0];
+      if (guess) {
+        const properties = guess.properties ?? {};
+        const detail = String(properties.detail ?? "");
+        openPopup(map, event.lngLat, {
+          title: translate("probSevere.title"),
+          lines: [
+            translate("probSevere.headline", {
+              percent: String(properties.severe ?? 0),
+            }),
+            translate("probSevere.kinds", {
+              hail: String(properties.hail ?? 0),
+              wind: String(properties.wind ?? 0),
+              tornado: String(properties.tornado ?? 0),
+            }),
+            ...(detail ? [detail] : []),
+            translate("probSevere.note"),
+          ],
+        });
+        return;
+      }
+    }
+
+    const layers = overlayLayerIds();
+    if (!layers.length) return;
+
+    const hit = map.queryRenderedFeatures(event.point, { layers })[0];
+    if (!hit) return;
+    const adapter = OVERLAY_ADAPTERS.find((candidate) =>
+      hit.layer.id.startsWith(`${OVERLAY_SOURCE_PREFIX}${candidate.id}`),
+    );
+    if (!adapter) return;
+
+    openPopup(map, event.lngLat, adapter.describe(hit.properties ?? {}));
   };
 
   const syncRoute = () => {
@@ -783,6 +836,96 @@ function MapViewportInner(
       flashClockRef.current,
       flashWindowRef.current,
     ) as ExpressionSpecification;
+
+  /**
+   * What the severe-probability model expects of each storm.
+   *
+   * Drawn as an outline with a wash inside, shaded by the headline number, so
+   * a glance across the map picks out the two cells the model is worried about
+   * among the forty it is not.
+   */
+  const syncProbSevere = () => {
+    const map = mapRef.current;
+    const drawn = probSevereRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    let source = map.getSource(PROBSEVERE_SOURCE_ID) as
+      maplibregl.GeoJSONSource | undefined;
+    if (!drawn) {
+      if (source) {
+        for (const id of PROBSEVERE_LAYER_IDS) {
+          if (map.getLayer(id)) map.removeLayer(id);
+        }
+        map.removeSource(PROBSEVERE_SOURCE_ID);
+      }
+      publishLayers();
+      return;
+    }
+
+    if (!source) {
+      map.addSource(PROBSEVERE_SOURCE_ID, {
+        type: "geojson",
+        data: drawn as never,
+      });
+      map.addLayer(
+        {
+          id: PROBSEVERE_FILL_LAYER_ID,
+          type: "fill",
+          source: PROBSEVERE_SOURCE_ID,
+          paint: {
+            "fill-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "severe"],
+              10,
+              "#fde68a",
+              50,
+              "#fb923c",
+              90,
+              "#dc2626",
+            ],
+            // Light enough to read the radar through: this is guidance about
+            // the storm underneath, not a replacement for looking at it.
+            "fill-opacity": 0.18,
+          },
+        },
+        firstExisting(map, layersAbove(PROBSEVERE_FILL_LAYER_ID)),
+      );
+      map.addLayer(
+        {
+          id: PROBSEVERE_LINE_LAYER_ID,
+          type: "line",
+          source: PROBSEVERE_SOURCE_ID,
+          paint: {
+            "line-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "severe"],
+              10,
+              "#fde68a",
+              50,
+              "#fb923c",
+              90,
+              "#dc2626",
+            ],
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["get", "severe"],
+              10,
+              1,
+              90,
+              2.5,
+            ],
+          },
+        },
+        firstExisting(map, layersAbove(PROBSEVERE_LINE_LAYER_ID)),
+      );
+      source = map.getSource(PROBSEVERE_SOURCE_ID) as maplibregl.GeoJSONSource;
+    }
+    source.setData(drawn as never);
+    publishLayers();
+  };
 
   /**
    * The storm cells: where each is, where it has been, where it is going.
@@ -1357,6 +1500,7 @@ function MapViewportInner(
       syncMrmsLayers();
       syncFlashes();
       syncWind();
+      syncProbSevere();
       syncCells();
       renderTools();
       syncOverlays();
@@ -1560,6 +1704,13 @@ function MapViewportInner(
     // The fade function reads the refs above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flashClock, flashWindowMinutes]);
+
+  useEffect(() => {
+    probSevereRef.current = probSevere;
+    syncProbSevere();
+    // The sync function reads the ref above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [probSevere]);
 
   useEffect(() => {
     cellsRef.current = cells;

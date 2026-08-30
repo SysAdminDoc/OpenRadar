@@ -10,6 +10,7 @@ mod level3;
 mod lightning;
 mod mrms;
 mod palette;
+mod probsevere;
 mod tiles;
 mod vad;
 
@@ -121,6 +122,7 @@ pub fn run() {
             level2::level2_sweep,
             level2::level2_nearest_site,
             level3::level3_cells,
+            probsevere::probsevere_reading,
             mrms::mrms_frames,
             mrms::mrms_products,
             lightning::lightning_flashes,
