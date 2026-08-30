@@ -49,6 +49,7 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 ## Data and map credits
 
 - Basemap data comes from OpenStreetMap through OpenFreeMap.
+- Aerial imagery is USGS orthoimagery from The National Map, and the topographic style is OpenTopoMap under CC-BY-SA.
 - Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
 - RainViewer only appears for viewports the NOAA mosaics do not reach.
 - Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.

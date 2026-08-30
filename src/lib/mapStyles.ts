@@ -19,7 +19,7 @@ export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
   {
     id: "aerial",
     label: "Aerial",
-    detail: "Satellite imagery",
+    detail: "USGS orthoimagery, United States",
     swatch: "#446448",
   },
   {
@@ -60,7 +60,11 @@ const EMPTY_TEST_STYLE: StyleSpecification = {
   ],
 };
 
-function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
+function rasterStyle(
+  tiles: string[],
+  attribution: string,
+  maxzoom?: number,
+): StyleSpecification {
   return {
     version: 8,
     sources: {
@@ -68,6 +72,7 @@ function rasterStyle(tiles: string[], attribution: string): StyleSpecification {
         type: "raster",
         tiles,
         tileSize: 256,
+        maxzoom,
         attribution,
       },
     },
@@ -94,16 +99,22 @@ export function mapStyleDefinition(
     case "daylight":
       return "https://tiles.openfreemap.org/styles/bright";
     case "aerial":
+      // USGS orthoimagery is public domain and needs no key, unlike the Esri
+      // World Imagery service, which requires an ArcGIS account outside Esri
+      // software.
       return rasterStyle(
         [
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
         ],
-        "Tiles © Esri",
+        "USDA, USGS The National Map: Orthoimagery",
+        19,
       );
     case "topography":
       return rasterStyle(
         ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
-        "Map data © OpenStreetMap contributors, SRTM | Map style © OpenTopoMap",
+        // OpenTopoMap asks for this exact credit line.
+        "Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung: © OpenTopoMap (CC-BY-SA)",
+        17,
       );
     case "dark":
     case "pro-dark":
