@@ -55,6 +55,21 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
+        // Where the window was and how big it was, kept between launches. A
+        // map is a thing people size to their screen and then leave alone, so
+        // re-centring it at the configured size on every start throws away a
+        // decision they made once and expect to hold.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                // Not the maximised or fullscreen state: a window that comes
+                // back covering the screen because it was left that way once
+                // is a surprise, and the map is usable at any size.
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::POSITION
+                        | tauri_plugin_window_state::StateFlags::SIZE,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
         // MRMS grids are decoded here and handed to the map as ordinary tiles,
         // so the timeline, scrubbing, and export all work on them unchanged.

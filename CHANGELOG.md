@@ -2,6 +2,19 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Storm cells, from the radar's own tracking algorithm. It says which blobs are one storm rather than several, which way each is going and how fast, and where it will be in a quarter of an hour, half an hour, three quarters and an hour. The track is drawn as one dashed line through where the storm has been, where it is and where it is going, and a storm with rotation in it is ringed in red. If you have set a watched place, the radar panel names the storm that reaches it and how many minutes away it is, counting only the part of the motion actually pointing at you: a storm going past, or away, gets no arrival time rather than a made-up one.
+- Hail probability and tornado vortex signatures are not part of this. The two products that carried them stopped publishing in May 2022 and nothing has replaced them.
+
+- The window comes back where you left it, at the size you left it. If the monitor it was on has gone, the system places it somewhere you can see instead of restoring it off the edge of the desktop.
+
+- Every locally decoded product takes a "hide below" value, in the product's own unit, kept separately for each. Velocity hides by how fast rather than which way, since both directions are the storm, and the national mosaic has its own floor because it is the strongest return anywhere in the column rather than one tilt of it.
+
+- The basemap follows the theme unless you have chosen one. Picking Light used to leave the dark map under white panels.
+
+- Clearing a colour table and stopping a replay can both be undone.
+
+- Diagnostics can be copied for a bug report: what you are running, the renderer, which sources answered and what they said when they did not, and the last of the log. Nothing in it says where you are to better than about a kilometre, and no folder in it is named after you.
+
 - Six more national grids, decoded here like the rest: how high the storms reach, how much water the column is holding, how hard it is raining right now, how much has fallen in the last hour and the last day, and where the biggest hail has been since this time yesterday.
 - Rotation tracks are drawn correctly for the first time. The grid arrives in thousandths of a reciprocal second and the colours were written as though it were whole ones, so every cell with any rotation in it sat past the end of the scale and the layer was one flat colour. It has a range again.
 
