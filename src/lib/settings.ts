@@ -147,6 +147,16 @@ function normalizeCamera(value: unknown): CameraState {
   };
 }
 
+export function sameCamera(left: CameraState, right: CameraState): boolean {
+  return (
+    Math.abs(left.center[0] - right.center[0]) < 1e-6 &&
+    Math.abs(left.center[1] - right.center[1]) < 1e-6 &&
+    Math.abs(left.zoom - right.zoom) < 1e-4 &&
+    Math.abs(left.bearing - right.bearing) < 1e-3 &&
+    Math.abs(left.pitch - right.pitch) < 1e-3
+  );
+}
+
 function normalizePreset(value: unknown): PresetState | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<PresetState>;

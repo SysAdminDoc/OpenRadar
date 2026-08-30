@@ -11,7 +11,12 @@ import "../lib/maplibreWorker";
 import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
 import { mapStyleDefinition } from "../lib/mapStyles";
 import { radarTileTemplate, type RadarFrame } from "../lib/radar";
-import type { CameraState, MapStyleId, ProjectionMode } from "../lib/settings";
+import {
+  sameCamera,
+  type CameraState,
+  type MapStyleId,
+  type ProjectionMode,
+} from "../lib/settings";
 import type { ToolMode } from "./CommandBar";
 
 const RADAR_SOURCE_ID = "openradar-radar-source";
@@ -29,6 +34,7 @@ export interface MapViewportHandle {
   zoomOut: () => void;
   resetNorth: () => void;
   flyTo: (camera: CameraState) => void;
+  syncCamera: (camera: CameraState) => void;
   clearTools: () => void;
   camera: () => CameraState | null;
 }
@@ -44,6 +50,7 @@ interface MapViewportProps {
   customOverlay?: Record<string, unknown> | null;
   toolMode?: ToolMode;
   onCameraChange?: (camera: CameraState) => void;
+  onCameraMove?: (camera: CameraState) => void;
   onCursorChange?: (point: GeoPoint | null) => void;
   onToolResult?: (message: string | null) => void;
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
@@ -78,6 +85,7 @@ function MapViewportInner(
     customOverlay = null,
     toolMode = null,
     onCameraChange,
+    onCameraMove,
     onCursorChange,
     onToolResult,
     onMapStatus,
@@ -99,6 +107,19 @@ function MapViewportInner(
   const rangeStartRef = useRef<GeoPoint | null>(null);
   const rangeEndRef = useRef<GeoPoint | null>(null);
   const warnedMapErrorRef = useRef(false);
+  const suppressCameraEventsRef = useRef(0);
+
+  const publishCamera = (next: CameraState) => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.dataset.camera = [
+      next.center[0].toFixed(5),
+      next.center[1].toFixed(5),
+      next.zoom.toFixed(3),
+      next.bearing.toFixed(2),
+      next.pitch.toFixed(2),
+    ].join(",");
+  };
 
   const renderTools = () => {
     const map = mapRef.current;
@@ -268,6 +289,21 @@ function MapViewportInner(
       }),
     resetNorth: () =>
       mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 450 }),
+    syncCamera: (nextCamera) => {
+      const map = mapRef.current;
+      if (!map || sameCamera(asCamera(map), nextCamera)) return;
+      suppressCameraEventsRef.current += 1;
+      try {
+        map.jumpTo({
+          center: nextCamera.center,
+          zoom: nextCamera.zoom,
+          bearing: nextCamera.bearing,
+          pitch: nextCamera.pitch,
+        });
+      } finally {
+        suppressCameraEventsRef.current -= 1;
+      }
+    },
     flyTo: (nextCamera) =>
       mapRef.current?.flyTo({
         center: nextCamera.center,
@@ -317,6 +353,8 @@ function MapViewportInner(
       "bottom-right",
     );
 
+    publishCamera(asCamera(map));
+
     const onStyleLoad = () => {
       map.setProjection({ type: projectionRef.current });
       syncRadar();
@@ -325,7 +363,16 @@ function MapViewportInner(
       onMapStatus?.("ready");
     };
     map.on("style.load", onStyleLoad);
-    map.on("moveend", () => onCameraChange?.(asCamera(map)));
+    map.on("move", () => {
+      const next = asCamera(map);
+      publishCamera(next);
+      if (suppressCameraEventsRef.current) return;
+      onCameraMove?.(next);
+    });
+    map.on("moveend", () => {
+      if (suppressCameraEventsRef.current) return;
+      onCameraChange?.(asCamera(map));
+    });
     map.on("mousemove", (event) =>
       onCursorChange?.({ lon: event.lngLat.lng, lat: event.lngLat.lat }),
     );
@@ -397,6 +444,11 @@ function MapViewportInner(
     radarFrameRef.current = radarFrame;
     radarVisibleRef.current = radarVisible;
     radarOpacityRef.current = radarOpacity;
+    if (containerRef.current) {
+      containerRef.current.dataset.radarFrame = radarFrame
+        ? String(radarFrame.time)
+        : "";
+    }
     syncRadar();
   }, [radarFrame, radarVisible, radarOpacity]);
 

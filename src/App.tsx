@@ -16,6 +16,7 @@ import type { GeoPoint } from "./lib/geo";
 import {
   animationIntervalMs,
   fetchRadarFrames,
+  formatFrameTime,
   frameAgeMinutes,
   type RadarFrame,
 } from "./lib/radar";
@@ -44,6 +45,7 @@ import type { PlaceResult } from "./lib/weather";
 
 const CAMERA_SAVE_DELAY_MS = 450;
 const RADAR_REFRESH_MS = 5 * 60_000;
+const COMPARE_OFFSETS = [0, 3, 6, 12];
 
 function cameraFromUrl(fallback: CameraState): CameraState {
   return cameraFromSearch(window.location.search, fallback);
@@ -59,6 +61,7 @@ export default function App() {
   const [productOpen, setProductOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>(null);
   const [dualPane, setDualPane] = useState(false);
+  const [compareOffset, setCompareOffset] = useState(0);
   const [frames, setFrames] = useState<RadarFrame[]>([]);
   const [frameIndex, setFrameIndex] = useState(0);
   const [playing, setPlaying] = useState(
@@ -216,6 +219,16 @@ export default function App() {
       );
     },
     [persist],
+  );
+
+  const handlePrimaryMove = useCallback(
+    (camera: CameraState) => secondMapRef.current?.syncCamera(camera),
+    [],
+  );
+
+  const handleSecondaryMove = useCallback(
+    (camera: CameraState) => mapRef.current?.syncCamera(camera),
+    [],
   );
 
   const handleMapStyle = useCallback(
@@ -436,6 +449,7 @@ export default function App() {
     [settings.camera.center],
   );
   const activeFrame = frames[frameIndex];
+  const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
   const radarAge = activeFrame ? frameAgeMinutes(activeFrame) : null;
 
   if (!hydrated) {
@@ -465,6 +479,7 @@ export default function App() {
           customOverlay={settings.layers.customOverlay ? customOverlay : null}
           toolMode={activeTool}
           onCameraChange={handleCameraChange}
+          onCameraMove={handlePrimaryMove}
           onCursorChange={setCursor}
           onToolResult={setToolResult}
           onMapStatus={setMapStatus}
@@ -476,12 +491,38 @@ export default function App() {
             camera={settings.camera}
             projection={settings.projection}
             mapStyle={settings.mapStyle}
-            radarFrame={activeFrame}
+            radarFrame={compareFrame}
             radarVisible={settings.radar.enabled}
             radarOpacity={settings.radar.opacity}
             customOverlay={settings.layers.customOverlay ? customOverlay : null}
+            toolMode={activeTool}
+            onCameraChange={handleCameraChange}
+            onCameraMove={handleSecondaryMove}
             onToolResult={setToolResult}
           />
+        ) : null}
+        {dualPane ? (
+          <div className="pane-compare">
+            <strong>Compare</strong>
+            <div
+              className="segmented-control"
+              role="group"
+              aria-label="Secondary pane frame offset"
+            >
+              {COMPARE_OFFSETS.map((offset) => (
+                <button
+                  type="button"
+                  key={offset}
+                  className={compareOffset === offset ? "is-active" : ""}
+                  aria-pressed={compareOffset === offset}
+                  onClick={() => setCompareOffset(offset)}
+                >
+                  {offset === 0 ? "Live" : `${offset} back`}
+                </button>
+              ))}
+            </div>
+            <small>{formatFrameTime(compareFrame)}</small>
+          </div>
         ) : null}
       </div>
 

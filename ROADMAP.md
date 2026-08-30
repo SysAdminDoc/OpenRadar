@@ -41,13 +41,6 @@
   Acceptance: `npm run tauri dev` opens the map without editing hosts; documented in CLAUDE.md gotchas.
   Complexity: S
 
-- [ ] P0: Sync the dual-pane cameras and give the second pane its own product
-  Why: the second `MapViewport` receives `camera` only at mount and has no `onCameraChange`, so panes drift immediately; a dual pane that does not compare anything is dead weight.
-  Evidence: `src/App.tsx:482-492`; StormScope README "Synchronized Map Comparison" and Supercell Wx 0.6.0 linked panes.
-  Touches: src/App.tsx, src/components/MapViewport.tsx (add `syncCamera(camera)` to the handle, `onCameraChange` on both, a `paneProduct` prop so the right pane can show a different frame time or a satellite layer).
-  Acceptance: panning either pane moves the other within one frame; an e2e test asserts equal `getCenter()` after a drag on the secondary pane; the right pane can show frame N-6 while the left shows N.
-  Complexity: M
-
 - [ ] P0: Replace RainViewer as primary with NWS RIDGE II WMS and add provider health, budget, and failover
   Why: RainViewer's free tier became personal-use-only, zoom 7, 100 req/IP/min, Universal Blue only on 2026-01-01; shipping it as a distributed app's default layer violates those terms and caps quality. RIDGE II is keyless, ~2-minute, no access constraints.
   Evidence: rainviewer.com/api/transition-faq.html; live weather-maps.json 2026-08-30 (13 past frames, empty nowcast); `https://opengeo.ncep.noaa.gov/geoserver/conus/ows` GetCapabilities (layers `conus_bref_qcd`, `conus_cref_qcd`, TIME ~2 h at 2-min steps); nowCOAST GeoServer `observations/weather_radar` (TIME ~8.5 h); StormScope `js/radar-providers.js` descriptors, `createRollingRequestBudget` line 351, and RIDGE parser lines 153-202.

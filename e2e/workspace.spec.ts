@@ -63,3 +63,61 @@ test("applies the light theme from settings", async ({ page }) => {
   await page.getByRole("button", { name: "Light", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
+
+test("keeps both panes on one camera when the second pane is dragged", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Dual Pane" }).click();
+  const panes = page.getByRole("application");
+  await expect(panes).toHaveCount(2);
+
+  const before = await panes.first().getAttribute("data-camera");
+  const box = await panes.nth(1).boundingBox();
+  if (!box) throw new Error("The secondary pane has no layout box.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    box.x + box.width / 2 - 150,
+    box.y + box.height / 2 - 70,
+    { steps: 12 },
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(() => panes.first().getAttribute("data-camera"))
+    .not.toBe(before);
+  await expect
+    .poll(async () => {
+      const [left, right] = await Promise.all([
+        panes.first().getAttribute("data-camera"),
+        panes.nth(1).getAttribute("data-camera"),
+      ]);
+      return left === right;
+    })
+    .toBe(true);
+});
+
+test("shows an earlier radar frame in the compare pane", async ({ page }) => {
+  await page.getByRole("button", { name: "Dual Pane" }).click();
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+  // React suppresses a change event when the slider already holds the value,
+  // so move away from the target frame before selecting it.
+  const scrubber = page.getByLabel("Radar frame");
+  await scrubber.fill("0");
+  await scrubber.fill("2");
+
+  const panes = page.getByRole("application");
+  const compare = page.locator(".pane-compare small");
+  const live = (await compare.textContent()) ?? "";
+  expect(live.length).toBeGreaterThan(0);
+  await expect(panes.nth(1)).toHaveAttribute("data-radar-frame", "1788068400");
+
+  await page.getByRole("button", { name: "6 back", exact: true }).click();
+  await expect(compare).not.toHaveText(live);
+  await expect(panes.first()).toHaveAttribute("data-radar-frame", "1788068400");
+  await expect(panes.nth(1)).toHaveAttribute("data-radar-frame", "1788067200");
+
+  await page.getByRole("button", { name: "Live", exact: true }).click();
+  await expect(compare).toHaveText(live);
+  await expect(panes.nth(1)).toHaveAttribute("data-radar-frame", "1788068400");
+});
