@@ -180,6 +180,31 @@ export function milesFromDistance(shown: number): number {
   return units === "metric" ? shown / MILES_TO_KM : shown;
 }
 
+/** Whether the reader is in metric, for a control that has to size itself. */
+export function isMetric(): boolean {
+  return units === "metric";
+}
+
+/**
+ * A slider over a range given in miles, expressed in the reader's own units.
+ *
+ * The stops have to be round numbers in whatever is being read, and the
+ * maximum has to be reachable: rounding the ends and then stepping between
+ * them left a metric slider running 8, 18, 28 with 322 unreachable. So the
+ * ends are moved to the nearest whole step instead. The bottom moves up
+ * rather than to nothing, which is why five miles becomes ten kilometres and
+ * not eight: a slider whose first stop is 8 is not one in round kilometres.
+ */
+export function distanceSlider(
+  fromMiles: number,
+  toMiles: number,
+): { min: number; max: number; step: number } {
+  const step = units === "metric" ? 10 : 5;
+  const min = Math.floor(distanceValue(fromMiles) / step) * step;
+  const max = Math.ceil(distanceValue(toMiles) / step) * step;
+  return { min: Math.max(step, min), max, step };
+}
+
 export function distanceUnit(): string {
   return units === "metric"
     ? translate("units.kilometres")

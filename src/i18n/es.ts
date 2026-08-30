@@ -293,9 +293,14 @@ export const es: Catalogue = {
   "radar.error.noStormMotion":
     "No se pudo leer el viento en {0}, así que no hay nada que quitar de la imagen.",
   "radar.error.encode": "No se pudo dibujar la imagen: {0}",
+  "radar.error.http": "No se pudo llegar al archivo de radar: {0}",
+  "radar.error.unknown": "El radar no respondió.",
   "radar.dealiasForced":
     "La velocidad relativa a la tormenta tiene que desplegar primero, porque el viento que quita se lee del propio barrido",
   "radar.threshold": "Ocultar por debajo de",
+  "radar.thresholdMosaic": "Ocultar por debajo, en el mosaico",
+  "radar.thresholdMosaicDetail":
+    "El mosaico es el eco más fuerte de toda la columna, así que sus valores son más altos que los de una sola inclinación",
   "radar.thresholdLabel": "Ocultar lecturas por debajo de este valor",
   "radar.thresholdOff": "Todo",
   "radar.thresholdValue": "{value} {unit}",

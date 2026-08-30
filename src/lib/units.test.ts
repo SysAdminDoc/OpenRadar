@@ -1,6 +1,8 @@
 import { renderHook, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setLanguage } from "../i18n";
 import {
+  distanceSlider,
   distanceUnit,
   distanceValue,
   forecastUnits,
@@ -20,6 +22,7 @@ import {
 afterEach(() => {
   setUnits("imperial");
   setClockZone("local");
+  setLanguage("en");
 });
 
 describe("the units the workspace reads in", () => {
@@ -145,6 +148,39 @@ describe("the units the workspace reads in", () => {
     setUnits("metric");
     expect(Math.round(speedFromMetres(10))).toBe(36);
     expect(speedToMetres(36)).toBeCloseTo(10, 5);
+  });
+
+  it("gives a slider round stops it can actually reach", () => {
+    // Rounding the ends and then stepping between them left the metric
+    // slider running 8, 18, 28 and its own maximum unreachable, while a
+    // Spanish workspace picked the step by comparing a translated word to
+    // the English "miles" and quietly changed grid.
+    const imperial = distanceSlider(5, 200);
+    expect(imperial).toEqual({ min: 5, max: 200, step: 5 });
+    expect((imperial.max - imperial.min) % imperial.step).toBe(0);
+
+    setUnits("metric");
+    const metric = distanceSlider(5, 200);
+    expect(metric.step).toBe(10);
+    // Every stop is a round number of kilometres, the ends included.
+    expect(metric.min % metric.step).toBe(0);
+    expect(metric.max % metric.step).toBe(0);
+    // The top of the range is always reachable. The bottom lands on the
+    // nearest round stop, which for five miles is ten kilometres rather than
+    // the eight it converts to: a slider whose first stop is 8 is not a
+    // slider in round kilometres.
+    expect(metric.max).toBeGreaterThanOrEqual(distanceValue(200));
+    expect(Math.abs(metric.min - distanceValue(5))).toBeLessThan(metric.step);
+  });
+
+  it("picks the step from the units and not from a translated word", () => {
+    // The step used to be chosen by comparing distanceUnit() to "miles",
+    // which is "millas" in Spanish, so the imperial slider changed grid with
+    // the language.
+    setLanguage("es");
+    expect(distanceSlider(5, 200).step).toBe(5);
+    setUnits("metric");
+    expect(distanceSlider(5, 200).step).toBe(10);
   });
 
   it("stops telling a component that has gone", () => {

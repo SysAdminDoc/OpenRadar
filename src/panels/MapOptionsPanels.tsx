@@ -24,6 +24,7 @@ import {
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
 import {
+  distanceSlider,
   distanceUnit,
   distanceValue,
   formatDistance,
@@ -371,6 +372,19 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
+
+  // The watched radius is stored in miles, which is what the watch works in,
+  // and read in whatever the reader reads in.
+  const radiusSlider = distanceSlider(5, 200);
+  const radiusShown = Math.min(
+    radiusSlider.max,
+    Math.max(
+      radiusSlider.min,
+      Math.round(
+        distanceValue(settings.watch.radiusMiles) / radiusSlider.step,
+      ) * radiusSlider.step,
+    ),
+  );
   const updateRadar = (patch: Partial<AppSettings["radar"]>) =>
     onSettings({ ...settings, radar: { ...settings.radar, ...patch } });
 
@@ -608,7 +622,7 @@ export function SettingsPanel({
             <strong>{t("settings.radius")}</strong>
             <output>
               {t("settings.radiusValue", {
-                distance: formatDistance(settings.watch.radiusMiles),
+                distance: formatDistance(milesFromDistance(radiusShown)),
               })}
             </output>
           </span>
@@ -617,11 +631,13 @@ export function SettingsPanel({
             // The slider steps in whatever the reader is reading in, so a
             // metric reader gets round numbers of kilometres rather than the
             // eight, sixteen and twenty-four that stepping in miles produces.
-            min={Math.round(distanceValue(5))}
-            max={Math.round(distanceValue(200))}
-            step={distanceUnit() === "miles" ? 5 : 10}
+            min={radiusSlider.min}
+            max={radiusSlider.max}
+            step={radiusSlider.step}
             aria-label={t("settings.radiusLabel", { unit: distanceUnit() })}
-            value={Math.round(distanceValue(settings.watch.radiusMiles))}
+            // Snapped to the slider's own stops, so the thumb and the readout
+            // beside it cannot disagree about where it is.
+            value={radiusShown}
             onChange={(event) =>
               onSettings({
                 ...settings,

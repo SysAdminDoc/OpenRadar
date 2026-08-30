@@ -27,14 +27,16 @@ function formatSpeed(metresPerSecond: number): string {
  */
 const THRESHOLD_RANGE: Record<
   Level2ProductId,
-  { min: number; max: number; step: number }
+  { min: number; max: number; step: number; unit: "speed" | "own" }
 > = {
-  reflectivity: { min: 0, max: 70, step: 1 },
-  velocity: { min: 0, max: 60, step: 1 },
-  "storm-relative-velocity": { min: 0, max: 60, step: 1 },
-  "spectrum-width": { min: 0, max: 15, step: 1 },
-  "differential-reflectivity": { min: -2, max: 6, step: 0.5 },
-  "correlation-coefficient": { min: 0, max: 1, step: 0.01 },
+  reflectivity: { min: 0, max: 70, step: 1, unit: "own" },
+  // These three are speeds in metres a second, which is what the radar works
+  // in and not what most people read in.
+  velocity: { min: 0, max: 60, step: 1, unit: "speed" },
+  "storm-relative-velocity": { min: 0, max: 60, step: 1, unit: "speed" },
+  "spectrum-width": { min: 0, max: 15, step: 1, unit: "speed" },
+  "differential-reflectivity": { min: -2, max: 6, step: 0.5, unit: "own" },
+  "correlation-coefficient": { min: 0, max: 1, step: 0.01, unit: "own" },
 };
 
 interface RadarProductPanelProps {
@@ -61,10 +63,27 @@ export function RadarProductPanel({
 }: RadarProductPanelProps) {
   const t = useT();
   const sweep = singleSite?.sweep ?? null;
-  const threshold = radar.thresholds[radar.product] ?? null;
-  const unfoldForced = radar.product === "storm-relative-velocity";
   const productUnit =
     LEVEL2_PRODUCTS.find((product) => product.id === radar.product)?.unit ?? "";
+  const threshold = radar.thresholds[radar.product] ?? null;
+  // The mosaic is its own product with its own scale, so it has its own floor.
+  const mosaicThreshold = radar.thresholds.mosaic ?? null;
+  const unfoldForced = radar.product === "storm-relative-velocity";
+  const range = THRESHOLD_RANGE[radar.product];
+  // A velocity threshold is a speed, and every other speed in this panel is
+  // shown in what the reader reads in. The sweep is handed metres a second
+  // whatever the box says, which is what the radar works in.
+  const speedProduct = range.unit === "speed";
+  const toShown = (metres: number) =>
+    speedProduct ? speedFromMetres(metres) : metres;
+  const fromShown = (shown: number) =>
+    speedProduct ? speedToMetres(shown) : shown;
+  const thresholdUnit = speedProduct ? speedUnit() : productUnit;
+  const shownRange = {
+    min: speedProduct ? Math.round(toShown(range.min)) : range.min,
+    max: speedProduct ? Math.round(toShown(range.max)) : range.max,
+    step: speedProduct ? 1 : range.step,
+  };
   const tilts = sweep?.tilts ?? [];
   return (
     <PanelShell
@@ -123,6 +142,37 @@ export function RadarProductPanel({
         />
         <i className="toggle-track" aria-hidden="true" />
       </label>
+
+      <label className="range-row">
+        <span>
+          <strong>{t("radar.thresholdMosaic")}</strong>
+          <output>
+            {mosaicThreshold === null
+              ? t("radar.thresholdOff")
+              : t("radar.thresholdValue", {
+                  value: mosaicThreshold.toFixed(0),
+                  unit: "dBZ",
+                })}
+          </output>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={70}
+          step={1}
+          aria-label={t("radar.thresholdMosaic")}
+          value={mosaicThreshold ?? 0}
+          onChange={(event) => {
+            const asked = Number(event.target.value);
+            const next = { ...radar.thresholds };
+            if (asked <= 0) delete next.mosaic;
+            else next.mosaic = asked;
+            onRadar({ ...radar, thresholds: next });
+          }}
+        />
+      </label>
+      <p className="source-note">{t("radar.thresholdMosaicDetail")}</p>
+
       {singleSite ? (
         <>
           <label className="toggle-row toggle-row--plain">
@@ -216,27 +266,27 @@ export function RadarProductPanel({
                     {threshold === null
                       ? t("radar.thresholdOff")
                       : t("radar.thresholdValue", {
-                          value: threshold.toFixed(
-                            THRESHOLD_RANGE[radar.product].step < 1 ? 2 : 0,
+                          value: toShown(threshold).toFixed(
+                            shownRange.step < 1 ? 2 : 0,
                           ),
-                          unit: productUnit,
+                          unit: thresholdUnit,
                         })}
                   </output>
                 </span>
                 <input
                   type="range"
-                  min={THRESHOLD_RANGE[radar.product].min}
-                  max={THRESHOLD_RANGE[radar.product].max}
-                  step={THRESHOLD_RANGE[radar.product].step}
+                  min={shownRange.min}
+                  max={shownRange.max}
+                  step={shownRange.step}
                   aria-label={t("radar.thresholdLabel")}
-                  value={threshold ?? THRESHOLD_RANGE[radar.product].min}
+                  value={toShown(threshold ?? range.min)}
                   onChange={(event) => {
-                    const asked = Number(event.target.value);
+                    const asked = fromShown(Number(event.target.value));
                     // The bottom of the slider is off rather than a threshold
                     // of the lowest reading, which would hide nothing anyway
                     // and cost a redraw to say so.
                     const next = { ...radar.thresholds };
-                    if (asked <= THRESHOLD_RANGE[radar.product].min) {
+                    if (asked <= range.min) {
                       delete next[radar.product];
                     } else {
                       next[radar.product] = asked;

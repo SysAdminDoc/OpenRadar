@@ -83,6 +83,70 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
     expect(block).toContain("2026-08-30T12:01:00.000Z");
   });
 
+  it("leaves a version number alone, wherever it is", () => {
+    // A version is shaped exactly like a coordinate, and log lines carry them:
+    // the updater names versions, a user agent has several. Blurring every
+    // signed decimal turned Chrome/140.0.7339.16 into Chrome/140.0.7.16 and
+    // build 1.0.7339 into build 1.0.7, which still reads like a version and
+    // is not one.
+    expect(blurCoordinates("update to 1.0.7339 failed")).toBe(
+      "update to 1.0.7339 failed",
+    );
+    expect(
+      blurCoordinates("Mozilla/5.0 Chrome/140.0.7339.16 Safari/537.36"),
+    ).toBe("Mozilla/5.0 Chrome/140.0.7339.16 Safari/537.36");
+    // Nothing outside a degree of latitude or longitude is a position either.
+    expect(blurCoordinates("read 1048576.25 bytes")).toBe(
+      "read 1048576.25 bytes",
+    );
+    // And a real position still goes.
+    expect(blurCoordinates("at 41.7123, -93.7456")).toBe("at 41.7, -93.7");
+  });
+
+  it("does not say who the reader is, however the path is written", () => {
+    // Four ways a profile path names somebody that the first pass missed.
+    expect(blurUserPaths("open D:\\Profiles\\matthew\\radar.pal")).toBe(
+      "open <home>\\radar.pal",
+    );
+    expect(
+      blurUserPaths("read \\\\fileserver\\users\\matthew.p\\NWSREF.pal"),
+    ).toBe("read <home>\\NWSREF.pal");
+    expect(blurUserPaths("fetch https://matthew@example.com/x failed")).toBe(
+      "fetch https://<user>@example.com/x failed",
+    );
+    expect(blurUserPaths("open C:\\Users\\MATTHE~1\\radar.pal")).toBe(
+      "open <home>\\radar.pal",
+    );
+  });
+
+  it("redacts what a source failed with, not only the log", () => {
+    // A failure message is whatever the service said, and a request URL
+    // carries the position it was asking about.
+    const block = diagnosticsBlock({
+      renderer: null,
+      mapReady: true,
+      radarReady: true,
+      activeSource: null,
+      health: [
+        {
+          id: "mrms",
+          lastSuccess: null,
+          lastFailure: Date.UTC(2026, 7, 30, 12),
+          lastError:
+            "GET https://api.weather.gov/points/41.74561,-93.71234 failed (500)",
+          consecutiveFailures: 2,
+          frameCount: 0,
+        },
+      ],
+      log: [],
+    });
+    expect(block).toContain("41.7,-93.7");
+    expect(block).not.toContain("41.74561");
+    expect(block).not.toContain("-93.71234");
+    // And the status code survives, which is the useful half.
+    expect(block).toContain("(500)");
+  });
+
   it("leaves a line with nothing to hide alone", () => {
     const line = "MRMS answered with 20 frames";
     expect(redact(line)).toBe(line);
