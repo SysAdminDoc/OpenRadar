@@ -80,6 +80,7 @@ export function RadarProductPanel({
           min="0.05"
           max="1"
           step="0.05"
+          aria-label="Radar opacity"
           value={radar.opacity}
           onChange={(event) =>
             onRadar({ ...radar, opacity: Number(event.target.value) })

@@ -248,6 +248,7 @@ export function SettingsPanel({
             min="0.05"
             max="1"
             step="0.05"
+            aria-label="Radar opacity"
             value={settings.radar.opacity}
             onChange={(event) =>
               updateRadar({ opacity: Number(event.target.value) })
@@ -264,6 +265,7 @@ export function SettingsPanel({
             min="-0.8"
             max="0.5"
             step="0.1"
+            aria-label="Radar animation speed"
             value={settings.radar.animationSpeed}
             onChange={(event) =>
               updateRadar({ animationSpeed: Number(event.target.value) })
@@ -280,6 +282,7 @@ export function SettingsPanel({
             min="60"
             max="120"
             step="10"
+            aria-label="Loop length in minutes"
             value={settings.radar.loopMinutes}
             onChange={(event) =>
               updateRadar({ loopMinutes: Number(event.target.value) })

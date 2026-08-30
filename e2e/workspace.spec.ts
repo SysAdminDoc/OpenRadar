@@ -13,7 +13,7 @@ const ridgeCapabilities = `<?xml version="1.0" encoding="UTF-8"?>
       <Layer queryable="1">
         <Name>conus_bref_qcd</Name>
         <Title>Base Reflectivity</Title>
-        <Dimension name="time" units="ISO8601" default="2026-08-30T05:40:00.000Z">2026-08-30T05:20:00.000Z,2026-08-30T05:30:00.000Z,2026-08-30T05:40:00.000Z</Dimension>
+        <Dimension name="time" units="ISO8601" default="2026-08-30T05:40:00.000Z">2026-08-30T04:20:00.000Z,2026-08-30T05:20:00.000Z,2026-08-30T05:30:00.000Z,2026-08-30T05:40:00.000Z</Dimension>
       </Layer>
     </Layer>
   </Capability>
@@ -70,12 +70,12 @@ test("switches globe projection without changing the radar timeline", async ({
   page,
 }) => {
   const timeline = page.getByLabel("Radar animation", { exact: true });
-  await expect(timeline).toContainText("3 radar frames");
+  await expect(timeline).toContainText("4 radar frames");
   await page.getByRole("button", { name: "Globe", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Flat", exact: true }),
   ).toBeVisible();
-  await expect(timeline).toContainText("3 radar frames");
+  await expect(timeline).toContainText("4 radar frames");
 });
 
 test("opens layers and saves a map preset", async ({ page }) => {
@@ -144,7 +144,7 @@ test("shows an earlier radar frame in the compare pane", async ({ page }) => {
   // so move away from the target frame before selecting it.
   const scrubber = page.getByLabel("Radar frame");
   await scrubber.fill("0");
-  await scrubber.fill("2");
+  await scrubber.fill("3");
 
   const panes = page.getByRole("application");
   const compare = page.locator(".pane-compare small");
@@ -155,7 +155,7 @@ test("shows an earlier radar frame in the compare pane", async ({ page }) => {
   await page.getByRole("button", { name: "6 back", exact: true }).click();
   await expect(compare).not.toHaveText(live);
   await expect(panes.first()).toHaveAttribute("data-radar-frame", "1788068400");
-  await expect(panes.nth(1)).toHaveAttribute("data-radar-frame", "1788067200");
+  await expect(panes.nth(1)).toHaveAttribute("data-radar-frame", "1788063600");
 
   await page.getByRole("button", { name: "Live", exact: true }).click();
   await expect(compare).toHaveText(live);
@@ -282,4 +282,32 @@ test("lists viewport alerts and flies to one", async ({ page }) => {
   const before = await pane.getAttribute("data-camera");
   await page.getByText("Tornado Warning").click();
   await expect.poll(() => pane.getAttribute("data-camera")).not.toBe(before);
+});
+
+test("applies a shorter loop length to the timeline right away", async ({
+  page,
+}) => {
+  const timeline = page.getByLabel("Radar animation", { exact: true });
+  await expect(timeline).toContainText("4 radar frames");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("Loop length in minutes").fill("60");
+
+  await expect(timeline).toContainText("3 radar frames");
+});
+
+test("keeps a scrubbed frame when the loop refreshes", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+  const scrubber = page.getByLabel("Radar frame");
+  await scrubber.fill("3");
+  await scrubber.fill("1");
+  await expect(pane).toHaveAttribute("data-radar-frame", "1788067200");
+
+  // A refresh that carries the same frame must leave the playhead alone.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Earthquakes/ }).check();
+  await expect(pane).toHaveAttribute("data-radar-frame", "1788067200");
 });
