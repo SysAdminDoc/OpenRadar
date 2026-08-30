@@ -1,4 +1,14 @@
 :root {
+  /* Everything in this stylesheet is sized in pixels, so a root font size
+     would move nothing. Zoom scales the whole workspace, layout and all,
+     which is what a reader asking for larger text means. */
+  --text-scale: 1;
+  zoom: var(--text-scale);
+  /* Zoom does not divide the viewport units, so 100vh at 130 percent is a
+     third taller than the screen and a panel sized from it hangs off the top.
+     These are the sizes to lay out against. */
+  --screen-height: calc(100vh / var(--text-scale));
+  --screen-width: calc(100vw / var(--text-scale));
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   color: #e7edf7;
   background: #090b10;
@@ -452,7 +462,7 @@ a {
   display: grid;
   grid-template-columns: 39px minmax(150px, 210px) minmax(180px, 340px);
   align-items: center;
-  width: min(500px, calc(100vw - 700px));
+  width: min(500px, calc(var(--screen-width) - 700px));
   min-width: 390px;
   min-height: 58px;
   padding: 8px 12px;
@@ -994,8 +1004,11 @@ input[type="range"] {
   bottom: calc(var(--command-height) + 14px);
   left: 16px;
   display: flex;
-  width: min(360px, calc(100vw - 32px));
-  max-height: min(700px, calc(100vh - var(--command-height) - 84px));
+  width: min(360px, calc(var(--screen-width) - 32px));
+  max-height: min(
+    700px,
+    calc(var(--screen-height) - var(--command-height) - 84px)
+  );
   flex-direction: column;
   overflow: hidden;
   color: var(--text);
@@ -1013,16 +1026,16 @@ input[type="range"] {
 }
 
 .surface-panel--wide {
-  width: min(430px, calc(100vw - 32px));
+  width: min(430px, calc(var(--screen-width) - 32px));
 }
 
 .surface-panel--settings {
-  width: min(410px, calc(100vw - 32px));
+  width: min(410px, calc(var(--screen-width) - 32px));
 }
 
 .surface-panel--product {
   bottom: calc(var(--command-height) + 82px);
-  width: min(350px, calc(100vw - 32px));
+  width: min(350px, calc(var(--screen-width) - 32px));
 }
 
 @keyframes panel-in {
@@ -1900,7 +1913,7 @@ input[type="range"] {
   top: 70px;
   right: 64px;
   display: flex;
-  width: min(360px, calc(100vw - 32px));
+  width: min(360px, calc(var(--screen-width) - 32px));
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
@@ -2073,7 +2086,7 @@ input[type="range"] {
   .radar-timeline {
     left: auto;
     right: 72px;
-    width: min(590px, calc(100vw - 410px));
+    width: min(590px, calc(var(--screen-width) - 410px));
     transform: none;
   }
 }

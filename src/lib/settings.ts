@@ -3,6 +3,8 @@ import { isLevel2Product, type Level2ProductId } from "./level2";
 import { parsePalette, type Palette } from "./palette";
 import { isLanguage, translate, type LanguageId } from "../i18n";
 import { isSurgeCategory, type SurgeCategory } from "./surge";
+import { TEXT_SCALES } from "./units";
+import type { ClockZone, TextScale, UnitSystem } from "./units";
 
 export const APP_VERSION = "0.2.0";
 
@@ -84,6 +86,9 @@ export interface AppSettings {
   theme: ThemeMode;
   /** Which language the workspace is written in. */
   language: LanguageId;
+  units: UnitSystem;
+  clock: ClockZone;
+  textScale: TextScale;
   projection: ProjectionMode;
   mapStyle: MapStyleId;
   camera: CameraState;
@@ -101,6 +106,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: 2,
   theme: "dark",
   language: "en",
+  units: "imperial",
+  clock: "local",
+  textScale: 100,
   projection: "mercator",
   mapStyle: "dark",
   camera: {
@@ -321,6 +329,11 @@ export function normalizeSettings(value: unknown): AppSettings {
     // A language from a build that had one this build does not falls back to
     // English rather than painting the screen with missing keys.
     language: isLanguage(raw.language) ? raw.language : "en",
+    units: raw.units === "metric" ? "metric" : "imperial",
+    clock: raw.clock === "utc" ? "utc" : "local",
+    textScale: TEXT_SCALES.includes(raw.textScale as TextScale)
+      ? (raw.textScale as TextScale)
+      : 100,
     projection: raw.projection === "globe" ? "globe" : "mercator",
     mapStyle: isMapStyle(raw.mapStyle)
       ? raw.mapStyle

@@ -1,0 +1,85 @@
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  distanceUnit,
+  distanceValue,
+  forecastUnits,
+  formatClock,
+  formatDistance,
+  formatHeight,
+  formatTideHeight,
+  setClockZone,
+  setUnits,
+  speedUnit,
+} from "./units";
+
+afterEach(() => {
+  setUnits("imperial");
+  setClockZone("local");
+});
+
+describe("the units the workspace reads in", () => {
+  it("asks the service for what it is going to show", () => {
+    // Converting a temperature twice is a rounding error waiting to happen,
+    // and the service will answer in either.
+    expect(forecastUnits()).toMatchObject({
+      temperature_unit: "fahrenheit",
+      wind_speed_unit: "mph",
+      precipitation_unit: "inch",
+    });
+    setUnits("metric");
+    expect(forecastUnits()).toMatchObject({
+      temperature_unit: "celsius",
+      wind_speed_unit: "kmh",
+      precipitation_unit: "mm",
+    });
+  });
+
+  it("names the unit alongside the number", () => {
+    // The temperature has no unit of its own to show: the service is asked in
+    // the scale it will be read in, so the number that arrives is already
+    // right and the panel prints a bare degree sign.
+    expect(speedUnit()).toBe("mph");
+    setUnits("metric");
+    expect(speedUnit()).toBe("km/h");
+  });
+
+  it("changes the size of the number as well as the word", () => {
+    // The failure this guards against is a label that says kilometres over a
+    // figure still counted in miles.
+    expect(distanceValue(100)).toBe(100);
+    expect(distanceUnit()).toBe("miles");
+    setUnits("metric");
+    expect(distanceValue(100)).toBe(161);
+    expect(distanceUnit()).toBe("kilometres");
+  });
+
+  it("picks a small unit for a short distance", () => {
+    expect(formatDistance(0.05)).toBe("264 ft");
+    expect(formatDistance(3.25)).toBe("3.3 mi");
+    expect(formatDistance(42)).toBe("42 mi");
+    setUnits("metric");
+    expect(formatDistance(0.05)).toBe("80 m");
+    expect(formatDistance(3.25)).toBe("5.2 km");
+    expect(formatDistance(42)).toBe("68 km");
+  });
+
+  it("converts a height and a tide", () => {
+    expect(formatHeight(4800)).toBe("4,800 ft");
+    expect(formatTideHeight(2.47)).toBe("2.47 ft");
+    setUnits("metric");
+    expect(formatHeight(4800)).toBe("1,463 m");
+    expect(formatTideHeight(2.47)).toBe("0.75 m");
+  });
+
+  it("reads the clock in UTC when asked, and says that it has", () => {
+    // Every weather product is stamped in UTC. Showing one without saying so
+    // is how a forecast gets read four hours out.
+    const at = Date.UTC(2026, 7, 30, 18, 5);
+    setClockZone("utc");
+    const shown = formatClock(at);
+    expect(shown).toMatch(/^18:05Z$/);
+
+    setClockZone("local");
+    expect(formatClock(at)).not.toContain("Z");
+  });
+});

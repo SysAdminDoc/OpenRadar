@@ -49,6 +49,18 @@ export const es: Catalogue = {
   "alerts.noteSafety":
     "Usa los avisos oficiales para decisiones que afecten la seguridad.",
 
+  "units.miles": "millas",
+  "units.kilometres": "kilómetros",
+  "settings.units": "Unidades",
+  "settings.unitsImperial": "Pies y Fahrenheit",
+  "settings.unitsMetric": "Metros y Celsius",
+  "settings.clock": "Reloj",
+  "settings.clockLocal": "Esta máquina",
+  "settings.clockUtc": "UTC",
+  "settings.clockDetail":
+    "Todos los productos meteorológicos llevan la hora UTC, así que leer el mapa en ella te ahorra convertirla mentalmente",
+  "settings.textSize": "Tamaño del texto",
+  "settings.textSizeDetail": "Todo el espacio de trabajo, dibujado más grande",
   "settings.language": "Idioma",
   "settings.languageNote": "Se aplica al instante",
 
@@ -58,7 +70,7 @@ export const es: Catalogue = {
   "forecast.failedTitle": "El pronóstico no está disponible",
   "forecast.failedBody": "El radar y el mapa siguen funcionando.",
   "forecast.feelsLike": "Sensación de {value}°",
-  "forecast.wind": "Viento de {value} mph",
+  "forecast.wind": "Viento de {value} {unit}",
   "forecast.rainNow": "{value} pulgadas ahora",
   "forecast.note":
     "Pronóstico de Open-Meteo. Consulta los avisos oficiales para decisiones de seguridad.",
@@ -132,7 +144,7 @@ export const es: Catalogue = {
   "route.straightNote":
     "Sin trazado por carretera: esta es la línea recta entre los dos lugares, y las horas suponen una marcha constante de 55 mph. El tiempo sí es real.",
   "route.summary": "De {from} a {to} · {miles} millas · {minutes} min",
-  "route.miles": "{value} mi",
+  "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":
     "Las carreteras vienen del servidor de demostración de OSRM y el tiempo de Open-Meteo. Todas las paradas del viaje se resuelven con una sola consulta de pronóstico, así que dale un momento a los servidores entre intentos.",
@@ -604,7 +616,7 @@ export const es: Catalogue = {
   "export.empty": "La grabación salió vacía.",
   "watch.alert": "Alerta meteorológica",
   "watch.here": "donde estás vigilando",
-  "watch.milesAway": "a {miles} millas del punto que vigilas",
+  "watch.milesAway": "a {miles} {unit} del punto que vigilas",
   "watch.body": "{headline} {where}.",
   "watch.failed": "La revisión de la vigilancia falló",
   "guidance.gfs": "GFS",
@@ -657,12 +669,11 @@ export const es: Catalogue = {
   "tides.failedTitle": "No se pudo leer la marea",
   "tides.unknown": "La consulta de mareas falló.",
   "tides.stationWithState": "{name}, {state}",
-  "tides.distance": "a {miles} millas del centro del mapa",
+  "tides.distance": "a {miles} {unit} del centro del mapa",
   "tides.rising": "subiendo",
   "tides.falling": "bajando",
   "tides.high": "Pleamar",
   "tides.low": "Bajamar",
-  "tides.feet": "{feet} pies",
   "tides.noneLeft": "Nada más en los próximos tres días.",
   "tides.note":
     "Predicciones de NOAA CO-OPS, en pies sobre la bajamar media inferior, en tu propia zona horaria. La marejada se suma a esto, así que una tormenta que llega en pleamar alcanza más lejos.",
@@ -702,7 +713,7 @@ export const es: Catalogue = {
   "tool.startHint": "Elige el punto de inicio",
   "tool.endHint": "Elige el punto final",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
-  "tool.beamHeight": "haz a {feet} ft sobre el radar con {tilt}°",
+  "tool.beamHeight": "haz a {height} sobre el radar con {tilt}°",
   "tool.pathPoints": "{count} en la ruta",
   "tool.rangeResult": "Distancia {distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",

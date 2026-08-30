@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setLanguage } from "../i18n";
+import { setClockZone, setUnits } from "../lib/units";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
@@ -101,6 +102,25 @@ export function useSettings(options: {
     document.documentElement.lang =
       settings.language === "pseudo" ? "en" : settings.language;
   }, [settings.language]);
+
+  // The same shape as the language store: external state the whole tree reads
+  // through a hook, kept in step with the setting.
+  useEffect(() => {
+    setUnits(settings.units);
+  }, [settings.units]);
+
+  useEffect(() => {
+    setClockZone(settings.clock);
+  }, [settings.clock]);
+
+  useEffect(() => {
+    // Everything in the workspace is sized from the root, so one variable
+    // moves all of it and nothing has to be measured twice.
+    document.documentElement.style.setProperty(
+      "--text-scale",
+      String(settings.textScale / 100),
+    );
+  }, [settings.textScale]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;

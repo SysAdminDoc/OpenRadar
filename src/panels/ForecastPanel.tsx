@@ -16,6 +16,7 @@ import {
   type ForecastData,
 } from "../lib/weather";
 import { locale, useLanguage, useT } from "../i18n";
+import { speedUnit } from "../lib/units";
 
 interface ForecastPanelProps {
   point: GeoPoint;
@@ -112,7 +113,10 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
           <div className="forecast-facts">
             <span>
               <Navigation size={15} />{" "}
-              {t("forecast.wind", { value: Math.round(forecast.windSpeed) })}
+              {t("forecast.wind", {
+                value: Math.round(forecast.windSpeed),
+                unit: speedUnit(),
+              })}
             </span>
             <span>
               <Droplets size={15} />{" "}

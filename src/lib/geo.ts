@@ -18,8 +18,4 @@ export function haversineMiles(start: GeoPoint, end: GeoPoint): number {
   return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function formatDistance(miles: number): string {
-  if (miles < 0.1) return `${Math.round(miles * 5280)} ft`;
-  if (miles < 10) return `${miles.toFixed(1)} mi`;
-  return `${Math.round(miles)} mi`;
-}
+export { formatDistance } from "./units";
