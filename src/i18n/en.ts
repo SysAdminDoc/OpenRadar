@@ -50,6 +50,17 @@ export const en = {
 
   "units.miles": "miles",
   "units.kilometres": "kilometres",
+  "toast.settingsSaved": "Settings saved",
+  "toast.settingsSavedBody": "Written to your downloads folder.",
+  "toast.settingsSaveFailed": "The settings could not be saved",
+  "toast.settingsSaveFailedBody": "Nothing was written.",
+  "toast.settingsRestored": "Settings restored",
+  "toast.settingsRestoredBody":
+    "Everything from the file is in place: views, layers, the watched place, and the colour table.",
+  "settings.backup": "Backup",
+  "settings.backupDetail":
+    "Save everything to a file, or drop one on the Upload panel to put it back",
+  "settings.export": "Save settings to a file",
   "settings.units": "Units",
   "settings.unitsImperial": "Feet and Fahrenheit",
   "settings.unitsMetric": "Metres and Celsius",
@@ -700,7 +711,7 @@ export const en = {
   "tool.endHint": "Select the end point",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.beamHeight": "beam {height} above the radar at {tilt}°",
-  "tool.pathPoints": "{count} in path",
+  "tool.pathPoints": "{count} points in path",
   "tool.rangeResult": "Range {distance}",
   "tool.inspectHint": "Click the map to inspect a point",
 } as const;

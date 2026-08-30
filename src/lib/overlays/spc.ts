@@ -41,6 +41,11 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** A UTC day and time, so a window crossing midnight reads as one. */
+function stamp(at: number): string {
+  return new Date(at).toISOString().slice(5, 16).replace("T", " ");
+}
+
 async function query(
   url: string,
   bounds: OverlayBounds,
@@ -76,10 +81,11 @@ async function query(
 /**
  * Risk areas, weakest first.
  *
- * They are drawn as nested rings rather than cut out of each other, so a High
- * risk sits inside the Moderate that contains it. Painting them in the order
- * the service happens to return would bury the strongest area under the
- * weakest, which is exactly backwards.
+ * The service returns them cut out of each other, so no two overlap and the
+ * order makes no visible difference today. It is sorted anyway because a
+ * GeoJSON source draws in array order and the cost of being right about that
+ * is one comparison: if the areas ever arrive nested, or a probabilistic layer
+ * is added where they genuinely do overlap, the strongest still ends up on top.
  */
 export function parseOutlooks(payload: unknown): OverlayData {
   const raw = payload as { features?: unknown };
@@ -117,8 +123,8 @@ export function parseOutlooks(payload: unknown): OverlayData {
     });
   }
 
-  // General thunderstorms is rank 2 and High is 6, so ascending puts the
-  // strongest last, which is on top.
+  // The service ranks them 2, 3, 4, 5, 6 and 8: general thunderstorms through
+  // High, with 7 unused. Ascending puts the strongest last, which is on top.
   parsed.sort(
     (left, right) =>
       Number(left.properties.rank) - Number(right.properties.rank),
@@ -206,14 +212,21 @@ export const spcOutlooksOverlay: OverlayAdapter = {
   describe: (properties) => {
     const valid = Number(properties.valid);
     const expire = Number(properties.expire);
+    const issue = Number(properties.issue);
     const lines = [translate("spc.outlookDay1")];
     if (Number.isFinite(valid) && Number.isFinite(expire)) {
+      // With the day, because a Day 1 outlook runs from midday to midday and
+      // reading the two clock times alone makes a nineteen hour window look
+      // like a four hour one.
       lines.push(
         translate("spc.validBetween", {
-          from: new Date(valid).toISOString().slice(11, 16),
-          to: new Date(expire).toISOString().slice(11, 16),
+          from: stamp(valid),
+          to: stamp(expire),
         }),
       );
+    }
+    if (Number.isFinite(issue)) {
+      lines.push(translate("spc.issued", { when: relativeTime(issue) }));
     }
     lines.push(translate("spc.guidanceNote"));
     return {

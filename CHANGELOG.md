@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Settings can be saved to a file and dropped back in. Everything travels: saved views, layers, the watched place, units, the colour table. Drop the file on the Upload panel to put it back, with an Undo on the notification if it was the wrong one. The file is plain readable JSON, and it comes back through the same checks the stored settings do, so a hand-edited one cannot ask for anything the sliders could not.
+
 - Units, clock and text size are yours to pick. Metres and Celsius throughout, or feet and Fahrenheit; the forecast is asked for in the units it will be read in rather than converted after the fact, and the word beside a number always matches the number. The clock reads UTC if you want it, which is what every weather product is stamped in, and it says so with a Z rather than leaving you to wonder. Text size goes to 115 or 130 percent and takes the whole workspace with it, panels and all.
 - The radar's own scales stay as they are. Reflectivity is in dBZ and velocity in metres a second wherever you are, because that is what the products are.
 

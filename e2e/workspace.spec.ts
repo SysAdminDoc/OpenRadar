@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 const transparentPng = Buffer.from(
@@ -530,4 +532,64 @@ test("says what is wrong when the machine has no WebGL2", async ({ page }) => {
   await expect(
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toHaveCount(0);
+});
+
+test("saves the whole workspace to a file and puts it back", async ({
+  page,
+}) => {
+  // A reinstall or a second machine should not mean setting four presets and a
+  // watched place up again from memory.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Metres and Celsius" }).click();
+
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save settings to a file" }).click();
+  const saved = await download;
+  expect(saved.suggestedFilename()).toBe("openradar-settings.json");
+
+  const path = await saved.path();
+  const text = await readFile(path, "utf8");
+  const parsed = JSON.parse(text) as { units: string; schemaVersion: number };
+  expect(parsed.units).toBe("metric");
+  expect(parsed.schemaVersion).toBe(2);
+
+  // Back to imperial, then restore the file and watch it return.
+  await page.getByRole("button", { name: "Feet and Fahrenheit" }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.locator('.drop-zone input[type="file"]').setInputFiles(path);
+
+  await expect(page.getByText("Settings restored")).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Metres and Celsius" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // The file is plain JSON in a folder anyone can open, so it comes back
+  // through the same checks the stored one does rather than being trusted.
+  const edited = join(dirname(path), "edited-settings.json");
+  await writeFile(
+    edited,
+    JSON.stringify({
+      ...parsed,
+      radar: { ...(parsed as Record<string, never>).radar, opacity: 40 },
+      textScale: 900,
+    }),
+  );
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.locator('.drop-zone input[type="file"]').setInputFiles(edited);
+  // The first toast is still up, so wait for the second rather than for text
+  // that now matches both.
+  await expect(page.getByText("Settings restored")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // Clamped to the range the slider allows, not the 4000% the file asked for.
+  await expect(
+    page.getByRole("button", { name: "100%", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".settings-section output").first()).toHaveText(
+    "100%",
+  );
 });

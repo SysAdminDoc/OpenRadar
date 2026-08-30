@@ -51,6 +51,17 @@ export const es: Catalogue = {
 
   "units.miles": "millas",
   "units.kilometres": "kilómetros",
+  "toast.settingsSaved": "Ajustes guardados",
+  "toast.settingsSavedBody": "Escritos en tu carpeta de descargas.",
+  "toast.settingsSaveFailed": "No se pudieron guardar los ajustes",
+  "toast.settingsSaveFailedBody": "No se escribió nada.",
+  "toast.settingsRestored": "Ajustes restaurados",
+  "toast.settingsRestoredBody":
+    "Todo lo del archivo está en su sitio: vistas, capas, el punto vigilado y la tabla de colores.",
+  "settings.backup": "Copia de seguridad",
+  "settings.backupDetail":
+    "Guarda todo en un archivo, o suelta uno en el panel de Carga para restaurarlo",
+  "settings.export": "Guardar los ajustes en un archivo",
   "settings.units": "Unidades",
   "settings.unitsImperial": "Pies y Fahrenheit",
   "settings.unitsMetric": "Metros y Celsius",
@@ -714,7 +725,7 @@ export const es: Catalogue = {
   "tool.endHint": "Elige el punto final",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.beamHeight": "haz a {height} sobre el radar con {tilt}°",
-  "tool.pathPoints": "{count} en la ruta",
+  "tool.pathPoints": "{count} puntos en la ruta",
   "tool.rangeResult": "Distancia {distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",
 };
