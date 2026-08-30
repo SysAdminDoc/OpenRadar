@@ -25,6 +25,7 @@ import { providerHealth, subscribeHealth } from "./lib/providers";
 import { log, recentLog, subscribeLog } from "./lib/log";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./lib/deepLink";
 import { satelliteFrameTime } from "./lib/providers";
+import { looksLikePlacefile, parsePlacefile } from "./lib/placefile";
 import { appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -414,24 +415,37 @@ export default function App() {
       try {
         if (file.size > 5 * 1024 * 1024)
           throw new Error("The file is larger than 5 MB.");
-        const payload = JSON.parse(await file.text()) as Record<
-          string,
-          unknown
-        >;
-        if (
-          !payload ||
-          (payload.type !== "FeatureCollection" && payload.type !== "Feature")
-        ) {
-          throw new Error("Choose a GeoJSON Feature or FeatureCollection.");
-        }
-        if (payload.type === "FeatureCollection") {
-          const features = payload.features;
-          if (!Array.isArray(features) || features.length > 5000) {
-            throw new Error(
-              "A custom overlay can contain up to 5,000 features.",
-            );
+        const text = await file.text();
+        let payload: Record<string, unknown>;
+        let detail = "The overlay stays on this device.";
+
+        if (looksLikePlacefile(text)) {
+          const placefile = parsePlacefile(text);
+          if (!placefile.data.features.length) {
+            throw new Error("That placefile has nothing this map can draw.");
+          }
+          payload = placefile.data as unknown as Record<string, unknown>;
+          detail = placefile.skipped.length
+            ? `${placefile.data.features.length} shapes. ${placefile.skipped.join(" and ")} need image files and were left out.`
+            : `${placefile.data.features.length} shapes from the placefile.`;
+        } else {
+          payload = JSON.parse(text) as Record<string, unknown>;
+          if (
+            !payload ||
+            (payload.type !== "FeatureCollection" && payload.type !== "Feature")
+          ) {
+            throw new Error("Choose a GeoJSON file or a GRLevelX placefile.");
+          }
+          if (payload.type === "FeatureCollection") {
+            const features = payload.features;
+            if (!Array.isArray(features) || features.length > 5000) {
+              throw new Error(
+                "A custom overlay can contain up to 5,000 features.",
+              );
+            }
           }
         }
+
         setCustomOverlay(payload);
         applySettings({
           ...settingsRef.current,
@@ -440,7 +454,7 @@ export default function App() {
         setActiveSurface(null);
         pushToast({
           title: `${file.name} added`,
-          detail: "The overlay stays on this device.",
+          detail,
           actionLabel: "Remove",
           onAction: () => setCustomOverlay(null),
         });
@@ -450,7 +464,7 @@ export default function App() {
           detail:
             error instanceof Error
               ? error.message
-              : "The file was not valid GeoJSON.",
+              : "The file could not be read.",
         });
       }
     },
