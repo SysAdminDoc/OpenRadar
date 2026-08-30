@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- The radar playhead stays on the frame you scrubbed to when the loop refreshes, and it only follows the newest frame while playing or when you were already on the newest one.
+- Changing the loop length now changes the timeline immediately instead of waiting for the next refresh.
+- Gave the settings sliders proper labels for screen readers.
 - Stopped the forecast panel from requesting a new forecast on every map move. It waits for the map to settle and ignores pans of under three miles, and the previous forecast stays on screen while a new one loads.
 - Added an NWS watches and warnings layer with severity colouring, click-through detail, and an Alerts panel that lists what intersects the view and flies to any of it.
 - Added USGS earthquake and NIFC wildfire perimeter overlays with popups that carry the source and how fresh the data is.

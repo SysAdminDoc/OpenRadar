@@ -20,19 +20,8 @@ import {
 } from "./components/MapChrome";
 import { ToastHost, type ToastMessage } from "./components/ToastHost";
 import type { GeoPoint } from "./lib/geo";
-import {
-  animationIntervalMs,
-  formatFrameTime,
-  frameAgeMinutes,
-  type RadarFrame,
-} from "./lib/radar";
-import {
-  coverageKey,
-  fetchRadarTimeline,
-  providerHealth,
-  subscribeHealth,
-  type RadarProvider,
-} from "./lib/providers";
+import { formatFrameTime, frameAgeMinutes } from "./lib/radar";
+import { providerHealth, subscribeHealth } from "./lib/providers";
 import {
   DEFAULT_SETTINGS,
   cameraFromSearch,
@@ -46,6 +35,7 @@ import {
   type RadarSettings,
 } from "./lib/settings";
 import { useOverlays } from "./hooks/useOverlays";
+import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import type { OverlayBounds } from "./lib/overlays";
 import { AlertsPanel } from "./panels/AlertsPanel";
 import { ForecastPanel } from "./panels/ForecastPanel";
@@ -60,7 +50,6 @@ import { MorePanel, UploadPanel, VideosPanel } from "./panels/UtilityPanels";
 import type { PlaceResult } from "./lib/weather";
 
 const CAMERA_SAVE_DELAY_MS = 450;
-const RADAR_REFRESH_MS = 5 * 60_000;
 const COMPARE_OFFSETS = [0, 3, 6, 12];
 
 function cameraFromUrl(fallback: CameraState): CameraState {
@@ -78,14 +67,7 @@ export default function App() {
   const [activeTool, setActiveTool] = useState<ToolMode>(null);
   const [dualPane, setDualPane] = useState(false);
   const [compareOffset, setCompareOffset] = useState(0);
-  const [frames, setFrames] = useState<RadarFrame[]>([]);
-  const [source, setSource] = useState<RadarProvider | null>(null);
-  const [frameIndex, setFrameIndex] = useState(0);
-  const [playing, setPlaying] = useState(
-    () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
   const [pageVisible, setPageVisible] = useState(() => !document.hidden);
-  const [radarError, setRadarError] = useState<string | null>(null);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -128,12 +110,14 @@ export default function App() {
     [overlayToggles, overlays],
   );
 
-  // Panning inside one provider's footprint must not refetch the timeline, so
-  // the effect keys on the covering chain rather than the raw center.
-  const radarCoverage = useMemo(
-    () => coverageKey(settings.camera.center[0], settings.camera.center[1]),
-    [settings.camera.center],
-  );
+  const timeline = useRadarTimeline({
+    ready: hydrated,
+    center: settings.camera.center,
+    loopMinutes: settings.radar.loopMinutes,
+    animationSpeed: settings.radar.animationSpeed,
+    pageVisible,
+  });
+  const { frames, frameIndex, playing, source } = timeline;
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
@@ -206,50 +190,6 @@ export default function App() {
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    const controller = new AbortController();
-    let mounted = true;
-
-    const refresh = async () => {
-      try {
-        const timeline = await fetchRadarTimeline(
-          settingsRef.current.camera.center,
-          settingsRef.current.radar.loopMinutes,
-          controller.signal,
-        );
-        if (!mounted) return;
-        setSource(timeline.provider);
-        setFrames(timeline.frames);
-        setFrameIndex(Math.max(0, timeline.frames.length - 1));
-        setRadarError(null);
-      } catch (error) {
-        if (
-          !mounted ||
-          (error instanceof DOMException && error.name === "AbortError")
-        )
-          return;
-        setRadarError("Radar temporarily unavailable");
-      }
-    };
-
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), RADAR_REFRESH_MS);
-    return () => {
-      mounted = false;
-      controller.abort();
-      window.clearInterval(timer);
-    };
-  }, [hydrated, radarCoverage]);
-
-  useEffect(() => {
-    if (!playing || !pageVisible || frames.length < 2) return;
-    const timer = window.setInterval(() => {
-      setFrameIndex((current) => (current + 1) % frames.length);
-    }, animationIntervalMs(settings.radar.animationSpeed));
-    return () => window.clearInterval(timer);
-  }, [frames.length, pageVisible, playing, settings.radar.animationSpeed]);
 
   useEffect(
     () => () => {
@@ -716,16 +656,13 @@ export default function App() {
         playing={playing}
         sourceLabel={source?.label ?? null}
         error={
-          radarError ??
+          timeline.error ??
           (radarAge !== null && radarAge >= 20
             ? `Radar is stale · ${radarAge} min old`
             : null)
         }
-        onFrameIndex={(index) => {
-          setPlaying(false);
-          setFrameIndex(index);
-        }}
-        onPlaying={setPlaying}
+        onFrameIndex={timeline.selectFrame}
+        onPlaying={timeline.setPlaying}
       />
       <ZoomControls
         bearing={settings.camera.bearing}

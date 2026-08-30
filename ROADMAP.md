@@ -50,13 +50,6 @@
 
 ### P1
 
-- [ ] P1: Keep the playhead where the user left it across refreshes and apply loop length immediately
-  Why: the 5-minute refresh jumps to the newest frame mid-scrub, and `loopMinutes` only takes effect at the next fetch.
-  Evidence: `src/App.tsx:174,177`.
-  Touches: src/App.tsx (extract `useRadarTimeline`; on refresh, keep the current frame by timestamp when it still exists, jump to newest only when `playing` or already at the end; derive the retained window from `loopMinutes` in a memo over all fetched frames).
-  Acceptance: a unit test on the timeline reducer shows the selected timestamp survives a refresh; changing loop length in Settings changes "N of M frames" without waiting.
-  Complexity: S
-
 - [x] P1: Fix the "Presets" command button that toggles projection and honor reduced motion for autoplay
   Why: the button labeled Presets calls `onProjection`; users clicking Presets get a globe. Autoplay starts on launch regardless of `prefers-reduced-motion`.
   Evidence: `src/components/CommandBar.tsx:132-137`; `src/App.tsx` `playing` initial `true`; `src/index.css:1701` covers transitions only.
@@ -106,7 +99,7 @@
   Acceptance: no request to `server.arcgisonline.com` is made without a user-entered key; OpenTopoMap shows "Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung: © OpenTopoMap (CC-BY-SA)" in the attribution control.
   Complexity: S
 
-- [ ] P1: Extract `useRadarTimeline`, `useSettings`, and a layer registry out of `App.tsx`
+- [ ] P1: Extract `useSettings` out of `App.tsx` (the timeline hook and the layer registry landed on 2026-08-30)
   Why: `App.tsx` is 684 lines and every P1 overlay would land in it; the sibling repos show the cost of one giant controller.
   Evidence: `src/App.tsx`; StormScope `js/context-layers.js` single `syncOverlays` pattern.
   Touches: src/App.tsx, new src/hooks/{useRadarTimeline,useSettings}.ts, new src/lib/overlays/registry.ts consumed by MapViewport.
