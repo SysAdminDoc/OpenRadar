@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchGuidance } from "./guidance";
-import { fetchTides } from "./tides";
+import { fetchTides, loadStations, resetStations } from "./tides";
 import { fetchRoute, fetchRouteForecast } from "./route";
 import { fetchForecast, searchPlaces } from "./weather";
 import { fetchHrrrRun } from "./providers/hrrr";
@@ -124,11 +124,18 @@ describe("a request nobody is waiting for is cancelled", () => {
       await Promise.resolve();
 
       expect(stub).toHaveBeenCalled();
-      const init = (stub as unknown as { mock: { calls: unknown[][] } }).mock
-        .calls[0][1] as { signal?: AbortSignal } | undefined;
-      expect(init?.signal, `${name} dropped the signal`).toBe(
-        controller.signal,
-      );
+      // Every request, not just the first: the tropical overlay fetches one
+      // document per layer, and a signal dropped on the second would
+      // otherwise go unnoticed.
+      const calls = (stub as unknown as { mock: { calls: unknown[][] } }).mock
+        .calls;
+      for (const [at, call] of calls.entries()) {
+        const init = call[1] as { signal?: AbortSignal } | undefined;
+        expect(
+          init?.signal,
+          `${name} dropped the signal on request ${at}`,
+        ).toBe(controller.signal);
+      }
       controller.abort();
       await expect(pending).rejects.toThrow();
     });
@@ -154,33 +161,81 @@ describe("a request nobody is waiting for is cancelled", () => {
 });
 
 describe("cancelling does not blame the provider", () => {
+  /** Runs the failover chain against a fetch that behaves as given. */
+  async function runChain(
+    answer: typeof globalThis.fetch,
+    cancel: boolean,
+  ): Promise<unknown> {
+    resetHealth();
+    vi.stubGlobal("fetch", answer);
+    const controller = new AbortController();
+    const settled = fetchRadarTimeline([-95, 35], 120, controller.signal).then(
+      () => null,
+      (reason: unknown) => reason,
+    );
+    await Promise.resolve();
+    if (cancel) controller.abort();
+    return settled;
+  }
+
+  it("blames a source that really did fail", async () => {
+    // The control for the test below. Without it "no source was blamed" would
+    // pass just as well against a chain that recorded nothing at all, because
+    // the published snapshot starts empty and only a record fills it.
+    const refuse = vi.fn(() =>
+      Promise.reject(new Error("the service is down")),
+    ) as unknown as typeof globalThis.fetch;
+    const reason = await runChain(refuse, false);
+
+    expect(reason).not.toBeNull();
+    expect(
+      providerHealth().filter((health) => health.consecutiveFailures > 0)
+        .length,
+      "a real failure should be recorded",
+    ).toBeGreaterThan(0);
+  });
+
   it("leaves every source healthy when the caller aborts mid-request", async () => {
     // The failover chain reads a rejection as "this source is down" and moves
     // to the next one. An abort is the user moving the map, so treating it as
     // a failure would walk the whole chain and light up Diagnostics for
     // sources that answered perfectly well the moment before.
-    resetHealth();
-    vi.stubGlobal("fetch", hangingFetch());
-    const controller = new AbortController();
-    const pending = fetchRadarTimeline([-95, 35], 120, controller.signal);
-    const settled = pending.then(
-      () => null,
-      (reason: unknown) => reason,
-    );
-    await Promise.resolve();
-    controller.abort();
-    const reason = await settled;
+    const reason = await runChain(hangingFetch(), true);
 
     expect(reason).not.toBeNull();
-    for (const health of providerHealth()) {
-      expect(
-        health.consecutiveFailures,
-        `${health.id} was blamed for a cancelled request`,
-      ).toBe(0);
-      expect(
-        health.lastFailure,
-        `${health.id} recorded a failure time for a cancelled request`,
-      ).toBeNull();
-    }
+    expect(
+      providerHealth().filter((health) => health.consecutiveFailures > 0),
+      "a cancelled request blamed a source",
+    ).toEqual([]);
+    expect(
+      providerHealth().filter((health) => health.lastFailure !== null),
+      "a cancelled request recorded a failure time",
+    ).toEqual([]);
+  });
+});
+
+describe("the two shared loaders take no signal on purpose", () => {
+  // Both read a file bundled with the app and hand every caller the same
+  // promise, so one caller's signal would cancel the load the others are
+  // waiting on. The panels guard their own state writes instead.
+  it("hands every caller one in-flight request and no signal", async () => {
+    resetStations();
+    const stub = vi.fn(() =>
+      Promise.resolve(
+        new Response("[]", { headers: { "content-type": "application/json" } }),
+      ),
+    ) as unknown as typeof globalThis.fetch;
+    vi.stubGlobal("fetch", stub);
+
+    const [first, second] = await Promise.all([loadStations(), loadStations()]);
+
+    expect(stub).toHaveBeenCalledTimes(1);
+    expect(first).toBe(second);
+    const init = (stub as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][1] as { signal?: AbortSignal } | undefined;
+    expect(
+      init?.signal,
+      "a shared loader must not take a caller's signal",
+    ).toBeUndefined();
   });
 });
