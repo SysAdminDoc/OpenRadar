@@ -57,6 +57,16 @@ if (!fs.existsSync(keyPath)) {
 
 if (!skipBuild) {
   console.log(`Building OpenRadar ${tag}`);
+  // Yesterday's installer is still in the bundle directory, and the check
+  // below wants exactly one. Clearing it beats stopping after a build that
+  // already succeeded.
+  if (fs.existsSync(bundleDir)) {
+    for (const name of fs.readdirSync(bundleDir)) {
+      if (name.endsWith("-setup.exe") || name.endsWith("-setup.exe.sig")) {
+        fs.rmSync(path.join(bundleDir, name));
+      }
+    }
+  }
   run("npm", ["run", "check"]);
   run("npm", ["run", "tauri", "--", "build", "--bundles", "nsis"], {
     env: {
