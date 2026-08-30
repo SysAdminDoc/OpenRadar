@@ -77,6 +77,8 @@ export function useOverlays(
     earthquakes: IDLE_OVERLAY,
     wildfires: IDLE_OVERLAY,
     tropical: IDLE_OVERLAY,
+    spcOutlooks: IDLE_OVERLAY,
+    spcDiscussions: IDLE_OVERLAY,
   }));
   const coverageRef = useRef<Partial<Record<OverlayId, Coverage>>>({});
   const requestsRef = useRef(

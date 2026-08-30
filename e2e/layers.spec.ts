@@ -283,3 +283,25 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
     page.getByText(/miles from the point you watch|where you are watching/),
   ).toBeVisible();
 });
+
+test("draws the severe outlook under the warnings it is guidance about", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Severe Outlook/ }).check();
+
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-overlay-spcOutlooks-fill/,
+  );
+
+  // Guidance about what might happen belongs under what is happening.
+  const stack = (await pane.getAttribute("data-layer-stack"))!.split(" ");
+  expect(stack.indexOf("openradar-overlay-spcOutlooks-fill")).toBeLessThan(
+    stack.indexOf("openradar-overlay-alerts-fill"),
+  );
+});

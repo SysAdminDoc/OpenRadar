@@ -251,6 +251,21 @@ export const es: Catalogue = {
   "command.group.style": "Tipo de mapa",
   "command.group.panel": "Panel",
   "command.group.tool": "Herramienta",
+  "layer.spcOutlooks": "Riesgo de tormentas",
+  "layers.spcOutlooksDetail":
+    "El riesgo de tormentas severas hoy según el Storm Prediction Center, en sus propios colores",
+  "layer.spcDiscussions": "Discusiones a mesoescala",
+  "layers.spcDiscussionsDetail":
+    "Lo que los meteorólogos vigilan ahora mismo, una o dos horas antes de cualquier aviso",
+  "spc.serviceStatus":
+    "El servicio del Storm Prediction Center respondió {status}.",
+  "spc.outlookDay1": "Pronóstico convectivo del día 1",
+  "spc.validBetween": "Válido de {from} a {to} UTC",
+  "spc.guidanceNote":
+    "Esto es orientación sobre lo que puede pasar, no un aviso.",
+  "spc.discussion": "Discusión a mesoescala",
+  "spc.issued": "Emitida {when}",
+  "spc.issuedUnknown": "Hora de emisión desconocida",
   "layer.weatherAlerts": "Alertas meteorológicas",
   "layer.earthquakes": "Sismos",
   "layer.wildfires": "Incendios",
@@ -276,6 +291,8 @@ export const es: Catalogue = {
   "tool.draw": "Dibujar",
   "tool.range": "Distancia",
   "tool.inspect": "Inspector",
+  "keywords.spcOutlooks": "pronostico convectivo riesgo categorico",
+  "keywords.spcDiscussions": "discusion mesoescala aviso corto",
   "keywords.weatherAlerts": "aviso vigilancia tornado severo poligono",
   "keywords.earthquakes": "sismo temblor terremoto magnitud",
   "keywords.wildfires": "incendio fuego perimetro humo",
