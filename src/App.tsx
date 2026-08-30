@@ -20,6 +20,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useToasts } from "./hooks/useToasts";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
+import { usePalette } from "./hooks/usePalette";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
@@ -96,6 +97,11 @@ export default function App() {
     setActiveSurface,
   });
 
+  const paletteGeneration = usePalette({
+    ready: hydrated,
+    palette: settings.palette,
+  });
+
   const timeline = useRadarTimeline({
     ready: hydrated,
     center: settings.camera.center,
@@ -104,6 +110,7 @@ export default function App() {
     futureRadar: settings.radar.futureRadar,
     pageVisible,
     archive: replay,
+    paletteGeneration,
   });
   const singleSite = useSingleSiteRadar({
     ready: hydrated,
@@ -111,11 +118,13 @@ export default function App() {
     center: settings.camera.center,
     zoom: settings.camera.zoom,
     pageVisible,
+    paletteGeneration,
   });
   const mrms = useMrmsOverlays({
     ready: hydrated,
     layers: settings.layers,
     pageVisible,
+    paletteGeneration,
   });
   const lightning = useLightning({
     ready: hydrated,

@@ -16,6 +16,7 @@ use nexrad_model::meta::registry;
 use serde::Serialize;
 
 use crate::http;
+use crate::palette;
 
 const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
 /// The image is square because a sweep is a circle; this is its side in pixels.
@@ -63,6 +64,8 @@ pub struct SweepImage {
     /// in hand is an answer to the question it is asking now.
     pub product_id: String,
     pub product: String,
+    /// True when a loaded colour table drew this rather than the built-in ramp.
+    pub palette_applied: bool,
     pub unit: String,
     pub elevation_degrees: f32,
     /// Every tilt this volume holds, ascending, so the panel can offer them.
@@ -376,7 +379,12 @@ pub fn render_sweep(
     field: &SweepField,
     coordinates: &RadarCoordinateSystem,
     product: Product,
+    unit: &str,
 ) -> (Vec<u8>, [f64; 4]) {
+    // A loaded colour table replaces the built-in ramp for the product it says
+    // it is for, and nothing else. That is the whole point of loading one: two
+    // people comparing the same storm see the same colours.
+    let table = palette::for_unit(unit);
     let extent = coordinates.sweep_extent(MAX_RANGE_KM);
     let west = extent.min.longitude;
     let east = extent.max.longitude;
@@ -412,29 +420,37 @@ pub fn render_sweep(
             };
 
             let (color, alpha) = match status {
-                GateStatus::Valid => match product {
-                    Product::Reflectivity => {
-                        // Below the lowest ramp stop there is nothing the
-                        // legend could name, so the ground shows through.
-                        if value < FADE_FLOOR_DBZ {
+                GateStatus::Valid => match &table {
+                    Some(table) => {
+                        if value < table.floor() {
                             continue;
                         }
-                        (
-                            ramp_color(REFLECTIVITY_RAMP, value),
-                            reflectivity_alpha(value),
-                        )
+                        (table.color(value), MAX_ALPHA)
                     }
-                    Product::Velocity => (ramp_color(VELOCITY_RAMP, value), MAX_ALPHA),
-                    _ => {
-                        let (low, high) = range.unwrap_or((0.0, 1.0));
-                        let span = high - low;
-                        let scaled = if span > 0.0 {
-                            (value - low) / span
-                        } else {
-                            0.0
-                        };
-                        (ramp_color(GENERIC_RAMP, scaled), MAX_ALPHA)
-                    }
+                    None => match product {
+                        Product::Reflectivity => {
+                            // Below the lowest ramp stop there is nothing the
+                            // legend could name, so the ground shows through.
+                            if value < FADE_FLOOR_DBZ {
+                                continue;
+                            }
+                            (
+                                ramp_color(REFLECTIVITY_RAMP, value),
+                                reflectivity_alpha(value),
+                            )
+                        }
+                        Product::Velocity => (ramp_color(VELOCITY_RAMP, value), MAX_ALPHA),
+                        _ => {
+                            let (low, high) = range.unwrap_or((0.0, 1.0));
+                            let span = high - low;
+                            let scaled = if span > 0.0 {
+                                (value - low) / span
+                            } else {
+                                0.0
+                            };
+                            (ramp_color(GENERIC_RAMP, scaled), MAX_ALPHA)
+                        }
+                    },
                 },
                 GateStatus::RangeFolded => (RANGE_FOLDED, MAX_ALPHA),
                 GateStatus::BelowThreshold | GateStatus::NoData => continue,
@@ -503,7 +519,8 @@ pub fn sweep_from_volume(
     let site = site.ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
     let coordinates = RadarCoordinateSystem::new(&site);
 
-    let (pixels, [west, south, east, north]) = render_sweep(&chosen.field, &coordinates, product);
+    let (pixels, [west, south, east, north]) =
+        render_sweep(&chosen.field, &coordinates, product, unit);
     let png_bytes = encode_png(&pixels)?;
 
     // The sweep's own time, not the volume's: under MESO-SAILS the lowest tilt
@@ -519,6 +536,7 @@ pub fn sweep_from_volume(
     Ok(SweepImage {
         station: station.to_string(),
         product_id: product_name.to_string(),
+        palette_applied: palette::for_unit(unit).is_some(),
         site_name: entry
             .map(|site| format!("{}, {}", site.city, site.state))
             .unwrap_or_else(|| station.to_string()),
@@ -799,7 +817,7 @@ mod tests {
                 .expect("a sweep")
                 .field
         };
-        let (pixels, _) = render_sweep(&field, &coordinates, Product::Reflectivity);
+        let (pixels, _) = render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ");
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         let total = IMAGE_SIZE * IMAGE_SIZE;
         assert!(

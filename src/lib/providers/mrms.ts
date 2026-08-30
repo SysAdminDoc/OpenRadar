@@ -45,12 +45,18 @@ export function resetTileBase() {
   tileBase = null;
 }
 
+/**
+ * The generation is part of the address rather than a header, because a tile
+ * is fetched by the map and cached by the map. A new colour table means a new
+ * address, so nothing drawn with the old one is shown again.
+ */
 export function tileUrl(
   root: string,
   product: MrmsProductId,
   time: number,
+  palette = 0,
 ): string {
-  return `${root}${product}/${time}/{z}/{x}/{y}.png`;
+  return `${root}${product}/${time}/{z}/{x}/{y}.png?p=${palette}`;
 }
 
 /** The base URL for the local tile scheme, once Tauri has spelled it out. */
@@ -99,7 +105,7 @@ export function thinFrames<T>(frames: T[], most = MAX_LOOP_FRAMES): T[] {
   return kept;
 }
 
-export const mrmsProvider: RadarProvider = {
+export const mrmsProvider: RadarProvider & { paletteGeneration: number } = {
   id: "mrms",
   label: "NOAA MRMS",
   detail: "One kilometre national composite, two-minute grids",
@@ -113,6 +119,8 @@ export const mrmsProvider: RadarProvider = {
   tileBudgetLimit: 100_000,
   discoveryBudgetLimit: 30,
   budgetWindowMs: 60_000,
+  /** Bumped when a colour table is loaded, so the tiles are drawn again. */
+  paletteGeneration: 0,
   fetchFrames: async (loopMinutes: number) => {
     const [root, frames] = await Promise.all([
       base(),
@@ -122,7 +130,12 @@ export const mrmsProvider: RadarProvider = {
       thinFrames(frames).map((frame): RadarFrame => ({
         providerId: "mrms",
         time: frame.time,
-        tileUrl: tileUrl(root, "composite", frame.time),
+        tileUrl: tileUrl(
+          root,
+          "composite",
+          frame.time,
+          mrmsProvider.paletteGeneration,
+        ),
         tileSize: 256,
         // The grid is one kilometre, which runs out of detail past here.
         maxZoom: 10,
@@ -133,3 +146,13 @@ export const mrmsProvider: RadarProvider = {
     );
   },
 };
+
+/**
+ * The colour table in force, as a number that goes in every tile address.
+ * The provider builds those addresses inside fetchFrames, which takes no such
+ * argument, so it is set here rather than threaded through the interface every
+ * provider shares.
+ */
+export function setMrmsPaletteGeneration(generation: number) {
+  mrmsProvider.paletteGeneration = generation;
+}

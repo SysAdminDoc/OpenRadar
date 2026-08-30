@@ -7,7 +7,12 @@ import {
   Plus,
   Radar,
 } from "lucide-react";
-import { legendScale, stopPosition, type LegendScaleId } from "../lib/legend";
+import {
+  legendScale,
+  stopPosition,
+  type LegendScale,
+  type LegendScaleId,
+} from "../lib/legend";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 
 function initLabel(initUtc: string): string {
@@ -23,6 +28,8 @@ interface RadarLegendProps {
   eyebrow: string;
   /** A moment with no standard ramp has no scale to draw. */
   scale: LegendScaleId;
+  /** A loaded colour table's own scale, which replaces the built-in one. */
+  paletteScale?: LegendScale | null;
   onToggle: () => void;
 }
 
@@ -32,9 +39,10 @@ export function RadarLegend({
   productLabel,
   eyebrow,
   scale,
+  paletteScale = null,
   onToggle,
 }: RadarLegendProps) {
-  const reading = legendScale(scale);
+  const reading = paletteScale ?? legendScale(scale);
 
   return (
     <button
@@ -51,7 +59,13 @@ export function RadarLegend({
       <ChevronDown size={16} />
       {reading ? (
         <>
-          <i className={reading.ramp} aria-hidden="true" />
+          <i
+            className={reading.ramp}
+            style={
+              reading.gradient ? { background: reading.gradient } : undefined
+            }
+            aria-hidden="true"
+          />
           <span
             className="legend-scale"
             aria-label={`${productLabel} from ${reading.min} to ${reading.max} ${reading.unit}`}

@@ -37,6 +37,7 @@ function sweepFor(
     station,
     siteName: "Des Moines, IA",
     productId: product,
+    paletteApplied: false,
     product: product === "velocity" ? "Velocity" : "Reflectivity",
     unit: product === "velocity" ? "m/s" : "dBZ",
     elevationDegrees: [0.48, 0.87, 1.31][tilt] ?? 0.48,
@@ -68,6 +69,7 @@ function options(overrides: {
     center: overrides.center ?? ([-93.7, 41.7] as [number, number]),
     zoom: 9,
     pageVisible: true,
+    paletteGeneration: 0,
   };
 }
 

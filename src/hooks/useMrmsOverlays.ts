@@ -48,8 +48,10 @@ export function useMrmsOverlays(options: {
   ready: boolean;
   layers: LayerSettings;
   pageVisible: boolean;
+  /** Bumped when a colour table is loaded, so the tiles are drawn again. */
+  paletteGeneration: number;
 }): MrmsOverlayState {
-  const { ready, layers, pageVisible } = options;
+  const { ready, layers, pageVisible, paletteGeneration } = options;
   const [catalog, setCatalog] = useState<MrmsProductInfo[]>([]);
   const [times, setTimes] = useState<Partial<Record<MrmsProductId, number>>>(
     {},
@@ -143,10 +145,15 @@ export function useMrmsOverlays(options: {
           label: entry.label,
           unit: entry.unit,
           time: times[entry.id] ?? 0,
-          tileUrl: tileUrl(root, entry.id, times[entry.id] ?? 0),
+          tileUrl: tileUrl(
+            root,
+            entry.id,
+            times[entry.id] ?? 0,
+            paletteGeneration,
+          ),
           stops: entry.stops,
         })),
       error,
     };
-  }, [catalog, error, root, times, wanted]);
+  }, [catalog, error, paletteGeneration, root, times, wanted]);
 }

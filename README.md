@@ -29,6 +29,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Export the current view as a picture or the whole loop as a video, with the time and credits burned in
 - Route weather: a drive coloured by the chance of rain at the hour you reach each stretch
 - Storm history: every Atlantic and eastern Pacific cyclone since 1851, with its best track drawn by intensity, and archive radar replay of the ones since 2003
+- GRLevelX `.pal` colour tables applied to the locally decoded radar, with the legend rebuilt from the table
 - Place search, map-centered forecasts, local GeoJSON and GRLevelX placefile import, shareable camera links, dark and light themes
 - Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
 

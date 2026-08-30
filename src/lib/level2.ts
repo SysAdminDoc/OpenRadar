@@ -32,6 +32,8 @@ export interface SweepImage {
   siteName: string;
   /** The product this sweep answers, as the panel asked for it. */
   productId: Level2ProductId;
+  /** True when a loaded colour table drew this rather than the built-in ramp. */
+  paletteApplied: boolean;
   product: string;
   unit: string;
   elevationDegrees: number;

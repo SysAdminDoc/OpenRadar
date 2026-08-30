@@ -5,6 +5,7 @@ mod exports;
 mod level2;
 mod lightning;
 mod mrms;
+mod palette;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -72,7 +73,8 @@ pub fn run() {
             level2::level2_nearest_site,
             mrms::mrms_frames,
             mrms::mrms_products,
-            lightning::lightning_flashes
+            lightning::lightning_flashes,
+            palette::set_palette
         ])
         .setup(|_app| {
             // Development builds are not installed, so the scheme has to be

@@ -14,6 +14,7 @@ use chrono::{DateTime, Datelike, Duration, NaiveDateTime, Utc};
 use serde::Serialize;
 
 use crate::http;
+use crate::palette;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
 /// Every product on the map keeps one grid live at a time, and the composite
@@ -247,8 +248,11 @@ static TILES: Mutex<VecDeque<CachedTile>> = Mutex::new(VecDeque::new());
 /// decode the same fifty megabytes.
 static DECODING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+/// A drawn tile belongs to the grid it came from and to the colour table it
+/// was drawn with. Leaving the table out of the key would serve tiles in the
+/// old colours after a new one is loaded.
 fn tile_key(key: &str, zoom: u32, x: u32, y: u32) -> String {
-    format!("{key}|{zoom}/{x}/{y}")
+    format!("{key}|{zoom}/{x}/{y}|{}", palette::generation())
 }
 
 fn cached_tile(key: &str) -> Option<Vec<u8>> {
@@ -665,10 +669,22 @@ pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
         return None;
     }
 
+    // A loaded colour table replaces this product's own ramp when it says it is
+    // for the same unit, so the same storm comes out the same colours in every
+    // tool that reads the file.
+    let table = palette::for_unit(entry.unit);
+    let floor = table
+        .as_ref()
+        .map(|table| table.floor())
+        .unwrap_or(entry.floor);
+
     let mut pixels = vec![0u8; TILE_SIZE * TILE_SIZE * 4];
     let mut painted = false;
     let mut paint = |row: usize, column: usize, value: f32| {
-        let color = ramp_color(entry.ramp, value);
+        let color = match &table {
+            Some(table) => table.color(value),
+            None => ramp_color(entry.ramp, value),
+        };
         let at = (row * TILE_SIZE + column) * 4;
         pixels[at] = color[0];
         pixels[at + 1] = color[1];
@@ -689,7 +705,7 @@ pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
                         continue;
                     };
                     let value = grid.value(grid_row, grid_column);
-                    if !value.is_finite() || value < entry.floor {
+                    if !value.is_finite() || value < floor {
                         continue;
                     }
                     paint(row, column, value);
@@ -739,7 +755,7 @@ pub fn tile_pixels(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
 
                 for grid_column in first_column..=last_column {
                     let value = grid.value(grid_row, grid_column);
-                    if !value.is_finite() || value < entry.floor {
+                    if !value.is_finite() || value < floor {
                         continue;
                     }
                     let west_edge = grid.west + grid.d_lon * (grid_column as f64 - 0.5);
@@ -1546,6 +1562,73 @@ mod tests {
         );
         // And it is drawn on the tile it does belong to.
         assert!(painted_count(&grid, &entry, zoom, x - 1, y) > 0);
+    }
+
+    /// The whole point of loading a colour table: what is on screen is drawn
+    /// with it, and only for the product it says it is for.
+    #[test]
+    fn a_loaded_colour_table_draws_the_tiles() {
+        let _turn = live_test();
+        clear_caches();
+
+        let entry = product_by_id("composite").expect("the composite product");
+        let grid = Grid {
+            columns: 100,
+            rows: 100,
+            north: 42.0,
+            west: -95.0,
+            d_lat: 0.01,
+            d_lon: 0.01,
+            reference: -9990.0,
+            binary: 0,
+            decimal: 1,
+            // Fifty dBZ everywhere, which the built-in ramp draws bright red.
+            samples: vec![10_490; 100 * 100],
+        };
+
+        let color_at = |zoom, x, y| {
+            tile_pixels(&grid, entry, zoom, x, y).map(|pixels| {
+                let first = pixels
+                    .chunks_exact(4)
+                    .find(|p| p[3] > 0)
+                    .expect("a painted pixel");
+                [first[0], first[1], first[2]]
+            })
+        };
+
+        let built_in = color_at(6, 15, 23).expect("a tile");
+        assert_eq!(built_in, [0xfd, 0x00, 0x00], "the built-in ramp changed");
+
+        // A table saying fifty dBZ is black.
+        crate::palette::set_palette(
+            Some("dBZ".into()),
+            vec![crate::palette::Stop {
+                value: 5.0,
+                color: "#000000".into(),
+                to_color: None,
+            }],
+        );
+        assert_eq!(
+            color_at(6, 15, 23),
+            Some([0x00, 0x00, 0x00]),
+            "the loaded table did not reach the tiles"
+        );
+
+        // A table for a different unit leaves reflectivity alone.
+        crate::palette::set_palette(
+            Some("mm".into()),
+            vec![crate::palette::Stop {
+                value: 5.0,
+                color: "#000000".into(),
+                to_color: None,
+            }],
+        );
+        assert_eq!(color_at(6, 15, 23), Some(built_in));
+
+        // And clearing it puts the built-in ramp back.
+        crate::palette::set_palette(None, Vec::new());
+        assert_eq!(color_at(6, 15, 23), Some(built_in));
+        clear_caches();
     }
 
     #[test]
