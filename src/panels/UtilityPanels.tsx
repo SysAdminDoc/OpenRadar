@@ -1,12 +1,4 @@
-import {
-  ExternalLink,
-  FileUp,
-  Film,
-  FolderOpen,
-  Info,
-  Radio,
-  ShieldCheck,
-} from "lucide-react";
+import { FileUp, FolderOpen, Info, ShieldCheck } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
@@ -14,44 +6,6 @@ import { APP_VERSION } from "../lib/settings";
 
 interface CloseOnlyProps {
   onClose: () => void;
-}
-
-export function VideosPanel({ onClose }: CloseOnlyProps) {
-  return (
-    <PanelShell
-      eyebrow="Weather desk"
-      title="Videos"
-      onClose={onClose}
-      className="surface-panel--right"
-    >
-      <div className="feature-card feature-card--accent">
-        <Film size={24} />
-        <div>
-          <strong>Live weather video desk</strong>
-          <span>
-            Official briefings and verified public camera feeds will appear
-            here.
-          </span>
-        </div>
-      </div>
-      <a
-        className="link-row"
-        href="https://www.youtube.com/@NWS"
-        target="_blank"
-        rel="noreferrer"
-      >
-        <span>
-          <Radio size={18} />
-          <strong>National Weather Service briefings</strong>
-        </span>
-        <ExternalLink size={16} />
-      </a>
-      <p className="source-note">
-        External video opens in the default browser. OpenRadar does not sign you
-        into any service.
-      </p>
-    </PanelShell>
-  );
 }
 
 interface UploadPanelProps extends CloseOnlyProps {

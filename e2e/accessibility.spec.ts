@@ -72,7 +72,7 @@ test("every panel the command bar opens is clean too", async ({ page }) => {
     "Tropical",
     "Route",
     "Search",
-    "Videos",
+    "Export",
     "Forecast",
     "Settings",
     "Upload",

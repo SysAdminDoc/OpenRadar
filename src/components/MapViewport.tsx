@@ -60,6 +60,9 @@ export interface MapViewportHandle {
   clearTools: () => void;
   camera: () => CameraState | null;
   bounds: () => OverlayBounds | null;
+  canvas: () => HTMLCanvasElement | null;
+  /** Resolves once the map has finished drawing what it was given. */
+  onceIdle: () => Promise<void>;
 }
 
 interface MapViewportProps {
@@ -667,6 +670,24 @@ function MapViewportInner(
       onToolResult?.(null);
     },
     camera: () => (mapRef.current ? asCamera(mapRef.current) : null),
+    canvas: () => mapRef.current?.getCanvas() ?? null,
+    onceIdle: () =>
+      new Promise<void>((resolve) => {
+        const map = mapRef.current;
+        if (!map) {
+          resolve();
+          return;
+        }
+        // A frame that needs no new tiles never fires idle, so the wait is
+        // bounded rather than open ended.
+        const timer = window.setTimeout(finish, 2500);
+        function finish() {
+          window.clearTimeout(timer);
+          map?.off("idle", finish);
+          resolve();
+        }
+        map.once("idle", finish);
+      }),
     bounds: () => {
       const map = mapRef.current;
       if (!map) return null;

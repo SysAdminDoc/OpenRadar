@@ -30,7 +30,7 @@ export type SurfaceId =
   | "route"
   | "map-type"
   | "layers"
-  | "videos"
+  | "export"
   | "upload"
   | "forecast"
   | "settings"
@@ -209,9 +209,9 @@ export function CommandBar({
         />
         <CommandButton
           icon={Film}
-          label="Videos"
-          active={activeSurface === "videos"}
-          onClick={() => toggleSurface("videos")}
+          label="Export"
+          active={activeSurface === "export"}
+          onClick={() => toggleSurface("export")}
         />
         <CommandButton icon={Share2} label="Share" onClick={onShare} />
         <CommandButton

@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Added export. Save the view as a PNG or record the whole loop as a WebM, both with the frame time, the source, and the credits burned into the corner, and both written straight to your downloads folder.
+- Replaced the Videos placeholder, which only ever promised a feature, with the Export panel.
+
 - Fixed playback jumping hours ahead into the forecast tail every five minutes when future radar was on.
 - Fixed the Diagnostics panel clearing a real HRRR outage as soon as the radar refreshed.
 - Every map layer now has one declared place in the stack, so warnings draw above tropical and fire context no matter which feed answers first, and a drawn route is never buried by radar or satellite.

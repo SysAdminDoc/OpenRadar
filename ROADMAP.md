@@ -107,13 +107,6 @@
   Acceptance: searching "Ian 2022" draws the track with 6-hourly intensity colors, shows ACE, and the timeline plays the IEM radar mosaic around landfall; Pacific file included.
   Complexity: L
 
-- [ ] P2: Still and animated loop export
-  Why: MyRadar Share and Weather & Radar video are table stakes; Supercell #414 asks for it; StormScope already burns provider/time into WebM frames locally.
-  Evidence: StormScope README "Local Radar Loop Export"; `canvasContextAttributes: { preserveDrawingBuffer: true }` already set in MapViewport.
-  Touches: new src/lib/export.ts (canvas capture per frame, WebM via `MediaRecorder` or PNG sequence to a local folder with `tauri-plugin-dialog`), Share panel.
-  Acceptance: "Export loop" writes a WebM under 20 MB with source, time, and attribution burned in; "Export image" writes a PNG of the current view; nothing is uploaded.
-  Complexity: M
-
 - [ ] P2: Windows notifications for new alerts in a watched radius
   Why: MyRadar's rain alerts and Rain Alarm are the retention feature; Supercell #352/#581 ask for it; the app already has a location fix flow.
   Evidence: tauri-plugin-notification 2.3.3; HookEcho home-radius rules; StormDeck ntfy relay (optional).

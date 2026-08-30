@@ -26,6 +26,13 @@ import { log, recentLog, subscribeLog } from "./lib/log";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./lib/deepLink";
 import { satelliteFrameTime } from "./lib/providers";
 import { looksLikePlacefile, parsePlacefile } from "./lib/placefile";
+import {
+  exportFileName,
+  exportLoop,
+  exportStill,
+  type ExportCaption,
+} from "./lib/export";
+import { saveFile } from "./lib/saveFile";
 import { appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -45,6 +52,7 @@ import type { OverlayBounds } from "./lib/overlays";
 import { AlertsPanel } from "./panels/AlertsPanel";
 import { TropicalPanel } from "./panels/TropicalPanel";
 import { RoutePanel } from "./panels/RoutePanel";
+import { ExportPanel } from "./panels/ExportPanel";
 import { ForecastPanel } from "./panels/ForecastPanel";
 import {
   LayersPanel,
@@ -53,7 +61,7 @@ import {
 } from "./panels/MapOptionsPanels";
 import { RadarProductPanel } from "./panels/RadarProductPanel";
 import { SearchPanel } from "./panels/SearchPanel";
-import { MorePanel, UploadPanel, VideosPanel } from "./panels/UtilityPanels";
+import { MorePanel, UploadPanel } from "./panels/UtilityPanels";
 import type { PlaceResult } from "./lib/weather";
 
 const COMPARE_OFFSETS = [0, 3, 6, 12];
@@ -72,6 +80,11 @@ export default function App() {
   const [cursor, setCursor] = useState<GeoPoint | null>(null);
   const [toolResult, setToolResult] = useState<string | null>(null);
   const [route, setRoute] = useState<Record<string, unknown> | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [customOverlay, setCustomOverlay] = useState<Record<
     string,
     unknown
@@ -412,6 +425,94 @@ export default function App() {
     }
   }, [pushToast, settingsRef]);
 
+  const captionFor = useCallback(
+    (index: number): ExportCaption => {
+      const frame = frames[index];
+      return {
+        lines: [
+          frame?.forecast
+            ? `${formatFrameTime(frame)} forecast`
+            : formatFrameTime(frame),
+          frame?.forecast
+            ? `HRRR, ${frame.forecast.leadMinutes} min out`
+            : (source?.label ?? "Radar"),
+        ].filter(Boolean),
+        attribution: "OpenRadar · OpenStreetMap · NOAA",
+      };
+    },
+    [frames, source],
+  );
+
+  const finishExport = useCallback(
+    async (name: string, blob: Blob) => {
+      const saved = await saveFile(name, blob);
+      pushToast({
+        title: `${name} saved`,
+        detail: saved.path ?? "Check your downloads folder.",
+        actionLabel: saved.path ? "Show" : undefined,
+        onAction: saved.path
+          ? () => void revealItemInDir(saved.path as string).catch(() => {})
+          : undefined,
+      });
+    },
+    [pushToast],
+  );
+
+  const handleExportImage = useCallback(() => {
+    void (async () => {
+      const canvas = mapRef.current?.canvas();
+      if (!canvas) return;
+      setExporting("image");
+      try {
+        const blob = await exportStill(canvas, captionFor(frameIndex));
+        await finishExport(exportFileName("openradar", "png"), blob);
+      } catch (failure) {
+        log.warn(
+          "export",
+          failure instanceof Error ? failure.message : "The export failed",
+        );
+        pushToast({ title: "The image could not be exported" });
+      } finally {
+        setExporting(null);
+      }
+    })();
+  }, [captionFor, finishExport, frameIndex, pushToast]);
+
+  const handleExportLoop = useCallback(() => {
+    void (async () => {
+      const canvas = mapRef.current?.canvas();
+      if (!canvas || frames.length < 2) return;
+      setExporting("loop");
+      timeline.setPlaying(false);
+      try {
+        const blob = await exportLoop({
+          source: canvas,
+          frameCount: frames.length,
+          showFrame: async (index) => {
+            timeline.selectFrame(index);
+            await mapRef.current?.onceIdle();
+          },
+          captionFor,
+          onProgress: (done, total) => setExportProgress({ done, total }),
+        });
+        await finishExport(exportFileName("openradar-loop", "webm"), blob);
+      } catch (failure) {
+        log.warn(
+          "export",
+          failure instanceof Error ? failure.message : "The export failed",
+        );
+        pushToast({
+          title: "The loop could not be exported",
+          detail:
+            failure instanceof Error ? failure.message : "Nothing was written.",
+        });
+      } finally {
+        setExporting(null);
+        setExportProgress(null);
+      }
+    })();
+  }, [captionFor, finishExport, frames.length, pushToast, timeline]);
+
   const handleUpload = useCallback(
     async (file: File) => {
       try {
@@ -666,8 +767,15 @@ export default function App() {
           onClose={() => setActiveSurface(null)}
         />
       ) : null}
-      {activeSurface === "videos" ? (
-        <VideosPanel onClose={() => setActiveSurface(null)} />
+      {activeSurface === "export" ? (
+        <ExportPanel
+          frameCount={frames.length}
+          busy={exporting}
+          progress={exportProgress}
+          onExportImage={handleExportImage}
+          onExportLoop={handleExportLoop}
+          onClose={() => setActiveSurface(null)}
+        />
       ) : null}
       {activeSurface === "upload" ? (
         <UploadPanel
