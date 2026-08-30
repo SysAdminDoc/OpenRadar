@@ -502,6 +502,19 @@ const WIND_FAR_KM: f64 = 150.0;
 /// certain, since the median of a dozen honest rings is already stable.
 const WIND_RINGS: usize = 60;
 
+/// How many rings the preferred band needs before it speaks for the sweep.
+///
+/// Preferring the band whenever it holds anything at all put the answer in the
+/// hands of whatever was in it. A sweep with ground clutter out to thirty
+/// kilometres and its only weather beyond a hundred and sixty had two rings in
+/// the band, both of them sitting still, and they outvoted the thirty rings
+/// that had the wind in them: the fit came back as no wind at all, which the
+/// caller cannot tell from a light one.
+const WIND_BAND_MIN_RINGS: usize = 4;
+
+/// And what share of everything found it needs, for the same reason.
+const WIND_BAND_MIN_SHARE: f64 = 0.25;
+
 /// The wind the sweep is moving in, fitted from the readings themselves.
 ///
 /// Rings are searched for across the whole sweep and then the ones between
@@ -547,16 +560,28 @@ fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
         gate += stride;
     }
 
+    vad::median_wind(&rings_that_speak_for_the_sweep(&found))
+}
+
+/// Which of the fitted rings the answer is taken from.
+///
+/// Pulled out so the choice can be tested on its own: whether a ring inside
+/// the clutter is excluded is a fact about this function, and a median over
+/// enough rings is robust enough to hide it from an end-to-end assertion.
+fn rings_that_speak_for_the_sweep(found: &[(f64, vad::Wind)]) -> Vec<vad::Wind> {
     let middle: Vec<vad::Wind> = found
         .iter()
         .filter(|(range, _)| *range >= WIND_NEAR_KM && *range <= WIND_FAR_KM)
         .map(|(_, wind)| *wind)
         .collect();
-    if !middle.is_empty() {
-        return vad::median_wind(&middle);
+    // The band speaks for the sweep only when enough of the sweep is in it. A
+    // handful of rings inside it cannot outvote everything outside.
+    let enough = middle.len() >= WIND_BAND_MIN_RINGS
+        && middle.len() as f64 >= found.len() as f64 * WIND_BAND_MIN_SHARE;
+    if enough {
+        return middle;
     }
-    let rings: Vec<vad::Wind> = found.into_iter().map(|(_, wind)| wind).collect();
-    vad::median_wind(&rings)
+    found.iter().map(|(_, wind)| *wind).collect()
 }
 
 /// Takes a wind out of a velocity field, in place.
@@ -1281,6 +1306,194 @@ mod tests {
         );
     }
 
+    /// A field of one steady value, for the render tests below.
+    fn flat_field(value: f32, product: Product) -> (SweepField, RadarCoordinateSystem) {
+        let azimuths: Vec<f32> = (0..360).map(|at| at as f32).collect();
+        let gates = 400;
+        let mut field = SweepField::new_empty(
+            if matches!(product, Product::Velocity) {
+                "Velocity"
+            } else {
+                "Reflectivity"
+            },
+            if matches!(product, Product::Velocity) {
+                "m/s"
+            } else {
+                "dBZ"
+            },
+            0.5,
+            azimuths.clone(),
+            1.0,
+            2.125,
+            0.25,
+            gates,
+        );
+        for azimuth in 0..azimuths.len() {
+            for gate in 0..gates {
+                field.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        let site = registry::site_by_id("KDMX").expect("KDMX").to_site();
+        let coordinates = RadarCoordinateSystem::new(&site);
+        (field, coordinates)
+    }
+
+    #[test]
+    fn the_threshold_reaches_the_picture_that_is_drawn() {
+        // gate_color is tested on its own, but nothing proved the value the
+        // reader set ever arrived there: passing None from render_sweep, or
+        // from the command below it, left every test green.
+        let drawn = |value: f32, floor: Option<f32>| {
+            let (field, coordinates) = flat_field(value, Product::Reflectivity);
+            let (pixels, _) =
+                render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ", false, floor);
+            pixels.chunks_exact(4).filter(|p| p[3] > 0).count()
+        };
+
+        let whole = drawn(40.0, None);
+        assert!(whole > 0, "the fixture has to draw something");
+        assert_eq!(drawn(40.0, Some(35.0)), whole, "40 dBZ is over 35");
+        assert_eq!(drawn(40.0, Some(45.0)), 0, "40 dBZ is under 45");
+
+        // And it can only hide. Under the ramp's own floor nothing comes back.
+        assert_eq!(drawn(FADE_FLOOR_DBZ - 5.0, Some(-100.0)), 0);
+    }
+
+    #[test]
+    fn a_sweep_the_radar_read_cleanly_is_left_as_it_gave_it() {
+        // Unfolding writes back only when enough of the sweep moved. Below
+        // that bar it used to write anyway and report the sweep as not
+        // unfolded, which drew gates outside the limit on the narrow scale.
+        let (mut field, _) = flat_field(3.0, Product::Velocity);
+        let before: Vec<f32> = (0..field.azimuth_count())
+            .flat_map(|azimuth| {
+                (0..field.gate_count()).map(move |gate| (azimuth, gate))
+            })
+            .map(|(azimuth, gate)| field.get(azimuth, gate).0)
+            .collect();
+
+        // Every reading is well inside the folding limit, so there is nothing
+        // to unfold and nothing should be written.
+        let moved = unfold_velocity(&mut field, 30.0);
+        assert!(!moved, "a sweep with no folds in it was called unfolded");
+
+        let after: Vec<f32> = (0..field.azimuth_count())
+            .flat_map(|azimuth| {
+                (0..field.gate_count()).map(move |gate| (azimuth, gate))
+            })
+            .map(|(azimuth, gate)| field.get(azimuth, gate).0)
+            .collect();
+        assert_eq!(before, after, "the field was written to anyway");
+    }
+
+    #[test]
+    fn a_ring_in_the_ground_clutter_is_not_asked_what_the_wind_is() {
+        // The near edge exists because the first few kilometres of any sweep
+        // are buildings and terrain sitting still. A median over enough rings
+        // resists a minority, so whether they are excluded cannot be seen from
+        // the fitted wind alone: it is a fact about which rings are chosen.
+        let ground = wind_from(0.0, 0.2);
+        let flow = wind_from(225.0, 20.0);
+        // Twenty kilometres and a hundred and fifty are written out rather
+        // than read from the constants, so moving a constant cannot quietly
+        // move the fixture with it and leave the test passing.
+        let found: Vec<(f64, vad::Wind)> = (0..40)
+            .map(|at| {
+                let range = 2.0 + at as f64 * 5.0;
+                (range, if range < 20.0 { ground } else { flow })
+            })
+            .collect();
+        assert!(
+            found.iter().any(|(range, _)| *range < 20.0),
+            "the fixture has to hold some clutter to exclude"
+        );
+
+        let chosen = rings_that_speak_for_the_sweep(&found);
+        assert!(
+            !chosen.iter().any(|wind| *wind == ground),
+            "a ring from inside twenty kilometres was asked what the wind is"
+        );
+        // And nothing from outside the band at either end: above the far edge
+        // the beam is over the weather rather than in it.
+        assert_eq!(
+            chosen.len(),
+            found
+                .iter()
+                .filter(|(range, _)| *range >= 20.0 && *range <= 150.0)
+                .count()
+        );
+    }
+
+    #[test]
+    fn a_band_with_almost_nothing_in_it_hands_back_the_whole_sweep() {
+        // Two rings of clutter inside the band and thirty of weather outside
+        // it. Trusting the band because it held anything at all handed the
+        // answer to the two.
+        let ground = wind_from(0.0, 0.2);
+        let flow = wind_from(225.0, 20.0);
+        let mut found: Vec<(f64, vad::Wind)> = vec![(22.0, ground), (27.0, ground)];
+        for at in 0..30 {
+            found.push((160.0 + at as f64 * 4.0, flow));
+        }
+        assert_eq!(rings_that_speak_for_the_sweep(&found).len(), found.len());
+
+        // With the band properly filled it speaks for the sweep on its own.
+        let full: Vec<(f64, vad::Wind)> = (0..30)
+            .map(|at| (25.0 + at as f64 * 4.0, flow))
+            .collect();
+        assert_eq!(rings_that_speak_for_the_sweep(&full).len(), full.len());
+    }
+
+    #[test]
+    fn a_handful_of_rings_in_the_band_cannot_outvote_the_rest_of_the_sweep() {
+        // Ground clutter out to thirty kilometres, sitting still, and the only
+        // weather in a line from a hundred and sixty out. Two rings fall in
+        // the preferred band and thirty do not. Preferring the band whenever
+        // it held anything at all handed the answer to the clutter and came
+        // back with no wind, which the caller cannot tell from a light one.
+        let still = vad::Wind {
+            east: 0.0,
+            north: 0.0,
+        };
+        let flow = wind_from(225.0, 20.0);
+        let field = layered_sweep(&[(0.0, 30.0, still), (160.0, 280.0, flow)], 0.5);
+        let read = fitted_wind(&field).expect("a wind");
+        assert!(
+            (read.speed() - 20.0).abs() < 2.0,
+            "the clutter took the sweep with it: {} m/s from {}",
+            read.speed(),
+            read.coming_from_degrees()
+        );
+    }
+
+    #[test]
+    fn the_clutter_close_in_is_outvoted_when_the_band_is_full() {
+        // The other half of the band: with returns right across the sweep, the
+        // rings inside twenty kilometres are ground rather than wind and must
+        // not be counted. Moving the near edge to zero lets them in.
+        let still = vad::Wind {
+            east: 0.2,
+            north: 0.0,
+        };
+        let flow = wind_from(225.0, 20.0);
+        // Enough clutter to swing a median that included it: sixteen rings of
+        // ground against twenty-four of weather.
+        let field = layered_sweep(
+            &[
+                (0.0, WIND_NEAR_KM, still),
+                (WIND_NEAR_KM, 130.0, flow),
+                (130.0, 300.0, still),
+            ],
+            0.5,
+        );
+        let read = fitted_wind(&field).expect("a wind");
+        assert!(
+            (read.speed() - 20.0).abs() < 2.0,
+            "read {} m/s, wanted the flow at 20",
+            read.speed()
+        );
+    }
+
     #[test]
     fn a_sweep_whose_echo_is_all_close_in_still_gives_a_wind() {
         // The case the search was changed for. Everything within thirty
@@ -1851,6 +2064,27 @@ mod tests {
             "tilts should be ascending and unique: {:?}",
             sweep.tilts
         );
+        // The same volume with a threshold on it. render_sweep is tested on
+        // its own, but only asking through the command can say whether what
+        // the reader set arrives there.
+        let floored = sweep_from_volume(
+            "KDMX",
+            &key,
+            data.clone(),
+            "reflectivity",
+            0,
+            false,
+            None,
+            Some(60.0),
+        )
+        .expect("the same tilt decodes with a threshold on it");
+        assert!(
+            floored.image.len() < sweep.image.len(),
+            "sixty dBZ drew as much as no threshold at all: {} against {}",
+            floored.image.len(),
+            sweep.image.len()
+        );
+
         assert!(sweep.image.starts_with("data:image/png;base64,"));
         // Well past an empty transparent square.
         assert!(

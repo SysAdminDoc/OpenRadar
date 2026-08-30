@@ -1315,6 +1315,20 @@ mod tests {
         assert_eq!(&plains[1..4], b"PNG");
         assert!(plains.len() > EMPTY_TILE.len(), "the tile came back empty");
 
+        // The same tile with a threshold on it: the reader's value has to
+        // travel from the query, through the handler, into the drawing. It
+        // reaches the drawing in tile_pixels whatever happens in between, so
+        // only asking through the whole path can tell whether it arrives.
+        let floored =
+            runtime.block_on(serve_tile(&format!("/composite/{time}/4/3/5.png?min=60")));
+        assert_eq!(&floored[1..4], b"PNG");
+        assert!(
+            floored.len() < plains.len(),
+            "a threshold of sixty dBZ drew as much as no threshold at all:              {} bytes against {}",
+            floored.len(),
+            plains.len()
+        );
+
         // Over the Atlantic there is nothing to draw, and an empty tile is the
         // answer rather than an error the map would log for every corner.
         let ocean = runtime.block_on(serve_tile(&format!("/composite/{time}/4/8/5.png")));
@@ -1720,6 +1734,64 @@ mod tests {
             1,
             "walking the cells has to draw the one live cell, and only it"
         );
+    }
+
+    #[test]
+    fn a_threshold_hides_the_weak_cells_and_never_brings_back_the_hidden_ones() {
+        // The grid runs from well under the composite's own floor to well
+        // over it, so the count says exactly what was kept.
+        let entry = product_by_id("composite").expect("composite");
+        let grid_reference = solid_block().reference;
+        let mut grid = solid_block();
+        for (at, sample) in grid.samples.iter_mut().enumerate() {
+            // Ten dBZ steps from 0 to 90 across the block. The grid holds
+            // tenths above a reference of minus ninety-nine point nine.
+            let dbz = (at % 10) as f32 * 10.0;
+            *sample = ((dbz * 10.0) - grid_reference) as u16;
+        }
+
+        let (x, y) = tile_of(41.0, -94.0, 8);
+        let painted = |floor: Option<f32>| {
+            tile_pixels(&grid, entry, 8, x, y, floor)
+                .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+                .unwrap_or(0)
+        };
+
+        let whole = painted(None);
+        assert!(whole > 0, "the fixture has to draw something");
+
+        // A threshold hides, and hides more the higher it goes.
+        let some = painted(Some(35.0));
+        let more = painted(Some(65.0));
+        assert!(some < whole, "35 dBZ hid nothing: {some} of {whole}");
+        assert!(more < some, "65 dBZ hid no more than 35: {more} of {some}");
+        assert_eq!(painted(Some(200.0)), 0, "nothing is that strong");
+
+        // And it can only ever hide. A threshold under the product's own
+        // floor must not bring back what the floor already excluded.
+        assert!(entry.floor > 0.0, "this product has a floor to undercut");
+        assert_eq!(
+            painted(Some(-100.0)),
+            whole,
+            "a threshold below the floor widened the picture"
+        );
+        assert_eq!(painted(Some(0.0)), whole);
+    }
+
+    #[test]
+    fn two_thresholds_are_two_tiles_rather_than_one_served_twice() {
+        // The threshold is part of what the tile shows, so it has to be part
+        // of the address the drawn tile is remembered under. Leaving it out
+        // served the first reader's picture to the second.
+        let plain = tile_key("k", 4, 3, 5, None);
+        let low = tile_key("k", 4, 3, 5, Some(20.0));
+        let high = tile_key("k", 4, 3, 5, Some(45.0));
+        assert_ne!(plain, low);
+        assert_ne!(low, high);
+        assert_ne!(plain, high);
+        // The same threshold is the same tile, or nothing would ever be
+        // remembered at all.
+        assert_eq!(low, tile_key("k", 4, 3, 5, Some(20.0)));
     }
 
     /// A block of live cells over the plains, for the zoom tests below.

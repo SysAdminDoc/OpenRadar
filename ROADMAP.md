@@ -66,25 +66,11 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: after moving and resizing, a relaunch restores the same bounds on the same monitor and clamps to a visible area when that monitor is gone; noted in CHANGELOG.
   Complexity: S
 
-- [ ] P2 — Bucket lightning flashes by age once per fetch instead of rebuilding the collection every clock tick
-  Why: `flashPoints` maps the entire GLM window on every tick and pushes it through `setData`.
-  Evidence: `src/hooks/useLightning.ts:44-60,132`; `src/components/MapViewport.tsx:769`.
-  Touches: src/hooks/useLightning.ts, src/components/MapViewport.tsx (opacity as an expression over an `age` property and the clock)
-  Acceptance: `setData` runs once per fetch; fading still advances every tick; the lightning e2e test and `useLightning.test.ts` stay green with a new assertion counting `setData` calls.
-  Complexity: S
-
 - [ ] P2 — Prove the Level II decoder survives the LTR message arriving in 2027
   Why: SCN26-54 adds an hourly LTR message to the Level II stream from about 2027-02-15 and the testbed KCRI already emits it; the pinned rc decoder must skip an unknown message type rather than fail the volume.
   Evidence: https://www.weather.gov/media/notification/pdf_2026/scn26-54_WSR-88D_Level2_Add_LTR.pdf ; `src-tauri/Cargo.toml` `nexrad-decode = "=1.0.0-rc.3"`.
   Touches: src-tauri/src/level2.rs tests, possibly a nexrad-decode bump
   Acceptance: an ignored live test decodes the newest KCRI volume without error; a unit test feeds a volume with an unknown message type and asserts the sweep still renders.
-  Complexity: S
-
-- [ ] P2 — Tie the basemap to the theme unless the user has chosen a style
-  Why: choosing Light in Settings leaves the dark basemap under white panels.
-  Evidence: `src/hooks/useSettings.ts:106-114` (theme sets only `data-theme`); v0.2.0 headless screenshots of the light theme.
-  Touches: src/hooks/useSettings.ts, src/lib/settings.ts (mapStyle "auto" value), src/panels/MapOptionsPanels.tsx, src/i18n
-  Acceptance: with map style on Auto, switching theme swaps dark and light basemaps; an explicit style choice is left alone; e2e asserts the style id after a theme switch.
   Complexity: S
 
 - [ ] P2 — Tests for the untested hooks and the render-path components

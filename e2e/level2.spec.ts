@@ -206,11 +206,17 @@ test("hides the weak returns when the reader asks and puts them back", async ({
   const slider = page.getByRole("slider", {
     name: "Hide readings below this value",
   });
+  // The mosaic has a threshold of its own and reads the same when it is off,
+  // so this has to be the readout beside this slider rather than any.
+  const readout = page
+    .locator("label.range-row")
+    .filter({ has: slider })
+    .locator("output");
   // Nothing is hidden until somebody asks, so the sweep is read whole.
-  await expect(page.getByText("Everything")).toBeVisible();
+  await expect(readout).toHaveText("Everything");
 
   await slider.fill("35");
-  await expect(page.getByText("35 dBZ")).toBeVisible();
+  await expect(readout).toHaveText("35 dBZ");
 
   const askedFor = async () => {
     const calls = await page.evaluate(
@@ -234,19 +240,28 @@ test("hides the weak returns when the reader asks and puts them back", async ({
   await page
     .getByRole("combobox", { name: "Level II product" })
     .selectOption("velocity");
-  await expect(page.getByText("Everything")).toBeVisible();
+  await expect(readout).toHaveText("Everything");
   await expect.poll(askedFor).toBe(null);
 
   await page
     .getByRole("combobox", { name: "Level II product" })
     .selectOption("reflectivity");
-  await expect(page.getByText("35 dBZ")).toBeVisible();
+  await expect(readout).toHaveText("35 dBZ");
   await expect.poll(askedFor).toBe(35);
 
   // Back to the bottom of the slider is off rather than a threshold of zero,
   // which would redraw the sweep to hide nothing.
   await slider.fill("0");
-  await expect(page.getByText("Everything")).toBeVisible();
+  await expect(readout).toHaveText("Everything");
+  await expect.poll(askedFor).toBe(null);
+
+  // And the mosaic's own floor is a separate setting: putting one on it must
+  // not put one on the tilt, which is a different product with a different
+  // scale.
+  await page
+    .getByRole("slider", { name: "Hide below, on the mosaic" })
+    .fill("40");
+  await expect(readout).toHaveText("Everything");
   await expect.poll(askedFor).toBe(null);
 });
 

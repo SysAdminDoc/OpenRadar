@@ -289,9 +289,14 @@ export const en = {
   "radar.error.noStormMotion":
     "The wind at {0} could not be read, so there is nothing to take out of the picture.",
   "radar.error.encode": "The image could not be drawn: {0}",
+  "radar.error.http": "The radar archive could not be reached: {0}",
+  "radar.error.unknown": "The radar site did not answer.",
   "radar.dealiasForced":
     "Storm relative velocity has to unfold first, because the wind it takes out is read off the sweep",
   "radar.threshold": "Hide below",
+  "radar.thresholdMosaic": "Hide below, on the mosaic",
+  "radar.thresholdMosaicDetail":
+    "The mosaic is the strongest return anywhere in the column, so its numbers run higher than a single tilt's",
   "radar.thresholdLabel": "Hide readings below this value",
   "radar.thresholdOff": "Everything",
   "radar.thresholdValue": "{value} {unit}",

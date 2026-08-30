@@ -21,14 +21,28 @@ const PLACES = 1;
 /**
  * Coordinates in a log line, cut to one decimal.
  *
- * The workspace logs positions at four, which is about ten metres. Matching a
- * signed number with at least two decimals leaves version strings, counts and
- * durations alone.
+ * The workspace logs positions at four, which is about ten metres.
+ *
+ * A version number is shaped exactly like a coordinate, and log lines carry
+ * plenty of them: the updater names versions, and a user agent has several.
+ * Blurring every signed decimal turned "Chrome/140.0.7339.16" into
+ * "Chrome/140.0.7.16" and "build 1.0.7339" into "build 1.0.7", which is worse
+ * than useless because it still reads like a version. So a number that has
+ * another dotted number on either side of it is left alone: that is what
+ * separates 1.0.7339 from a latitude, and no coordinate is ever written that
+ * way.
+ *
+ * A coordinate is also bounded. Nothing outside ±180 is one, and a number that
+ * large with decimals is a byte count or an identifier.
  */
+const COORDINATE = /(?<![\d.])(-?\d{1,3}\.\d{2,})(?![\d]*\.\d)/g;
+
 export function blurCoordinates(line: string): string {
-  return line.replace(/-?\d+\.\d{2,}/g, (whole) =>
-    Number(whole).toFixed(PLACES),
-  );
+  return line.replace(COORDINATE, (whole) => {
+    const value = Number(whole);
+    if (!Number.isFinite(value) || Math.abs(value) > 180) return whole;
+    return value.toFixed(PLACES);
+  });
 }
 
 /**
@@ -39,10 +53,25 @@ export function blurCoordinates(line: string): string {
  * log line naming a cache file names the reader.
  */
 export function blurUserPaths(line: string): string {
-  return line
-    .replace(/[A-Za-z]:[\\/]Users[\\/][^\\/\s"']+/gi, "<home>")
-    .replace(/\/Users\/[^/\s"']+/g, "<home>")
-    .replace(/\/home\/[^/\s"']+/g, "<home>");
+  return (
+    line
+      // A drive-letter profile, however the drive is spelled and whatever the
+      // folder above it is called: a redirected profile root sits under
+      // D:\Profiles rather than C:\Users, and names the reader just the same.
+      .replace(
+        /[A-Za-z]:[\\/](?:Users|Profiles|home)[\\/][^\\/\s"']+/gi,
+        "<home>",
+      )
+      // A home directory served over the network. Nothing above matches a
+      // path that starts with two separators and a server name.
+      .replace(
+        /\\\\[^\\/\s"']+[\\/](?:Users|Profiles|home)[\\/][^\\/\s"']+/gi,
+        "<home>",
+      )
+      .replace(/\/(?:Users|home)\/[^/\s"']+/gi, "<home>")
+      // A user name in a URL, which is both a name and half a credential.
+      .replace(/\/\/[^/\s"']+@/g, "//<user>@")
+  );
 }
 
 /**
@@ -88,8 +117,11 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
         ? ` · ${entry.consecutiveFailures} failed in a row`
         : "";
     lines.push(
+      // The message a source failed with is whatever the service or the
+      // network said, and a request URL carries the position it was asking
+      // about. It goes through the same redaction the log does.
       `  ${entry.id}: ${entry.lastError ? "error" : "ok"}${failing}${
-        entry.lastError ? ` · ${entry.lastError}` : ""
+        entry.lastError ? ` · ${redact(entry.lastError)}` : ""
       }`,
     );
   }

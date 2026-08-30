@@ -123,9 +123,11 @@ export default function App() {
     pageVisible,
     archive: replay,
     paletteGeneration,
-    // The mosaic is composite reflectivity, so it reads the threshold set for
-    // that product.
-    mosaicThreshold: settings.radar.thresholds.reflectivity ?? null,
+    // The mosaic has a threshold of its own. It is composite reflectivity,
+    // the strongest return anywhere in the column, and the single-site product
+    // is one tilt of it; the same number means something different in each, so
+    // setting a floor on the tilt must not quietly re-floor the mosaic.
+    mosaicThreshold: settings.radar.thresholds.mosaic ?? null,
   });
   const singleSite = useSingleSiteRadar({
     ready: hydrated,
@@ -308,7 +310,7 @@ export default function App() {
       onAction: () =>
         applySettings({ ...settingsRef.current, palette: previous }),
     });
-  }, [applySettings, pushToast]);
+  }, [applySettings, pushToast, settingsRef]);
 
   // Finding a storm in the archive takes a search and a choice, and stopping
   // the replay put the reader back at the start of both.

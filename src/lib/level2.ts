@@ -142,7 +142,9 @@ export function sweepErrorText(failure: unknown): string {
   }
   if (typeof failure === "string") return failure;
   if (failure instanceof Error) return failure.message;
-  return translate("radar.error.badListing");
+  // Something with no shape this build recognises. Saying the volume listing
+  // could not be read would be a specific diagnosis of something else.
+  return translate("radar.error.unknown");
 }
 
 /** The four corners MapLibre wants, clockwise from the top left. */

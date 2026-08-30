@@ -1,4 +1,8 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { en } from "../i18n/en";
+import { es } from "../i18n/es";
 import { setLanguage } from "../i18n";
 import {
   SINGLE_SITE_MIN_ZOOM,
@@ -132,6 +136,34 @@ describe("what the native side said went wrong", () => {
         text: "KTLX has no Velocity sweep at that tilt",
       }),
     ).toBe("KTLX has no Velocity sweep at that tilt.");
+  });
+
+  it("has wording for every failure the native side can send", async () => {
+    // The commonest failure of all, a network one, had no key and fell back
+    // to the English sentence in a workspace that is otherwise translated.
+    // Reading the codes out of the Rust file is the only way to know the two
+    // lists still agree; a key added on one side and not the other is exactly
+    // how this went wrong.
+    const source = await readFile(
+      resolve(process.cwd(), "src-tauri/src/level2.rs"),
+      "utf8",
+    );
+    const codes = [
+      ...source.matchAll(/\("([a-zA-Z]+)", (?:vec!|Vec::new)/g),
+    ].map((found) => found[1]);
+    expect(codes.length).toBeGreaterThan(5);
+    for (const code of codes) {
+      expect(en[`radar.error.${code}` as keyof typeof en], code).toBeTruthy();
+      expect(es[`radar.error.${code}` as keyof typeof es], code).toBeTruthy();
+    }
+  });
+
+  it("does not diagnose something specific when it recognises nothing", () => {
+    // The fallback used to report every unrecognised rejection as "The volume
+    // listing could not be read", which is a specific claim about something
+    // that may not have happened.
+    expect(sweepErrorText({ nothing: true })).toBe(en["radar.error.unknown"]);
+    expect(sweepErrorText(undefined)).toBe(en["radar.error.unknown"]);
   });
 
   it("falls back to what the native side said rather than showing a code", () => {
