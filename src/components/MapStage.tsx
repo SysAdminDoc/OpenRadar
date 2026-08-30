@@ -9,6 +9,7 @@ import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
 import { useT } from "../i18n";
+import { resolvedMapStyle } from "../lib/mapStyles";
 import { formatClock, useMeasurements } from "../lib/units";
 
 /** How many frames back the compare pane can be held. */
@@ -32,6 +33,9 @@ interface MapStageProps {
   sweep: SweepImage | null;
   mrmsLayers: MrmsLayer[];
   flashes: Record<string, unknown> | null;
+  /** The flash window and the moment the fade is measured against. */
+  flashWindowMinutes: number;
+  flashClock: number;
   wind: WindField | null;
   activeTool: ToolMode;
   dualPane: boolean;
@@ -61,6 +65,8 @@ export function MapStage({
   sweep,
   mrmsLayers,
   flashes,
+  flashWindowMinutes,
+  flashClock,
   wind,
   activeTool,
   dualPane,
@@ -79,7 +85,9 @@ export function MapStage({
   useMeasurements();
   const shared = {
     projection: settings.projection,
-    mapStyle: settings.mapStyle,
+    // Auto is resolved here rather than in the viewport, so everything that
+    // reads the drawn style, the compare pane included, agrees on one answer.
+    mapStyle: resolvedMapStyle(settings.mapStyle, settings.theme),
     radarVisible: settings.radar.enabled,
     radarOpacity: settings.radar.opacity,
     overlays,
@@ -89,6 +97,8 @@ export function MapStage({
     sweep,
     mrmsLayers,
     flashes,
+    flashWindowMinutes,
+    flashClock,
     wind,
     surgeCategory: settings.layers.surge ? settings.surgeCategory : null,
     toolMode: activeTool,

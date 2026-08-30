@@ -66,20 +66,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: after moving and resizing, a relaunch restores the same bounds on the same monitor and clamps to a visible area when that monitor is gone; noted in CHANGELOG.
   Complexity: S
 
-- [ ] P2 — Copy diagnostics to the clipboard from the Diagnostics panel
-  Why: RadarScope's Windows users are told to email crash dumps; a one-click redacted diagnostics block (version, WebView2 version, provider health, last 60 log lines, GPU renderer) makes a bug report possible without a tracker round-trip.
-  Evidence: https://radarscope.zendesk.com/hc/en-us/community/posts/33502670518418-Radar-Scope-crashes-on-Windows ; `src/panels/UtilityPanels.tsx:112-277`; `src/lib/log.ts:17`.
-  Touches: src/panels/UtilityPanels.tsx, src/lib/log.ts, src-tauri/src/lib.rs (a command returning WebView2 and OS version), src/i18n
-  Acceptance: the button places a plain-text block on the clipboard with no coordinates finer than one decimal and no file paths under the user profile; a unit test checks the redaction.
-  Complexity: S
-
-- [ ] P2 — Undo for clearing a palette and stopping a replay
-  Why: the only two destructive actions without an undo toast.
-  Evidence: `src/App.tsx:397` (`onClearPalette`), `onStopReplay` in useWorkspaceActions; every other reset offers undo (`useWorkspaceActions.ts:399-411`).
-  Touches: src/hooks/useWorkspaceActions.ts, src/i18n
-  Acceptance: both toasts carry Undo that restores the previous palette or replay; e2e covers the palette case.
-  Complexity: S
-
 - [ ] P2 — Bucket lightning flashes by age once per fetch instead of rebuilding the collection every clock tick
   Why: `flashPoints` maps the entire GLM window on every tick and pushes it through `setData`.
   Evidence: `src/hooks/useLightning.ts:44-60,132`; `src/components/MapViewport.tsx:769`.

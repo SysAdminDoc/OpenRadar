@@ -6,6 +6,11 @@ import {
   type ForwardedRef,
 } from "react";
 import * as maplibregl from "maplibre-gl";
+import type { ExpressionSpecification } from "maplibre-gl";
+import {
+  flashColorExpression,
+  flashOpacityExpression,
+} from "../hooks/useLightning";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "../lib/maplibreWorker";
 import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
@@ -112,6 +117,18 @@ interface MapViewportProps {
   mrmsLayers?: MrmsLayer[];
   /** GOES lightning flashes, newest brightest. */
   flashes?: Record<string, unknown> | null;
+  /**
+   * How long the flash window runs, in minutes, and the moment to fade
+   * against. The fade is a paint property rather than part of the data, so it
+   * advances without the whole collection being uploaded again.
+   */
+  flashWindowMinutes?: number;
+  /**
+   * Required, because there is no honest default: reading the clock here
+   * would be reading it during render, and any fixed value would fade every
+   * flash to one end of the ramp.
+   */
+  flashClock: number;
   /** The wind field the particles follow, or null when the layer is off. */
   wind?: WindField | null;
   /** The published image time to show, or null when the layer is off. */
@@ -258,6 +275,8 @@ function MapViewportInner(
     sweep = null,
     mrmsLayers = [],
     flashes = null,
+    flashWindowMinutes = 5,
+    flashClock,
     wind = null,
     satelliteTime = null,
     surgeCategory = null,
@@ -282,6 +301,8 @@ function MapViewportInner(
   const sweepRef = useRef<SweepImage | null>(sweep);
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
+  const flashWindowRef = useRef(flashWindowMinutes);
+  const flashClockRef = useRef(flashClock);
   const windRef = useRef<WindField | null>(wind);
   const windLayerRef = useRef<ReturnType<typeof createWindLayer> | null>(null);
   const customOverlayRef = useRef<Record<string, unknown> | null>(
@@ -731,6 +752,18 @@ function MapViewportInner(
     publishLayers();
   };
 
+  const flashColor = () =>
+    flashColorExpression(
+      flashClockRef.current,
+      flashWindowRef.current,
+    ) as ExpressionSpecification;
+
+  const flashOpacity = () =>
+    flashOpacityExpression(
+      flashClockRef.current,
+      flashWindowRef.current,
+    ) as ExpressionSpecification;
+
   const syncFlashes = () => {
     const map = mapRef.current;
     const points = flashesRef.current;
@@ -760,24 +793,8 @@ function MapViewportInner(
             "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 9, 5],
             // A flash from a minute ago is bright; one from five minutes ago is
             // a faint trail behind the storm.
-            "circle-color": [
-              "interpolate",
-              ["linear"],
-              ["get", "age"],
-              0,
-              "#fef9c3",
-              1,
-              "#f59e0b",
-            ],
-            "circle-opacity": [
-              "interpolate",
-              ["linear"],
-              ["get", "age"],
-              0,
-              0.95,
-              1,
-              0.25,
-            ],
+            "circle-color": flashColor(),
+            "circle-opacity": flashOpacity(),
             "circle-stroke-width": 0,
           },
         },
@@ -786,7 +803,23 @@ function MapViewportInner(
       source = map.getSource(FLASH_SOURCE_ID) as maplibregl.GeoJSONSource;
     }
     source.setData(points as never);
+    fadeFlashes();
     publishLayers();
+  };
+
+  /**
+   * Moves the fade on without touching the data.
+   *
+   * How old a flash is depends on the clock, and the clock ticks every minute.
+   * Working the age into each feature meant rebuilding and re-uploading the
+   * whole collection every time, for a picture that differs only in how bright
+   * the old flashes are. Two paint properties say the same thing.
+   */
+  const fadeFlashes = () => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer(FLASH_LAYER_ID)) return;
+    map.setPaintProperty(FLASH_LAYER_ID, "circle-color", flashColor());
+    map.setPaintProperty(FLASH_LAYER_ID, "circle-opacity", flashOpacity());
   };
 
   const syncMrmsLayers = () => {
@@ -1289,6 +1322,9 @@ function MapViewportInner(
   }, [projection]);
 
   useEffect(() => {
+    // Which basemap is actually drawn, which is not the same as the setting:
+    // Auto resolves against the theme before it gets here.
+    if (containerRef.current) containerRef.current.dataset.mapStyle = mapStyle;
     const map = mapRef.current;
     if (!map || mapStyleRef.current === mapStyle) return;
     mapStyleRef.current = mapStyle;
@@ -1361,6 +1397,15 @@ function MapViewportInner(
     // rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wind]);
+
+  useEffect(() => {
+    // A tick of the clock moves the fade and nothing else.
+    flashClockRef.current = flashClock;
+    flashWindowRef.current = flashWindowMinutes;
+    fadeFlashes();
+    // The fade function reads the refs above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flashClock, flashWindowMinutes]);
 
   useEffect(() => {
     flashesRef.current = flashes;

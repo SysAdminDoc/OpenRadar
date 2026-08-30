@@ -1,5 +1,23 @@
-import { describe, expect, it, vi } from "vitest";
-import { flashPoints, type FlashWindow } from "./useLightning";
+import { cleanup, renderHook } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  flashAgeExpression,
+  flashPoints,
+  useLightning,
+  type FlashWindow,
+} from "./useLightning";
+
+const flashes = vi.fn<() => Promise<FlashWindow>>();
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: () => flashes(),
+}));
+
+vi.mock("../lib/settings", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/settings")>("../lib/settings");
+  return { ...actual, isDesktopRuntime: () => true };
+});
 
 const NEWEST = 1_788_083_202;
 
@@ -39,97 +57,128 @@ function window_(overrides: Partial<FlashWindow> = {}): FlashWindow {
   };
 }
 
+/**
+ * Works out what the layer would paint, the way MapLibre would.
+ *
+ * The fade used to be a number worked out per flash when the collection was
+ * built, and these tests asserted on it there. It is a paint expression now,
+ * because ageing at build time meant rebuilding and re-uploading every flash
+ * on every tick of the clock, and worse, the ages were measured against the
+ * fetch's own newest flash rather than against now, so the fade did not
+ * actually advance between fetches. The assertions have moved to where the
+ * behaviour moved; they have not been weakened.
+ */
+function evaluate(
+  expression: unknown,
+  feature: Record<string, number>,
+): number {
+  if (!Array.isArray(expression)) return expression as number;
+  const [op, ...rest] = expression as [string, ...unknown[]];
+  const value = (at: unknown) => evaluate(at, feature);
+  switch (op) {
+    case "get":
+      return feature[rest[0] as string];
+    case "min":
+      return Math.min(...rest.map(value));
+    case "max":
+      return Math.max(...rest.map(value));
+    case "-":
+      return value(rest[0]) - value(rest[1]);
+    case "/":
+      return value(rest[0]) / value(rest[1]);
+    default:
+      throw new Error(`no rule for ${op}`);
+  }
+}
+
 describe("drawing a flash window", () => {
-  it("fades a flash by how long ago it happened", () => {
+  it("carries when each flash happened, and nothing worked out from it", () => {
     const points = flashPoints(window_()) as {
       features: Array<{
         geometry: { coordinates: number[] };
-        properties: { age: number };
+        properties: { at: number };
       }>;
     };
     expect(points.features).toHaveLength(3);
     // Longitude first, which is what GeoJSON wants.
     expect(points.features[0].geometry.coordinates).toEqual([-90, 30]);
+    expect(points.features[0].properties.at).toBe(NEWEST - 300);
+    expect(points.features[2].properties.at).toBe(NEWEST);
+  });
 
-    // Oldest at the far end of the fade, newest at the bright end.
-    expect(points.features[0].properties.age).toBe(1);
-    expect(points.features[1].properties.age).toBeCloseTo(0.5, 5);
-    expect(points.features[2].properties.age).toBe(0);
+  it("fades a flash by how long ago it happened", () => {
+    // Read at the moment of the newest flash, the same three flashes the old
+    // build-time fade was checked against.
+    const age = flashAgeExpression(NEWEST * 1000, 5);
+    expect(evaluate(age, { at: NEWEST - 300 })).toBe(1);
+    expect(evaluate(age, { at: NEWEST - 150 })).toBeCloseTo(0.5, 5);
+    expect(evaluate(age, { at: NEWEST })).toBe(0);
+  });
+
+  it("moves the fade on as the clock does, which the old one did not", () => {
+    // The whole point of the change. Two and a half minutes later the flash
+    // that was brightest is halfway down the ramp.
+    const later = flashAgeExpression((NEWEST + 150) * 1000, 5);
+    expect(evaluate(later, { at: NEWEST })).toBeCloseTo(0.5, 5);
+    const laterStill = flashAgeExpression((NEWEST + 300) * 1000, 5);
+    expect(evaluate(laterStill, { at: NEWEST })).toBe(1);
   });
 
   it("keeps the fade inside its range when a file arrives out of order", () => {
     // A flash stamped after the newest file, or from before the window.
-    const odd = window_({
-      flashes: [
-        {
-          latitude: 30,
-          longitude: -90,
-          energyJoules: 1,
-          areaSquareKm: 1,
-          time: NEWEST + 600,
-        },
-        {
-          latitude: 31,
-          longitude: -91,
-          energyJoules: 1,
-          areaSquareKm: 1,
-          time: NEWEST - 6000,
-        },
-      ],
-    });
-    const points = flashPoints(odd) as {
-      features: Array<{ properties: { age: number } }>;
-    };
-    expect(points.features[0].properties.age).toBe(0);
-    expect(points.features[1].properties.age).toBe(1);
+    const age = flashAgeExpression(NEWEST * 1000, 5);
+    expect(evaluate(age, { at: NEWEST + 600 })).toBe(0);
+    expect(evaluate(age, { at: NEWEST - 6000 })).toBe(1);
   });
 
-  it("draws nothing rather than dividing by a window of no length", () => {
-    const points = flashPoints(window_({ windowMinutes: 0 })) as {
-      features: Array<{ properties: { age: number } }>;
-    };
-    expect(points.features.every((point) => point.properties.age === 0)).toBe(
-      true,
-    );
+  it("draws rather than dividing by a window of no length", () => {
+    const age = flashAgeExpression(NEWEST * 1000, 0);
+    const drawn = evaluate(age, { at: NEWEST });
+    expect(Number.isFinite(drawn)).toBe(true);
+    expect(drawn).toBe(0);
+  });
+
+  it("hands the map the same collection until the next fetch", () => {
+    // A tick of the clock must not look like new data. Rebuilding the
+    // collection put every flash back through setData once a minute for a
+    // picture that differed only in brightness.
+    const one = window_();
+    expect(flashPoints(one)).toEqual(flashPoints(one));
   });
 });
 
-describe("a window that has stopped being current", () => {
-  it("is not drawn as if it were", async () => {
-    const { renderHook, waitFor, cleanup } =
-      await import("@testing-library/react");
-    const { useLightning } = await import("./useLightning");
-    const invoke = vi.fn().mockResolvedValue(window_());
-    vi.stubGlobal("window", window);
-    (
-      window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
-    ).__TAURI_INTERNALS__ = { invoke, transformCallback: (c: unknown) => c };
-    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+describe("what the map is handed", () => {
+  afterEach(() => {
+    cleanup();
+    flashes.mockReset();
+  });
 
-    try {
-      const { result, rerender } = renderHook(
-        ({ clock }: { clock: number }) =>
-          useLightning({
-            ready: true,
-            enabled: true,
-            pageVisible: false,
-            clock,
-          }),
-        { initialProps: { clock: NEWEST * 1000 } },
-      );
+  it("is the same collection until the next fetch", async () => {
+    // The acceptance for the change: a tick of the clock is a repaint, not a
+    // reload. If the hook builds a new collection each tick, the map is asked
+    // to take the whole window again through setData once a minute.
+    flashes.mockResolvedValue(
+      window_({ observed: Math.floor(Date.now() / 1000) }),
+    );
+    const { result, rerender } = renderHook(
+      (props: { clock: number }) =>
+        useLightning({
+          ready: true,
+          enabled: true,
+          pageVisible: true,
+          clock: props.clock,
+        }),
+      { initialProps: { clock: Date.now() } },
+    );
 
-      await waitFor(() => expect(result.current.window).not.toBeNull());
-      expect(result.current.points).not.toBeNull();
+    await vi.waitFor(() => expect(result.current.points).not.toBeNull());
+    const first = result.current.points;
 
-      // Half an hour later, with nothing new fetched: the same flashes must
-      // not still be drawn, least of all at full brightness.
-      rerender({ clock: (NEWEST + 30 * 60) * 1000 });
-      expect(result.current.window).toBeNull();
-      expect(result.current.points).toBeNull();
-    } finally {
-      cleanup();
-      vi.doUnmock("@tauri-apps/api/core");
-      delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
-    }
+    rerender({ clock: Date.now() + 60_000 });
+    rerender({ clock: Date.now() + 120_000 });
+    rerender({ clock: Date.now() + 180_000 });
+
+    expect(result.current.points).toBe(first);
+    expect(flashes).toHaveBeenCalledTimes(1);
   });
 });

@@ -1203,6 +1203,15 @@ input[type="range"] {
   overflow-wrap: anywhere;
 }
 
+/* The chosen card sits on the raised surface, where the subtle grey the others
+   use falls under the contrast floor. Nothing had ever been chosen by default
+   before the basemap started following the theme, so the axe pass had never
+   scanned this state. */
+.map-style-card:hover small,
+.map-style-card.is-active small {
+  color: var(--muted);
+}
+
 .setting-list {
   display: flex;
   flex-direction: column;

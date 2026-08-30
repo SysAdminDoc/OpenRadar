@@ -413,6 +413,9 @@ export const en = {
   "keywords.differential": "",
   "keywords.correlation": "",
 
+  "style.auto": "Match the theme",
+  "style.autoDetail":
+    "Dark under the dark workspace, light under the light one",
   "style.grayscale": "Grayscale",
   "style.grayscaleDetail": "Quiet labels",
   "style.roads": "Roads",
