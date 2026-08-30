@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/badge/version-0.2.0-68d7ff)
 ![License](https://img.shields.io/badge/license-MIT-8bd5ca)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
+![Platform](https://img.shields.io/badge/platform-Windows-89b4fa)
 
 OpenRadar is a map-first desktop weather radar. Pan around the planet, zoom from a globe to a neighborhood, tilt the camera, switch projections, and scrub through live radar frames without moving the map.
 
@@ -47,6 +47,8 @@ Requirements: Node.js 22 or newer, Rust 1.85 or newer, and the platform requirem
 npm install
 npm run tauri dev
 ```
+
+Windows is the only platform OpenRadar is built and tested on. Tauri 2 itself runs on macOS and Linux, and nothing here is deliberately Windows-only, but no installer is produced for them and no release has been run on either, so treat a build there as untested.
 
 For a browser preview:
 
