@@ -35,6 +35,8 @@ interface MapStageProps {
   flashes: Record<string, unknown> | null;
   /** Storm cells with their tracks, from the radar's own algorithm. */
   cells: Record<string, unknown> | null;
+  /** What the severe-probability model expects of each storm. */
+  probSevere: Record<string, unknown> | null;
   /** The flash window and the moment the fade is measured against. */
   flashWindowMinutes: number;
   flashClock: number;
@@ -68,6 +70,7 @@ export function MapStage({
   mrmsLayers,
   flashes,
   cells,
+  probSevere,
   flashWindowMinutes,
   flashClock,
   wind,
@@ -101,6 +104,7 @@ export function MapStage({
     mrmsLayers,
     flashes,
     cells,
+    probSevere,
     flashWindowMinutes,
     flashClock,
     wind,

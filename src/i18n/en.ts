@@ -337,6 +337,14 @@ export const en = {
   "command.group.style": "Map type",
   "command.group.panel": "Panel",
   "command.group.tool": "Tool",
+  "layer.probSevere": "Severe Probability",
+  "layers.probSevereDetail":
+    "What a model expects of each storm in the next hour, which is guidance rather than a warning",
+  "probSevere.title": "Severe probability",
+  "probSevere.headline": "{percent}% chance of severe weather in the next hour",
+  "probSevere.kinds": "Hail {hail}% · Wind {wind}% · Tornado {tornado}%",
+  "probSevere.note":
+    "A model reading the radar, the satellite and the air around the storm. It is not a warning, and a low number is not a promise.",
   "layer.stormCells": "Storm Cells",
   "layers.stormCellsDetail":
     "What the radar's own tracking algorithm is following, with where each storm is going",

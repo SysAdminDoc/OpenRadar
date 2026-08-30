@@ -114,6 +114,7 @@ describe("settings normalization", () => {
       "lightningDensity",
       "lightningFlashes",
       "precipRate",
+      "probSevere",
       "qpeDay",
       "qpeHour",
       "rotationTracks",

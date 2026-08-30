@@ -340,6 +340,15 @@ export const es: Catalogue = {
   "command.group.style": "Tipo de mapa",
   "command.group.panel": "Panel",
   "command.group.tool": "Herramienta",
+  "layer.probSevere": "Probabilidad de tiempo severo",
+  "layers.probSevereDetail":
+    "Lo que un modelo espera de cada tormenta en la próxima hora, que es orientación y no un aviso",
+  "probSevere.title": "Probabilidad de tiempo severo",
+  "probSevere.headline":
+    "{percent}% de probabilidad de tiempo severo en la próxima hora",
+  "probSevere.kinds": "Granizo {hail}% · Viento {wind}% · Tornado {tornado}%",
+  "probSevere.note":
+    "Un modelo que lee el radar, el satélite y el aire alrededor de la tormenta. No es un aviso, y un número bajo no es una promesa.",
   "layer.stormCells": "Células de tormenta",
   "layers.stormCellsDetail":
     "Lo que sigue el algoritmo del propio radar, con hacia dónde va cada tormenta",

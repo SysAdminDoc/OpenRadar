@@ -74,6 +74,57 @@ async function fakeNativeSide(page: Page) {
             const longitude = Number(args.longitude);
             return Promise.resolve(longitude < -70 ? "KDMX" : null);
           }
+          if (command === "probsevere_reading") {
+            // One storm over Iowa the model is worried about, and one it is
+            // not, so the floor that keeps the map readable is exercised too.
+            return Promise.resolve({
+              observed: new Date()
+                .toISOString()
+                .replace(/[-:]/g, "")
+                .replace("T", "_")
+                .slice(0, 15)
+                .concat(" UTC"),
+              storms: [
+                {
+                  id: "9001",
+                  rings: [
+                    [
+                      [-94.0, 41.5],
+                      [-93.4, 41.5],
+                      [-93.4, 41.9],
+                      [-94.0, 41.9],
+                      [-94.0, 41.5],
+                    ],
+                  ],
+                  severe: 88,
+                  hail: 61,
+                  wind: 44,
+                  tornado: 12,
+                  attributes: [
+                    ["COMPREF", "62.5"],
+                    ["MESH", "1.85"],
+                  ],
+                },
+                {
+                  id: "9002",
+                  rings: [
+                    [
+                      [-95.0, 41.5],
+                      [-94.8, 41.5],
+                      [-94.8, 41.7],
+                      [-95.0, 41.7],
+                      [-95.0, 41.5],
+                    ],
+                  ],
+                  severe: 2,
+                  hail: 0,
+                  wind: 1,
+                  tornado: 0,
+                  attributes: [],
+                },
+              ],
+            });
+          }
           if (command === "level3_cells") {
             // Two storms west of Des Moines: one heading straight at it, one
             // going the other way. Whether the panel picks the right one is
@@ -474,4 +525,53 @@ test("says which storm reaches the watched place and when", async ({
   await expect(arrival).not.toHaveText(/Z2/);
   // And the rotation is named in words, not only drawn as a red ring.
   await expect(page.locator("[data-cell-rotating]")).toHaveText(/Y6/);
+});
+
+test("draws severe probability over the pictures and under the warnings", async ({
+  page,
+}) => {
+  // Guidance about what might happen belongs under a warning somebody has
+  // taken responsibility for, and over the pictures it was worked out from.
+  await open(page, 9);
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Severe Probability/ })
+    .check();
+  // Storm cells too, so the order of the two new layers against each other is
+  // a real comparison rather than one against something that is not there.
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Storm Cells/ })
+    .check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  await expect(pane).toHaveAttribute("data-layer-stack", /probsevere-fill/);
+  await expect(pane).toHaveAttribute("data-layer-stack", /cell-points/);
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  const at = (id: string) => stack.indexOf(id);
+
+  expect(at("openradar-probsevere-fill")).toBeGreaterThan(
+    at("openradar-sweep-layer"),
+  );
+  expect(at("openradar-probsevere-fill")).toBeLessThan(
+    at("openradar-overlay-alerts-fill"),
+  );
+  // And under the storm cells, which are the radar's own reading rather than
+  // a model's expectation of it.
+  expect(at("openradar-probsevere-line")).toBeLessThan(
+    at("openradar-cell-points"),
+  );
+
+  // Switching it off takes the layer away rather than leaving an empty one.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Severe Probability/ })
+    .uncheck();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /probsevere/);
 });
