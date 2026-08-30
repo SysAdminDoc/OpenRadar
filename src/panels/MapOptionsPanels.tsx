@@ -1,6 +1,7 @@
 import {
   BellRing,
   Check,
+  Crosshair,
   Flame,
   Globe2,
   Map,
@@ -170,6 +171,7 @@ export function LayersPanel({ layers, onLayers, onClose }: LayersPanelProps) {
 interface SettingsPanelProps {
   settings: AppSettings;
   onSettings: (settings: AppSettings) => void;
+  onWatchHere: () => void;
   onReset: () => void;
   onClose: () => void;
 }
@@ -206,6 +208,7 @@ function ToggleSetting({
 export function SettingsPanel({
   settings,
   onSettings,
+  onWatchHere,
   onReset,
   onClose,
 }: SettingsPanelProps) {
@@ -315,6 +318,55 @@ export function SettingsPanel({
           checked={settings.radar.enabled}
           onChange={(enabled) => updateRadar({ enabled })}
         />
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section__title">
+          <span>Watched area</span>
+          <small>Warnings near one place</small>
+        </div>
+        <ToggleSetting
+          label="Tell me about warnings"
+          detail="Watch one point even when the map is looking elsewhere"
+          checked={settings.watch.enabled}
+          onChange={(enabled) =>
+            onSettings({ ...settings, watch: { ...settings.watch, enabled } })
+          }
+        />
+        <label className="range-row">
+          <span>
+            <strong>Radius</strong>
+            <output>{settings.watch.radiusMiles} mi</output>
+          </span>
+          <input
+            type="range"
+            min="5"
+            max="200"
+            step="5"
+            aria-label="Watched radius in miles"
+            value={settings.watch.radiusMiles}
+            onChange={(event) =>
+              onSettings({
+                ...settings,
+                watch: {
+                  ...settings.watch,
+                  radiusMiles: Number(event.target.value),
+                },
+              })
+            }
+          />
+        </label>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onWatchHere}
+        >
+          <Crosshair size={16} /> Watch the map centre
+        </button>
+        <p className="source-note">
+          Watching {settings.watch.center[1].toFixed(2)},{" "}
+          {settings.watch.center[0].toFixed(2)} for warnings and worse.
+        </p>
       </div>
 
       <div className="settings-section settings-section--camera">

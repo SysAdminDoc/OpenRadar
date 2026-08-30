@@ -10,6 +10,7 @@
     "store:default",
     "log:default",
     "opener:default",
-    "deep-link:default"
+    "deep-link:default",
+    "notification:default"
   ]
 }

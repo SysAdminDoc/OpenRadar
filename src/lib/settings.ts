@@ -38,6 +38,13 @@ export interface LayerSettings {
   customOverlay: boolean;
 }
 
+export interface WatchState {
+  enabled: boolean;
+  center: [number, number];
+  radiusMiles: number;
+  minSeverity: "extreme" | "severe" | "moderate" | "minor";
+}
+
 export interface PresetState {
   name: string;
   camera: CameraState;
@@ -53,6 +60,7 @@ export interface AppSettings {
   camera: CameraState;
   radar: RadarSettings;
   layers: LayerSettings;
+  watch: WatchState;
   presets: Array<PresetState | null>;
 }
 
@@ -81,6 +89,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
     tropical: true,
     satellite: false,
     customOverlay: false,
+  },
+  watch: {
+    enabled: false,
+    center: [-96.8, 32.78],
+    radiusMiles: 30,
+    minSeverity: "severe",
   },
   presets: [null, null, null, null],
 };
@@ -150,6 +164,31 @@ export function cameraKey(camera: CameraState): string {
 
 export function sameCamera(left: CameraState, right: CameraState): boolean {
   return cameraKey(left) === cameraKey(right);
+}
+
+function normalizeWatch(value: unknown): WatchState {
+  const raw =
+    value && typeof value === "object" ? (value as Partial<WatchState>) : {};
+  const center = Array.isArray(raw.center)
+    ? raw.center
+    : DEFAULT_SETTINGS.watch.center;
+  const severity = String(raw.minSeverity);
+  return {
+    enabled: bool(raw.enabled, DEFAULT_SETTINGS.watch.enabled),
+    center: [
+      finiteInRange(center[0], DEFAULT_SETTINGS.watch.center[0], -180, 180),
+      finiteInRange(center[1], DEFAULT_SETTINGS.watch.center[1], -85, 85),
+    ],
+    radiusMiles: finiteInRange(
+      raw.radiusMiles,
+      DEFAULT_SETTINGS.watch.radiusMiles,
+      5,
+      200,
+    ),
+    minSeverity: ["extreme", "severe", "moderate", "minor"].includes(severity)
+      ? (severity as WatchState["minSeverity"])
+      : DEFAULT_SETTINGS.watch.minSeverity,
+  };
 }
 
 function normalizePreset(value: unknown): PresetState | null {
@@ -231,6 +270,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.customOverlay,
       ),
     },
+    watch: normalizeWatch(raw.watch),
     presets,
   };
 }

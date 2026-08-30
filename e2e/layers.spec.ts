@@ -237,3 +237,18 @@ test("the Custom Overlay switch removes imported shapes", async ({ page }) => {
   await toggle.check();
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
 });
+
+test("watches a point and says when a warning reaches it", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  // The fixture warning sits about thirty-five miles from the default centre.
+  await page.getByLabel("Watched radius in miles").fill("60");
+  await page.getByRole("button", { name: /Watch the map centre/ }).click();
+  await expect(page.getByText("Watching this point")).toBeVisible();
+
+  // The fixture alert covers the default centre, so the watch has to speak up.
+  await expect(page.getByText("Tornado Warning").first()).toBeVisible();
+  await expect(
+    page.getByText(/miles from the point you watch|where you are watching/),
+  ).toBeVisible();
+});

@@ -13,7 +13,7 @@
 - [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
 - [ ] Add model guidance, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
 - [ ] Add HURDAT2 history with archived radar playback.
-- [ ] Add accessible export, notifications, and an offline cache.
+- [ ] Add an offline cache of the last view.
 
 ## Research-Driven Additions
 
@@ -106,13 +106,6 @@
   Touches: build-time preprocessor to a compact JSON (bundled), new src/panels/HistoryPanel.tsx (search by name/year, ACE, peak), MapViewport track/points layer, timeline replay of IEM archive frames for storms after 2003.
   Acceptance: searching "Ian 2022" draws the track with 6-hourly intensity colors, shows ACE, and the timeline plays the IEM radar mosaic around landfall; Pacific file included.
   Complexity: L
-
-- [ ] P2: Windows notifications for new alerts in a watched radius
-  Why: MyRadar's rain alerts and Rain Alarm are the retention feature; Supercell #352/#581 ask for it; the app already has a location fix flow.
-  Evidence: tauri-plugin-notification 2.3.3; HookEcho home-radius rules; StormDeck ntfy relay (optional).
-  Touches: Cargo.toml/capabilities (notification), settings (watched point, radius, severities), background poll in the alerts adapter, Settings panel.
-  Acceptance: a new tornado warning polygon within the radius produces a Windows toast within 60 s while the app is minimized; toasts never fire for events outside the radius or already seen.
-  Complexity: M
 
 ### P3
 
