@@ -72,6 +72,9 @@ function CommandButton({
       className="command-button"
       type="button"
       aria-pressed={active}
+      // Narrow windows hide the visible label, and without this the button
+      // would be named after its tooltip instead.
+      aria-label={label}
       title={detail ?? label}
       onClick={onClick}
     >

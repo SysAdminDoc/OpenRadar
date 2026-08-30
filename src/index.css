@@ -231,7 +231,12 @@ a {
   border-radius: 0 6px 6px 0;
 }
 
+/* The bar stays dark in both themes, so its ink is fixed rather than themed.
+   Taking --text and --muted here would put dark text on a dark bar. */
 .command-bar {
+  --command-ink: #e7edf7;
+  --command-ink-muted: #a8b3c4;
+  --command-ink-faint: #7c8899;
   position: absolute;
   z-index: 50;
   left: 0;
@@ -242,7 +247,7 @@ a {
   align-items: stretch;
   gap: 2px;
   padding: 3px 7px;
-  color: var(--text);
+  color: var(--command-ink);
   background: rgba(31, 35, 41, 0.97);
   border-top: 1px solid var(--border-strong);
   box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.24);
@@ -278,7 +283,7 @@ a {
   height: 43px;
   gap: 2px;
   padding: 3px 7px;
-  color: var(--muted);
+  color: var(--command-ink-muted);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -302,7 +307,7 @@ a {
 
 .command-button:hover,
 .preset-button:hover {
-  color: var(--text);
+  color: var(--command-ink);
   background: var(--surface-hover);
   border-color: var(--border);
   transform: translateY(-1px);
@@ -329,7 +334,7 @@ a {
 .preset-button i {
   width: 10px;
   height: 2px;
-  background: var(--subtle);
+  background: var(--command-ink-faint);
   border-radius: 1px;
 }
 
@@ -584,7 +589,7 @@ input[type="range"] {
 }
 
 .diagnostics-log li > span {
-  color: var(--subtle);
+  color: var(--muted);
   font-family: Consolas, monospace;
 }
 

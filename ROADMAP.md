@@ -13,7 +13,7 @@
 - [ ] Add NOAA MRMS radar products alongside the RIDGE II mosaic that now leads the provider chain.
 - [ ] Add model guidance, satellite, lightning, tides, and surge. (Research 2026-08-30: lightning is GLM or MRMS NLDN density only; Blitzortung is rejected in RESEARCH.md.)
 - [ ] Add HURDAT2 history with archived radar playback.
-- [ ] Add accessible export, notifications, offline cache, and dual-pane workflows. (Research 2026-08-30: dual pane exists but does not sync cameras; P0 item below.)
+- [ ] Add accessible export, notifications, and an offline cache.
 
 ## Research-Driven Additions
 
@@ -55,13 +55,6 @@
   Touches: src/components/CommandBar.tsx (label "Globe"/"Flat" with the projection icon, or move projection into the Map Type panel only), src/App.tsx (initial `playing` from `matchMedia("(prefers-reduced-motion: reduce)")`).
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
-
-- [ ] P1: Playwright coverage for the workflows that broke unnoticed, plus an axe pass
-  Why: the single e2e (`e2e/workspace.spec.ts`, 63 lines) cannot catch dual-pane drift, dead toggles, or the mislabeled button.
-  Evidence: this research; StormDeck `e2e/support/{tauriMock,mapTileFixture}.ts` (real decodable PNG tiles, not 204s).
-  Touches: e2e/*.spec.ts, e2e/support/, playwright.config.ts (add a 1024x720 compact project), package.json (`@axe-core/playwright`).
-  Acceptance: e2e asserts pane sync, each layer toggle changes `map.getStyle().layers`, preset save/recall/undo, share link contents, and zero serious axe violations in dark and light themes.
-  Complexity: M
 
 ### P2
 
