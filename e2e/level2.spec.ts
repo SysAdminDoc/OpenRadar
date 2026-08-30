@@ -44,6 +44,8 @@ async function fakeNativeSide(page: Page) {
       (
         window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
       ).__TAURI_INTERNALS__ = {
+        convertFileSrc: (path: string, scheme: string) =>
+          `http://${scheme}.localhost/${path}`,
         invoke: (command: string, args: Record<string, unknown>) => {
           calls.push({ command, args });
           if (command === "level2_nearest_site") return Promise.resolve("KDMX");

@@ -18,6 +18,7 @@ import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts } from "./hooks/useToasts";
+import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { GeoPoint } from "./lib/geo";
@@ -100,6 +101,11 @@ export default function App() {
     radar: settings.radar,
     center: settings.camera.center,
     zoom: settings.camera.zoom,
+    pageVisible,
+  });
+  const mrms = useMrmsOverlays({
+    ready: hydrated,
+    layers: settings.layers,
     pageVisible,
   });
   const { frames, frameIndex, source } = timeline;
@@ -258,6 +264,7 @@ export default function App() {
         customOverlay={customOverlay}
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}
+        mrmsLayers={mrms.layers}
         activeTool={activeTool}
         dualPane={dualPane}
         compareOffset={compareOffset}
@@ -323,6 +330,7 @@ export default function App() {
         timeline={timeline}
         frames={frames}
         sweep={singleSite.sweep}
+        mrmsLayers={mrms.layers}
         radarAgeMinutes={radarAge}
         cursor={cursor}
         activeTool={activeTool}

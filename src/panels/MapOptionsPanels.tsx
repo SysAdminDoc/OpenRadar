@@ -1,6 +1,7 @@
 import {
   BellRing,
   Check,
+  CloudHail,
   Crosshair,
   Flame,
   Globe2,
@@ -123,6 +124,18 @@ const LAYER_OPTIONS: Array<{
     label: "Satellite",
     detail: "GOES-East GeoColor under the radar",
     icon: Satellite,
+  },
+  {
+    key: "rotationTracks",
+    label: "Rotation Tracks",
+    detail: "MRMS azimuthal shear over the past hour",
+    icon: Tornado,
+  },
+  {
+    key: "hail",
+    label: "Hail Size",
+    detail: "MRMS maximum estimated hail size",
+    icon: CloudHail,
   },
   {
     key: "customOverlay",

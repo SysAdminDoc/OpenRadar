@@ -2,6 +2,9 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- MRMS now leads the radar. NOAA builds it by merging every radar in the network onto a one kilometre national grid every two minutes, and it is cleaner and finer than the picture services. The grids are GRIB2, so OpenRadar decodes them here and hands the map ordinary tiles: scrubbing, the loop, dual panes, and export all work on them the way they always did.
+- Two more products from the same grids. Rotation Tracks shows where the air has been turning over the past hour, and Hail Size shows the largest hail the network thinks a storm has produced. Each is a switch in the Layers panel with its own scale drawn from the same colours the tiles use.
+
 - Zoom past 8 over the United States and the map switches from the national mosaic to the nearest NEXRAD site's own Level II radar, decoded on this machine. The site, the tilt, and the moment are yours to pick in the radar product sheet: reflectivity, velocity, spectrum width, differential reflectivity, and correlation coefficient, on every elevation the volume holds. Zoom back out and the mosaic takes over again.
 - The legend follows what is on screen. It names the site and the tilt during a single-site view, and swaps to the velocity scale when velocity is what is drawn.
 

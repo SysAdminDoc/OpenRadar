@@ -99,11 +99,16 @@ describe("settings normalization", () => {
     expect(Object.keys(settings.layers).sort()).toEqual([
       "customOverlay",
       "earthquakes",
+      "hail",
+      "rotationTracks",
       "satellite",
       "tropical",
       "weatherAlerts",
       "wildfires",
     ]);
+    // The schema 1 file predates both MRMS switches, so they come back off.
+    expect(settings.layers.rotationTracks).toBe(false);
+    expect(settings.layers.hail).toBe(false);
   });
 
   it("always returns four safe preset slots", () => {

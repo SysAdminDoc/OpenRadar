@@ -3,6 +3,7 @@ import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
 import type { GeoPoint } from "../lib/geo";
+import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
@@ -23,6 +24,8 @@ interface WorkspaceChromeProps {
   frames: RadarFrame[];
   /** The single-site sweep on the map, which the legend names. */
   sweep: SweepImage | null;
+  /** MRMS products drawn over the radar, each with its own scale. */
+  mrmsLayers: MrmsLayer[];
   radarAgeMinutes: number | null;
   cursor: GeoPoint | null;
   activeTool: ToolMode;
@@ -52,6 +55,7 @@ export function WorkspaceChrome({
   timeline,
   frames,
   sweep,
+  mrmsLayers,
   radarAgeMinutes,
   cursor,
   activeTool,
@@ -119,6 +123,26 @@ export function WorkspaceChrome({
         }
         onToggle={onToggleProduct}
       />
+      {mrmsLayers.length ? (
+        <div className="product-legends" aria-label="Extra product scales">
+          {mrmsLayers.map((layer) => (
+            <div key={layer.product} className="product-legend">
+              <strong>
+                {layer.label}
+                {layer.unit ? ` (${layer.unit})` : ""}
+              </strong>
+              <ol>
+                {layer.stops.map(([value, color]) => (
+                  <li key={value}>
+                    <i style={{ background: color }} aria-hidden="true" />
+                    {value}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <RadarTimeline
         frames={frames}
         frameIndex={timeline.frameIndex}
