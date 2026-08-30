@@ -23,6 +23,7 @@ import { useLightning } from "./hooks/useLightning";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
+import type { CommandAction } from "./lib/commands";
 import type { GeoPoint } from "./lib/geo";
 import { recentLog, subscribeLog } from "./lib/log";
 import type { OverlayBounds } from "./lib/overlays";
@@ -226,6 +227,52 @@ export default function App() {
     [pushToast],
   );
 
+  // One place that knows how to do each kind of thing the palette offers, so
+  // the palette itself stays a list rather than a second copy of the app.
+  const runCommand = useCallback(
+    (action: CommandAction) => {
+      const current = settingsRef.current;
+      switch (action.kind) {
+        case "layer":
+          applySettings({
+            ...current,
+            layers: {
+              ...current.layers,
+              [action.layer]: !current.layers[action.layer],
+            },
+          });
+          break;
+        case "style":
+          applySettings({ ...current, mapStyle: action.style });
+          break;
+        case "product":
+          applySettings({
+            ...current,
+            radar: {
+              ...current.radar,
+              product: action.product as RadarSettings["product"],
+              singleSite: true,
+            },
+          });
+          setProductOpen(true);
+          break;
+        case "surface":
+          setProductOpen(false);
+          // The panel it asks for takes the palette's place, so this must not
+          // fall through to the close below.
+          setActiveSurface(action.surface as SurfaceId);
+          return;
+        case "tool":
+          // handleTool clears the surface itself.
+          handleTool(action.tool as ToolMode);
+          return;
+      }
+      // Everything else leaves the map showing rather than the list.
+      setActiveSurface(null);
+    },
+    [applySettings, handleTool, settingsRef],
+  );
+
   const centerPoint = useMemo<GeoPoint>(
     () => ({ lon: settings.camera.center[0], lat: settings.camera.center[1] }),
     [settings.camera.center],
@@ -324,6 +371,7 @@ export default function App() {
         onPlace={actions.goToPlace}
         onAlertSelect={actions.flyToBounds}
         onFollowStorm={actions.followStorm}
+        onCommand={runCommand}
         onHistoryStorm={showStorm}
         onReplayStorm={replayStorm}
         onStopReplay={() => setReplay(null)}

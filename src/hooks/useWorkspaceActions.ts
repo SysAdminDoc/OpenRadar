@@ -5,6 +5,7 @@ import type { ToastMessage } from "../components/ToastHost";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "../lib/deepLink";
 import { log } from "../lib/log";
 import { looksLikePlacefile, parsePlacefile } from "../lib/placefile";
+import { looksLikePalette, parsePalette } from "../lib/palette";
 import {
   DEFAULT_SETTINGS,
   isDesktopRuntime,
@@ -243,6 +244,31 @@ export function useWorkspaceActions(options: {
           throw new Error("The file is larger than 5 MB.");
         }
         const text = await file.text();
+
+        // A colour table is not an overlay: it changes how the radar already
+        // on screen is drawn, so it goes to the settings rather than the map.
+        if (looksLikePalette(file.name, text)) {
+          const palette = parsePalette(text, file.name);
+          if (!palette) {
+            throw new Error("That palette has no colours this map can use.");
+          }
+          applySettings({ ...settingsRef.current, palette });
+          setActiveSurface(null);
+          const notes = [`${palette.stops.length} colours`];
+          if (palette.units) notes.push(`for ${palette.units}`);
+          if (palette.skipped.length) {
+            notes.push(`${palette.skipped.join(" and ")} left out`);
+          }
+          pushToast({
+            title: `${file.name} applied`,
+            detail: `${notes.join(", ")}.`,
+            actionLabel: "Remove",
+            onAction: () =>
+              applySettings({ ...settingsRef.current, palette: null }),
+          });
+          return;
+        }
+
         let payload: Record<string, unknown>;
         let detail = "The overlay stays on this device.";
 

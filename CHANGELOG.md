@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- A Commands button opens one list with every layer, radar product, map type, panel, and tool in it. Type what you call the thing rather than what it is labelled: meso finds rotation tracks, mesh finds hail size, debris finds correlation coefficient. Switches show whether they are already on, so you are not toggling something to find out.
+
 - Two lightning layers, from the two things that actually watch for it. Lightning Density is the national grid of cloud-to-ground flashes over the past five minutes. Lightning Flashes is what the GOES-East satellite sees, cloud flashes included, with the newest drawn brightest so you can tell which way a storm is moving. Neither is a strike report, and the legend says so.
 
 - OpenRadar can update itself. Diagnostics has a button that checks the project's own releases, tells you what is new, and installs it if you say so. Nothing downloads on its own, because an app that decides to update itself in the middle of a storm is not much use to anyone. Every release carries a checksum file and a signature, and a build that is not signed by the project's key is refused.

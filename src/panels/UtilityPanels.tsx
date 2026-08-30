@@ -23,14 +23,14 @@ export function UploadPanel({ onClose, onFile }: UploadPanelProps) {
     >
       <label className="drop-zone">
         <FileUp size={30} />
-        <strong>Add an overlay</strong>
+        <strong>Add an overlay or a colour table</strong>
         <span>
-          Choose a local GeoJSON file or a GRLevelX placefile. Nothing is sent
-          to a server.
+          Choose a local GeoJSON file, a GRLevelX placefile, or a .pal colour
+          table. Nothing is sent to a server.
         </span>
         <input
           type="file"
-          accept=".geojson,.json,.txt,.php,application/geo+json,application/json,text/plain"
+          accept=".geojson,.json,.txt,.php,.pal,application/geo+json,application/json,text/plain"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) onFile(file);

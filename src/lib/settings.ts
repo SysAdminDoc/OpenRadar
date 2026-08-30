@@ -1,5 +1,6 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
+import { parsePalette, type Palette } from "./palette";
 
 export const APP_VERSION = "0.1.0";
 
@@ -75,6 +76,8 @@ export interface AppSettings {
   camera: CameraState;
   radar: RadarSettings;
   layers: LayerSettings;
+  /** A GRLevelX colour table, applied to whatever it says it is for. */
+  palette: Palette | null;
   watch: WatchState;
   presets: Array<PresetState | null>;
 }
@@ -113,6 +116,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     lightningDensity: false,
     lightningFlashes: false,
   },
+  palette: null,
   watch: {
     enabled: false,
     center: [-96.8, 32.78],
@@ -231,6 +235,44 @@ function normalizePreset(value: unknown): PresetState | null {
   };
 }
 
+function normalizePalette(value: unknown): Palette | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<Palette>;
+  if (!Array.isArray(raw.stops) || !raw.stops.length) return null;
+  const lines = [
+    raw.product ? `Product: ${raw.product}` : "",
+    raw.units ? `Units: ${raw.units}` : "",
+    Number.isFinite(raw.step) ? `Step: ${raw.step}` : "",
+    ...raw.stops.map((stop) => {
+      const value = Number(stop?.value);
+      if (!Number.isFinite(value)) return "";
+      const first = channels(stop?.color);
+      if (!first) return "";
+      const second = channels(stop?.toColor ?? null);
+      return second
+        ? `Color: ${value} ${first} ${second}`
+        : `SolidColor: ${value} ${first}`;
+    }),
+    channels(raw.rangeFolded ?? null)
+      ? `RF: ${channels(raw.rangeFolded ?? null)}`
+      : "",
+  ].filter(Boolean);
+  return parsePalette(
+    lines.join("\n"),
+    typeof raw.name === "string" ? raw.name.slice(0, 60) : "palette",
+  );
+}
+
+/** A stored colour as the three numbers a palette line is written with. */
+function channels(color: unknown): string | null {
+  if (typeof color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(color)) {
+    return null;
+  }
+  return [1, 3, 5]
+    .map((at) => Number.parseInt(color.slice(at, at + 2), 16))
+    .join(" ");
+}
+
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -315,6 +357,10 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.lightningFlashes,
       ),
     },
+    // A palette is re-read from its own text rather than trusted as an
+    // object, so a hand-edited settings file cannot put anything on the map
+    // that the parser would not have produced itself.
+    palette: normalizePalette(raw.palette),
     watch: normalizeWatch(raw.watch),
     presets,
   };

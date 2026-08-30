@@ -1,0 +1,152 @@
+import { describe, expect, it } from "vitest";
+import {
+  paletteApplies,
+  paletteColor,
+  paletteForRenderer,
+  paletteRange,
+  parsePalette,
+} from "./palette";
+
+/** A cut-down version of the reflectivity palettes people actually pass round. */
+const FILE = [
+  "; a comment nobody has to read",
+  "Product: BR",
+  "Units: dBZ",
+  "Step: 5",
+  "",
+  "Color: 5 4 233 231 1 159 244",
+  "Color: 20 2 253 2 1 197 1",
+  "Color: 50 253 0 0 212 0 0",
+  "SolidColor: 75 253 253 253",
+  "RF: 119 0 125",
+].join("\n");
+
+describe("reading a palette", () => {
+  it("reads the header, the stops, and the range-folded colour", () => {
+    const palette = parsePalette(FILE, "reflectivity.pal");
+    expect(palette).not.toBeNull();
+    if (!palette) return;
+
+    expect(palette.name).toBe("reflectivity.pal");
+    expect(palette.product).toBe("BR");
+    expect(palette.units).toBe("dBZ");
+    expect(palette.step).toBe(5);
+    expect(palette.rangeFolded).toBe("#77007d");
+    expect(palette.stops).toHaveLength(4);
+    expect(palette.stops[0]).toEqual({
+      value: 5,
+      color: "#04e9e7",
+      toColor: "#019ff4",
+    });
+    // A solid stop has no colour to blend towards.
+    expect(palette.stops[3]).toEqual({
+      value: 75,
+      color: "#fdfdfd",
+      toColor: null,
+    });
+    expect(paletteRange(palette)).toEqual({ min: 5, max: 75 });
+  });
+
+  it("reads the stops low to high whatever order the file lists them in", () => {
+    const palette = parsePalette(
+      ["Color: 50 253 0 0", "Color: 5 4 233 231", "Color: 20 2 253 2"].join(
+        "\n",
+      ),
+      "jumbled.pal",
+    );
+    expect(palette?.stops.map((stop) => stop.value)).toEqual([5, 20, 50]);
+  });
+
+  it("says which directives it read but did nothing with", () => {
+    const palette = parsePalette(
+      ["Color: 5 4 233 231", "Scale: 1.0", "Offset: 0", "Nonsense: 3"].join(
+        "\n",
+      ),
+      "extras.pal",
+    );
+    expect(palette?.skipped).toEqual(["nonsense", "offset", "scale"]);
+  });
+
+  it("refuses a file with no colours rather than drawing nothing", () => {
+    expect(parsePalette("Product: BR\nUnits: dBZ", "empty.pal")).toBeNull();
+    expect(parsePalette("", "empty.pal")).toBeNull();
+    expect(parsePalette("not a palette at all", "notes.txt")).toBeNull();
+    // A colour line missing a channel is not a colour.
+    expect(parsePalette("Color: 5 4 233", "short.pal")).toBeNull();
+  });
+
+  it("clamps a channel a file put outside the range", () => {
+    const palette = parsePalette(
+      ["Color: 5 300 -20 128"].join("\n"),
+      "wild.pal",
+    );
+    expect(palette?.stops[0].color).toBe("#ff0080");
+  });
+
+  it("drops the alpha a Color4 line carries", () => {
+    const palette = parsePalette(
+      ["Color4: 5 4 233 231 255 1 159 244 128"].join("\n"),
+      "alpha.pal",
+    );
+    expect(palette?.stops[0]).toEqual({
+      value: 5,
+      color: "#04e9e7",
+      toColor: "#019ff4",
+    });
+  });
+});
+
+describe("colouring a value", () => {
+  const palette = parsePalette(FILE, "reflectivity.pal");
+
+  it("gives a stop its own colour", () => {
+    expect(paletteColor(palette!, 5)).toBe("#04e9e7");
+    expect(paletteColor(palette!, 50)).toBe("#fd0000");
+  });
+
+  it("blends towards the second colour on the line", () => {
+    // Halfway from 5 to 20, so halfway from 04e9e7 to 019ff4.
+    expect(paletteColor(palette!, 12.5)).toBe("#03c4ee");
+  });
+
+  it("holds a solid stop rather than blending out of it", () => {
+    const solid = parsePalette(
+      ["Color: 5 4 233 231", "SolidColor: 20 253 0 0", "Color: 50 0 0 0"].join(
+        "\n",
+      ),
+      "solid.pal",
+    );
+    // The solid stop has no second colour, so it blends to the next stop.
+    expect(paletteColor(solid!, 20)).toBe("#fd0000");
+    expect(paletteColor(solid!, 50)).toBe("#000000");
+  });
+
+  it("holds the ends rather than running off either edge", () => {
+    expect(paletteColor(palette!, -40)).toBe("#04e9e7");
+    expect(paletteColor(palette!, 0)).toBe("#04e9e7");
+    expect(paletteColor(palette!, 200)).toBe("#fdfdfd");
+  });
+});
+
+describe("handing a palette to the renderer", () => {
+  it("sends the stops in order as plain pairs", () => {
+    const palette = parsePalette(FILE, "reflectivity.pal");
+    expect(paletteForRenderer(palette!)).toEqual([
+      [5, "#04e9e7", "#019ff4"],
+      [20, "#02fd02", "#01c501"],
+      [50, "#fd0000", "#d40000"],
+      [75, "#fdfdfd", null],
+    ]);
+  });
+
+  it("only applies to a product measured in the same unit", () => {
+    const palette = parsePalette(FILE, "reflectivity.pal");
+    expect(paletteApplies(palette!, "dBZ")).toBe(true);
+    expect(paletteApplies(palette!, "dbz")).toBe(true);
+    expect(paletteApplies(palette!, "m/s")).toBe(false);
+
+    // A file that does not say what it is for is taken at the user's word.
+    const anything = parsePalette("Color: 5 4 233 231", "any.pal");
+    expect(paletteApplies(anything!, "m/s")).toBe(true);
+  });
+});
