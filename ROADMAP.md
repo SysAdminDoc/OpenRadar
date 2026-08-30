@@ -52,13 +52,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: each overlay row has an opacity slider that applies live and persists; drag handles reorder overlays within the overlay band without letting them pass warnings; `data-layer-stack` reflects the order and the e2e test asserts it.
   Complexity: M
 
-- [ ] P2 — Remember window size, position and monitor between launches
-  Why: a 1600x1000 window re-centres on every launch; every desktop peer restores it and the Tauri plugin is one line.
-  Evidence: `src-tauri/tauri.conf.json` window block; https://www.npmjs.com/package/@tauri-apps/plugin-window-state (2.4.1).
-  Touches: src-tauri/Cargo.toml, src-tauri/src/lib.rs, src-tauri/capabilities, package.json
-  Acceptance: after moving and resizing, a relaunch restores the same bounds on the same monitor and clamps to a visible area when that monitor is gone; noted in CHANGELOG.
-  Complexity: S
-
 - [ ] P2 — Prove the Level II decoder survives the LTR message arriving in 2027
   Why: SCN26-54 adds an hourly LTR message to the Level II stream from about 2027-02-15 and the testbed KCRI already emits it; the pinned rc decoder must skip an unknown message type rather than fail the volume.
   Evidence: https://www.weather.gov/media/notification/pdf_2026/scn26-54_WSR-88D_Level2_Add_LTR.pdf ; `src-tauri/Cargo.toml` `nexrad-decode = "=1.0.0-rc.3"`.

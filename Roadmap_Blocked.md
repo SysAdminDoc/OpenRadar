@@ -30,3 +30,7 @@ So there are no hail probability badges and no TVS markers in the cell layer, an
 - Tornado vortex signatures: nothing equivalent is published. The detection would have to run here against the Level II velocity volume, which is a much larger piece of work than reading a product.
 
 Worth recording, since it was found the same way: the symbology block's hail size field is the expected size rounded to whole inches, a display bucket rather than a measurement. Calibrated across 740 cells in 122 archived NHI files, raw 0 covers everything from under half an inch to half an inch, raw 1 covers three quarters to an inch and a quarter, and so on. The quarter-inch value exists only in the tabular text, so even with a live feed the symbology packet alone could not give a hail size worth printing.
+
+## Confirming the window comes back where it was
+
+The window-state plugin is registered and its restore path is the plugin's own: it writes the position and size on exit, and on start it restores the position only if it still intersects one of the available monitors, otherwise it leaves the placement to the system. Watching a real window move, close, and come back needs the desktop app on a real display, and this machine reserves that for an isolated session, so it has not been observed. Maximised and fullscreen are deliberately not saved: a window that comes back covering the screen because it was left that way once is a surprise, and the map is usable at any size.
