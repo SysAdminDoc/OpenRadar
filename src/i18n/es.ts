@@ -692,5 +692,9 @@ export const es: Catalogue = {
   "tool.drawHint": "Toca el mapa para trazar un camino",
   "tool.startHint": "Elige el punto de inicio",
   "tool.endHint": "Elige el punto final",
+  "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
+  "tool.beamHeight": "haz a {feet} ft sobre el radar con {tilt}°",
+  "tool.pathPoints": "{count} en la ruta",
+  "tool.rangeResult": "Distancia {distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",
 };

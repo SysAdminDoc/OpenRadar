@@ -116,3 +116,45 @@ export function sweepAgeMinutes(sweep: SweepImage, nowMs: number): number {
   if (!Number.isFinite(collected)) return 0;
   return Math.max(0, Math.floor((nowMs - collected) / 60_000));
 }
+
+/** Earth's radius, in kilometres. */
+const EARTH_RADIUS_KM = 6371;
+/**
+ * The four-thirds earth model. A radar beam bends slightly downward in normal
+ * air, and pretending the earth is a third larger than it is accounts for that
+ * without modelling refraction.
+ */
+const REFRACTION = 4 / 3;
+const FEET_PER_KM = 3280.84;
+
+/**
+ * How high above the radar the centre of the beam is, in feet, at a given
+ * distance and tilt.
+ *
+ * This is the difference between a couplet at two thousand feet and one at
+ * twenty: the same picture at the same tilt means something else entirely
+ * eighty miles further out, because the beam has climbed.
+ */
+export function beamHeightFeet(
+  rangeKm: number,
+  elevationDegrees: number,
+): number {
+  if (!Number.isFinite(rangeKm) || rangeKm < 0) return 0;
+  const effective = EARTH_RADIUS_KM * REFRACTION;
+  const angle = (elevationDegrees * Math.PI) / 180;
+  const height =
+    Math.sqrt(
+      rangeKm * rangeKm +
+        effective * effective +
+        2 * rangeKm * effective * Math.sin(angle),
+    ) - effective;
+  return height * FEET_PER_KM;
+}
+
+/** Where the site is, read back from the extent its sweep was drawn to. */
+export function sweepSite(sweep: SweepImage): { lon: number; lat: number } {
+  return {
+    lon: (sweep.west + sweep.east) / 2,
+    lat: (sweep.south + sweep.north) / 2,
+  };
+}

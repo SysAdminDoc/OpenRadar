@@ -678,6 +678,10 @@ export const en = {
   "tool.drawHint": "Click the map to draw a path",
   "tool.startHint": "Select the start point",
   "tool.endHint": "Select the end point",
+  "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
+  "tool.beamHeight": "beam {feet} ft above the radar at {tilt}°",
+  "tool.pathPoints": "{count} in path",
+  "tool.rangeResult": "Range {distance}",
   "tool.inspectHint": "Click the map to inspect a point",
 } as const;
 
