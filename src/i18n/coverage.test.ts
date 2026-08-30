@@ -98,7 +98,9 @@ function untranslatedStrings(source: string): string[] {
   const found: string[] = [];
   const patterns: Array<[string, RegExp]> = [
     ["thrown", /throw new Error\(\s*"([^"]{8,})"/g],
-    ["toast", /\b(?:title|detail|actionLabel|eyebrow):\s*"([^"]{4,})"/g],
+    // Not just a bare literal after the colon: a ternary between two
+    // sentences is still copy, and that is how the dual pane toast hid.
+    ["toast", /\b(?:title|detail|actionLabel|eyebrow):[^\n]*?"([^"]{4,})"/g],
     ["written", /\.textContent\s*=\s*"([^"]{4,})"/g],
     ["label", /\blabel\s*=\s*"([^"]{4,})"/g],
     // Anything handed straight to a state setter, which is how an error line
