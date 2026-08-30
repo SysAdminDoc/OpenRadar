@@ -8,13 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — Storm cell attributes from Level III NST, NMD, NTV and NHI with tracks, motion, and arrival time to the watched place
-  Why: "reaches you in N minutes" is the headline of the 2026 Storm Radar relaunch and a Baron/RadarScope Tier 2 paywall; OpenRadar has the watched place and no cells. StormviewRadar has a working JS implementation to port.
-  Evidence: https://registry.opendata.aws/noaa-nexrad/ (`unidata-nexrad-level3`, flat keys `SSS_PPP_YYYY_MM_DD_HH_MM_SS`, products NST, NMD, NTV, NHI verified on the bucket 2026-08-30); https://weather.com/storm-radar ; https://www.baronthreatnet.com/content/faq ; https://www.radarscope.com.au/guide/what-is-radarscope-pro ; C:\repos\StormviewRadar README "Storm Tracks".
-  Touches: src-tauri/src/level3.rs (new: NST/NMD/NTV/NHI decode via nexrad-decode Level III or a small own parser), src-tauri/src/http.rs (add `unidata-nexrad-level3.s3.amazonaws.com`), src/lib/overlays/cells.ts, src/components/MapViewport.tsx, src/panels/AlertsPanel.tsx or a new cells panel, src/hooks/useAlertWatch.ts, src-tauri/tauri.conf.json (Rust-only host, no CSP change)
-  Acceptance: at a single-site zoom the map shows cell markers with 30/60-minute projected positions and TVS/meso/hail badges; the watched place reports the soonest arrival as "in N min" in the watch card; a Rust test decodes a fixture NST for KTLX; an e2e test with a stubbed cell list shows the ETA.
-  Complexity: L
-
 ### P2
 
 - [ ] P2 — ProbSevere storm objects from the MRMS bucket as a layer with probability badges
