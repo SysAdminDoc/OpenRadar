@@ -162,10 +162,13 @@ function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
  * compile error rather than a layer that quietly sinks to the bottom.
  */
 const OVERLAY_DEPTH: Record<OverlayId, number> = {
-  tropical: 0,
-  wildfires: 1,
-  earthquakes: 2,
-  alerts: 3,
+  // Guidance about what might happen sits under everything that is happening.
+  spcOutlooks: 0,
+  spcDiscussions: 1,
+  tropical: 2,
+  wildfires: 3,
+  earthquakes: 4,
+  alerts: 5,
 };
 
 function overlayLayerOrder(): string[] {

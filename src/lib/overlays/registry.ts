@@ -1,7 +1,13 @@
 import type { LayerSpecification } from "maplibre-gl";
 import { translate } from "../../i18n";
 
-export type OverlayId = "alerts" | "earthquakes" | "wildfires" | "tropical";
+export type OverlayId =
+  | "alerts"
+  | "earthquakes"
+  | "wildfires"
+  | "tropical"
+  | "spcOutlooks"
+  | "spcDiscussions";
 
 export interface OverlayBounds {
   west: number;

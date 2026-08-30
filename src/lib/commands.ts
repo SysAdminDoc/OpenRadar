@@ -38,6 +38,18 @@ const LAYER_COMMANDS: Array<{
     keywords: ["warning", "watch", "tornado", "severe", "nws", "polygon"],
   },
   {
+    layer: "spcOutlooks",
+    key: "layer.spcOutlooks",
+    extra: "keywords.spcOutlooks",
+    keywords: ["spc", "outlook", "risk", "slight", "enhanced", "moderate"],
+  },
+  {
+    layer: "spcDiscussions",
+    key: "layer.spcDiscussions",
+    extra: "keywords.spcDiscussions",
+    keywords: ["md", "mesoscale", "discussion", "spc"],
+  },
+  {
     layer: "earthquakes",
     key: "layer.earthquakes",
     extra: "keywords.earthquakes",

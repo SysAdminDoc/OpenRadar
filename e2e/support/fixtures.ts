@@ -117,6 +117,55 @@ export const tropicalFeature = {
  * A stand-in for the bundled HURDAT2 record. The real one is 2.5 MB, and a
  * test that loads it is measuring the network rather than the panel.
  */
+/** A Day 1 categorical risk area, in the shape and colours the service uses. */
+export const outlookFeature = {
+  type: "Feature",
+  geometry: {
+    type: "Polygon",
+    coordinates: [
+      [
+        [-100, 18],
+        [-78, 18],
+        [-78, 36],
+        [-100, 36],
+        [-100, 18],
+      ],
+    ],
+  },
+  properties: {
+    dn: 4,
+    label: "SLGT",
+    label2: "Slight Risk",
+    valid: "202608301630",
+    expire: "202608311200",
+    issue: "202608301629",
+    fill: "#FFE066",
+    stroke: "#DDAA00",
+  },
+};
+
+/** One live mesoscale discussion. */
+export const discussionFeature = {
+  type: "Feature",
+  geometry: {
+    type: "Polygon",
+    coordinates: [
+      [
+        [-92, 22],
+        [-82, 22],
+        [-82, 30],
+        [-92, 30],
+        [-92, 22],
+      ],
+    ],
+  },
+  properties: {
+    name: "MD 1783",
+    popupinfo: "Severe thunderstorms are expected to develop this afternoon.",
+    idp_filedate: 1788095861000,
+  },
+};
+
 export const stormRecord = {
   generated: "2026-08-30",
   statuses: ["TD", "TS", "HU", "EX", "SD", "SS", "LO"],
@@ -186,14 +235,20 @@ export async function routeWorkspace(page: Page) {
   });
   await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
     const url = route.request().url();
-    const body = url.includes("/tropical/")
-      ? collection(
-          url.includes("MapServer/5/")
-            ? [tropicalPointFeature]
-            : [tropicalFeature],
-        )
-      : collection([alertFeature]);
-    await route.fulfill({ contentType: "application/json", body });
+    let features: unknown[] = [alertFeature];
+    if (url.includes("/tropical/")) {
+      features = url.includes("MapServer/5/")
+        ? [tropicalPointFeature]
+        : [tropicalFeature];
+    } else if (url.includes("SPC_wx_outlks")) {
+      features = [outlookFeature];
+    } else if (url.includes("spc_mesoscale_discussion")) {
+      features = [discussionFeature];
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: collection(features),
+    });
   });
   await page.route("https://earthquake.usgs.gov/**", async (route) => {
     await route.fulfill({

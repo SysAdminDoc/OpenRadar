@@ -108,6 +108,8 @@ describe("settings normalization", () => {
       "lightningFlashes",
       "rotationTracks",
       "satellite",
+      "spcDiscussions",
+      "spcOutlooks",
       "surge",
       "tropical",
       "weatherAlerts",

@@ -1,9 +1,10 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOverlays } from "./useOverlays";
-import { OVERLAY_ADAPTERS } from "../lib/overlays";
+import { OVERLAY_ADAPTERS, overlayAdapter } from "../lib/overlays";
 
-const alerts = OVERLAY_ADAPTERS[0];
+// By id, not position: this test is not about the order of the list.
+const alerts = overlayAdapter("alerts");
 const viewport = { west: -100, south: 30, east: -90, north: 40 };
 
 function collection(headline: string) {
@@ -23,7 +24,9 @@ let fetchData: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   fetchData = vi.spyOn(alerts, "fetchData");
-  for (const adapter of OVERLAY_ADAPTERS.slice(1)) {
+  for (const adapter of OVERLAY_ADAPTERS.filter(
+    (candidate) => candidate.id !== alerts.id,
+  )) {
     vi.spyOn(adapter, "fetchData").mockResolvedValue({
       type: "FeatureCollection",
       features: [],
@@ -42,7 +45,14 @@ describe("useOverlays", () => {
 
     const { result } = renderHook(() =>
       useOverlays(
-        { alerts: true, earthquakes: false, wildfires: false, tropical: false },
+        {
+          alerts: true,
+          earthquakes: false,
+          wildfires: false,
+          tropical: false,
+          spcOutlooks: false,
+          spcDiscussions: false,
+        },
         viewport,
       ),
     );
@@ -70,6 +80,8 @@ describe("useOverlays", () => {
             earthquakes: false,
             wildfires: false,
             tropical: false,
+            spcOutlooks: false,
+            spcDiscussions: false,
           },
           bounds,
         ),
@@ -102,6 +114,8 @@ describe("useOverlays", () => {
           earthquakes: false,
           wildfires: false,
           tropical: false,
+          spcOutlooks: false,
+          spcDiscussions: false,
         },
         viewport,
       ),
@@ -125,6 +139,8 @@ describe("useOverlays", () => {
             earthquakes: false,
             wildfires: false,
             tropical: false,
+            spcOutlooks: false,
+            spcDiscussions: false,
           },
           bounds,
         ),
@@ -155,6 +171,8 @@ describe("snapshot scoping", () => {
             earthquakes: false,
             wildfires: false,
             tropical: false,
+            spcOutlooks: false,
+            spcDiscussions: false,
           },
           bounds,
         ),
@@ -172,7 +190,8 @@ describe("snapshot scoping", () => {
   });
 
   it("keeps a worldwide feed through a pan and asks for it once", async () => {
-    const usgs = OVERLAY_ADAPTERS[1];
+    // By id, not position: the order of the list is not this test s subject.
+    const usgs = overlayAdapter("earthquakes");
     const usgsFetch = vi
       .spyOn(usgs, "fetchData")
       .mockResolvedValue(collection("M 5.8 Somewhere"));
@@ -185,6 +204,8 @@ describe("snapshot scoping", () => {
             earthquakes: true,
             wildfires: false,
             tropical: false,
+            spcOutlooks: false,
+            spcDiscussions: false,
           },
           bounds,
         ),

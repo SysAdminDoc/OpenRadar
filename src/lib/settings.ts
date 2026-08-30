@@ -43,6 +43,8 @@ export interface RadarSettings {
 
 export interface LayerSettings {
   weatherAlerts: boolean;
+  spcOutlooks: boolean;
+  spcDiscussions: boolean;
   earthquakes: boolean;
   wildfires: boolean;
   tropical: boolean;
@@ -120,6 +122,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   layers: {
     weatherAlerts: true,
+    spcOutlooks: false,
+    spcDiscussions: false,
     earthquakes: false,
     wildfires: false,
     tropical: true,
@@ -356,6 +360,14 @@ export function normalizeSettings(value: unknown): AppSettings {
       weatherAlerts: bool(
         layers.weatherAlerts,
         DEFAULT_SETTINGS.layers.weatherAlerts,
+      ),
+      spcOutlooks: bool(
+        layers.spcOutlooks,
+        DEFAULT_SETTINGS.layers.spcOutlooks,
+      ),
+      spcDiscussions: bool(
+        layers.spcDiscussions,
+        DEFAULT_SETTINGS.layers.spcDiscussions,
       ),
       earthquakes: bool(
         layers.earthquakes,
