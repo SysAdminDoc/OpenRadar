@@ -128,13 +128,6 @@
   Acceptance: a new tornado warning polygon within the radius produces a Windows toast within 60 s while the app is minimized; toasts never fire for events outside the radius or already seen.
   Complexity: M
 
-- [ ] P2: Light theme contrast audit and `prefers-contrast` support
-  Why: the app is dark by default with a light option; HookEcho #12 and StormviewRadar's owned palettes show the audience wants high-contrast; nothing verifies the light theme as of 2026-08-30.
-  Evidence: `src/index.css:27` light tokens; contrast memory "check every surface".
-  Touches: src/index.css, ToastHost, PanelShell, radar legend ramp (add dBZ labels).
-  Acceptance: axe reports no contrast violations in either theme at 1440x900 and 1024x720; the legend shows numeric dBZ stops; a `prefers-contrast: more` block increases border and text contrast.
-  Complexity: S
-
 ### P3
 
 - [ ] P3: Wind particle layer on the globe from HRRR/GFS via `mapbox-exif-layer`

@@ -403,24 +403,29 @@ a {
   font-size: 12px;
 }
 
+/* The National Weather Service reflectivity ramp, five to seventy-five dBZ,
+   which is what the NOAA mosaics are drawn with. */
 .legend-ramp {
   grid-column: 1 / -1;
   height: 5px;
   margin-top: 5px;
   background: linear-gradient(
     90deg,
-    #081d58,
-    #225ea8,
-    #1d91c0,
-    #41b6c4,
-    #7fcdbb,
-    #c7e9b4,
-    #ffffcc,
-    #fed976,
-    #fd8d3c,
-    #e31a1c,
-    #b10026,
-    #f0f
+    #04e9e7 0%,
+    #019ff4 7%,
+    #0300f4 14%,
+    #02fd02 21%,
+    #01c501 29%,
+    #008e00 36%,
+    #fdf802 43%,
+    #e5bc00 50%,
+    #fd9500 57%,
+    #fd0000 64%,
+    #d40000 71%,
+    #bc0000 79%,
+    #f800fd 86%,
+    #9854c6 93%,
+    #fdfdfd 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 2px;
@@ -680,6 +685,21 @@ input[type="range"] {
 .storm-row__actions button:hover,
 .storm-row__actions a:hover {
   border-color: var(--border-strong);
+}
+
+.legend-scale {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.02em;
+}
+
+.legend-scale em {
+  font-style: normal;
 }
 
 .map-popup {
@@ -2052,6 +2072,41 @@ input[type="range"] {
     right: 8px;
     left: 8px;
     width: auto;
+  }
+}
+
+/* Someone who has asked for more contrast gets firmer edges and brighter text
+   rather than the softer palette the default look is built on. */
+@media (prefers-contrast: more) {
+  :root {
+    --border: rgba(200, 214, 235, 0.42);
+    --border-strong: rgba(219, 230, 247, 0.66);
+    --muted: #c3ccda;
+    --subtle: #a9b3c2;
+    --surface: rgba(9, 12, 18, 0.99);
+    --surface-raised: #0f141d;
+  }
+
+  :root[data-theme="light"] {
+    --border: rgba(20, 32, 48, 0.42);
+    --border-strong: rgba(12, 21, 33, 0.7);
+    --muted: #2b3648;
+    --subtle: #3d4a5e;
+    --surface: rgba(255, 255, 255, 0.99);
+    --surface-raised: #ffffff;
+  }
+
+  .command-bar {
+    --command-ink-muted: #d6dfec;
+    --command-ink-faint: #a4b0c2;
+  }
+
+  .surface-panel,
+  .radar-timeline,
+  .radar-legend,
+  .zoom-controls,
+  .command-bar {
+    backdrop-filter: none;
   }
 }
 
