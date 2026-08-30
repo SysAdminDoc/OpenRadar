@@ -43,6 +43,8 @@ const TOOL_SOURCE_ID = "openradar-tool-source";
 const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
+const ROUTE_SOURCE_ID = "openradar-route-source";
+const ROUTE_LAYER_ID = "openradar-route-line";
 const CUSTOM_SOURCE_ID = "openradar-custom-source";
 const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
 const CUSTOM_LINE_LAYER_ID = "openradar-custom-line";
@@ -70,6 +72,7 @@ interface MapViewportProps {
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
+  route?: Record<string, unknown> | null;
   customOverlay?: Record<string, unknown> | null;
   toolMode?: ToolMode;
   onCameraChange?: (camera: CameraState) => void;
@@ -139,6 +142,7 @@ function MapViewportInner(
     radarOpacity,
     satelliteTime = null,
     overlays = {},
+    route = null,
     customOverlay = null,
     toolMode = null,
     onCameraChange,
@@ -159,6 +163,7 @@ function MapViewportInner(
   );
   const satelliteTimeRef = useRef(satelliteTime);
   const overlaysRef = useRef(overlays);
+  const routeRef = useRef(route);
   const projectionRef = useRef(projection);
   const mapStyleRef = useRef(mapStyle);
   const toolModeRef = useRef<ToolMode>(toolMode);
@@ -478,6 +483,56 @@ function MapViewportInner(
       .addTo(map);
   };
 
+  const syncRoute = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    const data = routeRef.current;
+    const source = map.getSource(ROUTE_SOURCE_ID) as
+      maplibregl.GeoJSONSource | undefined;
+
+    if (!data) {
+      if (source) {
+        if (map.getLayer(ROUTE_LAYER_ID)) map.removeLayer(ROUTE_LAYER_ID);
+        map.removeSource(ROUTE_SOURCE_ID);
+        publishLayers();
+      }
+      return;
+    }
+
+    if (source) {
+      source.setData(data as never);
+      return;
+    }
+
+    map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: data as never });
+    map.addLayer(
+      {
+        id: ROUTE_LAYER_ID,
+        type: "line",
+        source: ROUTE_SOURCE_ID,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-width": 5,
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["get", "precipitationChance"], 0],
+            0,
+            "#4ade80",
+            30,
+            "#facc15",
+            60,
+            "#fb923c",
+            85,
+            "#f43f5e",
+          ],
+        },
+      },
+      firstExisting(map, TOOL_LAYER_IDS),
+    );
+    publishLayers();
+  };
+
   const syncCustomOverlay = () => {
     const map = mapRef.current;
     const overlay = customOverlayRef.current;
@@ -643,6 +698,7 @@ function MapViewportInner(
       syncRadar();
       renderTools();
       syncOverlays();
+      syncRoute();
       syncCustomOverlay();
       onMapStatus?.("ready");
     };
@@ -761,6 +817,14 @@ function MapViewportInner(
     // would rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlays]);
+
+  useEffect(() => {
+    routeRef.current = route;
+    syncRoute();
+    // The sync function reads the ref above; adding it as a dependency would
+    // rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
 
   useEffect(() => {
     customOverlayRef.current = customOverlay;

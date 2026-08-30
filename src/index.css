@@ -628,6 +628,62 @@ input[type="range"] {
   color: var(--amber);
 }
 
+.route-field {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  align-items: center;
+  gap: 9px;
+}
+
+.route-field span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.route-field input {
+  min-width: 0;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.route-field input:focus-visible {
+  border-color: var(--accent);
+}
+
+.route-table {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.route-row {
+  display: grid;
+  grid-template-columns: 1fr auto 42px 46px;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 9px;
+  font-size: 11.5px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.route-row small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.route-row span:first-child {
+  color: var(--muted);
+}
+
 .storm-list {
   display: flex;
   flex-direction: column;

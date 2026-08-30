@@ -24,6 +24,8 @@ const ALLOWED_HOSTS: &[&str] = &[
     "tiles.openfreemap.org",
     "api.open-meteo.com",
     "geocoding-api.open-meteo.com",
+    "router.project-osrm.org",
+    "gibs.earthdata.nasa.gov",
 ];
 
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
