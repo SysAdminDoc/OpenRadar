@@ -643,6 +643,8 @@ export const es: Catalogue = {
   "radar.requestFailedShort": "La consulta falló.",
   "radar.noRun": "El índice del pronóstico no nombró ninguna corrida.",
   "radar.archive": "Archivo de radar de Iowa State",
+  "app.dualPaneOpened": "Panel doble abierto",
+  "app.dualPaneClosed": "Panel doble cerrado",
   "app.settingsNotSaved": "Los ajustes no se guardaron",
   "app.settingsNotSavedBody": "Esta ventana sigue usando tus cambios.",
   "app.dualPane": "Panel doble abierto",

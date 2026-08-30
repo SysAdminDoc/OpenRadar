@@ -441,7 +441,9 @@ export default function App() {
         onDualPane={() => {
           setDualPane((enabled) => !enabled);
           pushToast({
-            title: dualPane ? "Dual pane closed" : "Dual pane opened",
+            title: translate(
+              dualPane ? "app.dualPaneClosed" : "app.dualPaneOpened",
+            ),
           });
         }}
         onProjection={() =>

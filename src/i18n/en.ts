@@ -632,6 +632,8 @@ export const en = {
   "radar.requestFailedShort": "The request failed.",
   "radar.noRun": "The forecast index named no model run.",
   "radar.archive": "Iowa State radar archive",
+  "app.dualPaneOpened": "Dual pane opened",
+  "app.dualPaneClosed": "Dual pane closed",
   "app.settingsNotSaved": "Settings were not saved",
   "app.settingsNotSavedBody": "The current window is still using your changes.",
   "app.dualPane": "Dual pane opened",
