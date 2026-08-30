@@ -101,6 +101,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
             from: origin.name,
             to: destination.name,
             miles: distanceValue(route.distanceMiles),
+            unit: distanceUnit(),
             minutes: Math.round(route.durationSeconds / 60),
           }),
         );

@@ -53,6 +53,11 @@ export function forecastUnits(): Record<string, string> {
       };
 }
 
+/** What a depth of rain arrives in, which is what it has to be labelled as. */
+export function precipitationUnit(): string {
+  return units === "metric" ? "mm" : "in";
+}
+
 export function speedUnit(): string {
   return units === "metric" ? "km/h" : "mph";
 }

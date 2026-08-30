@@ -81,7 +81,7 @@ export const en = {
   "forecast.failedBody": "The radar and map are still live.",
   "forecast.feelsLike": "Feels like {value}°",
   "forecast.wind": "{value} {unit} wind",
-  "forecast.rainNow": "{value} in now",
+  "forecast.rainNow": "{value} {unit} now",
   "forecast.note":
     "Forecast by Open-Meteo. Check official warnings for safety decisions.",
   "tropical.eyebrow": "National Hurricane Center",
@@ -151,7 +151,7 @@ export const en = {
   "route.straightOffer": "Use a straight line instead",
   "route.straightNote":
     "No road shape: this is the straight line between the two places, and the times along it assume a steady 55 mph. The weather is real.",
-  "route.summary": "{from} to {to} · {miles} miles · {minutes} min",
+  "route.summary": "{from} to {to} · {miles} {unit} · {minutes} min",
   "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":

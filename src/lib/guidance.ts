@@ -13,6 +13,7 @@
 import { cachedUrl } from "./tileCache";
 import { translate, type StringKey } from "../i18n";
 import type { GeoPoint } from "./geo";
+import { forecastUnits } from "./units";
 
 /** The models worth putting beside each other, with what to call them. */
 export const GUIDANCE_MODELS = [
@@ -155,6 +156,9 @@ export async function fetchGuidance(
   url.searchParams.set("longitude", point.lon.toFixed(4));
   url.searchParams.set("hourly", VARIABLES.join(","));
   url.searchParams.set("models", models.join(","));
+  for (const [key, value] of Object.entries(forecastUnits())) {
+    url.searchParams.set(key, value);
+  }
   url.searchParams.set("forecast_days", String(FORECAST_DAYS));
   url.searchParams.set("timezone", "UTC");
 

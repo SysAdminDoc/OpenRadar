@@ -69,6 +69,8 @@ pub enum Level2Error {
     Decode(String),
     #[error("{0} has no {1} sweep at that tilt")]
     NoSweep(String, String),
+    #[error("the wind at {0} could not be read, so nothing can be taken out of it")]
+    NoStormMotion(String),
     #[error("the image could not be encoded: {0}")]
     Encode(String),
     #[error(transparent)]
@@ -467,13 +469,14 @@ fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
     let elevation = field.elevation_degrees();
     let angles = field.azimuths();
 
+    // Rings are looked for where the returns are, not at fixed fractions of the
+    // gate count. A sweep whose echo is all within thirty kilometres has
+    // nothing at four tenths of its range, and picking by fraction came back
+    // with no wind at all for it.
     let mut rings = Vec::new();
-    // A handful spread across the useful part of the sweep.
-    for step in 1..=8 {
-        let gate = gates * step / 10;
-        if gate >= gates {
-            continue;
-        }
+    let stride = (gates / 60).max(1);
+    let mut gate = 0;
+    while gate < gates && rings.len() < 12 {
         let mut samples = Vec::with_capacity(azimuths);
         for azimuth in 0..azimuths {
             let (value, status) = field.get(azimuth, gate);
@@ -488,6 +491,7 @@ fn fitted_wind(field: &SweepField) -> Option<vad::Wind> {
         if let Some(wind) = vad::fit_ring(&samples, elevation) {
             rings.push(wind);
         }
+        gate += stride;
     }
     vad::median_wind(&rings)
 }
@@ -765,30 +769,39 @@ pub fn sweep_from_volume(
     // Reported only when gates actually moved. A sweep that never folded is
     // the radar's own reading, and saying otherwise would have the legend claim
     // a change that was not made.
+    let storm_relative = product_name == "storm-relative-velocity";
+    // Storm relative is the same moment with the ambient wind taken out, and
+    // the wind is read off the sweep, so a folded sweep has to be unfolded
+    // first whatever the switch says. A fit against a folded field collapses:
+    // measured on a 20 m/s wind folded at 8, it comes back with 1.4.
     let mut dealiased = false;
-    if unfold && product == Product::Velocity {
+    if (unfold || storm_relative) && product == Product::Velocity {
         if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
             dealiased = unfold_velocity(&mut chosen.field, nyquist) >= MIN_UNFOLD_SHARE;
+        } else if storm_relative && manual_motion.is_none() {
+            // No Nyquist velocity means no unfolding, and a wind read off a
+            // sweep that may still be folded is not a wind. A motion the
+            // viewer gave is theirs to stand behind, so that still goes ahead.
+            return Err(Level2Error::NoStormMotion(station.to_string()));
         }
     }
 
-    // Storm relative is the same moment with the ambient wind taken out, so it
-    // has to happen after unfolding: subtracting a wind from a folded field
-    // moves the fold rather than removing it.
     let mut storm_motion = None;
-    if product_name == "storm-relative-velocity" {
+    if storm_relative {
         let wind = match manual_motion {
             Some(given) => Some(given),
             None => fitted_wind(&chosen.field),
         };
-        if let Some(wind) = wind {
-            make_storm_relative(&mut chosen.field, wind);
-            storm_motion = Some(StormMotion {
-                speed_ms: wind.speed(),
-                from_degrees: wind.coming_from_degrees(),
-                manual: manual_motion.is_some(),
-            });
-        }
+        // Nothing to subtract is not the same as nothing to take out. Drawing
+        // raw velocity under the storm relative label would be the worst of
+        // both: the picture unchanged and the reader told otherwise.
+        let wind = wind.ok_or_else(|| Level2Error::NoStormMotion(station.to_string()))?;
+        make_storm_relative(&mut chosen.field, wind);
+        storm_motion = Some(StormMotion {
+            speed_ms: wind.speed(),
+            from_degrees: wind.coming_from_degrees(),
+            manual: manual_motion.is_some(),
+        });
     }
 
     // The volume carries its own site position; the registry is only the
