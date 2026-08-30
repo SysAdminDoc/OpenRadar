@@ -1,4 +1,21 @@
-import type { GeoPoint } from "./geo";
+import { haversineMiles, type GeoPoint } from "./geo";
+
+/** Open-Meteo allows 600 requests a minute, and a pan burst can reach it. */
+export const FORECAST_DEBOUNCE_MS = 1500;
+const FORECAST_MOVE_THRESHOLD_MILES = 3.1;
+
+/**
+ * A forecast for a point three miles away reads the same, so a small pan is
+ * not worth a request.
+ */
+export function shouldRefetchForecast(
+  requested: GeoPoint | null,
+  next: GeoPoint,
+  thresholdMiles = FORECAST_MOVE_THRESHOLD_MILES,
+): boolean {
+  if (!requested) return true;
+  return haversineMiles(requested, next) >= thresholdMiles;
+}
 
 export interface PlaceResult extends GeoPoint {
   id: number;

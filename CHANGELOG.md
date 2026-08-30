@@ -2,6 +2,7 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Stopped the forecast panel from requesting a new forecast on every map move. It waits for the map to settle and ignores pans of under three miles, and the previous forecast stays on screen while a new one loads.
 - Added an NWS watches and warnings layer with severity colouring, click-through detail, and an Alerts panel that lists what intersects the view and flies to any of it.
 - Added USGS earthquake and NIFC wildfire perimeter overlays with popups that carry the source and how fresh the data is.
 - Removed the ten radar and layer switches that had no data behind them. Stored settings from the first release still load, minus those keys.

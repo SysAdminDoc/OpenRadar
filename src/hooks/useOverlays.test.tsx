@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOverlays } from "./useOverlays";
 import { OVERLAY_ADAPTERS } from "../lib/overlays";
@@ -32,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
 
