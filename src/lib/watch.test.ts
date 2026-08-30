@@ -55,7 +55,7 @@ describe("watched area", () => {
         features: [alert("Tornado Warning", "extreme", near)],
       },
       watch,
-      new Set(),
+      new Map(),
       now,
     );
     expect(found).toHaveLength(1);
@@ -73,7 +73,7 @@ describe("watched area", () => {
     const found = alertsToAnnounce(
       { type: "FeatureCollection", features },
       watch,
-      new Set(["https://x/Seen Warning"]),
+      new Map([["https://x/Seen Warning", 0]]),
       now,
     );
     expect(found).toEqual([]);
@@ -87,7 +87,7 @@ describe("watched area", () => {
           features: [alert("Tornado Warning", "extreme", near)],
         },
         { ...watch, enabled: false },
-        new Set(),
+        new Map(),
         now,
       ),
     ).toEqual([]);
@@ -103,7 +103,7 @@ describe("watched area", () => {
         ],
       },
       watch,
-      new Set(),
+      new Map(),
       now,
     );
     expect(found.map((item) => item.headline)).toEqual([
@@ -124,14 +124,18 @@ describe("a warning the office upgrades", () => {
     // saying the thing got worse, and it is worth interrupting somebody for a
     // second time. What it must not do is interrupt them on every refresh
     // afterwards.
-    const announced = new Set<string>();
+    const announced = new Map<string, number>();
+    const say = (found: ReturnType<typeof alertsToAnnounce>) => {
+      for (const one of found) announced.set(one.id, one.rank);
+      return found;
+    };
 
     const ordinary = collection([
       alert("Tornado Warning", "extreme", near, { impact: "" }),
     ]);
-    const first = alertsToAnnounce(ordinary, watch, announced, now);
-    expect(first).toHaveLength(1);
-    for (const one of first) announced.add(one.id);
+    expect(say(alertsToAnnounce(ordinary, watch, announced, now))).toHaveLength(
+      1,
+    );
 
     // The same warning, still in force, still ordinary.
     expect(alertsToAnnounce(ordinary, watch, announced, now)).toHaveLength(0);
@@ -139,10 +143,9 @@ describe("a warning the office upgrades", () => {
     const upgraded = collection([
       alert("Tornado Warning", "extreme", near, { impact: "considerable" }),
     ]);
-    const second = alertsToAnnounce(upgraded, watch, announced, now);
+    const second = say(alertsToAnnounce(upgraded, watch, announced, now));
     expect(second).toHaveLength(1);
     expect(second[0].impact).toBe("considerable");
-    for (const one of second) announced.add(one.id);
 
     // And then quiet again, however many times it is checked.
     expect(alertsToAnnounce(upgraded, watch, announced, now)).toHaveLength(0);
@@ -152,16 +155,44 @@ describe("a warning the office upgrades", () => {
     const worse = collection([
       alert("Tornado Warning", "extreme", near, { impact: "destructive" }),
     ]);
-    const third = alertsToAnnounce(worse, watch, announced, now);
+    const third = say(alertsToAnnounce(worse, watch, announced, now));
     expect(third).toHaveLength(1);
     expect(third[0].impact).toBe("destructive");
+  });
+
+  it("says nothing when the tag goes away, because that is not a downgrade", () => {
+    // The tag comes from a feed that rate-limits. When it does, the tag
+    // disappears and the warning looks new again. Somebody told the office
+    // called it destructive should not be woken a second time with the plain
+    // wording because a service somewhere returned 429.
+    const announced = new Map<string, number>();
+    const tagged = collection([
+      alert("Tornado Warning", "extreme", near, { impact: "destructive" }),
+    ]);
+    for (const one of alertsToAnnounce(tagged, watch, announced, now)) {
+      announced.set(one.id, one.rank);
+    }
+
+    const untagged = collection([
+      alert("Tornado Warning", "extreme", near, { impact: "" }),
+    ]);
+    expect(alertsToAnnounce(untagged, watch, announced, now)).toHaveLength(0);
+    // Flapping does not accumulate either.
+    expect(alertsToAnnounce(tagged, watch, announced, now)).toHaveLength(0);
+    expect(alertsToAnnounce(untagged, watch, announced, now)).toHaveLength(0);
+
+    // A genuine further upgrade still gets through.
+    const worse = collection([
+      alert("Tornado Warning", "extreme", near, { impact: "catastrophic" }),
+    ]);
+    expect(alertsToAnnounce(worse, watch, announced, now)).toHaveLength(1);
   });
 
   it("says which tag it was given, so the second one reads differently", () => {
     const plain = alertsToAnnounce(
       collection([alert("Tornado Warning", "extreme", near)]),
       watch,
-      new Set(),
+      new Map(),
       now,
     )[0];
     const tagged = alertsToAnnounce(
@@ -169,7 +200,7 @@ describe("a warning the office upgrades", () => {
         alert("Tornado Warning", "extreme", near, { impact: "destructive" }),
       ]),
       watch,
-      new Set(),
+      new Map(),
       now,
     )[0];
 

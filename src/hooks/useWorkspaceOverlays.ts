@@ -59,7 +59,12 @@ export function useWorkspaceOverlays(options: {
 
   const states = useOverlays(toggles, viewport);
 
-  useAlertWatch(settings.watch, (alert) =>
+  // The kinds the reader switched off are switched off everywhere. The panel
+  // lists what the map draws, and the notification's own action opens that
+  // panel: announcing a kind the panel will not show sends somebody to an
+  // empty list, and the switch says it takes the kind off the map and out of
+  // the list.
+  useAlertWatch(settings.watch, settings.alertTypes, (alert) =>
     pushToast({
       title: alert.headline,
       detail: watchAlertBody(alert),

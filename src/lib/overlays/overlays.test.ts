@@ -4,6 +4,7 @@ import {
   alertsOverlay,
   parseAlertTags,
   parseAlerts,
+  resetAlertTags,
 } from "./alerts";
 import { earthquakesOverlay, parseEarthquakes } from "./earthquakes";
 import { parseWildfires, wildfiresOverlay } from "./wildfires";
@@ -16,6 +17,9 @@ import {
 } from "./registry";
 
 afterEach(() => {
+  // The tag feed is shared and cached, so one case must not carry its
+  // answer into the next.
+  resetAlertTags();
   vi.unstubAllGlobals();
 });
 
@@ -101,9 +105,48 @@ describe("alert parsing", () => {
       north: 40,
     });
 
-    const url = String((fetchMock.mock.calls[0] as unknown[])[0]);
-    expect(url).toContain("geometry=-100.0000%2C30.0000%2C-90.0000%2C40.0000");
-    expect(url).toContain("spatialRel=esriSpatialRelIntersects");
+    // Two requests go out: the polygons for this view, and the national tag
+    // feed which has no geometry of its own. The one that carries the
+    // envelope is the one being checked.
+    const asked = fetchMock.mock.calls.map((call) =>
+      String((call as unknown[])[0]),
+    );
+    const polygons = asked.find((url) => url.includes("MapServer"));
+    expect(polygons).toBeDefined();
+    expect(polygons).toContain(
+      "geometry=-100.0000%2C30.0000%2C-90.0000%2C40.0000",
+    );
+    expect(polygons).toContain("spatialRel=esriSpatialRelIntersects");
+
+    // And the tag feed is national, so asking it for an envelope would be
+    // asking for something it does not have.
+    const tags = asked.find((url) => url.includes("api.weather.gov"));
+    expect(tags).toBeDefined();
+    expect(tags).not.toContain("geometry=");
+  });
+
+  it("reads the tag feed once for a run of views", async () => {
+    // It is a megabyte and a half of every active alert in the country,
+    // unpaginated, and it is asked for beside every bounds-limited polygon
+    // query: on the overlay's own minute, on the watch's forty-five seconds,
+    // and on every pan past the padded bounds.
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ features: [] }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const west of [-100, -99, -98, -97]) {
+      await alertsOverlay.fetchData({ west, south: 30, east: -90, north: 40 });
+    }
+
+    const asked = fetchMock.mock.calls.map((call) =>
+      String((call as unknown[])[0]),
+    );
+    expect(asked.filter((url) => url.includes("MapServer"))).toHaveLength(4);
+    expect(asked.filter((url) => url.includes("api.weather.gov"))).toHaveLength(
+      1,
+    );
   });
 
   it("reports the status when the service fails", async () => {

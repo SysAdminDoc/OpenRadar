@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { log } from "../lib/log";
-import { alertsOverlay } from "../lib/overlays/alerts";
+import { alertsOfKind, alertsOverlay } from "../lib/overlays/alerts";
+import type { AlertType } from "../lib/alertTypes";
 import { isDesktopRuntime } from "../lib/settings";
 import {
   alertsToAnnounce,
@@ -37,9 +38,13 @@ async function announceOnDesktop(alert: WatchAlert): Promise<boolean> {
  */
 export function useAlertWatch(
   watch: WatchSettings,
+  /** The kinds the reader has left switched on. */
+  kinds: Partial<Record<AlertType, boolean>>,
   onFallback: (alert: WatchAlert) => void,
 ): void {
-  const announcedRef = useRef(new Set<string>());
+  // What has been announced, and how bad it was when it was: an upgrade is
+  // worth saying again, a downgrade is not.
+  const announcedRef = useRef(new Map<string, number>());
   const checkingRef = useRef(false);
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
@@ -53,6 +58,13 @@ export function useAlertWatch(
     soundRef.current = watch.sound;
   }, [watch.sound]);
 
+  // The same, for the kinds. Switching one back on should not replay every
+  // alert the watch has already mentioned.
+  const kindsRef = useRef(kinds);
+  useEffect(() => {
+    kindsRef.current = kinds;
+  }, [kinds]);
+
   const key = watch.enabled
     ? `${watch.center[0].toFixed(3)},${watch.center[1].toFixed(3)},${watch.radiusMiles},${watch.minSeverity}`
     : "";
@@ -63,7 +75,7 @@ export function useAlertWatch(
     let mounted = true;
     // A different point or radius is a different watch, so what was already
     // said about the old one must not silence the new one.
-    announcedRef.current = new Set<string>();
+    announcedRef.current = new Map<string, number>();
 
     const check = async () => {
       // A slow request must not have a second one running over the top of it,
@@ -77,13 +89,13 @@ export function useAlertWatch(
         );
         if (!mounted) return;
         const found = alertsToAnnounce(
-          alerts,
+          alertsOfKind(alerts, kindsRef.current),
           watch,
           announcedRef.current,
           Date.now(),
         );
         for (const alert of found) {
-          announcedRef.current.add(alert.id);
+          announcedRef.current.set(alert.id, alert.rank);
           // One tone for the batch rather than one per alert: three warnings
           // arriving together should not sound like an alarm going off.
           if (soundRef.current && alert === found[0]) {

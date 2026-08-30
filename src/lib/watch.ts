@@ -20,6 +20,8 @@ export interface WatchSettings {
 
 export interface WatchAlert {
   id: string;
+  /** How far up the damage scale this one is, for the record of what was said. */
+  rank: number;
   headline: string;
   /** The damage threat the office attached, or empty for most warnings. */
   impact: string;
@@ -60,26 +62,38 @@ function nearestCorner(bounds: OverlayBounds, point: GeoPoint): number {
  * by severity, so a position in it is not an identity.
  */
 /**
- * What makes one announcement different from another.
+ * What one alert is, without the part that can change.
  *
- * The damage threat is part of it. An office can upgrade a warning already in
- * force, from nothing to considerable or from considerable to destructive, and
- * that is worth interrupting somebody for a second time: it is the office
- * saying the thing got worse. Leaving the tag out of the identity would keep
- * the upgrade quiet, and putting the whole alert in would announce it again on
- * every unrelated correction.
+ * The damage threat is deliberately not in here. It was, so that an upgrade
+ * would announce a second time, and that is right in one direction and badly
+ * wrong in the other: the tag comes from a feed that can rate-limit, and when
+ * it does the tag disappears and the alert looks new again. Somebody who was
+ * told the office called it destructive would then be woken a second time with
+ * the plain wording, because a service somewhere returned 429.
+ *
+ * So the identity is the alert, and how far it has been escalated is tracked
+ * separately below: an announcement happens when the alert is new, or when its
+ * threat has gone up, and never when it has gone down.
  */
 function alertId(
   properties: Record<string, unknown>,
   bounds: OverlayBounds,
 ): string {
-  const impact = String(properties.impact ?? "");
   const url = String(properties.url ?? "");
-  if (url) return impact ? `${url}#${impact}` : url;
+  if (url) return url;
   const where = [bounds.west, bounds.south, bounds.east, bounds.north]
     .map((value) => value.toFixed(3))
     .join(",");
-  return `${String(properties.headline ?? "alert")}-${String(properties.issued ?? "")}-${where}-${impact}`;
+  return `${String(properties.headline ?? "alert")}-${String(properties.issued ?? "")}-${where}`;
+}
+
+/** How far up the scale a warning has been taken, as a number to compare. */
+export function impactRankOf(impact: unknown): number {
+  const named = typeof impact === "string" ? impact : "";
+  if (named === "catastrophic") return 3;
+  if (named === "destructive") return 2;
+  if (named === "considerable") return 1;
+  return 0;
 }
 
 /**
@@ -89,7 +103,8 @@ function alertId(
 export function alertsToAnnounce(
   alerts: OverlayData,
   watch: WatchSettings,
-  announced: ReadonlySet<string>,
+  /** What has been said already, and how bad it was when it was said. */
+  announced: ReadonlyMap<string, number>,
   now: number,
 ): WatchAlert[] {
   if (!watch.enabled) return [];
@@ -111,10 +126,16 @@ export function alertsToAnnounce(
     if (distance > watch.radiusMiles) continue;
 
     const id = alertId(feature.properties, bounds);
-    if (announced.has(id)) continue;
+    const rank = impactRankOf(feature.properties.impact);
+    const told = announced.get(id);
+    // Already mentioned, and no worse than it was. A threat that has gone
+    // down is not news, and is usually the tag feed having a bad minute
+    // rather than the office changing its mind.
+    if (told !== undefined && rank <= told) continue;
 
     found.push({
       id,
+      rank,
       headline: String(feature.properties.headline ?? translate("watch.alert")),
       impact: String(feature.properties.impact ?? ""),
       severity,
