@@ -82,7 +82,7 @@ export const es: Catalogue = {
   "forecast.failedBody": "El radar y el mapa siguen funcionando.",
   "forecast.feelsLike": "Sensación de {value}°",
   "forecast.wind": "Viento de {value} {unit}",
-  "forecast.rainNow": "{value} pulgadas ahora",
+  "forecast.rainNow": "{value} {unit} ahora",
   "forecast.note":
     "Pronóstico de Open-Meteo. Consulta los avisos oficiales para decisiones de seguridad.",
   "tropical.eyebrow": "Centro Nacional de Huracanes",
@@ -154,7 +154,7 @@ export const es: Catalogue = {
   "route.straightOffer": "Usar una línea recta",
   "route.straightNote":
     "Sin trazado por carretera: esta es la línea recta entre los dos lugares, y las horas suponen una marcha constante de 55 mph. El tiempo sí es real.",
-  "route.summary": "De {from} a {to} · {miles} millas · {minutes} min",
+  "route.summary": "De {from} a {to} · {miles} {unit} · {minutes} min",
   "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":

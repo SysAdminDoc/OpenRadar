@@ -10,7 +10,10 @@ use tauri::{AppHandle, Manager};
 
 const MAX_STEM: usize = 80;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
-const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm"];
+/// A picture, a loop, and the settings file. Anything else is refused, so a
+/// name from the page can only ever produce one of the three kinds of file
+/// this app writes.
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "json"];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",

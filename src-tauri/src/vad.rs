@@ -172,6 +172,80 @@ mod tests {
         );
     }
 
+    /// The same ring, built from meteorology rather than from `along_beam`.
+    ///
+    /// The test above generates its readings with the very method the fit
+    /// inverts, so it would pass against a sign error present in both. This
+    /// builds the ring from the textbook statement instead: a beam pointed
+    /// into the wind reads the wind negative, because approaching air moves
+    /// toward the radar, and the reading falls off as the cosine of the angle
+    /// between the beam and the direction the wind is going.
+    fn ring_from_first_principles(
+        speed: f32,
+        coming_from: f32,
+        elevation: f32,
+        count: usize,
+    ) -> Vec<(f32, f32)> {
+        let blowing_toward = (coming_from + 180.0) % 360.0;
+        (0..count)
+            .map(|at| {
+                let azimuth = at as f32 * 360.0 / count as f32;
+                let between = (azimuth - blowing_toward).to_radians();
+                (
+                    azimuth,
+                    speed * between.cos() * elevation.to_radians().cos(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_fit_agrees_with_the_textbook_and_not_just_with_itself() {
+        for (speed, from) in [(20.0, 225.0), (7.5, 40.0), (33.0, 310.0), (12.0, 0.0)] {
+            let samples = ring_from_first_principles(speed, from, 1.5, 720);
+            let fitted = fit_ring(&samples, 1.5).expect("a full ring fits");
+            assert!(
+                (fitted.speed() - speed).abs() < 0.5,
+                "{speed} from {from}: read {} m/s",
+                fitted.speed()
+            );
+            let apart = (fitted.coming_from_degrees() - from).abs();
+            let apart = apart.min(360.0 - apart);
+            assert!(
+                apart < 3.0,
+                "{speed} from {from}: read from {}",
+                fitted.coming_from_degrees()
+            );
+        }
+    }
+
+    #[test]
+    fn a_folded_ring_reads_as_almost_no_wind_at_all() {
+        // Why storm relative velocity has to unfold first whatever the switch
+        // says. Twenty metres a second measured by a radar that wraps at eight
+        // comes back as a light breeze, and the fit gives no sign of trouble.
+        let nyquist = 8.0f32;
+        let folded: Vec<(f32, f32)> = ring_from_first_principles(20.0, 225.0, 0.5, 720)
+            .into_iter()
+            .map(|(azimuth, radial)| {
+                let mut value = radial;
+                while value > nyquist {
+                    value -= 2.0 * nyquist;
+                }
+                while value < -nyquist {
+                    value += 2.0 * nyquist;
+                }
+                (azimuth, value)
+            })
+            .collect();
+        let fitted = fit_ring(&folded, 0.5).expect("a folded ring still fits something");
+        assert!(
+            fitted.speed() < 5.0,
+            "a fold should collapse the fit, not survive it: {} m/s",
+            fitted.speed()
+        );
+    }
+
     #[test]
     fn a_storm_sitting_in_the_ring_does_not_take_the_wind_with_it() {
         // Thirty degrees of the ring reading forty metres a second of its own,
