@@ -34,3 +34,9 @@ Worth recording, since it was found the same way: the symbology block's hail siz
 ## Confirming the window comes back where it was
 
 The window-state plugin is registered and its restore path is the plugin's own: it writes the position and size on exit, and on start it restores the position only if it still intersects one of the available monitors, otherwise it leaves the placement to the system. Watching a real window move, close, and come back needs the desktop app on a real display, and this machine reserves that for an isolated session, so it has not been observed. Maximised and fullscreen are deliberately not saved: a window that comes back covering the screen because it was left that way once is a surprise, and the map is usable at any size.
+
+## Decoding the testbed radar's own Level II stream
+
+The LTR item asked for a live test against KCRI, the National Weather Service testbed radar that already emits the message the rest of the network gets in 2027. KCRI does not publish to the public archive bucket: listing `unidata-nexrad-level2` for `YYYY/MM/DD/KCRI/` returns nothing for any of the last five days, while the operational sites return hundreds of objects each. There is no public copy of that stream to test against.
+
+What replaced it is stronger in the way that matters. Rather than hoping one site's stream happens to contain the new message, a message of every type number from 0 to 255 is fed through the real decoder in a real frame layout, and the whole stream has to survive each one. The specific number the notice names is checked as well: it comes back recognised as unknown, is skipped, and does not swallow the message after it. That covers whatever the message ends up being called and anything added after it.
