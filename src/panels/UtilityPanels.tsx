@@ -2,11 +2,13 @@ import {
   ExternalLink,
   FileUp,
   Film,
+  FolderOpen,
   Info,
   Radio,
   ShieldCheck,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
+import type { LogEntry } from "../lib/log";
 import { RADAR_PROVIDERS, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
 
@@ -89,6 +91,16 @@ interface MorePanelProps extends CloseOnlyProps {
   mapReady: boolean;
   activeSource: string | null;
   health: ProviderHealth[];
+  log: LogEntry[];
+  onOpenLogFolder: () => void;
+}
+
+function clockLabel(at: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(at));
 }
 
 function ageLabel(at: number | null): string {
@@ -104,11 +116,13 @@ export function MorePanel({
   mapReady,
   activeSource,
   health,
+  log,
+  onOpenLogFolder,
 }: MorePanelProps) {
   return (
     <PanelShell
       eyebrow={`OpenRadar v${APP_VERSION}`}
-      title="More options"
+      title="Diagnostics"
       onClose={onClose}
       className="surface-panel--right"
     >
@@ -150,6 +164,33 @@ export function MorePanel({
             </div>
           );
         })}
+      </div>
+      <div className="diagnostics-log">
+        <div className="diagnostics-log__title">
+          <span>Recent events</span>
+          <button type="button" onClick={onOpenLogFolder}>
+            <FolderOpen size={14} /> Open log folder
+          </button>
+        </div>
+        {log.length ? (
+          <ol>
+            {log
+              .slice(-12)
+              .reverse()
+              .map((entry) => (
+                <li
+                  key={`${entry.at}-${entry.message}`}
+                  data-level={entry.level}
+                >
+                  <span>{clockLabel(entry.at)}</span>
+                  <strong>{entry.scope}</strong>
+                  <small>{entry.message}</small>
+                </li>
+              ))}
+          </ol>
+        ) : (
+          <p className="source-note">Nothing has gone wrong yet.</p>
+        )}
       </div>
       <div className="feature-card">
         <ShieldCheck size={24} />

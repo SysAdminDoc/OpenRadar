@@ -16,6 +16,7 @@ import {
   type OverlayData,
   type OverlayId,
 } from "../lib/overlays";
+import { log } from "../lib/log";
 import { guardRadarRequest } from "../lib/providers";
 import type { RadarFrame } from "../lib/radar";
 import {
@@ -118,7 +119,7 @@ function MapViewportInner(
   const drawPointsRef = useRef<GeoPoint[]>([]);
   const rangeStartRef = useRef<GeoPoint | null>(null);
   const rangeEndRef = useRef<GeoPoint | null>(null);
-  const warnedMapErrorRef = useRef(false);
+  const loggedMapErrorsRef = useRef(new Set<string>());
   const suppressCameraEventsRef = useRef(0);
   const radarSourceKeyRef = useRef<string | null>(null);
   // isStyleLoaded() also waits on tiles, so it can report false long after the
@@ -538,10 +539,13 @@ function MapViewportInner(
       }
     });
     map.on("error", (event) => {
-      if (event.error && !warnedMapErrorRef.current) {
-        warnedMapErrorRef.current = true;
-        console.warn("Map source error", event.error);
-      }
+      if (!event.error) return;
+      const message = event.error.message || String(event.error);
+      // One line per distinct failure keeps a broken tile source from filling
+      // the log during playback.
+      if (loggedMapErrorsRef.current.has(message)) return;
+      loggedMapErrorsRef.current.add(message);
+      log.warn("map", message);
     });
 
     const resizeObserver = new ResizeObserver(() => map.resize());

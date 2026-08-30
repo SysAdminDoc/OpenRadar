@@ -215,7 +215,7 @@ export function CommandBar({
         />
         <CommandButton
           icon={Ellipsis}
-          label="More"
+          label="Diagnostics"
           active={activeSurface === "more"}
           onClick={() => toggleSurface("more")}
         />

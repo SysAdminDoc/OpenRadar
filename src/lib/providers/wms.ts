@@ -110,11 +110,11 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
         cache: "no-store",
       });
       if (!response.ok) {
-        throw new Error(`${config.label} returned ${response.status}.`);
+        throw new Error(`The service returned ${response.status}.`);
       }
       const steps = parseWmsTimeSteps(await response.text(), config.layer);
       if (!steps.length) {
-        throw new Error(`${config.label} published no radar times.`);
+        throw new Error("No radar times were published.");
       }
 
       const frames: RadarFrame[] = steps.map((step) => ({

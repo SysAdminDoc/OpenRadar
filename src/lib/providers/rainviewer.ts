@@ -79,7 +79,7 @@ export const rainviewerProvider: RadarProvider = {
       cache: "no-store",
     });
     if (!response.ok) {
-      throw new Error(`RainViewer returned ${response.status}.`);
+      throw new Error(`The service returned ${response.status}.`);
     }
     const frames = parseRainViewerFrames(await response.json());
     if (!frames.length) {

@@ -78,13 +78,6 @@
   Acceptance: during an active storm the cone/track/points render and the panel lists advisories with official links; with no storms the panel shows the GTWO outlook text and last-checked time; a fixture test covers a two-storm payload.
   Complexity: M
 
-- [ ] P1: Provider health panel and structured frontend logging into `tauri-plugin-log`
-  Why: `console.warn` is the only diagnostic; MyRadar's Windows users report "black screen after update" with no way to explain it; a bug report needs source, age, HTTP status, and budget counters.
-  Evidence: `src/components/MapViewport.tsx:294`; `src-tauri/src/lib.rs` log targets (LogDir, Webview); StormDeck incident journal (200 entries / 30 days) and Diagnostics panel.
-  Touches: new src/lib/log.ts (wraps `@tauri-apps/plugin-log` `info/warn/error` with fallback to console), providers/overlays call it, MorePanel becomes Diagnostics (per-source status, last success, last error, log directory path via `opener`).
-  Acceptance: forcing a tile 404 produces a line in `%APPDATA%\com.sysadmindoc.openradar\logs\openradar.log`; Diagnostics shows the same event; "Open log folder" opens it.
-  Complexity: S
-
 - [ ] P1: Rust HTTP boundary with host allowlist before any native fetch lands
   Why: the plan moves NEXRAD/MRMS downloads into Rust, which bypasses the WebView CSP; StormDeck learned that the Rust allowlist is the real network boundary.
   Evidence: StormDeck `src-tauri/src/http.rs` (ALLOWED_HOSTS, redirect re-check, 16 MiB cap, 30 s timeout, NWS-shaped User-Agent), `src-tauri/tests/capability_contract.rs`.

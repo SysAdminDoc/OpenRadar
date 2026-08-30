@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Turned the More panel into Diagnostics: per-source radar health, the last dozen events, and a button that opens the log folder.
+- Radar, overlay, and map failures now go to the desktop log file instead of the browser console.
 - The radar playhead stays on the frame you scrubbed to when the loop refreshes, and it only follows the newest frame while playing or when you were already on the newest one.
 - Changing the loop length now changes the timeline immediately instead of waiting for the next refresh.
 - Gave the settings sliders proper labels for screen readers.

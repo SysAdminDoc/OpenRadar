@@ -184,9 +184,9 @@ test("names the radar source and fails over to nowCOAST", async ({ page }) => {
   await expect(timeline).toContainText("NOAA nowCOAST");
   await expect(timeline).toContainText("2 radar frames");
 
-  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
   await expect(page.getByText(/NWS RIDGE II/).first()).toBeVisible();
-  await expect(page.getByText(/returned 503/)).toBeVisible();
+  await expect(page.getByText(/returned 503/).first()).toBeVisible();
 });
 
 test("adds and removes a map layer when a toggle changes", async ({ page }) => {
@@ -310,4 +310,23 @@ test("keeps a scrubbed frame when the loop refreshes", async ({ page }) => {
   await page.getByRole("button", { name: "Layers", exact: true }).click();
   await page.getByRole("checkbox", { name: /Earthquakes/ }).check();
   await expect(pane).toHaveAttribute("data-radar-frame", "1788067200");
+});
+
+test("records a failed radar source in diagnostics", async ({ page }) => {
+  await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {
+    await route.fulfill({ status: 503, body: "" });
+  });
+  await page.route("https://nowcoast.noaa.gov/**", async (route) => {
+    await route.fulfill({ status: 503, body: "" });
+  });
+  await page.reload();
+
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Diagnostics" }),
+  ).toBeVisible();
+  await expect(page.getByText(/NWS RIDGE II failed/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Open log folder/ }),
+  ).toBeVisible();
 });
