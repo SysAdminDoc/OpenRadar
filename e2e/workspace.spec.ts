@@ -333,6 +333,39 @@ test("records a failed radar source in diagnostics", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("hands over a diagnostics block with nothing private in it", async ({
+  page,
+  context,
+}) => {
+  // There is no tracker to round-trip through, so the first message somebody
+  // sends has to carry enough to work with, and nothing more than that. What
+  // this covers is the button and the clipboard; the redaction itself is held
+  // by the unit tests, which can plant a position and a path to find. A run
+  // here may legitimately log neither.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/?testMode=1&lon=-93.7123&lat=41.7456&zoom=9");
+
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  await page.getByRole("button", { name: "Copy for a bug report" }).click();
+  await expect(page.getByText("Diagnostics copied")).toBeVisible();
+
+  const block = await page.evaluate(() => navigator.clipboard.readText());
+  expect(block).toContain("OpenRadar");
+  expect(block).toContain("Renderer:");
+  expect(block).toContain("Sources:");
+  // Nothing finer than about a kilometre in the log, which is the only part
+  // that carries a position. The header carries version numbers shaped the
+  // same way and has to keep them.
+  // Every log message, with the timestamp that starts each line taken off:
+  // its milliseconds are shaped like a coordinate and are not one.
+  for (const line of block.slice(block.indexOf("Log:")).split("\n").slice(1)) {
+    const message = line.replace(/^\s*\S+Z\s+\S+\s+\S+:\s*/, "");
+    expect(message, line).not.toMatch(/-?\d+\.\d{2,}/);
+  }
+  expect(block).not.toMatch(/[A-Za-z]:[\\/]Users[\\/]/);
+  expect(block).not.toMatch(/\/(?:home|Users)\/[^/\s]+/);
+});
+
 test("keeps radar under the alert polygons", async ({ page }) => {
   await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
     await route.fulfill({

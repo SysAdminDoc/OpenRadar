@@ -51,6 +51,8 @@ import type {
   RadarSettings,
 } from "./lib/settings";
 import { translate } from "./i18n";
+import { diagnosticsBlock } from "./lib/diagnostics";
+import { gpuSupport } from "./lib/gpu";
 
 export default function App() {
   const [activeSurface, setActiveSurface] = useState<SurfaceId>(null);
@@ -261,6 +263,68 @@ export default function App() {
     [pushToast],
   );
 
+  // There is no tracker to round-trip through, so the first message somebody
+  // sends about a problem has to carry enough to work with. Everything in the
+  // block goes through the redaction: a radar workspace knows where its reader
+  // lives to four decimal places, and their account name from every path it
+  // has ever logged.
+  const copyDiagnostics = useCallback(() => {
+    const block = diagnosticsBlock({
+      renderer: gpuSupport().renderer,
+      mapReady: mapStatus === "ready",
+      radarReady: timeline.frames.length > 0,
+      activeSource: timeline.sourceLabel,
+      health,
+      log: logEntries,
+    });
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(block);
+        pushToast({
+          title: translate("diagnostics.copied"),
+          detail: translate("diagnostics.copiedBody"),
+        });
+      } catch {
+        // A clipboard can be refused: no permission, no focus, no clipboard.
+        // Saying where the same text lives is better than saying nothing.
+        pushToast({
+          title: translate("diagnostics.copyFailed"),
+          detail: translate("diagnostics.copyFailedBody"),
+        });
+      }
+    })();
+  }, [health, logEntries, mapStatus, pushToast, timeline]);
+
+  // Loading a colour table is work: a file found, opened and dropped on the
+  // window. Clearing it was the one action that threw that away with nothing
+  // to say so and no way back.
+  const clearPalette = useCallback(() => {
+    const previous = settingsRef.current.palette;
+    applySettings({ ...settingsRef.current, palette: null });
+    pushToast({
+      title: translate("toast.paletteCleared"),
+      detail: translate("toast.paletteClearedBody"),
+      actionLabel: translate("toast.undo"),
+      onAction: () =>
+        applySettings({ ...settingsRef.current, palette: previous }),
+    });
+  }, [applySettings, pushToast]);
+
+  // Finding a storm in the archive takes a search and a choice, and stopping
+  // the replay put the reader back at the start of both.
+  const stopReplay = useCallback(() => {
+    setReplay(null);
+    if (!replay) return;
+    pushToast({
+      title: translate("toast.replayStopped"),
+      detail: translate("toast.replayStoppedBody"),
+      actionLabel: translate("toast.undo"),
+      onAction: () => setReplay(replay),
+    });
+    // Depends on the replay itself rather than a ref read during render, which
+    // React refuses. It changes when a storm is chosen, which is rare.
+  }, [pushToast, replay]);
+
   // One place that knows how to do each kind of thing the palette offers, so
   // the palette itself stays a list rather than a second copy of the app.
   const runCommand = useCallback(
@@ -407,19 +471,18 @@ export default function App() {
         onAlertSelect={actions.flyToBounds}
         onFollowStorm={actions.followStorm}
         onCommand={runCommand}
-        onClearPalette={() =>
-          applySettings({ ...settingsRef.current, palette: null })
-        }
+        onClearPalette={clearPalette}
         onSurgeCategory={(surgeCategory) =>
           applySettings({ ...settingsRef.current, surgeCategory })
         }
         onHistoryStorm={showStorm}
         onReplayStorm={replayStorm}
-        onStopReplay={() => setReplay(null)}
+        onStopReplay={stopReplay}
         onRoute={setRoute}
         onUpload={actions.uploadOverlay}
         onWatchHere={actions.watchHere}
         onOpenLogFolder={actions.openLogFolder}
+        onCopyDiagnostics={copyDiagnostics}
         onReset={actions.resetSettings}
         onExportSettings={actions.exportSettings}
       />

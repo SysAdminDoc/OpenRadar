@@ -177,6 +177,30 @@ test("can be taken off again long after the toast has gone", async ({
     rangeFolded: null,
     stops: [],
   });
+
+  // Loading a table is a file found, opened and dropped on the window, and
+  // clearing it threw all of that away with no way back.
+  await expect(page.getByText("Colour table removed")).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("3 colours");
+  const restored = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __paletteCalls: Array<{
+          command: string;
+          args: Record<string, unknown>;
+        }>;
+      }
+    ).__paletteCalls
+      .filter((call) => call.command === "set_palette")
+      .at(-1),
+  );
+  // The whole table, not an empty one under the old name.
+  expect(restored?.args.units).toBe("dBZ");
+  expect(Array.isArray(restored?.args.stops)).toBe(true);
+  expect((restored?.args.stops as unknown[]).length).toBe(3);
 });
 
 test("refuses a file with no colours in it", async ({ page }) => {
