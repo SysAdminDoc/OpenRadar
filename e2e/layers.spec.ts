@@ -167,3 +167,73 @@ test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-line/);
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
 });
+
+test("keeps warnings above the context layers", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /alerts-fill/);
+  await expect(pane).toHaveAttribute("data-layer-stack", /tropical-cone/);
+
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  expect(stack.indexOf("openradar-overlay-tropical-cone")).toBeLessThan(
+    stack.indexOf("openradar-overlay-alerts-fill"),
+  );
+});
+
+test("lists an active storm and flies to it", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Tropical", exact: true }).click();
+
+  const row = page.locator(".storm-row").first();
+  await expect(row).toContainText("Hurricane Test");
+  await expect(row).toContainText("Category 2");
+  await expect(row).toContainText("85 kt");
+  await expect(row).toContainText("Advisory 7");
+  await expect(
+    page.getByRole("link", { name: /Read the advisory/ }),
+  ).toHaveAttribute("href", "https://www.nhc.noaa.gov/graphics_at1.shtml");
+
+  await page
+    .getByRole("button", { name: /Follow/ })
+    .first()
+    .click();
+  // The camera eases in, so the storm centre is where it comes to rest.
+  await expect
+    .poll(() => pane.getAttribute("data-camera"))
+    .toBe("-79.00000,25.00000,5.500,0.00,0.00");
+});
+
+test("the Custom Overlay switch removes imported shapes", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "shapes.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-85.5, 25.5] },
+            properties: {},
+          },
+        ],
+      }),
+    ),
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const toggle = page.getByRole("checkbox", { name: /Custom Overlay/ });
+  await toggle.uncheck();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /custom-points/);
+  await toggle.check();
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+});

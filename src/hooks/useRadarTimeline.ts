@@ -49,9 +49,14 @@ export function nextSelection(
   incoming: RadarFrame[],
   playing: boolean,
 ): number | null {
-  const newest = incoming.at(-1)?.time ?? null;
+  // Following the newest frame means the newest observation. A forecast tail is
+  // hours ahead by design, and jumping there mid-loop is not "following live".
+  const observed = incoming.filter((frame) => !frame.forecast);
+  const newest = (observed.at(-1) ?? incoming.at(-1))?.time ?? null;
   if (selected === null || playing) return newest;
-  if (previous.at(-1)?.time === selected) return newest;
+  if (previous.filter((frame) => !frame.forecast).at(-1)?.time === selected) {
+    return newest;
+  }
   return incoming.some((frame) => frame.time === selected) ? selected : newest;
 }
 
@@ -197,6 +202,8 @@ export function useRadarTimeline(options: {
         const next = await fetchHrrrRun(controller.signal);
         if (!mounted) return;
         setRun(next);
+        // The run index carries no frames of its own; the tail is derived.
+        recordSuccess("hrrr", 0);
       } catch (failure) {
         if (
           !mounted ||
@@ -219,10 +226,6 @@ export function useRadarTimeline(options: {
       window.clearInterval(timer);
     };
   }, [futureRadar, inModelDomain, ready]);
-
-  useEffect(() => {
-    if (forecast.length) recordSuccess("hrrr", forecast.length);
-  }, [forecast]);
 
   // The loop window applies to what has been observed. Forecast frames extend
   // the tail, so they must not drag the cutoff forward with them.

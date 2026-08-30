@@ -9,6 +9,8 @@ const listeners = new Set<() => void>();
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   if (timer === null) {
+    // A gap since the last subscriber leaves the cached value stale.
+    now = Date.now();
     timer = window.setInterval(() => {
       now = Date.now();
       for (const each of listeners) each();

@@ -2,6 +2,13 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Fixed playback jumping hours ahead into the forecast tail every five minutes when future radar was on.
+- Fixed the Diagnostics panel clearing a real HRRR outage as soon as the radar refreshed.
+- Every map layer now has one declared place in the stack, so warnings draw above tropical and fire context no matter which feed answers first, and a drawn route is never buried by radar or satellite.
+- The compare pane shows the satellite image for its own frame rather than the one the primary map is on.
+- Fixed the dBZ labels sitting over the wrong colours, and gave the ramp a description for screen readers.
+- A tropical record with no forecast hour is no longer read as a storm's current position.
+
 - The Upload panel now reads GRLevelX placefiles as well as GeoJSON, drawing their lines, polygons, and points in the colours the file asks for and saying which directives needed image files it left out.
 - Added route weather. Give it two places and a departure time and it draws the drive coloured by the chance of rain when you would reach each stretch, with a table of arrival time, temperature, and conditions.
 - Added a GOES-East GeoColor satellite layer under the radar. It follows the frame you are looking at, holds back to the newest image the archive has published, and says which image it is showing.

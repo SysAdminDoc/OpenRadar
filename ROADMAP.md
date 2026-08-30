@@ -56,6 +56,20 @@
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
 
+- [ ] P1: Bring `App.tsx` under 300 lines
+  Why: the original refactor item asked for it, and the file is still around 780 lines after the timeline, settings, overlay, and layer-registry extractions.
+  Evidence: `wc -l src/App.tsx` on 2026-08-30.
+  Touches: src/App.tsx, a new component for the panel surfaces, a module for the command handlers.
+  Acceptance: `App.tsx` under 300 lines with no change in behaviour; the end-to-end suite passes unchanged.
+  Complexity: M
+
+- [ ] P2: Let Follow save the storm view as a preset
+  Why: the tropical item asked for Follow to set the camera and a preset; only the camera move shipped.
+  Evidence: `handleFollowStorm` in src/App.tsx.
+  Touches: src/App.tsx, src/panels/TropicalPanel.tsx.
+  Acceptance: following a storm keeps the view in the first empty preset slot and says which one it used.
+  Complexity: S
+
 ### P2
 
 - [ ] P2: Zoom-tiered single-site Level II radar decoded in Rust

@@ -113,3 +113,42 @@ describe("playhead when frames move", () => {
     expect(nearestFrameIndex(windowed, null)).toBe(1);
   });
 });
+
+describe("playing across the forecast boundary", () => {
+  const observed = frames([base, base + 2 * minute, base + 4 * minute]);
+  const forecast: RadarFrame[] = frames([base + 19 * minute]).map((frame) => ({
+    ...frame,
+    providerId: "hrrr",
+    forecast: { initUtc: "2026-08-30T05:00:00Z", leadMinutes: 15 },
+  }));
+
+  it("follows the newest observation, not the far end of the forecast", () => {
+    const incoming = [
+      ...frames([base + 2 * minute, base + 4 * minute, base + 6 * minute]),
+      ...forecast,
+    ];
+    expect(
+      nextSelection(
+        [...observed, ...forecast],
+        base + 2 * minute,
+        incoming,
+        true,
+      ),
+    ).toBe(base + 6 * minute);
+  });
+
+  it("still follows live when the user was on the newest observation", () => {
+    const incoming = [
+      ...frames([base + 2 * minute, base + 4 * minute, base + 6 * minute]),
+      ...forecast,
+    ];
+    expect(
+      nextSelection(
+        [...observed, ...forecast],
+        base + 4 * minute,
+        incoming,
+        false,
+      ),
+    ).toBe(base + 6 * minute);
+  });
+});

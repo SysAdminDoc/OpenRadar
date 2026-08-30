@@ -15,7 +15,13 @@ function initLabel(initUtc: string): string {
 }
 
 /** Labelled stops on the NWS reflectivity ramp the mosaics are drawn with. */
+const DBZ_MIN = 5;
+const DBZ_MAX = 75;
 const DBZ_STOPS = [5, 20, 35, 50, 65];
+
+function rampPosition(dbz: number): string {
+  return `${((dbz - DBZ_MIN) / (DBZ_MAX - DBZ_MIN)) * 100}%`;
+}
 
 interface RadarLegendProps {
   open: boolean;
@@ -42,9 +48,14 @@ export function RadarLegend({
       </span>
       <ChevronDown size={16} />
       <i className="legend-ramp" aria-hidden="true" />
-      <span className="legend-scale" aria-hidden="true">
+      <span
+        className="legend-scale"
+        aria-label={`Reflectivity from ${DBZ_MIN} to ${DBZ_MAX} dBZ`}
+      >
         {DBZ_STOPS.map((stop) => (
-          <em key={stop}>{stop}</em>
+          <em key={stop} style={{ left: rampPosition(stop) }}>
+            {stop}
+          </em>
         ))}
       </span>
     </button>

@@ -58,6 +58,6 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 - RainViewer only appears for viewports the NOAA mosaics do not reach.
 - Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS.
 - Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.
-- Tropical products are planned as first-party operational sources.
+- Tropical cones, tracks, watches, and outlooks come from the NHC tropical map service.
 
 OpenRadar v0.1.0 is an early working release. It is not an official source for warnings or life-safety decisions.

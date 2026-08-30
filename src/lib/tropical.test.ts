@@ -124,3 +124,27 @@ describe("tropical products", () => {
     ).toEqual([]);
   });
 });
+
+describe("forecast hour", () => {
+  it("does not read a record with no forecast hour as the current position", () => {
+    const data = {
+      type: "FeatureCollection" as const,
+      features: parseTropicalLayer(
+        {
+          features: [
+            {
+              geometry: { type: "Point", coordinates: [-70, 20] },
+              properties: { stormname: "Null Tau", maxwind: 50, tau: null },
+            },
+            {
+              geometry: { type: "Point", coordinates: [-71, 21] },
+              properties: { stormname: "Real", maxwind: 40, tau: 0 },
+            },
+          ],
+        },
+        "point",
+      ),
+    };
+    expect(activeStorms(data).map((storm) => storm.name)).toEqual(["Real"]);
+  });
+});

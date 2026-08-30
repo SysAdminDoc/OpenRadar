@@ -6,11 +6,12 @@ const MATRIX_SET = "GoogleMapsCompatible_Level7";
 /** GIBS publishes GeoColor on ten-minute boundaries. */
 export const SATELLITE_STEP_SECONDS = 600;
 /**
- * How far behind real time the newest published image runs. Asking for a slot
- * that does not exist yet answers 404, which paints nothing at all, so the
- * request is held back to the newest slot that is reliably there.
+ * How far behind real time the newest published image runs. Measured at roughly
+ * thirty-five to forty minutes on 2026-08-30, with the hold-back set well past
+ * that: asking for a slot that does not exist yet answers 404, which paints
+ * nothing and says nothing.
  */
-export const SATELLITE_LATENCY_SECONDS = 40 * 60;
+export const SATELLITE_LATENCY_SECONDS = 55 * 60;
 
 export const SATELLITE_ATTRIBUTION =
   '<a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api">NASA GIBS</a> GOES-East GeoColor, NOAA NESDIS';

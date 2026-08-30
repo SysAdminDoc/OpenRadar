@@ -38,7 +38,10 @@ export function activeStorms(data: OverlayData): ActiveStorm[] {
 
   for (const feature of data.features) {
     if (feature.properties.kind !== "point") continue;
-    if (Number(feature.properties.tau) !== 0) continue;
+    // Number(null) is 0, which would read a record with no forecast hour as
+    // the storm's current position.
+    const tau = feature.properties.tau;
+    if (typeof tau !== "number" || tau !== 0) continue;
     const point = pointCoordinates(feature.geometry);
     if (!point) continue;
 
