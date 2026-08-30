@@ -673,11 +673,15 @@ export const es: Catalogue = {
   "radar.requestFailedShort": "La consulta falló.",
   "radar.noRun": "El índice del pronóstico no nombró ninguna corrida.",
   "radar.archive": "Archivo de radar de Iowa State",
+  "replay.title": "Reproduciendo {name} {year}",
+  "replay.atLandfall":
+    "Radar de archivo alrededor de la llegada a tierra. Ciérralo para volver al radar en vivo.",
+  "replay.atClosest":
+    "Radar de archivo alrededor de su paso más cercano. Ciérralo para volver al radar en vivo.",
   "app.dualPaneOpened": "Panel doble abierto",
   "app.dualPaneClosed": "Panel doble cerrado",
   "app.settingsNotSaved": "Los ajustes no se guardaron",
   "app.settingsNotSavedBody": "Esta ventana sigue usando tus cambios.",
-  "app.dualPane": "Panel doble abierto",
   "app.savedView": "Vista guardada",
   "popup.openProduct": "Abrir el producto oficial",
   "map.label": "Mapa meteorológico interactivo",

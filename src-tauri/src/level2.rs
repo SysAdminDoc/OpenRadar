@@ -29,7 +29,13 @@ const MAX_RANGE_KM: f64 = 230.0;
 /// How far a viewport may sit from a site and still be worth handing over to
 /// it. Past this the view is outside the site's coverage and the national
 /// mosaic is the only honest picture, so nothing is offered.
-const SITE_REACH_KM: f64 = 250.0;
+///
+/// The same distance the sweep is drawn to, deliberately. A site further away
+/// than its own surveillance cut reaches would be handed a view its rendered
+/// disc does not contain, and the viewer would zoom in on a hole. That did not
+/// matter while only the nearest site was ever chosen; it does now that a
+/// downed one is passed over for the next.
+const SITE_REACH_KM: f64 = MAX_RANGE_KM;
 /// Four volumes, as the roadmap asks. They are held compressed, not decoded.
 const CACHE_CAPACITY: usize = 4;
 
@@ -38,6 +44,14 @@ const STALE_AFTER_MINUTES: i64 = 20;
 
 /// How long a site's answer about its own archive is reused for.
 const LIVENESS_TTL_SECONDS: i64 = 120;
+
+/// How long a failure to reach the archive is remembered.
+///
+/// Shorter than an answer, because unreachable is a passing condition and a
+/// site coming back should be seen quickly. Long enough that panning across a
+/// region with no network does not fire the whole burst again for every tenth
+/// of a degree.
+const LIVENESS_FAILURE_TTL_SECONDS: i64 = 20;
 
 /// How many sites are asked before the nearest one is used regardless.
 const MAX_SITE_CANDIDATES: usize = 4;
@@ -105,8 +119,9 @@ struct CachedVolume {
 
 static CACHE: Mutex<VecDeque<CachedVolume>> = Mutex::new(VecDeque::new());
 
-/// A site's newest volume time, and the moment the archive was asked for it.
-type Liveness = BTreeMap<String, (DateTime<Utc>, Option<DateTime<Utc>>)>;
+/// A site's newest volume time, when the archive was asked, and whether the
+/// asking failed rather than came back empty.
+type Liveness = BTreeMap<String, (DateTime<Utc>, Option<DateTime<Utc>>, bool)>;
 
 /// What the archive last held for each site.
 static LIVENESS: Mutex<Liveness> = Mutex::new(BTreeMap::new());
@@ -159,6 +174,24 @@ const VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
     (5.0, [0x5a, 0x00, 0x00]),
     (20.0, [0xb4, 0x00, 0x00]),
     (35.0, [0xff, 0x00, 0x00]),
+];
+
+/// The same ramp carried out to where unfolding puts things.
+///
+/// A radar folds somewhere between about 8 and 35 metres a second depending on
+/// the cut, so an unfolded gate can legitimately read twice that. Drawn on the
+/// ramp above, everything past 35 saturates to the same red, which hides the
+/// difference between a strong wind and the one the unfolding recovered.
+const WIDE_VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
+    (-70.0, [0x99, 0xff, 0x99]),
+    (-35.0, [0x00, 0xff, 0x00]),
+    (-20.0, [0x00, 0xb4, 0x00]),
+    (-5.0, [0x00, 0x5a, 0x00]),
+    (0.0, [0x6b, 0x6b, 0x6b]),
+    (5.0, [0x5a, 0x00, 0x00]),
+    (20.0, [0xb4, 0x00, 0x00]),
+    (35.0, [0xff, 0x00, 0x00]),
+    (70.0, [0xff, 0x99, 0x99]),
 ];
 
 /// Low to high across whatever the moment's own range is.
@@ -468,6 +501,7 @@ pub fn render_sweep(
     coordinates: &RadarCoordinateSystem,
     product: Product,
     unit: &str,
+    unfolded: bool,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
@@ -507,7 +541,8 @@ pub fn render_sweep(
                 continue;
             };
 
-            let Some((color, alpha)) = gate_color(&status, value, product, table.as_ref(), range)
+            let Some((color, alpha)) =
+                gate_color(&status, value, product, table.as_ref(), range, unfolded)
             else {
                 continue;
             };
@@ -531,6 +566,7 @@ fn gate_color(
     product: Product,
     table: Option<&Palette>,
     range: Option<(f32, f32)>,
+    unfolded: bool,
 ) -> Option<([u8; 3], u8)> {
     match status {
         GateStatus::Valid => match table {
@@ -552,7 +588,14 @@ fn gate_color(
                         reflectivity_alpha(value),
                     ))
                 }
-                Product::Velocity => Some((ramp_color(VELOCITY_RAMP, value), MAX_ALPHA)),
+                Product::Velocity => {
+                    let ramp = if unfolded {
+                        WIDE_VELOCITY_RAMP
+                    } else {
+                        VELOCITY_RAMP
+                    };
+                    Some((ramp_color(ramp, value), MAX_ALPHA))
+                }
                 _ => {
                     let (low, high) = range.unwrap_or((0.0, 1.0));
                     let span = high - low;
@@ -624,11 +667,13 @@ pub fn sweep_from_volume(
     // Velocity past the folding limit wraps around, so a strong outbound wind
     // is drawn as if it were inbound. Only velocity folds, and only if the
     // volume says what it folds at.
+    // Reported only when gates actually moved. A sweep that never folded is
+    // the radar's own reading, and saying otherwise would have the legend claim
+    // a change that was not made.
     let mut dealiased = false;
     if unfold && product == Product::Velocity {
         if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
-            unfold_velocity(&mut chosen.field, nyquist);
-            dealiased = true;
+            dealiased = unfold_velocity(&mut chosen.field, nyquist) > 0;
         }
     }
 
@@ -642,7 +687,7 @@ pub fn sweep_from_volume(
     let coordinates = RadarCoordinateSystem::new(&site);
 
     let (pixels, [west, south, east, north]) =
-        render_sweep(&chosen.field, &coordinates, product, unit);
+        render_sweep(&chosen.field, &coordinates, product, unit, dealiased);
     let png_bytes = encode_png(&pixels)?;
 
     // The sweep's own time, not the volume's: under MESO-SAILS the lowest tilt
@@ -750,8 +795,13 @@ fn first_site_with_a_volume<'a>(
 async fn newest_volume_time(station: &str) -> Option<DateTime<Utc>> {
     let now = Utc::now();
     if let Ok(seen) = LIVENESS.lock() {
-        if let Some((checked, newest)) = seen.get(station) {
-            if now.signed_duration_since(*checked) < Duration::seconds(LIVENESS_TTL_SECONDS) {
+        if let Some((checked, newest, failed)) = seen.get(station) {
+            let ttl = if *failed {
+                LIVENESS_FAILURE_TTL_SECONDS
+            } else {
+                LIVENESS_TTL_SECONDS
+            };
+            if now.signed_duration_since(*checked) < Duration::seconds(ttl) {
                 return *newest;
             }
         }
@@ -760,8 +810,12 @@ async fn newest_volume_time(station: &str) -> Option<DateTime<Utc>> {
     let mut newest = None;
     for day in [now, now - Duration::days(1)] {
         let Ok(listing) = http::get_bytes(&listing_url(station, day)).await else {
-            // Unreachable is not the same as down, and must not be remembered
-            // as an answer: leave the site unjudged so the nearest one is used.
+            // Unreachable is not the same as down. It is remembered briefly all
+            // the same, or panning with no network fires the whole burst again
+            // every tenth of a degree.
+            if let Ok(mut seen) = LIVENESS.lock() {
+                seen.insert(station.to_string(), (now, None, true));
+            }
             return None;
         };
         let listing = String::from_utf8_lossy(&listing);
@@ -772,7 +826,7 @@ async fn newest_volume_time(station: &str) -> Option<DateTime<Utc>> {
     }
 
     if let Ok(mut seen) = LIVENESS.lock() {
-        seen.insert(station.to_string(), (now, newest));
+        seen.insert(station.to_string(), (now, newest, false));
     }
     newest
 }
@@ -874,7 +928,8 @@ mod tests {
                 0.0,
                 Product::Velocity,
                 Some(&named),
-                None
+                None,
+                false,
             ),
             Some(([0x77, 0x00, 0x7d], MAX_ALPHA))
         );
@@ -888,12 +943,20 @@ mod tests {
                 0.0,
                 Product::Velocity,
                 Some(&silent),
-                None
+                None,
+                false,
             ),
             Some((RANGE_FOLDED, MAX_ALPHA))
         );
         assert_eq!(
-            gate_color(&GateStatus::RangeFolded, 0.0, Product::Velocity, None, None),
+            gate_color(
+                &GateStatus::RangeFolded,
+                0.0,
+                Product::Velocity,
+                None,
+                None,
+                false,
+            ),
             Some((RANGE_FOLDED, MAX_ALPHA))
         );
     }
@@ -907,7 +970,8 @@ mod tests {
                 4.9,
                 Product::Reflectivity,
                 Some(&named),
-                None
+                None,
+                false,
             ),
             None,
             "a value below the lowest stop was painted the lowest stop's colour"
@@ -918,7 +982,8 @@ mod tests {
                 5.0,
                 Product::Reflectivity,
                 Some(&named),
-                None
+                None,
+                false,
             ),
             Some(([0x04, 0xe9, 0xe7], MAX_ALPHA))
         );
@@ -929,7 +994,8 @@ mod tests {
                 40.0,
                 Product::Reflectivity,
                 Some(&named),
-                None
+                None,
+                false,
             ),
             None
         );
@@ -939,7 +1005,8 @@ mod tests {
                 40.0,
                 Product::Reflectivity,
                 None,
-                None
+                None,
+                false,
             ),
             None
         );
@@ -1087,6 +1154,52 @@ mod tests {
         for (latitude, longitude) in [(30.0, -45.0), (10.0, -150.0), (48.9, 2.4)] {
             assert!(
                 sites_in_reach(latitude, longitude).is_empty(),
+                "{latitude},{longitude} is not in anyone's coverage"
+            );
+        }
+    }
+
+    #[test]
+    fn every_site_in_reach_can_actually_see_the_point() {
+        // The sweep is drawn to the site's own surveillance range. A site
+        // further off than that would be handed a view its picture does not
+        // reach, and the viewer would zoom in on a hole in the middle of it.
+        for (latitude, longitude) in [
+            (35.4676, -97.5164),
+            (41.73, -93.72),
+            (43.5, -123.5),
+            (18.4, -66.1),
+        ] {
+            for site in sites_in_reach(latitude, longitude) {
+                let distance = great_circle_km(
+                    latitude as f64,
+                    longitude as f64,
+                    site.latitude as f64,
+                    site.longitude as f64,
+                );
+                assert!(
+                    distance <= MAX_RANGE_KM,
+                    "{} is {distance:.0} km from {latitude},{longitude}, past the {MAX_RANGE_KM} km its sweep is drawn to",
+                    site.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_command_offers_nothing_outside_every_site_s_coverage() {
+        // The command itself, not the helper underneath it: a point no site can
+        // see must get no answer rather than the least distant one, or the map
+        // draws Alaska's radar over the mid-Atlantic. It answers without
+        // touching the network, because there is nothing to ask about.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        for (latitude, longitude) in [(30.0, -45.0), (10.0, -150.0), (48.9, 2.4)] {
+            assert_eq!(
+                runtime.block_on(level2_nearest_site(latitude, longitude)),
+                None,
                 "{latitude},{longitude} is not in anyone's coverage"
             );
         }
@@ -1271,7 +1384,8 @@ mod tests {
                 .expect("a sweep")
                 .field
         };
-        let (pixels, _) = render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ");
+        let (pixels, _) =
+            render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ", false);
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         let total = IMAGE_SIZE * IMAGE_SIZE;
         assert!(
@@ -1328,6 +1442,9 @@ mod tests {
     /// How many neighbouring gate pairs jump further than the radar could
     /// have measured, which is the signature a fold leaves.
     ///
+    /// Both directions, because a fold runs along the radial as often as it
+    /// runs around the sweep, and measuring only one axis misses half of them.
+    ///
     /// A sign change on its own is not evidence: every sweep has a line across
     /// it where the flow crosses the beam and the velocity passes through zero
     /// honestly. A jump of more than the Nyquist velocity between two gates a
@@ -1337,23 +1454,53 @@ mod tests {
         let gates = field.gate_count();
         let mut jumps = 0;
         let mut pairs = 0;
+        let mut consider = |here: (f32, GateStatus), there: (f32, GateStatus)| {
+            if !matches!(here.1, GateStatus::Valid) || !matches!(there.1, GateStatus::Valid) {
+                return;
+            }
+            pairs += 1;
+            if (here.0 - there.0).abs() > nyquist {
+                jumps += 1;
+            }
+        };
         for azimuth in 0..azimuths {
             let next = (azimuth + 1) % azimuths;
             for gate in 0..gates {
-                let (here, here_status) = field.get(azimuth, gate);
-                let (there, there_status) = field.get(next, gate);
-                if !matches!(here_status, GateStatus::Valid)
-                    || !matches!(there_status, GateStatus::Valid)
-                {
-                    continue;
-                }
-                pairs += 1;
-                if (here - there).abs() > nyquist {
-                    jumps += 1;
+                consider(field.get(azimuth, gate), field.get(next, gate));
+                if gate + 1 < gates {
+                    consider(field.get(azimuth, gate), field.get(azimuth, gate + 1));
                 }
             }
         }
         (jumps, pairs)
+    }
+
+    /// A sweep with folds put into it on purpose, so the live test has
+    /// something to measure on a quiet day.
+    ///
+    /// The archive gives whatever the weather was, and most days it is calm
+    /// enough that a real cut folds in a handful of places out of a quarter of
+    /// a million. Asserting the folds went away is then satisfied by doing
+    /// nothing at all. Folding a wedge of the real sweep by hand gives a known
+    /// number to take back out.
+    fn fold_a_wedge(field: &mut SweepField, nyquist: f32) -> usize {
+        let azimuths = field.azimuth_count();
+        let gates = field.gate_count();
+        let interval = 2.0 * nyquist;
+        let mut folded = 0;
+        for azimuth in (azimuths / 4)..(azimuths / 2) {
+            for gate in 0..gates {
+                let (value, status) = field.get(azimuth, gate);
+                if !matches!(status, GateStatus::Valid) {
+                    continue;
+                }
+                // Wrapped the way the radar would have, so the result is a
+                // sweep that could have come off the air this way.
+                field.set(azimuth, gate, value - interval, GateStatus::Valid);
+                folded += 1;
+            }
+        }
+        folded
     }
 
     #[test]
@@ -1370,8 +1517,8 @@ mod tests {
 
         let file = volume::File::new(data);
         let scan = file.scan().expect("the volume should decode");
-        let mut chosen = sweep_field(&scan, Product::Velocity, 1)
-            .expect("a volume carries a Doppler cut");
+        let mut chosen =
+            sweep_field(&scan, Product::Velocity, 1).expect("a volume carries a Doppler cut");
         let nyquist = nyquist_velocity(&file, chosen.elevation_number)
             .expect("the radial header carries the velocity the cut folds at");
         assert!(
@@ -1379,23 +1526,40 @@ mod tests {
             "{nyquist} m/s is not a plausible Nyquist velocity"
         );
 
-        let (before, pairs) = fold_jumps(&chosen.field, nyquist);
+        let (untouched, pairs) = fold_jumps(&chosen.field, nyquist);
         assert!(pairs > 10_000, "only {pairs} gate pairs had readings");
 
-        unfold_velocity(&mut chosen.field, nyquist);
+        // A quarter of the real sweep pushed a whole interval down, which is a
+        // fold the radar could have produced and one this has to find.
+        let planted = fold_a_wedge(&mut chosen.field, nyquist);
+        assert!(planted > 1_000, "only {planted} gates were folded");
+        let (before, _) = fold_jumps(&chosen.field, nyquist);
+        assert!(
+            before > untouched + 100,
+            "planting a wedge should have made the sweep visibly discontinuous,              {untouched} to {before}"
+        );
+
+        let moved = unfold_velocity(&mut chosen.field, nyquist);
         let (after, _) = fold_jumps(&chosen.field, nyquist);
 
         println!(
-            "nyquist {nyquist:.1} m/s, {before} folds before and {after} after, out of {pairs} pairs"
+            "nyquist {nyquist:.1} m/s, {untouched} folds untouched, {before} with a planted wedge,              {after} after unfolding {moved} gates, out of {pairs} pairs"
+        );
+        assert!(moved > 0, "nothing was unfolded");
+        // Measured against what the sweep looked like before the wedge was
+        // planted, not against zero: whatever the weather was doing is not this
+        // test's business, and on a calm day it is most of the small number
+        // left. At least half of what the wedge introduced has to come out.
+        let planted_jumps = before.saturating_sub(untouched);
+        let left = after.saturating_sub(untouched);
+        assert!(
+            left * 2 < planted_jumps,
+            "{left} of the {planted_jumps} jumps the wedge introduced are still there"
         );
         let share = after as f64 / pairs as f64;
         assert!(
             share < 0.01,
             "{after} of {pairs} neighbouring gates still jump a fold apart"
-        );
-        assert!(
-            after <= before,
-            "unfolding made the sweep more discontinuous, not less"
         );
     }
 

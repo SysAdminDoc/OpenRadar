@@ -98,23 +98,55 @@ function untranslatedStrings(source: string): string[] {
   const found: string[] = [];
   const patterns: Array<[string, RegExp]> = [
     ["thrown", /throw new Error\(\s*"([^"]{8,})"/g],
-    // Not just a bare literal after the colon: a ternary between two
-    // sentences is still copy, and that is how the dual pane toast hid.
-    ["toast", /\b(?:title|detail|actionLabel|eyebrow):[^\n]*?"([^"]{4,})"/g],
     ["written", /\.textContent\s*=\s*"([^"]{4,})"/g],
     ["label", /\blabel\s*=\s*"([^"]{4,})"/g],
     // Anything handed straight to a state setter, which is how an error line
     // or a summary reaches the screen without ever passing through markup.
     ["set", /\bset[A-Z]\w*\(\s*"([^"]{8,})"/g],
   ];
+
+  /** Reads like a sentence rather than a key, a unit, or a machine value. */
+  const isCopy = (text: string) =>
+    /^[A-Z][a-z]/.test(text) && / /.test(text.trim());
+
   for (const [kind, pattern] of patterns) {
     for (const match of source.matchAll(pattern)) {
-      const text = match[1];
-      // Two words or more, starting like a sentence: an identifier, a unit,
-      // or a machine value is none of those.
-      if (!/^[A-Z][a-z]/.test(text)) continue;
-      if (!/ /.test(text.trim())) continue;
-      found.push(`${kind} "${text}"`);
+      if (!isCopy(match[1])) continue;
+      found.push(`${kind} "${match[1]}"`);
+    }
+  }
+
+  // A toast field is read whole rather than matched in one pass. Its value can
+  // be a bare literal, a ternary between two of them, a call with a literal
+  // buried in its arguments, or any of those wrapped onto the next line by the
+  // formatter. A single expression that stops at the first string it finds
+  // reads only one branch of a ternary, and one that cannot cross a newline
+  // misses everything the formatter wrapped.
+  for (const match of source.matchAll(
+    /\b(?:title|detail|actionLabel|eyebrow):/g,
+  )) {
+    const from = (match.index ?? 0) + match[0].length;
+    // The value ends at the comma that closes this property, or at the brace
+    // that closes the object holding it. Counted rather than matched, so a
+    // literal nested inside a call's own arguments is still part of the value
+    // and a sibling property afterwards is not. Bounded, or a scan would blame
+    // every string in the rest of the file.
+    let depth = 0;
+    let ends = from;
+    const limit = Math.min(source.length, from + 400);
+    while (ends < limit) {
+      const character = source[ends];
+      if ("([{".includes(character)) depth += 1;
+      else if (")]}".includes(character)) {
+        if (depth === 0) break;
+        depth -= 1;
+      } else if (character === "," && depth === 0) break;
+      ends += 1;
+    }
+    const value = source.slice(from, ends);
+    for (const literal of value.matchAll(/"([^"]{4,})"/g)) {
+      if (!isCopy(literal[1])) continue;
+      found.push(`toast "${literal[1]}"`);
     }
   }
   return found;
@@ -204,5 +236,29 @@ describe("the workspace is translated", () => {
     expect(pseudoize("Issued {issued} · expires {expires}")).toContain(
       "{expires}",
     );
+  });
+
+  it("carries no string nothing asks for", () => {
+    // A key left behind when its caller changed is dead weight that still has
+    // to be translated, and the parity test above is happy to keep both
+    // languages carrying it for ever.
+    const sources = [
+      ...sourceFiles(join(ROOT, "panels")),
+      ...sourceFiles(join(ROOT, "components")),
+      ...sourceFiles(join(ROOT, "hooks")),
+      ...sourceFiles(join(ROOT, "lib")),
+      join(ROOT, "App.tsx"),
+      join(ROOT, "main.tsx"),
+    ]
+      .map((path) => readFileSync(path, "utf8"))
+      .join("\n");
+
+    const unused = Object.keys(en).filter((key) => {
+      // Some families are reached by building the key rather than writing it,
+      // so the prefix standing in the source is what proves they are used.
+      const prefix = key.slice(0, key.indexOf(".") + 1);
+      return !sources.includes(`"${key}"`) && !sources.includes(`\`${prefix}`);
+    });
+    expect(unused).toEqual([]);
   });
 });

@@ -15,7 +15,7 @@
 //! The method is the one Py-ART calls `dealias_region_based`, after Haase and
 //! Landelius; the same approach BowEcho's `bowecho-dealias` crate uses.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BinaryHeap, VecDeque};
 
 /// How many bands the velocity range is cut into when patches are grown.
 ///
@@ -180,65 +180,65 @@ pub fn dealias(
         }
     }
 
-    // Start from the largest patch, which is the one most likely to be reading
-    // the wind correctly, and work outward along the strongest boundaries
-    // first. A strong boundary is a long one: hundreds of gates agreeing is
-    // worth more than three.
+    // Which patches touch which, so settling one can offer up its neighbours
+    // without rereading every boundary in the sweep. A noisy velocity field is
+    // speckle, and speckle is patches: rescanning the whole edge list once per
+    // patch is quadratic in the number of them, which on a low-return sweep is
+    // tens of seconds of a frozen window rather than milliseconds.
+    let mut adjacency: Vec<Vec<(usize, i32, usize)>> = vec![Vec::new(); region_count];
+    for (&(left, right), edge) in &edges {
+        let offset = edge.agreed();
+        // shift[right] = shift[left] - offset, and the other way round.
+        adjacency[left].push((right, -offset, edge.shared));
+        adjacency[right].push((left, offset, edge.shared));
+    }
+
+    // Start from the largest patch and work outward along the strongest
+    // boundaries first. A strong boundary is a long one: hundreds of gates
+    // agreeing is worth more than three.
+    //
+    // The largest patch keeps its own reading, which is all a boundary can
+    // ever establish. Every patch is placed relative to its neighbours, so the
+    // sweep as a whole is recovered up to a whole Nyquist interval and no
+    // further: with no still air anywhere in it, nothing in the data says which
+    // interval the whole picture belongs to. This is what Py-ART does when it
+    // is given no reference field, for the same reason.
     let Some(root) = (0..region_count).max_by_key(|label| sizes[*label]) else {
         return 0;
     };
 
     let mut shift = vec![Option::<i32>::None; region_count];
     shift[root] = Some(0);
-    let mut settled = 1;
 
-    while settled < region_count {
-        let mut best: Option<(usize, usize, usize, i32)> = None;
-        for (&(left, right), edge) in &edges {
-            let (known, unknown, offset) = match (shift[left], shift[right]) {
-                (Some(_), None) => (left, right, -edge.agreed()),
-                (None, Some(_)) => (right, left, edge.agreed()),
-                _ => continue,
-            };
-            // A patch too small to trust still gets attached, but only after
-            // every substantial one has had its say.
-            let weight = if sizes[unknown] >= MIN_REGION_GATES {
-                edge.shared + 1_000_000
-            } else {
-                edge.shared
-            };
-            if best.is_none_or(|(current, _, _, _)| weight > current) {
-                best = Some((weight, known, unknown, offset));
-            }
+    // Ordered by boundary strength, with any patch too small to trust left
+    // until every substantial one has had its say.
+    let weigh = |target: usize, shared: usize| {
+        if sizes[target] >= MIN_REGION_GATES {
+            shared + 1_000_000
+        } else {
+            shared
         }
-
-        let Some((_, known, unknown, offset)) = best else {
-            // What is left touches nothing that has been settled: patches of
-            // their own, with no boundary to judge them by. Leaving them where
-            // they are is the honest answer.
-            break;
-        };
-        shift[unknown] = Some(shift[known].expect("settled") + offset);
-        settled += 1;
+    };
+    let mut queue: BinaryHeap<(usize, usize, i32)> = BinaryHeap::new();
+    for &(other, offset, shared) in &adjacency[root] {
+        queue.push((weigh(other, shared), other, offset));
     }
 
-    // Boundaries can only say how far patches sit from each other, so the sweep
-    // as a whole could still be a whole interval out with every patch agreeing.
-    // The gate reading closest to still air pins it: for that one to be an alias
-    // the air would have to be moving at twice the Nyquist velocity, and every
-    // real sweep has a line across it where the flow crosses the beam.
-    let anchor = (0..values.len())
-        .filter(|at| valid[*at] && region[*at] != usize::MAX && shift[region[*at]].is_some())
-        .min_by(|left, right| values[*left].abs().total_cmp(&values[*right].abs()));
-    if let Some(anchor) = anchor {
-        if let Some(offset) = shift[region[anchor]] {
-            if offset != 0 {
-                for value in shift.iter_mut().flatten() {
-                    *value -= offset;
-                }
+    while let Some((_, target, offset)) = queue.pop() {
+        if shift[target].is_some() {
+            continue;
+        }
+        shift[target] = Some(offset);
+        for &(other, step, shared) in &adjacency[target] {
+            if shift[other].is_some() {
+                continue;
             }
+            queue.push((weigh(other, shared), other, offset + step));
         }
     }
+    // Anything still unplaced touches nothing that was settled: patches of
+    // their own, with no boundary to judge them by. Leaving them where they
+    // are is the honest answer.
 
     let mut moved = 0;
     for at in 0..values.len() {
@@ -293,6 +293,31 @@ mod tests {
         (observed, valid, truth)
     }
 
+    /// The largest jump between any two neighbouring gates, along the radial
+    /// and around the sweep. A fold leaves one about two Nyquist velocities
+    /// wide; a continuous field leaves none bigger than the flow itself.
+    fn worst_jump(values: &[f32], valid: &[bool], azimuths: usize, gates: usize) -> f32 {
+        let mut worst = 0.0f32;
+        for azimuth in 0..azimuths {
+            for gate in 0..gates {
+                let here = index(azimuth, gate, gates);
+                if !valid[here] {
+                    continue;
+                }
+                for neighbour in neighbours(azimuth, gate, azimuths, gates)
+                    .into_iter()
+                    .flatten()
+                {
+                    if !valid[neighbour] {
+                        continue;
+                    }
+                    worst = worst.max((values[here] - values[neighbour]).abs());
+                }
+            }
+        }
+        worst
+    }
+
     #[test]
     fn a_fold_across_the_nyquist_velocity_is_put_back() {
         let (mut values, valid, truth) = folded_sweep(360, 200);
@@ -301,16 +326,96 @@ mod tests {
             values.iter().any(|value| *value < 0.0),
             "the outbound flow should have wrapped to negative"
         );
+        let before = worst_jump(&values, &valid, 360, 200);
+        assert!(
+            before > NYQUIST,
+            "the folded sweep should have a jump in it, worst was {before}"
+        );
 
         let moved = dealias(&mut values, &valid, 360, 200, NYQUIST);
         assert!(moved > 0, "nothing was shifted");
 
+        // The flow is continuous again.
+        let after = worst_jump(&values, &valid, 360, 200);
+        assert!(after < 1.0, "a jump of {after} m/s is left in the sweep");
+
+        // And it matches the truth to a whole number of Nyquist intervals.
+        //
+        // That is everything the method can establish. Boundaries only say how
+        // far patches sit from each other, so a sweep with no still air
+        // anywhere in it, as this artificial one has, could be a whole interval
+        // out with every gate agreeing with its neighbours. Nothing in the data
+        // says which interval it belongs to, and guessing turns a correctly
+        // measured outbound wind into an inbound one, which is worse than the
+        // fold. Real sweeps have a line across them where the flow crosses the
+        // beam, which is what the test below relies on.
+        let interval = 2.0 * NYQUIST;
+        let offset = ((values[0] - truth[0]) / interval).round();
         for (at, (got, want)) in values.iter().zip(truth.iter()).enumerate() {
             assert!(
-                (got - want).abs() < 0.01,
-                "gate {at}: {got} should be {want}"
+                (got - want - offset * interval).abs() < 0.01,
+                "gate {at}: {got} should be {want} plus {offset} intervals"
             );
         }
+    }
+
+    #[test]
+    fn a_sweep_with_no_still_air_in_it_is_still_made_continuous() {
+        // Rain in one quadrant only, in a uniform outbound wind that folds.
+        // There is no zero isodop inside the echo, so which whole interval the
+        // patch belongs to is not knowable. What is knowable, and what this
+        // asserts, is that the fold inside it is taken out.
+        let azimuths = 180;
+        let gates = 120;
+        let mut values = vec![0.0f32; azimuths * gates];
+        let mut valid = vec![false; azimuths * gates];
+        for azimuth in 40..130 {
+            for gate in 40..gates {
+                let truth = 22.0 + 22.0 * ((gate - 40) as f32 / (gates - 41) as f32);
+                let at = azimuth * gates + gate;
+                values[at] = fold(truth, NYQUIST);
+                valid[at] = true;
+            }
+        }
+        assert!(
+            worst_jump(&values, &valid, azimuths, gates) > NYQUIST,
+            "the quadrant should fold"
+        );
+
+        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+
+        let after = worst_jump(&values, &valid, azimuths, gates);
+        assert!(after < 1.0, "a jump of {after} m/s is left in the echo");
+    }
+
+    #[test]
+    fn a_speckled_sweep_is_dealiased_in_reasonable_time() {
+        // A low-return velocity field is speckle, and speckle is patches. An
+        // approach that reread every boundary once per patch took the better
+        // part of a minute on a sweep this size, with the window frozen behind
+        // it, because the work grows with the square of the patch count.
+        let azimuths = 720;
+        let gates = 1192;
+        let mut values = vec![0.0f32; azimuths * gates];
+        let valid = vec![true; azimuths * gates];
+        let mut noise: u32 = 0x1234_5678;
+        for azimuth in 0..azimuths {
+            let angle = (azimuth as f32) * std::f32::consts::TAU / azimuths as f32;
+            for gate in 0..gates {
+                // A pseudorandom walk, so the field is patchy rather than smooth.
+                noise = noise.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let jitter = ((noise >> 16) as f32 / 32_768.0 - 1.0) * 12.0;
+                values[azimuth * gates + gate] = fold(30.0 * angle.cos() + jitter, NYQUIST);
+            }
+        }
+
+        let started = std::time::Instant::now();
+        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+        let took = started.elapsed();
+        assert!(
+            took < std::time::Duration::from_secs(5),
+            "a full sweep took {took:?}"
+        );
     }
 
     #[test]
