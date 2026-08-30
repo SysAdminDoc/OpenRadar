@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- You can watch one place for warnings. Pick a point and a radius in Settings and OpenRadar checks it every forty-five seconds even when the map is looking somewhere else, raising a system notification on the desktop and an in-app one in a browser. It never repeats an alert it has already given you.
+
 - Added export. Save the view as a PNG or record the whole loop as a WebM, both with the frame time, the source, and the credits burned into the corner, and both written straight to your downloads folder.
 - Replaced the Videos placeholder, which only ever promised a feature, with the Export panel.
 

@@ -26,6 +26,7 @@ import { log, recentLog, subscribeLog } from "./lib/log";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./lib/deepLink";
 import { satelliteFrameTime } from "./lib/providers";
 import { looksLikePlacefile, parsePlacefile } from "./lib/placefile";
+import { watchAlertBody } from "./lib/watch";
 import {
   exportFileName,
   exportLoop,
@@ -44,6 +45,7 @@ import {
   type ProjectionMode,
   type RadarSettings,
 } from "./lib/settings";
+import { useAlertWatch } from "./hooks/useAlertWatch";
 import { useOverlays } from "./hooks/useOverlays";
 import { useSettings } from "./hooks/useSettings";
 import { useMinuteClock } from "./hooks/useClock";
@@ -134,6 +136,14 @@ export default function App() {
     ],
   );
   const overlays = useOverlays(overlayToggles, viewport);
+  useAlertWatch(settings.watch, (alert) =>
+    pushToast({
+      title: alert.headline,
+      detail: watchAlertBody(alert),
+      actionLabel: "Show",
+      onAction: () => setActiveSurface("alerts"),
+    }),
+  );
   const overlayData = useMemo(
     () => ({
       alerts: overlayToggles.alerts ? overlays.alerts.data : null,
@@ -513,6 +523,22 @@ export default function App() {
     })();
   }, [captionFor, finishExport, frames.length, pushToast, timeline]);
 
+  const handleWatchHere = useCallback(() => {
+    const camera = mapRef.current?.camera() ?? settingsRef.current.camera;
+    applySettings({
+      ...settingsRef.current,
+      watch: {
+        ...settingsRef.current.watch,
+        enabled: true,
+        center: camera.center,
+      },
+    });
+    pushToast({
+      title: "Watching this point",
+      detail: "Warnings near it will interrupt you.",
+    });
+  }, [applySettings, pushToast, settingsRef]);
+
   const handleUpload = useCallback(
     async (file: File) => {
       try {
@@ -763,6 +789,7 @@ export default function App() {
         <SettingsPanel
           settings={settings}
           onSettings={applySettings}
+          onWatchHere={handleWatchHere}
           onReset={resetSettings}
           onClose={() => setActiveSurface(null)}
         />
