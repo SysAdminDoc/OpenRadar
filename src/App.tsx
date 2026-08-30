@@ -18,6 +18,7 @@ import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts } from "./hooks/useToasts";
+import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { GeoPoint } from "./lib/geo";
 import { recentLog, subscribeLog } from "./lib/log";
@@ -29,6 +30,7 @@ import {
 } from "./lib/providers";
 import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
 import { archiveFrames, peakPoint, stormTrack, type Storm } from "./lib/hurdat";
+import { level2Available } from "./lib/level2";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type {
   CameraState,
@@ -92,6 +94,13 @@ export default function App() {
     futureRadar: settings.radar.futureRadar,
     pageVisible,
     archive: replay,
+  });
+  const singleSite = useSingleSiteRadar({
+    ready: hydrated,
+    radar: settings.radar,
+    center: settings.camera.center,
+    zoom: settings.camera.zoom,
+    pageVisible,
   });
   const { frames, frameIndex, source } = timeline;
   const activeFrame = frames[frameIndex];
@@ -248,6 +257,7 @@ export default function App() {
         route={route}
         customOverlay={customOverlay}
         stormTrack={stormTrackData}
+        sweep={singleSite.sweep}
         activeTool={activeTool}
         dualPane={dualPane}
         compareOffset={compareOffset}
@@ -269,6 +279,7 @@ export default function App() {
         centerPoint={centerPoint}
         frameCount={frames.length}
         sourceLabel={timeline.sourceLabel}
+        singleSite={level2Available() ? singleSite : null}
         historyStormId={historyStorm?.id ?? null}
         replayId={replay?.id ?? null}
         mapReady={mapStatus === "ready"}
@@ -311,6 +322,7 @@ export default function App() {
         settings={settings}
         timeline={timeline}
         frames={frames}
+        sweep={singleSite.sweep}
         radarAgeMinutes={radarAge}
         cursor={cursor}
         activeTool={activeTool}

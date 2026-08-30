@@ -18,22 +18,61 @@ function initLabel(initUtc: string): string {
 const DBZ_MIN = 5;
 const DBZ_MAX = 75;
 const DBZ_STOPS = [5, 20, 35, 50, 65];
+/** The velocity ramp runs either side of still air rather than up from a floor. */
+const VELOCITY_MIN = -35;
+const VELOCITY_MAX = 35;
+const VELOCITY_STOPS = [-30, -15, 0, 15, 30];
 
-function rampPosition(dbz: number): string {
-  return `${((dbz - DBZ_MIN) / (DBZ_MAX - DBZ_MIN)) * 100}%`;
+interface LegendScale {
+  min: number;
+  max: number;
+  stops: number[];
+  unit: string;
+  ramp: string;
 }
+
+const REFLECTIVITY_SCALE: LegendScale = {
+  min: DBZ_MIN,
+  max: DBZ_MAX,
+  stops: DBZ_STOPS,
+  unit: "dBZ",
+  ramp: "legend-ramp",
+};
+
+const VELOCITY_SCALE: LegendScale = {
+  min: VELOCITY_MIN,
+  max: VELOCITY_MAX,
+  stops: VELOCITY_STOPS,
+  unit: "m/s",
+  ramp: "legend-ramp legend-ramp--velocity",
+};
 
 interface RadarLegendProps {
   open: boolean;
   radarEnabled: boolean;
+  /** What the map is actually drawing, mosaic or one site's own sweep. */
+  productLabel: string;
+  eyebrow: string;
+  /** A moment with no standard ramp has no scale to draw. */
+  scale: "reflectivity" | "velocity" | "none";
   onToggle: () => void;
 }
 
 export function RadarLegend({
   open,
   radarEnabled,
+  productLabel,
+  eyebrow,
+  scale,
   onToggle,
 }: RadarLegendProps) {
+  const reading =
+    scale === "reflectivity"
+      ? REFLECTIVITY_SCALE
+      : scale === "velocity"
+        ? VELOCITY_SCALE
+        : null;
+
   return (
     <button
       type="button"
@@ -43,21 +82,30 @@ export function RadarLegend({
     >
       <Radar size={18} />
       <span>
-        <small>{radarEnabled ? "LIVE PRODUCT" : "PRODUCT HIDDEN"}</small>
-        <strong>Composite Radar</strong>
+        <small>{radarEnabled ? eyebrow : "PRODUCT HIDDEN"}</small>
+        <strong>{productLabel}</strong>
       </span>
       <ChevronDown size={16} />
-      <i className="legend-ramp" aria-hidden="true" />
-      <span
-        className="legend-scale"
-        aria-label={`Reflectivity from ${DBZ_MIN} to ${DBZ_MAX} dBZ`}
-      >
-        {DBZ_STOPS.map((stop) => (
-          <em key={stop} style={{ left: rampPosition(stop) }}>
-            {stop}
-          </em>
-        ))}
-      </span>
+      {reading ? (
+        <>
+          <i className={reading.ramp} aria-hidden="true" />
+          <span
+            className="legend-scale"
+            aria-label={`${productLabel} from ${reading.min} to ${reading.max} ${reading.unit}`}
+          >
+            {reading.stops.map((stop) => (
+              <em
+                key={stop}
+                style={{
+                  left: `${((stop - reading.min) / (reading.max - reading.min)) * 100}%`,
+                }}
+              >
+                {stop}
+              </em>
+            ))}
+          </span>
+        </>
+      ) : null}
     </button>
   );
 }

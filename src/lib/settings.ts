@@ -1,4 +1,5 @@
 import { Store } from "@tauri-apps/plugin-store";
+import { isLevel2Product, type Level2ProductId } from "./level2";
 
 export const APP_VERSION = "0.1.0";
 
@@ -27,6 +28,12 @@ export interface RadarSettings {
   animationSpeed: number;
   loopMinutes: number;
   futureRadar: boolean;
+  /** Hand a close-in view over to the nearest site's own radar. */
+  singleSite: boolean;
+  /** The site to hold, or null to follow whichever one the view is over. */
+  station: string | null;
+  product: Level2ProductId;
+  tilt: number;
 }
 
 export interface LayerSettings {
@@ -81,6 +88,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     animationSpeed: -0.1,
     loopMinutes: 120,
     futureRadar: false,
+    singleSite: true,
+    station: null,
+    product: "reflectivity",
+    tilt: 0,
   },
   layers: {
     weatherAlerts: true,
@@ -245,6 +256,15 @@ export function normalizeSettings(value: unknown): AppSettings {
         -0.8,
         0.5,
       ),
+      singleSite: bool(radar.singleSite, DEFAULT_SETTINGS.radar.singleSite),
+      station:
+        typeof radar.station === "string" && /^[A-Za-z]{4}$/.test(radar.station)
+          ? radar.station.toUpperCase()
+          : null,
+      product: isLevel2Product(radar.product)
+        ? radar.product
+        : DEFAULT_SETTINGS.radar.product,
+      tilt: finiteInRange(radar.tilt, DEFAULT_SETTINGS.radar.tilt, 0, 20),
       loopMinutes: finiteInRange(
         radar.loopMinutes,
         DEFAULT_SETTINGS.radar.loopMinutes,

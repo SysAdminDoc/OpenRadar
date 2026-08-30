@@ -3,6 +3,7 @@ import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
 import type { GeoPoint } from "../lib/geo";
+import type { SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
@@ -20,6 +21,8 @@ interface WorkspaceChromeProps {
   settings: AppSettings;
   timeline: RadarTimelineState;
   frames: RadarFrame[];
+  /** The single-site sweep on the map, which the legend names. */
+  sweep: SweepImage | null;
   radarAgeMinutes: number | null;
   cursor: GeoPoint | null;
   activeTool: ToolMode;
@@ -48,6 +51,7 @@ export function WorkspaceChrome({
   settings,
   timeline,
   frames,
+  sweep,
   radarAgeMinutes,
   cursor,
   activeTool,
@@ -98,6 +102,21 @@ export function WorkspaceChrome({
       <RadarLegend
         open={productOpen}
         radarEnabled={settings.radar.enabled}
+        productLabel={
+          sweep ? `${sweep.station} ${sweep.product}` : "Composite Radar"
+        }
+        eyebrow={
+          sweep ? `${sweep.elevationDegrees.toFixed(2)}° TILT` : "LIVE PRODUCT"
+        }
+        scale={
+          sweep
+            ? sweep.unit === "dBZ"
+              ? "reflectivity"
+              : sweep.unit === "m/s" && sweep.product === "Velocity"
+                ? "velocity"
+                : "none"
+            : "reflectivity"
+        }
         onToggle={onToggleProduct}
       />
       <RadarTimeline

@@ -8,6 +8,28 @@ import {
 } from "./settings";
 
 describe("settings normalization", () => {
+  it("refuses a radar site that is not a four letter call sign", () => {
+    for (const station of ["kdmx", "KDMX"]) {
+      expect(normalizeSettings({ radar: { station } }).radar.station).toBe(
+        "KDMX",
+      );
+    }
+    for (const station of ["", "KD", "KDMX1", "../etc", 7, null]) {
+      expect(
+        normalizeSettings({ radar: { station } }).radar.station,
+      ).toBeNull();
+    }
+  });
+
+  it("refuses a product the native side cannot decode", () => {
+    expect(
+      normalizeSettings({ radar: { product: "velocity" } }).radar.product,
+    ).toBe("velocity");
+    expect(
+      normalizeSettings({ radar: { product: "composite" } }).radar.product,
+    ).toBe("reflectivity");
+  });
+
   it("keeps the observed radar defaults", () => {
     const settings = normalizeSettings(undefined);
     expect(settings.radar.opacity).toBe(0.7);
@@ -61,9 +83,19 @@ describe("settings normalization", () => {
       "futureRadar",
       "loopMinutes",
       "opacity",
+      "product",
+      "singleSite",
+      "station",
+      "tilt",
     ]);
     // Future radar came back as a real switch, off unless the file said on.
     expect(settings.radar.futureRadar).toBe(false);
+    // So did single site, and a file written before it existed gets the
+    // defaults rather than an undefined the panel would have to guard.
+    expect(settings.radar.singleSite).toBe(true);
+    expect(settings.radar.station).toBeNull();
+    expect(settings.radar.product).toBe("reflectivity");
+    expect(settings.radar.tilt).toBe(0);
     expect(Object.keys(settings.layers).sort()).toEqual([
       "customOverlay",
       "earthquakes",

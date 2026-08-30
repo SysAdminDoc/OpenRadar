@@ -26,6 +26,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "geocoding-api.open-meteo.com",
     "router.project-osrm.org",
     "gibs.earthdata.nasa.gov",
+    "unidata-nexrad-level2.s3.amazonaws.com",
 ];
 
 const MAX_BODY_BYTES: usize = 16 * 1024 * 1024;
@@ -87,12 +88,13 @@ fn user_agent() -> String {
 }
 
 pub fn client() -> Result<Client, HttpError> {
-    let policy = Policy::custom(|attempt| {
-        match decide_redirect(attempt.url(), attempt.previous().len()) {
-            RedirectDecision::Follow => attempt.follow(),
-            RedirectDecision::Refuse => attempt.stop(),
-        }
-    });
+    let policy =
+        Policy::custom(
+            |attempt| match decide_redirect(attempt.url(), attempt.previous().len()) {
+                RedirectDecision::Follow => attempt.follow(),
+                RedirectDecision::Refuse => attempt.stop(),
+            },
+        );
 
     Ok(Client::builder()
         .user_agent(user_agent())
@@ -148,7 +150,9 @@ mod tests {
 
         assert!(!is_allowed(&url("https://example.net/tiles")));
         assert!(!is_allowed(&url("http://opengeo.ncep.noaa.gov/ows")));
-        assert!(!is_allowed(&url("https://opengeo.ncep.noaa.gov.example.net/")));
+        assert!(!is_allowed(&url(
+            "https://opengeo.ncep.noaa.gov.example.net/"
+        )));
         assert!(!is_allowed(&url("https://evil.opengeo.ncep.noaa.gov/")));
         assert!(!is_allowed(&url("file:///c:/windows/system32")));
     }
