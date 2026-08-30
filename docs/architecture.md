@@ -1,10 +1,13 @@
 # Architecture decision
 
-OpenRadar uses Tauri 2 with React 19, TypeScript, Vite, and MapLibre GL. This keeps the desktop shell small while letting the app render vector maps and raster weather data on the GPU. Rust services can later decode NEXRAD and MRMS data away from the interface thread.
+OpenRadar uses Tauri 2 with React 19, TypeScript, Vite, and MapLibre GL. This keeps the desktop shell small while letting the app render vector maps and raster weather data on the GPU.
 
-The foundation is a trimmed implementation of patterns already proven in StormDeck. It keeps the MapLibre worker on the app origin and stores settings in readable JSON. OpenRadar improves on the surveyed alternatives by treating globe projection, pitch, bearing, center, and zoom as first-class camera state while keeping radar playback independent.
+The Rust side is not a thin wrapper. It decodes the weather data itself, away from the interface thread and away from any service that would otherwise have to render it first: the MRMS national grid and its rotation, hail and lightning products from GRIB2, single-site NEXRAD Level II volumes, GOES-East lightning from the satellite's own NetCDF files, and GFS wind fields. Decoded tiles reach the map through registered URI schemes, so a locally decoded product is an ordinary tile source rather than a special case in the timeline. Everything native fetches goes through one host allowlist and one disk cache, which is also what lets the app open on the last view with no network.
 
-WPF with WebView2 would be Windows-only and still carry two runtimes. Avalonia has a weaker path for the planned raster and custom radar layers. Electron adds a much larger desktop runtime. Qt brings licensing and distribution friction that does not help this project.
+Settings are stored as readable JSON. The MapLibre worker stays on the app origin. Globe projection, pitch, bearing, center, and zoom are first-class camera state, kept independent of radar playback, which is what lets a loop run while the camera moves.
 
-The product name is OpenRadar as requested. GitHub has unrelated projects with the same words, mainly mmWave and software issue trackers, but no repository exists under the selected owner and no exact weather app listing surfaced in the Microsoft Store search.
+MapLibre 6 requires WebGL2 and has no software fallback, so the app checks for it before mounting and explains the failure rather than letting the renderer throw.
 
+WPF with WebView2 would be Windows-only and still carry two runtimes. Avalonia has a weaker path for the raster and custom radar layers this needs. Electron adds a much larger desktop runtime. Qt brings licensing and distribution friction that does not help this project.
+
+The product name is OpenRadar. GitHub has unrelated projects with the same words, mainly mmWave and software issue trackers, but no repository exists under the selected owner and no exact weather app listing surfaced in the Microsoft Store search.

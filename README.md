@@ -8,7 +8,7 @@ OpenRadar is a map-first desktop weather radar. Pan around the planet, zoom from
 
 ![OpenRadar radar workspace](assets/screenshots/openradar-main.png)
 
-The app is being rebuilt as a free desktop tool with no ads or paid feature gates. This first release establishes the navigation, radar timeline, map and layer controls, presets, tools, forecast surface, and readable settings storage.
+It is free, with no ads and no paid feature gates, and it needs no account or API key for anything it does.
 
 ## What works
 
@@ -18,7 +18,8 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Canadian radar from Environment and Climate Change Canada, with a rain rate scale of its own, wherever the NOAA mosaics stop
 - Lightning two ways: the MRMS cloud-to-ground density grid, and GOES-East total lightning decoded from the satellite's own files
 - NOAA MRMS leads on the desktop: the one kilometre national grid decoded locally from GRIB2, with rotation tracks and hail size as their own layers
-- Single-site NEXRAD Level II up close: past zoom 8 the nearest site's own sweep replaces the mosaic, with tilt and product selection, decoded locally in Rust
+- Single-site NEXRAD Level II up close: past zoom 8 the nearest site that is actually publishing replaces the mosaic, with tilt and product selection, decoded locally in Rust
+- Velocity unfolded before it is drawn, so a wind faster than the radar can measure is not shown blowing the other way
 - Automatic failover between radar sources, with per-source status and a request budget
 - Optional future radar: up to six hours of HRRR forecast reflectivity on the tail of the same timeline
 - GOES-East GeoColor satellite imagery under the radar, following the same timeline
@@ -87,7 +88,7 @@ The v0.2.0 installer was exercised with a silent install and uninstall. It is no
 - MRMS grids come from the NOAA MRMS open data bucket on AWS and are decoded on your machine, as is single-site NEXRAD Level II from the Unidata archive.
 - Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
 - RainViewer only appears for viewports the NOAA mosaics do not reach.
-- Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS.
+- Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).
 - Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.
 - Canadian radar comes from Environment and Climate Change Canada through GeoMet, under their open data licence.
 - Tropical cones, tracks, watches, and outlooks come from the NHC tropical map service.
