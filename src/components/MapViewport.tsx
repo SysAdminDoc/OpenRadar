@@ -25,7 +25,12 @@ import {
   satelliteTileUrl,
 } from "../lib/providers";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
-import { sweepCorners, type SweepImage } from "../lib/level2";
+import {
+  beamHeightFeet,
+  sweepCorners,
+  sweepSite,
+  type SweepImage,
+} from "../lib/level2";
 import { createWindLayer } from "../lib/windLayer";
 import type { WindField } from "../lib/wind";
 import type { RadarFrame } from "../lib/radar";
@@ -42,7 +47,7 @@ import {
   surgeTileUrl,
   type SurgeCategory,
 } from "../lib/surge";
-import { translate } from "../i18n";
+import { locale, translate } from "../i18n";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
 const SATELLITE_LAYER_ID = "openradar-satellite-layer";
@@ -52,6 +57,10 @@ const MRMS_SOURCE_PREFIX = "openradar-mrms-";
 const WIND_LAYER_ID = "openradar-wind";
 const FLASH_SOURCE_ID = "openradar-flash-source";
 const FLASH_LAYER_ID = "openradar-flash-points";
+/** How far a site's own sweep reaches, which is as far as a beam height
+ * means anything: past it the picture is the mosaic again. */
+const MAX_SWEEP_RANGE_KM = 230;
+
 const SWEEP_SOURCE_ID = "openradar-sweep-source";
 const SWEEP_LAYER_ID = "openradar-sweep-layer";
 const RADAR_SOURCE_ID = "openradar-radar-source";
@@ -1182,14 +1191,37 @@ function MapViewportInner(
       if (!toolModeRef.current) {
         showOverlayPopup(event);
       } else if (toolModeRef.current === "inspect") {
-        onToolResult?.(
-          `${point.lat.toFixed(4)}°, ${point.lon.toFixed(4)}° · zoom ${map.getZoom().toFixed(2)}`,
-        );
+        const lines = [
+          translate("tool.inspectAt", {
+            lat: point.lat.toFixed(4),
+            lon: point.lon.toFixed(4),
+            zoom: map.getZoom().toFixed(2),
+          }),
+        ];
+        // During a single-site view, how high the beam is over the spot that
+        // was clicked. The same picture at the same tilt means something else
+        // eighty miles further out, because the beam has climbed.
+        const drawn = sweepRef.current;
+        if (drawn) {
+          const site = sweepSite(drawn);
+          const rangeKm = haversineMiles(site, point) * 1.609344;
+          if (rangeKm <= MAX_SWEEP_RANGE_KM) {
+            lines.push(
+              translate("tool.beamHeight", {
+                feet: Math.round(
+                  beamHeightFeet(rangeKm, drawn.elevationDegrees),
+                ).toLocaleString(locale()),
+                tilt: drawn.elevationDegrees.toFixed(2),
+              }),
+            );
+          }
+        }
+        onToolResult?.(lines.join(" · "));
       } else if (toolModeRef.current === "draw") {
         drawPointsRef.current = [...drawPointsRef.current, point];
         renderTools();
         onToolResult?.(
-          `${drawPointsRef.current.length} ${drawPointsRef.current.length === 1 ? "point" : "points"} in path`,
+          translate("tool.pathPoints", { count: drawPointsRef.current.length }),
         );
       } else if (toolModeRef.current === "range") {
         if (!rangeStartRef.current || rangeEndRef.current) {
@@ -1199,7 +1231,9 @@ function MapViewportInner(
         } else {
           rangeEndRef.current = point;
           const miles = haversineMiles(rangeStartRef.current, point);
-          onToolResult?.(`Range ${formatDistance(miles)}`);
+          onToolResult?.(
+            translate("tool.rangeResult", { distance: formatDistance(miles) }),
+          );
         }
         renderTools();
       }

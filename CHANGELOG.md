@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- The Inspector says how high the beam is. Click anywhere inside a single-site view and it gives the height above the radar in feet along with the tilt, worked out the way the beam actually travels through the air. The same picture at the same tilt means something different eighty miles out, because by then the beam is a mile up and looking over the top of what is happening underneath it.
+
 - Two new layers from the Storm Prediction Center. Severe Outlook draws today's risk of severe storms in the Center's own colours, weakest area underneath so a High sits on top of the Moderate around it, with the hours it is valid for. Mesoscale Discussions draws what forecasters are watching right now, which is usually an hour or two ahead of any warning, with what they wrote. Both sit under the warnings, because guidance about what may happen belongs under what is happening, and both say so when you click them.
 
 - Storm history opens straight away. It used to read the whole record, nearly three megabytes of six-hourly positions going back to 1851, before the search box would answer anything. The names and years now come on their own, a sixth of the size, and a storm's track arrives when you pick it, a decade at a time, kept for the rest of the session.

@@ -254,3 +254,24 @@ test("unfolds velocity by default and says so, and can be turned off", async ({
   await expect(page.getByText("0.48° TILT", { exact: true })).toBeVisible();
   expect((await asked()).at(-1)?.args).toMatchObject({ dealias: false });
 });
+
+test("says how high the beam is over the point you click", async ({ page }) => {
+  // The same picture at the same tilt means something else eighty miles
+  // further out, because the beam has climbed. Reading rotation without
+  // knowing the height is guesswork.
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+
+  await page.getByRole("button", { name: "Inspector", exact: true }).click();
+  await page
+    .getByRole("application", { name: "Interactive weather map" })
+    .click({
+      position: { x: 500, y: 400 },
+    });
+
+  await expect(
+    page.getByText(/beam [\d,]+ ft above the radar at 0\.48°/),
+  ).toBeVisible();
+  // The coordinates are still there beside it.
+  await expect(page.getByText(/°, .*° · zoom 9/)).toBeVisible();
+});
