@@ -52,6 +52,7 @@ import type {
 } from "./lib/settings";
 import { translate } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
+import { useStormCells } from "./hooks/useStormCells";
 import { gpuSupport } from "./lib/gpu";
 
 export default function App() {
@@ -136,6 +137,15 @@ export default function App() {
     zoom: settings.camera.zoom,
     pageVisible,
     paletteGeneration,
+  });
+  // Tied to whichever site the single-site radar is reading, because the cells
+  // are that radar's own account of that volume.
+  const stormCells = useStormCells({
+    ready: hydrated,
+    enabled: settings.layers.stormCells,
+    station: singleSite.station,
+    pageVisible,
+    clock,
   });
   const mrms = useMrmsOverlays({
     ready: hydrated,
@@ -417,6 +427,7 @@ export default function App() {
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
+        cells={stormCells.features}
         flashes={lightning.points}
         flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
         flashClock={clock}
@@ -443,6 +454,7 @@ export default function App() {
         frameCount={frames.length}
         sourceLabel={timeline.sourceLabel}
         singleSite={level2Available() ? singleSite : null}
+        stormCells={stormCells}
         clock={clock}
         update={updates.state}
         onUpdate={updates.act}

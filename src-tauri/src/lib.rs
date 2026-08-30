@@ -6,6 +6,7 @@ mod dealias;
 mod exports;
 mod gfs;
 mod level2;
+mod level3;
 mod lightning;
 mod mrms;
 mod palette;
@@ -104,6 +105,7 @@ pub fn run() {
             exports::save_export,
             level2::level2_sweep,
             level2::level2_nearest_site,
+            level3::level3_cells,
             mrms::mrms_frames,
             mrms::mrms_products,
             lightning::lightning_flashes,

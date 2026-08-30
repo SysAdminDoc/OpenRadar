@@ -33,6 +33,8 @@ interface MapStageProps {
   sweep: SweepImage | null;
   mrmsLayers: MrmsLayer[];
   flashes: Record<string, unknown> | null;
+  /** Storm cells with their tracks, from the radar's own algorithm. */
+  cells: Record<string, unknown> | null;
   /** The flash window and the moment the fade is measured against. */
   flashWindowMinutes: number;
   flashClock: number;
@@ -65,6 +67,7 @@ export function MapStage({
   sweep,
   mrmsLayers,
   flashes,
+  cells,
   flashWindowMinutes,
   flashClock,
   wind,
@@ -97,6 +100,7 @@ export function MapStage({
     sweep,
     mrmsLayers,
     flashes,
+    cells,
     flashWindowMinutes,
     flashClock,
     wind,

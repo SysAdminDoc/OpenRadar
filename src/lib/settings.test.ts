@@ -120,6 +120,7 @@ describe("settings normalization", () => {
       "satellite",
       "spcDiscussions",
       "spcOutlooks",
+      "stormCells",
       "stormReports",
       "surge",
       "tropical",

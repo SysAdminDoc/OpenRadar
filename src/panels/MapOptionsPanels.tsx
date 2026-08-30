@@ -149,6 +149,12 @@ const LAYER_OPTIONS: Array<{
     icon: MapPin,
   },
   {
+    key: "stormCells",
+    labelKey: "layer.stormCells",
+    detailKey: "layers.stormCellsDetail",
+    icon: Crosshair,
+  },
+  {
     key: "earthquakes",
     labelKey: "layer.earthquakes",
     detailKey: "layers.earthquakesDetail",
