@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Panels behave like panels for anyone not using a mouse. Each one is announced by name when it opens, the focus moves into it rather than staying wherever it was, Escape closes it, and closing puts the focus back on the button that opened it instead of dropping it at the top of the window. In the command list the arrow keys move between results, so finding something twenty rows down is one gesture rather than twenty.
+
 - Route weather asks the road router gently, and has an answer when it says no. The roads come from the OSRM demo server, which is run as a courtesy, asks for at most one request a second, and promises no uptime. Requests now queue behind each other instead of going out together. When it refuses anyway, the panel offers to use the straight line between the two places instead, and says plainly that there is no road shape and the times assume a steady 55 mph. The weather along it is real either way.
 
 - A machine that cannot draw the map now says so. MapLibre needs WebGL2 and there is no fallback, so a window without it used to fail from somewhere inside the renderer and report that the interface could not finish drawing, which is true and no help. OpenRadar asks before it starts, and if the answer is no it names the likely cause: hardware acceleration switched off, a virtual machine with no graphics passthrough, or a remote desktop session. Diagnostics lists the graphics card as well.

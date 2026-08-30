@@ -73,10 +73,40 @@ export function CommandPalette({
           placeholder={t("palette.placeholder")}
           autoComplete="off"
           aria-label={t("palette.label")}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowDown") return;
+            event.preventDefault();
+            event.currentTarget
+              .closest(".surface-panel")
+              ?.querySelector<HTMLButtonElement>(".result-row")
+              ?.focus();
+          }}
         />
       </label>
 
-      <div className="result-list" data-command-count={results.length}>
+      {/* Real buttons, not a listbox: they are already reachable and operable
+          from the keyboard, and a listbox role without arrow keys would claim
+          an interaction the list does not have. The arrow keys below move
+          between them rather than making the reader tab through every one. */}
+      <div
+        className="result-list"
+        data-command-count={results.length}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          const rows = [
+            ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+              ".result-row",
+            ),
+          ];
+          if (!rows.length) return;
+          event.preventDefault();
+          const at = rows.indexOf(document.activeElement as HTMLButtonElement);
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          // From the search field, the first press lands on the first result.
+          const next = at === -1 ? 0 : (at + step + rows.length) % rows.length;
+          rows[next]?.focus();
+        }}
+      >
         {results.map((command) => {
           const on = isOn(settings, command);
           return (
