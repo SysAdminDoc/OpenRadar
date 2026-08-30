@@ -39,7 +39,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "category": "Weather",
     "shortDescription": "Map-first desktop weather radar.",
     "longDescription": "OpenRadar is a map-first desktop weather radar with flat and globe navigation, radar playback, map tools, forecasts, and open data sources.",
@@ -47,6 +49,15 @@
       "nsis": {
         "installMode": "currentUser",
         "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "openradar"
+        ]
       }
     }
   }

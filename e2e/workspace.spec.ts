@@ -420,3 +420,36 @@ test("says the alerts layer is off instead of showing an empty list", async ({
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toHaveAttribute("data-layer-stack", /alerts-fill/);
 });
+
+test("copies a link that carries the current view", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Globe", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Share", exact: true })
+    .first()
+    .click();
+
+  await expect(page.getByText("Map link copied")).toBeVisible();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const url = new URL(copied);
+  expect(url.searchParams.get("projection")).toBe("globe");
+  expect(Number(url.searchParams.get("lon"))).toBeCloseTo(-85.5, 3);
+  expect(Number(url.searchParams.get("lat"))).toBeCloseTo(25.5, 3);
+  expect(Number(url.searchParams.get("zoom"))).toBeCloseTo(4.55, 2);
+});
+
+test("opens a shared view from a link in the address bar", async ({ page }) => {
+  await page.goto(
+    "/?testMode=1&lon=-96.80000&lat=32.78000&zoom=7.25&bearing=18.0&pitch=42.0&projection=globe",
+  );
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute(
+    "data-camera",
+    "-96.80000,32.78000,7.250,18.00,42.00",
+  );
+});
