@@ -856,18 +856,33 @@ function MapViewportInner(
           id: CELL_POINT_LAYER_ID,
           type: "circle",
           source: CELL_SOURCE_ID,
-          filter: ["==", ["get", "kind"], "cell"],
+          filter: [
+            "any",
+            ["==", ["get", "kind"], "cell"],
+            // A circulation the tracking algorithm found no storm for is
+            // still a circulation, and it is drawn where it is.
+            ["==", ["get", "kind"], "rotation"],
+          ],
           paint: {
             "circle-radius": 7,
             "circle-color": "rgba(0,0,0,0)",
             // A storm with rotation in it is the one to look at first.
             "circle-stroke-color": [
               "case",
+              ["==", ["get", "kind"], "rotation"],
+              "#f87171",
               ["get", "rotating"],
               "#f87171",
               "#f8fafc",
             ],
-            "circle-stroke-width": ["case", ["get", "rotating"], 3, 2],
+            "circle-stroke-width": [
+              "case",
+              ["==", ["get", "kind"], "rotation"],
+              3,
+              ["get", "rotating"],
+              3,
+              2,
+            ],
           },
         },
         firstExisting(map, layersAbove(CELL_POINT_LAYER_ID)),
@@ -877,7 +892,11 @@ function MapViewportInner(
           id: CELL_LABEL_LAYER_ID,
           type: "symbol",
           source: CELL_SOURCE_ID,
-          filter: ["==", ["get", "kind"], "cell"],
+          filter: [
+            "any",
+            ["==", ["get", "kind"], "cell"],
+            ["==", ["get", "kind"], "rotation"],
+          ],
           layout: {
             "text-field": ["get", "id"],
             "text-size": 11,

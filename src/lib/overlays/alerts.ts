@@ -8,6 +8,7 @@ import {
 import { cachedUrl } from "../tileCache";
 import { translate } from "../../i18n";
 import { formatClock } from "../units";
+import { alertType, type AlertType } from "../alertTypes";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1/query";
@@ -153,6 +154,25 @@ function epoch(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * The alerts a reader has asked to see.
+ *
+ * Filtering here rather than in the fetch keeps one request answering for
+ * every combination of switches: turning a kind back on redraws rather than
+ * waiting on the service.
+ */
+export function alertsOfKind(
+  alerts: OverlayData,
+  wanted: Partial<Record<AlertType, boolean>>,
+): OverlayData {
+  return {
+    ...alerts,
+    features: alerts.features.filter(
+      (feature) => wanted[feature.properties.kind as AlertType] !== false,
+    ),
+  };
+}
+
 export function parseAlerts(
   payload: unknown,
   tags: Map<string, AlertTags> = new Map(),
@@ -182,6 +202,8 @@ export function parseAlerts(
         severity,
         severityRank: SEVERITY_RANK[severity],
         capId,
+        // Which switch in the panel this one belongs to.
+        kind: alertType(prodType),
         // A polygon with no tag is an ordinary warning, which is most of them,
         // and is drawn as it always was.
         impact: tagged?.impact ?? "",

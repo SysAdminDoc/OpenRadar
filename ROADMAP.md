@@ -31,13 +31,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: the single-site image updates within 30 seconds of a new chunk with the swept sector drawn over the previous full sweep; the legend says "live, N s old"; a Rust test assembles a fixture volume from chunks; the live test compares the chunk sweep with the archive sweep for the same volume.
   Complexity: L
 
-- [ ] P2 — Per-type alert filters and opt-in sounds
-  Why: every competitor filters by warning type; Supercell Wx users ask for sound only on a tornado upgrade (#617) and per-type sounds (#652).
-  Evidence: https://github.com/dpaulat/supercell-wx/issues/617 ; https://github.com/dpaulat/supercell-wx/discussions/652 ; https://www.dtn.com/radarscope-4-0/ (per-type warning filters).
-  Touches: src/lib/settings.ts (alerts.types, alerts.sound), src/panels/AlertsPanel.tsx, src/lib/overlays/alerts.ts, src/hooks/useAlertWatch.ts, a small Web Audio tone in src/lib/sound.ts, src/i18n
-  Acceptance: unchecking a type removes it from the map and the panel; the sound is off by default, plays once per new or upgraded alert at the watched place, and a master mute silences it; e2e stubs verify the filter and a unit test proves one tone per alert id.
-  Complexity: M
-
 - [ ] P2 — Per-layer opacity and a layer order list
   Why: the two most-requested layer controls in Supercell Wx in 2026 (#682 merged, #691 open); ForeFlight's per-layer sliders are the reference UX.
   Evidence: https://github.com/dpaulat/supercell-wx/pull/682 ; https://github.com/dpaulat/supercell-wx/issues/691 ; https://www.foreflight.com/support/video-library/watch/?v=foreflight-quick-tip-opacity-sliders ; `src/components/MapViewport.tsx` declared layer stack.

@@ -6,6 +6,7 @@ import type { AppSettings } from "../lib/settings";
 import { watchAlertBody } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";
+import { alertsOfKind } from "../lib/overlays/alerts";
 
 export interface WorkspaceOverlays {
   /** Fetch state per layer, including the ones that are switched off. */
@@ -67,9 +68,19 @@ export function useWorkspaceOverlays(options: {
     }),
   );
 
+  // The kinds a reader has switched off, taken out here rather than in the
+  // fetch, so turning one back on redraws rather than waiting on the service.
+  const shown = useMemo(
+    () =>
+      states.alerts.data
+        ? alertsOfKind(states.alerts.data, settings.alertTypes)
+        : null,
+    [settings.alertTypes, states.alerts.data],
+  );
+
   const data = useMemo(
     () => ({
-      alerts: toggles.alerts ? states.alerts.data : null,
+      alerts: toggles.alerts ? shown : null,
       earthquakes: toggles.earthquakes ? states.earthquakes.data : null,
       wildfires: toggles.wildfires ? states.wildfires.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
@@ -79,8 +90,17 @@ export function useWorkspaceOverlays(options: {
         : null,
       stormReports: toggles.stormReports ? states.stormReports.data : null,
     }),
-    [states, toggles],
+    [shown, states, toggles],
   );
 
-  return { states, data };
+  // The panel lists what the map draws, so it reads the filtered set too.
+  const states_ = useMemo(
+    () => ({
+      ...states,
+      alerts: { ...states.alerts, data: shown ?? states.alerts.data },
+    }),
+    [shown, states],
+  );
+
+  return { states: states_, data };
 }

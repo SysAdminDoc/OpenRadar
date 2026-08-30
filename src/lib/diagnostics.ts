@@ -58,17 +58,21 @@ export function blurUserPaths(line: string): string {
       // A drive-letter profile, however the drive is spelled and whatever the
       // folder above it is called: a redirected profile root sits under
       // D:\Profiles rather than C:\Users, and names the reader just the same.
+      //
+      // The account name runs to the next separator rather than to the next
+      // space. Stopping at a space left the second half of "John Smith"
+      // behind, and a surname on its own still names somebody.
       .replace(
-        /[A-Za-z]:[\\/](?:Users|Profiles|home)[\\/][^\\/\s"']+/gi,
+        /[A-Za-z]:[\\/](?:Users|Profiles|home)[\\/][^\\/"']+/gi,
         "<home>",
       )
       // A home directory served over the network. Nothing above matches a
       // path that starts with two separators and a server name.
       .replace(
-        /\\\\[^\\/\s"']+[\\/](?:Users|Profiles|home)[\\/][^\\/\s"']+/gi,
+        /\\\\[^\\/"']+[\\/](?:Users|Profiles|home)[\\/][^\\/"']+/gi,
         "<home>",
       )
-      .replace(/\/(?:Users|home)\/[^/\s"']+/gi, "<home>")
+      .replace(/\/(?:Users|home)\/[^/"']+/gi, "<home>")
       // A user name in a URL, which is both a name and half a credential.
       .replace(/\/\/[^/\s"']+@/g, "//<user>@")
   );

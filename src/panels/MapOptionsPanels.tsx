@@ -45,6 +45,7 @@ import {
   surgeCategoryKey,
   type SurgeCategory,
 } from "../lib/surge";
+import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
 
 interface MapTypePanelProps {
   mapStyle: MapStyleId;
@@ -111,9 +112,12 @@ export function MapTypePanel({
 
 interface LayersPanelProps {
   layers: LayerSettings;
+  /** Which kinds of alert to draw, by the switches below the alert layer. */
+  alertTypes: Partial<Record<AlertType, boolean>>;
   /** Which hurricane the surge picture is about. */
   surgeCategory: SurgeCategory;
   onLayers: (layers: LayerSettings) => void;
+  onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
   onClose: () => void;
 }
@@ -260,8 +264,10 @@ const LAYER_OPTIONS: Array<{
 
 export function LayersPanel({
   layers,
+  alertTypes,
   surgeCategory,
   onLayers,
+  onAlertTypes,
   onSurgeCategory,
   onClose,
 }: LayersPanelProps) {
@@ -292,6 +298,35 @@ export function LayersPanel({
           </label>
         ))}
       </div>
+      {layers.weatherAlerts ? (
+        <div className="settings-section" data-alert-kinds>
+          <div className="settings-section__title">
+            <span>{t("alerts.kinds")}</span>
+            <small>{t("alerts.kindsDetail")}</small>
+          </div>
+          {ALERT_TYPES.map(({ id, key }) => (
+            <label className="toggle-row toggle-row--plain" key={id}>
+              <span>
+                <strong>{t(key)}</strong>
+              </span>
+              <input
+                type="checkbox"
+                // A kind nobody has touched is on, so only the ones switched
+                // off are kept and a kind added later arrives switched on.
+                checked={alertTypes[id] !== false}
+                onChange={(event) => {
+                  const next = { ...alertTypes };
+                  if (event.target.checked) delete next[id];
+                  else next[id] = false;
+                  onAlertTypes(next);
+                }}
+              />
+              <i className="toggle-track" aria-hidden="true" />
+            </label>
+          ))}
+        </div>
+      ) : null}
+
       {layers.surge ? (
         <div className="settings-section" data-surge-category={surgeCategory}>
           <div className="settings-section__title">
@@ -621,6 +656,14 @@ export function SettingsPanel({
           checked={settings.watch.enabled}
           onChange={(enabled) =>
             onSettings({ ...settings, watch: { ...settings.watch, enabled } })
+          }
+        />
+        <ToggleSetting
+          label={t("alerts.sound")}
+          detail={t("alerts.soundDetail")}
+          checked={settings.watch.sound}
+          onChange={(sound) =>
+            onSettings({ ...settings, watch: { ...settings.watch, sound } })
           }
         />
         <label className="range-row">

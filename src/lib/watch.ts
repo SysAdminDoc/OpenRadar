@@ -14,6 +14,8 @@ export interface WatchSettings {
   radiusMiles: number;
   /** The least severe alert worth interrupting someone for. */
   minSeverity: AlertSeverity;
+  /** Whether an announcement also makes a sound. */
+  sound: boolean;
 }
 
 export interface WatchAlert {

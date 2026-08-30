@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Alerts can be filtered by kind. Eight switches under the alert layer, grouped the way people think about them rather than as a list of a hundred product names, and anything the list has never heard of shows up under "Everything else" instead of quietly disappearing. There is also an optional sound: one short tone when a new or upgraded alert reaches the place you watch, off until you ask for it.
+
 - Warnings say when the office expects worse than usual. A tornado or thunderstorm warning can carry a damage threat of considerable, destructive or catastrophic, and those are now drawn with a heavier outline, badged in the alerts panel, and named in the popup along with the hail size the office gave. If you have a watched place, an upgrade to a warning already in force interrupts you a second time, once, and says which tag it was given: that is the office saying the thing got worse, and it should not read like the same sentence you saw an hour ago.
 
 - Storm cells, from the radar's own tracking algorithm. It says which blobs are one storm rather than several, which way each is going and how fast, and where it will be in a quarter of an hour, half an hour, three quarters and an hour. The track is drawn as one dashed line through where the storm has been, where it is and where it is going, and a storm with rotation in it is ringed in red. If you have set a watched place, the radar panel names the storm that reaches it and how many minutes away it is, counting only the part of the motion actually pointing at you: a storm going past, or away, gets no arrival time rather than a made-up one.

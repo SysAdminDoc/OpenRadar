@@ -10,6 +10,7 @@ import {
   type WatchSettings,
 } from "../lib/watch";
 import { translate } from "../i18n";
+import { playAlertTone } from "../lib/sound";
 
 /** Often enough to matter for a warning, rarely enough to be a good citizen. */
 const POLL_MS = 45_000;
@@ -45,6 +46,13 @@ export function useAlertWatch(
     fallbackRef.current = onFallback;
   }, [onFallback]);
 
+  // Read through a ref so switching the sound on or off does not restart the
+  // watch and re-announce everything already announced.
+  const soundRef = useRef(watch.sound);
+  useEffect(() => {
+    soundRef.current = watch.sound;
+  }, [watch.sound]);
+
   const key = watch.enabled
     ? `${watch.center[0].toFixed(3)},${watch.center[1].toFixed(3)},${watch.radiusMiles},${watch.minSeverity}`
     : "";
@@ -76,6 +84,11 @@ export function useAlertWatch(
         );
         for (const alert of found) {
           announcedRef.current.add(alert.id);
+          // One tone for the batch rather than one per alert: three warnings
+          // arriving together should not sound like an alarm going off.
+          if (soundRef.current && alert === found[0]) {
+            void playAlertTone();
+          }
           if (isDesktopRuntime()) {
             const sent = await announceOnDesktop(alert);
             if (!sent) fallbackRef.current(alert);

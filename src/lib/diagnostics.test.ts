@@ -117,6 +117,17 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
     expect(blurUserPaths("open C:\\Users\\MATTHE~1\\radar.pal")).toBe(
       "open <home>\\radar.pal",
     );
+    // A name with a space in it. Stopping at the space left the surname
+    // behind, and a surname on its own still names somebody.
+    expect(blurUserPaths("open C:\\Users\\John Smith\\radar.pal")).toBe(
+      "open <home>\\radar.pal",
+    );
+    expect(blurUserPaths("read /Users/john smith/Library/a.pal")).toBe(
+      "read <home>/Library/a.pal",
+    );
+    expect(blurUserPaths("read \\\\server\\Users\\John Smith\\a.pal")).toBe(
+      "read <home>\\a.pal",
+    );
   });
 
   it("redacts what a source failed with, not only the log", () => {

@@ -7,6 +7,7 @@ const watch = {
   center: [-96.8, 32.78] as [number, number],
   radiusMiles: 30,
   minSeverity: "severe" as const,
+  sound: false,
 };
 
 const now = Date.parse("2026-08-30T12:00:00Z");
