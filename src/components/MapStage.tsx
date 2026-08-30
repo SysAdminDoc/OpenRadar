@@ -8,7 +8,8 @@ import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
-import { locale, useLanguage, useT } from "../i18n";
+import { useT } from "../i18n";
+import { formatClock, useMeasurements } from "../lib/units";
 
 /** How many frames back the compare pane can be held. */
 const COMPARE_OFFSETS = [0, 3, 6, 12];
@@ -40,7 +41,7 @@ interface MapStageProps {
   onPrimaryMove: (camera: CameraState) => void;
   onSecondaryMove: (camera: CameraState) => void;
   onCursorChange: (point: GeoPoint | null) => void;
-  onToolResult: (message: string | null) => void;
+  onToolResult: (render: (() => string) | null) => void;
   onMapStatus: (status: "loading" | "ready" | "error") => void;
 }
 
@@ -73,7 +74,9 @@ export function MapStage({
   onMapStatus,
 }: MapStageProps) {
   const t = useT();
-  const language = useLanguage();
+  // Redraws when the units or the clock change, since this is on screen the
+  // whole time and would otherwise keep showing the old ones.
+  useMeasurements();
   const shared = {
     projection: settings.projection,
     mapStyle: settings.mapStyle,
@@ -123,10 +126,7 @@ export function MapStage({
         <div className="satellite-chip">
           <strong>GOES-East GeoColor</strong>
           <small>
-            {new Intl.DateTimeFormat(locale(language), {
-              hour: "numeric",
-              minute: "2-digit",
-            }).format(new Date(satelliteTime * 1000))}
+            {formatClock(new Date(satelliteTime * 1000))}
             {satelliteAgeMinutes === null
               ? ""
               : t("stage.satelliteAge", { count: satelliteAgeMinutes })}

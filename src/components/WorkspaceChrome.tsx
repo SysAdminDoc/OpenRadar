@@ -13,6 +13,7 @@ import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 import { translate, useT, type StringKey } from "../i18n";
+import { useMeasurements } from "../lib/units";
 
 /** Past this the loop is old enough that the timeline should say so. */
 const STALE_MINUTES = 20;
@@ -49,7 +50,7 @@ interface WorkspaceChromeProps {
   radarAgeMinutes: number | null;
   cursor: GeoPoint | null;
   activeTool: ToolMode;
-  toolResult: string | null;
+  toolResult: (() => string) | null;
   activeSurface: SurfaceId;
   productOpen: boolean;
   dualPane: boolean;
@@ -103,6 +104,9 @@ export function WorkspaceChrome({
   onDismissToast,
 }: WorkspaceChromeProps) {
   const t = useT();
+  // Redraws when the units or the clock change, since this is on screen the
+  // whole time and would otherwise keep showing the old ones.
+  useMeasurements();
   const stale =
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
       ? t("chrome.stale", { count: radarAgeMinutes })
@@ -143,7 +147,7 @@ export function WorkspaceChrome({
         <div className="tool-hud">
           <span>
             <strong>{t(TOOL_LABELS[activeTool])}</strong>
-            {toolResult}
+            {toolResult ? toolResult() : null}
           </span>
           <button type="button" onClick={onClearTools}>
             <Trash2 size={15} /> {t("chrome.toolClear")}

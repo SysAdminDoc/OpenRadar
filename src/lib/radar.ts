@@ -1,5 +1,6 @@
 import type { RadarFrame } from "./providers/types";
 import { translate } from "../i18n";
+import { formatClock } from "./units";
 
 export type { RadarFrame };
 
@@ -15,9 +16,9 @@ export function frameAgeMinutes(frame: RadarFrame, now = Date.now()): number {
 
 export function formatFrameTime(frame: RadarFrame | undefined): string {
   if (!frame) return translate("radar.waiting");
-  return new Intl.DateTimeFormat(undefined, {
+  return formatClock(new Date(frame.time * 1000), {
     hour: "numeric",
     minute: "2-digit",
     timeZoneName: "short",
-  }).format(new Date(frame.time * 1000));
+  });
 }

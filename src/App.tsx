@@ -64,7 +64,14 @@ export default function App() {
   );
   const [viewport, setViewport] = useState<OverlayBounds | null>(null);
   const [cursor, setCursor] = useState<GeoPoint | null>(null);
-  const [toolResult, setToolResult] = useState<string | null>(null);
+  // The readout is held as a way of writing itself. A measurement taken in
+  // miles is still on screen when the units are switched, and a written string
+  // cannot follow that; a renderer can.
+  const [toolResult, setToolResult] = useState<(() => string) | null>(null);
+  const showToolResult = useCallback(
+    (render: (() => string) | null) => setToolResult(() => render),
+    [],
+  );
   const [route, setRoute] = useState<Record<string, unknown> | null>(null);
   const [customOverlay, setCustomOverlay] = useState<Record<
     string,
@@ -351,7 +358,7 @@ export default function App() {
         onPrimaryMove={(camera) => secondMapRef.current?.syncCamera(camera)}
         onSecondaryMove={(camera) => mapRef.current?.syncCamera(camera)}
         onCursorChange={setCursor}
-        onToolResult={setToolResult}
+        onToolResult={showToolResult}
         onMapStatus={handleMapStatus}
       />
 

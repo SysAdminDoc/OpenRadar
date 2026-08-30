@@ -13,7 +13,8 @@ import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
 import { gpuSupport } from "../lib/gpu";
-import { locale, translate, useT } from "../i18n";
+import { translate, useT } from "../i18n";
+import { formatClock } from "../lib/units";
 
 interface CloseOnlyProps {
   onClose: () => void;
@@ -96,11 +97,11 @@ interface MorePanelProps extends CloseOnlyProps {
 }
 
 function clockLabel(at: number): string {
-  return new Intl.DateTimeFormat(locale(), {
+  return formatClock(new Date(at), {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-  }).format(new Date(at));
+  });
 }
 
 function ageLabel(at: number | null): string {

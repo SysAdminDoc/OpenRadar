@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, LoaderCircle, Waves } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
 import {
@@ -11,9 +11,14 @@ import {
   upcoming,
   type TideReading,
 } from "../lib/tides";
-import { locale, useLanguage, useT } from "../i18n";
+import { useT } from "../i18n";
 import { translate } from "../i18n";
-import { distanceUnit, distanceValue, formatTideHeight } from "../lib/units";
+import {
+  distanceUnit,
+  distanceValue,
+  formatClock,
+  formatTideHeight,
+} from "../lib/units";
 
 interface TidesPanelProps {
   point: GeoPoint;
@@ -27,7 +32,6 @@ const REFETCH_MILES = 8;
 
 export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
   const t = useT();
-  const language = useLanguage();
   const [reading, setReading] = useState<TideReading | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,15 +102,14 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
     };
   }, [latitude, longitude]);
 
-  const clockLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale(language), {
-        weekday: "short",
-        hour: "numeric",
-        minute: "2-digit",
-      }),
-    [language],
-  );
+  // Written at render rather than memoised: the clock setting is read when
+  // the line is drawn, so there is nothing to hold on to between renders.
+  const clockLabel = (at: Date) =>
+    formatClock(at, {
+      weekday: "short",
+      hour: "numeric",
+      minute: "2-digit",
+    });
 
   const next = reading ? upcoming(reading.extremes, clock, 6) : [];
   const now = reading ? state(reading.extremes, clock) : null;
@@ -174,7 +177,7 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
             <div className="route-table">
               {next.map((extreme) => (
                 <div className="route-row" key={extreme.time}>
-                  <span>{clockLabel.format(new Date(extreme.time))}</span>
+                  <span>{clockLabel(new Date(extreme.time))}</span>
                   <strong>
                     {extreme.high ? t("tides.high") : t("tides.low")}
                   </strong>
