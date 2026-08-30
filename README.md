@@ -1,0 +1,52 @@
+# OpenRadar
+
+![Version](https://img.shields.io/badge/version-0.1.0-68d7ff)
+![License](https://img.shields.io/badge/license-MIT-8bd5ca)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
+
+OpenRadar is a map-first desktop weather radar. Pan around the planet, zoom from a globe to a neighborhood, tilt the camera, switch projections, and scrub through live radar frames without moving the map.
+
+![OpenRadar radar workspace](assets/screenshots/openradar-main.png)
+
+The app is being rebuilt as a free desktop tool with no ads or paid feature gates. This first release establishes the navigation, radar timeline, map and layer controls, presets, tools, forecast surface, and readable settings storage.
+
+## What works
+
+- Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
+- A live two-hour composite radar loop with pause, scrub, speed, and opacity controls
+- Seven map styles, layer controls, saved views, dual pane, draw, range, and point inspection tools
+- Place search, map-centered forecasts, local GeoJSON import, shareable camera links, dark and light themes
+- Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
+
+## Run it
+
+Requirements: Node.js 22 or newer, Rust 1.85 or newer, and the platform requirements for Tauri 2.
+
+```powershell
+npm install
+npm run tauri dev
+```
+
+For a browser preview:
+
+```powershell
+npm run dev
+```
+
+## Build an installer
+
+```powershell
+npm run tauri build -- --bundles nsis
+```
+
+The Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+
+The v0.1.0 installer was exercised with a silent install and uninstall. It is not Authenticode-signed because no code-signing certificate is configured on the build machine.
+
+## Data and map credits
+
+- Basemap data comes from OpenStreetMap through OpenFreeMap.
+- The initial radar loop uses RainViewer's public Weather Maps API. OpenRadar shows its attribution in the map.
+- NOAA radar, NWS alerts, forecasts, and tropical products are planned as first-party operational sources.
+
+OpenRadar v0.1.0 is an early working release. It is not an official source for warnings or life-safety decisions.
