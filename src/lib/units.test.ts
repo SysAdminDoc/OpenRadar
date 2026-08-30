@@ -4,6 +4,7 @@ import { setLanguage } from "../i18n";
 import {
   distanceSlider,
   distanceUnit,
+  milesFromDistance,
   distanceValue,
   forecastUnits,
   formatClock,
@@ -158,6 +159,8 @@ describe("the units the workspace reads in", () => {
     const imperial = distanceSlider(5, 200);
     expect(imperial).toEqual({ min: 5, max: 200, step: 5 });
     expect((imperial.max - imperial.min) % imperial.step).toBe(0);
+    // The ends of the imperial slider are the ends of the range itself.
+    expect(milesFromDistance(imperial.max)).toBe(200);
 
     setUnits("metric");
     const metric = distanceSlider(5, 200);
@@ -165,12 +168,18 @@ describe("the units the workspace reads in", () => {
     // Every stop is a round number of kilometres, the ends included.
     expect(metric.min % metric.step).toBe(0);
     expect(metric.max % metric.step).toBe(0);
-    // The top of the range is always reachable. The bottom lands on the
-    // nearest round stop, which for five miles is ten kilometres rather than
-    // the eight it converts to: a slider whose first stop is 8 is not a
-    // slider in round kilometres.
-    expect(metric.max).toBeGreaterThanOrEqual(distanceValue(200));
-    expect(Math.abs(metric.min - distanceValue(5))).toBeLessThan(metric.step);
+    // Every stop, the ends included, has to survive being stored. The value
+    // is kept in miles and clamped to five and two hundred, so a metric
+    // slider running to 330 had its top stop bounce back to 320 the moment it
+    // was dragged there: 330 km is 205 miles, and the setting does not hold
+    // that. Asserting the maximum merely covers the range is what let that
+    // through, so this walks the stops and puts each one through the clamp.
+    for (let stop = metric.min; stop <= metric.max; stop += metric.step) {
+      const stored = milesFromDistance(stop);
+      const clamped = Math.min(200, Math.max(5, stored));
+      expect(clamped, `${stop} km`).toBeCloseTo(stored, 6);
+      expect(Math.round(distanceValue(clamped)), `${stop} km back`).toBe(stop);
+    }
   });
 
   it("picks the step from the units and not from a translated word", () => {

@@ -80,10 +80,11 @@ export function RadarProductPanel({
   // What the cells mean for the reader, which is the whole point of drawing
   // them: not how many storms there are, but whether one is coming here.
   const soonest = watch.enabled
-    ? soonestArrival(stormCells.report, {
-        lon: watch.center[0],
-        lat: watch.center[1],
-      })
+    ? soonestArrival(
+        stormCells.report,
+        { lon: watch.center[0], lat: watch.center[1] },
+        clock,
+      )
     : null;
   // The map draws rotation as a red ring, which somebody reading the panel
   // rather than the map would never see.

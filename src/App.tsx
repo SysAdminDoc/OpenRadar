@@ -488,6 +488,9 @@ export default function App() {
         onFollowStorm={actions.followStorm}
         onCommand={runCommand}
         onClearPalette={clearPalette}
+        onAlertTypes={(alertTypes) =>
+          applySettings({ ...settingsRef.current, alertTypes })
+        }
         onSurgeCategory={(surgeCategory) =>
           applySettings({ ...settingsRef.current, surgeCategory })
         }

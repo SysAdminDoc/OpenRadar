@@ -8,6 +8,8 @@ import type { ClockZone, TextScale, UnitSystem } from "./units";
 
 export const APP_VERSION = "0.2.0";
 
+import { ALERT_TYPES, type AlertType } from "./alertTypes";
+
 export type ThemeMode = "dark" | "light";
 export type ProjectionMode = "mercator" | "globe";
 export type MapStyleId =
@@ -94,6 +96,11 @@ export interface LayerSettings {
 
 export interface WatchState {
   enabled: boolean;
+  /**
+   * A short tone when an alert reaches the watched place. Off until asked
+   * for: a weather app that makes a noise on its own is one people close.
+   */
+  sound: boolean;
   center: [number, number];
   radiusMiles: number;
   minSeverity: "extreme" | "severe" | "moderate" | "minor";
@@ -135,6 +142,13 @@ export interface AppSettings {
   /** Which hurricane the surge picture is about, when that layer is on. */
   surgeCategory: SurgeCategory;
   watch: WatchState;
+  /**
+   * Which kinds of alert to draw. Not part of the layer switches, which are
+   * all plain booleans and are treated as such by the command list and the
+   * layer panel. A kind missing from the record is drawn, so a kind added in
+   * a later build appears rather than arriving switched off.
+   */
+  alertTypes: Partial<Record<AlertType, boolean>>;
   presets: Array<PresetState | null>;
 }
 
@@ -193,10 +207,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   palette: null,
   surgeCategory: 3,
+  alertTypes: {},
   watch: {
     enabled: false,
     center: [-96.8, 32.78],
     radiusMiles: 30,
+    sound: false,
     minSeverity: "severe",
   },
   presets: [null, null, null, null],
@@ -278,6 +294,7 @@ function normalizeWatch(value: unknown): WatchState {
   const severity = String(raw.minSeverity);
   return {
     enabled: bool(raw.enabled, DEFAULT_SETTINGS.watch.enabled),
+    sound: bool(raw.sound, DEFAULT_SETTINGS.watch.sound),
     center: [
       finiteInRange(center[0], DEFAULT_SETTINGS.watch.center[0], -180, 180),
       finiteInRange(center[1], DEFAULT_SETTINGS.watch.center[1], -85, 85),
@@ -427,6 +444,26 @@ function normalizeThresholds(value: unknown): Record<string, number> {
   return out;
 }
 
+/**
+ * Which kinds of alert are switched off, with anything unrecognised dropped.
+ *
+ * Only the false entries are worth keeping: a kind nobody has touched is on,
+ * and storing every kind as true would mean a kind added later arrived
+ * switched off for everyone who had saved settings before it existed.
+ */
+function normalizeAlertTypes(
+  value: unknown,
+): Partial<Record<AlertType, boolean>> {
+  if (!value || typeof value !== "object") return {};
+  const out: Partial<Record<AlertType, boolean>> = {};
+  const known = new Set(ALERT_TYPES.map((kind) => kind.id));
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (!known.has(key as AlertType)) continue;
+    if (entry === false) out[key as AlertType] = false;
+  }
+  return out;
+}
+
 export function normalizeSettings(value: unknown): AppSettings {
   const raw =
     value && typeof value === "object" ? (value as Partial<AppSettings>) : {};
@@ -551,6 +588,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ? raw.surgeCategory
       : DEFAULT_SETTINGS.surgeCategory,
     watch: normalizeWatch(raw.watch),
+    alertTypes: normalizeAlertTypes(raw.alertTypes),
     presets,
   };
 }

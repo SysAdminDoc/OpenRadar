@@ -188,21 +188,24 @@ export function isMetric(): boolean {
 /**
  * A slider over a range given in miles, expressed in the reader's own units.
  *
- * The stops have to be round numbers in whatever is being read, and the
- * maximum has to be reachable: rounding the ends and then stepping between
- * them left a metric slider running 8, 18, 28 with 322 unreachable. So the
- * ends are moved to the nearest whole step instead. The bottom moves up
- * rather than to nothing, which is why five miles becomes ten kilometres and
- * not eight: a slider whose first stop is 8 is not one in round kilometres.
+ * The stops have to be round numbers in whatever is being read, and every one
+ * of them has to survive being stored. The range is given in miles and the
+ * stored value is clamped to it, so a metric slider running to 330 bounced
+ * its top stop back to 320 the moment it was dragged there: 330 km is 205
+ * miles and the setting only holds 200.
+ *
+ * So both ends move *inward* to a whole step. Five to two hundred miles
+ * becomes ten to three hundred and twenty kilometres, every stop of which is
+ * inside what the setting accepts and none of which moves under the reader.
  */
 export function distanceSlider(
   fromMiles: number,
   toMiles: number,
 ): { min: number; max: number; step: number } {
   const step = units === "metric" ? 10 : 5;
-  const min = Math.floor(distanceValue(fromMiles) / step) * step;
-  const max = Math.ceil(distanceValue(toMiles) / step) * step;
-  return { min: Math.max(step, min), max, step };
+  const min = Math.ceil(distanceValue(fromMiles) / step) * step;
+  const max = Math.floor(distanceValue(toMiles) / step) * step;
+  return { min: Math.max(step, min), max: Math.max(min, max), step };
 }
 
 export function distanceUnit(): string {

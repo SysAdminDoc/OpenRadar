@@ -36,6 +36,7 @@ import { TropicalPanel } from "../panels/TropicalPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
 import type { SurgeCategory } from "../lib/surge";
 import type { StormCellState } from "../hooks/useStormCells";
+import type { AlertType } from "../lib/alertTypes";
 
 interface PanelSurfacesProps {
   activeSurface: SurfaceId;
@@ -69,6 +70,7 @@ interface PanelSurfacesProps {
   onFollowStorm: (point: GeoPoint, name: string) => void;
   onCommand: (action: CommandAction) => void;
   onClearPalette: () => void;
+  onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   /** What the radar's tracking algorithm is following, for the radar panel. */
   stormCells: StormCellState;
   onSurgeCategory: (category: SurgeCategory) => void;
@@ -115,8 +117,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "layers" ? (
         <LayersPanel
           layers={settings.layers}
+          alertTypes={settings.alertTypes}
           surgeCategory={settings.surgeCategory}
           onLayers={props.onLayers}
+          onAlertTypes={props.onAlertTypes}
           onSurgeCategory={props.onSurgeCategory}
           onClose={onClose}
         />

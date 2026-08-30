@@ -65,35 +65,79 @@ export const CELLS_REFRESH_MS = 4 * 60_000;
 const MILES_TO_KM = 1.609344;
 
 /**
- * How long until a cell reaches a place, in minutes, or null when it never
- * will.
+ * How close a storm gets to a place, and when, or null when it never comes.
  *
- * The algorithm gives a bearing and a speed, so this is the component of that
- * motion pointing at the place divided into the distance. A storm moving away,
- * or across, has no arrival: reporting the time it would take if it turned
- * round would be inventing a forecast the algorithm did not make.
+ * The obvious sum is wrong. Dividing the whole distance by the part of the
+ * speed pointing at the place answers "when has it travelled that far along
+ * its own track", which for a storm forty kilometres away at forty-five
+ * degrees off says forty-seven minutes for something that is nearest at
+ * twenty-four and never gets closer than twenty-eight kilometres. The number
+ * somebody acts on has to be the moment of closest approach, and it is only
+ * worth saying at all if the storm actually gets near.
+ *
+ * The storm is treated as travelling in a straight line at a steady speed,
+ * which is what the algorithm's own forecast positions assume.
+ */
+export interface Approach {
+  /** Minutes from the moment the volume was taken. */
+  minutes: number;
+  /** How near it gets, in kilometres. */
+  distanceKm: number;
+}
+
+export function closestApproach(
+  cell: StormCell,
+  place: GeoPoint,
+): Approach | null {
+  if (cell.directionDegrees === null || cell.speedMs === null) return null;
+  if (!Number.isFinite(cell.speedMs) || cell.speedMs <= 0) return null;
+  if (!Number.isFinite(cell.directionDegrees)) return null;
+
+  const from: GeoPoint = { lat: cell.latitude, lon: cell.longitude };
+  const distanceKm = haversineMiles(from, place) * MILES_TO_KM;
+  const bearing = bearingDegrees(from, place);
+  // How far off the storm's heading the place is.
+  const apart =
+    (((cell.directionDegrees - bearing + 540) % 360) - 180) * (Math.PI / 180);
+
+  // Distance along the storm's track to the point nearest the place, and how
+  // far off the track that point lies. Behind the storm means it is going
+  // away, and there is nothing to say.
+  const alongKm = distanceKm * Math.cos(apart);
+  if (alongKm <= 0) return null;
+  const offKm = Math.abs(distanceKm * Math.sin(apart));
+
+  const speedKmMin = (cell.speedMs * 60) / 1000;
+  return { minutes: alongKm / speedKmMin, distanceKm: offKm };
+}
+
+/**
+ * How long until a cell reaches a place, in minutes, or null when it does not.
+ *
+ * "Near" is a radius rather than an angle. A storm passing four kilometres
+ * away at sixty-one degrees off is coming to you; one passing eighty-eight
+ * kilometres away at fifty-nine degrees is not, and an angle cannot tell them
+ * apart at two different distances.
  */
 export function minutesUntilArrival(
   cell: StormCell,
   place: GeoPoint,
+  nearKm = NEAR_KM,
 ): number | null {
-  if (cell.directionDegrees === null || cell.speedMs === null) return null;
-  if (cell.speedMs <= 0) return null;
-
-  const from: GeoPoint = { lat: cell.latitude, lon: cell.longitude };
-  const distanceKm = haversineMiles(from, place) * MILES_TO_KM;
-  // Already there.
-  if (distanceKm < 1) return 0;
-
-  const bearing = bearingDegrees(from, place);
-  const apart = ((cell.directionDegrees - bearing + 540) % 360) - 180;
-  // More than sixty degrees off and it is going past rather than coming.
-  if (Math.abs(apart) > 60) return null;
-
-  const closingMs = cell.speedMs * Math.cos((apart * Math.PI) / 180);
-  if (closingMs <= 0) return null;
-  return (distanceKm * 1000) / closingMs / 60;
+  const approach = closestApproach(cell, place);
+  if (!approach) return null;
+  if (approach.distanceKm > nearKm) return null;
+  return Math.max(0, approach.minutes);
 }
+
+/**
+ * How near a storm has to pass to be worth telling somebody about.
+ *
+ * Twenty kilometres is about the width of a severe storm's damaging core plus
+ * the error in an hour-old track. Wider and every storm in the county is
+ * "coming"; narrower and one that hits the next town over goes unmentioned.
+ */
+export const NEAR_KM = 20;
 
 /** The compass bearing from one place to another. */
 export function bearingDegrees(from: GeoPoint, to: GeoPoint): number {
@@ -116,35 +160,82 @@ export function bearingDegrees(from: GeoPoint, to: GeoPoint): number {
 export function soonestArrival(
   report: CellReport | null,
   place: GeoPoint | null,
+  /** Now, so the age of the volume comes off the answer. */
+  clock: number = Date.now(),
 ): { cell: StormCell; minutes: number } | null {
   if (!report || !place) return null;
+
+  // The cells describe where things were when the volume was taken, and a
+  // volume is minutes old by the time anybody reads it. Printing "in twelve
+  // minutes" from a picture taken eight minutes ago is eight minutes late,
+  // which on a storm this is about is the whole margin.
+  const observed = Date.parse(report.observed);
+  const ageMinutes = Number.isFinite(observed)
+    ? Math.max(0, (clock - observed) / 60_000)
+    : 0;
+
   let best: { cell: StormCell; minutes: number } | null = null;
   for (const cell of report.cells) {
     const minutes = minutesUntilArrival(cell, place);
     if (minutes === null) continue;
-    if (!best || minutes < best.minutes) best = { cell, minutes };
+    const fromNow = Math.max(0, minutes - ageMinutes);
+    if (!best || fromNow < best.minutes) best = { cell, minutes: fromNow };
   }
   return best;
 }
+
+/**
+ * How far a rotation may sit from a cell and still be that storm's.
+ *
+ * The circulation's own radius is added, because a wide one genuinely reaches
+ * further from the point the algorithm put it at. Fifteen kilometres of slack
+ * on top is a squall line's spacing, which is the case this has to get right:
+ * cells ten kilometres apart, and picking the nearest alone credits the
+ * rotation to whichever centroid happens to be marginally closer.
+ */
+const ROTATION_REACH_KM = 15;
 
 /** Which cells have a rotation sitting on them, by cell id. */
 export function rotatingCells(report: CellReport): Set<string> {
   const out = new Set<string>();
   for (const rotation of report.mesocyclones) {
-    let nearest: { id: string; km: number } | null = null;
+    const reach = ROTATION_REACH_KM + rotation.radiusKm;
+    // Every cell it could belong to, not only the nearest: two storms ten
+    // kilometres apart can both be inside one circulation's reach, and
+    // saying so is more honest than picking one by a hundred metres.
     for (const cell of report.cells) {
       const km =
         haversineMiles(
           { lat: cell.latitude, lon: cell.longitude },
           { lat: rotation.latitude, lon: rotation.longitude },
         ) * MILES_TO_KM;
-      if (!nearest || km < nearest.km) nearest = { id: cell.id, km };
+      if (km <= reach) out.add(cell.id);
     }
-    // A circulation belongs to the storm it is inside, not to whichever cell
-    // happens to be closest across the county.
-    if (nearest && nearest.km <= 15) out.add(nearest.id);
   }
   return out;
+}
+
+/**
+ * The rotations that belong to no tracked cell.
+ *
+ * They exist: the mesocyclone product is published on its own schedule and the
+ * tracking algorithm does not find every storm a circulation sits in. Dropping
+ * them silently meant a radar reporting six mesocyclones and a panel saying it
+ * was not tracking any storms.
+ */
+export function unmatchedRotations(report: CellReport): Mesocyclone[] {
+  return report.mesocyclones.filter((rotation) => {
+    const reach = ROTATION_REACH_KM + rotation.radiusKm;
+    return !report.cells.some(
+      (cell) =>
+        haversineMiles(
+          { lat: cell.latitude, lon: cell.longitude },
+          { lat: rotation.latitude, lon: rotation.longitude },
+        ) *
+          MILES_TO_KM <=
+        reach,
+    );
+  });
 }
 
 /** The cells and their tracks, as the map draws them. */
@@ -200,5 +291,22 @@ export function cellFeatures(
       });
     }
   }
+  // A circulation the tracking algorithm found no storm for is still a
+  // circulation, and it is drawn where it is rather than left off.
+  for (const rotation of unmatchedRotations(report)) {
+    features.push({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [rotation.longitude, rotation.latitude],
+      },
+      properties: {
+        kind: "rotation",
+        id: rotation.kind,
+        radiusKm: rotation.radiusKm,
+      },
+    });
+  }
+
   return { type: "FeatureCollection", features };
 }

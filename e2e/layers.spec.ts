@@ -61,7 +61,12 @@ for (const layer of LAYERS) {
     const stack = new RegExp(layer.layerId);
 
     await page.getByRole("button", { name: "Layers", exact: true }).click();
-    const toggle = page.getByRole("checkbox", { name: layer.label });
+    // Scoped to the layer switches. The alert kinds below them are also
+    // checkboxes in this panel, and one of them is called Tropical too, so a
+    // name on its own now matches two different things.
+    const toggle = page
+      .locator(".setting-list")
+      .getByRole("checkbox", { name: layer.label });
 
     if (layer.onByDefault) {
       await expect(pane).toHaveAttribute("data-layer-stack", stack);
@@ -329,4 +334,52 @@ test("shows what people on the ground reported, under the warnings", async ({
   expect(stack.indexOf("openradar-overlay-stormReports-points")).toBeLessThan(
     stack.indexOf("openradar-overlay-alerts-fill"),
   );
+});
+
+test("switching a kind of alert off takes it out of what is drawn", async ({
+  page,
+}) => {
+  // The fixture serves one Tornado Warning, so the switch it belongs under is
+  // the one that has to move it and none of the others.
+  //
+  // What is checked is the panel rather than the layer list, because the layer
+  // stays and draws nothing: an empty source is still a source, and every
+  // overlay here works that way. The panel lists exactly what the map has been
+  // given, so it is the honest place to see the filter working.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /alerts-fill/);
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByText("Tornado Warning")).toBeVisible();
+  await page.getByRole("button", { name: "Close Alerts" }).click();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  // A kind nobody has touched is on.
+  const tornado = page.getByRole("checkbox", { name: "Tornado", exact: true });
+  await expect(tornado).toBeChecked();
+
+  // Switching off a kind this alert is not, leaves it alone.
+  await page.getByRole("checkbox", { name: "Flood", exact: true }).uncheck();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByText("Tornado Warning")).toBeVisible();
+  await page.getByRole("button", { name: "Close Alerts" }).click();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await tornado.uncheck();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByText("Tornado Warning")).toHaveCount(0);
+  await expect(page.getByText("No active alerts in view")).toBeVisible();
+  await page.getByRole("button", { name: "Close Alerts" }).click();
+
+  // And back again straight away, without waiting on the service.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Tornado", exact: true }).check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByText("Tornado Warning")).toBeVisible();
 });

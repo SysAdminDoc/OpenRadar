@@ -434,9 +434,11 @@ fn read_motion(lines: &[String]) -> BTreeMap<String, Motion> {
 /// movement in a different column for every row.
 fn tidy_row(line: &str) -> String {
     let mut out = String::with_capacity(line.len());
-    let mut chars = line.replace("NO DATA", "NODATA").chars().collect::<Vec<char>>();
+    let mut chars = line
+        .replace("NO DATA", "NODATA")
+        .chars()
+        .collect::<Vec<char>>();
     chars.reverse();
-    let mut pending: Vec<char> = Vec::new();
     while let Some(character) = chars.pop() {
         if character == '/' {
             // Drop the spaces on either side of the slash, so the pair is one
@@ -452,7 +454,6 @@ fn tidy_row(line: &str) -> String {
         }
         out.push(character);
     }
-    pending.clear();
     out
 }
 
@@ -534,9 +535,16 @@ pub fn read_storm_cells(bytes: &[u8], station: &str) -> Result<CellReport, Level
                     }
                 }
                 15 => {
-                    let id = String::from_utf8_lossy(&packet.payload[4..])
-                        .trim()
-                        .to_string();
+                    // A length field is four bytes of position and then the
+                    // name. A product claiming a shorter one is not a product
+                    // this can read, and slicing it anyway takes the process
+                    // down: this runs inside a command, and a panic there
+                    // leaves the caller waiting on a promise that never
+                    // settles either way.
+                    let Some(name) = packet.payload.get(4..) else {
+                        continue;
+                    };
+                    let id = String::from_utf8_lossy(name).trim().to_string();
                     if is_cell_id(&id) {
                         building.id = Some(id);
                     }
@@ -586,12 +594,26 @@ pub fn read_storm_cells(bytes: &[u8], station: &str) -> Result<CellReport, Level
 /// What the mesocyclone algorithm calls each kind of thing it finds.
 fn point_feature(kind: u16) -> Option<&'static str> {
     match kind {
-        1 | 3 => Some("mesocyclone"),
+        // One to four are circulations and carry a radius; five to eight are
+        // vortex signatures and do not. Two and four were being dropped, which
+        // is a rotation the radar found and the map never showed.
+        1..=4 => Some("mesocyclone"),
         5 | 7 => Some("tornado vortex signature"),
         6 | 8 => Some("elevated tornado vortex signature"),
         9 | 10 => Some("mesocyclone"),
         11 => Some("weak mesocyclone"),
         _ => None,
+    }
+}
+
+/// How wide a circulation the attribute describes, in kilometres.
+///
+/// It is a radius in quarter kilometres for a circulation and carries no
+/// radius at all for a vortex signature, which is a point.
+fn feature_radius_km(kind: u16, attribute: u16) -> f64 {
+    match kind {
+        1..=4 | 9..=11 => attribute as f64 * QUARTER_KM,
+        _ => 0.0,
     }
 }
 
@@ -615,26 +637,47 @@ pub fn read_mesocyclones(bytes: &[u8]) -> Result<Vec<Mesocyclone>, Level3Error> 
         if packet.code != 20 {
             continue;
         }
-        let (Some(i), Some(j)) = (i16_at(packet.payload, 0), i16_at(packet.payload, 2)) else {
-            continue;
-        };
-        let Some(kind) = u16_at(packet.payload, 4).and_then(point_feature) else {
-            continue;
-        };
-        // The attribute is a radius in quarter kilometres for a circulation
-        // and carries no radius for a vortex signature.
-        let radius_km = u16_at(packet.payload, 6)
-            .map(|raw| raw as f64 * QUARTER_KM)
-            .unwrap_or(0.0);
-        let (latitude, longitude, _, _) = place(site, i, j);
-        out.push(Mesocyclone {
-            latitude,
-            longitude,
-            radius_km,
-            kind,
-        });
+        // A point feature packet holds as many features as its length allows,
+        // eight bytes each. Reading only the first meant a site with three
+        // circulations in one packet showed one, which the products in hand
+        // happen not to do and a busier day certainly would.
+        let mut cursor = 0;
+        while cursor + 8 <= packet.payload.len() {
+            let feature = &packet.payload[cursor..cursor + 8];
+            cursor += 8;
+            let (Some(i), Some(j)) = (i16_at(feature, 0), i16_at(feature, 2)) else {
+                continue;
+            };
+            let Some(raw) = u16_at(feature, 4) else {
+                continue;
+            };
+            let Some(kind) = point_feature(raw) else {
+                continue;
+            };
+            let radius_km =
+                feature_radius_km(raw, u16_at(feature, 6).unwrap_or(0));
+            let (latitude, longitude, _, _) = place(site, i, j);
+            out.push(Mesocyclone {
+                latitude,
+                longitude,
+                radius_km,
+                kind,
+            });
+        }
     }
     Ok(out)
+}
+
+/// How far apart two products' volume times may be and still be one volume.
+///
+/// A scan is four to six minutes, so anything inside two is the same one.
+const SAME_VOLUME_SECONDS: i64 = 120;
+
+/// When the volume a product describes was taken.
+fn volume_time_of(bytes: &[u8]) -> Result<DateTime<Utc>, Level3Error> {
+    let start = message_start(bytes)
+        .ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
+    Ok(read_description(&bytes[start..])?.volume_time)
 }
 
 /// The newest key for one site and product, from the bucket's own listing.
@@ -679,15 +722,29 @@ pub async fn level3_cells(station: String) -> Result<CellReport, Level3Error> {
         return Err(Level3Error::NoProduct(station, "storm tracking".into()));
     };
     let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}")).await?;
+    let description_time = volume_time_of(&bytes)?;
     let mut report = read_storm_cells(&bytes, &station)?;
 
-    // The rotations are a second product. A site with none publishes a
-    // hundred and fifty bytes of header, so this is cheap, and a failure here
-    // is not a reason to lose the cells.
+    // The rotations are a second product from the same volume, and the two are
+    // published separately, so the newest of each can be a scan apart. A storm
+    // moves six kilometres in five minutes, against the fifteen the page uses
+    // to decide which storm a rotation belongs to, so a pair from different
+    // volumes puts circulations on the wrong storms. They are only used when
+    // the two agree about which volume they describe.
+    //
+    // A failure here is not a reason to lose the cells: the cells are what the
+    // map is mostly about, and a site with no rotation publishes a hundred and
+    // fifty bytes of header.
     if let Ok(Some(key)) = newest_key(&site, "NMD").await {
         if let Ok(bytes) = http::get_bytes(&format!("https://{BUCKET}/{key}")).await {
-            if let Ok(found) = read_mesocyclones(&bytes) {
-                report.mesocyclones = found;
+            if let (Ok(found), Ok(when)) =
+                (read_mesocyclones(&bytes), volume_time_of(&bytes))
+            {
+                if (when - description_time).num_seconds().abs()
+                    <= SAME_VOLUME_SECONDS
+                {
+                    report.mesocyclones = found;
+                }
             }
         }
     }
@@ -795,7 +852,12 @@ mod tests {
 
         let mut checked = 0;
         for line in &lines {
-            let words: Vec<&str> = line.split_whitespace().collect();
+            // Through the same tidying the motion parse uses. Splitting the
+            // raw line turned "93/ 34" into two words and skipped the row,
+            // which quietly dropped every cell inside a hundred miles: twelve
+            // of thirty-four, all of them the near ones.
+            let tidied = tidy_row(line);
+            let words: Vec<&str> = tidied.split_whitespace().collect();
             let Some(id) = words.first() else { continue };
             if !is_cell_id(id) {
                 continue;
@@ -822,7 +884,10 @@ mod tests {
             );
             checked += 1;
         }
-        assert!(checked >= 5, "only {checked} cells could be cross-checked");
+        assert!(
+            checked >= 30,
+            "only {checked} of the product's own rows could be cross-checked"
+        );
     }
 
     #[test]
@@ -885,6 +950,95 @@ mod tests {
         }
     }
 
+    /// A product carrying one symbology packet, built by hand.
+    ///
+    /// The real products in hand happen to write one feature per packet, so a
+    /// packet holding several can only be checked by making one.
+    fn product_with_packet(code: u16, payload: &[u8]) -> Vec<u8> {
+        let start = message_start(NMD).expect("a header");
+        let mut out = NMD[..start].to_vec();
+        let mut msg = NMD[start..start + MESSAGE_HEADER + DESCRIPTION_BLOCK].to_vec();
+        // The symbology block begins right after the description, which is
+        // sixty halfwords in.
+        let symbology_at = MESSAGE_HEADER + DESCRIPTION_BLOCK;
+        msg[MESSAGE_HEADER + 90..MESSAGE_HEADER + 94]
+            .copy_from_slice(&((symbology_at as i32) / 2).to_be_bytes());
+        // No graphic or tabular block.
+        msg[MESSAGE_HEADER + 94..MESSAGE_HEADER + 98].copy_from_slice(&0i32.to_be_bytes());
+        msg[MESSAGE_HEADER + 98..MESSAGE_HEADER + 102].copy_from_slice(&0i32.to_be_bytes());
+
+        let packet_len = payload.len() as u16;
+        let layer_len = 4 + payload.len() as i32;
+        msg.extend_from_slice(&(-1i16).to_be_bytes());
+        msg.extend_from_slice(&1i16.to_be_bytes());
+        msg.extend_from_slice(&(10 + 6 + layer_len).to_be_bytes());
+        msg.extend_from_slice(&1i16.to_be_bytes());
+        msg.extend_from_slice(&(-1i16).to_be_bytes());
+        msg.extend_from_slice(&layer_len.to_be_bytes());
+        msg.extend_from_slice(&code.to_be_bytes());
+        msg.extend_from_slice(&packet_len.to_be_bytes());
+        msg.extend_from_slice(payload);
+
+        let length = msg.len() as i32;
+        msg[8..12].copy_from_slice(&length.to_be_bytes());
+        out.extend_from_slice(&msg);
+        out
+    }
+
+    #[test]
+    fn every_rotation_in_a_packet_is_read_and_not_only_the_first() {
+        // A point feature packet holds as many features as its length allows.
+        // Reading only the first showed one circulation where the radar had
+        // found three, which is the difference between one storm to watch and
+        // a line of them.
+        let mut payload = Vec::new();
+        for (i, j, kind, attribute) in [
+            (100i16, 200i16, 3u16, 8u16),
+            (-300, 400, 3, 12),
+            (500, -600, 7, 0),
+        ] {
+            payload.extend_from_slice(&i.to_be_bytes());
+            payload.extend_from_slice(&j.to_be_bytes());
+            payload.extend_from_slice(&kind.to_be_bytes());
+            payload.extend_from_slice(&attribute.to_be_bytes());
+        }
+        let found =
+            read_mesocyclones(&product_with_packet(20, &payload)).expect("decodes");
+        assert_eq!(found.len(), 3, "three features in one packet");
+        assert_eq!(found[0].kind, "mesocyclone");
+        assert!((found[0].radius_km - 2.0).abs() < 0.01, "eight quarters");
+        assert!((found[1].radius_km - 3.0).abs() < 0.01);
+        // A vortex signature is a point and carries no radius.
+        assert_eq!(found[2].kind, "tornado vortex signature");
+        assert_eq!(found[2].radius_km, 0.0);
+    }
+
+    #[test]
+    fn every_kind_of_circulation_the_document_names_is_read() {
+        // Two and four were being dropped, which is a rotation the radar found
+        // and the map never showed.
+        for kind in 1u16..=11 {
+            let mut payload = Vec::new();
+            payload.extend_from_slice(&0i16.to_be_bytes());
+            payload.extend_from_slice(&0i16.to_be_bytes());
+            payload.extend_from_slice(&kind.to_be_bytes());
+            payload.extend_from_slice(&8u16.to_be_bytes());
+            let found =
+                read_mesocyclones(&product_with_packet(20, &payload)).expect("decodes");
+            assert_eq!(found.len(), 1, "feature type {kind} was dropped");
+        }
+        // And something the document does not name is left alone rather than
+        // drawn as a circulation nobody reported.
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&0i16.to_be_bytes());
+        payload.extend_from_slice(&0i16.to_be_bytes());
+        payload.extend_from_slice(&99u16.to_be_bytes());
+        payload.extend_from_slice(&8u16.to_be_bytes());
+        assert!(read_mesocyclones(&product_with_packet(20, &payload))
+            .expect("decodes")
+            .is_empty());
+    }
+
     #[test]
     fn a_product_with_nothing_in_it_is_not_an_error() {
         // A site with no rotation publishes a header and stops: a hundred and
@@ -897,6 +1051,67 @@ mod tests {
         let start = message_start(QUIET).expect("a header");
         let description = read_description(&QUIET[start..]).expect("a description");
         assert_eq!(description.symbology, None);
+    }
+
+    #[test]
+    fn no_corruption_of_a_real_product_can_take_the_process_down() {
+        // This runs inside a command. A panic there does not become an error
+        // the caller can see: the promise never settles either way, so the
+        // panel sits reading forever and asks again four minutes later.
+        //
+        // One byte was enough. Setting the low half of any storm id packet's
+        // length field to zero made the decoder slice past the end of a
+        // payload it had just been told was empty, and there are eighty-eight
+        // such bytes in this one file.
+        for product in [NST, NMD, QUIET] {
+            for at in 0..product.len() {
+                for byte in [0x00u8, 0x01, 0x7f, 0xff] {
+                    let mut broken = product.to_vec();
+                    broken[at] = byte;
+                    // Both readers, since they walk different packets.
+                    let _ = read_storm_cells(&broken, "KTLX");
+                    let _ = read_mesocyclones(&broken);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_product_that_stops_in_the_middle_is_refused_rather_than_fatal() {
+        // Every length a truncated download could leave behind.
+        for product in [NST, NMD] {
+            for length in 0..product.len() {
+                let _ = read_storm_cells(&product[..length], "KTLX");
+                let _ = read_mesocyclones(&product[..length]);
+            }
+        }
+    }
+
+    #[test]
+    fn a_product_whose_offsets_point_anywhere_is_refused_rather_than_fatal() {
+        // The block offsets are the decoder's only instructions about where
+        // to look, and they arrive from the network.
+        let start = message_start(NST).expect("a header");
+        for offset in [
+            0i32,
+            1,
+            -1,
+            60,
+            100,
+            1000,
+            100_000,
+            0x4000_0000,
+            i32::MAX,
+            i32::MIN,
+        ] {
+            for field in [90usize, 94, 98] {
+                let mut broken = NST.to_vec();
+                let at = start + MESSAGE_HEADER + field;
+                broken[at..at + 4].copy_from_slice(&offset.to_be_bytes());
+                let _ = read_storm_cells(&broken, "KTLX");
+                let _ = read_mesocyclones(&broken);
+            }
+        }
     }
 
     #[test]
