@@ -39,14 +39,26 @@ export const ALERT_TYPES: Array<{ id: AlertType; key: StringKey }> = [
  */
 export function alertType(prodType: string): AlertType {
   const name = prodType.toLowerCase();
-  if (name.includes("tornado") || name.includes("dust storm")) return "tornado";
+
+  // Highest first, and by hazard rather than by wording. A product that can
+  // kill somebody in the next ten minutes must not sit behind a switch nobody
+  // would think to look under: a tsunami is not a flood to anybody deciding
+  // whether to leave, and the eyewall wind of a hurricane is not a
+  // thunderstorm.
   if (
-    name.includes("flood") ||
-    name.includes("seiche") ||
-    name.includes("tsunami")
+    name.includes("tornado") ||
+    name.includes("tsunami") ||
+    name.includes("extreme wind") ||
+    name.includes("civil danger") ||
+    name.includes("evacuation") ||
+    name.includes("shelter in place") ||
+    name.includes("radiological") ||
+    name.includes("hazardous materials") ||
+    name.includes("nuclear")
   ) {
-    return "flood";
+    return "tornado";
   }
+
   if (
     name.includes("hurricane") ||
     name.includes("tropical") ||
@@ -55,21 +67,36 @@ export function alertType(prodType: string): AlertType {
   ) {
     return "tropical";
   }
+
+  if (
+    name.includes("flood") ||
+    name.includes("seiche") ||
+    name.includes("dam break") ||
+    name.includes("high surf") ||
+    name.includes("rip current") ||
+    name.includes("coastal flood") ||
+    name.includes("lakeshore flood")
+  ) {
+    return "flood";
+  }
+
   if (
     name.includes("winter") ||
     name.includes("snow") ||
-    name.includes("ice") ||
     name.includes("blizzard") ||
-    name.includes("freeze") ||
+    name.includes("ice storm") ||
+    name.includes("sleet") ||
+    // "freezing" rather than "freeze", or Freezing Rain and Freezing Fog fall
+    // through to the bottom of the list. Both are the reason people crash.
+    name.includes("freez") ||
     name.includes("frost") ||
     name.includes("wind chill") ||
-    name.includes("cold")
+    name.includes("cold") ||
+    name.includes("avalanche")
   ) {
     return "winter";
   }
-  // "Red Flag Warning" is the commonest fire product and carries neither
-  // word, which is exactly the sort of thing that puts an alert in the wrong
-  // group and hides it behind a switch nobody thought they had touched.
+
   if (
     name.includes("fire") ||
     name.includes("smoke") ||
@@ -77,14 +104,20 @@ export function alertType(prodType: string): AlertType {
   ) {
     return "fire";
   }
+
   if (name.includes("heat")) return "heat";
+
   if (
     name.includes("thunderstorm") ||
     name.includes("wind") ||
     name.includes("squall") ||
-    name.includes("hail")
+    name.includes("hail") ||
+    // Blowing dust and a dust storm are the same hazard and belong together.
+    name.includes("dust") ||
+    name.includes("marine")
   ) {
     return "thunderstorm";
   }
+
   return "other";
 }

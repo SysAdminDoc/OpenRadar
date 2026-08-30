@@ -27,6 +27,63 @@ const FIELDS =
  */
 const ALERT_FEED = "https://api.weather.gov/alerts/active?status=actual";
 
+/**
+ * The tags from the last read, and when they were read.
+ *
+ * The feed is a megabyte and a half of every active alert in the country,
+ * unpaginated, and it is asked for beside every bounds-limited polygon query:
+ * on the overlay's own minute, on the watch's forty-five seconds, and on every
+ * pan past the padded bounds. Reading it once a minute and sharing the answer
+ * is the difference between that and a few megabytes a minute of somebody
+ * else's bandwidth for a handful of tags.
+ */
+const TAG_TTL_MS = 60_000;
+let cachedTags: { at: number; tags: Map<string, AlertTags> } | null = null;
+let inFlight: Promise<Map<string, AlertTags>> | null = null;
+
+/**
+ * The tags this build has, without ever waiting for them.
+ *
+ * A read is started when what is held has gone stale, and whatever is held
+ * right now is returned: at worst a minute old, which is nothing against a
+ * warning that runs for half an hour. Waiting would put a megabyte and a half
+ * of somebody else's bandwidth in front of the polygons, and the polygons are
+ * what the map draws.
+ *
+ * Nothing here ever rejects. A warning with no tag is an ordinary warning,
+ * which is most of them.
+ */
+function alertTags(signal?: AbortSignal): Map<string, AlertTags> {
+  const now = Date.now();
+  const held = cachedTags?.tags ?? new Map<string, AlertTags>();
+  if (cachedTags && now - cachedTags.at < TAG_TTL_MS) return held;
+  // One read at a time. Two overlays and a watch asking at once would be three
+  // copies of the same megabyte and a half.
+  if (inFlight) return held;
+
+  inFlight = fetch(cachedUrl(ALERT_FEED), {
+    signal,
+    headers: { Accept: "application/geo+json" },
+  })
+    .then(async (answer) => {
+      if (!answer.ok) throw new Error(String(answer.status));
+      const tags = parseAlertTags(await answer.json());
+      cachedTags = { at: Date.now(), tags };
+      return tags;
+    })
+    .catch(() => cachedTags?.tags ?? new Map<string, AlertTags>())
+    .finally(() => {
+      inFlight = null;
+    });
+  return held;
+}
+
+/** Forgets the last read, so a test does not carry one between cases. */
+export function resetAlertTags() {
+  cachedTags = null;
+  inFlight = null;
+}
+
 /** How much damage the office said to expect, when they said anything. */
 export type ImpactTag = "considerable" | "destructive" | "catastrophic";
 
@@ -261,25 +318,17 @@ export const alertsOverlay: OverlayAdapter = {
       resultRecordCount: "300",
       f: "geojson",
     });
-    // The polygons and the tags are asked for together. A warning with no
-    // tag is an ordinary warning, which is most of them, so losing the tag
-    // feed must not lose the alerts: the map is the thing people act on.
-    const [response, tagged] = await Promise.all([
-      fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
-        signal,
-        headers: { Accept: "application/json" },
-      }),
-      fetch(cachedUrl(ALERT_FEED), {
-        signal,
-        headers: { Accept: "application/geo+json" },
-      })
-        .then((answer) => (answer.ok ? answer.json() : null))
-        .catch(() => null),
-    ]);
+    // The tags this build already has, and a read started for the next pass
+    // if they have gone stale. Nothing about the tags holds up the polygons.
+    const tagged = alertTags(signal);
+    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
+      signal,
+      headers: { Accept: "application/json" },
+    });
     if (!response.ok) {
       throw new Error(`NWS alerts returned ${response.status}.`);
     }
-    return parseAlerts(await response.json(), parseAlertTags(tagged));
+    return parseAlerts(await response.json(), tagged);
   },
   layers: (sourceId) => [
     {

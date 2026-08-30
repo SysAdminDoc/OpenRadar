@@ -995,7 +995,11 @@ mod tests {
         for (i, j, kind, attribute) in [
             (100i16, 200i16, 3u16, 8u16),
             (-300, 400, 3, 12),
-            (500, -600, 7, 0),
+            // A non-zero attribute, so the guard that gives a vortex
+            // signature no radius is doing something the test can see: with a
+            // zero here, multiplying by the scale gives zero whether the guard
+            // is there or not.
+            (500, -600, 7, 24),
         ] {
             payload.extend_from_slice(&i.to_be_bytes());
             payload.extend_from_slice(&j.to_be_bytes());
@@ -1172,6 +1176,40 @@ mod tests {
             current > 0,
             "{answered} sites answered but none within the last ninety minutes,              which means the listing is finding old keys rather than new ones"
         );
+    }
+
+    #[test]
+    fn rotations_are_only_used_when_they_describe_the_same_volume() {
+        // The two products are published separately, so the newest of each can
+        // be a scan apart. A storm moves six kilometres in five minutes,
+        // against the fifteen the page uses to decide which storm a rotation
+        // belongs to, so a mismatched pair puts circulations on the wrong
+        // storms. The gate that stops that had nothing checking it in either
+        // direction: widening it to forever and closing it to never both left
+        // every test green.
+        let scan = Duration::seconds(SAME_VOLUME_SECONDS);
+        let same = Duration::seconds(SAME_VOLUME_SECONDS - 1);
+        let apart = Duration::seconds(SAME_VOLUME_SECONDS + 1);
+
+        let base = Utc.with_ymd_and_hms(2026, 8, 30, 22, 13, 22).unwrap();
+        let close = |other: DateTime<Utc>| {
+            (other - base).num_seconds().abs() <= SAME_VOLUME_SECONDS
+        };
+
+        assert!(close(base), "a product is the same volume as itself");
+        assert!(close(base + same), "one second inside is the same volume");
+        assert!(close(base - same), "and in the other direction");
+        assert!(close(base + scan), "the edge counts as the same volume");
+        assert!(!close(base + apart), "a second past the edge is not");
+        assert!(!close(base - apart), "and in the other direction");
+
+        // And the constant itself has to be shorter than a scan, or the gate
+        // would accept the neighbouring volume it exists to reject.
+        assert!(
+            SAME_VOLUME_SECONDS < 240,
+            "a volume scan is four to six minutes, so {SAME_VOLUME_SECONDS}              seconds would let the next one through"
+        );
+        assert!(SAME_VOLUME_SECONDS > 0, "a gate of nothing accepts nothing");
     }
 
     #[test]

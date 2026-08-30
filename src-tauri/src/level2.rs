@@ -2431,6 +2431,26 @@ mod tests {
         // be compared with the seam that was there before anything was planted.
         let planted_edge_reference = chosen.field.clone();
 
+        // Unfolding the sweep as the radar gave it, with nothing planted, must
+        // never leave it more broken than it was. That is the claim that does
+        // not depend on the day, and it has to be measured here rather than
+        // after the wedge goes in: planting a fold across a quarter of the
+        // sweep puts a seam along both its edges that region growing cannot
+        // always close, so the count afterwards is about the planting rather
+        // than about the algorithm.
+        {
+            let mut untouched_copy = chosen.field.clone();
+            unfold_velocity(&mut untouched_copy, nyquist);
+            let (after_alone, _) = fold_jumps(&untouched_copy, nyquist);
+            println!(
+                "the sweep on its own: {untouched} folds before, {after_alone} after"
+            );
+            assert!(
+                after_alone <= untouched,
+                "unfolding the sweep as it arrived made it worse:                  {untouched} folds became {after_alone}"
+            );
+        }
+
         let planted = fold_a_wedge(&mut chosen.field, nyquist);
         assert!(
             planted.len() > 1_000,
@@ -2480,6 +2500,48 @@ mod tests {
             "nyquist {nyquist:.1} m/s, {untouched} natural folds, {} planted,              sweep moved {common} intervals, {rejoined} of the wedge came with it,              the sweep counted as unfolded: {unfolded}, {after} jumps of {pairs} pairs"
         , planted.len());
 
+        // Everything below this counts discontinuities, and a field of one
+        // constant value is perfectly continuous: a dealiaser that threw the
+        // readings away and wrote zeros everywhere would score perfectly on
+        // every one of them. So first, the one thing unfolding is allowed to
+        // do at all. It may move a reading by a whole number of intervals and
+        // by nothing else, because that is what a fold is; any other change is
+        // the algorithm inventing a measurement.
+        let interval_now = 2.0 * nyquist;
+        let mut invented = 0usize;
+        let mut moved_gates = 0usize;
+        for azimuth in 0..azimuths {
+            for gate in 0..gates {
+                let (now, status) = chosen.field.get(azimuth, gate);
+                if !matches!(status, GateStatus::Valid) {
+                    continue;
+                }
+                let started = before[azimuth * gates + gate];
+                // What the wedge was planted as, for the gates inside it.
+                let started = if wedge.contains(&(azimuth, gate)) {
+                    started - interval_now
+                } else {
+                    started
+                };
+                let steps = (now - started) / interval_now;
+                if (steps - steps.round()).abs() > 0.01 {
+                    invented += 1;
+                }
+                if steps.round() != 0.0 {
+                    moved_gates += 1;
+                }
+            }
+        }
+        assert_eq!(
+            invented, 0,
+            "{invented} gates came back at a value the radar never measured,              which is not an unfolding at all"
+        );
+        assert!(
+            moved_gates > planted.len() / 2,
+            "only {moved_gates} gates moved, against {} planted: nothing was              unfolded and the measures below would all read perfectly",
+            planted.len()
+        );
+
         // Most of the wedge has to come back with the rest of the sweep. Not
         // all of it: a patch with no boundary to anything outside itself
         // cannot be placed, because boundaries are the only thing the
@@ -2518,9 +2580,12 @@ mod tests {
             "seam along the wedge: {seam_after} jumps of {seam_pairs} pairs,              against {seam_before} before it was planted"
         );
 
+        // With the wedge in, what has to hold is that the wedge came back, not
+        // that the total improved: the seam it leaves along its own edges is
+        // the planting's doing rather than the algorithm's.
         assert!(
-            after <= untouched,
-            "the sweep arrived with {untouched} folds and came out with {after}"
+            after < untouched + planted.len() / 4,
+            "the sweep arrived with {untouched} folds and came out with {after},              which is more than the planted wedge could account for"
         );
         let share = after as f64 / pairs as f64;
         assert!(
