@@ -4,7 +4,10 @@
 //! A request issued here bypasses it entirely, so this allowlist is the real
 //! boundary and every native fetch has to come through it.
 
+use std::sync::OnceLock;
 use std::time::Duration;
+
+use crate::cache;
 
 use reqwest::redirect::Policy;
 use reqwest::{Client, Url};
@@ -91,6 +94,17 @@ fn user_agent() -> String {
     )
 }
 
+/// One client for the whole process. Tiles arrive in bursts of a dozen or
+/// more, and a client built per request opens a new connection for every one
+/// of them.
+pub fn shared_client() -> Result<&'static Client, HttpError> {
+    static SHARED: OnceLock<Option<Client>> = OnceLock::new();
+    SHARED
+        .get_or_init(|| client().ok())
+        .as_ref()
+        .ok_or(HttpError::BadUrl)
+}
+
 pub fn client() -> Result<Client, HttpError> {
     let policy =
         Policy::custom(
@@ -109,7 +123,31 @@ pub fn client() -> Result<Client, HttpError> {
 
 /// The only way to fetch bytes from Rust. Callers pass a host they own, never
 /// an address handed over from the frontend.
+///
+/// What comes back is kept on disk, and a fetch that fails falls back to what
+/// was kept. Every one of these addresses names a published file that does not
+/// change once it exists, so the copy is either the same bytes or a picture of
+/// an older moment, which the timeline already dates for the user.
 pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
+    match fetch_bytes(url).await {
+        Ok(body) => {
+            cache::put(url, "application/octet-stream", &body);
+            Ok(body)
+        }
+        Err(error) => match cache::get(url) {
+            Some(held) => {
+                log::info!(
+                    "OpenRadar read {url} from its cache, {} s old: {error}",
+                    held.age.as_secs()
+                );
+                Ok(held.body)
+            }
+            None => Err(error),
+        },
+    }
+}
+
+async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
     if !is_allowed(&parsed) {
         return Err(HttpError::HostNotAllowed(
@@ -117,7 +155,7 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
         ));
     }
 
-    let response = client()?.get(parsed).send().await?;
+    let response = shared_client()?.get(parsed).send().await?;
     // A refused redirect comes back as the 3xx itself, which error_for_status
     // treats as success. Saying so beats handing back an empty body.
     if response.status().is_redirection() {
@@ -137,6 +175,39 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     Ok(body.to_vec())
 }
 
+/// The same fetch, keeping the content type, because bytes handed to a webview
+/// have to say what they are.
+pub async fn get_typed(url: &str) -> Result<(Vec<u8>, String), HttpError> {
+    let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
+    if !is_allowed(&parsed) {
+        return Err(HttpError::HostNotAllowed(
+            parsed.host_str().unwrap_or(url).to_string(),
+        ));
+    }
+
+    let response = shared_client()?.get(parsed).send().await?;
+    if response.status().is_redirection() {
+        return Err(HttpError::RedirectRefused);
+    }
+    let response = response.error_for_status()?;
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+    if let Some(length) = response.content_length() {
+        if length as usize > MAX_BODY_BYTES {
+            return Err(HttpError::TooLarge);
+        }
+    }
+    let body = response.bytes().await?;
+    if body.len() > MAX_BODY_BYTES {
+        return Err(HttpError::TooLarge);
+    }
+    Ok((body.to_vec(), content_type))
+}
+
 /// A byte range of a file, which is how one field is read out of a GRIB2
 /// file without downloading the four hundred megabytes around it.
 pub async fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, HttpError> {
@@ -150,7 +221,7 @@ pub async fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, HttpE
         return Err(HttpError::TooLarge);
     }
 
-    let response = client()?
+    let response = shared_client()?
         .get(parsed)
         .header("Range", format!("bytes={start}-{end}"))
         .send()

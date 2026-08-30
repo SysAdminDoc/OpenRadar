@@ -16,6 +16,7 @@ import {
   type OverlayData,
   type OverlayId,
 } from "../lib/overlays";
+import { cachedUrl } from "../lib/tileCache";
 import { log } from "../lib/log";
 import {
   SATELLITE_ATTRIBUTION,
@@ -1065,7 +1066,9 @@ function MapViewportInner(
       maxZoom: 15,
       attributionControl: false,
       canvasContextAttributes: { preserveDrawingBuffer: true },
-      transformRequest: (url) => ({ url: guardRadarRequest(url) }),
+      // Guarded first, so a request the budget refuses is never fetched at
+      // all, and then routed through the cache so it survives going offline.
+      transformRequest: (url) => ({ url: cachedUrl(guardRadarRequest(url)) }),
     });
     mapRef.current = map;
     map.setMissingStyleImageResolver((id) => {

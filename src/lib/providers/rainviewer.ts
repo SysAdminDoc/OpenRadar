@@ -1,4 +1,5 @@
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
+import { cachedUrl } from "../tileCache";
 
 interface RainViewerPayload {
   host?: unknown;
@@ -74,7 +75,7 @@ export const rainviewerProvider: RadarProvider = {
   discoveryBudgetLimit: 10,
   budgetWindowMs: 60_000,
   fetchFrames: async (loopMinutes, signal) => {
-    const response = await fetch(DISCOVERY_URL, {
+    const response = await fetch(cachedUrl(DISCOVERY_URL), {
       signal,
       headers: { Accept: "application/json" },
       cache: "no-store",

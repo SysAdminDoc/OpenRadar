@@ -32,6 +32,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Storm history: every Atlantic and eastern Pacific cyclone since 1851, with its best track drawn by intensity, and archive radar replay of the ones since 2003
 - GRLevelX `.pal` colour tables applied to the locally decoded radar, with the legend rebuilt from the table
 - Place search, map-centered forecasts, local GeoJSON and GRLevelX placefile import, shareable camera links, dark and light themes
+- An offline last view: tiles, radar frames, and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and says how old it is
 - Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
 
 ## Run it

@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Open it with no network and the map is still a map. Tiles, radar frames, and alert polygons are kept on disk as they arrive, and when a request fails the last copy is served instead. The timeline says "Showing the last view" with the age of the frames rather than passing them off as live, and the first refresh that gets through puts it back on live radar. The cache holds a few hundred megabytes and drops the oldest first.
+
 - A wind layer, animated. Sixty-five thousand particles follow the GFS wind at ten metres, on the flat map and on the globe, with a banner saying which model run they came from and how old it is. Turn it on in Layers. If your device is set to show less movement it stays off and says so, because animation for its own sake is exactly what that setting is about.
 
 - Load a GRLevelX `.pal` colour table and the radar is drawn with it. Drop one on the Upload panel and it colours the single-site sweep and the MRMS products, which are the ones OpenRadar decodes itself and so the ones a palette has raw values to act on. The scale beside the map is rebuilt from the table's own stops, so the bar you read is the bar the map was painted with. It says how many colours it found, what the table is for, and what it skipped. Clearing it puts the built-in ramp back.

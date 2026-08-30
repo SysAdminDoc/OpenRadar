@@ -1,4 +1,5 @@
 import type { RadarFrame } from "./types";
+import { cachedUrl } from "../tileCache";
 
 export const HRRR_HOST = "mesonet.agron.iastate.edu";
 const RUN_URL = `https://${HRRR_HOST}/data/gis/images/4326/hrrr/refd_1080.json`;
@@ -33,7 +34,7 @@ export function parseHrrrRun(payload: unknown): HrrrRun | null {
 }
 
 export async function fetchHrrrRun(signal?: AbortSignal): Promise<HrrrRun> {
-  const response = await fetch(RUN_URL, {
+  const response = await fetch(cachedUrl(RUN_URL), {
     signal,
     headers: { Accept: "application/json" },
     cache: "no-store",

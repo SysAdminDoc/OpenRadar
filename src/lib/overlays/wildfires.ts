@@ -6,6 +6,7 @@ import {
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
+import { cachedUrl } from "../tileCache";
 
 const SERVICE =
   "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query";
@@ -75,7 +76,7 @@ export const wildfiresOverlay: OverlayAdapter = {
       resultRecordCount: "200",
       f: "geojson",
     });
-    const response = await fetch(`${SERVICE}?${query.toString()}`, {
+    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
       signal,
       headers: { Accept: "application/json" },
     });

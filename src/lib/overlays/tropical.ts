@@ -4,6 +4,7 @@ import {
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
+import { cachedUrl } from "../tileCache";
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer";
@@ -139,7 +140,7 @@ export const tropicalOverlay: OverlayAdapter = {
         });
         if (layer.orderBy) query.set("orderByFields", layer.orderBy);
         const response = await fetch(
-          `${SERVICE}/${layer.id}/query?${query.toString()}`,
+          cachedUrl(`${SERVICE}/${layer.id}/query?${query.toString()}`),
           { signal, headers: { Accept: "application/json" } },
         );
         if (!response.ok) {

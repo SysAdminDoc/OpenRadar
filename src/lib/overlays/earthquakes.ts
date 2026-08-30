@@ -4,6 +4,7 @@ import {
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
+import { cachedUrl } from "../tileCache";
 
 const FEED =
   "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
@@ -60,7 +61,7 @@ export const earthquakesOverlay: OverlayAdapter = {
   global: true,
   // The summary feed is worldwide and small, so the viewport does not filter it.
   fetchData: async (_bounds, signal) => {
-    const response = await fetch(FEED, {
+    const response = await fetch(cachedUrl(FEED), {
       signal,
       headers: { Accept: "application/json" },
     });
