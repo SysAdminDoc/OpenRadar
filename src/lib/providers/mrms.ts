@@ -81,6 +81,24 @@ export function frameLimit(loopMinutes: number): number {
   return Math.max(5, Math.min(60, Math.ceil(loopMinutes / 2)));
 }
 
+/**
+ * Every frame is a fifty megabyte grid to decode, so a two-hour loop at the
+ * full two-minute cadence would be sixty of them. The loop is thinned to span
+ * the same window in coarser steps, and the newest frame is always kept: how
+ * old the picture is matters, how finely the past is sliced does not.
+ */
+export const MAX_LOOP_FRAMES = 20;
+
+export function thinFrames<T>(frames: T[], most = MAX_LOOP_FRAMES): T[] {
+  if (frames.length <= most || most < 1) return frames;
+  const step = Math.ceil(frames.length / most);
+  const kept: T[] = [];
+  // Counting back from the newest keeps it, whatever the step works out to.
+  for (let at = frames.length - 1; at >= 0; at -= step)
+    kept.unshift(frames[at]);
+  return kept;
+}
+
 export const mrmsProvider: RadarProvider = {
   id: "mrms",
   label: "NOAA MRMS",
@@ -101,7 +119,7 @@ export const mrmsProvider: RadarProvider = {
       mrmsFrames("composite", frameLimit(loopMinutes)),
     ]);
     return withinLoop(
-      frames.map((frame): RadarFrame => ({
+      thinFrames(frames).map((frame): RadarFrame => ({
         providerId: "mrms",
         time: frame.time,
         tileUrl: tileUrl(root, "composite", frame.time),

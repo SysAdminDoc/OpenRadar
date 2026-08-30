@@ -168,10 +168,24 @@ export function useRadarTimeline(options: {
       : (archive?.focusTime ?? null);
 
   // What a refresh needs to know without re-subscribing on every change.
-  const liveRef = useRef({ selected, playing, center, forecast, observed });
+  const liveRef = useRef({
+    selected,
+    playing,
+    center,
+    forecast,
+    observed,
+    replayId,
+  });
   useEffect(() => {
-    liveRef.current = { selected, playing, center, forecast, observed };
-  }, [center, forecast, observed, playing, selected]);
+    liveRef.current = {
+      selected,
+      playing,
+      center,
+      forecast,
+      observed,
+      replayId,
+    };
+  }, [center, forecast, observed, playing, replayId, selected]);
 
   useEffect(() => {
     if (!ready) return;
@@ -203,7 +217,13 @@ export function useRadarTimeline(options: {
         setSource(timeline.provider);
         setError(null);
         setObserved(timeline.frames);
-        setSelection({ time: kept, replay: null });
+        // A refresh only ever decides where the live loop should sit. While a
+        // replay is up it must leave the playhead alone: writing to the live
+        // selection would make the replay's own selection look stale and throw
+        // the viewer back to the moment they started from.
+        setSelection((current) =>
+          live.replayId === null ? { time: kept, replay: null } : current,
+        );
       } catch (failure) {
         if (
           !mounted ||

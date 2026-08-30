@@ -45,6 +45,7 @@ interface PanelSurfacesProps {
   log: LogEntry[];
   exportState: ExportState;
   singleSite: SingleSiteState | null;
+  clock: number;
   update: UpdateState;
   onUpdate: (() => void) | null;
   historyStormId: string | null;
@@ -185,6 +186,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
         <RadarProductPanel
           radar={settings.radar}
           singleSite={props.singleSite}
+          clock={props.clock}
           onRadar={props.onRadar}
           onClose={props.onCloseProduct}
         />

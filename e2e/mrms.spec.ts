@@ -100,7 +100,10 @@ test("leads with the MRMS grid rather than the mosaic", async ({ page }) => {
 
   // The timeline credits MRMS, not RIDGE, and the frames are its two-minute
   // grids rather than the mosaic's.
-  await expect(page.getByText(/of 60 radar frames · NOAA MRMS/)).toBeVisible();
+  // Sixty two-minute grids span the two-hour loop, and twenty of them are
+  // drawn: each is a fifty megabyte decode, and six-minute steps show the
+  // same weather.
+  await expect(page.getByText(/of 20 radar frames · NOAA MRMS/)).toBeVisible();
 
   await expect.poll(() => tiles.length, { timeout: 15_000 }).toBeGreaterThan(0);
   // Every tile names the product and the moment it belongs to.

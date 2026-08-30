@@ -29,11 +29,15 @@ const skipBuild = process.argv.includes("--skip-build");
 function run(command, args, options = {}) {
   // npm and gh are batch files on Windows, which execFile cannot start.
   const viaShell = /^(npm|npx|gh)$/.test(command);
-  return execFileSync(viaShell ? "cmd" : command, viaShell ? ["/c", command, ...args] : args, {
-    cwd: root,
-    stdio: "inherit",
-    ...options,
-  });
+  return execFileSync(
+    viaShell ? "cmd" : command,
+    viaShell ? ["/c", command, ...args] : args,
+    {
+      cwd: root,
+      stdio: "inherit",
+      ...options,
+    },
+  );
 }
 
 const conf = JSON.parse(
@@ -45,7 +49,7 @@ const tag = `v${version}`;
 if (!fs.existsSync(keyPath)) {
   console.error(
     `No updater signing key at ${keyPath}.\n` +
-      "Generate one with: npx tauri signer generate --ci --password \"\" --write-keys " +
+      'Generate one with: npx tauri signer generate --ci --password "" --write-keys ' +
       keyPath,
   );
   process.exit(1);
@@ -54,14 +58,7 @@ if (!fs.existsSync(keyPath)) {
 if (!skipBuild) {
   console.log(`Building OpenRadar ${tag}`);
   run("npm", ["run", "check"]);
-  run("npm", [
-    "run",
-    "tauri",
-    "--",
-    "build",
-    "--bundles",
-    "nsis",
-  ], {
+  run("npm", ["run", "tauri", "--", "build", "--bundles", "nsis"], {
     env: {
       ...process.env,
       // The CLI wants the key itself, not a path to it.

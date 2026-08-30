@@ -59,6 +59,9 @@ impl Serialize for Level2Error {
 pub struct SweepImage {
     pub station: String,
     pub site_name: String,
+    /// The product that was asked for, so a caller can tell whether the sweep
+    /// in hand is an answer to the question it is asking now.
+    pub product_id: String,
     pub product: String,
     pub unit: String,
     pub elevation_degrees: f32,
@@ -319,15 +322,27 @@ pub fn tilts(scan: &Scan) -> Vec<f32> {
     angles
 }
 
+/// A sweep chosen to draw: the field, the elevation it was cut at, and when
+/// it was actually collected.
+pub struct ChosenSweep {
+    pub field: SweepField,
+    pub elevation_degrees: f32,
+    pub collected: Option<DateTime<Utc>>,
+}
+
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
 /// list falls back to the lowest, which is the one a viewer wants by default.
-pub fn sweep_field(scan: &Scan, product: Product, tilt_index: usize) -> Option<(SweepField, f32)> {
+///
+/// A volume holds more than one cut at the same elevation: split cuts for
+/// reflectivity and velocity, and under MESO-SAILS four separate looks at the
+/// lowest tilt spread over five minutes. The one to draw is the one that
+/// carries the product at the finest resolution, and of those the latest,
+/// because the point of the extra looks is to see what just happened.
+pub fn sweep_field(scan: &Scan, product: Product, tilt_index: usize) -> Option<ChosenSweep> {
     let angles = tilts(scan);
     let wanted = *angles.get(tilt_index).or_else(|| angles.first())?;
 
-    // Several sweeps can share an elevation (SAILS cuts, split cuts). The one
-    // that carries the product is the one to draw, and the newest of those wins.
-    let mut best: Option<(SweepField, f32)> = None;
+    let mut best: Option<ChosenSweep> = None;
     for sweep in scan.sweeps() {
         let Some(angle) = sweep.elevation_angle_degrees() else {
             continue;
@@ -335,10 +350,22 @@ pub fn sweep_field(scan: &Scan, product: Product, tilt_index: usize) -> Option<(
         if ((angle * 100.0).round() / 100.0 - wanted).abs() > 0.01 {
             continue;
         }
-        if let Some(field) = SweepField::from_radials(sweep.radials(), product) {
-            if best.is_none() || field.gate_count() > best.as_ref().unwrap().0.gate_count() {
-                best = Some((field, angle));
+        let Some(field) = SweepField::from_radials(sweep.radials(), product) else {
+            continue;
+        };
+        let collected = sweep.time_range().map(|(start, _)| start);
+        let better = match &best {
+            None => true,
+            Some(held) => {
+                (field.gate_count(), collected) > (held.field.gate_count(), held.collected)
             }
+        };
+        if better {
+            best = Some(ChosenSweep {
+                field,
+                elevation_degrees: angle,
+                collected,
+            });
         }
     }
     best
@@ -464,7 +491,7 @@ pub fn sweep_from_volume(
         .scan()
         .map_err(|error| Level2Error::Decode(error.to_string()))?;
 
-    let (field, elevation) = sweep_field(&scan, product, tilt_index)
+    let chosen = sweep_field(&scan, product, tilt_index)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
 
     // The volume carries its own site position; the registry is only the
@@ -476,24 +503,28 @@ pub fn sweep_from_volume(
     let site = site.ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
     let coordinates = RadarCoordinateSystem::new(&site);
 
-    let (pixels, [west, south, east, north]) = render_sweep(&field, &coordinates, product);
+    let (pixels, [west, south, east, north]) = render_sweep(&chosen.field, &coordinates, product);
     let png_bytes = encode_png(&pixels)?;
 
-    let collected = scan
-        .time_range()
-        .map(|(start, _)| start)
+    // The sweep's own time, not the volume's: under MESO-SAILS the lowest tilt
+    // is cut four times across five minutes, and saying which one is on screen
+    // is the difference between a current picture and a stale one.
+    let collected = chosen
+        .collected
+        .or_else(|| scan.time_range().map(|(start, _)| start))
         .or_else(|| key_time(volume_key))
         .unwrap_or_else(Utc::now);
 
     let entry = registry::site_by_id(station);
     Ok(SweepImage {
         station: station.to_string(),
+        product_id: product_name.to_string(),
         site_name: entry
             .map(|site| format!("{}, {}", site.city, site.state))
             .unwrap_or_else(|| station.to_string()),
         product: label.to_string(),
         unit: unit.to_string(),
-        elevation_degrees: (elevation * 100.0).round() / 100.0,
+        elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts(&scan),
         tilt_index,
         collected: collected.to_rfc3339(),
@@ -576,15 +607,28 @@ mod tests {
     /// A volume is nine megabytes or so. Four of them held as they arrived is
     /// a fraction of the budget; four of them decoded would not be, which is
     /// why the cache keeps the bytes and decodes on demand.
+    /// The roadmap's budget is 512 MB with four volumes cached. A volume as
+    /// it arrives is about nine megabytes, so the cache is a rounding error
+    /// against that; what would breach it is caching decoded scans instead,
+    /// which is why this holds the bytes and decodes on demand.
+    const BUDGET_BYTES: usize = 512 * 1024 * 1024;
+    /// Comfortably larger than any volume the archive publishes.
+    const LARGEST_VOLUME_BYTES: usize = 32 * 1024 * 1024;
+
+    /// The worst case the cache can ever be in, checked when the crate is
+    /// compiled rather than when the tests are run: a capacity or a limit that
+    /// breaks the budget should not build at all.
+    const _: () = assert!(CACHE_CAPACITY * LARGEST_VOLUME_BYTES < BUDGET_BYTES);
+
     #[test]
     fn holds_four_volumes_and_no_more() {
         clear_cache();
+
         let volume = vec![0u8; 10 * 1024 * 1024];
         for index in 0..7 {
             remember(&format!("KDMX/{index}"), &volume);
         }
-        assert_eq!(cached_bytes(), 4 * volume.len());
-        assert!(cached_bytes() < 512 * 1024 * 1024);
+        assert_eq!(cached_bytes(), CACHE_CAPACITY * volume.len());
 
         // The oldest went first, and the newest is still there.
         assert!(cached("KDMX/0").is_none());
@@ -722,6 +766,7 @@ mod tests {
         let drawn = drawing.elapsed();
 
         assert_eq!(sweep.station, "KDMX");
+        assert_eq!(sweep.product_id, "reflectivity");
         assert_eq!(sweep.unit, "dBZ");
         // The lowest surveillance cut is half a degree.
         assert!(
@@ -752,7 +797,7 @@ mod tests {
             let scan = file.scan().expect("the volume decodes");
             sweep_field(&scan, Product::Reflectivity, 0)
                 .expect("a sweep")
-                .0
+                .field
         };
         let (pixels, _) = render_sweep(&field, &coordinates, Product::Reflectivity);
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
@@ -796,6 +841,7 @@ mod tests {
         // Velocity comes off the same volume, so the second product is free.
         let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1)
             .expect("a Doppler cut should decode");
+        assert_eq!(velocity.product_id, "velocity");
         assert_eq!(velocity.unit, "m/s");
         assert!(velocity.elevation_degrees >= sweep.elevation_degrees);
 

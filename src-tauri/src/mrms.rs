@@ -16,9 +16,13 @@ use serde::Serialize;
 use crate::http;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
-/// The whole grid decoded as scaled integers is about fifty megabytes, so the
-/// cache is small on purpose.
-const CACHE_CAPACITY: usize = 3;
+/// The whole grid decoded as scaled integers is about fifty megabytes, so only
+/// a couple are ever held. Drawn tiles are what the loop replays from.
+const CACHE_CAPACITY: usize = 2;
+/// A drawn tile is a few kilobytes, so thousands of them cost less than one
+/// grid. This is what makes a loop replay cheap: the second pass over a frame
+/// never decodes anything.
+const TILE_CACHE_CAPACITY: usize = 3_000;
 const TILE_SIZE: usize = 256;
 /// Web Mercator only reaches this far, and MRMS stops well short of it anyway.
 #[cfg(test)]
@@ -50,6 +54,19 @@ impl Serialize for MrmsError {
     }
 }
 
+/// How a product's grid is put onto a tile.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Sampling {
+    /// One grid cell per pixel. Right for a field that covers the map, where
+    /// neighbouring cells are alike and a missed cell changes nothing.
+    Nearest,
+    /// Every cell in view painted, at least a pixel each. Rotation, hail, and
+    /// lightning are scattered single cells: a five-minute lightning grid can
+    /// have a couple of hundred live cells in twenty-four million, and asking
+    /// each pixel what is under its centre would draw an empty map.
+    Cells,
+}
+
 /// One MRMS product: where it lives in the bucket and how it is drawn.
 pub struct MrmsProduct {
     pub id: &'static str,
@@ -59,6 +76,7 @@ pub struct MrmsProduct {
     pub ramp: &'static [(f32, [u8; 3])],
     /// Values at or below this are not drawn at all.
     pub floor: f32,
+    pub sampling: Sampling,
 }
 
 /// The NWS reflectivity ramp, the same stops the legend gradient is drawn from.
@@ -102,6 +120,17 @@ const MESH_RAMP: &[(f32, [u8; 3])] = &[
     (100.0, [0xc0, 0x26, 0xd3]),
 ];
 
+/// Cloud-to-ground flashes per square kilometre per minute, over five
+/// minutes. Even a busy storm rarely passes four.
+const LIGHTNING_RAMP: &[(f32, [u8; 3])] = &[
+    (0.01, [0x38, 0xbd, 0xf8]),
+    (0.10, [0x4a, 0xde, 0x80]),
+    (0.50, [0xfa, 0xcc, 0x15]),
+    (1.00, [0xfb, 0x92, 0x3c]),
+    (2.00, [0xf4, 0x3f, 0x5e]),
+    (4.00, [0xc0, 0x26, 0xd3]),
+];
+
 pub const PRODUCTS: &[MrmsProduct] = &[
     MrmsProduct {
         id: "composite",
@@ -110,6 +139,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         unit: "dBZ",
         ramp: REFLECTIVITY_RAMP,
         floor: 5.0,
+        sampling: Sampling::Nearest,
     },
     MrmsProduct {
         id: "rotation",
@@ -118,6 +148,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         unit: "1/s",
         ramp: ROTATION_RAMP,
         floor: 0.002,
+        sampling: Sampling::Cells,
     },
     MrmsProduct {
         id: "mesh",
@@ -126,6 +157,16 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         unit: "mm",
         ramp: MESH_RAMP,
         floor: 6.0,
+        sampling: Sampling::Cells,
+    },
+    MrmsProduct {
+        id: "lightning",
+        folder: "NLDN_CG_005min_AvgDensity_00.00",
+        label: "Cloud-to-ground lightning, 5 min",
+        unit: "flashes/km2/min",
+        ramp: LIGHTNING_RAMP,
+        floor: 0.01,
+        sampling: Sampling::Cells,
     },
 ];
 
@@ -185,6 +226,46 @@ struct CachedGrid {
 }
 
 static CACHE: Mutex<VecDeque<CachedGrid>> = Mutex::new(VecDeque::new());
+
+struct CachedTile {
+    key: String,
+    bytes: Vec<u8>,
+}
+
+static TILES: Mutex<VecDeque<CachedTile>> = Mutex::new(VecDeque::new());
+
+/// Only one grid is fetched and decoded at a time. A screen of tiles all miss
+/// the cache at once, and without this every one of them would download and
+/// decode the same fifty megabytes.
+static DECODING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+fn tile_key(key: &str, zoom: u32, x: u32, y: u32) -> String {
+    format!("{key}|{zoom}/{x}/{y}")
+}
+
+fn cached_tile(key: &str) -> Option<Vec<u8>> {
+    let cache = TILES.lock().ok()?;
+    cache
+        .iter()
+        .find(|entry| entry.key == key)
+        .map(|entry| entry.bytes.clone())
+}
+
+fn remember_tile(key: String, bytes: &[u8]) {
+    let Ok(mut cache) = TILES.lock() else {
+        return;
+    };
+    if cache.iter().any(|entry| entry.key == key) {
+        return;
+    }
+    cache.push_back(CachedTile {
+        key,
+        bytes: bytes.to_vec(),
+    });
+    while cache.len() > TILE_CACHE_CAPACITY {
+        cache.pop_front();
+    }
+}
 
 fn ramp_color(ramp: &[(f32, [u8; 3])], value: f32) -> [u8; 3] {
     if value <= ramp[0].0 {
@@ -370,7 +451,7 @@ fn listing_url(folder: &str, day: DateTime<Utc>) -> String {
 pub fn key_time(key: &str) -> Option<i64> {
     let name = key.rsplit('/').next()?;
     let stamp = name.strip_suffix(".grib2.gz")?;
-    let stamp = &stamp[stamp.len().checked_sub(15)?..];
+    let stamp = stamp.get(stamp.len().checked_sub(15)?..)?;
     NaiveDateTime::parse_from_str(stamp, "%Y%m%d-%H%M%S")
         .ok()
         .map(|at| at.and_utc().timestamp())
@@ -415,10 +496,19 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
     let Some(key) = key_for(entry, time) else {
         return EMPTY_TILE.to_vec();
     };
+
+    // A frame that has been drawn once never decodes again, which is what
+    // makes replaying the loop cheap.
+    let drawn = tile_key(&key, zoom, x, y);
+    if let Some(bytes) = cached_tile(&drawn) {
+        return bytes;
+    }
     if grid_for(&key).await.is_err() {
         return EMPTY_TILE.to_vec();
     }
-    tile_from_cache(&key, entry, zoom, x, y).unwrap_or_else(|| EMPTY_TILE.to_vec())
+    let bytes = tile_from_cache(&key, entry, zoom, x, y).unwrap_or_else(|| EMPTY_TILE.to_vec());
+    remember_tile(drawn, &bytes);
+    bytes
 }
 
 pub fn frames_from_listing(listing: &str, limit: usize) -> Vec<MrmsFrame> {
@@ -521,6 +611,23 @@ fn mercator_y(latitude: f64) -> f64 {
         .ln()
 }
 
+/// The mercator y of a latitude, which the cell walk needs to place a row.
+fn mercator_of(latitude: f64) -> f64 {
+    let clamped = latitude.clamp(-85.051_129, 85.051_129);
+    (std::f64::consts::FRAC_PI_4 + clamped.to_radians() / 2.0)
+        .tan()
+        .ln()
+}
+
+/// The grid row a latitude falls in, which may be off either end.
+fn grid_row_of(grid: &Grid, latitude: f64) -> i64 {
+    ((grid.north - latitude) / grid.d_lat).floor() as i64
+}
+
+fn grid_column_of(grid: &Grid, longitude: f64) -> i64 {
+    ((longitude - grid.west) / grid.d_lon).floor() as i64
+}
+
 fn inverse_mercator_y(y: f64) -> f64 {
     (2.0 * y.exp().atan() - std::f64::consts::FRAC_PI_2).to_degrees()
 }
@@ -551,25 +658,85 @@ pub fn render_tile(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) 
 
     let mut pixels = vec![0u8; TILE_SIZE * TILE_SIZE * 4];
     let mut painted = false;
-    for row in 0..TILE_SIZE {
-        let mercator = top + (bottom - top) * ((row as f64 + 0.5) / TILE_SIZE as f64);
-        let latitude = inverse_mercator_y(mercator);
-        for column in 0..TILE_SIZE {
-            let longitude = left + (right - left) * ((column as f64 + 0.5) / TILE_SIZE as f64);
-            let Some((grid_row, grid_column)) = grid.locate(latitude, longitude) else {
-                continue;
-            };
-            let value = grid.value(grid_row, grid_column);
-            if !value.is_finite() || value < entry.floor {
-                continue;
+    let mut paint = |row: usize, column: usize, value: f32| {
+        let color = ramp_color(entry.ramp, value);
+        let at = (row * TILE_SIZE + column) * 4;
+        pixels[at] = color[0];
+        pixels[at + 1] = color[1];
+        pixels[at + 2] = color[2];
+        pixels[at + 3] = 235;
+        painted = true;
+    };
+
+    match entry.sampling {
+        Sampling::Nearest => {
+            for row in 0..TILE_SIZE {
+                let mercator = top + (bottom - top) * ((row as f64 + 0.5) / TILE_SIZE as f64);
+                let latitude = inverse_mercator_y(mercator);
+                for column in 0..TILE_SIZE {
+                    let longitude =
+                        left + (right - left) * ((column as f64 + 0.5) / TILE_SIZE as f64);
+                    let Some((grid_row, grid_column)) = grid.locate(latitude, longitude) else {
+                        continue;
+                    };
+                    let value = grid.value(grid_row, grid_column);
+                    if !value.is_finite() || value < entry.floor {
+                        continue;
+                    }
+                    paint(row, column, value);
+                }
             }
-            let color = ramp_color(entry.ramp, value);
-            let at = (row * TILE_SIZE + column) * 4;
-            pixels[at] = color[0];
-            pixels[at + 1] = color[1];
-            pixels[at + 2] = color[2];
-            pixels[at + 3] = 235;
-            painted = true;
+        }
+        Sampling::Cells => {
+            // The grid rows and columns this tile can see, so a tile over one
+            // state never walks the whole country.
+            let first_row = grid_row_of(grid, inverse_mercator_y(top)).max(0) as usize;
+            let last_row = grid_row_of(grid, inverse_mercator_y(bottom))
+                .min(grid.rows as i64 - 1)
+                .max(0) as usize;
+            let first_column = grid_column_of(grid, left).max(0) as usize;
+            let last_column = grid_column_of(grid, right)
+                .min(grid.columns as i64 - 1)
+                .max(0) as usize;
+            if first_row > last_row || first_column > last_column {
+                return None;
+            }
+
+            // Several cells can land on one pixel at a wide zoom, and the
+            // strongest of them is the one worth seeing.
+            let mut strongest = vec![f32::NEG_INFINITY; TILE_SIZE * TILE_SIZE];
+            for grid_row in first_row..=last_row {
+                let latitude = grid.north - grid.d_lat * grid_row as f64;
+                let mercator = mercator_of(latitude);
+                if mercator > top || mercator < bottom {
+                    continue;
+                }
+                let row = (((top - mercator) / (top - bottom)) * TILE_SIZE as f64) as usize;
+                if row >= TILE_SIZE {
+                    continue;
+                }
+                for grid_column in first_column..=last_column {
+                    let value = grid.value(grid_row, grid_column);
+                    if !value.is_finite() || value < entry.floor {
+                        continue;
+                    }
+                    let longitude = grid.west + grid.d_lon * grid_column as f64;
+                    let column =
+                        (((longitude - left) / (right - left)) * TILE_SIZE as f64) as usize;
+                    if column >= TILE_SIZE {
+                        continue;
+                    }
+                    let at = row * TILE_SIZE + column;
+                    if value > strongest[at] {
+                        strongest[at] = value;
+                    }
+                }
+            }
+            for (at, value) in strongest.iter().enumerate() {
+                if *value > f32::NEG_INFINITY {
+                    paint(at / TILE_SIZE, at % TILE_SIZE, *value);
+                }
+            }
         }
     }
 
@@ -604,21 +771,41 @@ pub const EMPTY_TILE: &[u8] = &[
     0x42, 0x60, 0x82,
 ];
 
-/// Fetches and decodes a grid, or hands back the one already in hand. The lock
-/// is held across the decode so a screen full of tiles decodes once, not once
-/// per tile.
-pub async fn grid_for(key: &str) -> Result<(), MrmsError> {
-    if CACHE
+#[cfg(test)]
+pub static FETCHES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+#[cfg(test)]
+pub static DECODES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn is_cached(key: &str) -> bool {
+    CACHE
         .lock()
         .map(|cache| cache.iter().any(|entry| entry.key == key))
         .unwrap_or(false)
-    {
+}
+
+/// Fetches and decodes a grid, or hands back the one already in hand.
+///
+/// A screen of tiles arrives as a dozen concurrent misses on the same grid, so
+/// the fetch and the decode are behind a gate and the cache is checked again on
+/// the other side of it. Without that, one screen downloads and decodes the
+/// same fifty megabytes a dozen times over.
+pub async fn grid_for(key: &str) -> Result<(), MrmsError> {
+    if is_cached(key) {
+        return Ok(());
+    }
+    let _gate = DECODING.lock().await;
+    // Whoever was ahead in the queue may have been fetching this very grid.
+    if is_cached(key) {
         return Ok(());
     }
 
+    #[cfg(test)]
+    FETCHES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let bytes = http::get_bytes(&format!("{BUCKET}/{key}")).await?;
     let owned = key.to_string();
     let grid = tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(test)]
+        DECODES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let plain = gunzip(&bytes)?;
         decode_grib(&plain)
     })
@@ -647,6 +834,25 @@ pub fn tile_from_cache(
     let cache = CACHE.lock().ok()?;
     let held = cache.iter().find(|held| held.key == key)?;
     render_tile(&held.grid, entry, zoom, x, y)
+}
+
+/// Drops the decoded grids but keeps the drawn tiles, so a test can prove a
+/// tile came from the tile cache rather than from a fresh decode.
+#[cfg(test)]
+pub fn clear_grid_cache() {
+    if let Ok(mut cache) = CACHE.lock() {
+        cache.clear();
+    }
+}
+
+#[cfg(test)]
+pub fn clear_caches() {
+    if let Ok(mut cache) = CACHE.lock() {
+        cache.clear();
+    }
+    if let Ok(mut cache) = TILES.lock() {
+        cache.clear();
+    }
 }
 
 #[cfg(test)]
@@ -848,14 +1054,15 @@ mod tests {
         let ocean = runtime.block_on(serve_tile(&format!("/composite/{time}/4/8/5.png")));
         assert_eq!(ocean, EMPTY_TILE);
 
-        // A request that is not a tile request is answered the same way, never
-        // with a panic or a file from somewhere else.
-        for path in [
-            "/../../../etc/passwd",
-            "/composite/0/4/3/5.png",
-            "/nonsense",
-            "",
-        ] {
+        // A moment nothing was published for is a real tile request for an
+        // object that does not exist, and the answer is an empty tile rather
+        // than an error the map would log for every corner of the country.
+        let missing = runtime.block_on(serve_tile("/composite/0/4/3/5.png"));
+        assert_eq!(missing, EMPTY_TILE);
+
+        // A request that is not a tile request at all is answered the same way,
+        // never with a panic or a file from somewhere else.
+        for path in ["/../../../etc/passwd", "/nonsense", ""] {
             let answer = runtime.block_on(serve_tile(path));
             assert_eq!(&answer[1..4], b"PNG", "{path} did not answer with a PNG");
         }
@@ -987,6 +1194,71 @@ mod tests {
         let mut wet = quiet;
         wet.samples = vec![10490, 10490, 10490, 10490];
         assert!(render_tile(&wet, entry, 4, 3, 5).is_some());
+    }
+
+    /// One screen is a dozen tiles arriving at once, all wanting the same
+    /// fifty megabyte grid. Live, because the cost being measured is a real
+    /// download and a real decode.
+    #[test]
+    #[ignore = "fetches a live grid from the MRMS archive"]
+    fn a_screen_of_tiles_pays_for_the_grid_once() {
+        use std::sync::atomic::Ordering;
+
+        clear_caches();
+        FETCHES.store(0, Ordering::Relaxed);
+        DECODES.store(0, Ordering::Relaxed);
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let frames = runtime
+            .block_on(mrms_frames("composite".into(), 1))
+            .expect("MRMS publishes grids");
+        let time = frames.last().expect("a frame").time;
+
+        // The tiles MapLibre asks for to cover the country at zoom four.
+        let wanted: Vec<String> = (2..=5)
+            .flat_map(|x| (5..=6).map(move |y| format!("/composite/{time}/4/{x}/{y}.png")))
+            .collect();
+        assert_eq!(wanted.len(), 8);
+
+        let started = std::time::Instant::now();
+        let tiles = runtime.block_on(async {
+            let mut work = Vec::new();
+            for path in wanted.clone() {
+                work.push(tauri::async_runtime::spawn(async move {
+                    serve_tile(&path).await
+                }));
+            }
+            let mut out = Vec::new();
+            for handle in work {
+                out.push(handle.await.expect("a tile"));
+            }
+            out
+        });
+        let took = started.elapsed();
+
+        let fetches = FETCHES.load(Ordering::Relaxed);
+        let decodes = DECODES.load(Ordering::Relaxed);
+        println!(
+            "{} tiles, {fetches} fetches, {decodes} decodes, {took:?}",
+            tiles.len()
+        );
+        assert_eq!(fetches, 1, "the grid was downloaded {fetches} times");
+        assert_eq!(decodes, 1, "the grid was decoded {decodes} times");
+        assert!(tiles.iter().all(|bytes| &bytes[1..4] == b"PNG"));
+
+        // Asking again is answered from the drawn tiles, with no grid at all.
+        clear_grid_cache();
+        let again = runtime.block_on(serve_tile(&wanted[0]));
+        assert_eq!(
+            FETCHES.load(Ordering::Relaxed),
+            1,
+            "a drawn tile was redrawn"
+        );
+        assert_eq!(again, tiles[0]);
     }
 
     #[test]

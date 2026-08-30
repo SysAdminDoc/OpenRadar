@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { frameLimit, mrmsProvider, tileUrl } from "./mrms";
+import {
+  MAX_LOOP_FRAMES,
+  frameLimit,
+  mrmsProvider,
+  thinFrames,
+  tileUrl,
+} from "./mrms";
 import { covers } from "./types";
 
 describe("MRMS tiles", () => {
@@ -40,5 +46,36 @@ describe("MRMS coverage", () => {
     // Tiles are drawn on this machine, so there is no public service to spare.
     expect(mrmsProvider.tileBudgetLimit).toBeGreaterThan(10_000);
     expect(mrmsProvider.discoveryBudgetLimit).toBeLessThan(100);
+  });
+});
+
+describe("thinning a long loop", () => {
+  const frames = Array.from({ length: 60 }, (_, index) => index);
+
+  it("keeps the newest frame whatever the step works out to", () => {
+    for (const most of [1, 3, 7, 20, 59]) {
+      expect(thinFrames(frames, most).at(-1)).toBe(59);
+    }
+  });
+
+  it("never returns more than it was asked for", () => {
+    for (const most of [1, 3, 7, 20, 59]) {
+      expect(thinFrames(frames, most).length).toBeLessThanOrEqual(most);
+    }
+  });
+
+  it("still spans the window rather than taking the newest few", () => {
+    const kept = thinFrames(frames, MAX_LOOP_FRAMES);
+    // Twenty frames out of sixty is one every six minutes across two hours.
+    expect(kept.length).toBe(20);
+    expect(kept[0]).toBe(2);
+    expect(kept[1] - kept[0]).toBe(3);
+    expect(kept).toEqual([...kept].sort((left, right) => left - right));
+  });
+
+  it("leaves a loop that already fits alone", () => {
+    const short = [1, 2, 3];
+    expect(thinFrames(short, 20)).toBe(short);
+    expect(thinFrames([], 20)).toEqual([]);
   });
 });

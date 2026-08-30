@@ -3,6 +3,7 @@ import { PanelShell } from "../components/PanelShell";
 import {
   LEVEL2_PRODUCTS,
   SINGLE_SITE_MIN_ZOOM,
+  sweepAgeMinutes,
   type Level2ProductId,
 } from "../lib/level2";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
@@ -10,14 +11,22 @@ import type { RadarSettings } from "../lib/settings";
 
 interface RadarProductPanelProps {
   radar: RadarSettings;
+  /** Milliseconds, ticking once a minute, for the freshness readout. */
+  clock: number;
   /** Null in a browser preview, where there is no native decoder to ask. */
   singleSite: SingleSiteState | null;
   onRadar: (radar: RadarSettings) => void;
   onClose: () => void;
 }
 
+function ageLabel(minutes: number): string {
+  if (minutes < 1) return "just in";
+  return `${minutes} min old`;
+}
+
 export function RadarProductPanel({
   radar,
+  clock,
   singleSite,
   onRadar,
   onClose,
@@ -107,12 +116,12 @@ export function RadarProductPanel({
               data-single-site={sweep?.station ?? ""}
             >
               <p className="source-note">
-                {sweep
-                  ? `${sweep.station} · ${sweep.siteName} · ${sweep.product} at ${sweep.elevationDegrees.toFixed(2)}°`
-                  : singleSite.loading
-                    ? `Reading the latest volume from ${singleSite.station ?? "the nearest site"}.`
-                    : singleSite.error
-                      ? singleSite.error
+                {singleSite.error
+                  ? singleSite.error
+                  : sweep
+                    ? `${sweep.station} · ${sweep.siteName} · ${sweep.product} at ${sweep.elevationDegrees.toFixed(2)}° · ${ageLabel(sweepAgeMinutes(sweep, clock))}`
+                    : singleSite.loading
+                      ? `Reading the latest volume from ${singleSite.station ?? "the nearest site"}.`
                       : `Zoom past ${SINGLE_SITE_MIN_ZOOM} over the United States to bring a site in.`}
               </p>
 

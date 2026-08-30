@@ -60,7 +60,9 @@ export function useSingleSiteRadar(options: {
     const [lon, lat] = near.split(",").map(Number);
     void nearestSite(lon, lat)
       .then((found) => {
-        if (open && found) setNearby(found);
+        // No answer means the view has moved outside every site's coverage.
+        // Keeping the last one would draw Iowa's radar over the Atlantic.
+        if (open) setNearby(found ?? null);
       })
       .catch((failure: unknown) => {
         if (!open) return;
@@ -102,6 +104,10 @@ export function useSingleSiteRadar(options: {
               ? failure.message
               : "The radar site did not answer.";
         log.warn("radar", `${station}: ${message}`);
+        // The previous sweep is a different product, tilt, or moment. Leaving
+        // it drawn under a label that now says something else is worse than
+        // handing the map back to the mosaic.
+        setSweep(null);
         setError(message);
       } finally {
         if (open && request === requestRef.current) setLoading(false);
@@ -123,9 +129,14 @@ export function useSingleSiteRadar(options: {
   }, [pageVisible, radar.product, radar.tilt, station, wanted]);
 
   return useMemo(() => {
-    // A sweep from the site or product the view has since left is not an
-    // answer to the question being asked now.
-    const current = wanted && sweep && sweep.station === station ? sweep : null;
+    // A sweep of a different site, product, or tilt is not an answer to the
+    // question being asked now, whatever it was an answer to before.
+    const asked =
+      sweep !== null &&
+      sweep.station === station &&
+      sweep.tiltIndex === radar.tilt &&
+      sweep.productId === radar.product;
+    const current = wanted && asked ? sweep : null;
     return {
       sweep: current,
       station: wanted ? station : null,
@@ -133,5 +144,5 @@ export function useSingleSiteRadar(options: {
       error: wanted ? error : null,
       active: Boolean(current),
     };
-  }, [error, loading, station, sweep, wanted]);
+  }, [error, loading, radar.product, radar.tilt, station, sweep, wanted]);
 }

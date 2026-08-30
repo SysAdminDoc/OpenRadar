@@ -11,6 +11,7 @@ import {
 const sweep: SweepImage = {
   station: "KDMX",
   siteName: "Des Moines, IA",
+  productId: "reflectivity",
   product: "Reflectivity",
   unit: "dBZ",
   elevationDegrees: 0.48,

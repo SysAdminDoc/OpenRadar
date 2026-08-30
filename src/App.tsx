@@ -31,7 +31,13 @@ import {
   subscribeHealth,
 } from "./lib/providers";
 import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
-import { archiveFrames, peakPoint, stormTrack, type Storm } from "./lib/hurdat";
+import {
+  archiveFrames,
+  replayFocus,
+  stormTrack,
+  trackBounds,
+  type Storm,
+} from "./lib/hurdat";
 import { level2Available } from "./lib/level2";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type {
@@ -177,47 +183,38 @@ export default function App() {
     [historyStorm],
   );
 
-  // Picking a storm frames its whole track; replaying one goes to the landfall
+  // Picking a storm frames its whole track; replaying one goes to the moment
   // the radar is about, which is a much tighter view.
-  const showStorm = useCallback(
-    (storm: Storm | null) => {
-      setHistoryStorm(storm);
-      setReplay(null);
-      if (!storm) return;
-      const lats = storm.track.map((point) => point[1]);
-      const lons = storm.track.map((point) => point[2]);
-      actions.flyToBounds({
-        west: Math.min(...lons),
-        south: Math.min(...lats),
-        east: Math.max(...lons),
-        north: Math.max(...lats),
-      });
-    },
-    [actions],
-  );
+  const showStorm = useCallback((storm: Storm | null) => {
+    setHistoryStorm(storm);
+    setReplay(null);
+    if (storm) mapRef.current?.fitBounds(trackBounds(storm.track));
+  }, []);
 
   const replayStorm = useCallback(
     (storm: Storm) => {
       const frames = archiveFrames(storm);
-      if (!frames.length) return;
-      const peak = peakPoint(storm);
+      const focus = replayFocus(storm);
+      if (!frames.length || !focus) return;
       setHistoryStorm(storm);
       setReplay({
         id: storm.id,
         label: "Iowa State radar archive",
         attributionUrl: "https://mesonet.agron.iastate.edu/",
         frames,
-        focusTime: peak[0],
+        focusTime: focus.point[0],
       });
       mapRef.current?.flyTo({
-        center: [peak[2], peak[1]],
+        center: [focus.point[2], focus.point[1]],
         zoom: 7,
         bearing: 0,
         pitch: 0,
       });
       pushToast({
         title: `Replaying ${storm.name} ${storm.year}`,
-        detail: "Archive radar around the storm's peak. Close it to go live.",
+        detail: focus.landfall
+          ? "Archive radar around landfall. Close it to go live."
+          : "Archive radar around its closest approach. Close it to go live.",
       });
     },
     [pushToast],
@@ -289,6 +286,7 @@ export default function App() {
         frameCount={frames.length}
         sourceLabel={timeline.sourceLabel}
         singleSite={level2Available() ? singleSite : null}
+        clock={clock}
         update={updates.state}
         onUpdate={updates.act}
         historyStormId={historyStorm?.id ?? null}
@@ -335,6 +333,7 @@ export default function App() {
         frames={frames}
         sweep={singleSite.sweep}
         mrmsLayers={mrms.layers}
+        clock={clock}
         radarAgeMinutes={radarAge}
         cursor={cursor}
         activeTool={activeTool}
