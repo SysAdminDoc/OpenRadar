@@ -74,6 +74,52 @@ async function fakeNativeSide(page: Page) {
             const longitude = Number(args.longitude);
             return Promise.resolve(longitude < -70 ? "KDMX" : null);
           }
+          if (command === "level3_cells") {
+            // Two storms west of Des Moines: one heading straight at it, one
+            // going the other way. Whether the panel picks the right one is
+            // the whole point of the layer.
+            return Promise.resolve({
+              station: String(args.station),
+              siteLatitude: 41.7,
+              siteLongitude: -93.7,
+              observed: new Date().toISOString(),
+              cells: [
+                {
+                  id: "Y6",
+                  latitude: 41.7,
+                  longitude: -94.2,
+                  rangeKm: 42,
+                  azimuthDegrees: 270,
+                  directionDegrees: 90,
+                  speedMs: 15,
+                  past: [{ latitude: 41.7, longitude: -94.4 }],
+                  forecast: [
+                    { latitude: 41.7, longitude: -94.0 },
+                    { latitude: 41.7, longitude: -93.85 },
+                  ],
+                },
+                {
+                  id: "Z2",
+                  latitude: 41.9,
+                  longitude: -93.9,
+                  rangeKm: 25,
+                  azimuthDegrees: 315,
+                  directionDegrees: 270,
+                  speedMs: 12,
+                  past: [],
+                  forecast: [],
+                },
+              ],
+              mesocyclones: [
+                {
+                  latitude: 41.7,
+                  longitude: -94.2,
+                  radiusKm: 5,
+                  kind: "mesocyclone",
+                },
+              ],
+            });
+          }
           if (command === "level2_sweep" && String(args.station) === "FAIL") {
             return Promise.reject("the site did not answer");
           }
@@ -391,4 +437,41 @@ test("reads the storm motion off the sweep, and takes yours instead", async ({
   // And it can be handed back to the sweep to work out again.
   await motion.getByRole("button", { name: /Read it from the sweep/ }).click();
   await expect(motion).toContainText("Read from the sweep");
+});
+
+test("says which storm reaches the watched place and when", async ({
+  page,
+}) => {
+  // The mosaic says where rain is. This says which of it is coming here, which
+  // is the only thing somebody standing outside actually wants to know.
+  await open(page, 9);
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Storm Cells/ }).check();
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /cell-points/);
+  await expect(pane).toHaveAttribute("data-layer-stack", /cell-tracks/);
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  // Without a watched place there is nothing to be early about, and the panel
+  // says so rather than showing a number about nowhere.
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  const arrival = page.locator("[data-cell-arrival]");
+  await expect(arrival).toHaveText(/Set a watched place/);
+
+  await page.getByRole("button", { name: "Close Composite Radar" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  await page.getByRole("button", { name: "Watch the map centre" }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  // Y6 is the one heading this way. Z2 is nearer and going the other way, so
+  // picking the nearest rather than the one actually coming would name it.
+  await expect(arrival).toHaveText(/Y6 reaches the place you watch in \d+ min/);
+  await expect(arrival).not.toHaveText(/Z2/);
+  // And the rotation is named in words, not only drawn as a red ring.
+  await expect(page.locator("[data-cell-rotating]")).toHaveText(/Y6/);
 });

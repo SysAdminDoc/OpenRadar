@@ -321,6 +321,9 @@ export const es: Catalogue = {
   "command.group.style": "Tipo de mapa",
   "command.group.panel": "Panel",
   "command.group.tool": "Herramienta",
+  "layer.stormCells": "Células de tormenta",
+  "layers.stormCellsDetail":
+    "Lo que sigue el algoritmo del propio radar, con hacia dónde va cada tormenta",
   "layer.stormReports": "Informes de tormenta",
   "layers.stormReportsDetail":
     "Lo que la gente vio de verdad en el último día: granizo, daños por viento, tornados, inundaciones",
@@ -488,6 +491,15 @@ export const es: Catalogue = {
   "settings.showRadar": "Mostrar el radar",
   "settings.showRadarDetail":
     "Deja ver el mapa base cuando el radar está oculto",
+  "cells.eyebrow": "Células de tormenta",
+  "cells.arriving": "{id} llega al punto vigilado en {count} min",
+  "cells.arrivingSoon": "{id} llega al punto vigilado en menos de un minuto",
+  "cells.nothingComing": "Nada de lo que sigue el radar va hacia allí",
+  "cells.needsWatch":
+    "Marca un punto vigilado para saber cuándo le llega una tormenta",
+  "cells.rotating": "{id} tiene rotación",
+  "cells.none": "El radar no está siguiendo ninguna tormenta ahora mismo",
+  "cells.reading": "Leyendo las células de tormenta",
   "settings.watchedArea": "Zona vigilada",
   "settings.watchedAreaNote": "Avisos cerca de un lugar",
   "settings.tellMe": "Avísame de los avisos",

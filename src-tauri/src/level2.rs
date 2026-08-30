@@ -868,17 +868,31 @@ fn data_url(png_bytes: &[u8]) -> String {
 
 /// Decodes a volume and draws one of its sweeps. Split out from the command so
 /// a test can run it against a file without touching the network.
+/// What the reader asked to see, past which volume it came from.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SweepRequest<'a> {
+    pub product_name: &'a str,
+    pub tilt_index: usize,
+    pub unfold: bool,
+    /// A motion the viewer gave, rather than one read off the sweep.
+    pub manual_motion: Option<vad::Wind>,
+    /// Gates weaker than this are left clear, in the product's own unit.
+    pub threshold: Option<f32>,
+}
+
 pub fn sweep_from_volume(
     station: &str,
     volume_key: &str,
     data: Vec<u8>,
-    product_name: &str,
-    tilt_index: usize,
-    unfold: bool,
-    manual_motion: Option<vad::Wind>,
-    // Gates weaker than this are left clear, in the product's own unit.
-    threshold: Option<f32>,
+    asked: SweepRequest<'_>,
 ) -> Result<SweepImage, Level2Error> {
+    let SweepRequest {
+        product_name,
+        tilt_index,
+        unfold,
+        manual_motion,
+        threshold,
+    } = asked;
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
 
@@ -1154,7 +1168,18 @@ pub async fn level2_sweep(
                 north: speed * towards.cos(),
             }
         });
-        sweep_from_volume(&station, &key, data, &product, tilt, dealias, manual, threshold)
+        sweep_from_volume(
+            &station,
+            &key,
+            data,
+            SweepRequest {
+                product_name: &product,
+                tilt_index: tilt,
+                unfold: dealias,
+                manual_motion: manual,
+                threshold,
+            },
+        )
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -2045,7 +2070,15 @@ mod tests {
         );
 
         let drawing = std::time::Instant::now();
-        let sweep = sweep_from_volume("KDMX", &key, data.clone(), "reflectivity", 0, false, None, None)
+        let sweep = sweep_from_volume(
+            "KDMX",
+            &key,
+            data.clone(),
+            SweepRequest {
+                product_name: "reflectivity",
+                ..SweepRequest::default()
+            },
+        )
             .expect("the lowest reflectivity tilt should decode");
         let drawn = drawing.elapsed();
 
@@ -2071,11 +2104,11 @@ mod tests {
             "KDMX",
             &key,
             data.clone(),
-            "reflectivity",
-            0,
-            false,
-            None,
-            Some(60.0),
+            SweepRequest {
+                product_name: "reflectivity",
+                threshold: Some(60.0),
+                ..SweepRequest::default()
+            },
         )
         .expect("the same tilt decodes with a threshold on it");
         assert!(
@@ -2145,7 +2178,17 @@ mod tests {
         );
 
         // Velocity comes off the same volume, so the second product is free.
-        let velocity = sweep_from_volume("KDMX", &key, data, "velocity", 1, true, None, None)
+        let velocity = sweep_from_volume(
+            "KDMX",
+            &key,
+            data,
+            SweepRequest {
+                product_name: "velocity",
+                tilt_index: 1,
+                unfold: true,
+                ..SweepRequest::default()
+            },
+        )
             .expect("a Doppler cut should decode");
         assert_eq!(velocity.product_id, "velocity");
         assert_eq!(velocity.unit, "m/s");

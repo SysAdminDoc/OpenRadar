@@ -61,6 +61,18 @@ const SURGE_SOURCE_ID = "openradar-surge-source";
 const SURGE_LAYER_ID = "openradar-surge-layer";
 const MRMS_SOURCE_PREFIX = "openradar-mrms-";
 const WIND_LAYER_ID = "openradar-wind";
+const CELL_SOURCE_ID = "openradar-cell-source";
+const CELL_TRACK_LAYER_ID = "openradar-cell-tracks";
+const CELL_FORECAST_LAYER_ID = "openradar-cell-forecast";
+const CELL_POINT_LAYER_ID = "openradar-cell-points";
+const CELL_LABEL_LAYER_ID = "openradar-cell-labels";
+const CELL_LAYER_IDS = [
+  CELL_TRACK_LAYER_ID,
+  CELL_FORECAST_LAYER_ID,
+  CELL_POINT_LAYER_ID,
+  CELL_LABEL_LAYER_ID,
+];
+
 const FLASH_SOURCE_ID = "openradar-flash-source";
 const FLASH_LAYER_ID = "openradar-flash-points";
 /** How far a site's own sweep reaches, which is as far as a beam height
@@ -117,6 +129,8 @@ interface MapViewportProps {
   mrmsLayers?: MrmsLayer[];
   /** GOES lightning flashes, newest brightest. */
   flashes?: Record<string, unknown> | null;
+  /** Storm cells with their tracks, from the radar's own algorithm. */
+  cells?: Record<string, unknown> | null;
   /**
    * How long the flash window runs, in minutes, and the moment to fade
    * against. The fade is a paint property rather than part of the data, so it
@@ -230,6 +244,10 @@ function layerStackOrder(): string[] {
     ...MRMS_LAYER_IDS,
     ...overlayLayerOrder(),
     ...TRACK_LAYER_IDS,
+    // Cells sit above the pictures they were found in and under the tools the
+    // reader draws with: they are the radar's own reading of the storm, and
+    // nothing should hide them.
+    ...CELL_LAYER_IDS,
     ROUTE_LAYER_ID,
     ...CUSTOM_LAYER_IDS,
     ...TOOL_LAYER_IDS,
@@ -275,6 +293,7 @@ function MapViewportInner(
     sweep = null,
     mrmsLayers = [],
     flashes = null,
+    cells = null,
     flashWindowMinutes = 5,
     flashClock,
     wind = null,
@@ -301,6 +320,7 @@ function MapViewportInner(
   const sweepRef = useRef<SweepImage | null>(sweep);
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
+  const cellsRef = useRef<Record<string, unknown> | null>(cells);
   const flashWindowRef = useRef(flashWindowMinutes);
   const flashClockRef = useRef(flashClock);
   const windRef = useRef<WindField | null>(wind);
@@ -764,6 +784,120 @@ function MapViewportInner(
       flashWindowRef.current,
     ) as ExpressionSpecification;
 
+  /**
+   * The storm cells: where each is, where it has been, where it is going.
+   *
+   * Four layers over one source, because a track, a forecast position, the
+   * storm itself and its name are four different things and MapLibre draws
+   * one kind of geometry per layer.
+   */
+  const syncCells = () => {
+    const map = mapRef.current;
+    const drawn = cellsRef.current;
+    if (!map || !styleReadyRef.current) return;
+
+    let source = map.getSource(CELL_SOURCE_ID) as
+      maplibregl.GeoJSONSource | undefined;
+    if (!drawn) {
+      if (source) {
+        for (const id of CELL_LAYER_IDS) {
+          if (map.getLayer(id)) map.removeLayer(id);
+        }
+        map.removeSource(CELL_SOURCE_ID);
+      }
+      publishLayers();
+      return;
+    }
+
+    if (!source) {
+      map.addSource(CELL_SOURCE_ID, { type: "geojson", data: drawn as never });
+      map.addLayer(
+        {
+          id: CELL_TRACK_LAYER_ID,
+          type: "line",
+          source: CELL_SOURCE_ID,
+          filter: ["==", ["get", "kind"], "track"],
+          paint: {
+            "line-color": "#f8fafc",
+            "line-width": 1.5,
+            "line-opacity": 0.75,
+            // Dashed, so a track is never taken for a road or a boundary.
+            "line-dasharray": [2, 2],
+          },
+        },
+        firstExisting(map, layersAbove(CELL_TRACK_LAYER_ID)),
+      );
+      map.addLayer(
+        {
+          id: CELL_FORECAST_LAYER_ID,
+          type: "circle",
+          source: CELL_SOURCE_ID,
+          filter: ["==", ["get", "kind"], "forecast"],
+          paint: {
+            // Fainter the further ahead it is, because it is less certain.
+            "circle-radius": 3,
+            "circle-color": "#f8fafc",
+            "circle-opacity": [
+              "interpolate",
+              ["linear"],
+              ["get", "minutes"],
+              15,
+              0.8,
+              60,
+              0.3,
+            ],
+            "circle-stroke-width": 0,
+          },
+        },
+        firstExisting(map, layersAbove(CELL_FORECAST_LAYER_ID)),
+      );
+      map.addLayer(
+        {
+          id: CELL_POINT_LAYER_ID,
+          type: "circle",
+          source: CELL_SOURCE_ID,
+          filter: ["==", ["get", "kind"], "cell"],
+          paint: {
+            "circle-radius": 7,
+            "circle-color": "rgba(0,0,0,0)",
+            // A storm with rotation in it is the one to look at first.
+            "circle-stroke-color": [
+              "case",
+              ["get", "rotating"],
+              "#f87171",
+              "#f8fafc",
+            ],
+            "circle-stroke-width": ["case", ["get", "rotating"], 3, 2],
+          },
+        },
+        firstExisting(map, layersAbove(CELL_POINT_LAYER_ID)),
+      );
+      map.addLayer(
+        {
+          id: CELL_LABEL_LAYER_ID,
+          type: "symbol",
+          source: CELL_SOURCE_ID,
+          filter: ["==", ["get", "kind"], "cell"],
+          layout: {
+            "text-field": ["get", "id"],
+            "text-size": 11,
+            "text-offset": [0, -1.4],
+            "text-allow-overlap": false,
+          },
+          paint: {
+            "text-color": "#f8fafc",
+            "text-halo-color": "rgba(9, 11, 16, 0.85)",
+            "text-halo-width": 1.5,
+          },
+        },
+        firstExisting(map, layersAbove(CELL_LABEL_LAYER_ID)),
+      );
+      source = map.getSource(CELL_SOURCE_ID) as maplibregl.GeoJSONSource;
+    }
+    source.setData(drawn as never);
+    publishLayers();
+  };
+
   const syncFlashes = () => {
     const map = mapRef.current;
     const points = flashesRef.current;
@@ -1204,6 +1338,7 @@ function MapViewportInner(
       syncMrmsLayers();
       syncFlashes();
       syncWind();
+      syncCells();
       renderTools();
       syncOverlays();
       syncRoute();
@@ -1406,6 +1541,13 @@ function MapViewportInner(
     // The fade function reads the refs above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flashClock, flashWindowMinutes]);
+
+  useEffect(() => {
+    cellsRef.current = cells;
+    syncCells();
+    // The sync function reads the ref above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cells]);
 
   useEffect(() => {
     flashesRef.current = flashes;

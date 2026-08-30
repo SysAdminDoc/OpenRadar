@@ -7,7 +7,9 @@ import {
   type Level2ProductId,
 } from "../lib/level2";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
-import type { RadarSettings } from "../lib/settings";
+import type { RadarSettings, WatchState } from "../lib/settings";
+import type { StormCellState } from "../hooks/useStormCells";
+import { soonestArrival } from "../lib/cells";
 import { speedFromMetres, speedToMetres, speedUnit } from "../lib/units";
 import { translate, useT } from "../i18n";
 
@@ -45,6 +47,10 @@ interface RadarProductPanelProps {
   clock: number;
   /** Null in a browser preview, where there is no native decoder to ask. */
   singleSite: SingleSiteState | null;
+  /** What the radar's own tracking algorithm is following. */
+  stormCells: StormCellState;
+  /** The place the reader asked to be told about. */
+  watch: WatchState;
   onRadar: (radar: RadarSettings) => void;
   onClose: () => void;
 }
@@ -58,6 +64,8 @@ export function RadarProductPanel({
   radar,
   clock,
   singleSite,
+  stormCells,
+  watch,
   onRadar,
   onClose,
 }: RadarProductPanelProps) {
@@ -68,6 +76,32 @@ export function RadarProductPanel({
   const threshold = radar.thresholds[radar.product] ?? null;
   // The mosaic is its own product with its own scale, so it has its own floor.
   const mosaicThreshold = radar.thresholds.mosaic ?? null;
+
+  // What the cells mean for the reader, which is the whole point of drawing
+  // them: not how many storms there are, but whether one is coming here.
+  const soonest = watch.enabled
+    ? soonestArrival(stormCells.report, {
+        lon: watch.center[0],
+        lat: watch.center[1],
+      })
+    : null;
+  // The map draws rotation as a red ring, which somebody reading the panel
+  // rather than the map would never see.
+  const rotatingLine = stormCells.rotating.size
+    ? t("cells.rotating", { id: [...stormCells.rotating].join(", ") })
+    : null;
+  const arrivalLine = !watch.enabled
+    ? t("cells.needsWatch")
+    : soonest
+      ? soonest.minutes < 1
+        ? t("cells.arrivingSoon", { id: soonest.cell.id })
+        : t("cells.arriving", {
+            id: soonest.cell.id,
+            count: Math.round(soonest.minutes),
+          })
+      : stormCells.report?.cells.length
+        ? t("cells.nothingComing")
+        : t("cells.none");
   const unfoldForced = radar.product === "storm-relative-velocity";
   const range = THRESHOLD_RANGE[radar.product];
   // A velocity threshold is a speed, and every other speed in this panel is
@@ -436,6 +470,29 @@ export function RadarProductPanel({
             </div>
           ) : null}
         </>
+      ) : null}
+
+      {stormCells.report || stormCells.loading ? (
+        <div className="settings-section" data-storm-cells>
+          <div className="settings-section__title">
+            <span>{t("cells.eyebrow")}</span>
+            <small>
+              {stormCells.report
+                ? t("radar.minutes", {
+                    count: stormCells.report.cells.length,
+                  })
+                : t("cells.reading")}
+            </small>
+          </div>
+          <p className="source-note" data-cell-arrival>
+            {arrivalLine}
+          </p>
+          {rotatingLine ? (
+            <p className="source-note" data-cell-rotating>
+              {rotatingLine}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <label className="range-row">

@@ -65,6 +65,8 @@ export interface LayerSettings {
   spcOutlooks: boolean;
   spcDiscussions: boolean;
   stormReports: boolean;
+  /** Storm cells and their tracks, from the radar's own algorithm. */
+  stormCells: boolean;
   earthquakes: boolean;
   wildfires: boolean;
   tropical: boolean;
@@ -170,6 +172,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     spcOutlooks: false,
     spcDiscussions: false,
     stormReports: false,
+    stormCells: false,
     earthquakes: false,
     wildfires: false,
     tropical: true,
@@ -506,6 +509,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.stormReports,
         DEFAULT_SETTINGS.layers.stormReports,
       ),
+      stormCells: bool(layers.stormCells, DEFAULT_SETTINGS.layers.stormCells),
       earthquakes: bool(
         layers.earthquakes,
         DEFAULT_SETTINGS.layers.earthquakes,
