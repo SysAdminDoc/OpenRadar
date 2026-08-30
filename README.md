@@ -15,6 +15,7 @@ The app is being rebuilt as a free desktop tool with no ads or paid feature gate
 - Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
 - A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
 - Automatic failover between radar sources, with per-source status and a request budget
+- Optional future radar: six hours of HRRR forecast reflectivity on the tail of the same timeline
 - NWS watches and warnings, USGS earthquakes, and NIFC wildfire perimeters, each with click-through detail and a freshness line
 - An Alerts panel listing what is active in the current view, worst first, with a link to the official product
 - Seven map styles, layer controls, saved views, linked dual panes, draw, range, and point inspection tools
@@ -52,6 +53,7 @@ The v0.1.0 installer was exercised with a silent install and uninstall. It is no
 - Aerial imagery is USGS orthoimagery from The National Map, and the topographic style is OpenTopoMap under CC-BY-SA.
 - Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
 - RainViewer only appears for viewports the NOAA mosaics do not reach.
+- Forecast radar is HRRR reflectivity from the Iowa State Mesonet.
 - Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.
 - Tropical products are planned as first-party operational sources.
 

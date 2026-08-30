@@ -2,6 +2,7 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- Added future radar. Switch it on over the United States and the scrubber carries six hours past the newest observation in quarter-hour steps, with the model run and lead named on the timeline.
 - Share now copies an `openradar://` link that opens the running app on that view instead of an address that leads nowhere. A second launch hands its link to the window already open.
 - The timeline chip now reports the radar age next to the source, not only once the loop has gone stale.
 - RIDGE II is claimed only over the ground its mosaic covers, so the Gulf, Cuba, and the Bahamas fall back to a worldwide source instead of showing an empty layer.

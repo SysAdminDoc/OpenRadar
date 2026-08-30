@@ -58,9 +58,12 @@ describe("settings normalization", () => {
     expect(Object.keys(settings.radar).sort()).toEqual([
       "animationSpeed",
       "enabled",
+      "futureRadar",
       "loopMinutes",
       "opacity",
     ]);
+    // Future radar came back as a real switch, off unless the file said on.
+    expect(settings.radar.futureRadar).toBe(false);
     expect(Object.keys(settings.layers).sort()).toEqual([
       "customOverlay",
       "earthquakes",

@@ -290,6 +290,12 @@ export function SettingsPanel({
           />
         </label>
         <ToggleSetting
+          label="Future radar"
+          detail="Extend the loop six hours ahead with the HRRR forecast over the United States"
+          checked={settings.radar.futureRadar}
+          onChange={(futureRadar) => updateRadar({ futureRadar })}
+        />
+        <ToggleSetting
           label="Show radar"
           detail="Keep the basemap visible when radar is hidden"
           checked={settings.radar.enabled}

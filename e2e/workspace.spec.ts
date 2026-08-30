@@ -453,3 +453,44 @@ test("opens a shared view from a link in the address bar", async ({ page }) => {
     "-96.80000,32.78000,7.250,18.00,42.00",
   );
 });
+
+test("extends the scrubber past now with the forecast run", async ({
+  page,
+}) => {
+  await page.route(
+    "https://mesonet.agron.iastate.edu/data/gis/**",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ model_init_utc: "2026-08-30T05:00:00Z" }),
+      });
+    },
+  );
+  await page.route(
+    "https://mesonet.agron.iastate.edu/cache/**",
+    async (route) => {
+      await route.fulfill({ contentType: "image/png", body: transparentPng });
+    },
+  );
+
+  const timeline = page.getByLabel("Radar animation", { exact: true });
+  await expect(timeline).toContainText("8 radar frames");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Future radar/ }).check();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  // Eight observed frames plus six hours of quarter-hour forecast steps.
+  await expect(timeline).toContainText("32 radar frames");
+
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+  const scrubber = page.getByLabel("Radar frame");
+  await scrubber.fill("0");
+  await scrubber.fill("8");
+  // The run starts at 05Z and the newest observation is 05:40, so the tail
+  // picks up at the next quarter-hour step after it.
+  await expect(timeline).toContainText("HRRR init 05Z, +45 min");
+  await scrubber.fill("31");
+  await expect(timeline).toContainText("HRRR init 05Z, +390 min");
+  await expect(page.locator(".radar-timeline")).toHaveClass(/is-forecast/);
+});

@@ -57,13 +57,6 @@
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
 
-- [ ] P1: HRRR future radar on the timeline tail from IEM `hrrr::REFD` tiles
-  Why: RainViewer nowcast is gone; TWC Storm Radar (2026-05-02) and Carrot make forecast radar table stakes; the `futureRadar` setting is hard-forced `false`.
-  Evidence: `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/hrrr::REFD-F{mmmm}-{init}/{z}/{x}/{y}.png` with latest run from `.../data/gis/images/4326/hrrr/refd_1080.json` (StormviewRadar `index.html` 3813, 3830-3831; mesonet.agron.iastate.edu/GIS/model.phtml, F is minutes, 15-min steps to 18 h); IEM "servers will melt" plea means bounded prefetch only.
-  Touches: new src/lib/providers/hrrr.ts, timeline (frames after "now" rendered with a distinct color and a "HRRR forecast, init HHZ" banner), src/lib/settings.ts (`futureRadar` real), CSP.
-  Acceptance: with Future Radar on, the scrubber extends 6 h past the newest observed frame at 15-min steps, the banner states init time and lead, and no more than 24 forecast frames are cached.
-  Complexity: M
-
 - [ ] P1: NHC tropical cone, track, watches, and storm following
   Why: the Hurricane Tracker is MyRadar's headline paywall and Clime's; the data is keyless and already parsed in StormScope.
   Evidence: `https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather_summary/MapServer` layers 5-8 (`f=geojson`), `https://www.nhc.noaa.gov/CurrentStorms.json` (verified 2026-08-30 with per-product advisory URLs), StormScope `js/tropical-cyclones.js`, StormDeck `src/lib/overlays/tropical.ts`.

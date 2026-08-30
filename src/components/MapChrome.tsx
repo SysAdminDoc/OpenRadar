@@ -9,6 +9,11 @@ import {
 } from "lucide-react";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 
+function initLabel(initUtc: string): string {
+  const at = new Date(initUtc);
+  return `${String(at.getUTCHours()).padStart(2, "0")}Z`;
+}
+
 interface RadarLegendProps {
   open: boolean;
   radarEnabled: boolean;
@@ -60,8 +65,12 @@ export function RadarTimeline({
   onPlaying,
 }: RadarTimelineProps) {
   const frame = frames[frameIndex];
+  const forecast = frame?.forecast;
   return (
-    <div className="radar-timeline" aria-label="Radar animation">
+    <div
+      className={`radar-timeline ${forecast ? "is-forecast" : ""}`}
+      aria-label="Radar animation"
+    >
       <button
         className="play-button"
         type="button"
@@ -77,17 +86,26 @@ export function RadarTimeline({
         )}
       </button>
       <div className="timeline-copy">
-        <strong>{error ?? formatFrameTime(frame)}</strong>
+        <strong>
+          {error ??
+            (forecast
+              ? `${formatFrameTime(frame)} forecast`
+              : formatFrameTime(frame))}
+        </strong>
         <span>
           {frames.length
             ? [
                 `${frameIndex + 1} of ${frames.length} radar frames`,
-                sourceLabel,
-                ageMinutes === null
+                forecast
+                  ? `HRRR init ${initLabel(forecast.initUtc)}, +${forecast.leadMinutes} min`
+                  : sourceLabel,
+                forecast
                   ? null
-                  : ageMinutes < 1
-                    ? "live"
-                    : `${ageMinutes} min old`,
+                  : ageMinutes === null
+                    ? null
+                    : ageMinutes < 1
+                      ? "live"
+                      : `${ageMinutes} min old`,
               ]
                 .filter(Boolean)
                 .join(" · ")
