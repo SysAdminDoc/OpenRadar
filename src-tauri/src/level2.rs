@@ -1793,6 +1793,90 @@ mod tests {
         assert!(key_time("2026/08/30/KDMX/rubbish").is_none());
     }
 
+    /// One Level II message, framed as the archive frames it.
+    ///
+    /// Twelve bytes the RPG puts in front, then the header the document
+    /// describes: size in halfwords, channel, type, sequence, date, time,
+    /// segment count and number. Every message sits in a frame of its own,
+    /// two thousand four hundred and thirty-two bytes whatever it holds, and
+    /// the reader steps frame by frame: a message written any shorter than
+    /// that is read as the start of the next one.
+    const FRAME_BYTES: usize = 2432;
+
+    fn framed_message(message_type: u8, payload: &[u8]) -> Vec<u8> {
+        const HEADER_BYTES: usize = 16;
+        let mut out = vec![0u8; 12];
+        let halfwords = ((HEADER_BYTES + payload.len()) / 2) as u16;
+        out.extend_from_slice(&halfwords.to_be_bytes());
+        out.push(8); // single channel
+        out.push(message_type);
+        out.extend_from_slice(&1u16.to_be_bytes()); // sequence
+        out.extend_from_slice(&20_696u16.to_be_bytes()); // days since 1970
+        out.extend_from_slice(&43_200_000u32.to_be_bytes()); // milliseconds
+        out.extend_from_slice(&1u16.to_be_bytes()); // one segment
+        out.extend_from_slice(&1u16.to_be_bytes()); // segment one
+        out.extend_from_slice(payload);
+        out.resize(FRAME_BYTES, 0);
+        out
+    }
+
+    #[test]
+    fn a_message_type_this_build_has_never_heard_of_is_skipped() {
+        // The National Weather Service is adding an hourly LTR message to the
+        // Level II stream from about February 2027 (SCN26-54). A decoder that
+        // treats an unfamiliar type as a broken file would stop showing radar
+        // on the day it arrives, at every site, with no warning.
+        //
+        // The archive's own messages come first so this is a real stream
+        // rather than one message on its own, and the unknown one is put in
+        // the middle where it would actually appear.
+        let payload = vec![0x5au8; 80];
+        let mut stream = Vec::new();
+        // A status message, which this decoder does understand.
+        stream.extend_from_slice(&framed_message(2, &vec![0u8; 80]));
+        // Then the one it does not.
+        stream.extend_from_slice(&framed_message(34, &payload));
+        stream.extend_from_slice(&framed_message(2, &vec![0u8; 80]));
+
+        let messages = nexrad_decode::messages::decode_messages(&stream)
+            .expect("an unfamiliar message must not fail the stream");
+        assert_eq!(
+            messages.len(),
+            3,
+            "the unknown message should be skipped, not swallow what follows it"
+        );
+
+        // And it is recognised as unknown rather than mistaken for something.
+        let types: Vec<String> = messages
+            .iter()
+            .map(|message| format!("{:?}", message.header().message_type()))
+            .collect();
+        assert!(
+            types[1].contains("Unknown"),
+            "type 34 came back as {}",
+            types[1]
+        );
+    }
+
+    #[test]
+    fn every_type_number_the_stream_could_carry_is_survivable() {
+        // Not only the one number the notice names. Whatever the message ends
+        // up being called, and whatever else is added after it, an unfamiliar
+        // number in that byte must not cost anybody their radar.
+        for message_type in 0u8..=255 {
+            let mut stream = framed_message(message_type, &vec![0u8; 60]);
+            stream.extend_from_slice(&framed_message(2, &vec![0u8; 80]));
+            // Some types are variable-length and will read the rest as their
+            // own payload; what matters is that nothing panics and nothing
+            // reports the stream as broken.
+            let read = nexrad_decode::messages::decode_messages(&stream);
+            assert!(
+                read.is_ok(),
+                "message type {message_type} made the whole stream unreadable"
+            );
+        }
+    }
+
     #[test]
     fn the_reflectivity_ramp_matches_the_legend_it_is_drawn_beside() {
         // The stops the legend gradient is built from, exactly.

@@ -38,13 +38,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: each overlay row has an opacity slider that applies live and persists; drag handles reorder overlays within the overlay band without letting them pass warnings; `data-layer-stack` reflects the order and the e2e test asserts it.
   Complexity: M
 
-- [ ] P2 — Prove the Level II decoder survives the LTR message arriving in 2027
-  Why: SCN26-54 adds an hourly LTR message to the Level II stream from about 2027-02-15 and the testbed KCRI already emits it; the pinned rc decoder must skip an unknown message type rather than fail the volume.
-  Evidence: https://www.weather.gov/media/notification/pdf_2026/scn26-54_WSR-88D_Level2_Add_LTR.pdf ; `src-tauri/Cargo.toml` `nexrad-decode = "=1.0.0-rc.3"`.
-  Touches: src-tauri/src/level2.rs tests, possibly a nexrad-decode bump
-  Acceptance: an ignored live test decodes the newest KCRI volume without error; a unit test feeds a volume with an unknown message type and asserts the sweep still renders.
-  Complexity: S
-
 - [ ] P2 — Tests for the untested hooks and the render-path components
   Why: `MapViewport.tsx` (1,365 lines) and eight hooks have no tests; the v0.2.0 review found its only showstopper in a path no test covered.
   Evidence: recon memo section 7 list; `src/lib/csp.test.ts` history in CHANGELOG.
