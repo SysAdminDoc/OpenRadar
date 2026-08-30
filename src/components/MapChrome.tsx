@@ -14,6 +14,9 @@ function initLabel(initUtc: string): string {
   return `${String(at.getUTCHours()).padStart(2, "0")}Z`;
 }
 
+/** Labelled stops on the NWS reflectivity ramp the mosaics are drawn with. */
+const DBZ_STOPS = [5, 20, 35, 50, 65];
+
 interface RadarLegendProps {
   open: boolean;
   radarEnabled: boolean;
@@ -39,6 +42,11 @@ export function RadarLegend({
       </span>
       <ChevronDown size={16} />
       <i className="legend-ramp" aria-hidden="true" />
+      <span className="legend-scale" aria-hidden="true">
+        {DBZ_STOPS.map((stop) => (
+          <em key={stop}>{stop}</em>
+        ))}
+      </span>
     </button>
   );
 }

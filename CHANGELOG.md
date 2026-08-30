@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.2.0 (unreleased)
 
+- The radar legend now shows the National Weather Service reflectivity ramp with dBZ labels instead of an unlabelled gradient.
+- Added a high-contrast pass for readers whose system asks for one.
 - Fixed command bar buttons being named after their tooltip in narrow windows, where the visible label is hidden.
 - Fixed low-contrast text on the command bar in the light theme and on the Diagnostics timestamps.
 - The end-to-end suite now runs at 1024 by 720 as well, covers every layer switch and the preset save, recall, and undo path, and fails on any serious accessibility violation in either theme.

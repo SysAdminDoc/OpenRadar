@@ -81,3 +81,20 @@ test("every panel the command bar opens is clean too", async ({ page }) => {
     await page.getByRole("button", { name: `Close ${name}` }).click();
   }
 });
+
+test("stays clean when the reader asks for more contrast", async ({ page }) => {
+  await page.emulateMedia({ contrast: "more" });
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(describeViolations(await scan(page))).toBe("");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(describeViolations(await scan(page))).toBe("");
+});
+
+test("labels the reflectivity ramp in dBZ", async ({ page }) => {
+  const legend = page.locator(".legend-scale");
+  await expect(legend).toHaveText("520355065");
+});
