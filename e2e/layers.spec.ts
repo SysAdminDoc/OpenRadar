@@ -273,7 +273,9 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
   // The fixture warning sits about thirty-five miles from the default centre.
-  await page.getByLabel("Watched radius in miles").fill("60");
+  // The label names the units the slider is actually in, which is the point
+  // of the change that renamed it.
+  await page.getByLabel("Watched radius, in miles").fill("60");
   await page.getByRole("button", { name: /Watch the map centre/ }).click();
   await expect(page.getByText("Watching this point")).toBeVisible();
 

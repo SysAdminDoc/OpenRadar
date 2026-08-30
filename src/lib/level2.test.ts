@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLanguage } from "../i18n";
 import {
   SINGLE_SITE_MIN_ZOOM,
   beamHeightFeet,
@@ -6,6 +7,7 @@ import {
   isSingleSiteViewport,
   sweepAgeMinutes,
   sweepCorners,
+  sweepErrorText,
   sweepSite,
   type SweepImage,
 } from "./level2";
@@ -99,5 +101,52 @@ describe("how high the beam is", () => {
         north: 43.8,
       }),
     ).toEqual({ lon: -93.75, lat: 41.7 });
+  });
+});
+
+describe("what the native side said went wrong", () => {
+  afterEach(() => setLanguage("en"));
+
+  it("writes the failure in the language the workspace is in", () => {
+    // The command rejects with a code and its parts. Rendering the sentence
+    // the native side wrote put an English line in a Spanish panel.
+    const failure = {
+      code: "noStormMotion",
+      args: ["KDMX"],
+      text: "the wind at KDMX could not be read, so nothing can be taken out of it",
+    };
+    expect(sweepErrorText(failure)).toContain("KDMX");
+    expect(sweepErrorText(failure)).not.toBe(failure.text);
+
+    setLanguage("es");
+    const spanish = sweepErrorText(failure);
+    expect(spanish).toContain("KDMX");
+    expect(spanish).toContain("viento");
+  });
+
+  it("fills in every part of a message that has more than one", () => {
+    expect(
+      sweepErrorText({
+        code: "noSweep",
+        args: ["KTLX", "Velocity"],
+        text: "KTLX has no Velocity sweep at that tilt",
+      }),
+    ).toBe("KTLX has no Velocity sweep at that tilt.");
+  });
+
+  it("falls back to what the native side said rather than showing a code", () => {
+    // A failure this build has no wording for still has to read as something.
+    expect(
+      sweepErrorText({
+        code: "somethingAddedLater",
+        args: [],
+        text: "the thing went wrong",
+      }),
+    ).toBe("the thing went wrong");
+  });
+
+  it("takes a plain string and an Error, which is what a browser rejects with", () => {
+    expect(sweepErrorText("no native side here")).toBe("no native side here");
+    expect(sweepErrorText(new Error("boom"))).toBe("boom");
   });
 });

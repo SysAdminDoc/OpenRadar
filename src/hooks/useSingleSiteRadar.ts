@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  SWEEP_REFRESH_MS,
   fetchSweep,
   isSingleSiteViewport,
   level2Available,
-  nearestSite,
   type Level2ProductId,
+  nearestSite,
+  SWEEP_REFRESH_MS,
+  sweepErrorText,
   type SweepImage,
 } from "../lib/level2";
 import { log } from "../lib/log";
@@ -122,13 +123,9 @@ export function useSingleSiteRadar(options: {
         setError(null);
       } catch (failure: unknown) {
         if (!open || request !== requestRef.current) return;
-        // A Tauri command rejects with the string the error serialized to.
-        const message =
-          typeof failure === "string"
-            ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The radar site did not answer.";
+        // A Tauri command rejects with what the error serialized to, which
+        // is a code the page has its own wording for.
+        const message = sweepErrorText(failure);
         log.warn("radar", `${station}: ${message}`);
         // The previous sweep is a different product, tilt, or moment. Leaving
         // it drawn under a label that now says something else is worse than

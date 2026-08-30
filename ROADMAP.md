@@ -15,13 +15,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: at a single-site zoom the map shows cell markers with 30/60-minute projected positions and TVS/meso/hail badges; the watched place reports the soonest arrival as "in N min" in the watch card; a Rust test decodes a fixture NST for KTLX; an e2e test with a stubbed cell list shows the ETA.
   Complexity: L
 
-- [ ] P1 — Per-product threshold filter for the locally decoded products
-  Why: "hide below" declutter is the single most-used analyst control in Supercell Wx (#480, v0.6.0 persistent thresholds) and BowEcho; OpenRadar decodes the values itself so it can honour a threshold at render time with no server help.
-  Evidence: https://github.com/dpaulat/supercell-wx/releases (v0.6.0 per-product persistent thresholds with manual entry); https://github.com/dpaulat/supercell-wx/issues/480 ; https://github.com/FahrenheitResearch/bowecho ("hide below" with |v| clamp).
-  Touches: src-tauri/src/level2.rs (`gate_color` gains a floor), src-tauri/src/mrms.rs, src/lib/settings.ts (radar.thresholds per product), src/panels/RadarProductPanel.tsx, src/i18n
-  Acceptance: a slider or numeric entry per product hides gates below the value on the next render, persists across launches, and the legend greys the hidden range; Rust tests prove a gate at the threshold is drawn and one below is transparent.
-  Complexity: S
-
 ### P2
 
 - [ ] P2 — ProbSevere storm objects from the MRMS bucket as a layer with probability badges

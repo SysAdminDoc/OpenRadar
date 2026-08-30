@@ -175,6 +175,11 @@ export function distanceValue(miles: number): number {
   return Math.round(units === "metric" ? miles * MILES_TO_KM : miles);
 }
 
+/** The same conversion back, for a control the reader types or drags in. */
+export function milesFromDistance(shown: number): number {
+  return units === "metric" ? shown / MILES_TO_KM : shown;
+}
+
 export function distanceUnit(): string {
   return units === "metric"
     ? translate("units.kilometres")
@@ -187,6 +192,23 @@ export function formatHeight(feet: number): string {
     return `${Math.round(feet * FEET_TO_METRES).toLocaleString(locale())} m`;
   }
   return `${Math.round(feet).toLocaleString(locale())} ft`;
+}
+
+/**
+ * A depth of water on the ground, which is a small number and has to stay one.
+ *
+ * `formatHeight` rounds to whole metres, which is right for a beam two
+ * kilometres up and wrong here: the surge bands at three, six and nine feet
+ * come out as one, two and three metres, so the first two rows of the legend
+ * both read "1 m" for a boundary that is nine tenths of one. This keeps a
+ * decimal below ten, which is where the difference matters.
+ */
+export function formatDepth(feet: number): string {
+  if (units === "metric") {
+    const metres = feet * FEET_TO_METRES;
+    return metres < 10 ? `${metres.toFixed(1)} m` : `${Math.round(metres)} m`;
+  }
+  return `${Math.round(feet)} ft`;
 }
 
 /** A tide, which NOAA publishes in feet and which is read to a tenth. */
