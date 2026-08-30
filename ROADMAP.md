@@ -56,13 +56,6 @@
   Acceptance: the button text matches its action; with reduced motion enabled the loop opens paused and the play button is focused-visible.
   Complexity: S
 
-- [ ] P1: Rust HTTP boundary with host allowlist before any native fetch lands
-  Why: the plan moves NEXRAD/MRMS downloads into Rust, which bypasses the WebView CSP; StormDeck learned that the Rust allowlist is the real network boundary.
-  Evidence: StormDeck `src-tauri/src/http.rs` (ALLOWED_HOSTS, redirect re-check, 16 MiB cap, 30 s timeout, NWS-shaped User-Agent), `src-tauri/tests/capability_contract.rs`.
-  Touches: src-tauri/Cargo.toml (reqwest, tokio), new src-tauri/src/http.rs, src-tauri/capabilities/default.json, a `cargo test` that rejects an off-list host.
-  Acceptance: `cargo test` has at least one passing test proving a non-allowlisted host is refused and a redirect to one is refused; no command accepts a raw URL from the frontend.
-  Complexity: M
-
 - [ ] P1: Extract `useSettings` out of `App.tsx` (the timeline hook and the layer registry landed on 2026-08-30)
   Why: `App.tsx` is 684 lines and every P1 overlay would land in it; the sibling repos show the cost of one giant controller.
   Evidence: `src/App.tsx`; StormScope `js/context-layers.js` single `syncOverlays` pattern.

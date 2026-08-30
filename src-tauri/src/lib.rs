@@ -1,3 +1,8 @@
+// The network boundary is in place before the first native fetch, so nothing
+// calls it yet. Every future Rust-side fetch has to go through it.
+#[allow(dead_code)]
+mod http;
+
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
