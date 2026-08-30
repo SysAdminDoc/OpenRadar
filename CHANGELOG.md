@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Storm history opens straight away. It used to read the whole record, nearly three megabytes of six-hourly positions going back to 1851, before the search box would answer anything. The names and years now come on their own, a sixth of the size, and a storm's track arrives when you pick it, a decade at a time, kept for the rest of the session.
+
 - Panels behave like panels for anyone not using a mouse. Each one is announced by name when it opens, the focus moves into it rather than staying wherever it was, Escape closes it, and closing puts the focus back on the button that opened it instead of dropping it at the top of the window. In the command list the arrow keys move between results, so finding something twenty rows down is one gesture rather than twenty.
 
 - Route weather asks the road router gently, and has an answer when it says no. The roads come from the OSRM demo server, which is run as a courtesy, asks for at most one request a second, and promises no uptime. Requests now queue behind each other instead of going out together. When it refuses anyway, the panel offers to use the straight line between the two places instead, and says plainly that there is no road shape and the times assume a steady 55 mph. The weather along it is real either way.

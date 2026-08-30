@@ -90,6 +90,8 @@ export const es: Catalogue = {
   "history.title": "Historial de tormentas",
   "history.placeholder": "Ian 2022",
   "history.searchLabel": "Buscar tormentas pasadas por nombre o año",
+  "history.archiveStatus": "El archivo de tormentas respondió {status}.",
+  "history.unknownStorm": "Esa tormenta no está en el registro.",
   "history.failedTitle": "El archivo de tormentas no se cargó",
   "history.failedBody": "El archivo de tormentas no se cargó.",
   "history.peak": "{category} · máximo de {knots} kt",
