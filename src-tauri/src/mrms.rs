@@ -14,6 +14,9 @@ use chrono::{DateTime, Datelike, Duration, NaiveDateTime, Utc};
 use serde::Serialize;
 
 use crate::http;
+// Reflectivity under more contrast is the same ramp the single-site radar
+// draws, so one storm is the same colours whichever picture it is read from.
+use crate::level2::HIGH_CONTRAST_REFLECTIVITY_RAMP;
 use crate::palette;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
@@ -96,9 +99,23 @@ pub struct MrmsProduct {
     pub label: &'static str,
     pub unit: &'static str,
     pub ramp: &'static [(f32, [u8; 3])],
+    /// The same product's bands for a reader who has asked for more contrast.
+    /// Same values, colours that survive colour blindness.
+    pub high_contrast_ramp: &'static [(f32, [u8; 3])],
     /// Values at or below this are not drawn at all.
     pub floor: f32,
     pub sampling: Sampling,
+}
+
+impl MrmsProduct {
+    /// The ramp this grid is drawn with, given what the reader asked for.
+    pub fn ramp_for(&self, high_contrast: bool) -> &'static [(f32, [u8; 3])] {
+        if high_contrast {
+            self.high_contrast_ramp
+        } else {
+            self.ramp
+        }
+    }
 }
 
 /// The NWS reflectivity ramp, the same stops the legend gradient is drawn from.
@@ -212,6 +229,103 @@ const QPE_DAY_RAMP: &[(f32, [u8; 3])] = &[
     (200.0, [0xc0, 0x26, 0xd3]),
 ];
 
+/// The six steps every banded grid climbs through for a reader who has asked
+/// for more contrast.
+///
+/// Eight of the ten products are drawn on the same ladder at their own values:
+/// sky, green, yellow, orange, red, magenta. Measured with `crate::contrast`,
+/// those six do stay apart under every colour vision, and the composite's NWS
+/// reflectivity ramp does not: its worst neighbours come within 4.9 under
+/// deuteranopia, between 40 and 45 dBZ.
+///
+/// What the shared ladder does not do is climb. Its yellow is lighter than the
+/// red and the magenta above it, so nothing about a band says which way is
+/// more: the reader has to match a hue against the legend, and on a failing
+/// screen or in sunlight there is no reading left at all. This ladder is built
+/// the way the high-contrast reflectivity ramp is. Lightness rises from one end
+/// to the other, and what hue remains swings along the blue-yellow axis both
+/// red-green deficiencies keep.
+const HIGH_CONTRAST_STEPS: [[u8; 3]; 6] = [
+    [0x00, 0x25, 0x6c],
+    [0x00, 0x44, 0x7e],
+    [0x44, 0x85, 0x49],
+    [0x8a, 0x9f, 0x37],
+    [0xcf, 0xb5, 0x3c],
+    [0xff, 0xf2, 0xe3],
+];
+
+const HIGH_CONTRAST_ROTATION_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, HIGH_CONTRAST_STEPS[0]),
+    (4.0, HIGH_CONTRAST_STEPS[1]),
+    (6.0, HIGH_CONTRAST_STEPS[2]),
+    (8.0, HIGH_CONTRAST_STEPS[3]),
+    (10.0, HIGH_CONTRAST_STEPS[4]),
+    (14.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_MESH_RAMP: &[(f32, [u8; 3])] = &[
+    (6.0, HIGH_CONTRAST_STEPS[0]),
+    (19.0, HIGH_CONTRAST_STEPS[1]),
+    (25.0, HIGH_CONTRAST_STEPS[2]),
+    (45.0, HIGH_CONTRAST_STEPS[3]),
+    (70.0, HIGH_CONTRAST_STEPS[4]),
+    (100.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_LIGHTNING_RAMP: &[(f32, [u8; 3])] = &[
+    (0.01, HIGH_CONTRAST_STEPS[0]),
+    (0.10, HIGH_CONTRAST_STEPS[1]),
+    (0.50, HIGH_CONTRAST_STEPS[2]),
+    (1.00, HIGH_CONTRAST_STEPS[3]),
+    (2.00, HIGH_CONTRAST_STEPS[4]),
+    (4.00, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_ECHO_TOP_RAMP: &[(f32, [u8; 3])] = &[
+    (3.0, HIGH_CONTRAST_STEPS[0]),
+    (6.0, HIGH_CONTRAST_STEPS[1]),
+    (9.0, HIGH_CONTRAST_STEPS[2]),
+    (12.0, HIGH_CONTRAST_STEPS[3]),
+    (15.0, HIGH_CONTRAST_STEPS[4]),
+    (18.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_VIL_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, HIGH_CONTRAST_STEPS[0]),
+    (5.0, HIGH_CONTRAST_STEPS[1]),
+    (12.0, HIGH_CONTRAST_STEPS[2]),
+    (25.0, HIGH_CONTRAST_STEPS[3]),
+    (40.0, HIGH_CONTRAST_STEPS[4]),
+    (60.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_PRECIP_RATE_RAMP: &[(f32, [u8; 3])] = &[
+    (0.2, HIGH_CONTRAST_STEPS[0]),
+    (1.0, HIGH_CONTRAST_STEPS[1]),
+    (5.0, HIGH_CONTRAST_STEPS[2]),
+    (15.0, HIGH_CONTRAST_STEPS[3]),
+    (35.0, HIGH_CONTRAST_STEPS[4]),
+    (75.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_QPE_HOUR_RAMP: &[(f32, [u8; 3])] = &[
+    (0.5, HIGH_CONTRAST_STEPS[0]),
+    (2.0, HIGH_CONTRAST_STEPS[1]),
+    (6.0, HIGH_CONTRAST_STEPS[2]),
+    (15.0, HIGH_CONTRAST_STEPS[3]),
+    (30.0, HIGH_CONTRAST_STEPS[4]),
+    (60.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_QPE_DAY_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, HIGH_CONTRAST_STEPS[0]),
+    (10.0, HIGH_CONTRAST_STEPS[1]),
+    (25.0, HIGH_CONTRAST_STEPS[2]),
+    (50.0, HIGH_CONTRAST_STEPS[3]),
+    (100.0, HIGH_CONTRAST_STEPS[4]),
+    (200.0, HIGH_CONTRAST_STEPS[5]),
+];
+
 pub const PRODUCTS: &[MrmsProduct] = &[
     MrmsProduct {
         id: "composite",
@@ -219,6 +333,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "MRMS composite",
         unit: "dBZ",
         ramp: REFLECTIVITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_REFLECTIVITY_RAMP,
         floor: 5.0,
         sampling: Sampling::Nearest,
     },
@@ -228,6 +343,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Rotation tracks, past hour",
         unit: "0.001/s",
         ramp: ROTATION_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ROTATION_RAMP,
         floor: 2.0,
         sampling: Sampling::Cells,
     },
@@ -237,6 +353,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Maximum estimated hail size",
         unit: "mm",
         ramp: MESH_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_MESH_RAMP,
         floor: 6.0,
         sampling: Sampling::Cells,
     },
@@ -246,6 +363,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Echo tops",
         unit: "km",
         ramp: ECHO_TOP_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ECHO_TOP_RAMP,
         floor: 3.0,
         sampling: Sampling::Nearest,
     },
@@ -255,6 +373,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Vertically integrated liquid",
         unit: "kg/m2",
         ramp: VIL_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_VIL_RAMP,
         floor: 1.0,
         sampling: Sampling::Nearest,
     },
@@ -264,6 +383,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Rain rate",
         unit: "mm/h",
         ramp: PRECIP_RATE_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_PRECIP_RATE_RAMP,
         floor: 0.2,
         sampling: Sampling::Nearest,
     },
@@ -273,6 +393,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Rain in the past hour",
         unit: "mm",
         ramp: QPE_HOUR_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_QPE_HOUR_RAMP,
         floor: 0.5,
         sampling: Sampling::Nearest,
     },
@@ -282,6 +403,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Rain in the past day",
         unit: "mm",
         ramp: QPE_DAY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_QPE_DAY_RAMP,
         floor: 2.0,
         sampling: Sampling::Nearest,
     },
@@ -291,6 +413,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Largest hail in the past day",
         unit: "mm",
         ramp: MESH_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_MESH_RAMP,
         floor: 6.0,
         sampling: Sampling::Cells,
     },
@@ -300,6 +423,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         label: "Cloud-to-ground lightning, 5 min",
         unit: "flashes/km2/min",
         ramp: LIGHTNING_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_RAMP,
         floor: 0.01,
         sampling: Sampling::Cells,
     },
@@ -377,7 +501,14 @@ static DECODING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// A drawn tile belongs to the grid it came from and to the colour table it
 /// was drawn with. Leaving the table out of the key would serve tiles in the
 /// old colours after a new one is loaded.
-fn tile_key(key: &str, zoom: u32, x: u32, y: u32, threshold: Option<f32>) -> String {
+fn tile_key(
+    key: &str,
+    zoom: u32,
+    x: u32,
+    y: u32,
+    threshold: Option<f32>,
+    high_contrast: bool,
+) -> String {
     // The threshold is part of what the tile shows, so two tiles drawn at two
     // thresholds are two tiles. Leaving it out of the key served the first one
     // back for the second and the picture never changed.
@@ -385,7 +516,14 @@ fn tile_key(key: &str, zoom: u32, x: u32, y: u32, threshold: Option<f32>) -> Str
         Some(value) => format!("{value}"),
         None => String::from("-"),
     };
-    format!("{key}|{zoom}/{x}/{y}|{floor}|{}", palette::generation())
+    // The ramp is part of what the tile shows for the same reason: a tile
+    // drawn on the ordinary ramp must never be served to a reader who asked
+    // for the high-contrast one.
+    let ramp = if high_contrast { "hc" } else { "-" };
+    format!(
+        "{key}|{zoom}/{x}/{y}|{floor}|{ramp}|{}",
+        palette::generation()
+    )
 }
 
 fn cached_tile(key: &str) -> Option<Vec<u8>> {
@@ -710,9 +848,11 @@ pub struct TileRequest {
     pub y: u32,
     /// Hide anything below this, in the product's own unit.
     pub threshold: Option<f32>,
+    /// Draw with the ramp built for a reader who asked for more contrast.
+    pub high_contrast: bool,
 }
 
-/// Reads `/domain/product/time/z/x/y.png`, and an optional `?min=`.
+/// Reads `/domain/product/time/z/x/y.png`, and an optional `?min=` or `?hc=`.
 ///
 /// The domain may be left out, and then it is the lower forty-eight: that is
 /// the address every tile had before the other regions were read, and a
@@ -734,6 +874,11 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         })
         .and_then(|value| value.parse::<f32>().ok())
         .filter(|value| value.is_finite());
+    // Anything but the flag itself is ordinary contrast, because a ramp is not
+    // something to guess at from a malformed address.
+    let high_contrast = query
+        .map(|query| query.split('&').any(|pair| pair == "hc=1"))
+        .unwrap_or(false);
     let stem = path.strip_suffix(".png").unwrap_or(path);
     let mut parts = stem.split('/').peekable();
     // A leading segment that names a region, or nothing and the old shape.
@@ -761,6 +906,7 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         x,
         y,
         threshold,
+        high_contrast,
     })
 }
 
@@ -779,6 +925,7 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         x,
         y,
         threshold,
+        high_contrast,
     } = asked;
     let Some(key) = key_for(&domain, entry, time) else {
         return EMPTY_TILE.to_vec();
@@ -788,15 +935,15 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
     // makes replaying the loop cheap.
     // The key already names the region, so it separates one region's tiles
     // from another's without anything else being said.
-    let drawn = tile_key(&key, zoom, x, y, threshold);
+    let drawn = tile_key(&key, zoom, x, y, threshold, high_contrast);
     if let Some(bytes) = cached_tile(&drawn) {
         return bytes;
     }
     if grid_for(&key).await.is_err() {
         return EMPTY_TILE.to_vec();
     }
-    let bytes =
-        tile_from_cache(&key, entry, zoom, x, y, threshold).unwrap_or_else(|| EMPTY_TILE.to_vec());
+    let bytes = tile_from_cache(&key, entry, zoom, x, y, threshold, high_contrast)
+        .unwrap_or_else(|| EMPTY_TILE.to_vec());
     remember_tile(drawn, &bytes);
     bytes
 }
@@ -839,8 +986,15 @@ pub struct MrmsProductInfo {
     pub stops: Vec<(f32, String)>,
 }
 
+/// The catalogue, drawn the way the reader asked for.
+///
+/// The legend beside the map is built from these stops, so the flag has to
+/// reach here as well as the tile address: a bar drawn on the ordinary ramp
+/// beside a map drawn on the high-contrast one describes a picture nobody is
+/// looking at.
 #[tauri::command]
-pub fn mrms_products() -> Vec<MrmsProductInfo> {
+pub fn mrms_products(high_contrast: Option<bool>) -> Vec<MrmsProductInfo> {
+    let high_contrast = high_contrast.unwrap_or(false);
     PRODUCTS
         .iter()
         .map(|entry| MrmsProductInfo {
@@ -849,7 +1003,7 @@ pub fn mrms_products() -> Vec<MrmsProductInfo> {
             unit: entry.unit,
             floor: entry.floor,
             stops: entry
-                .ramp
+                .ramp_for(high_contrast)
                 .iter()
                 .map(|(value, color)| {
                     (
@@ -944,6 +1098,10 @@ pub fn tile_pixels(
     // Hide anything below this, on top of the product's own floor. It can only
     // ever hide more, never bring back what the floor already excluded.
     threshold: Option<f32>,
+    // Draw on the ramp built for a reader who asked for more contrast. A
+    // loaded colour table still wins: it is drawn as supplied rather than
+    // altered, and the panel says so.
+    high_contrast: bool,
 ) -> Option<Vec<u8>> {
     let scale = 2f64.powi(zoom as i32);
     if x as f64 >= scale || y as f64 >= scale {
@@ -979,12 +1137,13 @@ pub fn tile_pixels(
         None => own,
     };
 
+    let ramp = entry.ramp_for(high_contrast);
     let mut pixels = vec![0u8; TILE_SIZE * TILE_SIZE * 4];
     let mut painted = false;
     let mut paint = |row: usize, column: usize, value: f32| {
         let color = match &table {
             Some(table) => table.color(value),
-            None => ramp_color(entry.ramp, value),
+            None => ramp_color(ramp, value),
         };
         let at = (row * TILE_SIZE + column) * 4;
         pixels[at] = color[0];
@@ -1191,6 +1350,7 @@ pub fn tile_from_cache(
     x: u32,
     y: u32,
     threshold: Option<f32>,
+    high_contrast: bool,
 ) -> Option<Vec<u8>> {
     // The lock is held for the drawing, which reads the grid, and dropped
     // before the encode, which does not. Holding it across the encode
@@ -1198,7 +1358,7 @@ pub fn tile_from_cache(
     let pixels = {
         let cache = CACHE.lock().ok()?;
         let held = cache.iter().find(|held| held.key == key)?;
-        tile_pixels(&held.grid, entry, zoom, x, y, threshold)?
+        tile_pixels(&held.grid, entry, zoom, x, y, threshold, high_contrast)?
     };
     encode_png(&pixels).ok()
 }
@@ -1390,13 +1550,13 @@ mod tests {
 
         // A tile over the middle of the country draws; one over Europe does not.
         let drawing = std::time::Instant::now();
-        let tile = tile_from_cache(&newest.key, entry, 4, 3, 5, None);
+        let tile = tile_from_cache(&newest.key, entry, 4, 3, 5, None, false);
         let drawn = drawing.elapsed();
         assert!(
             tile.as_ref().is_some_and(|bytes| bytes.len() > 200),
             "the tile over the plains came out empty"
         );
-        assert!(tile_from_cache(&newest.key, entry, 4, 8, 5, None).is_none());
+        assert!(tile_from_cache(&newest.key, entry, 4, 8, 5, None, false).is_none());
 
         println!("decode {decoded:?}, tile {drawn:?}");
         assert!(
@@ -1604,14 +1764,14 @@ mod tests {
         // Zoom 4 tile 3/5 covers the middle of the country, so this tile does
         // overlap the grid; it simply has nothing worth drawing.
         assert!(
-            tile_pixels(&quiet, entry, 4, 3, 5, None).is_none(),
+            tile_pixels(&quiet, entry, 4, 3, 5, None, false).is_none(),
             "a tile of clear air should not be sent"
         );
 
         // The same tile with one gate of real rain in it does get sent.
         let mut wet = quiet;
         wet.samples = vec![10490, 10490, 10490, 10490];
-        assert!(tile_pixels(&wet, entry, 4, 3, 5, None).is_some());
+        assert!(tile_pixels(&wet, entry, 4, 3, 5, None, false).is_some());
     }
 
     /// One screen is a dozen tiles arriving at once, all wanting the same
@@ -1806,7 +1966,7 @@ mod tests {
         let count = |product: &MrmsProduct| {
             tiles
                 .iter()
-                .filter_map(|(x, y)| tile_pixels(grid, product, 4, *x, *y, None))
+                .filter_map(|(x, y)| tile_pixels(grid, product, 4, *x, *y, None, false))
                 .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
                 .sum::<usize>()
         };
@@ -1857,7 +2017,7 @@ mod tests {
         // Zoom four over the plains: one pixel covers about forty grid cells,
         // so a single live cell is a needle.
         let painted = |product: &MrmsProduct| {
-            tile_pixels(&grid, product, 4, 3, 5, None)
+            tile_pixels(&grid, product, 4, 3, 5, None, false)
                 .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
                 .unwrap_or(0)
         };
@@ -1890,7 +2050,7 @@ mod tests {
 
         let (x, y) = tile_of(41.0, -94.0, 8);
         let painted = |floor: Option<f32>| {
-            tile_pixels(&grid, entry, 8, x, y, floor)
+            tile_pixels(&grid, entry, 8, x, y, floor, false)
                 .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
                 .unwrap_or(0)
         };
@@ -1921,15 +2081,15 @@ mod tests {
         // The threshold is part of what the tile shows, so it has to be part
         // of the address the drawn tile is remembered under. Leaving it out
         // served the first reader's picture to the second.
-        let plain = tile_key("k", 4, 3, 5, None);
-        let low = tile_key("k", 4, 3, 5, Some(20.0));
-        let high = tile_key("k", 4, 3, 5, Some(45.0));
+        let plain = tile_key("k", 4, 3, 5, None, false);
+        let low = tile_key("k", 4, 3, 5, Some(20.0), false);
+        let high = tile_key("k", 4, 3, 5, Some(45.0), false);
         assert_ne!(plain, low);
         assert_ne!(low, high);
         assert_ne!(plain, high);
         // The same threshold is the same tile, or nothing would ever be
         // remembered at all.
-        assert_eq!(low, tile_key("k", 4, 3, 5, Some(20.0)));
+        assert_eq!(low, tile_key("k", 4, 3, 5, Some(20.0), false));
     }
 
     /// A block of live cells over the plains, for the zoom tests below.
@@ -1949,7 +2109,7 @@ mod tests {
     }
 
     fn painted_count(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> usize {
-        tile_pixels(grid, entry, zoom, x, y, None)
+        tile_pixels(grid, entry, zoom, x, y, None, false)
             .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
             .unwrap_or(0)
     }
@@ -2072,7 +2232,7 @@ mod tests {
         };
 
         let color_at = |zoom, x, y| {
-            tile_pixels(&grid, entry, zoom, x, y, None).map(|pixels| {
+            tile_pixels(&grid, entry, zoom, x, y, None, false).map(|pixels| {
                 let first = pixels
                     .chunks_exact(4)
                     .find(|p| p[3] > 0)
@@ -2230,7 +2390,7 @@ mod tests {
 
     #[test]
     fn the_legend_is_built_from_the_ramp_the_tiles_are_drawn_with() {
-        let products = mrms_products();
+        let products = mrms_products(None);
         assert_eq!(products.len(), PRODUCTS.len());
 
         let composite = products
@@ -2351,9 +2511,9 @@ mod tests {
         let grid = grid();
         let entry = product_by_id("composite").expect("the composite product");
         // Zoom 4 tile over western Europe, nowhere near the grid.
-        assert!(tile_pixels(&grid, entry, 4, 8, 5, None).is_none());
+        assert!(tile_pixels(&grid, entry, 4, 8, 5, None, false).is_none());
         // A tile index that does not exist at its zoom.
-        assert!(tile_pixels(&grid, entry, 1, 4, 0, None).is_none());
+        assert!(tile_pixels(&grid, entry, 1, 4, 0, None, false).is_none());
     }
 
     #[test]
@@ -2374,6 +2534,182 @@ mod tests {
             assert!(
                 (back - latitude).abs() < 1e-9,
                 "{latitude} came back {back}"
+            );
+        }
+    }
+
+    /// Whether the grids stay readable to somebody who cannot see one of the
+    /// primaries, held to the same numbers the single-site ramps are.
+    mod colour_vision {
+        use super::*;
+        use crate::contrast::{
+            closest_neighbours, lightness_climbs, worst_pair, ColorVision, EVERY_VISION,
+        };
+
+        /// Neighbouring bands have to stay apart for every kind of vision.
+        /// About 2.3 is where two colours become distinguishable at all, so
+        /// this is a multiple of that rather than a number chosen to let a
+        /// particular ladder through.
+        const NEIGHBOURS_APART: f32 = 10.0;
+
+        #[test]
+        fn every_high_contrast_grid_keeps_its_bands_apart() {
+            for product in PRODUCTS {
+                for vision in EVERY_VISION {
+                    let (apart, from, to) = worst_pair(product.high_contrast_ramp, vision);
+                    assert!(
+                        apart >= NEIGHBOURS_APART,
+                        "{}: {} brings {from} and {to} {} within {apart:.1}",
+                        product.id,
+                        vision.name(),
+                        product.unit
+                    );
+                }
+            }
+        }
+
+        /// More of the quantity is always lighter, which is what carries the
+        /// reading when hue is gone entirely.
+        #[test]
+        fn every_high_contrast_grid_climbs_in_lightness() {
+            for product in PRODUCTS {
+                assert!(
+                    lightness_climbs(product.high_contrast_ramp, 0.5),
+                    "{} falls back down",
+                    product.id
+                );
+            }
+        }
+
+        /// What the ordinary ramps do, kept as tests so the reason for the
+        /// second set is on the record rather than in an argument.
+        ///
+        /// The two problems are different. The composite is drawn on the NWS
+        /// reflectivity scale, which collapses outright; the other nine share a
+        /// ladder that stays apart and carries no order, because its yellow is
+        /// lighter than the red and the magenta above it.
+        #[test]
+        fn the_ordinary_composite_ramp_collapses() {
+            let composite = product_by_id("composite").expect("the composite product");
+            let (apart, from, to) = worst_pair(composite.ramp, ColorVision::Deuteranopia);
+            assert!(
+                apart < NEIGHBOURS_APART,
+                "the NWS scale was expected to collapse somewhere under deuteranopia, closest was {apart:.1} between {from} and {to}"
+            );
+            let better =
+                closest_neighbours(composite.high_contrast_ramp, ColorVision::Deuteranopia);
+            assert!(
+                better > apart * 2.0,
+                "the replacement should be further apart: {better:.1} against {apart:.1}"
+            );
+        }
+
+        /// The shared ladder is readable and says nothing about which way is
+        /// more, which is the other half of what contrast is for.
+        #[test]
+        fn the_ordinary_ladder_carries_no_order() {
+            let rotation = product_by_id("rotation").expect("the rotation product");
+            assert!(
+                !lightness_climbs(rotation.ramp, 0.5),
+                "the shared ladder was expected to fall back down in lightness"
+            );
+            assert!(lightness_climbs(rotation.high_contrast_ramp, 0.5));
+        }
+
+        /// Asking for more contrast may divide the range into fewer bands, and
+        /// it may not move the ends of it. A ramp that started or stopped
+        /// somewhere else would quietly change which readings are drawn at all.
+        #[test]
+        fn the_two_ramps_cover_the_same_ground() {
+            for product in PRODUCTS {
+                let contrast = product.high_contrast_ramp;
+                assert_eq!(
+                    product.ramp[0].0, contrast[0].0,
+                    "{} starts somewhere else",
+                    product.id
+                );
+                assert_eq!(
+                    product.ramp[product.ramp.len() - 1].0,
+                    contrast[contrast.len() - 1].0,
+                    "{} stops somewhere else",
+                    product.id
+                );
+                assert!(
+                    contrast.windows(2).all(|pair| pair[1].0 > pair[0].0),
+                    "{} runs out of order",
+                    product.id
+                );
+                assert!(
+                    contrast.len() <= product.ramp.len(),
+                    "{} asks a reader to tell more bands apart, not fewer",
+                    product.id
+                );
+            }
+        }
+    }
+
+    /// The contrast choice has to travel in the address, or a tile drawn one
+    /// way is served to a reader who asked for the other.
+    #[test]
+    fn the_tile_address_carries_the_contrast_choice() {
+        let ordinary = parse_tile_path("/composite/1788075402/6/14/24.png?p=0").expect("a tile");
+        assert!(!ordinary.high_contrast);
+        let asked = parse_tile_path("/composite/1788075402/6/14/24.png?p=0&hc=1").expect("a tile");
+        assert!(asked.high_contrast);
+        // Anything else is ordinary contrast rather than a guess.
+        for query in ["?hc=0", "?hc=yes", "?hc", "?min=20"] {
+            let odd = parse_tile_path(&format!("/composite/1788075402/6/14/24.png{query}"))
+                .expect("a tile");
+            assert!(!odd.high_contrast, "{query} should not turn contrast on");
+        }
+    }
+
+    #[test]
+    fn two_contrast_choices_are_two_tiles() {
+        let plain = tile_key("k", 4, 3, 5, None, false);
+        let contrast = tile_key("k", 4, 3, 5, None, true);
+        assert_ne!(plain, contrast);
+        assert_eq!(contrast, tile_key("k", 4, 3, 5, None, true));
+    }
+
+    /// And the pixels actually differ, so the address is separating two
+    /// pictures rather than two names for one.
+    #[test]
+    fn a_high_contrast_tile_is_drawn_on_the_other_ramp() {
+        let grid = grid();
+        let entry = product_by_id("composite").expect("the composite product");
+        let plain = tile_pixels(&grid, entry, 4, 3, 5, None, false).expect("a tile");
+        let contrast = tile_pixels(&grid, entry, 4, 3, 5, None, true).expect("a tile");
+        assert_ne!(plain, contrast);
+    }
+
+    #[test]
+    fn the_legend_follows_the_ramp_in_force() {
+        let ordinary = mrms_products(Some(false));
+        let contrast = mrms_products(Some(true));
+        let hex = |ramp: &[(f32, [u8; 3])], at: usize| {
+            format!(
+                "#{:02x}{:02x}{:02x}",
+                ramp[at].1[0], ramp[at].1[1], ramp[at].1[2]
+            )
+        };
+        for (index, product) in PRODUCTS.iter().enumerate() {
+            assert_eq!(ordinary[index].stops[0].1, hex(product.ramp, 0));
+            assert_eq!(
+                contrast[index].stops[0].1,
+                hex(product.high_contrast_ramp, 0),
+                "{} kept its ordinary colours",
+                product.id
+            );
+            // Whatever the bar is drawn from, it covers the same ground.
+            assert_eq!(ordinary[index].stops[0].0, contrast[index].stops[0].0);
+            assert_eq!(
+                ordinary[index].stops.last().unwrap().0,
+                contrast[index].stops.last().unwrap().0
+            );
+            assert_eq!(
+                contrast[index].stops.len(),
+                product.high_contrast_ramp.len()
             );
         }
     }
