@@ -15,6 +15,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "../lib/maplibreWorker";
 import { formatDistance, haversineMiles, type GeoPoint } from "../lib/geo";
 import { mapStyleDefinition } from "../lib/mapStyles";
+import type { IncidentPackReference } from "../lib/settings";
 import {
   OVERLAY_ADAPTERS,
   type OverlayBounds,
@@ -127,6 +128,8 @@ interface MapViewportProps {
   camera: CameraState;
   projection: ProjectionMode;
   mapStyle: MapStyleId;
+  /** A completed local basemap archive selected for offline incident work. */
+  incidentPack?: IncidentPackReference | null;
   radarFrame?: RadarFrame;
   radarVisible: boolean;
   radarOpacity: number;
@@ -243,6 +246,7 @@ function MapViewportInner(
     camera,
     projection,
     mapStyle,
+    incidentPack = null,
     radarFrame,
     radarVisible,
     radarOpacity,
@@ -295,7 +299,8 @@ function MapViewportInner(
   const overlaysRef = useRef(overlays);
   const routeRef = useRef(route);
   const projectionRef = useRef(projection);
-  const mapStyleRef = useRef(mapStyle);
+  const styleIdentity = `${mapStyle}:${incidentPack?.id ?? ""}:${incidentPack?.sha256 ?? ""}`;
+  const mapStyleRef = useRef(styleIdentity);
   const toolModeRef = useRef<ToolMode>(toolMode);
   const drawPointsRef = useRef<GeoPoint[]>([]);
   const rangeStartRef = useRef<GeoPoint | null>(null);
@@ -1431,7 +1436,7 @@ function MapViewportInner(
     onMapStatus?.("loading");
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: mapStyleDefinition(mapStyle),
+      style: mapStyleDefinition(mapStyle, incidentPack),
       center: camera.center,
       zoom: camera.zoom,
       bearing: camera.bearing,
@@ -1614,13 +1619,16 @@ function MapViewportInner(
     // Which basemap is actually drawn, which is not the same as the setting:
     // Auto resolves against the theme before it gets here.
     if (containerRef.current) containerRef.current.dataset.mapStyle = mapStyle;
+    if (containerRef.current) {
+      containerRef.current.dataset.incidentPack = incidentPack?.id ?? "";
+    }
     const map = mapRef.current;
-    if (!map || mapStyleRef.current === mapStyle) return;
-    mapStyleRef.current = mapStyle;
+    if (!map || mapStyleRef.current === styleIdentity) return;
+    mapStyleRef.current = styleIdentity;
     styleReadyRef.current = false;
     radarSourceKeysRef.current = { observed: null, forecast: null };
-    map.setStyle(mapStyleDefinition(mapStyle));
-  }, [mapStyle]);
+    map.setStyle(mapStyleDefinition(mapStyle, incidentPack));
+  }, [incidentPack, mapStyle, styleIdentity]);
 
   useEffect(() => {
     radarFrameRef.current = radarFrame;

@@ -39,9 +39,14 @@ flate2 = "1.1.10"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2.3.1"
 netcdf-reader = { version = "0.9.1", default-features = false, features = ["netcdf4"] }
-tokio = { version = "1.53.1", features = ["sync"] }
+tokio = { version = "1.53.1", features = ["macros", "sync", "time"] }
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-dialog = "2.7.3"
+bytes = "1.10.1"
+futures-util = "0.3.31"
+image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png"] }
+pmtiles = { version = "=0.16.0", default-features = false, features = ["mmap-async-tokio", "write"] }
+sha2 = "0.10.9"
 
 [dev-dependencies]
 # Level II records are bzip2 inside, so writing a test volume needs an encoder.

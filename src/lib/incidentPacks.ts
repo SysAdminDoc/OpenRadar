@@ -1,0 +1,151 @@
+import type { IncidentPackReference } from "./settings";
+import { isDesktopRuntime } from "./settings";
+
+export interface PackBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export type IncidentPackStatus =
+  "queued" | "downloading" | "paused" | "finalizing" | "ready" | "failed";
+
+export interface IncidentPack {
+  id: string;
+  name: string;
+  bounds: PackBounds;
+  minZoom: number;
+  maxZoom: number;
+  status: IncidentPackStatus;
+  tileCount: number;
+  downloadedTiles: number;
+  downloadedBytes: number;
+  estimatedBytes: number;
+  archiveBytes: number;
+  sha256: string | null;
+  source: string;
+  attribution: string;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IncidentPackLibrary {
+  packs: IncidentPack[];
+  usedBytes: number;
+  diskLimitBytes: number;
+}
+
+export interface IncidentPackEstimate {
+  tileCount: number;
+  estimatedBytes: number;
+  temporaryBytes: number;
+  usedBytes: number;
+  diskLimitBytes: number;
+  fits: boolean;
+}
+
+export interface IncidentPackRequest {
+  name: string;
+  bounds: PackBounds;
+  minZoom: number;
+  maxZoom: number;
+}
+
+async function native<T>(command: string, args?: Record<string, unknown>) {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(command, args);
+}
+
+export function incidentPacksAvailable(): boolean {
+  return isDesktopRuntime();
+}
+
+export function estimateIncidentPack(
+  request: Omit<IncidentPackRequest, "name">,
+): Promise<IncidentPackEstimate> {
+  return native("incident_pack_estimate", { request });
+}
+
+export function listIncidentPacks(): Promise<IncidentPackLibrary> {
+  return native("incident_pack_list");
+}
+
+export function setIncidentPackLimit(
+  diskLimitMb: number,
+): Promise<IncidentPackLibrary> {
+  return native("incident_pack_set_limit", { diskLimitMb });
+}
+
+export function createIncidentPack(
+  request: IncidentPackRequest,
+): Promise<IncidentPack> {
+  return native("incident_pack_create", { request });
+}
+
+export function pauseIncidentPack(id: string): Promise<void> {
+  return native("incident_pack_pause", { id });
+}
+
+export function resumeIncidentPack(id: string): Promise<void> {
+  return native("incident_pack_resume", { id });
+}
+
+export function cancelIncidentPack(id: string): Promise<void> {
+  return native("incident_pack_cancel", { id });
+}
+
+export function deleteIncidentPack(id: string): Promise<void> {
+  return native("incident_pack_delete", { id });
+}
+
+export function asIncidentPackReference(
+  pack: IncidentPack,
+): IncidentPackReference | null {
+  if (pack.status !== "ready" || !pack.sha256) return null;
+  return {
+    id: pack.id,
+    name: pack.name,
+    bounds: pack.bounds,
+    minZoom: pack.minZoom,
+    maxZoom: pack.maxZoom,
+    bytes: pack.archiveBytes,
+    sha256: pack.sha256,
+    attribution: pack.attribution,
+  };
+}
+
+/**
+ * Tauri spells a custom protocol differently on Windows. This is synchronous
+ * because MapLibre asks for its style during construction, before an import
+ * promise could settle.
+ */
+export function incidentTileTemplate(id: string): string | null {
+  if (!/^[0-9a-f]{24}$/i.test(id) || typeof window === "undefined") return null;
+  const internals = (
+    window as unknown as {
+      __TAURI_INTERNALS__?: {
+        convertFileSrc?: (path: string, scheme: string) => string;
+      };
+    }
+  ).__TAURI_INTERNALS__;
+  if (typeof internals?.convertFileSrc !== "function") return null;
+  try {
+    const marker = "openradar";
+    const sample = internals.convertFileSrc(marker, "incident");
+    const at = sample.lastIndexOf(marker);
+    if (at < 0) return null;
+    return `${sample.slice(0, at)}${id}/{z}/{x}/{y}.png`;
+  } catch {
+    return null;
+  }
+}
+
+export function formatPackBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes < 1024)
+    return `${Math.max(0.1, megabytes).toFixed(megabytes < 10 ? 1 : 0)} MB`;
+  return `${(megabytes / 1024).toFixed(1)} GB`;
+}

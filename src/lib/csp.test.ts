@@ -28,6 +28,8 @@ const SCHEMES = [
   // Tiles, glyphs, and the documents the overlays are drawn from all go
   // through this one, so it has to be allowed everywhere they are fetched.
   { scheme: "cached", directives: ["connect-src", "img-src", "font-src"] },
+  // Completed PMTiles packs are exposed as local raster tiles.
+  { scheme: "incident", directives: ["connect-src", "img-src"] },
 ];
 
 describe("the packaged app's content security policy", () => {
@@ -106,7 +108,7 @@ describe("the packaged app's content security policy", () => {
 
     // Schemes, the local spellings Windows gives them, and the keywords.
     const notHosts =
-      /^('self'|'wasm-unsafe-eval'|'unsafe-inline'|data:|blob:|ipc:|mrms:|cached:|asset:|customprotocol:|http:\/\/(ipc|mrms|cached|asset)\.localhost)$/;
+      /^('self'|'wasm-unsafe-eval'|'unsafe-inline'|data:|blob:|ipc:|mrms:|cached:|incident:|asset:|customprotocol:|http:\/\/(ipc|mrms|cached|incident|asset)\.localhost)$/;
 
     for (const directive of ["connect-src", "img-src", "font-src"]) {
       for (const token of csp[directive].split(/\s+/).filter(Boolean)) {

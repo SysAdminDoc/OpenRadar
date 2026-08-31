@@ -32,6 +32,38 @@ describe("workspace backups", () => {
     expect(restored.unread).toEqual([]);
   });
 
+  it("backs up incident pack references without embedding PMTiles bytes", () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      incidentPacks: {
+        diskLimitMb: 8192,
+        selectedId: "0123456789abcdef01234567",
+        references: [
+          {
+            id: "0123456789abcdef01234567",
+            name: "Storm response",
+            bounds: { west: -94, south: 40, east: -93, north: 41 },
+            minZoom: 5,
+            maxZoom: 10,
+            bytes: 450_000_000,
+            sha256: "a".repeat(64),
+            attribution: "USGS The National Map",
+          },
+        ],
+      },
+    };
+    const backup = createWorkspaceBackup(settings, null);
+    const text = JSON.stringify(backup);
+    expect(text.length).toBeLessThan(10_000);
+    expect(text).toContain("0123456789abcdef01234567");
+    expect(text).toContain("450000000");
+    expect(text).not.toContain("data:image");
+    expect(text).not.toContain("basemap.pmtiles");
+    expect(restoreWorkspace(JSON.parse(text)).settings.incidentPacks).toEqual(
+      settings.incidentPacks,
+    );
+  });
+
   it("keeps legacy settings imports usable without a blank overlay switch", () => {
     const restored = restoreWorkspace({
       ...DEFAULT_SETTINGS,

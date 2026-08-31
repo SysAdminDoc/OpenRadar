@@ -6,13 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P1
 
-- [ ] AUD-073: Add resumable offline incident packs with PMTiles
-      Why: Storm work often happens with weak connectivity. HookEcho and Anvil prove that a prepared local basemap and incident bundle is useful on desktop.
-      Evidence: `src/lib/mapStyles.ts`; `src-tauri/src/cache.rs`; https://github.com/d4vid87/hookecho ; https://github.com/jhammon88219/Anvil ; https://github.com/protomaps/PMTiles ; https://github.com/makinacorpus/maplibre-offline-pmtiles
-      Touches: Region and zoom selector; PMTiles storage; download queue; disk budget; map style routing; pack management; workspace metadata
-      Acceptance: A bounded region and zoom range downloads with an estimated size, pause and resume, byte and hash verification, attribution, and a configurable disk ceiling; cancelling or deleting leaves no orphaned bytes; the selected region renders with networking disabled; backup files reference packs without embedding large data by accident.
-      Complexity: XL
-
 - [ ] AUD-074: Add a two-point Level II cross-section
       Why: A height-versus-distance view answers the practical vertical-structure question without the GPU and interaction burden of full 3D. BowEcho and GR2Analyst validate the workflow.
       Evidence: `src-tauri/src/level2.rs`; `src/components/MapViewport.tsx`; https://github.com/FahrenheitResearch/bowecho ; https://www.grlevelx.com/gr2analyst_3/
