@@ -110,9 +110,20 @@ export function isConusViewport(lon: number, lat: number): boolean {
   return covers(ridgeProvider, lon, lat);
 }
 
+/**
+ * What the timeline is a timeline of, as one string.
+ *
+ * A refetch happens when this changes and at no other time, so anything that
+ * changes which frames belong on screen has to be in it. That is the chain of
+ * providers, and for a provider that publishes more than one grid, which of
+ * them this place falls in.
+ */
 export function coverageKey(lon: number, lat: number): string {
   return providerChain(lon, lat)
-    .map((provider) => provider.id)
+    .map((provider) => {
+      const region = provider.regionAt?.(lon, lat);
+      return region ? `${provider.id}/${region}` : provider.id;
+    })
     .join("+");
 }
 

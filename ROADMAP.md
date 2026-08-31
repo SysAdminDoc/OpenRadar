@@ -8,12 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — Panning between MRMS regions serves the previous region's grid
-  Why: all five regions produce the same `coverageKey`, and that key is the only refetch trigger, so moving Honolulu to Anchorage keeps the Hawaii frame list for up to five minutes and requests `/HAWAII/...` tiles that come back empty.
-  Evidence: `renderHook` on the real `useRadarTimeline`, centre Honolulu to Anchorage: `fetchRadarTimeline` called once, expected twice; the Honolulu to Oklahoma City control passes with two.
-  Touches: src/lib/providers/index.ts (`coverageKey`), src/lib/providers/mrms.ts, src/hooks/useRadarTimeline.ts
-  Acceptance: the key separates the five MRMS domains; a test moves between each pair of regions and asserts a refetch; the Honolulu to Oklahoma City control still passes.
-
 - [ ] P1 — Every warning already in force is announced twice on the first poll
   Why: the shared tag cache returns an empty map on the first `fetchData`, so an alert is recorded at rank 0 and then re-announced at its real rank on the next poll. The first draw also has no impact styling and no tag line, with nothing re-rendering when the tags land.
   Evidence: driving the real `alertsOverlay.fetchData` twice against a mocked feed produced two announcements for one Tornado Warning, impact "" then "catastrophic".
@@ -49,12 +43,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Evidence: a truncated listing returns None even though a good key preceded the truncation (src-tauri/src/probsevere.rs:206).
   Touches: src-tauri/src/probsevere.rs
   Acceptance: a listing that is good up to a truncation still yields the newest good key; a test plants the truncation after a valid key.
-
-- [ ] P1 — `coverage.test.ts` tests a copy of its subject
-  Why: it defines a local `covers` instead of importing the real one, so `return true` in types.ts, and a provider claiming the whole globe, both leave it at 6 passed.
-  Evidence: both mutations survive `npx vitest run src/lib/providers/coverage.test.ts`.
-  Touches: src/lib/providers/coverage.test.ts
-  Acceptance: the file imports `covers`; both mutations turn it red.
 
 - [ ] P1 — Two hook tests assert nothing about the lines they name
   Why: deleting `offerRef.current = null` from the update check's failure path leaves useUpdates.test.ts green, and the line is unreachable anyway. Deleting `setError(null)` on a successful wind read leaves useWind.test.ts green, so the panel would keep reporting a failure while the particles animate.
