@@ -156,6 +156,14 @@ const OVERLAY_LAYERS: Array<{
 
 interface LayersPanelProps {
   layers: LayerSettings;
+  /**
+   * What a switched-on layer has to say for itself, when it is not drawing.
+   *
+   * Shown in place of the layer's description, because that is where somebody
+   * who just switched it on and saw nothing is looking. A layer that fails
+   * silently looks like a quiet afternoon.
+   */
+  layerNotes?: Partial<Record<keyof LayerSettings, string | null>>;
   /** How solid each overlay is drawn, as a fraction of its own design. */
   overlayOpacity: Record<string, number>;
   onOverlayOpacity: (opacity: Record<string, number>) => void;
@@ -320,6 +328,7 @@ const LAYER_OPTIONS: Array<{
 
 export function LayersPanel({
   layers,
+  layerNotes,
   overlayOpacity,
   onOverlayOpacity,
   overlayOrder,
@@ -359,7 +368,15 @@ export function LayersPanel({
             <Icon size={19} />
             <span>
               <strong>{t(labelKey)}</strong>
-              <small>{t(detailKey)}</small>
+              {/* What went wrong, where the reader switched it on. A layer
+                  that fails silently looks like a quiet afternoon, which for
+                  a layer somebody might act on is the worst thing it could
+                  look like. */}
+              {layers[key] && layerNotes?.[key] ? (
+                <small className="toggle-row__note">{layerNotes[key]}</small>
+              ) : (
+                <small>{t(detailKey)}</small>
+              )}
             </span>
             <input
               type="checkbox"

@@ -457,6 +457,7 @@ export default function App() {
       />
 
       <PanelSurfaces
+        layerNotes={{ probSevere: probSevere.error }}
         activeSurface={activeSurface}
         productOpen={productOpen}
         settings={settings}

@@ -22,6 +22,14 @@ const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
 /// is describing storms that have moved on.
 const STALE_MINUTES: i64 = 15;
 
+/// How far ahead of this machine's clock a reading may be stamped.
+///
+/// Clock skew of a minute or two is ordinary and a reading is published every
+/// couple of minutes, so a little slack costs nothing. A key stamped days
+/// ahead is a mistake somewhere, and drawing it as current would be drawing
+/// storms that have not happened.
+const AHEAD_MINUTES: i64 = 5;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ProbSevereError {
     #[error("the ProbSevere listing could not be read")]
@@ -198,12 +206,19 @@ fn key_time(key: &str) -> Option<DateTime<Utc>> {
 }
 
 /// The newest key in a listing, with its time.
+///
+/// A listing that stops in the middle of a tag is read as far as it goes.
+/// Returning nothing from the whole function on the first unterminated key,
+/// as this did, threw away every good key that came before the truncation and
+/// left the layer blank over a listing that was mostly fine.
 fn newest_in(listing: &str) -> Option<(String, DateTime<Utc>)> {
     let mut newest: Option<(String, DateTime<Utc>)> = None;
     let mut rest = listing;
     while let Some(start) = rest.find("<Key>") {
         let after = &rest[start + 5..];
-        let end = after.find("</Key>")?;
+        let Some(end) = after.find("</Key>") else {
+            break;
+        };
         let key = &after[..end];
         if let Some(at) = key_time(key) {
             if newest.as_ref().is_none_or(|(_, held)| at > *held) {
@@ -213,6 +228,19 @@ fn newest_in(listing: &str) -> Option<(String, DateTime<Utc>)> {
         rest = &after[end..];
     }
     newest
+}
+
+/// Whether a reading is close enough to now to be worth drawing.
+///
+/// A reading from an hour ago is about storms that have moved on, and this is
+/// a layer somebody might act on. A stamp ahead of the clock is refused for the
+/// same reason from the other side: this machine's clock running a minute
+/// behind the publisher's is ordinary, a key stamped days ahead is a mistake
+/// somewhere, and drawing it as current would be drawing storms that have not
+/// happened.
+fn is_current(at: DateTime<Utc>, now: DateTime<Utc>) -> bool {
+    let age = (now - at).num_minutes();
+    (-AHEAD_MINUTES..=STALE_MINUTES).contains(&age)
 }
 
 /// What the model says about the storms on the map right now.
@@ -248,9 +276,7 @@ pub async fn probsevere_reading() -> Result<ProbSevereReading, ProbSevereError> 
     let Some((key, at)) = newest else {
         return Err(ProbSevereError::NoReading);
     };
-    // A reading from an hour ago is about storms that have moved on, and this
-    // is a layer somebody might act on.
-    if (now - at).num_minutes() > STALE_MINUTES {
+    if !is_current(at, now) {
         return Err(ProbSevereError::NoReading);
     }
 
@@ -260,6 +286,8 @@ pub async fn probsevere_reading() -> Result<ProbSevereReading, ProbSevereError> 
 
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone;
+
     use super::*;
 
     const READING: &[u8] =
@@ -290,6 +318,43 @@ mod tests {
         assert!(key.ends_with("230841.json"), "{key}");
         assert_eq!(at.to_rfc3339(), "2026-08-30T23:08:41+00:00");
         assert!(newest_in("<ListBucketResult/>").is_none());
+    }
+
+    #[test]
+    fn a_listing_that_stops_in_the_middle_keeps_what_came_before_it() {
+        // A body cut short is a body cut short, not a reason to throw away the
+        // keys already read. This returned None from the whole function on the
+        // first unterminated tag, so a truncated listing left the layer blank
+        // even when every key before the cut was fine.
+        let good = "<ListBucketResult>\
+             <Contents><Key>ProbSevere/20260830/MRMS_PROBSEVERE_20260830_225638.json</Key></Contents>\
+             <Contents><Key>ProbSevere/20260830/MRMS_PROBSEVERE_20260830_230841.json</Key></Contents>";
+        let truncated = format!("{good}<Contents><Key>ProbSevere/20260830/MRMS_PROB");
+        let (key, at) = newest_in(&truncated).expect("the keys before the cut are still keys");
+        assert!(key.ends_with("230841.json"), "{key}");
+        assert_eq!(at.to_rfc3339(), "2026-08-30T23:08:41+00:00");
+
+        // Cut in the middle of the tag itself, and cut before any key at all.
+        assert!(newest_in(&format!("{good}<Contents><Ke")).is_some());
+        assert!(newest_in("<ListBucketResult><Contents><Key>ProbSev").is_none());
+    }
+
+    #[test]
+    fn a_key_stamped_ahead_of_the_clock_is_not_current() {
+        // The window is one-sided nowhere. A stamp a few minutes ahead is this
+        // machine's clock running behind the publisher's, which is ordinary. A
+        // stamp days ahead is a mistake, and drawing it as current would be
+        // drawing storms that have not happened yet.
+        let now = Utc.with_ymd_and_hms(2026, 8, 30, 23, 10, 0).unwrap();
+        let current = |at: DateTime<Utc>| is_current(at, now);
+
+        assert!(current(now), "a reading published this second is current");
+        assert!(current(now - Duration::minutes(STALE_MINUTES)));
+        assert!(!current(now - Duration::minutes(STALE_MINUTES + 1)));
+        assert!(current(now + Duration::minutes(AHEAD_MINUTES)), "clock skew");
+        assert!(!current(now + Duration::minutes(AHEAD_MINUTES + 1)));
+        assert!(!current(now + Duration::days(3)), "a stamp days ahead");
+        assert!(!current(now + Duration::days(400)));
     }
 
     #[test]

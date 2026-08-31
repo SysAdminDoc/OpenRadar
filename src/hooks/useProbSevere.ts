@@ -3,11 +3,12 @@ import { log } from "../lib/log";
 import {
   PROBSEVERE_REFRESH_MS,
   fetchProbSevere,
+  isCurrentReading,
   probSevereAvailable,
   probSevereFeatures,
-  readingTime,
   type ProbSevereReading,
 } from "../lib/probsevere";
+import { translate } from "../i18n";
 
 export interface ProbSevereState {
   reading: ProbSevereReading | null;
@@ -81,15 +82,25 @@ export function useProbSevere(options: {
 
   const current = useMemo(() => {
     if (!reading || !wanted) return null;
-    const at = readingTime(reading.observed);
-    if (at === null) return null;
-    return (clock - at) / 60_000 <= STALE_MINUTES ? reading : null;
+    return isCurrentReading(reading.observed, clock, STALE_MINUTES)
+      ? reading
+      : null;
   }, [clock, reading, wanted]);
+
+  // A reading that arrived but is not worth drawing is not the same as no
+  // reading at all, and the reader has to be told which they have. Switching
+  // the layer on and getting a blank map with no message was the worst of it.
+  const stale = reading !== null && current === null;
 
   const features = useMemo(
     () => (current ? probSevereFeatures(current) : null),
     [current],
   );
 
-  return { reading: current, features, error: wanted ? error : null };
+  if (!wanted) return { reading: null, features: null, error: null };
+  return {
+    reading: current,
+    features,
+    error: error ?? (stale ? translate("probSevere.stale") : null),
+  };
 }

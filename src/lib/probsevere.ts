@@ -51,19 +51,49 @@ export const PROBSEVERE_FLOOR = 10;
  * When the reading was taken, from the stamp the file carries.
  *
  * It is written `20260830_230841 UTC`, which no date parser reads on its own.
+ *
+ * `Date.UTC` rolls impossible parts over rather than refusing them: month 99
+ * becomes a date eight years out and minute 61 becomes the next hour. A stamp
+ * that cannot be read has to come back as nothing, or the layer draws whatever
+ * the rollover landed on and calls it current.
  */
 export function readingTime(observed: string): number | null {
   const found = /^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/.exec(observed);
   if (!found) return null;
-  const [, year, month, day, hour, minute, second] = found;
-  return Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
-  );
+  const [, year, month, day, hour, minute, second] = found.map(Number);
+  // A time part that rolls over stays on the same day, so reading the date
+  // back cannot see it.
+  if (hour > 23 || minute > 59 || second > 60) return null;
+  const at = Date.UTC(year, month - 1, day, hour, minute, second);
+  // Everything else the rollover moves shows up in the date that comes back:
+  // month 99 lands eight years out, and the thirty-first of April lands in
+  // May.
+  const back = new Date(at);
+  if (back.getUTCMonth() !== month - 1 || back.getUTCDate() !== day) {
+    return null;
+  }
+  return at;
+}
+
+/**
+ * How far ahead of this machine's clock a reading may be stamped, in minutes.
+ *
+ * Clock skew of a minute or two is ordinary. A stamp days ahead is a mistake
+ * somewhere, and drawing it as current would be drawing storms that have not
+ * happened.
+ */
+export const AHEAD_MINUTES = 5;
+
+/** Whether a reading is close enough to now to be worth drawing. */
+export function isCurrentReading(
+  observed: string,
+  now: number,
+  staleMinutes: number,
+): boolean {
+  const at = readingTime(observed);
+  if (at === null) return false;
+  const age = (now - at) / 60_000;
+  return age >= -AHEAD_MINUTES && age <= staleMinutes;
 }
 
 /** The storms worth drawing, as the map takes them. */

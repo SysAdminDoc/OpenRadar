@@ -52,6 +52,14 @@ interface PanelSurfacesProps {
   log: LogEntry[];
   exportState: ExportState;
   singleSite: SingleSiteState | null;
+  /**
+   * What a switched-on layer has to say for itself when it is not drawing.
+   *
+   * It belongs beside the switch rather than in a toast: somebody who turns a
+   * layer on and sees nothing is looking at the switch, and a layer that fails
+   * in silence looks like a quiet afternoon.
+   */
+  layerNotes: Partial<Record<keyof LayerSettings, string | null>>;
   clock: number;
   update: UpdateState;
   onUpdate: (() => void) | null;
@@ -119,6 +127,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "layers" ? (
         <LayersPanel
           layers={settings.layers}
+          layerNotes={props.layerNotes}
           overlayOpacity={settings.overlayOpacity}
           onOverlayOpacity={props.onOverlayOpacity}
           overlayOrder={settings.overlayOrder}
