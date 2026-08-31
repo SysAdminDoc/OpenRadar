@@ -39,8 +39,8 @@ function workspace(presets: AppSettings["presets"]) {
         applySettings: vi.fn(),
         pushToast: vi.fn(),
         setActiveSurface: vi.fn(),
-        setCustomOverlay: vi.fn(),
-        customOverlay: null,
+        setOverlayFiles: vi.fn(),
+        overlayFiles: [],
       }),
     ),
   };

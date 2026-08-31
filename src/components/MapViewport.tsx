@@ -1308,7 +1308,13 @@ function MapViewportInner(
           // A placefile carries its own colours; plain GeoJSON does not.
           paint: {
             "fill-color": ["coalesce", ["get", "color"], "#60a5fa"],
-            "fill-opacity": 0.18,
+            // A file's own opacity rides on its features, since one set of
+            // layers draws every imported file. Absent means full.
+            "fill-opacity": [
+              "*",
+              0.18,
+              ["coalesce", ["get", "fileOpacity"], 1],
+            ],
           },
         },
         beforeTools,
@@ -1326,6 +1332,7 @@ function MapViewportInner(
           paint: {
             "line-color": ["coalesce", ["get", "color"], "#93c5fd"],
             "line-width": ["coalesce", ["get", "width"], 2],
+            "line-opacity": ["coalesce", ["get", "fileOpacity"], 1],
           },
         },
         beforeTools,
@@ -1341,6 +1348,8 @@ function MapViewportInner(
             "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
             "circle-stroke-color": "#eff6ff",
             "circle-stroke-width": 1.5,
+            "circle-opacity": ["coalesce", ["get", "fileOpacity"], 1],
+            "circle-stroke-opacity": ["coalesce", ["get", "fileOpacity"], 1],
           },
         },
         beforeTools,

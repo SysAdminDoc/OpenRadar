@@ -72,6 +72,14 @@ export const es: Catalogue = {
   "layers.opacityDetail":
     "Cada una por su cuenta, para atenuar una capa en vez de apagarla",
   "layers.opacityFor": "{layer}, {percent}% de opacidad",
+  "layers.files": "Archivos que importaste",
+  "layers.filesDetail":
+    "Cada uno con su propio interruptor, y el último de la lista se dibuja encima",
+  "layers.filesNone":
+    "Todavía no has importado nada. Suelta un placefile o un archivo GeoJSON en el panel de Carga.",
+  "layers.fileShapes": "{count} formas",
+  "layers.fileShown": "Mostrar {name}",
+  "layers.fileRemove": "Quitar {name}",
   "alerts.kinds": "Tipos de aviso",
   "alerts.kindsDetail": "Al desmarcar uno se quita del mapa y de esta lista",
   "alerts.sound": "Reproducir un sonido",
@@ -862,6 +870,9 @@ export const es: Catalogue = {
   "toast.notGeoJson": "Elige un archivo GeoJSON o un placefile de GRLevelX.",
   "toast.tooManyFeatures": "Una capa propia puede tener hasta 5.000 elementos.",
   "toast.overlayAdded": "{name} añadida",
+  "toast.overlayReplaced": "{name} reemplazada",
+  "toast.overlaySetFull":
+    "Ya tienes {count} archivos en el mapa. Quita uno en Capas y vuelve a importar este.",
   "toast.overlayFailed": "No se pudo añadir la capa",
   "toast.unreadable": "No se pudo leer el archivo.",
   "toast.watching": "Vigilando este punto",

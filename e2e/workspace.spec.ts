@@ -698,9 +698,12 @@ test("saves the whole workspace to a file and puts it back", async ({
       radar: Record<string, unknown>;
       textScale: number;
     };
-    customOverlay: unknown;
+    overlayFiles: unknown[];
   };
   expect(parsed.type).toBe("OpenRadarWorkspace");
+  // The imported set travels with the backup, empty here because nothing was
+  // imported. Its own round trip is held by the unit tests.
+  expect(parsed.overlayFiles).toEqual([]);
   expect(parsed.settings.units).toBe("metric");
   expect(parsed.settings.schemaVersion).toBe(2);
 

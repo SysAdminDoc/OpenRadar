@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { layerStackOrder, stackHeight, topmost } from "./layerStack";
+import {
+  CUSTOM_LAYER_IDS,
+  layerStackOrder,
+  RADAR_LANE_LAYER_IDS,
+  stackHeight,
+  topmost,
+} from "./layerStack";
 import { OVERLAY_ADAPTERS } from "./overlays/index";
 
 /** A hit test result, cut down to the part that decides which one wins. */
@@ -99,6 +105,40 @@ describe("guidance never sits in front of a decision", () => {
           stackHeight(order, guess),
         );
       }
+    }
+  });
+});
+
+describe("a file somebody imported is not a warning", () => {
+  const order = layerStackOrder(
+    OVERLAY_ADAPTERS.flatMap((adapter) =>
+      adapter
+        .layers(`openradar-overlay-${adapter.id}`)
+        .map((layer) => layer.id),
+    ),
+  );
+
+  it("draws every imported shape under every warning", () => {
+    // The layer panel refuses to let anybody put an overlay above a warning.
+    // Imported shapes used to sit above the whole overlay band, so dropping a
+    // placefile on the window made the arrangement the panel will not make.
+    const imported = order.filter((id) => CUSTOM_LAYER_IDS.includes(id));
+    const warnings = order.filter((id) => id.includes("overlay-alerts"));
+    expect(imported).toHaveLength(CUSTOM_LAYER_IDS.length);
+    expect(warnings.length).toBeGreaterThan(0);
+    for (const shape of imported) {
+      for (const warning of warnings) {
+        expect(stackHeight(order, shape)).toBeLessThan(
+          stackHeight(order, warning),
+        );
+      }
+    }
+  });
+
+  it("still draws them over the radar they are context for", () => {
+    const imported = stackHeight(order, CUSTOM_LAYER_IDS[0]);
+    for (const beneath of RADAR_LANE_LAYER_IDS) {
+      expect(stackHeight(order, beneath)).toBeLessThan(imported);
     }
   });
 });

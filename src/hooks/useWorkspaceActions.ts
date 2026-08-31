@@ -1,5 +1,12 @@
 import { MAX_WATCH_PLACES } from "../lib/watch";
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { ToastMessage } from "../components/ToastHost";
@@ -24,11 +31,17 @@ import { saveFile } from "../lib/saveFile";
 import { applyPaletteToRenderer } from "../lib/paletteRenderer";
 import {
   createWorkspaceBackup,
-  isWorkspaceOverlay,
   looksLikeWorkspaceBackup,
-  MAX_WORKSPACE_OVERLAY_FEATURES,
   restoreWorkspace,
 } from "../lib/workspaceBackup";
+import {
+  addOverlayFile,
+  isWorkspaceOverlay,
+  MAX_WORKSPACE_OVERLAY_FEATURES,
+  MAX_WORKSPACE_OVERLAY_FILES,
+  overlayFileId,
+  type WorkspaceOverlayFile,
+} from "../lib/workspaceOverlays";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -68,8 +81,8 @@ export function useWorkspaceActions(options: {
   applySettings: (next: AppSettings) => void;
   pushToast: (message: Omit<ToastMessage, "id">) => void;
   setActiveSurface: (surface: SurfaceId) => void;
-  setCustomOverlay: (overlay: Record<string, unknown> | null) => void;
-  customOverlay: Record<string, unknown> | null;
+  setOverlayFiles: Dispatch<SetStateAction<WorkspaceOverlayFile[]>>;
+  overlayFiles: WorkspaceOverlayFile[];
 }): WorkspaceActions {
   const {
     hydrated,
@@ -78,8 +91,8 @@ export function useWorkspaceActions(options: {
     applySettings,
     pushToast,
     setActiveSurface,
-    setCustomOverlay,
-    customOverlay,
+    setOverlayFiles,
+    overlayFiles,
   } = options;
 
   /**
@@ -299,7 +312,7 @@ export function useWorkspaceActions(options: {
    */
   const exportSettings = useCallback(async () => {
     try {
-      const backup = createWorkspaceBackup(settingsRef.current, customOverlay);
+      const backup = createWorkspaceBackup(settingsRef.current, overlayFiles);
       const blob = new Blob([JSON.stringify(backup, null, 2)], {
         type: "application/json",
       });
@@ -317,7 +330,7 @@ export function useWorkspaceActions(options: {
             : translate("toast.settingsSaveFailedBody"),
       });
     }
-  }, [customOverlay, pushToast, settingsRef]);
+  }, [overlayFiles, pushToast, settingsRef]);
 
   const uploadOverlay = useCallback(
     async (file: File) => {
@@ -363,7 +376,7 @@ export function useWorkspaceActions(options: {
         // since a GeoJSON document never has a schema version.
         if (looksLikeWorkspaceBackup(text) || looksLikeSettings(text)) {
           const previous = settingsRef.current;
-          const previousOverlay = customOverlay;
+          const previousOverlay = overlayFiles;
           let restored: ReturnType<typeof restoreWorkspace>;
           try {
             restored = restoreWorkspace(JSON.parse(text));
@@ -376,7 +389,7 @@ export function useWorkspaceActions(options: {
             return;
           }
           applySettings(restored.settings);
-          setCustomOverlay(restored.customOverlay);
+          setOverlayFiles(restored.overlayFiles);
           mapRef.current?.flyTo(restored.settings.camera);
           setActiveSurface(null);
           // A file from a newer build, or one carrying keys this build has no
@@ -404,7 +417,7 @@ export function useWorkspaceActions(options: {
             actionLabel: translate("toast.undo"),
             onAction: () => {
               applySettings(previous);
-              setCustomOverlay(previousOverlay);
+              setOverlayFiles(previousOverlay);
               mapRef.current?.flyTo(previous.camera);
             },
           });
@@ -476,25 +489,34 @@ export function useWorkspaceActions(options: {
           }
         }
 
-        setCustomOverlay(payload);
+        const added = addOverlayFile(overlayFiles, file.name, payload);
+        if (!added.ok) {
+          throw new Error(
+            translate("toast.overlaySetFull", {
+              count: MAX_WORKSPACE_OVERLAY_FILES,
+            }),
+          );
+        }
+        setOverlayFiles(added.files);
         applySettings({
           ...settingsRef.current,
           layers: { ...settingsRef.current.layers, customOverlay: true },
         });
         setActiveSurface(null);
         pushToast({
-          title: translate("toast.overlayAdded", { name: file.name }),
+          // Replacing is the surprising outcome, so it is the one that says so.
+          title: translate(
+            added.replaced ? "toast.overlayReplaced" : "toast.overlayAdded",
+            { name: file.name },
+          ),
           detail,
           actionLabel: translate("toast.remove"),
           onAction: () => {
-            setCustomOverlay(null);
-            applySettings({
-              ...settingsRef.current,
-              layers: {
-                ...settingsRef.current.layers,
-                customOverlay: false,
-              },
-            });
+            const id = overlayFileId(file.name);
+            // Read from the set as it stands rather than the one this import
+            // saw. Undo can be pressed after another file has been added, and
+            // putting the older set back would take that one off the map.
+            setOverlayFiles((held) => held.filter((each) => each.id !== id));
           },
         });
       } catch (error) {
@@ -509,11 +531,11 @@ export function useWorkspaceActions(options: {
     },
     [
       applySettings,
-      customOverlay,
       mapRef,
+      overlayFiles,
       pushToast,
       setActiveSurface,
-      setCustomOverlay,
+      setOverlayFiles,
       settingsRef,
     ],
   );

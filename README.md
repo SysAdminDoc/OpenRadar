@@ -82,7 +82,8 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Per-overlay opacity and a drawing order you choose. Warnings are not in the arrangement, because nothing should be able to put a wildfire perimeter over one.
 - **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in. A JSON record lands beside the file naming the source of every frame that reached it. See [What the export record holds](#what-the-export-record-holds).
 - **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.
-- Place search, map-centred forecasts, GeoJSON and GRLevelX placefile import, shareable `openradar://` links.
+- Place search, map-centred forecasts, shareable `openradar://` links.
+- **Imported shapes as a managed set**: up to eight GeoJSON or GRLevelX placefiles on the map at once, each with its own name, switch, opacity and place in the drawing order. Importing a file you already have replaces it rather than adding a second copy. All of them draw under the warnings.
 - English and Spanish, switched in Settings and applied where you are standing rather than on the next launch.
 - **More contrast, if Windows is set to ask for it.** Every locally drawn picture switches to a scale measured under three kinds of colour blindness, and the bar beside the map is built from whichever scale painted what you are looking at. Warning outlines and storm tracks are stroked heavier. A colour table you loaded yourself is left exactly as you supplied it.
 - **An offline last view.** Tiles, radar frames and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and tells you how old it is.

@@ -95,6 +95,12 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // under the warnings a person issued, because guidance belongs under a
     // decision somebody has taken responsibility for.
     ...PROBSEVERE_LAYER_IDS,
+    // Shapes the reader imported sit under everything a service published,
+    // warnings included. They used to sit above the whole overlay band, which
+    // meant a placefile could cover a tornado warning: the one arrangement the
+    // panel refuses to let anybody make by hand, reachable by dropping a file
+    // on the window.
+    ...CUSTOM_LAYER_IDS,
     ...overlays,
     ...TRACK_LAYER_IDS,
     // Cells sit above the pictures they were found in and under the tools the
@@ -102,7 +108,6 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // nothing should hide them.
     ...CELL_LAYER_IDS,
     ROUTE_LAYER_ID,
-    ...CUSTOM_LAYER_IDS,
     ...TOOL_LAYER_IDS,
   ];
 }

@@ -73,6 +73,14 @@ export const en = {
   "layers.opacityDetail":
     "Each one on its own, so a layer can be faded rather than switched off",
   "layers.opacityFor": "{layer}, {percent}% solid",
+  "layers.files": "Files you imported",
+  "layers.filesDetail":
+    "Each one on its own switch, with the last in the list drawn on top",
+  "layers.filesNone":
+    "Nothing imported yet. Drop a placefile or a GeoJSON file on the Upload panel.",
+  "layers.fileShapes": "{count} shapes",
+  "layers.fileShown": "Show {name}",
+  "layers.fileRemove": "Remove {name}",
   "alerts.kinds": "Kinds of alert",
   "alerts.kindsDetail":
     "Unchecking one takes it off the map and out of this list",
@@ -847,6 +855,9 @@ export const en = {
   "toast.notGeoJson": "Choose a GeoJSON file or a GRLevelX placefile.",
   "toast.tooManyFeatures": "A custom overlay can contain up to 5,000 features.",
   "toast.overlayAdded": "{name} added",
+  "toast.overlayReplaced": "{name} replaced",
+  "toast.overlaySetFull":
+    "You already have {count} files on the map. Remove one in Layers, then import this.",
   "toast.overlayFailed": "Overlay could not be added",
   "toast.unreadable": "The file could not be read.",
   "toast.watching": "Watching this point",

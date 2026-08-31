@@ -216,13 +216,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: Several named palettes import, persist across restart, and round-trip through workspace backup; each supported product can hold its own assignment; the legend rebuilds per assignment; every stored palette is still re-parsed from its own text on load; removing a palette in use falls back to the built-in ramp with a visible note rather than a blank layer.
       Complexity: L
 
-- [ ] AUD-095: P2. Make local overlays a managed set rather than one switch
-      Why: Users of the closest competitor ask for placefile renaming, quick toggles, and per-file icon scaling, and OpenRadar's imported shapes currently live behind a single custom-overlay switch. Local files only; remote placefile fetching stays blocked per `Roadmap_Blocked.md`.
-      Evidence: https://github.com/dpaulat/supercell-wx/issues/614 ; https://placefiles.supercellwx.net/ ; `src/lib/placefile.ts`; `src/lib/workspaceBackup.ts`; `src/hooks/useWorkspaceOverlays.ts`
-      Touches: Workspace schema and migration; the upload surface; per-file records with names and switches; overlay order integration; re-import
-      Acceptance: A bounded number of imported placefiles and GeoJSON files coexist, each with its own name, switch, opacity, and place in the drawing order; re-importing a file replaces its previous shapes rather than duplicating them; backups carry the set; warnings still cannot be drawn under any imported shape.
-      Complexity: M
-
 - [ ] AUD-096: P2. Add a capture-friendly streamer surface
       Why: Weather streamers composite radar into OBS today through bolt-on dashboard projects and hand-built overlay kits, no radar application ships a capture mode, and a search of the leading competitor's tracker finds nobody has even asked it for one. Zero-competition surface with proven external demand.
       Evidence: https://github.com/AtmosphericX/AtmosphericX ; https://obsproject.com/forum/threads/weather-alert-notification-in-stream.155531/ ; https://github.com/dutchdronesquad/rh-stream-overlays ; `src/components/WorkspaceChrome.tsx`; `src/lib/commands.ts`
