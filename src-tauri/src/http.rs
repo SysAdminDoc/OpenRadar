@@ -29,7 +29,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "api.open-meteo.com",
     "api.tidesandcurrents.noaa.gov",
     "geocoding-api.open-meteo.com",
-    "router.project-osrm.org",
+    "valhalla1.openstreetmap.de",
     "gibs.earthdata.nasa.gov",
     "geo.weather.gc.ca",
     "maps.dwd.de",

@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- Route weather now asks the FOSSGIS public routing service instead of the OSRM demo server. The reason is a rule the old one could not be kept: OSRM asks every request to carry an identifying User-Agent, and a browser will not let a page set that header, so route requests went out anonymous whether they wanted to or not. The new service asks instead for a header a page can send, and says so in its own policy. Routes are still spaced a second apart, and a drive still falls back to a labelled straight-line estimate when the router cannot be reached.
+
 - The asset ledger now accounts for everything the app actually reaches, and a test keeps it that way. Three hosts it had been fetching from without saying so are named, including the German radar composite and both live NEXRAD buckets, a bundled file that stopped existing two releases ago is corrected, and every runtime source now states whether its bytes are kept on disk and what that service learns about you.
 
 - There is now a security policy. It names which versions get fixes, points at GitHub's private reporting so there is no address to publish, says plainly what to expect from a project with one maintainer, and writes down the boundaries that matter: the native host allowlist, the separate webview policy, how remote input and local files are parsed, and how an update is verified before it replaces anything.

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_SAMPLES,
-  OSRM_MIN_GAP_MS,
+  ROUTER_MIN_GAP_MS,
   fetchRoute,
   parseRoute,
-  resetOsrmThrottle,
+  resetRouterThrottle,
   straightRoute as lineBetween,
   readRouteForecast,
   routeGeoJson,
@@ -25,31 +25,56 @@ function straightRoute(points: number) {
 }
 
 describe("route parsing", () => {
-  it("reads the first route and converts to miles", () => {
+  /** The three points below, encoded the way the router sends a leg. */
+  const SHAPE = "_o}p}@~neswD~nyo@_oyo@~zgeC_{rc@";
+
+  it("reads the trip and keeps its miles", () => {
     const route = parseRoute({
-      code: "Ok",
-      routes: [
-        {
-          distance: 160934.4,
-          duration: 7200,
-          geometry: {
-            coordinates: [
-              [-96.8, 32.8],
-              [-96, 32],
-              [-95.4, 29.8],
-            ],
-          },
-        },
-      ],
+      trip: {
+        status: 0,
+        units: "miles",
+        summary: { length: 100, time: 7200 },
+        legs: [{ shape: SHAPE }],
+      },
     });
     expect(route?.distanceMiles).toBeCloseTo(100, 3);
     expect(route?.durationSeconds).toBe(7200);
     expect(route?.coordinates).toHaveLength(3);
+    expect(route?.coordinates[0][0]).toBeCloseTo(-96.8, 5);
+    expect(route?.coordinates[2][1]).toBeCloseTo(29.8, 5);
+  });
+
+  // A kilometre answer read as miles would draw a drive two thirds too short,
+  // with every arrival time along it wrong in the same direction.
+  it("converts when the router answers in kilometres", () => {
+    const route = parseRoute({
+      trip: {
+        status: 0,
+        units: "kilometers",
+        summary: { length: 160.9344, time: 7200 },
+        legs: [{ shape: SHAPE }],
+      },
+    });
+    expect(route?.distanceMiles).toBeCloseTo(100, 3);
+  });
+
+  // Legs meet at a shared point. Keeping both copies puts a sample no distance
+  // from the one before it.
+  it("joins legs without repeating the point they share", () => {
+    const route = parseRoute({
+      trip: {
+        status: 0,
+        units: "miles",
+        summary: { length: 100, time: 7200 },
+        legs: [{ shape: SHAPE }, { shape: SHAPE }],
+      },
+    });
+    expect(route?.coordinates).toHaveLength(5);
   });
 
   it("refuses a response with no usable route", () => {
-    expect(parseRoute({ code: "NoRoute", routes: [] })).toBeNull();
-    expect(parseRoute({ code: "Ok", routes: [{ geometry: {} }] })).toBeNull();
+    expect(parseRoute({ trip: { status: 1, legs: [] } })).toBeNull();
+    expect(parseRoute({ trip: { status: 0, legs: [{}] } })).toBeNull();
     expect(parseRoute(null)).toBeNull();
   });
 });
@@ -224,14 +249,15 @@ describe("an arrival past the forecast", () => {
 
 describe("the demo router is used gently", () => {
   beforeEach(() => {
-    resetOsrmThrottle();
+    resetRouterThrottle();
   });
 
   it("sends one request a second, however many are asked for at once", async () => {
-    // The OSRM demo server asks for at most one request a second and promises
+    // The router asks for at most one request a second per user and promises
     // no uptime. Two panels planning at the same moment, or a person pressing
     // the button twice, must not become two requests in the same instant.
     const sent: number[] = [];
+    const headers: Array<Record<string, string>> = [];
     let clock = 10_000;
     const now = () => clock;
     const wait = (ms: number) => {
@@ -240,24 +266,18 @@ describe("the demo router is used gently", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn(() => {
+      vi.fn((_url: string, init?: RequestInit) => {
         sent.push(clock);
+        headers.push((init?.headers ?? {}) as Record<string, string>);
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              code: "Ok",
-              routes: [
-                {
-                  distance: 1609.344,
-                  duration: 60,
-                  geometry: {
-                    coordinates: [
-                      [-96.8, 32.78],
-                      [-95.37, 29.76],
-                    ],
-                  },
-                },
-              ],
+              trip: {
+                status: 0,
+                units: "miles",
+                summary: { length: 1, time: 60 },
+                legs: [{ shape: "_o}p}@~neswD~zgeC_{rc@" }],
+              },
             }),
             { headers: { "content-type": "application/json" } },
           ),
@@ -279,7 +299,12 @@ describe("the demo router is used gently", () => {
       expect(
         when - sent[at - 1],
         `request ${at} followed the one before it too closely`,
-      ).toBeGreaterThanOrEqual(OSRM_MIN_GAP_MS);
+      ).toBeGreaterThanOrEqual(ROUTER_MIN_GAP_MS);
+    }
+    // The service asks apps handed out to other people to name themselves, and
+    // this is the whole of what it asks in return for the routing.
+    for (const sentHeaders of headers) {
+      expect(sentHeaders["X-Client-Id"]).toBe("OpenRadar");
     }
     vi.unstubAllGlobals();
   });

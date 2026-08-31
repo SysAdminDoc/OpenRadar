@@ -2,35 +2,48 @@ import { haversineMiles, type GeoPoint } from "./geo";
 import { translate } from "../i18n";
 import { forecastUnits } from "./units";
 
-const OSRM_URL = "https://router.project-osrm.org/route/v1/driving";
+const ROUTER_URL = "https://valhalla1.openstreetmap.de/route";
 
 /**
- * The OSRM demo server asks for at most one request a second and promises no
- * uptime, so requests queue behind each other rather than going out together.
- * It is a courtesy server run for demonstrations, and this is the whole of what
- * it asks in return.
+ * How this app names itself to the router.
+ *
+ * The FOSSGIS Valhalla instance asks applications that are handed out to other
+ * people to say who they are, and it names this header in its own CORS policy
+ * so a page can actually send it. That is the whole reason routing moved here
+ * from the OSRM demo server: OSRM's usage policy requires an identifying
+ * User-Agent, a browser refuses to let a page set that header at all, and an
+ * app that cannot meet a courtesy service's one request should not be leaning
+ * on it.
  */
-export const OSRM_MIN_GAP_MS = 1_000;
+const CLIENT_ID = "OpenRadar";
 
-let osrmQueue: Promise<void> = Promise.resolve();
-let osrmLastAt = 0;
+/**
+ * The router asks for at most one request a second per user and promises no
+ * uptime, so requests queue behind each other rather than going out together.
+ * It is run for the public by a volunteer association, and this is close to
+ * the whole of what it asks in return.
+ */
+export const ROUTER_MIN_GAP_MS = 1_000;
+
+let routerQueue: Promise<void> = Promise.resolve();
+let routerLastAt = 0;
 
 /** Waits for this caller's turn on the demo server. */
-function osrmTurn(now: () => number, wait: (ms: number) => Promise<void>) {
-  const mine = osrmQueue.then(async () => {
-    const since = now() - osrmLastAt;
-    if (since < OSRM_MIN_GAP_MS) await wait(OSRM_MIN_GAP_MS - since);
-    osrmLastAt = now();
+function routerTurn(now: () => number, wait: (ms: number) => Promise<void>) {
+  const mine = routerQueue.then(async () => {
+    const since = now() - routerLastAt;
+    if (since < ROUTER_MIN_GAP_MS) await wait(ROUTER_MIN_GAP_MS - since);
+    routerLastAt = now();
   });
   // A rejected turn must not stop the queue for everyone behind it.
-  osrmQueue = mine.catch(() => {});
+  routerQueue = mine.catch(() => {});
   return mine;
 }
 
 /** Only for tests, which cannot wait a real second between cases. */
-export function resetOsrmThrottle() {
-  osrmQueue = Promise.resolve();
-  osrmLastAt = 0;
+export function resetRouterThrottle() {
+  routerQueue = Promise.resolve();
+  routerLastAt = 0;
 }
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
 
@@ -91,34 +104,91 @@ export interface RouteConditions extends RouteSample {
   weatherCode: number | null;
 }
 
+/**
+ * The router sends a leg's shape as an encoded polyline rather than as a list
+ * of coordinates, which is most of why the payload for a long drive is a few
+ * kilobytes instead of a few hundred.
+ *
+ * The encoding is the usual one: each value is a difference from the one
+ * before, shifted left a bit to carry its sign, then written out six bits at a
+ * time from the low end with a continuation flag on every group but the last.
+ * The only detail worth getting wrong is the scale. Most implementations of
+ * this format store five decimal places; this router stores six, and reading it
+ * at five puts the route in the wrong hemisphere rather than slightly off.
+ */
+export function decodePolyline(
+  encoded: string,
+  precision = 6,
+): Array<[number, number]> {
+  const scale = 10 ** precision;
+  const points: Array<[number, number]> = [];
+  let index = 0;
+  let lat = 0;
+  let lon = 0;
+
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte: number;
+    // One value, six bits per character, lowest group first.
+    do {
+      byte = encoded.charCodeAt(index) - 63;
+      index += 1;
+      if (!Number.isFinite(byte) || byte < 0) return points;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index <= encoded.length);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+    do {
+      byte = encoded.charCodeAt(index) - 63;
+      index += 1;
+      if (!Number.isFinite(byte) || byte < 0) return points;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index <= encoded.length);
+    lon += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push([lon / scale, lat / scale]);
+  }
+  return points;
+}
+
 export function parseRoute(payload: unknown): RouteShape | null {
   const raw = payload as {
-    code?: unknown;
-    routes?: Array<{
-      distance?: unknown;
-      duration?: unknown;
-      geometry?: { coordinates?: unknown };
-    }>;
+    trip?: {
+      status?: unknown;
+      units?: unknown;
+      summary?: { time?: unknown; length?: unknown };
+      legs?: Array<{ shape?: unknown }>;
+    };
   };
-  if (raw?.code !== "Ok" || !Array.isArray(raw.routes) || !raw.routes.length) {
-    return null;
-  }
+  const trip = raw?.trip;
+  // The router reports its own success in the body rather than only in the
+  // status line, and zero is the one value that means it found a route.
+  if (!trip || trip.status !== 0 || !Array.isArray(trip.legs)) return null;
 
-  const route = raw.routes[0];
-  const coordinates = Array.isArray(route.geometry?.coordinates)
-    ? route.geometry.coordinates.flatMap((pair): Array<[number, number]> => {
-        if (!Array.isArray(pair)) return [];
-        const [lon, lat] = pair.map(Number);
-        return Number.isFinite(lon) && Number.isFinite(lat) ? [[lon, lat]] : [];
-      })
-    : [];
+  const coordinates: Array<[number, number]> = [];
+  for (const leg of trip.legs) {
+    if (typeof leg?.shape !== "string") continue;
+    const decoded = decodePolyline(leg.shape);
+    // Legs meet at a shared point, so the join would otherwise be doubled and
+    // the sampler would place a stop no distance from the one before it.
+    coordinates.push(...(coordinates.length ? decoded.slice(1) : decoded));
+  }
   if (coordinates.length < 2) return null;
 
-  const meters = Number(route.distance);
-  const duration = Number(route.duration);
+  const length = Number(trip.summary?.length);
+  const duration = Number(trip.summary?.time);
+  // Length is in whatever units were asked for, and this asks for miles. A
+  // reply that says otherwise is converted rather than trusted, because a
+  // silently kilometre answer would read as a route two thirds too short.
+  const miles = trip.units === "miles" ? length : length / 1.609344;
   return {
     coordinates,
-    distanceMiles: Number.isFinite(meters) ? meters / 1609.344 : 0,
+    distanceMiles: Number.isFinite(miles) ? miles : 0,
     durationSeconds: Number.isFinite(duration) ? duration : 0,
   };
 }
@@ -132,11 +202,24 @@ export async function fetchRoute(
   wait: (ms: number) => Promise<void> = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<RouteShape> {
-  const path = `${from.lon.toFixed(5)},${from.lat.toFixed(5)};${to.lon.toFixed(5)},${to.lat.toFixed(5)}`;
-  await osrmTurn(now, wait);
+  const query = JSON.stringify({
+    locations: [
+      { lat: Number(from.lat.toFixed(5)), lon: Number(from.lon.toFixed(5)) },
+      { lat: Number(to.lat.toFixed(5)), lon: Number(to.lon.toFixed(5)) },
+    ],
+    costing: "auto",
+    units: "miles",
+    // The turn list is several times the size of the shape and nothing here
+    // reads it. Weather along a drive does not care which exit you take.
+    directions_type: "none",
+  });
+  await routerTurn(now, wait);
   const response = await fetch(
-    `${OSRM_URL}/${path}?overview=simplified&geometries=geojson`,
-    { signal, headers: { Accept: "application/json" } },
+    `${ROUTER_URL}?json=${encodeURIComponent(query)}`,
+    {
+      signal,
+      headers: { Accept: "application/json", "X-Client-Id": CLIENT_ID },
+    },
   );
   if (!response.ok) {
     throw new Error(
