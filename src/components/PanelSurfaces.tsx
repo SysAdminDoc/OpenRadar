@@ -215,6 +215,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           progress={props.exportState.progress}
           onExportImage={props.exportState.exportImage}
           onExportLoop={props.exportState.exportLoopVideo}
+          onExportGif={props.exportState.exportLoopGifFile}
           onClose={onClose}
         />
       ) : null}

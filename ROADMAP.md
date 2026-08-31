@@ -33,9 +33,3 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Acceptance: a viewport over Germany draws the DWD composite with its own rain-rate legend and credit line; a unit test parses the capabilities time dimension; RainViewer no longer appears there.
   Complexity: M
 
-- [ ] P3 — GIF export beside WebM
-  Why: the most-reacted export ask on Supercell Wx (#414) and what RadarOmega advertises; WebM will not paste into most chats.
-  Evidence: https://github.com/dpaulat/supercell-wx/issues/414 ; https://www.radaromega.com/
-  Touches: src/lib/export.ts, src/panels/ExportPanel.tsx, src/i18n
-  Acceptance: Export offers GIF with a frame cap of 24 and the same burned-in credits; the file opens in Windows Photos; `export.test.ts` covers the palette quantisation.
-  Complexity: M

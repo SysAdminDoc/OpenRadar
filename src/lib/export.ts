@@ -1,4 +1,5 @@
 import { translate } from "../i18n";
+import { encodeGif, indexFrame, quantise } from "./gif";
 
 export interface ExportCaption {
   /** Frame time, source name, and anything else that names the picture. */
@@ -170,6 +171,70 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
   }
   if (blob.size < MIN_LOOP_BYTES) {
     throw new Error(translate("export.empty"));
+  }
+  return blob;
+}
+
+/**
+ * How many frames a GIF is allowed. Every one of them is a full picture at a
+ * byte a pixel before it is squeezed, so a long loop is a file nobody can
+ * send. The newest are the ones worth keeping.
+ */
+export const MAX_GIF_FRAMES = 24;
+
+/**
+ * The same loop as a GIF, because a WebM will not paste into most chats.
+ *
+ * Every frame is drawn the same way as the video, caption and credit burned
+ * in, and then the whole set is reduced to one palette. One palette rather
+ * than one a frame because a radar loop is the same ramp over the same map,
+ * and a table a frame would be a kilobyte each for nothing.
+ */
+export async function exportLoopGif(options: LoopExportOptions): Promise<Blob> {
+  const {
+    source,
+    frameCount,
+    showFrame,
+    captionFor,
+    frameDurationMs = 400,
+    onProgress,
+  } = options;
+  if (frameCount < 1) throw new Error(translate("export.noFrames"));
+
+  const canvas = exportCanvas(source);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error(translate("export.noCanvas"));
+
+  // The last frames of the loop, which are the ones somebody is sharing.
+  const first = Math.max(0, frameCount - MAX_GIF_FRAMES);
+  const wanted = frameCount - first;
+  const pictures: Uint8ClampedArray[] = [];
+  for (let index = first; index < frameCount; index += 1) {
+    await showFrame(index);
+    drawFrame(canvas, source, captionFor(index));
+    pictures.push(
+      context.getImageData(0, 0, canvas.width, canvas.height).data,
+    );
+    onProgress?.(index - first + 1, wanted);
+  }
+
+  const palette = quantise(pictures);
+  const blob = encodeGif(
+    pictures.map((pixels) => ({
+      indices: indexFrame(pixels, palette),
+      delayMs: frameDurationMs,
+    })),
+    canvas.width,
+    canvas.height,
+    palette,
+  );
+
+  // No floor here, unlike the video. A WebM that recorded nothing still comes
+  // out as a few hundred bytes of headers and has to be caught by its size; a
+  // GIF with no frames in it is refused when it is written, and a small file is
+  // just a small picture.
+  if (blob.size > MAX_LOOP_BYTES) {
+    throw new Error(translate("export.tooLarge"));
   }
   return blob;
 }

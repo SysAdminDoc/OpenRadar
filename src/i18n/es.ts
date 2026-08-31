@@ -12,6 +12,8 @@ export const es: Catalogue = {
   "export.title": "Exportar",
   "export.image": "Exportar imagen",
   "export.loop": "Exportar animación",
+  "export.gif": "Exportar GIF",
+  "export.gifFrames": " (últimos {count} fotogramas)",
   "export.loopFrames": " ({count} cuadros)",
   "export.recording":
     "Grabando el cuadro {done} de {total}. Deja la ventana al frente mientras tanto.",
