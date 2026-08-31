@@ -6,34 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P1
 
-- [ ] AUD-003: Observe an installed updater replacement end to end
-      Why: Signature and manifest tests do not prove that Windows replaces an older installed build and restarts into the requested version.
-      Evidence: `scripts/release.mjs`; `src/hooks/useUpdates.ts`; `src/panels/DiagnosticsPanel.tsx`
-      Touches: Installed v0.3.0 and post-audit build in an isolated Windows desktop session
-      Acceptance: An older installed build finds the update only when asked, downloads it, verifies it, replaces itself, restarts once, preserves settings, and reports the new version; failure and rollback evidence are captured.
-      Complexity: M
-
-- [ ] AUD-004: Exercise the real native desktop workflows
-      Why: Unit and headless coverage exists, but deep links, single-instance reuse, Windows notifications, native save dialogs, log creation, and file reveal have not all been observed in a real installed window.
-      Evidence: `src-tauri/src/lib.rs`; `src/hooks/useAlertWatch.ts`; `src/hooks/useExport.ts`; `src/lib/log.ts`; Playwright scenarios under `e2e/`
-      Touches: Packaged desktop build; deep links; notification permission; export; logs; diagnostics
-      Acceptance: An isolated desktop run verifies every named workflow, including denied permission and failed save paths; no extra window appears; every failure reaches a toast or panel and the log.
-      Complexity: L
-
-- [ ] AUD-005: Authenticode-sign the Windows installer
-      Why: The updater payload is signed, but Windows SmartScreen still warns on first install because the NSIS executable has no Authenticode signature.
-      Evidence: `README.md`; `scripts/release.mjs`; `src-tauri/tauri.conf.json`
-      Touches: Certificate provisioning; local release signing; signature verification; release notes
-      Acceptance: `Get-AuthenticodeSignature` reports a valid trusted signature on the installer, the release gate rejects an unsigned installer, and the certificate identity and timestamp are documented without committing secrets.
-      Complexity: M
-
-- [ ] AUD-006: Repeat clean Windows VM install and uninstall validation
-      Why: The current machine cannot prove first-run behavior, per-user installation, uninstall cleanup, or absence of undeclared prerequisites.
-      Evidence: `README.md`; `src-tauri/tauri.conf.json`; prior audit notes in `ROADMAP.md` history
-      Touches: Clean Windows validation VM; NSIS installer; user data and cache directories
-      Acceptance: A clean VM installs without administrator rights, starts, loads live radar, exports a file, uninstalls cleanly, and leaves only documented user data; the exact Windows build and evidence are recorded.
-      Complexity: M
-
 - [ ] AUD-070: Decide durable replacements or operating limits for OSRM and RainViewer
       Why: Route weather depends on a no-SLA demo service, while worldwide radar fallback uses terms meant for personal and small-community use. Existing throttling handles failure but does not settle long-term distribution.
       Evidence: `src/lib/route.ts`; `src/lib/providers/rainviewer.ts`; `docs/asset-ledger.md`; https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy ; https://www.rainviewer.com/api.html
