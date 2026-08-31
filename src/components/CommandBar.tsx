@@ -292,18 +292,19 @@ export function CommandBar({
           onClick={onLocate}
         />
         <CommandButton
+          icon={Command}
+          label={t("bar.commands")}
+          active={activeSurface === "commands"}
+          detail={t("bar.commandsDetail")}
+          onClick={() => toggleSurface("commands")}
+        />
+        <CommandButton
           icon={Layers3}
           label={t("panel.layers")}
           active={activeSurface === "layers"}
           onClick={() => toggleSurface("layers")}
         />
         <CommandButton icon={Send} label={t("bar.share")} onClick={onShare} />
-        <CommandButton
-          icon={Settings}
-          label={t("panel.settings")}
-          active={activeSurface === "settings"}
-          onClick={() => toggleSurface("settings")}
-        />
       </div>
     </nav>
   );

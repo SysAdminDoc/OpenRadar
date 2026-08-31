@@ -85,6 +85,21 @@ for (const layer of LAYERS) {
   });
 }
 
+test("puts a failed enabled layer beside its switch", async ({ page }) => {
+  await page.route("https://services3.arcgis.com/**", async (route) => {
+    await route.fulfill({ status: 503, body: "maintenance" });
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const row = page.locator(".toggle-row").filter({ hasText: "Wildfires" });
+  await row.getByRole("checkbox").check();
+  await expect(row).toContainText("NIFC returned 503");
+});
+
 test("saves, reopens, and undoes a preset", async ({ page }) => {
   const pane = page.getByRole("application", {
     name: "Interactive weather map",

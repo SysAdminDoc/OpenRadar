@@ -95,6 +95,11 @@ export function useSettings(options: {
         projection,
         camera: cameraFromSearch(window.location.search, stored.camera),
       });
+      // Apply the saved language before the loading screen gives way to the
+      // workspace. Otherwise the first screen after launch is always English.
+      setLanguage(next.language);
+      document.documentElement.lang =
+        next.language === "pseudo" ? "en" : next.language;
       settingsRef.current = next;
       setSettings(next);
       setHydrated(true);

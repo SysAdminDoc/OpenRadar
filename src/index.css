@@ -2067,8 +2067,9 @@ input[type="range"] {
   }
 }
 
-.maplibregl-canvas:focus {
-  outline: none;
+.maplibregl-canvas:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -4px;
 }
 
 .maplibregl-ctrl-bottom-right {
@@ -2332,10 +2333,15 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  pointer-events: none;
+  max-height: calc(var(--screen-height) - 220px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  scrollbar-width: thin;
 }
 
 .product-legend {
+  flex: 0 0 auto;
   padding: 7px 9px;
   color: var(--text);
   background: var(--surface-raised, rgb(15 23 42 / 82%));
@@ -2535,6 +2541,23 @@ input[type="range"] {
 .alert-tag[data-impact="catastrophic"] {
   color: #fff5f5;
   background: #b91c1c;
+}
+
+.alert-severity {
+  display: inline-block;
+  padding: 1px 5px;
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--surface-sunken, rgb(15 23 42 / 35%));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  vertical-align: middle;
 }
 
 /* The overlay arrangement: what is over what, top of the list first, which is

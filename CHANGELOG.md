@@ -2,6 +2,16 @@
 
 ## Next release
 
+- The compact layout keeps Commands visible, including at 130 percent text size. Commands now reaches Storm Cells, ProbSevere, Wind, and radar products, so a control hidden to make the window fit does not make that part of the app unreachable.
+
+- Layer and panel states tell the truth while data is loading or unavailable. Enabled-layer failures appear in Layers, Alerts and Tropical no longer show a false empty result, stale forecast, search, tide, route, and history results are cleared when the question changes, and only a road-router failure offers a straight-line estimate.
+
+- Map tools work from the keyboard at the map centre and report results through a live status region. Reduced-motion preferences now remove camera animation, radar legends scroll inside short windows, alert severity is written as text, and the timeline slider announces the selected timestamp.
+
+- Radar and export controls now preserve what they say they control. Loop export restores the prior frame and playback state even after a failure, Composite Reflectivity leaves single-site mode, a comparison with too little history says so instead of relabelling the first frame, and a guidance comparison cannot be reduced below two models.
+
+- Lightning refreshes share one in-flight native request, and the latest history selection wins if two archive files finish in reverse order. Forecast icons now match the reported weather. Startup, notification actions, and large counts also follow the saved language and locale.
+
 - GIF loops can now be saved by the installed app. Every export is written beside its destination, flushed, and then replaced in one step, so a failed save cannot truncate the last good file. Disk-cache work also runs away from the async workers that carry network replies and desktop commands.
 
 - Workspace backups now include an imported GeoJSON overlay as well as settings. Restoring one moves the map to the saved camera, and Undo puts both the settings and the prior overlay back. Files from newer builds also name unfamiliar nested settings instead of quietly dropping them.

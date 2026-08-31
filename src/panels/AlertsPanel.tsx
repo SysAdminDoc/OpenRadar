@@ -1,4 +1,4 @@
-import { BellRing, ExternalLink } from "lucide-react";
+import { BellRing, ExternalLink, LoaderCircle } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import {
   SEVERITY_COLOR,
@@ -51,6 +51,7 @@ export function AlertsPanel({
     if (viewport && !boundsOverlap(bounds, viewport)) return [];
     return [{ feature, bounds }];
   });
+  const loading = layerOn && fetchedAt === null && error === null;
 
   return (
     <PanelShell
@@ -90,10 +91,16 @@ export function AlertsPanel({
                 key={`${feature.properties.headline}-${index}`}
               >
                 <button type="button" onClick={() => onSelect(bounds)}>
-                  <i style={{ background: SEVERITY_COLOR[severity] }} />
+                  <i
+                    aria-hidden="true"
+                    style={{ background: SEVERITY_COLOR[severity] }}
+                  />
                   <span>
                     <strong>
                       {String(feature.properties.headline)}
+                      <em className="alert-severity" data-severity={severity}>
+                        {t(`alerts.severity.${severity}` as never)}
+                      </em>
                       {impact ? (
                         <em className="alert-tag" data-impact={impact}>
                           {t("alerts.impactBadge", {
@@ -124,7 +131,12 @@ export function AlertsPanel({
             );
           })}
         </div>
-      ) : (
+      ) : loading ? (
+        <div className="panel-loading">
+          <LoaderCircle className="spin" size={22} />
+          <span>{t("alerts.noteLoading")}</span>
+        </div>
+      ) : error ? null : (
         <div className="feature-card">
           <BellRing size={24} />
           <div>

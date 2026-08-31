@@ -33,6 +33,7 @@ export function SearchPanel({ onClose, onSelect }: SearchPanelProps) {
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === "AbortError")
             return;
+          setResults([]);
           setStatus("error");
         });
     }, 250);
@@ -57,9 +58,11 @@ export function SearchPanel({ onClose, onSelect }: SearchPanelProps) {
           onChange={(event) => {
             const next = event.target.value;
             setQuery(next);
+            setResults([]);
             if (next.trim().length < 2) {
-              setResults([]);
               setStatus("idle");
+            } else {
+              setStatus("loading");
             }
           }}
           placeholder={t("search.placeholder")}

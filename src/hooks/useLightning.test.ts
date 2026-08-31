@@ -1,4 +1,4 @@
-import { cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   flashAgeExpression,
@@ -55,6 +55,16 @@ function window_(overrides: Partial<FlashWindow> = {}): FlashWindow {
     ],
     ...overrides,
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((accept, refuse) => {
+    resolve = accept;
+    reject = refuse;
+  });
+  return { promise, resolve, reject };
 }
 
 /**
@@ -151,6 +161,7 @@ describe("what the map is handed", () => {
   afterEach(() => {
     cleanup();
     flashes.mockReset();
+    vi.useRealTimers();
   });
 
   it("is the same collection until the next fetch", async () => {
@@ -180,5 +191,43 @@ describe("what the map is handed", () => {
 
     expect(result.current.points).toBe(first);
     expect(flashes).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares one pending native refresh across interval ticks", async () => {
+    vi.useFakeTimers();
+    const first = deferred<FlashWindow>();
+    const second = deferred<FlashWindow>();
+    flashes
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const { result } = renderHook(() =>
+      useLightning({
+        ready: true,
+        enabled: true,
+        pageVisible: true,
+        clock: NEWEST * 1000,
+      }),
+    );
+    await act(async () => Promise.resolve());
+    expect(flashes).toHaveBeenCalledTimes(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(flashes).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      first.resolve(window_({ satellite: "First window" })),
+    );
+    expect(result.current.window?.satellite).toBe("First window");
+
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(flashes).toHaveBeenCalledTimes(2);
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
+    expect(flashes).toHaveBeenCalledTimes(2);
+
+    await act(async () =>
+      second.resolve(window_({ satellite: "Second window" })),
+    );
+    expect(result.current.window?.satellite).toBe("Second window");
   });
 });

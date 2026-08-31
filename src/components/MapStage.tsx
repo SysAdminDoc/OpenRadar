@@ -182,7 +182,11 @@ export function MapStage({
               </button>
             ))}
           </div>
-          <small>{formatFrameTime(compareFrame)}</small>
+          <small>
+            {compareFrame
+              ? formatFrameTime(compareFrame)
+              : t("stage.compareUnavailable")}
+          </small>
         </div>
       ) : null}
     </div>

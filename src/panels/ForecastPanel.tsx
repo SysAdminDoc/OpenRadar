@@ -1,9 +1,13 @@
 import {
+  Cloud,
+  CloudLightning,
   CloudRain,
   CloudSun,
   Droplets,
   LoaderCircle,
   Navigation,
+  Snowflake,
+  Sun,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
@@ -21,6 +25,22 @@ import { precipitationUnit, speedUnit } from "../lib/units";
 interface ForecastPanelProps {
   point: GeoPoint;
   onClose: () => void;
+}
+
+function WeatherGlyph({ code, size }: { code: number; size: number }) {
+  const accessible = {
+    size,
+    role: "img",
+    "aria-label": weatherCodeLabel(code),
+  } as const;
+  if (code === 0) return <Sun {...accessible} />;
+  if (code <= 3) return <CloudSun {...accessible} />;
+  if (code === 45 || code === 48) return <Cloud {...accessible} />;
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) {
+    return <Snowflake {...accessible} />;
+  }
+  if (code >= 95) return <CloudLightning {...accessible} />;
+  return <CloudRain {...accessible} />;
 }
 
 export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
@@ -59,6 +79,7 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
               return;
             // Let the next move try again rather than waiting out the threshold.
             requestedRef.current = null;
+            setForecast(null);
             setError(true);
           });
       },
@@ -100,7 +121,7 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
       {forecast ? (
         <>
           <div className="current-forecast">
-            <CloudSun size={34} />
+            <WeatherGlyph code={forecast.weatherCode} size={34} />
             <div>
               <span className="current-forecast__temp">
                 {Math.round(forecast.currentTemperature)}°
@@ -137,7 +158,7 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
                     weekday: "short",
                   }).format(new Date(`${day.date}T12:00:00`))}
                 </span>
-                <CloudSun size={18} />
+                <WeatherGlyph code={day.weatherCode} size={18} />
                 <small>{day.precipitationChance}%</small>
                 <strong>{Math.round(day.high)}°</strong>
                 <em>{Math.round(day.low)}°</em>

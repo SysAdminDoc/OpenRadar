@@ -125,6 +125,27 @@ describe("ForecastPanel", () => {
     expect(container.querySelector(".panel-error")).not.toBeNull();
   });
 
+  it("removes the old location's forecast when the new request fails", async () => {
+    const { container, getByText, queryByText, rerender } = render(
+      <ForecastPanel point={{ lat: 32.78, lon: -96.8 }} onClose={() => {}} />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(getByText("88°")).toBeTruthy();
+
+    fetchForecast.mockRejectedValueOnce(new Error("the new place failed"));
+    rerender(
+      <ForecastPanel point={{ lat: 40, lon: -96.8 }} onClose={() => {}} />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(weather.FORECAST_DEBOUNCE_MS);
+    });
+
+    expect(container.querySelector(".panel-error")).not.toBeNull();
+    expect(queryByText("88°")).toBeNull();
+  });
+
   it("shows no error when its own request was cancelled", async () => {
     // A cancelled request is the map moving on, not the service failing. If the
     // panel wrote that rejection into its error line, panning would replace the

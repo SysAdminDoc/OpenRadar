@@ -37,6 +37,12 @@ function dateLabel(seconds: number): string {
   return translate("history.archiveDate", { date });
 }
 
+function failureMessage(failure: unknown): string {
+  return failure instanceof Error
+    ? failure.message
+    : translate("history.failedBody");
+}
+
 export function HistoryPanel({
   selectedId,
   replayId,
@@ -51,33 +57,48 @@ export function HistoryPanel({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  // Only the latest result click may choose the storm. Track files are loaded
+  // a decade at a time, so two clicks can finish in the opposite order.
+  const selectionGenerationRef = useRef(0);
 
   useEffect(() => {
     let open = true;
     void loadStorms()
       .then((loaded) => {
-        if (open) setStorms(loaded);
+        if (!open) return;
+        setStorms(loaded);
+        setError(null);
       })
       .catch((failure: unknown) => {
         if (!open) return;
-        setError(
-          failure instanceof Error
-            ? failure.message
-            : translate("history.failedBody"),
-        );
+        setError(failureMessage(failure));
       });
     inputRef.current?.focus();
     return () => {
       open = false;
+      selectionGenerationRef.current += 1;
     };
   }, []);
 
-  const reportFailure = (failure: unknown) => {
-    setError(
-      failure instanceof Error
-        ? failure.message
-        : translate("history.failedBody"),
-    );
+  const clearSelection = () => {
+    selectionGenerationRef.current += 1;
+    setLoadedStorm(null);
+    setError(null);
+    onSelect(null);
+  };
+
+  const selectStorm = (id: string) => {
+    const generation = ++selectionGenerationRef.current;
+    void loadStorm(id)
+      .then((storm) => {
+        if (generation !== selectionGenerationRef.current) return;
+        setError(null);
+        onSelect(storm);
+      })
+      .catch((failure: unknown) => {
+        if (generation !== selectionGenerationRef.current) return;
+        setError(failureMessage(failure));
+      });
   };
 
   const results = useMemo(
@@ -91,14 +112,22 @@ export function HistoryPanel({
   const selected = loadedStorm?.id === selectedId ? loadedStorm : null;
 
   useEffect(() => {
-    if (!selectedId || loadedStorm?.id === selectedId) return;
+    if (!selectedId) {
+      selectionGenerationRef.current += 1;
+      return;
+    }
+    if (loadedStorm?.id === selectedId) return;
     let open = true;
+    const generation = ++selectionGenerationRef.current;
     void loadStorm(selectedId)
       .then((storm) => {
-        if (open) setLoadedStorm(storm);
+        if (!open || generation !== selectionGenerationRef.current) return;
+        setLoadedStorm(storm);
+        setError(null);
       })
       .catch((failure: unknown) => {
-        if (open) reportFailure(failure);
+        if (!open || generation !== selectionGenerationRef.current) return;
+        setError(failureMessage(failure));
       });
     return () => {
       open = false;
@@ -177,7 +206,7 @@ export function HistoryPanel({
                 </button>
               )
             ) : null}
-            <button type="button" onClick={() => onSelect(null)}>
+            <button type="button" onClick={clearSelection}>
               <X size={14} /> {t("history.clear")}
             </button>
           </div>
@@ -198,9 +227,7 @@ export function HistoryPanel({
             type="button"
             className="result-row"
             key={storm.id}
-            onClick={() => {
-              void loadStorm(storm.id).then(onSelect).catch(reportFailure);
-            }}
+            onClick={() => selectStorm(storm.id)}
           >
             <i
               className="track-swatch"

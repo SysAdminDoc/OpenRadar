@@ -79,6 +79,22 @@ export function useSecondClock(wanted: boolean): number {
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
+/** Read at the moment an animation starts, so a live preference change wins. */
+export function reducedMotionRequested(): boolean {
+  return window.matchMedia(REDUCED_MOTION).matches;
+}
+
+/** MapLibre animation options that never override the reader's preference. */
+export function cameraMotion(duration: number): {
+  duration: number;
+  essential: false;
+} {
+  return {
+    duration: reducedMotionRequested() ? 0 : duration,
+    essential: false,
+  };
+}
+
 function subscribeMotion(listener: () => void): () => void {
   const query = window.matchMedia(REDUCED_MOTION);
   query.addEventListener("change", listener);
@@ -93,7 +109,7 @@ function subscribeMotion(listener: () => void): () => void {
 export function useReducedMotion(): boolean {
   return useSyncExternalStore(
     subscribeMotion,
-    () => window.matchMedia(REDUCED_MOTION).matches,
+    reducedMotionRequested,
     () => false,
   );
 }

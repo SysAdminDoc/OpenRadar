@@ -127,15 +127,18 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
       <div
         className="segmented-control segmented-control--full"
         aria-label={t("guidance.models")}
+        aria-describedby="guidance-model-minimum"
       >
         {GUIDANCE_MODELS.map((model) => {
           const on = chosen.includes(model.id);
+          const required = on && chosen.length <= 2;
           return (
             <button
               key={model.id}
               type="button"
               className={on ? "is-active" : ""}
               aria-pressed={on}
+              disabled={required}
               onClick={() =>
                 setChosen((current) =>
                   current.includes(model.id)
@@ -150,9 +153,9 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
         })}
       </div>
 
-      {!chosen.length ? (
-        <p className="inline-error">{t("guidance.noModels")}</p>
-      ) : null}
+      <p className="source-note" id="guidance-model-minimum">
+        {t("guidance.keepTwo")}
+      </p>
 
       {loading && !guidance ? (
         <div className="panel-loading">
