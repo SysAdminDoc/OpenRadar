@@ -1,6 +1,5 @@
 import { translate } from "../../i18n";
 import { cachedUrl } from "../tileCache";
-import { noteCachedResponse } from "../tileCache";
 import {
   boundsQuery,
   relativeTime,
@@ -69,7 +68,6 @@ async function query(
     signal,
     headers: { Accept: "application/json" },
   });
-  noteCachedResponse(response);
   if (!response.ok) {
     throw new Error(
       translate("spc.serviceStatus", { status: response.status }),

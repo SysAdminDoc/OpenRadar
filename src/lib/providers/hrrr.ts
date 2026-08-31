@@ -1,6 +1,5 @@
 import type { RadarFrame } from "./types";
 import { cachedUrl } from "../tileCache";
-import { noteCachedResponse } from "../tileCache";
 import { translate } from "../../i18n";
 
 export const HRRR_HOST = "mesonet.agron.iastate.edu";
@@ -41,7 +40,6 @@ export async function fetchHrrrRun(signal?: AbortSignal): Promise<HrrrRun> {
     headers: { Accept: "application/json" },
     cache: "no-store",
   });
-  noteCachedResponse(response);
   if (!response.ok) {
     throw new Error(`The forecast index returned ${response.status}.`);
   }

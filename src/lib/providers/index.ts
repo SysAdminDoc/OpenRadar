@@ -19,7 +19,7 @@ import {
   type RadarFrame,
   type RadarProvider,
 } from "./types";
-import { cachedAfter, cacheReportMarker } from "../tileCache";
+import { createCacheReport } from "../tileCache";
 import { translate } from "../../i18n";
 
 export const NOAA_PROVIDERS: RadarProvider[] = [
@@ -162,8 +162,13 @@ export async function fetchRadarTimeline(
     }
 
     try {
-      const cacheMarker = cacheReportMarker();
-      const frames = await provider.fetchFrames(loopMinutes, signal, center);
+      const cacheReport = createCacheReport();
+      const frames = await provider.fetchFrames(
+        loopMinutes,
+        signal,
+        center,
+        cacheReport,
+      );
       if (!frames.length) throw new Error(translate("radar.noFrames"));
       recordSuccess(provider.id, frames.length);
       log.info("radar", `${provider.label} returned ${frames.length} frames`);
@@ -172,7 +177,7 @@ export async function fetchRadarTimeline(
       return {
         provider,
         frames,
-        cachedAgeSeconds: cachedAfter(cacheMarker),
+        cachedAgeSeconds: cacheReport.servedAgeSeconds,
       };
     } catch (error) {
       // A caller that aborted mid-response can surface a TypeError rather than

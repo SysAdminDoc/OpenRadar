@@ -1,3 +1,5 @@
+import type { CacheReport } from "../tileCache";
+
 export type ProviderId =
   | "ridge"
   | "nowcoast"
@@ -58,6 +60,8 @@ export interface RadarProvider {
      * coverage box it was matched on.
      */
     center?: [number, number],
+    /** Cache provenance owned by this exact discovery request. */
+    cacheReport?: CacheReport,
   ) => Promise<RadarFrame[]>;
   /**
    * Which of its own grids the provider would serve here, when it has more
