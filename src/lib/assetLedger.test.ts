@@ -4,6 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { allowedHosts } from "../test/nativeHosts";
 import { CACHED_HOSTS } from "./tileCache";
+import {
+  LIVE_CONTRACTS,
+  UNCONTRACTED_HOSTS,
+} from "../../scripts/live-contracts-lib.mjs";
 
 /**
  * The ledger is a promise about what this app reaches and what that obliges.
@@ -115,5 +119,43 @@ describe("the asset ledger and the code it describes", () => {
         ).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe("the ledger and the live contracts", () => {
+  // Every host the app reaches either has a contract that asks whether it is
+  // still answering, or a written reason it does not. A host quietly in
+  // neither list is indistinguishable from one nobody thought about.
+  it("accounts for every runtime host, by contract or by reason", () => {
+    const covered = new Set<string>([
+      ...LIVE_CONTRACTS.map((contract) => contract.host),
+      ...Object.keys(UNCONTRACTED_HOSTS),
+    ]);
+    const unaccounted = allowedHosts().filter((host) => !covered.has(host));
+    expect(
+      unaccounted,
+      `these hosts have neither a contract nor a reason: ${unaccounted.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("gives every exemption an actual reason", () => {
+    for (const [host, why] of Object.entries(UNCONTRACTED_HOSTS)) {
+      expect(why.trim().length, host).toBeGreaterThan(30);
+    }
+  });
+
+  // An exemption for a host that also has a contract is a leftover, and it
+  // would go on excusing a gap that had already been closed.
+  it("does not excuse a host that has a contract", () => {
+    const contracted = new Set(LIVE_CONTRACTS.map((c) => c.host));
+    const both = Object.keys(UNCONTRACTED_HOSTS).filter((host) =>
+      contracted.has(host),
+    );
+    expect(both).toEqual([]);
+  });
+
+  it("treats the warnings service as a required contract", () => {
+    const alerts = LIVE_CONTRACTS.find((contract) => contract.id === "alerts");
+    expect(alerts?.required).toBe(true);
   });
 });

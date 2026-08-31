@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- The live provider gate now covers the layer that matters most. NWS watches and warnings have their own contract, checked against the service itself and treated as required, because a schema change there is worth more than a picture going missing. Every other host the app can reach either has a contract or a written reason it does not, and a test fails when a new host arrives with neither.
+
 - Two timers that nobody owned now have an owner. A dismissed message no longer leaves its own dismissal running behind it, one pushed off the end by newer messages goes with its timer, and closing the workspace takes every pending one with it. Opening two saved views quickly now leaves you looking at the second one: the delay before the camera moves meant two flights were in the air at once, and the one that landed second won rather than the one you asked for second.
 
 - The radar layer now reports whether its picture came off the disk and how old it was when it did, which is the first thing worth knowing about a loop that looks wrong. It also carries how long a loop stays fresh, taken from the gap between its own frames, so a stale one says so. And a layer record that does not meet the contract is now reported as malformed in a diagnostics block instead of being written out as though it were sound.
