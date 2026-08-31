@@ -75,13 +75,13 @@ export const rainviewerProvider: RadarProvider = {
   tileBudgetLimit: 90,
   discoveryBudgetLimit: 10,
   budgetWindowMs: 60_000,
-  fetchFrames: async (loopMinutes, signal) => {
+  fetchFrames: async (loopMinutes, signal, _center, cacheReport) => {
     const response = await fetch(cachedUrl(DISCOVERY_URL), {
       signal,
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
-    noteCachedResponse(response);
+    noteCachedResponse(response, cacheReport);
     if (!response.ok) {
       throw new Error(`The service returned ${response.status}.`);
     }

@@ -91,7 +91,6 @@ export function primeTileCache(): Promise<void> {
 export function resetTileCache() {
   base = null;
   priming = null;
-  resetCacheReports();
 }
 
 function isCachedHost(url: string): boolean {
@@ -116,8 +115,14 @@ function isCachedHost(url: string): boolean {
  */
 const AGE_HEADER = "X-OpenRadar-Age";
 
-let cacheReportSequence = 0;
-let servedAgeSeconds = 0;
+export interface CacheReport {
+  servedAgeSeconds: number | null;
+}
+
+/** Cache provenance owned by one provider request. */
+export function createCacheReport(): CacheReport {
+  return { servedAgeSeconds: null };
+}
 
 /**
  * Notes whether a reply came off the disk rather than off the network.
@@ -128,32 +133,17 @@ let servedAgeSeconds = 0;
  * resolver, and a service that is simply down all look online from the page's
  * side, and in all three the native side quietly answers from disk.
  */
-export function noteCachedResponse(response: Response) {
+export function noteCachedResponse(
+  response: Response,
+  report?: CacheReport,
+): number | null {
   const raw = response.headers.get(AGE_HEADER);
-  if (raw === null) return;
+  if (raw === null) return null;
   const age = Number(raw);
   // Zero is a live fetch. Anything above it came out of the cache.
-  if (!Number.isFinite(age) || age <= 0) return;
-  cacheReportSequence += 1;
-  servedAgeSeconds = age;
-}
-
-/**
- * A marker for attributing later cache reports to one provider request.
- */
-export function cacheReportMarker(): number {
-  return cacheReportSequence;
-}
-
-/** How old the bytes were if a response after this marker came from disk. */
-export function cachedAfter(marker: number): number | null {
-  return cacheReportSequence > marker ? servedAgeSeconds : null;
-}
-
-/** Only for tests, which need each case to start from nothing. */
-export function resetCacheReports() {
-  cacheReportSequence = 0;
-  servedAgeSeconds = 0;
+  if (!Number.isFinite(age) || age <= 0) return null;
+  if (report) report.servedAgeSeconds = age;
+  return age;
 }
 
 /**

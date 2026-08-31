@@ -1,5 +1,5 @@
 import { translate } from "../../i18n";
-import { cachedUrl, noteCachedResponse } from "../tileCache";
+import { cachedUrl } from "../tileCache";
 import { formatReportMagnitude } from "../units";
 import {
   relativeTime,
@@ -126,7 +126,6 @@ export const stormReportsOverlay: OverlayAdapter = {
       signal,
       headers: { Accept: "application/json" },
     });
-    noteCachedResponse(response);
     if (!response.ok) {
       throw new Error(
         translate("reports.serviceStatus", { status: response.status }),

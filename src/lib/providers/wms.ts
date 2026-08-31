@@ -1,7 +1,6 @@
 import { withinLoop, type BoundingBox, type ProviderId } from "./types";
 import type { RadarFrame, RadarProvider } from "./types";
-import { cachedUrl } from "../tileCache";
-import { noteCachedResponse } from "../tileCache";
+import { cachedUrl, noteCachedResponse } from "../tileCache";
 import { translate } from "../../i18n";
 
 export interface WmsStep {
@@ -177,13 +176,13 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
     discoveryBudgetLimit: config.discoveryBudgetLimit,
     budgetWindowMs: config.budgetWindowMs,
     host: config.host,
-    fetchFrames: async (loopMinutes, signal) => {
+    fetchFrames: async (loopMinutes, signal, _center, cacheReport) => {
       const response = await fetch(cachedUrl(capabilitiesUrl), {
         signal,
         headers: { Accept: "application/xml" },
         cache: "no-store",
       });
-      noteCachedResponse(response);
+      noteCachedResponse(response, cacheReport);
       if (!response.ok) {
         throw new Error(`The service returned ${response.status}.`);
       }
