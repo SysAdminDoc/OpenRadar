@@ -1,5 +1,10 @@
 import { haversineMiles, type GeoPoint } from "./geo";
-import { SEVERITY_RANK, type AlertSeverity } from "./overlays/alerts";
+import {
+  alertsOfKind,
+  SEVERITY_RANK,
+  type AlertSeverity,
+} from "./overlays/alerts";
+import type { AlertType } from "./alertTypes";
 import {
   featureBounds,
   type OverlayBounds,
@@ -45,6 +50,104 @@ export interface WatchSettings {
   /** Whether an announcement also makes a sound. */
   sound: boolean;
   quietHours?: QuietHours;
+  /**
+   * Which kinds of alert this place cares about, when it cares about fewer
+   * than the ones switched on. Absent means all of them, so a kind added in a
+   * later build arrives watched rather than silently off.
+   */
+  kinds?: Partial<Record<AlertType, boolean>>;
+}
+
+/**
+ * One watched place: a watch with a name on it.
+ *
+ * Home is the first, and it is the one the settings file has always held. The
+ * others sit beside it in a list, because one point cannot be home, a
+ * daughter's school, and the far end of tomorrow's drive at the same time.
+ */
+export interface WatchPlace extends WatchSettings {
+  id: string;
+  name: string;
+}
+
+/**
+ * How many places a reader may watch.
+ *
+ * Bounded on purpose. Every place is another set of bounds to check against
+ * every alert on every poll, and past a handful the list stops being a set of
+ * places somebody thinks about and becomes a subscription to the country.
+ */
+export const MAX_WATCH_PLACES = 10;
+
+/**
+ * One box covering every place, for a single request rather than one each.
+ *
+ * The alert service is queried by bounding box, and ten places is ten queries
+ * if each is asked about on its own. A reader whose places are all in one
+ * state gets a box barely larger than one of them; a reader with places on
+ * both coasts gets the country, which is a query that service answers
+ * routinely, and still one request rather than ten.
+ *
+ * Null when nothing is being watched, which is a reason not to ask at all.
+ */
+export function watchesBounds(places: WatchPlace[]): OverlayBounds | null {
+  const boxes = places.filter((place) => place.enabled).map(watchBounds);
+  if (!boxes.length) return null;
+  return boxes.reduce((all, box) => ({
+    west: Math.min(all.west, box.west),
+    south: Math.min(all.south, box.south),
+    east: Math.max(all.east, box.east),
+    north: Math.max(all.north, box.north),
+  }));
+}
+
+/**
+ * What to announce across every watched place, said once.
+ *
+ * A warning that covers home and the school is one warning. Announcing it
+ * twice is how somebody learns to ignore the notifications, so the places it
+ * reached are collected onto the single announcement instead, and the nearest
+ * of them is the distance it reports.
+ *
+ * Each place is judged on its own terms first: its own radius, its own
+ * severity floor, its own kinds. A place that would not have announced an
+ * alert does not get named on somebody else's announcement.
+ */
+export function alertsToAnnounceAcross(
+  alerts: OverlayData,
+  places: WatchPlace[],
+  /**
+   * What each place has already been told, by place and then by alert. Kept
+   * per place rather than in one pile, so adding somewhere new does not
+   * re-announce every warning the other places have already heard about.
+   */
+  announced: ReadonlyMap<string, ReadonlyMap<string, number>>,
+  now: number,
+): WatchAlert[] {
+  const empty = new Map<string, number>();
+  const found = new Map<string, WatchAlert>();
+  for (const place of places) {
+    const forPlace = alertsToAnnounce(
+      place.kinds ? alertsOfKind(alerts, place.kinds) : alerts,
+      place,
+      announced.get(place.id) ?? empty,
+      now,
+    );
+    for (const alert of forPlace) {
+      const named = { id: place.id, name: place.name };
+      const held = found.get(alert.id);
+      if (!held) {
+        found.set(alert.id, { ...alert, places: [named] });
+        continue;
+      }
+      held.places = [...(held.places ?? []), named];
+      // The nearest place is the one worth reporting the distance of, and the
+      // worst threat any place saw is the one worth announcing.
+      held.distanceMiles = Math.min(held.distanceMiles, alert.distanceMiles);
+      if (alert.rank > held.rank) held.rank = alert.rank;
+    }
+  }
+  return [...found.values()];
 }
 
 /** The reader's own clock, as minutes past their own midnight. */
@@ -123,6 +226,15 @@ export interface WatchAlert {
   expires: number | null;
   distanceMiles: number;
   reason: WatchReason;
+  /**
+   * The watched places this alert is news for.
+   *
+   * One warning covering two places is one announcement naming both rather
+   * than two announcements, which is how somebody learns to ignore them. A
+   * place that has already been told about this alert is not in the list, so
+   * adding a fourth place does not repeat what the other three heard.
+   */
+  places?: Array<{ id: string; name: string }>;
 }
 
 /** A box around the watched point, which is what the alert service is asked for. */
@@ -262,7 +374,16 @@ export function watchAlertBody(alert: WatchAlert): string {
           miles: distanceValue(alert.distanceMiles),
           unit: distanceUnit(),
         });
-  const body = translate("watch.body", { headline: alert.headline, where });
+  let body = translate("watch.body", { headline: alert.headline, where });
+  // Which places it reached, when there is more than one being watched. A
+  // reader with four places needs to know which of them this is about, and
+  // naming the single place somebody has would only repeat the obvious.
+  const places = (alert.places ?? []).map((place) => place.name);
+  if (places.length > 1) {
+    body = `${body} ${translate("watch.atPlaces", { places: places.join(", ") })}`;
+  } else if (places.length === 1 && places[0] !== translate("watch.home")) {
+    body = `${body} ${translate("watch.atPlace", { place: places[0] })}`;
+  }
   // The tag goes in the notification too. Somebody woken by this needs to know
   // straight away that the office called it destructive rather than reading
   // the same sentence they read for the ordinary one an hour ago.

@@ -289,6 +289,53 @@ test("the Custom Overlay switch removes imported shapes", async ({ page }) => {
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
 });
 
+test("watches more than one place and names the ones a warning reached", async ({
+  page,
+}) => {
+  // One point cannot be home, a school, and the far end of tomorrow's drive.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  await page.getByLabel("Watched radius, in miles").fill("60");
+  await page.getByRole("button", { name: /Watch the map centre/ }).click();
+
+  // A second place, which starts from home's own settings.
+  await page
+    .getByRole("button", { name: /Add the map centre as a place/ })
+    .click();
+  const name = page.getByLabel("Place name");
+  await expect(name).toHaveValue("Place 2");
+
+  // The fixture warning covers the map centre, so the new place hears about
+  // it and the announcement says which place it is about. Whether one warning
+  // covering two places is said once is settled in the unit tests, which can
+  // put both places down before anything is announced; what is being checked
+  // here is that a place added through the panel reaches the watch at all.
+  const named = page.locator(".toast", { hasText: "At Place 2" });
+  await expect(named).toHaveCount(1);
+  await expect(named).toContainText("Tornado Warning");
+
+  // Renaming does not restart the watch and say everything again, which is
+  // why the announcement above still carries the name it was added with.
+  await name.fill("School");
+  await expect(name).toHaveValue("School");
+  await expect(
+    page.locator(".toast", { hasText: "Tornado Warning" }),
+  ).toHaveCount(2);
+
+  // And the list is bounded: nine beside home is all there is room for.
+  for (let at = 0; at < 9; at += 1) {
+    const add = page.getByRole("button", {
+      name: /Add the map centre as a place/,
+    });
+    if (!(await add.count())) break;
+    await add.click();
+  }
+  await expect(
+    page.getByRole("button", { name: /Add the map centre as a place/ }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/That is all 10 places/)).toBeVisible();
+});
+
 test("watches a point and says when a warning reaches it", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();

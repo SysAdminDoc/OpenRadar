@@ -6,6 +6,7 @@ import {
   looksLikeSettings,
   normalizeSettings,
   restoreSettings,
+  watchedPlaces,
   sameCamera,
   SCHEMA_VERSION,
 } from "./settings";
@@ -458,5 +459,109 @@ describe("quiet hours out of a settings file", () => {
       changed.watch.quietHours,
     );
     expect(restored.unread).not.toContain("watch.quietHours");
+  });
+});
+
+describe("the places a reader watches", () => {
+  it("keeps a well formed place and gives it an identity", () => {
+    const settings = normalizeSettings({
+      watchPlaces: [
+        {
+          id: "school",
+          name: "  School  ",
+          enabled: true,
+          center: [-96.75, 32.8],
+          radiusMiles: 15,
+          minSeverity: "moderate",
+          sound: true,
+        },
+      ],
+    });
+    expect(settings.watchPlaces).toHaveLength(1);
+    expect(settings.watchPlaces[0].id).toBe("school");
+    expect(settings.watchPlaces[0].name).toBe("School");
+    expect(settings.watchPlaces[0].radiusMiles).toBe(15);
+    expect(settings.watchPlaces[0].minSeverity).toBe("moderate");
+    expect(settings.watchPlaces[0].sound).toBe(true);
+    // Quiet hours arrive whether or not the file had them.
+    expect(settings.watchPlaces[0].quietHours).toBeTruthy();
+  });
+
+  it("drops a place with nowhere to be rather than inventing one", () => {
+    // A watch with no position is a notification that never fires, which is
+    // worse than a place that is simply not in the list.
+    const settings = normalizeSettings({
+      watchPlaces: [
+        { name: "Nowhere" },
+        { name: "Broken", center: ["north", "west"] },
+        { name: "Real", center: [-96.75, 32.8] },
+      ],
+    });
+    expect(settings.watchPlaces.map((place) => place.name)).toEqual(["Real"]);
+  });
+
+  it("holds the list to nine, because home is the tenth", () => {
+    const many = Array.from({ length: 40 }, (_, index) => ({
+      id: `place-${index}`,
+      name: `Place ${index}`,
+      center: [-96 - index / 100, 32 + index / 100],
+    }));
+    const settings = normalizeSettings({ watchPlaces: many });
+    expect(settings.watchPlaces).toHaveLength(9);
+    expect(watchedPlaces(settings)).toHaveLength(10);
+  });
+
+  it("re-identifies a duplicate rather than losing the place", () => {
+    // Two entries with one identity is a hand-edited file, and both of them
+    // are still places somebody meant to watch. Dropping one would silently
+    // stop watching somewhere; giving the second its own identity keeps both
+    // and keeps the invariant the list depends on.
+    const settings = normalizeSettings({
+      watchPlaces: [
+        { id: "same", name: "First", center: [-96.7, 32.8] },
+        { id: "same", name: "Second", center: [-96.6, 32.9] },
+      ],
+    });
+    expect(settings.watchPlaces.map((place) => place.name)).toEqual([
+      "First",
+      "Second",
+    ]);
+    const [first, second] = settings.watchPlaces;
+    expect(first.id).not.toBe(second.id);
+  });
+
+  it("puts home first, whatever else is in the list", () => {
+    const settings = normalizeSettings({
+      watch: { enabled: true, center: [-96.8, 32.78] },
+      watchPlaces: [{ id: "s", name: "School", center: [-96.75, 32.8] }],
+    });
+    const places = watchedPlaces(settings);
+    expect(places[0].id).toBe("home");
+    expect(places[0].center).toEqual([-96.8, 32.78]);
+    expect(places[1].name).toBe("School");
+  });
+
+  it("round-trips a list of places through a settings file", () => {
+    const settings = normalizeSettings({
+      watchPlaces: [
+        {
+          id: "school",
+          name: "School",
+          enabled: true,
+          center: [-96.75, 32.8],
+          radiusMiles: 15,
+          minSeverity: "moderate",
+          sound: true,
+          quietHours: { enabled: true, startMinute: 1320, endMinute: 420 },
+        },
+      ],
+    });
+    const again = normalizeSettings(JSON.parse(JSON.stringify(settings)));
+    expect(again.watchPlaces).toEqual(settings.watchPlaces);
+  });
+
+  it("has no places at all until somebody adds one", () => {
+    expect(normalizeSettings({}).watchPlaces).toEqual([]);
+    expect(DEFAULT_SETTINGS.watchPlaces).toEqual([]);
   });
 });

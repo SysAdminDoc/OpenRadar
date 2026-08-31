@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   alertsToAnnounce,
+  alertsToAnnounceAcross,
   inQuietHours,
   localMinute,
   silencedByQuietHours,
   testWatchAlert,
   watchAlertBody,
   watchBounds,
+  watchesBounds,
   watchReasonLines,
+  type WatchPlace,
 } from "./watch";
 import type { OverlayData } from "./overlays";
 
@@ -392,5 +395,166 @@ describe("an alert held back by quiet hours", () => {
     const announced = new Map<string, number>();
     const found = alertsToAnnounce(flood, quiet, announced, now);
     expect(found[0].reason.upgradedFrom).toBeNull();
+  });
+});
+
+describe("watching more than one place", () => {
+  const place = (
+    id: string,
+    name: string,
+    center: [number, number],
+    over: Partial<WatchPlace> = {},
+  ): WatchPlace => ({
+    id,
+    name,
+    enabled: true,
+    center,
+    radiusMiles: 30,
+    minSeverity: "severe",
+    sound: false,
+    ...over,
+  });
+
+  /** A polygon a mile or so across, centred where it is put. */
+  const boxAt = (
+    [lon, lat]: [number, number],
+    headline: string,
+    severity = "severe",
+  ) => ({
+    type: "Feature" as const,
+    geometry: {
+      type: "Polygon" as const,
+      coordinates: [
+        [
+          [lon - 0.01, lat - 0.01],
+          [lon + 0.01, lat - 0.01],
+          [lon + 0.01, lat + 0.01],
+          [lon - 0.01, lat + 0.01],
+          [lon - 0.01, lat - 0.01],
+        ],
+      ],
+    },
+    properties: {
+      cap_id: headline,
+      headline,
+      severity,
+      kind: "tornado",
+      expires: Date.now() + 3_600_000,
+    },
+  });
+
+  const collection = (features: ReturnType<typeof boxAt>[]) => ({
+    type: "FeatureCollection" as const,
+    features,
+  });
+
+  it("asks for one box covering every place rather than one each", () => {
+    const dallas = place("home", "Home", [-96.8, 32.78]);
+    const boston = place("b", "Mum's", [-71.06, 42.36]);
+    const bounds = watchesBounds([dallas, boston])!;
+    expect(bounds).not.toBeNull();
+    // Both places inside it, with their own radius to spare.
+    for (const one of [dallas, boston]) {
+      const own = watchBounds(one);
+      expect(bounds.west).toBeLessThanOrEqual(own.west);
+      expect(bounds.east).toBeGreaterThanOrEqual(own.east);
+      expect(bounds.south).toBeLessThanOrEqual(own.south);
+      expect(bounds.north).toBeGreaterThanOrEqual(own.north);
+    }
+    // Nothing to watch is a reason not to ask at all.
+    expect(watchesBounds([])).toBeNull();
+    expect(
+      watchesBounds([place("off", "Off", [-96.8, 32.78], { enabled: false })]),
+    ).toBeNull();
+  });
+
+  it("says one warning once and names every place it reached", () => {
+    // Two places a few miles apart, and one warning over both of them.
+    const here = place("home", "Home", [-96.8, 32.78]);
+    const school = place("s", "School", [-96.75, 32.8]);
+    const found = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Tornado Warning")]),
+      [here, school],
+      new Map(),
+      Date.now(),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0].places?.map((place) => place.name)).toEqual([
+      "Home",
+      "School",
+    ]);
+  });
+
+  it("does not name a place the alert never reached", () => {
+    const here = place("home", "Home", [-96.8, 32.78]);
+    const away = place("a", "Mum's", [-71.06, 42.36]);
+    const found = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Tornado Warning")]),
+      [here, away],
+      new Map(),
+      Date.now(),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0].places?.map((place) => place.name)).toEqual(["Home"]);
+  });
+
+  it("lets each place set its own floor", () => {
+    // The same moderate alert over both. Home wants everything; the other
+    // place only wants to hear about the serious ones.
+    const here = place("home", "Home", [-96.8, 32.78], {
+      minSeverity: "moderate",
+    });
+    const quiet = place("q", "Cabin", [-96.79, 32.79], {
+      minSeverity: "extreme",
+    });
+    const found = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Flood Advisory", "moderate")]),
+      [here, quiet],
+      new Map(),
+      Date.now(),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0].places?.map((place) => place.name)).toEqual(["Home"]);
+  });
+
+  it("keeps the nearest distance when two places see the same warning", () => {
+    const near = place("home", "Home", [-96.781, 32.791]);
+    const far = place("f", "Work", [-96.6, 32.7]);
+    const found = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Tornado Warning")]),
+      [far, near],
+      new Map(),
+      Date.now(),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0].places?.map((place) => place.name)).toEqual([
+      "Work",
+      "Home",
+    ]);
+    // The nearest of the two, which is the one worth reporting.
+    expect(found[0].distanceMiles).toBeLessThan(1);
+  });
+
+  it("names the places in the notification when there is more than one", () => {
+    const [alert] = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Tornado Warning")]),
+      [
+        place("home", "Home", [-96.8, 32.78]),
+        place("s", "School", [-96.75, 32.8]),
+      ],
+      new Map(),
+      Date.now(),
+    );
+    expect(watchAlertBody(alert)).toContain("Home, School");
+  });
+
+  it("does not repeat the obvious when only home is watched", () => {
+    const [alert] = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Tornado Warning")]),
+      [place("home", "Home", [-96.8, 32.78])],
+      new Map(),
+      Date.now(),
+    );
+    expect(watchAlertBody(alert)).not.toContain("At Home");
   });
 });

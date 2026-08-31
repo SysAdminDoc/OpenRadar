@@ -3781,3 +3781,69 @@ input[type="range"] {
   width: 14px;
   height: 14px;
 }
+
+/* The places beside home, in the watched-area section. Each is a name, the
+   two settings worth changing per place, and a way to stop watching it. */
+.watch-places {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.watch-place {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.watch-place__name input {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.watch-place__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.watch-place__row label {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.watch-place__row input,
+.watch-place__row select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.watch-place__row .secondary-button {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+}
+
+.watch-place .source-note {
+  margin: 0;
+}

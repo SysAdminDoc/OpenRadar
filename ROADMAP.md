@@ -8,13 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-077: Support a bounded local list of watched places
-      Why: One watch point cannot cover home, family, a destination, and a route endpoint. RadarOmega and adjacent tools treat saved locations as a core alert workflow, but OpenRadar can do this without accounts or sync.
-      Evidence: `src/lib/settings.ts`; `src/hooks/useAlertWatch.ts`; `src/panels/MapOptionsPanels.tsx`; https://www.radaromega.com/
-      Touches: Settings schema and migration; batched alert queries; watch management; notification copy; workspace backup
-      Acceptance: Up to ten named local watch places can carry radius, severity, event filters, sound, and quiet policy; one alert is deduplicated across overlapping places while naming each affected place; polling batches bounds to avoid multiplying traffic; schema and backup round trips pass; no cloud storage is introduced.
-      Complexity: L
-
 - [ ] AUD-079: Compare exact and previous Open-Meteo model runs
       Why: Current guidance compares current model output but does not expose the initialization behind each series or how the forecast changed from the previous run.
       Evidence: `src/lib/guidance.ts`; https://open-meteo.com/en/docs/single-runs-api ; https://open-meteo.com/en/docs/previous-runs-api

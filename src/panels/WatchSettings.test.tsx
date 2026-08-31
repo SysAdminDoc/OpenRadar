@@ -23,6 +23,7 @@ function panel(
         settings={settings}
         onSettings={onSettings}
         onWatchHere={vi.fn()}
+        onAddWatchPlace={vi.fn()}
         onSendWatchTest={onSendWatchTest}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}

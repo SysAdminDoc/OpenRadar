@@ -157,10 +157,15 @@ describe("what the native side said went wrong", () => {
       resolve(process.cwd(), "src-tauri/src/level2.rs"),
       "utf8",
     );
+    // Anchored on the match arm rather than on any tuple that happens to hold
+    // a string and a vector. Without the arrow this also read the labels in
+    // the decoder's own tests, so adding a corrupt-input case called "zeros"
+    // failed this test asking for wording for an error code that does not
+    // exist.
     const codes = [
-      ...source.matchAll(/\("([a-zA-Z]+)", (?:vec!|Vec::new)/g),
+      ...source.matchAll(/=>\s*\("([a-zA-Z]+)", (?:vec!|Vec::new)/g),
     ].map((found) => found[1]);
-    expect(codes.length).toBeGreaterThan(5);
+    expect(codes.length).toBeGreaterThan(9);
     for (const code of codes) {
       expect(en[`radar.error.${code}` as keyof typeof en], code).toBeTruthy();
       expect(es[`radar.error.${code}` as keyof typeof es], code).toBeTruthy();

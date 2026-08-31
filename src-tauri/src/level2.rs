@@ -3485,7 +3485,7 @@ mod tests {
                 parse(&format!("short:{length}"), volume[..length].to_vec());
             }
             // And nothing at all, which is what an empty file is.
-            parse("empty", Vec::new());
+            parse("empty file", Vec::new());
             clear_cache();
         }
 

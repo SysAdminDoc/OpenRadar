@@ -52,7 +52,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Storm cells** from the radar's own tracking algorithm: which blobs are one storm, where each is going, and where it will be in fifteen, thirty, forty-five and sixty minutes. Rotation is ringed.
 - **Severe probability** from the National Severe Storms Laboratory model: how likely each storm is to turn severe in the next hour, and separately for hail, wind and a tornado. It is guidance, it draws under the warnings, and it says so.
 - Storm reports, SPC convective outlooks and mesoscale discussions.
-- A watched place that speaks up when a warning reaches it, wherever the map is pointed, with an optional tone.
+- Up to ten watched places that speak up when a warning reaches them, wherever the map is pointed, each with its own radius, severity floor, tone and quiet hours. One warning covering several of them is announced once and names them all.
 
 ### Beyond the United States
 

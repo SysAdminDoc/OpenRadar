@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAlertWatch } from "./useAlertWatch";
 import type { OverlayData } from "../lib/overlays";
-import type { WatchSettings } from "../lib/watch";
+import type { WatchPlace } from "../lib/watch";
 import { alertType } from "../lib/alertTypes";
 
 const fetchData = vi.fn<() => Promise<OverlayData>>();
@@ -48,13 +48,18 @@ vi.mock("@tauri-apps/plugin-notification", () => ({
   sendNotification: (...args: unknown[]) => notification(...args),
 }));
 
-const watch: WatchSettings = {
+/** Home, as the hook now takes it: a list with a name on each entry. */
+const watch: WatchPlace = {
+  id: "home",
+  name: "Home",
   enabled: true,
   center: [-96.8, 32.78],
   radiusMiles: 30,
   minSeverity: "severe",
   sound: false,
 };
+
+const home: WatchPlace[] = [watch];
 
 const near: Array<[number, number]> = [
   [-96.9, 32.7],
@@ -106,7 +111,7 @@ describe("watching a place for alerts", () => {
     try {
       const told = vi.fn();
       fetchData.mockResolvedValue(alerts("Tornado Warning"));
-      renderHook(() => useAlertWatch(watch, {}, told));
+      renderHook(() => useAlertWatch(home, {}, told));
 
       await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
       expect(told.mock.calls[0][0].headline).toBe("Tornado Warning");
@@ -126,7 +131,7 @@ describe("watching a place for alerts", () => {
     try {
       const told = vi.fn();
       fetchData.mockResolvedValue(alerts("Tornado Warning"));
-      renderHook(() => useAlertWatch(watch, {}, told));
+      renderHook(() => useAlertWatch(home, {}, told));
       await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
 
       fetchData.mockResolvedValue(
@@ -145,7 +150,7 @@ describe("watching a place for alerts", () => {
   it("says nothing at all while the watch is off", async () => {
     const told = vi.fn();
     fetchData.mockResolvedValue(alerts("Tornado Warning"));
-    renderHook(() => useAlertWatch({ ...watch, enabled: false }, {}, told));
+    renderHook(() => useAlertWatch([{ ...watch, enabled: false }], {}, told));
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(fetchData).not.toHaveBeenCalled();
     expect(told).not.toHaveBeenCalled();
@@ -157,7 +162,7 @@ describe("watching a place for alerts", () => {
     const told = vi.fn();
     fetchData.mockResolvedValue(alerts("Tornado Warning"));
     const { rerender } = renderHook(
-      (props: { watch: WatchSettings }) => useAlertWatch(props.watch, {}, told),
+      (props: { watch: WatchPlace }) => useAlertWatch([props.watch], {}, told),
       { initialProps: { watch } },
     );
     await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
@@ -172,7 +177,7 @@ describe("watching a place for alerts", () => {
       .mockReturnValueOnce(new Promise<OverlayData>(() => {}))
       .mockResolvedValueOnce(alerts());
     const { rerender } = renderHook(
-      (props: { watch: WatchSettings }) => useAlertWatch(props.watch, {}, told),
+      (props: { watch: WatchPlace }) => useAlertWatch([props.watch], {}, told),
       { initialProps: { watch } },
     );
     await vi.waitFor(() => expect(fetchData).toHaveBeenCalledTimes(1));
@@ -186,7 +191,7 @@ describe("watching a place for alerts", () => {
     permission.mockRejectedValue(new Error("notification bridge failed"));
     fetchData.mockResolvedValue(alerts("Tornado Warning"));
     const told = vi.fn();
-    renderHook(() => useAlertWatch(watch, {}, told));
+    renderHook(() => useAlertWatch(home, {}, told));
 
     await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
     expect(told.mock.calls[0][0].headline).toBe("Tornado Warning");
@@ -201,7 +206,7 @@ describe("watching a place for alerts", () => {
     fetchData.mockResolvedValue(alerts("Tornado Warning"));
     const told = vi.fn();
     const { rerender } = renderHook(
-      (props: { watch: WatchSettings }) => useAlertWatch(props.watch, {}, told),
+      (props: { watch: WatchPlace }) => useAlertWatch([props.watch], {}, told),
       { initialProps: { watch } },
     );
 
@@ -222,7 +227,7 @@ describe("watching a place for alerts", () => {
   it("makes no sound unless it was asked to", async () => {
     const told = vi.fn();
     fetchData.mockResolvedValue(alerts("Tornado Warning"));
-    renderHook(() => useAlertWatch(watch, {}, told));
+    renderHook(() => useAlertWatch(home, {}, told));
     await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
     expect(tone).not.toHaveBeenCalled();
   });
@@ -238,7 +243,7 @@ describe("watching a place for alerts", () => {
         "Severe Thunderstorm Warning",
       ),
     );
-    renderHook(() => useAlertWatch({ ...watch, sound: true }, {}, told));
+    renderHook(() => useAlertWatch([{ ...watch, sound: true }], {}, told));
     await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(3));
     expect(tone).toHaveBeenCalledTimes(1);
   });
@@ -249,7 +254,7 @@ describe("watching a place for alerts", () => {
     // somebody to an empty list.
     const told = vi.fn();
     fetchData.mockResolvedValue(alerts("Flash Flood Warning"));
-    renderHook(() => useAlertWatch(watch, { flood: false }, told));
+    renderHook(() => useAlertWatch(home, { flood: false }, told));
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(told).not.toHaveBeenCalled();
 
@@ -258,7 +263,7 @@ describe("watching a place for alerts", () => {
     fetchData.mockResolvedValue(
       alerts("Flash Flood Warning", "Tornado Warning"),
     );
-    renderHook(() => useAlertWatch(watch, { flood: false }, other));
+    renderHook(() => useAlertWatch(home, { flood: false }, other));
     await vi.waitFor(() => expect(other).toHaveBeenCalledTimes(1));
     expect(other.mock.calls[0][0].headline).toBe("Tornado Warning");
   });
@@ -270,7 +275,7 @@ describe("watching a place for alerts", () => {
       fetchData.mockResolvedValue(alerts("Tornado Warning"));
       const { rerender } = renderHook(
         (props: { kinds: Record<string, boolean> }) =>
-          useAlertWatch(watch, props.kinds, told),
+          useAlertWatch(home, props.kinds, told),
         { initialProps: { kinds: {} as Record<string, boolean> } },
       );
       await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
@@ -292,7 +297,7 @@ describe("watching a place for alerts", () => {
     try {
       const told = vi.fn();
       fetchData.mockRejectedValue(new Error("the service returned 503"));
-      renderHook(() => useAlertWatch(watch, {}, told));
+      renderHook(() => useAlertWatch(home, {}, told));
       await act(async () => {
         await vi.advanceTimersByTimeAsync(100);
       });

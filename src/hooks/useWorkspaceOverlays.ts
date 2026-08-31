@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { ToastMessage } from "../components/ToastHost";
 import type { OverlayBounds, OverlayData, OverlayId } from "../lib/overlays";
-import type { AppSettings } from "../lib/settings";
+import { watchedPlaces, type AppSettings } from "../lib/settings";
 import { watchAlertBody } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";
@@ -69,13 +69,16 @@ export function useWorkspaceOverlays(options: {
   // panel: announcing a kind the panel will not show sends somebody to an
   // empty list, and the switch says it takes the kind off the map and out of
   // the list.
-  const watch = useAlertWatch(settings.watch, settings.alertTypes, (alert) =>
-    pushToast({
-      title: alert.headline,
-      detail: watchAlertBody(alert),
-      actionLabel: translate("toast.show"),
-      onAction: () => setActiveSurface("alerts"),
-    }),
+  const watch = useAlertWatch(
+    watchedPlaces(settings),
+    settings.alertTypes,
+    (alert) =>
+      pushToast({
+        title: alert.headline,
+        detail: watchAlertBody(alert),
+        actionLabel: translate("toast.show"),
+        onAction: () => setActiveSurface("alerts"),
+      }),
   );
 
   // The kinds a reader has switched off, taken out here rather than in the
