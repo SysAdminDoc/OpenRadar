@@ -6,20 +6,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
-- [ ] P0 — `topmost` answers with the polygon underneath when two hits share a layer id
-  Why: it compares stack heights with `>=`, so among equal heights the last hit wins. Every NWS alert is drawn by one fill layer, so a tornado warning inside a flood watch gives two hits at the same height and the watch is the one that opens. The code this replaced took `queryRenderedFeatures(...)[0]`, which was right: MapLibre returns the topmost feature first.
-  Evidence: a test over the real `topmost` with two hits on `openradar-overlay-alerts-fill` picks "Flood Watch" while `hits[0]` is "Tornado Warning".
-  Touches: src/lib/layerStack.ts, src/lib/layerStack.test.ts
-  Acceptance: among hits at the same height the first one wins; a test with two features on one layer fails with `>=` and passes with `>`; the guidance-under-warning cases still hold.
-
-- [ ] P0 — Nothing tests the click handler itself, so the original defect can be put straight back
-  Why: `layerStack.test.ts` covers the new module, which did not exist before the fix, so it cannot go red against the old handler. Reinstating guidance-first inside `showOverlayPopup` leaves all 450 tests green, and no e2e touches the popup.
-  Evidence: `const hit = hits.find((f) => f.layer.id === PROBSEVERE_FILL_LAYER_ID) ?? hits[0];` reinstated in MapViewport gives 58 files / 450 passed.
-  Touches: src/components/MapViewport.tsx, e2e
-  Acceptance: a test drives the real handler over overlapping polygons and reports the warning; reinstating guidance-first turns it red.
-
-### P1
-
 - [ ] P1 — `unfold_velocity` rewrites the field and then reports that it did not
   Why: it writes the corrected gates back and then decides what to answer by looking for a reading outside `nyquist * 1.01`. A genuine fold corrected to just inside that slack answers false, so the legend says the picture is the radar's own reading and the narrow ramp is chosen for a field that has been changed. The doc comment still says nothing is written when it answers no.
   Evidence: two flat regions at ±24.8 m/s with nyquist 25 come back at ±25.2, inside the 25.25 slack: "unfold_velocity answered false; 1800 of 3600 gates were rewritten".

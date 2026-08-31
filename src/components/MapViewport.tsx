@@ -55,6 +55,7 @@ import {
 } from "../lib/surge";
 import { translate } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
+import { popupFrom } from "../lib/mapPopup";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -79,7 +80,7 @@ import {
   SWEEP_LAYER_ID,
   TOOL_LINE_LAYER_ID,
   TOOL_POINT_LAYER_ID,
-  topmost,
+  OVERLAY_SOURCE_PREFIX,
   TRACK_LAYER_IDS,
   TRACK_LINE_LAYER_ID,
   TRACK_POINT_LAYER_ID,
@@ -100,7 +101,6 @@ const RADAR_SOURCE_ID = "openradar-radar-source";
 
 type RadarLane = "observed" | "forecast";
 const TOOL_SOURCE_ID = "openradar-tool-source";
-const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
 const ROUTE_SOURCE_ID = "openradar-route-source";
 const TRACK_SOURCE_ID = "openradar-track-source";
 const CUSTOM_SOURCE_ID = "openradar-custom-source";
@@ -704,36 +704,9 @@ function MapViewportInner(
     const hits = map.queryRenderedFeatures(event.point, { layers: clickable });
     // The click answers with whatever the reader can see, which is the same
     // order the map draws in rather than a second list beside it.
-    const hit = topmost(hits, layerStackOrder(overlayLayerOrder()));
-    if (!hit) return;
-
-    if (hit.layer.id === PROBSEVERE_FILL_LAYER_ID) {
-      const properties = hit.properties ?? {};
-      const detail = String(properties.detail ?? "");
-      openPopup(map, event.lngLat, {
-        title: translate("probSevere.title"),
-        lines: [
-          translate("probSevere.headline", {
-            percent: String(properties.severe ?? 0),
-          }),
-          translate("probSevere.kinds", {
-            hail: String(properties.hail ?? 0),
-            wind: String(properties.wind ?? 0),
-            tornado: String(properties.tornado ?? 0),
-          }),
-          ...(detail ? [detail] : []),
-          translate("probSevere.note"),
-        ],
-      });
-      return;
-    }
-
-    const adapter = OVERLAY_ADAPTERS.find((candidate) =>
-      hit.layer.id.startsWith(`${OVERLAY_SOURCE_PREFIX}${candidate.id}`),
-    );
-    if (!adapter) return;
-
-    openPopup(map, event.lngLat, adapter.describe(hit.properties ?? {}));
+    const content = popupFrom(hits, layerStackOrder(overlayLayerOrder()));
+    if (!content) return;
+    openPopup(map, event.lngLat, content);
   };
 
   const syncRoute = () => {
