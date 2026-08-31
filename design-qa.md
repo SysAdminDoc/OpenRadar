@@ -5,7 +5,7 @@
 - Reference: `docs/mockups/openradar-incident-rail.png`
 - Surface board: `docs/mockups/openradar-surface-board.png`
 - Implementation: `assets/screenshots/openradar-main.png`
-- Full comparison: `artifacts/design-qa/comparison-alerts-final.png`
+- Full comparison: `docs/mockups/openradar-alerts-parity.png`
 - Viewport: 1487 by 1058 CSS pixels at 1:1 scale
 - State: dark theme, live radar, Alerts open
 
