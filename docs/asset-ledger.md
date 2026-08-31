@@ -9,6 +9,8 @@ Everything OpenRadar ships or fetches, where it comes from, and what using it ob
 | OpenRadar brand mark | New asset | Project's own | None |
 | Command icons | Lucide | ISC | Named accessibly in the app; the licence text travels with the package |
 | Colour ramps | Written for this project from the published NWS reflectivity and velocity scales | Project's own | None. A loaded GRLevelX table replaces them at the user's choosing |
+| Interface reference mockups | Original OpenRadar design studies | Project's own | Kept under `docs/mockups/` as design history; not packaged with the app |
+| README workspace screenshot | Live OpenRadar browser capture | Project's own | Documentation only |
 | `public/hurdat.json` | NOAA HURDAT2 best track, Atlantic and eastern Pacific | US Government work, no copyright | Credited in the History panel |
 | `public/tide-stations.json` | NOAA CO-OPS station list | US Government work, no copyright | Credited in the Tides panel |
 | Reference application screenshots | Local audit evidence only | Not licensed for redistribution | Never copied into the app or the repository |

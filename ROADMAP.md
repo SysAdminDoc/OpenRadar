@@ -1,17 +1,10 @@
 # OpenRadar Roadmap
 
-Only unfinished work appears here. This backlog was reconciled against the repository, tracker, external research, and completed 2026-08-30 audit register on 2026-08-31. Historical completed items `AUD-011` through `AUD-066` are omitted. External blockers remain documented in `Roadmap_Blocked.md`.
+Only unfinished work appears here. This backlog was reconciled against the repository, tracker, external research, and completed 2026-08-30 audit register on 2026-08-31. Historical completed items, including `AUD-001` and `AUD-011` through `AUD-066`, are omitted. External blockers remain documented in `Roadmap_Blocked.md`.
 
 Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section. Nothing in that section outranks a correctness, security, or release item. `AUD-093` onward and `JOY-021` were added by the 2026-08-31 evening research pass and sit under Research-Driven Additions at the end, each carrying its own priority.
 
 ## P0
-
-- [ ] AUD-001: Synchronize release version metadata
-      Why: The repository currently identifies itself as 0.1.0, 0.2.0, and 0.3.0 in different places, while the planned post-audit delivery is 0.4.0. A release proof cannot be trustworthy if the executable, lockfiles, settings metadata, badge, and notes disagree.
-      Evidence: `package.json`; root `package-lock.json`; `src/lib/settings.ts`; `src-tauri/tauri.conf.json`; `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock`; `README.md`; `CHANGELOG.md`; `scripts/release.mjs`
-      Touches: Every version-bearing file listed above
-      Acceptance: One version audit command finds only 0.4.0 in active release metadata; the README badge and checksum example match; the changelog has the matching heading; the release script's version preflight passes.
-      Complexity: M
 
 - [ ] AUD-067: Remove the transitive `lru 0.16.4` unsoundness
       Why: The native NetCDF chain contains a safe-Rust memory-unsoundness advisory. The patched line begins at 0.18.2.

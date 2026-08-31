@@ -25,7 +25,7 @@ import {
   Rows3,
   Waves,
 } from "lucide-react";
-import type { ComponentType } from "react";
+import { useEffect, useRef, type ComponentType } from "react";
 import { useT } from "../i18n";
 
 export type SurfaceId =
@@ -110,10 +110,26 @@ export function CommandBar({
   onShare,
 }: CommandBarProps) {
   const t = useT();
+  const advancedRef = useRef<HTMLDivElement>(null);
   const toggleSurface = (surface: Exclude<SurfaceId, null>) =>
     onSurface(activeSurface === surface ? null : surface);
   const toggleTool = (tool: Exclude<ToolMode, null>) =>
     onTool(activeTool === tool ? null : tool);
+
+  useEffect(() => {
+    if (
+      activeSurface === "map-type" ||
+      activeSurface === "route" ||
+      activeSurface === "guidance" ||
+      activeSurface === "tides" ||
+      activeSurface === "export" ||
+      activeSurface === "upload" ||
+      activeSurface === "tropical"
+    ) {
+      return;
+    }
+    if (advancedRef.current) advancedRef.current.scrollTop = 0;
+  }, [activeSurface]);
 
   return (
     <nav className="command-bar" aria-label={t("bar.label")}>
@@ -137,85 +153,11 @@ export function CommandBar({
           onClick={() => toggleSurface("search")}
         />
         <CommandButton
-          icon={Map}
-          label={t("panel.mapType")}
-          active={activeSurface === "map-type"}
-          onClick={() => toggleSurface("map-type")}
-        />
-        <CommandButton
           icon={Layers3}
           label={t("panel.layers")}
           active={activeSurface === "layers"}
           onClick={() => toggleSurface("layers")}
         />
-        <CommandButton
-          icon={PanelLeftClose}
-          label={t("bar.dualPane")}
-          active={dualPane}
-          onClick={onDualPane}
-        />
-      </div>
-
-      <div className="command-divider" />
-
-      <div className="command-group command-group--scenes">
-        <CommandButton
-          icon={projection === "globe" ? Globe2 : Radar}
-          label={
-            projection === "globe" ? t("mapType.flat") : t("mapType.globe")
-          }
-          onClick={onProjection}
-          detail={projection === "globe" ? t("bar.toFlat") : t("bar.toGlobe")}
-        />
-        {presets.map((saved, index) => (
-          <button
-            className="preset-button"
-            type="button"
-            key={index}
-            aria-label={
-              saved
-                ? t("bar.openPreset", { number: index + 1 })
-                : t("bar.savePreset", { number: index + 1 })
-            }
-            title={
-              saved
-                ? t("bar.openPreset", { number: index + 1 })
-                : t("bar.savePreset", { number: index + 1 })
-            }
-            onClick={() => onPreset(index)}
-          >
-            <span>{index + 1}</span>
-            <i className={saved ? "is-saved" : ""} />
-          </button>
-        ))}
-      </div>
-
-      <div className="command-divider" />
-
-      <div className="command-group command-group--tools">
-        <CommandButton
-          icon={Pencil}
-          label={t("tool.draw")}
-          active={activeTool === "draw"}
-          onClick={() => toggleTool("draw")}
-        />
-        <CommandButton
-          icon={Crosshair}
-          label={t("tool.range")}
-          active={activeTool === "range"}
-          onClick={() => toggleTool("range")}
-        />
-        <CommandButton
-          icon={MousePointer2}
-          label={t("tool.inspect")}
-          active={activeTool === "inspect"}
-          onClick={() => toggleTool("inspect")}
-        />
-      </div>
-
-      <div className="command-spacer" />
-
-      <div className="command-group command-group--secondary">
         <CommandButton
           icon={BellRing}
           label={t("panel.alerts")}
@@ -223,10 +165,10 @@ export function CommandBar({
           onClick={() => toggleSurface("alerts")}
         />
         <CommandButton
-          icon={Tornado}
-          label={t("layer.tropical")}
-          active={activeSurface === "tropical"}
-          onClick={() => toggleSurface("tropical")}
+          icon={CloudSun}
+          label={t("panel.forecast")}
+          active={activeSurface === "forecast"}
+          onClick={() => toggleSurface("forecast")}
         />
         <CommandButton
           icon={History}
@@ -234,43 +176,132 @@ export function CommandBar({
           active={activeSurface === "history"}
           onClick={() => toggleSurface("history")}
         />
-        <CommandButton
-          icon={Route}
-          label={t("panel.route")}
-          active={activeSurface === "route"}
-          onClick={() => toggleSurface("route")}
-        />
-        <CommandButton
-          icon={Rows3}
-          label={t("panel.guidance")}
-          active={activeSurface === "guidance"}
-          onClick={() => toggleSurface("guidance")}
-        />
-        <CommandButton
-          icon={Waves}
-          label={t("panel.tides")}
-          active={activeSurface === "tides"}
-          onClick={() => toggleSurface("tides")}
-        />
-        <CommandButton
-          icon={Film}
-          label={t("panel.export")}
-          active={activeSurface === "export"}
-          onClick={() => toggleSurface("export")}
-        />
-        <CommandButton icon={Share2} label={t("bar.share")} onClick={onShare} />
-        <CommandButton
-          icon={Download}
-          label={t("panel.upload")}
-          active={activeSurface === "upload"}
-          onClick={() => toggleSurface("upload")}
-        />
-        <CommandButton
-          icon={CloudSun}
-          label={t("panel.forecast")}
-          active={activeSurface === "forecast"}
-          onClick={() => toggleSurface("forecast")}
-        />
+      </div>
+
+      <div ref={advancedRef} className="command-scroll-region">
+        <div className="command-divider" />
+        <div className="command-group command-group--workspace">
+          <CommandButton
+            icon={Map}
+            label={t("panel.mapType")}
+            active={activeSurface === "map-type"}
+            onClick={() => toggleSurface("map-type")}
+          />
+          <CommandButton
+            icon={PanelLeftClose}
+            label={t("bar.dualPane")}
+            active={dualPane}
+            onClick={onDualPane}
+          />
+        </div>
+
+        <div className="command-divider" />
+
+        <div className="command-group command-group--scenes">
+          <CommandButton
+            icon={projection === "globe" ? Globe2 : Radar}
+            label={
+              projection === "globe" ? t("mapType.flat") : t("mapType.globe")
+            }
+            onClick={onProjection}
+            detail={projection === "globe" ? t("bar.toFlat") : t("bar.toGlobe")}
+          />
+          {presets.map((saved, index) => (
+            <button
+              className="preset-button"
+              type="button"
+              key={index}
+              aria-label={
+                saved
+                  ? t("bar.openPreset", { number: index + 1 })
+                  : t("bar.savePreset", { number: index + 1 })
+              }
+              title={
+                saved
+                  ? t("bar.openPreset", { number: index + 1 })
+                  : t("bar.savePreset", { number: index + 1 })
+              }
+              onClick={() => onPreset(index)}
+            >
+              <span>{index + 1}</span>
+              <i className={saved ? "is-saved" : ""} />
+            </button>
+          ))}
+        </div>
+
+        <div className="command-divider" />
+
+        <div className="command-group command-group--tools">
+          <CommandButton
+            icon={Pencil}
+            label={t("tool.draw")}
+            active={activeTool === "draw"}
+            onClick={() => toggleTool("draw")}
+          />
+          <CommandButton
+            icon={Crosshair}
+            label={t("tool.range")}
+            active={activeTool === "range"}
+            onClick={() => toggleTool("range")}
+          />
+          <CommandButton
+            icon={MousePointer2}
+            label={t("tool.inspect")}
+            active={activeTool === "inspect"}
+            onClick={() => toggleTool("inspect")}
+          />
+        </div>
+
+        <div className="command-divider" />
+
+        <div className="command-group command-group--secondary">
+          <CommandButton
+            icon={Tornado}
+            label={t("layer.tropical")}
+            active={activeSurface === "tropical"}
+            onClick={() => toggleSurface("tropical")}
+          />
+          <CommandButton
+            icon={Route}
+            label={t("panel.route")}
+            active={activeSurface === "route"}
+            onClick={() => toggleSurface("route")}
+          />
+          <CommandButton
+            icon={Rows3}
+            label={t("panel.guidance")}
+            active={activeSurface === "guidance"}
+            onClick={() => toggleSurface("guidance")}
+          />
+          <CommandButton
+            icon={Waves}
+            label={t("panel.tides")}
+            active={activeSurface === "tides"}
+            onClick={() => toggleSurface("tides")}
+          />
+          <CommandButton
+            icon={Film}
+            label={t("panel.export")}
+            active={activeSurface === "export"}
+            onClick={() => toggleSurface("export")}
+          />
+          <CommandButton
+            icon={Share2}
+            label={t("bar.share")}
+            onClick={onShare}
+          />
+          <CommandButton
+            icon={Download}
+            label={t("panel.upload")}
+            active={activeSurface === "upload"}
+            onClick={() => toggleSurface("upload")}
+          />
+        </div>
+      </div>
+
+      <div className="command-spacer" />
+
+      <div className="command-group command-group--footer">
         <CommandButton
           icon={Settings}
           label={t("panel.settings")}

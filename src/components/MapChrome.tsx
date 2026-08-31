@@ -184,6 +184,15 @@ export function RadarTimeline({
         }
         onChange={(event) => onFrameIndex(Number(event.target.value))}
       />
+      <button
+        className="timeline-live-button"
+        type="button"
+        aria-label={t("timeline.goLive")}
+        disabled={!frames.length || frameIndex === frames.length - 1}
+        onClick={() => onFrameIndex(frames.length - 1)}
+      >
+        {t("timeline.live")}
+      </button>
     </div>
   );
 }

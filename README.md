@@ -4,15 +4,14 @@
 
 **A desktop weather radar that reads the raw data itself.**
 
-[![Version](https://img.shields.io/badge/version-0.3.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
 [![License](https://img.shields.io/badge/license-MIT-8bd5ca)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-89b4fa)](https://github.com/SysAdminDoc/OpenRadar/releases)
 [![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%C2%B7%20Rust%20%C2%B7%20React-cba6f7)](#how-it-is-put-together)
 
 [Download](#install) · [What it does](#what-it-does) · [Build from source](#build-from-source) · [Where the data comes from](#where-the-data-comes-from)
 
-<img width="1916" height="1029" alt="Screenshot 2026-08-30 224055" src="https://github.com/user-attachments/assets/de46526b-51d4-4f15-a868-a3a446104ffd" />
-
+<img width="1487" height="1058" alt="OpenRadar alerts workspace" src="assets/screenshots/openradar-main.png" />
 
 </div>
 
@@ -92,7 +91,7 @@ Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://gi
 Windows will show a SmartScreen warning the first time. The installer is not Authenticode-signed yet, and SmartScreen warns about anything it has not seen before. Choose **More info**, then **Run anyway**. Every release ships a `SHA256SUMS` file if you would rather check the download first:
 
 ```powershell
-Get-FileHash OpenRadar_0.3.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash OpenRadar_0.4.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.

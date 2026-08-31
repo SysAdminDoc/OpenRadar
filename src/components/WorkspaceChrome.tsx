@@ -1,4 +1,4 @@
-import { CloudRain, Trash2 } from "lucide-react";
+import { CloudRain, Radar, Trash2 } from "lucide-react";
 import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
@@ -133,6 +133,25 @@ export function WorkspaceChrome({
   // mosaic is painted with the same ramp, so the source says which bar
   // describes it.
   const mosaic = mosaicLegend(frames[timeline.frameIndex]?.providerId);
+  const productLabel = sweep
+    ? t("chrome.sweepProduct", {
+        station: sweep.station,
+        product: sweep.product,
+      })
+    : t(mosaic.labelKey);
+  const productEyebrow = sweep
+    ? sweepEyebrow(sweep, liveClock)
+    : t("chrome.liveProduct");
+  const sourceHealthy = Boolean(frames.length) && !timeline.error;
+  const freshness = timeline.cached
+    ? cached
+    : timeline.error
+      ? t("chrome.sourceIssue")
+      : radarAgeMinutes === null
+        ? t("chrome.connecting")
+        : radarAgeMinutes < 1
+          ? t("chrome.updatedNow")
+          : t("chrome.updatedMinutes", { count: radarAgeMinutes });
   // A loaded colour table describes what is on screen only where it was
   // actually applied, which is the locally decoded products and no others.
   const drawnUnit = sweep?.unit ?? mosaic.unit;
@@ -148,6 +167,38 @@ export function WorkspaceChrome({
 
   return (
     <>
+      <header className="top-status" aria-label={t("chrome.workspaceStatus")}>
+        <div className="app-brand">
+          <span className="brand-mark" aria-hidden="true">
+            <Radar size={18} />
+          </span>
+          <span>
+            <strong>OpenRadar</strong>
+            <small>{t("chrome.workstation")}</small>
+          </span>
+        </div>
+        <div className="top-status__center">
+          <Radar size={16} aria-hidden="true" />
+          <strong>{t("chrome.radarWorkspace")}</strong>
+          <span className="top-status__divider" aria-hidden="true" />
+          <span>{freshness}</span>
+        </div>
+        <div className="top-status__health">
+          <span
+            className={sourceHealthy ? "status-dot is-live" : "status-dot"}
+            aria-hidden="true"
+          />
+          <span>
+            {sourceHealthy
+              ? t("chrome.sourceHealthy")
+              : t("chrome.sourceWaiting")}
+          </span>
+          <span className={sourceHealthy ? "live-chip is-live" : "live-chip"}>
+            {sourceHealthy ? t("timeline.live") : t("chrome.standby")}
+          </span>
+        </div>
+      </header>
+
       {cursor ? (
         <div className="map-readout" aria-live="off">
           {`${cursor.lat.toFixed(3)}°, ${cursor.lon.toFixed(3)}°`}
@@ -172,17 +223,8 @@ export function WorkspaceChrome({
       <RadarLegend
         open={productOpen}
         radarEnabled={settings.radar.enabled}
-        productLabel={
-          sweep
-            ? t("chrome.sweepProduct", {
-                station: sweep.station,
-                product: sweep.product,
-              })
-            : t(mosaic.labelKey)
-        }
-        eyebrow={
-          sweep ? sweepEyebrow(sweep, liveClock) : t("chrome.liveProduct")
-        }
+        productLabel={productLabel}
+        eyebrow={productEyebrow}
         scale={
           sweep
             ? sweep.unit === "dBZ"

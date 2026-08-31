@@ -1,6 +1,8 @@
 # Changelog
 
-## Next release
+## OpenRadar v0.4.0
+
+- The workspace has been rebuilt around the map. A fixed status bar, compact command rail, docked panels, and one shared playback band keep weather data visible while every existing surface stays directly reachable. The layout holds at compact sizes, larger text settings, light mode, and increased contrast.
 
 - GIF encoding now runs in a worker instead of freezing the map while it reduces colours and compresses frames. Shared GIFs use a 960-pixel cap, bounded palette sampling, and chunked byte storage, which cuts the peak memory held for a full loop while keeping the radar scale and burned-in caption readable.
 
