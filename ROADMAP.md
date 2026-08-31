@@ -2,7 +2,7 @@
 
 Only unfinished work appears here. This backlog was reconciled against the repository, tracker, external research, and completed 2026-08-30 audit register on 2026-08-31. Historical completed items `AUD-011` through `AUD-066` are omitted. External blockers remain documented in `Roadmap_Blocked.md`.
 
-Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section at the end. Nothing in that section outranks a correctness, security, or release item.
+Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section. Nothing in that section outranks a correctness, security, or release item. `AUD-093` onward and `JOY-021` were added by the 2026-08-31 evening research pass and sit under Research-Driven Additions at the end, each carrying its own priority.
 
 ## P0
 
@@ -18,6 +18,7 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Evidence: `src-tauri/Cargo.lock`; `cargo tree -i lru@0.16.4`; https://rustsec.org/advisories/RUSTSEC-2026-0253.html
       Touches: `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock`; NetCDF and HDF5 decoding tests
       Acceptance: `cargo tree` contains no affected `lru`; lightning and GFS fixtures still decode; native tests and `cargo audit` pass without this advisory; any temporary override has an upstream removal note.
+      Note (2026-08-31): `cargo update` cannot fix this. hdf5-reader 0.9.1 pins `lru = "^0.16.3"` and no newer release exists, so the routes are an upstream issue with a version bump, a `[patch]` override, or a vendored fork. The advisory trigger needs a panicking `Drop` on cache keys, so practical risk is low while it waits.
       Complexity: M
 
 - [ ] AUD-068: Introduce one provenance and freshness contract for weather data
@@ -76,6 +77,7 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Evidence: `src/lib/route.ts`; `src/lib/providers/rainviewer.ts`; `docs/asset-ledger.md`; https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy ; https://www.rainviewer.com/api.html
       Touches: Route provider strategy; worldwide radar fallback; provider health; asset ledger; user-facing availability copy
       Acceptance: A written decision names the supported traffic model and fallback for each service; no core workflow silently depends on an unsuitable tier; terms and attribution are current; provider failure leaves a truthful reduced-capability state.
+      Note (2026-08-31): The routing answer is the FOSSGIS Valhalla instance (valhalla.openstreetmap.de): full planet, one call per user per second, and distributed end-user apps are explicitly invited to announce themselves and send an `X-Client-Id` header, which the webview can set. The OSRM demo demands an identifying User-Agent the webview cannot send, so OpenRadar cannot fully comply with OSRM's policy as wired today.
       Complexity: M
 
 - [ ] AUD-071: Cache bounded decoded Level II volumes for instant tilt and product changes
@@ -190,6 +192,7 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Evidence: `src/lib/providers/hrrr.ts`; https://registry.opendata.aws/noaa-rrfs-ops/
       Touches: Experimental forecast adapter; provider provenance; product inventory fixtures; fallback policy
       Acceptance: Work begins only after the operational service notice is confirmed; public bucket filenames and required reflectivity products have fixtures; RRFS is labeled experimental until live contract checks are stable; HRRR remains available as a fallback; no prototype path is presented as operational.
+      Note (2026-08-31): SCN 26-48 AAB (2026-07-06) reconfirms 2026-10-06 with the standard critical-weather-day slip clause; parallel feeds moved to NOMADS on 2026-08-11 and the old prototype AWS bucket stopped updating then, so do not fixture against the prototype paths.
       Complexity: L
 
 - [ ] AUD-081: Add TDWR Level III coverage behind a radar capability descriptor
@@ -246,6 +249,7 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Evidence: `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock`; Level II fixtures in `src-tauri/src/level2.rs`
       Touches: NEXRAD dependencies; fixture corpus; compatibility notes; decoder error mapping
       Acceptance: Move to stable compatible releases when available, or pin exact pre-release versions with upstream references and a review date; a curated fixture corpus covers supported message families, malformed inputs, and unknown types; dependency updates cannot change decoded geometry or units without an intentional golden update.
+      Note (2026-08-31): Upstream is active (pushed 2026-07-21, zero open issues) and holds an unreleased fix: `decode_angle` in the VCP decoder misreads negative elevations as roughly 360 degrees (danielway/nexrad issue 144, fixed on main 2026-07-21). OpenRadar is unaffected today because cut matching uses median radial angles (`src-tauri/src/level2.rs`), but pick up the fix when it ships and add a negative-elevation fixture.
       Complexity: L
 
 ## P3
@@ -275,6 +279,7 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Everything is reversible in one action, and the workspace opens plain for a reader who wants it plain.
 - `prefers-reduced-motion` removes the motion, not the feature.
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
+- Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
 - [ ] JOY-001: Separate interface styling from data styling and make the interface themeable
       Why: The workspace has exactly two looks, written as two blocks of custom properties in one stylesheet, and every accent in the app reads from them. There is no way to give the window any character without risking the colours that carry meaning. The boundary between chrome colour and data colour half exists already, since ramps and hazard styling live in their own modules, but nothing holds it, so any theming work done without this first is one careless commit away from restyling a warning polygon.
@@ -379,6 +384,7 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Evidence: `src/lib/sound.ts`; `src/hooks/useAlertWatch.ts`; `src/lib/settings.ts`; AUD-075; 47 CFR 11.45
       Touches: Tone definitions by severity; volume and preview; optional local audio files and their validation; quiet hours; settings and migration
       Acceptance: Each severity has a distinguishable tone that a reader can hear before committing to it; a supplied audio file is size-capped, format-checked, refused rather than half-played when unreadable, and referenced by path so backups do not swallow it; the app never synthesises or plays anything resembling the Emergency Alert System attention signal or a SAME data burst, and a test holds that boundary along with a note saying why; everything stays off until asked for; quiet hours and the emergency override from AUD-075 apply to every sound here; a machine with no audio degrades to the notification alone without an error.
+      Note (2026-08-31): The boundary is verified law, not caution: 47 CFR 11.45 prohibits transmitting the EAS attention signal or simulations, with a $1M consent decree on record for tones that tripped downstream receivers. Extend the tested ban to the WEA cadence (47 CFR 10.520(d)) and the NOAA Weather Radio 1050 Hz tone, and apply it to user-supplied files presented as defaults.
       Complexity: M
 
 - [ ] JOY-016: Add a calm presentation for readers who find severe weather distressing
@@ -393,6 +399,7 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Evidence: `src/App.tsx`; `src/components/MapStage.tsx`; `src/hooks/useRadarTimeline.ts`; `src/hooks/useClock.ts`; `src/lib/providers/budget.ts`
       Touches: A chrome-free presentation; idle detection and entry; the clock and condition readout; the globe idle motion; provider budget under long unattended playback; exit
       Acceptance: The mode fills the window with the map, keeps time, place, source, and frame age visible, and leaves the workspace exactly as it was on exit; unattended playback respects the request budget and slows rather than hammering a provider overnight; a warning reaching a watched place interrupts the mode visibly; reduced motion stops the globe rotation and keeps the loop; the mode can be entered deliberately and, if idle entry is offered, only after a configured delay that defaults to off.
+      Note (2026-08-31): Build it as in-app fullscreen, never a `.scr` (legacy format, fragile WebView2 bootstrap, no verified demand). Long-run display care goes in from the start: app-level pixel drift every few minutes, scheduled auto-dim, no pure-white static text, a frame-rate cap gated on radar cadence, and a docs note that mostly-static ambient displays belong on LCD rather than OLED. The nostalgia demand is real (WeatherStar 4000+ fork culture; The Weather Channel shipped an official emulator as its 2026-04-01 stunt).
       Complexity: L
 
 - [ ] JOY-018: Add a tray presence and a glance window
@@ -400,6 +407,7 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Evidence: `src-tauri/src/lib.rs`; `src-tauri/Cargo.toml`; `src/hooks/useAlertWatch.ts`; JOY-006
       Touches: Tray icon and its menu; icon state driven by the watch; a small secondary window; single-instance interaction; close and minimise behaviour; settings
       Acceptance: Closing the window does what the reader chose, defaulting to actually closing, because an app that silently keeps running after a close is an app people uninstall; the tray icon reflects the current hazard state at named places and nothing else; the glance window is small, always-on-top only when asked, resizable, and shows source and frame age like every other surface; the single-instance path still reuses the existing window; the whole feature can be switched off and leaves no tray icon behind.
+      Note (2026-08-31): Platform verdict is green with three named pitfalls: drop the tray icon explicitly on exit or Windows leaves a ghost until mouse-over; create the tray one way only (config or code, never both); and test always-on-top in the packaged build, which has a report of differing from dev. The glance window must consume pre-rendered frames, never a second live MapLibre map, whose renderer alone can run hundreds of megabytes.
       Complexity: L
 
 - [ ] JOY-019: Write the current view to the desktop wallpaper on a schedule
@@ -407,6 +415,7 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Evidence: `src/hooks/useExport.ts`; `src/lib/export.ts`; `src-tauri/src/exports.rs`; `src-tauri/src/lib.rs`
       Touches: A native wallpaper write on Windows; the schedule and its bounds; the composed frame including time, place, and credits; the previous wallpaper; failure reporting; settings
       Acceptance: The reader's previous wallpaper is recorded before the first write and restored when the feature is switched off; the schedule has a floor that keeps provider requests inside the budget, and it stops while the machine is offline rather than writing an empty map; every written picture carries its time, its source credits, and its own age; a failed write reaches a toast and the log instead of failing silently; the feature is Windows-only for now and says so; nothing is written anywhere except the configured wallpaper path.
+      Note (2026-08-31): Use the `IDesktopWallpaper` COM interface from the `windows` crate (per-monitor, no elevation); `SystemParametersInfoW` is the single-monitor fallback. The cautionary tale is Microsoft's own Bing Wallpaper app, panned in November 2024 for bundling everything but wallpaper: this feature does one thing, opt-in, and restores what it found.
       Complexity: L
 
 - [ ] JOY-020: Compose a shareable postcard rather than a bare screenshot
@@ -417,3 +426,56 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Complexity: M
 
 The three worth starting with are JOY-007 and JOY-008 together, since the journal is what a year of use turns into, JOY-006, because naming a place is what makes the rest of it personal, and JOY-001, because every visual item here is unsafe to attempt before the token boundary is held by a test.
+
+## Research-Driven Additions
+
+Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
+
+- [ ] AUD-093: P1. Verify toast identity end to end and upgrade severe alert toasts to rich native content
+      Why: Windows silently drops toasts when the Start-menu shortcut does not carry a correct application user model identifier, so the existing alert notification path may already fail on some installs without any error. Separately, the official notification plugin is text-only on Windows (actions are mobile-only, no images), while WinRT toast XML supports a radar snapshot image, an open action, and the urgent scenario, which is what a tornado warning deserves.
+      Evidence: https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/send-local-toast-other-apps ; https://github.com/Ivy-Interactive/Rustino/issues/11 ; https://v2.tauri.app/plugin/notification/ ; `src/hooks/useAlertWatch.ts`; `src-tauri/src/lib.rs`; AUD-004
+      Touches: Installer shortcut and identifier; a small WinRT toast module in Rust; the alert watch handoff; snapshot rendering to a local file; fallback to the plain plugin toast
+      Acceptance: An installed build proves a toast is attributed to OpenRadar and survives the app being minimised; a severe alert toast carries severity, place name, and a local radar snapshot image, and clicking it raises the window on the alert; a machine where rich toasts fail falls back to the plain toast rather than to silence; the dropped-toast failure mode has a documented check.
+      Complexity: M
+
+- [ ] AUD-094: P2. Grow the single colour table into a palette library
+      Why: The switching cost in this market is accumulated customization. A community of shared GRLevelX tables is active in 2026 (about 150 tables on the main hub, uploads this year), a competitor bug about tables failing to persist shows persistence is a felt stake, and OpenRadar currently holds exactly one palette at a time in settings.
+      Evidence: https://grlevelxusers.com/grlevelx-goodies/categories/color-tables/ ; https://github.com/dpaulat/supercell-wx/issues/639 ; https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/page-2 ; `src/lib/settings.ts`; `src/lib/palette.ts`; `src-tauri/src/palette.rs`
+      Touches: Settings schema and migration; palette storage and naming; per-product assignment; the radar product panel; generation invalidation; workspace backup
+      Acceptance: Several named palettes import, persist across restart, and round-trip through workspace backup; each supported product can hold its own assignment; the legend rebuilds per assignment; every stored palette is still re-parsed from its own text on load; removing a palette in use falls back to the built-in ramp with a visible note rather than a blank layer.
+      Complexity: L
+
+- [ ] AUD-095: P2. Make local overlays a managed set rather than one switch
+      Why: Users of the closest competitor ask for placefile renaming, quick toggles, and per-file icon scaling, and OpenRadar's imported shapes currently live behind a single custom-overlay switch. Local files only; remote placefile fetching stays blocked per `Roadmap_Blocked.md`.
+      Evidence: https://github.com/dpaulat/supercell-wx/issues/614 ; https://placefiles.supercellwx.net/ ; `src/lib/placefile.ts`; `src/lib/workspaceBackup.ts`; `src/hooks/useWorkspaceOverlays.ts`
+      Touches: Workspace schema and migration; the upload surface; per-file records with names and switches; overlay order integration; re-import
+      Acceptance: A bounded number of imported placefiles and GeoJSON files coexist, each with its own name, switch, opacity, and place in the drawing order; re-importing a file replaces its previous shapes rather than duplicating them; backups carry the set; warnings still cannot be drawn under any imported shape.
+      Complexity: M
+
+- [ ] AUD-096: P2. Add a capture-friendly streamer surface
+      Why: Weather streamers composite radar into OBS today through bolt-on dashboard projects and hand-built overlay kits, no radar application ships a capture mode, and a search of the leading competitor's tracker finds nobody has even asked it for one. Zero-competition surface with proven external demand.
+      Evidence: https://github.com/AtmosphericX/AtmosphericX ; https://obsproject.com/forum/threads/weather-alert-notification-in-stream.155531/ ; https://github.com/dutchdronesquad/rh-stream-overlays ; `src/components/WorkspaceChrome.tsx`; `src/lib/commands.ts`
+      Touches: A capture layout mode; chrome visibility choices; a high-legibility alert and place readout; credits placement; documentation
+      Acceptance: One command switches to a layout built for capture at 1080p and 1440p: chrome the streamer did not ask for is gone, the pieces they did ask for (clock, place, alert banner, credits) are large enough to read in a compressed stream, and source credits remain visible; the mode is plain window content with no keyboard shortcut, no separate window type, and no change to data rendering; leaving the mode restores the previous layout exactly.
+      Complexity: M
+
+- [ ] AUD-097: P2. Move WebM export off the real-time recorder
+      Why: Loop export currently drives the live timeline and records it through MediaRecorder, so exporting a loop costs its full wall-clock duration and occupies the workspace while it runs. WebCodecs VideoEncoder is present in every evergreen WebView2 and encodes as fast as frames can be produced.
+      Evidence: `src/lib/export.ts`; `src/hooks/useExport.ts`; https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API ; https://blogs.windows.com/msedgedev/2026/08/24/webview2-is-moving-to-a-2-week-release-cadence/
+      Touches: Frame production for export; a VideoEncoder path with VP9 then VP8 fallback chosen through isConfigSupported; a WebM muxer in a worker; the GIF path unchanged except frame sourcing; the browser-preview fallback
+      Acceptance: A loop export completes faster than its playback duration on the reference machine and no longer needs to drive the visible timeline; output plays in standard players with correct timing and the burned-in credits; encoder absence or failure falls back to the current recorder path with a visible note; export tests cover both paths.
+      Complexity: M
+
+- [ ] AUD-098: P3. Offer to follow new warnings, off by default
+      Why: A competitor request asks the map to fly to a warning as it is issued. As an opt-in behaviour with the camera returning control the moment the reader touches the map, it turns monitoring into something the app does with you rather than a thing you chase.
+      Evidence: https://github.com/dpaulat/supercell-wx/issues/637 ; `src/hooks/useAlertWatch.ts`; `src/components/MapViewport.tsx`; `src/hooks/useClock.ts`
+      Touches: An opt-in setting; camera handoff rules; interruption and reduced-motion behaviour; interaction with export and ambient states
+      Acceptance: With the option on, a newly issued warning matching the reader's filters flies the camera once and says why; any user interaction cancels the follow instantly; it never fires during an export and respects reduced motion; with the option off nothing changes; alert copy for the flight lives in the catalogue in both languages.
+      Complexity: S
+
+- [ ] JOY-021: P3. Hide a small set of map curiosities worth finding
+      Why: Collectible secret locations are a proven loyalty mechanic in exactly one weather app, which built a business partly on people hunting them. OpenRadar's version is truthful rather than fictional: a curated set of places where the weather made history, each telling its story when found, with the bundled track archive already able to draw many of them.
+      Evidence: https://forums.macrumors.com/threads/carrot-weather-secret-locations.1862623/ ; https://developer.apple.com/news/?id=kf623ldf ; `src/lib/hurdat.ts`; `public/hurdat/`; JOY-009; JOY-014
+      Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
+      Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
+      Complexity: M
