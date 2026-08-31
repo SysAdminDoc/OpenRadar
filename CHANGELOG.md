@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- The alert switches say what is under them. They are grouped by hazard rather than by product name, which is right, but it means a switch holds products whose names look nothing like its own: tsunami warnings, extreme wind and the civil emergencies sit with the tornado warnings because all of them are somebody telling you to move now. The switch was called "Tornado", so a reader in Honolulu could have turned off tsunami warnings while turning off weather that does not happen there. It is called "Take cover now" now, and every switch carries a line listing what it covers.
+
 - A warning already in force when you open the app is announced once, with its damage threat on it. The threat comes from a second feed, and the first draw of a session did not wait for it, so every standing warning was announced without a threat and then announced a second time a minute later when the threat arrived, which read as the office saying it had got worse. The map was wrong about it too, quietly: a catastrophic tornado warning wore the ordinary outline for its first minute. The first draw waits for the threats now, up to three seconds. Nothing after it ever waits.
 
 - Moving the map from one national grid to another loads that grid. Alaska, Hawaii, Guam, the Caribbean and the lower forty-eight are five separate grids, and the map only reloads its frame list when it decides the source has changed. It was not counting which of the five as a change, so panning from Honolulu to Anchorage kept Hawaii's frames and went on asking for Hawaii's tiles over Alaska, which come back empty, for up to five minutes.

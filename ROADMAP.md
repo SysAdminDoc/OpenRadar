@@ -8,12 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — Tsunami and the civil-emergency products sit behind a switch labelled "Tornado"
-  Why: the grouping is right (they are all extreme, and they belong with the products people act on immediately) but the label is not. A reader in Honolulu who turns off "Tornado" because tornadoes are not their weather silently loses tsunami warnings from the map and from the watch.
-  Evidence: all 118 CAP event values through `alertType`: the tornado bucket holds Civil Danger, Evacuation Immediate, Extreme Wind, Hazardous Materials, Nuclear Power Plant, Radiological Hazard, Shelter In Place, Tornado Warning and Watch, and all three Tsunami products. `en.ts` renders the switch as the bare word "Tornado".
-  Touches: src/i18n/en.ts, src/i18n/es.ts, src/panels/MapOptionsPanels.tsx, src/lib/alertTypes.ts
-  Acceptance: the switch names what it actually covers and carries a detail line listing the life-safety products in it; a test asserts the label mentions more than tornadoes whenever the bucket holds more than tornadoes.
-
 - [ ] P1 — Nothing is checking the same-volume gate on storm rotation
   Why: replacing the gate in `level3.rs` with `if true` leaves the whole suite green. The test added for it reimplements the comparison as a local closure and asserts on the constant, so it passes whatever production does. Clippy says so too: "this assertion has a constant value".
   Evidence: `if true {` at src-tauri/src/level3.rs:743 gives `cargo test --lib` 142 passed and the ignored level3 test passed.
