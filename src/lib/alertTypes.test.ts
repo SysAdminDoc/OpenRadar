@@ -196,7 +196,8 @@ describe("what the switch says it hides", () => {
   it("names the life-safety products that are not tornadoes", () => {
     // Each of these is somebody telling you to move now, and each is grouped
     // with the tornado warnings for that reason. The switch has to say so.
-    const wording = `${en["alertType.tornado"]} ${en["alertType.tornadoDetail"]}`.toLowerCase();
+    const wording =
+      `${en["alertType.tornado"]} ${en["alertType.tornadoDetail"]}`.toLowerCase();
     for (const word of [
       "tsunami",
       "extreme wind",
@@ -251,8 +252,10 @@ describe("what the switch says it hides", () => {
       );
       if (!unnamed.length) continue;
       const detail = String(en[detailKey]).toLowerCase();
-      expect(detail.length, `${id} says nothing about ${unnamed.join(", ")}`)
-        .toBeGreaterThan(20);
+      expect(
+        detail.length,
+        `${id} says nothing about ${unnamed.join(", ")}`,
+      ).toBeGreaterThan(20);
     }
   });
 });

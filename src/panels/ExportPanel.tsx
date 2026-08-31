@@ -73,7 +73,9 @@ export function ExportPanel({
         )}
         {t("export.gif")}
         {frameCount > 1
-          ? t("export.gifFrames", { count: Math.min(frameCount, MAX_GIF_FRAMES) })
+          ? t("export.gifFrames", {
+              count: Math.min(frameCount, MAX_GIF_FRAMES),
+            })
           : ""}
       </button>
 

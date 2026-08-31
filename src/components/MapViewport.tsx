@@ -209,7 +209,6 @@ function overlayLayerOrder(): string[] {
     );
 }
 
-
 /**
  * The layers that belong above the one being added. A layer the order does not
  * know goes on top rather than under everything, which is the safer miss.

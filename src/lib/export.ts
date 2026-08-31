@@ -212,9 +212,7 @@ export async function exportLoopGif(options: LoopExportOptions): Promise<Blob> {
   for (let index = first; index < frameCount; index += 1) {
     await showFrame(index);
     drawFrame(canvas, source, captionFor(index));
-    pictures.push(
-      context.getImageData(0, 0, canvas.width, canvas.height).data,
-    );
+    pictures.push(context.getImageData(0, 0, canvas.width, canvas.height).data);
     onProgress?.(index - first + 1, wanted);
   }
 

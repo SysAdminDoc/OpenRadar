@@ -70,7 +70,10 @@ describe("what a click opens", () => {
 
   it("says nothing about a layer no overlay claims", () => {
     expect(
-      popupFrom([{ layer: { id: "openradar-radar-layer" }, properties: {} }], ORDER),
+      popupFrom(
+        [{ layer: { id: "openradar-radar-layer" }, properties: {} }],
+        ORDER,
+      ),
     ).toBeNull();
   });
 

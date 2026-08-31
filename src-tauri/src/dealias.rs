@@ -238,9 +238,9 @@ pub fn dealias(
     // smallest drift, and made five of them worse than not running at all.
     let mut queue: BinaryHeap<(usize, Reverse<i32>, usize, i32)> = BinaryHeap::new();
     let offer = |queue: &mut BinaryHeap<(usize, Reverse<i32>, usize, i32)>,
-                     other: usize,
-                     shift: i32,
-                     shared: usize| {
+                 other: usize,
+                 shift: i32,
+                 shared: usize| {
         queue.push((weigh(other, shared), Reverse(shift.abs()), other, shift));
     };
     for &(other, offset, shared) in &adjacency[root] {

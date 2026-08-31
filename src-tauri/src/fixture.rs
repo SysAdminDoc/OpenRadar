@@ -154,7 +154,7 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
     radial_block.extend_from_slice(&466u16.to_be_bytes()); // unambiguous range
     radial_block.extend_from_slice(&(-48.0f32).to_be_bytes()); // horizontal noise
     radial_block.extend_from_slice(&(-48.0f32).to_be_bytes()); // vertical noise
-    // Published in hundredths of a metre a second.
+                                                               // Published in hundredths of a metre a second.
     radial_block.extend_from_slice(&((radial.nyquist_ms * 100.0).round() as u16).to_be_bytes());
     radial_block.extend_from_slice(&0u16.to_be_bytes()); // radial flags
     assert_eq!(radial_block.len(), 20);

@@ -432,10 +432,7 @@ mod tests {
         // was written: the header it carries has to be read before the rest.
         assert!(found[0].key.ends_with("-001-S"), "{}", found[0].key);
         assert!(found[1].key.ends_with("-002-I"), "{}", found[1].key);
-        assert_eq!(
-            found[1].uploaded.to_rfc3339(),
-            "2026-08-30T16:16:20+00:00"
-        );
+        assert_eq!(found[1].uploaded.to_rfc3339(), "2026-08-30T16:16:20+00:00");
     }
 
     #[test]
@@ -443,10 +440,7 @@ mod tests {
         assert!(chunks_in_listing("").is_empty());
         assert!(chunks_in_listing("<ListBucketResult/>").is_empty());
         // A chunk with no upload time cannot be judged, so it is not used.
-        assert!(chunks_in_listing(
-            "<Contents><Key>KTLX/1/a-001-S</Key></Contents>"
-        )
-        .is_empty());
+        assert!(chunks_in_listing("<Contents><Key>KTLX/1/a-001-S</Key></Contents>").is_empty());
         // Nor one whose time is not a time.
         assert!(chunks_in_listing(
             "<Contents><Key>KTLX/1/a-001-S</Key><LastModified>soon</LastModified></Contents>"
@@ -570,7 +564,11 @@ mod tests {
         assert_eq!(angles, vec![0.5, 1.5], "both cuts have to survive assembly");
 
         for sweep in scan.sweeps() {
-            let wanted = if sweep.elevation_number() == 1 { 35.0 } else { 20.0 };
+            let wanted = if sweep.elevation_number() == 1 {
+                35.0
+            } else {
+                20.0
+            };
             assert_eq!(sweep.radials().len(), 360);
             let field = SweepField::from_radials(sweep.radials(), Product::Reflectivity)
                 .expect("reflectivity in the assembled sweep");
@@ -723,7 +721,11 @@ mod tests {
         // Nothing new is nothing to ask for, which is what most refreshes are
         // between one chunk and the next.
         let all = carried_over(
-            Some(remembered("KTLX", 210, &["KTLX/210/a", "KTLX/210/b", "KTLX/210/c"])),
+            Some(remembered(
+                "KTLX",
+                210,
+                &["KTLX/210/a", "KTLX/210/b", "KTLX/210/c"],
+            )),
             "KTLX",
             210,
         );
@@ -760,7 +762,13 @@ mod tests {
         // with a comment three lines below saying the opposite.
         let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
         let cuts = vec![
-            fixture::flat_cut(at, fixture::Cut { gates: 8, ..fixture::Cut::default() }),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    gates: 8,
+                    ..fixture::Cut::default()
+                },
+            ),
             fixture::flat_cut(
                 at,
                 fixture::Cut {
@@ -776,18 +784,16 @@ mod tests {
 
         // The start chunk and nothing else: the second cut is missing, and
         // what is left still assembles into the first.
-        let only_start: Vec<Chunk<'_>> = vec![
-            Chunk::new(pieces[0].clone()).expect("a start chunk"),
-        ];
+        let only_start: Vec<Chunk<'_>> =
+            vec![Chunk::new(pieces[0].clone()).expect("a start chunk")];
         let scan = nexrad_data::aws::realtime::assemble_volume(only_start)
             .expect("a volume that has only reached its first cut is a volume");
         assert_eq!(scan.sweeps().len(), 1);
 
         // Without the start chunk there is no header and no pattern, and that
         // is refused rather than drawn as an empty sky.
-        let without_start: Vec<Chunk<'_>> = vec![
-            Chunk::new(pieces[1].clone()).expect("a later chunk"),
-        ];
+        let without_start: Vec<Chunk<'_>> =
+            vec![Chunk::new(pieces[1].clone()).expect("a later chunk")];
         assert!(nexrad_data::aws::realtime::assemble_volume(without_start).is_err());
     }
 

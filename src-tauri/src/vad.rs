@@ -289,7 +289,18 @@ mod tests {
         assert!(fit_ring(&[], 0.5).is_none());
         assert!(fit_ring(&[(0.0, 1.0), (90.0, 2.0)], 0.5).is_none());
         // Straight up, where no horizontal wind reaches the beam at all.
-        assert!(fit_ring(&ring(Wind { east: 10.0, north: 0.0 }, 90.0, 360), 90.0).is_none());
+        assert!(fit_ring(
+            &ring(
+                Wind {
+                    east: 10.0,
+                    north: 0.0
+                },
+                90.0,
+                360
+            ),
+            90.0
+        )
+        .is_none());
     }
 
     #[test]

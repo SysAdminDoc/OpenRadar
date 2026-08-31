@@ -20,6 +20,8 @@ const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
 /// A decoded grid is columns × rows u16, which is fifty megabytes for the
 /// published CONUS domain.
 const GRID_BYTES: usize = 7000 * 3500 * 2;
+const MAX_GRID_POINTS: usize = GRID_BYTES / std::mem::size_of::<u16>();
+const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
 const CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
 /// As many grids as half a gigabyte holds, which is ten.
 const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
@@ -456,13 +458,19 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
             break;
         }
         let length = u32::from_be_bytes(bytes[at..at + 4].try_into().unwrap()) as usize;
-        if length < 5 || at + length > bytes.len() {
+        let Some(end) = at.checked_add(length) else {
+            return Err(MrmsError::NotGrib);
+        };
+        if length < 5 || end > bytes.len() {
             return Err(MrmsError::NotGrib);
         }
-        let section = &bytes[at..at + length];
+        let section = &bytes[at..end];
 
         match section[4] {
             3 => {
+                if section.len() < 72 {
+                    return Err(MrmsError::Decode("the grid definition is truncated".into()));
+                }
                 let template = u16::from_be_bytes([section[12], section[13]]);
                 if template != 0 {
                     return Err(MrmsError::Unsupported(format!(
@@ -476,6 +484,24 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
                 let d_lon = u32::from_be_bytes(section[63..67].try_into().unwrap()) as f64 / 1e6;
                 let d_lat = u32::from_be_bytes(section[67..71].try_into().unwrap()) as f64 / 1e6;
                 let scan_mode = section[71];
+                let points = columns
+                    .checked_mul(rows)
+                    .ok_or_else(|| MrmsError::Decode("the grid dimensions overflowed".into()))?;
+                if columns == 0 || rows == 0 || points > MAX_GRID_POINTS {
+                    return Err(MrmsError::Decode(format!(
+                        "the grid claims {columns} by {rows} points"
+                    )));
+                }
+                if !(-90.0..=90.0).contains(&north)
+                    || d_lat <= 0.0
+                    || d_lat > 10.0
+                    || d_lon <= 0.0
+                    || d_lon > 10.0
+                {
+                    return Err(MrmsError::Decode(
+                        "the grid geometry is outside geographic bounds".into(),
+                    ));
+                }
                 // Bit 1 set means west to east, bit 2 clear means north to
                 // south. Anything else would be drawn upside down or mirrored.
                 if scan_mode & 0b1100_0000 != 0 {
@@ -484,9 +510,19 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
                 // The bucket publishes eastward longitudes; the map works in
                 // signed degrees.
                 let west = if west > 180.0 { west - 360.0 } else { west };
+                if !(-180.0..=180.0).contains(&west) {
+                    return Err(MrmsError::Decode(
+                        "the grid longitude is outside geographic bounds".into(),
+                    ));
+                }
                 geometry = Some((columns, rows, north, west, d_lat, d_lon));
             }
             5 => {
+                if section.len() < 19 {
+                    return Err(MrmsError::Decode(
+                        "the packing parameters are truncated".into(),
+                    ));
+                }
                 let template = u16::from_be_bytes([section[9], section[10]]);
                 if template != 41 {
                     return Err(MrmsError::Unsupported(format!(
@@ -509,8 +545,22 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
     let (reference, binary, decimal) =
         packing.ok_or_else(|| MrmsError::Unsupported("no packing parameters".into()))?;
     let payload = payload.ok_or_else(|| MrmsError::Unsupported("no data section".into()))?;
+    let points = columns
+        .checked_mul(rows)
+        .filter(|points| *points <= MAX_GRID_POINTS)
+        .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
+    let binary_scale = 2f32.powi(binary as i32);
+    let decimal_scale = 10f32.powi(decimal as i32);
+    if !reference.is_finite()
+        || !binary_scale.is_finite()
+        || binary_scale == 0.0
+        || !decimal_scale.is_finite()
+        || decimal_scale == 0.0
+    {
+        return Err(MrmsError::Decode("the packing scale is not finite".into()));
+    }
 
-    let samples = decode_png_samples(payload, columns * rows)?;
+    let samples = decode_png_samples(payload, points)?;
 
     Ok(Grid {
         columns,
@@ -537,12 +587,22 @@ fn signed_grib(raw: i16) -> i16 {
 }
 
 fn decode_png_samples(payload: &[u8], expected: usize) -> Result<Vec<u16>, MrmsError> {
-    let decoder = png::Decoder::new(Cursor::new(payload));
+    let mut limits = png::Limits::default();
+    limits.bytes = GRID_BYTES;
+    let decoder = png::Decoder::new_with_limits(Cursor::new(payload), limits);
     let mut reader = decoder
         .read_info()
         .map_err(|error| MrmsError::Decode(error.to_string()))?;
     let info = reader.info();
     let (color_type, bit_depth) = (info.color_type, info.bit_depth);
+    let image_points = (info.width as usize)
+        .checked_mul(info.height as usize)
+        .ok_or_else(|| MrmsError::Decode("the image dimensions overflowed".into()))?;
+    if image_points != expected || image_points > MAX_GRID_POINTS {
+        return Err(MrmsError::Decode(format!(
+            "the image holds {image_points} values, the grid wants {expected}"
+        )));
+    }
     if color_type != png::ColorType::Grayscale {
         return Err(MrmsError::Unsupported(format!("a {color_type:?} image")));
     }
@@ -574,10 +634,20 @@ fn decode_png_samples(payload: &[u8], expected: usize) -> Result<Vec<u16>, MrmsE
 }
 
 fn gunzip(bytes: &[u8]) -> Result<Vec<u8>, MrmsError> {
+    read_bounded(flate2::read::GzDecoder::new(bytes), MAX_DECOMPRESSED_BYTES)
+}
+
+fn read_bounded(reader: impl Read, limit: usize) -> Result<Vec<u8>, MrmsError> {
     let mut out = Vec::new();
-    flate2::read::GzDecoder::new(bytes)
+    reader
+        .take(limit.saturating_add(1) as u64)
         .read_to_end(&mut out)
         .map_err(|error| MrmsError::Decode(error.to_string()))?;
+    if out.len() > limit {
+        return Err(MrmsError::Decode(format!(
+            "the decompressed grid exceeds {limit} bytes"
+        )));
+    }
     Ok(out)
 }
 
@@ -1365,8 +1435,7 @@ mod tests {
         // travel from the query, through the handler, into the drawing. It
         // reaches the drawing in tile_pixels whatever happens in between, so
         // only asking through the whole path can tell whether it arrives.
-        let floored =
-            runtime.block_on(serve_tile(&format!("/composite/{time}/4/3/5.png?min=60")));
+        let floored = runtime.block_on(serve_tile(&format!("/composite/{time}/4/3/5.png?min=60")));
         assert_eq!(&floored[1..4], b"PNG");
         assert!(
             floored.len() < plains.len(),
@@ -1491,6 +1560,30 @@ mod tests {
         // A grid that says four by four but ships a two by two image.
         let short = synthetic_grib(0, 41, 0, 4, 4, (2, 2), &samples);
         assert!(matches!(decode_grib(&short), Err(MrmsError::Decode(_))));
+
+        let oversized = synthetic_grib(0, 41, 0, 10_000, 10_000, (2, 2), &samples);
+        assert!(matches!(decode_grib(&oversized), Err(MrmsError::Decode(_))));
+
+        let mut nonfinite = synthetic_grib(0, 41, 0, 2, 2, (2, 2), &samples);
+        let section5 = 16 + 72;
+        nonfinite[section5 + 11..section5 + 15].copy_from_slice(&f32::NAN.to_be_bytes());
+        assert!(matches!(decode_grib(&nonfinite), Err(MrmsError::Decode(_))));
+    }
+
+    #[test]
+    fn refuses_truncated_sections_and_decompression_overruns() {
+        let mut truncated = b"GRIB\0\0\xd1\x02".to_vec();
+        truncated.extend_from_slice(&0u64.to_be_bytes());
+        truncated.extend_from_slice(&5u32.to_be_bytes());
+        truncated.push(3);
+        truncated.extend_from_slice(b"7777");
+        assert!(matches!(decode_grib(&truncated), Err(MrmsError::Decode(_))));
+
+        assert!(read_bounded(Cursor::new([1u8, 2, 3, 4]), 4).is_ok());
+        assert!(matches!(
+            read_bounded(Cursor::new([1u8, 2, 3, 4, 5]), 4),
+            Err(MrmsError::Decode(_))
+        ));
     }
 
     #[test]
@@ -2057,10 +2150,12 @@ mod tests {
             let frames = runtime
                 .block_on(mrms_frames("composite".into(), 1, Some((*domain).into())))
                 .unwrap_or_else(|failure| panic!("{domain}: {failure}"));
-            let newest = frames.last().unwrap_or_else(|| panic!("{domain}: no frames"));
+            let newest = frames
+                .last()
+                .unwrap_or_else(|| panic!("{domain}: no frames"));
 
-            let key = key_for(domain, entry, newest.time)
-                .unwrap_or_else(|| panic!("{domain}: no key"));
+            let key =
+                key_for(domain, entry, newest.time).unwrap_or_else(|| panic!("{domain}: no key"));
             assert!(key.starts_with(domain), "{key} is not in {domain}");
 
             runtime
@@ -2108,8 +2203,7 @@ mod tests {
 
         // The threshold rides along as a query, since the reader can change it
         // without the frame or the tile changing.
-        let floored =
-            parse_tile_path("/composite/1788075402/6/14/24.png?min=35").expect("a tile");
+        let floored = parse_tile_path("/composite/1788075402/6/14/24.png?min=35").expect("a tile");
         assert_eq!(floored.threshold, Some(35.0));
         assert_eq!(floored.entry.id, "composite");
         assert_eq!(floored.zoom, 6);
@@ -2117,10 +2211,8 @@ mod tests {
         // A threshold that is not a number is no threshold, rather than a
         // threshold of nothing that would hide the whole picture.
         for query in ["?min=", "?min=abc", "?min=NaN", "?other=3"] {
-            let asked = parse_tile_path(&format!(
-                "/composite/1788075402/6/14/24.png{query}"
-            ))
-            .expect("still a tile");
+            let asked = parse_tile_path(&format!("/composite/1788075402/6/14/24.png{query}"))
+                .expect("still a tile");
             assert_eq!(asked.threshold, None, "{query}");
         }
 

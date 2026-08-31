@@ -301,9 +301,10 @@ describe("alert parsing", () => {
         return data;
       });
       await vi.advanceTimersByTimeAsync(10);
-      expect(settled, "the polygons waited on a tag feed that never answered").toBe(
-        true,
-      );
+      expect(
+        settled,
+        "the polygons waited on a tag feed that never answered",
+      ).toBe(true);
       await second;
       expect(tagReads).toBe(2);
     } finally {

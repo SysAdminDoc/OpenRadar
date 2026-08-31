@@ -1,9 +1,6 @@
 import { paletteRange, type Palette } from "./palette";
 import { RAIN_RATE_RAMP, RAIN_RATE_STOPS } from "./providers/geomet";
-import {
-  DWD_REFLECTIVITY_RAMP,
-  DWD_REFLECTIVITY_STOPS,
-} from "./providers/dwd";
+import { DWD_REFLECTIVITY_RAMP, DWD_REFLECTIVITY_STOPS } from "./providers/dwd";
 
 /** Labelled stops on the NWS reflectivity ramp the mosaics are drawn with. */
 const DBZ_MIN = 5;

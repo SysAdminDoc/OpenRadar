@@ -207,7 +207,8 @@ fn read_description(msg: &[u8]) -> Result<Description, Level3Error> {
         .ok_or_else(|| Level3Error::Decode("no radar latitude".into()))? as f64
         / 1000.0;
     let longitude = i32_at(msg, MESSAGE_HEADER + 6)
-        .ok_or_else(|| Level3Error::Decode("no radar longitude".into()))? as f64
+        .ok_or_else(|| Level3Error::Decode("no radar longitude".into()))?
+        as f64
         / 1000.0;
 
     let day = u16_at(msg, MESSAGE_HEADER + 22)
@@ -480,8 +481,8 @@ fn parse_pair(word: &str) -> Motion {
 
 /// Reads the storm tracking product.
 pub fn read_storm_cells(bytes: &[u8], station: &str) -> Result<CellReport, Level3Error> {
-    let start = message_start(bytes)
-        .ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
+    let start =
+        message_start(bytes).ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
     let msg = &bytes[start..];
     let description = read_description(msg)?;
     let site = (description.latitude, description.longitude);
@@ -620,8 +621,8 @@ fn feature_radius_km(kind: u16, attribute: u16) -> f64 {
 /// Reads the mesocyclone product, which is a list of circulations rather than
 /// storms.
 pub fn read_mesocyclones(bytes: &[u8]) -> Result<Vec<Mesocyclone>, Level3Error> {
-    let start = message_start(bytes)
-        .ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
+    let start =
+        message_start(bytes).ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
     let msg = &bytes[start..];
     let description = read_description(msg)?;
     let site = (description.latitude, description.longitude);
@@ -654,8 +655,7 @@ pub fn read_mesocyclones(bytes: &[u8]) -> Result<Vec<Mesocyclone>, Level3Error> 
             let Some(kind) = point_feature(raw) else {
                 continue;
             };
-            let radius_km =
-                feature_radius_km(raw, u16_at(feature, 6).unwrap_or(0));
+            let radius_km = feature_radius_km(raw, u16_at(feature, 6).unwrap_or(0));
             let (latitude, longitude, _, _) = place(site, i, j);
             out.push(Mesocyclone {
                 latitude,
@@ -675,8 +675,8 @@ const SAME_VOLUME_SECONDS: i64 = 120;
 
 /// When the volume a product describes was taken.
 fn volume_time_of(bytes: &[u8]) -> Result<DateTime<Utc>, Level3Error> {
-    let start = message_start(bytes)
-        .ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
+    let start =
+        message_start(bytes).ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
     Ok(read_description(&bytes[start..])?.volume_time)
 }
 
@@ -687,9 +687,7 @@ async fn newest_key(site: &str, product: &str) -> Result<Option<String>, Level3E
     let now = Utc::now();
     for day in [now, now - Duration::days(1)] {
         let prefix = format!("{site}_{product}_{}", day.format("%Y_%m_%d"));
-        let url = format!(
-            "https://{BUCKET}/?list-type=2&prefix={prefix}&max-keys=1000"
-        );
+        let url = format!("https://{BUCKET}/?list-type=2&prefix={prefix}&max-keys=1000");
         let body = http::get_bytes(&url).await?;
         let body = String::from_utf8_lossy(&body);
         if let Some(key) = last_key(&body) {
@@ -873,7 +871,10 @@ mod tests {
             }
             let Some((azimuth, range_nm)) = words.get(1).and_then(|pair| {
                 let (left, right) = pair.split_once('/')?;
-                Some((left.trim().parse::<f64>().ok()?, right.trim().parse::<f64>().ok()?))
+                Some((
+                    left.trim().parse::<f64>().ok()?,
+                    right.trim().parse::<f64>().ok()?,
+                ))
             }) else {
                 continue;
             };
@@ -1015,8 +1016,7 @@ mod tests {
             payload.extend_from_slice(&kind.to_be_bytes());
             payload.extend_from_slice(&attribute.to_be_bytes());
         }
-        let found =
-            read_mesocyclones(&product_with_packet(20, &payload)).expect("decodes");
+        let found = read_mesocyclones(&product_with_packet(20, &payload)).expect("decodes");
         assert_eq!(found.len(), 3, "three features in one packet");
         assert_eq!(found[0].kind, "mesocyclone");
         assert!((found[0].radius_km - 2.0).abs() < 0.01, "eight quarters");
@@ -1036,8 +1036,7 @@ mod tests {
             payload.extend_from_slice(&0i16.to_be_bytes());
             payload.extend_from_slice(&kind.to_be_bytes());
             payload.extend_from_slice(&8u16.to_be_bytes());
-            let found =
-                read_mesocyclones(&product_with_packet(20, &payload)).expect("decodes");
+            let found = read_mesocyclones(&product_with_packet(20, &payload)).expect("decodes");
             assert_eq!(found.len(), 1, "feature type {kind} was dropped");
         }
         // And something the document does not name is left alone rather than
@@ -1058,7 +1057,10 @@ mod tests {
         // fifty bytes, with every block offset zero. Treating that as a
         // failure would put an error on screen for the ordinary case of
         // nothing happening.
-        assert!(QUIET.len() < 200, "the quiet product is a header and no more");
+        assert!(
+            QUIET.len() < 200,
+            "the quiet product is a header and no more"
+        );
         assert_eq!(read_mesocyclones(QUIET).expect("still decodes"), Vec::new());
 
         let start = message_start(QUIET).expect("a header");
@@ -1149,8 +1151,7 @@ mod tests {
         let mut answered = 0;
         let mut current = 0;
         for station in ["KTLX", "KJAX", "KTBW", "KDMX", "KGRR"] {
-            let Ok(report) = runtime.block_on(level3_cells(station.to_string()))
-            else {
+            let Ok(report) = runtime.block_on(level3_cells(station.to_string())) else {
                 continue;
             };
             answered += 1;
@@ -1158,8 +1159,8 @@ mod tests {
             // The site's own position, from the product's own header.
             assert!((-180.0..=180.0).contains(&report.site_longitude));
             assert!((-90.0..=90.0).contains(&report.site_latitude));
-            let observed = DateTime::parse_from_rfc3339(&report.observed)
-                .expect("the volume time is a time");
+            let observed =
+                DateTime::parse_from_rfc3339(&report.observed).expect("the volume time is a time");
             let age = Utc::now() - observed.with_timezone(&Utc);
             if age.num_minutes() < 90 {
                 current += 1;
@@ -1274,10 +1275,16 @@ mod tests {
         let motions = read_motion(&lines);
         let y6 = motions.get("Y6").expect("Y6 has a row");
         assert_eq!(y6.direction_degrees, Some(245.0));
-        assert!((y6.speed_ms.expect("a speed") - 2.57).abs() < 0.05, "five knots");
+        assert!(
+            (y6.speed_ms.expect("a speed") - 2.57).abs() < 0.05,
+            "five knots"
+        );
         let s5 = motions.get("S5").expect("S5 has a row");
         assert_eq!(s5.direction_degrees, Some(127.0));
-        assert!((s5.speed_ms.expect("a speed") - 6.69).abs() < 0.05, "thirteen knots");
+        assert!(
+            (s5.speed_ms.expect("a speed") - 6.69).abs() < 0.05,
+            "thirteen knots"
+        );
     }
 
     #[test]
