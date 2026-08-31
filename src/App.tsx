@@ -791,6 +791,7 @@ export default function App() {
             onRoute={setRoute}
             onUpload={actions.uploadOverlay}
             onWatchHere={actions.watchHere}
+            onAddWatchPlace={actions.addWatchPlace}
             onSendWatchTest={sendWatchTest}
             onOpenLogFolder={actions.openLogFolder}
             onCopyDiagnostics={copyDiagnostics}

@@ -1,12 +1,11 @@
 import {
   BellRing,
   Check,
-  CloudHail,
-  CloudRain,
   ChevronDown,
   ChevronUp,
+  CloudHail,
+  CloudRain,
   Crosshair,
-  Sigma,
   Droplets,
   Flame,
   Globe2,
@@ -18,10 +17,12 @@ import {
   RotateCcw,
   Satellite,
   ShieldAlert,
+  Sigma,
   Tornado,
   Umbrella,
   Waves,
   Wind,
+  X,
   Zap,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
@@ -75,6 +76,7 @@ import {
   type SurgeCategory,
 } from "../lib/surge";
 import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
+import { MAX_WATCH_PLACES } from "../lib/watch";
 import { overlayBandOrder } from "../lib/overlayOrder";
 
 interface MapTypePanelProps {
@@ -579,6 +581,8 @@ interface SettingsPanelProps {
   onSettings: (settings: AppSettings) => void;
   onSendWatchTest: () => void;
   onWatchHere: () => void;
+  /** Adds the map centre as another watched place. */
+  onAddWatchPlace: () => void;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
   onClose: () => void;
@@ -619,6 +623,7 @@ export function SettingsPanel({
   onSettings,
   onSendWatchTest,
   onWatchHere,
+  onAddWatchPlace,
   onReset,
   onExportSettings,
   onClose,
@@ -1024,6 +1029,135 @@ export function SettingsPanel({
             lon: settings.watch.center[0].toFixed(2),
           })}
         </p>
+
+        {/* The places beside home. One point cannot be home, a school and the
+            far end of tomorrow's drive, and a reader who wants all three
+            should not have to pick. */}
+        <div className="watch-places">
+          {settings.watchPlaces.map((place, index) => (
+            <div className="watch-place" key={place.id}>
+              <label className="watch-place__name">
+                <span className="visually-hidden">
+                  {t("settings.placeName")}
+                </span>
+                <input
+                  type="text"
+                  value={place.name}
+                  maxLength={60}
+                  aria-label={t("settings.placeName")}
+                  onChange={(event) =>
+                    onSettings({
+                      ...settings,
+                      watchPlaces: settings.watchPlaces.map((one, at) =>
+                        at === index
+                          ? { ...one, name: event.target.value }
+                          : one,
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <div className="watch-place__row">
+                <label>
+                  <span>{t("settings.radius", { unit: distanceUnit() })}</span>
+                  <input
+                    type="number"
+                    min={5}
+                    max={200}
+                    value={Math.round(distanceValue(place.radiusMiles))}
+                    aria-label={t("settings.placeRadius", {
+                      place: place.name,
+                      unit: distanceUnit(),
+                    })}
+                    onChange={(event) =>
+                      onSettings({
+                        ...settings,
+                        watchPlaces: settings.watchPlaces.map((one, at) =>
+                          at === index
+                            ? {
+                                ...one,
+                                radiusMiles: milesFromDistance(
+                                  Number(event.target.value),
+                                ),
+                              }
+                            : one,
+                        ),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{t("settings.placeSeverity")}</span>
+                  <select
+                    value={place.minSeverity}
+                    aria-label={t("settings.placeSeverityFor", {
+                      place: place.name,
+                    })}
+                    onChange={(event) =>
+                      onSettings({
+                        ...settings,
+                        watchPlaces: settings.watchPlaces.map((one, at) =>
+                          at === index
+                            ? {
+                                ...one,
+                                minSeverity: event.target
+                                  .value as WatchState["minSeverity"],
+                              }
+                            : one,
+                        ),
+                      })
+                    }
+                  >
+                    <option value="extreme">
+                      {t("alerts.severity.extreme")}
+                    </option>
+                    <option value="severe">
+                      {t("alerts.severity.severe")}
+                    </option>
+                    <option value="moderate">
+                      {t("alerts.severity.moderate")}
+                    </option>
+                    <option value="minor">{t("alerts.severity.minor")}</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-label={t("settings.removePlace", { place: place.name })}
+                  onClick={() =>
+                    onSettings({
+                      ...settings,
+                      watchPlaces: settings.watchPlaces.filter(
+                        (_, at) => at !== index,
+                      ),
+                    })
+                  }
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <p className="source-note">
+                {t("settings.watching", {
+                  lat: place.center[1].toFixed(2),
+                  lon: place.center[0].toFixed(2),
+                })}
+              </p>
+            </div>
+          ))}
+        </div>
+        {settings.watchPlaces.length < MAX_WATCH_PLACES - 1 ? (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onAddWatchPlace}
+          >
+            <Crosshair size={16} /> {t("settings.addPlace")}
+          </button>
+        ) : (
+          <p className="source-note">
+            {t("settings.placesFull", { count: MAX_WATCH_PLACES })}
+          </p>
+        )}
       </div>
 
       <div className="settings-section settings-section--camera">

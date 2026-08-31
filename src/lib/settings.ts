@@ -9,7 +9,12 @@ import type { ClockZone, TextScale, UnitSystem } from "./units";
 export const APP_VERSION = "0.5.0";
 
 import { ALERT_TYPES, type AlertType } from "./alertTypes";
-import { DEFAULT_QUIET_HOURS, type QuietHours } from "./watch";
+import {
+  DEFAULT_QUIET_HOURS,
+  MAX_WATCH_PLACES,
+  type QuietHours,
+  type WatchPlace,
+} from "./watch";
 
 export type ThemeMode = "dark" | "light";
 export type ProjectionMode = "mercator" | "globe";
@@ -120,6 +125,26 @@ export interface WatchState {
   quietHours: QuietHours;
 }
 
+/**
+ * Another place worth watching, beside home.
+ *
+ * Home is the `watch` above, which is where the setting has always lived and
+ * where it stays. These are the others: a school, a relative's house, the far
+ * end of tomorrow's drive. Each carries its own radius, its own severity
+ * floor, its own sound and quiet policy, because the answer to "wake me for
+ * this" is not the same at home as it is somewhere you will be on Tuesday.
+ */
+export interface WatchPlaceState extends WatchState {
+  /** Stable across renames, so a place keeps its identity when retitled. */
+  id: string;
+  name: string;
+  /**
+   * The kinds this place cares about, when it cares about fewer than the ones
+   * switched on. Absent means all of them.
+   */
+  kinds?: Partial<Record<string, boolean>>;
+}
+
 export interface PresetState {
   name: string;
   camera: CameraState;
@@ -177,6 +202,12 @@ export interface AppSettings {
   /** Which hurricane the surge picture is about, when that layer is on. */
   surgeCategory: SurgeCategory;
   watch: WatchState;
+  /**
+   * Places beside home, up to nine of them, so home plus these is ten. Kept
+   * as its own key rather than folded into `watch`, which every build since
+   * the first has read and written.
+   */
+  watchPlaces: WatchPlaceState[];
   /**
    * Which kinds of alert to draw. Not part of the layer switches, which are
    * all plain booleans and are treated as such by the command list and the
@@ -269,6 +300,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alertTypes: {},
   overlayOpacity: {},
   overlayOrder: [],
+  watchPlaces: [],
   watch: {
     enabled: false,
     center: [-96.8, 32.78],
@@ -379,6 +411,77 @@ function normalizeWatch(value: unknown): WatchState {
       : DEFAULT_SETTINGS.watch.minSeverity,
     quietHours: normalizeQuietHours(raw.quietHours),
   };
+}
+
+/**
+ * The places beside home, out of a settings file.
+ *
+ * Anything that is not a place is dropped rather than repaired into one: a
+ * watch with no position is a notification that never fires, which is worse
+ * than a place that is simply not there. The list is capped at nine, because
+ * home is the tenth.
+ */
+/**
+ * Every place being watched, home first.
+ *
+ * Home is the `watch` the settings file has always held; the rest are the
+ * list beside it. Everything that acts on a watch reads this rather than
+ * either key, so there is one answer to "what is being watched" and the
+ * storage shape is nobody else's problem.
+ */
+export function watchedPlaces(settings: AppSettings): WatchPlace[] {
+  const home: WatchPlace = {
+    ...settings.watch,
+    id: "home",
+    name: translate("watch.home"),
+  };
+  return [home, ...settings.watchPlaces].slice(0, MAX_WATCH_PLACES);
+}
+
+function normalizeWatchPlaces(value: unknown): WatchPlaceState[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const places: WatchPlaceState[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as Partial<WatchPlaceState>;
+    const center = Array.isArray(raw.center) ? raw.center : null;
+    if (
+      !center ||
+      !Number.isFinite(Number(center[0])) ||
+      !Number.isFinite(Number(center[1]))
+    ) {
+      continue;
+    }
+    const id =
+      typeof raw.id === "string" && raw.id.trim() && !seen.has(raw.id)
+        ? raw.id
+        : `place-${places.length + 1}-${Math.abs(
+            Math.round(Number(center[0]) * 1000),
+          )}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const watch = normalizeWatch(raw);
+    places.push({
+      ...watch,
+      id,
+      name:
+        typeof raw.name === "string" && raw.name.trim()
+          ? raw.name.trim().slice(0, 60)
+          : `Place ${places.length + 1}`,
+      ...(raw.kinds && typeof raw.kinds === "object"
+        ? {
+            kinds: Object.fromEntries(
+              Object.entries(raw.kinds).filter(
+                ([, on]) => typeof on === "boolean",
+              ),
+            ),
+          }
+        : {}),
+    });
+    if (places.length >= MAX_WATCH_PLACES - 1) break;
+  }
+  return places;
 }
 
 /**
@@ -884,6 +987,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ? raw.surgeCategory
       : DEFAULT_SETTINGS.surgeCategory,
     watch: normalizeWatch(raw.watch),
+    watchPlaces: normalizeWatchPlaces(raw.watchPlaces),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
     overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),
     overlayOrder: Array.isArray(raw.overlayOrder)

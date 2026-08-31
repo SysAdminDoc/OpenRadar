@@ -32,6 +32,31 @@ describe("workspace backups", () => {
     expect(restored.unread).toEqual([]);
   });
 
+  it("carries every watched place, not only home", () => {
+    // The places are somebody's own list, and a backup that quietly dropped
+    // them would be a backup that loses the point of making one.
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      watch: { ...DEFAULT_SETTINGS.watch, enabled: true },
+      watchPlaces: [
+        {
+          id: "school",
+          name: "School",
+          enabled: true,
+          center: [-96.75, 32.8] as [number, number],
+          radiusMiles: 15,
+          minSeverity: "moderate" as const,
+          sound: true,
+          quietHours: DEFAULT_SETTINGS.watch.quietHours,
+        },
+      ],
+    };
+    const backup = createWorkspaceBackup(settings, null);
+    const restored = restoreWorkspace(JSON.parse(JSON.stringify(backup)));
+    expect(restored.settings.watchPlaces).toEqual(settings.watchPlaces);
+    expect(restored.settings.watch.enabled).toBe(true);
+  });
+
   it("backs up incident pack references without embedding PMTiles bytes", () => {
     const settings = {
       ...DEFAULT_SETTINGS,

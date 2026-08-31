@@ -1,3 +1,4 @@
+import { MAX_WATCH_PLACES } from "../lib/watch";
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { MapViewportHandle } from "../components/MapViewport";
@@ -43,6 +44,8 @@ export interface WorkspaceActions {
   share: () => Promise<void>;
   uploadOverlay: (file: File) => Promise<void>;
   watchHere: () => void;
+  /** Adds the map centre as another watched place, beside home. */
+  addWatchPlace: () => void;
   openLogFolder: () => void;
   resetSettings: () => void;
 }
@@ -531,6 +534,45 @@ export function useWorkspaceActions(options: {
     });
   }, [applySettings, mapRef, pushToast, settingsRef]);
 
+  const addWatchPlace = useCallback(() => {
+    const settings = settingsRef.current;
+    if (settings.watchPlaces.length >= MAX_WATCH_PLACES - 1) {
+      pushToast({
+        title: translate("toast.placesFull"),
+        detail: translate("settings.placesFull", { count: MAX_WATCH_PLACES }),
+      });
+      return;
+    }
+    const camera = mapRef.current?.camera() ?? settings.camera;
+    // Named for the order it was added in rather than left blank. A reader
+    // renames it in place, and a place with no name at all cannot be told
+    // apart in a notification.
+    const name = translate("settings.placeNumber", {
+      number: settings.watchPlaces.length + 2,
+    });
+    applySettings({
+      ...settings,
+      watchPlaces: [
+        ...settings.watchPlaces,
+        {
+          // Unique without a random source, which keeps a settings file
+          // reproducible: the time it was added is what makes it its own.
+          id: `place-${Date.now().toString(36)}`,
+          name,
+          // Everything else follows home, which is the only setting the
+          // reader has already thought about.
+          ...settings.watch,
+          enabled: true,
+          center: camera.center,
+        },
+      ],
+    });
+    pushToast({
+      title: translate("toast.placeAdded", { place: name }),
+      detail: translate("toast.watchingDetail"),
+    });
+  }, [applySettings, mapRef, pushToast, settingsRef]);
+
   const openLogFolder = useCallback(() => {
     void (async () => {
       try {
@@ -617,6 +659,7 @@ export function useWorkspaceActions(options: {
     share,
     uploadOverlay,
     watchHere,
+    addWatchPlace,
     openLogFolder,
     resetSettings,
   };

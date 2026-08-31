@@ -671,6 +671,16 @@ export const es: Catalogue = {
   "settings.radiusValue": "{distance}",
   "settings.radiusLabel": "Radio vigilado, en {unit}",
   "settings.watchCentre": "Vigilar el centro del mapa",
+  "settings.placeName": "Nombre del lugar",
+  "settings.placeNumber": "Lugar {number}",
+  "settings.placeRadius": "Radio alrededor de {place}, en {unit}",
+  "settings.placeSeverity": "Avisarme de",
+  "settings.placeSeverityFor":
+    "El aviso menos grave que merece la pena en {place}",
+  "settings.removePlace": "Dejar de vigilar {place}",
+  "settings.addPlace": "Añadir el centro del mapa como lugar",
+  "settings.placesFull":
+    "Son los {count} lugares. Quita uno para vigilar otro sitio.",
   "settings.watching": "Vigilando {lat}, {lon} por avisos y cosas peores.",
   "settings.camera": "Estado de la cámara",
   "settings.zoom": "Acercamiento",
@@ -842,6 +852,8 @@ export const es: Catalogue = {
   "toast.overlayFailed": "No se pudo añadir la capa",
   "toast.unreadable": "No se pudo leer el archivo.",
   "toast.watching": "Vigilando este punto",
+  "toast.placesFull": "Ya están todos los lugares",
+  "toast.placeAdded": "Vigilando {place}",
   "toast.watchingDetail": "Los avisos cerca de él te interrumpirán.",
   "toast.logsFailed": "No se pudo abrir la carpeta de registros",
   "toast.logsDesktop":
@@ -906,6 +918,9 @@ export const es: Catalogue = {
     "Ya te avisamos de esta. La oficina ha subido su nivel de daño desde entonces.",
   "watch.testHeadline": "Alerta de prueba",
   "watch.quiet": "Horas de silencio",
+  "watch.home": "Casa",
+  "watch.atPlace": "En {place}.",
+  "watch.atPlaces": "En {places}.",
   "watch.quietDetail":
     "Retiene las alertas normales por la noche. Lo que llegue a la gravedad que elijas sigue pasando.",
   "watch.quietFrom": "Desde",
