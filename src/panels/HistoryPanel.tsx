@@ -92,6 +92,7 @@ export function HistoryPanel({
     void loadStorm(id)
       .then((storm) => {
         if (generation !== selectionGenerationRef.current) return;
+        setLoadedStorm(storm);
         setError(null);
         onSelect(storm);
       })
