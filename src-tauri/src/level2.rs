@@ -1399,7 +1399,7 @@ pub async fn level2_sweep(
     // volumes, simply gets the finished picture: that is what the archive path
     // has always shown and it is never wrong, only behind.
     let live = if live {
-        match chunks::live_scan(&station, None).await {
+        match chunks::live_scan(&station).await {
             Ok(found) => Some(found),
             Err(reason) => {
                 log::debug!("no live volume for {station}: {reason}");

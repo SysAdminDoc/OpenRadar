@@ -17,6 +17,7 @@
 //! progress has the tilts the radar has swept so far and no more.
 
 use std::collections::BTreeMap;
+use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
 use nexrad_data::aws::realtime::Chunk;
@@ -200,8 +201,73 @@ pub fn previous(volume: u32) -> u32 {
 }
 
 /// Keeps a folder number inside the ring.
+///
+/// Nothing outside the ring is a folder, including zero, which arithmetic on
+/// an unsigned number turns into a panic rather than an answer.
 fn wrap(volume: u32) -> u32 {
-    ((volume - 1) % VOLUMES) + 1
+    (volume.max(1) - 1) % VOLUMES + 1
+}
+
+/// What was read last time, so the next read is not the whole volume again.
+///
+/// A chunk key names a published object that never changes, so a piece already
+/// in hand never needs asking for twice. Without this the live path fetched
+/// every piece of the volume every twenty seconds: for one site that is around
+/// six thousand objects and the better part of a gigabyte an hour, and about
+/// seventy-eight cache entries a refresh against a budget of two thousand,
+/// which turned the whole disk cache over every nine minutes and took the
+/// tiles and grids the offline view is made of with it.
+///
+/// One site's worth, because the map draws one at a time and a volume is eight
+/// megabytes.
+struct Remembered {
+    station: String,
+    volume: u32,
+    pieces: BTreeMap<String, Vec<u8>>,
+}
+
+static HELD: Mutex<Option<Remembered>> = Mutex::new(None);
+
+/// Forgets what was read, so a test does not carry it between cases.
+#[cfg(test)]
+pub fn forget() {
+    if let Ok(mut held) = HELD.lock() {
+        *held = None;
+    }
+}
+
+/// The pieces already in hand that belong to this read.
+///
+/// A different folder means the radar has moved on and the pieces of the one
+/// before are of no further use; a different site means they were never this
+/// site's pieces. Either way what is held is dropped rather than mixed in,
+/// because a chunk from the wrong volume assembles into a picture of two
+/// different moments and nothing downstream could tell.
+fn carried_over(
+    before: Option<Remembered>,
+    station: &str,
+    volume: u32,
+) -> BTreeMap<String, Vec<u8>> {
+    match before {
+        Some(before) if before.station == station && before.volume == volume => before.pieces,
+        _ => BTreeMap::new(),
+    }
+}
+
+/// The keys that still have to be fetched, in the order they were published.
+fn still_wanted(pieces: &BTreeMap<String, Vec<u8>>, keys: &[ChunkKey]) -> Vec<String> {
+    keys.iter()
+        .filter(|chunk| !pieces.contains_key(&chunk.key))
+        .map(|chunk| chunk.key.clone())
+        .collect()
+}
+
+/// Which folder this site was last found in, as a hint for where to look now.
+fn known_volume(station: &str) -> Option<u32> {
+    let held = HELD.lock().ok()?;
+    held.as_ref()
+        .filter(|held| held.station == station)
+        .map(|held| held.volume)
 }
 
 /// How much of the volume in progress the radar has published.
@@ -228,8 +294,8 @@ pub struct LiveScan {
 }
 
 /// The volume being swept right now, as a scan the rest of the app can read.
-pub async fn live_scan(station: &str, known: Option<u32>) -> Result<LiveScan, ChunkError> {
-    let (volume, keys) = newest_volume(station, known).await?;
+pub async fn live_scan(station: &str) -> Result<LiveScan, ChunkError> {
+    let (volume, keys) = newest_volume(station, known_volume(station)).await?;
     let Some(newest) = keys.iter().map(|chunk| chunk.uploaded).max() else {
         return Err(ChunkError::NotLive(station.to_string()));
     };
@@ -240,7 +306,7 @@ pub async fn live_scan(station: &str, known: Option<u32>) -> Result<LiveScan, Ch
         return Err(ChunkError::NotLive(station.to_string()));
     }
 
-    assemble(volume, keys, newest).await
+    assemble(station, volume, keys, newest).await
 }
 
 /// Whatever is in one numbered folder, finished or not.
@@ -254,33 +320,60 @@ pub async fn scan_in_folder(station: &str, volume: u32) -> Result<LiveScan, Chun
     let Some(newest) = keys.iter().map(|chunk| chunk.uploaded).max() else {
         return Err(ChunkError::NotLive(station.to_string()));
     };
-    assemble(volume, keys, newest).await
+    assemble(station, volume, keys, newest).await
 }
 
 async fn assemble(
+    station: &str,
     volume: u32,
     keys: Vec<ChunkKey>,
     newest: DateTime<Utc>,
 ) -> Result<LiveScan, ChunkError> {
-    // Downloaded in order, because the start chunk carries the volume header
-    // and the coverage pattern everything after it is read against.
-    let mut pieces = Vec::with_capacity(keys.len());
-    let mut nyquist: BTreeMap<u8, f32> = BTreeMap::new();
-    for chunk in &keys {
-        let bytes = http::get_bytes(&format!("{BUCKET}/{}", chunk.key)).await?;
-        match Chunk::new(bytes) {
-            Ok(piece) => {
-                collect_nyquist(&piece, &mut nyquist);
-                pieces.push(piece);
+    // Whatever is already in hand and still belongs to this read.
+    let before = HELD.lock().ok().and_then(|mut held| held.take());
+    let mut pieces = carried_over(before, station, volume);
+
+    // Only the pieces that are new. Fetched in the order they were published,
+    // because the start chunk carries the volume header and the coverage
+    // pattern everything after it is read against.
+    for key in still_wanted(&pieces, &keys) {
+        // A piece that will not download is a gap in the picture rather than a
+        // reason to show nothing: the radar is still sweeping, the rest of the
+        // volume is here, and the next read will have it.
+        match http::get_bytes_uncached(&format!("{BUCKET}/{key}")).await {
+            Ok(bytes) => {
+                pieces.insert(key, bytes);
             }
-            // One unreadable chunk out of fifty is a gap in the picture rather
-            // than a reason to show nothing: the radar is still sweeping and
-            // the next read will have it.
-            Err(_) => continue,
+            Err(reason) => {
+                log::debug!("{station} chunk {key} did not arrive: {reason}");
+            }
         }
     }
 
-    let scan = nexrad_data::aws::realtime::assemble_volume(pieces)
+    let mut nyquist: BTreeMap<u8, f32> = BTreeMap::new();
+    let mut readable = Vec::with_capacity(pieces.len());
+    for (key, bytes) in &pieces {
+        match Chunk::new(bytes.clone()) {
+            Ok(piece) => {
+                collect_nyquist(&piece, &mut nyquist);
+                readable.push(piece);
+            }
+            Err(reason) => {
+                log::debug!("{station} chunk {key} would not read: {reason}");
+            }
+        }
+    }
+
+    let held_count = pieces.len();
+    if let Ok(mut held) = HELD.lock() {
+        *held = Some(Remembered {
+            station: station.to_string(),
+            volume,
+            pieces,
+        });
+    }
+
+    let scan = nexrad_data::aws::realtime::assemble_volume(readable)
         .map_err(|failure| ChunkError::Assemble(failure.to_string()))?;
 
     Ok(LiveScan {
@@ -288,7 +381,7 @@ async fn assemble(
         volume: LiveVolume {
             volume,
             uploaded: newest.to_rfc3339(),
-            chunks: keys.len(),
+            chunks: held_count,
         },
         nyquist,
     })
@@ -538,6 +631,167 @@ mod tests {
     }
 
     #[test]
+    fn nothing_outside_the_ring_is_a_folder_number() {
+        // Zero is not a folder, and on an unsigned number the arithmetic that
+        // keeps a number inside the ring turned it into a panic rather than an
+        // answer. Unreachable only while the folder number is never fed back,
+        // which is exactly what remembering it between reads now does.
+        for volume in [0u32, 1, 2, VOLUMES - 1, VOLUMES, VOLUMES + 1, u32::MAX] {
+            let landed = wrap(volume);
+            assert!(
+                (1..=VOLUMES).contains(&landed),
+                "{volume} landed on {landed}"
+            );
+        }
+        assert_eq!(wrap(0), 1);
+        assert_eq!(previous(1), VOLUMES);
+    }
+
+    #[test]
+    fn a_volume_already_in_hand_is_not_asked_for_again() {
+        // A chunk key names a published object that never changes, so a piece
+        // in hand never needs asking for twice. Without this the live path
+        // fetched the whole volume every twenty seconds: for one site about
+        // six thousand objects and the better part of a gigabyte an hour, and
+        // enough cache entries to turn the whole disk cache over every nine
+        // minutes and take the tiles with it.
+        forget();
+        assert_eq!(known_volume("KTLX"), None);
+
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let pieces = chunked_volume(&[fixture::flat_cut(
+            at,
+            fixture::Cut {
+                gates: 8,
+                ..fixture::Cut::default()
+            },
+        )]);
+        if let Ok(mut held) = HELD.lock() {
+            *held = Some(Remembered {
+                station: "KTLX".to_string(),
+                volume: 210,
+                pieces: pieces
+                    .iter()
+                    .enumerate()
+                    .map(|(at, bytes)| (format!("KTLX/210/piece-{at}"), bytes.clone()))
+                    .collect(),
+            });
+        }
+
+        // The folder is remembered, so the ring walk starts where it left off
+        // rather than sampling the whole thousand folders again.
+        assert_eq!(known_volume("KTLX"), Some(210));
+        // And nothing is remembered for anywhere else.
+        assert_eq!(known_volume("KDMX"), None);
+        forget();
+        assert_eq!(known_volume("KTLX"), None);
+    }
+
+    /// What a read of one folder would find already in hand.
+    fn remembered(station: &str, volume: u32, keys: &[&str]) -> Remembered {
+        Remembered {
+            station: station.to_string(),
+            volume,
+            pieces: keys
+                .iter()
+                .map(|key| ((*key).to_string(), vec![0u8; 4]))
+                .collect(),
+        }
+    }
+
+    fn listed(keys: &[&str]) -> Vec<ChunkKey> {
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        keys.iter()
+            .map(|key| ChunkKey {
+                key: (*key).to_string(),
+                uploaded: at,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn only_the_pieces_that_are_new_are_asked_for() {
+        let keys = listed(&["KTLX/210/a", "KTLX/210/b", "KTLX/210/c"]);
+        let held = carried_over(
+            Some(remembered("KTLX", 210, &["KTLX/210/a", "KTLX/210/b"])),
+            "KTLX",
+            210,
+        );
+        assert_eq!(held.len(), 2);
+        assert_eq!(still_wanted(&held, &keys), vec!["KTLX/210/c".to_string()]);
+
+        // Nothing new is nothing to ask for, which is what most refreshes are
+        // between one chunk and the next.
+        let all = carried_over(
+            Some(remembered("KTLX", 210, &["KTLX/210/a", "KTLX/210/b", "KTLX/210/c"])),
+            "KTLX",
+            210,
+        );
+        assert!(still_wanted(&all, &keys).is_empty());
+    }
+
+    #[test]
+    fn pieces_of_another_volume_or_another_site_are_not_reused() {
+        // A chunk from the wrong volume assembles into a picture of two
+        // different moments and nothing downstream could tell, so what is held
+        // is dropped rather than mixed in.
+        let keys = listed(&["KTLX/210/a", "KTLX/210/b"]);
+        let before = remembered("KTLX", 210, &["KTLX/210/a"]);
+
+        // The radar has moved on to the next folder.
+        let moved_on = carried_over(Some(remembered("KTLX", 209, &["KTLX/209/a"])), "KTLX", 210);
+        assert!(moved_on.is_empty());
+        assert_eq!(still_wanted(&moved_on, &keys).len(), 2);
+
+        // And another site's pieces are never this site's.
+        let elsewhere = carried_over(Some(remembered("KDMX", 210, &["KDMX/210/a"])), "KTLX", 210);
+        assert!(elsewhere.is_empty());
+
+        // The one case that does carry over.
+        assert_eq!(carried_over(Some(before), "KTLX", 210).len(), 1);
+        assert!(carried_over(None, "KTLX", 210).is_empty());
+    }
+
+    #[test]
+    fn a_volume_missing_one_of_its_pieces_is_still_a_volume() {
+        // One piece that will not download is a gap in the picture rather than
+        // a reason to show nothing: the radar is still sweeping and the next
+        // read will have it. The fetch used to give up on the whole volume,
+        // with a comment three lines below saying the opposite.
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let cuts = vec![
+            fixture::flat_cut(at, fixture::Cut { gates: 8, ..fixture::Cut::default() }),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 1.5,
+                    gates: 8,
+                    ..fixture::Cut::default()
+                },
+            ),
+        ];
+        let pieces = chunked_volume(&cuts);
+        assert_eq!(pieces.len(), 2);
+
+        // The start chunk and nothing else: the second cut is missing, and
+        // what is left still assembles into the first.
+        let only_start: Vec<Chunk<'_>> = vec![
+            Chunk::new(pieces[0].clone()).expect("a start chunk"),
+        ];
+        let scan = nexrad_data::aws::realtime::assemble_volume(only_start)
+            .expect("a volume that has only reached its first cut is a volume");
+        assert_eq!(scan.sweeps().len(), 1);
+
+        // Without the start chunk there is no header and no pattern, and that
+        // is refused rather than drawn as an empty sky.
+        let without_start: Vec<Chunk<'_>> = vec![
+            Chunk::new(pieces[1].clone()).expect("a later chunk"),
+        ];
+        assert!(nexrad_data::aws::realtime::assemble_volume(without_start).is_err());
+    }
+
+    #[test]
     #[ignore = "asks the live chunks bucket for a volume in progress"]
     fn reads_the_volume_a_radar_is_sweeping_now() {
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -549,7 +803,7 @@ mod tests {
         // single one of them is allowed to fail this on its own.
         let mut read = 0;
         for station in ["KTLX", "KJAX", "KDMX", "KTBW", "KGRR"] {
-            let Ok(found) = runtime.block_on(live_scan(station, None)) else {
+            let Ok(found) = runtime.block_on(live_scan(station)) else {
                 continue;
             };
             read += 1;
