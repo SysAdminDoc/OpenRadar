@@ -152,6 +152,8 @@ export const LIVE_CONTRACTS = [
  * contract or a reason.
  */
 export const UNCONTRACTED_HOSTS = {
+  "previous-runs-api.open-meteo.com":
+    "The same service and the same shape as api.open-meteo.com, which does have a contract, reached only while the guidance comparison is switched on. A separate contract would be the same assertion against the same fields.",
   "tiles.openfreemap.org":
     "A basemap. A style or tile that stops answering is visible the instant the map draws, which is a better check than any assertion here.",
   "basemap.nationalmap.gov":

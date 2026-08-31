@@ -8,13 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-079: Compare exact and previous Open-Meteo model runs
-      Why: Current guidance compares current model output but does not expose the initialization behind each series or how the forecast changed from the previous run.
-      Evidence: `src/lib/guidance.ts`; https://open-meteo.com/en/docs/single-runs-api ; https://open-meteo.com/en/docs/previous-runs-api
-      Touches: Guidance request and model types; run picker; delta view; provenance; caching
-      Acceptance: Supported models show initialization UTC, age, and exact-run status; a user can compare the same valid hours against one previous run; missing archives are explicit; requests remain bounded; tests cover mismatched horizons, missing runs, and UTC alignment.
-      Complexity: L
-
 - [ ] AUD-081: Add TDWR Level III coverage behind a radar capability descriptor
       Why: TDWR can improve low-level airport coverage, but its sites, range, and product details differ from WSR-88D. Hard-coded product strings would make those differences unsafe.
       Evidence: `src-tauri/src/level3.rs`; `src/lib/level2.ts`; https://www.weather.gov/tg/rpccds ; https://www.weather.gov/gsp/tdwr_specs ; https://www.weather.gov/media/tg/rpccds_radar_products.pdf

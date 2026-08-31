@@ -24,6 +24,7 @@ export const CACHED_HOSTS = [
   "api.weather.gov",
   "api.tidesandcurrents.noaa.gov",
   "api.open-meteo.com",
+  "previous-runs-api.open-meteo.com",
   "tilecache.rainviewer.com",
   "api.rainviewer.com",
   "geo.weather.gc.ca",

@@ -68,6 +68,24 @@ function predictions(from: Date) {
 async function routeData(page: Page) {
   await page.route("https://api.open-meteo.com/**", async (route) => {
     const url = route.request().url();
+    // When each model last ran, which lives beside the data rather than in
+    // the forecast reply. GEM answers with a run from months ago, which is
+    // what the service actually says and what the panel has to be honest
+    // about.
+    if (url.includes("/static/meta.json")) {
+      const stale = url.includes("cmc_gem");
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          last_run_initialisation_time: Math.floor(
+            (Date.now() - (stale ? 90 * 24 : 4) * 3_600_000) / 1000,
+          ),
+          last_run_availability_time: Math.floor(Date.now() / 1000),
+          update_interval_seconds: 21600,
+        }),
+      });
+      return;
+    }
     // The forecast panel uses the same host, and this spec is not about it.
     if (!url.includes("models=")) {
       await route.fulfill({ contentType: "application/json", body: "{}" });
@@ -78,6 +96,30 @@ async function routeData(page: Page) {
       body: JSON.stringify(GUIDANCE),
     });
   });
+  // The previous runs live on their own host, and answer with the current run
+  // and the earlier one side by side on the same hours.
+  await page.route(
+    "https://previous-runs-api.open-meteo.com/**",
+    async (route) => {
+      const hourly: Record<string, unknown> = { ...GUIDANCE.hourly };
+      for (const [name, values] of Object.entries(GUIDANCE.hourly)) {
+        if (name === "time" || !Array.isArray(values)) continue;
+        // A degree cooler yesterday, so the change has a direction to show.
+        hourly[
+          name.replace(
+            /^([a-z0-9_]+?)_(gfs|ecmwf|icon|gem)/,
+            "$1_previous_day1_$2",
+          )
+        ] = values.map((value) =>
+          typeof value === "number" ? Number((value - 1).toFixed(2)) : value,
+        );
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ ...GUIDANCE, hourly }),
+      });
+    },
+  );
   await page.route("**/tide-stations.json", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -288,4 +330,37 @@ test("a measurement already on the map follows the units", async ({ page }) => {
   // Same measurement, said in the other units, without touching the map again.
   await expect(result).toHaveText(/^\d+ km$/);
   expect(await result.textContent()).not.toBe(imperial);
+});
+
+test("says when each model last ran and how far it has moved since", async ({
+  page,
+}) => {
+  await routeData(page);
+  await page.goto("/?testMode=1&lon=-93.7&lat=41.7&zoom=6");
+  await page.getByRole("button", { name: "Guidance", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Guidance" });
+  await expect(panel).toBeVisible();
+
+  // Two models disagreeing is one thing; one of them being months behind the
+  // other is another, and the table alone cannot say which.
+  await expect(panel.locator(".model-runs li").first()).toContainText(
+    /last ran .* h ago/,
+  );
+  await expect(panel.locator('.model-runs li[data-stale="true"]')).toHaveCount(
+    0,
+  );
+
+  // GEM's run is three months old in this fixture, and saying so is the point.
+  await page.getByRole("button", { name: "GEM", exact: true }).click();
+  await expect(
+    panel.locator('.model-runs li[data-stale="true"]'),
+  ).toContainText("older than its own schedule");
+
+  // And the comparison, which is off until it is asked for.
+  await expect(panel.locator(".guidance-change")).toHaveCount(0);
+  await panel.getByRole("checkbox", { name: /Compare with yesterday/ }).check();
+  await expect(panel.locator(".guidance-change").first()).toBeVisible();
+  await expect(
+    panel.locator('.guidance-change[data-direction="up"]').first(),
+  ).toContainText("+1");
 });
