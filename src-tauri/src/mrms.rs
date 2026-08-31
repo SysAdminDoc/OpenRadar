@@ -587,8 +587,7 @@ fn signed_grib(raw: i16) -> i16 {
 }
 
 fn decode_png_samples(payload: &[u8], expected: usize) -> Result<Vec<u16>, MrmsError> {
-    let mut limits = png::Limits::default();
-    limits.bytes = GRID_BYTES;
+    let limits = png::Limits { bytes: GRID_BYTES };
     let decoder = png::Decoder::new_with_limits(Cursor::new(payload), limits);
     let mut reader = decoder
         .read_info()

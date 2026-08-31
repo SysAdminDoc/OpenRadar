@@ -1,5 +1,13 @@
 # Changelog
 
+## Next release
+
+- German radar now works in the installed app, not only in a browser preview. The desktop cache route knew to send DWD tiles through the native side, but that side refused the same host when the request arrived.
+
+- Weather files, byte-range replies, and compressed grids are bounded while they are being read. Truncated or hostile provider data is refused with an error instead of being allowed to panic, overflow, or grow memory until the whole reply has arrived.
+
+- The desktop window no longer receives unused permissions for opening web addresses or changing unrelated store keys. It keeps only the file reveal and settings operations the interface calls.
+
 ## OpenRadar v0.3.0
 
 - Germany has radar. Europe had none: the American mosaics stop at the coast, the Canadian service is Canada, and everywhere else fell through to a feed licensed for personal use only. The German weather service publishes a composite of its seventeen radars every five minutes, keyless, and that is what a map over Germany now draws, with the colours the service paints it in rather than the American ones. Past fifty decibels it turns blue and then magenta, which is the German convention for hail and not a fault. The service is offered with no availability guarantee, so what was there before is still behind it.
