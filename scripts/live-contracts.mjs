@@ -126,7 +126,16 @@ async function main() {
             ["test", "--lib", "--", "--ignored", contract.filter],
             "src-tauri",
           )
-        : await run(process.execPath, [VITEST, "run", ...contract.files], ".");
+        : await run(
+            process.execPath,
+            // Only the live block, by name. Running the whole file counts its
+            // offline tests too, so a live block that had been skipped or
+            // renamed still reported a healthy count and the "ran nothing"
+            // guard never fired. Narrowing the run is what makes a count of
+            // zero mean the provider genuinely went unasked.
+            [VITEST, "run", ...contract.files, "-t", contract.liveBlock],
+            ".",
+          );
     const ranCount =
       contract.kind === "native"
         ? cargoRanCount(finished.output)

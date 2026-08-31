@@ -62,7 +62,12 @@ export function useExport(options: {
             ? translate("export.hrrr", {
                 minutes: record.modelRun.leadMinutes,
               })
-            : (record?.label ?? source?.label ?? translate("export.radar")),
+            : // The record always carries a label, and where no provider
+              // matched the frame that label is the bare provider id. An
+              // archive replay would then burn "archive" into the corner of
+              // the picture, so the written name still comes from a provider
+              // that has one.
+              (source?.label ?? translate("export.radar")),
         ].filter(Boolean),
         attribution: "OpenRadar · OpenStreetMap · NOAA",
       };

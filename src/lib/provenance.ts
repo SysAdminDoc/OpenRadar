@@ -93,10 +93,21 @@ export function provenanceProblems(record: Provenance): string[] {
   if (!Number.isFinite(record.fetchedAt) || record.fetchedAt <= 0) {
     problems.push("fetchedAt is not a moment.");
   }
-  if (record.freshForMs !== null && record.freshForMs <= 0) {
+  // Every other time has to be finite too. A NaN here used to pass every check
+  // and then throw out of `provenanceLines`, because `new Date(NaN)` refuses to
+  // format, which took the whole diagnostics copy down with it.
+  if (record.observedAt !== null && !Number.isFinite(record.observedAt)) {
+    problems.push("observedAt is not a moment.");
+  }
+  if (record.validAt !== null && !Number.isFinite(record.validAt)) {
+    problems.push("validAt is not a moment.");
+  }
+  // A comparison against NaN is false in both directions, so a duration has to
+  // be tested for being a number rather than for being out of range.
+  if (record.freshForMs !== null && !(record.freshForMs > 0)) {
     problems.push("freshForMs is not a duration.");
   }
-  if (record.cachedAgeSeconds !== null && record.cachedAgeSeconds < 0) {
+  if (record.cachedAgeSeconds !== null && !(record.cachedAgeSeconds >= 0)) {
     problems.push("cachedAgeSeconds is negative.");
   }
 
@@ -107,6 +118,12 @@ export function provenanceProblems(record: Provenance): string[] {
       record.kind === "observation" ? "An observation" : "A derived";
     if (record.observedAt === null) {
       problems.push(`${named} layer must say when it was observed.`);
+    }
+    // Valid time is named in the contract for every layer, not only forecasts.
+    // For an observation it is normally the moment it was observed, and a
+    // record leaving it out cannot answer when the picture applies.
+    if (record.validAt === null) {
+      problems.push(`${named} layer must say when it is valid.`);
     }
     // The confusion this whole type exists to prevent. A model run on an
     // observation would let a forecast be drawn, labelled and exported as
@@ -186,7 +203,15 @@ export function radarProvenance(options: {
   cachedAgeSeconds?: number | null;
   freshForMs?: number | null;
 }): Provenance {
-  const { frame, provider, fetchedAt } = options;
+  const { frame, fetchedAt } = options;
+  // The provider on screen is not always the provider that made this frame.
+  // The forecast tail comes from HRRR and an archive replay comes from the
+  // stored frames, while the timeline's own source stays whichever live
+  // provider is serving the mosaic. Taking the label and the link from a
+  // provider that did not produce the frame is how a record ends up reading
+  // "MRMS (hrrr)" and crediting the wrong service for the picture.
+  const provider =
+    options.provider?.id === frame.providerId ? options.provider : null;
   // Frame times are seconds, because that is what the services publish. Every
   // other time in this record is milliseconds, so the conversion belongs here
   // rather than at each of the call sites that would otherwise have to
@@ -242,9 +267,23 @@ export function overlayProvenance(options: {
   };
 }
 
-/** A record's times as ISO strings, for anything that writes text. */
+/**
+ * A record's times as ISO strings, for anything that writes text.
+ *
+ * A time that is not a time is written as such rather than thrown over. This
+ * is reached from the diagnostics block, which exists to be pasted into a
+ * report about something already going wrong, and a formatter that throws
+ * there loses the whole report to protect a single field.
+ */
 function stamp(at: number | null): string {
-  return at === null ? "none" : new Date(at).toISOString();
+  if (at === null) return "none";
+  if (!Number.isFinite(at)) return "unreadable";
+  try {
+    return new Date(at).toISOString();
+  } catch {
+    // Finite but outside the range a Date can hold.
+    return "unreadable";
+  }
 }
 
 /**

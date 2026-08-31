@@ -82,6 +82,7 @@ export const LIVE_CONTRACTS = [
     host: "api.open-meteo.com",
     kind: "browser",
     files: ["src/lib/guidance.test.ts"],
+    liveBlock: "against Open-Meteo itself",
     required: true,
   },
   {
@@ -90,14 +91,16 @@ export const LIVE_CONTRACTS = [
     host: "www.spc.noaa.gov",
     kind: "browser",
     files: ["src/lib/overlays/spc.test.ts"],
+    liveBlock: "against the live service",
     required: false,
   },
   {
     id: "reports",
     label: "Local storm reports",
-    host: "www.spc.noaa.gov",
+    host: "mesonet.agron.iastate.edu",
     kind: "browser",
     files: ["src/lib/overlays/reports.test.ts"],
+    liveBlock: "against the live feed",
     required: false,
   },
   {
@@ -106,6 +109,7 @@ export const LIVE_CONTRACTS = [
     host: "api.tidesandcurrents.noaa.gov",
     kind: "browser",
     files: ["src/lib/tides.test.ts"],
+    liveBlock: "against NOAA itself",
     required: false,
   },
   {
@@ -114,6 +118,7 @@ export const LIVE_CONTRACTS = [
     host: "mapservices.weather.noaa.gov",
     kind: "browser",
     files: ["src/lib/surge.test.ts"],
+    liveBlock: "against the National Hurricane Center itself",
     required: false,
   },
 ];
@@ -235,10 +240,15 @@ export function cargoRanCount(output) {
  * providers are broken.
  */
 export function exitCodeFor(results) {
-  const broken = results.filter(
-    (result) => result.status === "fail" && result.required,
+  // A required contract has to have actually passed. Failing it is the obvious
+  // case; skipping it is the quiet one, and it was letting the run go green
+  // with the two sources a release depends on never asked at all, whether
+  // because cargo was missing or because a filter had stopped matching. A
+  // provider that was not checked is not a provider that is working.
+  const unproven = results.filter(
+    (result) => result.required && result.status !== "pass",
   );
-  return broken.length > 0 ? 1 : 0;
+  return unproven.length > 0 ? 1 : 0;
 }
 
 /** The whole run as one JSON-shaped object, for anything reading this. */

@@ -398,3 +398,38 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Touches: `src/lib/guidance.test.ts`, and `src/lib/units.ts` only if the test needs to pin a unit system rather than inherit the default
       Acceptance: The assertion checks that the unit which comes back is the one the request asked for, rather than a fixed string, so it holds under either unit system; the test pins the unit system it expects instead of inheriting module state that another test can move; `npm run check:live -- --only=guidance` passes; reverting the assertion makes it fail again.
       Complexity: S
+
+- [ ] AUD-100: P1. Give the remaining layers a provenance record
+      Why: `AUD-068` built the contract and wired two producers, radar frames and the seven overlay adapters. An adversarial review on 2026-08-31 counted what that actually covers: 7 of the 24 toggleable layers in `LayerSettings`. The single-site Level II sweep, every MRMS product, both lightning layers, wind, satellite, storm cells, ProbSevere, surge, guidance, tides and imported overlays still have no record, so "every visible weather layer" is not yet true. The two products the contract's own comment calls derived, unfolded velocity and azimuthal shear, are exactly the ones with nothing to report.
+      Evidence: `src/lib/provenance.ts`; `src/lib/settings.ts` `LayerSettings`; `src/App.tsx` diagnostics wiring; `src/hooks/useSingleSiteRadar.ts`; `src/hooks/useMrmsOverlays.ts`; `src/hooks/useLightning.ts`; `src/hooks/useProbSevere.ts`
+      Touches: A producer per remaining layer; the diagnostics layer list; `kind: "derived"` for unfolded velocity and rotation tracks
+      Acceptance: Every layer a reader can switch on produces a record that passes `provenanceProblems`; a test enumerates the layer switches and fails when one has no producer, so a layer added later cannot quietly arrive without one; the derived products name what was done to them.
+      Complexity: L
+
+- [ ] AUD-101: P2. Make the radar record report cache state and freshness
+      Why: The radar layer's record is built with `fetchedAt: Date.now()` and neither a cache age nor a freshness rule, so it always prints "cache live" and can never be stale. The timeline already knows better: `RadarTimelineState.cached` says the frames on screen are the last ones that arrived rather than fresh, which is the single most useful thing a report about a wrong-looking picture could carry.
+      Evidence: `src/App.tsx` diagnostics wiring; `src/hooks/useRadarTimeline.ts` `cached`; `src/lib/tileCache.ts` `CacheReport`; `src/lib/provenance.ts` `provenanceStale`
+      Touches: Threading the cache report and frame cadence into the radar record; diagnostics
+      Acceptance: A frame served from disk reports its age rather than "cache live"; a loop older than its own cadence reports stale; a test drives both states through the diagnostics block.
+      Complexity: M
+
+- [ ] AUD-102: P2. Serialize the whole provenance record into an export
+      Why: `AUD-068` asked exports to serialize the record. The caption reads three fields from it and burns a fixed credit line, so an archive replay of a 2005 hurricane still says "OpenRadar · OpenStreetMap · NOAA" rather than who actually served the frames, and nothing in the file carries the observed time, the source id, or the cache state.
+      Evidence: `src/hooks/useExport.ts`; `src/lib/export.ts` `ExportCaption`; `src/lib/provenance.ts` `provenanceLines`; AUD-084
+      Touches: Export caption and credit; a provenance sidecar or embedded metadata; export tests
+      Acceptance: The credit line comes from the record rather than a constant; the full record travels with an exported file in a documented form; a replayed archive frame exports the archive's own attribution and observed time; tests cover a live frame, a forecast frame, and a replay.
+      Complexity: M
+
+- [ ] AUD-103: P2. Validate provenance records where they are produced
+      Why: `provenanceProblems` is called only by its own tests. Nothing checks a record on the way into diagnostics or an export, so a malformed one reaches a bug report as confident nonsense rather than being caught.
+      Evidence: `src/lib/provenance.ts` `provenanceProblems`, `provenanceValid`; `src/App.tsx`; `src/hooks/useExport.ts`
+      Touches: The diagnostics layer list; the export path; a development-time warning route
+      Acceptance: A record failing the contract is reported rather than drawn or written, is visible in development, and never throws out of the surface that was formatting it; a test proves a malformed record cannot silently reach a pasted report.
+      Complexity: S
+
+- [ ] AUD-104: P2. Cover the rest of the live providers with contracts
+      Why: The gate added by `AUD-069` holds 12 contracts against roughly 25 live hosts. The uncovered ones include the highest-consequence layer in the app: NWS watches and warnings. Earthquakes, wildfires, tropical, satellite, and the RIDGE, nowCOAST, GeoMet, DWD, HRRR and RainViewer radar providers are all unasked, and the native `tiles::tests` ignored test matches no filter.
+      Evidence: `scripts/live-contracts-lib.mjs` `LIVE_CONTRACTS`; `docs/asset-ledger.md` runtime host table; `src/lib/providers/`; `src/lib/overlays/`; `src-tauri/src/tiles.rs`
+      Touches: New contracts and the live tests some of them need; the contract list; documentation
+      Acceptance: Every host in the ledger's runtime table is reachable by at least one contract, or is listed with a written reason it is not; alerts are a required contract; a test compares the contract hosts against the ledger and fails when a host has no contract and no exemption.
+      Complexity: M

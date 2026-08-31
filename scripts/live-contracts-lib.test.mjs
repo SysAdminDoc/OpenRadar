@@ -30,6 +30,9 @@ describe("the live contract list", () => {
         expect(contract.filter, contract.id).toBeTruthy();
       } else {
         expect(contract.files?.length, contract.id).toBeGreaterThan(0);
+        // Without this the runner executes the whole file, counts its offline
+        // tests, and reports a healthy number for a live block that never ran.
+        expect(contract.liveBlock, contract.id).toBeTruthy();
       }
     }
   });
@@ -43,6 +46,18 @@ describe("the live contract list", () => {
       for (const file of contract.files) {
         expect(fs.existsSync(path.join(root, file)), file).toBe(true);
       }
+    }
+  });
+
+  // A renamed live block would silently match nothing, and the run would go on
+  // reporting that the provider had been asked.
+  it("names a live block that is actually in the file", () => {
+    for (const contract of LIVE_CONTRACTS) {
+      if (contract.kind !== "browser") continue;
+      const source = contract.files
+        .map((file) => fs.readFileSync(path.join(root, file), "utf8"))
+        .join("\n");
+      expect(source, contract.id).toContain(`"${contract.liveBlock}"`);
     }
   });
 
@@ -186,16 +201,23 @@ describe("what the run is worth", () => {
     ...overrides,
   });
 
-  it("fails only when a required contract failed", () => {
+  it("fails when a required contract failed, and not for an optional one", () => {
     expect(exitCodeFor([result({ status: "fail", required: true })])).toBe(1);
     expect(exitCodeFor([result({ status: "fail", required: false })])).toBe(0);
   });
 
-  it("never fails for a skip, however many", () => {
+  // The quiet hole. A required source that was never actually asked, because
+  // cargo was missing or a filter stopped matching, used to exit zero and read
+  // exactly like a healthy run.
+  it("fails when a required contract was skipped rather than proved", () => {
+    expect(exitCodeFor([result({ status: "skip", required: true })])).toBe(1);
+  });
+
+  it("does not fail for an optional contract that was skipped", () => {
     expect(
       exitCodeFor([
-        result({ status: "skip", required: true }),
-        result({ status: "skip", required: true }),
+        result({ status: "skip", required: false }),
+        result({ status: "pass", required: true }),
       ]),
     ).toBe(0);
   });
