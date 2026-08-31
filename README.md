@@ -11,7 +11,8 @@
 
 [Download](#install) · [What it does](#what-it-does) · [Build from source](#build-from-source) · [Where the data comes from](#where-the-data-comes-from)
 
-![The OpenRadar workspace](assets/screenshots/openradar-main.png)
+<img width="1916" height="1029" alt="Screenshot 2026-08-30 224055" src="https://github.com/user-attachments/assets/de46526b-51d4-4f15-a868-a3a446104ffd" />
+
 
 </div>
 
