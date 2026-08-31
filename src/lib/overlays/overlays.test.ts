@@ -125,6 +125,192 @@ describe("alert parsing", () => {
     expect(tags).not.toContain("geometry=");
   });
 
+  it("has the damage threat on the very first draw of a session", async () => {
+    // The tag feed and the polygon service are two requests, and the tags used
+    // to be taken from whatever the build already held rather than waited for.
+    // At the start of a session that is nothing, so every warning in force was
+    // drawn without its threat and announced without it, and then a minute
+    // later ranked higher and announced a second time as though the office had
+    // said it got worse. The map was wrong in silence too: a catastrophic
+    // tornado warning wore the ordinary outline for its first minute.
+    const tagFeed = {
+      features: [
+        {
+          properties: {
+            id: "urn:oid:2.49.0.1.840.0.tornado.1",
+            event: "Tornado Warning",
+            parameters: { tornadoDamageThreat: ["CATASTROPHIC"] },
+          },
+        },
+      ],
+    };
+    const polygons = {
+      features: [
+        {
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-97, 35],
+                [-96, 35],
+                [-96, 36],
+                [-97, 36],
+                [-97, 35],
+              ],
+            ],
+          },
+          properties: {
+            prod_type: "Tornado Warning",
+            sig: "W",
+            cap_id: "urn:oid:2.49.0.1.840.0.tornado.1",
+            wfo: "OUN",
+          },
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: unknown) =>
+        String(url).includes("api.weather.gov")
+          ? new Response(JSON.stringify(tagFeed), { status: 200 })
+          : new Response(JSON.stringify(polygons), { status: 200 }),
+      ),
+    );
+
+    const first = await alertsOverlay.fetchData({
+      west: -100,
+      south: 30,
+      east: -90,
+      north: 40,
+    });
+    expect(first.features).toHaveLength(1);
+    expect(first.features[0].properties.impact).toBe("catastrophic");
+  });
+
+  it("does not announce a standing warning twice while its tag catches up", async () => {
+    // The same thing measured where it was heard: the watch says a warning is
+    // worse than it was told, and re-announcing is how it says so. A tag that
+    // simply had not been read yet is not the office changing its mind.
+    const { alertsToAnnounce } = await import("../watch");
+    const tagFeed = {
+      features: [
+        {
+          properties: {
+            id: "urn:oid:2.49.0.1.840.0.tornado.2",
+            event: "Tornado Warning",
+            parameters: { tornadoDamageThreat: ["CATASTROPHIC"] },
+          },
+        },
+      ],
+    };
+    const polygons = {
+      features: [
+        {
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-97.6, 35.4],
+                [-97.4, 35.4],
+                [-97.4, 35.6],
+                [-97.6, 35.6],
+                [-97.6, 35.4],
+              ],
+            ],
+          },
+          properties: {
+            prod_type: "Tornado Warning",
+            sig: "W",
+            cap_id: "urn:oid:2.49.0.1.840.0.tornado.2",
+            wfo: "OUN",
+            expire: Date.now() + 3_600_000,
+          },
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: unknown) =>
+        String(url).includes("api.weather.gov")
+          ? new Response(JSON.stringify(tagFeed), { status: 200 })
+          : new Response(JSON.stringify(polygons), { status: 200 }),
+      ),
+    );
+
+    const watch = {
+      enabled: true,
+      center: [-97.5, 35.5] as [number, number],
+      radiusMiles: 50,
+      minSeverity: "severe" as const,
+      sound: false,
+      label: "home",
+    };
+    const bounds = { west: -100, south: 30, east: -90, north: 40 };
+    const announced = new Map<string, number>();
+    const heard: string[] = [];
+    const now = Date.now();
+
+    for (let pass = 0; pass < 2; pass += 1) {
+      const data = await alertsOverlay.fetchData(bounds);
+      for (const alert of alertsToAnnounce(data, watch, announced, now)) {
+        heard.push(alert.impact);
+        announced.set(alert.id, alert.rank);
+      }
+    }
+
+    expect(heard).toEqual(["catastrophic"]);
+  });
+
+  it("never waits for the tags again once it has them", async () => {
+    // The wait is a cold start only. The feed is a megabyte and a half of
+    // every alert in the country and it goes stale every minute, so waiting on
+    // the refresh would put it in front of the polygons on the first pan after
+    // each minute, which is the thing the shared cache exists to avoid.
+    const polygons = { features: [] };
+    const tagFeed = { features: [] };
+    let tagReads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: unknown) => {
+        if (!String(url).includes("api.weather.gov")) {
+          return new Response(JSON.stringify(polygons), { status: 200 });
+        }
+        tagReads += 1;
+        // The first read answers. The refresh never does, which is what a
+        // feed having a bad minute looks like.
+        if (tagReads === 1) {
+          return new Response(JSON.stringify(tagFeed), { status: 200 });
+        }
+        return new Promise<Response>(() => {});
+      }),
+    );
+
+    const bounds = { west: -100, south: 30, east: -90, north: 40 };
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await alertsOverlay.fetchData(bounds);
+      expect(tagReads).toBe(1);
+
+      // Past the minute the tags are held for, so the next read starts one.
+      await vi.advanceTimersByTimeAsync(61_000);
+
+      let settled = false;
+      const second = alertsOverlay.fetchData(bounds).then((data) => {
+        settled = true;
+        return data;
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(settled, "the polygons waited on a tag feed that never answered").toBe(
+        true,
+      );
+      await second;
+      expect(tagReads).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reads the tag feed once for a run of views", async () => {
     // It is a megabyte and a half of every active alert in the country,
     // unpaginated, and it is asked for beside every bounds-limited polygon
