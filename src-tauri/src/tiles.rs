@@ -89,7 +89,7 @@ pub async fn serve(uri: &str) -> Served {
 
     match http::get_typed(&url).await {
         Ok((body, content_type)) => {
-            cache::put(&url, &content_type, &body);
+            cache::put_async(&url, &content_type, &body).await;
             Served {
                 status: 200,
                 content_type,
@@ -97,7 +97,7 @@ pub async fn serve(uri: &str) -> Served {
                 body,
             }
         }
-        Err(error) => match cache::get(&url) {
+        Err(error) => match cache::get_async(&url).await {
             Some(held) => {
                 log::info!(
                     "OpenRadar served {url} from its cache, {} s old: {error}",
