@@ -101,7 +101,9 @@ Windows x64 is the only target that is built and tested. Tauri 2 itself runs on 
 
 ## Privacy
 
-Nothing about you leaves the machine. There is no account, no telemetry, no crash reporting and no sync. The app talks to a fixed list of public data hosts and nothing else, enforced in Rust rather than in the page, and you can read the whole list in Diagnostics while it runs. Settings are plain JSON on disk. Logs are plain text on disk.
+OpenRadar has no account, telemetry, crash reporting or sync. Settings and logs stay on this machine.
+
+The app sends the information needed to answer a request to fixed public providers. Typed place names and forecast coordinates go to Open-Meteo. Route start and end points go to OSRM, and points along that route go to Open-Meteo for the weather check. Map and radar requests go to the sources listed in Diagnostics. Those services receive the request and your IP address. Rust limits the desktop app to its configured hosts.
 
 ## Build from source
 
