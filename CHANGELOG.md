@@ -2,6 +2,8 @@
 
 ## Next release
 
+- GIF encoding now runs in a worker instead of freezing the map while it reduces colours and compresses frames. Shared GIFs use a 960-pixel cap, bounded palette sampling, and chunked byte storage, which cuts the peak memory held for a full loop while keeping the radar scale and burned-in caption readable.
+
 - The release command now runs the frontend, native, and headless browser gates before it builds. It verifies the updater signature against the configured public key, records the exact commit and artifact hashes, refuses a stale skipped build, and creates the version tag from that proved commit when publishing.
 
 - The compact layout keeps Commands visible, including at 130 percent text size. Commands now reaches Storm Cells, ProbSevere, Wind, and radar products, so a control hidden to make the window fit does not make that part of the app unreachable.

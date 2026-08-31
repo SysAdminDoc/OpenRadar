@@ -1,5 +1,5 @@
 import { translate } from "../i18n";
-import { encodeGif, indexFrame, quantise } from "./gif";
+import { encodeGifOffThread } from "./gifWorker";
 
 export interface ExportCaption {
   /** Frame time, source name, and anything else that names the picture. */
@@ -15,10 +15,6 @@ const LOOP_BITS_PER_SECOND = 2_500_000;
 export const MAX_LOOP_BYTES = 20 * 1024 * 1024;
 /** A WebM with no frames in it is a few hundred bytes of headers. */
 export const MIN_LOOP_BYTES = 2_000;
-
-function scaleFor(source: HTMLCanvasElement): number {
-  return source.width > MAX_WIDTH ? MAX_WIDTH / source.width : 1;
-}
 
 /**
  * Draws the map as it stands with the caption burned into the corner, so a
@@ -62,8 +58,11 @@ export function drawFrame(
   });
 }
 
-function exportCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
-  const scale = scaleFor(source);
+function exportCanvas(
+  source: HTMLCanvasElement,
+  maxWidth = MAX_WIDTH,
+): HTMLCanvasElement {
+  const scale = source.width > maxWidth ? maxWidth / source.width : 1;
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(source.width * scale);
   canvas.height = Math.round(source.height * scale);
@@ -181,6 +180,8 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
  * send. The newest are the ones worth keeping.
  */
 export const MAX_GIF_FRAMES = 24;
+/** Chat GIFs stay readable here without keeping 24 desktop-size RGBA frames. */
+export const MAX_GIF_WIDTH = 960;
 
 /**
  * The same loop as a GIF, because a WebM will not paste into most chats.
@@ -201,7 +202,7 @@ export async function exportLoopGif(options: LoopExportOptions): Promise<Blob> {
   } = options;
   if (frameCount < 1) throw new Error(translate("export.noFrames"));
 
-  const canvas = exportCanvas(source);
+  const canvas = exportCanvas(source, MAX_GIF_WIDTH);
   const context = canvas.getContext("2d");
   if (!context) throw new Error(translate("export.noCanvas"));
 
@@ -216,15 +217,11 @@ export async function exportLoopGif(options: LoopExportOptions): Promise<Blob> {
     onProgress?.(index - first + 1, wanted);
   }
 
-  const palette = quantise(pictures);
-  const blob = encodeGif(
-    pictures.map((pixels) => ({
-      indices: indexFrame(pixels, palette),
-      delayMs: frameDurationMs,
-    })),
+  const blob = await encodeGifOffThread(
+    pictures,
     canvas.width,
     canvas.height,
-    palette,
+    frameDurationMs,
   );
 
   // No floor here, unlike the video. A WebM that recorded nothing still comes

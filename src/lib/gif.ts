@@ -10,6 +10,8 @@
 
 /** The most colours a GIF can hold. */
 export const MAX_COLOURS = 256;
+/** Enough pixels to keep map furniture and every radar ramp without a huge set. */
+const MAX_PALETTE_SAMPLES = 250_000;
 
 /** One frame, already reduced to indices into a shared palette. */
 export interface IndexedFrame {
@@ -85,8 +87,15 @@ export function quantise(
   wanted = MAX_COLOURS,
 ): Palette {
   const seen = new Set<number>();
+  const pixelsTotal = pixels.reduce(
+    (total, frame) => total + frame.length / 4,
+    0,
+  );
+  const stride = Math.max(1, Math.ceil(pixelsTotal / MAX_PALETTE_SAMPLES));
+  let pixel = 0;
   for (const frame of pixels) {
     for (let at = 0; at + 3 < frame.length; at += 4) {
+      if (pixel++ % stride !== 0) continue;
       seen.add((frame[at] << 16) | (frame[at + 1] << 8) | frame[at + 2]);
     }
   }
@@ -169,26 +178,46 @@ export function indexFrame(
 
 /** Bytes, grown as they are written. */
 class Writer {
-  private bytes: number[] = [];
+  private readonly chunks: Uint8Array[] = [];
+  private bytes = new Uint8Array(64 * 1024);
+  private used = 0;
+  private total = 0;
+
+  private flush(): void {
+    if (!this.used) return;
+    this.chunks.push(this.bytes.slice(0, this.used));
+    this.total += this.used;
+    this.bytes = new Uint8Array(64 * 1024);
+    this.used = 0;
+  }
 
   byte(value: number): void {
-    this.bytes.push(value & 0xff);
+    if (this.used === this.bytes.length) this.flush();
+    this.bytes[this.used++] = value & 0xff;
   }
 
   short(value: number): void {
-    this.bytes.push(value & 0xff, (value >> 8) & 0xff);
+    this.byte(value);
+    this.byte(value >> 8);
   }
 
   raw(values: ArrayLike<number>): void {
-    for (let at = 0; at < values.length; at += 1) this.bytes.push(values[at]);
+    for (let at = 0; at < values.length; at += 1) this.byte(values[at]);
   }
 
   text(value: string): void {
-    for (const letter of value) this.bytes.push(letter.charCodeAt(0));
+    for (const letter of value) this.byte(letter.charCodeAt(0));
   }
 
   done(): Uint8Array {
-    return new Uint8Array(this.bytes);
+    this.flush();
+    const out = new Uint8Array(this.total);
+    let at = 0;
+    for (const chunk of this.chunks) {
+      out.set(chunk, at);
+      at += chunk.length;
+    }
+    return out;
   }
 }
 
@@ -279,12 +308,14 @@ export function paletteBits(count: number): number {
  * same map and a palette a frame would be four kilobytes each for no gain.
  */
 export function encodeGif(
-  frames: readonly IndexedFrame[],
+  frames: Iterable<IndexedFrame>,
   width: number,
   height: number,
   palette: Palette,
 ): Blob {
-  if (!frames.length) throw new Error("a loop with no frames in it");
+  const iterator = frames[Symbol.iterator]();
+  const first = iterator.next();
+  if (first.done) throw new Error("a loop with no frames in it");
   const bits = paletteBits(palette.count);
   const out = new Writer();
 
@@ -307,7 +338,14 @@ export function encodeGif(
   out.short(0);
   out.byte(0);
 
-  for (const frame of frames) {
+  function* everyFrame(): Iterable<IndexedFrame> {
+    yield first.value;
+    for (let next = iterator.next(); !next.done; next = iterator.next()) {
+      yield next.value;
+    }
+  }
+
+  for (const frame of everyFrame()) {
     out.byte(0x21);
     out.byte(0xf9);
     out.byte(4);
@@ -337,4 +375,20 @@ export function encodeGif(
 
   out.byte(0x3b);
   return new Blob([out.done()], { type: "image/gif" });
+}
+
+/** Indexes one picture at a time so indexed copies never all occupy memory. */
+export function encodeGifPictures(
+  pictures: readonly Uint8ClampedArray[],
+  width: number,
+  height: number,
+  delayMs: number,
+): Blob {
+  const palette = quantise(pictures);
+  function* indexed(): Iterable<IndexedFrame> {
+    for (const pixels of pictures) {
+      yield { indices: indexFrame(pixels, palette), delayMs };
+    }
+  }
+  return encodeGif(indexed(), width, height, palette);
 }
