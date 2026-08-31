@@ -6,13 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P1
 
-- [ ] AUD-071: Cache bounded decoded Level II volumes for instant tilt and product changes
-      Why: The existing four-volume cache keeps compressed bytes, then constructs and scans the same volume for every product or tilt request. Volume exploration pays repeated CPU and allocation cost.
-      Evidence: `src-tauri/src/level2.rs`; `src/hooks/useSingleSiteRadar.ts`; https://github.com/FahrenheitResearch/bowecho ; https://github.com/danielway/nexrad-workbench
-      Touches: Level II acquisition, decoded scan ownership, memory budget, invalidation, product rendering
-      Acceptance: The first request decodes once per volume identity; later tilt or supported-product changes reuse the scan; live and finished generations cannot cross; a strict byte and entry budget evicts deterministically; fixture tests prove reuse and invalidation; repeated tilt changes remain responsive on the reference machine.
-      Complexity: L
-
 - [ ] AUD-072: Add local Archive II import and arbitrary site and date browsing
       Why: Local files and historical volume review are standard research and incident-analysis workflows in NEXRAD Workbench, RadarScope, and scientific tools. OpenRadar currently opens live or recent provider frames, not a user-selected Archive II volume.
       Evidence: `src-tauri/src/level2.rs`; `src/hooks/useSingleSiteRadar.ts`; https://github.com/danielway/nexrad-workbench ; https://registry.opendata.aws/noaa-nexrad/ ; https://www.ncei.noaa.gov/products/weather-climate-toolkit
