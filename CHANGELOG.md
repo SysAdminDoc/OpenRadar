@@ -1,6 +1,6 @@
 # Changelog
 
-## OpenRadar v0.3.0 (unreleased)
+## OpenRadar v0.3.0
 
 - Germany has radar. Europe had none: the American mosaics stop at the coast, the Canadian service is Canada, and everywhere else fell through to a feed licensed for personal use only. The German weather service publishes a composite of its seventeen radars every five minutes, keyless, and that is what a map over Germany now draws, with the colours the service paints it in rather than the American ones. Past fifty decibels it turns blue and then magenta, which is the German convention for hail and not a fault. The service is offered with no availability guarantee, so what was there before is still behind it.
 
