@@ -14,6 +14,23 @@ use std::io::Write;
 
 use chrono::{DateTime, Utc};
 
+/// What one gate reads.
+///
+/// The first two counts of every moment are reserved: nothing measured, and a
+/// return whose range the radar cannot place. A fixture that could not write
+/// them left both decode paths uncovered, and a test that wanted to say the
+/// radar had looked and found nothing had to plant a very weak reading and
+/// rely on the ramp drawing it clear, which is not the same thing.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Gate {
+    /// A reading, in the moment's own unit.
+    Reading(f32),
+    /// The radar looked and there was nothing above its threshold.
+    Nothing,
+    /// A return the radar cannot say the range of.
+    RangeFolded,
+}
+
 /// One radial's worth of readings.
 pub struct Radial {
     pub azimuth_degrees: f32,
@@ -23,10 +40,15 @@ pub struct Radial {
     /// The velocity this cut folds at, in metres a second.
     pub nyquist_ms: f32,
     pub collected: DateTime<Utc>,
+    /// How far apart this cut's radials are, in degrees. Written into the
+    /// header as the code the ICD gives it, and it has to be the spacing the
+    /// radials are actually at: the drawing reads the header to decide how
+    /// wide a wedge each radial stands for.
+    pub azimuth_spacing_degrees: f32,
     /// Reflectivity in dBZ, one per gate.
-    pub reflectivity: Vec<f32>,
+    pub reflectivity: Vec<Gate>,
     /// Velocity in metres a second, one per gate, or empty for no velocity.
-    pub velocity: Vec<f32>,
+    pub velocity: Vec<Gate>,
 }
 
 /// Where the radar stands.
@@ -54,9 +76,15 @@ const VELOCITY_OFFSET: f32 = 129.0;
 /// The first two counts are reserved: nothing measured, and range folded.
 const FIRST_REAL_COUNT: f32 = 2.0;
 
-fn scaled(value: f32, scale: f32, offset: f32) -> u8 {
-    let count = (value * scale + offset).round();
-    count.clamp(FIRST_REAL_COUNT, 255.0) as u8
+fn scaled(gate: Gate, scale: f32, offset: f32) -> u8 {
+    match gate {
+        Gate::Nothing => 0,
+        Gate::RangeFolded => 1,
+        Gate::Reading(value) => {
+            let count = (value * scale + offset).round();
+            count.clamp(FIRST_REAL_COUNT, 255.0) as u8
+        }
+    }
 }
 
 /// The 24-byte Archive II header a volume opens with.
@@ -172,7 +200,17 @@ pub fn radial_message(site: &Site, radial: &Radial) -> Vec<u8> {
         + reflectivity.len()
         + velocity.as_ref().map_or(0, Vec::len);
     message.extend_from_slice(&(body as u16).to_be_bytes());
-    message.push(1); // half-degree radials
+    // The code the ICD gives the spacing: one for half a degree, two for a
+    // whole one. What is written here has to be the spacing the radials are
+    // actually at, because the drawing reads it to decide how wide a wedge
+    // each radial stands for. Declaring half a degree while writing whole ones
+    // left 29 per cent of a swept sector showing the volume underneath, and
+    // the tests passed against the stripes.
+    message.push(if radial.azimuth_spacing_degrees <= 0.5 {
+        1
+    } else {
+        2
+    });
     message.push(1); // intermediate radial
     message.push(radial.elevation_number);
     message.push(0); // cut sector
@@ -276,7 +314,7 @@ pub fn coverage_pattern_message(at: DateTime<Utc>, angles: &[f32]) -> Vec<u8> {
 /// A message that is not type 31 occupies a frame of exactly this size.
 const FRAME_BYTES: usize = 2432;
 
-fn moment_block(name: &[u8; 4], values: &[f32], scale: f32, offset: f32) -> Vec<u8> {
+fn moment_block(name: &[u8; 4], values: &[Gate], scale: f32, offset: f32) -> Vec<u8> {
     let mut out = Vec::with_capacity(28 + values.len());
     out.extend_from_slice(name);
     out.extend_from_slice(&0u32.to_be_bytes()); // reserved
@@ -289,8 +327,8 @@ fn moment_block(name: &[u8; 4], values: &[f32], scale: f32, offset: f32) -> Vec<
     out.push(8); // one byte a gate
     out.extend_from_slice(&scale.to_be_bytes());
     out.extend_from_slice(&offset.to_be_bytes());
-    for value in values {
-        out.push(scaled(*value, scale, offset));
+    for gate in values {
+        out.push(scaled(*gate, scale, offset));
     }
     out
 }
@@ -341,9 +379,9 @@ pub struct Cut {
     /// How many radials go all the way round.
     pub radials: u16,
     pub gates: usize,
-    pub reflectivity_dbz: f32,
+    pub reflectivity: Gate,
     /// Velocity for every gate, or None for a cut with no velocity in it.
-    pub velocity_ms: Option<f32>,
+    pub velocity: Option<Gate>,
     /// What velocity folds at, in metres a second.
     pub nyquist_ms: f32,
 }
@@ -355,8 +393,8 @@ impl Default for Cut {
             degrees: 0.5,
             radials: 360,
             gates: 200,
-            reflectivity_dbz: 20.0,
-            velocity_ms: None,
+            reflectivity: Gate::Reading(20.0),
+            velocity: None,
             nyquist_ms: 8.0,
         }
     }
@@ -367,17 +405,19 @@ impl Default for Cut {
 /// Every gate of every radial reads the same, so a test can say exactly what
 /// the picture should hold and notice anything that changes it.
 pub fn flat_cut(at: DateTime<Utc>, cut: Cut) -> Vec<Radial> {
+    let spacing = 360.0 / cut.radials as f32;
     (0..cut.radials)
         .map(|number| Radial {
-            azimuth_degrees: number as f32 * (360.0 / cut.radials as f32),
+            azimuth_degrees: number as f32 * spacing,
             azimuth_number: number + 1,
             elevation_number: cut.number,
             elevation_degrees: cut.degrees,
             nyquist_ms: cut.nyquist_ms,
             collected: at,
-            reflectivity: vec![cut.reflectivity_dbz; cut.gates],
+            azimuth_spacing_degrees: spacing,
+            reflectivity: vec![cut.reflectivity; cut.gates],
             velocity: cut
-                .velocity_ms
+                .velocity
                 .map_or_else(Vec::new, |speed| vec![speed; cut.gates]),
         })
         .collect()

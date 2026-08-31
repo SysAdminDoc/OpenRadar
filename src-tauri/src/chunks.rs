@@ -433,8 +433,8 @@ mod tests {
                 at,
                 fixture::Cut {
                     gates: 40,
-                    reflectivity_dbz: 35.0,
-                    velocity_ms: Some(12.0),
+                    reflectivity: fixture::Gate::Reading(35.0),
+                    velocity: Some(fixture::Gate::Reading(12.0)),
                     ..fixture::Cut::default()
                 },
             ),
@@ -444,7 +444,7 @@ mod tests {
                     number: 2,
                     degrees: 1.5,
                     gates: 40,
-                    velocity_ms: Some(-6.0),
+                    velocity: Some(fixture::Gate::Reading(-6.0)),
                     ..fixture::Cut::default()
                 },
             ),
@@ -510,8 +510,8 @@ mod tests {
                 fixture::Cut {
                     radials: 8,
                     gates: 4,
-                    reflectivity_dbz: 35.0,
-                    velocity_ms: Some(12.0),
+                    reflectivity: fixture::Gate::Reading(35.0),
+                    velocity: Some(fixture::Gate::Reading(12.0)),
                     nyquist_ms: 8.25,
                     ..fixture::Cut::default()
                 },
@@ -523,7 +523,7 @@ mod tests {
                     degrees: 1.5,
                     radials: 8,
                     gates: 4,
-                    velocity_ms: Some(-6.0),
+                    velocity: Some(fixture::Gate::Reading(-6.0)),
                     nyquist_ms: 31.5,
                     ..fixture::Cut::default()
                 },

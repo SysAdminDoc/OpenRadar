@@ -6,18 +6,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
-- [ ] P1 — `unfold_velocity` rewrites the field and then reports that it did not
-  Why: it writes the corrected gates back and then decides what to answer by looking for a reading outside `nyquist * 1.01`. A genuine fold corrected to just inside that slack answers false, so the legend says the picture is the radar's own reading and the narrow ramp is chosen for a field that has been changed. The doc comment still says nothing is written when it answers no.
-  Evidence: two flat regions at ±24.8 m/s with nyquist 25 come back at ±25.2, inside the 25.25 slack: "unfold_velocity answered false; 1800 of 3600 gates were rewritten".
-  Touches: src-tauri/src/level2.rs
-  Acceptance: the answer and the writing agree; a field that was changed never reports itself unchanged; the calm-sweep case that the old share gate existed for is still covered.
-
-- [ ] P1 — A tilt is matched between the two volumes within 0.01 degrees, and real angles move further than that
-  Why: `sweep_field_at` demands the angles agree to a hundredth of a degree, but a sweep's angle is the median of its radials' measured elevations and moves by a full VCP quantisation step between volumes. About one tilt in ten silently loses its live sweep and falls back to the archive with no message.
-  Evidence: consecutive archive volumes: KTLX 3.08 to 3.12, KJAX 5.05 to 5.10, KOKX 4.04 to 4.00; 8 of 9, 8 of 9 and 14 of 15 cuts matched.
-  Touches: src-tauri/src/level2.rs
-  Acceptance: a live cut whose angle has drifted a quantisation step is still matched; two cuts a real tilt apart are still not; a test builds the two volumes at different angles rather than the same one.
-
 - [ ] P1 — The live path re-downloads the whole volume every twenty seconds and turns the disk cache over every nine minutes
   Why: `newest_volume(station, None)` costs 43 listings because the `known` fast path is never used, and `assemble` fetches every chunk again on every refresh. About 7,700 listings and 6,300 objects an hour for one site, close to a gigabyte, and roughly 78 new cache entries a refresh against a 2,048-entry budget, which flushes the tiles and grids the offline view depends on.
   Evidence: census of 23,098 KTLX keys: 55 chunks / 7.53 MB a volume, 0.41 MB of listing XML a refresh, 43 LIST requests measured by replaying the walk.
@@ -53,18 +41,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Evidence: the nine-station table above, where the two columns disagree by up to 68 points.
   Touches: src-tauri/src/level2.rs
   Acceptance: the live test reports both what the picture looks like and how many gates are actually on the branch they started on, and says which of the two it is asserting.
-
-- [ ] P1 — The fixture declares half-degree radials and writes whole-degree ones
-  Why: `fixture.rs` writes an azimuth resolution byte of 1, which means 0.5 degrees, while `flat_cut` and `sector` place radials a degree apart. `swept_pixels` sizes each wedge from the declared spacing, so 29 per cent of the swept sector keeps the previous volume and the sector tests pass against a striped picture. A mutation shrinking the mask to a tenth of a degree survives, because both sample bearings land on a radial.
-  Evidence: "inside the swept quarter at 40 km: 497 took the new sweep, 203 kept the old one, of 700 comparable".
-  Touches: src-tauri/src/fixture.rs, src-tauri/src/level2.rs
-  Acceptance: what the fixture declares is what it writes; the whole swept sector takes the new sweep; shrinking the mask turns a test red.
-
-- [ ] P1 — The fixture cannot say the radar looked and found nothing
-  Why: `scaled` clamps to the first real count, so the two reserved counts, below threshold and range folded, are unreachable and no test covers either decode path. The test that says a storm has moved off the picture plants minus thirty dBZ, which is a real reading the ramp happens to draw clear.
-  Evidence: "-30 dBZ came back as -30 with status Valid".
-  Touches: src-tauri/src/fixture.rs, src-tauri/src/level2.rs
-  Acceptance: a fixture gate can be below threshold or range folded and decodes as such; the moved-on test plants a gate the radar reports as nothing.
 
 - [ ] P1 — `wrap(0)` panics
   Why: `((volume - 1) % VOLUMES) + 1` on an unsigned integer. Unreachable today only because the folder number is never fed back, which is exactly the path the type's own documentation describes.
