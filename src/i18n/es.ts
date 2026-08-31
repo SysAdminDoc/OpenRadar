@@ -317,6 +317,11 @@ export const es: Catalogue = {
   "diagnostics.recentEvents": "Eventos recientes",
   "diagnostics.openLogs": "Abrir la carpeta de registros",
   "diagnostics.copy": "Copiar para un informe de fallo",
+  "diagnostics.whatIsCopied":
+    "El informe lleva la versión de la app, el renderizador y la plataforma de esta máquina, qué fuentes respondieron, qué hay guardado en disco y el registro reciente. Las coordenadas del registro se redondean a un kilómetro aproximado y los nombres de cuenta se quitan de las rutas de archivo.",
+  "diagnostics.includePlace":
+    "Incluir mi lugar vigilado, redondeado a un kilómetro aproximado",
+  "diagnostics.watchedPlace": "Lugar vigilado",
   "diagnostics.copied": "Diagnóstico copiado",
   "diagnostics.copiedBody":
     "Versión, motor de dibujo, qué fuentes respondieron y el final del registro. Sin coordenadas más finas que un kilómetro y sin nombres de carpeta.",

@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import type { Palette } from "../lib/palette";
 import type { UpdateState } from "../lib/updates";
@@ -101,7 +102,13 @@ interface MorePanelProps extends CloseOnlyProps {
   health: ProviderHealth[];
   log: LogEntry[];
   onOpenLogFolder: () => void;
-  onCopyDiagnostics: () => void;
+  /**
+   * Copies the report. The argument is whether the reader asked for their
+   * watched place to be in it, which is off until they say so.
+   */
+  onCopyDiagnostics: (withPlace: boolean) => void;
+  /** Whether there is a watched place to offer in the first place. */
+  hasWatchedPlace: boolean;
 }
 
 function clockLabel(at: number): string {
@@ -130,8 +137,12 @@ export function MorePanel({
   log,
   onOpenLogFolder,
   onCopyDiagnostics,
+  hasWatchedPlace,
 }: MorePanelProps) {
   const t = useT();
+  // Off every time the panel opens. A switch that remembered would quietly
+  // put somebody's home in the next report they sent.
+  const [withPlace, setWithPlace] = useState(false);
   return (
     <PanelShell
       eyebrow={t("diagnostics.eyebrow", { version: APP_VERSION })}
@@ -200,13 +211,24 @@ export function MorePanel({
       <div className="diagnostics-log">
         <div className="diagnostics-log__title">
           <span>{t("diagnostics.recentEvents")}</span>
-          <button type="button" onClick={onCopyDiagnostics}>
+          <button type="button" onClick={() => onCopyDiagnostics(withPlace)}>
             <ClipboardCopy size={14} /> {t("diagnostics.copy")}
           </button>
           <button type="button" onClick={onOpenLogFolder}>
             <FolderOpen size={14} /> {t("diagnostics.openLogs")}
           </button>
         </div>
+        <p className="source-note">{t("diagnostics.whatIsCopied")}</p>
+        {hasWatchedPlace ? (
+          <label className="diagnostics-consent">
+            <input
+              type="checkbox"
+              checked={withPlace}
+              onChange={(event) => setWithPlace(event.target.checked)}
+            />
+            <span>{t("diagnostics.includePlace")}</span>
+          </label>
+        ) : null}
         {log.length ? (
           <ol>
             {log

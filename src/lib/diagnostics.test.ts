@@ -266,3 +266,136 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
     expect(block).toContain("cache 2400s old");
   });
 });
+
+describe("what a report is allowed to carry", () => {
+  const machine = {
+    renderer: "ANGLE (NVIDIA GeForce RTX 4070)",
+    mapReady: true,
+    radarReady: true,
+    activeSource: "NWS RIDGE II",
+    health: [],
+    log: [],
+  };
+
+  it("says what is held on disk, which is half of what gets reported", () => {
+    const block = diagnosticsBlock({
+      ...machine,
+      cache: {
+        servedAgeSeconds: 2400,
+        packs: 2,
+        packBytes: 320 * 1024 * 1024,
+        selectedPack: true,
+        packLimitMb: 2048,
+      },
+    });
+    expect(block).toContain("served from the cache, 2400 s old");
+    expect(block).toContain(
+      "Offline packs: 2 · 320 MB of 2048 MB · one in use",
+    );
+  });
+
+  it("says a loop came off the network rather than saying nothing", () => {
+    const block = diagnosticsBlock({
+      ...machine,
+      cache: {
+        servedAgeSeconds: null,
+        packs: 0,
+        packBytes: 0,
+        selectedPack: false,
+        packLimitMb: 2048,
+      },
+    });
+    expect(block).toContain("Last loop: from the network");
+    expect(block).toContain("Offline packs: 0");
+  });
+
+  it("counts the recent problems by area before listing them", () => {
+    const at = Date.UTC(2026, 7, 30, 12);
+    const block = diagnosticsBlock({
+      ...machine,
+      log: [
+        { at, level: "warn", scope: "radar", message: "a source was slow" },
+        { at, level: "warn", scope: "radar", message: "and again" },
+        { at, level: "error", scope: "radar", message: "and then it stopped" },
+        { at, level: "warn", scope: "map", message: "a tile did not arrive" },
+        { at, level: "info", scope: "app", message: "nothing is wrong here" },
+      ],
+    });
+    expect(block).toContain("Recent problems:");
+    expect(block).toContain("map: 1 warn");
+    expect(block).toContain("radar: 1 error, 2 warn");
+    // An ordinary line is not a problem and is not counted as one.
+    expect(block).not.toContain("  app: ");
+  });
+
+  it("keeps the log to a length somebody will read", () => {
+    const at = Date.UTC(2026, 7, 30, 12);
+    const log = Array.from({ length: 120 }, (_, index) => ({
+      at: at + index * 1000,
+      level: "info" as const,
+      scope: "app",
+      message: `line ${index}`,
+    }));
+    const block = diagnosticsBlock({ ...machine, log });
+    expect(block).toContain("Log (last 40 of 120):");
+    // The newest are the ones kept.
+    expect(block).toContain("line 119");
+    expect(block).not.toContain("line 79");
+  });
+
+  it("leaves the reader's place out until they ask for it", () => {
+    const place = {
+      label: "Watched place",
+      latitude: 41.7312,
+      longitude: -93.7234,
+    };
+    const without = diagnosticsBlock({ ...machine });
+    expect(without).not.toContain("Watched place");
+    expect(without).not.toContain("41.7");
+
+    // And when they do ask, it is still rounded to about a kilometre rather
+    // than to the ten metres the setting holds.
+    const asked = diagnosticsBlock({ ...machine, place });
+    expect(asked).toContain("Watched place (added by the reader):");
+    expect(asked).toContain("Watched place: 41.7, -93.7");
+    expect(asked).not.toContain("41.7312");
+  });
+
+  it("carries nothing that names the machine's owner", () => {
+    const at = Date.UTC(2026, 7, 30, 12);
+    const block = diagnosticsBlock({
+      ...machine,
+      platform: "Windows 11",
+      webview: "WebView2 140.0.7339.16",
+      log: [
+        {
+          at,
+          level: "error",
+          scope: "cache",
+          // The three shapes a Windows profile actually takes: the ordinary
+          // one, a redirected profile root, and a roaming one on a share.
+          message:
+            "wrote C:\\Users\\John Smith\\AppData\\Local\\OpenRadar\\tiles\\a.png " +
+            "and D:\\Profiles\\jsmith\\OpenRadar\\b.png " +
+            "and \\\\fileserver\\Users\\jsmith\\OpenRadar\\c.png",
+        },
+        {
+          at,
+          level: "warn",
+          scope: "watch",
+          message: "no alerts near 41.7312, -93.7234",
+        },
+      ],
+    });
+    for (const name of ["John Smith", "jsmith", "Profiles", "fileserver"]) {
+      expect(block, name).not.toContain(name);
+    }
+    expect(block).toContain("<home>");
+    // The position is still there to the kilometre, which is what makes the
+    // report useful without making it personal.
+    expect(block).toContain("41.7, -93.7");
+    expect(block).not.toContain("41.7312");
+    // And the one version-shaped number that has to survive did.
+    expect(block).toContain("WebView2 140.0.7339.16");
+  });
+});

@@ -95,7 +95,8 @@ interface PanelSurfacesProps {
   onWatchHere: () => void;
   onSendWatchTest: () => void;
   onOpenLogFolder: () => void;
-  onCopyDiagnostics: () => void;
+  onCopyDiagnostics: (withPlace: boolean) => void;
+  hasWatchedPlace: boolean;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
 }
@@ -246,6 +247,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           log={props.log}
           onOpenLogFolder={props.onOpenLogFolder}
           onCopyDiagnostics={props.onCopyDiagnostics}
+          hasWatchedPlace={props.hasWatchedPlace}
           onClose={onClose}
         />
       ) : null}

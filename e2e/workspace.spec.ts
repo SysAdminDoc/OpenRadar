@@ -397,6 +397,49 @@ test("records a failed radar source in diagnostics", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("leaves the reader's place out of a report unless they add it", async ({
+  page,
+  context,
+}) => {
+  // The place is the one thing in the report that is about the person rather
+  // than the machine. The switch that adds it is beside the button that acts
+  // on it, and it starts off every time the panel opens.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/?testMode=1&lon=-93.7123&lat=41.7456&zoom=9");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Tell me about warnings" }).check();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  const consent = page.getByRole("checkbox", {
+    name: /Include my watched place/,
+  });
+  await expect(consent).not.toBeChecked();
+
+  await page.getByRole("button", { name: "Copy for a bug report" }).click();
+  await expect(page.getByText("Diagnostics copied")).toBeVisible();
+  const without = await page.evaluate(() => navigator.clipboard.readText());
+  expect(without).not.toContain("Watched place");
+
+  await consent.check();
+  await page.getByRole("button", { name: "Copy for a bug report" }).click();
+  const asked = await page.evaluate(() => navigator.clipboard.readText());
+  expect(asked).toContain("Watched place (added by the reader):");
+  // Still rounded to about a kilometre, which is what the app holds it to
+  // everywhere else in the report.
+  expect(asked).toMatch(/Watched place: -?\d+\.\d, -?\d+\.\d\b/);
+  expect(asked).not.toContain("41.7456");
+
+  // And it is off again the next time the panel is opened, rather than
+  // remembering a decision somebody made once about one report.
+  await page.getByRole("button", { name: "Close Diagnostics" }).click();
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: /Include my watched place/ }),
+  ).not.toBeChecked();
+});
+
 test("hands over a diagnostics block with nothing private in it", async ({
   page,
   context,

@@ -370,151 +370,176 @@ export default function App() {
   // block goes through the redaction: a radar workspace knows where its reader
   // lives to four decimal places, and their account name from every path it
   // has ever logged.
-  const copyDiagnostics = useCallback(() => {
-    const now = Date.now();
-    // What is actually on the map right now, each layer saying where it came
-    // from and what it claims. Only the frame on screen and the overlays that
-    // are both switched on and holding data, because a record for something
-    // the reader cannot see would be describing a different picture from the
-    // one they are writing about.
-    const layers: Provenance[] = [];
-    const shown = timeline.frames[timeline.frameIndex];
-    if (shown) {
-      // How long a loop stays fresh is the gap between its own frames, which
-      // is what the provider publishes on. Two frames are needed to know it,
-      // and a single-frame loop simply does not say.
-      const step =
-        timeline.frames.length > 1
-          ? (timeline.frames[1].time - timeline.frames[0].time) * 1000
-          : null;
-      layers.push(
-        radarProvenance({
-          frame: shown,
-          provider: timeline.source,
-          fetchedAt: now,
-          // What the timeline already knew and the record was throwing away:
-          // whether these bytes came off the disk, and how old they were when
-          // they did. It is the first thing worth knowing about a picture that
-          // looks wrong.
-          cachedAgeSeconds: timeline.cachedAgeSeconds,
-          freshForMs: step && step > 0 ? step * 2 : null,
-        }),
-      );
-    }
-    for (const adapter of OVERLAY_ADAPTERS) {
-      const state = overlays.states[adapter.id];
-      if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
-      // The adapter knows how to fetch itself; the table knows what kind of
-      // statement it makes, and three of these are forecasts rather than
-      // observations.
-      const described = Object.values(LAYER_SOURCES).find(
-        (source) => source.sourceId === adapter.id,
-      );
-      layers.push(
-        overlayProvenance({
-          adapter,
-          fetchedAt: state.fetchedAt,
-          kind: described?.kind,
-        }),
-      );
-    }
-
-    // Everything else the reader can switch on. The overlay adapters above
-    // already speak for themselves, so this covers the rest: the locally
-    // decoded grids, both lightning layers, wind, satellite, and the two
-    // products the radar's own algorithms derive.
-    //
-    // Each takes the best time the app actually has for it. An MRMS grid knows
-    // when it was valid and a lightning window knows when it was observed;
-    // where nothing is known the record says it was fetched now, which is true
-    // and claims nothing more.
-    const mrmsTimes = new Map(
-      mrms.layers.map((layer) => [layer.product, layer.time * 1000]),
-    );
-    for (const [key, on] of Object.entries(settings.layers)) {
-      const layer = key as keyof typeof settings.layers;
-      if (!on) continue;
-      // Switched on is not the same as drawing. A record for a layer that
-      // fetched nothing describes a picture the reader cannot see, which is
-      // the opposite of what a report about the picture is for.
-      if (layer === "wind" && !wind.field) continue;
-      if (layer === "lightningFlashes" && !lightning.window) continue;
-      const source = LAYER_SOURCES[layer];
-      // Matched on the source rather than on the switch's own name, because
-      // the two do not agree: the alerts adapter is `alerts` and the switch
-      // that draws it is `weatherAlerts`. Comparing the names would have let
-      // that one layer be reported twice under both.
-      if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
-      const observedAt =
-        mrmsTimes.get(source.sourceId as never) ??
-        (layer === "lightningFlashes"
-          ? // The flash window carries seconds, like the radar frames and
-            // unlike everything in a record. Passed straight through it dated
-            // every lightning layer to 1970.
-            lightning.window
-            ? lightning.window.observed * 1000
-            : null
-          : null);
-      // The wind layer is the one forecast here whose run the app already
-      // reads, so it can report a real one rather than saying it does not know.
-      const modelRun =
-        layer === "wind" && wind.field
-          ? {
-              initUtc: wind.field.init,
-              leadMinutes: wind.field.leadHours * 60,
-            }
-          : undefined;
-      layers.push(
-        layerProvenance({
-          layer,
-          fetchedAt: now,
-          observedAt: observedAt ?? now,
-          validAt: modelRun
-            ? now + modelRun.leadMinutes * 60_000
-            : (observedAt ?? now),
-          modelRun,
-        }),
-      );
-    }
-    const block = diagnosticsBlock({
-      renderer: gpuSupport().renderer,
-      mapReady: mapStatus === "ready",
-      radarReady: timeline.frames.length > 0,
-      activeSource: timeline.sourceLabel,
-      health,
-      log: logEntries,
-      layers,
-      now,
-    });
-    void (async () => {
-      try {
-        await navigator.clipboard.writeText(block);
-        pushToast({
-          title: translate("diagnostics.copied"),
-          detail: translate("diagnostics.copiedBody"),
-        });
-      } catch {
-        // A clipboard can be refused: no permission, no focus, no clipboard.
-        // Saying where the same text lives is better than saying nothing.
-        pushToast({
-          title: translate("diagnostics.copyFailed"),
-          detail: translate("diagnostics.copyFailedBody"),
-        });
+  const copyDiagnostics = useCallback(
+    (withPlace: boolean) => {
+      const now = Date.now();
+      // What is actually on the map right now, each layer saying where it came
+      // from and what it claims. Only the frame on screen and the overlays that
+      // are both switched on and holding data, because a record for something
+      // the reader cannot see would be describing a different picture from the
+      // one they are writing about.
+      const layers: Provenance[] = [];
+      const shown = timeline.frames[timeline.frameIndex];
+      if (shown) {
+        // How long a loop stays fresh is the gap between its own frames, which
+        // is what the provider publishes on. Two frames are needed to know it,
+        // and a single-frame loop simply does not say.
+        const step =
+          timeline.frames.length > 1
+            ? (timeline.frames[1].time - timeline.frames[0].time) * 1000
+            : null;
+        layers.push(
+          radarProvenance({
+            frame: shown,
+            provider: timeline.source,
+            fetchedAt: now,
+            // What the timeline already knew and the record was throwing away:
+            // whether these bytes came off the disk, and how old they were when
+            // they did. It is the first thing worth knowing about a picture that
+            // looks wrong.
+            cachedAgeSeconds: timeline.cachedAgeSeconds,
+            freshForMs: step && step > 0 ? step * 2 : null,
+          }),
+        );
       }
-    })();
-  }, [
-    health,
-    lightning.window,
-    wind.field,
-    logEntries,
-    mrms.layers,
-    settings,
-    mapStatus,
-    overlays.data,
-    overlays.states,
-    pushToast,
-    timeline,
-  ]);
+      for (const adapter of OVERLAY_ADAPTERS) {
+        const state = overlays.states[adapter.id];
+        if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
+        // The adapter knows how to fetch itself; the table knows what kind of
+        // statement it makes, and three of these are forecasts rather than
+        // observations.
+        const described = Object.values(LAYER_SOURCES).find(
+          (source) => source.sourceId === adapter.id,
+        );
+        layers.push(
+          overlayProvenance({
+            adapter,
+            fetchedAt: state.fetchedAt,
+            kind: described?.kind,
+          }),
+        );
+      }
+
+      // Everything else the reader can switch on. The overlay adapters above
+      // already speak for themselves, so this covers the rest: the locally
+      // decoded grids, both lightning layers, wind, satellite, and the two
+      // products the radar's own algorithms derive.
+      //
+      // Each takes the best time the app actually has for it. An MRMS grid knows
+      // when it was valid and a lightning window knows when it was observed;
+      // where nothing is known the record says it was fetched now, which is true
+      // and claims nothing more.
+      const mrmsTimes = new Map(
+        mrms.layers.map((layer) => [layer.product, layer.time * 1000]),
+      );
+      for (const [key, on] of Object.entries(settings.layers)) {
+        const layer = key as keyof typeof settings.layers;
+        if (!on) continue;
+        // Switched on is not the same as drawing. A record for a layer that
+        // fetched nothing describes a picture the reader cannot see, which is
+        // the opposite of what a report about the picture is for.
+        if (layer === "wind" && !wind.field) continue;
+        if (layer === "lightningFlashes" && !lightning.window) continue;
+        const source = LAYER_SOURCES[layer];
+        // Matched on the source rather than on the switch's own name, because
+        // the two do not agree: the alerts adapter is `alerts` and the switch
+        // that draws it is `weatherAlerts`. Comparing the names would have let
+        // that one layer be reported twice under both.
+        if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
+        const observedAt =
+          mrmsTimes.get(source.sourceId as never) ??
+          (layer === "lightningFlashes"
+            ? // The flash window carries seconds, like the radar frames and
+              // unlike everything in a record. Passed straight through it dated
+              // every lightning layer to 1970.
+              lightning.window
+              ? lightning.window.observed * 1000
+              : null
+            : null);
+        // The wind layer is the one forecast here whose run the app already
+        // reads, so it can report a real one rather than saying it does not know.
+        const modelRun =
+          layer === "wind" && wind.field
+            ? {
+                initUtc: wind.field.init,
+                leadMinutes: wind.field.leadHours * 60,
+              }
+            : undefined;
+        layers.push(
+          layerProvenance({
+            layer,
+            fetchedAt: now,
+            observedAt: observedAt ?? now,
+            validAt: modelRun
+              ? now + modelRun.leadMinutes * 60_000
+              : (observedAt ?? now),
+            modelRun,
+          }),
+        );
+      }
+      const packs = settingsRef.current.incidentPacks;
+      const block = diagnosticsBlock({
+        renderer: gpuSupport().renderer,
+        mapReady: mapStatus === "ready",
+        radarReady: timeline.frames.length > 0,
+        activeSource: timeline.sourceLabel,
+        health,
+        log: logEntries,
+        layers,
+        now,
+        cache: {
+          servedAgeSeconds: timeline.cachedAgeSeconds,
+          packs: packs.references.length,
+          packBytes: packs.references.reduce(
+            (total, pack) => total + pack.bytes,
+            0,
+          ),
+          selectedPack: packs.selectedId !== null,
+          packLimitMb: packs.diskLimitMb,
+        },
+        // Only when the reader ticked the box beside the button, and only when
+        // there is a watched place at all.
+        place:
+          withPlace && settingsRef.current.watch.enabled
+            ? {
+                label: translate("diagnostics.watchedPlace"),
+                longitude: settingsRef.current.watch.center[0],
+                latitude: settingsRef.current.watch.center[1],
+              }
+            : null,
+      });
+      void (async () => {
+        try {
+          await navigator.clipboard.writeText(block);
+          pushToast({
+            title: translate("diagnostics.copied"),
+            detail: translate("diagnostics.copiedBody"),
+          });
+        } catch {
+          // A clipboard can be refused: no permission, no focus, no clipboard.
+          // Saying where the same text lives is better than saying nothing.
+          pushToast({
+            title: translate("diagnostics.copyFailed"),
+            detail: translate("diagnostics.copyFailedBody"),
+          });
+        }
+      })();
+    },
+    [
+      health,
+      lightning.window,
+      wind.field,
+      logEntries,
+      mrms.layers,
+      settings,
+      settingsRef,
+      mapStatus,
+      overlays.data,
+      overlays.states,
+      pushToast,
+      timeline,
+    ],
+  );
 
   // Loading a colour table is work: a file found, opened and dropped on the
   // window. Clearing it was the one action that threw that away with nothing
@@ -769,6 +794,7 @@ export default function App() {
             onSendWatchTest={sendWatchTest}
             onOpenLogFolder={actions.openLogFolder}
             onCopyDiagnostics={copyDiagnostics}
+            hasWatchedPlace={settings.watch.enabled}
             onReset={actions.resetSettings}
             onExportSettings={actions.exportSettings}
           />

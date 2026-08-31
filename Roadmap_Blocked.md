@@ -77,3 +77,22 @@ The useful half of it is a real finding and worth writing down while it is fresh
 The other half is that `tauri-plugin-notification` is text-only on Windows: its actions are mobile-only and it carries no image, while WinRT toast XML supports a radar snapshot, an open action and the urgent scenario a tornado warning deserves. Writing that module without being able to see a single toast come out of it would be building the one thing whose whole acceptance is visual.
 
 What would unblock it is the same isolated desktop session the four above need, plus a packaged build to install.
+
+## RRFS cannot be evaluated before it is operational
+
+`AUD-080` asks for the replacement of HRRR by NOAA's Rapid Refresh Forecast System to begin only once the operational launch is confirmed. The launch is scheduled for 2026-10-06, which has not happened: SCN 26-48 AAB (2026-07-06) reconfirms that date and carries the usual clause allowing a slip for a critical weather day.
+
+There is nothing to build against in the meantime. The parallel feeds moved to NOMADS on 2026-08-11 and the old prototype AWS bucket stopped updating then, so fixtures taken now would be taken from paths that will not be the operational ones. The item's own acceptance says the same thing in its first line, and writing an adapter against a bucket that is about to be replaced is how a forecast enhancement becomes a release risk.
+
+Unblocked by: the operational service notice for RRFS v1, at which point the bucket layout and the product inventory are worth fixturing. Check after 2026-10-06.
+
+The item, kept whole so it can go back to `ROADMAP.md` unchanged:
+
+    - [ ] AUD-080: Evaluate RRFS and REFS only after operational launch is verified
+          Why: NOAA schedules v1 for 2026-10-06. Replacing HRRR before the bucket and product inventory stabilize would turn a forecast enhancement into a release risk.
+          Evidence: `src/lib/providers/hrrr.ts`; https://registry.opendata.aws/noaa-rrfs-ops/
+          Touches: Experimental forecast adapter; provider provenance; product inventory fixtures; fallback policy
+          Acceptance: Work begins only after the operational service notice is confirmed; public bucket filenames and required reflectivity products have fixtures; RRFS is labeled experimental until live contract checks are stable; HRRR remains available as a fallback; no prototype path is presented as operational.
+          Note (2026-08-31): SCN 26-48 AAB (2026-07-06) reconfirms 2026-10-06 with the standard critical-weather-day slip clause; parallel feeds moved to NOMADS on 2026-08-11 and the old prototype AWS bucket stopped updating then, so do not fixture against the prototype paths.
+          Complexity: L
+
