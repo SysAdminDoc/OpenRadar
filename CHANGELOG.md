@@ -2,6 +2,10 @@
 
 ## Next release
 
+- Workspace backups now include an imported GeoJSON overlay as well as settings. Restoring one moves the map to the saved camera, and Undo puts both the settings and the prior overlay back. Files from newer builds also name unfamiliar nested settings instead of quietly dropping them.
+
+- A colour table is not reported as applied until the desktop renderer accepts it. Empty GeoJSON collections are refused instead of enabling a blank layer and calling the upload successful.
+
 - German radar now works in the installed app, not only in a browser preview. The desktop cache route knew to send DWD tiles through the native side, but that side refused the same host when the request arrived.
 
 - Weather files, byte-range replies, and compressed grids are bounded while they are being read. Truncated or hostile provider data is refused with an error instead of being allowed to panic, overflow, or grow memory until the whole reply has arrived.

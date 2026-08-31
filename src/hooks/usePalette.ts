@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { log } from "../lib/log";
 import { paletteForRenderer, type Palette } from "../lib/palette";
-import { setMrmsPaletteGeneration } from "../lib/providers/mrms";
+import { applyPaletteToRenderer } from "../lib/paletteRenderer";
 import { isDesktopRuntime } from "../lib/settings";
 
 /**
@@ -35,28 +35,9 @@ export function usePalette(options: {
 
     void (async () => {
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const [units, rangeFolded, stops] = sent
-          ? (JSON.parse(sent) as [
-              string | null,
-              string | null,
-              Array<[number, string, string | null, boolean]>,
-            ])
-          : [null, null, []];
-        const next = await invoke<number>("set_palette", {
-          units,
-          rangeFolded,
-          stops: stops.map(([value, color, toColor]) => ({
-            value,
-            color,
-            toColor,
-          })),
-        });
+        const next = await applyPaletteToRenderer(palette);
         if (!open) return;
-        // The provider builds its tile addresses from this, so it has to know
-        // before the timeline is asked for frames again.
-        setMrmsPaletteGeneration(next);
-        setGeneration(next);
+        if (next !== null) setGeneration(next);
       } catch (failure: unknown) {
         if (!open) return;
         log.warn(
@@ -71,7 +52,7 @@ export function usePalette(options: {
     return () => {
       open = false;
     };
-  }, [ready, sent]);
+  }, [palette, ready, sent]);
 
   return generation;
 }

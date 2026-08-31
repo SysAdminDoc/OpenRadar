@@ -693,6 +693,7 @@ export const en = {
   "toast.linkFailed": "The map link could not be copied",
   "toast.fileTooBig": "The file is larger than 5 MB.",
   "toast.paletteEmpty": "That palette has no colours this map can use.",
+  "toast.overlayEmpty": "That GeoJSON file does not contain any features.",
   "toast.paletteApplied": "{name} applied",
   "toast.remove": "Remove",
   "toast.colours": "{count} colours",

@@ -10,7 +10,6 @@ import {
   DEFAULT_SETTINGS,
   isDesktopRuntime,
   looksLikeSettings,
-  restoreSettings,
   normalizeSettings,
   type AppSettings,
   type CameraState,
@@ -21,9 +20,16 @@ import type { OverlayBounds } from "../lib/overlays";
 import type { PlaceResult } from "../lib/weather";
 import { translate } from "../i18n";
 import { saveFile } from "../lib/saveFile";
+import { applyPaletteToRenderer } from "../lib/paletteRenderer";
+import {
+  createWorkspaceBackup,
+  isWorkspaceOverlay,
+  looksLikeWorkspaceBackup,
+  MAX_WORKSPACE_OVERLAY_FEATURES,
+  restoreWorkspace,
+} from "../lib/workspaceBackup";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const MAX_OVERLAY_FEATURES = 5000;
 
 export interface WorkspaceActions {
   /** Writes the whole workspace out as readable JSON. */
@@ -60,6 +66,7 @@ export function useWorkspaceActions(options: {
   pushToast: (message: Omit<ToastMessage, "id">) => void;
   setActiveSurface: (surface: SurfaceId) => void;
   setCustomOverlay: (overlay: Record<string, unknown> | null) => void;
+  customOverlay: Record<string, unknown> | null;
 }): WorkspaceActions {
   const {
     hydrated,
@@ -69,6 +76,7 @@ export function useWorkspaceActions(options: {
     pushToast,
     setActiveSurface,
     setCustomOverlay,
+    customOverlay,
   } = options;
 
   const flyToPoint = useCallback(
@@ -266,10 +274,11 @@ export function useWorkspaceActions(options: {
    */
   const exportSettings = useCallback(async () => {
     try {
-      const blob = new Blob([JSON.stringify(settingsRef.current, null, 2)], {
+      const backup = createWorkspaceBackup(settingsRef.current, customOverlay);
+      const blob = new Blob([JSON.stringify(backup, null, 2)], {
         type: "application/json",
       });
-      const saved = await saveFile("openradar-settings.json", blob);
+      const saved = await saveFile("openradar-workspace.json", blob);
       pushToast({
         title: translate("toast.settingsSaved"),
         detail: saved.path ?? translate("toast.settingsSavedBody"),
@@ -283,7 +292,7 @@ export function useWorkspaceActions(options: {
             : translate("toast.settingsSaveFailedBody"),
       });
     }
-  }, [pushToast, settingsRef]);
+  }, [customOverlay, pushToast, settingsRef]);
 
   const uploadOverlay = useCallback(
     async (file: File) => {
@@ -300,6 +309,7 @@ export function useWorkspaceActions(options: {
           if (!palette) {
             throw new Error(translate("toast.paletteEmpty"));
           }
+          await applyPaletteToRenderer(palette);
           applySettings({ ...settingsRef.current, palette });
           setActiveSurface(null);
           const notes = [
@@ -326,10 +336,13 @@ export function useWorkspaceActions(options: {
         // A settings file is not an overlay either: it replaces the whole
         // workspace rather than drawing on it. Recognised by what it carries,
         // since a GeoJSON document never has a schema version.
-        if (looksLikeSettings(text)) {
+        if (looksLikeWorkspaceBackup(text) || looksLikeSettings(text)) {
           const previous = settingsRef.current;
-          const restored = restoreSettings(JSON.parse(text));
+          const previousOverlay = customOverlay;
+          const restored = restoreWorkspace(JSON.parse(text));
           applySettings(restored.settings);
+          setCustomOverlay(restored.customOverlay);
+          mapRef.current?.flyTo(restored.settings.camera);
           setActiveSurface(null);
           // A file from a newer build, or one carrying keys this build has no
           // idea about, is not a full restore and must not be reported as one.
@@ -354,7 +367,11 @@ export function useWorkspaceActions(options: {
               ? notes.join(" ")
               : translate("toast.settingsRestoredBody"),
             actionLabel: translate("toast.undo"),
-            onAction: () => applySettings(previous),
+            onAction: () => {
+              applySettings(previous);
+              setCustomOverlay(previousOverlay);
+              mapRef.current?.flyTo(previous.camera);
+            },
           });
           return;
         }
@@ -404,16 +421,21 @@ export function useWorkspaceActions(options: {
           detail = `${notes.join(", ")}.`;
         } else {
           payload = JSON.parse(text) as Record<string, unknown>;
-          if (
-            !payload ||
-            (payload.type !== "FeatureCollection" && payload.type !== "Feature")
-          ) {
+          if (!payload || !isWorkspaceOverlay(payload)) {
+            if (
+              payload.type === "FeatureCollection" &&
+              Array.isArray(payload.features) &&
+              payload.features.length === 0
+            ) {
+              throw new Error(translate("toast.overlayEmpty"));
+            }
             throw new Error(translate("toast.notGeoJson"));
           }
           const features = payload.features;
           if (
             payload.type === "FeatureCollection" &&
-            (!Array.isArray(features) || features.length > MAX_OVERLAY_FEATURES)
+            (!Array.isArray(features) ||
+              features.length > MAX_WORKSPACE_OVERLAY_FEATURES)
           ) {
             throw new Error(translate("toast.tooManyFeatures"));
           }
@@ -450,7 +472,15 @@ export function useWorkspaceActions(options: {
         });
       }
     },
-    [applySettings, pushToast, setActiveSurface, setCustomOverlay, settingsRef],
+    [
+      applySettings,
+      customOverlay,
+      mapRef,
+      pushToast,
+      setActiveSurface,
+      setCustomOverlay,
+      settingsRef,
+    ],
   );
 
   const watchHere = useCallback(() => {

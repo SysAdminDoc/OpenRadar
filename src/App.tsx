@@ -218,6 +218,7 @@ export default function App() {
     pushToast,
     setActiveSurface,
     setCustomOverlay,
+    customOverlay,
   });
   const exportState = useExport({
     mapRef,
