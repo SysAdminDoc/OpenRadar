@@ -21,7 +21,7 @@ export const es: Catalogue = {
   "export.cardBody":
     "El mapa tal como está ahora, con la hora del cuadro, la fuente del radar y los créditos grabados en la esquina.",
   "export.note":
-    "Los dos van directo a tu carpeta de descargas. No se sube nada.",
+    "Los dos van directo a tu carpeta de descargas, y junto a cada uno queda un archivo JSON pequeño que dice de qué fuente salió cada fotograma. No se sube nada.",
 
   "search.eyebrow": "Busca un lugar",
   "search.title": "Buscar",

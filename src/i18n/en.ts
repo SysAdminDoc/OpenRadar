@@ -23,7 +23,7 @@ export const en = {
   "export.cardBody":
     "The map exactly as it is now, with the frame time, the radar source, and the credits burned into the corner.",
   "export.note":
-    "Both go straight to your downloads folder. Nothing is uploaded.",
+    "Both go straight to your downloads folder, and a small JSON file lands beside each one saying which source every frame came from. Nothing is uploaded.",
 
   "search.eyebrow": "Find a place",
   "search.title": "Search",

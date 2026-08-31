@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  attributionText,
   overlayProvenance,
+  provenanceCredit,
+  provenanceDocument,
   provenanceLines,
   provenanceProblems,
   provenanceStale,
@@ -8,6 +11,7 @@ import {
   radarProvenance,
   type Provenance,
 } from "./provenance";
+import { provenanceFileName } from "./export";
 import { OVERLAY_ADAPTERS } from "./overlays";
 import type { RadarFrame, RadarProvider } from "./providers/types";
 
@@ -312,5 +316,128 @@ describe("what the first version of the validator let through", () => {
     expect(record.label).not.toBe("HRRR");
     expect(record.attributionUrl).toBeUndefined();
     expect(record.attribution).toBe("NOAA archive");
+  });
+});
+
+describe("the record that travels with an exported file", () => {
+  const MRMS_ANCHOR =
+    '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>';
+
+  it("writes the credit as words, because a caption cannot draw a tag", () => {
+    expect(attributionText(MRMS_ANCHOR)).toBe("NOAA MRMS");
+    expect(
+      attributionText(
+        'Kartendaten: &copy; <a href="https://osm.org">OpenStreetMap</a>-Mitwirkende',
+      ),
+    ).toBe("Kartendaten: © OpenStreetMap-Mitwirkende");
+    expect(attributionText("")).toBe("");
+  });
+
+  it("names the source that made the frame in the burned credit", () => {
+    const live = provenanceCredit(
+      "OpenStreetMap",
+      observation({ attribution: MRMS_ANCHOR }),
+    );
+    expect(live).toBe("OpenRadar · OpenStreetMap · NOAA MRMS");
+    // The whole point of the change: a replayed 2005 hurricane no longer
+    // credits whichever live service the timeline happens to be pointed at.
+    const replay = provenanceCredit(
+      "OpenStreetMap",
+      observation({
+        sourceId: "archive",
+        label: "archive",
+        attribution:
+          '<a href="https://mesonet.agron.iastate.edu/">Iowa State Mesonet NEXRAD archive</a>',
+      }),
+    );
+    expect(replay).toBe(
+      "OpenRadar · OpenStreetMap · Iowa State Mesonet NEXRAD archive",
+    );
+    expect(replay).not.toContain("NOAA");
+  });
+
+  it("still credits the map when there is no frame to credit", () => {
+    expect(provenanceCredit("OpenStreetMap", null)).toBe(
+      "OpenRadar · OpenStreetMap",
+    );
+  });
+
+  it("carries a live frame, a forecast, and a replay in timeline order", () => {
+    const document = provenanceDocument({
+      picture: "openradar-loop-2026-08-31.webm",
+      application: "OpenRadar 0.6.0",
+      basemap: "OpenStreetMap",
+      writtenAt: FETCHED_AT,
+      frames: [
+        // Handed over out of order, the way a GIF walks the tail first.
+        { index: 4, record: forecast() },
+        { index: 0, record: observation({ attribution: MRMS_ANCHOR }) },
+        {
+          index: 2,
+          record: observation({
+            sourceId: "archive",
+            label: "archive",
+            attribution:
+              '<a href="https://mesonet.agron.iastate.edu/">Iowa State Mesonet NEXRAD archive</a>',
+          }),
+        },
+      ],
+    });
+
+    expect(document.format).toBe("openradar-provenance");
+    expect(document.formatVersion).toBe(1);
+    expect(document.picture).toBe("openradar-loop-2026-08-31.webm");
+    expect(document.frames.map((frame) => frame.index)).toEqual([0, 2, 4]);
+
+    const [live, replay, ahead] = document.frames;
+
+    expect(live.kind).toBe("observation");
+    expect(live.observed).toBe("2026-08-31T12:00:00.000Z");
+    expect(live.attribution).toBe("NOAA MRMS");
+    // The link was only ever inside the markup for a frame no provider made,
+    // and dropping it while writing a provenance file would be the one loss
+    // that matters here.
+    expect(live.attributionUrl).toBe(
+      "https://www.nssl.noaa.gov/projects/mrms/",
+    );
+
+    expect(replay.sourceId).toBe("archive");
+    expect(replay.observed).toBe("2026-08-31T12:00:00.000Z");
+    expect(replay.attribution).toBe("Iowa State Mesonet NEXRAD archive");
+
+    // A forecast has not been observed by anything, and the file says so
+    // rather than borrowing the moment it was fetched.
+    expect(ahead.kind).toBe("forecast");
+    expect(ahead.observed).toBeNull();
+    expect(ahead.modelRun?.initUtc).toBe("2026-08-31T12:00:00Z");
+    expect(ahead.modelRun?.leadMinutes).toBe(60);
+  });
+
+  it("survives a round trip through JSON with no markup left in it", () => {
+    const document = provenanceDocument({
+      picture: "openradar.png",
+      application: "OpenRadar 0.6.0",
+      basemap: "OpenStreetMap",
+      writtenAt: FETCHED_AT,
+      frames: [{ index: 7, record: observation({ attribution: MRMS_ANCHOR }) }],
+    });
+    const text = JSON.stringify(document, null, 2);
+    expect(text).not.toContain("<a ");
+    expect(JSON.parse(text)).toEqual(document);
+  });
+});
+
+describe("naming the record beside the picture", () => {
+  it("keeps the picture's own name in front of it", () => {
+    expect(provenanceFileName("openradar-2026-08-31.png")).toBe(
+      "openradar-2026-08-31-provenance.json",
+    );
+    expect(provenanceFileName("openradar-loop-2026-08-31.webm")).toBe(
+      "openradar-loop-2026-08-31-provenance.json",
+    );
+  });
+
+  it("does not mistake a leading dot for an extension", () => {
+    expect(provenanceFileName(".openradar")).toBe(".openradar-provenance.json");
   });
 });
