@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- The single-site view can draw the volume the radar is sweeping right now. An archive volume is only published once the radar has finished the whole thing, which means the picture is four to six minutes old before anyone can see it, and worst at the moment somebody is watching a storm turn. The same data is also published in pieces every eleven or twelve seconds, and switching on "Volume in progress" under the radar layer reads those instead: the sector the radar has reached is seconds old and drawn over the last finished volume, which still fills the rest of the circle. The legend says how many seconds. Where the new sweep found nothing, nothing is drawn, so a storm that has moved on comes off the picture rather than sitting there from five minutes ago. If the radar has not reached the tilt you are looking at yet, you get the finished volume and the legend does not claim to be live.
+
 - Each overlay has its own opacity, so a layer can be faded rather than switched off, and you can say which one sits on top of which. Warnings are not in the arrangement: a warning is somebody telling you to take cover, and nothing should be able to put a wildfire perimeter over one.
 
 - Severe probability, from the model the paid apps put their badges on. The National Severe Storms Laboratory reads the radar, the satellite, the lightning and the air around each storm and publishes, every couple of minutes, how likely that storm is to turn severe in the next hour, and separately for hail, wind and a tornado. Click one for the numbers and the measurements behind them. It is guidance, not a warning: it draws under the warnings and it says so.

@@ -8,7 +8,7 @@ import { windLabel, type WindField } from "../lib/wind";
 import { paletteLegend } from "../lib/legend";
 import { paletteApplies } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
-import type { SweepImage } from "../lib/level2";
+import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
@@ -168,13 +168,7 @@ export function WorkspaceChrome({
               ? t("chrome.rainRate")
               : t("chrome.composite")
         }
-        eyebrow={
-          sweep
-            ? t(sweep.dealiased ? "chrome.tiltDealiased" : "chrome.tilt", {
-                degrees: sweep.elevationDegrees.toFixed(2),
-              })
-            : t("chrome.liveProduct")
-        }
+        eyebrow={sweep ? sweepEyebrow(sweep, clock) : t("chrome.liveProduct")}
         scale={
           sweep
             ? sweep.unit === "dBZ"
@@ -321,5 +315,27 @@ export function WorkspaceChrome({
         <CloudRain size={18} />
       </div>
     </>
+  );
+}
+
+/**
+ * What the legend says above the product name, for a single-site sweep.
+ *
+ * A sweep drawn from the volume in progress says so and says how old it is,
+ * because the whole point of it is that the picture is seconds behind rather
+ * than minutes. The age is the cut's own collection time against the clock,
+ * so a slow fetch shows as what it is.
+ */
+function sweepEyebrow(sweep: SweepImage, clock: number): string {
+  const age = liveAgeSeconds(sweep, clock);
+  const degrees = sweep.elevationDegrees.toFixed(2);
+  if (age === null) {
+    return translate(sweep.dealiased ? "chrome.tiltDealiased" : "chrome.tilt", {
+      degrees,
+    });
+  }
+  return translate(
+    sweep.dealiased ? "chrome.tiltLiveDealiased" : "chrome.tiltLive",
+    { degrees, seconds: String(age) },
   );
 }

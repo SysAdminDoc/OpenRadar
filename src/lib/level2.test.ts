@@ -9,6 +9,7 @@ import {
   beamHeightFeet,
   isLevel2Product,
   isSingleSiteViewport,
+  liveAgeSeconds,
   sweepAgeMinutes,
   sweepCorners,
   sweepErrorText,
@@ -22,6 +23,8 @@ const sweep: SweepImage = {
   productId: "reflectivity",
   paletteApplied: false,
   dealiased: false,
+  live: false,
+  liveTilts: 0,
   stormMotion: null,
   product: "Reflectivity",
   unit: "dBZ",
@@ -180,5 +183,34 @@ describe("what the native side said went wrong", () => {
   it("takes a plain string and an Error, which is what a browser rejects with", () => {
     expect(sweepErrorText("no native side here")).toBe("no native side here");
     expect(sweepErrorText(new Error("boom"))).toBe("boom");
+  });
+});
+
+describe("how old the live part of a sweep is", () => {
+  const at = Date.parse("2026-08-30T09:21:59+00:00");
+
+  it("says nothing about a sweep the archive answered", () => {
+    // A finished volume is minutes behind and the legend already says when it
+    // was collected. Calling that "live, N s old" would be a lie about which
+    // bucket the picture came from, not a rounding difference.
+    expect(liveAgeSeconds({ ...sweep, live: false }, at + 12_000)).toBeNull();
+  });
+
+  it("counts from when the radar collected the cut", () => {
+    // Not from when it was fetched: a slow download has to show as what it is.
+    expect(liveAgeSeconds({ ...sweep, live: true }, at + 12_000)).toBe(12);
+    expect(liveAgeSeconds({ ...sweep, live: true }, at + 89_400)).toBe(89);
+  });
+
+  it("never counts backwards from a clock behind the radar's", () => {
+    // The radar stamps in its own time and this machine's may be a second or
+    // two behind it, which would otherwise read as a sweep from the future.
+    expect(liveAgeSeconds({ ...sweep, live: true }, at - 4000)).toBe(0);
+  });
+
+  it("gives up on a stamp it cannot read rather than guessing", () => {
+    expect(
+      liveAgeSeconds({ ...sweep, live: true, collected: "soon" }, at),
+    ).toBeNull();
   });
 });

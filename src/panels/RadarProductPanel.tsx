@@ -251,6 +251,22 @@ export function RadarProductPanel({
             <i className="toggle-track" aria-hidden="true" />
           </label>
 
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("radar.live")}</strong>
+              <small>{t("radar.liveDetail")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={radar.live}
+              disabled={!radar.singleSite}
+              onChange={(event) =>
+                onRadar({ ...radar, live: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+
           {radar.singleSite ? (
             <div
               className="site-controls"

@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSingleSiteRadar } from "./useSingleSiteRadar";
-import { SWEEP_REFRESH_MS } from "../lib/level2";
+import { LIVE_REFRESH_MS, SWEEP_REFRESH_MS } from "../lib/level2";
 import type { Level2ProductId, SweepImage } from "../lib/level2";
 import { DEFAULT_SETTINGS, type RadarSettings } from "../lib/settings";
 
@@ -13,6 +13,7 @@ const fetchSweep =
       station: string,
       product: Level2ProductId,
       tilt: number,
+      live: boolean,
     ) => Promise<SweepImage>
   >();
 
@@ -23,8 +24,15 @@ vi.mock("../lib/level2", async () => {
     ...actual,
     level2Available: () => true,
     nearestSite: (lon: number, lat: number) => nearestSite(lon, lat),
-    fetchSweep: (station: string, product: Level2ProductId, tilt: number) =>
-      fetchSweep(station, product, tilt),
+    fetchSweep: (
+      station: string,
+      product: Level2ProductId,
+      tilt: number,
+      _dealias: boolean,
+      _motion: [number, number] | null,
+      _threshold: number | null,
+      live: boolean,
+    ) => fetchSweep(station, product, tilt, live),
   };
 });
 
@@ -39,6 +47,8 @@ function sweepFor(
     productId: product,
     paletteApplied: false,
     dealiased: false,
+    live: false,
+    liveTilts: 0,
     stormMotion: null,
     product: product === "velocity" ? "Velocity" : "Reflectivity",
     unit: product === "velocity" ? "m/s" : "dBZ",
@@ -79,9 +89,10 @@ beforeEach(() => {
   nearestSite.mockReset();
   fetchSweep.mockReset();
   nearestSite.mockResolvedValue("KDMX");
-  fetchSweep.mockImplementation(async (station, product, tilt) =>
-    sweepFor(station, product, tilt),
-  );
+  fetchSweep.mockImplementation(async (station, product, tilt, live) => ({
+    ...sweepFor(station, product, tilt),
+    live,
+  }));
 });
 
 afterEach(() => {
@@ -264,5 +275,73 @@ describe("moving between sites", () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(result.current.station).toBe("KTLX"));
+  });
+});
+
+describe("drawing the volume in progress", () => {
+  it("asks for it only when the reader has said to", async () => {
+    const { result, rerender } = renderHook(
+      (props: { live: boolean }) =>
+        useSingleSiteRadar(options({ radar: { live: props.live } })),
+      { initialProps: { live: false } },
+    );
+    await waitFor(() => expect(result.current.sweep).not.toBeNull());
+    expect(fetchSweep.mock.calls[0][3]).toBe(false);
+    expect(result.current.sweep?.live).toBe(false);
+
+    rerender({ live: true });
+    await waitFor(() => expect(result.current.sweep?.live).toBe(true));
+    expect(fetchSweep.mock.calls.at(-1)?.[3]).toBe(true);
+  });
+
+  it("asks often enough that a new piece is on screen inside half a minute", async () => {
+    // The radar publishes a piece every eleven or twelve seconds. Waiting the
+    // finished volume's two minutes would leave most of them unseen, which is
+    // the whole thing this is for.
+    expect(LIVE_REFRESH_MS).toBeLessThanOrEqual(30_000);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { result } = renderHook(() =>
+        useSingleSiteRadar(options({ radar: { live: true } })),
+      );
+      await waitFor(() => expect(result.current.sweep).not.toBeNull());
+      const first = fetchSweep.mock.calls.length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(LIVE_REFRESH_MS + 500);
+      });
+      await waitFor(() =>
+        expect(fetchSweep.mock.calls.length).toBeGreaterThan(first),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the slower ask when it is switched off", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { result } = renderHook(() =>
+        useSingleSiteRadar(options({ radar: { live: false } })),
+      );
+      await waitFor(() => expect(result.current.sweep).not.toBeNull());
+      const first = fetchSweep.mock.calls.length;
+
+      // A finished volume lands every four to six minutes, so asking on the
+      // live cadence would be four wasted requests out of five.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(LIVE_REFRESH_MS + 500);
+      });
+      expect(fetchSweep.mock.calls.length).toBe(first);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(SWEEP_REFRESH_MS);
+      });
+      await waitFor(() =>
+        expect(fetchSweep.mock.calls.length).toBeGreaterThan(first),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

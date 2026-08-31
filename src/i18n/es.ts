@@ -301,6 +301,9 @@ export const es: Catalogue = {
   "radar.singleSiteDetail":
     "Pasado el nivel de acercamiento {zoom}, el barrido Level II del radar NEXRAD más cercano sustituye al mosaico nacional",
   "radar.dealias": "Desplegar la velocidad",
+  "radar.live": "Volumen en curso",
+  "radar.liveDetail":
+    "Dibuja el barrido que el radar está haciendo ahora sobre el último que terminó. La imagen terminada ya tiene de cuatro a seis minutos cuando se publica; esta tiene segundos en el sector que el radar ha alcanzado, y no cambia en el resto.",
   "radar.dealiasDetail":
     "Un viento más rápido de lo que el radar puede medir se enrolla y se dibuja como si soplara al revés. Esto lo devuelve a su sitio.",
   "radar.sweepLine": "{station} · {site} · {product} a {tilt}° · {age}",
@@ -602,6 +605,9 @@ export const es: Catalogue = {
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "ELEVACIÓN {degrees}°",
   "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
+  "chrome.tiltLive": "ELEVACIÓN {degrees}° · EN VIVO, HACE {seconds} S",
+  "chrome.tiltLiveDealiased":
+    "ELEVACIÓN {degrees}° · DESPLEGADA · EN VIVO, HACE {seconds} S",
   "chrome.liveProduct": "PRODUCTO EN VIVO",
   "chrome.extraScales": "Escalas de otros productos",
   "chrome.wind": "Viento",

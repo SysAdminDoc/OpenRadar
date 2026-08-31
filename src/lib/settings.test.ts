@@ -85,6 +85,7 @@ describe("settings normalization", () => {
       "dealias",
       "enabled",
       "futureRadar",
+      "live",
       "loopMinutes",
       "opacity",
       "product",

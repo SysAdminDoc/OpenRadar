@@ -16,6 +16,7 @@ use nexrad_model::geo::{GeoPoint, RadarCoordinateSystem};
 use nexrad_model::meta::registry;
 use serde::Serialize;
 
+use crate::chunks;
 use crate::dealias;
 use crate::http;
 use crate::palette;
@@ -138,6 +139,13 @@ pub struct SweepImage {
     /// Every tilt this volume holds, ascending, so the panel can offer them.
     pub tilts: Vec<f32>,
     pub tilt_index: usize,
+    /// True when this came from the volume the radar is sweeping now rather
+    /// than the last one it finished, so the legend can say the picture is
+    /// live and how much of it there is.
+    pub live: bool,
+    /// How many tilts the radar has published of this volume so far. Only
+    /// meaningful on a live sweep, where the answer grows as it is watched.
+    pub live_tilts: usize,
     /// When the volume was collected, not when it was fetched.
     pub collected: String,
     pub west: f64,
@@ -449,9 +457,37 @@ pub struct ChosenSweep {
 /// rather than parsing the whole volume a second time.
 fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
     let records = file.records().ok()?;
+    nyquist_from_records(&records, elevation_number)
+}
+
+/// The same, from records rather than a whole file.
+///
+/// The volume being swept right now arrives as loose records rather than as a
+/// file, and it needs this as much as the finished one does: without it there
+/// is no unfolding, and storm relative velocity refuses outright.
+pub fn nyquist_from_records(
+    records: &[volume::Record<'_>],
+    elevation_number: u8,
+) -> Option<f32> {
+    nyquist_table(records).get(&elevation_number).copied()
+}
+
+/// Every cut's folding velocity, from whatever records are in hand.
+///
+/// The chunk path never holds a whole file, so it collects these as the pieces
+/// arrive rather than reading a volume back a second time.
+pub fn nyquist_table(records: &[volume::Record<'_>]) -> BTreeMap<u8, f32> {
+    let mut found = BTreeMap::new();
     for record in records {
+        let decompressed;
         let record = if record.compressed() {
-            record.decompress().ok()?
+            match record.decompress() {
+                Ok(plain) => {
+                    decompressed = plain;
+                    &decompressed
+                }
+                Err(_) => continue,
+            }
         } else {
             record
         };
@@ -462,20 +498,19 @@ fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
             let MessageContents::DigitalRadarData(data) = message.contents() else {
                 continue;
             };
-            if data.header().elevation_number() != elevation_number {
-                continue;
-            }
             let Some(block) = data.radial_data_block() else {
                 continue;
             };
             // Published as hundredths of a metre per second.
             let nyquist = block.nyquist_velocity_raw() as f32 * 0.01;
             if nyquist > 0.0 {
-                return Some(nyquist);
+                found
+                    .entry(data.header().elevation_number())
+                    .or_insert(nyquist);
             }
         }
     }
-    None
+    found
 }
 
 /// How much of a sweep has to move before the picture is a different one.
@@ -659,7 +694,15 @@ fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
 pub fn sweep_field(scan: &Scan, product: Product, tilt_index: usize) -> Option<ChosenSweep> {
     let angles = tilts(scan);
     let wanted = *angles.get(tilt_index).or_else(|| angles.first())?;
+    sweep_field_at(scan, product, wanted)
+}
 
+/// The same, asked for by elevation angle rather than by position in the list.
+///
+/// A volume in progress holds only the cuts the radar has finished, so the
+/// third entry in its list is not the third cut of the pattern. Asking by angle
+/// is the only way to put the same cut of two volumes side by side.
+pub fn sweep_field_at(scan: &Scan, product: Product, wanted: f32) -> Option<ChosenSweep> {
     let mut best: Option<ChosenSweep> = None;
     for sweep in scan.sweeps() {
         let Some(angle) = sweep.elevation_angle_degrees() else {
@@ -886,23 +929,80 @@ pub fn sweep_from_volume(
     data: Vec<u8>,
     asked: SweepRequest<'_>,
 ) -> Result<SweepImage, Level2Error> {
+    let file = volume::File::new(data);
+    let scan = file
+        .scan()
+        .map_err(|error| Level2Error::Decode(error.to_string()))?;
+    let nyquist = |elevation: u8| nyquist_velocity(&file, elevation);
+    sweep_from_scan(station, volume_key, &scan, &nyquist, asked)
+}
+
+/// The same, from a scan that has already been put together.
+///
+/// The volume being swept right now arrives as chunks rather than as a file,
+/// and everything past this point is the same either way: the same sweep
+/// chooser, the same unfolding, the same drawing. Only how the readings got
+/// here differs, and that is settled before this is called.
+pub fn sweep_from_scan(
+    station: &str,
+    volume_key: &str,
+    scan: &Scan,
+    nyquist_for: &dyn Fn(u8) -> Option<f32>,
+    asked: SweepRequest<'_>,
+) -> Result<SweepImage, Level2Error> {
+    let prepared = prepare_sweep(station, scan, nyquist_for, asked, None)?;
+    draw_sweep(
+        station,
+        volume_key,
+        tilts(scan),
+        asked.tilt_index,
+        prepared,
+        None,
+        asked,
+        scan.time_range().map(|(start, _)| start),
+        None,
+    )
+}
+
+/// One sweep found and worked on, before anything has been drawn.
+///
+/// Splitting this from the drawing is what lets a volume in progress be laid
+/// over the last finished one: both go through the same choosing, the same
+/// unfolding and the same subtraction, and only then are they put together.
+struct Prepared {
+    chosen: ChosenSweep,
+    dealiased: bool,
+    storm_motion: Option<StormMotion>,
+    product: Product,
+    label: &'static str,
+    unit: &'static str,
+}
+
+fn prepare_sweep(
+    station: &str,
+    scan: &Scan,
+    nyquist_for: &dyn Fn(u8) -> Option<f32>,
+    asked: SweepRequest<'_>,
+    // The cut to look for by angle rather than by position. A volume in
+    // progress holds only the tilts it has reached, so counting into its list
+    // would land on a different cut than the same number does in a full one.
+    angle: Option<f32>,
+) -> Result<Prepared, Level2Error> {
     let SweepRequest {
         product_name,
         tilt_index,
         unfold,
         manual_motion,
-        threshold,
+        threshold: _,
     } = asked;
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
 
-    let file = volume::File::new(data);
-    let scan = file
-        .scan()
-        .map_err(|error| Level2Error::Decode(error.to_string()))?;
-
-    let mut chosen = sweep_field(&scan, product, tilt_index)
-        .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
+    let mut chosen = match angle {
+        Some(wanted) => sweep_field_at(scan, product, wanted),
+        None => sweep_field(scan, product, tilt_index),
+    }
+    .ok_or_else(|| Level2Error::NoSweep(station.to_string(), label.to_string()))?;
 
     // Velocity past the folding limit wraps around, so a strong outbound wind
     // is drawn as if it were inbound. Only velocity folds, and only if the
@@ -917,7 +1017,7 @@ pub fn sweep_from_volume(
     // measured on a 20 m/s wind folded at 8, it comes back with 1.4.
     let mut dealiased = false;
     if (unfold || storm_relative) && product == Product::Velocity {
-        if let Some(nyquist) = nyquist_velocity(&file, chosen.elevation_number) {
+        if let Some(nyquist) = nyquist_for(chosen.elevation_number) {
             dealiased = unfold_velocity(&mut chosen.field, nyquist);
         } else if storm_relative && manual_motion.is_none() {
             // No Nyquist velocity means no unfolding, and a wind read off a
@@ -945,17 +1045,65 @@ pub fn sweep_from_volume(
         });
     }
 
-    // The volume carries its own site position; the registry is only the
-    // fallback for a header that did not survive.
-    let site = scan
-        .site()
-        .cloned()
-        .or_else(|| registry::site_by_id(station).map(|entry| entry.to_site()));
+    Ok(Prepared {
+        chosen,
+        dealiased,
+        storm_motion,
+        product,
+        label,
+        unit,
+    })
+}
+
+/// Paints a prepared sweep, optionally over the one before it.
+#[allow(clippy::too_many_arguments)]
+fn draw_sweep(
+    station: &str,
+    volume_key: &str,
+    // The cuts the picker should offer, which for a live sweep is the list from
+    // the last finished volume rather than the part-built one on screen.
+    tilts_offered: Vec<f32>,
+    tilt_index: usize,
+    prepared: Prepared,
+    // The last finished volume's sweep, drawn under the sector this one covers.
+    beneath: Option<Prepared>,
+    asked: SweepRequest<'_>,
+    // The volume's own start time, used when the cut does not carry one.
+    volume_time: Option<DateTime<Utc>>,
+    // How many cuts the volume in progress has published, when this is live.
+    live_tilts: Option<usize>,
+) -> Result<SweepImage, Level2Error> {
+    let Prepared {
+        chosen,
+        dealiased,
+        storm_motion,
+        product,
+        label,
+        unit,
+    } = prepared;
+    let threshold = asked.threshold;
+
+    let site = registry::site_by_id(station).map(|entry| entry.to_site());
     let site = site.ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
     let coordinates = RadarCoordinateSystem::new(&site);
 
-    let (pixels, [west, south, east, north]) =
+    let (mut pixels, [west, south, east, north]) =
         render_sweep(&chosen.field, &coordinates, product, unit, dealiased, threshold);
+
+    if let Some(under) = beneath {
+        // Every render covers the same extent at the same size, so the two
+        // line up pixel for pixel and the sector decides which one shows.
+        let (older, _) = render_sweep(
+            &under.chosen.field,
+            &coordinates,
+            under.product,
+            under.unit,
+            under.dealiased,
+            threshold,
+        );
+        pixels = lay_over(older, pixels, &swept_pixels(&chosen.field, &coordinates));
+    }
+
     let png_bytes = encode_png(&pixels)?;
 
     // The sweep's own time, not the volume's: under MESO-SAILS the lowest tilt
@@ -963,14 +1111,14 @@ pub fn sweep_from_volume(
     // is the difference between a current picture and a stale one.
     let collected = chosen
         .collected
-        .or_else(|| scan.time_range().map(|(start, _)| start))
+        .or(volume_time)
         .or_else(|| key_time(volume_key))
         .unwrap_or_else(Utc::now);
 
     let entry = registry::site_by_id(station);
     Ok(SweepImage {
         station: station.to_string(),
-        product_id: product_name.to_string(),
+        product_id: asked.product_name.to_string(),
         palette_applied: palette::for_unit(unit).is_some(),
         site_name: entry
             .map(|site| format!("{}, {}", site.city, site.state))
@@ -980,8 +1128,10 @@ pub fn sweep_from_volume(
         dealiased,
         storm_motion,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
-        tilts: tilts(&scan),
+        tilts: tilts_offered,
         tilt_index,
+        live: live_tilts.is_some(),
+        live_tilts: live_tilts.unwrap_or(0),
         collected: collected.to_rfc3339(),
         west,
         south,
@@ -990,6 +1140,76 @@ pub fn sweep_from_volume(
         image: data_url(&png_bytes),
         volume: volume_key.to_string(),
     })
+}
+
+/// How finely the swept sector is measured, in slots around the circle.
+const SECTOR_SLOTS: usize = 3600;
+
+/// Which pixels the sweep in hand actually swept.
+///
+/// Outside the sector a volume in progress has reached, the last finished
+/// volume is all there is to show. Inside it the new sweep is the whole answer,
+/// empty gates included: a storm that has moved on has to come off the picture
+/// rather than be left painted where it used to be.
+fn swept_pixels(field: &SweepField, coordinates: &RadarCoordinateSystem) -> Vec<bool> {
+    let mut ring = vec![false; SECTOR_SLOTS];
+    let per_slot = 360.0 / SECTOR_SLOTS as f32;
+    // A radial stands for the wedge it was measured across, not for a line.
+    let half = field.azimuth_spacing_degrees().abs().max(per_slot) / 2.0;
+    for azimuth in field.azimuths() {
+        let first = ((azimuth - half) / per_slot).floor() as i64;
+        let last = ((azimuth + half) / per_slot).ceil() as i64;
+        for slot in first..=last {
+            let slot = slot.rem_euclid(SECTOR_SLOTS as i64) as usize;
+            ring[slot] = true;
+        }
+    }
+
+    let near = field.first_gate_range_km();
+    let far = field.max_range_km();
+    let extent = coordinates.sweep_extent(MAX_RANGE_KM);
+    let west = extent.min.longitude;
+    let east = extent.max.longitude;
+    let top = mercator_y(extent.max.latitude);
+    let bottom = mercator_y(extent.min.latitude);
+    let elevation = field.elevation_degrees();
+
+    let mut swept = vec![false; IMAGE_SIZE * IMAGE_SIZE];
+    for row in 0..IMAGE_SIZE {
+        let y = top + (bottom - top) * ((row as f64 + 0.5) / IMAGE_SIZE as f64);
+        let latitude = inverse_mercator_y(y);
+        for column in 0..IMAGE_SIZE {
+            let longitude = west + (east - west) * ((column as f64 + 0.5) / IMAGE_SIZE as f64);
+            let polar = coordinates.geo_to_polar(
+                GeoPoint {
+                    latitude,
+                    longitude,
+                },
+                elevation,
+            );
+            if polar.range_km < near || polar.range_km >= far {
+                continue;
+            }
+            let slot = (polar.azimuth_degrees.rem_euclid(360.0) / per_slot) as usize;
+            if ring[slot.min(SECTOR_SLOTS - 1)] {
+                swept[row * IMAGE_SIZE + column] = true;
+            }
+        }
+    }
+    swept
+}
+
+/// Puts the newer picture over the older one, but only where it was swept.
+fn lay_over(older: Vec<u8>, newer: Vec<u8>, swept: &[bool]) -> Vec<u8> {
+    let mut out = older;
+    for (index, covered) in swept.iter().enumerate() {
+        if !covered {
+            continue;
+        }
+        let at = index * 4;
+        out[at..at + 4].copy_from_slice(&newer[at..at + 4]);
+    }
+    out
 }
 
 fn great_circle_km(
@@ -1150,12 +1370,33 @@ pub async fn level2_sweep(
     // Hide gates weaker than this, in the product's own unit. A value that is
     // not a number is no threshold rather than a threshold of nothing.
     threshold: Option<f32>,
+    // Read the volume the radar is sweeping now rather than the last one it
+    // finished. The archive object lands only when a volume is complete, so
+    // that picture is four to six minutes behind by definition.
+    live: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     if registry::site_by_id(&station).is_none() {
         return Err(Level2Error::UnknownSite(station));
     }
     let (key, data) = latest_volume(&station).await?;
+
+    // The volume in progress is drawn over the last finished one, so the live
+    // path needs both. A site that is not publishing chunks, or one between
+    // volumes, simply gets the finished picture: that is what the archive path
+    // has always shown and it is never wrong, only behind.
+    let live = if live {
+        match chunks::live_scan(&station, None).await {
+            Ok(found) => Some(found),
+            Err(reason) => {
+                log::debug!("no live volume for {station}: {reason}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // Decoding and drawing a volume is CPU work; it must not sit on the async
     // runtime the whole time.
     tauri::async_runtime::spawn_blocking(move || {
@@ -1168,26 +1409,103 @@ pub async fn level2_sweep(
                 north: speed * towards.cos(),
             }
         });
-        sweep_from_volume(
-            &station,
-            &key,
-            data,
-            SweepRequest {
-                product_name: &product,
-                tilt_index: tilt,
-                unfold: dealias,
-                manual_motion: manual,
-                threshold,
-            },
-        )
+        let asked = SweepRequest {
+            product_name: &product,
+            tilt_index: tilt,
+            unfold: dealias,
+            manual_motion: manual,
+            threshold,
+        };
+        match live {
+            Some(found) => {
+                let file = volume::File::new(data);
+                let older = file
+                    .scan()
+                    .map_err(|error| Level2Error::Decode(error.to_string()))?;
+                sweep_over(
+                    &station,
+                    &found.volume.volume.to_string(),
+                    &older,
+                    &|elevation| nyquist_velocity(&file, elevation),
+                    &found.scan,
+                    &|elevation| found.nyquist.get(&elevation).copied(),
+                    asked,
+                )
+            }
+            None => sweep_from_volume(&station, &key, data, asked),
+        }
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
 }
 
+/// Draws the volume in progress over the last one the radar finished.
+///
+/// The sector the radar has swept since the last volume closed is the new
+/// picture; everywhere else the finished volume is still the best there is.
+/// If the cut being asked for has not been reached yet, there is nothing live
+/// to show for it and the finished volume is the whole answer.
+fn sweep_over(
+    station: &str,
+    volume_key: &str,
+    older: &Scan,
+    older_nyquist: &dyn Fn(u8) -> Option<f32>,
+    live: &Scan,
+    live_nyquist: &dyn Fn(u8) -> Option<f32>,
+    asked: SweepRequest<'_>,
+) -> Result<SweepImage, Level2Error> {
+    let offered = tilts(older);
+    // The picker counts into the finished volume's cuts, because the one in
+    // progress has only the cuts it has reached so far and its third entry is
+    // not the pattern's third cut.
+    let angle = offered
+        .get(asked.tilt_index)
+        .or_else(|| offered.first())
+        .copied();
+    let Some(angle) = angle else {
+        return Err(Level2Error::NoSweep(
+            station.to_string(),
+            asked.product_name.to_string(),
+        ));
+    };
+
+    let beneath = prepare_sweep(station, older, older_nyquist, asked, Some(angle));
+    let Ok(newer) = prepare_sweep(station, live, live_nyquist, asked, Some(angle)) else {
+        // The radar has not reached this cut in the volume it is sweeping now,
+        // so the finished volume is the whole picture and says nothing about
+        // being live, because none of what is on screen is.
+        return draw_sweep(
+            station,
+            volume_key,
+            offered,
+            asked.tilt_index,
+            beneath?,
+            None,
+            asked,
+            older.time_range().map(|(start, _)| start),
+            None,
+        );
+    };
+
+    draw_sweep(
+        station,
+        volume_key,
+        offered,
+        asked.tilt_index,
+        newer,
+        beneath.ok(),
+        asked,
+        live.time_range().map(|(start, _)| start),
+        Some(tilts(live).len()),
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone;
+
     use super::*;
+    use crate::fixture;
 
     /// A sweep in a steady wind, with echo only over the range band given.
     ///
@@ -2672,5 +2990,405 @@ mod tests {
             listing_url("KDMX", day),
             "https://unidata-nexrad-level2.s3.amazonaws.com/?list-type=2&prefix=2026/08/30/KDMX/"
         );
+    }
+
+    /// The chunk path and the archive path have to agree about one volume.
+    ///
+    /// A folder in the chunks ring keeps its volume for a while after the radar
+    /// moves on, and the archive object for that same volume lands a minute or
+    /// so after it closes. In that window both are readable, so the two paths
+    /// can be put side by side over exactly the same sweep of the sky rather
+    /// than over two volumes five minutes apart.
+    #[test]
+    #[ignore = "downloads one volume twice, from the chunks bucket and the archive"]
+    fn the_chunk_sweep_and_the_archive_sweep_agree_about_one_volume() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        let mut compared = 0;
+        let mut why: Vec<String> = Vec::new();
+        for station in ["KTLX", "KDMX", "KJAX", "KTBW", "KGRR"] {
+            let Ok((newest, _)) = runtime.block_on(chunks::newest_volume(station, None)) else {
+                why.push(format!("{station}: nothing in the chunks ring"));
+                continue;
+            };
+            let Ok((key, data)) = runtime.block_on(latest_volume(station)) else {
+                why.push(format!("{station}: no archive volume"));
+                continue;
+            };
+            let file = volume::File::new(data);
+            let Ok(archive) = file.scan() else {
+                why.push(format!("{station}: the archive volume would not decode"));
+                continue;
+            };
+            let Some((archive_start, _)) = archive.time_range() else {
+                why.push(format!("{station}: the archive volume carries no time"));
+                continue;
+            };
+
+            // Walk back through the finished folders for the one holding the
+            // volume the archive just published. Which folder that is depends
+            // on how long the object took to land, so it is found by time.
+            let mut folder = chunks::previous(newest);
+            let mut same = None;
+            for _ in 0..4 {
+                if let Ok(found) = runtime.block_on(chunks::scan_in_folder(station, folder)) {
+                    if let Some((start, _)) = found.scan.time_range() {
+                        if (start - archive_start).num_seconds().abs() <= 30 {
+                            same = Some(found);
+                            break;
+                        }
+                    }
+                }
+                folder = chunks::previous(folder);
+            }
+            let Some(found) = same else {
+                why.push(format!(
+                    "{station}: no folder held the archive volume from {archive_start}"
+                ));
+                continue;
+            };
+
+            let from_chunks = sweep_field(&found.scan, Product::Reflectivity, 0)
+                .expect("the lowest cut, assembled from chunks");
+            let from_archive = sweep_field(&archive, Product::Reflectivity, 0)
+                .expect("the lowest cut, out of the archive");
+
+            assert_eq!(
+                from_chunks.elevation_number, from_archive.elevation_number,
+                "{station} put the lowest cut at a different elevation number"
+            );
+            assert!(
+                (from_chunks.elevation_degrees - from_archive.elevation_degrees).abs() < 0.05,
+                "{station}: {} against {}",
+                from_chunks.elevation_degrees,
+                from_archive.elevation_degrees
+            );
+            assert_eq!(
+                from_chunks.field.gate_count(),
+                from_archive.field.gate_count(),
+                "{station} disagreed about how many gates the cut has"
+            );
+            assert!(
+                (from_chunks.field.gate_interval_km() - from_archive.field.gate_interval_km())
+                    .abs()
+                    < 1e-6,
+                "{station} disagreed about how far apart the gates are"
+            );
+
+            // The readings are the same radar's, so they have to be the same
+            // numbers. Anything else means the chunk path is misreading the
+            // bytes rather than showing a slightly different moment.
+            let mut checked = 0usize;
+            let mut apart = 0usize;
+            for azimuth in 0..from_chunks.field.azimuth_count() {
+                let angle = from_chunks.field.azimuths()[azimuth];
+                for gate in (0..from_chunks.field.gate_count()).step_by(7) {
+                    let range = from_chunks.field.first_gate_range_km()
+                        + gate as f64 * from_chunks.field.gate_interval_km();
+                    let (mine, my_status) = from_chunks.field.get(azimuth, gate);
+                    let Some((theirs, their_status)) =
+                        from_archive.field.value_at_polar(angle, range)
+                    else {
+                        continue;
+                    };
+                    if my_status != GateStatus::Valid || their_status != GateStatus::Valid {
+                        continue;
+                    }
+                    checked += 1;
+                    if (mine - theirs).abs() > 0.6 {
+                        apart += 1;
+                    }
+                }
+            }
+            assert!(
+                checked > 1000,
+                "{station}: only {checked} gates were valid in both, which is too few to judge"
+            );
+            let share = apart as f64 / checked as f64;
+            println!(
+                "{station}: volume {} against {key}, {checked} gates compared, {apart} apart",
+                found.volume.volume
+            );
+            assert!(
+                share < 0.02,
+                "{station}: {apart} of {checked} gates disagreed, which is the chunk path \
+                 reading the bytes differently rather than the weather moving"
+            );
+            compared += 1;
+            break;
+        }
+
+        assert!(
+            compared > 0,
+            "no site could be compared, which after five tries is the paths moving \
+             rather than the weather being quiet: {}",
+            why.join("; ")
+        );
+    }
+
+    /// A volume built to order, from the site's own registered position.
+    fn built_volume(cuts: &[Vec<fixture::Radial>]) -> Scan {
+        let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
+        let site = fixture::Site {
+            id: *b"KTLX",
+            latitude: entry.latitude,
+            longitude: entry.longitude,
+            height_metres: 370,
+        };
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let bytes = fixture::volume(&site, at, cuts);
+        volume::File::new(bytes)
+            .scan()
+            .expect("a volume built to the ICD decodes")
+    }
+
+    /// The pixels of a drawn sweep, back out of the PNG it was handed over as.
+    fn drawn_pixels(sweep: &SweepImage) -> Vec<u8> {
+        let encoded = sweep
+            .image
+            .strip_prefix("data:image/png;base64,")
+            .expect("a PNG data url");
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .expect("valid base64");
+        let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+        let mut reader = decoder.read_info().expect("a readable PNG");
+        let mut out = vec![0u8; reader.output_buffer_size().expect("a known size")];
+        let info = reader.next_frame(&mut out).expect("one frame");
+        out.truncate(info.buffer_size());
+        out
+    }
+
+    /// The colour at a bearing and a distance from the site, off a drawn sweep.
+    fn pixel_at(sweep: &SweepImage, pixels: &[u8], bearing_degrees: f64, km: f64) -> [u8; 4] {
+        let entry = registry::site_by_id(&sweep.station).expect("a known site");
+        // Far enough north or east that a degree of latitude is close to
+        // constant, which is all this needs to land inside the right wedge.
+        let north = km * bearing_degrees.to_radians().cos() / 111.32;
+        let east = km * bearing_degrees.to_radians().sin()
+            / (111.32 * (entry.latitude as f64).to_radians().cos());
+        let latitude = entry.latitude as f64 + north;
+        let longitude = entry.longitude as f64 + east;
+
+        let top = mercator_y(sweep.north);
+        let bottom = mercator_y(sweep.south);
+        let row = ((mercator_y(latitude) - top) / (bottom - top) * IMAGE_SIZE as f64) as usize;
+        let column =
+            ((longitude - sweep.west) / (sweep.east - sweep.west) * IMAGE_SIZE as f64) as usize;
+        let at = (row.min(IMAGE_SIZE - 1) * IMAGE_SIZE + column.min(IMAGE_SIZE - 1)) * 4;
+        [pixels[at], pixels[at + 1], pixels[at + 2], pixels[at + 3]]
+    }
+
+    /// Radials over one sector only, which is what a volume in progress holds.
+    fn sector(
+        from_degrees: f32,
+        to_degrees: f32,
+        dbz: f32,
+        at: DateTime<Utc>,
+    ) -> Vec<fixture::Radial> {
+        let mut out = Vec::new();
+        let mut angle = from_degrees;
+        let mut number = 1u16;
+        while angle < to_degrees {
+            out.push(fixture::Radial {
+                azimuth_degrees: angle,
+                azimuth_number: number,
+                elevation_number: 1,
+                elevation_degrees: 0.5,
+                nyquist_ms: 8.0,
+                collected: at,
+                reflectivity: vec![dbz; 200],
+                velocity: Vec::new(),
+            });
+            angle += 1.0;
+            number += 1;
+        }
+        out
+    }
+
+    #[test]
+    fn the_swept_sector_is_drawn_over_the_volume_before_it() {
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        // The finished volume reads 20 dBZ everywhere. The volume in progress
+        // has reached the north-east quarter only, and reads 50 there.
+        let older = built_volume(&[fixture::flat_cut(at, fixture::Cut::default())]);
+        let live = built_volume(&[sector(0.0, 90.0, 50.0, at)]);
+
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let none = |_: u8| None;
+        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
+            .expect("a sweep drawn over the one before it");
+        assert!(sweep.live, "a sweep with live radials in it has to say so");
+
+        let both = drawn_pixels(&sweep);
+        let older_only =
+            sweep_from_scan("KTLX", "older", &older, &none, asked).expect("the finished sweep");
+        let older_pixels = drawn_pixels(&older_only);
+        let live_only =
+            sweep_from_scan("KTLX", "live", &live, &none, asked).expect("the sweep in progress");
+        let live_pixels = drawn_pixels(&live_only);
+
+        // Inside the swept quarter the new reading shows; outside it the old
+        // one does. Both are checked at the same distance, so the only thing
+        // that differs is the bearing.
+        for bearing in [15.0, 45.0, 75.0] {
+            assert_eq!(
+                pixel_at(&sweep, &both, bearing, 30.0),
+                pixel_at(&live_only, &live_pixels, bearing, 30.0),
+                "at {bearing} degrees the swept sector should be the new reading"
+            );
+        }
+        for bearing in [135.0, 200.0, 300.0] {
+            assert_eq!(
+                pixel_at(&sweep, &both, bearing, 30.0),
+                pixel_at(&older_only, &older_pixels, bearing, 30.0),
+                "at {bearing} degrees the volume before should still be showing"
+            );
+            assert_ne!(
+                pixel_at(&sweep, &both, bearing, 30.0),
+                pixel_at(&live_only, &live_pixels, bearing, 30.0),
+                "at {bearing} degrees the radar has not swept yet"
+            );
+        }
+        // And the two readings do have to look different, or none of the above
+        // would be measuring anything.
+        assert_ne!(
+            pixel_at(&live_only, &live_pixels, 45.0, 30.0),
+            pixel_at(&older_only, &older_pixels, 45.0, 30.0)
+        );
+    }
+
+    #[test]
+    fn a_storm_that_has_moved_on_comes_off_the_swept_sector() {
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        // A core in the finished volume, and a volume in progress that has
+        // swept the same quarter and found nothing there.
+        let older = built_volume(&[fixture::flat_cut(
+            at,
+            fixture::Cut {
+                reflectivity_dbz: 55.0,
+                ..fixture::Cut::default()
+            },
+        )]);
+        let live = built_volume(&[sector(0.0, 90.0, -30.0, at)]);
+
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let none = |_: u8| None;
+        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
+            .expect("a sweep drawn over the one before it");
+        let pixels = drawn_pixels(&sweep);
+
+        // Nothing below the lowest ramp stop is drawn at all, so the swept
+        // quarter has to come back clear rather than keeping the old core.
+        assert_eq!(
+            pixel_at(&sweep, &pixels, 45.0, 30.0)[3],
+            0,
+            "the swept sector kept a storm the radar has just looked at and not found"
+        );
+        assert_ne!(
+            pixel_at(&sweep, &pixels, 200.0, 30.0)[3],
+            0,
+            "outside the swept sector the volume before it is still the picture"
+        );
+    }
+
+    #[test]
+    fn a_cut_the_live_volume_has_not_reached_falls_back_to_the_finished_one() {
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let older = built_volume(&[
+            fixture::flat_cut(at, fixture::Cut::default()),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 1.5,
+                    reflectivity_dbz: 35.0,
+                    ..fixture::Cut::default()
+                },
+            ),
+        ]);
+        // The radar is still on the lowest cut of the volume in progress.
+        let live = built_volume(&[sector(0.0, 90.0, 50.0, at)]);
+
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            tilt_index: 1,
+            ..SweepRequest::default()
+        };
+        let none = |_: u8| None;
+        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
+            .expect("the finished volume's second cut");
+        assert!(
+            !sweep.live,
+            "nothing on screen came from the volume in progress, so it must not claim to be live"
+        );
+        assert_eq!(sweep.live_tilts, 0);
+        assert!((sweep.elevation_degrees - 1.5).abs() < 0.05);
+        // The picker offers the finished volume's cuts, not the one-cut list
+        // the volume in progress happens to hold right now.
+        assert_eq!(sweep.tilts.len(), 2);
+    }
+
+    #[test]
+    fn the_tilt_asked_for_is_matched_by_angle_across_the_two_volumes() {
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let older = built_volume(&[
+            fixture::flat_cut(at, fixture::Cut::default()),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 1.5,
+                    reflectivity_dbz: 35.0,
+                    ..fixture::Cut::default()
+                },
+            ),
+        ]);
+        // The volume in progress has reached the second cut but not the first,
+        // which is what SAILS does: its list starts at 1.5, so counting into
+        // it would put the reader on the wrong cut without saying so.
+        let live = built_volume(&[fixture::flat_cut(
+            at,
+            fixture::Cut {
+                number: 2,
+                degrees: 1.5,
+                reflectivity_dbz: 50.0,
+                ..fixture::Cut::default()
+            },
+        )]);
+
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            tilt_index: 1,
+            ..SweepRequest::default()
+        };
+        let none = |_: u8| None;
+        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
+            .expect("the cut both volumes hold");
+        assert!(sweep.live);
+        assert!(
+            (sweep.elevation_degrees - 1.5).abs() < 0.05,
+            "the live volume's only cut is at 1.5 and that is the one asked for"
+        );
+
+        // Asking for the lowest cut, which the volume in progress has not got,
+        // has to fall back rather than serve its 1.5 cut as if it were 0.5.
+        let lowest = SweepRequest {
+            tilt_index: 0,
+            ..asked
+        };
+        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, lowest)
+            .expect("the finished volume's lowest cut");
+        assert!(!sweep.live);
+        assert!((sweep.elevation_degrees - 0.5).abs() < 0.05);
     }
 }

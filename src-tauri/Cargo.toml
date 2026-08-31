@@ -26,7 +26,10 @@ tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
 thiserror = "2.0.20"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "http2", "charset"] }
 tauri-plugin-notification = "2.3.3"
-nexrad-data = { version = "=1.0.0-rc.7", default-features = false, features = ["nexrad-model"] }
+# The aws feature is on for the chunk types and the volume assembler, not for
+# its networking: every request in this app goes through src/http.rs so there
+# is one allowlist and one User-Agent. reqwest is already in the tree.
+nexrad-data = { version = "=1.0.0-rc.7", default-features = false, features = ["nexrad-model", "aws"] }
 nexrad-decode = "=1.0.0-rc.3"
 nexrad-model = { version = "=1.0.0-rc.2", features = ["chrono"] }
 png = "0.18.1"
@@ -40,5 +43,8 @@ tokio = { version = "1.53.1", features = ["sync"] }
 tauri-plugin-window-state = "2.4.1"
 
 [dev-dependencies]
+# Level II records are bzip2 inside, so writing a test volume needs an encoder.
+# The version is the one nexrad-data already pulls in.
+bzip2 = "0.6.0"
 tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "macros"] }
 

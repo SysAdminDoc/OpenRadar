@@ -7,6 +7,15 @@ export const SINGLE_SITE_MIN_ZOOM = 8;
 /** A volume lands every four to six minutes, so asking more often is waste. */
 export const SWEEP_REFRESH_MS = 2 * 60_000;
 
+/**
+ * How often to ask while the volume in progress is what is being drawn.
+ *
+ * The radar publishes a piece every eleven or twelve seconds, so this is close
+ * enough that a new one is on screen within half a minute of being made, and
+ * far enough apart that most asks have something new to answer with.
+ */
+export const LIVE_REFRESH_MS = 20_000;
+
 export const LEVEL2_PRODUCTS = [
   { id: "reflectivity", key: "product.reflectivity", unit: "dBZ" },
   { id: "velocity", key: "product.velocity", unit: "m/s" },
@@ -62,6 +71,16 @@ export interface SweepImage {
   elevationDegrees: number;
   tilts: number[];
   tiltIndex: number;
+  /**
+   * True when the sector on screen came from the volume being swept now.
+   *
+   * False for a sweep the archive answered, including one asked for live at a
+   * cut the radar has not reached yet: nothing then on screen is live, and the
+   * legend must not say otherwise.
+   */
+  live: boolean;
+  /** How many cuts the volume in progress has published. Zero when not live. */
+  liveTilts: number;
   collected: string;
   west: number;
   south: number;
@@ -102,6 +121,8 @@ export async function fetchSweep(
   motion: [number, number] | null,
   // Hide anything weaker than this, in the product's own unit.
   threshold: number | null,
+  // Draw the volume being swept now over the last one the radar finished.
+  live: boolean,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -111,7 +132,23 @@ export async function fetchSweep(
     dealias,
     motion,
     threshold,
+    live,
   });
+}
+
+/**
+ * How old the live part of a sweep is, in whole seconds, or null.
+ *
+ * Measured from when the radar collected the cut rather than from when it was
+ * fetched, so a slow download shows as what it is. A sweep the archive
+ * answered has no live part and gets nothing.
+ */
+export function liveAgeSeconds(sweep: SweepImage, now: number): number | null {
+  if (!sweep.live) return null;
+  const collected = Date.parse(sweep.collected);
+  if (Number.isNaN(collected)) return null;
+  // A clock a little behind the radar's would otherwise read as the future.
+  return Math.max(0, Math.round((now - collected) / 1000));
 }
 
 /**
