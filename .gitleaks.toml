@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Static radar object key used by the palette browser test"
+regexTarget = "secret"
+regexes = ['''^CONUS/x/1788083202$''']
