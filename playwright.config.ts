@@ -19,6 +19,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /wide\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
@@ -27,9 +28,22 @@ export default defineConfig({
     {
       // The narrowest window the app allows, where the command bar collapses.
       name: "compact",
+      testIgnore: /wide\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1024, height: 720 },
+      },
+    },
+    {
+      // A real wide desktop. The rest of the suite runs at 1440, which is
+      // narrow enough that the layout is still being pushed together; this is
+      // the width the README screenshots are taken at and the one where dead
+      // space and stranded controls would show up instead.
+      name: "wide",
+      testMatch: /wide\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1920, height: 1080 },
       },
     },
   ],

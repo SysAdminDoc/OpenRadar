@@ -11,6 +11,8 @@ OpenRadar reads public weather data and draws it. It has no account, no server o
 
 This is a small project with one maintainer. Only the newest release gets fixes, and the honest reason is capacity rather than policy. If you are running something older, updating is the fix.
 
+The same goes for platforms. Windows x64 is what is built, tested and released, so it is what gets fixes. Nothing here is deliberately Windows-only and Tauri 2 runs elsewhere, but a build on macOS or Linux has never been launched by anyone here and is not covered. There is more on that in the README.
+
 ## Reporting something
 
 Use GitHub's private vulnerability reporting on this repository: open the **Security** tab and choose **Report a vulnerability**. That opens a private thread only the maintainer can read, which is why it is the route named here instead of an address. Please do not open a public issue for something exploitable.
