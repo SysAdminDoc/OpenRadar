@@ -364,4 +364,3 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Touches: Export caption and credit; a provenance sidecar or embedded metadata; export tests
       Acceptance: The credit line comes from the record rather than a constant; the full record travels with an exported file in a documented form; a replayed archive frame exports the archive's own attribution and observed time; tests cover a live frame, a forecast frame, and a replay.
       Complexity: M
-
