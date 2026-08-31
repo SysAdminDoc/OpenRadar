@@ -64,6 +64,17 @@ import {
   radarProvenance,
   type Provenance,
 } from "./lib/provenance";
+import { LAYER_SOURCES, layerProvenance } from "./lib/layerProvenance";
+
+/**
+ * The layer switches whose records come from the overlay adapters instead.
+ *
+ * Both lists are complete, so anything here would otherwise be reported twice
+ * under two slightly different names.
+ */
+const COVERED_BY_ADAPTERS = new Set(
+  OVERLAY_ADAPTERS.map((adapter) => adapter.id as string),
+);
 import { useStormCells } from "./hooks/useStormCells";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
@@ -369,6 +380,41 @@ export default function App() {
       if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
       layers.push(overlayProvenance({ adapter, fetchedAt: state.fetchedAt }));
     }
+
+    // Everything else the reader can switch on. The overlay adapters above
+    // already speak for themselves, so this covers the rest: the locally
+    // decoded grids, both lightning layers, wind, satellite, and the two
+    // products the radar's own algorithms derive.
+    //
+    // Each takes the best time the app actually has for it. An MRMS grid knows
+    // when it was valid and a lightning window knows when it was observed;
+    // where nothing is known the record says it was fetched now, which is true
+    // and claims nothing more.
+    const mrmsTimes = new Map(
+      mrms.layers.map((layer) => [layer.product, layer.time * 1000]),
+    );
+    for (const [key, on] of Object.entries(settings.layers)) {
+      const layer = key as keyof typeof settings.layers;
+      if (!on) continue;
+      const source = LAYER_SOURCES[layer];
+      // Matched on the source rather than on the switch's own name, because
+      // the two do not agree: the alerts adapter is `alerts` and the switch
+      // that draws it is `weatherAlerts`. Comparing the names would have let
+      // that one layer be reported twice under both.
+      if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
+      const observedAt =
+        mrmsTimes.get(source.sourceId as never) ??
+        (layer === "lightningFlashes"
+          ? (lightning.window?.observed ?? null)
+          : null);
+      layers.push(
+        layerProvenance({
+          layer,
+          fetchedAt: now,
+          observedAt: observedAt ?? now,
+        }),
+      );
+    }
     const block = diagnosticsBlock({
       renderer: gpuSupport().renderer,
       mapReady: mapStatus === "ready",
@@ -397,7 +443,10 @@ export default function App() {
     })();
   }, [
     health,
+    lightning.window?.observed,
     logEntries,
+    mrms.layers,
+    settings,
     mapStatus,
     overlays.data,
     overlays.states,

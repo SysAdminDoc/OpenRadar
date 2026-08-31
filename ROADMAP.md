@@ -371,13 +371,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
 
-- [ ] AUD-100: P1. Give the remaining layers a provenance record
-      Why: `AUD-068` built the contract and wired two producers, radar frames and the seven overlay adapters. An adversarial review on 2026-08-31 counted what that actually covers: 7 of the 24 toggleable layers in `LayerSettings`. The single-site Level II sweep, every MRMS product, both lightning layers, wind, satellite, storm cells, ProbSevere, surge, guidance, tides and imported overlays still have no record, so "every visible weather layer" is not yet true. The two products the contract's own comment calls derived, unfolded velocity and azimuthal shear, are exactly the ones with nothing to report.
-      Evidence: `src/lib/provenance.ts`; `src/lib/settings.ts` `LayerSettings`; `src/App.tsx` diagnostics wiring; `src/hooks/useSingleSiteRadar.ts`; `src/hooks/useMrmsOverlays.ts`; `src/hooks/useLightning.ts`; `src/hooks/useProbSevere.ts`
-      Touches: A producer per remaining layer; the diagnostics layer list; `kind: "derived"` for unfolded velocity and rotation tracks
-      Acceptance: Every layer a reader can switch on produces a record that passes `provenanceProblems`; a test enumerates the layer switches and fails when one has no producer, so a layer added later cannot quietly arrive without one; the derived products name what was done to them.
-      Complexity: L
-
 - [ ] AUD-101: P2. Make the radar record report cache state and freshness
       Why: The radar layer's record is built with `fetchedAt: Date.now()` and neither a cache age nor a freshness rule, so it always prints "cache live" and can never be stale. The timeline already knows better: `RadarTimelineState.cached` says the frames on screen are the last ones that arrived rather than fresh, which is the single most useful thing a report about a wrong-looking picture could carry.
       Evidence: `src/App.tsx` diagnostics wiring; `src/hooks/useRadarTimeline.ts` `cached`; `src/lib/tileCache.ts` `CacheReport`; `src/lib/provenance.ts` `provenanceStale`
