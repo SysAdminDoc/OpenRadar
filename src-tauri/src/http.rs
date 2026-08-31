@@ -10,7 +10,7 @@ use std::time::Duration;
 use crate::cache;
 
 use reqwest::redirect::Policy;
-use reqwest::{Client, Url};
+use reqwest::{Client, StatusCode, Url};
 
 /// Every host a native fetch may reach. Subdomains are not implied.
 const ALLOWED_HOSTS: &[&str] = &[
@@ -63,6 +63,10 @@ pub enum HttpError {
     Transport(#[from] reqwest::Error),
     #[error("the response redirected somewhere OpenRadar may not follow")]
     RedirectRefused,
+    #[error("the requested byte range is invalid")]
+    InvalidRange,
+    #[error("the server did not return the requested byte range")]
+    RangeNotHonored,
 }
 
 /// HTTPS only, and the host has to match an entry exactly. A lookalike such as
@@ -195,18 +199,39 @@ async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     if response.status().is_redirection() {
         return Err(HttpError::RedirectRefused);
     }
-    let response = response.error_for_status()?;
-    if let Some(length) = response.content_length() {
-        if length as usize > MAX_BODY_BYTES {
-            return Err(HttpError::TooLarge);
-        }
-    }
+    read_limited(response.error_for_status()?, MAX_BODY_BYTES).await
+}
 
-    let body = response.bytes().await?;
-    if body.len() > MAX_BODY_BYTES {
+/// Streams a response into a bounded buffer. Content-Length is only a hint:
+/// chunked responses and dishonest servers still have to meet the same cap.
+async fn read_limited(
+    mut response: reqwest::Response,
+    limit: usize,
+) -> Result<Vec<u8>, HttpError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > limit as u64)
+    {
         return Err(HttpError::TooLarge);
     }
-    Ok(body.to_vec())
+
+    let capacity = response
+        .content_length()
+        .and_then(|length| usize::try_from(length).ok())
+        .unwrap_or(0)
+        .min(limit);
+    let mut body = Vec::with_capacity(capacity);
+    while let Some(chunk) = response.chunk().await? {
+        let length = body
+            .len()
+            .checked_add(chunk.len())
+            .ok_or(HttpError::TooLarge)?;
+        if length > limit {
+            return Err(HttpError::TooLarge);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 /// The same fetch, keeping the content type, because bytes handed to a webview
@@ -230,16 +255,8 @@ pub async fn get_typed(url: &str) -> Result<(Vec<u8>, String), HttpError> {
         .and_then(|value| value.to_str().ok())
         .unwrap_or("application/octet-stream")
         .to_string();
-    if let Some(length) = response.content_length() {
-        if length as usize > MAX_BODY_BYTES {
-            return Err(HttpError::TooLarge);
-        }
-    }
-    let body = response.bytes().await?;
-    if body.len() > MAX_BODY_BYTES {
-        return Err(HttpError::TooLarge);
-    }
-    Ok((body.to_vec(), content_type))
+    let body = read_limited(response, MAX_BODY_BYTES).await?;
+    Ok((body, content_type))
 }
 
 /// A byte range of a file, which is how one field is read out of a GRIB2
@@ -251,9 +268,7 @@ pub async fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, HttpE
             parsed.host_str().unwrap_or(url).to_string(),
         ));
     }
-    if end < start || end - start + 1 > MAX_BODY_BYTES as u64 {
-        return Err(HttpError::TooLarge);
-    }
+    let expected = range_length(start, end)?;
 
     let response = shared_client()?
         .get(parsed)
@@ -263,11 +278,25 @@ pub async fn get_range(url: &str, start: u64, end: u64) -> Result<Vec<u8>, HttpE
     if response.status().is_redirection() {
         return Err(HttpError::RedirectRefused);
     }
-    let body = response.error_for_status()?.bytes().await?;
-    if body.len() > MAX_BODY_BYTES {
+    if response.status() != StatusCode::PARTIAL_CONTENT {
+        return Err(HttpError::RangeNotHonored);
+    }
+    let body = read_limited(response.error_for_status()?, expected).await?;
+    if body.len() != expected {
+        return Err(HttpError::RangeNotHonored);
+    }
+    Ok(body)
+}
+
+fn range_length(start: u64, end: u64) -> Result<usize, HttpError> {
+    let length = end
+        .checked_sub(start)
+        .and_then(|difference| difference.checked_add(1))
+        .ok_or(HttpError::InvalidRange)?;
+    if length > MAX_BODY_BYTES as u64 {
         return Err(HttpError::TooLarge);
     }
-    Ok(body.to_vec())
+    usize::try_from(length).map_err(|_| HttpError::TooLarge)
 }
 
 #[cfg(test)]
@@ -336,6 +365,19 @@ mod tests {
         // The status the client is left holding when a redirect is refused.
         let error = HttpError::RedirectRefused;
         assert!(error.to_string().contains("may not follow"));
+    }
+
+    #[test]
+    fn validates_byte_ranges_before_sending_them() {
+        assert_eq!(range_length(10, 19).unwrap(), 10);
+        assert!(matches!(
+            range_length(19, 10),
+            Err(HttpError::InvalidRange)
+        ));
+        assert!(matches!(
+            range_length(0, MAX_BODY_BYTES as u64),
+            Err(HttpError::TooLarge)
+        ));
     }
 
     #[test]

@@ -101,7 +101,8 @@ pub fn parse_index(text: &str) -> Vec<IndexEntry> {
             .get(at + 1)
             .and_then(|next| next.split(':').nth(1))
             .and_then(|offset| offset.parse::<u64>().ok())
-            .map(|next| next - 1);
+            .and_then(|next| next.checked_sub(1))
+            .filter(|end| *end >= start);
         entries.push(IndexEntry {
             name: format!("{}:{}", parts[3], parts[4]),
             start,
@@ -122,15 +123,29 @@ pub fn find_field<'a>(entries: &'a [IndexEntry], field: &str) -> Option<&'a Inde
 struct Bits<'a> {
     bytes: &'a [u8],
     at: usize,
+    exhausted: bool,
 }
 
 impl<'a> Bits<'a> {
     fn new(bytes: &'a [u8]) -> Self {
-        Bits { bytes, at: 0 }
+        Bits {
+            bytes,
+            at: 0,
+            exhausted: false,
+        }
     }
 
     fn take(&mut self, width: u8) -> u64 {
         if width == 0 {
+            return 0;
+        }
+        let Some(end) = self.at.checked_add(width as usize) else {
+            self.exhausted = true;
+            return 0;
+        };
+        if end > self.bytes.len().saturating_mul(8) {
+            self.exhausted = true;
+            self.at = end;
             return 0;
         }
         let mut value = 0u64;
@@ -144,7 +159,11 @@ impl<'a> Bits<'a> {
     }
 
     fn align(&mut self) {
-        self.at = (self.at + 7) & !7;
+        self.at = self.at.saturating_add(7) & !7;
+    }
+
+    fn was_exhausted(&self) -> bool {
+        self.exhausted
     }
 }
 
@@ -189,6 +208,9 @@ struct Packing {
 
 /// Undoes complex packing with spatial differencing, which is what GFS uses.
 pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsError> {
+    if section5.len() < 49 {
+        return Err(GfsError::Decode("the packing header is truncated".into()));
+    }
     let template = u16::from_be_bytes([section5[9], section5[10]]);
     if template != 3 {
         return Err(GfsError::Unsupported(format!(
@@ -221,6 +243,37 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
     if section5[22] != 0 {
         return Err(GfsError::Unsupported("missing value management".into()));
     }
+    if packing.points == 0 || packing.points > GRID_COLUMNS * GRID_ROWS {
+        return Err(GfsError::Decode(format!(
+            "the packing header claims {} grid points",
+            packing.points
+        )));
+    }
+    if packing.groups == 0 || packing.groups > packing.points {
+        return Err(GfsError::Decode(format!(
+            "the packing header claims {} groups for {} points",
+            packing.groups, packing.points
+        )));
+    }
+    if packing.points < packing.spatial_order as usize {
+        return Err(GfsError::Decode(
+            "the grid is shorter than its spatial differencing order".into(),
+        ));
+    }
+    if packing.extra_octets == 0 || packing.extra_octets > 8 {
+        return Err(GfsError::Decode(format!(
+            "the spatial differencing width is {} octets",
+            packing.extra_octets
+        )));
+    }
+    if packing.bits > 64 || packing.width_bits > 64 || packing.length_bits > 64 {
+        return Err(GfsError::Decode(
+            "a packed integer is wider than 64 bits".into(),
+        ));
+    }
+    if !packing.reference.is_finite() {
+        return Err(GfsError::Decode("the packing reference is not finite".into()));
+    }
 
     let mut bits = Bits::new(section7);
 
@@ -242,24 +295,37 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
 
     let mut widths = Vec::with_capacity(packing.groups);
     for _ in 0..packing.groups {
-        widths.push(packing.width_reference as u64 + bits.take(packing.width_bits));
+        let width = (packing.width_reference as u64)
+            .checked_add(bits.take(packing.width_bits))
+            .ok_or_else(|| GfsError::Decode("a group width overflowed".into()))?;
+        if width > 64 {
+            return Err(GfsError::Decode(format!(
+                "a group value is {width} bits wide"
+            )));
+        }
+        widths.push(width as u8);
     }
     bits.align();
 
     let mut lengths = Vec::with_capacity(packing.groups);
     for _ in 0..packing.groups {
-        lengths.push(
-            packing.length_reference as u64
-                + bits.take(packing.length_bits) * packing.length_increment as u64,
-        );
+        let length = bits
+            .take(packing.length_bits)
+            .checked_mul(packing.length_increment as u64)
+            .and_then(|extra| (packing.length_reference as u64).checked_add(extra))
+            .ok_or_else(|| GfsError::Decode("a group length overflowed".into()))?;
+        lengths.push(length);
     }
     if let Some(last) = lengths.last_mut() {
         *last = packing.last_group_length as u64;
     }
     bits.align();
 
-    let total: u64 = lengths.iter().sum();
-    if total as usize != packing.points {
+    let total = lengths.iter().try_fold(0u64, |held, length| {
+        held.checked_add(*length)
+            .ok_or_else(|| GfsError::Decode("the group lengths overflowed".into()))
+    })?;
+    if usize::try_from(total).ok() != Some(packing.points) {
         return Err(GfsError::Decode(format!(
             "the groups hold {total} values and the grid wants {}",
             packing.points
@@ -268,11 +334,19 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
 
     let mut differences = Vec::with_capacity(packing.points);
     for group in 0..packing.groups {
-        let width = widths[group] as u8;
+        let width = widths[group];
         let reference = references[group];
         for _ in 0..lengths[group] {
-            differences.push((reference + bits.take(width)) as i64 + minimum);
+            let packed = reference
+                .checked_add(bits.take(width))
+                .and_then(|value| i64::try_from(value).ok())
+                .and_then(|value| value.checked_add(minimum))
+                .ok_or_else(|| GfsError::Decode("a packed value overflowed".into()))?;
+            differences.push(packed);
         }
+    }
+    if bits.was_exhausted() {
+        return Err(GfsError::Decode("the packed data is truncated".into()));
     }
 
     // Undo the differencing. The first values are the ones the header carried,
@@ -283,19 +357,41 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
     }
     if order == 1 {
         for at in 1..values.len() {
-            values[at] += values[at - 1];
+            values[at] = values[at]
+                .checked_add(values[at - 1])
+                .ok_or_else(|| GfsError::Decode("spatial differencing overflowed".into()))?;
         }
     } else {
         for at in 2..values.len() {
-            values[at] += 2 * values[at - 1] - values[at - 2];
+            values[at] = values[at]
+                .checked_add(
+                    values[at - 1]
+                        .checked_mul(2)
+                        .ok_or_else(|| GfsError::Decode("spatial differencing overflowed".into()))?,
+                )
+                .and_then(|value| value.checked_sub(values[at - 2]))
+                .ok_or_else(|| GfsError::Decode("spatial differencing overflowed".into()))?;
         }
     }
 
-    let scale = 2f32.powi(packing.binary as i32) / 10f32.powi(packing.decimal as i32);
-    Ok(values
+    let decimal_scale = 10f32.powi(packing.decimal as i32);
+    let scale = 2f32.powi(packing.binary as i32) / decimal_scale;
+    let reference = packing.reference / decimal_scale;
+    if !decimal_scale.is_finite()
+        || decimal_scale == 0.0
+        || !scale.is_finite()
+        || !reference.is_finite()
+    {
+        return Err(GfsError::Decode("the packing scale is not finite".into()));
+    }
+    let values: Vec<f32> = values
         .into_iter()
-        .map(|value| packing.reference / 10f32.powi(packing.decimal as i32) + value as f32 * scale)
-        .collect())
+        .map(|value| reference + value as f32 * scale)
+        .collect();
+    if values.iter().any(|value| !value.is_finite()) {
+        return Err(GfsError::Decode("the decoded field is not finite".into()));
+    }
+    Ok(values)
 }
 
 /// Walks a single GRIB2 message for the sections the decoder needs.
@@ -382,6 +478,9 @@ fn to_image(u: &[f32], v: &[f32]) -> Result<(Vec<u8>, usize, usize, [f32; 4]), G
             u.len(),
             GRID_COLUMNS * GRID_ROWS
         )));
+    }
+    if u.iter().chain(v).any(|value| !value.is_finite()) {
+        return Err(GfsError::Decode("the wind field is not finite".into()));
     }
     let columns = GRID_COLUMNS / STRIDE;
     let rows = GRID_ROWS.div_ceil(STRIDE);
@@ -527,6 +626,11 @@ mod tests {
         let entries = parse_index("nonsense\n\n:::\n1:0:d=1:UGRD:10 m above ground:anl:\n");
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].start, 0);
+
+        let malformed = parse_index(
+            "1:10:d=1:UGRD:10 m above ground:anl:\n2:0:d=1:VGRD:10 m above ground:anl:\n",
+        );
+        assert_eq!(malformed[0].end, None);
     }
 
     #[test]
@@ -537,8 +641,9 @@ mod tests {
         assert_eq!(bits.take(4), 0b1011);
         assert_eq!(bits.take(4), 0b0010);
         assert_eq!(bits.take(8), 0b0110_1001);
-        // Past the end reads zeroes rather than panicking.
+        // Past the end is marked as truncated rather than silently accepted.
         assert_eq!(bits.take(8), 0);
+        assert!(bits.was_exhausted());
 
         let mut widths = Bits::new(&bytes);
         assert_eq!(widths.take(0), 0);
@@ -736,6 +841,11 @@ mod tests {
 
     #[test]
     fn refuses_a_field_packed_a_way_it_cannot_read() {
+        assert!(matches!(
+            decode_complex(&[0u8; 10], &[]),
+            Err(GfsError::Decode(_))
+        ));
+
         let mut section5 = vec![0u8; 49];
         section5[4] = 5;
         // Template 2 is complex packing without the differencing.

@@ -705,7 +705,9 @@ fn last_key(listing: &str) -> Option<String> {
     let mut rest = listing;
     while let Some(start) = rest.find("<Key>") {
         let after = &rest[start + 5..];
-        let end = after.find("</Key>")?;
+        let Some(end) = after.find("</Key>") else {
+            break;
+        };
         newest = Some(after[..end].to_string());
         rest = &after[end..];
     }
@@ -1251,6 +1253,10 @@ mod tests {
             Some("TLX_NST_2026_08_30_23_55_15")
         );
         assert_eq!(last_key("<ListBucketResult/>"), None);
+        assert_eq!(
+            last_key("<Key>TLX_NST_2026_08_30_23_55_15</Key><Key>truncated").as_deref(),
+            Some("TLX_NST_2026_08_30_23_55_15")
+        );
     }
 
     #[test]
