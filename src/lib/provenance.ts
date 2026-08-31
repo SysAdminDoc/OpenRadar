@@ -343,6 +343,177 @@ export function provenanceLines(record: Provenance, now?: number): string[] {
   if (now !== undefined && provenanceStale(record, now)) {
     lines.push("  stale past its refresh");
   }
-  lines.push(`  credit ${record.attribution}`);
+  lines.push(`  credit ${attributionText(record.attribution)}`);
   return lines;
+}
+
+/**
+ * One record as it is written into a file that leaves the app.
+ *
+ * The in-memory record keeps its times as milliseconds because that is what
+ * every caller compares and subtracts. A file that outlives the app has a
+ * different reader: a person opening it next year, or a tool that never had
+ * this type. So the times are written as ISO strings, which say their own
+ * units and their own zone, and the numeric forms are not repeated beside
+ * them. Two spellings of one time is two things that can disagree.
+ */
+export interface ProvenanceRecordDocument {
+  sourceId: string;
+  label: string;
+  attribution: string;
+  attributionUrl?: string;
+  kind: ProvenanceKind;
+  /** When the atmosphere was measured. Null on a forecast. */
+  observed: string | null;
+  /** When the statement applies. */
+  valid: string | null;
+  /** When the bytes reached the machine that drew this. */
+  fetched: string;
+  freshForMs: number | null;
+  cachedAgeSeconds: number | null;
+  modelRun?: ModelRun;
+  runUnknown?: boolean;
+  derivedFrom?: string;
+}
+
+/**
+ * Everything an exported picture can say about where it came from.
+ *
+ * A caption has room for a time and a credit. That is enough to know what you
+ * are looking at and not enough to check it: which run of which model, whether
+ * the bytes came off a disk cache during an outage, what the source calls
+ * itself. This is that, beside the file, in a shape that does not need the app
+ * to read.
+ */
+export interface ProvenanceDocument {
+  format: "openradar-provenance";
+  formatVersion: 1;
+  /** The application and version that wrote the picture. */
+  application: string;
+  writtenAt: string;
+  /** The file this describes, by name. */
+  picture: string;
+  /** Credit for the map under the weather. */
+  basemap: string;
+  /**
+   * One entry per frame that reached the file, by its index on the timeline.
+   *
+   * A loop is not one source. Its observed frames and its forecast tail come
+   * from different services, and a GIF holds only the last of them, so a
+   * single record for the whole file would be wrong for most of it.
+   */
+  frames: Array<ProvenanceRecordDocument & { index: number }>;
+}
+
+/**
+ * An attribution as words rather than markup.
+ *
+ * Every provider states its credit as an HTML anchor, because that is what
+ * MapLibre's attribution control renders and the control was the first place
+ * these strings were needed. Anywhere else they are wrong: a caption burned
+ * into a picture would draw the tag itself, and a record written into a file
+ * would carry a link nobody can click.
+ */
+export function attributionText(attribution: string): string {
+  return attribution
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(amp|lt|gt|quot|#39|nbsp|copy);/g, (_, name: string) => {
+      const named: Record<string, string> = {
+        amp: "&",
+        lt: "<",
+        gt: ">",
+        quot: '"',
+        "#39": "'",
+        nbsp: " ",
+        copy: "©",
+      };
+      return named[name] ?? "";
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * The link inside an attribution, for a record that has no separate one.
+ *
+ * The provider registry keeps the URL apart from the credit, but a frame that
+ * no provider made carries only the anchor, and throwing the href away while
+ * writing a provenance file is the one place that loss would matter.
+ */
+function attributionHref(attribution: string): string | undefined {
+  const found = /href="([^"]+)"/.exec(attribution);
+  return found?.[1];
+}
+
+/** The same as `stamp`, but a time that is absent stays absent in a file. */
+function stampOrNull(at: number | null): string | null {
+  return at === null ? null : stamp(at);
+}
+
+/** A record in the form that goes into a file. */
+export function provenanceRecordDocument(
+  record: Provenance,
+): ProvenanceRecordDocument {
+  return {
+    sourceId: record.sourceId,
+    label: record.label,
+    attribution: attributionText(record.attribution),
+    attributionUrl:
+      record.attributionUrl ?? attributionHref(record.attribution),
+    kind: record.kind,
+    observed: stampOrNull(record.observedAt),
+    valid: stampOrNull(record.validAt),
+    fetched: stamp(record.fetchedAt),
+    freshForMs: record.freshForMs,
+    cachedAgeSeconds: record.cachedAgeSeconds,
+    modelRun: record.modelRun,
+    runUnknown: record.runUnknown,
+    derivedFrom: record.derivedFrom,
+  };
+}
+
+/** The sidecar for one exported picture. */
+export function provenanceDocument(options: {
+  picture: string;
+  application: string;
+  basemap: string;
+  writtenAt: number;
+  frames: Array<{ index: number; record: Provenance }>;
+}): ProvenanceDocument {
+  return {
+    format: "openradar-provenance",
+    formatVersion: 1,
+    application: options.application,
+    writtenAt: stamp(options.writtenAt),
+    picture: options.picture,
+    basemap: options.basemap,
+    frames: options.frames
+      // The encoder asks for whichever frames it is writing, in whatever order
+      // suits it. The file reads in timeline order.
+      .slice()
+      .sort((left, right) => left.index - right.index)
+      .map(({ index, record }) => ({
+        index,
+        ...provenanceRecordDocument(record),
+      })),
+  };
+}
+
+/**
+ * The credit burned into the corner of a picture.
+ *
+ * This used to be a constant naming NOAA, which was right for a live American
+ * mosaic and wrong for everything else the app can draw: a German or Canadian
+ * provider, a 2005 hurricane replayed out of the Iowa State archive. A picture
+ * that leaves the app carries its credit to people who cannot check it, so the
+ * credit has to come from the same record every other surface reads.
+ */
+export function provenanceCredit(
+  basemap: string,
+  record: Provenance | null,
+): string {
+  const source = record ? attributionText(record.attribution) : "";
+  return ["OpenRadar", basemap, source]
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .join(" · ");
 }

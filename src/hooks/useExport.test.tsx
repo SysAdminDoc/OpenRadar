@@ -5,14 +5,15 @@ import type { RadarFrame } from "../lib/radar";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { useExport } from "./useExport";
 
-const { exportLoop, saveFile } = vi.hoisted(() => ({
+const { exportLoop, exportStill, saveFile } = vi.hoisted(() => ({
   exportLoop: vi.fn(),
+  exportStill: vi.fn(),
   saveFile: vi.fn(),
 }));
 
 vi.mock("../lib/export", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/export")>();
-  return { ...actual, exportLoop };
+  return { ...actual, exportLoop, exportStill };
 });
 vi.mock("../lib/saveFile", () => ({ saveFile }));
 
@@ -79,6 +80,142 @@ describe("loop export workspace restoration", () => {
     expect(setPlaying.mock.calls.at(-1)).toEqual([true]);
     expect(pushToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: expect.any(String) }),
+    );
+  });
+});
+
+describe("the record written beside the picture", () => {
+  const timeline: RadarTimelineState = {
+    frames,
+    frameIndex: 1,
+    playing: false,
+    source: null,
+    sourceLabel: null,
+    attribution: null,
+    error: null,
+    cached: false,
+    cachedAgeSeconds: null,
+    newestObserved: undefined,
+    setPlaying: vi.fn(),
+    selectFrame: vi.fn(),
+  };
+
+  function renderExport(over: Partial<Parameters<typeof useExport>[0]> = {}) {
+    const map = {
+      canvas: () => document.createElement("canvas"),
+      onceIdle: vi.fn().mockResolvedValue(undefined),
+    } as unknown as MapViewportHandle;
+    return renderHook(() =>
+      useExport({
+        mapRef: { current: map },
+        frames,
+        frameIndex: 1,
+        source: null,
+        timeline,
+        pushToast: vi.fn(),
+        ...over,
+      }),
+    );
+  }
+
+  function sidecarFrom(call: unknown[]) {
+    return new Promise<Record<string, unknown>>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(JSON.parse(String(reader.result)));
+      reader.readAsText(call[1] as Blob);
+    });
+  }
+
+  beforeEach(() => {
+    exportStill.mockReset();
+    exportLoop.mockReset();
+    saveFile.mockReset();
+    saveFile.mockResolvedValue({ path: null });
+    exportStill.mockResolvedValue(new Blob(["png"]));
+  });
+
+  it("saves a record for the frame the still actually holds", async () => {
+    const { result } = renderExport();
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const [picture, sidecar] = saveFile.mock.calls;
+    expect(picture[0]).toMatch(/^openradar-.*\.png$/);
+    expect(sidecar[0]).toBe(picture[0].replace(/\.png$/, "-provenance.json"));
+
+    const written = (await sidecarFrom(sidecar)) as {
+      format: string;
+      picture: string;
+      frames: Array<{ index: number; sourceId: string; observed: string }>;
+    };
+    expect(written.format).toBe("openradar-provenance");
+    expect(written.picture).toBe(picture[0]);
+    // One entry, for the one frame that reached the file.
+    expect(written.frames).toHaveLength(1);
+    expect(written.frames[0].index).toBe(1);
+    expect(written.frames[0].sourceId).toBe("mrms");
+  });
+
+  // The credit used to be the literal string "OpenRadar · OpenStreetMap ·
+  // NOAA", so a live American frame proves nothing. A replayed hurricane does:
+  // it was served by the Iowa State archive and the old line called it NOAA.
+  it("credits the frame's own source rather than a fixed line", async () => {
+    const replay: RadarFrame[] = [
+      {
+        providerId: "archive",
+        time: 1_114_000_000,
+        tileUrl: "https://example.com/{z}/{x}/{y}.png",
+        tileSize: 256,
+        maxZoom: 9,
+        attribution:
+          '<a href="https://mesonet.agron.iastate.edu/">Iowa State Mesonet NEXRAD archive</a>',
+      },
+    ];
+    const { result } = renderExport({ frames: replay, frameIndex: 0 });
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(exportStill).toHaveBeenCalled());
+
+    const caption = exportStill.mock.calls[0][1];
+    expect(caption.attribution).toBe(
+      "OpenRadar · OpenStreetMap · Iowa State Mesonet NEXRAD archive",
+    );
+    expect(caption.attribution).not.toContain("NOAA");
+    // And the tag itself never reaches the picture.
+    expect(caption.attribution).not.toContain("<a ");
+  });
+
+  it("holds every frame a loop wrote, in timeline order", async () => {
+    exportLoop.mockImplementation(async (options) => {
+      // A GIF writes the tail only, and walks it however it likes.
+      options.captionFor(2);
+      options.captionFor(1);
+      return new Blob(["webm"]);
+    });
+    const { result } = renderExport();
+    act(() => result.current.exportLoopVideo());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{ index: number }>;
+    };
+    expect(written.frames.map((frame) => frame.index)).toEqual([1, 2]);
+  });
+
+  it("keeps the picture when the record cannot be written", async () => {
+    saveFile.mockReset();
+    saveFile
+      .mockResolvedValueOnce({ path: "C:/downloads/openradar.png" })
+      .mockRejectedValueOnce(new Error("disk full"));
+    const pushToast = vi.fn();
+    const { result } = renderExport({ pushToast });
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(result.current.busy).toBeNull());
+
+    // The picture saved and the person was told so. The sidecar failing is a
+    // log line, not a lost export.
+    expect(saveFile).toHaveBeenCalledTimes(2);
+    expect(pushToast).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: "C:/downloads/openradar.png" }),
     );
   });
 });

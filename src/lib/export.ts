@@ -241,3 +241,18 @@ export function exportFileName(prefix: string, extension: string): string {
     .replace(/Z$/, "");
   return `${prefix}-${stamp}.${extension}`;
 }
+
+/**
+ * The name of the record that travels beside a picture.
+ *
+ * Beside rather than inside. A PNG has a text chunk and a GIF has a comment
+ * block, but a WebM would need the muxer rewritten to carry one, and three
+ * mechanisms for one fact is three things to keep true. A JSON file with the
+ * picture's own name in front of it stays with the picture through a copy, a
+ * zip and an upload, and opens in anything.
+ */
+export function provenanceFileName(pictureName: string): string {
+  const dot = pictureName.lastIndexOf(".");
+  const stem = dot > 0 ? pictureName.slice(0, dot) : pictureName;
+  return `${stem}-provenance.json`;
+}

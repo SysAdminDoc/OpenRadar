@@ -237,6 +237,13 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: A loop export completes faster than its playback duration on the reference machine and no longer needs to drive the visible timeline; output plays in standard players with correct timing and the burned-in credits; encoder absence or failure falls back to the current recorder path with a visible note; export tests cover both paths.
       Complexity: M
 
+- [ ] AUD-121: P3. Make the burned basemap credit follow the style on screen
+      Why: The weather half of an export's credit now comes from the layer's provenance record, but the map half is still the constant "OpenStreetMap". Two of the seven styles are not OpenStreetMap: aerial draws USGS orthoimagery and topography draws OpenTopoMap, which asks for an exact credit line. An offline incident pack carries its own attribution too. So a picture exported over imagery credits the wrong service.
+      Evidence: `src/hooks/useExport.ts` `BASEMAP_CREDIT`; `src/lib/mapStyles.ts` `mapStyleDefinition`; `src/components/MapStage.tsx` style resolution
+      Touches: A credit for a resolved style id and incident pack; passing it to the export hook from where the style is already resolved; the sidecar's `basemap` field; export tests per style
+      Acceptance: A picture exported on each style burns that style's own credit, with OpenTopoMap's exact line used verbatim and an incident pack's attribution used when one is loaded; the sidecar carries the same string; the on-screen attribution bar and the burned credit name the same sources.
+      Complexity: S
+
 - [ ] AUD-098: P3. Offer to follow new warnings, off by default
       Why: A competitor request asks the map to fly to a warning as it is issued. As an opt-in behaviour with the camera returning control the moment the reader touches the map, it turns monitoring into something the app does with you rather than a thing you chase.
       Evidence: https://github.com/dpaulat/supercell-wx/issues/637 ; `src/hooks/useAlertWatch.ts`; `src/components/MapViewport.tsx`; `src/hooks/useClock.ts`
@@ -249,13 +256,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Evidence: https://forums.macrumors.com/threads/carrot-weather-secret-locations.1862623/ ; https://developer.apple.com/news/?id=kf623ldf ; `src/lib/hurdat.ts`; `public/hurdat/`; JOY-009; JOY-014
       Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
-      Complexity: M
-
-- [ ] AUD-102: P2. Serialize the whole provenance record into an export
-      Why: `AUD-068` asked exports to serialize the record. The caption reads three fields from it and burns a fixed credit line, so an archive replay of a 2005 hurricane still says "OpenRadar · OpenStreetMap · NOAA" rather than who actually served the frames, and nothing in the file carries the observed time, the source id, or the cache state.
-      Evidence: `src/hooks/useExport.ts`; `src/lib/export.ts` `ExportCaption`; `src/lib/provenance.ts` `provenanceLines`; AUD-084
-      Touches: Export caption and credit; a provenance sidecar or embedded metadata; export tests
-      Acceptance: The credit line comes from the record rather than a constant; the full record travels with an exported file in a documented form; a replayed archive frame exports the archive's own attribution and observed time; tests cover a live frame, a forecast frame, and a replay.
       Complexity: M
 
 Added 2026-08-31 from the third research pass of that day (see `RESEARCH.md`), which covered the source classes the first two passes had not: winter weather, surface observations, historical warnings, soundings, smoke, decoder fuzzing, localization, and non-visual accessibility. IDs continue the audit scheme at `AUD-108` (the last assigned identifier, `AUD-107`, was completed and removed the same day). Ordered by priority, then trust before features.

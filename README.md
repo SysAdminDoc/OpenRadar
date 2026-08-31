@@ -80,7 +80,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Draw, range and point inspection tools. Beam height at the cursor for the sweep on screen.
 - **Cross-section**: draw a line between two points and the Level II volume is cut along it, height against distance. Heights no beam passed through stay empty rather than being filled from the nearest cut.
 - Per-overlay opacity and a drawing order you choose. Warnings are not in the arrangement, because nothing should be able to put a wildfire perimeter over one.
-- **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in.
+- **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in. A JSON record lands beside the file naming the source of every frame that reached it. See [What the export record holds](#what-the-export-record-holds).
 - **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.
 - Place search, map-centred forecasts, GeoJSON and GRLevelX placefile import, shareable `openradar://` links.
 - English and Spanish, switched in Settings and applied where you are standing rather than on the next launch.
@@ -201,7 +201,43 @@ We acknowledge the use of imagery provided by services from NASA's Global Imager
 
 RainViewer is licensed for personal and small community use, which is why it sits at the end of the chain rather than in front of it.
 
-## Not a warning source
+### What the export record holds
+
+A caption has room for a time and a credit, which is enough to know what you are looking at and not enough to check it. So every export writes a second file next to the picture, named after it: `openradar-loop-2026-08-31T18-04-11-provenance.json` beside `openradar-loop-2026-08-31T18-04-11.webm`.
+
+It is plain JSON with a `format` of `openradar-provenance` and a `formatVersion` of `1`. The version only moves if the shape changes in a way that would break a reader.
+
+```json
+{
+  "format": "openradar-provenance",
+  "formatVersion": 1,
+  "application": "OpenRadar 0.6.0",
+  "writtenAt": "2026-08-31T18:04:12.318Z",
+  "picture": "openradar-loop-2026-08-31T18-04-11.webm",
+  "basemap": "OpenStreetMap",
+  "frames": [
+    {
+      "index": 0,
+      "sourceId": "mrms",
+      "label": "MRMS",
+      "attribution": "NOAA MRMS",
+      "attributionUrl": "https://www.nssl.noaa.gov/projects/mrms/",
+      "kind": "observation",
+      "observed": "2026-08-31T18:00:00.000Z",
+      "valid": "2026-08-31T18:00:00.000Z",
+      "fetched": "2026-08-31T18:03:57.001Z",
+      "freshForMs": 120000,
+      "cachedAgeSeconds": null
+    }
+  ]
+}
+```
+
+One entry per frame that reached the file, in timeline order. A loop is not one source: its observed frames and its forecast tail come from different services, and a GIF holds only the last two dozen frames, so a single record for the whole file would be wrong for most of it.
+
+`kind` is `observation`, `forecast` or `derived`, and it decides the rest. A forecast has no `observed` time, because nothing measured it; it carries a `modelRun` with the run's `initUtc` and `leadMinutes`, or `runUnknown` when the source will not say which run it used. A `derived` frame carries `derivedFrom` saying what was done to the values. `cachedAgeSeconds` is null when the bytes came off the network and a number when the disk cache served them, which is what separates a current picture from one that survived an outage.
+
+The times are ISO strings rather than the milliseconds the app uses internally, because a file outlives the program that wrote it and a number with no units is a guess.
 
 OpenRadar is a viewer for public data and nothing more. It is not an official source for warnings, and it is not something to make a life-safety decision on. When the weather is dangerous, listen to your local National Weather Service office, a NOAA Weather Radio, or whatever your country's equivalent is.
 
