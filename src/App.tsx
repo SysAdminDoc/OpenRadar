@@ -58,6 +58,12 @@ import type {
 } from "./lib/settings";
 import { translate, useT } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
+import { OVERLAY_ADAPTERS } from "./lib/overlays";
+import {
+  overlayProvenance,
+  radarProvenance,
+  type Provenance,
+} from "./lib/provenance";
 import { useStormCells } from "./hooks/useStormCells";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
@@ -325,6 +331,28 @@ export default function App() {
   // lives to four decimal places, and their account name from every path it
   // has ever logged.
   const copyDiagnostics = useCallback(() => {
+    const now = Date.now();
+    // What is actually on the map right now, each layer saying where it came
+    // from and what it claims. Only the frame on screen and the overlays that
+    // are both switched on and holding data, because a record for something
+    // the reader cannot see would be describing a different picture from the
+    // one they are writing about.
+    const layers: Provenance[] = [];
+    const shown = timeline.frames[timeline.frameIndex];
+    if (shown) {
+      layers.push(
+        radarProvenance({
+          frame: shown,
+          provider: timeline.source,
+          fetchedAt: now,
+        }),
+      );
+    }
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const state = overlays.states[adapter.id];
+      if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
+      layers.push(overlayProvenance({ adapter, fetchedAt: state.fetchedAt }));
+    }
     const block = diagnosticsBlock({
       renderer: gpuSupport().renderer,
       mapReady: mapStatus === "ready",
@@ -332,6 +360,8 @@ export default function App() {
       activeSource: timeline.sourceLabel,
       health,
       log: logEntries,
+      layers,
+      now,
     });
     void (async () => {
       try {
@@ -349,7 +379,15 @@ export default function App() {
         });
       }
     })();
-  }, [health, logEntries, mapStatus, pushToast, timeline]);
+  }, [
+    health,
+    logEntries,
+    mapStatus,
+    overlays.data,
+    overlays.states,
+    pushToast,
+    timeline,
+  ]);
 
   // Loading a colour table is work: a file found, opened and dropped on the
   // window. Clearing it was the one action that threw that away with nothing

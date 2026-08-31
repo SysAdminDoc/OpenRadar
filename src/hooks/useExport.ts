@@ -10,6 +10,7 @@ import {
 } from "../lib/export";
 import { log } from "../lib/log";
 import type { RadarProvider } from "../lib/providers";
+import { radarProvenance } from "../lib/provenance";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import { saveFile } from "../lib/saveFile";
 import type { RadarTimelineState } from "./useRadarTimeline";
@@ -43,16 +44,25 @@ export function useExport(options: {
   const captionFor = useCallback(
     (index: number): ExportCaption => {
       const frame = frames[index];
+      // The caption is written from the frame's provenance rather than from
+      // the frame, so the words burned into a picture and the record the app
+      // would report about that same picture cannot drift apart. A forecast
+      // exported as though it were an observation is exactly the mistake the
+      // record exists to make impossible, and an exported file outlives every
+      // other place the distinction is shown.
+      const record = frame
+        ? radarProvenance({ frame, provider: source, fetchedAt: Date.now() })
+        : null;
       return {
         lines: [
-          frame?.forecast
+          record?.kind === "forecast"
             ? `${formatFrameTime(frame)} forecast`
             : formatFrameTime(frame),
-          frame?.forecast
+          record?.modelRun
             ? translate("export.hrrr", {
-                minutes: frame.forecast.leadMinutes,
+                minutes: record.modelRun.leadMinutes,
               })
-            : (source?.label ?? translate("export.radar")),
+            : (record?.label ?? source?.label ?? translate("export.radar")),
         ].filter(Boolean),
         attribution: "OpenRadar · OpenStreetMap · NOAA",
       };

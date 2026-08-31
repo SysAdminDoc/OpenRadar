@@ -162,4 +162,52 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
     const line = "MRMS answered with 20 frames";
     expect(redact(line)).toBe(line);
   });
+
+  it("writes down where each drawn layer came from", () => {
+    const fetchedAt = Date.parse("2026-08-31T12:01:00Z");
+    const block = diagnosticsBlock({
+      renderer: "test",
+      mapReady: true,
+      radarReady: true,
+      activeSource: "MRMS",
+      health: [],
+      log: [],
+      now: fetchedAt,
+      layers: [
+        {
+          sourceId: "hrrr",
+          label: "HRRR",
+          attribution: "Iowa State Mesonet",
+          kind: "forecast",
+          observedAt: null,
+          validAt: Date.parse("2026-08-31T13:00:00Z"),
+          fetchedAt,
+          freshForMs: null,
+          cachedAgeSeconds: null,
+          modelRun: {
+            initUtc: "2026-08-31T12:00:00Z",
+            leadMinutes: 60,
+          },
+        },
+      ],
+    });
+    expect(block).toContain("Layers:");
+    expect(block).toContain("HRRR (hrrr) · forecast");
+    // The distinction a bug report about "wrong radar" usually turns on.
+    expect(block).toContain("observed none");
+    expect(block).toContain("run 2026-08-31T12:00:00Z +60 min");
+  });
+
+  it("says nothing about layers when none are drawn", () => {
+    const block = diagnosticsBlock({
+      renderer: "test",
+      mapReady: true,
+      radarReady: false,
+      activeSource: null,
+      health: [],
+      log: [],
+      layers: [],
+    });
+    expect(block).not.toContain("Layers:");
+  });
 });

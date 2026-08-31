@@ -6,13 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P0
 
-- [ ] AUD-068: Introduce one provenance and freshness contract for weather data
-      Why: Radar frames carry provider and time, while overlays, guidance, exports, and diagnostics use unrelated shapes. A reader cannot consistently answer who supplied a layer, when it was observed, when it is valid, whether it is derived, or why it is stale.
-      Evidence: `src/lib/providers/types.ts`; `src/lib/guidance.ts`; `src/lib/overlays/index.ts`; `src/hooks/useRadarTimeline.ts`; `src/components/WorkspaceChrome.tsx`; https://github.com/danielway/nexrad-workbench/issues/180
-      Touches: A shared provenance type; provider and overlay adapters; guidance; source display; diagnostics; export metadata
-      Acceptance: Every visible weather layer can report source identity, attribution, observed time, valid time, fetched time, expiry or freshness rule, cache state, derivation, and model run when applicable; diagnostics and exports serialize the record; contract tests reject missing required fields and observation or forecast confusion.
-      Complexity: L
-
 - [ ] AUD-069: Add one local live-provider contract gate
       Why: Browser live checks require `OPENRADAR_LIVE=1`, Rust network checks are individually ignored, and the release command runs neither group. Provider schema or path drift can therefore reach a release unnoticed.
       Evidence: `src/lib/guidance.test.ts`; `src/lib/overlays/spc.test.ts`; `src/lib/providers/`; ignored tests in `src-tauri/src/`; `scripts/release.mjs`; https://www.weather.gov/documentation/services-web-api
