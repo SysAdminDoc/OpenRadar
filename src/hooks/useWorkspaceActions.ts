@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { ToastMessage } from "../components/ToastHost";
@@ -78,6 +78,18 @@ export function useWorkspaceActions(options: {
     setCustomOverlay,
     customOverlay,
   } = options;
+
+  /**
+   * The pending flight to a preset camera, so a newer one can cancel it.
+   *
+   * The delay exists because the style has to land before the camera moves.
+   * It also means a second preset opened within it leaves two flights in the
+   * air, and the later arrival wins rather than the later request.
+   */
+  const presetFlight = useRef<number | undefined>(undefined);
+
+  // Leaving the workspace takes the pending flight with it.
+  useEffect(() => () => window.clearTimeout(presetFlight.current), []);
 
   const flyToPoint = useCallback(
     (lon: number, lat: number, zoom: number) => {
@@ -211,7 +223,17 @@ export function useWorkspaceActions(options: {
           }),
         );
         // The style change lands first; the camera follows once it has.
-        window.setTimeout(() => mapRef.current?.flyTo(preset.camera), 80);
+        //
+        // Only the newest one, and only while the workspace is still here. Two
+        // presets opened inside the delay used to leave two flights pending,
+        // and the one that arrived second was the one that won: the reader saw
+        // the view they asked for and then watched it slide to the one they had
+        // asked for first.
+        window.clearTimeout(presetFlight.current);
+        presetFlight.current = window.setTimeout(
+          () => mapRef.current?.flyTo(preset.camera),
+          80,
+        );
         pushToast({
           title: translate("toast.presetOpened", { name: preset.name }),
         });
