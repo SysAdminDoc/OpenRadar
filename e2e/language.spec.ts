@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { routeWorkspace } from "./support/fixtures";
+import { clipped } from "./support/layout";
 import { pseudoize } from "../src/i18n/pseudo";
 
 /** The panels that hold copy, and the button that opens each one. */
@@ -39,74 +40,6 @@ async function startIn(page: Page, language: string) {
  * counts any text wider or taller than its own box, and skips only the
  * elements that are meant to scroll.
  */
-async function clipped(page: Page) {
-  return page.evaluate(() => {
-    const scrolls = (element: Element) => {
-      const style = getComputedStyle(element);
-      return (
-        style.overflowX === "auto" ||
-        style.overflowX === "scroll" ||
-        style.overflowY === "auto" ||
-        style.overflowY === "scroll"
-      );
-    };
-    const bad: string[] = [];
-    const scope = [
-      ".surface-panel",
-      ".command-bar",
-      ".radar-timeline",
-      ".radar-legend",
-      ".product-legends",
-      ".satellite-chip",
-      ".pane-compare",
-      ".tool-hud",
-      ".toast",
-      ".zoom-controls",
-    ].join(", ");
-    for (const root of document.querySelectorAll<HTMLElement>(scope)) {
-      for (const element of [
-        root,
-        ...root.querySelectorAll<HTMLElement>("*"),
-      ]) {
-        // A box that is meant to scroll is doing its job, and so is anything
-        // inside one: the point of a scroller is that its contents are allowed
-        // to be bigger than it is.
-        if (scrolls(element)) continue;
-        let inScroller = false;
-        for (
-          let parent = element.parentElement;
-          parent;
-          parent = parent.parentElement
-        ) {
-          if (scrolls(parent)) {
-            inScroller = true;
-            break;
-          }
-        }
-        if (inScroller) continue;
-        if (element.tagName === "CANVAS" || element.tagName === "INPUT") {
-          continue;
-        }
-        // The one caption allowed to end in an ellipsis. It sits under an
-        // icon in a bar of fixed height, and the whole label is on the
-        // button's tooltip and its accessible name, so nothing is lost by
-        // shortening what is drawn. The bar itself scrolls, so no button
-        // becomes unreachable however long the words get.
-        if (element.closest(".command-button")) continue;
-        if (!element.textContent?.trim()) continue;
-        const wide = element.scrollWidth > element.clientWidth + 1;
-        const tall = element.scrollHeight > element.clientHeight + 1;
-        if (!wide && !tall) continue;
-        bad.push(
-          `${element.className || element.tagName} ${wide ? "wide" : "tall"}: ${element.textContent
-            .trim()
-            .slice(0, 40)}`,
-        );
-      }
-    }
-    return bad;
-  });
-}
 
 test.describe("a workspace in another language", () => {
   test.use({ viewport: { width: 1024, height: 720 } });

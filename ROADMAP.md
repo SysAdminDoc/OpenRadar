@@ -8,20 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-007: Decide whether macOS and Linux are supported targets
-      Why: Tauri is portable, but only Windows x64 is built and tested. A platform claim without hardware evidence creates support and security expectations.
-      Evidence: `README.md`; `src-tauri/tauri.conf.json`; https://github.com/d4vid87/hookecho/issues/9
-      Touches: Product support statement; bundle configuration; platform-specific native behavior; installed acceptance matrix
-      Acceptance: Either documentation keeps Windows as the explicit boundary, or each added operating system has a locally built installer, real-hardware launch and core-flow evidence, updater and file-dialog checks, and a documented support policy.
-      Complexity: XL
-
-- [ ] AUD-010: Capture and inspect a true wide desktop viewport
-      Why: The in-app capture backend capped the earlier wide reference at 1248 pixels, so the 1916-pixel README layout has no current isolated evidence.
-      Evidence: `assets/screenshots/`; `e2e/`; prior audit notes in Git history
-      Touches: Isolated screenshot setup; wide layout scenarios; README image if the current capture changes
-      Acceptance: A 1916-pixel or wider isolated capture covers default, open panels, dual pane, 130 percent text, and a long Spanish string; no clipped controls, dead space, or unreadable legends remain; current README imagery is recaptured if UI evidence changes.
-      Complexity: S
-
 - [ ] AUD-077: Support a bounded local list of watched places
       Why: One watch point cannot cover home, family, a destination, and a route endpoint. RadarOmega and adjacent tools treat saved locations as a core alert workflow, but OpenRadar can do this without accounts or sync.
       Evidence: `src/lib/settings.ts`; `src/hooks/useAlertWatch.ts`; `src/panels/MapOptionsPanels.tsx`; https://www.radaromega.com/

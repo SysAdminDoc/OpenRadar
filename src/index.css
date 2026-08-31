@@ -3132,8 +3132,10 @@ input[type="range"] {
 
 .command-scroll-region {
   min-height: 0;
-  max-height: 210px;
-  flex: 0 1 210px;
+  /* Whatever the rail has room for, rather than 210 pixels of it. On a short
+     window this still shrinks and scrolls; on a tall one it used to leave a
+     third of the rail empty while the tools sat behind a scrollbar. */
+  flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -3192,7 +3194,11 @@ input[type="range"] {
 
 .command-button span {
   display: block;
-  max-width: 62px;
+  /* The button, not a number: 62px was wider than the button itself once the
+     padding came off, so a language whose words are a third longer pushed the
+     label two pixels past the rail. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-size: 8px;
   line-height: 1.1;
 }

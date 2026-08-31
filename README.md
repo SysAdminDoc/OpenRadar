@@ -100,7 +100,17 @@ Get-FileHash OpenRadar_0.5.0_x64-setup.exe -Algorithm SHA256
 
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
 
-Windows x64 is the only target that is built and tested. Tauri 2 itself runs on macOS and Linux and nothing here is deliberately Windows-only, but no installer is produced for them and no release has been run on either, so treat a build there as untested.
+## Which platforms this runs on
+
+Windows x64, and only Windows x64. That is the target the installer is built for, the one every release is tested on, and the one the whole test suite runs against.
+
+Tauri 2 itself runs on macOS and Linux, and nothing in this project is deliberately Windows-only. What is missing is not code, it is evidence: no installer is produced for either, no release has ever been launched on one, and the parts most likely to differ are exactly the parts nobody has checked there. The updater, the file dialog, the custom URI schemes the map fetches its own tiles over, and the paths the cache and the offline packs are written to all behave differently per platform, and none of that has been exercised anywhere but Windows.
+
+So a build on macOS or Linux may well work, and it is untested and unsupported. Concretely, that means:
+
+- A bug that only happens on macOS or Linux is written down and left open, because there is no machine here to reproduce it on. It is not a promise of a fix.
+- A patch is welcome, with the evidence a claim of support needs: a locally built installer, a real launch on real hardware, the core flows exercised, and the updater and the file dialog checked.
+- Until that exists, the platform badge and the release page say Windows, and nothing else should read as a claim otherwise.
 
 ## Privacy
 
@@ -137,7 +147,7 @@ The command runs every local check, builds and verifies the signed updater insta
 
 ```powershell
 npm run check        # format, lint, unit tests, type-check, build, bundle budget
-npm run test:e2e     # Playwright, headless
+npm run test:e2e     # Playwright, headless, at 1024, 1440 and 1920 wide
 npm run check:live   # asks every live provider whether it still answers
 cargo test --lib     # from src-tauri/
 ```
