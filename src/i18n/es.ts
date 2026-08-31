@@ -218,7 +218,7 @@ export const es: Catalogue = {
   "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":
-    "Las carreteras vienen del servicio de rutas de FOSSGIS y el tiempo de Open-Meteo. Todas las paradas del viaje se resuelven con una sola consulta de pronóstico, así que dale un momento a los servidores entre intentos.",
+    "Las carreteras vienen de OpenStreetMap a través del servicio de rutas de FOSSGIS, y el tiempo de Open-Meteo. Todas las paradas del viaje se resuelven con una sola consulta de pronóstico, así que dale un momento a los servidores entre intentos.",
 
   "storm.cat5": "Categoría 5",
   "storm.cat4": "Categoría 4",
@@ -809,7 +809,7 @@ export const es: Catalogue = {
   "watch.whyEvent": "Una alerta de {event}, calificada como {severity}.",
   "watch.whyThreshold": "Pediste enterarte de {minSeverity} en adelante.",
   "watch.whyDistance":
-    "Llegó a {miles} {unit} de tu punto, dentro de los {radius} que vigilas.",
+    "Llegó a {miles} {unit} de tu punto, dentro de los {radius} {unit} que vigilas.",
   "watch.whyUpgraded":
     "Ya te avisamos de esta. La oficina ha subido su nivel de daño desde entonces.",
   "watch.testHeadline": "Alerta de prueba",

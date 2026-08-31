@@ -182,14 +182,24 @@ export function parseRoute(payload: unknown): RouteShape | null {
 
   const length = Number(trip.summary?.length);
   const duration = Number(trip.summary?.time);
-  // Length is in whatever units were asked for, and this asks for miles. A
-  // reply that says otherwise is converted rather than trusted, because a
-  // silently kilometre answer would read as a route two thirds too short.
-  const miles = trip.units === "miles" ? length : length / 1.609344;
+  // A route with no length or no duration is not a route this can use. Every
+  // arrival time along the drive is worked out by spreading the duration over
+  // the distance, so a zero for either puts the whole drive's weather at the
+  // departure hour while the panel reports "0 mi". Refusing sends the caller
+  // to the straight-line estimate, which is wrong in a way that says so.
+  if (!Number.isFinite(length) || !Number.isFinite(duration)) return null;
+
+  // Length is in whatever units were asked for, and this asks for miles.
+  // Matched loosely because the reply's spelling is the service's to choose:
+  // reading "Miles" or "mi" as kilometres would report a route at 62 per cent
+  // of its real length, with every arrival time along it wrong to match.
+  const named = String(trip.units ?? "").toLowerCase();
+  const inMiles = named === "miles" || named === "mi";
+  const miles = inMiles ? length : length / 1.609344;
   return {
     coordinates,
-    distanceMiles: Number.isFinite(miles) ? miles : 0,
-    durationSeconds: Number.isFinite(duration) ? duration : 0,
+    distanceMiles: miles,
+    durationSeconds: duration,
   };
 }
 

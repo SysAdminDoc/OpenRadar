@@ -284,10 +284,21 @@ describe("quiet hours", () => {
 
   // Reading the clock as UTC rather than as the reader's own would move the
   // window by the offset, which is the whole bug this guards.
+  //
+  // A local noon and a UTC noon are the same number on a machine running at
+  // UTC, so asserting only the local one proves nothing there. This asserts
+  // that the two readings differ by exactly the machine's own offset, which
+  // holds everywhere and only passes for a local reading.
   it("reads the reader's own clock rather than UTC", () => {
     const noonLocal = at(12);
     expect(localMinute(noonLocal)).toBe(12 * 60);
     expect(localMinute(noonLocal.getTime())).toBe(12 * 60);
+
+    // Midday UTC, whatever that is locally.
+    const noonUtc = new Date(Date.UTC(2026, 7, 30, 12, 0, 0));
+    const offsetMinutes = -noonUtc.getTimezoneOffset();
+    const expected = (12 * 60 + offsetMinutes + 1440) % 1440;
+    expect(localMinute(noonUtc)).toBe(expected);
   });
 });
 
@@ -329,5 +340,57 @@ describe("the test alert", () => {
     expect(alert.impact).toBe("");
     // It must never look like a real warning that has expired.
     expect(alert.expires).toBeNull();
+  });
+});
+
+describe("an alert held back by quiet hours", () => {
+  const quiet = {
+    ...watch,
+    quietHours: {
+      enabled: true,
+      startMinute: 22 * 60,
+      endMinute: 7 * 60,
+      overrideSeverity: "extreme" as const,
+    },
+  };
+  const overnight = new Date(2026, 7, 30, 3, 0, 0, 0);
+  const morning = new Date(2026, 7, 30, 9, 0, 0, 0);
+
+  /** A flash flood warning is rated severe, which is under the override. */
+  const flood: OverlayData = {
+    type: "FeatureCollection",
+    features: [alert("Flash Flood Warning", "severe", near)],
+  };
+
+  // The bug this replaced: the watch recorded a silenced alert as announced,
+  // and every later poll then filtered it out. A warning issued at three in
+  // the morning and still in force at nine was never mentioned once.
+  it("is still waiting to be announced when the window ends", () => {
+    const announced = new Map<string, number>();
+
+    // Overnight it is found, and the watch holds it back rather than
+    // recording it. Nothing is written to the announced map.
+    const atNight = alertsToAnnounce(flood, quiet, announced, now);
+    expect(atNight).toHaveLength(1);
+    expect(silencedByQuietHours(quiet, atNight[0].severity, overnight)).toBe(
+      true,
+    );
+    expect(announced.size).toBe(0);
+
+    // The morning poll finds the same warning, still in force, and this time
+    // nothing silences it.
+    const atMorning = alertsToAnnounce(flood, quiet, announced, now);
+    expect(atMorning).toHaveLength(1);
+    expect(silencedByQuietHours(quiet, atMorning[0].severity, morning)).toBe(
+      false,
+    );
+  });
+
+  it("does not claim it was mentioned before when it finally is", () => {
+    // The upgrade line reads "You were told about this one before", and a
+    // silenced alert was never told about. It has to be a first sighting.
+    const announced = new Map<string, number>();
+    const found = alertsToAnnounce(flood, quiet, announced, now);
+    expect(found[0].reason.upgradedFrom).toBeNull();
   });
 });

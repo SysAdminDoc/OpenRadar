@@ -343,3 +343,74 @@ describe("a settings file dropped back in", () => {
     ]);
   });
 });
+
+describe("quiet hours out of a settings file", () => {
+  // A file written before quiet hours existed, which is every file until now.
+  it("loads a file that has never heard of them", () => {
+    const loaded = normalizeSettings({
+      watch: { enabled: true, radiusMiles: 40 },
+    });
+    expect(loaded.watch.quietHours).toEqual(DEFAULT_SETTINGS.watch.quietHours);
+    expect(loaded.watch.radiusMiles).toBe(40);
+  });
+
+  it("keeps a window it can read", () => {
+    const loaded = normalizeSettings({
+      watch: {
+        quietHours: {
+          enabled: true,
+          startMinute: 1350,
+          endMinute: 400,
+          overrideSeverity: "severe",
+        },
+      },
+    });
+    expect(loaded.watch.quietHours).toEqual({
+      enabled: true,
+      startMinute: 1350,
+      endMinute: 400,
+      overrideSeverity: "severe",
+    });
+  });
+
+  // A hand-edited file must not be able to reach a state where nothing can
+  // ever get through, which is the one outcome that matters here.
+  it("refuses a window and an override it cannot read", () => {
+    const loaded = normalizeSettings({
+      watch: {
+        quietHours: {
+          enabled: true,
+          startMinute: 99_999,
+          endMinute: -5,
+          overrideSeverity: "nothing at all",
+        },
+      },
+    });
+    expect(loaded.watch.quietHours.startMinute).toBeGreaterThanOrEqual(0);
+    expect(loaded.watch.quietHours.startMinute).toBeLessThan(1440);
+    expect(loaded.watch.quietHours.endMinute).toBeGreaterThanOrEqual(0);
+    expect(loaded.watch.quietHours.overrideSeverity).toBe(
+      DEFAULT_SETTINGS.watch.quietHours.overrideSeverity,
+    );
+  });
+
+  it("comes back through a settings file dropped in again", () => {
+    const changed = {
+      ...DEFAULT_SETTINGS,
+      watch: {
+        ...DEFAULT_SETTINGS.watch,
+        quietHours: {
+          enabled: true,
+          startMinute: 1290,
+          endMinute: 360,
+          overrideSeverity: "severe" as const,
+        },
+      },
+    };
+    const restored = restoreSettings(JSON.parse(JSON.stringify(changed)));
+    expect(restored.settings.watch.quietHours).toEqual(
+      changed.watch.quietHours,
+    );
+    expect(restored.unread).not.toContain("watch.quietHours");
+  });
+});

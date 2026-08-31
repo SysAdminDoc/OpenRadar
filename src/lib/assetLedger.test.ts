@@ -65,6 +65,26 @@ describe("the asset ledger and the code it describes", () => {
     expect(missing, `cached but unledgered: ${missing.join(", ")}`).toEqual([]);
   });
 
+  // Presence was held from the start; the answer in the cell was not. A row
+  // could say a host was never cached while the code routed it through the
+  // cache, which is the ledger being wrong in the one column a reader would
+  // consult it for.
+  it("agrees with the code about which hosts are cached", () => {
+    const routed = new Set<string>(CACHED_HOSTS);
+    for (const row of ledger
+      .split("\n")
+      .filter((line) => line.startsWith("| `"))) {
+      const cells = row.split("|").map((cell) => cell.trim());
+      const host = /`([a-z0-9.-]+\.[a-z]{2,})`/.exec(cells[1] ?? "")?.[1];
+      // Six-column runtime rows only; the bundled table is a different shape.
+      if (!host || cells.length < 8) continue;
+      const says = cells[5].toLowerCase().startsWith("yes");
+      if (routed.has(host)) {
+        expect(says, `${host} is routed through the cache`).toBe(true);
+      }
+    }
+  });
+
   it("names only bundled paths that exist", () => {
     for (const path of ledgerPaths()) {
       expect(existsSync(join(root, path)), `${path} is in the ledger`).toBe(
