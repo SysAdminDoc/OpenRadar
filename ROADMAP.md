@@ -128,13 +128,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: The stale file is removed if unused, or replaced from the current isolated build at the documented viewport and DPI; `rg` finds no references to removed controls; every retained screenshot has a clear use.
       Complexity: S
 
-- [ ] AUD-089: Give toast and preset camera timers explicit ownership
-      Why: Toast dismissal timers are not recorded or cleared, and delayed preset camera movement has no cancellation or generation check. Unmounted or superseded work can still fire later.
-      Evidence: `src/hooks/useToasts.ts`; `src/hooks/useWorkspaceActions.ts`
-      Touches: Timer refs; hook cleanup; preset generation ownership; focused tests
-      Acceptance: Every created timeout has one owner and cleanup path; replacing or unmounting a toast cannot invoke its stale dismissal; opening two presets quickly leaves the newest camera active; fake-timer tests prove both cases.
-      Complexity: S
-
 - [ ] AUD-091: Add a privacy-reviewed field report path
       Why: The tracker contains no field reports, while native flows and provider behavior vary by machine and time. Copy Diagnostics exists, but there is no structured report template or redaction contract.
       Evidence: `src/panels/DiagnosticsPanel.tsx`; `src/lib/diagnostics.ts`; https://github.com/SysAdminDoc/OpenRadar/issues
