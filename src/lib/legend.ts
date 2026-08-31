@@ -1,5 +1,9 @@
 import { paletteRange, type Palette } from "./palette";
 import { RAIN_RATE_RAMP, RAIN_RATE_STOPS } from "./providers/geomet";
+import {
+  DWD_REFLECTIVITY_RAMP,
+  DWD_REFLECTIVITY_STOPS,
+} from "./providers/dwd";
 
 /** Labelled stops on the NWS reflectivity ramp the mosaics are drawn with. */
 const DBZ_MIN = 5;
@@ -23,7 +27,12 @@ export interface LegendScale {
 }
 
 export type LegendScaleId =
-  "reflectivity" | "velocity" | "velocity-wide" | "rain-rate" | "none";
+  | "reflectivity"
+  | "velocity"
+  | "velocity-wide"
+  | "rain-rate"
+  | "dwd-reflectivity"
+  | "none";
 
 export const REFLECTIVITY_SCALE: LegendScale = {
   min: DBZ_MIN,
@@ -69,6 +78,22 @@ export const RAIN_RATE_SCALE: LegendScale = {
   unit: "mm/h",
   ramp: "legend-ramp legend-ramp--rain-rate",
   logarithmic: true,
+};
+
+/**
+ * The scale the German composite is painted with.
+ *
+ * Reflectivity, like the American mosaics, but not the same ramp: past fifty
+ * decibels the DWD turns blue and then magenta, which is the German convention
+ * for hail. The tiles arrive already coloured, so the bar has to be the one
+ * they were coloured with rather than the one the rest of the map uses.
+ */
+export const DWD_REFLECTIVITY_SCALE: LegendScale = {
+  min: DWD_REFLECTIVITY_RAMP[0][0],
+  max: DWD_REFLECTIVITY_RAMP[DWD_REFLECTIVITY_RAMP.length - 1][0],
+  stops: DWD_REFLECTIVITY_STOPS,
+  unit: "dBZ",
+  ramp: "legend-ramp legend-ramp--dwd",
 };
 
 /**
@@ -135,6 +160,8 @@ export function legendScale(id: LegendScaleId): LegendScale | null {
       return WIDE_VELOCITY_SCALE;
     case "rain-rate":
       return RAIN_RATE_SCALE;
+    case "dwd-reflectivity":
+      return DWD_REFLECTIVITY_SCALE;
     default:
       return null;
   }

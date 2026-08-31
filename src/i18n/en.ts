@@ -612,6 +612,7 @@ export const en = {
   "chrome.justIn": "just in",
   "chrome.minutesOld": "{count} min old",
   "chrome.toolClear": "Clear",
+  "chrome.dwdComposite": "German composite",
   "chrome.rainRate": "Rain Rate",
   "chrome.composite": "Composite Radar",
   "chrome.sweepProduct": "{station} {product}",
