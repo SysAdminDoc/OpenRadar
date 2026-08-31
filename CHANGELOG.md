@@ -2,6 +2,8 @@
 
 ## Next release
 
+- The release command now runs the frontend, native, and headless browser gates before it builds. It verifies the updater signature against the configured public key, records the exact commit and artifact hashes, refuses a stale skipped build, and creates the version tag from that proved commit when publishing.
+
 - The compact layout keeps Commands visible, including at 130 percent text size. Commands now reaches Storm Cells, ProbSevere, Wind, and radar products, so a control hidden to make the window fit does not make that part of the app unreachable.
 
 - Layer and panel states tell the truth while data is loading or unavailable. Enabled-layer failures appear in Layers, Alerts and Tropical no longer show a false empty result, stale forecast, search, tide, route, and history results are cleared when the question changes, and only a road-router failure offers a straight-line estimate.

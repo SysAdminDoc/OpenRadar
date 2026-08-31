@@ -1,114 +1,227 @@
-// Builds a release locally and lays out everything a GitHub release needs.
+// Builds, verifies, stages, and optionally publishes a Windows release.
 //
 //   node scripts/release.mjs            build and stage the artifacts
-//   node scripts/release.mjs --publish  and create the release with gh
-//
-// Builds happen on this machine, never on a runner. The updater manifest is a
-// static file published beside the installer, so nothing has to stay running
-// for an update check to work.
-import { execFileSync } from "node:child_process";
-import crypto from "node:crypto";
+//   node scripts/release.mjs --publish  tag, push, and create the release
+//   node scripts/release.mjs --skip-build --publish
+//                                      publish a proved build from this commit
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  cargoVersion,
+  sha256File,
+  sourceVersion,
+  validateReleaseProof,
+  verifyUpdaterSignature,
+} from "./release-lib.mjs";
 
 const root = process.cwd();
-const bundleDir = path.join(
-  root,
-  "src-tauri",
-  "target",
-  "release",
-  "bundle",
-  "nsis",
-);
+const tauriDir = path.join(root, "src-tauri");
+const bundleDir = path.join(tauriDir, "target", "release", "bundle", "nsis");
 const stageDir = path.join(root, "artifacts");
 const keyPath = path.join(os.homedir(), ".tauri", "openradar_updater.key");
+const proofPath = path.join(bundleDir, "openradar-release-proof.json");
 const publish = process.argv.includes("--publish");
 const skipBuild = process.argv.includes("--skip-build");
 
+function executable(command) {
+  return process.platform === "win32" && /^(npm|npx|gh)$/.test(command)
+    ? { file: "cmd", prefix: ["/d", "/s", "/c", command] }
+    : { file: command, prefix: [] };
+}
+
 function run(command, args, options = {}) {
-  // npm and gh are batch files on Windows, which execFile cannot start.
-  const viaShell = /^(npm|npx|gh)$/.test(command);
-  return execFileSync(
-    viaShell ? "cmd" : command,
-    viaShell ? ["/c", command, ...args] : args,
-    {
+  const target = executable(command);
+  return execFileSync(target.file, [...target.prefix, ...args], {
+    cwd: root,
+    stdio: "inherit",
+    ...options,
+  });
+}
+
+function output(command, args) {
+  const target = executable(command);
+  return execFileSync(target.file, [...target.prefix, ...args], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
+}
+
+function succeeds(command, args) {
+  const target = executable(command);
+  return (
+    spawnSync(target.file, [...target.prefix, ...args], {
       cwd: root,
-      stdio: "inherit",
-      ...options,
-    },
+      stdio: "ignore",
+    }).status === 0
   );
 }
 
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+function assertClean() {
+  const changed = output("git", [
+    "status",
+    "--porcelain",
+    "--untracked-files=all",
+  ]);
+  if (changed) fail(`Release worktree is not clean:\n${changed}`);
+}
+
+function assertVersions(version, conf) {
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  const packageLock = JSON.parse(
+    fs.readFileSync(path.join(root, "package-lock.json"), "utf8"),
+  );
+  const cargoText = fs.readFileSync(path.join(tauriDir, "Cargo.toml"), "utf8");
+  const settingsText = fs.readFileSync(
+    path.join(root, "src", "lib", "settings.ts"),
+    "utf8",
+  );
+  const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+  const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+  const found = {
+    "package.json": packageJson.version,
+    "package-lock.json": packageLock.version,
+    "package-lock root": packageLock.packages?.[""]?.version,
+    "Cargo.toml": cargoVersion(cargoText),
+    "settings.ts": sourceVersion(settingsText),
+  };
+  for (const [file, value] of Object.entries(found)) {
+    if (value !== version) {
+      fail(`${file} says ${value}; tauri.conf.json says ${version}.`);
+    }
+  }
+  if (!cargoText.includes(`OpenRadar v${version} desktop weather radar`)) {
+    fail(
+      "Cargo.toml's package description does not match the release version.",
+    );
+  }
+  if (!readme.includes(`version-${version}-`)) {
+    fail("The README version badge does not match the release version.");
+  }
+  if (!readme.includes(`OpenRadar_${version}_x64-setup.exe`)) {
+    fail("The README checksum example does not match the release version.");
+  }
+  if (!new RegExp(`^## OpenRadar v${version}\\s*$`, "m").test(changelog)) {
+    fail(`CHANGELOG.md has no OpenRadar v${version} section.`);
+  }
+  if (conf.bundle?.createUpdaterArtifacts !== true) {
+    fail("tauri.conf.json is not configured to create updater artifacts.");
+  }
+}
+
+function installerPaths(version) {
+  const installerName = `OpenRadar_${version}_x64-setup.exe`;
+  const installer = path.join(bundleDir, installerName);
+  const signaturePath = `${installer}.sig`;
+  if (!fs.existsSync(installer))
+    fail(`Expected ${installerName} in ${bundleDir}.`);
+  if (!fs.existsSync(signaturePath)) {
+    fail(`No updater signature beside ${installerName}.`);
+  }
+  const extras = fs
+    .readdirSync(bundleDir)
+    .filter((name) => name.endsWith("-setup.exe") && name !== installerName);
+  if (extras.length) {
+    fail(`Stale installers remain in ${bundleDir}: ${extras.join(", ")}`);
+  }
+  return { installerName, installer, signaturePath };
+}
+
 const conf = JSON.parse(
-  fs.readFileSync(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"),
+  fs.readFileSync(path.join(tauriDir, "tauri.conf.json"), "utf8"),
 );
 const version = conf.version;
 const tag = `v${version}`;
+assertVersions(version, conf);
+assertClean();
 
 if (!fs.existsSync(keyPath)) {
-  console.error(
+  fail(
     `No updater signing key at ${keyPath}.\n` +
       'Generate one with: npx tauri signer generate --ci --password "" --write-keys ' +
       keyPath,
   );
-  process.exit(1);
 }
 
+run("git", ["fetch", "origin", "main", "--tags"]);
+const branch = output("git", ["branch", "--show-current"]);
+const commit = output("git", ["rev-parse", "HEAD"]);
+const remoteMain = output("git", ["rev-parse", "origin/main"]);
+if (branch !== "main") {
+  fail(`Release must run from main, not ${branch || "detached HEAD"}.`);
+}
+if (commit !== remoteMain) fail("HEAD does not match origin/main after fetch.");
+
 if (!skipBuild) {
-  console.log(`Building OpenRadar ${tag}`);
-  // Yesterday's installer is still in the bundle directory, and the check
-  // below wants exactly one. Clearing it beats stopping after a build that
-  // already succeeded.
-  if (fs.existsSync(bundleDir)) {
-    for (const name of fs.readdirSync(bundleDir)) {
-      if (name.endsWith("-setup.exe") || name.endsWith("-setup.exe.sig")) {
-        fs.rmSync(path.join(bundleDir, name));
-      }
-    }
-  }
+  console.log(`Building OpenRadar ${tag} from ${commit.slice(0, 12)}`);
+  fs.rmSync(bundleDir, { recursive: true, force: true });
   run("npm", ["run", "check"]);
+  run("cargo", ["fmt", "--check", "--manifest-path", "src-tauri/Cargo.toml"]);
+  run("cargo", [
+    "clippy",
+    "--manifest-path",
+    "src-tauri/Cargo.toml",
+    "--all-targets",
+    "--",
+    "-D",
+    "warnings",
+  ]);
+  run("cargo", ["test", "--manifest-path", "src-tauri/Cargo.toml", "--lib"]);
+  run("npm", ["run", "test:e2e"]);
   run("npm", ["run", "tauri", "--", "build", "--bundles", "nsis"], {
     env: {
       ...process.env,
-      // The CLI wants the key itself, not a path to it.
       TAURI_SIGNING_PRIVATE_KEY: fs.readFileSync(keyPath, "utf8").trim(),
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "",
     },
   });
 }
 
-const installers = fs
-  .readdirSync(bundleDir)
-  .filter((name) => name.endsWith("-setup.exe"))
-  .map((name) => path.join(bundleDir, name));
-if (installers.length !== 1) {
-  console.error(
-    `Expected exactly one installer in ${bundleDir}, found ${installers.length}.`,
-  );
-  process.exit(1);
-}
-const installer = installers[0];
-const signaturePath = `${installer}.sig`;
-if (!fs.existsSync(signaturePath)) {
-  console.error(
-    `No updater signature beside ${path.basename(installer)}.\n` +
-      "The build did not sign it, so an update would be refused by every client.",
-  );
-  process.exit(1);
+const { installerName, installer, signaturePath } = installerPaths(version);
+verifyUpdaterSignature({
+  installerPath: installer,
+  signaturePath,
+  publicKey: conf.plugins?.updater?.pubkey,
+  expectedFileName: installerName,
+});
+const proof = {
+  schemaVersion: 1,
+  version,
+  tag,
+  commit,
+  installer: installerName,
+  installerSha256: sha256File(installer),
+  signatureSha256: sha256File(signaturePath),
+};
+
+if (skipBuild) {
+  if (!fs.existsSync(proofPath)) {
+    fail("--skip-build requires a release proof produced by this script.");
+  }
+  validateReleaseProof(JSON.parse(fs.readFileSync(proofPath, "utf8")), proof);
+} else {
+  fs.writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
 }
 
-// A clean stage, so nothing from a previous version is published by accident.
 fs.rmSync(stageDir, { recursive: true, force: true });
 fs.mkdirSync(stageDir, { recursive: true });
-
-const installerName = path.basename(installer);
 fs.copyFileSync(installer, path.join(stageDir, installerName));
 fs.copyFileSync(signaturePath, path.join(stageDir, `${installerName}.sig`));
+fs.writeFileSync(
+  path.join(stageDir, "release-metadata.json"),
+  `${JSON.stringify(proof, null, 2)}\n`,
+);
 
 const signature = fs.readFileSync(signaturePath, "utf8").trim();
 const notes = releaseNotes(version);
-
 const manifest = {
   version,
   notes,
@@ -129,17 +242,11 @@ const sums = fs
   .readdirSync(stageDir)
   .filter((name) => name !== "SHA256SUMS")
   .sort()
-  .map((name) => {
-    const digest = crypto
-      .createHash("sha256")
-      .update(fs.readFileSync(path.join(stageDir, name)))
-      .digest("hex");
-    return `${digest}  ${name}`;
-  })
+  .map((name) => `${sha256File(path.join(stageDir, name))}  ${name}`)
   .join("\n");
 fs.writeFileSync(path.join(stageDir, "SHA256SUMS"), `${sums}\n`);
 
-console.log(`\nStaged in ${stageDir}:`);
+console.log(`\nVerified and staged in ${stageDir}:`);
 for (const name of fs.readdirSync(stageDir)) {
   const bytes = fs.statSync(path.join(stageDir, name)).size;
   console.log(`  ${name}  ${(bytes / 1024).toFixed(1)} kB`);
@@ -152,34 +259,49 @@ if (!publish) {
   process.exit(0);
 }
 
+assertClean();
+if (output("git", ["rev-parse", "HEAD"]) !== commit) {
+  fail("HEAD changed after the installer was built.");
+}
+if (succeeds("gh", ["release", "view", tag])) {
+  fail(`GitHub release ${tag} already exists.`);
+}
+const tagRef = `refs/tags/${tag}`;
+if (succeeds("git", ["show-ref", "--verify", "--quiet", tagRef])) {
+  const tagged = output("git", ["rev-list", "-n", "1", tagRef]);
+  if (tagged !== commit) fail(`${tag} points to ${tagged}, not ${commit}.`);
+} else {
+  run("git", ["tag", "-a", tag, "-m", `OpenRadar ${tag}`]);
+  run("git", ["push", "origin", tag]);
+}
+
 const assets = fs
   .readdirSync(stageDir)
   .map((name) => path.join(stageDir, name));
-// cmd.exe reads only the first line of a command, and gh is a batch file on
-// Windows, so multi-line notes passed as an argument are silently cut after
-// the first bullet. A file has no such problem.
 const notesPath = path.join(stageDir, "release-notes.md");
 fs.writeFileSync(notesPath, `${notes}\n`);
 run("gh", [
   "release",
   "create",
   tag,
-  ...assets.filter((asset) => asset !== notesPath),
+  ...assets,
+  "--verify-tag",
   "--title",
   `OpenRadar ${tag}`,
   "--notes-file",
   notesPath,
 ]);
-console.log(`\nPublished ${tag}.`);
+run("gh", ["release", "view", tag, "--json", "url,assets"]);
+console.log(`\nPublished ${tag} from ${commit}.`);
 
-/** The changelog section for this version, which is what the notes should be. */
 function releaseNotes(forVersion) {
   const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-  const heading = new RegExp(`^## OpenRadar v${forVersion}\\b.*$`, "m");
-  const start = changelog.search(heading);
-  if (start < 0) return `OpenRadar v${forVersion}`;
-  const rest = changelog.slice(start);
-  const end = rest.indexOf("\n## ", 1);
-  const section = end < 0 ? rest : rest.slice(0, end);
-  return section.split("\n").slice(1).join("\n").trim();
+  const heading = new RegExp(`^## OpenRadar v${forVersion}\\s*$`, "m");
+  const match = heading.exec(changelog);
+  if (!match) fail(`CHANGELOG.md has no notes for ${forVersion}.`);
+  const rest = changelog
+    .slice(match.index + match[0].length)
+    .replace(/^\r?\n/, "");
+  const end = rest.search(/^## /m);
+  return (end < 0 ? rest : rest.slice(0, end)).trim();
 }

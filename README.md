@@ -120,10 +120,10 @@ npm run dev
 To produce the Windows installer:
 
 ```powershell
-npm run tauri build -- --bundles nsis
+npm run release
 ```
 
-It lands in `src-tauri/target/release/bundle/nsis/`. Builds happen on the machine in front of you, never on a runner.
+The command runs every local check, builds and verifies the signed updater installer, then places the installer, signature, update manifest, commit proof, and checksums in `artifacts/`. Add `-- --publish` to create the matching tag and GitHub release after the verified build. Builds happen on the machine in front of you, never on a runner.
 
 ### Checks
 
