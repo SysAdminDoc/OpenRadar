@@ -329,16 +329,26 @@ export function WorkspaceChrome({
                   : layer.label}
                 <em>{gridAge(layer.time, clock)}</em>
               </strong>
-              <ol>
-                {layer.stops.map(([value, color]) => (
-                  <li key={value}>
-                    <i style={{ background: color }} aria-hidden="true" />
-                    {value}
-                  </li>
-                ))}
+              {/* A grid whose numbers are names is listed as names. A
+                  gradient of category numbers would say that six is more than
+                  three, and it is not: it is convection rather than snow. */}
+              <ol className={layer.categories ? "is-categorical" : undefined}>
+                {(layer.categories ?? layer.stops).map((entry) => {
+                  const [value, color] = entry;
+                  const id = entry[2];
+                  return (
+                    <li key={value}>
+                      <i style={{ background: color }} aria-hidden="true" />
+                      {id ? t(`precipType.${id}` as StringKey) : value}
+                    </li>
+                  );
+                })}
               </ol>
               {layer.product === "lightning" ? (
                 <small>{t("chrome.densityNote")}</small>
+              ) : null}
+              {layer.product === "precip-type" ? (
+                <small>{t("chrome.precipTypeNote")}</small>
               ) : null}
             </div>
           ))}

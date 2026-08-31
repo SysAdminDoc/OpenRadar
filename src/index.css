@@ -3880,3 +3880,17 @@ input[type="range"] {
 .guidance-change[data-direction="down"] {
   color: #8fc7e8;
 }
+
+/* A legend of names rather than a scale. The swatches stack so the words
+   beside them have room, because "Tropical convective rain" is not a number. */
+.product-legend ol.is-categorical {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-legend ol.is-categorical li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -28,7 +28,7 @@ Good radar on Windows is either a web page that throttles you, or an app that ch
 So OpenRadar asks directly. The Rust side is a decoder, not a wrapper around somebody else's rendering service:
 
 - **Single-site NEXRAD Level II** volumes, unpacked from the archive bucket and drawn as a sweep, with tilt and moment selection.
-- **MRMS** GRIB2 grids at one kilometre, including the products that usually cost money: rotation tracks, hail size, echo tops, liquid held aloft.
+- **MRMS** GRIB2 grids at one kilometre, including the products that usually cost money: rotation tracks, hail size, echo tops, liquid held aloft, and what kind of precipitation is falling.
 - **GOES lightning** from the satellite's own NetCDF files, filtered on the instrument's quality flag.
 - **GFS wind** fields, read a field at a time by byte range out of the run index.
 

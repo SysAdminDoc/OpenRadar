@@ -182,6 +182,18 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "estimated rain accumulated over twenty-four hours",
     freshForMs: MRMS_REFRESH,
   },
+  precipType: {
+    sourceId: "precip-type",
+    label: "Precipitation type",
+    attribution: MRMS,
+    // What the network's algorithm decided is falling, from the radar and the
+    // model's own temperature profile together. Not somebody looking out of a
+    // window, and the panel says so.
+    kind: "derived",
+    derivedFrom:
+      "radar and model temperature, classified by the MRMS PrecipFlag algorithm",
+    freshForMs: MRMS_REFRESH,
+  },
   lightningDensity: {
     sourceId: "lightning",
     label: "Cloud-to-ground flash density",

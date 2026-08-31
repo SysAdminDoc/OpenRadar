@@ -480,6 +480,19 @@ export const en = {
   "layers.qpeHourDetail": "How much has fallen in the last hour",
   "layer.qpeDay": "Rain, Past Day",
   "layers.qpeDayDetail": "How much has fallen since this time yesterday",
+  "layer.precipType": "Rain or Snow",
+  "layers.precipTypeDetail":
+    "What the network says is actually falling, rather than how hard",
+  "keywords.precipType": "snow sleet freezing winter type",
+  "precipType.warmStratiform": "Rain",
+  "precipType.coolStratiform": "Rain, cool",
+  "precipType.snow": "Snow",
+  "precipType.convection": "Convective rain",
+  "precipType.hail": "Hail",
+  "precipType.tropicalStratiform": "Tropical rain",
+  "precipType.tropicalConvection": "Tropical convective rain",
+  "chrome.precipTypeNote":
+    "The network's own classification, from radar and model temperature together, not a report from the ground",
   "layer.spcOutlooks": "Severe Outlook",
   "layers.spcOutlooksDetail":
     "The Storm Prediction Center's risk of severe storms today, in its own colours",

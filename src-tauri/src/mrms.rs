@@ -25,7 +25,11 @@ const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
 const GRID_BYTES: usize = 7000 * 3500 * 2;
 const MAX_GRID_POINTS: usize = GRID_BYTES / std::mem::size_of::<u16>();
 const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
-const CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
+// Raised from 512 MiB when the eleventh product arrived: the point of the
+// budget is a ceiling, and the point of the capacity is one slot per
+// product, so a screen with every layer on does not download the country
+// once per layer. Ten slots stopped being enough at eleven products.
+const CACHE_BUDGET_BYTES: usize = 640 * 1024 * 1024;
 /// As many grids as half a gigabyte holds, which is ten.
 const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
 /// Every product on the map keeps one grid live at a time, and the composite
@@ -105,6 +109,20 @@ pub struct MrmsProduct {
     /// Values at or below this are not drawn at all.
     pub floor: f32,
     pub sampling: Sampling,
+    /// The categories this grid holds, for a product whose numbers are names
+    /// rather than a quantity. A grid with categories is never interpolated:
+    /// halfway between snow and hail is not sleet, it is nothing.
+    pub categories: Option<&'static [Category]>,
+}
+
+/// One value of a categorical grid: what it is, and what it is called.
+#[derive(Clone, Copy)]
+pub struct Category {
+    pub value: f32,
+    pub color: [u8; 3],
+    /// A stable name the page translates. Not the wording itself, which is
+    /// the page's business and is different in every language it speaks.
+    pub id: &'static str,
 }
 
 impl MrmsProduct {
@@ -326,6 +344,77 @@ const HIGH_CONTRAST_QPE_DAY_RAMP: &[(f32, [u8; 3])] = &[
     (200.0, HIGH_CONTRAST_STEPS[5]),
 ];
 
+/// What the precipitation flag means, from the NSSL product table.
+///
+/// Discipline 209, category 6. The grid holds a category rather than an
+/// amount, so the colours are chosen to be told apart rather than to run into
+/// each other: blue for snow, pink for the mix, red for hail. Anything the
+/// table does not name is left undrawn rather than guessed at, and so are the
+/// two the table reserves: -3 for missing and -1 for outside coverage.
+///
+/// The values here are the ones the table publishes and the reason the fixture
+/// test pins them: a category quietly renumbered upstream would paint snow as
+/// convection with nothing on screen to say so.
+///
+/// The colours were searched rather than picked. Each category keeps a hue
+/// somebody would expect and the search chose how light or dark it is, which
+/// is what survives colour blindness: the worst pair of these is 17 apart
+/// under the least forgiving of the three simulations, against the 10 the
+/// ramps are held to, and none of them is dark enough to read as a hole in a
+/// dark basemap.
+const PRECIP_TYPES: &[Category] = &[
+    Category {
+        value: 1.0,
+        color: [0xa6, 0xdd, 0xa0],
+        id: "warmStratiform",
+    },
+    Category {
+        value: 3.0,
+        color: [0x62, 0xb6, 0xf5],
+        id: "snow",
+    },
+    Category {
+        value: 6.0,
+        color: [0xb5, 0x7b, 0x0a],
+        id: "convection",
+    },
+    Category {
+        value: 7.0,
+        color: [0xe0, 0x55, 0x55],
+        id: "hail",
+    },
+    Category {
+        value: 10.0,
+        color: [0x6f, 0x5f, 0xc0],
+        id: "coolStratiform",
+    },
+    Category {
+        value: 91.0,
+        color: [0x0a, 0x7a, 0x72],
+        id: "tropicalStratiform",
+    },
+    Category {
+        value: 96.0,
+        color: [0xde, 0x6a, 0xa8],
+        id: "tropicalConvection",
+    },
+];
+
+/// The categories as a ramp, so every product has one.
+///
+/// Nothing draws from this: a categorical grid is matched exactly. It exists
+/// because `ramp` is not optional and a ramp that disagreed with the
+/// categories beside it would be a trap for whoever reads this next.
+const PRECIP_TYPE_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, [0xa6, 0xdd, 0xa0]),
+    (3.0, [0x62, 0xb6, 0xf5]),
+    (6.0, [0xb5, 0x7b, 0x0a]),
+    (7.0, [0xe0, 0x55, 0x55]),
+    (10.0, [0x6f, 0x5f, 0xc0]),
+    (91.0, [0x0a, 0x7a, 0x72]),
+    (96.0, [0xde, 0x6a, 0xa8]),
+];
+
 pub const PRODUCTS: &[MrmsProduct] = &[
     MrmsProduct {
         id: "composite",
@@ -336,6 +425,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_REFLECTIVITY_RAMP,
         floor: 5.0,
         sampling: Sampling::Nearest,
+        categories: None,
     },
     MrmsProduct {
         id: "rotation",
@@ -346,6 +436,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_ROTATION_RAMP,
         floor: 2.0,
         sampling: Sampling::Cells,
+        categories: None,
     },
     MrmsProduct {
         id: "mesh",
@@ -356,6 +447,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_MESH_RAMP,
         floor: 6.0,
         sampling: Sampling::Cells,
+        categories: None,
     },
     MrmsProduct {
         id: "echo-tops",
@@ -366,6 +458,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_ECHO_TOP_RAMP,
         floor: 3.0,
         sampling: Sampling::Nearest,
+        categories: None,
     },
     MrmsProduct {
         id: "vil",
@@ -376,6 +469,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_VIL_RAMP,
         floor: 1.0,
         sampling: Sampling::Nearest,
+        categories: None,
     },
     MrmsProduct {
         id: "precip-rate",
@@ -386,6 +480,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_PRECIP_RATE_RAMP,
         floor: 0.2,
         sampling: Sampling::Nearest,
+        categories: None,
     },
     MrmsProduct {
         id: "qpe-hour",
@@ -396,6 +491,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_QPE_HOUR_RAMP,
         floor: 0.5,
         sampling: Sampling::Nearest,
+        categories: None,
     },
     MrmsProduct {
         id: "qpe-day",
@@ -406,6 +502,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_QPE_DAY_RAMP,
         floor: 2.0,
         sampling: Sampling::Nearest,
+        categories: None,
     },
     MrmsProduct {
         id: "hail-swath",
@@ -416,6 +513,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_MESH_RAMP,
         floor: 6.0,
         sampling: Sampling::Cells,
+        categories: None,
     },
     MrmsProduct {
         id: "lightning",
@@ -426,6 +524,24 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_RAMP,
         floor: 0.01,
         sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "precip-type",
+        folder: "PrecipFlag_00.00",
+        label: "Precipitation type",
+        // A category, not a quantity. The legend lists names rather than a
+        // scale, and the unit line beside it would be wrong whatever it said.
+        unit: "",
+        // Never drawn from, because a category cannot be interpolated. Held
+        // so every product has one and the ramp helpers stay total.
+        ramp: PRECIP_TYPE_RAMP,
+        high_contrast_ramp: PRECIP_TYPE_RAMP,
+        // Zero is "no precipitation", which is most of the country most of
+        // the time and is not something to paint over the map.
+        floor: 0.5,
+        sampling: Sampling::Nearest,
+        categories: Some(PRECIP_TYPES),
     },
 ];
 
@@ -548,6 +664,23 @@ fn remember_tile(key: String, bytes: &[u8]) {
     while cache.len() > TILE_CACHE_CAPACITY {
         cache.pop_front();
     }
+}
+
+/// The colour for one category, or nothing when the grid holds a value the
+/// table does not name.
+///
+/// Matched on the nearest whole number rather than on equality: the grid is
+/// packed as scaled integers and comes back through a float, so 3.0000002 is
+/// snow and refusing it would leave the map empty.
+fn category_color(categories: &[Category], value: f32) -> Option<[u8; 3]> {
+    if !value.is_finite() {
+        return None;
+    }
+    let wanted = value.round();
+    categories
+        .iter()
+        .find(|category| category.value == wanted)
+        .map(|category| category.color)
 }
 
 fn ramp_color(ramp: &[(f32, [u8; 3])], value: f32) -> [u8; 3] {
@@ -984,6 +1117,9 @@ pub struct MrmsProductInfo {
     pub floor: f32,
     /// Each ramp stop as its value and its colour in hex.
     pub stops: Vec<(f32, String)>,
+    /// For a grid whose numbers are names: the value, its colour, and the
+    /// name the page translates. Absent for every ordinary product.
+    pub categories: Option<Vec<(f32, String, &'static str)>>,
 }
 
 /// The catalogue, drawn the way the reader asked for.
@@ -1012,6 +1148,21 @@ pub fn mrms_products(high_contrast: Option<bool>) -> Vec<MrmsProductInfo> {
                     )
                 })
                 .collect(),
+            categories: entry.categories.map(|categories| {
+                categories
+                    .iter()
+                    .map(|category| {
+                        (
+                            category.value,
+                            format!(
+                                "#{:02x}{:02x}{:02x}",
+                                category.color[0], category.color[1], category.color[2]
+                            ),
+                            category.id,
+                        )
+                    })
+                    .collect()
+            }),
         })
         .collect()
 }
@@ -1141,9 +1292,18 @@ pub fn tile_pixels(
     let mut pixels = vec![0u8; TILE_SIZE * TILE_SIZE * 4];
     let mut painted = false;
     let mut paint = |row: usize, column: usize, value: f32| {
-        let color = match &table {
-            Some(table) => table.color(value),
-            None => ramp_color(ramp, value),
+        // A categorical grid is matched, not interpolated, and a value the
+        // table does not name is left clear. Halfway between snow and hail is
+        // not sleet; it is a number nobody has defined.
+        let color = match (entry.categories, &table) {
+            (Some(categories), _) => {
+                let Some(found) = category_color(categories, value) else {
+                    return;
+                };
+                found
+            }
+            (None, Some(table)) => table.color(value),
+            (None, None) => ramp_color(ramp, value),
         };
         let at = (row * TILE_SIZE + column) * 4;
         pixels[at] = color[0];
@@ -1918,6 +2078,73 @@ mod tests {
         }
     }
 
+    /// The precipitation flag holds the categories the table names and nothing
+    /// else.
+    ///
+    /// Live, because that is the only place the claim can be checked: the
+    /// table is documentation and the grid is what actually arrives. A value
+    /// nobody has defined turning up here means either the table has moved or
+    /// the decode is wrong, and both of them paint the map a lie.
+    ///
+    /// Cheap as live tests go: this grid is a couple of hundred kilobytes
+    /// rather than the fifty megabytes a reflectivity field expands to,
+    /// because most of the country is one category most of the time.
+    #[test]
+    #[ignore = "fetches a live grid from the MRMS archive"]
+    fn the_precipitation_flag_holds_only_the_categories_it_names() {
+        let _turn = live_test();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        clear_caches();
+
+        let entry = product_by_id("precip-type").expect("the precipitation flag");
+        let frames = runtime
+            .block_on(mrms_frames("precip-type".into(), 1, None))
+            .expect("MRMS publishes the precipitation flag");
+        let key = frames.last().expect("a frame").key.clone();
+        runtime
+            .block_on(grid_for(&key))
+            .unwrap_or_else(|error| panic!("the flag did not decode: {error}"));
+
+        let cache = CACHE.lock().expect("the cache");
+        let grid = &cache
+            .iter()
+            .find(|held| held.key == key)
+            .expect("the grid is cached")
+            .grid;
+
+        let categories = entry.categories.expect("a categorical grid");
+        let mut unknown: Vec<f32> = Vec::new();
+        let mut drawn = 0usize;
+        for row in (0..grid.rows).step_by(5) {
+            for column in (0..grid.columns).step_by(5) {
+                let value = grid.value(row, column);
+                if !value.is_finite() {
+                    continue;
+                }
+                let whole = value.round();
+                // Nothing falling, missing, and outside coverage, all of which
+                // the table reserves and none of which is drawn.
+                if whole == 0.0 || whole == -3.0 || whole == -1.0 {
+                    continue;
+                }
+                if category_color(categories, value).is_some() {
+                    drawn += 1;
+                } else if !unknown.contains(&whole) {
+                    unknown.push(whole);
+                }
+            }
+        }
+        println!("precip-type: {drawn} sampled cells in a named category");
+        assert!(
+            unknown.is_empty(),
+            "the grid holds categories the table does not name: {unknown:?}"
+        );
+        drop(cache);
+    }
+
     /// A five-minute lightning grid has a couple of hundred live cells in
     /// twenty-four million. Asking each pixel what is under its centre draws an
     /// empty map, so the sparse products walk the cells instead. Live, because
@@ -2487,6 +2714,7 @@ mod tests {
             ("qpe-day", Sampling::Nearest),
             ("hail-swath", Sampling::Cells),
             ("lightning", Sampling::Cells),
+            ("precip-type", Sampling::Nearest),
         ];
         assert_eq!(expected.len(), PRODUCTS.len(), "a product has no verdict");
         for (id, sampling) in expected {
@@ -2554,7 +2782,7 @@ mod tests {
 
         #[test]
         fn every_high_contrast_grid_keeps_its_bands_apart() {
-            for product in PRODUCTS {
+            for product in PRODUCTS.iter().filter(|p| p.categories.is_none()) {
                 for vision in EVERY_VISION {
                     let (apart, from, to) = worst_pair(product.high_contrast_ramp, vision);
                     assert!(
@@ -2572,12 +2800,48 @@ mod tests {
         /// reading when hue is gone entirely.
         #[test]
         fn every_high_contrast_grid_climbs_in_lightness() {
-            for product in PRODUCTS {
+            // A categorical grid is exempt, and not by way of an excuse: snow
+            // is not more than rain, so there is no direction for lightness to
+            // carry. What those grids are held to instead is below: every pair
+            // of categories has to be tellable apart, which is a harder test
+            // than neighbours on a ramp.
+            for product in PRODUCTS.iter().filter(|p| p.categories.is_none()) {
                 assert!(
                     lightness_climbs(product.high_contrast_ramp, 0.5),
                     "{} falls back down",
                     product.id
                 );
+            }
+        }
+
+        /// Every category has to be tellable from every other one.
+        ///
+        /// A ramp only has to keep its neighbours apart, because a reader
+        /// compares a colour against the bar beside it and two ends being
+        /// similar is survivable. A category has no bar and no order: snow
+        /// against hail is the whole question, and any pair collapsing is the
+        /// layer saying the wrong thing rather than saying it vaguely.
+        #[test]
+        fn every_pair_of_categories_stays_apart() {
+            for product in PRODUCTS {
+                let Some(categories) = product.categories else {
+                    continue;
+                };
+                for vision in EVERY_VISION {
+                    for (at, one) in categories.iter().enumerate() {
+                        for other in &categories[at + 1..] {
+                            let apart = crate::contrast::distance(one.color, other.color, vision);
+                            assert!(
+                                apart >= NEIGHBOURS_APART,
+                                "{}: {} brings {} and {} within {apart:.1}",
+                                product.id,
+                                vision.name(),
+                                one.id,
+                                other.id
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -2681,6 +2945,95 @@ mod tests {
         let plain = tile_pixels(&grid, entry, 4, 3, 5, None, false).expect("a tile");
         let contrast = tile_pixels(&grid, entry, 4, 3, 5, None, true).expect("a tile");
         assert_ne!(plain, contrast);
+    }
+
+    /// The precipitation flag's own numbers, from the NSSL product table.
+    ///
+    /// Written down here because the grid holds a category rather than a
+    /// quantity: a number renumbered upstream, or a digit mistyped here, does
+    /// not look wrong on the map. It paints snow as convection over half a
+    /// state and says nothing about it.
+    ///
+    /// Source: https://www.nssl.noaa.gov/projects/mrms/operational/tables.php
+    /// discipline 209, category 6.
+    #[test]
+    fn the_precipitation_categories_are_the_ones_the_table_publishes() {
+        let entry = product_by_id("precip-type").expect("the precipitation flag");
+        let categories = entry.categories.expect("a categorical grid");
+        let named: Vec<(f32, &str)> = categories
+            .iter()
+            .map(|category| (category.value, category.id))
+            .collect();
+        assert_eq!(
+            named,
+            vec![
+                (1.0, "warmStratiform"),
+                (3.0, "snow"),
+                (6.0, "convection"),
+                (7.0, "hail"),
+                (10.0, "coolStratiform"),
+                (91.0, "tropicalStratiform"),
+                (96.0, "tropicalConvection"),
+            ]
+        );
+
+        // Zero is "no precipitation" and is not drawn, which is most of the
+        // country most of the time.
+        assert!(entry.floor > 0.0 && entry.floor < 1.0);
+        // And it carries no unit, because a category is not measured in
+        // anything. A unit line beside it would be wrong whatever it said.
+        assert_eq!(entry.unit, "");
+    }
+
+    /// A value the table does not name is left clear rather than guessed at.
+    #[test]
+    fn a_category_nobody_defined_is_not_painted() {
+        let entry = product_by_id("precip-type").expect("the precipitation flag");
+        let categories = entry.categories.expect("a categorical grid");
+        for value in [-3.0, -1.0, 0.0, 2.0, 4.0, 5.0, 8.0, 9.0, 11.0, 50.0, 99.0] {
+            assert!(
+                category_color(categories, value).is_none(),
+                "{value} is not a category and must not be drawn"
+            );
+        }
+        // The grid arrives as scaled integers through a float, so a reading a
+        // hair off a whole number is still that category.
+        assert_eq!(
+            category_color(categories, 3.0000002),
+            category_color(categories, 3.0),
+        );
+        assert!(category_color(categories, f32::NAN).is_none());
+    }
+
+    /// Snow is drawn as snow, wherever the flag says so.
+    #[test]
+    fn the_categorical_grid_never_borrows_the_rain_ramp() {
+        // A grid of nothing but snow, drawn as tiles.
+        let mut grid = grid();
+        grid.samples = vec![30; grid.samples.len()];
+        grid.decimal = 1;
+        grid.reference = 0.0;
+        let entry = product_by_id("precip-type").expect("the precipitation flag");
+        let pixels = tile_pixels(&grid, entry, 4, 3, 5, None, false).expect("a tile");
+        let snow = entry
+            .categories
+            .unwrap()
+            .iter()
+            .find(|category| category.id == "snow")
+            .expect("snow")
+            .color;
+        let drawn: Vec<[u8; 3]> = pixels
+            .chunks(4)
+            .filter(|pixel| pixel[3] > 0)
+            .map(|pixel| [pixel[0], pixel[1], pixel[2]])
+            .collect();
+        assert!(!drawn.is_empty(), "the tile drew nothing");
+        for pixel in &drawn {
+            assert_eq!(*pixel, snow, "a snow gate came out another colour");
+        }
+        // And not the reflectivity ramp's colour for the same number, which
+        // is what drawing it as rain would have looked like.
+        assert_ne!(snow, ramp_color(REFLECTIVITY_RAMP, 3.0));
     }
 
     #[test]

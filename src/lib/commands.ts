@@ -148,6 +148,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["qpe", "accumulation", "day", "24", "how much"],
   },
   {
+    layer: "precipType",
+    key: "layer.precipType",
+    extra: "keywords.precipType",
+    keywords: ["snow", "sleet", "freezing", "rain", "type", "winter"],
+  },
+  {
     layer: "lightningDensity",
     key: "layer.lightningDensity",
     extra: "keywords.lightningDensity",

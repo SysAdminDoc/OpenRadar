@@ -83,6 +83,23 @@ const PRODUCTS = [
     floor: 0.1,
     stops: [[0.1, "#38bdf8"]],
   },
+  {
+    id: "precip-type",
+    label: "Precipitation type",
+    // A category rather than a quantity, so no unit and a list of names
+    // instead of a scale.
+    unit: "",
+    floor: 0.5,
+    stops: [
+      [1, "#a6dda0"],
+      [3, "#62b6f5"],
+    ],
+    categories: [
+      [1, "#a6dda0", "warmStratiform"],
+      [3, "#62b6f5", "snow"],
+      [7, "#e05555", "hail"],
+    ],
+  },
 ];
 
 /**
@@ -249,4 +266,34 @@ test("keeps a full stack of product legends inside the scaled viewport", async (
   expect(box.top).toBeGreaterThanOrEqual(0);
   expect(box.bottom).toBeLessThanOrEqual(box.viewport);
   expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
+});
+
+test("lists precipitation type by name rather than as a scale", async ({
+  page,
+}) => {
+  await fakeNativeSide(page);
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1&lon=-93.7&lat=41.7&zoom=6");
+  await expect(page.getByRole("application")).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Rain or Snow/ })
+    .check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const legend = page.locator(".product-legend", {
+    hasText: "Precipitation type",
+  });
+  await expect(legend).toBeVisible();
+  // Names, not numbers: six is not more than three, it is convection rather
+  // than snow, and a scale would say otherwise.
+  await expect(legend.locator("ol.is-categorical")).toBeVisible();
+  await expect(legend).toContainText("Snow");
+  await expect(legend).toContainText("Hail");
+  await expect(legend).not.toContainText("kg/m²");
+  // And it says what it is: the network's own classification rather than
+  // somebody looking out of a window.
+  await expect(legend).toContainText("classification");
 });

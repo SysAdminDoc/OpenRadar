@@ -29,6 +29,7 @@ export const MRMS_LAYERS: Array<{
   { layer: "precipRate", product: "precip-rate" },
   { layer: "qpeHour", product: "qpe-hour" },
   { layer: "qpeDay", product: "qpe-day" },
+  { layer: "precipType", product: "precip-type" },
 ];
 
 export interface MrmsLayer {
@@ -39,6 +40,11 @@ export interface MrmsLayer {
   /** When the grid was valid, so the legend can say how old it is. */
   time: number;
   stops: Array<[number, string]>;
+  /**
+   * For a grid whose numbers are names: the value, its colour, and the name
+   * the page translates. The legend lists these instead of a gradient.
+   */
+  categories?: Array<[number, string, string]>;
 }
 
 export interface MrmsOverlayState {
@@ -165,6 +171,7 @@ export function useMrmsOverlays(options: {
             highContrast,
           ),
           stops: entry.stops,
+          ...(entry.categories ? { categories: entry.categories } : {}),
         })),
       error,
     };
