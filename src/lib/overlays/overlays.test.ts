@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   alertSeverity,
+  alertWidths,
   alertsOverlay,
   parseAlertTags,
   parseAlerts,
@@ -710,6 +711,33 @@ describe("the damage threat an office attaches to a warning", () => {
     };
     const drawn = parseAlerts(polygons, parseAlertTags(feed));
     expect(drawn.features[0].properties.impact).toBe("destructive");
+  });
+});
+
+describe("how heavily a warning is outlined", () => {
+  /** The widths out of the expression, in the order the cases are written. */
+  const widths = (highContrast: boolean) =>
+    (alertWidths(highContrast) as unknown[]).filter(
+      (part): part is number => typeof part === "number",
+    );
+
+  it("draws every outline heavier under more contrast", () => {
+    const ordinary = widths(false);
+    const contrast = widths(true);
+    expect(ordinary).toEqual([4, 3, 2.2, 1.2]);
+    expect(contrast).toHaveLength(ordinary.length);
+    for (const [index, width] of contrast.entries()) {
+      expect(width).toBeGreaterThan(ordinary[index]);
+    }
+  });
+
+  it("keeps the four apart, so the tag still reads off the map", () => {
+    // The colours are the alert severities and are not ours to change, so the
+    // ordering between a destructive warning and an ordinary one has to
+    // survive the whole set moving.
+    const contrast = widths(true);
+    expect(contrast).toEqual([...contrast].sort((a, b) => b - a));
+    expect(new Set(contrast).size).toBe(contrast.length);
   });
 });
 

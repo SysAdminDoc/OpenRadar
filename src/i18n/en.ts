@@ -290,6 +290,8 @@ export const en = {
   "upload.forReflectivity": " · reflectivity",
   "upload.skipped": "{names} left out",
   "upload.clearPalette": "Use the built-in colours",
+  "upload.asSupplied":
+    "Drawn as supplied. More contrast changes the built-in ramps, and never a table you loaded.",
   "diagnostics.eyebrow": "OpenRadar v{version}",
   "diagnostics.title": "Diagnostics",
   "diagnostics.renderer": "Map renderer",

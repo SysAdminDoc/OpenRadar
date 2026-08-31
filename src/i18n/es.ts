@@ -295,6 +295,8 @@ export const es: Catalogue = {
   "upload.forReflectivity": " · reflectividad",
   "upload.skipped": "{names} sin usar",
   "upload.clearPalette": "Usar los colores de siempre",
+  "upload.asSupplied":
+    "Se dibuja tal cual. Más contraste cambia las escalas propias, nunca una tabla que hayas cargado.",
   "diagnostics.eyebrow": "OpenRadar v{version}",
   "diagnostics.title": "Diagnóstico",
   "diagnostics.renderer": "Motor del mapa",

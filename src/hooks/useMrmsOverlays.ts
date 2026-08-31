@@ -10,6 +10,7 @@ import {
   type MrmsProductInfo,
 } from "../lib/providers/mrms";
 import type { LayerSettings } from "../lib/settings";
+import { useHighContrast } from "./useClock";
 
 /** The grids land every two minutes, so this is the useful refresh. */
 const REFRESH_MS = 2 * 60_000;
@@ -64,6 +65,9 @@ export function useMrmsOverlays(options: {
   );
   const [root, setRoot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The grids are drawn on this machine, so the ramp is part of the tile
+  // address and part of what the catalogue has to hand the legend.
+  const highContrast = useHighContrast();
 
   const available = mrmsAvailable();
   // A stable key for the set of switches that are on, so panning does not
@@ -75,7 +79,7 @@ export function useMrmsOverlays(options: {
   useEffect(() => {
     if (!ready || !available || !wanted) return;
     let open = true;
-    void Promise.all([tileRoot(), mrmsProducts()])
+    void Promise.all([tileRoot(), mrmsProducts(highContrast)])
       .then(([base, list]) => {
         if (!open) return;
         setRoot(base);
@@ -93,7 +97,7 @@ export function useMrmsOverlays(options: {
     return () => {
       open = false;
     };
-  }, [available, ready, wanted]);
+  }, [available, highContrast, ready, wanted]);
 
   useEffect(() => {
     if (!ready || !available || !wanted) return;
@@ -156,10 +160,13 @@ export function useMrmsOverlays(options: {
             entry.id,
             times[entry.id] ?? 0,
             paletteGeneration,
+            null,
+            "CONUS",
+            highContrast,
           ),
           stops: entry.stops,
         })),
       error,
     };
-  }, [catalog, error, paletteGeneration, root, times, wanted]);
+  }, [catalog, error, highContrast, paletteGeneration, root, times, wanted]);
 }

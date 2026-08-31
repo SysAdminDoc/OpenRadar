@@ -18,7 +18,8 @@ import {
   type RadarProvider,
 } from "../lib/providers";
 import { log } from "../lib/log";
-import { setMrmsThreshold } from "../lib/providers/mrms";
+import { setMrmsHighContrast, setMrmsThreshold } from "../lib/providers/mrms";
+import { useHighContrast } from "./useClock";
 import { animationIntervalMs, type RadarFrame } from "../lib/radar";
 import { translate } from "../i18n";
 
@@ -153,6 +154,10 @@ export function useRadarTimeline(options: {
   // argument of ours reaches, so this is put where it can read it before the
   // effect below asks for frames.
   setMrmsThreshold(mosaicThreshold);
+  // The same goes for the ramp: the mosaic tiles are drawn on this machine,
+  // so asking for more contrast is asking for a different picture.
+  const highContrast = useHighContrast();
+  setMrmsHighContrast(highContrast);
   const [observed, setObserved] = useState<RadarFrame[]>([]);
   const [run, setRun] = useState<HrrrRun | null>(null);
   const [source, setSource] = useState<RadarProvider | null>(null);
@@ -320,9 +325,9 @@ export function useRadarTimeline(options: {
       controller.abort();
       window.clearInterval(timer);
     };
-    // A new colour table, or a new threshold, means the locally drawn tiles
-    // have to be asked for again under their new address.
-  }, [ready, coverage, paletteGeneration, mosaicThreshold]);
+    // A new colour table, a new threshold, or a new ramp means the locally
+    // drawn tiles have to be asked for again under their new address.
+  }, [ready, coverage, paletteGeneration, mosaicThreshold, highContrast]);
 
   // A machine that has just found the network again has a loop on screen
   // that is at least as old as the outage. Asking again now is the difference

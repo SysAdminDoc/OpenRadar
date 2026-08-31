@@ -8,7 +8,29 @@ import {
 import { cachedUrl } from "../tileCache";
 import { translate } from "../../i18n";
 import { formatClock } from "../units";
+import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { alertType, type AlertType } from "../alertTypes";
+import { highContrastRequested } from "../../hooks/useClock";
+
+/**
+ * How heavily a warning outline is stroked, by how much damage the office
+ * expects. Half again as heavy for a reader who has asked for more contrast.
+ */
+export function alertWidths(
+  highContrast: boolean,
+): DataDrivenPropertyValueSpecification<number> {
+  const heavier = highContrast ? 1.6 : 1;
+  return [
+    "case",
+    [">=", ["get", "impactRank"], 2],
+    4 * heavier,
+    [">=", ["get", "impactRank"], 1],
+    3 * heavier,
+    [">=", ["get", "severityRank"], 2],
+    2.2 * heavier,
+    1.2 * heavier,
+  ];
+}
 
 const SERVICE =
   "https://mapservices.weather.noaa.gov/eventdriven/rest/services/WWA/watch_warn_adv/MapServer/1/query";
@@ -432,16 +454,13 @@ export const alertsOverlay: OverlayAdapter = {
         // A tagged warning is drawn heavier than an ordinary one of the same
         // kind, because that is exactly the distinction the tag makes: the
         // office is saying this one will do more damage than the usual.
-        "line-width": [
-          "case",
-          [">=", ["get", "impactRank"], 2],
-          4,
-          [">=", ["get", "impactRank"], 1],
-          3,
-          [">=", ["get", "severityRank"], 2],
-          2.2,
-          1.2,
-        ],
+        //
+        // Every width is scaled together under more contrast. The colours are
+        // the alert severities, which are fixed and not ours to change, so the
+        // outline itself is what has to carry further: a warning is easier to
+        // find as a heavier line, and the ordering between the four survives
+        // because they all move by the same factor.
+        "line-width": alertWidths(highContrastRequested()),
       },
     },
   ],

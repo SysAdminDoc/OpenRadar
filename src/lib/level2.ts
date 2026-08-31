@@ -62,6 +62,14 @@ export interface SweepImage {
   productId: Level2ProductId;
   /** True when a loaded colour table drew this rather than the built-in ramp. */
   paletteApplied: boolean;
+  /**
+   * True when the high-contrast ramps drew this.
+   *
+   * The picture on screen was drawn when it was asked for, so the legend
+   * follows this rather than the preference as it stands now: a reader who has
+   * just turned contrast on is still looking at the sweep they had.
+   */
+  highContrast: boolean;
   /** True when the velocity drawn here has been unfolded. */
   dealiased: boolean;
   /** What was taken out to make a storm relative sweep, when one was. */

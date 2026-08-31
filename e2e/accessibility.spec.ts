@@ -88,15 +88,47 @@ test("every panel the command bar opens is clean too", async ({ page }) => {
 });
 
 test("stays clean when the reader asks for more contrast", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  // The warnings are on the map before any of this, so the three scans below
+  // are over real hazard geometry rather than an empty basemap.
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
+
   await page.emulateMedia({ contrast: "more" });
   await page.waitForTimeout(PANEL_SETTLE_MS);
   expect(describeViolations(await scan(page))).toBe("");
+
+  // The warning outlines are drawn again heavier, and the layers have to come
+  // back: they are dropped and rebuilt, which is the only way a width read at
+  // layer creation can change while the map is open.
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
 
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Light", exact: true }).click();
   await page.getByRole("button", { name: "Close Settings" }).click();
   await page.waitForTimeout(PANEL_SETTLE_MS);
   expect(describeViolations(await scan(page))).toBe("");
+});
+
+test("draws the legend from the ramp more contrast puts in force", async ({
+  page,
+}) => {
+  const bar = page.locator(".legend-ramp");
+  const painted = () => bar.evaluate((node) => node.style.background);
+  // The ordinary bar is a gradient in the stylesheet, so there is nothing
+  // written on the element itself.
+  await expect.poll(painted).toBe("");
+
+  await page.emulateMedia({ contrast: "more" });
+  // The high-contrast bar is built from the ramp the tiles are drawn with,
+  // which starts on the same dark blue rather than the NWS cyan.
+  await expect.poll(painted).toContain("rgb(0, 37, 108)");
+  // And it still says what it is measured in, over the same range.
+  await expect(page.locator(".legend-scale")).toHaveText("520355065");
+
+  await page.emulateMedia({ contrast: "no-preference" });
+  await expect.poll(painted).toBe("");
 });
 
 test("labels the reflectivity ramp in dBZ", async ({ page }) => {

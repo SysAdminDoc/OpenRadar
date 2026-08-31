@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- More contrast now reaches the rest of the map. The nine MRMS grids get scales built the same way the single-site ones were: measured under three kinds of colour blindness, held ten apart at their closest neighbours, and climbing steadily in lightness so the reading survives on a bad screen or in sunlight. The shared ladder they used before was readable enough, it just never said which way was more, because its yellow is lighter than the red and the magenta above it. The composite was worse, since it ran on the NWS reflectivity scale that brings 40 and 45 dBZ within 4.9 of each other. The choice travels in the tile address, so a picture drawn one way is never served to somebody who asked for the other, and the bar beside the map is built from whichever scale actually painted what you are looking at. Warning outlines and storm tracks are stroked heavier, with the four warning weights kept apart so a tagged warning still reads as the heavier one. A colour table you loaded yourself is left exactly as you supplied it, and the Upload panel says so rather than quietly changing somebody else's scale.
+
 ## OpenRadar v0.5.0
 
 - A map region can now be prepared before the network disappears. Choose its zoom range in Settings, see the final and temporary size estimates, then pause or resume the download as needed. Each tile is checked before it enters a PMTiles archive, and the archive is read back and hashed before the map will use it. Recovered archives must match that stored hash again before serving their first tile. A separate disk ceiling bounds the library, with one write gate stopping simultaneous downloads from spending the same remaining bytes. Cancelling or deleting removes the whole pack, while workspace backups keep only a small reference to it.

@@ -1,5 +1,15 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { paletteLegend, stopPosition, type LegendScale } from "./legend";
+import {
+  HIGH_CONTRAST_REFLECTIVITY_RAMP,
+  HIGH_CONTRAST_VELOCITY_RAMP,
+  HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
+  legendScale,
+  paletteLegend,
+  rampGradient,
+  stopPosition,
+  type LegendScale,
+} from "./legend";
 import { parsePalette } from "./palette";
 import { RAIN_RATE_RAMP, RAIN_RATE_STOPS } from "./providers/geomet";
 
@@ -105,5 +115,76 @@ describe("a loaded table's legend", () => {
     );
     expect(legend.max).toBeGreaterThan(legend.min);
     expect(stopPosition(legend, 30)).toBe(0);
+  });
+});
+
+/**
+ * The high-contrast bars are built from stops copied out of the Rust that
+ * draws the picture. A copy drifts, so it is read back out of the source and
+ * compared rather than trusted: a bar drawn from one ramp beside a map drawn
+ * from another describes a picture nobody is looking at.
+ */
+function rustRamp(name: string): Array<[number, string]> {
+  const source = readFileSync("src-tauri/src/level2.rs", "utf8");
+  const start = source.indexOf(`const ${name}: &[(f32, [u8; 3])] = &[`);
+  if (start < 0) throw new Error(`${name} is gone from level2.rs`);
+  const end = source.indexOf("];", start);
+  const body = source.slice(start, end);
+  const stops: Array<[number, string]> = [];
+  const line = /\(\s*(-?[\d.]+)\s*,\s*\[([^\]]+)\]\s*\)/g;
+  let found = line.exec(body);
+  while (found) {
+    const channels = found[2]
+      .split(",")
+      .map((part) => Number(part.trim()))
+      .map((value) => value.toString(16).padStart(2, "0"));
+    stops.push([Number(found[1]), `#${channels.join("")}`]);
+    found = line.exec(body);
+  }
+  return stops;
+}
+
+describe("the bars a reader who asked for more contrast reads", () => {
+  it("is drawn from the ramps the native side paints with", () => {
+    expect(HIGH_CONTRAST_REFLECTIVITY_RAMP).toEqual(
+      rustRamp("HIGH_CONTRAST_REFLECTIVITY_RAMP"),
+    );
+    expect(HIGH_CONTRAST_VELOCITY_RAMP).toEqual(
+      rustRamp("HIGH_CONTRAST_VELOCITY_RAMP"),
+    );
+    expect(HIGH_CONTRAST_WIDE_VELOCITY_RAMP).toEqual(
+      rustRamp("HIGH_CONTRAST_WIDE_VELOCITY_RAMP"),
+    );
+  });
+
+  it("replaces the ordinary bar for every locally drawn scale", () => {
+    for (const id of ["reflectivity", "velocity", "velocity-wide"] as const) {
+      const ordinary = legendScale(id);
+      const contrast = legendScale(id, true);
+      expect(contrast).not.toBe(ordinary);
+      expect(contrast?.gradient).toBeTruthy();
+      // Same ground, so asking for contrast never changes what is on the bar.
+      expect(contrast?.min).toBe(ordinary?.min);
+      expect(contrast?.max).toBe(ordinary?.max);
+      expect(contrast?.unit).toBe(ordinary?.unit);
+    }
+  });
+
+  it("leaves a bar it did not paint alone", () => {
+    // Canada's and Germany's tiles arrive already coloured, so their bars are
+    // the ones they were coloured with whatever the reader asked for.
+    for (const id of ["rain-rate", "dwd-reflectivity"] as const) {
+      expect(legendScale(id, true)).toBe(legendScale(id));
+    }
+    expect(legendScale("none", true)).toBeNull();
+  });
+
+  it("spaces a bar the way the values are spaced", () => {
+    // Velocity is not evenly stepped: the stop either side of still air is
+    // five metres a second and the next is twenty.
+    const gradient = rampGradient(HIGH_CONTRAST_VELOCITY_RAMP);
+    expect(gradient.startsWith("linear-gradient(90deg, #0078ba 0%")).toBe(true);
+    expect(gradient).toContain("#e8e8e8 50%");
+    expect(gradient.endsWith("#b34f1f 100%)")).toBe(true);
   });
 });

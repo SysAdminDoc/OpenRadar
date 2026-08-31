@@ -69,6 +69,7 @@ function sweepFor(
     siteName: "Des Moines, IA",
     productId: product,
     paletteApplied: false,
+    highContrast: false,
     dealiased: false,
     live: false,
     liveTilts: 0,
