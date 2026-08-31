@@ -2,21 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CACHED_HOSTS } from "./tileCache";
-
-/** Every host the native side may fetch, read from the Rust list itself. */
-function allowedHosts(): string[] {
-  const source = readFileSync(
-    join(process.cwd(), "src-tauri", "src", "http.rs"),
-    "utf8",
-  );
-  const list = source.slice(
-    source.indexOf("const ALLOWED_HOSTS"),
-    source.indexOf("const MAX_BODY_BYTES"),
-  );
-  return [...list.matchAll(/"([a-z0-9.-]+\.[a-z]{2,})"/g)].map(
-    (match) => match[1],
-  );
-}
+import { allowedHosts } from "../test/nativeHosts";
 
 /**
  * The content security policy is the one thing in this project that cannot be

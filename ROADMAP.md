@@ -56,13 +56,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: High contrast selects tested reflectivity and velocity ramps, strengthens critical polygon and track geometry, and retains text labels for severity and threat; common color-vision simulations preserve distinctions; imported palettes receive a warning rather than being silently altered; screenshot and semantic tests cover dark, light, and high-contrast map content.
       Complexity: L
 
-- [ ] AUD-087: Reconcile the asset ledger with actual files and network hosts
-      Why: The ledger names nonexistent `public/hurdat.json`, omits active DWD and NEXRAD bucket hosts, and claims to match an allowlist it does not fully describe.
-      Evidence: `docs/asset-ledger.md`; `public/hurdat/`; `src-tauri/src/http.rs`; `src-tauri/src/tauri.conf.json`; `src/lib/tileCache.ts`
-      Touches: `docs/asset-ledger.md`; a local ledger consistency check if useful
-      Acceptance: Every bundled data path and externally contacted host has source, license or terms, attribution placement, cache behavior, and privacy note; nonexistent paths are removed; a focused test or documented audit detects future divergence among the native allowlist, CSP, cache routing, and ledger.
-      Complexity: S
-
 ## P2
 
 - [ ] AUD-007: Decide whether macOS and Linux are supported targets

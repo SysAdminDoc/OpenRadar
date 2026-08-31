@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- The asset ledger now accounts for everything the app actually reaches, and a test keeps it that way. Three hosts it had been fetching from without saying so are named, including the German radar composite and both live NEXRAD buckets, a bundled file that stopped existing two releases ago is corrected, and every runtime source now states whether its bytes are kept on disk and what that service learns about you.
+
 - There is now a security policy. It names which versions get fixes, points at GitHub's private reporting so there is no address to publish, says plainly what to expect from a project with one maintainer, and writes down the boundaries that matter: the native host allowlist, the separate webview policy, how remote input and local files are parsed, and how an update is verified before it replaces anything.
 
 - One command now asks every live provider whether it still answers. `npm run check:live` walks the browser and native halves together, spaces the requests out, times each one, and prints whether each source passed, failed, or was skipped, with a JSON form for anything reading it. A source a release depends on is the only thing that can fail the run, a missing toolchain is reported as skipped rather than blamed on the weather services, and it refuses to run on shared build infrastructure.
