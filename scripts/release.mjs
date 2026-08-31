@@ -272,8 +272,8 @@ if (succeeds("git", ["show-ref", "--verify", "--quiet", tagRef])) {
   if (tagged !== commit) fail(`${tag} points to ${tagged}, not ${commit}.`);
 } else {
   run("git", ["tag", "-a", tag, "-m", `OpenRadar ${tag}`]);
-  run("git", ["push", "origin", tag]);
 }
+run("git", ["push", "origin", tag]);
 
 const assets = fs
   .readdirSync(stageDir)
