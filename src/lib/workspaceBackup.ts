@@ -98,7 +98,12 @@ function readOverlayFile(value: unknown): WorkspaceOverlayFile | null {
   if (!isWorkspaceOverlay(raw.shapes)) return null;
   const opacity = typeof raw.opacity === "number" ? raw.opacity : 1;
   return {
-    id: typeof raw.id === "string" && raw.id ? raw.id : overlayFileId(name),
+    // Derived from the name rather than read from the file. Everything else
+    // here is validated and this was taken verbatim, so a backup carrying an
+    // id that does not match its own name restored an entry that a later
+    // import of the same file could never find, and the set grew a second row
+    // with the same name on it instead of replacing the first.
+    id: overlayFileId(name),
     name,
     // Absent means on, the way it arrives from an import.
     enabled: raw.enabled !== false,

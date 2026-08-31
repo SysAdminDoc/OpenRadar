@@ -517,3 +517,43 @@ export function provenanceCredit(
     .filter((part): part is string => Boolean(part && part.trim()))
     .join(" · ");
 }
+
+/**
+ * The record for whichever frame the timeline is showing.
+ *
+ * The diagnostics block and the export both need this and both used to work
+ * it out for themselves, which is how they came to disagree: diagnostics
+ * carried the cache age and the freshness the loop publishes on, and the
+ * export quietly wrote null for both and stamped the moment of the question
+ * as the moment the bytes arrived. So every exported record said the picture
+ * came off the network just now, including one exported offline from a disk
+ * cache during an outage, which is the exact case the fields exist for.
+ *
+ * One function, so the next surface that needs a radar record gets the same
+ * answer as the two that already have one.
+ */
+export function timelineProvenance(options: {
+  frames: RadarFrame[];
+  frameIndex: number;
+  provider: RadarProvider | null;
+  /** When the frames reached this machine. */
+  fetchedAt: number;
+  cachedAgeSeconds: number | null;
+}): Provenance | null {
+  const frame = options.frames[options.frameIndex];
+  if (!frame) return null;
+  // How long a loop stays fresh is the gap between its own frames, which is
+  // what the provider publishes on. Two frames are needed to know it, and a
+  // single-frame loop simply does not say.
+  const step =
+    options.frames.length > 1
+      ? (options.frames[1].time - options.frames[0].time) * 1000
+      : null;
+  return radarProvenance({
+    frame,
+    provider: options.provider,
+    fetchedAt: options.fetchedAt,
+    cachedAgeSeconds: options.cachedAgeSeconds,
+    freshForMs: step && step > 0 ? step * 2 : null,
+  });
+}

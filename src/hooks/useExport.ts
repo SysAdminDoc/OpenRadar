@@ -14,7 +14,7 @@ import type { RadarProvider } from "../lib/providers";
 import {
   provenanceCredit,
   provenanceDocument,
-  radarProvenance,
+  timelineProvenance,
   type Provenance,
 } from "../lib/provenance";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
@@ -75,9 +75,17 @@ export function useExport(options: {
       // exported as though it were an observation is exactly the mistake the
       // record exists to make impossible, and an exported file outlives every
       // other place the distinction is shown.
-      const record = frame
-        ? radarProvenance({ frame, provider: source, fetchedAt: Date.now() })
-        : null;
+      //
+      // Through the same builder the diagnostics block uses, so the exported
+      // record carries the cache age and the freshness the loop publishes on
+      // rather than a pair of nulls saying the bytes came off the network.
+      const record = timelineProvenance({
+        frames,
+        frameIndex: index,
+        provider: source,
+        fetchedAt: timeline.fetchedAt,
+        cachedAgeSeconds: timeline.cachedAgeSeconds,
+      });
       if (record) drawnRef.current.set(index, record);
       return {
         lines: [
@@ -101,7 +109,7 @@ export function useExport(options: {
         attribution: provenanceCredit(BASEMAP_CREDIT, record),
       };
     },
-    [frames, source],
+    [frames, source, timeline.cachedAgeSeconds, timeline.fetchedAt],
   );
 
   const finish = useCallback(

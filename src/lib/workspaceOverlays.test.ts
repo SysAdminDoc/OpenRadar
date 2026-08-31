@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addOverlayFile,
+  isWorkspaceOverlay,
+  MAX_WORKSPACE_OVERLAY_FEATURES,
   MAX_WORKSPACE_OVERLAY_FILES,
   mergedOverlayShapes,
   moveOverlayFile,
@@ -203,5 +205,46 @@ describe("moving a file in the drawing order", () => {
       "c",
     ]);
     expect(moveOverlayFile(files, "missing", 0)).toBe(files);
+  });
+});
+
+describe("one ceiling, not one per format", () => {
+  function collection(count: number) {
+    return {
+      type: "FeatureCollection",
+      features: Array.from({ length: count }, () => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [0, 0] },
+        properties: {},
+      })),
+    };
+  }
+
+  // The import used to check the cap in the GeoJSON branch only, so a
+  // placefile past it imported, drew, and then vanished the first time a
+  // backup was restored, because the restore ran the check the import had
+  // skipped. Both sides count the same shapes against the same number now,
+  // and this holds them together.
+  it("counts what the backup reader judges, against the same number", () => {
+    const over = collection(MAX_WORKSPACE_OVERLAY_FEATURES + 1);
+    expect(overlayShapeCount(over)).toBe(MAX_WORKSPACE_OVERLAY_FEATURES + 1);
+    expect(isWorkspaceOverlay(over)).toBe(false);
+
+    const at = collection(MAX_WORKSPACE_OVERLAY_FEATURES);
+    expect(overlayShapeCount(at)).toBe(MAX_WORKSPACE_OVERLAY_FEATURES);
+    expect(isWorkspaceOverlay(at)).toBe(true);
+  });
+
+  it("agrees about an empty collection and a bare Feature", () => {
+    expect(overlayShapeCount(collection(0))).toBe(0);
+    expect(isWorkspaceOverlay(collection(0))).toBe(false);
+
+    const bare = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [0, 0] },
+      properties: {},
+    };
+    expect(overlayShapeCount(bare)).toBe(1);
+    expect(isWorkspaceOverlay(bare)).toBe(true);
   });
 });

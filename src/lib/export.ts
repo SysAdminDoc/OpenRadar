@@ -1,5 +1,6 @@
 import { translate } from "../i18n";
 import { encodeGifOffThread } from "./gifWorker";
+import { log } from "./log";
 import { writeWebm, type WebmFrame } from "./webm";
 
 export interface ExportCaption {
@@ -62,14 +63,23 @@ export function drawFrame(
 function exportCanvas(
   source: HTMLCanvasElement,
   maxWidth = MAX_WIDTH,
+  /**
+   * Round both sides to an even number.
+   *
+   * A video encoder's rule, not a picture's: they work in macroblocks and
+   * several refuse an odd dimension outright, which is a strange way for an
+   * export to fail on one window size and work on the next. The caption is
+   * drawn by stretching the map to fill this canvas, so applying it to a still
+   * or a GIF buys nothing and costs a fraction of a per cent of distortion.
+   */
+  evenSides = false,
 ): HTMLCanvasElement {
   const scale = source.width > maxWidth ? maxWidth / source.width : 1;
   const canvas = document.createElement("canvas");
-  // Even on both sides. Video encoders work in macroblocks and several of them
-  // refuse an odd dimension outright, which is a strange way for an export to
-  // fail on one window size and not another.
-  canvas.width = Math.round((source.width * scale) / 2) * 2;
-  canvas.height = Math.round((source.height * scale) / 2) * 2;
+  const round = (value: number) =>
+    evenSides ? Math.round(value / 2) * 2 : Math.round(value);
+  canvas.width = round(source.width * scale);
+  canvas.height = round(source.height * scale);
   return canvas;
 }
 
@@ -268,7 +278,7 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
   } = options;
   if (frameCount < 1) throw new Error(translate("export.noFrames"));
 
-  const canvas = exportCanvas(source);
+  const canvas = exportCanvas(source, MAX_WIDTH, true);
 
   const chosen = await pickEncoder(
     canvas.width,
@@ -288,9 +298,16 @@ export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
       ) {
         throw failure;
       }
+      log.warn(
+        "export",
+        failure instanceof Error
+          ? `the video encoder failed: ${failure.message}`
+          : "the video encoder failed",
+      );
       onFallback?.();
     }
   } else {
+    log.warn("export", "no video encoder is available for this loop");
     onFallback?.();
   }
 
