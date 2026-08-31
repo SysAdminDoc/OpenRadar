@@ -35,6 +35,8 @@ interface RadarLegendProps {
   scale: LegendScaleId;
   /** A loaded colour table's own scale, which replaces the built-in one. */
   paletteScale?: LegendScale | null;
+  /** Whether the picture beside this bar was drawn on the contrast ramps. */
+  highContrast?: boolean;
   onToggle: () => void;
 }
 
@@ -45,10 +47,11 @@ export function RadarLegend({
   eyebrow,
   scale,
   paletteScale = null,
+  highContrast = false,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
-  const reading = paletteScale ?? legendScale(scale);
+  const reading = paletteScale ?? legendScale(scale, highContrast);
 
   return (
     <button

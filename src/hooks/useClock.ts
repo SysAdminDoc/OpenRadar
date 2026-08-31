@@ -134,3 +134,26 @@ export function highContrastRequested(): boolean {
   if (typeof window.matchMedia !== "function") return false;
   return window.matchMedia(MORE_CONTRAST).matches;
 }
+
+function subscribeContrast(listener: () => void): () => void {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const query = window.matchMedia(MORE_CONTRAST);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+/**
+ * The same preference as a value a render can follow.
+ *
+ * Some of this is not a picture that was already drawn: a tile address, a
+ * legend, the width a warning outline is stroked at. Those have to change when
+ * the reader changes their mind rather than at the next fetch, so they read the
+ * preference through here and re-render on it.
+ */
+export function useHighContrast(): boolean {
+  return useSyncExternalStore(
+    subscribeContrast,
+    highContrastRequested,
+    () => false,
+  );
+}

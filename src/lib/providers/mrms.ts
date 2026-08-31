@@ -132,10 +132,15 @@ export function tileUrl(
   threshold: number | null = null,
   /** Which region's grid, since each is published on its own. */
   domain = "CONUS",
+  // Draw on the ramp built for a reader who asked for more contrast. In the
+  // address for the same reason the other two are: it is a different picture,
+  // and the map's own cache must not serve one for the other.
+  highContrast = false,
 ): string {
   const floor =
     threshold !== null && Number.isFinite(threshold) ? `&min=${threshold}` : "";
-  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}`;
+  const contrast = highContrast ? "&hc=1" : "";
+  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}${contrast}`;
 }
 
 /** The base URL for the local tile scheme, once Tauri has spelled it out. */
@@ -143,9 +148,12 @@ export async function tileRoot(): Promise<string> {
   return base();
 }
 
-export async function mrmsProducts(): Promise<MrmsProductInfo[]> {
+export async function mrmsProducts(
+  /** Which ramp the legends are to be built from. */
+  highContrast = false,
+): Promise<MrmsProductInfo[]> {
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<MrmsProductInfo[]>("mrms_products");
+  return invoke<MrmsProductInfo[]>("mrms_products", { highContrast });
 }
 
 export async function mrmsFrames(
@@ -189,6 +197,7 @@ export function thinFrames<T>(frames: T[], most = MAX_LOOP_FRAMES): T[] {
 export const mrmsProvider: RadarProvider & {
   paletteGeneration: number;
   threshold: number | null;
+  highContrast: boolean;
 } = {
   id: "mrms",
   label: "NOAA MRMS",
@@ -209,6 +218,8 @@ export const mrmsProvider: RadarProvider & {
   paletteGeneration: 0,
   /** Hide anything below this, in dBZ, as the reader asked. */
   threshold: null,
+  /** Draw on the ramp built for more contrast, as the reader asked. */
+  highContrast: false,
   fetchFrames: async (
     loopMinutes: number,
     _signal?: AbortSignal,
@@ -233,6 +244,7 @@ export const mrmsProvider: RadarProvider & {
           mrmsProvider.paletteGeneration,
           mrmsProvider.threshold,
           domain.id,
+          mrmsProvider.highContrast,
         ),
         tileSize: 256,
         // The grid is one kilometre, which runs out of detail past here.
@@ -267,5 +279,18 @@ export function setMrmsThreshold(value: number | null): boolean {
   const next = value !== null && Number.isFinite(value) ? value : null;
   if (mrmsProvider.threshold === next) return false;
   mrmsProvider.threshold = next;
+  return true;
+}
+
+/**
+ * The ramp in force for the mosaic, set the same way and for the same reason.
+ *
+ * Returns whether it changed, since a changed ramp means every frame has to be
+ * asked for again: the tiles are drawn on this machine, and the ones already
+ * held were drawn the other way.
+ */
+export function setMrmsHighContrast(value: boolean): boolean {
+  if (mrmsProvider.highContrast === value) return false;
+  mrmsProvider.highContrast = value;
   return true;
 }

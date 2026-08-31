@@ -37,6 +37,7 @@ function sweepOf(live: boolean): SweepImage {
     siteName: "Des Moines, IA",
     productId: "reflectivity",
     paletteApplied: false,
+    highContrast: false,
     dealiased: false,
     live,
     liveTilts: live ? 3 : 0,
@@ -144,5 +145,57 @@ describe("the strip over the map", () => {
     act(() => setUnits("metric"));
     expect(screen.getByText("182 km")).toBeTruthy();
     expect(screen.queryByText("113 mi")).toBeNull();
+  });
+});
+
+describe("which ramp the bar beside the map is drawn from", () => {
+  /**
+   * A media query that answers whatever this test wants it to. jsdom has no
+   * `matchMedia` at all, which is the case the reader-facing code guards
+   * against, so this is stubbed in rather than spied on.
+   */
+  function setContrast(on: boolean) {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("prefers-contrast") ? on : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+  }
+
+  const bar = () => document.querySelector(".legend-ramp") as HTMLElement;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("follows the sweep on screen rather than the preference now", () => {
+    // A reader who has just turned contrast on is still looking at the sweep
+    // they had. The bar has to describe that picture until the next one.
+    setContrast(true);
+    const sweep = { ...sweepOf(false), highContrast: false };
+    render(chrome(113, { sweep }));
+    expect(bar().style.background).toBe("");
+  });
+
+  it("draws the contrast ramp for a sweep drawn with it", () => {
+    setContrast(false);
+    const sweep = { ...sweepOf(false), highContrast: true };
+    render(chrome(113, { sweep }));
+    // Built at runtime from the ramp the native side painted with, rather
+    // than from the stylesheet's own gradient.
+    expect(bar().style.background).toContain("rgb(0, 37, 108)");
+  });
+
+  it("follows the preference for the mosaic, which has no such record", () => {
+    // The mosaic tiles are asked for again when the preference changes, so
+    // what is on screen is whatever it says now.
+    setContrast(true);
+    render(chrome(113, { sweep: null }));
+    expect(bar().style.background).toContain("rgb(0, 37, 108)");
   });
 });

@@ -15,6 +15,7 @@ import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 import { locale, translate, useT, type StringKey } from "../i18n";
 import { useMeasurements } from "../lib/units";
+import { useHighContrast } from "../hooks/useClock";
 
 /** Past this the loop is old enough that the timeline should say so. */
 const STALE_MINUTES = 20;
@@ -170,6 +171,13 @@ export function WorkspaceChrome({
     paletteApplies(settings.palette, drawnUnit)
       ? paletteLegend(settings.palette, drawnUnit)
       : null;
+  // Which ramp the bar has to be drawn from. A sweep says how it was drawn,
+  // because it was drawn when it was asked for and a reader who has just
+  // turned contrast on is still looking at the picture they had. The mosaic
+  // has no such record: its tiles are asked for again on the change, so the
+  // preference as it stands now is the answer.
+  const liveHighContrast = useHighContrast();
+  const drawnHighContrast = sweep ? sweep.highContrast : liveHighContrast;
 
   return (
     <>
@@ -253,6 +261,7 @@ export function WorkspaceChrome({
             : mosaic.scale
         }
         paletteScale={paletteScale}
+        highContrast={drawnHighContrast}
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length || lightning || wind || windReduced ? (

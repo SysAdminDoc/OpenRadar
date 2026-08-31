@@ -13,13 +13,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: Two points inside radar range produce a height-versus-distance image for reflectivity or dealiased velocity; beam height, distance, elevation coverage, time, site, product, and units are labeled; missing coverage remains transparent; a synthetic-volume test validates geometry and values; reduced motion and keyboard map-tool behavior remain intact.
       Complexity: XL
 
-- [ ] AUD-106: P1. Carry high contrast into the grids, the hazard geometry, and the legends
-      Why: This is the rest of `AUD-076`, which was decomposed on 2026-08-31 once the size of it was clear. The half that shipped is the measurement and the single-site radar: `src-tauri/src/contrast.rs` simulates a ramp under three kinds of colour blindness and measures how far apart it stays, and the Level II reflectivity and velocity ramps now have high-contrast versions held to it. Nothing else moved. The nine MRMS grids still draw on their ordinary ramps, warning outlines and storm tracks keep their normal widths, the legends do not follow, and an imported colour table is still silently drawn as it is.
-      Evidence: `src-tauri/src/mrms.rs` (nine ramps); `src/lib/overlays/alerts.ts` line-width and fill expressions; `src/lib/cells.ts`; `src/lib/legend.ts`; `src/lib/mosaicLegend.ts`; `src/index.css` `prefers-contrast: more`; `e2e/accessibility.spec.ts`; `src-tauri/src/contrast.rs`
-      Touches: MRMS ramp selection and the tile address that would have to carry it; alert and track geometry; legend rendering; a warning where a loaded palette is drawn unaltered; accessibility scenarios
-      Acceptance: Every MRMS ramp passes the same neighbour-separation check the Level II ramps do, under all three colour-vision simulations; the tile address carries the contrast choice so a cached tile drawn one way is never served for the other; warning outlines and storm tracks are drawn heavier under high contrast while severity and threat keep their text labels; legends redraw from whichever ramp is in force; a reader whose imported colour table is being drawn as supplied is told so rather than having it altered; the accessibility scenarios cover dark, light, and high contrast over real map content.
-      Complexity: L
-
 ## P2
 
 - [ ] AUD-007: Decide whether macOS and Linux are supported targets

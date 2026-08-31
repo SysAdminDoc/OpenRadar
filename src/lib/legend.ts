@@ -31,6 +31,89 @@ export type LegendScaleId =
   | "dwd-reflectivity"
   | "none";
 
+/**
+ * The ramps the native side draws with when a reader has asked for more
+ * contrast, copied out of `src-tauri/src/level2.rs`.
+ *
+ * The ordinary bars are gradients written by hand into `index.css`. These are
+ * built at runtime from the stops instead, which is what keeps the bar and the
+ * picture the same thing: there is no second set of percentages to keep in
+ * step. `legend.test.ts` reads the Rust file and holds these to it, because a
+ * bar drawn from one ramp beside a map drawn from another describes a picture
+ * nobody is looking at.
+ */
+export const HIGH_CONTRAST_REFLECTIVITY_RAMP: Array<[number, string]> = [
+  [5, "#00256c"],
+  [15, "#00447e"],
+  [25, "#006562"],
+  [35, "#448549"],
+  [45, "#8a9f37"],
+  [55, "#cfb53c"],
+  [65, "#ffb692"],
+  [75, "#fff2e3"],
+];
+
+export const HIGH_CONTRAST_VELOCITY_RAMP: Array<[number, string]> = [
+  [-35, "#0078ba"],
+  [-20, "#00a3d1"],
+  [-5, "#9cd4ed"],
+  [0, "#e8e8e8"],
+  [5, "#f5c0ab"],
+  [20, "#d77f57"],
+  [35, "#b34f1f"],
+];
+
+export const HIGH_CONTRAST_WIDE_VELOCITY_RAMP: Array<[number, string]> = [
+  [-70, "#004f9f"],
+  [-35, "#0078ba"],
+  [-20, "#00a3d1"],
+  [-5, "#9cd4ed"],
+  [0, "#e8e8e8"],
+  [5, "#f5c0ab"],
+  [20, "#d77f57"],
+  [35, "#b34f1f"],
+  [70, "#8c1900"],
+];
+
+/** A bar built from a ramp's own stops, spaced the way the values are. */
+export function rampGradient(ramp: Array<[number, string]>): string {
+  const min = ramp[0][0];
+  const max = ramp[ramp.length - 1][0];
+  const span = max - min;
+  const parts = ramp.map(
+    ([value, color]) =>
+      `${color} ${span > 0 ? ((value - min) / span) * 100 : 0}%`,
+  );
+  return `linear-gradient(90deg, ${parts.join(", ")})`;
+}
+
+export const HIGH_CONTRAST_REFLECTIVITY_SCALE: LegendScale = {
+  min: DBZ_MIN,
+  max: DBZ_MAX,
+  stops: DBZ_STOPS,
+  unit: "dBZ",
+  ramp: "legend-ramp",
+  gradient: rampGradient(HIGH_CONTRAST_REFLECTIVITY_RAMP),
+};
+
+export const HIGH_CONTRAST_VELOCITY_SCALE: LegendScale = {
+  min: VELOCITY_MIN,
+  max: VELOCITY_MAX,
+  stops: VELOCITY_STOPS,
+  unit: "m/s",
+  ramp: "legend-ramp",
+  gradient: rampGradient(HIGH_CONTRAST_VELOCITY_RAMP),
+};
+
+export const HIGH_CONTRAST_WIDE_VELOCITY_SCALE: LegendScale = {
+  min: -70,
+  max: 70,
+  stops: [-60, -30, 0, 30, 60],
+  unit: "m/s",
+  ramp: "legend-ramp",
+  gradient: rampGradient(HIGH_CONTRAST_WIDE_VELOCITY_RAMP),
+};
+
 export const REFLECTIVITY_SCALE: LegendScale = {
   min: DBZ_MIN,
   max: DBZ_MAX,
@@ -147,14 +230,28 @@ export function paletteLegend(palette: Palette, unit: string): LegendScale {
   };
 }
 
-export function legendScale(id: LegendScaleId): LegendScale | null {
+/**
+ * The bar for one scale, drawn from whichever ramp is in force.
+ *
+ * Only the locally drawn pictures have a second ramp. Canada's and Germany's
+ * tiles arrive already coloured, so their bars are the ones they were coloured
+ * with whatever the reader has asked for.
+ */
+export function legendScale(
+  id: LegendScaleId,
+  highContrast = false,
+): LegendScale | null {
   switch (id) {
     case "reflectivity":
-      return REFLECTIVITY_SCALE;
+      return highContrast
+        ? HIGH_CONTRAST_REFLECTIVITY_SCALE
+        : REFLECTIVITY_SCALE;
     case "velocity":
-      return VELOCITY_SCALE;
+      return highContrast ? HIGH_CONTRAST_VELOCITY_SCALE : VELOCITY_SCALE;
     case "velocity-wide":
-      return WIDE_VELOCITY_SCALE;
+      return highContrast
+        ? HIGH_CONTRAST_WIDE_VELOCITY_SCALE
+        : WIDE_VELOCITY_SCALE;
     case "rain-rate":
       return RAIN_RATE_SCALE;
     case "dwd-reflectivity":

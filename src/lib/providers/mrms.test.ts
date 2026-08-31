@@ -81,6 +81,33 @@ describe("MRMS tiles", () => {
     expect(after).toContain("p=3");
   });
 
+  it("gives a tile a new address when more contrast is asked for", () => {
+    // The grids are drawn on this machine, so more contrast is a different
+    // picture rather than a different stylesheet. Without the flag in the
+    // address the map would keep serving the ones it already has.
+    const ordinary = tileUrl("http://mrms.localhost/", "composite", 1);
+    const contrast = tileUrl(
+      "http://mrms.localhost/",
+      "composite",
+      1,
+      0,
+      null,
+      "CONUS",
+      true,
+    );
+    expect(ordinary).not.toContain("hc=1");
+    expect(contrast).toContain("hc=1");
+    expect(contrast).not.toBe(ordinary);
+  });
+
+  it("keeps the threshold and the ramp in one address", () => {
+    expect(
+      tileUrl("http://mrms.localhost/", "composite", 1, 2, 35, "HAWAII", true),
+    ).toBe(
+      "http://mrms.localhost/HAWAII/composite/1/{z}/{x}/{y}.png?p=2&min=35&hc=1",
+    );
+  });
+
   it("asks for one frame per two minutes of loop, within reason", () => {
     expect(frameLimit(120)).toBe(60);
     expect(frameLimit(60)).toBe(30);

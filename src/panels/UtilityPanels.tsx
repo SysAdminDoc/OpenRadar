@@ -16,6 +16,7 @@ import { APP_VERSION } from "../lib/settings";
 import { gpuSupport } from "../lib/gpu";
 import { translate, useT } from "../i18n";
 import { formatClock } from "../lib/units";
+import { useHighContrast } from "../hooks/useClock";
 
 interface CloseOnlyProps {
   onClose: () => void;
@@ -35,6 +36,10 @@ export function UploadPanel({
   onClearPalette,
 }: UploadPanelProps) {
   const t = useT();
+  // A loaded table is somebody's own scale, often one they read other tools
+  // with, so asking for more contrast leaves it alone. Saying so is the
+  // difference between a deliberate choice and a switch that did nothing.
+  const highContrast = useHighContrast();
   return (
     <PanelShell
       eyebrow={t("upload.eyebrow")}
@@ -72,6 +77,7 @@ export function UploadPanel({
                 {t("upload.skipped", { names: palette.skipped.join(", ") })}
               </small>
             ) : null}
+            {highContrast ? <small>{t("upload.asSupplied")}</small> : null}
           </div>
           <div className="storm-row__actions">
             <button type="button" onClick={onClearPalette}>

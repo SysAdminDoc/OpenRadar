@@ -57,7 +57,7 @@ import {
 import { translate } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
-import { cameraMotion } from "../hooks/useClock";
+import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -285,6 +285,11 @@ function MapViewportInner(
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
   const probSevereRef = useRef<Record<string, unknown> | null>(probSevere);
+  // The layer specs are read once, when a source is first added, so the
+  // preference has to be readable from inside the sync functions rather than
+  // captured in a render.
+  const highContrast = useHighContrast();
+  const highContrastRef = useRef(highContrast);
   const overlayOpacityRef = useRef(overlayOpacity);
   const flashWindowRef = useRef(flashWindowMinutes);
   const flashClockRef = useRef(flashClock);
@@ -910,6 +915,10 @@ function MapViewportInner(
     const map = mapRef.current;
     const drawn = cellsRef.current;
     if (!map || !styleReadyRef.current) return;
+    // The cells are drawn in one colour with a second for rotation, so under
+    // more contrast the only thing left to give them is weight. The ordering
+    // between an ordinary storm and a rotating one is kept: both move.
+    const heavier = highContrastRef.current ? 1.6 : 1;
 
     let source = map.getSource(CELL_SOURCE_ID) as
       maplibregl.GeoJSONSource | undefined;
@@ -934,7 +943,7 @@ function MapViewportInner(
           filter: ["==", ["get", "kind"], "track"],
           paint: {
             "line-color": "#f8fafc",
-            "line-width": 1.5,
+            "line-width": 1.5 * heavier,
             "line-opacity": 0.75,
             // Dashed, so a track is never taken for a road or a boundary.
             "line-dasharray": [2, 2],
@@ -950,7 +959,7 @@ function MapViewportInner(
           filter: ["==", ["get", "kind"], "forecast"],
           paint: {
             // Fainter the further ahead it is, because it is less certain.
-            "circle-radius": 3,
+            "circle-radius": 3 * heavier,
             "circle-color": "#f8fafc",
             "circle-opacity": [
               "interpolate",
@@ -993,10 +1002,10 @@ function MapViewportInner(
             "circle-stroke-width": [
               "case",
               ["==", ["get", "kind"], "rotation"],
-              3,
+              3 * heavier,
               ["get", "rotating"],
-              3,
-              2,
+              3 * heavier,
+              2 * heavier,
             ],
           },
         },
@@ -1021,7 +1030,7 @@ function MapViewportInner(
           paint: {
             "text-color": "#f8fafc",
             "text-halo-color": "rgba(9, 11, 16, 0.85)",
-            "text-halo-width": 1.5,
+            "text-halo-width": 1.5 * heavier,
           },
         },
         firstExisting(map, layersAbove(CELL_LABEL_LAYER_ID)),
@@ -1744,6 +1753,36 @@ function MapViewportInner(
     // The sync function reads the ref above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cells]);
+
+  /**
+   * A preference change has to reach layers that are already on the map.
+   *
+   * Widths are read once, when a source is first added, so the way to draw
+   * them again is to drop them and let the sync put them back. The data is in
+   * the refs, so nothing is fetched twice and there is no gap to see.
+   */
+  useEffect(() => {
+    highContrastRef.current = highContrast;
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    for (const id of CELL_LAYER_IDS) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    if (map.getSource(CELL_SOURCE_ID)) map.removeSource(CELL_SOURCE_ID);
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
+      if (!map.getSource(sourceId)) continue;
+      for (const layer of adapter.layers(sourceId)) {
+        if (map.getLayer(layer.id)) map.removeLayer(layer.id);
+      }
+      map.removeSource(sourceId);
+    }
+    syncCells();
+    syncOverlays();
+    // The sync functions read the refs above; adding them as dependencies
+    // would rebuild the map layers on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highContrast]);
 
   useEffect(() => {
     flashesRef.current = flashes;
