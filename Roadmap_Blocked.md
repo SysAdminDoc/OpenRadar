@@ -56,3 +56,14 @@ Three routes exist and each needs a decision rather than an edit:
 - Silence the specific advisory with a dated, expiring `cargo audit` ignore carrying the analysis above, so that the scan stays useful for everything else instead of being trained into noise. This keeps the crate in the tree, so it does not satisfy the item as written.
 
 Nothing here blocks a release on its own terms: the risk is theoretical for this usage, and `npm audit --omit=dev` and the rest of `cargo audit` were clean on 2026-08-31. What it blocks is the promise the item made, which was to have the crate gone.
+
+## Audit items that need a desktop session, a clean VM, or a certificate
+
+Four audit items ask for evidence that cannot be produced from a terminal on this machine. They are the same blockers already described above, carried here with their identifiers so nothing looks unaccounted for.
+
+- `AUD-003`, observing an installed updater replacement end to end. It needs an older build installed on a real display, updating itself and restarting. See the release prerequisites above: the signature, the manifest, and the version comparison are all covered by tests, and the replacement itself is not.
+- `AUD-004`, exercising the real native desktop workflows: deep links, single-instance reuse, Windows notifications, native save dialogs, log file creation, and file reveal. Every one of these is covered by unit and headless tests, and every one of them ends in a window somebody has to look at. This machine reserves GUI validation for an isolated monitor or a virtual session, so it cannot be done here without taking over the screen in front of the user.
+- `AUD-005`, Authenticode-signing the installer. This is a purchase before it is an implementation. Azure Trusted Signing at about ten dollars a month remains the cheapest route found, and until somebody signs up for it, SmartScreen warns on first run and the README says so.
+- `AUD-006`, the clean Windows install and uninstall validation. It needs a throwaway Windows image that no session has touched, plus a display to watch the first run on. The virtual machine on the network is not clean and installing into it would stop it being a useful control.
+
+What would unblock all four in one go is an isolated desktop session, either a second physical display this machine may drive or a virtual machine with its own console, plus a certificate for the signing half of `AUD-005`.
