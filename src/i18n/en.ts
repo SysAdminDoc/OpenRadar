@@ -569,6 +569,9 @@ export const en = {
   "bar.location": "Location",
   "bar.locate": "Locate",
   "bar.commands": "Commands",
+  "welcome.title": "Everything is under Commands and Layers",
+  "welcome.detail":
+    "Commands searches every product, place and setting by name. Layers is where you switch the radar, warnings, lightning and the rest on and off.",
   "bar.commandsDetail": "Every layer, product, and panel in one list",
   "bar.dualPane": "Dual Pane",
   "bar.share": "Share",

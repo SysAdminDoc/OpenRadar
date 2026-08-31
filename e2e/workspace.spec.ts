@@ -80,6 +80,42 @@ test("switches globe projection without changing the radar timeline", async ({
   await expect(timeline).toContainText("8 radar frames");
 });
 
+test("says where everything is, once", async ({ page }) => {
+  // There is no other onboarding. Everything the workspace can do is behind
+  // Commands and Layers, and nothing on screen says either exists, so somebody
+  // opening it for the first time sees a map and no way in.
+  const hint = page.getByText("Everything is under Commands and Layers");
+  await expect(hint).toBeVisible();
+
+  // Dismissing it is the end of it, this run and every run after.
+  await page.getByRole("button", { name: "Dismiss" }).first().click();
+  await expect(hint).toBeHidden();
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await expect(hint).toBeHidden();
+});
+
+test("does not say it again to somebody who found the commands first", async ({
+  page,
+}) => {
+  // Running a command is finding them, so the hint has nothing left to say.
+  await expect(
+    page.getByText("Everything is under Commands and Layers"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page.locator('[data-command="layer:stormReports"]').click();
+
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Everything is under Commands and Layers"),
+  ).toBeHidden();
+});
+
 test("opens layers and saves a map preset", async ({ page }) => {
   await page.getByRole("button", { name: "Layers", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Layers" })).toBeVisible();
