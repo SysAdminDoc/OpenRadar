@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- A loop can be exported as a GIF as well as a video. The video is the better picture, but it will not paste into most chats, and a loop nobody can send is a loop that stays on your own screen. The GIF carries the same burned-in time and credit, takes the last two dozen frames because every one of them is a full picture before it is squeezed, and loops for ever the way a GIF should.
+
 - A first launch says where everything is. There was no onboarding of any kind: the map opened and nothing on screen mentioned that Commands searches every product, place and setting by name, or that Layers is where the rest is switched on. One toast, once, and it is done with as soon as it has been shown.
 
 - The severe probability layer says when it has nothing to show. Switch a layer on, see a blank map, and it looks like a quiet afternoon rather than a layer that could not read anything, which for guidance somebody might act on is the worst thing it could look like. The reason now appears beside the switch. Its freshness check also worked in one direction only, so a file stamped in the future passed forever and a stamp that was not a date at all rolled over into one: the twelfth of January 8034 was being drawn as the current reading. Both are refused now, and a listing that arrives cut short keeps the readings that came before the cut instead of being thrown away whole.

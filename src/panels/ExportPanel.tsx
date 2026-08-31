@@ -1,6 +1,7 @@
-import { Camera, Film, LoaderCircle } from "lucide-react";
+import { Camera, Film, Image, LoaderCircle } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { useT } from "../i18n";
+import { MAX_GIF_FRAMES } from "../lib/export";
 
 interface ExportPanelProps {
   frameCount: number;
@@ -8,6 +9,7 @@ interface ExportPanelProps {
   progress: { done: number; total: number } | null;
   onExportImage: () => void;
   onExportLoop: () => void;
+  onExportGif: () => void;
   onClose: () => void;
 }
 
@@ -17,6 +19,7 @@ export function ExportPanel({
   progress,
   onExportImage,
   onExportLoop,
+  onExportGif,
   onClose,
 }: ExportPanelProps) {
   const t = useT();
@@ -55,6 +58,23 @@ export function ExportPanel({
         )}
         {t("export.loop")}
         {frameCount > 1 ? t("export.loopFrames", { count: frameCount }) : ""}
+      </button>
+
+      <button
+        type="button"
+        className="secondary-button"
+        disabled={Boolean(busy) || frameCount < 2}
+        onClick={onExportGif}
+      >
+        {busy === "gif" ? (
+          <LoaderCircle className="spin" size={16} />
+        ) : (
+          <Image size={16} />
+        )}
+        {t("export.gif")}
+        {frameCount > 1
+          ? t("export.gifFrames", { count: Math.min(frameCount, MAX_GIF_FRAMES) })
+          : ""}
       </button>
 
       {progress ? (

@@ -4,6 +4,7 @@ import type { ToastMessage } from "../components/ToastHost";
 import {
   exportFileName,
   exportLoop,
+  exportLoopGif,
   exportStill,
   type ExportCaption,
 } from "../lib/export";
@@ -20,6 +21,8 @@ export interface ExportState {
   progress: { done: number; total: number } | null;
   exportImage: () => void;
   exportLoopVideo: () => void;
+  /** The same loop as a GIF, which pastes into places a WebM does not. */
+  exportLoopGifFile: () => void;
 }
 
 export function useExport(options: {
@@ -97,44 +100,62 @@ export function useExport(options: {
     })();
   }, [captionFor, finish, frameIndex, mapRef, pushToast]);
 
-  const exportLoopVideo = useCallback(() => {
-    void (async () => {
-      const canvas = mapRef.current?.canvas();
-      if (!canvas || frames.length < 2) return;
-      setBusy("loop");
-      timeline.setPlaying(false);
-      try {
-        const blob = await exportLoop({
-          source: canvas,
-          frameCount: frames.length,
-          showFrame: async (index) => {
-            timeline.selectFrame(index);
-            await mapRef.current?.onceIdle();
-          },
-          captionFor,
-          onProgress: (done, total) => setProgress({ done, total }),
-        });
-        await finish(exportFileName("openradar-loop", "webm"), blob);
-      } catch (failure) {
-        log.warn(
-          "export",
-          failure instanceof Error
-            ? failure.message
-            : translate("export.failed"),
-        );
-        pushToast({
-          title: translate("export.loopFailed"),
-          detail:
+  // The two loop exports are the same walk through the frames with a
+  // different encoder on the end, so they are written once.
+  const exportLoopAs = useCallback(
+    (
+      extension: string,
+      encode: typeof exportLoop,
+      busyAs: string,
+    ) => {
+      void (async () => {
+        const canvas = mapRef.current?.canvas();
+        if (!canvas || frames.length < 2) return;
+        setBusy(busyAs);
+        timeline.setPlaying(false);
+        try {
+          const blob = await encode({
+            source: canvas,
+            frameCount: frames.length,
+            showFrame: async (index) => {
+              timeline.selectFrame(index);
+              await mapRef.current?.onceIdle();
+            },
+            captionFor,
+            onProgress: (done, total) => setProgress({ done, total }),
+          });
+          await finish(exportFileName("openradar-loop", extension), blob);
+        } catch (failure) {
+          log.warn(
+            "export",
             failure instanceof Error
               ? failure.message
-              : translate("export.nothingWritten"),
-        });
-      } finally {
-        setBusy(null);
-        setProgress(null);
-      }
-    })();
-  }, [captionFor, finish, frames.length, mapRef, pushToast, timeline]);
+              : translate("export.failed"),
+          );
+          pushToast({
+            title: translate("export.loopFailed"),
+            detail:
+              failure instanceof Error
+                ? failure.message
+                : translate("export.nothingWritten"),
+          });
+        } finally {
+          setBusy(null);
+          setProgress(null);
+        }
+      })();
+    },
+    [captionFor, finish, frames.length, mapRef, pushToast, timeline],
+  );
 
-  return { busy, progress, exportImage, exportLoopVideo };
+  const exportLoopVideo = useCallback(
+    () => exportLoopAs("webm", exportLoop, "loop"),
+    [exportLoopAs],
+  );
+  const exportLoopGifFile = useCallback(
+    () => exportLoopAs("gif", exportLoopGif, "gif"),
+    [exportLoopAs],
+  );
+
+  return { busy, progress, exportImage, exportLoopVideo, exportLoopGifFile };
 }

@@ -76,3 +76,38 @@ test("records the loop as a WebM the size cap allows", async ({ page }) => {
   expect(bytes.byteLength).toBeGreaterThan(2_500);
   await expect(page.getByText(/.webm saved/)).toBeVisible();
 });
+
+test("writes the loop as a GIF that a picture viewer opens", async ({
+  page,
+}) => {
+  // The point of the GIF is that it goes where a WebM will not, so what is
+  // checked is that the bytes are the format they claim to be: the signature,
+  // the screen size, a global colour table, the Netscape block that makes it
+  // loop, and the trailer.
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /Export GIF/ }),
+  ).toBeVisible();
+
+  const download = page.waitForEvent("download", { timeout: 60_000 });
+  await page.getByRole("button", { name: /Export GIF/ }).click();
+  const file = await download;
+
+  expect(file.suggestedFilename()).toMatch(/^openradar-loop-.*\.gif$/);
+  const path = await file.path();
+  const bytes = await import("node:fs/promises").then((fs) =>
+    fs.readFile(path),
+  );
+
+  expect(bytes.subarray(0, 6).toString("ascii")).toBe("GIF89a");
+  const width = bytes.readUInt16LE(6);
+  const height = bytes.readUInt16LE(8);
+  expect(width).toBeGreaterThan(0);
+  expect(height).toBeGreaterThan(0);
+  // A global colour table, which is what says the pixels can be read at all.
+  expect(bytes[10] & 0x80).toBe(0x80);
+  expect(bytes.toString("latin1")).toContain("NETSCAPE2.0");
+  expect(bytes[bytes.length - 1]).toBe(0x3b);
+  expect(bytes.byteLength).toBeLessThan(20 * 1024 * 1024);
+  await expect(page.getByText(/.gif saved/)).toBeVisible();
+});

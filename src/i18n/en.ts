@@ -15,6 +15,8 @@ export const en = {
   "export.image": "Export image",
   "export.loop": "Export loop",
   "export.loopFrames": " ({count} frames)",
+  "export.gif": "Export GIF",
+  "export.gifFrames": " (last {count} frames)",
   "export.recording":
     "Recording frame {done} of {total}. Leave the window in front while it runs.",
   "export.cardTitle": "What lands in the file",
