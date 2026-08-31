@@ -13,6 +13,8 @@ import {
   sweepErrorText,
   type SweepImage,
 } from "../lib/level2";
+import { fetchCrossSection, type CrossSection } from "../lib/crossSection";
+import type { GeoPoint } from "../lib/geo";
 import { highContrastRequested } from "./useClock";
 import { log } from "../lib/log";
 import type { RadarSettings } from "../lib/settings";
@@ -32,6 +34,19 @@ export interface SingleSiteState {
   openLocal: () => Promise<boolean>;
   openArchive: (station: string, at: string) => Promise<boolean>;
   resumeRecent: () => void;
+  /**
+   * Cuts the volume on screen between two points.
+   *
+   * The hook does this rather than the panel because only the hook knows which
+   * volume is on screen and how it got there. A chosen file in particular is
+   * held here and nowhere else: its path never reaches a component, an export,
+   * or a workspace backup.
+   *
+   * Null when there is no site to cut, which is a mosaic view rather than a
+   * failure.
+   */
+  crossSection:
+    ((from: GeoPoint, to: GeoPoint) => Promise<CrossSection>) | null;
 }
 
 type HistoricalSource =
@@ -223,6 +238,32 @@ export function useSingleSiteRadar(options: {
     [activateHistorical],
   );
 
+  const takeCrossSection = useCallback(
+    (from: GeoPoint, to: GeoPoint) => {
+      const source = historicalSource
+        ? historicalSource.kind === "archive"
+          ? ({
+              kind: "archive",
+              station: historicalSource.station,
+              at: historicalSource.at,
+            } as const)
+          : ({ kind: "local", path: historicalSource.path } as const)
+        : ({ kind: "recent", station: station ?? "" } as const);
+      return fetchCrossSection(
+        source,
+        from,
+        to,
+        radar.product,
+        radar.dealias,
+        threshold,
+        // Read now rather than held, the same way a sweep reads it: the slice
+        // is drawn when it is asked for.
+        highContrastRequested(),
+      );
+    },
+    [historicalSource, radar.dealias, radar.product, station, threshold],
+  );
+
   const resumeRecent = useCallback(() => {
     requestRef.current += 1;
     historicalRequestRef.current = null;
@@ -368,6 +409,12 @@ export function useSingleSiteRadar(options: {
       openLocal,
       openArchive,
       resumeRecent,
+      // A slice needs a site whichever way the volume arrived. A held local
+      // file carries its own, and the mosaic has none.
+      crossSection:
+        showing && (historicalSource?.kind === "local" || station)
+          ? takeCrossSection
+          : null,
     };
   }, [
     available,
@@ -382,6 +429,7 @@ export function useSingleSiteRadar(options: {
     resumeRecent,
     station,
     sweep,
+    takeCrossSection,
     wanted,
   ]);
 }

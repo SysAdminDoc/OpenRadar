@@ -6,13 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P1
 
-- [ ] AUD-074: Add a two-point Level II cross-section
-      Why: A height-versus-distance view answers the practical vertical-structure question without the GPU and interaction burden of full 3D. BowEcho and GR2Analyst validate the workflow.
-      Evidence: `src-tauri/src/level2.rs`; `src/components/MapViewport.tsx`; https://github.com/FahrenheitResearch/bowecho ; https://www.grlevelx.com/gr2analyst_3/
-      Touches: Decoded-volume cache; native sampling; two-point map tool; cross-section panel; legend and accessibility copy
-      Acceptance: Two points inside radar range produce a height-versus-distance image for reflectivity or dealiased velocity; beam height, distance, elevation coverage, time, site, product, and units are labeled; missing coverage remains transparent; a synthetic-volume test validates geometry and values; reduced motion and keyboard map-tool behavior remain intact.
-      Complexity: XL
-
 ## P2
 
 - [ ] AUD-007: Decide whether macOS and Linux are supported targets

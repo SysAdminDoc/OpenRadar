@@ -105,6 +105,17 @@ export default function App() {
     (render: (() => string) | null) => setToolResult(() => render),
     [],
   );
+  // The two ends of a cross-section, once the tool has both. Held here rather
+  // than in the map, because the panel that draws the slice outlives the tool.
+  const [sectionLine, setSectionLine] = useState<{
+    from: GeoPoint;
+    to: GeoPoint;
+  } | null>(null);
+  const handleSection = useCallback((from: GeoPoint, to: GeoPoint) => {
+    setSectionLine({ from, to });
+    setProductOpen(false);
+    setActiveSurface("section");
+  }, []);
   const [route, setRoute] = useState<Record<string, unknown> | null>(null);
   const [customOverlay, setCustomOverlay] = useState<Record<
     string,
@@ -664,6 +675,7 @@ export default function App() {
         onSecondaryMove={(camera) => mapRef.current?.syncCamera(camera)}
         onCursorChange={setCursor}
         onToolResult={showToolResult}
+        onSection={handleSection}
         onMapStatus={handleMapStatus}
       />
 
@@ -707,6 +719,7 @@ export default function App() {
             onUpdate={updates.act}
             historyStormId={historyStorm?.id ?? null}
             replayId={replay?.id ?? null}
+            sectionLine={sectionLine}
             mapReady={mapStatus === "ready"}
             health={health}
             log={logEntries}

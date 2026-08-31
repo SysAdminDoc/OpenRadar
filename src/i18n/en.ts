@@ -408,6 +408,8 @@ export const en = {
   "radar.error.invalidTime": "{0} is not a UTC date and time.",
   "radar.error.localRead": "The selected file could not be read: {0}",
   "radar.error.localTooLarge": "The selected file is larger than 128 MB.",
+  "radar.error.outOfRange":
+    "Both ends of a cross-section have to be within range of {0}.",
   "radar.error.http": "The radar archive could not be reached: {0}",
   "radar.error.unknown": "The radar site did not answer.",
   "radar.dealiasForced":
@@ -512,6 +514,23 @@ export const en = {
   "tool.draw": "Draw",
   "tool.range": "Range",
   "tool.inspect": "Inspector",
+  "tool.section": "Cross-section",
+  "section.eyebrow": "Level II volume",
+  "section.title": "Cross-section",
+  "section.cutting": "Cutting the volume along the line",
+  "section.noSite": "Zoom in over a NEXRAD site to slice its volume.",
+  "section.noUnit": "no unit",
+  "section.imageAlt":
+    "{product} from {station}, {distance} across and {top} up, drawn as height against distance",
+  "section.caption": "{product} ({unit}) · {station}, {site}",
+  "section.collected": "Volume collected {when}",
+  "section.cuts":
+    "Drawn from cuts between {low}° and {high}°, out of {count} in the volume",
+  "section.noCuts": "No cut of this volume reaches the line.",
+  "section.gaps":
+    "Empty bands are heights no beam passed through, not weather that is not there.",
+  "section.unfolded": "Velocity was unfolded before slicing.",
+  "section.palette": "Drawn with the loaded colour table.",
   "keywords.hailSwath": "hail swath track past day",
   "keywords.echoTops": "echo tops height updraft",
   "keywords.vil": "vertically integrated liquid water",
@@ -980,6 +999,10 @@ export const en = {
   "tool.pathPoints": "{count} points in path",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Click the map to inspect a point",
+  "tool.sectionStartHint":
+    "Click one end of the slice, inside the radar's range",
+  "tool.sectionEndHint": "Click the other end of the slice",
+  "tool.sectionTaken": "Cutting the volume along the line",
 } as const;
 
 export type StringKey = keyof typeof en;

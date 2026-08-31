@@ -54,6 +54,8 @@ interface MapStageProps {
   onSecondaryMove: (camera: CameraState) => void;
   onCursorChange: (point: GeoPoint | null) => void;
   onToolResult: (render: (() => string) | null) => void;
+  /** The two ends of a cross-section, once the tool has both. */
+  onSection: (from: GeoPoint, to: GeoPoint) => void;
   onMapStatus: (status: "loading" | "ready" | "error") => void;
 }
 
@@ -89,6 +91,7 @@ export function MapStage({
   onSecondaryMove,
   onCursorChange,
   onToolResult,
+  onSection,
   onMapStatus,
 }: MapStageProps) {
   const t = useT();
@@ -136,6 +139,7 @@ export function MapStage({
         onCameraMove={onPrimaryMove}
         onCursorChange={onCursorChange}
         onToolResult={onToolResult}
+        onSection={onSection}
         onMapStatus={onMapStatus}
         {...shared}
       />
@@ -149,6 +153,7 @@ export function MapStage({
           onCameraChange={onCameraChange}
           onCameraMove={onSecondaryMove}
           onToolResult={onToolResult}
+          onSection={onSection}
           {...shared}
         />
       ) : null}
