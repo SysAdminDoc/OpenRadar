@@ -19,26 +19,16 @@ test.beforeEach(async ({ page }) => {
     });
   });
 
-  await page.route("https://router.project-osrm.org/**", async (route) => {
+  await page.route("https://valhalla1.openstreetmap.de/**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
-        code: "Ok",
-        routes: [
-          {
-            distance: 385000,
-            duration: 14400,
-            geometry: {
-              type: "LineString",
-              coordinates: [
-                [-96.8, 32.78],
-                [-96.3, 31.7],
-                [-95.9, 30.7],
-                [-95.37, 29.76],
-              ],
-            },
-          },
-        ],
+        trip: {
+          status: 0,
+          units: "miles",
+          summary: { length: 239, time: 14400 },
+          legs: [{ shape: "_o}p}@~neswD~nyo@_oyo@~zgeC_{rc@" }],
+        },
       }),
     });
   });
@@ -108,9 +98,9 @@ test("plans a drive and draws it coloured by the chance of rain", async ({
 test("offers the straight line when the road router refuses", async ({
   page,
 }) => {
-  // The demo router promises no uptime, and the weather along the way does not
+  // The public router promises no uptime, and the weather along the way does not
   // depend on which road you take, so a refusal is not the end of the question.
-  await page.route("https://router.project-osrm.org/**", async (route) => {
+  await page.route("https://valhalla1.openstreetmap.de/**", async (route) => {
     await route.fulfill({ status: 429, body: "slow down" });
   });
 
