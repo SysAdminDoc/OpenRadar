@@ -1,6 +1,8 @@
 # Asset ledger
 
-Everything OpenRadar ships or fetches, where it comes from, and what using it obliges. The host column matches `ALLOWED_HOSTS` in `src-tauri/src/http.rs`, which is the only list a native fetch may reach.
+Everything OpenRadar ships or fetches, where it comes from, and what using it obliges.
+
+The host table below is held to `ALLOWED_HOSTS` in `src-tauri/src/http.rs` by `src/lib/assetLedger.test.ts`, which fails if the two ever disagree. That list is the only set of addresses a native fetch may reach. The webview has its own narrower content security policy in `src-tauri/tauri.conf.json`, checked separately by `src/lib/csp.test.ts`.
 
 ## Bundled with the app
 
@@ -11,33 +13,39 @@ Everything OpenRadar ships or fetches, where it comes from, and what using it ob
 | Colour ramps | Written for this project from the published NWS reflectivity and velocity scales | Project's own | None. A loaded GRLevelX table replaces them at the user's choosing |
 | Interface reference mockups | Original OpenRadar design studies | Project's own | Kept under `docs/mockups/` as design history; not packaged with the app |
 | README workspace screenshot | Live OpenRadar browser capture | Project's own | Documentation only |
-| `public/hurdat.json` | NOAA HURDAT2 best track, Atlantic and eastern Pacific | US Government work, no copyright | Credited in the History panel |
-| `public/tide-stations.json` | NOAA CO-OPS station list | US Government work, no copyright | Credited in the Tides panel |
+| `public/hurdat/` | NOAA HURDAT2 best track, Atlantic and eastern Pacific | US Government work, no copyright | Credited in the History panel. One index and one file per decade, rebuilt by `scripts/build-hurdat.mjs` |
+| `public/tide-stations.json` | NOAA CO-OPS station list | US Government work, no copyright | Credited in the Tides panel. Rebuilt by `scripts/build-tide-stations.mjs` |
 | Reference application screenshots | Local audit evidence only | Not licensed for redistribution | Never copied into the app or the repository |
 
 ## Fetched at runtime
 
-| Host | What it serves | Licence or terms | Credit shown |
-| --- | --- | --- | --- |
-| `tiles.openfreemap.org` | Vector basemap, sprites, glyphs | ODbL data, free service, no key | OpenFreeMap and OpenStreetMap, in the map credits |
-| `basemap.nationalmap.gov` | USGS orthoimagery for the aerial style | US Government work | USGS The National Map, in the map credits |
-| `tile.opentopomap.org` | Topographic style | CC-BY-SA 3.0 | The exact line OpenTopoMap asks for, in `src/lib/mapStyles.ts` |
-| `opengeo.ncep.noaa.gov` | NWS RIDGE II reflectivity mosaic | US Government work | NWS RIDGE II, in the timeline credit |
-| `nowcoast.noaa.gov` | NOAA nowCOAST radar, the RIDGE fallback | US Government work | NOAA nowCOAST, in the timeline credit |
-| `noaa-mrms-pds.s3.amazonaws.com` | MRMS GRIB2 grids, decoded here | US Government work, AWS Open Data | NOAA MRMS, in the timeline and legend |
-| `unidata-nexrad-level2.s3.amazonaws.com` | NEXRAD Level II volumes, decoded here | US Government work, AWS Open Data | The site and tilt, in the legend |
-| `noaa-goes19.s3.amazonaws.com` | GOES-19 lightning mapper files, decoded here | US Government work, AWS Open Data | GOES-East, in the lightning legend, with the not-a-strike-report note |
-| `noaa-gfs-bdp-pds.s3.amazonaws.com` | GFS wind fields, decoded here | US Government work, AWS Open Data | The model run, in the wind banner |
-| `gibs.earthdata.nasa.gov` | GOES-East GeoColor imagery | Free, no key | NASA GIBS and NOAA NESDIS, plus the acknowledgement GIBS asks for, in the README credits |
-| `mesonet.agron.iastate.edu` | HRRR forecast reflectivity and the radar archive for replays | Free for any lawful purpose, no key | Iowa State Mesonet, in the timeline credit |
-| `geo.weather.gc.ca` | Environment and Climate Change Canada radar | ECCC open data licence, attribution required | ECCC GeoMet, in the timeline credit and legend |
-| `mapservices.weather.noaa.gov` | NWS watches and warnings, NHC tropical, storm surge risk | US Government work | NWS and NHC, in each layer's detail |
-| `earthquake.usgs.gov` | Earthquake feed | US Government work | USGS, in the popup |
-| `services3.arcgis.com` | NIFC wildfire perimeters | Public, no key | NIFC, in the popup |
-| `api.weather.gov` | Alert detail | US Government work, User-Agent required | NWS, in the alert detail |
-| `api.open-meteo.com`, `geocoding-api.open-meteo.com` | Forecast, model guidance, place search | CC-BY 4.0, non-commercial free tier | Open-Meteo, in each panel |
-| `api.tidesandcurrents.noaa.gov` | Tide predictions | US Government work | NOAA CO-OPS, in the Tides panel |
-| `router.project-osrm.org` | Road shape for route weather | Demo server, non-commercial, one request a second | OSRM, in the Route panel |
-| `api.rainviewer.com`, `tilecache.rainviewer.com` | Radar outside the NOAA and ECCC mosaics only | Personal and educational use since 2026-01-01 | RainViewer, in the timeline credit |
+Every one of these is reached over HTTPS with no account, no API key and no credentials. "Cached" says whether the bytes are kept on disk, which is what makes the offline last view possible. "What the service learns" is the honest answer to what leaves this machine, and in every case it includes your IP address, because that is how a request works.
 
-Nothing here needs an account or an API key. RainViewer's terms are the tightest of the set, which is why it is the last source in the chain rather than the first.
+| Host | What it serves | Licence or terms | Credit shown | Cached | What the service learns |
+| --- | --- | --- | --- | --- | --- |
+| `tiles.openfreemap.org` | Vector basemap, sprites, glyphs | ODbL data, free service, no key | OpenFreeMap and OpenStreetMap, in the map credits | Yes, through the native cache | Which map tiles you looked at, so roughly where you were looking |
+| `basemap.nationalmap.gov` | USGS orthoimagery for the aerial style | US Government work | USGS The National Map, in the map credits | Yes, through the native cache | Which tiles you looked at, when the aerial style is on |
+| `tile.opentopomap.org` | Topographic style | CC-BY-SA 3.0 | The exact line OpenTopoMap asks for, in `src/lib/mapStyles.ts` | Yes, through the native cache | Which tiles you looked at, when the topographic style is on |
+| `opengeo.ncep.noaa.gov` | NWS RIDGE II reflectivity mosaic | US Government work | NWS RIDGE II, in the timeline credit | Yes, through the native cache | The area and times you asked for radar over |
+| `nowcoast.noaa.gov` | NOAA nowCOAST radar, the RIDGE fallback | US Government work | NOAA nowCOAST, in the timeline credit | Yes, through the native cache | The area and times you asked for radar over |
+| `noaa-mrms-pds.s3.amazonaws.com` | MRMS GRIB2 grids and ProbSevere, decoded here | US Government work, AWS Open Data | NOAA MRMS, in the timeline and legend | Yes, decoded and kept natively | Which national grids you asked for, not where you are looking within them |
+| `unidata-nexrad-level2.s3.amazonaws.com` | NEXRAD Level II volumes, decoded here | US Government work, AWS Open Data | The site and tilt, in the legend | Yes, decoded and kept natively | Which radar site you are watching, which is roughly where you are |
+| `unidata-nexrad-level2-chunks.s3.amazonaws.com` | The volume a radar is sweeping right now, in pieces | US Government work, AWS Open Data | The site, tilt and live age, in the legend | Yes, decoded and kept natively | Which radar site you are watching, polled while a live sweep is on |
+| `unidata-nexrad-level3.s3.amazonaws.com` | Storm cell tracking and mesocyclone products | US Government work, AWS Open Data | The site, in the storm cell detail | Yes, decoded and kept natively | Which radar site you are watching, when storm cells are on |
+| `noaa-goes19.s3.amazonaws.com` | GOES-19 lightning mapper files, decoded here | US Government work, AWS Open Data | GOES-East, in the lightning legend, with the not-a-strike-report note | Yes, decoded and kept natively | That you asked for a lightning window, not where you were looking |
+| `noaa-gfs-bdp-pds.s3.amazonaws.com` | GFS wind fields, read by byte range | US Government work, AWS Open Data | The model run, in the wind banner | Yes, decoded and kept natively | Which model run and fields you asked for |
+| `gibs.earthdata.nasa.gov` | GOES-East GeoColor imagery | Free, no key | NASA GIBS and NOAA NESDIS, plus the acknowledgement GIBS asks for, in the README credits | Yes, through the native cache | Which tiles and times you asked for, when satellite is on |
+| `mesonet.agron.iastate.edu` | HRRR forecast reflectivity and the radar archive for replays | Free for any lawful purpose, no key | Iowa State Mesonet, in the timeline credit | Yes, through the native cache | The area and times you asked for, including which past event you replayed |
+| `geo.weather.gc.ca` | Environment and Climate Change Canada radar | ECCC open data licence, attribution required | ECCC GeoMet, in the timeline credit and legend | Yes, through the native cache | The area and times you asked for radar over, inside Canada |
+| `maps.dwd.de` | Deutscher Wetterdienst composite of its national radars | DWD open data, attribution required | DWD, in the timeline credit and legend | Yes, through the native cache | The area and times you asked for radar over, inside Germany |
+| `mapservices.weather.noaa.gov` | NWS watches and warnings, NHC tropical, storm surge risk | US Government work | NWS and NHC, in each layer's detail | Yes, through the native cache | The area you have on screen, refreshed while the layer is on |
+| `earthquake.usgs.gov` | Earthquake feed | US Government work | USGS, in the popup | Yes, through the native cache | The area you have on screen, when earthquakes are on |
+| `services3.arcgis.com` | NIFC wildfire perimeters | Public, no key | NIFC, in the popup | Yes, through the native cache | The area you have on screen, when wildfires are on |
+| `api.weather.gov` | Alert detail | US Government work, User-Agent required | NWS, in the alert detail | Yes, through the native cache | Which alert you opened |
+| `api.open-meteo.com` | Forecast and model guidance | CC-BY 4.0, non-commercial free tier | Open-Meteo, in each panel | Yes, through the native cache | The exact coordinates you asked a forecast for, including a watched place and every point along a route |
+| `geocoding-api.open-meteo.com` | Place search | CC-BY 4.0, non-commercial free tier | Open-Meteo, in the Search panel | No, a search is asked fresh | The place names you typed |
+| `api.tidesandcurrents.noaa.gov` | Tide predictions | US Government work | NOAA CO-OPS, in the Tides panel | Yes, through the native cache | Which tide station is nearest to you |
+| `router.project-osrm.org` | Road shape for route weather | Demo server, non-commercial, one request a second, no uptime promise | OSRM, in the Route panel | No, a route is asked fresh | Where you are driving from and to |
+| `api.rainviewer.com`, `tilecache.rainviewer.com` | Radar outside the NOAA, ECCC and DWD mosaics only | Personal and educational use since 2026-01-01 | RainViewer, in the timeline credit | Yes, through the native cache | The area and times you asked for radar over, outside the mosaics |
+
+Nothing here needs an account or an API key. RainViewer's terms are the tightest of the set, which is why it is the last source in the chain rather than the first. The two entries with the most to learn about you are Open-Meteo, which is handed coordinates rather than tiles, and OSRM, which is handed both ends of a drive. Neither is reached until you ask for a forecast or a route.
