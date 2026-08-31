@@ -2416,6 +2416,31 @@ input[type="range"] {
   );
 }
 
+.legend-ramp--dwd {
+  /* The DWD's own colour map, so the bar is the one the tiles were
+     painted with. Past fifty decibels it turns blue and then magenta,
+     which is the German convention for hail and not a mistake. */
+  background: linear-gradient(
+    90deg,
+    #99ffff 0.0%,
+    #33ffff 3.7%,
+    #00caca 7.4%,
+    #009934 11.0%,
+    #4dbf1a 17.6%,
+    #99cc00 24.3%,
+    #cce600 30.9%,
+    #ffff00 37.5%,
+    #ffc400 44.1%,
+    #ff8900 50.7%,
+    #ff0000 57.4%,
+    #b40000 64.0%,
+    #4848ff 70.6%,
+    #0000ca 77.9%,
+    #990099 85.3%,
+    #ff33ff 100.0%
+  );
+}
+
 /* The bands of water on the storm surge picture, beside the category picker. */
 .surge-ramp {
   display: flex;

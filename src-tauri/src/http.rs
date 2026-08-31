@@ -32,6 +32,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "router.project-osrm.org",
     "gibs.earthdata.nasa.gov",
     "geo.weather.gc.ca",
+    "maps.dwd.de",
     "noaa-gfs-bdp-pds.s3.amazonaws.com",
     "unidata-nexrad-level2.s3.amazonaws.com",
     "unidata-nexrad-level2-chunks.s3.amazonaws.com",

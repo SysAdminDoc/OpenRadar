@@ -8,6 +8,7 @@ import { recordFailure, recordSuccess } from "./health";
 import { HRRR_HOST } from "./hrrr";
 import { SATELLITE_HOST } from "./satellite";
 import { geometProvider, isCanadianViewport } from "./geomet";
+import { dwdProvider } from "./dwd";
 import { mrmsAvailable, mrmsProvider } from "./mrms";
 import { nowcoastProvider } from "./nowcoast";
 import { rainviewerProvider } from "./rainviewer";
@@ -80,6 +81,13 @@ const GUARDED_TILE_HOSTS: Array<{ host: string; key: string; limit: number }> =
  * failover inside them.
  */
 export function providerChain(lon: number, lat: number): RadarProvider[] {
+  // Germany's own service leads over Germany. It is offered with no
+  // availability guarantee, so RainViewer stays behind it: the service going
+  // down should mean a worse picture rather than none.
+  if (covers(dwdProvider, lon, lat)) {
+    return [dwdProvider, rainviewerProvider];
+  }
+
   // Canada's own service leads over its own country, even where the American
   // mosaics reach across the border. RainViewer stays behind it so an outage
   // means a worse picture rather than none.

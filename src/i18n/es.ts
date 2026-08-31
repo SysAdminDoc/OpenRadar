@@ -622,6 +622,7 @@ export const es: Catalogue = {
   "chrome.justIn": "recién llegado",
   "chrome.minutesOld": "de hace {count} min",
   "chrome.toolClear": "Borrar",
+  "chrome.dwdComposite": "Composición alemana",
   "chrome.rainRate": "Intensidad de lluvia",
   "chrome.composite": "Radar compuesto",
   "chrome.sweepProduct": "{station} {product}",

@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- Germany has radar. Europe had none: the American mosaics stop at the coast, the Canadian service is Canada, and everywhere else fell through to a feed licensed for personal use only. The German weather service publishes a composite of its seventeen radars every five minutes, keyless, and that is what a map over Germany now draws, with the colours the service paints it in rather than the American ones. Past fifty decibels it turns blue and then magenta, which is the German convention for hail and not a fault. The service is offered with no availability guarantee, so what was there before is still behind it.
+
 - A loop can be exported as a GIF as well as a video. The video is the better picture, but it will not paste into most chats, and a loop nobody can send is a loop that stays on your own screen. The GIF carries the same burned-in time and credit, takes the last two dozen frames because every one of them is a full picture before it is squeezed, and loops for ever the way a GIF should.
 
 - A first launch says where everything is. There was no onboarding of any kind: the map opened and nothing on screen mentioned that Commands searches every product, place and setting by name, or that Layers is where the rest is switched on. One toast, once, and it is done with as soon as it has been shown.
