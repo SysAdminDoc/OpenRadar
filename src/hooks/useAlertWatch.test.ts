@@ -8,7 +8,16 @@ import { alertType } from "../lib/alertTypes";
 const fetchData = vi.fn<() => Promise<OverlayData>>();
 const tone = vi.fn(async () => true);
 const permission = vi.fn(async () => true);
+const notification = vi.fn();
 let desktop = false;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((accept) => {
+    resolve = accept;
+  });
+  return { promise, resolve };
+}
 
 vi.mock("../lib/overlays/alerts", async () => {
   const actual = await vi.importActual<typeof import("../lib/overlays/alerts")>(
@@ -36,7 +45,7 @@ vi.mock("../lib/settings", async () => {
 vi.mock("@tauri-apps/plugin-notification", () => ({
   isPermissionGranted: () => permission(),
   requestPermission: vi.fn(async () => "granted"),
-  sendNotification: vi.fn(),
+  sendNotification: (...args: unknown[]) => notification(...args),
 }));
 
 const watch: WatchSettings = {
@@ -79,6 +88,7 @@ beforeEach(() => {
   tone.mockResolvedValue(true);
   permission.mockReset();
   permission.mockResolvedValue(true);
+  notification.mockReset();
   desktop = false;
   fetchData.mockResolvedValue(alerts());
 });
@@ -180,6 +190,33 @@ describe("watching a place for alerts", () => {
 
     await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
     expect(told.mock.calls[0][0].headline).toBe("Tornado Warning");
+  });
+
+  it("does not finish an old notification after the watched place moves", async () => {
+    desktop = true;
+    const oldPermission = deferred<boolean>();
+    permission
+      .mockReturnValueOnce(oldPermission.promise)
+      .mockResolvedValueOnce(true);
+    fetchData.mockResolvedValue(alerts("Tornado Warning"));
+    const told = vi.fn();
+    const { rerender } = renderHook(
+      (props: { watch: WatchSettings }) => useAlertWatch(props.watch, {}, told),
+      { initialProps: { watch } },
+    );
+
+    await vi.waitFor(() => expect(permission).toHaveBeenCalledTimes(1));
+    rerender({ watch: { ...watch, center: [-96.81, 32.79] } });
+    await vi.waitFor(() => expect(notification).toHaveBeenCalledTimes(1));
+
+    await act(async () => oldPermission.resolve(true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(notification).toHaveBeenCalledTimes(1);
+    expect(notification.mock.calls[0][0]).toMatchObject({
+      title: "Tornado Warning",
+    });
+    expect(told).not.toHaveBeenCalled();
   });
 
   it("makes no sound unless it was asked to", async () => {

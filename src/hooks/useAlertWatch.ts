@@ -16,12 +16,20 @@ import { playAlertTone } from "../lib/sound";
 /** Often enough to matter for a warning, rarely enough to be a good citizen. */
 const POLL_MS = 45_000;
 
-async function announceOnDesktop(alert: WatchAlert): Promise<boolean> {
+async function announceOnDesktop(
+  alert: WatchAlert,
+  isCurrent: () => boolean,
+): Promise<boolean> {
   const { isPermissionGranted, requestPermission, sendNotification } =
     await import("@tauri-apps/plugin-notification");
+  if (!isCurrent()) return false;
 
   let granted = await isPermissionGranted();
-  if (!granted) granted = (await requestPermission()) === "granted";
+  if (!isCurrent()) return false;
+  if (!granted) {
+    granted = (await requestPermission()) === "granted";
+    if (!isCurrent()) return false;
+  }
   if (!granted) return false;
 
   sendNotification({
@@ -44,7 +52,6 @@ export function useAlertWatch(
 ): void {
   // What has been announced, and how bad it was when it was: an upgrade is
   // worth saying again, a downgrade is not.
-  const announcedRef = useRef(new Map<string, number>());
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
     fallbackRef.current = onFallback;
@@ -75,7 +82,7 @@ export function useAlertWatch(
     let checking = false;
     // A different point or radius is a different watch, so what was already
     // said about the old one must not silence the new one.
-    announcedRef.current = new Map<string, number>();
+    const announced = new Map<string, number>();
 
     const check = async () => {
       // A slow request must not have a second one running over the top of it,
@@ -91,10 +98,11 @@ export function useAlertWatch(
         const found = alertsToAnnounce(
           alertsOfKind(alerts, kindsRef.current),
           watch,
-          announcedRef.current,
+          announced,
           Date.now(),
         );
         for (const alert of found) {
+          if (!mounted) return;
           // One tone for the batch rather than one per alert: three warnings
           // arriving together should not sound like an alarm going off.
           if (soundRef.current && alert === found[0]) {
@@ -103,7 +111,7 @@ export function useAlertWatch(
           let delivered = false;
           if (isDesktopRuntime()) {
             try {
-              delivered = await announceOnDesktop(alert);
+              delivered = await announceOnDesktop(alert, () => mounted);
             } catch (failure) {
               log.warn(
                 "watch",
@@ -113,10 +121,11 @@ export function useAlertWatch(
               );
             }
           }
+          if (!mounted) return;
           if (!delivered) {
             fallbackRef.current(alert);
           }
-          announcedRef.current.set(alert.id, alert.rank);
+          announced.set(alert.id, alert.rank);
           log.info("watch", `Announced ${alert.headline}`);
         }
       } catch (failure) {
