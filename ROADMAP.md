@@ -6,14 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P0
 
-- [ ] AUD-067: Remove the transitive `lru 0.16.4` unsoundness
-      Why: The native NetCDF chain contains a safe-Rust memory-unsoundness advisory. The patched line begins at 0.18.2.
-      Evidence: `src-tauri/Cargo.lock`; `cargo tree -i lru@0.16.4`; https://rustsec.org/advisories/RUSTSEC-2026-0253.html
-      Touches: `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock`; NetCDF and HDF5 decoding tests
-      Acceptance: `cargo tree` contains no affected `lru`; lightning and GFS fixtures still decode; native tests and `cargo audit` pass without this advisory; any temporary override has an upstream removal note.
-      Note (2026-08-31): `cargo update` cannot fix this. hdf5-reader 0.9.1 pins `lru = "^0.16.3"` and no newer release exists, so the routes are an upstream issue with a version bump, a `[patch]` override, or a vendored fork. The advisory trigger needs a panicking `Drop` on cache keys, so practical risk is low while it waits.
-      Complexity: M
-
 - [ ] AUD-068: Introduce one provenance and freshness contract for weather data
       Why: Radar frames carry provider and time, while overlays, guidance, exports, and diagnostics use unrelated shapes. A reader cannot consistently answer who supplied a layer, when it was observed, when it is valid, whether it is derived, or why it is stale.
       Evidence: `src/lib/providers/types.ts`; `src/lib/guidance.ts`; `src/lib/overlays/index.ts`; `src/hooks/useRadarTimeline.ts`; `src/components/WorkspaceChrome.tsx`; https://github.com/danielway/nexrad-workbench/issues/180
