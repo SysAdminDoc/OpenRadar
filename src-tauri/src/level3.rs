@@ -737,19 +737,26 @@ pub async fn level3_cells(station: String) -> Result<CellReport, Level3Error> {
     // fifty bytes of header.
     if let Ok(Some(key)) = newest_key(&site, "NMD").await {
         if let Ok(bytes) = http::get_bytes(&format!("https://{BUCKET}/{key}")).await {
-            if let (Ok(found), Ok(when)) =
-                (read_mesocyclones(&bytes), volume_time_of(&bytes))
-            {
-                if (when - description_time).num_seconds().abs()
-                    <= SAME_VOLUME_SECONDS
-                {
-                    report.mesocyclones = found;
-                }
+            if let Some(found) = rotations_for(description_time, &bytes) {
+                report.mesocyclones = found;
             }
         }
     }
 
     Ok(report)
+}
+
+/// The rotations that belong with a set of cells, or none at all.
+///
+/// The two products are published separately and the newest of each can be a
+/// scan apart, so this is where they are held to describing the same volume.
+/// It is a function rather than a condition inside the fetch so that a test can
+/// put a real product through it: written inline, the gate could be widened to
+/// forever or closed to never and every test stayed green.
+fn rotations_for(description_time: DateTime<Utc>, bytes: &[u8]) -> Option<Vec<Mesocyclone>> {
+    let found = read_mesocyclones(bytes).ok()?;
+    let when = volume_time_of(bytes).ok()?;
+    ((when - description_time).num_seconds().abs() <= SAME_VOLUME_SECONDS).then_some(found)
 }
 
 #[cfg(test)]
@@ -1184,32 +1191,53 @@ mod tests {
         // be a scan apart. A storm moves six kilometres in five minutes,
         // against the fifteen the page uses to decide which storm a rotation
         // belongs to, so a mismatched pair puts circulations on the wrong
-        // storms. The gate that stops that had nothing checking it in either
-        // direction: widening it to forever and closing it to never both left
-        // every test green.
+        // storms.
+        //
+        // The gate had nothing checking it in either direction: widening it to
+        // forever and closing it to never both left every test green, because
+        // the test written for it reimplemented the comparison as a local
+        // closure and asserted on the constant. This one puts a real product
+        // through the real function.
+        let when = volume_time_of(NMD).expect("the fixture carries a volume time");
         let scan = Duration::seconds(SAME_VOLUME_SECONDS);
-        let same = Duration::seconds(SAME_VOLUME_SECONDS - 1);
-        let apart = Duration::seconds(SAME_VOLUME_SECONDS + 1);
+        let inside = Duration::seconds(SAME_VOLUME_SECONDS - 1);
+        let outside = Duration::seconds(SAME_VOLUME_SECONDS + 1);
 
-        let base = Utc.with_ymd_and_hms(2026, 8, 30, 22, 13, 22).unwrap();
-        let close = |other: DateTime<Utc>| {
-            (other - base).num_seconds().abs() <= SAME_VOLUME_SECONDS
-        };
-
-        assert!(close(base), "a product is the same volume as itself");
-        assert!(close(base + same), "one second inside is the same volume");
-        assert!(close(base - same), "and in the other direction");
-        assert!(close(base + scan), "the edge counts as the same volume");
-        assert!(!close(base + apart), "a second past the edge is not");
-        assert!(!close(base - apart), "and in the other direction");
-
-        // And the constant itself has to be shorter than a scan, or the gate
-        // would accept the neighbouring volume it exists to reject.
+        // A description from the same volume takes the rotations.
+        let together = rotations_for(when, NMD).expect("the same volume is the same volume");
         assert!(
-            SAME_VOLUME_SECONDS < 240,
-            "a volume scan is four to six minutes, so {SAME_VOLUME_SECONDS}              seconds would let the next one through"
+            !together.is_empty(),
+            "the fixture has to hold rotations, or nothing below measures anything"
         );
-        assert!(SAME_VOLUME_SECONDS > 0, "a gate of nothing accepts nothing");
+        assert_eq!(
+            rotations_for(when + inside, NMD).map(|found| found.len()),
+            Some(together.len()),
+            "one second inside the window is the same volume"
+        );
+        assert_eq!(
+            rotations_for(when - inside, NMD).map(|found| found.len()),
+            Some(together.len()),
+            "and in the other direction"
+        );
+        assert_eq!(
+            rotations_for(when + scan, NMD).map(|found| found.len()),
+            Some(together.len()),
+            "the edge counts as the same volume"
+        );
+
+        // A description from the volume either side does not.
+        assert!(
+            rotations_for(when + outside, NMD).is_none(),
+            "a second past the edge is another volume"
+        );
+        assert!(
+            rotations_for(when - outside, NMD).is_none(),
+            "and in the other direction"
+        );
+
+        // A real scan apart, which is what this exists to reject.
+        assert!(rotations_for(when + Duration::minutes(5), NMD).is_none());
+        assert!(rotations_for(when - Duration::minutes(5), NMD).is_none());
     }
 
     #[test]

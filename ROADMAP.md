@@ -8,12 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — Nothing is checking the same-volume gate on storm rotation
-  Why: replacing the gate in `level3.rs` with `if true` leaves the whole suite green. The test added for it reimplements the comparison as a local closure and asserts on the constant, so it passes whatever production does. Clippy says so too: "this assertion has a constant value".
-  Evidence: `if true {` at src-tauri/src/level3.rs:743 gives `cargo test --lib` 142 passed and the ignored level3 test passed.
-  Touches: src-tauri/src/level3.rs
-  Acceptance: widening the window to forever and closing it to never each turn a test red; the test drives the real path rather than a copy of it.
-
 - [ ] P1 — The severe-probability layer fails blank
   Why: `useProbSevere` computes an error and `App.tsx` passes only `.features`, so a reader who switches the layer on when there is no publication gets nothing at all and no message. The hook's own comment says this is a layer somebody might act on.
   Evidence: `.error` and `.reading` are read nowhere in src/App.tsx, src/components or src/panels.
