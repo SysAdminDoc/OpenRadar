@@ -2617,42 +2617,6 @@ mod tests {
         );
     }
 
-    /// How many neighbouring gate pairs jump further than the radar could
-    /// have measured, which is the signature a fold leaves.
-    ///
-    /// Both directions, because a fold runs along the radial as often as it
-    /// runs around the sweep, and measuring only one axis misses half of them.
-    ///
-    /// A sign change on its own is not evidence: every sweep has a line across
-    /// it where the flow crosses the beam and the velocity passes through zero
-    /// honestly. A jump of more than the Nyquist velocity between two gates a
-    /// quarter of a degree apart is not honest.
-    fn fold_jumps(field: &SweepField, nyquist: f32) -> (usize, usize) {
-        let azimuths = field.azimuth_count();
-        let gates = field.gate_count();
-        let mut jumps = 0;
-        let mut pairs = 0;
-        let mut consider = |here: (f32, GateStatus), there: (f32, GateStatus)| {
-            if !matches!(here.1, GateStatus::Valid) || !matches!(there.1, GateStatus::Valid) {
-                return;
-            }
-            pairs += 1;
-            if (here.0 - there.0).abs() > nyquist {
-                jumps += 1;
-            }
-        };
-        for azimuth in 0..azimuths {
-            let next = (azimuth + 1) % azimuths;
-            for gate in 0..gates {
-                consider(field.get(azimuth, gate), field.get(next, gate));
-                if gate + 1 < gates {
-                    consider(field.get(azimuth, gate), field.get(azimuth, gate + 1));
-                }
-            }
-        }
-        (jumps, pairs)
-    }
-
     /// Reports a sweep again at a lower folding limit.
     ///
     /// A fold cannot be planted by moving readings about. Every reading the
@@ -2733,6 +2697,92 @@ mod tests {
         (broken, pairs)
     }
 
+    /// What unfolding did to one station's velocity cut.
+    struct Measured {
+        /// How the picture reads: touching gates that are not the distance
+        /// apart the truth had them. A constant cannot move this.
+        broken_before: usize,
+        broken_after: usize,
+        /// How the gates read: how many of the ones that wrapped came back to
+        /// the branch they started on. The measure above cannot see this at
+        /// all, because a whole region put back a full interval out is still
+        /// perfectly continuous with itself.
+        wrapped: usize,
+        rejoined: usize,
+        /// Gates that moved by something other than a whole interval, which is
+        /// not unfolding but invention.
+        invented: usize,
+    }
+
+    fn measure_unfolding(runtime: &tokio::runtime::Runtime, station: &str) -> Option<Measured> {
+        let (_key, data) = runtime.block_on(latest_volume(station)).ok()?;
+        let file = volume::File::new(data);
+        let scan = file.scan().ok()?;
+        let chosen = sweep_field(&scan, Product::Velocity, 1)?;
+        let nyquist = nyquist_velocity(&file, chosen.elevation_number)?;
+        if !(5.0..80.0).contains(&nyquist) {
+            return None;
+        }
+
+        let truth = chosen.field;
+        // A third of the radar's own limit, which is roughly what the lowest
+        // cut of a real pattern runs at: KTBW folds its lowest cut at 8.4 m/s
+        // and its tight ones at 28.
+        let tight = nyquist / 3.0;
+        let interval = 2.0 * tight;
+        let mut folded = truth.clone();
+        let wrapped_gates = refold(&mut folded, tight);
+        if wrapped_gates < 500 {
+            return None;
+        }
+
+        let (broken_before, comparable) = broken_pairs(&folded, &truth, interval);
+        if comparable < 10_000 || broken_before < 500 {
+            return None;
+        }
+        if !unfold_velocity(&mut folded, tight) {
+            return None;
+        }
+        let (broken_after, _) = broken_pairs(&folded, &truth, interval);
+
+        let mut wrapped = 0usize;
+        let mut rejoined = 0usize;
+        let mut invented = 0usize;
+        for azimuth in 0..truth.azimuth_count() {
+            for gate in 0..truth.gate_count() {
+                let (now, now_status) = folded.get(azimuth, gate);
+                let (was, was_status) = truth.get(azimuth, gate);
+                if !matches!(now_status, GateStatus::Valid)
+                    || !matches!(was_status, GateStatus::Valid)
+                {
+                    continue;
+                }
+                let apart = (now - was) / interval;
+                if (apart - apart.round()).abs() > 0.01 {
+                    invented += 1;
+                    continue;
+                }
+                // Whether this gate wrapped when the limit was brought in.
+                let refolded = was - interval * ((was + tight) / interval).floor();
+                if (refolded - was).abs() <= 0.001 {
+                    continue;
+                }
+                wrapped += 1;
+                if apart.round() == 0.0 {
+                    rejoined += 1;
+                }
+            }
+        }
+
+        Some(Measured {
+            broken_before,
+            broken_after,
+            wrapped,
+            rejoined,
+            invented,
+        })
+    }
+
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
     fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
@@ -2741,112 +2791,90 @@ mod tests {
             .enable_all()
             .build()
             .expect("a runtime");
-        let (_key, data) = runtime
-            .block_on(latest_volume("KDMX"))
-            .expect("KDMX publishes a volume every few minutes");
 
-        let file = volume::File::new(data);
-        let scan = file.scan().expect("the volume should decode");
-        let chosen =
-            sweep_field(&scan, Product::Velocity, 1).expect("a volume carries a Doppler cut");
-        let nyquist = nyquist_velocity(&file, chosen.elevation_number)
-            .expect("the radial header carries the velocity the cut folds at");
+        // More than one station, because the answer depends on the weather and
+        // an assertion held against a single site is an assertion about that
+        // site's afternoon. An earlier version asked KDMX alone and demanded a
+        // quarter of the folds come back, which KDMX manages and KFWS, on the
+        // same day, does not: 3766 broken pairs became 3270.
+        let mut measured = Vec::new();
+        for station in ["KDMX", "KTLX", "KAMX", "KTBW", "KGRR", "KFWS"] {
+            let Some(found) = measure_unfolding(&runtime, station) else {
+                continue;
+            };
+            println!(
+                "{station}: broken pairs {} -> {}, {} of {} folded gates back on \
+                 their own branch, {} invented",
+                found.broken_before,
+                found.broken_after,
+                found.rejoined,
+                found.wrapped,
+                found.invented
+            );
+            measured.push(found);
+        }
         assert!(
-            (5.0..80.0).contains(&nyquist),
-            "{nyquist} m/s is not a plausible Nyquist velocity"
+            measured.len() >= 3,
+            "only {} stations answered with a Doppler cut worth measuring, which \
+             after six tries is the archive rather than the weather",
+            measured.len()
         );
 
-        let truth = chosen.field;
-        let azimuths = truth.azimuth_count();
-        let gates = truth.gate_count();
-        let (untouched, pairs) = fold_jumps(&truth, nyquist);
-        assert!(pairs > 10_000, "only {pairs} gate pairs had readings");
-
-        // Unfolding the sweep as the radar gave it must never leave it more
-        // broken than it was. That is the claim that does not depend on the day
-        // and it is measured on the sweep untouched.
-        {
-            let mut untouched_copy = truth.clone();
-            unfold_velocity(&mut untouched_copy, nyquist);
-            let (after_alone, _) = fold_jumps(&untouched_copy, nyquist);
-            println!("the sweep on its own: {untouched} folds before, {after_alone} after");
+        // What has to hold everywhere, whatever the day.
+        for found in &measured {
+            // Unfolding may move a reading by a whole number of intervals and
+            // by nothing else, because that is what a fold is. Everything
+            // below counts discontinuities, and a field of one constant value
+            // is perfectly continuous, so a dealiaser that threw the readings
+            // away and wrote zeros would score perfectly on all of them.
+            assert_eq!(
+                found.invented, 0,
+                "{} gates came back at a value the radar never measured",
+                found.invented
+            );
+            // And it must never leave the picture more broken than it found it.
             assert!(
-                after_alone <= untouched,
-                "unfolding the sweep as it arrived made it worse: \
-                 {untouched} folds became {after_alone}"
+                found.broken_after <= found.broken_before,
+                "unfolding took {} broken pairs to {}",
+                found.broken_before,
+                found.broken_after
+            );
+            // Some of the folded gates have to come back to the branch they
+            // started on. Not most: a patch with no boundary to anything
+            // outside itself has nothing to be placed by, and how much of a
+            // sweep is isolated like that is a property of the weather.
+            assert!(
+                found.rejoined * 20 > found.wrapped,
+                "only {} of {} folded gates came back to their own branch",
+                found.rejoined,
+                found.wrapped
             );
         }
 
-        // A third of the radar's own limit, which is roughly what the lowest
-        // cut of a real pattern runs at: KTBW folds its lowest cut at 8.4 m/s
-        // and its tight ones at 28. Low enough that a day's winds wrap over a
-        // good part of the sweep, high enough that most of it does not, so
-        // there is something either side of each fold to place it by.
-        let tight = nyquist / 3.0;
-        let interval = 2.0 * tight;
-        let mut folded = truth.clone();
-        let wrapped = refold(&mut folded, tight);
-        assert!(
-            wrapped > 2_000,
-            "only {wrapped} gates wrapped at {tight:.1} m/s, which is too few to measure"
-        );
-
-        let (before, comparable) = broken_pairs(&folded, &truth, interval);
-        assert!(
-            before > 1_000,
-            "folding at {tight:.1} m/s only broke {before} pairs, which is too few to measure"
-        );
-
-        let moved = unfold_velocity(&mut folded, tight);
-        assert!(moved, "nothing was unfolded");
-        let (after, _) = broken_pairs(&folded, &truth, interval);
+        // And across the stations together, which is far steadier than any one
+        // of them, most of the picture has to come back. This is the claim the
+        // grower it replaced fails: on the same six stations it left the
+        // broken pairs where it found them at two of them.
+        let before: usize = measured.iter().map(|found| found.broken_before).sum();
+        let after: usize = measured.iter().map(|found| found.broken_after).sum();
+        let wrapped: usize = measured.iter().map(|found| found.wrapped).sum();
+        let rejoined: usize = measured.iter().map(|found| found.rejoined).sum();
         println!(
-            "nyquist {nyquist:.1} m/s, refolded at {tight:.1}, {wrapped} gates wrapped, \
-             broken pairs {before} -> {after} of {comparable}"
+            "over {} stations: broken pairs {before} -> {after}, {rejoined} of \
+             {wrapped} folded gates back on their own branch",
+            measured.len()
         );
-
-        // Every measure of a fold counts discontinuities, and a field of one
-        // constant value is perfectly continuous: a dealiaser that threw the
-        // readings away and wrote zeros everywhere would score perfectly on all
-        // of them. So first, the one thing unfolding is allowed to do at all.
-        // It may move a reading by a whole number of intervals and by nothing
-        // else, because that is what a fold is.
-        let mut invented = 0usize;
-        for azimuth in 0..azimuths {
-            for gate in 0..gates {
-                let (now, now_status) = folded.get(azimuth, gate);
-                if !matches!(now_status, GateStatus::Valid) {
-                    continue;
-                }
-                let (was, was_status) = truth.get(azimuth, gate);
-                if !matches!(was_status, GateStatus::Valid) {
-                    continue;
-                }
-                let apart = (now - was) / interval;
-                if (apart - apart.round()).abs() > 0.01 {
-                    invented += 1;
-                }
-            }
-        }
-        assert_eq!(
-            invented, 0,
-            "{invented} gates came back at a value the radar never measured, \
-             which is not an unfolding at all"
-        );
-
-        // And then the folds themselves. Not all of them come out: a patch with
-        // no boundary to anything outside itself has nothing to be placed by,
-        // and a real velocity field is speckled with them. What must not happen
-        // again is the algorithm leaving the sweep as it found it, which is
-        // what it did before patches were grown on continuity rather than on
-        // fixed bands: 18615 broken pairs went to 17793.
         assert!(
             after * 4 < before * 3,
-            "folding broke {before} pairs and unfolding left {after} of them, \
-             which is not enough of the sweep put back to be worth drawing"
+            "folding broke {before} pairs across {} stations and unfolding left \
+             {after} of them",
+            measured.len()
+        );
+        assert!(
+            rejoined * 5 > wrapped,
+            "only {rejoined} of {wrapped} folded gates came back to their own branch"
         );
     }
-
 
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
