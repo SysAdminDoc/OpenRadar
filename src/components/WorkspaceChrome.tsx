@@ -158,7 +158,9 @@ export function WorkspaceChrome({
         <div className="tool-hud" role="status" aria-live="polite">
           <span>
             <strong>{t(TOOL_LABELS[activeTool])}</strong>
-            {toolResult ? toolResult() : null}
+            {toolResult ? (
+              <span className="tool-hud__result">{toolResult()}</span>
+            ) : null}
             <small>{t("chrome.toolKeyboard")}</small>
           </span>
           <button type="button" onClick={onClearTools}>
