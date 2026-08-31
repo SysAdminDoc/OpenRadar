@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { popupFrom, type Hit } from "./mapPopup";
+import { popupFrom, safePopupUrl, type Hit } from "./mapPopup";
 import {
   layerStackOrder,
   OVERLAY_SOURCE_PREFIX,
@@ -37,6 +37,16 @@ const guess: Hit = {
 };
 
 describe("what a click opens", () => {
+  it("allows only credential-free HTTPS links from provider data", () => {
+    expect(safePopupUrl("https://api.weather.gov/alerts/123")).toBe(
+      "https://api.weather.gov/alerts/123",
+    );
+    expect(safePopupUrl("javascript:alert(1)")).toBeNull();
+    expect(safePopupUrl("http://example.test/product")).toBeNull();
+    expect(safePopupUrl("https://user:secret@example.test/product")).toBeNull();
+    expect(safePopupUrl("not a URL")).toBeNull();
+  });
+
   it("opens the warning when a model polygon is drawn under it", () => {
     // The map draws guidance under the warnings on purpose, and the click used
     // to ask the guidance layer first and return on a hit. A tornado warning

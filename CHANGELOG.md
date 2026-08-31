@@ -8,6 +8,16 @@
 
 - The desktop window no longer receives unused permissions for opening web addresses or changing unrelated store keys. It keeps only the file reveal and settings operations the interface calls.
 
+- Camera moves no longer save an older copy of the rest of the settings a moment later. A theme, layer, or unit changed while the map was settling now remains changed after restart.
+
+- Forecast opens correctly under React's development safeguards. Its first request used to be cancelled and then mistaken for one that had already finished, leaving the panel on its loading line forever.
+
+- Alert monitoring keeps its national damage-threat read alive when the map moves, starts at a new watched place without waiting for the next poll, and falls back to an in-app notice if Windows notifications fail.
+
+- The newest radar refresh wins when two requests overlap. A cached reply from a failed source also stays with that source instead of making a live fallback say it came from the last-view cache.
+
+- Links supplied by remote overlay data are opened only when they are credential-free HTTPS addresses. Removing an imported overlay from its notification now switches the layer off as well as clearing its shapes.
+
 ## OpenRadar v0.3.0
 
 - Germany has radar. Europe had none: the American mosaics stop at the coast, the Canadian service is Canada, and everywhere else fell through to a feed licensed for personal use only. The German weather service publishes a composite of its seventeen radars every five minutes, keyless, and that is what a map over Germany now draws, with the colours the service paints it in rather than the American ones. Past fifty decibels it turns blue and then magenta, which is the German convention for hail and not a fault. The service is offered with no availability guarantee, so what was there before is still behind it.

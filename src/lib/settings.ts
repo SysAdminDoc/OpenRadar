@@ -257,6 +257,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 const STORAGE_KEY = "openradar.settings";
 let storePromise: Promise<Store> | null = null;
+let storeWriteQueue: Promise<void> = Promise.resolve();
 
 function finiteInRange(
   value: unknown,
@@ -728,10 +729,15 @@ export async function loadSettings(): Promise<AppSettings> {
 export async function saveSettings(settings: AppSettings): Promise<void> {
   const normalized = normalizeSettings(settings);
   if (isDesktopRuntime()) {
-    const store = await getStore();
-    await store.set("settings", normalized);
-    await store.save();
-    return;
+    const write = storeWriteQueue
+      .catch(() => {})
+      .then(async () => {
+        const store = await getStore();
+        await store.set("settings", normalized);
+        await store.save();
+      });
+    storeWriteQueue = write;
+    return write;
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized, null, 2));
 }

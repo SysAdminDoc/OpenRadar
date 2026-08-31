@@ -7,6 +7,8 @@ import { alertType } from "../lib/alertTypes";
 
 const fetchData = vi.fn<() => Promise<OverlayData>>();
 const tone = vi.fn(async () => true);
+const permission = vi.fn(async () => true);
+let desktop = false;
 
 vi.mock("../lib/overlays/alerts", async () => {
   const actual = await vi.importActual<typeof import("../lib/overlays/alerts")>(
@@ -28,8 +30,14 @@ vi.mock("../lib/settings", async () => {
     await vi.importActual<typeof import("../lib/settings")>("../lib/settings");
   // The browser path, so the fallback toast is what gets called and no
   // notification plugin has to exist.
-  return { ...actual, isDesktopRuntime: () => false };
+  return { ...actual, isDesktopRuntime: () => desktop };
 });
+
+vi.mock("@tauri-apps/plugin-notification", () => ({
+  isPermissionGranted: () => permission(),
+  requestPermission: vi.fn(async () => "granted"),
+  sendNotification: vi.fn(),
+}));
 
 const watch: WatchSettings = {
   enabled: true,
@@ -69,6 +77,9 @@ beforeEach(() => {
   fetchData.mockReset();
   tone.mockReset();
   tone.mockResolvedValue(true);
+  permission.mockReset();
+  permission.mockResolvedValue(true);
+  desktop = false;
   fetchData.mockResolvedValue(alerts());
 });
 
@@ -143,6 +154,32 @@ describe("watching a place for alerts", () => {
 
     rerender({ watch: { ...watch, center: [-96.81, 32.79] } });
     await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(2));
+  });
+
+  it("checks a new watched place while the old request is still pending", async () => {
+    const told = vi.fn();
+    fetchData
+      .mockReturnValueOnce(new Promise<OverlayData>(() => {}))
+      .mockResolvedValueOnce(alerts());
+    const { rerender } = renderHook(
+      (props: { watch: WatchSettings }) => useAlertWatch(props.watch, {}, told),
+      { initialProps: { watch } },
+    );
+    await vi.waitFor(() => expect(fetchData).toHaveBeenCalledTimes(1));
+
+    rerender({ watch: { ...watch, center: [-96.81, 32.79] } });
+    await vi.waitFor(() => expect(fetchData).toHaveBeenCalledTimes(2));
+  });
+
+  it("falls back in-app when desktop notifications fail", async () => {
+    desktop = true;
+    permission.mockRejectedValue(new Error("notification bridge failed"));
+    fetchData.mockResolvedValue(alerts("Tornado Warning"));
+    const told = vi.fn();
+    renderHook(() => useAlertWatch(watch, {}, told));
+
+    await vi.waitFor(() => expect(told).toHaveBeenCalledTimes(1));
+    expect(told.mock.calls[0][0].headline).toBe("Tornado Warning");
   });
 
   it("makes no sound unless it was asked to", async () => {

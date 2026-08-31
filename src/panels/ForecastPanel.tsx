@@ -70,6 +70,9 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
     () => () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       inFlightRef.current?.abort();
+      timerRef.current = null;
+      inFlightRef.current = null;
+      requestedRef.current = null;
     },
     [],
   );

@@ -11,6 +11,7 @@ import {
 import { parseRainViewerFrames } from "./rainviewer";
 import { durationSeconds, parseWmsTimeSteps, wmsTileUrl } from "./wms";
 import { resetHealth, providerHealth } from "./health";
+import { noteCachedResponse, resetCacheReports } from "../tileCache";
 
 const RIDGE_CAPABILITIES = `<?xml version="1.0" encoding="UTF-8"?>
 <WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
@@ -34,6 +35,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   resetRadarBudgets();
   resetHealth();
+  resetCacheReports();
 });
 
 describe("WMS time dimension", () => {
@@ -142,6 +144,34 @@ describe("failover", () => {
       "503",
     );
     expect(health.find((item) => item.id === "nowcoast")?.frameCount).toBe(2);
+  });
+
+  it("does not label a live fallback with a failed provider's cache age", async () => {
+    const nowcoast = `<?xml version="1.0"?>
+<WMS_Capabilities version="1.3.0" xmlns="http://www.opengis.net/wms">
+  <Capability><Layer><Layer>
+    <Name>base_reflectivity_mosaic</Name>
+    <Dimension name="time" units="ISO8601">2026-08-30T06:28:00.000Z</Dimension>
+  </Layer></Layer></Capability>
+</WMS_Capabilities>`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("opengeo.ncep.noaa.gov")) {
+          noteCachedResponse(
+            new Response("", {
+              headers: { "X-OpenRadar-Age": "900" },
+            }),
+          );
+          return new Response("", { status: 503 });
+        }
+        return new Response(nowcoast, { status: 200 });
+      }),
+    );
+
+    const timeline = await fetchRadarTimeline([-96.8, 32.8], 120);
+    expect(timeline.provider.id).toBe("nowcoast");
+    expect(timeline.cachedAgeSeconds).toBeNull();
   });
 
   it("reports every failure when no source answers", async () => {

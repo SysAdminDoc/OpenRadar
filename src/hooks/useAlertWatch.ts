@@ -45,7 +45,6 @@ export function useAlertWatch(
   // What has been announced, and how bad it was when it was: an upgrade is
   // worth saying again, a downgrade is not.
   const announcedRef = useRef(new Map<string, number>());
-  const checkingRef = useRef(false);
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
     fallbackRef.current = onFallback;
@@ -73,6 +72,7 @@ export function useAlertWatch(
     if (!watch.enabled) return;
     const controller = new AbortController();
     let mounted = true;
+    let checking = false;
     // A different point or radius is a different watch, so what was already
     // said about the old one must not silence the new one.
     announcedRef.current = new Map<string, number>();
@@ -80,8 +80,8 @@ export function useAlertWatch(
     const check = async () => {
       // A slow request must not have a second one running over the top of it,
       // which is how the same alert gets announced twice.
-      if (checkingRef.current) return;
-      checkingRef.current = true;
+      if (checking) return;
+      checking = true;
       try {
         const alerts = await alertsOverlay.fetchData(
           watchBounds(watch),
@@ -95,18 +95,28 @@ export function useAlertWatch(
           Date.now(),
         );
         for (const alert of found) {
-          announcedRef.current.set(alert.id, alert.rank);
           // One tone for the batch rather than one per alert: three warnings
           // arriving together should not sound like an alarm going off.
           if (soundRef.current && alert === found[0]) {
             void playAlertTone();
           }
+          let delivered = false;
           if (isDesktopRuntime()) {
-            const sent = await announceOnDesktop(alert);
-            if (!sent) fallbackRef.current(alert);
-          } else {
+            try {
+              delivered = await announceOnDesktop(alert);
+            } catch (failure) {
+              log.warn(
+                "watch",
+                failure instanceof Error
+                  ? failure.message
+                  : "The desktop notification could not be sent.",
+              );
+            }
+          }
+          if (!delivered) {
             fallbackRef.current(alert);
           }
+          announcedRef.current.set(alert.id, alert.rank);
           log.info("watch", `Announced ${alert.headline}`);
         }
       } catch (failure) {
@@ -123,7 +133,7 @@ export function useAlertWatch(
             : translate("watch.failed"),
         );
       } finally {
-        checkingRef.current = false;
+        checking = false;
       }
     };
 

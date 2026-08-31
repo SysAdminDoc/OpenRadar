@@ -283,7 +283,7 @@ export function useWorkspaceActions(options: {
             : translate("toast.settingsSaveFailedBody"),
       });
     }
-  }, [pushToast]);
+  }, [pushToast, settingsRef]);
 
   const uploadOverlay = useCallback(
     async (file: File) => {
@@ -429,7 +429,16 @@ export function useWorkspaceActions(options: {
           title: translate("toast.overlayAdded", { name: file.name }),
           detail,
           actionLabel: translate("toast.remove"),
-          onAction: () => setCustomOverlay(null),
+          onAction: () => {
+            setCustomOverlay(null);
+            applySettings({
+              ...settingsRef.current,
+              layers: {
+                ...settingsRef.current.layers,
+                customOverlay: false,
+              },
+            });
+          },
         });
       } catch (error) {
         pushToast({

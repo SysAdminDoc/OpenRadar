@@ -235,15 +235,17 @@ export function useRadarTimeline(options: {
     if (!ready) return;
     const controller = new AbortController();
     let mounted = true;
+    let requestGeneration = 0;
 
     const refresh = async () => {
+      const request = ++requestGeneration;
       try {
         const timeline = await fetchRadarTimeline(
           liveRef.current.center,
           MAX_LOOP_MINUTES,
           controller.signal,
         );
-        if (!mounted) return;
+        if (!mounted || request !== requestGeneration) return;
         const live = liveRef.current;
         // The playhead may be sitting on a forecast frame, which this refresh
         // does not replace, so both halves take part in the decision.
@@ -273,6 +275,7 @@ export function useRadarTimeline(options: {
       } catch (failure) {
         if (
           !mounted ||
+          request !== requestGeneration ||
           (failure instanceof DOMException && failure.name === "AbortError")
         ) {
           return;
@@ -305,6 +308,7 @@ export function useRadarTimeline(options: {
     const timer = window.setInterval(() => void refresh(), REFRESH_MS);
     return () => {
       mounted = false;
+      requestGeneration += 1;
       refreshRef.current = null;
       controller.abort();
       window.clearInterval(timer);

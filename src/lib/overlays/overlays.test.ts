@@ -188,6 +188,74 @@ describe("alert parsing", () => {
     expect(first.features[0].properties.impact).toBe("catastrophic");
   });
 
+  it("keeps a shared tag read alive when one caller moves away", async () => {
+    const tagFeed = {
+      features: [
+        {
+          properties: {
+            id: "shared-warning",
+            event: "Tornado Warning",
+            parameters: { tornadoDamageThreat: ["DESTRUCTIVE"] },
+          },
+        },
+      ],
+    };
+    const polygons = {
+      features: [
+        {
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [0, 0],
+                [1, 0],
+                [1, 1],
+                [0, 0],
+              ],
+            ],
+          },
+          properties: {
+            cap_id: "shared-warning",
+            prod_type: "Tornado Warning",
+            sig: "W",
+          },
+        },
+      ],
+    };
+    let finishTags: ((response: Response) => void) | null = null;
+    const fetchMock = vi.fn((url: unknown) => {
+      if (String(url).includes("api.weather.gov")) {
+        return new Promise<Response>((resolve) => {
+          finishTags = resolve;
+        });
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(polygons), { status: 200 }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const bounds = { west: -2, south: -2, east: 2, north: 2 };
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = alertsOverlay.fetchData(bounds, firstController.signal);
+    const second = alertsOverlay.fetchData(bounds, secondController.signal);
+    await Promise.resolve();
+    firstController.abort();
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+
+    expect(finishTags).not.toBeNull();
+    finishTags!(new Response(JSON.stringify(tagFeed), { status: 200 }));
+    const result = await second;
+    expect(secondController.signal.aborted).toBe(false);
+    expect(result.features[0].properties.impact).toBe("destructive");
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("api.weather.gov"),
+      ),
+    ).toHaveLength(1);
+  });
+
   it("does not announce a standing warning twice while its tag catches up", async () => {
     // The same thing measured where it was heard: the watch says a warning is
     // worse than it was told, and re-announcing is how it says so. A tag that

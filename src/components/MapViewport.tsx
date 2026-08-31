@@ -55,7 +55,7 @@ import {
 } from "../lib/surge";
 import { translate } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
-import { popupFrom } from "../lib/mapPopup";
+import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -677,11 +677,12 @@ function MapViewportInner(
       row.textContent = line;
       node.append(row);
     }
-    if (description.url) {
+    const safeUrl = safePopupUrl(description.url);
+    if (safeUrl) {
       const link = document.createElement("a");
-      link.href = description.url;
+      link.href = safeUrl;
       link.target = "_blank";
-      link.rel = "noreferrer";
+      link.rel = "noopener noreferrer";
       link.textContent = translate("popup.openProduct");
       node.append(link);
     }

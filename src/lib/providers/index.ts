@@ -19,7 +19,7 @@ import {
   type RadarFrame,
   type RadarProvider,
 } from "./types";
-import { cachedSince } from "../tileCache";
+import { cachedAfter, cacheReportMarker } from "../tileCache";
 import { translate } from "../../i18n";
 
 export const NOAA_PROVIDERS: RadarProvider[] = [
@@ -152,9 +152,6 @@ export async function fetchRadarTimeline(
 ): Promise<RadarTimeline> {
   const chain = providerChain(center[0], center[1]);
   const failures: string[] = [];
-  // Anything reported as cached after this moment belongs to this attempt.
-  const startedAt = Date.now();
-
   for (const provider of chain) {
     const budget = budgetFor(provider, "discovery");
     if (!budget.tryConsume()) {
@@ -165,6 +162,7 @@ export async function fetchRadarTimeline(
     }
 
     try {
+      const cacheMarker = cacheReportMarker();
       const frames = await provider.fetchFrames(loopMinutes, signal, center);
       if (!frames.length) throw new Error(translate("radar.noFrames"));
       recordSuccess(provider.id, frames.length);
@@ -174,7 +172,7 @@ export async function fetchRadarTimeline(
       return {
         provider,
         frames,
-        cachedAgeSeconds: cachedSince(startedAt),
+        cachedAgeSeconds: cachedAfter(cacheMarker),
       };
     } catch (error) {
       // A caller that aborted mid-response can surface a TypeError rather than
