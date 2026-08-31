@@ -96,3 +96,24 @@ The item, kept whole so it can go back to `ROADMAP.md` unchanged:
           Note (2026-08-31): SCN 26-48 AAB (2026-07-06) reconfirms 2026-10-06 with the standard critical-weather-day slip clause; parallel feeds moved to NOMADS on 2026-08-11 and the old prototype AWS bucket stopped updating then, so do not fixture against the prototype paths.
           Complexity: L
 
+## ECCC publishes no extrapolation layer to build a lane out of
+
+`AUD-078` assumed Environment and Climate Change Canada serves North American radar extrapolation on the same operational WMS as the observed composite. Checked against the service itself on 2026-08-31, it does not.
+
+`GetCapabilities` on `https://geo.weather.gc.ca/geomet` lists 3,362 layers. Everything radar-shaped among them is an observation or a mask: `RADAR_1KM_RRAI` and `RADAR_1KM_RSNO` for rain and snow, the `RADAR_COVERAGE_*` outlines and hatches, the `RADARURPPRECIP*` styles those are drawn in, and the `RDPA`/`HRDPA` precipitation analyses, which are analyses of what fell rather than a forecast of what will. There is no `NOWCAST`, no `EXTRAP`, and nothing else that names a lead time.
+
+The observed layer's own time dimension does not reach forward either. It answered `2026-08-31T17:12:00Z/2026-08-31T20:12:00Z/PT6M` at 20:16Z, so it ends at the present and a frame past `now` cannot be asked for. The `geomet-beta` endpoint that used to carry experimental layers returns 404, and `geomet-climate` has nothing radar in it at all.
+
+So there is no official lane to separate, label and put on a dotted segment of the timeline. What the item deliberately ruled out, shipping a local single-flow extrapolation of our own, remains ruled out: the whole reason for preferring the official layer was that a nowcast the app invented would be presented beside observations with nothing but our own word behind it.
+
+Unblocked by: ECCC publishing an extrapolation or nowcast layer on GeoMet. Worth re-running the capabilities check when the MSC open data announcements mention one.
+
+The item, kept whole so it can go back to `ROADMAP.md` unchanged:
+
+    - [ ] AUD-078: Add an official, clearly separated ECCC extrapolation lane
+          Why: ECCC publishes North American extrapolation layers on the same operational WMS already used for observed Canadian radar. This offers a bounded nowcast without shipping a local single-flow algorithm first.
+          Evidence: `src/lib/providers/geomet.ts`; `src/hooks/useRadarTimeline.ts`; https://eccc-msc.github.io/open-data/msc-data/obs_radar/readme_radar_geomet_en/ ; https://community.windy.com/topic/31383/how-to-turn-off-forecasted-radar/5 ; https://github.com/JoshuaKimsey/LibreWXR/issues/24
+          Touches: GeoMet provider; timeline segmentation; provenance; legend and source copy; archive controls
+          Acceptance: Extrapolated frames appear only where the official layer covers and occupy a distinct dotted timeline segment labeled with method, source, issue time, valid time, and horizon; the last observation remains separately selectable; observations are never blended or relabeled; stale extrapolation disappears before fresh observations do.
+          Complexity: M
+
