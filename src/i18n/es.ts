@@ -806,6 +806,25 @@ export const es: Catalogue = {
   "export.noFrames": "No hay cuadros que grabar.",
   "export.tooLarge": "La grabación salió de más de 20 MB.",
   "export.empty": "La grabación salió vacía.",
+  "watch.whyEvent": "Una alerta de {event}, calificada como {severity}.",
+  "watch.whyThreshold": "Pediste enterarte de {minSeverity} en adelante.",
+  "watch.whyDistance":
+    "Llegó a {miles} {unit} de tu punto, dentro de los {radius} que vigilas.",
+  "watch.whyUpgraded":
+    "Ya te avisamos de esta. La oficina ha subido su nivel de daño desde entonces.",
+  "watch.testHeadline": "Alerta de prueba",
+  "watch.quiet": "Horas de silencio",
+  "watch.quietDetail":
+    "Retiene las alertas normales por la noche. Lo que llegue a la gravedad que elijas sigue pasando.",
+  "watch.quietFrom": "Desde",
+  "watch.quietUntil": "Hasta",
+  "watch.quietOverride": "Despiértame siempre por",
+  "watch.sendTest": "Enviar una alerta de prueba",
+  "watch.sendTestDetail":
+    "Lanza una notificación inofensiva, y el tono si está activo, para que sepas qué esperar.",
+  "watch.testSent": "Alerta de prueba enviada",
+  "watch.testSentBody":
+    "Si no apareció nada, puede que Windows esté reteniendo las notificaciones de esta app.",
   "watch.alert": "Alerta meteorológica",
   "watch.here": "donde estás vigilando",
   "watch.milesAway": "a {miles} {unit} del punto que vigilas",

@@ -39,7 +39,31 @@ import type {
   LayerSettings,
   MapStyleId,
   ProjectionMode,
+  WatchState,
 } from "../lib/settings";
+
+/**
+ * Minutes past midnight as a time field reads them, and back again.
+ *
+ * A time input speaks "HH:MM" and the setting is a single number, which is the
+ * shape the midnight wrap is easiest to reason about. A field that is cleared
+ * gives an empty string, so the previous value is kept rather than resetting
+ * the window to midnight under the reader.
+ */
+function minuteToTime(minute: number): string {
+  const hours = String(Math.floor(minute / 60)).padStart(2, "0");
+  const minutes = String(minute % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function timeToMinute(value: string, fallback: number): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!match) return fallback;
+  const minute = Number(match[1]) * 60 + Number(match[2]);
+  return Number.isFinite(minute) && minute >= 0 && minute < 1440
+    ? minute
+    : fallback;
+}
 import { LANGUAGES, useT, type StringKey } from "../i18n";
 import {
   SURGE_CATEGORIES,
@@ -550,6 +574,7 @@ export function LayersPanel({
 interface SettingsPanelProps {
   settings: AppSettings;
   onSettings: (settings: AppSettings) => void;
+  onSendWatchTest: () => void;
   onWatchHere: () => void;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
@@ -588,6 +613,7 @@ function ToggleSetting({
 export function SettingsPanel({
   settings,
   onSettings,
+  onSendWatchTest,
   onWatchHere,
   onReset,
   onExportSettings,
@@ -887,6 +913,101 @@ export function SettingsPanel({
         >
           <Crosshair size={16} /> {t("settings.watchCentre")}
         </button>
+        <ToggleSetting
+          label={t("watch.quiet")}
+          detail={t("watch.quietDetail")}
+          checked={settings.watch.quietHours.enabled}
+          onChange={(enabled) =>
+            onSettings({
+              ...settings,
+              watch: {
+                ...settings.watch,
+                quietHours: { ...settings.watch.quietHours, enabled },
+              },
+            })
+          }
+        />
+        {settings.watch.quietHours.enabled && (
+          <div className="quiet-hours">
+            <label>
+              <span>{t("watch.quietFrom")}</span>
+              <input
+                type="time"
+                value={minuteToTime(settings.watch.quietHours.startMinute)}
+                onChange={(event) =>
+                  onSettings({
+                    ...settings,
+                    watch: {
+                      ...settings.watch,
+                      quietHours: {
+                        ...settings.watch.quietHours,
+                        startMinute: timeToMinute(
+                          event.target.value,
+                          settings.watch.quietHours.startMinute,
+                        ),
+                      },
+                    },
+                  })
+                }
+              />
+            </label>
+            <label>
+              <span>{t("watch.quietUntil")}</span>
+              <input
+                type="time"
+                value={minuteToTime(settings.watch.quietHours.endMinute)}
+                onChange={(event) =>
+                  onSettings({
+                    ...settings,
+                    watch: {
+                      ...settings.watch,
+                      quietHours: {
+                        ...settings.watch.quietHours,
+                        endMinute: timeToMinute(
+                          event.target.value,
+                          settings.watch.quietHours.endMinute,
+                        ),
+                      },
+                    },
+                  })
+                }
+              />
+            </label>
+            <label>
+              <span>{t("watch.quietOverride")}</span>
+              <select
+                value={settings.watch.quietHours.overrideSeverity}
+                onChange={(event) =>
+                  onSettings({
+                    ...settings,
+                    watch: {
+                      ...settings.watch,
+                      quietHours: {
+                        ...settings.watch.quietHours,
+                        overrideSeverity: event.target
+                          .value as WatchState["quietHours"]["overrideSeverity"],
+                      },
+                    },
+                  })
+                }
+              >
+                <option value="extreme">{t("alerts.severity.extreme")}</option>
+                <option value="severe">{t("alerts.severity.severe")}</option>
+                <option value="moderate">
+                  {t("alerts.severity.moderate")}
+                </option>
+              </select>
+            </label>
+          </div>
+        )}
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onSendWatchTest}
+        >
+          <BellRing size={16} /> {t("watch.sendTest")}
+        </button>
+        <p className="source-note">{t("watch.sendTestDetail")}</p>
         <p className="source-note">
           {t("settings.watching", {
             lat: settings.watch.center[1].toFixed(2),

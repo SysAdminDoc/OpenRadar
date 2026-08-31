@@ -90,6 +90,7 @@ interface PanelSurfacesProps {
   onRoute: (route: Record<string, unknown> | null) => void;
   onUpload: (file: File) => void;
   onWatchHere: () => void;
+  onSendWatchTest: () => void;
   onOpenLogFolder: () => void;
   onCopyDiagnostics: () => void;
   onReset: () => void;
@@ -191,6 +192,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           settings={settings}
           onSettings={props.onSettings}
           onWatchHere={props.onWatchHere}
+          onSendWatchTest={props.onSendWatchTest}
           onReset={props.onReset}
           onExportSettings={props.onExportSettings}
           onClose={onClose}

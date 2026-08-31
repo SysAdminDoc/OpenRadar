@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { alertsToAnnounce, watchAlertBody, watchBounds } from "./watch";
+import {
+  alertsToAnnounce,
+  inQuietHours,
+  localMinute,
+  silencedByQuietHours,
+  testWatchAlert,
+  watchAlertBody,
+  watchBounds,
+  watchReasonLines,
+} from "./watch";
 import type { OverlayData } from "./overlays";
 
 const watch = {
@@ -211,5 +220,114 @@ describe("a warning the office upgrades", () => {
     // The rest of the sentence is the same, so somebody woken twice can see
     // what changed rather than reading two unrelated lines.
     expect(taggedBody.startsWith(plainBody)).toBe(true);
+  });
+});
+
+describe("quiet hours", () => {
+  const overnight = {
+    enabled: true,
+    // Ten at night until seven, which crosses midnight.
+    startMinute: 22 * 60,
+    endMinute: 7 * 60,
+    overrideSeverity: "extreme" as const,
+  };
+
+  /** A local time of day, built so the test does not depend on the zone. */
+  const at = (hour: number, minute = 0) =>
+    new Date(2026, 7, 30, hour, minute, 0, 0);
+
+  it("covers a window that crosses midnight, on both sides of it", () => {
+    expect(inQuietHours(overnight, at(23))).toBe(true);
+    expect(inQuietHours(overnight, at(2))).toBe(true);
+    expect(inQuietHours(overnight, at(6, 59))).toBe(true);
+    expect(inQuietHours(overnight, at(12))).toBe(false);
+    expect(inQuietHours(overnight, at(21, 59))).toBe(false);
+  });
+
+  // The boundaries themselves, which is where an off-by-one hides.
+  it("starts on its start minute and ends on its end minute", () => {
+    expect(inQuietHours(overnight, at(22, 0))).toBe(true);
+    expect(inQuietHours(overnight, at(7, 0))).toBe(false);
+  });
+
+  it("covers a window inside one day", () => {
+    const daytime = { ...overnight, startMinute: 9 * 60, endMinute: 17 * 60 };
+    expect(inQuietHours(daytime, at(12))).toBe(true);
+    expect(inQuietHours(daytime, at(8, 59))).toBe(false);
+    expect(inQuietHours(daytime, at(17))).toBe(false);
+  });
+
+  // A window of no width must silence nothing. The other reading silences
+  // everything forever, which is the one outcome a weather app must not reach
+  // by accident.
+  it("silences nothing when the window has no width", () => {
+    const empty = { ...overnight, startMinute: 300, endMinute: 300 };
+    expect(inQuietHours(empty, at(5))).toBe(false);
+    expect(inQuietHours(empty, at(17))).toBe(false);
+  });
+
+  it("does nothing at all when switched off", () => {
+    expect(inQuietHours({ ...overnight, enabled: false }, at(3))).toBe(false);
+  });
+
+  it("holds an ordinary warning back and lets an extreme one through", () => {
+    const quiet = { ...watch, quietHours: overnight };
+    expect(silencedByQuietHours(quiet, "severe", at(3))).toBe(true);
+    expect(silencedByQuietHours(quiet, "extreme", at(3))).toBe(false);
+    // Outside the window nothing is held back.
+    expect(silencedByQuietHours(quiet, "severe", at(12))).toBe(false);
+  });
+
+  it("holds nothing back for a watch that never configured them", () => {
+    expect(silencedByQuietHours(watch, "minor", at(3))).toBe(false);
+  });
+
+  // Reading the clock as UTC rather than as the reader's own would move the
+  // window by the offset, which is the whole bug this guards.
+  it("reads the reader's own clock rather than UTC", () => {
+    const noonLocal = at(12);
+    expect(localMinute(noonLocal)).toBe(12 * 60);
+    expect(localMinute(noonLocal.getTime())).toBe(12 * 60);
+  });
+});
+
+describe("why an alert was announced", () => {
+  it("names the event, the threshold, and the distance", () => {
+    const lines = watchReasonLines({
+      event: "tornado",
+      severity: "extreme",
+      minSeverity: "severe",
+      radiusMiles: 30,
+      distanceMiles: 12,
+      upgradedFrom: null,
+    });
+    const text = lines.join(" ");
+    expect(text).toContain("tornado");
+    expect(text).toContain("severe");
+    expect(lines).toHaveLength(3);
+  });
+
+  it("says so when the same alert is being raised again", () => {
+    const lines = watchReasonLines({
+      event: "thunderstorm",
+      severity: "severe",
+      minSeverity: "severe",
+      radiusMiles: 30,
+      distanceMiles: 5,
+      upgradedFrom: 1,
+    });
+    expect(lines).toHaveLength(4);
+    expect(lines.at(-1)).toContain("before");
+  });
+});
+
+describe("the test alert", () => {
+  it("is harmless and carries its own reason", () => {
+    const alert = testWatchAlert(watch);
+    expect(alert.reason.event).toBe("test");
+    expect(alert.distanceMiles).toBe(0);
+    expect(alert.impact).toBe("");
+    // It must never look like a real warning that has expired.
+    expect(alert.expires).toBeNull();
   });
 });

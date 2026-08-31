@@ -34,13 +34,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: Two points inside radar range produce a height-versus-distance image for reflectivity or dealiased velocity; beam height, distance, elevation coverage, time, site, product, and units are labeled; missing coverage remains transparent; a synthetic-volume test validates geometry and values; reduced motion and keyboard map-tool behavior remain intact.
       Complexity: XL
 
-- [ ] AUD-075: Add quiet hours, notification test, and alert rationale
-      Why: The current watch has one place, radius, severity, event filters, and optional sound, but no quiet schedule, test action, or durable explanation of why a notification fired. Adjacent users report noisy retriggers when polygons change without a meaningful upgrade.
-      Evidence: `src/lib/settings.ts`; `src/hooks/useAlertWatch.ts`; `src/panels/MapOptionsPanels.tsx`; https://github.com/dpaulat/supercell-wx/issues/617
-      Touches: Watch settings and migration; alert comparison; notification and sound delivery; settings panel; diagnostics
-      Acceptance: A user can set local quiet hours with an emergency override, send a harmless test notification and tone, and inspect the event type, severity threshold, location radius, and upgrade that caused each alert; polygon reductions do not retrigger by default; time-zone and midnight tests pass.
-      Complexity: M
-
 - [ ] AUD-076: Make high contrast apply to radar and hazard geometry
       Why: Browser high contrast currently strengthens interface chrome, but radar color tables, warning outlines, tracks, and overlay widths keep their normal values. The information itself needs an accessible treatment.
       Evidence: `src/index.css`; `src/lib/legend.ts`; `src-tauri/src/palette.rs`; `src/components/MapViewport.tsx`; https://github.com/d4vid87/hookecho/issues/12
