@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- Every layer you can switch on now says where it came from, not just the seven that had adapters. The MRMS grids, both lightning layers, wind, satellite, storm cells and severe probability all carry a source, a credit, and an answer to whether they are something measured, something a model expects, or something worked out from a measurement. The ones that are worked out say what was done to them, so rotation tracks report accumulated shear rather than passing as an observation. A layer added later cannot arrive without any of that, because a test compares the list of switches against the list of sources and fails when they disagree.
+
 - Walking up the tilts of one radar volume, or switching between reflectivity and velocity, no longer decodes the volume again each time. A volume is turned into a scan once and kept, along with every cut's folding velocity, which used to mean a second pass over the whole file for each cut asked about. A live sweep benefits twice over: the finished volume underneath it was being decoded again every few seconds. Three volumes are held, under a byte ceiling, oldest out first.
 
 - The watched place has quiet hours now. Set a window, pick the severity that still gets through, and ordinary warnings are held back overnight while anything at or above that severity still wakes you. There is also a button that sends one harmless test alert, with the tone if you have it on, because a notification nobody has ever seen work is a notification nobody trusts. Every announcement now records why it fired: the kind of alert, the threshold it cleared, how far away it reached, and whether it was a warning you had already been told about that the office has since escalated.
