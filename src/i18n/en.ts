@@ -114,6 +114,9 @@ export const en = {
   "toast.settingsBroken": "That settings file could not be read",
   "toast.settingsBrokenBody":
     "The file is not valid JSON, so nothing has been changed. It may have been edited or only partly written.",
+  "toast.workspaceInvalidTitle": "Settings file was not restored",
+  "toast.workspaceInvalid":
+    "That workspace backup is incomplete or invalid, so nothing has been changed.",
   "settings.backup": "Backup",
   "settings.backupDetail":
     "Save everything to a file, or drop one on the Upload panel to put it back",

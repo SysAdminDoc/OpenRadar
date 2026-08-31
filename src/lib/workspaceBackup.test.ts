@@ -41,17 +41,38 @@ describe("workspace backups", () => {
     expect(restored.settings.layers.customOverlay).toBe(false);
   });
 
-  it("calls invalid or newer workspace parts a partial restore", () => {
+  it("calls newer workspace parts a partial restore", () => {
     const restored = restoreWorkspace({
       type: "OpenRadarWorkspace",
       backupVersion: WORKSPACE_BACKUP_VERSION + 1,
       settings: { ...DEFAULT_SETTINGS, schemaVersion: SCHEMA_VERSION },
-      customOverlay: { type: "FeatureCollection", features: [] },
+      customOverlay: null,
       futurePanel: { docked: true },
     });
     expect(restored.fromNewerBuild).toBe(true);
     expect(restored.customOverlay).toBeNull();
     expect(restored.settings.layers.customOverlay).toBe(false);
-    expect(restored.unread).toEqual(["customOverlay", "workspace.futurePanel"]);
+    expect(restored.unread).toEqual(["workspace.futurePanel"]);
+  });
+
+  it.each([
+    { type: "OpenRadarWorkspace" },
+    {
+      type: "OpenRadarWorkspace",
+      backupVersion: WORKSPACE_BACKUP_VERSION,
+    },
+    {
+      type: "OpenRadarWorkspace",
+      backupVersion: WORKSPACE_BACKUP_VERSION,
+      settings: {},
+    },
+    {
+      type: "OpenRadarWorkspace",
+      backupVersion: WORKSPACE_BACKUP_VERSION,
+      settings: DEFAULT_SETTINGS,
+      customOverlay: { type: "FeatureCollection", features: [] },
+    },
+  ])("rejects a truncated or malformed envelope", (value) => {
+    expect(() => restoreWorkspace(value)).toThrow("workspace.invalid");
   });
 });

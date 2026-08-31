@@ -43,6 +43,27 @@ export function looksLikeWorkspaceBackup(text: string): boolean {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isValidWorkspaceEnvelope(value: unknown): boolean {
+  if (!isRecord(value) || value.type !== "OpenRadarWorkspace") return false;
+  if (
+    !Number.isInteger(value.backupVersion) ||
+    (value.backupVersion as number) < 1 ||
+    !isRecord(value.settings) ||
+    !Number.isInteger(value.settings.schemaVersion)
+  ) {
+    return false;
+  }
+  return (
+    value.customOverlay === undefined ||
+    value.customOverlay === null ||
+    isWorkspaceOverlay(value.customOverlay)
+  );
+}
+
 /** Accept only bounded, non-empty GeoJSON that the map can draw. */
 export function isWorkspaceOverlay(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
@@ -62,6 +83,9 @@ export function restoreWorkspace(value: unknown): RestoredWorkspace {
       ? (value as Record<string, unknown>)
       : {};
   const isEnvelope = raw.type === "OpenRadarWorkspace";
+  if (isEnvelope && !isValidWorkspaceEnvelope(value)) {
+    throw new Error("workspace.invalid");
+  }
   const restored = restoreSettings(isEnvelope ? raw.settings : value);
   const unread = [...restored.unread];
   let customOverlay: Record<string, unknown> | null = null;
