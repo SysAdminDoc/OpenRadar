@@ -132,10 +132,13 @@ The command runs every local check, builds and verifies the signed updater insta
 ```powershell
 npm run check        # format, lint, unit tests, type-check, build
 npm run test:e2e     # Playwright, headless
+npm run check:live   # asks every live provider whether it still answers
 cargo test --lib     # from src-tauri/
 ```
 
-The Rust suite has a second half that reaches the live NOAA buckets and is skipped by default. Run it with `cargo test --lib -- --ignored` when you want to know that the decoders still agree with what the network is actually serving today.
+The normal gate never touches the network. `npm run check:live` is the one that does: it walks every provider this app reads, in both the browser and the native half, spaced out so it stays a check rather than a small flood, and prints whether each one passed, failed, or was skipped. Add `-- --json` for the machine-readable form, or `-- --only=mrms` for a single source. It exits non-zero only when a source a release depends on is genuinely broken, and it refuses to run on shared build infrastructure, because these are public services that owe this project nothing.
+
+The Rust suite has a second half that reaches the live NOAA buckets and is skipped by default. `npm run check:live` runs it for you, and `cargo test --lib -- --ignored` runs it directly when you want the full output.
 
 ## How it is put together
 

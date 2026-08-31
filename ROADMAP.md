@@ -4,15 +4,6 @@ Only unfinished work appears here. This backlog was reconciled against the repos
 
 Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section. Nothing in that section outranks a correctness, security, or release item. `AUD-093` onward and `JOY-021` were added by the 2026-08-31 evening research pass and sit under Research-Driven Additions at the end, each carrying its own priority.
 
-## P0
-
-- [ ] AUD-069: Add one local live-provider contract gate
-      Why: Browser live checks require `OPENRADAR_LIVE=1`, Rust network checks are individually ignored, and the release command runs neither group. Provider schema or path drift can therefore reach a release unnoticed.
-      Evidence: `src/lib/guidance.test.ts`; `src/lib/overlays/spc.test.ts`; `src/lib/providers/`; ignored tests in `src-tauri/src/`; `scripts/release.mjs`; https://www.weather.gov/documentation/services-web-api
-      Touches: `package.json`; `scripts/`; provider fixtures; native ignored-test selection; release documentation
-      Acceptance: One documented local command exercises each supported live provider with rate limits and timeouts, prints a machine-readable pass, fail, or skipped result per contract, exits nonzero for required failures, and never runs on GitHub infrastructure.
-      Complexity: M
-
 ## P1
 
 - [ ] AUD-003: Observe an installed updater replacement end to end
@@ -450,3 +441,10 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
+
+- [ ] AUD-099: P1. Fix the guidance live test's hard-coded temperature unit
+      Why: The first run of the new live gate on 2026-08-31 failed a required contract: `expected '°F' to be '°C'`. The provider and the app are both right. `forecastUnits()` reads the workspace unit system, which defaults to imperial, so `fetchGuidance` asks Open-Meteo for fahrenheit and Open-Meteo returns fahrenheit. The test asserts a fixed `°C` regardless of what was requested, so it is the test that is wrong. Left alone it keeps a required contract red and trains everybody to ignore the gate.
+      Evidence: `src/lib/guidance.test.ts` line 145; `src/lib/units.ts` `forecastUnits`; `src/lib/guidance.ts` line 159; `npm run check:live -- --only=guidance`
+      Touches: `src/lib/guidance.test.ts`, and `src/lib/units.ts` only if the test needs to pin a unit system rather than inherit the default
+      Acceptance: The assertion checks that the unit which comes back is the one the request asked for, rather than a fixed string, so it holds under either unit system; the test pins the unit system it expects instead of inheriting module state that another test can move; `npm run check:live -- --only=guidance` passes; reverting the assertion makes it fail again.
+      Complexity: S
