@@ -339,7 +339,17 @@ export function useWorkspaceActions(options: {
         if (looksLikeWorkspaceBackup(text) || looksLikeSettings(text)) {
           const previous = settingsRef.current;
           const previousOverlay = customOverlay;
-          const restored = restoreWorkspace(JSON.parse(text));
+          let restored: ReturnType<typeof restoreWorkspace>;
+          try {
+            restored = restoreWorkspace(JSON.parse(text));
+          } catch {
+            setActiveSurface(null);
+            pushToast({
+              title: translate("toast.workspaceInvalidTitle"),
+              detail: translate("toast.workspaceInvalid"),
+            });
+            return;
+          }
           applySettings(restored.settings);
           setCustomOverlay(restored.customOverlay);
           mapRef.current?.flyTo(restored.settings.camera);

@@ -726,6 +726,22 @@ test("saves the whole workspace to a file and puts it back", async ({
   await expect(page.getByText(/newer version/)).toBeVisible();
   await expect(page.getByText(/soundscape/)).toBeVisible();
 
+  // A file that names the format but omits its required envelope is not a
+  // request to reset the workspace to defaults. It is rejected before any
+  // currently loaded setting changes.
+  const malformed = join(dirname(path), "malformed-settings.json");
+  await writeFile(malformed, JSON.stringify({ type: "OpenRadarWorkspace" }));
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.locator('.drop-zone input[type="file"]').setInputFiles(malformed);
+  await expect(
+    page.getByText("That workspace backup is incomplete or invalid"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Metres and Celsius" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
   // And one that is not JSON at all is named for what it is, rather than
   // being handed to the map reader and refused for not being a map.
   const broken = join(dirname(path), "broken-settings.json");

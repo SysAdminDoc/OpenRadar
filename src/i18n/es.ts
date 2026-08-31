@@ -112,6 +112,9 @@ export const es: Catalogue = {
   "toast.settingsBroken": "No se pudo leer ese archivo de ajustes",
   "toast.settingsBrokenBody":
     "El archivo no es JSON válido, así que no se ha cambiado nada. Puede que se haya editado o que se escribiera a medias.",
+  "toast.workspaceInvalidTitle": "No se restauró el archivo de ajustes",
+  "toast.workspaceInvalid":
+    "Esa copia del espacio de trabajo está incompleta o no es válida, así que no se ha cambiado nada.",
   "toast.settingsRestoredBody":
     "Todo lo del archivo está en su sitio: vistas, capas, el punto vigilado y la tabla de colores.",
   "settings.backup": "Copia de seguridad",
