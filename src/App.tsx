@@ -445,6 +445,16 @@ export default function App() {
   const radarAge = timeline.newestObserved
     ? frameAgeMinutes(timeline.newestObserved, clock)
     : null;
+  const panelSide =
+    productOpen ||
+    activeSurface === "commands" ||
+    activeSurface === "search" ||
+    activeSurface === "map-type" ||
+    activeSurface === "layers"
+      ? "left"
+      : activeSurface
+        ? "right"
+        : "none";
 
   if (!hydrated) {
     return (
@@ -460,7 +470,10 @@ export default function App() {
   }
 
   return (
-    <main className={`app-shell ${dualPane ? "is-dual-pane" : ""}`}>
+    <main
+      className={`app-shell ${dualPane ? "is-dual-pane" : ""}`}
+      data-panel-side={panelSide}
+    >
       <MapStage
         settings={settings}
         mapRef={mapRef}

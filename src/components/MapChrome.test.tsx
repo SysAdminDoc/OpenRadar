@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RadarTimeline } from "./MapChrome";
 import type { RadarFrame } from "../lib/radar";
@@ -34,5 +34,24 @@ describe("the radar timeline slider", () => {
       ".timeline-copy strong",
     )?.textContent;
     expect(slider.getAttribute("aria-valuetext")).toBe(visibleTime);
+  });
+
+  it("returns to the newest frame from the playback band", () => {
+    const onFrameIndex = vi.fn();
+    render(
+      <RadarTimeline
+        frames={[frame, { ...frame, time: frame.time + 300 }]}
+        frameIndex={0}
+        playing={false}
+        error={null}
+        sourceLabel="Test radar"
+        ageMinutes={0}
+        onFrameIndex={onFrameIndex}
+        onPlaying={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Go live" }));
+    expect(onFrameIndex).toHaveBeenCalledWith(1);
   });
 });
