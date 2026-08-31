@@ -254,3 +254,63 @@ describe("writing a record down", () => {
     expect(text).toContain("stale past its refresh");
   });
 });
+
+// Everything below was found by an adversarial review of the first version of
+// this file on 2026-08-31. Each case passed the validator before it was fixed.
+describe("what the first version of the validator let through", () => {
+  it("refuses a time that is not a number, rather than throwing later", () => {
+    const broken = observation({ observedAt: Number.NaN });
+    expect(provenanceProblems(broken)).toContain("observedAt is not a moment.");
+    // The actual failure: this used to pass every check and then throw a
+    // RangeError out of the formatter, taking the diagnostics copy with it.
+    expect(() => provenanceLines(broken)).not.toThrow();
+  });
+
+  it("refuses a NaN duration and a NaN cache age", () => {
+    expect(
+      provenanceProblems(observation({ freshForMs: Number.NaN })),
+    ).toContain("freshForMs is not a duration.");
+    expect(
+      provenanceProblems(observation({ cachedAgeSeconds: Number.NaN })),
+    ).toContain("cachedAgeSeconds is negative.");
+  });
+
+  it("makes an observation say when it is valid", () => {
+    expect(provenanceProblems(observation({ validAt: null }))).toContain(
+      "An observation layer must say when it is valid.",
+    );
+  });
+
+  it("refuses a forecast whose valid time is not a number", () => {
+    expect(provenanceProblems(forecast({ validAt: Number.NaN }))).toContain(
+      "validAt is not a moment.",
+    );
+  });
+
+  // A frame from the forecast tail or an archive replay is not made by
+  // whichever live provider the timeline is pointed at.
+  it("ignores a provider that did not make the frame", () => {
+    const hrrr = {
+      id: "hrrr",
+      label: "HRRR",
+      attribution: "Iowa State Mesonet",
+      attributionUrl: "https://mesonet.agron.iastate.edu/",
+    } as RadarProvider;
+    const record = radarProvenance({
+      frame: {
+        providerId: "archive",
+        time: OBSERVED_AT / 1000,
+        tileUrl: "https://example.invalid/{z}/{x}/{y}.png",
+        tileSize: 512,
+        maxZoom: 10,
+        attribution: "NOAA archive",
+      },
+      provider: hrrr,
+      fetchedAt: FETCHED_AT,
+    });
+    expect(record.sourceId).toBe("archive");
+    expect(record.label).not.toBe("HRRR");
+    expect(record.attributionUrl).toBeUndefined();
+    expect(record.attribution).toBe("NOAA archive");
+  });
+});
