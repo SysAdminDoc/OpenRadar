@@ -216,7 +216,7 @@ export const en = {
   "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":
-    "Roads from the OSRM demo server, weather from Open-Meteo. Every stop on the drive is covered by a single forecast request, so give the servers a moment between tries.",
+    "Roads from the FOSSGIS routing service, weather from Open-Meteo. Every stop on the drive is covered by a single forecast request, so give the servers a moment between tries.",
 
   "storm.cat5": "Category 5",
   "storm.cat4": "Category 4",

@@ -6,14 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P1
 
-- [ ] AUD-070: Decide durable replacements or operating limits for OSRM and RainViewer
-      Why: Route weather depends on a no-SLA demo service, while worldwide radar fallback uses terms meant for personal and small-community use. Existing throttling handles failure but does not settle long-term distribution.
-      Evidence: `src/lib/route.ts`; `src/lib/providers/rainviewer.ts`; `docs/asset-ledger.md`; https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy ; https://www.rainviewer.com/api.html
-      Touches: Route provider strategy; worldwide radar fallback; provider health; asset ledger; user-facing availability copy
-      Acceptance: A written decision names the supported traffic model and fallback for each service; no core workflow silently depends on an unsuitable tier; terms and attribution are current; provider failure leaves a truthful reduced-capability state.
-      Note (2026-08-31): The routing answer is the FOSSGIS Valhalla instance (valhalla.openstreetmap.de): full planet, one call per user per second, and distributed end-user apps are explicitly invited to announce themselves and send an `X-Client-Id` header, which the webview can set. The OSRM demo demands an identifying User-Agent the webview cannot send, so OpenRadar cannot fully comply with OSRM's policy as wired today.
-      Complexity: M
-
 - [ ] AUD-071: Cache bounded decoded Level II volumes for instant tilt and product changes
       Why: The existing four-volume cache keeps compressed bytes, then constructs and scans the same volume for every product or tilt request. Volume exploration pays repeated CPU and allocation cost.
       Evidence: `src-tauri/src/level2.rs`; `src/hooks/useSingleSiteRadar.ts`; https://github.com/FahrenheitResearch/bowecho ; https://github.com/danielway/nexrad-workbench
