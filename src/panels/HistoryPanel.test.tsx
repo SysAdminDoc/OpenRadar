@@ -131,6 +131,32 @@ describe("HistoryPanel selection", () => {
     expect(onSelect).toHaveBeenLastCalledWith(BETA);
   });
 
+  it("reuses the storm loaded by a result click when the selection changes", async () => {
+    loadStorm.mockResolvedValue(ALPHA);
+
+    function Harness() {
+      const [selectedId, setSelectedId] = useState<string | null>(null);
+      return (
+        <HistoryPanel
+          selectedId={selectedId}
+          replayId={null}
+          onSelect={(storm) => setSelectedId(storm?.id ?? null)}
+          onReplay={() => {}}
+          onStopReplay={() => {}}
+          onClose={() => {}}
+        />
+      );
+    }
+
+    render(<Harness />);
+    const buttons = await resultButtons();
+    fireEvent.click(buttons.alpha);
+
+    expect(await screen.findByText("Alpha Storm 2020")).toBeTruthy();
+    expect(loadStorm).toHaveBeenCalledTimes(1);
+    expect(loadStorm).toHaveBeenCalledWith(ALPHA.id);
+  });
+
   it("clears the current error when the selected storm is cleared", async () => {
     const beta = deferred<hurdat.Storm>();
     loadStorm.mockImplementation((id: string) =>
