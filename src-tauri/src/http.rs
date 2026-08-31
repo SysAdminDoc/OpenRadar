@@ -169,6 +169,17 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     }
 }
 
+/// The same, without keeping a copy on disk.
+///
+/// For a caller that already remembers what it fetched and would only be
+/// filling the shared cache with things nobody reads twice. The volume in
+/// progress is fifty-odd pieces every twenty seconds, which turns a
+/// 2,048-entry cache over in about nine minutes and flushes the tiles, grids
+/// and alerts the offline view is made of.
+pub async fn get_bytes_uncached(url: &str) -> Result<Vec<u8>, HttpError> {
+    fetch_bytes(url).await
+}
+
 async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
     let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
     if !is_allowed(&parsed) {

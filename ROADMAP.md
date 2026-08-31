@@ -6,18 +6,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
-- [ ] P1 — The live path re-downloads the whole volume every twenty seconds and turns the disk cache over every nine minutes
-  Why: `newest_volume(station, None)` costs 43 listings because the `known` fast path is never used, and `assemble` fetches every chunk again on every refresh. About 7,700 listings and 6,300 objects an hour for one site, close to a gigabyte, and roughly 78 new cache entries a refresh against a 2,048-entry budget, which flushes the tiles and grids the offline view depends on.
-  Evidence: census of 23,098 KTLX keys: 55 chunks / 7.53 MB a volume, 0.41 MB of listing XML a refresh, 43 LIST requests measured by replaying the walk.
-  Touches: src-tauri/src/chunks.rs, src-tauri/src/level2.rs, src-tauri/src/cache.rs
-  Acceptance: a refresh of a volume already partly held fetches only the chunks that are new; the folder number is remembered between refreshes so the ring walk is a handful of listings rather than 43; the chunk traffic does not evict the tile cache.
-
-- [ ] P1 — One failed chunk download abandons the whole live volume
-  Why: the fetch uses `?`, so a 404 or a timeout on any chunk gives up on the volume, while the comment three lines below says one unreadable chunk out of fifty is a gap in the picture rather than a reason to show nothing. The `continue` only covers a parse failure.
-  Evidence: src-tauri/src/chunks.rs:270.
-  Touches: src-tauri/src/chunks.rs
-  Acceptance: a volume with one chunk that will not download still assembles from the rest; a volume where the start chunk is missing still refuses; a test covers both.
-
 - [ ] P1 — The live legend reads its age off a clock that ticks once a minute
   Why: `sweepEyebrow` is given the minute clock, so every cut collected since the last tick prints "0 S OLD" whatever its real age, and a stalled radar climbs in sixty-second steps. The acceptance for the live view asked for "live, N s old".
   Evidence: a minute of the feature working as designed prints ages [0,0,0,0,0] against real ages [2,2,2,2,2].
@@ -41,14 +29,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Evidence: the nine-station table above, where the two columns disagree by up to 68 points.
   Touches: src-tauri/src/level2.rs
   Acceptance: the live test reports both what the picture looks like and how many gates are actually on the branch they started on, and says which of the two it is asserting.
-
-- [ ] P1 — `wrap(0)` panics
-  Why: `((volume - 1) % VOLUMES) + 1` on an unsigned integer. Unreachable today only because the folder number is never fed back, which is exactly the path the type's own documentation describes.
-  Evidence: "panicked: attempt to subtract with overflow".
-  Touches: src-tauri/src/chunks.rs
-  Acceptance: every input including zero returns a folder in the ring; a test covers it.
-
-### P3
 
 - [ ] P3 — Optical-flow radar nowcast for the next 60 minutes on the timeline tail
   Why: free at Windy and paywalled at RainViewer, Zoom Earth and CARROT; LibreWXR and HookEcho both ship Lucas-Kanade extrapolation; OpenRadar has HRRR for hours but nothing for the next hour.
