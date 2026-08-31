@@ -1,6 +1,7 @@
 import { APP_VERSION } from "./settings";
 import type { LogEntry } from "./log";
 import type { ProviderHealth } from "./providers/health";
+import { provenanceLines, type Provenance } from "./provenance";
 
 /**
  * The diagnostics block, as plain text somebody can paste into a bug report.
@@ -102,6 +103,18 @@ export interface DiagnosticsInput {
   /** What the window is running in, when the native side can say. */
   platform?: string | null;
   webview?: string | null;
+  /**
+   * Where each drawn layer came from and what it claims.
+   *
+   * A report saying a source is answering does not say what it answered with,
+   * and most of what gets reported about a radar app is really a disagreement
+   * about time: a picture that looked stale, a forecast that was read as an
+   * observation, a frame that came off the disk during an outage. The records
+   * carry all three, so they belong in the block a reader pastes.
+   */
+  layers?: Provenance[];
+  /** The moment the block is written, so staleness can be judged against it. */
+  now?: number;
 }
 
 export function diagnosticsBlock(input: DiagnosticsInput): string {
@@ -128,6 +141,16 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
         entry.lastError ? ` · ${redact(entry.lastError)}` : ""
       }`,
     );
+  }
+  if (input.layers?.length) {
+    lines.push("", "Layers:");
+    for (const record of input.layers) {
+      // Indented under the section the way a source entry is, so the block
+      // stays scannable when a reader has several layers on at once.
+      for (const line of provenanceLines(record, input.now)) {
+        lines.push(`  ${line}`);
+      }
+    }
   }
   const head = lines.map(blurUserPaths);
   // Only the message. A timestamp's own milliseconds are shaped exactly like

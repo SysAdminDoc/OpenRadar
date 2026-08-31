@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- Every layer on the map can now say where it came from and what it is claiming: the source, the credit, when it was observed, when it is valid, when it was fetched, how long it stays fresh, whether it came off the disk cache, and which model run produced it. Diagnostics writes the record for each drawn layer into the block you paste into a report, and an exported picture takes its caption from the same record, so a forecast cannot be labelled as something an instrument saw.
+
 - The workspace has been rebuilt around the map. A fixed status bar, compact command rail, docked panels, and one shared playback band keep weather data visible while every existing surface stays directly reachable. The layout holds at compact sizes, larger text settings, light mode, and increased contrast.
 
 - GIF encoding now runs in a worker instead of freezing the map while it reduces colours and compresses frames. Shared GIFs use a 960-pixel cap, bounded palette sampling, and chunked byte storage, which cuts the peak memory held for a full loop while keeping the radar scale and burned-in caption readable.
