@@ -1760,7 +1760,7 @@ mod tests {
 
         let chosen = rings_that_speak_for_the_sweep(&found);
         assert!(
-            !chosen.iter().any(|wind| *wind == ground),
+            !chosen.contains(&ground),
             "a ring from inside twenty kilometres was asked what the wind is"
         );
         // And nothing from outside the band at either end: above the far edge
@@ -2158,10 +2158,10 @@ mod tests {
         let payload = vec![0x5au8; 80];
         let mut stream = Vec::new();
         // A status message, which this decoder does understand.
-        stream.extend_from_slice(&framed_message(2, &vec![0u8; 80]));
+        stream.extend_from_slice(&framed_message(2, &[0u8; 80]));
         // Then the one it does not.
         stream.extend_from_slice(&framed_message(34, &payload));
-        stream.extend_from_slice(&framed_message(2, &vec![0u8; 80]));
+        stream.extend_from_slice(&framed_message(2, &[0u8; 80]));
 
         let messages = nexrad_decode::messages::decode_messages(&stream)
             .expect("an unfamiliar message must not fail the stream");
@@ -2189,8 +2189,8 @@ mod tests {
         // up being called, and whatever else is added after it, an unfamiliar
         // number in that byte must not cost anybody their radar.
         for message_type in 0u8..=255 {
-            let mut stream = framed_message(message_type, &vec![0u8; 60]);
-            stream.extend_from_slice(&framed_message(2, &vec![0u8; 80]));
+            let mut stream = framed_message(message_type, &[0u8; 60]);
+            stream.extend_from_slice(&framed_message(2, &[0u8; 80]));
             // Some types are variable-length and will read the rest as their
             // own payload; what matters is that nothing panics and nothing
             // reports the stream as broken.
