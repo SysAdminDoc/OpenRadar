@@ -9,17 +9,27 @@ import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
  */
 export const MRMS_HOST = "mrms.localhost";
 
-export type MrmsProductId =
-  | "composite"
-  | "rotation"
-  | "mesh"
-  | "lightning"
-  | "echo-tops"
-  | "vil"
-  | "precip-rate"
-  | "qpe-hour"
-  | "qpe-day"
-  | "hail-swath";
+/**
+ * Every grid the native side can decode, as values rather than only as a type.
+ *
+ * A runtime list so other code can be held to it. The layer table names one of
+ * these per MRMS-backed switch, and without something to check against, a
+ * renamed id there fails silently by reporting a made-up observation time.
+ */
+export const MRMS_PRODUCT_IDS = [
+  "composite",
+  "rotation",
+  "mesh",
+  "lightning",
+  "echo-tops",
+  "vil",
+  "precip-rate",
+  "qpe-hour",
+  "qpe-day",
+  "hail-swath",
+] as const;
+
+export type MrmsProductId = (typeof MRMS_PRODUCT_IDS)[number];
 
 export interface MrmsProductInfo {
   id: MrmsProductId;

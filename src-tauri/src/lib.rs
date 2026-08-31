@@ -3,6 +3,10 @@ mod http;
 
 mod cache;
 mod chunks;
+/// The colour-vision measurement the ramps are held to. Only the tests reach
+/// for it: what ships is the ramps it vouches for, not the arithmetic.
+#[cfg(test)]
+mod contrast;
 mod dealias;
 mod exports;
 #[cfg(test)]

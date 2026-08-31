@@ -218,7 +218,7 @@ export const es: Catalogue = {
   "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":
-    "Las carreteras vienen de OpenStreetMap a través del servicio de rutas de FOSSGIS, y el tiempo de Open-Meteo. Todas las paradas del viaje se resuelven con una sola consulta de pronóstico, así que dale un momento a los servidores entre intentos.",
+    "Las carreteras vienen de los colaboradores de OpenStreetMap, bajo la ODbL, a través del servicio de rutas de FOSSGIS. El tiempo viene de Open-Meteo. Todas las paradas del viaje se resuelven con una sola consulta de pronóstico, así que dale un momento a los servidores entre intentos.",
 
   "storm.cat5": "Categoría 5",
   "storm.cat4": "Categoría 4",

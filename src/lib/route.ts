@@ -187,15 +187,21 @@ export function parseRoute(payload: unknown): RouteShape | null {
   // the distance, so a zero for either puts the whole drive's weather at the
   // departure hour while the panel reports "0 mi". Refusing sends the caller
   // to the straight-line estimate, which is wrong in a way that says so.
-  if (!Number.isFinite(length) || !Number.isFinite(duration)) return null;
+  // A negative length or duration is not a shorter route, it is a reply that
+  // cannot be read. Spread over the drive, a negative duration puts arrivals
+  // before the departure.
+  if (!(length >= 0) || !(duration >= 0)) return null;
 
   // Length is in whatever units were asked for, and this asks for miles.
-  // Matched loosely because the reply's spelling is the service's to choose:
-  // reading "Miles" or "mi" as kilometres would report a route at 62 per cent
-  // of its real length, with every arrival time along it wrong to match.
+  //
+  // Anything the reply does not positively identify as kilometres is taken as
+  // the miles that were asked for. The other way round was the trap: an absent
+  // or unfamiliar spelling was divided by 1.609 and reported a route at 62 per
+  // cent of its real length, with every arrival along it wrong to match. Only
+  // an explicit kilometre answer is converted now.
   const named = String(trip.units ?? "").toLowerCase();
-  const inMiles = named === "miles" || named === "mi";
-  const miles = inMiles ? length : length / 1.609344;
+  const inKilometres = named.startsWith("kilom") || named === "km";
+  const miles = inKilometres ? length / 1.609344 : length;
   return {
     coordinates,
     distanceMiles: miles,

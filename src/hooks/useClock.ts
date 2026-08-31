@@ -113,3 +113,24 @@ export function useReducedMotion(): boolean {
     () => false,
   );
 }
+
+const MORE_CONTRAST = "(prefers-contrast: more)";
+
+/**
+ * Whether the reader has asked their system for more contrast.
+ *
+ * Read at the moment a sweep is requested rather than held in state, for the
+ * same reason the motion preference is: the picture is drawn natively and the
+ * request carries the answer, so what matters is what was true when it was
+ * asked. The native side has no view of a media query, which is why this
+ * travels as an argument.
+ */
+export function highContrastRequested(): boolean {
+  // A preference nobody can answer is not a preference for more contrast, and
+  // it is certainly not a reason to fail. This is read on the way into
+  // fetching a radar sweep, and an environment without the media query, which
+  // includes a plain jsdom, would otherwise take the whole picture down over a
+  // question about colour.
+  if (typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(MORE_CONTRAST).matches;
+}

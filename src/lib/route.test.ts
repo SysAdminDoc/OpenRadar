@@ -376,3 +376,48 @@ describe("what the router can answer badly", () => {
     ).toBeNull();
   });
 });
+
+describe("units the router does not spell as expected", () => {
+  const SHAPE = "_o}p}@~neswD~nyo@_oyo@~zgeC_{rc@";
+  const trip = (units: unknown) => ({
+    trip: {
+      status: 0,
+      units,
+      summary: { length: 100, time: 7200 },
+      legs: [{ shape: SHAPE }],
+    },
+  });
+
+  // The request asks for miles, so anything not positively kilometres is the
+  // miles that were asked for. Dividing by 1.609 on an unfamiliar spelling
+  // reported the route at 62 per cent of its real length.
+  it("takes anything that is not kilometres as the miles it asked for", () => {
+    for (const units of [undefined, null, "", "garbage", "MI"]) {
+      expect(parseRoute(trip(units))?.distanceMiles, String(units)).toBeCloseTo(
+        100,
+        3,
+      );
+    }
+  });
+
+  it("still converts an explicit kilometre answer", () => {
+    for (const units of ["kilometers", "Kilometres", "km"]) {
+      expect(parseRoute(trip(units))?.distanceMiles, units).toBeCloseTo(
+        62.137,
+        2,
+      );
+    }
+  });
+
+  it("refuses a negative length or duration", () => {
+    const bad = {
+      trip: {
+        status: 0,
+        units: "miles",
+        summary: { length: -5, time: 60 },
+        legs: [{ shape: SHAPE }],
+      },
+    };
+    expect(parseRoute(bad)).toBeNull();
+  });
+});

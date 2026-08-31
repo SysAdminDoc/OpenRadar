@@ -314,6 +314,63 @@ const WIDE_VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
     (70.0, [0xff, 0x99, 0x99]),
 ];
 
+/// The reflectivity ramp for a reader who has asked for more contrast.
+///
+/// The ordinary NWS scale is the one everybody knows, and it is built out of
+/// the two hues red-green colour blindness collapses. Measured with
+/// `crate::contrast`, its closest pair of neighbouring stops is 4.9 under
+/// deuteranopia, between 40 and 45 dBZ: about twice the point at which two
+/// colours become distinguishable at all, for the difference between a strong
+/// storm and a severe one.
+///
+/// This one is built the other way round. Lightness climbs from one end to the
+/// other, so the reading survives even where hue is lost completely, and the
+/// hue that remains swings along the blue-yellow axis that both red-green
+/// deficiencies keep. Eight bands rather than fifteen, because separation is
+/// what contrast is for: fifteen steps cannot be told apart by anybody once
+/// the range is divided among them.
+const HIGH_CONTRAST_REFLECTIVITY_RAMP: &[(f32, [u8; 3])] = &[
+    (5.0, [0x00, 0x25, 0x6c]),
+    (15.0, [0x00, 0x44, 0x7e]),
+    (25.0, [0x00, 0x65, 0x62]),
+    (35.0, [0x44, 0x85, 0x49]),
+    (45.0, [0x8a, 0x9f, 0x37]),
+    (55.0, [0xcf, 0xb5, 0x3c]),
+    (65.0, [0xff, 0xb6, 0x92]),
+    (75.0, [0xff, 0xf2, 0xe3]),
+];
+
+/// Velocity for the same reader: toward the radar is blue, away is orange.
+///
+/// Green and red are the worst possible pair for this. They are far apart to
+/// ordinary vision, which is why they were chosen, and under deuteranopia the
+/// two ends of the scale come within 14 of each other, so the one thing the
+/// layer exists to say stops being said. Blue against orange holds them 39
+/// apart for the same eyes, and it is still an obvious pair of opposites for
+/// everybody else.
+const HIGH_CONTRAST_VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
+    (-35.0, [0x00, 0x78, 0xba]),
+    (-20.0, [0x00, 0xa3, 0xd1]),
+    (-5.0, [0x9c, 0xd4, 0xed]),
+    (0.0, [0xe8, 0xe8, 0xe8]),
+    (5.0, [0xf5, 0xc0, 0xab]),
+    (20.0, [0xd7, 0x7f, 0x57]),
+    (35.0, [0xb3, 0x4f, 0x1f]),
+];
+
+/// The same, carried out to where unfolding puts things.
+const HIGH_CONTRAST_WIDE_VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
+    (-70.0, [0x00, 0x4f, 0x9f]),
+    (-35.0, [0x00, 0x78, 0xba]),
+    (-20.0, [0x00, 0xa3, 0xd1]),
+    (-5.0, [0x9c, 0xd4, 0xed]),
+    (0.0, [0xe8, 0xe8, 0xe8]),
+    (5.0, [0xf5, 0xc0, 0xab]),
+    (20.0, [0xd7, 0x7f, 0x57]),
+    (35.0, [0xb3, 0x4f, 0x1f]),
+    (70.0, [0x8c, 0x19, 0x00]),
+];
+
 /// Low to high across whatever the moment's own range is.
 const GENERIC_RAMP: &[(f32, [u8; 3])] = &[
     (0.0, [0x1e, 0x29, 0x3b]),
@@ -888,15 +945,29 @@ pub fn sweep_field_at(scan: &Scan, product: Product, wanted: f32) -> Option<Chos
 }
 
 /// Paints one sweep into a Web Mercator RGBA image over the site's own extent.
+/// How a sweep is to be drawn, as opposed to what is in it.
+///
+/// Three separate answers to the same question, which had been travelling as
+/// loose positional arguments: whether the velocity has been unfolded, what to
+/// hide, and which ramps to use. Two of them are bare booleans, so a call site
+/// reading `false, false` said nothing about which was which.
+#[derive(Clone, Copy)]
+pub struct Shading {
+    /// True when the velocity in this sweep has been unfolded past the
+    /// radar's own limit, which decides how wide a scale it is drawn on.
+    pub unfolded: bool,
+    /// Hide anything weaker than this, in the product's own unit.
+    pub threshold: Option<f32>,
+    /// Draw with the ramps built for a reader who asked for more contrast.
+    pub high_contrast: bool,
+}
+
 pub fn render_sweep(
     field: &SweepField,
     coordinates: &RadarCoordinateSystem,
     product: Product,
     unit: &str,
-    unfolded: bool,
-    // Hide anything weaker than this. The reader sets it per product to clear
-    // the light returns off the picture and leave the cores.
-    threshold: Option<f32>,
+    shading: Shading,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
@@ -936,15 +1007,9 @@ pub fn render_sweep(
                 continue;
             };
 
-            let Some((color, alpha)) = gate_color(
-                &status,
-                value,
-                product,
-                table.as_ref(),
-                range,
-                unfolded,
-                threshold,
-            ) else {
+            let Some((color, alpha)) =
+                gate_color(&status, value, product, table.as_ref(), range, shading)
+            else {
                 continue;
             };
 
@@ -967,10 +1032,13 @@ fn gate_color(
     product: Product,
     table: Option<&Palette>,
     range: Option<(f32, f32)>,
-    unfolded: bool,
-    // Hide anything weaker than this, set by the reader per product.
-    threshold: Option<f32>,
+    shading: Shading,
 ) -> Option<([u8; 3], u8)> {
+    let Shading {
+        unfolded,
+        threshold,
+        high_contrast,
+    } = shading;
     match status {
         GateStatus::Valid => {
             // Velocity runs either side of zero and both sides are the storm,
@@ -999,15 +1067,23 @@ fn gate_color(
                             return None;
                         }
                         Some((
-                            ramp_color(REFLECTIVITY_RAMP, value),
+                            ramp_color(
+                                if high_contrast {
+                                    HIGH_CONTRAST_REFLECTIVITY_RAMP
+                                } else {
+                                    REFLECTIVITY_RAMP
+                                },
+                                value,
+                            ),
                             reflectivity_alpha(value),
                         ))
                     }
                     Product::Velocity => {
-                        let ramp = if unfolded {
-                            WIDE_VELOCITY_RAMP
-                        } else {
-                            VELOCITY_RAMP
+                        let ramp = match (high_contrast, unfolded) {
+                            (true, true) => HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
+                            (true, false) => HIGH_CONTRAST_VELOCITY_RAMP,
+                            (false, true) => WIDE_VELOCITY_RAMP,
+                            (false, false) => VELOCITY_RAMP,
                         };
                         Some((ramp_color(ramp, value), MAX_ALPHA))
                     }
@@ -1073,6 +1149,8 @@ pub struct SweepRequest<'a> {
     pub manual_motion: Option<vad::Wind>,
     /// Gates weaker than this are left clear, in the product's own unit.
     pub threshold: Option<f32>,
+    /// Draw with the ramps built for a reader who has asked for more contrast.
+    pub high_contrast: bool,
 }
 
 pub fn sweep_from_volume(
@@ -1143,6 +1221,7 @@ fn prepare_sweep(
         unfold,
         manual_motion,
         threshold: _,
+        high_contrast: _,
     } = asked;
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -1241,8 +1320,11 @@ fn draw_sweep(
         &coordinates,
         product,
         unit,
-        dealiased,
-        threshold,
+        Shading {
+            unfolded: dealiased,
+            threshold,
+            high_contrast: asked.high_contrast,
+        },
     );
 
     if let Some(under) = beneath {
@@ -1253,8 +1335,11 @@ fn draw_sweep(
             &coordinates,
             under.product,
             under.unit,
-            under.dealiased,
-            threshold,
+            Shading {
+                unfolded: under.dealiased,
+                threshold,
+                high_contrast: asked.high_contrast,
+            },
         );
         pixels = lay_over(older, pixels, &swept_pixels(&chosen.field, &coordinates));
     }
@@ -1514,6 +1599,11 @@ pub async fn level2_nearest_site(latitude: f32, longitude: f32) -> Option<String
 }
 
 #[tauri::command]
+// A Tauri command takes its arguments by name from the page, so the list is the
+// contract with the frontend rather than a signature free to be reshaped. The
+// three that belong together are grouped into `Shading` the moment they are
+// past this boundary.
+#[allow(clippy::too_many_arguments)]
 pub async fn level2_sweep(
     station: String,
     product: String,
@@ -1529,6 +1619,10 @@ pub async fn level2_sweep(
     // finished. The archive object lands only when a volume is complete, so
     // that picture is four to six minutes behind by definition.
     live: bool,
+    // Draw with the ramps built for a reader who has asked for more contrast.
+    // Sent by the page rather than read here, because the preference belongs to
+    // the window and the native side has no view of the media query.
+    high_contrast: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     if registry::site_by_id(&station).is_none() {
@@ -1570,6 +1664,7 @@ pub async fn level2_sweep(
             unfold: dealias,
             manual_motion: manual,
             threshold,
+            high_contrast,
         };
         match live {
             Some(found) => {
@@ -1849,8 +1944,11 @@ mod tests {
                 &coordinates,
                 Product::Reflectivity,
                 "dBZ",
-                false,
-                floor,
+                Shading {
+                    unfolded: false,
+                    threshold: floor,
+                    high_contrast: false,
+                },
             );
             pixels.chunks_exact(4).filter(|p| p[3] > 0).count()
         };
@@ -2040,8 +2138,11 @@ mod tests {
                 product,
                 None,
                 Some((0.0, 100.0)),
-                false,
-                floor,
+                Shading {
+                    unfolded: false,
+                    threshold: floor,
+                    high_contrast: false,
+                },
             )
         };
 
@@ -2068,8 +2169,11 @@ mod tests {
             Product::Velocity,
             None,
             None,
-            false,
-            Some(60.0),
+            Shading {
+                unfolded: false,
+                threshold: Some(60.0),
+                high_contrast: false,
+            },
         )
         .is_some());
 
@@ -2080,8 +2184,11 @@ mod tests {
             Product::Reflectivity,
             None,
             None,
-            false,
-            None,
+            Shading {
+                unfolded: false,
+                threshold: None,
+                high_contrast: false,
+            },
         )
         .is_none());
     }
@@ -2121,8 +2228,11 @@ mod tests {
                 Product::Velocity,
                 Some(&named),
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             Some(([0x77, 0x00, 0x7d], MAX_ALPHA))
         );
@@ -2137,8 +2247,11 @@ mod tests {
                 Product::Velocity,
                 Some(&silent),
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             Some((RANGE_FOLDED, MAX_ALPHA))
         );
@@ -2149,8 +2262,11 @@ mod tests {
                 Product::Velocity,
                 None,
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             Some((RANGE_FOLDED, MAX_ALPHA))
         );
@@ -2166,8 +2282,11 @@ mod tests {
                 Product::Reflectivity,
                 Some(&named),
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             None,
             "a value below the lowest stop was painted the lowest stop's colour"
@@ -2179,8 +2298,11 @@ mod tests {
                 Product::Reflectivity,
                 Some(&named),
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             Some(([0x04, 0xe9, 0xe7], MAX_ALPHA))
         );
@@ -2192,8 +2314,11 @@ mod tests {
                 Product::Reflectivity,
                 Some(&named),
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             None
         );
@@ -2204,8 +2329,11 @@ mod tests {
                 Product::Reflectivity,
                 None,
                 None,
-                false,
-                None,
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
             ),
             None
         );
@@ -2703,8 +2831,11 @@ mod tests {
             &coordinates,
             Product::Reflectivity,
             "dBZ",
-            false,
-            None,
+            Shading {
+                unfolded: false,
+                threshold: None,
+                high_contrast: false,
+            },
         );
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         let total = IMAGE_SIZE * IMAGE_SIZE;
@@ -3863,6 +3994,7 @@ mod tests {
             unfold: false,
             manual_motion: None,
             threshold: None,
+            high_contrast: false,
         }
     }
 
@@ -3966,5 +4098,120 @@ mod tests {
         )
         .expect("the newest volume draws");
         assert_eq!(decode_count(), held, "the newest should still be held");
+    }
+
+    /// The colour-vision gate on the ramps this app draws with.
+    ///
+    /// The numbers are multiples of the point at which two colours become
+    /// distinguishable at all, which is about 2.3 in this measure, rather than
+    /// thresholds chosen to let a particular ramp through.
+    mod colour_vision {
+        use super::*;
+        use crate::contrast::{
+            closest_neighbours, lightness_climbs, opposite_directions, worst_pair, ColorVision,
+            EVERY_VISION,
+        };
+
+        /// Neighbouring steps have to stay apart for every kind of vision.
+        const NEIGHBOURS_APART: f32 = 10.0;
+        /// A diverging scale has to keep its two directions apart.
+        const DIRECTIONS_APART: f32 = 25.0;
+
+        #[test]
+        fn the_high_contrast_reflectivity_ramp_keeps_its_steps_apart() {
+            for vision in EVERY_VISION {
+                let (apart, from, to) = worst_pair(HIGH_CONTRAST_REFLECTIVITY_RAMP, vision);
+                assert!(
+                    apart >= NEIGHBOURS_APART,
+                    "{} brings {from} and {to} dBZ within {apart:.1}",
+                    vision.name()
+                );
+            }
+        }
+
+        /// The property that makes the ramp readable when hue is gone entirely,
+        /// on a failing screen or in sunlight: more rain is always lighter.
+        #[test]
+        fn the_high_contrast_reflectivity_ramp_climbs_in_lightness() {
+            assert!(lightness_climbs(HIGH_CONTRAST_REFLECTIVITY_RAMP, 0.5));
+        }
+
+        /// What the ordinary scale actually does, kept as a test so the reason
+        /// the other ramp exists is on the record and not in an argument.
+        #[test]
+        fn the_ordinary_reflectivity_ramp_is_the_one_with_the_problem() {
+            let (apart, from, to) = worst_pair(REFLECTIVITY_RAMP, ColorVision::Deuteranopia);
+            assert!(
+                apart < 6.0,
+                "the NWS scale was expected to collapse somewhere under deuteranopia, \
+                 closest was {apart:.1} between {from} and {to}"
+            );
+            // And the high-contrast ramp is better at its own worst point than
+            // the ordinary one is at that one.
+            let better =
+                closest_neighbours(HIGH_CONTRAST_REFLECTIVITY_RAMP, ColorVision::Deuteranopia);
+            assert!(better > apart * 2.0);
+        }
+
+        #[test]
+        fn the_high_contrast_velocity_ramps_keep_toward_apart_from_away() {
+            for ramp in [
+                HIGH_CONTRAST_VELOCITY_RAMP,
+                HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
+            ] {
+                for vision in EVERY_VISION {
+                    let apart = opposite_directions(ramp, vision);
+                    assert!(
+                        apart >= DIRECTIONS_APART,
+                        "{} brings the two directions within {apart:.1}",
+                        vision.name()
+                    );
+                }
+            }
+        }
+
+        /// Green toward and red away is the pair the commonest colour blindness
+        /// takes apart, which is the whole reason for a second velocity scale.
+        #[test]
+        fn the_ordinary_velocity_ramp_loses_its_direction() {
+            let ordinary = opposite_directions(VELOCITY_RAMP, ColorVision::Deuteranopia);
+            let replacement =
+                opposite_directions(HIGH_CONTRAST_VELOCITY_RAMP, ColorVision::Deuteranopia);
+            assert!(
+                ordinary < DIRECTIONS_APART,
+                "green against red was expected to lose the direction, got {ordinary:.1}"
+            );
+            assert!(
+                replacement > ordinary * 2.0,
+                "the replacement should hold the direction: {replacement:.1} against {ordinary:.1}"
+            );
+        }
+
+        /// Neither ramp may be quietly reordered: the values have to ascend, or
+        /// the colour a reading gets is not the colour the legend shows.
+        #[test]
+        fn every_ramp_runs_in_order() {
+            for ramp in [
+                REFLECTIVITY_RAMP,
+                HIGH_CONTRAST_REFLECTIVITY_RAMP,
+                VELOCITY_RAMP,
+                WIDE_VELOCITY_RAMP,
+                HIGH_CONTRAST_VELOCITY_RAMP,
+                HIGH_CONTRAST_WIDE_VELOCITY_RAMP,
+            ] {
+                assert!(ramp.windows(2).all(|pair| pair[1].0 > pair[0].0));
+            }
+        }
+
+        /// The two reflectivity ramps have to cover the same range, or asking
+        /// for more contrast would quietly change which readings are drawn.
+        #[test]
+        fn the_two_reflectivity_ramps_cover_the_same_ground() {
+            assert_eq!(REFLECTIVITY_RAMP[0].0, HIGH_CONTRAST_REFLECTIVITY_RAMP[0].0);
+            assert_eq!(
+                REFLECTIVITY_RAMP[REFLECTIVITY_RAMP.len() - 1].0,
+                HIGH_CONTRAST_REFLECTIVITY_RAMP[HIGH_CONTRAST_REFLECTIVITY_RAMP.len() - 1].0
+            );
+        }
     }
 }

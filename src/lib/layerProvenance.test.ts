@@ -3,6 +3,7 @@ import { LAYER_SOURCES, layerProvenance } from "./layerProvenance";
 import { provenanceProblems } from "./provenance";
 import { DEFAULT_SETTINGS } from "./settings";
 import { OVERLAY_ADAPTERS } from "./overlays";
+import { MRMS_PRODUCT_IDS } from "./providers/mrms";
 
 const FETCHED_AT = Date.parse("2026-08-31T12:01:00Z");
 const OBSERVED_AT = Date.parse("2026-08-31T12:00:00Z");
@@ -54,18 +55,43 @@ describe("every layer a reader can switch on", () => {
 });
 
 describe("a forecast layer with no run behind it", () => {
-  // The contract refuses a forecast that cannot name its run, and inventing
-  // one would be worse than saying less. So the record reports what is
-  // actually known: when the statement was fetched.
-  it("reports what was fetched rather than claiming a model run", () => {
+  // It stays a forecast and says the run is unknown.
+  //
+  // The first version of this downgraded such a layer to an observation so the
+  // record would pass the contract. That bought a valid record at the cost of
+  // a true one: an SPC outlook is a statement about tomorrow, and reporting it
+  // as something observed at the moment it was fetched is precisely the
+  // confusion the contract exists to refuse.
+  it("stays a forecast and says the run is not published", () => {
     const record = layerProvenance({
-      layer: "tropical",
+      layer: "surge",
       fetchedAt: FETCHED_AT,
       observedAt: OBSERVED_AT,
     });
-    expect(record.kind).toBe("observation");
+    expect(record.kind).toBe("forecast");
+    expect(record.runUnknown).toBe(true);
     expect(record.modelRun).toBeUndefined();
+    // Nothing observed a forecast, so it must not claim a time for it.
+    expect(record.observedAt).toBeNull();
     expect(provenanceProblems(record)).toEqual([]);
+  });
+
+  it("cannot both name a run and not know it", () => {
+    expect(
+      provenanceProblems({
+        sourceId: "x",
+        label: "X",
+        attribution: "X",
+        kind: "forecast",
+        observedAt: null,
+        validAt: OBSERVED_AT,
+        fetchedAt: FETCHED_AT,
+        freshForMs: null,
+        cachedAgeSeconds: null,
+        modelRun: { initUtc: "2026-08-31T12:00:00Z", leadMinutes: 60 },
+        runUnknown: true,
+      }),
+    ).toContain("A forecast cannot both name its run and not know it.");
   });
 
   it("reports a forecast properly once the run is known", () => {
@@ -99,5 +125,29 @@ describe("the split between the adapters and the table", () => {
   it("gives every layer a source id of its own", () => {
     const ids = Object.values(LAYER_SOURCES).map((source) => source.sourceId);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("the MRMS layers and the grids that feed them", () => {
+  // The diagnostics list looks a grid's observed time up by source id, and the
+  // lookup was written with a cast that would accept a renamed id and silently
+  // fall back to reporting a fabricated observation time. This holds the two
+  // id spaces together instead.
+  it("names a real MRMS product for every MRMS-backed layer", () => {
+    const products = new Set<string>(MRMS_PRODUCT_IDS);
+    const mrmsLayers = [
+      "rotationTracks",
+      "hail",
+      "hailSwath",
+      "echoTops",
+      "vil",
+      "precipRate",
+      "qpeHour",
+      "qpeDay",
+      "lightningDensity",
+    ] as const;
+    for (const layer of mrmsLayers) {
+      expect(products, layer).toContain(LAYER_SOURCES[layer].sourceId);
+    }
   });
 });

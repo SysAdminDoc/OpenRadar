@@ -10,6 +10,7 @@ import {
   sweepErrorText,
   type SweepImage,
 } from "../lib/level2";
+import { highContrastRequested } from "./useClock";
 import { log } from "../lib/log";
 import type { RadarSettings } from "../lib/settings";
 
@@ -119,6 +120,9 @@ export function useSingleSiteRadar(options: {
             : null,
           threshold,
           radar.live,
+          // Read now rather than held, so a preference changed while the app is
+          // open reaches the next sweep the reader asks for.
+          highContrastRequested(),
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
