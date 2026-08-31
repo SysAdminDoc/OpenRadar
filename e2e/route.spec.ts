@@ -1,5 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { routeWorkspace } from "./support/fixtures";
+
+const unexpectedExternalRequests = new WeakMap<Page, string[]>();
 
 const place = (name: string, lat: number, lon: number) =>
   JSON.stringify({
@@ -7,7 +9,21 @@ const place = (name: string, lat: number, lon: number) =>
   });
 
 test.beforeEach(async ({ page }) => {
+  const unexpectedRequests: string[] = [];
+  unexpectedExternalRequests.set(page, unexpectedRequests);
+  await page.route("https://**/*", async (route) => {
+    unexpectedRequests.push(route.request().url());
+    await route.abort("blockedbyclient");
+  });
+
   await routeWorkspace(page);
+
+  await page.route("https://api.weather.gov/alerts/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/geo+json",
+      body: JSON.stringify({ features: [] }),
+    });
+  });
 
   await page.route("https://geocoding-api.open-meteo.com/**", async (route) => {
     const name = new URL(route.request().url()).searchParams.get("name") ?? "";
@@ -59,6 +75,10 @@ test.beforeEach(async ({ page }) => {
   await expect(
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toBeVisible();
+});
+
+test.afterEach(async ({ page }) => {
+  expect(unexpectedExternalRequests.get(page) ?? []).toEqual([]);
 });
 
 test("plans a drive and draws it coloured by the chance of rain", async ({
