@@ -63,13 +63,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: Every bundled data path and externally contacted host has source, license or terms, attribution placement, cache behavior, and privacy note; nonexistent paths are removed; a focused test or documented audit detects future divergence among the native allowlist, CSP, cache routing, and ledger.
       Complexity: S
 
-- [ ] AUD-090: Publish a vulnerability reporting and supported-version policy
-      Why: The public repository has no `SECURITY.md`, so researchers are not told how to report privately or which releases receive fixes.
-      Evidence: Repository root; https://github.com/SysAdminDoc/OpenRadar
-      Touches: `SECURITY.md`; README support link; release policy
-      Acceptance: The policy names supported versions, a private reporting route controlled by the maintainer, expected acknowledgement windows, disclosure handling, and the local security checks; it contains no secret address or automation dependency.
-      Complexity: S
-
 ## P2
 
 - [ ] AUD-007: Decide whether macOS and Linux are supported targets

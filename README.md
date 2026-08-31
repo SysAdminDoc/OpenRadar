@@ -178,6 +178,10 @@ RainViewer is licensed for personal and small community use, which is why it sit
 
 OpenRadar is a viewer for public data and nothing more. It is not an official source for warnings, and it is not something to make a life-safety decision on. When the weather is dangerous, listen to your local National Weather Service office, a NOAA Weather Radio, or whatever your country's equivalent is.
 
+## Reporting a security problem
+
+Use GitHub's private vulnerability reporting on this repository, from the Security tab. [SECURITY.md](SECURITY.md) covers which versions get fixes, what to expect after you send something, and the boundaries worth knowing about before you go looking.
+
 ## Licence
 
 [MIT](LICENSE).

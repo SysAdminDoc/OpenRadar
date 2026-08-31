@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- There is now a security policy. It names which versions get fixes, points at GitHub's private reporting so there is no address to publish, says plainly what to expect from a project with one maintainer, and writes down the boundaries that matter: the native host allowlist, the separate webview policy, how remote input and local files are parsed, and how an update is verified before it replaces anything.
+
 - One command now asks every live provider whether it still answers. `npm run check:live` walks the browser and native halves together, spaces the requests out, times each one, and prints whether each source passed, failed, or was skipped, with a JSON form for anything reading it. A source a release depends on is the only thing that can fail the run, a missing toolchain is reported as skipped rather than blamed on the weather services, and it refuses to run on shared build infrastructure.
 
 - Every layer on the map can now say where it came from and what it is claiming: the source, the credit, when it was observed, when it is valid, when it was fetched, how long it stays fresh, whether it came off the disk cache, and which model run produced it. Diagnostics writes the record for each drawn layer into the block you paste into a report, and an exported picture takes its caption from the same record, so a forecast cannot be labelled as something an instrument saw.
