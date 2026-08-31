@@ -58,6 +58,20 @@ const LIVENESS_FAILURE_TTL_SECONDS: i64 = 20;
 /// How many sites are asked before the nearest one is used regardless.
 const MAX_SITE_CANDIDATES: usize = 4;
 
+/// How far two elevation angles may be and still be the same cut.
+///
+/// A sweep's angle is the median of what its radials actually measured, and
+/// the pedestal does not put the antenna in the same place twice. Across
+/// consecutive volumes KTLX moved a cut from 3.08 degrees to 3.12 and KOKX
+/// from 4.04 to 4.00. Held to a hundredth of a degree, about one cut in ten
+/// stopped matching between the finished volume and the one in progress, and
+/// the live sweep for that tilt went missing with no message.
+///
+/// A tenth of a degree is well inside the gap between cuts, which is half a
+/// degree at its narrowest in any pattern the network runs, so this cannot
+/// reach the cut above or below.
+const SAME_CUT_DEGREES: f32 = 0.1;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Level2Error {
     #[error("{0} is not a NEXRAD site")]
@@ -513,13 +527,6 @@ pub fn nyquist_table(records: &[volume::Record<'_>]) -> BTreeMap<u8, f32> {
     found
 }
 
-/// A little past the radar's own limit, to allow for the arithmetic.
-///
-/// Whether a sweep counts as unfolded is not a question about how many gates
-/// moved, it is a question about whether the picture now holds readings the
-/// narrow scale cannot draw. A gate a hair outside the limit is rounding.
-const OUTSIDE_LIMIT: f32 = 1.01;
-
 /// How close in a ring may be and still be the wind rather than the ground.
 ///
 /// The first few kilometres of any sweep are ground clutter: buildings, trees
@@ -645,10 +652,18 @@ fn make_storm_relative(field: &mut SweepField, wind: vad::Wind) {
 
 /// Shifts a velocity field back onto the flow it belongs to, in place.
 ///
-/// Answers whether the picture actually changed: enough readings moved that
-/// the sweep is a different one and has to be drawn and labelled as such. When
-/// it answers no, nothing is written and the field is left as the radar gave
-/// it.
+/// Answers whether anything moved, which is the same question as whether the
+/// picture on screen is still the radar's own reading. Nothing is written when
+/// nothing moved.
+///
+/// It used to answer by looking for a reading outside the radar's limit, with
+/// a little slack for the arithmetic, and that slack was a hole: a gate the
+/// radar reported at 24.8 with a limit of 25 comes back at 25.2 when its fold
+/// is taken out, which is inside the slack, so eighteen hundred rewritten
+/// gates could be reported as no change at all and drawn on the narrow scale.
+/// Every gate a fold is taken out of lands at or beyond the limit by
+/// definition, since it started inside it and moved a whole interval, so
+/// counting them answers the same question with no hole in it.
 fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
     let azimuths = field.azimuth_count();
     let gates = field.gate_count();
@@ -678,16 +693,7 @@ fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
             }
         }
     }
-
-    // Saying so is a separate question from doing it. The legend and the scale
-    // are asking whether the picture holds readings the radar's own limit does
-    // not cover, so that is what is answered, rather than counting gates.
-    let limit = nyquist * OUTSIDE_LIMIT;
-    field
-        .values()
-        .iter()
-        .zip(field.statuses())
-        .any(|(value, status)| matches!(status, GateStatus::Valid) && value.abs() > limit)
+    true
 }
 
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
@@ -715,7 +721,7 @@ pub fn sweep_field_at(scan: &Scan, product: Product, wanted: f32) -> Option<Chos
         let Some(angle) = sweep.elevation_angle_degrees() else {
             continue;
         };
-        if ((angle * 100.0).round() / 100.0 - wanted).abs() > 0.01 {
+        if ((angle * 100.0).round() / 100.0 - wanted).abs() > SAME_CUT_DEGREES {
             continue;
         }
         let Some(field) = SweepField::from_radials(sweep.radials(), product) else {
@@ -3116,9 +3122,14 @@ mod tests {
     fn sector(
         from_degrees: f32,
         to_degrees: f32,
-        dbz: f32,
+        reading: fixture::Gate,
         at: DateTime<Utc>,
     ) -> Vec<fixture::Radial> {
+        // Half a degree apart, which is what a real super-resolution cut is
+        // and what the header will say. Declaring one spacing and writing
+        // another leaves the drawing sizing each wedge wrong, which showed up
+        // as 29 per cent of a swept sector keeping the volume underneath.
+        let spacing = 0.5f32;
         let mut out = Vec::new();
         let mut angle = from_degrees;
         let mut number = 1u16;
@@ -3130,13 +3141,145 @@ mod tests {
                 elevation_degrees: 0.5,
                 nyquist_ms: 8.0,
                 collected: at,
-                reflectivity: vec![dbz; 200],
+                azimuth_spacing_degrees: spacing,
+                reflectivity: vec![reading; 200],
                 velocity: Vec::new(),
             });
-            angle += 1.0;
+            angle += spacing;
             number += 1;
         }
         out
+    }
+
+    #[test]
+    fn what_the_fixture_declares_is_what_it_writes() {
+        // The drawing reads the header to decide how wide a wedge each radial
+        // stands for, and reads the reserved counts to know the radar looked
+        // and found nothing. A fixture that got either wrong would have tests
+        // passing against a picture nobody would accept: declaring half a
+        // degree while writing whole ones left 29 per cent of a swept sector
+        // showing the volume underneath, with the tests green.
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        for (radials, spacing) in [(360u16, 1.0f32), (720, 0.5)] {
+            let scan = built_volume(&[fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    radials,
+                    gates: 8,
+                    ..fixture::Cut::default()
+                },
+            )]);
+            let field = sweep_field(&scan, Product::Reflectivity, 0)
+                .expect("the cut decodes")
+                .field;
+            assert_eq!(
+                field.azimuth_spacing_degrees(),
+                spacing,
+                "{radials} radials are {spacing} degrees apart"
+            );
+            assert_eq!(field.azimuth_count(), radials as usize);
+        }
+
+        // And the two reserved counts, which no test could reach before.
+        let mut cut = fixture::flat_cut(
+            at,
+            fixture::Cut {
+                radials: 360,
+                gates: 4,
+                ..fixture::Cut::default()
+            },
+        );
+        cut[0].reflectivity[1] = fixture::Gate::Nothing;
+        cut[0].reflectivity[2] = fixture::Gate::RangeFolded;
+        let scan = built_volume(&[cut]);
+        let field = sweep_field(&scan, Product::Reflectivity, 0)
+            .expect("the cut decodes")
+            .field;
+        assert_eq!(field.get(0, 0).1, GateStatus::Valid);
+        assert_eq!(
+            field.get(0, 1).1,
+            GateStatus::BelowThreshold,
+            "the radar looked there and found nothing"
+        );
+        assert_eq!(field.get(0, 2).1, GateStatus::RangeFolded);
+    }
+
+    #[test]
+    fn a_cut_whose_angle_has_drifted_is_still_the_same_cut() {
+        // A sweep's angle is the median of what its radials measured, and the
+        // pedestal does not put the antenna in the same place twice: across
+        // consecutive real volumes KTLX moved a cut from 3.08 to 3.12 degrees.
+        // Matched to a hundredth of a degree, about one cut in ten stopped
+        // matching between the finished volume and the one in progress, and
+        // the live sweep for that tilt went missing with no message.
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let older = built_volume(&[
+            fixture::flat_cut(at, fixture::Cut { degrees: 3.08, ..fixture::Cut::default() }),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 4.30,
+                    reflectivity: fixture::Gate::Reading(35.0),
+                    ..fixture::Cut::default()
+                },
+            ),
+        ]);
+        // The same two cuts a volume later, each a quantisation step away.
+        let live = built_volume(&[
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    degrees: 3.12,
+                    reflectivity: fixture::Gate::Reading(50.0),
+                    ..fixture::Cut::default()
+                },
+            ),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 4.26,
+                    reflectivity: fixture::Gate::Reading(55.0),
+                    ..fixture::Cut::default()
+                },
+            ),
+        ]);
+
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let none = |_: u8| None;
+        for (tilt, degrees) in [(0usize, 3.12f32), (1, 4.26)] {
+            let sweep = sweep_over(
+                "KTLX",
+                "live",
+                &older,
+                &none,
+                &live,
+                &none,
+                SweepRequest { tilt_index: tilt, ..asked },
+            )
+            .expect("both volumes hold the cut");
+            assert!(
+                sweep.live,
+                "cut {tilt} drifted a quantisation step and lost its live sweep"
+            );
+            assert!((sweep.elevation_degrees - degrees).abs() < 0.01);
+        }
+
+        // And a cut a real tilt away is still a different cut.
+        let far = built_volume(&[fixture::flat_cut(
+            at,
+            fixture::Cut { degrees: 4.30, ..fixture::Cut::default() },
+        )]);
+        let sweep = sweep_over("KTLX", "live", &older, &none, &far, &none, asked)
+            .expect("the finished volume answers");
+        assert!(
+            !sweep.live,
+            "the live volume has nothing at 3.08 and must not offer its 4.30 cut"
+        );
     }
 
     #[test]
@@ -3145,7 +3288,7 @@ mod tests {
         // The finished volume reads 20 dBZ everywhere. The volume in progress
         // has reached the north-east quarter only, and reads 50 there.
         let older = built_volume(&[fixture::flat_cut(at, fixture::Cut::default())]);
-        let live = built_volume(&[sector(0.0, 90.0, 50.0, at)]);
+        let live = built_volume(&[sector(0.0, 90.0, fixture::Gate::Reading(50.0), at)]);
 
         let asked = SweepRequest {
             product_name: "reflectivity",
@@ -3163,6 +3306,31 @@ mod tests {
         let live_only =
             sweep_from_scan("KTLX", "live", &live, &none, asked).expect("the sweep in progress");
         let live_pixels = drawn_pixels(&live_only);
+
+        // The whole of the swept quarter, not a sample of it. Sampling three
+        // bearings hid a picture striped with the volume underneath: each
+        // radial was being given a wedge narrower than the gap to the next
+        // one, so 29 per cent of the sector kept the old sweep, and all three
+        // samples happened to land on a radial.
+        let mut new_sweep = 0usize;
+        let mut old_sweep = 0usize;
+        let mut neither = 0usize;
+        for tenth in 0..900 {
+            let bearing = tenth as f64 / 10.0;
+            let here = pixel_at(&sweep, &both, bearing, 30.0);
+            if here == pixel_at(&live_only, &live_pixels, bearing, 30.0) {
+                new_sweep += 1;
+            } else if here == pixel_at(&older_only, &older_pixels, bearing, 30.0) {
+                old_sweep += 1;
+            } else {
+                neither += 1;
+            }
+        }
+        assert_eq!(
+            (old_sweep, neither),
+            (0, 0),
+            "{new_sweep} of 900 bearings across the swept quarter took the new              sweep, {old_sweep} kept the old one and {neither} took neither"
+        );
 
         // Inside the swept quarter the new reading shows; outside it the old
         // one does. Both are checked at the same distance, so the only thing
@@ -3202,11 +3370,11 @@ mod tests {
         let older = built_volume(&[fixture::flat_cut(
             at,
             fixture::Cut {
-                reflectivity_dbz: 55.0,
+                reflectivity: fixture::Gate::Reading(55.0),
                 ..fixture::Cut::default()
             },
         )]);
-        let live = built_volume(&[sector(0.0, 90.0, -30.0, at)]);
+        let live = built_volume(&[sector(0.0, 90.0, fixture::Gate::Nothing, at)]);
 
         let asked = SweepRequest {
             product_name: "reflectivity",
@@ -3241,13 +3409,13 @@ mod tests {
                 fixture::Cut {
                     number: 2,
                     degrees: 1.5,
-                    reflectivity_dbz: 35.0,
+                    reflectivity: fixture::Gate::Reading(35.0),
                     ..fixture::Cut::default()
                 },
             ),
         ]);
         // The radar is still on the lowest cut of the volume in progress.
-        let live = built_volume(&[sector(0.0, 90.0, 50.0, at)]);
+        let live = built_volume(&[sector(0.0, 90.0, fixture::Gate::Reading(50.0), at)]);
 
         let asked = SweepRequest {
             product_name: "reflectivity",
@@ -3278,7 +3446,7 @@ mod tests {
                 fixture::Cut {
                     number: 2,
                     degrees: 1.5,
-                    reflectivity_dbz: 35.0,
+                    reflectivity: fixture::Gate::Reading(35.0),
                     ..fixture::Cut::default()
                 },
             ),
@@ -3291,7 +3459,7 @@ mod tests {
             fixture::Cut {
                 number: 2,
                 degrees: 1.5,
-                reflectivity_dbz: 50.0,
+                reflectivity: fixture::Gate::Reading(50.0),
                 ..fixture::Cut::default()
             },
         )]);
@@ -3320,6 +3488,67 @@ mod tests {
             .expect("the finished volume's lowest cut");
         assert!(!sweep.live);
         assert!((sweep.elevation_degrees - 0.5).abs() < 0.05);
+    }
+
+    #[test]
+    fn a_sweep_that_was_changed_never_reports_itself_unchanged() {
+        // What the answer is for is the legend and the scale: the reader is
+        // being told whether what they are looking at is the radar's own
+        // reading. Answering that by hunting for a value past the limit, with
+        // slack for the arithmetic, left a hole exactly one interval wide: a
+        // gate the radar reported at 24.8 with a limit of 25 comes back at
+        // 25.2 once its fold is out, which the slack swallowed, so eighteen
+        // hundred rewritten gates were reported as no change and drawn on the
+        // narrow scale.
+        let nyquist = 25.0f32;
+        let azimuths: Vec<f32> = (0..180).map(|step| step as f32 * 2.0).collect();
+        let gates = 20usize;
+        let mut field = SweepField::new_empty(
+            "Velocity", "m/s", 0.5, azimuths, 2.0, 2.125, 0.25, gates,
+        );
+        // Half the sweep just under the limit one way, half just under it the
+        // other. The step between them is a whole interval, so it is a fold.
+        for azimuth in 0..180 {
+            for gate in 0..gates {
+                let value = if azimuth < 90 { 24.8 } else { -24.8 };
+                field.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        let before: Vec<f32> = field.values().to_vec();
+
+        let answered = unfold_velocity(&mut field, nyquist);
+        let changed = field
+            .values()
+            .iter()
+            .zip(&before)
+            .filter(|(now, was)| (**now - **was).abs() > 0.01)
+            .count();
+        assert!(changed > 0, "the sweep has to be changed for this to measure");
+        assert!(
+            answered,
+            "{changed} gates were rewritten and the sweep reported itself untouched"
+        );
+    }
+
+    #[test]
+    fn a_sweep_with_nothing_to_unfold_is_left_alone_and_says_so() {
+        // The other side of the same answer. A calm sweep must not be reported
+        // as unfolded, or the legend claims a change that was not made and the
+        // picture is drawn on a scale twice as wide as it needs.
+        let nyquist = 25.0f32;
+        let azimuths: Vec<f32> = (0..180).map(|step| step as f32 * 2.0).collect();
+        let gates = 20usize;
+        let mut field = SweepField::new_empty(
+            "Velocity", "m/s", 0.5, azimuths, 2.0, 2.125, 0.25, gates,
+        );
+        for azimuth in 0..180 {
+            for gate in 0..gates {
+                field.set(azimuth, gate, 3.0, GateStatus::Valid);
+            }
+        }
+        let before: Vec<f32> = field.values().to_vec();
+        assert!(!unfold_velocity(&mut field, nyquist));
+        assert_eq!(field.values(), before.as_slice());
     }
 
     #[test]
