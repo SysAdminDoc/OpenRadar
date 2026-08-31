@@ -309,4 +309,37 @@ describe("a settings file dropped back in", () => {
     expect(older.fromNewerBuild).toBe(false);
     expect(older.unread).toEqual([]);
   });
+
+  it("reports unknown keys nested inside closed settings records", () => {
+    const restored = restoreSettings({
+      ...DEFAULT_SETTINGS,
+      camera: { ...DEFAULT_SETTINGS.camera, terrainLock: true },
+      radar: {
+        ...DEFAULT_SETTINGS.radar,
+        nextSweepMode: "adaptive",
+        stormMotion: { speedMs: 12, fromDegrees: 90, gustBias: 4 },
+      },
+      layers: { ...DEFAULT_SETTINGS.layers, experimentalLayer: true },
+      watch: { ...DEFAULT_SETTINGS.watch, notifyByEmail: true },
+      presets: [
+        {
+          name: "Home",
+          camera: { ...DEFAULT_SETTINGS.camera, followTerrain: true },
+          projection: "mercator",
+          mapStyle: "dark",
+          pinned: true,
+        },
+      ],
+    });
+
+    expect(restored.unread).toEqual([
+      "camera.terrainLock",
+      "layers.experimentalLayer",
+      "presets.0.camera.followTerrain",
+      "presets.0.pinned",
+      "radar.nextSweepMode",
+      "radar.stormMotion.gustBias",
+      "watch.notifyByEmail",
+    ]);
+  });
 });

@@ -453,12 +453,69 @@ export function restoreSettings(value: unknown): RestoredSettings {
       : {};
   const version = raw.schemaVersion;
   const known = new Set(Object.keys(DEFAULT_SETTINGS));
+  const unread = Object.keys(raw)
+    .filter((key) => !known.has(key))
+    .sort();
+  const nested = (
+    candidate: unknown,
+    expected: readonly string[],
+    prefix: string,
+  ) => {
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      Array.isArray(candidate)
+    ) {
+      return;
+    }
+    const keys = new Set(expected);
+    unread.push(
+      ...Object.keys(candidate as Record<string, unknown>)
+        .filter((key) => !keys.has(key))
+        .map((key) => `${prefix}.${key}`),
+    );
+  };
+
+  nested(raw.camera, Object.keys(DEFAULT_SETTINGS.camera), "camera");
+  nested(raw.radar, Object.keys(DEFAULT_SETTINGS.radar), "radar");
+  nested(raw.layers, Object.keys(DEFAULT_SETTINGS.layers), "layers");
+  nested(raw.watch, Object.keys(DEFAULT_SETTINGS.watch), "watch");
+  const radar = raw.radar as Record<string, unknown> | undefined;
+  nested(radar?.stormMotion, ["speedMs", "fromDegrees"], "radar.stormMotion");
+  nested(
+    raw.palette,
+    ["name", "product", "units", "step", "stops", "rangeFolded", "skipped"],
+    "palette",
+  );
+  const palette = raw.palette as Record<string, unknown> | undefined;
+  if (Array.isArray(palette?.stops)) {
+    palette.stops.forEach((stop, index) =>
+      nested(
+        stop,
+        ["value", "color", "solid", "toColor"],
+        `palette.stops.${index}`,
+      ),
+    );
+  }
+  if (Array.isArray(raw.presets)) {
+    raw.presets.forEach((preset, index) => {
+      nested(
+        preset,
+        ["name", "camera", "projection", "mapStyle"],
+        `presets.${index}`,
+      );
+      const record = preset as Record<string, unknown> | null;
+      nested(
+        record?.camera,
+        Object.keys(DEFAULT_SETTINGS.camera),
+        `presets.${index}.camera`,
+      );
+    });
+  }
   return {
     settings,
     fromNewerBuild: typeof version === "number" && version > SCHEMA_VERSION,
-    unread: Object.keys(raw)
-      .filter((key) => !known.has(key))
-      .sort(),
+    unread: [...new Set(unread)].sort(),
   };
 }
 

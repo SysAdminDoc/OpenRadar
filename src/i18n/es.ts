@@ -704,6 +704,7 @@ export const es: Catalogue = {
   "toast.linkFailed": "No se pudo copiar el enlace del mapa",
   "toast.fileTooBig": "El archivo pesa más de 5 MB.",
   "toast.paletteEmpty": "Esa paleta no tiene colores que este mapa pueda usar.",
+  "toast.overlayEmpty": "Ese archivo GeoJSON no contiene elementos.",
   "toast.paletteApplied": "{name} aplicada",
   "toast.remove": "Quitar",
   "toast.colours": "{count} colores",
