@@ -129,16 +129,16 @@ export function RadarProductPanel({
     >
       <button
         type="button"
-        className="product-option is-active"
-        aria-pressed="true"
-        onClick={() => onRadar({ ...radar, enabled: true })}
+        className={`product-option${!radar.singleSite ? " is-active" : ""}`}
+        aria-pressed={!radar.singleSite}
+        onClick={() => onRadar({ ...radar, enabled: true, singleSite: false })}
       >
         <CloudRain size={21} />
         <span>
           <strong>{t("radar.composite")}</strong>
           <small>{t("radar.compositeDetail")}</small>
         </span>
-        <Check size={17} />
+        {!radar.singleSite ? <Check size={17} /> : null}
       </button>
       <div className="product-metrics">
         <div>
@@ -495,7 +495,7 @@ export function RadarProductPanel({
             <span>{t("cells.eyebrow")}</span>
             <small>
               {stormCells.report
-                ? t("radar.minutes", {
+                ? t("cells.count", {
                     count: stormCells.report.cells.length,
                   })
                 : t("cells.reading")}

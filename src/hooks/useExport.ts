@@ -107,6 +107,8 @@ export function useExport(options: {
       void (async () => {
         const canvas = mapRef.current?.canvas();
         if (!canvas || frames.length < 2) return;
+        const originalFrame = frameIndex;
+        const wasPlaying = timeline.playing;
         setBusy(busyAs);
         timeline.setPlaying(false);
         try {
@@ -136,12 +138,26 @@ export function useExport(options: {
                 : translate("export.nothingWritten"),
           });
         } finally {
+          timeline.selectFrame(originalFrame);
+          try {
+            await mapRef.current?.onceIdle();
+          } finally {
+            timeline.setPlaying(wasPlaying);
+          }
           setBusy(null);
           setProgress(null);
         }
       })();
     },
-    [captionFor, finish, frames.length, mapRef, pushToast, timeline],
+    [
+      captionFor,
+      finish,
+      frameIndex,
+      frames.length,
+      mapRef,
+      pushToast,
+      timeline,
+    ],
   );
 
   const exportLoopVideo = useCallback(

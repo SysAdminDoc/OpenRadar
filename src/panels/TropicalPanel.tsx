@@ -1,4 +1,4 @@
-import { ExternalLink, Navigation, Tornado } from "lucide-react";
+import { ExternalLink, LoaderCircle, Navigation, Tornado } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
 import { relativeTime, stormCategory, type OverlayData } from "../lib/overlays";
@@ -29,6 +29,7 @@ export function TropicalPanel({
   const outlooks = products.features.filter(
     (feature) => feature.properties.kind === "outlook",
   );
+  const loading = layerOn && fetchedAt === null && error === null;
 
   return (
     <PanelShell
@@ -51,6 +52,13 @@ export function TropicalPanel({
               {t("tropical.turnOn")}
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div className="panel-loading">
+          <LoaderCircle className="spin" size={22} />
+          <span>{t("tropical.noteLoading")}</span>
         </div>
       ) : null}
 
@@ -103,7 +111,7 @@ export function TropicalPanel({
         </div>
       ) : null}
 
-      {layerOn && !storms.length ? (
+      {layerOn && !loading && !error && !storms.length ? (
         <div className="feature-card">
           <Tornado size={24} />
           <div>

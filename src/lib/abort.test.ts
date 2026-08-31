@@ -6,7 +6,7 @@ import { fetchForecast, searchPlaces } from "./weather";
 import { fetchHrrrRun } from "./providers/hrrr";
 import { rainviewerProvider } from "./providers/rainviewer";
 import { ridgeProvider } from "./providers/ridge";
-import { alertsOverlay } from "./overlays/alerts";
+import { alertsOverlay, resetAlertTags } from "./overlays/alerts";
 import { earthquakesOverlay } from "./overlays/earthquakes";
 import { tropicalOverlay } from "./overlays/tropical";
 import { wildfiresOverlay } from "./overlays/wildfires";
@@ -56,6 +56,8 @@ function hangingFetch(): typeof globalThis.fetch {
 const CALLS: Array<{
   name: string;
   call: (signal: AbortSignal) => Promise<unknown>;
+  /** A countrywide singleton read is shared across callers and is not theirs to abort. */
+  allowsSharedFetch?: boolean;
 }> = [
   {
     name: "guidance",
@@ -98,6 +100,7 @@ const CALLS: Array<{
   {
     name: "alerts overlay",
     call: (signal) => alertsOverlay.fetchData(bounds, signal),
+    allowsSharedFetch: true,
   },
   {
     name: "earthquakes overlay",
@@ -114,11 +117,12 @@ const CALLS: Array<{
 ];
 
 afterEach(() => {
+  resetAlertTags();
   vi.unstubAllGlobals();
 });
 
 describe("a request nobody is waiting for is cancelled", () => {
-  for (const { name, call } of CALLS) {
+  for (const { name, call, allowsSharedFetch } of CALLS) {
     it(`${name} hands the caller's signal to fetch`, async () => {
       const stub = hangingFetch();
       vi.stubGlobal("fetch", stub);
@@ -136,12 +140,21 @@ describe("a request nobody is waiting for is cancelled", () => {
       // otherwise go unnoticed.
       const calls = (stub as unknown as { mock: { calls: unknown[][] } }).mock
         .calls;
+      let bound = 0;
       for (const [at, call] of calls.entries()) {
         const init = call[1] as { signal?: AbortSignal } | undefined;
+        if (allowsSharedFetch && !init?.signal) continue;
         expect(
           init?.signal,
           `${name} dropped the signal on request ${at}`,
         ).toBe(controller.signal);
+        bound += 1;
+      }
+      if (!allowsSharedFetch) {
+        expect(
+          bound,
+          `${name} made no request tied to its caller`,
+        ).toBeGreaterThan(0);
       }
       controller.abort();
       await expect(pending).rejects.toThrow();
@@ -165,6 +178,31 @@ describe("a request nobody is waiting for is cancelled", () => {
       ).toBe(true);
     });
   }
+
+  it("alerts ties the bounds-limited polygon read to its caller", async () => {
+    const wait = hangingFetch();
+    const stub = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ type: "FeatureCollection", features: [] }),
+          {
+            status: 200,
+            headers: { "content-type": "application/geo+json" },
+          },
+        ),
+      )
+      .mockImplementation(wait);
+    vi.stubGlobal("fetch", stub);
+    const controller = new AbortController();
+    const pending = alertsOverlay.fetchData(bounds, controller.signal);
+    await flush(12);
+
+    expect(stub).toHaveBeenCalledTimes(2);
+    expect(stub.mock.calls[1][1]?.signal).toBe(controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
 });
 
 describe("cancelling does not blame the provider", () => {

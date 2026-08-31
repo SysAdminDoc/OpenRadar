@@ -34,6 +34,55 @@ const PRODUCTS = [
       [70, "#f43f5e"],
     ],
   },
+  {
+    id: "hail-swath",
+    label: "Hail swath",
+    unit: "mm",
+    floor: 6,
+    stops: [[6, "#38bdf8"]],
+  },
+  {
+    id: "lightning",
+    label: "Lightning density",
+    unit: "count",
+    floor: 1,
+    stops: [[1, "#facc15"]],
+  },
+  {
+    id: "echo-tops",
+    label: "Echo tops",
+    unit: "kft",
+    floor: 5,
+    stops: [[5, "#38bdf8"]],
+  },
+  {
+    id: "vil",
+    label: "Liquid held aloft",
+    unit: "kg/m²",
+    floor: 1,
+    stops: [[1, "#38bdf8"]],
+  },
+  {
+    id: "precip-rate",
+    label: "Rain rate",
+    unit: "mm/h",
+    floor: 0.1,
+    stops: [[0.1, "#38bdf8"]],
+  },
+  {
+    id: "qpe-hour",
+    label: "Rain, past hour",
+    unit: "mm",
+    floor: 0.1,
+    stops: [[0.1, "#38bdf8"]],
+  },
+  {
+    id: "qpe-day",
+    label: "Rain, past day",
+    unit: "mm",
+    floor: 0.1,
+    stops: [[0.1, "#38bdf8"]],
+  },
 ];
 
 /**
@@ -152,4 +201,52 @@ test("draws rotation tracks and hail with their own scales", async ({
   await page.getByRole("checkbox", { name: /Rotation Tracks/ }).uncheck();
   await expect(pane).not.toHaveAttribute("data-layer-stack", /mrms-rotation/);
   await expect(pane).toHaveAttribute("data-layer-stack", /mrms-mesh/);
+});
+
+test("keeps a full stack of product legends inside the scaled viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 720 });
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "130%", exact: true }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  for (const label of [
+    "Rotation Tracks",
+    "Hail Size",
+    "Hail Swath",
+    "Lightning Density",
+    "Echo Tops",
+    "Liquid Held Aloft",
+    "Rain Rate",
+    "Rain, Past Hour",
+    "Rain, Past Day",
+  ]) {
+    await page
+      .locator(".setting-list")
+      .getByRole("checkbox", { name: new RegExp(label) })
+      .check();
+  }
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const legends = page.locator(".product-legends");
+  await expect(legends.locator(".product-legend")).toHaveCount(9);
+  const box = await legends.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      top: bounds.top,
+      bottom: bounds.bottom,
+      viewport: window.innerHeight,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+    };
+  });
+  expect(box.top).toBeGreaterThanOrEqual(0);
+  expect(box.bottom).toBeLessThanOrEqual(box.viewport);
+  expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
 });

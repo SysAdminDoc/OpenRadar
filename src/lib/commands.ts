@@ -56,6 +56,18 @@ const LAYER_COMMANDS: Array<{
     keywords: ["lsr", "report", "hail", "damage", "spotter", "ground truth"],
   },
   {
+    layer: "stormCells",
+    key: "layer.stormCells",
+    extra: "keywords.stormCells",
+    keywords: ["cell", "track", "motion", "arrival", "radar"],
+  },
+  {
+    layer: "probSevere",
+    key: "layer.probSevere",
+    extra: "keywords.probSevere",
+    keywords: ["probsevere", "probability", "hail", "wind", "tornado"],
+  },
+  {
     layer: "earthquakes",
     key: "layer.earthquakes",
     extra: "keywords.earthquakes",
@@ -148,6 +160,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["lightning", "glm", "flash", "total", "satellite", "strike"],
   },
   {
+    layer: "wind",
+    key: "layers.wind",
+    extra: "keywords.windLayer",
+    keywords: ["wind", "gfs", "particles", "speed", "direction"],
+  },
+  {
     layer: "surge",
     key: "layer.surge",
     extra: "keywords.surge",
@@ -232,6 +250,12 @@ const SURFACE_COMMANDS: Array<{
     key: "panel.layers",
     extra: "keywords.layers",
     keywords: ["overlay", "switches", "show", "hide"],
+  },
+  {
+    surface: "radar-product",
+    key: "panel.radarProducts",
+    extra: "keywords.radarProducts",
+    keywords: ["radar", "product", "composite", "level 2", "mosaic"],
   },
   {
     surface: "map-type",

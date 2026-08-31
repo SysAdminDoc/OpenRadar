@@ -70,6 +70,11 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       setError(null);
       setCanEstimate(false);
       setEstimated(false);
+      setConditions(null);
+      setSummary(null);
+      onRouteRef.current(null);
+
+      let routerFailed = false;
 
       try {
         const [start, end] = await Promise.all([
@@ -82,9 +87,17 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
           throw new Error(translate("route.placeMissing"));
         }
 
-        const route = straight
-          ? straightRoute(origin, destination)
-          : await fetchRoute(origin, destination, controller.signal);
+        let route;
+        if (straight) {
+          route = straightRoute(origin, destination);
+        } else {
+          try {
+            route = await fetchRoute(origin, destination, controller.signal);
+          } catch (failure) {
+            routerFailed = true;
+            throw failure;
+          }
+        }
         const samples = sampleRoute(route);
         const departAt = new Date(departure).getTime();
         const forecast = await fetchRouteForecast(
@@ -112,7 +125,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
         setStatus("failed");
         // A router that refused is not the end of the question: the weather along
         // the way does not depend on which road it is.
-        setCanEstimate(!straight);
+        setCanEstimate(routerFailed && !straight);
         setError(
           failure instanceof Error
             ? failure.message

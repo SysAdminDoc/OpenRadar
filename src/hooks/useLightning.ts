@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
 
@@ -131,22 +131,46 @@ export function useLightning(options: {
   const { ready, enabled, pageVisible, clock } = options;
   const [window_, setWindow] = useState<FlashWindow | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Interval ticks and visibility changes share one native read. The command
+  // cannot be aborted, so starting another one would let its older answer land
+  // after the newer window.
+  const inFlightRef = useRef<Promise<FlashWindow> | null>(null);
 
   const wanted = ready && enabled && lightningAvailable();
 
   useEffect(() => {
     if (!wanted) return;
     let open = true;
+    let requestGeneration = 0;
+
+    const loadWindow = () => {
+      let pending = inFlightRef.current;
+      if (!pending) {
+        pending = import("@tauri-apps/api/core").then(({ invoke }) =>
+          invoke<FlashWindow>("lightning_flashes"),
+        );
+        inFlightRef.current = pending;
+        void pending.then(
+          () => {
+            if (inFlightRef.current === pending) inFlightRef.current = null;
+          },
+          () => {
+            if (inFlightRef.current === pending) inFlightRef.current = null;
+          },
+        );
+      }
+      return pending;
+    };
 
     const refresh = async () => {
+      const request = ++requestGeneration;
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const next = await invoke<FlashWindow>("lightning_flashes");
-        if (!open) return;
+        const next = await loadWindow();
+        if (!open || request !== requestGeneration) return;
         setWindow(next);
         setError(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!open || request !== requestGeneration) return;
         const message =
           typeof failure === "string"
             ? failure
@@ -165,11 +189,13 @@ export function useLightning(options: {
     if (!pageVisible) {
       return () => {
         open = false;
+        requestGeneration += 1;
       };
     }
     const timer = globalThis.setInterval(() => void refresh(), REFRESH_MS);
     return () => {
       open = false;
+      requestGeneration += 1;
       globalThis.clearInterval(timer);
     };
   }, [pageVisible, wanted]);

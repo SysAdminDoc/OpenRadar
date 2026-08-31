@@ -122,8 +122,7 @@ async function alertTagsReady(
         new Promise<Map<string, AlertTags>>((_, reject) => {
           onAbort = () =>
             reject(
-              signal.reason ??
-                new DOMException("The operation was aborted.", "AbortError"),
+              new DOMException("The operation was aborted.", "AbortError"),
             );
           if (signal.aborted) onAbort();
           else signal.addEventListener("abort", onAbort, { once: true });

@@ -264,4 +264,19 @@ test("lays out for the room it has rather than the room the screen has", async (
   expect(room.effective).toBeLessThan(1320);
   expect(room.narrow.split(" ")).toContain("1320");
   await expect(label.first()).toBeHidden();
+
+  // Whether this width uses the normal bar or the compact one, the route to
+  // every panel and product must stay on screen. Hidden controls have a zero
+  // box and the reachability helper above deliberately skips them.
+  const commands = page.locator(
+    '.command-bar button[aria-label="Commands"]:visible',
+  );
+  await expect(commands).toHaveCount(1);
+  await commands.click();
+  const radarProducts = page.locator('[data-command="surface:radar-product"]');
+  await expect(radarProducts).toBeVisible();
+  await radarProducts.click();
+  await expect(
+    page.getByRole("heading", { name: "Composite Radar" }),
+  ).toBeVisible();
 });

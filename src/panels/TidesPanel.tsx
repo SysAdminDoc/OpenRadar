@@ -56,6 +56,9 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
     inFlightRef.current?.abort();
     const controller = new AbortController();
     inFlightRef.current = controller;
+    setReading(null);
+    setError(null);
+    setTooFar(false);
     setLoading(true);
 
     void loadStations()
@@ -87,6 +90,8 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
           return;
         // Let the next move try again rather than sitting on the failure.
         requestedRef.current = null;
+        setReading(null);
+        setTooFar(false);
         setLoading(false);
         setError(
           reason instanceof Error ? reason.message : translate("tides.unknown"),

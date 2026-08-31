@@ -175,6 +175,13 @@ export function RadarTimeline({
         value={Math.min(frameIndex, Math.max(0, frames.length - 1))}
         disabled={!frames.length}
         aria-label={t("timeline.frame")}
+        aria-valuetext={
+          frame
+            ? forecast
+              ? t("timeline.forecastAt", { time: formatFrameTime(frame) })
+              : formatFrameTime(frame)
+            : t("timeline.connecting")
+        }
         onChange={(event) => onFrameIndex(Number(event.target.value))}
       />
     </div>

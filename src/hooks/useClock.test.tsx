@@ -1,6 +1,11 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useMinuteClock, useSecondClock } from "./useClock";
+import {
+  cameraMotion,
+  reducedMotionRequested,
+  useMinuteClock,
+  useSecondClock,
+} from "./useClock";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -9,6 +14,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("the clock the live legend counts on", () => {
@@ -67,5 +73,25 @@ describe("the clock the live legend counts on", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(result.current).toBeGreaterThan(first);
+  });
+});
+
+describe("the current motion preference", () => {
+  it("is read when an action starts rather than cached at startup", () => {
+    let reduce = true;
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation(() => ({
+        matches: reduce,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    expect(reducedMotionRequested()).toBe(true);
+    expect(cameraMotion(850)).toEqual({ duration: 0, essential: false });
+    reduce = false;
+    expect(reducedMotionRequested()).toBe(false);
+    expect(cameraMotion(850)).toEqual({ duration: 850, essential: false });
   });
 });

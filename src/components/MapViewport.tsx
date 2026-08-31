@@ -56,6 +56,7 @@ import {
 import { translate } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
+import { cameraMotion } from "../hooks/useClock";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -1365,18 +1366,22 @@ function MapViewportInner(
           [bounds.west, bounds.south],
           [east, bounds.north],
         ],
-        { padding: 80, maxZoom: 9, duration: 900 },
+        {
+          padding: 80,
+          maxZoom: 9,
+          ...cameraMotion(900),
+        },
       );
     },
-    flyTo: (nextCamera) =>
+    flyTo: (nextCamera) => {
       mapRef.current?.flyTo({
         center: nextCamera.center,
         zoom: nextCamera.zoom,
         bearing: nextCamera.bearing,
         pitch: nextCamera.pitch,
-        duration: 850,
-        essential: true,
-      }),
+        ...cameraMotion(850),
+      });
+    },
     clearTools: () => {
       drawPointsRef.current = [];
       rangeStartRef.current = null;
@@ -1490,6 +1495,25 @@ function MapViewportInner(
       onCursorChange?.({ lon: event.lngLat.lng, lat: event.lngLat.lat }),
     );
     map.on("mouseout", () => onCursorChange?.(null));
+    const canvas = map.getCanvas();
+    const onCanvasKeyDown = (event: KeyboardEvent) => {
+      if (
+        !toolModeRef.current ||
+        (event.key !== "Enter" && event.key !== " ")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      const bounds = canvas.getBoundingClientRect();
+      canvas.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          clientX: bounds.left + bounds.width / 2,
+          clientY: bounds.top + bounds.height / 2,
+        }),
+      );
+    };
+    canvas.addEventListener("keydown", onCanvasKeyDown);
     map.on("click", (event) => {
       const point = { lon: event.lngLat.lng, lat: event.lngLat.lat };
       if (!toolModeRef.current) {
@@ -1565,6 +1589,7 @@ function MapViewportInner(
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      canvas.removeEventListener("keydown", onCanvasKeyDown);
       resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;

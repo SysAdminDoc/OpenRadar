@@ -13,7 +13,7 @@ import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
-import { translate, useT, type StringKey } from "../i18n";
+import { locale, translate, useT, type StringKey } from "../i18n";
 import { useMeasurements } from "../lib/units";
 
 /** Past this the loop is old enough that the timeline should say so. */
@@ -155,10 +155,11 @@ export function WorkspaceChrome({
       ) : null}
 
       {activeTool ? (
-        <div className="tool-hud">
+        <div className="tool-hud" role="status" aria-live="polite">
           <span>
             <strong>{t(TOOL_LABELS[activeTool])}</strong>
             {toolResult ? toolResult() : null}
+            <small>{t("chrome.toolKeyboard")}</small>
           </span>
           <button type="button" onClick={onClearTools}>
             <Trash2 size={15} /> {t("chrome.toolClear")}
@@ -230,7 +231,9 @@ export function WorkspaceChrome({
                 </li>
                 <li>
                   {t("chrome.flashCount", {
-                    count: lightning.flashes.length.toLocaleString(),
+                    count: lightning.flashes.length.toLocaleString(
+                      locale(settings.language),
+                    ),
                     more: lightning.trimmed ? "+" : "",
                     satellite: lightning.satellite,
                   })}

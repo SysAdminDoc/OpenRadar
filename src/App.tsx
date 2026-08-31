@@ -55,13 +55,14 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
-import { translate } from "./i18n";
+import { translate, useT } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { useStormCells } from "./hooks/useStormCells";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
 export default function App() {
+  const t = useT();
   const [activeSurface, setActiveSurface] = useState<SurfaceId>(null);
   const [productOpen, setProductOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolMode>(null);
@@ -199,7 +200,13 @@ export default function App() {
   });
   const { frames, frameIndex, source } = timeline;
   const activeFrame = frames[frameIndex];
-  const compareFrame = frames[Math.max(0, frameIndex - compareOffset)];
+  // A comparison that asks for more history than exists is left empty. Using
+  // the first frame while labelling it "12 back" gave a precise label to a
+  // different moment.
+  const compareFrame =
+    frameIndex >= compareOffset
+      ? frames[frameIndex - compareOffset]
+      : undefined;
 
   // The satellite image that stands for a frame, held back to the newest slot
   // the archive has actually published.
@@ -402,6 +409,11 @@ export default function App() {
           setProductOpen(true);
           break;
         case "surface":
+          if (action.surface === "radar-product") {
+            setActiveSurface(null);
+            setProductOpen(true);
+            return;
+          }
           setProductOpen(false);
           // The panel it asks for takes the palette's place, so this must not
           // fall through to the close below.
@@ -435,7 +447,7 @@ export default function App() {
           <Radar size={34} />
         </div>
         <p className="eyebrow">OpenRadar</p>
-        <h1>Preparing the map</h1>
+        <h1>{t("app.preparing")}</h1>
         <LoaderCircle className="spin" size={20} />
       </main>
     );
@@ -483,7 +495,28 @@ export default function App() {
       />
 
       <PanelSurfaces
-        layerNotes={{ probSevere: probSevere.error }}
+        layerNotes={{
+          weatherAlerts: overlays.states.alerts.error,
+          spcOutlooks: overlays.states.spcOutlooks.error,
+          spcDiscussions: overlays.states.spcDiscussions.error,
+          stormReports: overlays.states.stormReports.error,
+          stormCells: stormCells.error,
+          probSevere: probSevere.error,
+          earthquakes: overlays.states.earthquakes.error,
+          wildfires: overlays.states.wildfires.error,
+          tropical: overlays.states.tropical.error,
+          rotationTracks: mrms.error,
+          hail: mrms.error,
+          hailSwath: mrms.error,
+          echoTops: mrms.error,
+          vil: mrms.error,
+          precipRate: mrms.error,
+          qpeHour: mrms.error,
+          qpeDay: mrms.error,
+          lightningDensity: mrms.error,
+          lightningFlashes: lightning.error,
+          wind: wind.error,
+        }}
         activeSurface={activeSurface}
         productOpen={productOpen}
         settings={settings}

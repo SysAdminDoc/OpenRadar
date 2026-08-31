@@ -7,6 +7,7 @@ import { watchAlertBody } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";
 import { alertsOfKind } from "../lib/overlays/alerts";
+import { translate } from "../i18n";
 
 export interface WorkspaceOverlays {
   /** Fetch state per layer, including the ones that are switched off. */
@@ -68,7 +69,7 @@ export function useWorkspaceOverlays(options: {
     pushToast({
       title: alert.headline,
       detail: watchAlertBody(alert),
-      actionLabel: "Show",
+      actionLabel: translate("toast.show"),
       onAction: () => setActiveSurface("alerts"),
     }),
   );
