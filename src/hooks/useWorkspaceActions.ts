@@ -40,6 +40,7 @@ import {
   MAX_WORKSPACE_OVERLAY_FEATURES,
   MAX_WORKSPACE_OVERLAY_FILES,
   overlayFileId,
+  overlayShapeCount,
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
 
@@ -479,14 +480,15 @@ export function useWorkspaceActions(options: {
             }
             throw new Error(translate("toast.notGeoJson"));
           }
-          const features = payload.features;
-          if (
-            payload.type === "FeatureCollection" &&
-            (!Array.isArray(features) ||
-              features.length > MAX_WORKSPACE_OVERLAY_FEATURES)
-          ) {
-            throw new Error(translate("toast.tooManyFeatures"));
-          }
+        }
+
+        // Both formats end up as one collection, so the ceiling belongs here
+        // rather than in each branch. It used to sit in the GeoJSON branch
+        // only, and a placefile past it imported and drew and then disappeared
+        // the first time a workspace backup was restored, because restore runs
+        // the same check the import had skipped.
+        if (overlayShapeCount(payload) > MAX_WORKSPACE_OVERLAY_FEATURES) {
+          throw new Error(translate("toast.tooManyFeatures"));
         }
 
         const added = addOverlayFile(overlayFiles, file.name, payload);
@@ -497,7 +499,16 @@ export function useWorkspaceActions(options: {
             }),
           );
         }
-        setOverlayFiles(added.files);
+        // From the set as it stands, not the one this import read at the top:
+        // reading a file is asynchronous, and a second import started while
+        // the first was still reading would otherwise be computed from the
+        // same base array and silently drop it. The check above still runs on
+        // the older array, so in the one case where both races AND the set
+        // fills in between, the toast says added and nothing was.
+        setOverlayFiles((held) => {
+          const again = addOverlayFile(held, file.name, payload);
+          return again.ok ? again.files : held;
+        });
         applySettings({
           ...settingsRef.current,
           layers: { ...settingsRef.current.layers, customOverlay: true },

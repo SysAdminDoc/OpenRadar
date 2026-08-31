@@ -61,6 +61,14 @@ export interface RadarTimelineState {
   cached: boolean;
   /** How old the served bytes were, in seconds, or null for a live fetch. */
   cachedAgeSeconds: number | null;
+  /**
+   * When these frames reached this machine, in milliseconds.
+   *
+   * Not the moment somebody asks about them. A provenance record that used
+   * the time of the question said every picture had arrived just now, which
+   * made staleness unmeasurable and an offline export look live.
+   */
+  fetchedAt: number;
   /** The newest observation, which is what staleness is measured against. */
   newestObserved: RadarFrame | undefined;
   setPlaying: (playing: boolean) => void;
@@ -172,6 +180,7 @@ export function useRadarTimeline(options: {
   // came off the disk" and "the picture is forty minutes old" are different
   // things to tell somebody, and the second is the one they asked about.
   const [cachedAgeSeconds, setCachedAgeSeconds] = useState<number | null>(null);
+  const [fetchedAt, setFetchedAt] = useState(() => Date.now());
   const servedFromCache = cachedAgeSeconds !== null;
   const refreshRef = useRef<(() => void) | null>(null);
   const wasOfflineRef = useRef(false);
@@ -276,6 +285,7 @@ export function useRadarTimeline(options: {
         setError(null);
         setLastRefreshFailed(false);
         setCachedAgeSeconds(timeline.cachedAgeSeconds);
+        setFetchedAt(Date.now());
         setObserved(timeline.frames);
         // A refresh only ever decides where the live loop should sit. While a
         // replay is up it must leave the playhead alone: writing to the live
@@ -442,6 +452,7 @@ export function useRadarTimeline(options: {
       error,
       cached,
       cachedAgeSeconds,
+      fetchedAt,
       newestObserved,
       setPlaying,
       selectFrame: (index: number) => {
@@ -455,6 +466,7 @@ export function useRadarTimeline(options: {
       attribution,
       cached,
       cachedAgeSeconds,
+      fetchedAt,
       error,
       frameIndex,
       frames,

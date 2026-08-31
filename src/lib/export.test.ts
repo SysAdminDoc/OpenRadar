@@ -3,6 +3,7 @@ import {
   exportFileName,
   exportLoop,
   exportLoopGif,
+  exportStill,
   MAX_GIF_FRAMES,
 } from "./export";
 
@@ -237,6 +238,7 @@ function stubRecorder() {
 
 describe("exporting a loop as a WebM", () => {
   const original = document.createElement;
+  const CAPTION = { lines: ["x"], attribution: "OpenRadar" };
 
   /** The offscreen canvas the export made for itself on the last run. */
   let made = fakeCanvas(320, 180);
@@ -326,10 +328,32 @@ describe("exporting a loop as a WebM", () => {
     } finally {
       encoder.restore();
     }
-    expect(made.canvas.width % 2).toBe(0);
-    expect(made.canvas.height % 2).toBe(0);
     expect(made.canvas.width).toBe(642);
     expect(made.canvas.height).toBe(362);
+  });
+
+  it("leaves a still and a GIF at the size they actually are", async () => {
+    // The rule belongs to the encoder. A picture rounded up to an even side is
+    // stretched by a fraction of a per cent for nothing, because the caption
+    // is drawn by scaling the map to fill the canvas.
+    const source = fakeCanvas(641, 361);
+    await withCanvas(() => exportStill(source.canvas, CAPTION)).catch(() => {
+      // jsdom has no PNG encoder. The canvas was already sized by the time it
+      // was asked for one, which is the whole of what this checks.
+    });
+    expect(made.canvas.width).toBe(641);
+    expect(made.canvas.height).toBe(361);
+
+    await withCanvas(() =>
+      exportLoopGif({
+        source: source.canvas,
+        frameCount: 2,
+        showFrame: async () => {},
+        captionFor: () => CAPTION,
+      }),
+    );
+    expect(made.canvas.width).toBe(641);
+    expect(made.canvas.height).toBe(361);
   });
 
   it("records in real time and says so when there is no encoder", async () => {

@@ -65,7 +65,7 @@ import { diagnosticsBlock } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 import {
   overlayProvenance,
-  radarProvenance,
+  timelineProvenance,
   type Provenance,
 } from "./lib/provenance";
 import { LAYER_SOURCES, layerProvenance } from "./lib/layerProvenance";
@@ -392,29 +392,14 @@ export default function App() {
       // the reader cannot see would be describing a different picture from the
       // one they are writing about.
       const layers: Provenance[] = [];
-      const shown = timeline.frames[timeline.frameIndex];
-      if (shown) {
-        // How long a loop stays fresh is the gap between its own frames, which
-        // is what the provider publishes on. Two frames are needed to know it,
-        // and a single-frame loop simply does not say.
-        const step =
-          timeline.frames.length > 1
-            ? (timeline.frames[1].time - timeline.frames[0].time) * 1000
-            : null;
-        layers.push(
-          radarProvenance({
-            frame: shown,
-            provider: timeline.source,
-            fetchedAt: now,
-            // What the timeline already knew and the record was throwing away:
-            // whether these bytes came off the disk, and how old they were when
-            // they did. It is the first thing worth knowing about a picture that
-            // looks wrong.
-            cachedAgeSeconds: timeline.cachedAgeSeconds,
-            freshForMs: step && step > 0 ? step * 2 : null,
-          }),
-        );
-      }
+      const shown = timelineProvenance({
+        frames: timeline.frames,
+        frameIndex: timeline.frameIndex,
+        provider: timeline.source,
+        fetchedAt: timeline.fetchedAt,
+        cachedAgeSeconds: timeline.cachedAgeSeconds,
+      });
+      if (shown) layers.push(shown);
       for (const adapter of OVERLAY_ADAPTERS) {
         const state = overlays.states[adapter.id];
         if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;

@@ -23,6 +23,7 @@ const timeline: RadarTimelineState = {
   error: null,
   cached: false,
   cachedAgeSeconds: null,
+  fetchedAt: Date.parse("2026-08-31T18:00:00Z"),
   newestObserved: undefined,
   setPlaying: vi.fn(),
   selectFrame: vi.fn(),

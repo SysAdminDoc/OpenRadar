@@ -17,6 +17,9 @@ vi.mock("../lib/export", async (importOriginal) => {
 });
 vi.mock("../lib/saveFile", () => ({ saveFile }));
 
+/** When the frames on the timeline reached this machine. */
+const FETCHED_AT = Date.parse("2026-08-31T18:00:00Z");
+
 const frames: RadarFrame[] = [0, 1, 2].map((time) => ({
   providerId: "mrms",
   time,
@@ -46,6 +49,7 @@ describe("loop export workspace restoration", () => {
       error: null,
       cached: false,
       cachedAgeSeconds: null,
+      fetchedAt: FETCHED_AT,
       newestObserved: undefined,
       setPlaying,
       selectFrame,
@@ -95,6 +99,7 @@ describe("the record written beside the picture", () => {
     error: null,
     cached: false,
     cachedAgeSeconds: null,
+    fetchedAt: FETCHED_AT,
     newestObserved: undefined,
     setPlaying: vi.fn(),
     selectFrame: vi.fn(),
@@ -182,6 +187,35 @@ describe("the record written beside the picture", () => {
     expect(caption.attribution).not.toContain("NOAA");
     // And the tag itself never reaches the picture.
     expect(caption.attribution).not.toContain("<a ");
+  });
+
+  // The whole reason a record travels with a picture. An export made offline
+  // from a disk cache during an outage used to write nulls for both of these
+  // and stamp the moment of the export as the moment the bytes arrived, so
+  // every exported record said the picture was live.
+  it("says the bytes came off the disk, and how old they were", async () => {
+    const offline: RadarTimelineState = {
+      ...timeline,
+      cached: true,
+      cachedAgeSeconds: 3600,
+    };
+    const { result } = renderExport({ timeline: offline });
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{
+        cachedAgeSeconds: number | null;
+        freshForMs: number | null;
+        fetched: string;
+      }>;
+    };
+    const [record] = written.frames;
+    expect(record.cachedAgeSeconds).toBe(3600);
+    // The loop publishes on the gap between its own frames, which the three
+    // fixture frames put a second apart.
+    expect(record.freshForMs).toBe(2000);
+    expect(record.fetched).toBe("2026-08-31T18:00:00.000Z");
   });
 
   it("holds every frame a loop wrote, in timeline order", async () => {

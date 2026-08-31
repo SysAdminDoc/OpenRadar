@@ -157,6 +157,20 @@ describe("workspace backups", () => {
     expect(restored.settings.layers.customOverlay).toBe(false);
   });
 
+  it("does not care what id a file arrived with, only its name", () => {
+    // Everything else in an entry is validated and the id used to be taken
+    // verbatim, so a backup whose id did not match its own name restored a
+    // file that a later import of that same file could never find, and the
+    // set grew a second row with the same name on it.
+    const restored = restoreWorkspace({
+      type: "OpenRadarWorkspace",
+      backupVersion: WORKSPACE_BACKUP_VERSION,
+      settings: DEFAULT_SETTINGS,
+      overlayFiles: [{ ...overlayFile, id: "something-else-entirely" }],
+    });
+    expect(restored.overlayFiles[0].id).toBe("spotters.geojson");
+  });
+
   it("calls newer workspace parts a partial restore", () => {
     const restored = restoreWorkspace({
       type: "OpenRadarWorkspace",
