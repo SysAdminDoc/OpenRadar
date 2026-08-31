@@ -52,6 +52,17 @@ export interface RadarProvider {
      */
     center?: [number, number],
   ) => Promise<RadarFrame[]>;
+  /**
+   * Which of its own grids the provider would serve here, when it has more
+   * than one.
+   *
+   * Only one provider does, and its regions do not touch, so the chain that
+   * comes back for Honolulu and for Anchorage is the same chain and the key
+   * built from it was the same string. Nothing then refetched on the way from
+   * one to the other, and the map over Alaska went on asking for Hawaii's
+   * grid, which the tile server answers with nothing at all.
+   */
+  regionAt?: (lon: number, lat: number) => string | null;
 }
 
 export function covers(provider: RadarProvider, lon: number, lat: number) {

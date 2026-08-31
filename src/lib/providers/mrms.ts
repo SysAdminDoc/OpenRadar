@@ -188,6 +188,9 @@ export const mrmsProvider: RadarProvider & {
   host: MRMS_HOST,
   // Every region the network publishes.
   coverage: DOMAINS.map((domain) => domain.box),
+  // The five grids are published separately, at their own resolutions, so
+  // which one is being watched is part of what the timeline is a timeline of.
+  regionAt: (lon, lat) => domainFor([lon, lat])?.id ?? null,
   // Tiles are drawn locally, so the only budget that matters is the listing.
   tileBudgetLimit: 100_000,
   discoveryBudgetLimit: 30,
