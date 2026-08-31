@@ -642,13 +642,24 @@ test("saves the whole workspace to a file and puts it back", async ({
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Save settings to a file" }).click();
   const saved = await download;
-  expect(saved.suggestedFilename()).toBe("openradar-settings.json");
+  expect(saved.suggestedFilename()).toBe("openradar-workspace.json");
 
   const path = await saved.path();
   const text = await readFile(path, "utf8");
-  const parsed = JSON.parse(text) as { units: string; schemaVersion: number };
-  expect(parsed.units).toBe("metric");
-  expect(parsed.schemaVersion).toBe(2);
+  const parsed = JSON.parse(text) as {
+    type: string;
+    backupVersion: number;
+    settings: {
+      units: string;
+      schemaVersion: number;
+      radar: Record<string, unknown>;
+      textScale: number;
+    };
+    customOverlay: unknown;
+  };
+  expect(parsed.type).toBe("OpenRadarWorkspace");
+  expect(parsed.settings.units).toBe("metric");
+  expect(parsed.settings.schemaVersion).toBe(2);
 
   // Back to imperial, then restore the file and watch it return.
   await page.getByRole("button", { name: "Feet and Fahrenheit" }).click();
@@ -671,8 +682,11 @@ test("saves the whole workspace to a file and puts it back", async ({
     edited,
     JSON.stringify({
       ...parsed,
-      radar: { ...(parsed as Record<string, never>).radar, opacity: 40 },
-      textScale: 900,
+      settings: {
+        ...parsed.settings,
+        radar: { ...parsed.settings.radar, opacity: 40 },
+        textScale: 900,
+      },
     }),
   );
   await page.getByRole("button", { name: "Upload", exact: true }).click();
@@ -699,8 +713,11 @@ test("saves the whole workspace to a file and puts it back", async ({
     newer,
     JSON.stringify({
       ...parsed,
-      schemaVersion: 99,
-      soundscape: { alerts: true },
+      settings: {
+        ...parsed.settings,
+        schemaVersion: 99,
+        soundscape: { alerts: true },
+      },
     }),
   );
   await page.getByRole("button", { name: "Upload", exact: true }).click();
