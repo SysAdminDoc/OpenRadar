@@ -51,7 +51,7 @@ test("writes a still of the current view", async ({ page }) => {
 
 // The still test proves the caption is burned in; reading it back out of a
 // WebM would mean decoding video, so this covers the recording itself.
-test("records the loop as a WebM the size cap allows", async ({ page }) => {
+test("writes the loop as a WebM the size cap allows", async ({ page }) => {
   await page.getByRole("button", { name: "Export", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /Export loop \(3 frames\)/ }),
@@ -59,7 +59,6 @@ test("records the loop as a WebM the size cap allows", async ({ page }) => {
 
   const download = page.waitForEvent("download", { timeout: 60_000 });
   await page.getByRole("button", { name: /Export loop/ }).click();
-  await expect(page.getByText(/Recording frame/)).toBeVisible();
   const file = await download;
 
   expect(file.suggestedFilename()).toMatch(/^openradar-loop-.*\.webm$/);
@@ -70,6 +69,13 @@ test("records the loop as a WebM the size cap allows", async ({ page }) => {
   // The Matroska magic every WebM starts with, and well under the size cap.
   expect(bytes.subarray(0, 4).toString("hex")).toBe("1a45dfa3");
   expect(bytes.byteLength).toBeLessThan(20 * 1024 * 1024);
+  // Written by the app's own muxer rather than the browser's recorder, which
+  // is the whole point: the recorder path plays the loop through in real time
+  // and this one encodes each frame as it is drawn. Checked by who wrote the
+  // file rather than by how long it took, because a clock reading is a
+  // measurement of whatever else the machine was doing.
+  expect(bytes.subarray(0, 200).toString("latin1")).toContain("OpenRadar");
+  expect(bytes.subarray(0, 400).toString("latin1")).toMatch(/V_VP[89]/);
   // A recording with no frames in it is only headers. The test map is a flat
   // dark canvas, so three frames of it compress hard but still land well past
   // an empty container.

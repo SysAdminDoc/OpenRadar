@@ -934,6 +934,9 @@ export const es: Catalogue = {
   "export.noFrames": "No hay cuadros que grabar.",
   "export.tooLarge": "La grabación salió de más de 20 MB.",
   "export.empty": "La grabación salió vacía.",
+  "export.slowPath": "Grabando el bucle por la vía lenta",
+  "export.slowPathBody":
+    "Esta versión no puede codificar vídeo directamente, así que el bucle se graba mientras se reproduce. Tardará más o menos lo que dura el bucle.",
   "watch.whyEvent": "Una alerta de {event}, calificada como {severity}.",
   "watch.whyThreshold": "Pediste enterarte de {minSeverity} en adelante.",
   "watch.whyDistance":

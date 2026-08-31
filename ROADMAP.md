@@ -223,13 +223,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: One command switches to a layout built for capture at 1080p and 1440p: chrome the streamer did not ask for is gone, the pieces they did ask for (clock, place, alert banner, credits) are large enough to read in a compressed stream, and source credits remain visible; the mode is plain window content with no keyboard shortcut, no separate window type, and no change to data rendering; leaving the mode restores the previous layout exactly.
       Complexity: M
 
-- [ ] AUD-097: P2. Move WebM export off the real-time recorder
-      Why: Loop export currently drives the live timeline and records it through MediaRecorder, so exporting a loop costs its full wall-clock duration and occupies the workspace while it runs. WebCodecs VideoEncoder is present in every evergreen WebView2 and encodes as fast as frames can be produced.
-      Evidence: `src/lib/export.ts`; `src/hooks/useExport.ts`; https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API ; https://blogs.windows.com/msedgedev/2026/08/24/webview2-is-moving-to-a-2-week-release-cadence/
-      Touches: Frame production for export; a VideoEncoder path with VP9 then VP8 fallback chosen through isConfigSupported; a WebM muxer in a worker; the GIF path unchanged except frame sourcing; the browser-preview fallback
-      Acceptance: A loop export completes faster than its playback duration on the reference machine and no longer needs to drive the visible timeline; output plays in standard players with correct timing and the burned-in credits; encoder absence or failure falls back to the current recorder path with a visible note; export tests cover both paths.
-      Complexity: M
-
 - [ ] AUD-121: P3. Make the burned basemap credit follow the style on screen
       Why: The weather half of an export's credit now comes from the layer's provenance record, but the map half is still the constant "OpenStreetMap". Two of the seven styles are not OpenStreetMap: aerial draws USGS orthoimagery and topography draws OpenTopoMap, which asks for an exact credit line. An offline incident pack carries its own attribution too. So a picture exported over imagery credits the wrong service.
       Evidence: `src/hooks/useExport.ts` `BASEMAP_CREDIT`; `src/lib/mapStyles.ts` `mapStyleDefinition`; `src/components/MapStage.tsx` style resolution
