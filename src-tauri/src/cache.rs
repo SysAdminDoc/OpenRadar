@@ -193,6 +193,18 @@ pub fn get(url: &str) -> Option<Entry> {
     })
 }
 
+/// Reads without tying up an async runtime worker on filesystem I/O.
+pub async fn get_async(url: &str) -> Option<Entry> {
+    let url = url.to_string();
+    match tauri::async_runtime::spawn_blocking(move || get(&url)).await {
+        Ok(entry) => entry,
+        Err(error) => {
+            log::warn!("OpenRadar's cache read worker failed: {error}");
+            None
+        }
+    }
+}
+
 /// Keeps the bytes for an address, replacing anything already held for it.
 pub fn put(url: &str, content_type: &str, body: &[u8]) {
     if body.len() > MAX_ENTRY_BYTES {
@@ -246,6 +258,22 @@ pub fn put(url: &str, content_type: &str, body: &[u8]) {
         }
     }
     evict();
+}
+
+/// Writes, flushes, renames, and evicts on a blocking worker rather than on
+/// the async runtime that is also carrying network responses and commands.
+pub async fn put_async(url: &str, content_type: &str, body: &[u8]) {
+    if body.len() > MAX_ENTRY_BYTES {
+        return;
+    }
+    let url = url.to_string();
+    let content_type = content_type.to_string();
+    let body = body.to_vec();
+    if let Err(error) =
+        tauri::async_runtime::spawn_blocking(move || put(&url, &content_type, &body)).await
+    {
+        log::warn!("OpenRadar's cache write worker failed: {error}");
+    }
 }
 
 /// Drops the oldest entries until the cache is back inside its budget.
@@ -357,6 +385,32 @@ mod tests {
         assert!(held.age < Duration::from_secs(60));
 
         assert!(get("https://example.test/other.png").is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn async_wrappers_round_trip_an_entry() {
+        let _turn = turn();
+        let dir = scratch("async");
+        init(&dir);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("an async cache test runtime");
+
+        let held = runtime.block_on(async {
+            put_async(
+                "https://example.test/async.png",
+                "image/png",
+                b"the asynchronous tile",
+            )
+            .await;
+            get_async("https://example.test/async.png").await
+        });
+
+        let held = held.expect("the async cache entry");
+        assert_eq!(held.body, b"the asynchronous tile");
+        assert_eq!(held.content_type, "image/png");
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -2,6 +2,8 @@
 
 ## Next release
 
+- GIF loops can now be saved by the installed app. Every export is written beside its destination, flushed, and then replaced in one step, so a failed save cannot truncate the last good file. Disk-cache work also runs away from the async workers that carry network replies and desktop commands.
+
 - Workspace backups now include an imported GeoJSON overlay as well as settings. Restoring one moves the map to the saved camera, and Undo puts both the settings and the prior overlay back. Files from newer builds also name unfamiliar nested settings instead of quietly dropping them.
 
 - A colour table is not reported as applied until the desktop renderer accepts it. Empty GeoJSON collections are refused instead of enabling a blank layer and calling the upload successful.

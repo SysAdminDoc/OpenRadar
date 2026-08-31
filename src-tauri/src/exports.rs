@@ -4,23 +4,30 @@
 //! as untrusted: only the sanitized stem is used, and the file always lands in
 //! one directory this module chooses.
 
-use std::path::PathBuf;
+use std::ffi::OsString;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::{AppHandle, Manager};
 
 const MAX_STEM: usize = 80;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
-/// A picture, a loop, and the settings file. Anything else is refused, so a
-/// name from the page can only ever produce one of the three kinds of file
+/// Pictures, loops, and the workspace file. Anything else is refused, so a
+/// name from the page can only ever produce one of the four kinds of file
 /// this app writes.
-const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "json"];
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "gif", "json"];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
     "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 
-/// The allowed kinds as a reader would say them: "png, webm and json".
+static TEMPORARY_WRITES: AtomicU64 = AtomicU64::new(0);
+const TEMPORARY_ATTEMPTS: usize = 16;
+
+/// The allowed kinds as a reader would say them: "png, webm, gif and json".
 ///
 /// Joining the whole list with " and " read as "png and webm and json" the
 /// moment there were three of them, and this message goes to the screen.
@@ -92,6 +99,64 @@ fn export_folder(app: &AppHandle) -> Result<PathBuf, ExportError> {
         .map_err(|_| ExportError::NoFolder)
 }
 
+/// Writes beside the destination, flushes the bytes, then publishes them in
+/// one rename. `std::fs::rename` has replace-existing semantics for files on
+/// Windows as well as Unix, so a failed replacement leaves the previous export
+/// in place.
+fn write_atomically(target: &Path, bytes: &[u8]) -> io::Result<()> {
+    write_atomically_with(target, bytes, |from, to| fs::rename(from, to))
+}
+
+/// The replacement operation is passed in so its failure path can be proved
+/// without depending on a filesystem race or filling a disk in a test.
+fn write_atomically_with(
+    target: &Path,
+    bytes: &[u8],
+    replace: impl FnOnce(&Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    let (temporary, mut file) = temporary_file(target)?;
+    let written = file.write_all(bytes).and_then(|()| file.sync_all());
+    drop(file);
+    if let Err(error) = written {
+        let _ = fs::remove_file(&temporary);
+        return Err(error);
+    }
+
+    if let Err(error) = replace(&temporary, target) {
+        let _ = fs::remove_file(&temporary);
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn temporary_file(target: &Path) -> io::Result<(PathBuf, File)> {
+    let name = target.file_name().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, "the export has no file name")
+    })?;
+    for _ in 0..TEMPORARY_ATTEMPTS {
+        let mut temporary_name = OsString::from(name);
+        temporary_name.push(format!(
+            ".{}.{}.tmp",
+            std::process::id(),
+            TEMPORARY_WRITES.fetch_add(1, Ordering::Relaxed)
+        ));
+        let temporary = target.with_file_name(temporary_name);
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+        {
+            Ok(file) => return Ok((temporary, file)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "no unique temporary export name was available",
+    ))
+}
+
 /// Writes the bytes and answers with the full path, so the caller can offer to
 /// show the file.
 #[tauri::command]
@@ -106,10 +171,10 @@ pub fn save_export(
 
     let name = sanitize_file_name(&file_name)?;
     let folder = export_folder(&app)?;
-    std::fs::create_dir_all(&folder).map_err(|error| ExportError::Write(error.to_string()))?;
+    fs::create_dir_all(&folder).map_err(|error| ExportError::Write(error.to_string()))?;
 
     let target = folder.join(name);
-    std::fs::write(&target, bytes).map_err(|error| ExportError::Write(error.to_string()))?;
+    write_atomically(&target, &bytes).map_err(|error| ExportError::Write(error.to_string()))?;
     Ok(target.to_string_lossy().into_owned())
 }
 
@@ -117,7 +182,7 @@ pub fn save_export(
 mod tests {
     use super::*;
 
-    /// The three kinds of file this app actually writes.
+    /// The four kinds of file this app actually writes.
     ///
     /// This exists because the settings export was impossible in a packaged
     /// build for as long as json was missing from the list, and nothing
@@ -127,7 +192,8 @@ mod tests {
         for name in [
             "openradar-2026-08-30.png",
             "openradar-loop.webm",
-            "openradar-settings.json",
+            "openradar-loop.gif",
+            "openradar-workspace.json",
         ] {
             assert!(
                 sanitize_file_name(name).is_ok(),
@@ -145,10 +211,10 @@ mod tests {
 
     #[test]
     fn the_refusal_reads_as_a_sentence() {
-        // Joining the whole list with " and " gave "png and webm and json" as
+        // Joining the whole list with " and " gave a repeated conjunction as
         // soon as there were three of them, and this reaches the screen.
         let said = ExportError::BadExtension.to_string();
-        assert_eq!(said, "only png, webm and json files can be exported");
+        assert_eq!(said, "only png, webm, gif and json files can be exported");
     }
 
     #[test]
@@ -217,5 +283,65 @@ mod tests {
         let name = format!("{}.png", "a".repeat(500));
         let cleaned = sanitize_file_name(&name).unwrap();
         assert_eq!(cleaned.len(), MAX_STEM + 4);
+    }
+
+    fn scratch(name: &str) -> PathBuf {
+        let directory = std::env::temp_dir().join(format!(
+            "openradar-export-{name}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("a clock after 1970")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&directory).expect("an export scratch directory");
+        directory
+    }
+
+    #[test]
+    fn replaces_an_existing_export_atomically() {
+        let directory = scratch("replace");
+        let target = directory.join("openradar-workspace.json");
+        fs::write(&target, b"old settings").expect("the old export");
+
+        write_atomically(&target, b"new settings").expect("the replacement");
+
+        assert_eq!(fs::read(&target).expect("the new export"), b"new settings");
+        assert_eq!(
+            fs::read_dir(&directory)
+                .expect("the export directory")
+                .count(),
+            1,
+            "a temporary export was left behind"
+        );
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn a_failed_replacement_preserves_the_old_export_and_cleans_up() {
+        let directory = scratch("failed-replace");
+        let target = directory.join("openradar-workspace.json");
+        fs::write(&target, b"last good settings").expect("the old export");
+
+        let error = write_atomically_with(&target, b"incomplete settings", |_from, _to| {
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "replacement refused for the test",
+            ))
+        })
+        .expect_err("the replacement must fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(
+            fs::read(&target).expect("the old export remains"),
+            b"last good settings"
+        );
+        assert_eq!(
+            fs::read_dir(&directory)
+                .expect("the export directory")
+                .count(),
+            1,
+            "the failed replacement left temporary residue"
+        );
+        let _ = fs::remove_dir_all(directory);
     }
 }

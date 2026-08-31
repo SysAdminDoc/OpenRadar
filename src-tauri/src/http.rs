@@ -158,10 +158,10 @@ pub async fn get_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
 
     match fetch_bytes(url).await {
         Ok(body) => {
-            cache::put(url, "application/octet-stream", &body);
+            cache::put_async(url, "application/octet-stream", &body).await;
             Ok(body)
         }
-        Err(error) => match cache::get(url) {
+        Err(error) => match cache::get_async(url).await {
             Some(held) => {
                 log::info!(
                     "OpenRadar read {url} from its cache, {} s old: {error}",
