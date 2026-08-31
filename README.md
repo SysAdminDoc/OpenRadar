@@ -84,6 +84,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Place search, map-centred forecasts, GeoJSON and GRLevelX placefile import, shareable `openradar://` links.
 - English and Spanish, switched in Settings and applied where you are standing rather than on the next launch.
 - **An offline last view.** Tiles, radar frames and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and tells you how old it is.
+- **Prepared offline regions.** Settings can turn the current map view and a chosen zoom range into a PMTiles pack. Downloads pause and resume, each finished archive is checked before use, and a disk ceiling keeps the pack library bounded.
 
 ## Install
 
@@ -102,6 +103,8 @@ Windows x64 is the only target that is built and tested. Tauri 2 itself runs on 
 ## Privacy
 
 OpenRadar has no account, telemetry, crash reporting or sync. Settings and logs stay on this machine.
+
+Prepared incident packs stay in the app's data folder until you delete them. Workspace backups carry the pack name, bounds, size and hash so the reference survives, but they do not copy the map archive into the backup.
 
 The app sends the information needed to answer a request to fixed public providers. Typed place names and forecast coordinates go to Open-Meteo. Route start and end points go to the FOSSGIS routing service, which is told the app is OpenRadar, and points along that route go to Open-Meteo for the weather check. Map and radar requests go to the sources listed in Diagnostics. Those services receive the request and your IP address. Rust limits the desktop app to its configured hosts.
 
@@ -143,7 +146,7 @@ The Rust suite has a second half that reaches the live NOAA buckets and is skipp
 
 ## How it is put together
 
-Tauri 2 shell, React 19 and TypeScript in the window, MapLibre GL for the map, and Rust for everything that has to read a binary format. Decoded products reach the map through registered URI schemes, so a grid decoded on your machine is an ordinary tile source rather than a special case in the timeline. Every native fetch goes through one host allowlist and one disk cache, which is also what makes the offline view possible.
+Tauri 2 shell, React 19 and TypeScript in the window, MapLibre GL for the map, and Rust for everything that has to read a binary format. Decoded products reach the map through registered URI schemes, so a grid decoded on your machine is an ordinary tile source rather than a special case in the timeline. Every native fetch goes through one host allowlist. Short-lived responses use a bounded cache; prepared PMTiles packs use a separate durable store so clearing ordinary cache data cannot erase them.
 
 There is more detail in [docs/architecture.md](docs/architecture.md), and the changelog is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -168,7 +171,7 @@ Everything OpenRadar draws is public data, and every source below is credited in
 | Tides              | NOAA CO-OPS                                                                           |
 | Earthquakes        | USGS                                                                                  |
 | Wildfires          | NIFC                                                                                  |
-| Basemap            | OpenStreetMap via OpenFreeMap; USGS orthoimagery; OpenTopoMap under CC-BY-SA          |
+| Basemap            | OpenStreetMap via OpenFreeMap; USGS imagery and The National Map Topo; OpenTopoMap    |
 | Road routing       | FOSSGIS public Valhalla, on OpenStreetMap data                                        |
 | Fallback radar     | RainViewer, only where the NOAA mosaics do not reach                                  |
 

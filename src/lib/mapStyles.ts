@@ -1,6 +1,7 @@
 import type { StyleSpecification } from "maplibre-gl";
-import type { MapStyleId, ThemeMode } from "./settings";
+import type { IncidentPackReference, MapStyleId, ThemeMode } from "./settings";
 import type { StringKey } from "../i18n";
+import { incidentTileTemplate } from "./incidentPacks";
 
 export interface MapStyleOption {
   id: MapStyleId;
@@ -78,6 +79,8 @@ function rasterStyle(
   tiles: string[],
   attribution: string,
   maxzoom?: number,
+  minzoom?: number,
+  bounds?: [number, number, number, number],
 ): StyleSpecification {
   return {
     version: 8,
@@ -87,6 +90,8 @@ function rasterStyle(
         tiles,
         tileSize: 256,
         maxzoom,
+        minzoom,
+        bounds,
         attribution,
       },
     },
@@ -107,7 +112,26 @@ export function resolvedMapStyle(id: MapStyleId, theme: ThemeMode): MapStyleId {
 
 export function mapStyleDefinition(
   id: MapStyleId,
+  incidentPack?: IncidentPackReference | null,
 ): string | StyleSpecification {
+  const incidentTile = incidentPack
+    ? incidentTileTemplate(incidentPack.id)
+    : null;
+  if (incidentPack && incidentTile) {
+    return rasterStyle(
+      [incidentTile],
+      incidentPack.attribution,
+      incidentPack.maxZoom,
+      incidentPack.minZoom,
+      [
+        incidentPack.bounds.west,
+        incidentPack.bounds.south,
+        incidentPack.bounds.east,
+        incidentPack.bounds.north,
+      ],
+    );
+  }
+
   if (
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("testMode")

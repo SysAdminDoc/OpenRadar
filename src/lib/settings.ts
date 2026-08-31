@@ -127,6 +127,27 @@ export interface PresetState {
   mapStyle: MapStyleId;
 }
 
+/** A portable pointer to a native PMTiles incident pack, never its tile data. */
+export interface IncidentPackReference {
+  id: string;
+  name: string;
+  bounds: { west: number; south: number; east: number; north: number };
+  minZoom: number;
+  maxZoom: number;
+  bytes: number;
+  sha256: string;
+  attribution: string;
+}
+
+export interface IncidentPackSettings {
+  /** The ceiling for the separate durable pack store, in MiB. */
+  diskLimitMb: number;
+  /** The local pack used as the basemap, or null for the normal online map. */
+  selectedId: string | null;
+  /** Lightweight backup references. PMTiles bytes stay in app data. */
+  references: IncidentPackReference[];
+}
+
 /**
  * Which shape of settings file this build writes and understands.
  *
@@ -176,6 +197,7 @@ export interface AppSettings {
    */
   overlayOrder: string[];
   presets: Array<PresetState | null>;
+  incidentPacks: IncidentPackSettings;
   /**
    * Whether the reader has been shown where the commands and the layers are.
    *
@@ -256,6 +278,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     quietHours: DEFAULT_QUIET_HOURS,
   },
   presets: [null, null, null, null],
+  incidentPacks: {
+    diskLimitMb: 4096,
+    selectedId: null,
+    references: [],
+  },
   seenWelcome: false,
 };
 
@@ -400,6 +427,93 @@ function normalizePreset(value: unknown): PresetState | null {
   };
 }
 
+function normalizeIncidentPackReference(
+  value: unknown,
+): IncidentPackReference | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<IncidentPackReference>;
+  const bounds = raw.bounds;
+  if (
+    typeof raw.id !== "string" ||
+    !/^[0-9a-f]{24}$/i.test(raw.id) ||
+    typeof raw.name !== "string" ||
+    !raw.name.trim() ||
+    !bounds ||
+    typeof bounds !== "object" ||
+    typeof raw.sha256 !== "string" ||
+    !/^[0-9a-f]{64}$/i.test(raw.sha256) ||
+    typeof raw.attribution !== "string" ||
+    !raw.attribution.trim()
+  ) {
+    return null;
+  }
+  const normalizedBounds = {
+    west: finiteInRange(bounds.west, Number.NaN, -180, 180),
+    south: finiteInRange(bounds.south, Number.NaN, -85, 85),
+    east: finiteInRange(bounds.east, Number.NaN, -180, 180),
+    north: finiteInRange(bounds.north, Number.NaN, -85, 85),
+  };
+  if (
+    Object.values(normalizedBounds).some((entry) => !Number.isFinite(entry)) ||
+    normalizedBounds.west >= normalizedBounds.east ||
+    normalizedBounds.south >= normalizedBounds.north
+  ) {
+    return null;
+  }
+  const minZoom = Math.round(finiteInRange(raw.minZoom, Number.NaN, 2, 15));
+  const maxZoom = Math.round(finiteInRange(raw.maxZoom, Number.NaN, 2, 15));
+  if (
+    !Number.isFinite(minZoom) ||
+    !Number.isFinite(maxZoom) ||
+    minZoom > maxZoom
+  ) {
+    return null;
+  }
+  return {
+    id: raw.id.toLowerCase(),
+    name: raw.name.trim().slice(0, 60),
+    bounds: normalizedBounds,
+    minZoom,
+    maxZoom,
+    bytes: Math.round(finiteInRange(raw.bytes, 0, 0, Number.MAX_SAFE_INTEGER)),
+    sha256: raw.sha256.toLowerCase(),
+    attribution: raw.attribution.trim().slice(0, 200),
+  };
+}
+
+function normalizeIncidentPacks(value: unknown): IncidentPackSettings {
+  const raw =
+    value && typeof value === "object"
+      ? (value as Partial<IncidentPackSettings>)
+      : {};
+  const references = Array.isArray(raw.references)
+    ? raw.references
+        .map(normalizeIncidentPackReference)
+        .filter((entry): entry is IncidentPackReference => entry !== null)
+        .filter(
+          (entry, at, all) =>
+            all.findIndex((item) => item.id === entry.id) === at,
+        )
+        .slice(0, 64)
+    : [];
+  const selectedId =
+    typeof raw.selectedId === "string" && /^[0-9a-f]{24}$/i.test(raw.selectedId)
+      ? raw.selectedId.toLowerCase()
+      : null;
+  return {
+    diskLimitMb: Math.round(
+      finiteInRange(
+        raw.diskLimitMb,
+        DEFAULT_SETTINGS.incidentPacks.diskLimitMb,
+        256,
+        32_768,
+      ),
+    ),
+    selectedId,
+    references,
+  };
+}
+
 function normalizePalette(value: unknown): Palette | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<Palette>;
@@ -514,6 +628,11 @@ export function restoreSettings(value: unknown): RestoredSettings {
   nested(raw.radar, Object.keys(DEFAULT_SETTINGS.radar), "radar");
   nested(raw.layers, Object.keys(DEFAULT_SETTINGS.layers), "layers");
   nested(raw.watch, Object.keys(DEFAULT_SETTINGS.watch), "watch");
+  nested(
+    raw.incidentPacks,
+    Object.keys(DEFAULT_SETTINGS.incidentPacks),
+    "incidentPacks",
+  );
   const radar = raw.radar as Record<string, unknown> | undefined;
   nested(radar?.stormMotion, ["speedMs", "fromDegrees"], "radar.stormMotion");
   nested(
@@ -543,6 +662,32 @@ export function restoreSettings(value: unknown): RestoredSettings {
         record?.camera,
         Object.keys(DEFAULT_SETTINGS.camera),
         `presets.${index}.camera`,
+      );
+    });
+  }
+  const incidentPacks = raw.incidentPacks as
+    Record<string, unknown> | undefined;
+  if (Array.isArray(incidentPacks?.references)) {
+    incidentPacks.references.forEach((reference, index) => {
+      nested(
+        reference,
+        [
+          "id",
+          "name",
+          "bounds",
+          "minZoom",
+          "maxZoom",
+          "bytes",
+          "sha256",
+          "attribution",
+        ],
+        `incidentPacks.references.${index}`,
+      );
+      const record = reference as Record<string, unknown> | null;
+      nested(
+        record?.bounds,
+        ["west", "south", "east", "north"],
+        `incidentPacks.references.${index}.bounds`,
       );
     });
   }
@@ -748,6 +893,7 @@ export function normalizeSettings(value: unknown): AppSettings {
           .slice(0, 32)
       : [],
     presets,
+    incidentPacks: normalizeIncidentPacks(raw.incidentPacks),
     seenWelcome: bool(raw.seenWelcome, DEFAULT_SETTINGS.seenWelcome),
   };
 }

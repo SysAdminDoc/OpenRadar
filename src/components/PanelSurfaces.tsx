@@ -190,6 +190,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "settings" ? (
         <SettingsPanel
           settings={settings}
+          bounds={props.viewport}
           onSettings={props.onSettings}
           onWatchHere={props.onWatchHere}
           onSendWatchTest={props.onSendWatchTest}

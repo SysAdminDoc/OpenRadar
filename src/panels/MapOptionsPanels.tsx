@@ -41,6 +41,8 @@ import type {
   ProjectionMode,
   WatchState,
 } from "../lib/settings";
+import type { PackBounds } from "../lib/incidentPacks";
+import { IncidentPackManager } from "./IncidentPackManager";
 
 /**
  * Minutes past midnight as a time field reads them, and back again.
@@ -573,6 +575,7 @@ export function LayersPanel({
 
 interface SettingsPanelProps {
   settings: AppSettings;
+  bounds?: PackBounds | null;
   onSettings: (settings: AppSettings) => void;
   onSendWatchTest: () => void;
   onWatchHere: () => void;
@@ -612,6 +615,7 @@ function ToggleSetting({
 
 export function SettingsPanel({
   settings,
+  bounds = null,
   onSettings,
   onSendWatchTest,
   onWatchHere,
@@ -670,6 +674,12 @@ export function SettingsPanel({
           </button>
         </div>
       </div>
+
+      <IncidentPackManager
+        settings={settings}
+        bounds={bounds}
+        onSettings={onSettings}
+      />
 
       <div className="settings-section">
         <div className="settings-section__title">

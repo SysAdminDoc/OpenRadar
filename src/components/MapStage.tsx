@@ -95,11 +95,16 @@ export function MapStage({
   // Redraws when the units or the clock change, since this is on screen the
   // whole time and would otherwise keep showing the old ones.
   useMeasurements();
+  const incidentPack =
+    settings.incidentPacks.references.find(
+      (pack) => pack.id === settings.incidentPacks.selectedId,
+    ) ?? null;
   const shared = {
     projection: settings.projection,
     // Auto is resolved here rather than in the viewport, so everything that
     // reads the drawn style, the compare pane included, agrees on one answer.
     mapStyle: resolvedMapStyle(settings.mapStyle, settings.theme),
+    incidentPack,
     radarVisible: settings.radar.enabled,
     radarOpacity: settings.radar.opacity,
     overlays,

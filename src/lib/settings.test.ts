@@ -42,6 +42,52 @@ describe("settings normalization", () => {
     expect(settings.layers.earthquakes).toBe(false);
   });
 
+  it("keeps only bounded, path-free incident pack references", () => {
+    const settings = normalizeSettings({
+      incidentPacks: {
+        diskLimitMb: 999_999,
+        selectedId: "0123456789ABCDEF01234567",
+        references: [
+          {
+            id: "0123456789ABCDEF01234567",
+            name: "  Storm response  ",
+            bounds: { west: -94, south: 40, east: -93, north: 41 },
+            minZoom: 5,
+            maxZoom: 10,
+            bytes: 42,
+            sha256: "A".repeat(64),
+            attribution: "USGS The National Map",
+            path: "C:\\private\\basemap.pmtiles",
+          },
+          {
+            id: "../../outside",
+            name: "Bad",
+            bounds: { west: -94, south: 40, east: -93, north: 41 },
+            minZoom: 5,
+            maxZoom: 10,
+            bytes: 42,
+            sha256: "b".repeat(64),
+            attribution: "USGS",
+          },
+        ],
+      },
+    });
+    expect(settings.incidentPacks.diskLimitMb).toBe(32_768);
+    expect(settings.incidentPacks.selectedId).toBe("0123456789abcdef01234567");
+    expect(settings.incidentPacks.references).toEqual([
+      {
+        id: "0123456789abcdef01234567",
+        name: "Storm response",
+        bounds: { west: -94, south: 40, east: -93, north: 41 },
+        minZoom: 5,
+        maxZoom: 10,
+        bytes: 42,
+        sha256: "a".repeat(64),
+        attribution: "USGS The National Map",
+      },
+    ]);
+  });
+
   it("clamps corrupt camera and radar values", () => {
     const settings = normalizeSettings({
       projection: "globe",

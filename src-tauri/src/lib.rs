@@ -12,6 +12,7 @@ mod exports;
 #[cfg(test)]
 mod fixture;
 mod gfs;
+mod incident_packs;
 mod level2;
 mod level3;
 mod lightning;
@@ -125,8 +126,34 @@ pub fn run() {
                 );
             });
         })
+        // A completed incident pack is one PMTiles file. The webview asks for
+        // ordinary Z/X/Y images and this handler reads only that local archive,
+        // so selecting a pack never falls through to the network.
+        .register_asynchronous_uri_scheme_protocol("incident", |_app, request, responder| {
+            let path = request.uri().path().to_string();
+            tauri::async_runtime::spawn(async move {
+                let served = incident_packs::serve_tile(&path).await;
+                responder.respond(
+                    tauri::http::Response::builder()
+                        .status(served.status)
+                        .header("Content-Type", "image/png")
+                        .header("Access-Control-Allow-Origin", "*")
+                        .header("Cache-Control", "public, max-age=31536000, immutable")
+                        .body(served.body)
+                        .expect("an incident tile response is well formed"),
+                );
+            });
+        })
         .invoke_handler(tauri::generate_handler![
             exports::save_export,
+            incident_packs::incident_pack_estimate,
+            incident_packs::incident_pack_list,
+            incident_packs::incident_pack_set_limit,
+            incident_packs::incident_pack_create,
+            incident_packs::incident_pack_pause,
+            incident_packs::incident_pack_resume,
+            incident_packs::incident_pack_cancel,
+            incident_packs::incident_pack_delete,
             level2::level2_archive_sweep,
             level2::level2_local_sweep,
             level2::level2_sweep,
@@ -147,6 +174,15 @@ pub fn run() {
                 Ok(dir) => cache::init(&dir),
                 Err(error) => {
                     log::warn!("OpenRadar has nowhere to keep its cache: {error}");
+                }
+            }
+
+            // Packs are user-kept data rather than cache entries. They live in
+            // app data so an ordinary cache clear cannot erase a prepared map.
+            match _app.path().app_data_dir() {
+                Ok(dir) => incident_packs::init(&dir),
+                Err(error) => {
+                    log::warn!("OpenRadar has nowhere to keep incident packs: {error}");
                 }
             }
 

@@ -231,9 +231,16 @@ async fn read_limited(mut response: reqwest::Response, limit: usize) -> Result<V
     Ok(body)
 }
 
-/// The same fetch, keeping the content type, because bytes handed to a webview
-/// have to say what they are.
-pub async fn get_typed(url: &str) -> Result<(Vec<u8>, String), HttpError> {
+/// A typed response whose declared byte count can be checked before the bytes
+/// become part of a durable incident pack.
+pub struct TypedResponse {
+    pub body: Vec<u8>,
+    pub content_type: String,
+    pub content_length: Option<u64>,
+}
+
+/// The same fetch, keeping the content type and the server's byte count.
+pub async fn get_typed_verified(url: &str) -> Result<TypedResponse, HttpError> {
     let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
     if !is_allowed(&parsed) {
         return Err(HttpError::HostNotAllowed(
@@ -252,8 +259,19 @@ pub async fn get_typed(url: &str) -> Result<(Vec<u8>, String), HttpError> {
         .and_then(|value| value.to_str().ok())
         .unwrap_or("application/octet-stream")
         .to_string();
+    let content_length = response.content_length();
     let body = read_limited(response, MAX_BODY_BYTES).await?;
-    Ok((body, content_type))
+    Ok(TypedResponse {
+        body,
+        content_type,
+        content_length,
+    })
+}
+
+/// The typed fetch used by short-lived map requests.
+pub async fn get_typed(url: &str) -> Result<(Vec<u8>, String), HttpError> {
+    let response = get_typed_verified(url).await?;
+    Ok((response.body, response.content_type))
 }
 
 /// A byte range of a file, which is how one field is read out of a GRIB2
