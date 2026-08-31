@@ -18,7 +18,7 @@
 
 ---
 
-OpenRadar decodes NEXRAD Level II volumes, MRMS national grids, GOES lightning and GFS wind on your own machine, in Rust, and draws them on a GPU vector map. No account, no API key, no subscription, no ads, and nothing held back behind a paid tier.
+OpenRadar decodes NEXRAD Level II volumes, MRMS national grids, GOES lightning and GFS wind on your own machine, in Rust, and draws them on a GPU vector map. No account, no API key, no subscription, no ads, and nothing held back behind a paid tier like MyRadar.
 
 It is one window. Pan the planet, zoom from a globe down to a street, and scrub two hours of radar without the map moving under you.
 
