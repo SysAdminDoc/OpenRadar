@@ -29,14 +29,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: Supported models show initialization UTC, age, and exact-run status; a user can compare the same valid hours against one previous run; missing archives are explicit; requests remain bounded; tests cover mismatched horizons, missing runs, and UTC alignment.
       Complexity: L
 
-- [ ] AUD-080: Evaluate RRFS and REFS only after operational launch is verified
-      Why: NOAA schedules v1 for 2026-10-06. Replacing HRRR before the bucket and product inventory stabilize would turn a forecast enhancement into a release risk.
-      Evidence: `src/lib/providers/hrrr.ts`; https://registry.opendata.aws/noaa-rrfs-ops/
-      Touches: Experimental forecast adapter; provider provenance; product inventory fixtures; fallback policy
-      Acceptance: Work begins only after the operational service notice is confirmed; public bucket filenames and required reflectivity products have fixtures; RRFS is labeled experimental until live contract checks are stable; HRRR remains available as a fallback; no prototype path is presented as operational.
-      Note (2026-08-31): SCN 26-48 AAB (2026-07-06) reconfirms 2026-10-06 with the standard critical-weather-day slip clause; parallel feeds moved to NOMADS on 2026-08-11 and the old prototype AWS bucket stopped updating then, so do not fixture against the prototype paths.
-      Complexity: L
-
 - [ ] AUD-081: Add TDWR Level III coverage behind a radar capability descriptor
       Why: TDWR can improve low-level airport coverage, but its sites, range, and product details differ from WSR-88D. Hard-coded product strings would make those differences unsafe.
       Evidence: `src-tauri/src/level3.rs`; `src/lib/level2.ts`; https://www.weather.gov/tg/rpccds ; https://www.weather.gov/gsp/tdwr_specs ; https://www.weather.gov/media/tg/rpccds_radar_products.pdf
@@ -65,13 +57,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: The component becomes a coordinator instead of owning each layer implementation; adapter lifecycles have pure or MapLibre-mocked tests; final ordering still has one owner; dependency suppressions are removed or justified at the boundary; all existing headless scenarios pass with no visual change.
       Complexity: XL
 
-
-- [ ] AUD-091: Add a privacy-reviewed field report path
-      Why: The tracker contains no field reports, while native flows and provider behavior vary by machine and time. Copy Diagnostics exists, but there is no structured report template or redaction contract.
-      Evidence: `src/panels/DiagnosticsPanel.tsx`; `src/lib/diagnostics.ts`; https://github.com/SysAdminDoc/OpenRadar/issues
-      Touches: Diagnostics redaction; bug report template; README support instructions
-      Acceptance: A user can copy a bounded report with app version, platform, provider health, cache state, and recent categorized errors; watched coordinates, routes, usernames, and full local paths are excluded unless explicitly added; a repository template asks for reproduction and report text; redaction tests use representative Windows paths and locations.
-      Complexity: S
 
 - [ ] AUD-092: Stabilize the NEXRAD crate boundary
       Why: `nexrad-data`, `nexrad-decode`, and `nexrad-model` are release candidates. Decoder behavior should not depend on floating pre-release assumptions without a compatibility plan.

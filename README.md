@@ -112,6 +112,14 @@ So a build on macOS or Linux may well work, and it is untested and unsupported. 
 - A patch is welcome, with the evidence a claim of support needs: a locally built installer, a real launch on real hardware, the core flows exercised, and the updater and the file dialog checked.
 - Until that exists, the platform badge and the release page say Windows, and nothing else should read as a claim otherwise.
 
+## Reporting something that is wrong
+
+Open **Diagnostics** in the app and press **Copy**, then open an issue and paste the block in with what you did and what you expected. The [issue form](https://github.com/SysAdminDoc/OpenRadar/issues/new/choose) asks for both.
+
+What the block contains: the version, this machine's renderer and platform, which sources answered and what they failed with, what is held on disk, a count of the recent warnings and errors by area, and the last forty log lines. What it does not contain: your watched place, your routes, your account name, or full file paths. Coordinates in the log are rounded to about a kilometre and account names are cut out of paths before anything reaches the clipboard. If where you are is part of the problem, there is a switch beside the Copy button that adds your watched place, still rounded.
+
+None of it is sent anywhere. It goes to the clipboard, and you paste it, having read it.
+
 ## Privacy
 
 OpenRadar has no account, telemetry, crash reporting or sync. Settings and logs stay on this machine.

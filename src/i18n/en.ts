@@ -312,6 +312,11 @@ export const en = {
   "diagnostics.recentEvents": "Recent events",
   "diagnostics.openLogs": "Open log folder",
   "diagnostics.copy": "Copy for a bug report",
+  "diagnostics.whatIsCopied":
+    "The report carries the app version, this machine's renderer and platform, which sources answered, what is held on disk, and the recent log. Coordinates in the log are rounded to about a kilometre and account names are taken out of file paths.",
+  "diagnostics.includePlace":
+    "Include my watched place, rounded to about a kilometre",
+  "diagnostics.watchedPlace": "Watched place",
   "diagnostics.copied": "Diagnostics copied",
   "diagnostics.copiedBody":
     "Version, renderer, which sources answered, and the last of the log. No coordinates finer than about a kilometre, and no folder names.",

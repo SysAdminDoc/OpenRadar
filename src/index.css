@@ -3762,3 +3762,22 @@ input[type="range"] {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* The one switch in Diagnostics that is about the reader rather than the
+   machine, so it sits beside the button that acts on it rather than in
+   Settings where it would be out of sight of the thing it changes. */
+.diagnostics-consent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.diagnostics-consent input {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+}

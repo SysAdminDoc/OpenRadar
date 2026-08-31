@@ -119,6 +119,68 @@ export interface DiagnosticsInput {
   layers?: Provenance[];
   /** The moment the block is written, so staleness can be judged against it. */
   now?: number;
+  /**
+   * What the app is holding on disk.
+   *
+   * Half the reports a radar app gets are really about the cache: a picture
+   * that would not refresh, an offline pack that would not open, a loop that
+   * came off the disk during an outage and was read as live. None of that is
+   * visible from the log alone.
+   */
+  cache?: CacheState;
+  /**
+   * The reader's watched place, and only when they have asked for it to be
+   * included.
+   *
+   * Everything else in this block is about the machine. This is about the
+   * person, so it is never gathered by default: the panel has a switch, and
+   * the switch is off until somebody turns it on.
+   */
+  place?: { label: string; latitude: number; longitude: number } | null;
+}
+
+/** What is on disk, as the workspace can see it without asking the disk. */
+export interface CacheState {
+  /**
+   * How old the bytes on screen were when the disk served them, in seconds,
+   * or null when the last loop came off the network.
+   */
+  servedAgeSeconds: number | null;
+  /** Offline basemap packs installed, and how much they take up. */
+  packs: number;
+  packBytes: number;
+  /** The pack in use as the basemap, if one is. */
+  selectedPack: boolean;
+  /** The ceiling the pack store is held to, in MiB. */
+  packLimitMb: number;
+}
+
+/** The most log lines a report carries, newest last. */
+export const LOG_LIMIT = 40;
+
+/**
+ * The log as counts before it is a list.
+ *
+ * A report with forty lines in it is read by nobody. The same forty lines as
+ * "radar: 6 warnings, 1 error" is read by everybody, and it is also the part
+ * that survives when the lines themselves are cut for length.
+ */
+export function errorSummary(log: LogEntry[]): string[] {
+  const counts = new Map<string, Map<string, number>>();
+  for (const entry of log) {
+    if (entry.level !== "warn" && entry.level !== "error") continue;
+    const levels = counts.get(entry.scope) ?? new Map<string, number>();
+    levels.set(entry.level, (levels.get(entry.level) ?? 0) + 1);
+    counts.set(entry.scope, levels);
+  }
+  return [...counts]
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([scope, levels]) => {
+      const parts = [...levels]
+        .sort((left, right) => left[0].localeCompare(right[0]))
+        .map(([level, count]) => `${count} ${level}`);
+      return `  ${scope}: ${parts.join(", ")}`;
+    });
 }
 
 export function diagnosticsBlock(input: DiagnosticsInput): string {
@@ -166,13 +228,54 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
       }
     }
   }
+  if (input.cache) {
+    const { servedAgeSeconds, packs, packBytes, selectedPack, packLimitMb } =
+      input.cache;
+    lines.push("", "On disk:");
+    lines.push(
+      `  Last loop: ${
+        servedAgeSeconds === null
+          ? "from the network"
+          : `served from the cache, ${servedAgeSeconds} s old`
+      }`,
+    );
+    lines.push(
+      `  Offline packs: ${packs}` +
+        (packs
+          ? ` · ${Math.round(packBytes / (1024 * 1024))} MB of ${packLimitMb} MB · ${
+              selectedPack ? "one in use" : "none in use"
+            }`
+          : ""),
+    );
+  }
+
+  // The place is the one thing here that is about the reader rather than the
+  // machine, so it is written out only when it was handed over.
+  if (input.place) {
+    lines.push("", "Watched place (added by the reader):");
+    lines.push(
+      `  ${input.place.label}: ${input.place.latitude.toFixed(PLACES)}, ${input.place.longitude.toFixed(PLACES)}`,
+    );
+  }
+
+  const problems = errorSummary(input.log);
+  if (problems.length) lines.push("", "Recent problems:", ...problems);
+
   const head = lines.map(blurUserPaths);
+  // Bounded, newest kept. A report is pasted into a tracker by hand, and the
+  // whole log of a long session is not something anybody reads or wants to
+  // scroll past to reach the question.
+  const kept = input.log.slice(-LOG_LIMIT);
+  const dropped = input.log.length - kept.length;
   // Only the message. A timestamp's own milliseconds are shaped exactly like
   // a coordinate, so blurring the whole line turned 12:01:00.000Z into
   // 12:01:0.0 and threw away the one thing that orders the log.
-  const logged = input.log.map(
+  const logged = kept.map(
     (entry) =>
       `  ${new Date(entry.at).toISOString()} ${entry.level} ${entry.scope}: ${redact(entry.message)}`,
   );
-  return [...head, "", "Log:", ...logged].join("\n");
+  const header = dropped
+    ? `Log (last ${kept.length} of ${input.log.length}):`
+    : "Log:";
+  return [...head, "", header, ...logged].join("\n");
 }

@@ -1,0 +1,48 @@
+name: Something is wrong
+description: A picture that is wrong, a control that does nothing, a crash, a source that stopped answering.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things make a report worth answering: what you did, and the diagnostics block.
+
+        The block is in the app under **Diagnostics → Copy**. It carries the version, this machine's renderer and platform, which sources answered, what is held on disk, and the recent log. It does not carry your watched place, your routes, your account name, or full file paths: coordinates in the log are rounded to about a kilometre and account names are taken out of paths before anything is copied. If your position matters to the problem, there is a switch beside the button to add it, still rounded.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to see it again
+      description: The steps, in order. If it happens only sometimes, say how often and what was different the times it did.
+      placeholder: |
+        1. Zoom in over ...
+        2. Switch on ...
+        3. The legend says ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics block
+      description: Diagnostics → Copy, pasted here. Read it first if you would rather check what it says.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The first line of the block, if you would rather not paste the whole thing.
+      placeholder: OpenRadar 0.5.0
+    validations:
+      required: false
