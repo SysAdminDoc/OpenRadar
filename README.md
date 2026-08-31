@@ -1,6 +1,6 @@
 # OpenRadar
 
-![Version](https://img.shields.io/badge/version-0.2.0-68d7ff)
+![Version](https://img.shields.io/badge/version-0.3.0-68d7ff)
 ![License](https://img.shields.io/badge/license-MIT-8bd5ca)
 ![Platform](https://img.shields.io/badge/platform-Windows-89b4fa)
 
@@ -64,7 +64,7 @@ Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://gi
 Windows will show a SmartScreen warning on first run. The installer is not signed with an Authenticode certificate yet, and SmartScreen warns about anything it has not seen before. Choose More info, then Run anyway. If you would rather check the download first, every release ships a `SHA256SUMS` file:
 
 ```powershell
-Get-FileHash OpenRadar_0.2.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash OpenRadar_0.3.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Once installed, OpenRadar checks for new versions when you ask it to, from Diagnostics. Updates are signed with the project's own key and refused if the signature does not match, so the SmartScreen gap does not extend to what arrives afterwards.
