@@ -5,6 +5,8 @@ import {
   fetchGuidance,
   modelsThatAnswered,
   parseGuidance,
+  parseModelRun,
+  runIsStale,
   type GuidanceModelId,
 } from "./guidance";
 import { forecastUnits, setUnits } from "./units";
@@ -179,4 +181,122 @@ live("against Open-Meteo itself", () => {
     // But they are not the same model, so they are not identical either.
     expect(temperature.spread).toBeGreaterThan(0);
   }, 30_000);
+});
+
+describe("comparing a model against its previous run", () => {
+  /** The same reply, with what the earlier run said beside it. */
+  const WITH_PREVIOUS = {
+    hourly_units: PAYLOAD.hourly_units,
+    hourly: {
+      ...PAYLOAD.hourly,
+      temperature_2m_previous_day1_gfs_seamless: [25, 25.2, 25.4, 26, 26.5, 27],
+      // The earlier ECMWF run stops short, which is what a model that was not
+      // run that far, or an archive that has been trimmed, looks like.
+      temperature_2m_previous_day1_ecmwf_ifs025: [
+        24.5,
+        24.6,
+        24.8,
+        null,
+        null,
+        null,
+      ],
+      precipitation_previous_day1_gfs_seamless: [0, 0, 0, 0.4, 0, 0],
+      precipitation_previous_day1_ecmwf_ifs025: [0, 0, 0, 0, 0, 0],
+      wind_speed_10m_previous_day1_gfs_seamless: [10, 10, 11, 12, 13, 14],
+      wind_speed_10m_previous_day1_ecmwf_ifs025: [11, 11, 11, 12, 13, 14],
+    },
+  };
+
+  it("puts the earlier run on the same valid hours", () => {
+    const guidance = parseGuidance(WITH_PREVIOUS, POINT, MODELS, true);
+    expect(guidance.comparedWithPreviousRun).toBe(true);
+    const temperature = guidance.readings.find(
+      (reading) => reading.variable === "temperature_2m",
+    )!;
+    // Midnight and three, which are the hours the panel keeps.
+    const [midnight, three] = temperature.hours;
+    expect(midnight.values).toEqual([26, 24]);
+    expect(midnight.previous).toEqual([25, 24.5]);
+    expect(three.values).toEqual([27, 25]);
+    // The earlier ECMWF run had nothing at three, and says so rather than
+    // reading as no change.
+    expect(three.previous).toEqual([26, null]);
+  });
+
+  it("says nothing about a previous run nobody asked for", () => {
+    const guidance = parseGuidance(WITH_PREVIOUS, POINT, MODELS);
+    expect(guidance.comparedWithPreviousRun).toBeUndefined();
+    for (const reading of guidance.readings) {
+      for (const hour of reading.hours) {
+        expect(hour.previous).toBeUndefined();
+      }
+    }
+  });
+
+  it("leaves the hours empty when the archive has none", () => {
+    // Asked for, and the service answered without the extra variables, which
+    // is what a model with no archive looks like.
+    const guidance = parseGuidance(PAYLOAD, POINT, MODELS, true);
+    expect(guidance.comparedWithPreviousRun).toBe(true);
+    const temperature = guidance.readings.find(
+      (reading) => reading.variable === "temperature_2m",
+    )!;
+    expect(temperature.hours[0].previous).toEqual([null, null]);
+  });
+
+  it("still lands every hour on UTC", () => {
+    const guidance = parseGuidance(WITH_PREVIOUS, POINT, MODELS, true);
+    const temperature = guidance.readings.find(
+      (reading) => reading.variable === "temperature_2m",
+    )!;
+    for (const hour of temperature.hours) {
+      expect(new Date(hour.time).getUTCHours() % 3).toBe(0);
+    }
+    expect(temperature.hours[0].time).toBe(Date.UTC(2026, 7, 30, 0));
+  });
+});
+
+describe("when a model last ran", () => {
+  it("reads the run out of the service's own metadata", () => {
+    const run = parseModelRun({
+      last_run_initialisation_time: 1788177600,
+      last_run_availability_time: 1788198595,
+      update_interval_seconds: 21600,
+    })!;
+    expect(run.initUtc).toBe(1788177600000);
+    expect(run.availableUtc).toBe(1788198595000);
+    expect(run.intervalSeconds).toBe(21600);
+  });
+
+  it("has no run rather than a made-up one", () => {
+    expect(parseModelRun(null)).toBeNull();
+    expect(parseModelRun({})).toBeNull();
+    expect(parseModelRun({ last_run_initialisation_time: "soon" })).toBeNull();
+    expect(parseModelRun({ last_run_initialisation_time: 0 })).toBeNull();
+  });
+
+  it("falls back to the initialisation when nothing says it arrived", () => {
+    const run = parseModelRun({ last_run_initialisation_time: 1788177600 })!;
+    expect(run.availableUtc).toBe(run.initUtc);
+    expect(run.intervalSeconds).toBe(0);
+  });
+
+  it("calls a run stale only when it is past its own schedule", () => {
+    const run = {
+      initUtc: Date.UTC(2026, 7, 31, 0),
+      availableUtc: Date.UTC(2026, 7, 31, 4),
+      intervalSeconds: 21600,
+    };
+    // Four hours later is an ordinary morning: the run has not even finished
+    // arriving in some models.
+    expect(runIsStale(run, Date.UTC(2026, 7, 31, 4))).toBe(false);
+    // A skipped cycle is not news either.
+    expect(runIsStale(run, Date.UTC(2026, 7, 31, 12))).toBe(false);
+    // Three months is not a model running late.
+    expect(runIsStale(run, Date.UTC(2026, 10, 31, 0))).toBe(true);
+    // A model that does not say how often it runs is never called stale.
+    expect(
+      runIsStale({ ...run, intervalSeconds: 0 }, Date.UTC(2027, 0, 1)),
+    ).toBe(false);
+  });
 });

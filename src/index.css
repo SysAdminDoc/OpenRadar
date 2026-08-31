@@ -3847,3 +3847,36 @@ input[type="range"] {
 .watch-place .source-note {
   margin: 0;
 }
+
+/* When each model last ran, above the table. A model twelve hours behind
+   another is not disagreeing with it, and the table cannot say which. */
+.model-runs {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--subtle);
+}
+
+.model-runs li[data-stale="true"] {
+  color: var(--warning, #fbbf24);
+}
+
+/* The change since the previous run, under the reading it belongs to. */
+.guidance-change {
+  display: block;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--subtle);
+}
+
+.guidance-change[data-direction="up"] {
+  color: #f0a878;
+}
+
+.guidance-change[data-direction="down"] {
+  color: #8fc7e8;
+}

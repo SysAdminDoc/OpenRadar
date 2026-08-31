@@ -974,6 +974,14 @@ export const es: Catalogue = {
   "guidance.failedTitle": "No se pudieron consultar los modelos",
   "guidance.unknown": "La consulta a los modelos falló.",
   "guidance.noValue": "—",
+  "guidance.compare": "Comparar con la pasada de ayer",
+  "guidance.compareDetail":
+    "Lo que decía cada modelo de estas mismas horas hace un día, y cuánto ha cambiado desde entonces",
+  "guidance.runAt":
+    "{model} se ejecutó por última vez el {when}, hace {hours} h",
+  "guidance.runUnknown": "{model} no dice cuándo se ejecutó por última vez",
+  "guidance.runStale": "· más antigua de lo que marca su propio horario",
+  "guidance.noPrevious": "sin pasada anterior",
   "guidance.agree": "coinciden, en {unit}",
   "guidance.disagree": "no coinciden, en {unit}",
   "guidance.note":

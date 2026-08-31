@@ -958,6 +958,13 @@ export const en = {
   "guidance.failedTitle": "The models could not be read",
   "guidance.unknown": "The guidance request failed.",
   "guidance.noValue": "—",
+  "guidance.compare": "Compare with yesterday's run",
+  "guidance.compareDetail":
+    "What each model said about these same hours a day ago, and how far it has moved since",
+  "guidance.runAt": "{model} last ran {when}, {hours} h ago",
+  "guidance.runUnknown": "{model} did not say when it last ran",
+  "guidance.runStale": "· older than its own schedule",
+  "guidance.noPrevious": "no earlier run",
   "guidance.agree": "they agree, in {unit}",
   "guidance.disagree": "they disagree, in {unit}",
   "guidance.note":
