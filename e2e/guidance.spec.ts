@@ -277,14 +277,15 @@ test("a measurement already on the map follows the units", async ({ page }) => {
   await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.6);
 
   const hud = page.locator(".tool-hud");
-  await expect(hud).toContainText(/Range \d+ mi\b/);
-  const imperial = (await hud.textContent()) ?? "";
+  const result = hud.locator(".tool-hud__result");
+  await expect(result).toHaveText(/^\d+ mi$/);
+  const imperial = (await result.textContent()) ?? "";
 
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Metres and Celsius" }).click();
   await page.getByRole("button", { name: "Close Settings" }).click();
 
   // Same measurement, said in the other units, without touching the map again.
-  await expect(hud).toContainText(/Range \d+ km\b/);
-  expect(await hud.textContent()).not.toBe(imperial);
+  await expect(result).toHaveText(/^\d+ km$/);
+  expect(await result.textContent()).not.toBe(imperial);
 });

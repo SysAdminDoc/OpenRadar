@@ -894,6 +894,6 @@ export const es: Catalogue = {
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.beamHeight": "haz a {height} sobre el radar con {tilt}°",
   "tool.pathPoints": "{count} puntos en la ruta",
-  "tool.rangeResult": "Distancia {distance}",
+  "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",
 };

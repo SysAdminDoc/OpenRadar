@@ -880,7 +880,7 @@ export const en = {
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.beamHeight": "beam {height} above the radar at {tilt}°",
   "tool.pathPoints": "{count} points in path",
-  "tool.rangeResult": "Range {distance}",
+  "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Click the map to inspect a point",
 } as const;
 
