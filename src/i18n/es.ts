@@ -487,6 +487,19 @@ export const es: Catalogue = {
   "layers.qpeHourDetail": "Cuánta ha caído en la última hora",
   "layer.qpeDay": "Lluvia, último día",
   "layers.qpeDayDetail": "Cuánta ha caído desde ayer a esta hora",
+  "layer.precipType": "Lluvia o nieve",
+  "layers.precipTypeDetail":
+    "Qué está cayendo según la red, más que con cuánta fuerza",
+  "keywords.precipType": "nieve aguanieve helada invierno tipo",
+  "precipType.warmStratiform": "Lluvia",
+  "precipType.coolStratiform": "Lluvia fría",
+  "precipType.snow": "Nieve",
+  "precipType.convection": "Lluvia convectiva",
+  "precipType.hail": "Granizo",
+  "precipType.tropicalStratiform": "Lluvia tropical",
+  "precipType.tropicalConvection": "Lluvia tropical convectiva",
+  "chrome.precipTypeNote":
+    "La clasificación de la propia red, a partir del radar y de la temperatura del modelo, no un parte desde el suelo",
   "layer.spcOutlooks": "Riesgo de tormentas",
   "layers.spcOutlooksDetail":
     "El riesgo de tormentas severas hoy según el Storm Prediction Center, en sus propios colores",

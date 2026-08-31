@@ -18,6 +18,7 @@ import {
   Satellite,
   ShieldAlert,
   Sigma,
+  Snowflake,
   Tornado,
   Umbrella,
   Waves,
@@ -321,6 +322,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.qpeDay",
     detailKey: "layers.qpeDayDetail",
     icon: Umbrella,
+  },
+  {
+    key: "precipType",
+    labelKey: "layer.precipType",
+    detailKey: "layers.precipTypeDetail",
+    icon: Snowflake,
   },
   {
     key: "lightningDensity",

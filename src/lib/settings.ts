@@ -102,6 +102,8 @@ export interface LayerSettings {
   qpeHour: boolean;
   qpeDay: boolean;
   /** MRMS cloud-to-ground flash density over the past five minutes. */
+  /** What kind of precipitation the network says is falling. */
+  precipType: boolean;
   lightningDensity: boolean;
   /** GLM total-lightning flashes from GOES-East. */
   lightningFlashes: boolean;
@@ -290,6 +292,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     precipRate: false,
     qpeHour: false,
     qpeDay: false,
+    precipType: false,
     lightningDensity: false,
     lightningFlashes: false,
     wind: false,
@@ -968,6 +971,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       precipRate: bool(layers.precipRate, DEFAULT_SETTINGS.layers.precipRate),
       qpeHour: bool(layers.qpeHour, DEFAULT_SETTINGS.layers.qpeHour),
       qpeDay: bool(layers.qpeDay, DEFAULT_SETTINGS.layers.qpeDay),
+      precipType: bool(layers.precipType, DEFAULT_SETTINGS.layers.precipType),
       lightningDensity: bool(
         layers.lightningDensity,
         DEFAULT_SETTINGS.layers.lightningDensity,

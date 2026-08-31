@@ -39,6 +39,7 @@ const SERVED_HOSTS: &[&str] = &[
     "services3.arcgis.com",
     "api.tidesandcurrents.noaa.gov",
     "api.open-meteo.com",
+    "previous-runs-api.open-meteo.com",
 ];
 
 /// What came back, and whether it came off the disk.

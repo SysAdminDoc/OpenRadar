@@ -144,6 +144,7 @@ describe("the MRMS layers and the grids that feed them", () => {
       "precipRate",
       "qpeHour",
       "qpeDay",
+      "precipType",
       "lightningDensity",
     ] as const;
     for (const layer of mrmsLayers) {

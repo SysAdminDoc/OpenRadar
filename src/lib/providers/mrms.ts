@@ -27,6 +27,7 @@ export const MRMS_PRODUCT_IDS = [
   "qpe-hour",
   "qpe-day",
   "hail-swath",
+  "precip-type",
 ] as const;
 
 export type MrmsProductId = (typeof MRMS_PRODUCT_IDS)[number];
@@ -38,6 +39,11 @@ export interface MrmsProductInfo {
   floor: number;
   /** Each ramp stop as its value and its colour, for the legend. */
   stops: Array<[number, string]>;
+  /**
+   * For a grid whose numbers are names rather than a quantity: the value, its
+   * colour, and a stable name the page translates.
+   */
+  categories?: Array<[number, string, string]>;
 }
 
 interface MrmsFrame {

@@ -162,6 +162,7 @@ describe("settings normalization", () => {
       "lightningDensity",
       "lightningFlashes",
       "precipRate",
+      "precipType",
       "probSevere",
       "qpeDay",
       "qpeHour",
