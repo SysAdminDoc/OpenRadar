@@ -1,5 +1,7 @@
 import { LoaderCircle, Radar } from "lucide-react";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -10,7 +12,6 @@ import {
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import type { MapViewportHandle } from "./components/MapViewport";
-import { PanelSurfaces } from "./components/PanelSurfaces";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
 import {
   useMinuteClock,
@@ -60,6 +61,11 @@ import { diagnosticsBlock } from "./lib/diagnostics";
 import { useStormCells } from "./hooks/useStormCells";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
+
+const PanelSurfaces = lazy(async () => {
+  const module = await import("./components/PanelSurfaces");
+  return { default: module.PanelSurfaces };
+});
 
 export default function App() {
   const t = useT();
@@ -494,95 +500,99 @@ export default function App() {
         onMapStatus={handleMapStatus}
       />
 
-      <PanelSurfaces
-        layerNotes={{
-          weatherAlerts: overlays.states.alerts.error,
-          spcOutlooks: overlays.states.spcOutlooks.error,
-          spcDiscussions: overlays.states.spcDiscussions.error,
-          stormReports: overlays.states.stormReports.error,
-          stormCells: stormCells.error,
-          probSevere: probSevere.error,
-          earthquakes: overlays.states.earthquakes.error,
-          wildfires: overlays.states.wildfires.error,
-          tropical: overlays.states.tropical.error,
-          rotationTracks: mrms.error,
-          hail: mrms.error,
-          hailSwath: mrms.error,
-          echoTops: mrms.error,
-          vil: mrms.error,
-          precipRate: mrms.error,
-          qpeHour: mrms.error,
-          qpeDay: mrms.error,
-          lightningDensity: mrms.error,
-          lightningFlashes: lightning.error,
-          wind: wind.error,
-        }}
-        activeSurface={activeSurface}
-        productOpen={productOpen}
-        settings={settings}
-        overlays={overlays.states}
-        viewport={viewport}
-        centerPoint={centerPoint}
-        frameCount={frames.length}
-        sourceLabel={timeline.sourceLabel}
-        singleSite={level2Available() ? singleSite : null}
-        stormCells={stormCells}
-        clock={clock}
-        update={updates.state}
-        onUpdate={updates.act}
-        historyStormId={historyStorm?.id ?? null}
-        replayId={replay?.id ?? null}
-        mapReady={mapStatus === "ready"}
-        health={health}
-        log={logEntries}
-        exportState={exportState}
-        onClose={() => setActiveSurface(null)}
-        onCloseProduct={() => setProductOpen(false)}
-        onLayers={(layers: LayerSettings) =>
-          applySettings({ ...settingsRef.current, layers })
-        }
-        onEnableLayer={(layer) =>
-          applySettings({
-            ...settingsRef.current,
-            layers: { ...settingsRef.current.layers, [layer]: true },
-          })
-        }
-        onSettings={applySettings}
-        onMapStyle={(mapStyle: MapStyleId) =>
-          applySettings({ ...settingsRef.current, mapStyle })
-        }
-        onProjection={actions.setProjection}
-        onRadar={(radar: RadarSettings) =>
-          applySettings({ ...settingsRef.current, radar })
-        }
-        onPlace={actions.goToPlace}
-        onAlertSelect={actions.flyToBounds}
-        onFollowStorm={actions.followStorm}
-        onCommand={runCommand}
-        onClearPalette={clearPalette}
-        onAlertTypes={(alertTypes) =>
-          applySettings({ ...settingsRef.current, alertTypes })
-        }
-        onOverlayOpacity={(overlayOpacity) =>
-          applySettings({ ...settingsRef.current, overlayOpacity })
-        }
-        onOverlayOrder={(overlayOrder) =>
-          applySettings({ ...settingsRef.current, overlayOrder })
-        }
-        onSurgeCategory={(surgeCategory) =>
-          applySettings({ ...settingsRef.current, surgeCategory })
-        }
-        onHistoryStorm={showStorm}
-        onReplayStorm={replayStorm}
-        onStopReplay={stopReplay}
-        onRoute={setRoute}
-        onUpload={actions.uploadOverlay}
-        onWatchHere={actions.watchHere}
-        onOpenLogFolder={actions.openLogFolder}
-        onCopyDiagnostics={copyDiagnostics}
-        onReset={actions.resetSettings}
-        onExportSettings={actions.exportSettings}
-      />
+      {activeSurface || productOpen ? (
+        <Suspense fallback={null}>
+          <PanelSurfaces
+            layerNotes={{
+              weatherAlerts: overlays.states.alerts.error,
+              spcOutlooks: overlays.states.spcOutlooks.error,
+              spcDiscussions: overlays.states.spcDiscussions.error,
+              stormReports: overlays.states.stormReports.error,
+              stormCells: stormCells.error,
+              probSevere: probSevere.error,
+              earthquakes: overlays.states.earthquakes.error,
+              wildfires: overlays.states.wildfires.error,
+              tropical: overlays.states.tropical.error,
+              rotationTracks: mrms.error,
+              hail: mrms.error,
+              hailSwath: mrms.error,
+              echoTops: mrms.error,
+              vil: mrms.error,
+              precipRate: mrms.error,
+              qpeHour: mrms.error,
+              qpeDay: mrms.error,
+              lightningDensity: mrms.error,
+              lightningFlashes: lightning.error,
+              wind: wind.error,
+            }}
+            activeSurface={activeSurface}
+            productOpen={productOpen}
+            settings={settings}
+            overlays={overlays.states}
+            viewport={viewport}
+            centerPoint={centerPoint}
+            frameCount={frames.length}
+            sourceLabel={timeline.sourceLabel}
+            singleSite={level2Available() ? singleSite : null}
+            stormCells={stormCells}
+            clock={clock}
+            update={updates.state}
+            onUpdate={updates.act}
+            historyStormId={historyStorm?.id ?? null}
+            replayId={replay?.id ?? null}
+            mapReady={mapStatus === "ready"}
+            health={health}
+            log={logEntries}
+            exportState={exportState}
+            onClose={() => setActiveSurface(null)}
+            onCloseProduct={() => setProductOpen(false)}
+            onLayers={(layers: LayerSettings) =>
+              applySettings({ ...settingsRef.current, layers })
+            }
+            onEnableLayer={(layer) =>
+              applySettings({
+                ...settingsRef.current,
+                layers: { ...settingsRef.current.layers, [layer]: true },
+              })
+            }
+            onSettings={applySettings}
+            onMapStyle={(mapStyle: MapStyleId) =>
+              applySettings({ ...settingsRef.current, mapStyle })
+            }
+            onProjection={actions.setProjection}
+            onRadar={(radar: RadarSettings) =>
+              applySettings({ ...settingsRef.current, radar })
+            }
+            onPlace={actions.goToPlace}
+            onAlertSelect={actions.flyToBounds}
+            onFollowStorm={actions.followStorm}
+            onCommand={runCommand}
+            onClearPalette={clearPalette}
+            onAlertTypes={(alertTypes) =>
+              applySettings({ ...settingsRef.current, alertTypes })
+            }
+            onOverlayOpacity={(overlayOpacity) =>
+              applySettings({ ...settingsRef.current, overlayOpacity })
+            }
+            onOverlayOrder={(overlayOrder) =>
+              applySettings({ ...settingsRef.current, overlayOrder })
+            }
+            onSurgeCategory={(surgeCategory) =>
+              applySettings({ ...settingsRef.current, surgeCategory })
+            }
+            onHistoryStorm={showStorm}
+            onReplayStorm={replayStorm}
+            onStopReplay={stopReplay}
+            onRoute={setRoute}
+            onUpload={actions.uploadOverlay}
+            onWatchHere={actions.watchHere}
+            onOpenLogFolder={actions.openLogFolder}
+            onCopyDiagnostics={copyDiagnostics}
+            onReset={actions.resetSettings}
+            onExportSettings={actions.exportSettings}
+          />
+        </Suspense>
+      ) : null}
 
       <WorkspaceChrome
         settings={settings}
