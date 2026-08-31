@@ -22,13 +22,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: A documented bundle budget is enforced locally; optional analysis and archive code load on demand; the first interactive map path does not regress; cold-open and provider fallback scenarios pass; build output shows a material main-chunk reduction or a measured reason to retain it.
       Complexity: L
 
-- [ ] AUD-009: Remove the all-target `glib 0.18.5` advisory
-      Why: The package is not in the Windows dependency tree, but all-target scanning remains noisy and the affected iterator range is unsound.
-      Evidence: `src-tauri/Cargo.lock`; scanner output; https://rustsec.org/advisories/RUSTSEC-2024-0429.html
-      Touches: Upstream Tauri or GTK dependency chain; lockfile; all-target scan policy
-      Acceptance: The affected `glib` version is gone from supported-target graphs, or a dated upstream exception proves it cannot execute on shipped targets and names the dependency that must move; the scanner report is clean or narrowly documented.
-      Complexity: M
-
 - [ ] AUD-010: Capture and inspect a true wide desktop viewport
       Why: The in-app capture backend capped the earlier wide reference at 1248 pixels, so the 1916-pixel README layout has no current isolated evidence.
       Evidence: `assets/screenshots/`; `e2e/`; prior audit notes in Git history

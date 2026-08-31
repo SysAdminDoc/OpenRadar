@@ -1,0 +1,32 @@
+# What `cargo audit` is allowed to stay quiet about, and why.
+#
+# An ignore here is a claim, and each one has to carry the evidence for it and
+# a date to be looked at again. A scanner that is loud about something nobody
+# can act on gets ignored wholesale, which is worse than one exception written
+# down.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2024-0429: unsoundness in glib's VariantStrIter.
+    #
+    # glib 0.18.5 is not in the Windows dependency graph at all. It arrives
+    # through the GTK3 bindings, which are Linux-only:
+    #
+    #   glib 0.18.5 <- atk 0.18.2 <- gtk 0.18.2 <- muda 0.19.3 / tao 0.35.3
+    #                                            <- tauri 2.11.5
+    #
+    # Checked on 2026-08-31 with
+    #   cargo tree -i glib --target x86_64-pc-windows-msvc   -> nothing to print
+    #   cargo tree -i glib --target all                      -> the chain above
+    #
+    # Windows x64 is the only target OpenRadar builds and ships, so the
+    # affected code cannot execute in anything a reader installs. Clearing it
+    # for real means gtk 0.18.2 moving to a gtk-rs release built on glib 0.20
+    # or later, which is upstream's call: gtk-rs has retired its GTK3 bindings
+    # rather than updating them, so the move is Tauri's to make in muda and
+    # tao. Nothing in this repository can pull it forward.
+    #
+    # Review when Tauri publishes a release whose muda and tao no longer
+    # depend on gtk 0.18, or by 2027-03-01, whichever comes first.
+    "RUSTSEC-2024-0429",
+]
