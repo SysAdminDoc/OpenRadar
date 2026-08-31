@@ -55,58 +55,55 @@ import {
 } from "../lib/surge";
 import { translate } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
+import {
+  CELL_FORECAST_LAYER_ID,
+  CELL_LABEL_LAYER_ID,
+  CELL_LAYER_IDS,
+  CELL_POINT_LAYER_ID,
+  CELL_TRACK_LAYER_ID,
+  CUSTOM_FILL_LAYER_ID,
+  CUSTOM_LAYER_IDS,
+  CUSTOM_LINE_LAYER_ID,
+  CUSTOM_POINT_LAYER_ID,
+  FLASH_LAYER_ID,
+  layerStackOrder,
+  MRMS_LAYER_IDS,
+  MRMS_SOURCE_PREFIX,
+  PROBSEVERE_FILL_LAYER_ID,
+  PROBSEVERE_LAYER_IDS,
+  PROBSEVERE_LINE_LAYER_ID,
+  RADAR_LAYER_ID,
+  ROUTE_LAYER_ID,
+  SATELLITE_LAYER_ID,
+  SURGE_LAYER_ID,
+  SWEEP_LAYER_ID,
+  TOOL_LINE_LAYER_ID,
+  TOOL_POINT_LAYER_ID,
+  topmost,
+  TRACK_LAYER_IDS,
+  TRACK_LINE_LAYER_ID,
+  TRACK_POINT_LAYER_ID,
+  WIND_LAYER_ID,
+} from "../lib/layerStack";
 
 const SATELLITE_SOURCE_ID = "openradar-satellite-source";
-const SATELLITE_LAYER_ID = "openradar-satellite-layer";
 const SURGE_SOURCE_ID = "openradar-surge-source";
-const SURGE_LAYER_ID = "openradar-surge-layer";
-const MRMS_SOURCE_PREFIX = "openradar-mrms-";
-const WIND_LAYER_ID = "openradar-wind";
 const PROBSEVERE_SOURCE_ID = "openradar-probsevere-source";
-const PROBSEVERE_FILL_LAYER_ID = "openradar-probsevere-fill";
-const PROBSEVERE_LINE_LAYER_ID = "openradar-probsevere-line";
-const PROBSEVERE_LAYER_IDS = [
-  PROBSEVERE_FILL_LAYER_ID,
-  PROBSEVERE_LINE_LAYER_ID,
-];
-
 const CELL_SOURCE_ID = "openradar-cell-source";
-const CELL_TRACK_LAYER_ID = "openradar-cell-tracks";
-const CELL_FORECAST_LAYER_ID = "openradar-cell-forecast";
-const CELL_POINT_LAYER_ID = "openradar-cell-points";
-const CELL_LABEL_LAYER_ID = "openradar-cell-labels";
-const CELL_LAYER_IDS = [
-  CELL_TRACK_LAYER_ID,
-  CELL_FORECAST_LAYER_ID,
-  CELL_POINT_LAYER_ID,
-  CELL_LABEL_LAYER_ID,
-];
-
 const FLASH_SOURCE_ID = "openradar-flash-source";
-const FLASH_LAYER_ID = "openradar-flash-points";
 /** How far a site's own sweep reaches, which is as far as a beam height
  * means anything: past it the picture is the mosaic again. */
 const MAX_SWEEP_RANGE_KM = 230;
 
 const SWEEP_SOURCE_ID = "openradar-sweep-source";
-const SWEEP_LAYER_ID = "openradar-sweep-layer";
 const RADAR_SOURCE_ID = "openradar-radar-source";
-const RADAR_LAYER_ID = "openradar-radar-layer";
 
 type RadarLane = "observed" | "forecast";
 const TOOL_SOURCE_ID = "openradar-tool-source";
-const TOOL_LINE_LAYER_ID = "openradar-tool-line";
-const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
 const ROUTE_SOURCE_ID = "openradar-route-source";
-const ROUTE_LAYER_ID = "openradar-route-line";
 const TRACK_SOURCE_ID = "openradar-track-source";
-const TRACK_LINE_LAYER_ID = "openradar-track-line";
-const TRACK_POINT_LAYER_ID = "openradar-track-points";
 const CUSTOM_SOURCE_ID = "openradar-custom-source";
-const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
-const CUSTOM_LINE_LAYER_ID = "openradar-custom-line";
-const CUSTOM_POINT_LAYER_ID = "openradar-custom-points";
 
 export interface MapViewportHandle {
   zoomIn: () => void;
@@ -181,28 +178,6 @@ interface MapViewportProps {
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
 
-/** Hail sits over rotation, because a hail core is the smaller target. */
-const MRMS_LAYER_IDS = [
-  `${MRMS_SOURCE_PREFIX}rotation`,
-  `${MRMS_SOURCE_PREFIX}mesh`,
-  `${MRMS_SOURCE_PREFIX}lightning`,
-  FLASH_LAYER_ID,
-  WIND_LAYER_ID,
-];
-
-const TRACK_LAYER_IDS = [TRACK_LINE_LAYER_ID, TRACK_POINT_LAYER_ID];
-
-const CUSTOM_LAYER_IDS = [
-  CUSTOM_FILL_LAYER_ID,
-  CUSTOM_LINE_LAYER_ID,
-  CUSTOM_POINT_LAYER_ID,
-];
-const TOOL_LAYER_IDS = [TOOL_LINE_LAYER_ID, TOOL_POINT_LAYER_ID];
-const RADAR_LANE_LAYER_IDS = [
-  `${RADAR_LAYER_ID}-observed`,
-  `${RADAR_LAYER_ID}-forecast`,
-];
-
 /**
  * Keeps a late-arriving layer under everything that belongs above it. The
  * anchor has to be read from the style, because layers are added in whatever
@@ -234,42 +209,13 @@ function overlayLayerOrder(): string[] {
     );
 }
 
-/**
- * Bottom to top, the order every OpenRadar layer belongs in. A layer is added
- * before the first of these that is already on the map, which keeps the stack
- * right no matter which data arrives first.
- */
-function layerStackOrder(): string[] {
-  return [
-    SATELLITE_LAYER_ID,
-    // Surge sits above the satellite and under the radar: it is the ground
-    // the weather is happening over, not weather itself.
-    SURGE_LAYER_ID,
-    ...RADAR_LANE_LAYER_IDS,
-    SWEEP_LAYER_ID,
-    ...MRMS_LAYER_IDS,
-    // What a model expects goes over the pictures it was worked out from and
-    // under the warnings a person issued, because guidance belongs under a
-    // decision somebody has taken responsibility for.
-    ...PROBSEVERE_LAYER_IDS,
-    ...overlayLayerOrder(),
-    ...TRACK_LAYER_IDS,
-    // Cells sit above the pictures they were found in and under the tools the
-    // reader draws with: they are the radar's own reading of the storm, and
-    // nothing should hide them.
-    ...CELL_LAYER_IDS,
-    ROUTE_LAYER_ID,
-    ...CUSTOM_LAYER_IDS,
-    ...TOOL_LAYER_IDS,
-  ];
-}
 
 /**
  * The layers that belong above the one being added. A layer the order does not
  * know goes on top rather than under everything, which is the safer miss.
  */
 function layersAbove(id: string): string[] {
-  const order = layerStackOrder();
+  const order = layerStackOrder(overlayLayerOrder());
   const at = order.indexOf(id);
   return at < 0 ? [] : order.slice(at + 1);
 }
@@ -750,40 +696,38 @@ function MapViewportInner(
     const map = mapRef.current;
     if (!map) return;
 
-    // The model's own reading comes first, because it is drawn over the
-    // pictures and a click on it should say what it says rather than what is
-    // underneath it.
-    if (map.getLayer(PROBSEVERE_FILL_LAYER_ID)) {
-      const guess = map.queryRenderedFeatures(event.point, {
-        layers: [PROBSEVERE_FILL_LAYER_ID],
-      })[0];
-      if (guess) {
-        const properties = guess.properties ?? {};
-        const detail = String(properties.detail ?? "");
-        openPopup(map, event.lngLat, {
-          title: translate("probSevere.title"),
-          lines: [
-            translate("probSevere.headline", {
-              percent: String(properties.severe ?? 0),
-            }),
-            translate("probSevere.kinds", {
-              hail: String(properties.hail ?? 0),
-              wind: String(properties.wind ?? 0),
-              tornado: String(properties.tornado ?? 0),
-            }),
-            ...(detail ? [detail] : []),
-            translate("probSevere.note"),
-          ],
-        });
-        return;
-      }
+    const clickable = [...overlayLayerIds(), PROBSEVERE_FILL_LAYER_ID].filter(
+      (id) => map.getLayer(id),
+    );
+    if (!clickable.length) return;
+
+    const hits = map.queryRenderedFeatures(event.point, { layers: clickable });
+    // The click answers with whatever the reader can see, which is the same
+    // order the map draws in rather than a second list beside it.
+    const hit = topmost(hits, layerStackOrder(overlayLayerOrder()));
+    if (!hit) return;
+
+    if (hit.layer.id === PROBSEVERE_FILL_LAYER_ID) {
+      const properties = hit.properties ?? {};
+      const detail = String(properties.detail ?? "");
+      openPopup(map, event.lngLat, {
+        title: translate("probSevere.title"),
+        lines: [
+          translate("probSevere.headline", {
+            percent: String(properties.severe ?? 0),
+          }),
+          translate("probSevere.kinds", {
+            hail: String(properties.hail ?? 0),
+            wind: String(properties.wind ?? 0),
+            tornado: String(properties.tornado ?? 0),
+          }),
+          ...(detail ? [detail] : []),
+          translate("probSevere.note"),
+        ],
+      });
+      return;
     }
 
-    const layers = overlayLayerIds();
-    if (!layers.length) return;
-
-    const hit = map.queryRenderedFeatures(event.point, { layers })[0];
-    if (!hit) return;
     const adapter = OVERLAY_ADAPTERS.find((candidate) =>
       hit.layer.id.startsWith(`${OVERLAY_SOURCE_PREFIX}${candidate.id}`),
     );

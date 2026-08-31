@@ -6,12 +6,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
-- [ ] P0 — Severe probability takes every click meant for the warning drawn on top of it
-  Why: `MapViewport.tsx` queries `openradar-probsevere-fill` first and returns on a hit, before the overlay list is consulted, while `layerStackOrder()` deliberately draws ProbSevere under the alerts. A tornado warning is unreachable by click anywhere the model drew a polygon, which is exactly over the storms that carry warnings.
-  Evidence: Playwright against the real handler: without ProbSevere a click reports "Tornado Warning"; with it, "Severe probability"; layer order guess 9, warning 10.
-  Touches: src/components/MapViewport.tsx (the click handler), a test that fixes the order against the render order
-  Acceptance: a click where a warning polygon overlaps a ProbSevere polygon reports the warning; the click order is derived from the render order rather than written out twice, so the two cannot drift; a test fails if a guidance layer is put in front of a decision layer.
-
 ### P1
 
 - [ ] P1 — Panning between MRMS regions serves the previous region's grid
