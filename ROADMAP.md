@@ -15,13 +15,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: A curated TDWR site and product set is identified from official documentation; unsupported products cannot be selected; radar type, range, time, units, and source are visible; fixtures cover representative messages and unknown blocks; WSR-88D behavior is unchanged.
       Complexity: XL
 
-- [ ] AUD-082: Validate a sustainable EUMETNET ORD path for European radar
-      Why: ORD exposes European volumes and composites with useful archives, but anonymous users have low query limits and member licenses can differ.
-      Evidence: `src/lib/providers/dwd.ts`; https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/
-      Touches: Provider feasibility note; credentials strategy; license metadata; OPERA composite adapter; cache and traffic budget
-      Acceptance: The item may close with a documented no-go if a desktop redistribution quota is unavailable; any shipped adapter embeds no secret, names product-level license and attribution, respects rate limits, distinguishes OPERA composite from national products, and has 24-hour cache and schema fixtures.
-      Complexity: XL
-
 - [ ] AUD-083: Add deterministic incident replay bundles
       Why: Workspace backups preserve settings, not the exact external bytes and source identities that produced a past analysis. A portable local bundle would make review reproducible after providers change.
       Evidence: `src/lib/workspace.ts`; `src/hooks/useRadarTimeline.ts`; `src/lib/providers/types.ts`; https://github.com/d4vid87/hookecho ; https://github.com/jhammon88219/Anvil
