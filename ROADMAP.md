@@ -8,12 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — Every warning already in force is announced twice on the first poll
-  Why: the shared tag cache returns an empty map on the first `fetchData`, so an alert is recorded at rank 0 and then re-announced at its real rank on the next poll. The first draw also has no impact styling and no tag line, with nothing re-rendering when the tags land.
-  Evidence: driving the real `alertsOverlay.fetchData` twice against a mocked feed produced two announcements for one Tornado Warning, impact "" then "catastrophic".
-  Touches: src/lib/overlays/alerts.ts (`alertTags`, `fetchData`), src/lib/watch.ts
-  Acceptance: an alert whose tag arrives late is announced once, at its real rank; the map redraws when tags land rather than keeping rank 0; the 429 case the shared cache was added for stays fixed.
-
 - [ ] P1 — Tsunami and the civil-emergency products sit behind a switch labelled "Tornado"
   Why: the grouping is right (they are all extreme, and they belong with the products people act on immediately) but the label is not. A reader in Honolulu who turns off "Tornado" because tornadoes are not their weather silently loses tsunami warnings from the map and from the watch.
   Evidence: all 118 CAP event values through `alertType`: the tornado bucket holds Civil Danger, Evacuation Immediate, Extreme Wind, Hazardous Materials, Nuclear Power Plant, Radiological Hazard, Shelter In Place, Tornado Warning and Watch, and all three Tsunami products. `en.ts` renders the switch as the bare word "Tornado".

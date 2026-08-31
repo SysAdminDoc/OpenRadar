@@ -78,6 +78,49 @@ function alertTags(signal?: AbortSignal): Map<string, AlertTags> {
   return held;
 }
 
+/**
+ * How long the first draw of the session will wait for the tags, and no more.
+ *
+ * Long enough for a read of a megabyte and a half on an ordinary connection,
+ * short enough that a tag feed having a bad minute cannot keep a tornado
+ * warning off the map.
+ */
+const FIRST_TAG_WAIT_MS = 3_000;
+
+/**
+ * The tags, waiting for them once and never again.
+ *
+ * Not waiting at all was wrong at the start of a session and right afterwards.
+ * The first read has nothing held, so every warning already in force was drawn
+ * with no damage threat on it, ranked as untagged, and announced. A minute
+ * later the tags arrived, the same warnings ranked higher, and the watch read
+ * that as the office saying they had got worse: everybody heard about every
+ * standing warning twice, and the first time was the one without the tag on
+ * it. The map had the same problem in silence, drawing a catastrophic tornado
+ * warning in the ordinary outline for its first minute.
+ *
+ * Once anything is held this returns straight away, which is the case that
+ * matters for bandwidth: the feed is unpaginated and asked for beside every
+ * pan.
+ */
+async function alertTagsReady(
+  signal?: AbortSignal,
+): Promise<Map<string, AlertTags>> {
+  const held = alertTags(signal);
+  if (cachedTags || !inFlight) return held;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      inFlight,
+      new Promise<Map<string, AlertTags>>((resolve) => {
+        timer = setTimeout(() => resolve(held), FIRST_TAG_WAIT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 /** Forgets the last read, so a test does not carry one between cases. */
 export function resetAlertTags() {
   cachedTags = null;
@@ -318,9 +361,12 @@ export const alertsOverlay: OverlayAdapter = {
       resultRecordCount: "300",
       f: "geojson",
     });
-    // The tags this build already has, and a read started for the next pass
-    // if they have gone stale. Nothing about the tags holds up the polygons.
-    const tagged = alertTags(signal);
+    // The tags. The first read of a session waits for them, briefly, because
+    // a warning drawn and announced without its damage threat is announced
+    // again when the threat turns up. Every read after that takes what is held
+    // and never waits: the feed is unpaginated and the polygons are what the
+    // map draws.
+    const tagged = await alertTagsReady(signal);
     const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
       signal,
       headers: { Accept: "application/json" },

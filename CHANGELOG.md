@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- A warning already in force when you open the app is announced once, with its damage threat on it. The threat comes from a second feed, and the first draw of a session did not wait for it, so every standing warning was announced without a threat and then announced a second time a minute later when the threat arrived, which read as the office saying it had got worse. The map was wrong about it too, quietly: a catastrophic tornado warning wore the ordinary outline for its first minute. The first draw waits for the threats now, up to three seconds. Nothing after it ever waits.
+
 - Moving the map from one national grid to another loads that grid. Alaska, Hawaii, Guam, the Caribbean and the lower forty-eight are five separate grids, and the map only reloads its frame list when it decides the source has changed. It was not counting which of the five as a change, so panning from Honolulu to Anchorage kept Hawaii's frames and went on asking for Hawaii's tiles over Alaska, which come back empty, for up to five minutes.
 
 - Clicking a warning drawn over a severe-probability polygon opens the warning. It opened the model's guess instead, everywhere the two overlapped, which is over every storm that carries a warning. The map draws guidance under the warnings on purpose; the click was asking a separate list that had drifted from it. There is one list now, so they cannot.
