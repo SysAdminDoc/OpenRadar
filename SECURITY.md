@@ -29,7 +29,7 @@ Report privately, and give the fix time to reach people before writing it up. On
 
 Every gate below runs locally, on the machine doing the build, because this project publishes no build workflow.
 
-- `npm audit --omit=dev` and `cargo audit` for known advisories in what ships.
+- `npm audit --omit=dev` and `cargo audit` for known advisories in what ships. `cargo audit` reads every target's dependencies out of the lockfile, including the GTK3 bindings that only a Linux build would use, so a few of its warnings are about code Windows never compiles. Exactly one is silenced, in `src-tauri/.cargo/audit.toml`, and the file carries the evidence for it: which target graph the crate is absent from, the command that shows it, which upstream dependency has to move before it can go for real, and the date the exception gets looked at again. Nothing else is ignored, so the scan still reports the rest.
 - `npm run check` for the frontend gates, and `cargo test --lib` for the decoders, including adversarial cases for malformed radar files and unknown message types.
 - `npm run check:live` for whether the public services still answer the way the decoders expect.
 - The release command verifies the updater signature against the public key in the app's own configuration and refuses a build whose artifacts do not match the commit it claims.
