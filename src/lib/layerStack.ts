@@ -13,6 +13,9 @@
  * checked without standing a whole map up.
  */
 
+/** Every overlay names its source and its layers from this. */
+export const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
+
 export const SATELLITE_LAYER_ID = "openradar-satellite-layer";
 export const SURGE_LAYER_ID = "openradar-surge-layer";
 export const MRMS_SOURCE_PREFIX = "openradar-mrms-";
@@ -121,7 +124,15 @@ export function stackHeight(order: readonly string[], id: string): number {
   return at < 0 ? order.length : at;
 }
 
-/** Of everything under the pointer, the one drawn on top. */
+/**
+ * Of everything under the pointer, the one drawn on top.
+ *
+ * Ties go to the earlier hit, because that is already the topmost one: a hit
+ * test hands its results back in draw order, nearest the viewer first. Every
+ * alert in the country is drawn by one fill layer, so a tornado warning inside
+ * a flood watch is two hits at the same height, and taking the later of them
+ * opened the watch.
+ */
 export function topmost<T extends Placed>(
   hits: readonly T[],
   order: readonly string[],
@@ -130,7 +141,7 @@ export function topmost<T extends Placed>(
   for (const hit of hits) {
     if (
       !best ||
-      stackHeight(order, hit.layer.id) >= stackHeight(order, best.layer.id)
+      stackHeight(order, hit.layer.id) > stackHeight(order, best.layer.id)
     ) {
       best = hit;
     }

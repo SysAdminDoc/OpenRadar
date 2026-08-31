@@ -13,6 +13,21 @@ describe("which layer a click answers with", () => {
     expect(topmost([...hits].reverse(), order)?.layer.id).toBe("top");
   });
 
+  it("keeps the first of two hits on the same layer", () => {
+    // A hit test hands its results back nearest the viewer first, so among
+    // features at the same height the earlier one is the one on top. Every
+    // alert in the country is drawn by a single fill layer, so a tornado
+    // warning inside a flood watch arrives as two hits at the same height.
+    const order = ["bottom", "alerts"];
+    const first = { layer: { id: "alerts" }, what: "warning" };
+    const second = { layer: { id: "alerts" }, what: "watch" };
+    expect(topmost([first, second], order)?.what).toBe("warning");
+    expect(topmost([second, first], order)?.what).toBe("watch");
+    // And a genuinely higher layer still wins over both.
+    const above = { layer: { id: "tools" }, what: "tool" };
+    expect(topmost([first, above, second], order)?.what).toBe("tool");
+  });
+
   it("has nothing to say about an empty click", () => {
     expect(topmost([], ["a", "b"])).toBeNull();
   });
