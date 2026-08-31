@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   GUIDANCE_MODELS,
   disagreement,
@@ -7,6 +7,7 @@ import {
   parseGuidance,
   type GuidanceModelId,
 } from "./guidance";
+import { forecastUnits, setUnits } from "./units";
 
 const POINT = { lat: 29.95, lon: -90.07 };
 const MODELS: GuidanceModelId[] = ["gfs_seamless", "ecmwf_ifs025"];
@@ -130,6 +131,12 @@ describe("reading several models at once", () => {
 const live = process.env.OPENRADAR_LIVE ? describe : describe.skip;
 
 live("against Open-Meteo itself", () => {
+  // The unit system is module state that any earlier test can move, and the
+  // request carries whichever one is in force. Pinning it here is what makes
+  // the assertion below about the service rather than about test ordering.
+  beforeEach(() => setUnits("metric"));
+  afterEach(() => setUnits("imperial"));
+
   it("brings back three models that mostly agree about tomorrow", async () => {
     const models: GuidanceModelId[] = [
       "gfs_seamless",
@@ -142,6 +149,12 @@ live("against Open-Meteo itself", () => {
     const temperature = guidance.readings.find(
       (reading) => reading.variable === "temperature_2m",
     )!;
+    // The service has to answer in the unit the request asked for. Asserting a
+    // fixed string instead was wrong in both directions: it failed against a
+    // correct fahrenheit answer under the default imperial setting, and it
+    // would have passed had the service ignored the parameter entirely.
+    const asked = forecastUnits().temperature_unit;
+    expect(asked).toBe("celsius");
     expect(temperature.unit).toBe("°C");
     expect(temperature.hours.length).toBeGreaterThan(8);
 
