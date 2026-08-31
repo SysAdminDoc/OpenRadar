@@ -69,6 +69,16 @@ export interface Provenance {
   cachedAgeSeconds: number | null;
   /** The run behind a forecast. */
   modelRun?: ModelRun;
+  /**
+   * Set on a forecast whose source does not publish the run behind it.
+   *
+   * The alternative was reporting such a layer as an observation, which is the
+   * exact confusion this type exists to refuse: an SPC convective outlook is a
+   * statement about tomorrow and calling it something observed at the moment it
+   * was fetched is false. Saying "a forecast, and the source does not say which
+   * run" is less information and all of it true.
+   */
+  runUnknown?: boolean;
   /** What was done to the source values, when anything was. */
   derivedFrom?: string;
 }
@@ -137,8 +147,11 @@ export function provenanceProblems(record: Provenance): string[] {
     if (record.validAt === null) {
       problems.push("A forecast must say when it is valid.");
     }
-    if (!record.modelRun) {
+    if (!record.modelRun && !record.runUnknown) {
       problems.push("A forecast must name the run that produced it.");
+    }
+    if (record.modelRun && record.runUnknown) {
+      problems.push("A forecast cannot both name its run and not know it.");
     }
     // The same confusion from the other side. A forecast has not been
     // observed by anything, so a time here would be a measurement that never
@@ -247,23 +260,38 @@ export function overlayProvenance(options: {
   fetchedAt: number;
   observedAt?: number | null;
   cachedAgeSeconds?: number | null;
+  /**
+   * What kind of statement the adapter's layer makes, where the caller knows.
+   *
+   * Not every overlay is an observation. Three of them are forecasts: the SPC
+   * outlooks and discussions are about the day ahead, and a tropical cone is a
+   * track nobody has watched yet. Defaulting all of them to an observation
+   * reported a forecast as something measured, which is the one mistake this
+   * whole contract is for.
+   */
+  kind?: ProvenanceKind;
 }): Provenance {
   const { adapter, fetchedAt } = options;
   // An overlay is a snapshot of what the service was publishing when it was
   // asked, and most of these services do not date their own contents. The
   // moment it was fetched is then the only honest answer to when it was true.
   const observedAt = options.observedAt ?? fetchedAt;
+  const kind = options.kind ?? "observation";
+  const forecast = kind === "forecast";
   return {
     sourceId: adapter.id,
     label: adapter.label,
     attribution: adapter.attribution,
     attributionUrl: adapter.attributionUrl,
-    kind: "observation",
-    observedAt,
+    kind,
+    observedAt: forecast ? null : observedAt,
     validAt: observedAt,
     fetchedAt,
     freshForMs: adapter.refreshMs,
     cachedAgeSeconds: options.cachedAgeSeconds ?? null,
+    // These services publish when they publish and do not date the run behind
+    // what they say, so the record says the run is unknown rather than none.
+    runUnknown: forecast ? true : undefined,
   };
 }
 
@@ -303,6 +331,8 @@ export function provenanceLines(record: Provenance, now?: number): string[] {
     lines.push(
       `  run ${record.modelRun.initUtc} +${record.modelRun.leadMinutes} min`,
     );
+  } else if (record.runUnknown) {
+    lines.push("  run not published by the source");
   }
   if (record.derivedFrom) lines.push(`  derived ${record.derivedFrom}`);
   lines.push(

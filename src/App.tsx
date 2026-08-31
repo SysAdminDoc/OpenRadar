@@ -378,7 +378,19 @@ export default function App() {
     for (const adapter of OVERLAY_ADAPTERS) {
       const state = overlays.states[adapter.id];
       if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
-      layers.push(overlayProvenance({ adapter, fetchedAt: state.fetchedAt }));
+      // The adapter knows how to fetch itself; the table knows what kind of
+      // statement it makes, and three of these are forecasts rather than
+      // observations.
+      const described = Object.values(LAYER_SOURCES).find(
+        (source) => source.sourceId === adapter.id,
+      );
+      layers.push(
+        overlayProvenance({
+          adapter,
+          fetchedAt: state.fetchedAt,
+          kind: described?.kind,
+        }),
+      );
     }
 
     // Everything else the reader can switch on. The overlay adapters above
@@ -396,6 +408,11 @@ export default function App() {
     for (const [key, on] of Object.entries(settings.layers)) {
       const layer = key as keyof typeof settings.layers;
       if (!on) continue;
+      // Switched on is not the same as drawing. A record for a layer that
+      // fetched nothing describes a picture the reader cannot see, which is
+      // the opposite of what a report about the picture is for.
+      if (layer === "wind" && !wind.field) continue;
+      if (layer === "lightningFlashes" && !lightning.window) continue;
       const source = LAYER_SOURCES[layer];
       // Matched on the source rather than on the switch's own name, because
       // the two do not agree: the alerts adapter is `alerts` and the switch
@@ -405,13 +422,31 @@ export default function App() {
       const observedAt =
         mrmsTimes.get(source.sourceId as never) ??
         (layer === "lightningFlashes"
-          ? (lightning.window?.observed ?? null)
+          ? // The flash window carries seconds, like the radar frames and
+            // unlike everything in a record. Passed straight through it dated
+            // every lightning layer to 1970.
+            lightning.window
+            ? lightning.window.observed * 1000
+            : null
           : null);
+      // The wind layer is the one forecast here whose run the app already
+      // reads, so it can report a real one rather than saying it does not know.
+      const modelRun =
+        layer === "wind" && wind.field
+          ? {
+              initUtc: wind.field.init,
+              leadMinutes: wind.field.leadHours * 60,
+            }
+          : undefined;
       layers.push(
         layerProvenance({
           layer,
           fetchedAt: now,
           observedAt: observedAt ?? now,
+          validAt: modelRun
+            ? now + modelRun.leadMinutes * 60_000
+            : (observedAt ?? now),
+          modelRun,
         }),
       );
     }
@@ -443,7 +478,8 @@ export default function App() {
     })();
   }, [
     health,
-    lightning.window?.observed,
+    lightning.window,
+    wind.field,
     logEntries,
     mrms.layers,
     settings,

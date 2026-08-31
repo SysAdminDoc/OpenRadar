@@ -123,6 +123,8 @@ export async function fetchSweep(
   threshold: number | null,
   // Draw the volume being swept now over the last one the radar finished.
   live: boolean,
+  // Draw with the ramps built for a reader who has asked for more contrast.
+  highContrast: boolean,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -133,6 +135,7 @@ export async function fetchSweep(
     motion,
     threshold,
     live,
+    highContrast,
   });
 }
 

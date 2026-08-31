@@ -235,26 +235,27 @@ export function layerProvenance(options: {
   const source = LAYER_SOURCES[options.layer];
   const { fetchedAt } = options;
   const observed = options.observedAt ?? fetchedAt;
-  // A forecast is only reported as one when the run behind it is known. The
-  // alternative is a record that claims a model produced it and cannot say
-  // which, and the contract refuses that outright.
-  const forecast = source.kind === "forecast" && Boolean(options.modelRun);
+  // A forecast stays a forecast whether or not the run behind it is known.
+  //
+  // Downgrading it to an observation when no run was passed was the wrong
+  // trade: it bought a valid record at the cost of a true one, and an SPC
+  // outlook reported as something observed at the moment it was fetched is
+  // exactly the confusion this contract exists to refuse. Where the run is not
+  // known the record says that instead.
+  const forecast = source.kind === "forecast";
   return {
     sourceId: source.sourceId,
     label: source.label,
     attribution: source.attribution,
     attributionUrl: source.attributionUrl,
-    kind: forecast
-      ? "forecast"
-      : source.kind === "forecast"
-        ? "observation"
-        : source.kind,
+    kind: source.kind,
     observedAt: forecast ? null : observed,
     validAt: options.validAt ?? observed,
     fetchedAt,
     freshForMs: source.freshForMs,
     cachedAgeSeconds: options.cachedAgeSeconds ?? null,
     modelRun: options.modelRun,
+    runUnknown: forecast && !options.modelRun ? true : undefined,
     derivedFrom: source.derivedFrom,
   };
 }
