@@ -179,6 +179,14 @@ interface MapViewportProps {
    * units can still change underneath it, so it has to be written on demand.
    */
   onToolResult?: (render: (() => string) | null) => void;
+  /**
+   * The two ends of a cross-section, once both are down.
+   *
+   * Registered on the map once, so this has to be stable across renders the
+   * way `onToolResult` is: a fresh function each render would leave the click
+   * handler calling the first one forever.
+   */
+  onSection?: (from: GeoPoint, to: GeoPoint) => void;
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
 
@@ -271,6 +279,7 @@ function MapViewportInner(
     onCameraMove,
     onCursorChange,
     onToolResult,
+    onSection,
     onMapStatus,
   }: MapViewportProps,
   ref: ForwardedRef<MapViewportHandle>,
@@ -1587,6 +1596,21 @@ function MapViewportInner(
           );
         }
         renderTools();
+      } else if (toolModeRef.current === "section") {
+        // The same two points a range measurement takes, and drawn the same
+        // way, because it is the same line: one of them answers how far, the
+        // other answers what the storm looks like from the side.
+        if (!rangeStartRef.current || rangeEndRef.current) {
+          rangeStartRef.current = point;
+          rangeEndRef.current = null;
+          onToolResult?.(() => translate("tool.sectionEndHint"));
+        } else {
+          const from = rangeStartRef.current;
+          rangeEndRef.current = point;
+          onToolResult?.(() => translate("tool.sectionTaken"));
+          onSection?.(from, point);
+        }
+        renderTools();
       }
     });
     map.on("error", (event) => {
@@ -1821,7 +1845,9 @@ function MapViewportInner(
           ? "tool.startHint"
           : toolMode === "inspect"
             ? "tool.inspectHint"
-            : null;
+            : toolMode === "section"
+              ? "tool.sectionStartHint"
+              : null;
     onToolResult?.(hint === null ? null : () => translate(hint));
   }, [toolMode, onToolResult]);
 

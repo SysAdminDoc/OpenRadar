@@ -6,6 +6,7 @@ import {
   Ellipsis,
   Film,
   Globe2,
+  Layers2,
   Layers3,
   LocateFixed,
   Map,
@@ -44,9 +45,11 @@ export type SurfaceId =
   | "forecast"
   | "settings"
   | "more"
+  /** Opened by the cross-section tool rather than by a button of its own. */
+  | "section"
   | null;
 
-export type ToolMode = "draw" | "range" | "inspect" | null;
+export type ToolMode = "draw" | "range" | "inspect" | "section" | null;
 
 interface CommandBarProps {
   activeSurface: SurfaceId;
@@ -249,6 +252,12 @@ export function CommandBar({
             label={t("tool.inspect")}
             active={activeTool === "inspect"}
             onClick={() => toggleTool("inspect")}
+          />
+          <CommandButton
+            icon={Layers2}
+            label={t("tool.section")}
+            active={activeTool === "section"}
+            onClick={() => toggleTool("section")}
           />
         </div>
 

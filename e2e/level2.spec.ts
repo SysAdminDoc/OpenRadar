@@ -32,6 +32,7 @@ async function fakeNativeSide(page: Page) {
           siteName: "Des Moines, IA",
           productId: product,
           paletteApplied: false,
+          highContrast: false,
           dealiased: dealias && product === "velocity",
           stormMotion:
             product === "storm-relative-velocity"
@@ -237,6 +238,46 @@ async function fakeNativeSide(page: Page) {
               source: {
                 kind: "archive",
                 label: "NOAA NEXRAD Level II archive",
+                url: "https://registry.opendata.aws/noaa-nexrad/",
+              },
+            });
+          }
+          if (command === "level2_cross_section") {
+            const from = args.from as [number, number];
+            const to = args.to as [number, number];
+            // Far enough apart to be a line the radar cannot see the end of,
+            // which is the refusal the panel has to be able to show.
+            if (Math.abs(from[0] - to[0]) > 4) {
+              return Promise.reject({
+                code: "outOfRange",
+                args: ["KDMX"],
+                text: "both ends of a cross-section have to be within range of KDMX",
+              });
+            }
+            return Promise.resolve({
+              station: "KDMX",
+              siteName: "Des Moines, IA",
+              productId: String(args.product),
+              product: "Reflectivity",
+              unit: "dBZ",
+              paletteApplied: false,
+              highContrast: false,
+              dealiased: false,
+              from,
+              to,
+              distanceKm: 64,
+              topKm: 18,
+              lowestCut: 0.48,
+              highestCut: 4.3,
+              tilts: [0.48, 0.87, 1.31, 1.8, 4.3],
+              collected: "2026-08-30T09:21:59.000Z",
+              volume: "2026/08/30/KDMX/KDMX20260830_092159_V06",
+              width: 720,
+              height: 260,
+              image: png,
+              source: {
+                kind: "recent",
+                label: "NOAA NEXRAD Level II",
                 url: "https://registry.opendata.aws/noaa-nexrad/",
               },
             });
@@ -726,4 +767,68 @@ test("draws severe probability over the pictures and under the warnings", async 
     .getByRole("checkbox", { name: /Severe Probability/ })
     .uncheck();
   await expect(pane).not.toHaveAttribute("data-layer-stack", /probsevere/);
+});
+
+test("cuts the volume between two points and labels what it drew", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await open(page, 9);
+  // The site has to be resolved before there is a volume to cut.
+  await expect(pane).toHaveAttribute("data-layer-stack", /sweep-layer/);
+
+  await page
+    .getByRole("button", { name: "Cross-section", exact: true })
+    .click();
+  const hud = page.locator(".tool-hud__result");
+  await expect(hud).toHaveText(/one end of the slice/);
+
+  const box = (await pane.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.35, box.y + box.height * 0.45);
+  await expect(hud).toHaveText(/other end of the slice/);
+  await page.mouse.click(box.x + box.width * 0.62, box.y + box.height * 0.55);
+
+  const panel = page.getByRole("dialog", { name: "Cross-section" });
+  await expect(panel).toBeVisible();
+  // Height against distance, with the labels a reader cannot get off the map.
+  await expect(panel.locator(".cross-section__plot img")).toHaveAttribute(
+    "alt",
+    /Reflectivity from KDMX/,
+  );
+  await expect(panel).toContainText("Reflectivity (dBZ)");
+  await expect(panel).toContainText("cuts between 0.48° and 4.30°");
+  await expect(panel).toContainText("Empty bands are heights no beam passed");
+  // The axes are drawn over the picture rather than into it.
+  await expect(panel.locator(".cross-section__height").first()).toBeVisible();
+  await expect(
+    panel.locator(".cross-section__axis span").first(),
+  ).toBeVisible();
+
+  const asked = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __sweepCalls: Array<{
+            command: string;
+            args: Record<string, unknown>;
+          }>;
+        }
+      ).__sweepCalls.filter((call) => call.command === "level2_cross_section"),
+  );
+  // At least one, and every one asking the same question: StrictMode mounts
+  // the panel twice in development, which is a repeated read and not a
+  // different one.
+  expect(asked.length).toBeGreaterThan(0);
+  for (const call of asked) {
+    expect(call.args.station).toBe("KDMX");
+    // A chosen file's path never leaves the native side, and a live view has
+    // none to send in the first place.
+    expect(call.args.path).toBeNull();
+    expect(call.args.at).toBeNull();
+    const from = call.args.from as [number, number];
+    const to = call.args.to as [number, number];
+    expect(from[0]).not.toBe(to[0]);
+  }
 });

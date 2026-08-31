@@ -18,6 +18,7 @@ import type { ExportState } from "../hooks/useExport";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
+import { CrossSectionPanel } from "../panels/CrossSectionPanel";
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
@@ -65,6 +66,8 @@ interface PanelSurfacesProps {
   onUpdate: (() => void) | null;
   historyStormId: string | null;
   replayId: string | null;
+  /** The line the cross-section tool put down, or null before both ends are. */
+  sectionLine: { from: GeoPoint; to: GeoPoint } | null;
   onClose: () => void;
   onCloseProduct: () => void;
   onLayers: (layers: LayerSettings) => void;
@@ -243,6 +246,17 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           log={props.log}
           onOpenLogFolder={props.onOpenLogFolder}
           onCopyDiagnostics={props.onCopyDiagnostics}
+          onClose={onClose}
+        />
+      ) : null}
+
+      {activeSurface === "section" && props.sectionLine ? (
+        <CrossSectionPanel
+          // A new line is a new question, and mounting fresh for it is what
+          // lets "no answer yet" be where the panel starts.
+          key={`${props.sectionLine.from.lon},${props.sectionLine.from.lat},${props.sectionLine.to.lon},${props.sectionLine.to.lat}`}
+          line={props.sectionLine}
+          take={props.singleSite?.crossSection ?? null}
           onClose={onClose}
         />
       ) : null}

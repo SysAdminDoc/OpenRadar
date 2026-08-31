@@ -3688,3 +3688,71 @@ input[type="range"] {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* A vertical slice through a radar volume: distance across, height up. The
+   picture is a plain image, so the axes are drawn over it rather than into
+   it, which is what lets the labels follow the reader's units and language
+   without the slice being taken again. */
+.cross-section {
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cross-section__plot {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  /* Empty cells in the slice are transparent, and a checkered nothing behind
+     them would read as data. A flat ground keeps "no reading" plainly empty. */
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.cross-section__plot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cross-section__height {
+  position: absolute;
+  left: 4px;
+  transform: translateY(50%);
+  font-size: 11px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  border-radius: 4px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+.cross-section__axis {
+  position: relative;
+  height: 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cross-section__axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.cross-section figcaption {
+  font-size: 12px;
+  color: var(--subtle);
+}
+
+.reading-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}

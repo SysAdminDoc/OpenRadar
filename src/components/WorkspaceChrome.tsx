@@ -31,6 +31,7 @@ const TOOL_LABELS: Record<Exclude<ToolMode, null>, StringKey> = {
   draw: "tool.draw",
   range: "tool.range",
   inspect: "tool.inspect",
+  section: "tool.section",
 };
 
 interface WorkspaceChromeProps {

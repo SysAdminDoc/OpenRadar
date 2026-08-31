@@ -78,6 +78,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 
 - Seven map styles, flat and globe projection, pitch and bearing, saved views, linked dual panes.
 - Draw, range and point inspection tools. Beam height at the cursor for the sweep on screen.
+- **Cross-section**: draw a line between two points and the Level II volume is cut along it, height against distance. Heights no beam passed through stay empty rather than being filled from the nearest cut.
 - Per-overlay opacity and a drawing order you choose. Warnings are not in the arrangement, because nothing should be able to put a wildfire perimeter over one.
 - **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in.
 - **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.

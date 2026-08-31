@@ -416,6 +416,8 @@ export const es: Catalogue = {
   "radar.error.invalidTime": "{0} no es una fecha y hora UTC.",
   "radar.error.localRead": "No se pudo leer el archivo seleccionado: {0}",
   "radar.error.localTooLarge": "El archivo seleccionado supera los 128 MB.",
+  "radar.error.outOfRange":
+    "Los dos extremos del corte tienen que estar dentro del alcance de {0}.",
   "radar.dealiasForced":
     "La velocidad relativa a la tormenta tiene que desplegar primero, porque el viento que quita se lee del propio barrido",
   "radar.threshold": "Ocultar por debajo de",
@@ -521,6 +523,23 @@ export const es: Catalogue = {
   "tool.draw": "Dibujar",
   "tool.range": "Distancia",
   "tool.inspect": "Inspector",
+  "tool.section": "Corte vertical",
+  "section.eyebrow": "Volumen Level II",
+  "section.title": "Corte vertical",
+  "section.cutting": "Cortando el volumen a lo largo de la línea",
+  "section.noSite": "Acércate sobre un sitio NEXRAD para cortar su volumen.",
+  "section.noUnit": "sin unidad",
+  "section.imageAlt":
+    "{product} de {station}, {distance} de ancho y {top} de alto, dibujado como altura frente a distancia",
+  "section.caption": "{product} ({unit}) · {station}, {site}",
+  "section.collected": "Volumen tomado a las {when}",
+  "section.cuts":
+    "Dibujado con cortes entre {low}° y {high}°, de {count} en el volumen",
+  "section.noCuts": "Ningún corte de este volumen alcanza la línea.",
+  "section.gaps":
+    "Las bandas vacías son alturas por donde no pasó ningún haz, no un cielo despejado.",
+  "section.unfolded": "La velocidad se desplegó antes de cortar.",
+  "section.palette": "Dibujado con la tabla de colores cargada.",
   "keywords.hailSwath": "rastro granizo dia",
   "keywords.echoTops": "altura ecos tope corriente",
   "keywords.vil": "agua columna integrada",
@@ -997,4 +1016,8 @@ export const es: Catalogue = {
   "tool.pathPoints": "{count} puntos en la ruta",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",
+  "tool.sectionStartHint":
+    "Marca un extremo del corte, dentro del alcance del radar",
+  "tool.sectionEndHint": "Marca el otro extremo del corte",
+  "tool.sectionTaken": "Cortando el volumen a lo largo de la línea",
 };
