@@ -7,6 +7,7 @@ mod chunks;
 /// for it: what ships is the ramps it vouches for, not the arithmetic.
 #[cfg(test)]
 mod contrast;
+mod cross_section;
 mod dealias;
 mod exports;
 #[cfg(test)]
@@ -158,6 +159,7 @@ pub fn run() {
             level2::level2_local_sweep,
             level2::level2_sweep,
             level2::level2_nearest_site,
+            level2::level2_cross_section,
             level3::level3_cells,
             probsevere::probsevere_reading,
             mrms::mrms_frames,

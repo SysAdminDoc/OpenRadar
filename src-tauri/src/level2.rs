@@ -22,6 +22,7 @@ use nexrad_model::meta::registry;
 use serde::Serialize;
 
 use crate::chunks;
+use crate::cross_section;
 use crate::dealias;
 use crate::http;
 use crate::palette;
@@ -125,6 +126,8 @@ pub enum Level2Error {
     LocalRead(String),
     #[error("the selected file is larger than 128 MB")]
     LocalTooLarge,
+    #[error("both ends of a cross-section have to be within range of {0}")]
+    OutOfRange(String),
     #[error(transparent)]
     Http(#[from] http::HttpError),
 }
@@ -149,6 +152,7 @@ impl Level2Error {
             Self::InvalidTime(at) => ("invalidTime", vec![at.clone()]),
             Self::LocalRead(why) => ("localRead", vec![why.clone()]),
             Self::LocalTooLarge => ("localTooLarge", Vec::new()),
+            Self::OutOfRange(site) => ("outOfRange", vec![site.clone()]),
             Self::Http(_) => ("http", vec![self.to_string()]),
         }
     }
@@ -1296,9 +1300,13 @@ fn gate_color(
 }
 
 fn encode_png(pixels: &[u8]) -> Result<Vec<u8>, Level2Error> {
+    encode_png_sized(pixels, IMAGE_SIZE, IMAGE_SIZE)
+}
+
+fn encode_png_sized(pixels: &[u8], width: usize, height: usize) -> Result<Vec<u8>, Level2Error> {
     let mut out = Vec::new();
     {
-        let mut encoder = png::Encoder::new(&mut out, IMAGE_SIZE as u32, IMAGE_SIZE as u32);
+        let mut encoder = png::Encoder::new(&mut out, width as u32, height as u32);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder
@@ -1944,6 +1952,351 @@ pub async fn level2_local_sweep(
             url: None,
         };
         Ok(sweep)
+    })
+    .await
+    .map_err(|error| Level2Error::Decode(error.to_string()))?
+}
+
+/// How wide and how tall a cross-section picture is, in pixels.
+///
+/// Wider than it is tall on purpose: a slice runs tens of kilometres across
+/// and eighteen up, and drawing it square would stretch the vertical out of
+/// all proportion to what it means.
+const SECTION_WIDTH: usize = 720;
+const SECTION_HEIGHT: usize = 260;
+
+/// A vertical slice through the volume, ready to show.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CrossSection {
+    pub station: String,
+    pub site_name: String,
+    pub product_id: String,
+    pub product: String,
+    pub unit: String,
+    /// True when a loaded colour table drew this rather than the built-in ramp.
+    pub palette_applied: bool,
+    /// True when the high-contrast ramps drew this.
+    pub high_contrast: bool,
+    /// True when the velocity in this slice has been unfolded.
+    pub dealiased: bool,
+    /// The two points the reader put down, as longitude and latitude.
+    pub from: (f64, f64),
+    pub to: (f64, f64),
+    /// How far apart they are along the ground, in kilometres.
+    pub distance_km: f64,
+    /// How far up the picture reaches, in kilometres above the radar.
+    pub top_km: f64,
+    /// The lowest and highest cut that put a reading in the picture. Absent
+    /// when nothing did, which is a line the volume has nothing to say about
+    /// rather than a failure.
+    pub lowest_cut: Option<f32>,
+    pub highest_cut: Option<f32>,
+    /// Every cut the volume holds, so the picture can say what it was built
+    /// from rather than only what ended up visible.
+    pub tilts: Vec<f32>,
+    /// When the volume was collected, not when it was asked for.
+    pub collected: String,
+    pub volume: String,
+    pub width: usize,
+    pub height: usize,
+    /// The slice as a data URL, ready for an `img`.
+    pub image: String,
+    pub source: SweepSource,
+}
+
+/// What the reader asked for, past which volume it came from.
+#[derive(Debug, Clone, Copy)]
+pub struct SectionRequest<'a> {
+    pub product_name: &'a str,
+    /// Longitude and latitude, in the order a map hands them over.
+    pub from: (f64, f64),
+    pub to: (f64, f64),
+    pub unfold: bool,
+    pub threshold: Option<f32>,
+    pub high_contrast: bool,
+}
+
+/// Cuts one volume between two points.
+///
+/// Split from the command so a test can run it against a volume built by hand
+/// rather than against whatever the weather is doing.
+pub fn cross_section_from_volume(
+    station: &str,
+    volume_key: &str,
+    data: Vec<u8>,
+    asked: SectionRequest<'_>,
+) -> Result<CrossSection, Level2Error> {
+    let (scan, nyquist) = decoded_volume(volume_key, data)?;
+    cross_section_from_scan(
+        station,
+        volume_key,
+        &scan,
+        &|elevation| nyquist.get(&elevation).copied(),
+        asked,
+    )
+}
+
+pub fn cross_section_from_scan(
+    station: &str,
+    volume_key: &str,
+    scan: &Scan,
+    nyquist_for: &dyn Fn(u8) -> Option<f32>,
+    asked: SectionRequest<'_>,
+) -> Result<CrossSection, Level2Error> {
+    let (product, label, unit) = product_from_name(asked.product_name)
+        .ok_or_else(|| Level2Error::NoSweep(station.to_string(), asked.product_name.to_string()))?;
+
+    let site = registry::site_by_id(station)
+        .map(|entry| entry.to_site())
+        .ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
+    let coordinates = RadarCoordinateSystem::new(&site);
+
+    let from = GeoPoint {
+        longitude: asked.from.0,
+        latitude: asked.from.1,
+    };
+    let to = GeoPoint {
+        longitude: asked.to.0,
+        latitude: asked.to.1,
+    };
+    // A line with an end outside the radar's reach is a question about
+    // somewhere it cannot see. Refusing is the honest answer: half a picture
+    // silently trailing off would read as a storm ending where it does not.
+    let site_at = GeoPoint {
+        latitude: coordinates.latitude(),
+        longitude: coordinates.longitude(),
+    };
+    for end in [from, to] {
+        if cross_section::ground_distance_km(site_at, end) > MAX_RANGE_KM {
+            return Err(Level2Error::OutOfRange(station.to_string()));
+        }
+    }
+
+    // Every cut the volume holds, each unfolded on its own terms, because the
+    // folding velocity is a property of the cut rather than of the volume.
+    let angles = tilts(scan);
+    let mut chosen: Vec<ChosenSweep> = Vec::with_capacity(angles.len());
+    let mut dealiased = false;
+    for angle in &angles {
+        let Some(mut cut) = sweep_field_at(scan, product, *angle) else {
+            continue;
+        };
+        if asked.unfold && product == Product::Velocity {
+            if let Some(folds_at) = nyquist_for(cut.elevation_number) {
+                dealiased |= unfold_velocity(&mut cut.field, folds_at);
+            }
+        }
+        chosen.push(cut);
+    }
+    if chosen.is_empty() {
+        return Err(Level2Error::NoSweep(station.to_string(), label.to_string()));
+    }
+
+    let cuts: Vec<cross_section::Cut<'_>> = chosen
+        .iter()
+        .map(|cut| cross_section::Cut {
+            elevation_degrees: cut.elevation_degrees,
+            field: &cut.field,
+        })
+        .collect();
+    let taken = cross_section::slice(
+        &coordinates,
+        &cuts,
+        from,
+        to,
+        SECTION_WIDTH,
+        SECTION_HEIGHT,
+        cross_section::TOP_KM,
+    );
+
+    // A moment with no standard ramp is scaled to what this slice holds, the
+    // same way a sweep is scaled to what that sweep holds.
+    let table = palette::for_unit(unit);
+    let range = match product {
+        Product::Reflectivity | Product::Velocity => None,
+        _ => slice_range(&taken),
+    };
+    let shading = Shading {
+        unfolded: dealiased,
+        threshold: asked.threshold,
+        high_contrast: asked.high_contrast,
+    };
+
+    let mut pixels = vec![0u8; taken.width * taken.height * 4];
+    for row in 0..taken.height {
+        for column in 0..taken.width {
+            let Some(cell) = taken.cell(column, row) else {
+                continue;
+            };
+            let Some((color, alpha)) = gate_color(
+                &cell.status,
+                cell.value,
+                product,
+                table.as_ref(),
+                range,
+                shading,
+            ) else {
+                continue;
+            };
+            let at = (row * taken.width + column) * 4;
+            pixels[at] = color[0];
+            pixels[at + 1] = color[1];
+            pixels[at + 2] = color[2];
+            pixels[at + 3] = alpha;
+        }
+    }
+
+    let png_bytes = encode_png_sized(&pixels, taken.width, taken.height)?;
+    let collected = chosen
+        .iter()
+        .filter_map(|cut| cut.collected)
+        .min()
+        .or_else(|| scan.time_range().map(|(start, _)| start))
+        .or_else(|| key_time(volume_key))
+        .unwrap_or_else(Utc::now);
+    let entry = registry::site_by_id(station);
+
+    Ok(CrossSection {
+        station: station.to_string(),
+        site_name: entry
+            .map(|site| format!("{}, {}", site.city, site.state))
+            .unwrap_or_else(|| station.to_string()),
+        product_id: asked.product_name.to_string(),
+        product: label.to_string(),
+        unit: unit.to_string(),
+        palette_applied: table.is_some(),
+        high_contrast: asked.high_contrast,
+        dealiased,
+        from: asked.from,
+        to: asked.to,
+        distance_km: taken.distance_km,
+        top_km: taken.top_km,
+        lowest_cut: taken.covered.map(|(low, _)| low),
+        highest_cut: taken.covered.map(|(_, high)| high),
+        tilts: angles,
+        collected: collected.to_rfc3339(),
+        volume: volume_key.to_string(),
+        width: taken.width,
+        height: taken.height,
+        image: data_url(&png_bytes),
+        source: SweepSource {
+            kind: "recent".to_string(),
+            label: "NOAA NEXRAD Level II".to_string(),
+            url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+        },
+    })
+}
+
+/// The lowest and highest reading in a slice, for a moment with no fixed ramp.
+fn slice_range(taken: &cross_section::Slice) -> Option<(f32, f32)> {
+    let mut low = f32::MAX;
+    let mut high = f32::MIN;
+    let mut found = false;
+    for cell in taken.cells.iter().flatten() {
+        if !matches!(cell.status, GateStatus::Valid) {
+            continue;
+        }
+        low = low.min(cell.value);
+        high = high.max(cell.value);
+        found = true;
+    }
+    found.then_some((low, high))
+}
+
+/// Cuts the volume on screen between two points on the map.
+///
+/// Which volume that is follows the same three ways in as a sweep: a chosen
+/// file, a moment in the public archive, or whatever the site published last.
+/// The picture is the one the reader is already looking at, so the slice has
+/// to come from the same place it did.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn level2_cross_section(
+    station: Option<String>,
+    // A moment in the public archive, when the reader is reading one.
+    at: Option<String>,
+    // A file the reader chose. Never leaves this boundary.
+    path: Option<String>,
+    product: String,
+    from: (f64, f64),
+    to: (f64, f64),
+    dealias: bool,
+    threshold: Option<f32>,
+    high_contrast: bool,
+) -> Result<CrossSection, Level2Error> {
+    // A threshold that is not a finite number is no threshold at all, rather
+    // than a threshold of nothing, which would empty the picture.
+    let threshold = threshold.filter(|value| value.is_finite());
+
+    if let Some(path) = path {
+        return tauri::async_runtime::spawn_blocking(move || {
+            let local = read_local_volume(&PathBuf::from(path))?;
+            let mut section = cross_section_from_volume(
+                &local.station,
+                &local.key,
+                local.data,
+                SectionRequest {
+                    product_name: &product,
+                    from,
+                    to,
+                    unfold: dealias,
+                    threshold,
+                    high_contrast,
+                },
+            )?;
+            section.source = SweepSource {
+                kind: "local".to_string(),
+                label: local.label,
+                url: None,
+            };
+            Ok(section)
+        })
+        .await
+        .map_err(|error| Level2Error::Decode(error.to_string()))?;
+    }
+
+    let station = station.unwrap_or_default().to_uppercase();
+    if registry::site_by_id(&station).is_none() {
+        return Err(Level2Error::UnknownSite(station));
+    }
+
+    let (key, data, archived) = match at {
+        Some(at) => {
+            let wanted = DateTime::parse_from_rfc3339(&at)
+                .map_err(|_| Level2Error::InvalidTime(at.clone()))?
+                .with_timezone(&Utc);
+            let (key, data) = archive_volume_at(&station, wanted).await?;
+            (key, data, true)
+        }
+        None => {
+            let (key, data) = latest_volume(&station).await?;
+            (key, data, false)
+        }
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut section = cross_section_from_volume(
+            &station,
+            &key,
+            data,
+            SectionRequest {
+                product_name: &product,
+                from,
+                to,
+                unfold: dealias,
+                threshold,
+                high_contrast,
+            },
+        )?;
+        if archived {
+            section.source = SweepSource {
+                kind: "archive".to_string(),
+                label: "NOAA NEXRAD Level II archive".to_string(),
+                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+            };
+        }
+        Ok(section)
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -2681,6 +3034,254 @@ mod tests {
         (at, data)
     }
 
+    /// A volume with two cuts of known readings, for slicing.
+    fn two_cut_volume() -> (DateTime<Utc>, String, Vec<u8>) {
+        let at = Utc
+            .with_ymd_and_hms(2026, 8, 30, 9, 21, 59)
+            .single()
+            .expect("a UTC time");
+        let site = fixture::Site {
+            id: *b"KDMX",
+            latitude: 41.731,
+            longitude: -93.723,
+            height_metres: 299,
+        };
+        let cuts = vec![
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 1,
+                    degrees: 0.5,
+                    radials: 180,
+                    gates: 400,
+                    reflectivity: fixture::Gate::Reading(35.0),
+                    velocity: Some(fixture::Gate::Reading(6.0)),
+                    ..fixture::Cut::default()
+                },
+            ),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 3.5,
+                    radials: 180,
+                    gates: 400,
+                    reflectivity: fixture::Gate::Reading(55.0),
+                    velocity: Some(fixture::Gate::Reading(-6.0)),
+                    ..fixture::Cut::default()
+                },
+            ),
+        ];
+        let key = format!("KDMX/KDMX{}_V06", at.format("%Y%m%d_%H%M%S"));
+        (at, key, fixture::volume(&site, at, &cuts))
+    }
+
+    /// A degree of longitude at KDMX, in kilometres, so a test can put a point
+    /// a stated distance due east of the radar.
+    const KM_PER_DEGREE_EAST: f64 = 83.06;
+
+    fn decode_png(data_url: &str) -> (u32, u32, Vec<u8>) {
+        let encoded = data_url
+            .strip_prefix("data:image/png;base64,")
+            .expect("a png data url");
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .expect("base64");
+        let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+        let mut reader = decoder.read_info().expect("png header");
+        let mut pixels = vec![0u8; reader.output_buffer_size().expect("a bounded png")];
+        let info = reader.next_frame(&mut pixels).expect("png pixels");
+        pixels.truncate(info.buffer_size());
+        (info.width, info.height, pixels)
+    }
+
+    #[test]
+    fn a_cross_section_puts_each_cut_at_its_own_height() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let (_, key, data) = two_cut_volume();
+        let east = |km: f64| (-93.723 + km / KM_PER_DEGREE_EAST, 41.731);
+        let section = cross_section_from_volume(
+            "KDMX",
+            &key,
+            data,
+            SectionRequest {
+                product_name: "reflectivity",
+                from: east(20.0),
+                to: east(90.0),
+                unfold: false,
+                threshold: None,
+                high_contrast: false,
+            },
+        )
+        .expect("a slice through the volume");
+
+        assert_eq!(section.station, "KDMX");
+        assert_eq!(section.product, "Reflectivity");
+        assert_eq!(section.unit, "dBZ");
+        assert_eq!(section.tilts, vec![0.5, 3.5]);
+        assert_eq!(section.lowest_cut, Some(0.5));
+        assert_eq!(section.highest_cut, Some(3.5));
+        assert!(
+            (section.distance_km - 70.0).abs() < 1.0,
+            "{} km apart",
+            section.distance_km
+        );
+        assert_eq!(section.top_km, cross_section::TOP_KM);
+        assert!(!section.collected.is_empty());
+
+        let (width, height, pixels) = decode_png(&section.image);
+        assert_eq!(
+            (width as usize, height as usize),
+            (section.width, section.height)
+        );
+        let alpha_at = |column: usize, row: usize| pixels[(row * width as usize + column) * 4 + 3];
+        let row_for = |km: f64| {
+            (((1.0 - km / cross_section::TOP_KM) * height as f64) as usize).min(height as usize - 1)
+        };
+
+        // The far end of the line is ninety kilometres out, where half a degree
+        // is about 1.3 km up and three and a half is nearer 6.
+        let column = width as usize - 1;
+        assert!(
+            alpha_at(column, row_for(1.3)) > 0,
+            "the low cut drew nothing"
+        );
+        assert!(
+            alpha_at(column, row_for(6.0)) > 0,
+            "the high cut drew nothing"
+        );
+        // Between the two beams the radar looked at nothing, and above them
+        // there is no cut at all. Both stay clear.
+        assert_eq!(alpha_at(column, row_for(3.5)), 0, "a gap was filled in");
+        for column in 0..width as usize {
+            assert_eq!(alpha_at(column, 0), 0, "something was drawn at 18 km");
+        }
+    }
+
+    /// The two cuts hold different readings, so the picture has to hold two
+    /// colours: one ramp value everywhere would mean the sampling collapsed.
+    #[test]
+    fn the_two_cuts_are_drawn_in_their_own_colours() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let (_, key, data) = two_cut_volume();
+        let east = |km: f64| (-93.723 + km / KM_PER_DEGREE_EAST, 41.731);
+        let section = cross_section_from_volume(
+            "KDMX",
+            &key,
+            data,
+            SectionRequest {
+                product_name: "reflectivity",
+                from: east(20.0),
+                to: east(90.0),
+                unfold: false,
+                threshold: None,
+                high_contrast: false,
+            },
+        )
+        .expect("a slice");
+        let (width, height, pixels) = decode_png(&section.image);
+        let colour_at = |column: usize, row: usize| {
+            let at = (row * width as usize + column) * 4;
+            [pixels[at], pixels[at + 1], pixels[at + 2], pixels[at + 3]]
+        };
+        let row_for = |km: f64| {
+            (((1.0 - km / cross_section::TOP_KM) * height as f64) as usize).min(height as usize - 1)
+        };
+        let column = width as usize - 1;
+        let low = colour_at(column, row_for(1.3));
+        let high = colour_at(column, row_for(6.0));
+        assert_ne!(low, high, "35 and 55 dBZ came out the same colour");
+        // And they are the ramp's own colours for those readings.
+        assert_eq!(&low[..3], ramp_color(REFLECTIVITY_RAMP, 35.0));
+        assert_eq!(&high[..3], ramp_color(REFLECTIVITY_RAMP, 55.0));
+    }
+
+    #[test]
+    fn a_threshold_empties_the_weaker_cut() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let (_, key, data) = two_cut_volume();
+        let east = |km: f64| (-93.723 + km / KM_PER_DEGREE_EAST, 41.731);
+        let section = cross_section_from_volume(
+            "KDMX",
+            &key,
+            data,
+            SectionRequest {
+                product_name: "reflectivity",
+                from: east(20.0),
+                to: east(90.0),
+                unfold: false,
+                threshold: Some(45.0),
+                high_contrast: false,
+            },
+        )
+        .expect("a slice");
+        let (width, height, pixels) = decode_png(&section.image);
+        let alpha_at = |column: usize, row: usize| pixels[(row * width as usize + column) * 4 + 3];
+        let row_for = |km: f64| {
+            (((1.0 - km / cross_section::TOP_KM) * height as f64) as usize).min(height as usize - 1)
+        };
+        let column = width as usize - 1;
+        // Thirty-five is under the floor and gone; fifty-five is over it and
+        // still there.
+        assert_eq!(alpha_at(column, row_for(1.3)), 0);
+        assert!(alpha_at(column, row_for(6.0)) > 0);
+    }
+
+    /// A line with an end the radar cannot see is refused rather than drawn
+    /// half empty, which would read as a storm stopping where it does not.
+    #[test]
+    fn a_line_out_of_range_is_refused() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let (_, key, data) = two_cut_volume();
+        let east = |km: f64| (-93.723 + km / KM_PER_DEGREE_EAST, 41.731);
+        let refused = cross_section_from_volume(
+            "KDMX",
+            &key,
+            data,
+            SectionRequest {
+                product_name: "reflectivity",
+                from: east(20.0),
+                to: east(400.0),
+                unfold: false,
+                threshold: None,
+                high_contrast: false,
+            },
+        );
+        assert!(matches!(refused, Err(Level2Error::OutOfRange(site)) if site == "KDMX"));
+    }
+
+    #[test]
+    fn a_velocity_slice_reports_whether_it_was_unfolded() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let (_, key, data) = two_cut_volume();
+        let east = |km: f64| (-93.723 + km / KM_PER_DEGREE_EAST, 41.731);
+        // The fixture folds at eight metres a second and every gate reads six,
+        // which is inside the limit, so there is nothing to unfold and the
+        // slice must not claim there was.
+        let section = cross_section_from_volume(
+            "KDMX",
+            &key,
+            data,
+            SectionRequest {
+                product_name: "velocity",
+                from: east(20.0),
+                to: east(90.0),
+                unfold: true,
+                threshold: None,
+                high_contrast: false,
+            },
+        )
+        .expect("a velocity slice");
+        assert_eq!(section.unit, "m/s");
+        assert!(!section.dealiased);
+        assert_eq!(section.lowest_cut, Some(0.5));
+    }
+
     #[test]
     fn local_import_draws_compressed_and_uncompressed_archive_ii_files() {
         let _guard = decoded_cache_test();
@@ -2730,6 +3331,11 @@ mod tests {
 
     #[test]
     fn holds_four_volumes_and_no_more() {
+        // `clear_cache` empties the decoded volumes as well as the bytes, so
+        // this has to take its turn with the tests that count decodes. Without
+        // the guard it wipes their cache between two of their own calls and
+        // they see a second decode that never happened.
+        let _guard = decoded_cache_test();
         clear_cache();
 
         let volume = vec![0u8; 10 * 1024 * 1024];
