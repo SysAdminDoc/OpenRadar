@@ -511,23 +511,32 @@ pub fn newest_key(listing: &str) -> Option<String> {
 /// time travels with the result and the timeline names it. Choosing the nearest
 /// whole volume is more useful than pretending the requested minute exists.
 pub fn closest_key(listing: &str, wanted: DateTime<Utc>) -> Option<String> {
+    closest_key_across([listing], wanted)
+}
+
+fn closest_key_across<'a>(
+    listings: impl IntoIterator<Item = &'a str>,
+    wanted: DateTime<Utc>,
+) -> Option<String> {
     let mut closest: Option<(i64, String)> = None;
-    let mut rest = listing;
-    while let Some(start) = rest.find("<Key>") {
-        let after = &rest[start + 5..];
-        let end = after.find("</Key>")?;
-        let key = &after[..end];
-        if key.ends_with("_V06") || key.ends_with("_V03") {
-            if let Some(at) = key_time(key) {
-                let distance = at.signed_duration_since(wanted).num_seconds().abs();
-                if closest.as_ref().is_none_or(|(best, current)| {
-                    distance < *best || (distance == *best && key < current.as_str())
-                }) {
-                    closest = Some((distance, key.to_string()));
+    for listing in listings {
+        let mut rest = listing;
+        while let Some(start) = rest.find("<Key>") {
+            let after = &rest[start + 5..];
+            let end = after.find("</Key>")?;
+            let key = &after[..end];
+            if key.ends_with("_V06") || key.ends_with("_V03") {
+                if let Some(at) = key_time(key) {
+                    let distance = at.signed_duration_since(wanted).num_seconds().abs();
+                    if closest.as_ref().is_none_or(|(best, current)| {
+                        distance < *best || (distance == *best && key < current.as_str())
+                    }) {
+                        closest = Some((distance, key.to_string()));
+                    }
                 }
             }
+            rest = &after[end + 6..];
         }
-        rest = &after[end + 6..];
     }
     closest.map(|(_, key)| key)
 }
@@ -569,13 +578,24 @@ async fn archive_volume_at(
     station: &str,
     wanted: DateTime<Utc>,
 ) -> Result<(String, Vec<u8>), Level2Error> {
-    let listing = http::get_bytes(&listing_url(station, wanted)).await?;
-    let listing = String::from_utf8_lossy(&listing);
-    if !listing.contains("<ListBucketResult") {
+    let previous_url = listing_url(station, wanted - Duration::days(1));
+    let current_url = listing_url(station, wanted);
+    let next_url = listing_url(station, wanted + Duration::days(1));
+    let (previous, current, next) = tokio::try_join!(
+        http::get_bytes(&previous_url),
+        http::get_bytes(&current_url),
+        http::get_bytes(&next_url),
+    )?;
+    let listings =
+        [previous, current, next].map(|listing| String::from_utf8_lossy(&listing).into_owned());
+    if listings
+        .iter()
+        .any(|listing| !listing.contains("<ListBucketResult"))
+    {
         return Err(Level2Error::BadListing);
     }
-    let key =
-        closest_key(&listing, wanted).ok_or_else(|| Level2Error::NoVolume(station.to_string()))?;
+    let key = closest_key_across(listings.iter().map(String::as_str), wanted)
+        .ok_or_else(|| Level2Error::NoVolume(station.to_string()))?;
     if let Some(hit) = cached(&key) {
         return Ok((key, hit));
     }
@@ -2605,6 +2625,26 @@ mod tests {
         assert_eq!(
             closest_key("<ListBucketResult></ListBucketResult>", wanted),
             None
+        );
+    }
+
+    #[test]
+    fn picks_the_closest_volume_across_a_utc_day_boundary() {
+        let previous = "<ListBucketResult>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_235900_V06</Key></Contents>\
+            </ListBucketResult>";
+        let current = "<ListBucketResult>\
+            <Contents><Key>2026/08/31/KDMX/KDMX20260831_001000_V06</Key></Contents>\
+            </ListBucketResult>";
+        let next = "<ListBucketResult></ListBucketResult>";
+        let wanted = Utc
+            .with_ymd_and_hms(2026, 8, 31, 0, 1, 0)
+            .single()
+            .expect("a UTC time");
+
+        assert_eq!(
+            closest_key_across([previous, current, next], wanted).as_deref(),
+            Some("2026/08/30/KDMX/KDMX20260830_235900_V06")
         );
     }
 
