@@ -289,6 +289,63 @@ test("the Custom Overlay switch removes imported shapes", async ({ page }) => {
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
 });
 
+test("keeps several imported files apart, each on its own switch", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  const drop = async (name: string, lon: number) => {
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.setInputFiles('.drop-zone input[type="file"]', {
+      name,
+      mimeType: "application/geo+json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [lon, 25.5] },
+              properties: {},
+            },
+          ],
+        }),
+      ),
+    });
+  };
+
+  await drop("spotters.geojson", -85.5);
+  await expect(page.getByText("spotters.geojson added")).toBeVisible();
+  await drop("counties.geojson", -85.4);
+  await expect(page.getByText("counties.geojson added")).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const files = page.locator("[data-overlay-files] li");
+  await expect(files).toHaveCount(2);
+  // Shown top first, so the file imported last is at the top of the list.
+  await expect(files.first()).toHaveAttribute(
+    "data-overlay-file",
+    "counties.geojson",
+  );
+
+  // Importing the same file again updates it rather than adding a second.
+  await drop("spotters.geojson", -85.6);
+  await expect(page.getByText("spotters.geojson replaced")).toBeVisible();
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await expect(files).toHaveCount(2);
+
+  // One file off leaves the other on the map.
+  await page.getByRole("checkbox", { name: "Show counties.geojson" }).uncheck();
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+
+  await page.getByRole("button", { name: "Remove spotters.geojson" }).click();
+  await expect(files).toHaveCount(1);
+  // Nothing switched on is left, so nothing is drawn.
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /custom-points/);
+});
+
 test("watches more than one place and names the ones a warning reached", async ({
   page,
 }) => {

@@ -5,6 +5,7 @@ import {
   restoreWorkspace,
   WORKSPACE_BACKUP_VERSION,
 } from "./workspaceBackup";
+import type { WorkspaceOverlayFile } from "./workspaceOverlays";
 
 const overlay = {
   type: "FeatureCollection",
@@ -17,19 +18,77 @@ const overlay = {
   ],
 };
 
+const overlayFile: WorkspaceOverlayFile = {
+  id: "spotters.geojson",
+  name: "spotters.geojson",
+  enabled: true,
+  opacity: 1,
+  shapes: overlay,
+};
+
 describe("workspace backups", () => {
-  it("round-trips settings and the uploaded overlay together", () => {
+  it("round-trips settings and the whole imported set together", () => {
     const settings = {
       ...DEFAULT_SETTINGS,
       layers: { ...DEFAULT_SETTINGS.layers, customOverlay: true },
     };
-    const backup = createWorkspaceBackup(settings, overlay);
+    const files: WorkspaceOverlayFile[] = [
+      overlayFile,
+      {
+        id: "counties.json",
+        name: "counties.json",
+        enabled: false,
+        opacity: 0.4,
+        shapes: overlay,
+      },
+    ];
+    const backup = createWorkspaceBackup(settings, files);
     expect(backup.backupVersion).toBe(WORKSPACE_BACKUP_VERSION);
 
     const restored = restoreWorkspace(JSON.parse(JSON.stringify(backup)));
     expect(restored.settings).toEqual(settings);
-    expect(restored.customOverlay).toEqual(overlay);
+    // The switch and the opacity travel with the shapes. A set restored with
+    // everything switched back on would put a file somebody had deliberately
+    // hidden back on the map.
+    expect(restored.overlayFiles).toEqual(files);
     expect(restored.unread).toEqual([]);
+  });
+
+  it("reads a version 1 backup's single overlay as a set of one", () => {
+    const restored = restoreWorkspace({
+      type: "OpenRadarWorkspace",
+      backupVersion: 1,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        layers: { ...DEFAULT_SETTINGS.layers, customOverlay: true },
+      },
+      customOverlay: overlay,
+    });
+    expect(restored.overlayFiles).toHaveLength(1);
+    expect(restored.overlayFiles[0].shapes).toEqual(overlay);
+    expect(restored.overlayFiles[0].enabled).toBe(true);
+    expect(restored.settings.layers.customOverlay).toBe(true);
+    expect(restored.unread).toEqual([]);
+  });
+
+  it("drops an unreadable member and says so rather than the whole set", () => {
+    const restored = restoreWorkspace({
+      type: "OpenRadarWorkspace",
+      backupVersion: WORKSPACE_BACKUP_VERSION,
+      settings: DEFAULT_SETTINGS,
+      overlayFiles: [
+        overlayFile,
+        {
+          name: "empty.geojson",
+          shapes: { type: "FeatureCollection", features: [] },
+        },
+        { name: "", shapes: overlay },
+        // The same file twice, which the set cannot hold.
+        { ...overlayFile, opacity: 0.1 },
+      ],
+    });
+    expect(restored.overlayFiles).toEqual([overlayFile]);
+    expect(restored.unread).toContain("overlayFiles");
   });
 
   it("carries every watched place, not only home", () => {
@@ -51,7 +110,7 @@ describe("workspace backups", () => {
         },
       ],
     };
-    const backup = createWorkspaceBackup(settings, null);
+    const backup = createWorkspaceBackup(settings, []);
     const restored = restoreWorkspace(JSON.parse(JSON.stringify(backup)));
     expect(restored.settings.watchPlaces).toEqual(settings.watchPlaces);
     expect(restored.settings.watch.enabled).toBe(true);
@@ -77,7 +136,7 @@ describe("workspace backups", () => {
         ],
       },
     };
-    const backup = createWorkspaceBackup(settings, null);
+    const backup = createWorkspaceBackup(settings, []);
     const text = JSON.stringify(backup);
     expect(text.length).toBeLessThan(10_000);
     expect(text).toContain("0123456789abcdef01234567");
@@ -94,7 +153,7 @@ describe("workspace backups", () => {
       ...DEFAULT_SETTINGS,
       layers: { ...DEFAULT_SETTINGS.layers, customOverlay: true },
     });
-    expect(restored.customOverlay).toBeNull();
+    expect(restored.overlayFiles).toEqual([]);
     expect(restored.settings.layers.customOverlay).toBe(false);
   });
 
@@ -107,7 +166,7 @@ describe("workspace backups", () => {
       futurePanel: { docked: true },
     });
     expect(restored.fromNewerBuild).toBe(true);
-    expect(restored.customOverlay).toBeNull();
+    expect(restored.overlayFiles).toEqual([]);
     expect(restored.settings.layers.customOverlay).toBe(false);
     expect(restored.unread).toEqual(["workspace.futurePanel"]);
   });

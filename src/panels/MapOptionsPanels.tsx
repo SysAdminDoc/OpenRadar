@@ -44,6 +44,11 @@ import type {
   WatchState,
 } from "../lib/settings";
 import type { PackBounds } from "../lib/incidentPacks";
+import {
+  moveOverlayFile,
+  overlayShapeCount,
+  type WorkspaceOverlayFile,
+} from "../lib/workspaceOverlays";
 import { IncidentPackManager } from "./IncidentPackManager";
 
 /**
@@ -199,6 +204,9 @@ interface LayersPanelProps {
   /** The order the overlays are drawn in, bottom first. */
   overlayOrder: string[];
   onOverlayOrder: (order: string[]) => void;
+  /** The local files on the map, bottom first. */
+  overlayFiles: WorkspaceOverlayFile[];
+  onOverlayFiles: (files: WorkspaceOverlayFile[]) => void;
   /** Which kinds of alert to draw, by the switches below the alert layer. */
   alertTypes: Partial<Record<AlertType, boolean>>;
   /** Which hurricane the surge picture is about. */
@@ -368,6 +376,8 @@ export function LayersPanel({
   onOverlayOpacity,
   overlayOrder,
   onOverlayOrder,
+  overlayFiles,
+  onOverlayFiles,
   alertTypes,
   surgeCategory,
   onLayers,
@@ -465,6 +475,116 @@ export function LayersPanel({
               );
             })}
           </ol>
+        </div>
+      ) : null}
+
+      {layers.customOverlay ? (
+        <div className="settings-section" data-overlay-files>
+          <div className="settings-section__title">
+            <span>{t("layers.files")}</span>
+            <small>{t("layers.filesDetail")}</small>
+          </div>
+          {overlayFiles.length ? (
+            <ol className="overlay-files">
+              {/* Top first, the way somebody thinks about what is over what,
+                  while the list itself is held bottom first. */}
+              {[...overlayFiles].reverse().map((file, shown) => {
+                const at = overlayFiles.length - 1 - shown;
+                const solid = Math.round(file.opacity * 100);
+                const patch = (change: Partial<WorkspaceOverlayFile>) =>
+                  onOverlayFiles(
+                    overlayFiles.map((each) =>
+                      each.id === file.id ? { ...each, ...change } : each,
+                    ),
+                  );
+                return (
+                  <li key={file.id} data-overlay-file={file.id}>
+                    <div className="overlay-files__row">
+                      <label className="overlay-files__name">
+                        <input
+                          type="checkbox"
+                          checked={file.enabled}
+                          aria-label={t("layers.fileShown", {
+                            name: file.name,
+                          })}
+                          onChange={(event) =>
+                            patch({ enabled: event.target.checked })
+                          }
+                        />
+                        <i className="toggle-track" aria-hidden="true" />
+                        <span>
+                          <strong>{file.name}</strong>
+                          <small>
+                            {t("layers.fileShapes", {
+                              count: overlayShapeCount(file.shapes),
+                            })}
+                          </small>
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        aria-label={t("layers.moveUp", { layer: file.name })}
+                        disabled={at === overlayFiles.length - 1}
+                        onClick={() =>
+                          onOverlayFiles(
+                            moveOverlayFile(overlayFiles, file.id, at + 1),
+                          )
+                        }
+                      >
+                        <ChevronUp size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("layers.moveDown", { layer: file.name })}
+                        disabled={at === 0}
+                        onClick={() =>
+                          onOverlayFiles(
+                            moveOverlayFile(overlayFiles, file.id, at - 1),
+                          )
+                        }
+                      >
+                        <ChevronDown size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("layers.fileRemove", {
+                          name: file.name,
+                        })}
+                        onClick={() =>
+                          onOverlayFiles(
+                            overlayFiles.filter((each) => each.id !== file.id),
+                          )
+                        }
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                    <label className="range-row">
+                      <span>
+                        <output>{solid}%</output>
+                      </span>
+                      <input
+                        type="range"
+                        min={10}
+                        max={100}
+                        step={5}
+                        aria-label={t("layers.opacityFor", {
+                          layer: file.name,
+                          percent: solid,
+                        })}
+                        value={solid}
+                        onChange={(event) =>
+                          patch({ opacity: Number(event.target.value) / 100 })
+                        }
+                      />
+                    </label>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <p className="source-note">{t("layers.filesNone")}</p>
+          )}
         </div>
       ) : null}
 

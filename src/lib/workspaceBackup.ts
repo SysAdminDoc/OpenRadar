@@ -3,30 +3,42 @@ import {
   type AppSettings,
   type RestoredSettings,
 } from "./settings";
+import {
+  isWorkspaceOverlay,
+  overlayFileId,
+  MAX_WORKSPACE_OVERLAY_FILES,
+  type WorkspaceOverlayFile,
+} from "./workspaceOverlays";
 
-export const WORKSPACE_BACKUP_VERSION = 1;
-export const MAX_WORKSPACE_OVERLAY_FEATURES = 5000;
+/**
+ * Version 2 carries a set of imported files where version 1 carried one.
+ *
+ * A version 1 backup is still read: its single overlay becomes a set of one,
+ * named for the layer it used to be, so a reader restoring an older backup
+ * gets their shapes back rather than an explanation.
+ */
+export const WORKSPACE_BACKUP_VERSION = 2;
 
 export interface WorkspaceBackup {
   type: "OpenRadarWorkspace";
   backupVersion: number;
   settings: AppSettings;
-  customOverlay: Record<string, unknown> | null;
+  overlayFiles: WorkspaceOverlayFile[];
 }
 
 export interface RestoredWorkspace extends RestoredSettings {
-  customOverlay: Record<string, unknown> | null;
+  overlayFiles: WorkspaceOverlayFile[];
 }
 
 export function createWorkspaceBackup(
   settings: AppSettings,
-  customOverlay: Record<string, unknown> | null,
+  overlayFiles: WorkspaceOverlayFile[],
 ): WorkspaceBackup {
   return {
     type: "OpenRadarWorkspace",
     backupVersion: WORKSPACE_BACKUP_VERSION,
     settings,
-    customOverlay,
+    overlayFiles,
   };
 }
 
@@ -57,6 +69,13 @@ function isValidWorkspaceEnvelope(value: unknown): boolean {
   ) {
     return false;
   }
+  if (
+    value.overlayFiles !== undefined &&
+    value.overlayFiles !== null &&
+    !Array.isArray(value.overlayFiles)
+  ) {
+    return false;
+  }
   return (
     value.customOverlay === undefined ||
     value.customOverlay === null ||
@@ -64,17 +83,28 @@ function isValidWorkspaceEnvelope(value: unknown): boolean {
   );
 }
 
-/** Accept only bounded, non-empty GeoJSON that the map can draw. */
-export function isWorkspaceOverlay(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  if (record.type === "Feature") return true;
-  if (record.type !== "FeatureCollection") return false;
-  return (
-    Array.isArray(record.features) &&
-    record.features.length > 0 &&
-    record.features.length <= MAX_WORKSPACE_OVERLAY_FEATURES
-  );
+/**
+ * One entry of a version 2 backup's overlay set, or null when it is not one.
+ *
+ * A file whose shapes will not pass the same check an import passes is dropped
+ * rather than repaired. Half a set restored with no word about the rest would
+ * be worse than a set restored with a note saying what could not be read.
+ */
+function readOverlayFile(value: unknown): WorkspaceOverlayFile | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!name) return null;
+  if (!isWorkspaceOverlay(raw.shapes)) return null;
+  const opacity = typeof raw.opacity === "number" ? raw.opacity : 1;
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : overlayFileId(name),
+    name,
+    // Absent means on, the way it arrives from an import.
+    enabled: raw.enabled !== false,
+    opacity: Math.min(Math.max(opacity, 0), 1),
+    shapes: raw.shapes as Record<string, unknown>,
+  };
 }
 
 export function restoreWorkspace(value: unknown): RestoredWorkspace {
@@ -88,7 +118,7 @@ export function restoreWorkspace(value: unknown): RestoredWorkspace {
   }
   const restored = restoreSettings(isEnvelope ? raw.settings : value);
   const unread = [...restored.unread];
-  let customOverlay: Record<string, unknown> | null = null;
+  let overlayFiles: WorkspaceOverlayFile[] = [];
 
   if (isEnvelope) {
     const known = new Set([
@@ -96,22 +126,54 @@ export function restoreWorkspace(value: unknown): RestoredWorkspace {
       "backupVersion",
       "settings",
       "customOverlay",
+      "overlayFiles",
     ]);
     unread.push(
       ...Object.keys(raw)
         .filter((key) => !known.has(key))
         .map((key) => `workspace.${key}`),
     );
-    if (raw.customOverlay !== null && raw.customOverlay !== undefined) {
+    if (Array.isArray(raw.overlayFiles)) {
+      for (const entry of raw.overlayFiles) {
+        const file = readOverlayFile(entry);
+        if (!file) {
+          unread.push("overlayFiles");
+        } else if (overlayFiles.length >= MAX_WORKSPACE_OVERLAY_FILES) {
+          // A backup written by a build that allowed more of them, or one
+          // edited by hand. The ceiling is what the rest of the app is built
+          // to, so it holds here rather than being trusted from the file.
+          unread.push("overlayFiles");
+        } else if (overlayFiles.some((held) => held.id === file.id)) {
+          unread.push("overlayFiles");
+        } else {
+          overlayFiles.push(file);
+        }
+      }
+    }
+    // A version 1 backup carried one overlay and no name for it. It becomes a
+    // set of one, called what the layer was called, so the shapes come back.
+    if (
+      !overlayFiles.length &&
+      raw.customOverlay !== null &&
+      raw.customOverlay !== undefined
+    ) {
       if (isWorkspaceOverlay(raw.customOverlay)) {
-        customOverlay = raw.customOverlay as Record<string, unknown>;
+        overlayFiles = [
+          {
+            id: overlayFileId("Custom Overlay"),
+            name: "Custom Overlay",
+            enabled: true,
+            opacity: 1,
+            shapes: raw.customOverlay as Record<string, unknown>,
+          },
+        ];
       } else {
         unread.push("customOverlay");
       }
     }
   }
 
-  const settings = customOverlay
+  const settings = overlayFiles.length
     ? restored.settings
     : {
         ...restored.settings,
@@ -121,7 +183,7 @@ export function restoreWorkspace(value: unknown): RestoredWorkspace {
 
   return {
     settings,
-    customOverlay,
+    overlayFiles,
     unread: [...new Set(unread)].sort(),
     fromNewerBuild:
       restored.fromNewerBuild ||

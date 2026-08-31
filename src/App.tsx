@@ -56,6 +56,10 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
+import {
+  mergedOverlayShapes,
+  type WorkspaceOverlayFile,
+} from "./lib/workspaceOverlays";
 import { translate, useT } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
@@ -117,10 +121,11 @@ export default function App() {
     setActiveSurface("section");
   }, []);
   const [route, setRoute] = useState<Record<string, unknown> | null>(null);
-  const [customOverlay, setCustomOverlay] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+  // The local files a reader has put on the map, in drawing order. They live
+  // here rather than in settings because the shapes themselves are not small
+  // and are not something a settings file should carry; a workspace backup is
+  // where they travel.
+  const [overlayFiles, setOverlayFiles] = useState<WorkspaceOverlayFile[]>([]);
   const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
   const [replay, setReplay] = useState<ArchiveReplay | null>(null);
   const mapRef = useRef<MapViewportHandle>(null);
@@ -276,9 +281,17 @@ export default function App() {
     applySettings,
     pushToast,
     setActiveSurface,
-    setCustomOverlay,
-    customOverlay,
+    setOverlayFiles,
+    overlayFiles,
   });
+  // What the map actually draws: the enabled files, in order, as one
+  // collection. Derived rather than kept beside the set, so a switch or a
+  // slider cannot leave the two disagreeing.
+  const overlayShapes = useMemo(
+    () => mergedOverlayShapes(overlayFiles),
+    [overlayFiles],
+  );
+
   const exportState = useExport({
     mapRef,
     frames,
@@ -679,7 +692,7 @@ export default function App() {
         }
         overlays={overlays.data}
         route={route}
-        customOverlay={customOverlay}
+        customOverlay={overlayShapes}
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
@@ -779,6 +792,8 @@ export default function App() {
             onOverlayOpacity={(overlayOpacity) =>
               applySettings({ ...settingsRef.current, overlayOpacity })
             }
+            overlayFiles={overlayFiles}
+            onOverlayFiles={setOverlayFiles}
             onOverlayOrder={(overlayOrder) =>
               applySettings({ ...settingsRef.current, overlayOrder })
             }

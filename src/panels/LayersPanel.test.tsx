@@ -3,12 +3,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LayersPanel } from "./MapOptionsPanels";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import { en } from "../i18n/en";
+import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 
 afterEach(cleanup);
 
 function panel(overrides: {
   layers?: Partial<typeof DEFAULT_SETTINGS.layers>;
   layerNotes?: Record<string, string | null>;
+  overlayFiles?: WorkspaceOverlayFile[];
+  onOverlayFiles?: (files: WorkspaceOverlayFile[]) => void;
 }) {
   return (
     <LayersPanel
@@ -18,6 +21,8 @@ function panel(overrides: {
       onOverlayOpacity={vi.fn()}
       overlayOrder={DEFAULT_SETTINGS.overlayOrder}
       onOverlayOrder={vi.fn()}
+      overlayFiles={overrides.overlayFiles ?? []}
+      onOverlayFiles={overrides.onOverlayFiles ?? vi.fn()}
       alertTypes={DEFAULT_SETTINGS.alertTypes}
       surgeCategory={DEFAULT_SETTINGS.surgeCategory}
       onLayers={vi.fn()}
