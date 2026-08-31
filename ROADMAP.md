@@ -15,13 +15,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: Up to ten named local watch places can carry radius, severity, event filters, sound, and quiet policy; one alert is deduplicated across overlapping places while naming each affected place; polling batches bounds to avoid multiplying traffic; schema and backup round trips pass; no cloud storage is introduced.
       Complexity: L
 
-- [ ] AUD-078: Add an official, clearly separated ECCC extrapolation lane
-      Why: ECCC publishes North American extrapolation layers on the same operational WMS already used for observed Canadian radar. This offers a bounded nowcast without shipping a local single-flow algorithm first.
-      Evidence: `src/lib/providers/geomet.ts`; `src/hooks/useRadarTimeline.ts`; https://eccc-msc.github.io/open-data/msc-data/obs_radar/readme_radar_geomet_en/ ; https://community.windy.com/topic/31383/how-to-turn-off-forecasted-radar/5 ; https://github.com/JoshuaKimsey/LibreWXR/issues/24
-      Touches: GeoMet provider; timeline segmentation; provenance; legend and source copy; archive controls
-      Acceptance: Extrapolated frames appear only where the official layer covers and occupy a distinct dotted timeline segment labeled with method, source, issue time, valid time, and horizon; the last observation remains separately selectable; observations are never blended or relabeled; stale extrapolation disappears before fresh observations do.
-      Complexity: M
-
 - [ ] AUD-079: Compare exact and previous Open-Meteo model runs
       Why: Current guidance compares current model output but does not expose the initialization behind each series or how the forecast changed from the previous run.
       Evidence: `src/lib/guidance.ts`; https://open-meteo.com/en/docs/single-runs-api ; https://open-meteo.com/en/docs/previous-runs-api
