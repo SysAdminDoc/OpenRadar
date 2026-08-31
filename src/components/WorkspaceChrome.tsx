@@ -114,6 +114,8 @@ export function WorkspaceChrome({
   onDismissToast,
 }: WorkspaceChromeProps) {
   const t = useT();
+  const historicalSweep =
+    sweep && sweep.source.kind !== "recent" ? sweep : null;
   // Redraws when the units or the clock change, since this is on screen the
   // whole time and would otherwise keep showing the old ones.
   useMeasurements();
@@ -142,16 +144,20 @@ export function WorkspaceChrome({
   const productEyebrow = sweep
     ? sweepEyebrow(sweep, liveClock)
     : t("chrome.liveProduct");
-  const sourceHealthy = Boolean(frames.length) && !timeline.error;
-  const freshness = timeline.cached
-    ? cached
-    : timeline.error
-      ? t("chrome.sourceIssue")
-      : radarAgeMinutes === null
-        ? t("chrome.connecting")
-        : radarAgeMinutes < 1
-          ? t("chrome.updatedNow")
-          : t("chrome.updatedMinutes", { count: radarAgeMinutes });
+  const sourceHealthy = historicalSweep
+    ? true
+    : Boolean(frames.length) && !timeline.error;
+  const freshness = historicalSweep
+    ? t("timeline.historical")
+    : timeline.cached
+      ? cached
+      : timeline.error
+        ? t("chrome.sourceIssue")
+        : radarAgeMinutes === null
+          ? t("chrome.connecting")
+          : radarAgeMinutes < 1
+            ? t("chrome.updatedNow")
+            : t("chrome.updatedMinutes", { count: radarAgeMinutes });
   // A loaded colour table describes what is on screen only where it was
   // actually applied, which is the locally decoded products and no others.
   const drawnUnit = sweep?.unit ?? mosaic.unit;
@@ -193,8 +199,18 @@ export function WorkspaceChrome({
               ? t("chrome.sourceHealthy")
               : t("chrome.sourceWaiting")}
           </span>
-          <span className={sourceHealthy ? "live-chip is-live" : "live-chip"}>
-            {sourceHealthy ? t("timeline.live") : t("chrome.standby")}
+          <span
+            className={
+              sourceHealthy && !historicalSweep
+                ? "live-chip is-live"
+                : "live-chip"
+            }
+          >
+            {historicalSweep
+              ? t("timeline.historical")
+              : sourceHealthy
+                ? t("timeline.live")
+                : t("chrome.standby")}
           </span>
         </div>
       </header>
@@ -324,6 +340,14 @@ export function WorkspaceChrome({
         playing={timeline.playing}
         sourceLabel={timeline.sourceLabel}
         ageMinutes={radarAgeMinutes}
+        historical={
+          historicalSweep
+            ? {
+                collected: historicalSweep.collected,
+                sourceLabel: historicalSweep.source.label,
+              }
+            : null
+        }
         error={timeline.error ?? cached ?? stale}
         onFrameIndex={timeline.selectFrame}
         onPlaying={timeline.setPlaying}
@@ -361,7 +385,13 @@ export function WorkspaceChrome({
         >
           © OpenStreetMap
         </a>
-        {timeline.attribution ? (
+        {historicalSweep?.source.url ? (
+          <a href={historicalSweep.source.url} target="_blank" rel="noreferrer">
+            {historicalSweep.source.label}
+          </a>
+        ) : historicalSweep ? (
+          <span>{historicalSweep.source.label}</span>
+        ) : timeline.attribution ? (
           <a href={timeline.attribution.url} target="_blank" rel="noreferrer">
             {timeline.attribution.label}
           </a>
@@ -385,6 +415,9 @@ export function WorkspaceChrome({
 function sweepEyebrow(sweep: SweepImage, clock: number): string {
   const age = liveAgeSeconds(sweep, clock);
   const degrees = sweep.elevationDegrees.toFixed(2);
+  if (sweep.source.kind !== "recent") {
+    return translate("chrome.tiltHistorical", { degrees });
+  }
   if (age === null) {
     return translate(sweep.dealiased ? "chrome.tiltDealiased" : "chrome.tilt", {
       degrees,

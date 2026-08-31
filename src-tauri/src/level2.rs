@@ -4,7 +4,11 @@
 //! The mosaics OpenRadar leads with are national and smoothed. This is the
 //! radar itself, one site at a time, which is what a close-in view wants.
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{hash_map::DefaultHasher, BTreeMap, VecDeque};
+use std::fs::File as FsFile;
+use std::hash::{Hash, Hasher};
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -91,6 +95,14 @@ const MAX_SITE_CANDIDATES: usize = 4;
 /// reach the cut above or below.
 const SAME_CUT_DEGREES: f32 = 0.1;
 
+/// Local imports are bounded before they are read. Published Archive II files
+/// are normally under 20 MB; this leaves room for unusually long volumes
+/// without letting an accidental multi-gigabyte selection become an allocation.
+const LOCAL_VOLUME_MAX_BYTES: u64 = 128 * 1024 * 1024;
+/// A gzip wrapper may be much smaller than what it expands to. Keep that
+/// second boundary independent of the selected file's size.
+const EXPANDED_VOLUME_MAX_BYTES: u64 = 256 * 1024 * 1024;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Level2Error {
     #[error("{0} is not a NEXRAD site")]
@@ -107,6 +119,12 @@ pub enum Level2Error {
     NoStormMotion(String),
     #[error("the image could not be encoded: {0}")]
     Encode(String),
+    #[error("{0} is not a UTC date and time")]
+    InvalidTime(String),
+    #[error("the selected file could not be read: {0}")]
+    LocalRead(String),
+    #[error("the selected file is larger than 128 MB")]
+    LocalTooLarge,
     #[error(transparent)]
     Http(#[from] http::HttpError),
 }
@@ -128,6 +146,9 @@ impl Level2Error {
             Self::NoSweep(site, product) => ("noSweep", vec![site.clone(), product.clone()]),
             Self::NoStormMotion(site) => ("noStormMotion", vec![site.clone()]),
             Self::Encode(why) => ("encode", vec![why.clone()]),
+            Self::InvalidTime(at) => ("invalidTime", vec![at.clone()]),
+            Self::LocalRead(why) => ("localRead", vec![why.clone()]),
+            Self::LocalTooLarge => ("localTooLarge", Vec::new()),
             Self::Http(_) => ("http", vec![self.to_string()]),
         }
     }
@@ -187,6 +208,20 @@ pub struct SweepImage {
     pub image: String,
     /// The volume key, so a caller can tell one scan from the next.
     pub volume: String,
+    /// Where the bytes on screen came from. Historical and local sources are
+    /// explicit so the timeline never calls them live.
+    pub source: SweepSource,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SweepSource {
+    /// `recent`, `archive`, or `local`.
+    pub kind: String,
+    /// A filename for local data, otherwise the provider's name.
+    pub label: String,
+    /// Public attribution for provider data. Local files have no link.
+    pub url: Option<String>,
 }
 
 /// What was subtracted to make a sweep storm relative.
@@ -470,6 +505,33 @@ pub fn newest_key(listing: &str) -> Option<String> {
     newest
 }
 
+/// The volume nearest a requested UTC moment in one day's listing.
+///
+/// The archive can have gaps while a radar is down, so the actual collection
+/// time travels with the result and the timeline names it. Choosing the nearest
+/// whole volume is more useful than pretending the requested minute exists.
+pub fn closest_key(listing: &str, wanted: DateTime<Utc>) -> Option<String> {
+    let mut closest: Option<(i64, String)> = None;
+    let mut rest = listing;
+    while let Some(start) = rest.find("<Key>") {
+        let after = &rest[start + 5..];
+        let end = after.find("</Key>")?;
+        let key = &after[..end];
+        if key.ends_with("_V06") || key.ends_with("_V03") {
+            if let Some(at) = key_time(key) {
+                let distance = at.signed_duration_since(wanted).num_seconds().abs();
+                if closest.as_ref().is_none_or(|(best, current)| {
+                    distance < *best || (distance == *best && key < current.as_str())
+                }) {
+                    closest = Some((distance, key.to_string()));
+                }
+            }
+        }
+        rest = &after[end + 6..];
+    }
+    closest.map(|(_, key)| key)
+}
+
 /// The collection time a volume key carries, as `KDMX20260830_092159_V06`.
 pub fn key_time(key: &str) -> Option<DateTime<Utc>> {
     let name = key.rsplit('/').next()?;
@@ -495,6 +557,25 @@ async fn latest_volume(station: &str) -> Result<(String, Vec<u8>), Level2Error> 
     }
     let key = key.ok_or_else(|| Level2Error::NoVolume(station.to_string()))?;
 
+    if let Some(hit) = cached(&key) {
+        return Ok((key, hit));
+    }
+    let data = http::get_bytes(&format!("{ARCHIVE_HOST}/{key}")).await?;
+    remember(&key, &data);
+    Ok((key, data))
+}
+
+async fn archive_volume_at(
+    station: &str,
+    wanted: DateTime<Utc>,
+) -> Result<(String, Vec<u8>), Level2Error> {
+    let listing = http::get_bytes(&listing_url(station, wanted)).await?;
+    let listing = String::from_utf8_lossy(&listing);
+    if !listing.contains("<ListBucketResult") {
+        return Err(Level2Error::BadListing);
+    }
+    let key =
+        closest_key(&listing, wanted).ok_or_else(|| Level2Error::NoVolume(station.to_string()))?;
     if let Some(hit) = cached(&key) {
         return Ok((key, hit));
     }
@@ -544,7 +625,9 @@ fn decoded_volume(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
     }
 
     let source_bytes = data.len();
-    let file = volume::File::new(data);
+    // Older Archive II downloads may wrap the whole volume in gzip. Modern
+    // volumes instead bzip each LDM record, which File::scan handles itself.
+    let file = normalized_volume(data)?;
     let scan = Arc::new(
         file.scan()
             .map_err(|error| Level2Error::Decode(error.to_string()))?,
@@ -561,6 +644,80 @@ fn decoded_volume(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
     DECODES.fetch_add(1, Ordering::Relaxed);
     remember_decoded(key, &scan, &nyquist, source_bytes);
     Ok((scan, nyquist))
+}
+
+fn normalized_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
+    if !data.starts_with(&[0x1f, 0x8b]) {
+        return Ok(volume::File::new(data));
+    }
+
+    let decoder = flate2::read::GzDecoder::new(data.as_slice());
+    let mut limited = decoder.take(EXPANDED_VOLUME_MAX_BYTES + 1);
+    let mut expanded = Vec::new();
+    limited
+        .read_to_end(&mut expanded)
+        .map_err(|error| Level2Error::Decode(error.to_string()))?;
+    if expanded.len() as u64 > EXPANDED_VOLUME_MAX_BYTES {
+        return Err(Level2Error::Decode(
+            "the expanded volume is larger than 256 MB".to_string(),
+        ));
+    }
+    Ok(volume::File::new(expanded))
+}
+
+struct LocalVolume {
+    station: String,
+    key: String,
+    label: String,
+    data: Vec<u8>,
+}
+
+fn read_local_volume(path: &Path) -> Result<LocalVolume, Level2Error> {
+    let file = FsFile::open(path).map_err(|error| Level2Error::LocalRead(error.to_string()))?;
+    let size = file
+        .metadata()
+        .map_err(|error| Level2Error::LocalRead(error.to_string()))?
+        .len();
+    if size > LOCAL_VOLUME_MAX_BYTES {
+        return Err(Level2Error::LocalTooLarge);
+    }
+
+    let mut data = Vec::with_capacity(size as usize);
+    file.take(LOCAL_VOLUME_MAX_BYTES + 1)
+        .read_to_end(&mut data)
+        .map_err(|error| Level2Error::LocalRead(error.to_string()))?;
+    if data.len() as u64 > LOCAL_VOLUME_MAX_BYTES {
+        return Err(Level2Error::LocalTooLarge);
+    }
+
+    let file = normalized_volume(data)?;
+    let station = file
+        .header()
+        .and_then(|header| header.icao_of_radar())
+        .map(|id| id.to_ascii_uppercase())
+        .ok_or_else(|| {
+            Level2Error::Decode("the Archive II header does not name a radar".to_string())
+        })?;
+    if registry::site_by_id(&station).is_none() {
+        return Err(Level2Error::UnknownSite(station));
+    }
+
+    let data = file.data().to_vec();
+    let mut hasher = DefaultHasher::new();
+    data.hash(&mut hasher);
+    let key = format!("local:{:016x}", hasher.finish());
+    let label = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("Archive II file")
+        .to_string();
+    Ok(LocalVolume {
+        station,
+        key,
+        label,
+        data,
+    })
 }
 
 fn decoded_hit(key: &str) -> Option<Decoded> {
@@ -1379,6 +1536,11 @@ fn draw_sweep(
         north,
         image: data_url(&png_bytes),
         volume: volume_key.to_string(),
+        source: SweepSource {
+            kind: "recent".to_string(),
+            label: "NOAA NEXRAD Level II".to_string(),
+            url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+        },
     })
 }
 
@@ -1598,6 +1760,33 @@ pub async fn level2_nearest_site(latitude: f32, longitude: f32) -> Option<String
     .map(|site| site.id.to_string())
 }
 
+fn requested_sweep<'a>(
+    product: &'a str,
+    tilt: usize,
+    dealias: bool,
+    motion: Option<(f32, f32)>,
+    threshold: Option<f32>,
+    high_contrast: bool,
+) -> SweepRequest<'a> {
+    let manual_motion = motion.map(|(speed, from_degrees)| {
+        // A wind named by where it comes from, turned back into the components
+        // the subtraction needs.
+        let towards = (from_degrees + 180.0).to_radians();
+        vad::Wind {
+            east: speed * towards.sin(),
+            north: speed * towards.cos(),
+        }
+    });
+    SweepRequest {
+        product_name: product,
+        tilt_index: tilt,
+        unfold: dealias,
+        manual_motion,
+        threshold,
+        high_contrast,
+    }
+}
+
 #[tauri::command]
 // A Tauri command takes its arguments by name from the page, so the list is the
 // contract with the frontend rather than a signature free to be reshaped. The
@@ -1649,23 +1838,7 @@ pub async fn level2_sweep(
     // Decoding and drawing a volume is CPU work; it must not sit on the async
     // runtime the whole time.
     tauri::async_runtime::spawn_blocking(move || {
-        let manual = motion.map(|(speed, from_degrees)| {
-            // A wind named by where it comes from, turned back into the
-            // components the subtraction needs.
-            let towards = (from_degrees + 180.0).to_radians();
-            vad::Wind {
-                east: speed * towards.sin(),
-                north: speed * towards.cos(),
-            }
-        });
-        let asked = SweepRequest {
-            product_name: &product,
-            tilt_index: tilt,
-            unfold: dealias,
-            manual_motion: manual,
-            threshold,
-            high_contrast,
-        };
+        let asked = requested_sweep(&product, tilt, dealias, motion, threshold, high_contrast);
         match live {
             Some(found) => {
                 // The finished volume underneath a live sweep is the same
@@ -1685,6 +1858,67 @@ pub async fn level2_sweep(
             }
             None => sweep_from_volume(&station, &key, data, asked),
         }
+    })
+    .await
+    .map_err(|error| Level2Error::Decode(error.to_string()))?
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn level2_archive_sweep(
+    station: String,
+    at: String,
+    product: String,
+    tilt: usize,
+    dealias: bool,
+    motion: Option<(f32, f32)>,
+    threshold: Option<f32>,
+    high_contrast: bool,
+) -> Result<SweepImage, Level2Error> {
+    let station = station.to_uppercase();
+    if registry::site_by_id(&station).is_none() {
+        return Err(Level2Error::UnknownSite(station));
+    }
+    let wanted = DateTime::parse_from_rfc3339(&at)
+        .map_err(|_| Level2Error::InvalidTime(at.clone()))?
+        .with_timezone(&Utc);
+    let (key, data) = archive_volume_at(&station, wanted).await?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let asked = requested_sweep(&product, tilt, dealias, motion, threshold, high_contrast);
+        let mut sweep = sweep_from_volume(&station, &key, data, asked)?;
+        sweep.source = SweepSource {
+            kind: "archive".to_string(),
+            label: "NOAA NEXRAD Level II archive".to_string(),
+            url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+        };
+        Ok(sweep)
+    })
+    .await
+    .map_err(|error| Level2Error::Decode(error.to_string()))?
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn level2_local_sweep(
+    path: String,
+    product: String,
+    tilt: usize,
+    dealias: bool,
+    motion: Option<(f32, f32)>,
+    threshold: Option<f32>,
+    high_contrast: bool,
+) -> Result<SweepImage, Level2Error> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let local = read_local_volume(&PathBuf::from(path))?;
+        let asked = requested_sweep(&product, tilt, dealias, motion, threshold, high_contrast);
+        let mut sweep = sweep_from_volume(&local.station, &local.key, local.data, asked)?;
+        sweep.source = SweepSource {
+            kind: "local".to_string(),
+            label: local.label,
+            url: None,
+        };
+        Ok(sweep)
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -2351,6 +2585,86 @@ mod tests {
             Some("2026/08/30/KDMX/KDMX20260830_092159_V06")
         );
         assert_eq!(newest_key("<ListBucketResult></ListBucketResult>"), None);
+    }
+
+    #[test]
+    fn picks_the_whole_volume_nearest_the_requested_utc_time() {
+        let listing = "<ListBucketResult>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_090749_V06</Key></Contents>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_092159_V06</Key></Contents>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_091800_V06_MDM</Key></Contents>\
+            </ListBucketResult>";
+        let wanted = Utc
+            .with_ymd_and_hms(2026, 8, 30, 9, 18, 0)
+            .single()
+            .expect("a UTC time");
+        assert_eq!(
+            closest_key(listing, wanted).as_deref(),
+            Some("2026/08/30/KDMX/KDMX20260830_092159_V06")
+        );
+        assert_eq!(
+            closest_key("<ListBucketResult></ListBucketResult>", wanted),
+            None
+        );
+    }
+
+    fn local_archive_fixture(uncompressed: bool) -> (DateTime<Utc>, Vec<u8>) {
+        let at = Utc
+            .with_ymd_and_hms(2026, 8, 30, 9, 21, 59)
+            .single()
+            .expect("a UTC time");
+        let site = fixture::Site {
+            id: *b"KDMX",
+            latitude: 41.731,
+            longitude: -93.723,
+            height_metres: 299,
+        };
+        let cuts = vec![fixture::flat_cut(
+            at,
+            fixture::Cut {
+                radials: 36,
+                gates: 40,
+                reflectivity: fixture::Gate::Reading(35.0),
+                ..fixture::Cut::default()
+            },
+        )];
+        let data = if uncompressed {
+            fixture::uncompressed_volume(&site, at, &cuts)
+        } else {
+            fixture::volume(&site, at, &cuts)
+        };
+        (at, data)
+    }
+
+    #[test]
+    fn local_import_draws_compressed_and_uncompressed_archive_ii_files() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        for (name, uncompressed) in [("compressed", false), ("uncompressed", true)] {
+            let (at, data) = local_archive_fixture(uncompressed);
+            let path = std::env::temp_dir()
+                .join(format!("openradar-{name}-{}-KDMX.ar2v", std::process::id()));
+            std::fs::write(&path, data).expect("write the local fixture");
+            let local = read_local_volume(&path).expect("read the selected Archive II file");
+            std::fs::remove_file(&path).expect("remove the local fixture");
+
+            assert_eq!(local.station, "KDMX");
+            assert!(local.key.starts_with("local:"));
+            let sweep = sweep_from_volume(
+                &local.station,
+                &local.key,
+                local.data,
+                SweepRequest {
+                    product_name: "reflectivity",
+                    ..SweepRequest::default()
+                },
+            )
+            .expect("draw the selected Archive II file");
+            assert_eq!(sweep.station, "KDMX");
+            assert_eq!(sweep.collected, at.to_rfc3339());
+            assert!(sweep.image.starts_with("data:image/png;base64,"));
+        }
+        clear_cache();
     }
 
     /// A volume is nine megabytes or so. Four of them held as they arrived is

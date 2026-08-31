@@ -53,6 +53,11 @@ function sweepOf(live: boolean): SweepImage {
     north: 44,
     image: "data:image/png;base64,",
     volume: "v",
+    source: {
+      kind: "recent",
+      label: "NOAA NEXRAD Level II",
+      url: "https://registry.opendata.aws/noaa-nexrad/",
+    },
   };
 }
 

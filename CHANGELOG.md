@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.5.0
 
+- Archive II volumes can now come from a file on the computer with no network connection, or from NOAA's public archive by NEXRAD site and UTC time. Tilt and product controls keep working on the selected volume. Its actual time and source replace the live timeline, while current warnings, reports, satellite pictures, lightning, wind, MRMS grids and storm guidance stay off the historical view. A bad file leaves the picture already on screen alone.
+
 - The live provider gate now covers the layer that matters most. NWS watches and warnings have their own contract, checked against the service itself and treated as required, because a schema change there is worth more than a picture going missing. Every other host the app can reach either has a contract or a written reason it does not, and a test fails when a new host arrives with neither.
 
 - Two timers that nobody owned now have an owner. A dismissed message no longer leaves its own dismissal running behind it, one pushed off the end by newer messages goes with its timer, and closing the workspace takes every pending one with it. Opening two saved views quickly now leaves you looking at the second one: the delay before the camera moves meant two flights were in the air at once, and the one that landed second won rather than the one you asked for second.

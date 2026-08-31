@@ -37,7 +37,9 @@ export function useWorkspaceOverlays(options: {
 
   const toggles = useMemo(
     () => ({
-      alerts: weatherAlerts,
+      // A current warning over an old radar volume is a false historical
+      // claim. The switch stays as the reader left it and returns with live.
+      alerts: weatherAlerts && !replaying,
       earthquakes,
       wildfires,
       tropical,

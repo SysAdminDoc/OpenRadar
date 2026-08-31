@@ -144,30 +144,6 @@ export default function App() {
     onSeen: markWelcomeSeen,
   });
 
-  const overlays = useWorkspaceOverlays({
-    settings,
-    viewport,
-    pushToast,
-    setActiveSurface,
-    replaying: replay !== null,
-  });
-
-  // A test the reader asked for is answered on the desktop path only. When the
-  // notification does not go out, the watch has already put the same alert in
-  // front of them as a toast, and a second message saying it worked would be
-  // the app talking about itself rather than about the weather.
-  const sendWatchTest = useCallback(() => {
-    void (async () => {
-      const delivered = await overlays.sendWatchTest();
-      if (delivered) {
-        pushToast({
-          title: translate("watch.testSent"),
-          detail: translate("watch.testSentBody"),
-        });
-      }
-    })();
-  }, [overlays, pushToast]);
-
   const paletteGeneration = usePalette({
     ready: hydrated,
     palette: settings.palette,
@@ -196,11 +172,37 @@ export default function App() {
     pageVisible,
     paletteGeneration,
   });
+
+  const overlays = useWorkspaceOverlays({
+    settings,
+    viewport,
+    pushToast,
+    setActiveSurface,
+    // Today's warnings and reports cannot sit on a volume from another day.
+    replaying: replay !== null || singleSite.historical,
+  });
+
+  // A test the reader asked for is answered on the desktop path only. When the
+  // notification does not go out, the watch has already put the same alert in
+  // front of them as a toast, and a second message saying it worked would be
+  // the app talking about itself rather than about the weather.
+  const sendWatchTest = useCallback(() => {
+    void (async () => {
+      const delivered = await overlays.sendWatchTest();
+      if (delivered) {
+        pushToast({
+          title: translate("watch.testSent"),
+          detail: translate("watch.testSentBody"),
+        });
+      }
+    })();
+  }, [overlays, pushToast]);
+
   // Tied to whichever site the single-site radar is reading, because the cells
   // are that radar's own account of that volume.
   const stormCells = useStormCells({
     ready: hydrated,
-    enabled: settings.layers.stormCells,
+    enabled: settings.layers.stormCells && !singleSite.historical,
     station: singleSite.station,
     pageVisible,
     clock,
@@ -209,7 +211,7 @@ export default function App() {
   // view: what is on screen is whatever part of it the map is over.
   const probSevere = useProbSevere({
     ready: hydrated,
-    enabled: settings.layers.probSevere,
+    enabled: settings.layers.probSevere && !singleSite.historical,
     pageVisible,
     clock,
   });
@@ -250,7 +252,7 @@ export default function App() {
   // The satellite image that stands for a frame, held back to the newest slot
   // the archive has actually published.
   const satelliteFor = (frame: RadarFrame | undefined) =>
-    settings.layers.satellite && frame
+    settings.layers.satellite && !singleSite.historical && frame
       ? satelliteFrameTime(frame.time, Math.floor(clock / 1000))
       : null;
   const satelliteTime = satelliteFor(activeFrame);
@@ -644,15 +646,15 @@ export default function App() {
         customOverlay={customOverlay}
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}
-        mrmsLayers={mrms.layers}
+        mrmsLayers={singleSite.historical ? [] : mrms.layers}
         cells={stormCells.features}
         probSevere={probSevere.features}
         overlayOpacity={settings.overlayOpacity}
         overlayOrder={settings.overlayOrder}
-        flashes={lightning.points}
+        flashes={singleSite.historical ? null : lightning.points}
         flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
         flashClock={clock}
-        wind={wind.field}
+        wind={singleSite.historical ? null : wind.field}
         activeTool={activeTool}
         dualPane={dualPane}
         compareOffset={compareOffset}
@@ -766,10 +768,12 @@ export default function App() {
         timeline={timeline}
         frames={frames}
         sweep={singleSite.sweep}
-        mrmsLayers={mrms.layers}
-        lightning={lightning.window}
-        wind={wind.field}
-        windReduced={settings.layers.wind && reducedMotion}
+        mrmsLayers={singleSite.historical ? [] : mrms.layers}
+        lightning={singleSite.historical ? null : lightning.window}
+        wind={singleSite.historical ? null : wind.field}
+        windReduced={
+          !singleSite.historical && settings.layers.wind && reducedMotion
+        }
         clock={clock}
         radarAgeMinutes={radarAge}
         cursor={cursor}

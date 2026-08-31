@@ -88,6 +88,11 @@ export interface SweepImage {
   north: number;
   image: string;
   volume: string;
+  source: {
+    kind: "recent" | "archive" | "local";
+    label: string;
+    url: string | null;
+  };
 }
 
 /**
@@ -137,6 +142,61 @@ export async function fetchSweep(
     live,
     highContrast,
   });
+}
+
+export async function fetchArchiveSweep(
+  station: string,
+  at: string,
+  product: Level2ProductId,
+  tilt: number,
+  dealias: boolean,
+  motion: [number, number] | null,
+  threshold: number | null,
+  highContrast: boolean,
+): Promise<SweepImage> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SweepImage>("level2_archive_sweep", {
+    station,
+    at,
+    product,
+    tilt,
+    dealias,
+    motion,
+    threshold,
+    highContrast,
+  });
+}
+
+export async function fetchLocalSweep(
+  path: string,
+  product: Level2ProductId,
+  tilt: number,
+  dealias: boolean,
+  motion: [number, number] | null,
+  threshold: number | null,
+  highContrast: boolean,
+): Promise<SweepImage> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SweepImage>("level2_local_sweep", {
+    path,
+    product,
+    tilt,
+    dealias,
+    motion,
+    threshold,
+    highContrast,
+  });
+}
+
+/** Opens the operating system's picker without granting general file access. */
+export async function pickArchiveFile(): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selected = await open({
+    title: translate("radar.openArchiveTitle"),
+    directory: false,
+    multiple: false,
+  });
+  return typeof selected === "string" ? selected : null;
 }
 
 /**

@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  fetchArchiveSweep,
+  fetchLocalSweep,
   fetchSweep,
   isSingleSiteViewport,
   level2Available,
   type Level2ProductId,
   LIVE_REFRESH_MS,
   nearestSite,
+  pickArchiveFile,
   SWEEP_REFRESH_MS,
   sweepErrorText,
   type SweepImage,
@@ -23,7 +26,17 @@ export interface SingleSiteState {
   error: string | null;
   /** True while a single site is what the map should be showing. */
   active: boolean;
+  /** Historical data is deliberately isolated from current context layers. */
+  historical: boolean;
+  mode: "recent" | "archive" | "local";
+  openLocal: () => Promise<boolean>;
+  openArchive: (station: string, at: string) => Promise<boolean>;
+  resumeRecent: () => void;
 }
+
+type HistoricalSource =
+  | { kind: "archive"; station: string; at: string }
+  | { kind: "local"; path: string };
 
 /**
  * Level II is a close-in view of one site. This decides which site that is,
@@ -50,20 +63,27 @@ export function useSingleSiteRadar(options: {
   const [sweep, setSweep] = useState<SweepImage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historicalSource, setHistoricalSource] =
+    useState<HistoricalSource | null>(null);
 
+  const available =
+    ready && level2Available() && radar.enabled && radar.singleSite;
   const wanted =
-    ready &&
-    level2Available() &&
-    radar.enabled &&
-    radar.singleSite &&
-    isSingleSiteViewport(zoom);
+    available && historicalSource === null && isSingleSiteViewport(zoom);
+  // A selected volume is useful at any zoom. It is already bounded to its
+  // site's coverage, and zooming out must not silently replace history with now.
+  const historicalWanted = available && historicalSource !== null;
 
   // Panning within a site's coverage must not restart the fetch, so the site
   // is resolved from a coarse position rather than the exact centre.
   const near = `${center[0].toFixed(1)},${center[1].toFixed(1)}`;
 
   // A held site wins outright, so nothing has to be resolved or stored for it.
-  const station = radar.station ?? (nearby?.near === near ? nearby.site : null);
+  const station = historicalSource
+    ? historicalSource.kind === "archive"
+      ? historicalSource.station
+      : (sweep?.station ?? null)
+    : (radar.station ?? (nearby?.near === near ? nearby.site : null));
 
   // Pulled out of the settings object so the effect below can depend on the
   // values instead of the identity of the object carrying them.
@@ -100,6 +120,153 @@ export function useSingleSiteRadar(options: {
 
   // A reply that arrives after the view has moved on must not be drawn.
   const requestRef = useRef(0);
+  const historicalRequestRef = useRef<string | null>(null);
+
+  const historicalRequestKey = useCallback(
+    (source: HistoricalSource) =>
+      JSON.stringify([
+        source,
+        radar.product,
+        radar.tilt,
+        radar.dealias,
+        motionSpeed,
+        motionFrom,
+        threshold,
+        paletteGeneration,
+        highContrastRequested(),
+      ]),
+    [
+      motionFrom,
+      motionSpeed,
+      paletteGeneration,
+      radar.dealias,
+      radar.product,
+      radar.tilt,
+      threshold,
+    ],
+  );
+
+  const fetchHistorical = useCallback(
+    (source: HistoricalSource) => {
+      const motion: [number, number] | null =
+        motionSpeed !== null && motionFrom !== null
+          ? [motionSpeed, motionFrom]
+          : null;
+      const common = [
+        radar.product,
+        radar.tilt,
+        radar.dealias,
+        motion,
+        threshold,
+        highContrastRequested(),
+      ] as const;
+      return source.kind === "archive"
+        ? fetchArchiveSweep(source.station, source.at, ...common)
+        : fetchLocalSweep(source.path, ...common);
+    },
+    [
+      motionFrom,
+      motionSpeed,
+      radar.dealias,
+      radar.product,
+      radar.tilt,
+      threshold,
+    ],
+  );
+
+  const activateHistorical = useCallback(
+    async (source: HistoricalSource): Promise<boolean> => {
+      const request = ++requestRef.current;
+      setLoading(true);
+      try {
+        const next = await fetchHistorical(source);
+        if (request !== requestRef.current) return false;
+        historicalRequestRef.current = historicalRequestKey(source);
+        setHistoricalSource(source);
+        setSweep(next);
+        setError(null);
+        return true;
+      } catch (failure: unknown) {
+        if (request !== requestRef.current) return false;
+        const message = sweepErrorText(failure);
+        log.warn("radar", `Historical volume: ${message}`);
+        // The previous picture remains the active view. In particular, a bad
+        // local file never replaces good radar with an empty historical mode.
+        setError(message);
+        return false;
+      } finally {
+        if (request === requestRef.current) setLoading(false);
+      }
+    },
+    [fetchHistorical, historicalRequestKey],
+  );
+
+  const openLocal = useCallback(async (): Promise<boolean> => {
+    try {
+      const path = await pickArchiveFile();
+      return path ? activateHistorical({ kind: "local", path }) : false;
+    } catch (failure: unknown) {
+      const message = sweepErrorText(failure);
+      log.warn("radar", `Archive II picker: ${message}`);
+      setError(message);
+      return false;
+    }
+  }, [activateHistorical]);
+
+  const openArchive = useCallback(
+    (askedStation: string, at: string) =>
+      activateHistorical({
+        kind: "archive",
+        station: askedStation.trim().toUpperCase(),
+        at,
+      }),
+    [activateHistorical],
+  );
+
+  const resumeRecent = useCallback(() => {
+    requestRef.current += 1;
+    historicalRequestRef.current = null;
+    setHistoricalSource(null);
+    setSweep(null);
+    setError(null);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!historicalWanted || !historicalSource) return;
+    const key = historicalRequestKey(historicalSource);
+    if (historicalRequestRef.current === key) return;
+    let open = true;
+    const request = ++requestRef.current;
+    setLoading(true);
+    // Keep the last verified historical picture until its replacement is
+    // decoded. Its own product and tilt travel with it, so a failed request
+    // cannot expose the live mosaic underneath historical mode.
+    void fetchHistorical(historicalSource)
+      .then((next) => {
+        if (!open || request !== requestRef.current) return;
+        historicalRequestRef.current = key;
+        setSweep(next);
+        setError(null);
+      })
+      .catch((failure: unknown) => {
+        if (!open || request !== requestRef.current) return;
+        const message = sweepErrorText(failure);
+        log.warn("radar", `Historical volume: ${message}`);
+        setError(message);
+      })
+      .finally(() => {
+        if (open && request === requestRef.current) setLoading(false);
+      });
+    return () => {
+      open = false;
+    };
+  }, [
+    fetchHistorical,
+    historicalRequestKey,
+    historicalSource,
+    historicalWanted,
+  ]);
 
   useEffect(() => {
     if (!wanted || !station) return;
@@ -179,20 +346,42 @@ export function useSingleSiteRadar(options: {
   ]);
 
   return useMemo(() => {
-    // A sweep of a different site, product, or tilt is not an answer to the
-    // question being asked now, whatever it was an answer to before.
+    // A recent sweep of a different site, product, or tilt is not an answer to
+    // the question being asked now. History keeps its last verified picture
+    // while another cut is being decoded, because that picture still names its
+    // own product, tilt, source, and collection time.
     const asked =
       sweep !== null &&
       sweep.station === station &&
       sweep.tiltIndex === radar.tilt &&
       sweep.productId === radar.product;
-    const current = wanted && asked ? sweep : null;
+    const showing = wanted || historicalWanted;
+    const current = showing && (historicalWanted || asked) ? sweep : null;
     return {
       sweep: current,
-      station: wanted ? station : null,
-      loading: Boolean(wanted && station && loading),
-      error: wanted ? error : null,
+      station: showing ? station : null,
+      loading: Boolean(available && loading),
+      error: available ? error : null,
       active: Boolean(current),
+      historical: historicalWanted,
+      mode: historicalSource?.kind ?? "recent",
+      openLocal,
+      openArchive,
+      resumeRecent,
     };
-  }, [error, loading, radar.product, radar.tilt, station, sweep, wanted]);
+  }, [
+    available,
+    error,
+    historicalSource?.kind,
+    historicalWanted,
+    loading,
+    openArchive,
+    openLocal,
+    radar.product,
+    radar.tilt,
+    resumeRecent,
+    station,
+    sweep,
+    wanted,
+  ]);
 }
