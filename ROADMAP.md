@@ -385,13 +385,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
 
-- [ ] AUD-099: P1. Fix the guidance live test's hard-coded temperature unit
-      Why: The first run of the new live gate on 2026-08-31 failed a required contract: `expected '°F' to be '°C'`. The provider and the app are both right. `forecastUnits()` reads the workspace unit system, which defaults to imperial, so `fetchGuidance` asks Open-Meteo for fahrenheit and Open-Meteo returns fahrenheit. The test asserts a fixed `°C` regardless of what was requested, so it is the test that is wrong. Left alone it keeps a required contract red and trains everybody to ignore the gate.
-      Evidence: `src/lib/guidance.test.ts` line 145; `src/lib/units.ts` `forecastUnits`; `src/lib/guidance.ts` line 159; `npm run check:live -- --only=guidance`
-      Touches: `src/lib/guidance.test.ts`, and `src/lib/units.ts` only if the test needs to pin a unit system rather than inherit the default
-      Acceptance: The assertion checks that the unit which comes back is the one the request asked for, rather than a fixed string, so it holds under either unit system; the test pins the unit system it expects instead of inheriting module state that another test can move; `npm run check:live -- --only=guidance` passes; reverting the assertion makes it fail again.
-      Complexity: S
-
 - [ ] AUD-100: P1. Give the remaining layers a provenance record
       Why: `AUD-068` built the contract and wired two producers, radar frames and the seven overlay adapters. An adversarial review on 2026-08-31 counted what that actually covers: 7 of the 24 toggleable layers in `LayerSettings`. The single-site Level II sweep, every MRMS product, both lightning layers, wind, satellite, storm cells, ProbSevere, surge, guidance, tides and imported overlays still have no record, so "every visible weather layer" is not yet true. The two products the contract's own comment calls derived, unfolded velocity and azimuthal shear, are exactly the ones with nothing to report.
       Evidence: `src/lib/provenance.ts`; `src/lib/settings.ts` `LayerSettings`; `src/App.tsx` diagnostics wiring; `src/hooks/useSingleSiteRadar.ts`; `src/hooks/useMrmsOverlays.ts`; `src/hooks/useLightning.ts`; `src/hooks/useProbSevere.ts`
