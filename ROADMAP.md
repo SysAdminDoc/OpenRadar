@@ -10,12 +10,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P2
 
-- [ ] P2 — Real-time Level II from the chunks bucket, drawing arriving radials over the previous tilt
-  Why: the archive object lands only after a volume completes, so the single-site view runs several minutes behind; the chunks bucket updates every 11 to 12 seconds. RadarOmega sells this as RapidSweep at $84.99/yr; BowEcho v0.35.0 ships it free.
-  Evidence: https://unidata-nexrad-level2-chunks.s3.amazonaws.com/?list-type=2&prefix=KTLX/&max-keys=8 (`SITE/VOLUME/YYYYMMDD-HHMMSS-NNN-{S,I,E}`); https://registry.opendata.aws/noaa-nexrad/ ; https://www.radaromega.com/ ; https://github.com/FahrenheitResearch/bowecho/releases
-  Touches: src-tauri/src/level2.rs (chunk listing, bzip2 message-block decode, partial sweep raster), src-tauri/src/http.rs (add the chunks host), src/hooks/useSingleSiteRadar.ts, legend copy
-  Acceptance: the single-site image updates within 30 seconds of a new chunk with the swept sector drawn over the previous full sweep; the legend says "live, N s old"; a Rust test assembles a fixture volume from chunks; the live test compares the chunk sweep with the archive sweep for the same volume.
-  Complexity: L
 
 ### P3
 

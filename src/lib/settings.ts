@@ -45,6 +45,15 @@ export interface RadarSettings {
   singleSite: boolean;
   /** Unfold velocity past the radar's folding limit before drawing it. */
   dealias: boolean;
+  /**
+   * Draw the volume the radar is sweeping now, over the last it finished.
+   *
+   * The archive object for a volume lands only once the whole volume is done,
+   * so the finished picture is four to six minutes behind by definition. The
+   * pieces are published as the radar makes them, which is a partial sweep
+   * over a full one rather than a fresher full one.
+   */
+  live: boolean;
   /** A motion the viewer gave, rather than one read off the sweep. */
   stormMotion: { speedMs: number; fromDegrees: number } | null;
   /** The site to hold, or null to follow whichever one the view is over. */
@@ -189,6 +198,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     futureRadar: false,
     singleSite: true,
     dealias: true,
+    live: false,
     stormMotion: null,
     station: null,
     product: "reflectivity",
@@ -547,6 +557,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         0.5,
       ),
       singleSite: bool(radar.singleSite, DEFAULT_SETTINGS.radar.singleSite),
+      live: bool(radar.live, DEFAULT_SETTINGS.radar.live),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
       stormMotion: normalizeStormMotion(radar.stormMotion),
       station:

@@ -4,6 +4,7 @@ import {
   isSingleSiteViewport,
   level2Available,
   type Level2ProductId,
+  LIVE_REFRESH_MS,
   nearestSite,
   SWEEP_REFRESH_MS,
   sweepErrorText,
@@ -117,6 +118,7 @@ export function useSingleSiteRadar(options: {
             ? [motionSpeed, motionFrom]
             : null,
           threshold,
+          radar.live,
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
@@ -144,7 +146,12 @@ export function useSingleSiteRadar(options: {
         open = false;
       };
     }
-    const timer = window.setInterval(() => void refresh(), SWEEP_REFRESH_MS);
+    // A volume in progress grows every eleven or twelve seconds, so waiting
+    // two minutes for the next ask would leave most of what arrives unseen.
+    const timer = window.setInterval(
+      () => void refresh(),
+      radar.live ? LIVE_REFRESH_MS : SWEEP_REFRESH_MS,
+    );
     return () => {
       open = false;
       window.clearInterval(timer);
@@ -154,6 +161,7 @@ export function useSingleSiteRadar(options: {
     pageVisible,
     paletteGeneration,
     radar.dealias,
+    radar.live,
     radar.product,
     // The two numbers rather than the object holding them. A settings object is
     // rebuilt whenever anything in it changes, including the map centre, so

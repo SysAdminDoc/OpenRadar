@@ -2,8 +2,11 @@
 mod http;
 
 mod cache;
+mod chunks;
 mod dealias;
 mod exports;
+#[cfg(test)]
+mod fixture;
 mod gfs;
 mod level2;
 mod level3;

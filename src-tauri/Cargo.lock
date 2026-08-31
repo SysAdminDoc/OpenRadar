@@ -2589,7 +2589,10 @@ dependencies = [
  "log",
  "nexrad-decode",
  "nexrad-model",
+ "once_cell",
+ "reqwest",
  "thiserror 2.0.20",
+ "xml",
  "zerocopy",
 ]
 
@@ -2929,6 +2932,7 @@ name = "openradar"
 version = "0.2.0"
 dependencies = [
  "base64 0.23.1",
+ "bzip2",
  "chrono",
  "flate2",
  "log",
@@ -6091,6 +6095,12 @@ dependencies = [
  "libc",
  "rustix",
 ]
+
+[[package]]
+name = "xml"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f45bb2c13fec6a6cb4c0f76a7e94839e110a14ec803ec2940777a94c347bc52"
 
 [[package]]
 name = "yoke"

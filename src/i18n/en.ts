@@ -299,6 +299,9 @@ export const en = {
   "radar.singleSiteDetail":
     "Past zoom {zoom} the nearest NEXRAD site's own Level II sweep replaces the national mosaic",
   "radar.dealias": "Unfold velocity",
+  "radar.live": "Volume in progress",
+  "radar.liveDetail":
+    "Draw the sweep the radar is making now over the last one it finished. The finished picture is four to six minutes old by the time it is published; this one is seconds old over the sector the radar has reached, and unchanged everywhere else.",
   "radar.dealiasDetail":
     "A wind faster than the radar can measure wraps around and is drawn as if it were blowing the other way. This puts it back.",
   "radar.sweepLine": "{station} · {site} · {product} at {tilt}° · {age}",
@@ -593,6 +596,9 @@ export const en = {
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "{degrees}° TILT",
   "chrome.tiltDealiased": "{degrees}° TILT · UNFOLDED",
+  "chrome.tiltLive": "{degrees}° TILT · LIVE, {seconds} S OLD",
+  "chrome.tiltLiveDealiased":
+    "{degrees}° TILT · UNFOLDED · LIVE, {seconds} S OLD",
   "chrome.liveProduct": "LIVE PRODUCT",
   "chrome.extraScales": "Extra product scales",
   "chrome.wind": "Wind",
