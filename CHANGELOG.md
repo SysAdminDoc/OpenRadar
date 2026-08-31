@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- One command now asks every live provider whether it still answers. `npm run check:live` walks the browser and native halves together, spaces the requests out, times each one, and prints whether each source passed, failed, or was skipped, with a JSON form for anything reading it. A source a release depends on is the only thing that can fail the run, a missing toolchain is reported as skipped rather than blamed on the weather services, and it refuses to run on shared build infrastructure.
+
 - Every layer on the map can now say where it came from and what it is claiming: the source, the credit, when it was observed, when it is valid, when it was fetched, how long it stays fresh, whether it came off the disk cache, and which model run produced it. Diagnostics writes the record for each drawn layer into the block you paste into a report, and an exported picture takes its caption from the same record, so a forecast cannot be labelled as something an instrument saw.
 
 - The workspace has been rebuilt around the map. A fixed status bar, compact command rail, docked panels, and one shared playback band keep weather data visible while every existing surface stays directly reachable. The layout holds at compact sizes, larger text settings, light mode, and increased contrast.
