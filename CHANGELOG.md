@@ -2,7 +2,7 @@
 
 ## OpenRadar v0.5.0
 
-- A map region can now be prepared before the network disappears. Choose its zoom range in Settings, see the final and temporary size estimates, then pause or resume the download as needed. Each tile is checked before it enters a PMTiles archive, and the archive is read back and hashed before the map will use it. A separate disk ceiling bounds the library. Cancelling or deleting removes the whole pack, while workspace backups keep only a small reference to it.
+- A map region can now be prepared before the network disappears. Choose its zoom range in Settings, see the final and temporary size estimates, then pause or resume the download as needed. Each tile is checked before it enters a PMTiles archive, and the archive is read back and hashed before the map will use it. Recovered archives must match that stored hash again before serving their first tile. A separate disk ceiling bounds the library, with one write gate stopping simultaneous downloads from spending the same remaining bytes. Cancelling or deleting removes the whole pack, while workspace backups keep only a small reference to it.
 
 - Archive II volumes can now come from a file on the computer with no network connection, or from NOAA's public archive by NEXRAD site and UTC time. Tilt and product controls keep working on the selected volume. Its actual time and source replace the live timeline, while current warnings, reports, satellite pictures, lightning, wind, MRMS grids and storm guidance stay off the historical view. A bad file leaves the picture already on screen alone. Archive searches compare the UTC day on either side of the requested time, so a scan just before midnight is not missed just after it.
 

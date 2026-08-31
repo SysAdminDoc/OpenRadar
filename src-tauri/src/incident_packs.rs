@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader, BufWriter, Cursor, Read, Seek, SeekFrom, Write
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use bytes::Bytes;
 use chrono::Utc;
@@ -19,6 +19,7 @@ use image::{GenericImageView as _, ImageFormat};
 use pmtiles::{AsyncBackend, AsyncPmTilesReader, PmTilesWriter, TileCoord, TileId, TileType};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
+use tokio::sync::Mutex as AsyncMutex;
 
 use crate::http;
 
@@ -51,6 +52,10 @@ const CONTROL_CANCEL: u8 = 2;
 
 static ROOT: OnceLock<PathBuf> = OnceLock::new();
 static ACTIVE: OnceLock<Mutex<HashMap<String, Arc<TaskControl>>>> = OnceLock::new();
+static STORE_WRITE: OnceLock<AsyncMutex<()>> = OnceLock::new();
+static FINALIZE: OnceLock<AsyncMutex<()>> = OnceLock::new();
+static ARCHIVE_VERIFY: OnceLock<AsyncMutex<()>> = OnceLock::new();
+static VERIFIED_ARCHIVES: OnceLock<Mutex<HashMap<PathBuf, ArchiveFingerprint>>> = OnceLock::new();
 static IDS: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, thiserror::Error)]
@@ -81,6 +86,8 @@ pub enum IncidentPackError {
     HashMismatch,
     #[error("the PMTiles archive failed verification")]
     ArchiveVerification,
+    #[error("the PMTiles archive failed its SHA-256 check")]
+    ArchiveHashMismatch,
     #[error("the incident pack worker stopped unexpectedly: {0}")]
     Worker(String),
     #[error("the incident pack could not be read or written: {0}")]
@@ -285,6 +292,13 @@ struct TaskControl {
     mode: AtomicU8,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ArchiveFingerprint {
+    bytes: u64,
+    sha256: String,
+    modified: Option<SystemTime>,
+}
+
 /// Reads just the byte ranges PMTiles asks for and closes the file after each
 /// one. A memory map keeps the archive locked on Windows, which would make an
 /// otherwise idle pack impossible to delete while the app is open.
@@ -336,6 +350,22 @@ fn root() -> Result<&'static Path, IncidentPackError> {
 
 fn active() -> &'static Mutex<HashMap<String, Arc<TaskControl>>> {
     ACTIVE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn store_write() -> &'static AsyncMutex<()> {
+    STORE_WRITE.get_or_init(|| AsyncMutex::new(()))
+}
+
+fn finalization() -> &'static AsyncMutex<()> {
+    FINALIZE.get_or_init(|| AsyncMutex::new(()))
+}
+
+fn archive_verification() -> &'static AsyncMutex<()> {
+    ARCHIVE_VERIFY.get_or_init(|| AsyncMutex::new(()))
+}
+
+fn verified_archives() -> &'static Mutex<HashMap<PathBuf, ArchiveFingerprint>> {
+    VERIFIED_ARCHIVES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 fn now() -> String {
@@ -566,6 +596,78 @@ fn sha256_file(path: &Path) -> Result<String, IncidentPackError> {
     Ok(format!("{:x}", hash.finalize()))
 }
 
+fn archive_fingerprint(
+    path: &Path,
+    expected_bytes: u64,
+    expected_hash: &str,
+) -> Result<ArchiveFingerprint, IncidentPackError> {
+    if expected_hash.len() != 64 || !expected_hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(IncidentPackError::ArchiveHashMismatch);
+    }
+    let metadata = fs::metadata(path).map_err(|_| IncidentPackError::ArchiveVerification)?;
+    if !metadata.is_file() || metadata.len() != expected_bytes {
+        return Err(IncidentPackError::ArchiveVerification);
+    }
+    Ok(ArchiveFingerprint {
+        bytes: metadata.len(),
+        sha256: expected_hash.to_ascii_lowercase(),
+        modified: metadata.modified().ok(),
+    })
+}
+
+fn archive_is_verified(
+    path: &Path,
+    expected_bytes: u64,
+    expected_hash: &str,
+) -> Result<bool, IncidentPackError> {
+    let fingerprint = archive_fingerprint(path, expected_bytes, expected_hash)?;
+    Ok(verified_archives()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(path)
+        == Some(&fingerprint))
+}
+
+fn verify_archive_once(
+    path: &Path,
+    expected_bytes: u64,
+    expected_hash: &str,
+) -> Result<(), IncidentPackError> {
+    let before = archive_fingerprint(path, expected_bytes, expected_hash)?;
+    if sha256_file(path)? != before.sha256 {
+        return Err(IncidentPackError::ArchiveHashMismatch);
+    }
+    let after = archive_fingerprint(path, expected_bytes, expected_hash)?;
+    if after != before {
+        return Err(IncidentPackError::ArchiveVerification);
+    }
+    verified_archives()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(path.to_path_buf(), after);
+    Ok(())
+}
+
+fn remember_verified_archive(
+    path: &Path,
+    expected_bytes: u64,
+    expected_hash: &str,
+) -> Result<(), IncidentPackError> {
+    let fingerprint = archive_fingerprint(path, expected_bytes, expected_hash)?;
+    verified_archives()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(path.to_path_buf(), fingerprint);
+    Ok(())
+}
+
+fn forget_verified_archive(path: &Path) {
+    verified_archives()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .remove(path);
+}
+
 fn tile_path(pack_dir: &Path, tile: Tile) -> PathBuf {
     pack_dir.join(TILE_FOLDER).join(tile.file_name())
 }
@@ -747,6 +849,27 @@ fn quota_allows(
     Ok(peak <= disk_limit_bytes(root)?)
 }
 
+async fn write_tile_under_quota(
+    root: &Path,
+    pack_dir: &Path,
+    downloaded_bytes: u64,
+    tile: Tile,
+    bytes: &[u8],
+) -> Result<TileRecord, IncidentPackError> {
+    let _write = store_write().lock().await;
+    let incoming_bytes = bytes.len() as u64;
+    if !quota_allows(root, downloaded_bytes, incoming_bytes)? {
+        return Err(IncidentPackError::DiskCeiling);
+    }
+    let record = TileRecord {
+        tile,
+        bytes: incoming_bytes,
+        sha256: sha256_bytes(bytes),
+    };
+    write_tile(pack_dir, tile, bytes)?;
+    Ok(record)
+}
+
 fn build_archive(
     pack_dir: &Path,
     manifest: &PackManifest,
@@ -925,15 +1048,9 @@ async fn run_download(
         let mut added = Vec::new();
         for result in fetched {
             let (tile, bytes) = result?;
-            if !quota_allows(&root, manifest.downloaded_bytes, bytes.len() as u64)? {
-                return Err(IncidentPackError::DiskCeiling);
-            }
-            let record = TileRecord {
-                tile,
-                bytes: bytes.len() as u64,
-                sha256: sha256_bytes(&bytes),
-            };
-            write_tile(&pack_dir, tile, &bytes)?;
+            let record =
+                write_tile_under_quota(&root, &pack_dir, manifest.downloaded_bytes, tile, &bytes)
+                    .await?;
             manifest.downloaded_tiles += 1;
             manifest.downloaded_bytes = manifest.downloaded_bytes.saturating_add(record.bytes);
             added.push(record);
@@ -943,6 +1060,22 @@ async fn run_download(
         write_manifest(&pack_dir, &manifest)?;
     }
 
+    if honor_control(&pack_dir, &mut manifest, &control)? {
+        return Ok(());
+    }
+
+    let finalizing = finalization().lock();
+    tokio::pin!(finalizing);
+    let _finalize = loop {
+        tokio::select! {
+            guard = &mut finalizing => break guard,
+            _ = tokio::time::sleep(Duration::from_millis(50)) => {
+                if honor_control(&pack_dir, &mut manifest, &control)? {
+                    return Ok(());
+                }
+            }
+        }
+    };
     if honor_control(&pack_dir, &mut manifest, &control)? {
         return Ok(());
     }
@@ -959,13 +1092,23 @@ async fn run_download(
     let build_manifest = manifest.clone();
     let build_records = records.clone();
     let build_control = Arc::clone(&control);
+    let build_root = root.clone();
     let built = tauri::async_runtime::spawn_blocking(move || {
-        build_archive(
+        let _write = store_write().blocking_lock();
+        if !quota_allows(&build_root, build_manifest.downloaded_bytes, 0)? {
+            return Err(IncidentPackError::DiskCeiling);
+        }
+        let built = build_archive(
             &build_dir,
             &build_manifest,
             &build_records,
             Some(&build_control),
-        )
+        )?;
+        if folder_bytes(&build_root)? > disk_limit_bytes(&build_root)? {
+            let _ = fs::remove_file(&built.0);
+            return Err(IncidentPackError::DiskCeiling);
+        }
+        Ok(built)
     })
     .await
     .map_err(|error| IncidentPackError::Worker(error.to_string()))?;
@@ -994,9 +1137,11 @@ async fn run_download(
 
     let archive = pack_dir.join(ARCHIVE_FILE);
     if archive.exists() {
+        forget_verified_archive(&archive);
         fs::remove_file(&archive)?;
     }
     fs::rename(&part, &archive)?;
+    remember_verified_archive(&archive, archive_bytes, &archive_hash)?;
     manifest.status = PackStatus::Ready;
     manifest.archive_bytes = archive_bytes;
     manifest.sha256 = Some(archive_hash);
@@ -1031,6 +1176,16 @@ fn mark_failed(root: &Path, id: &str, error: &IncidentPackError) {
     manifest.updated_at = now();
     if let Err(write_error) = write_manifest(&pack_dir, &manifest) {
         log::error!("OpenRadar could not record an incident pack failure: {write_error}");
+    }
+}
+
+fn mark_archive_failed(pack_dir: &Path, manifest: &mut PackManifest, error: &IncidentPackError) {
+    forget_verified_archive(&pack_dir.join(ARCHIVE_FILE));
+    manifest.status = PackStatus::Failed;
+    manifest.error = Some(error.to_string());
+    manifest.updated_at = now();
+    if let Err(write_error) = write_manifest(pack_dir, manifest) {
+        log::error!("OpenRadar could not record incident pack integrity failure: {write_error}");
     }
 }
 
@@ -1168,8 +1323,9 @@ pub fn incident_pack_list() -> Result<PackLibrary, IncidentPackError> {
 }
 
 #[tauri::command]
-pub fn incident_pack_set_limit(disk_limit_mb: u64) -> Result<PackLibrary, IncidentPackError> {
+pub async fn incident_pack_set_limit(disk_limit_mb: u64) -> Result<PackLibrary, IncidentPackError> {
     let root = root()?;
+    let _write = store_write().lock().await;
     let config = StoreConfig {
         schema_version: STORE_SCHEMA,
         disk_limit_mb: disk_limit_mb.clamp(MIN_LIMIT_MB, MAX_LIMIT_MB),
@@ -1179,8 +1335,11 @@ pub fn incident_pack_set_limit(disk_limit_mb: u64) -> Result<PackLibrary, Incide
 }
 
 #[tauri::command]
-pub fn incident_pack_create(request: CreatePackRequest) -> Result<PackSummary, IncidentPackError> {
+pub async fn incident_pack_create(
+    request: CreatePackRequest,
+) -> Result<PackSummary, IncidentPackError> {
     let root = root()?;
+    let _write = store_write().lock().await;
     let name = clean_name(&request.name)?;
     let tiles = tiles_for(EstimateRequest {
         bounds: request.bounds,
@@ -1283,6 +1442,7 @@ fn remove_pack_files(root: &Path, id: &str) -> Result<(), IncidentPackError> {
     if !pack_dir.is_dir() {
         return Err(IncidentPackError::NotFound);
     }
+    forget_verified_archive(&pack_dir.join(ARCHIVE_FILE));
     fs::remove_dir_all(pack_dir)?;
     Ok(())
 }
@@ -1316,18 +1476,45 @@ fn parse_tile_uri(uri: &str) -> Result<(String, Tile), IncidentPackError> {
     Ok((parts[0].to_string(), tile))
 }
 
+async fn ensure_archive_verified(
+    path: &Path,
+    expected_bytes: u64,
+    expected_hash: &str,
+) -> Result<(), IncidentPackError> {
+    if archive_is_verified(path, expected_bytes, expected_hash)? {
+        return Ok(());
+    }
+    let _verification = archive_verification().lock().await;
+    if archive_is_verified(path, expected_bytes, expected_hash)? {
+        return Ok(());
+    }
+    let path = path.to_path_buf();
+    let hash = expected_hash.to_string();
+    tauri::async_runtime::spawn_blocking(move || verify_archive_once(&path, expected_bytes, &hash))
+        .await
+        .map_err(|error| IncidentPackError::Worker(error.to_string()))?
+}
+
 pub async fn serve_tile(uri: &str) -> ServedTile {
     let result = async {
         let (id, tile) = parse_tile_uri(uri)?;
         let root = root()?;
         let pack_dir = pack_dir(root, &id)?;
-        let manifest = read_manifest(&pack_dir)?;
+        let mut manifest = read_manifest(&pack_dir)?;
         if manifest.status != PackStatus::Ready {
             return Err(IncidentPackError::NotReady);
         }
         let archive = pack_dir.join(ARCHIVE_FILE);
-        if !archive.is_file() || fs::metadata(&archive)?.len() != manifest.archive_bytes {
-            return Err(IncidentPackError::ArchiveVerification);
+        let Some(expected_hash) = manifest.sha256.clone() else {
+            let error = IncidentPackError::ArchiveHashMismatch;
+            mark_archive_failed(&pack_dir, &mut manifest, &error);
+            return Err(error);
+        };
+        if let Err(error) =
+            ensure_archive_verified(&archive, manifest.archive_bytes, &expected_hash).await
+        {
+            mark_archive_failed(&pack_dir, &mut manifest, &error);
+            return Err(error);
         }
         let backend = PackFileBackend { path: archive };
         let reader = AsyncPmTilesReader::try_from_source(backend).await?;
@@ -1417,6 +1604,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn concurrent_pack_writes_cannot_spend_the_same_remaining_quota() {
+        let root = temporary("quota-race");
+        atomic_json(&root.join(CONFIG_FILE), &StoreConfig::default()).unwrap();
+        let left = root.join("left");
+        let right = root.join("right");
+        fs::create_dir_all(left.join(TILE_FOLDER)).unwrap();
+        fs::create_dir_all(right.join(TILE_FOLDER)).unwrap();
+
+        let bytes = vec![0x5a; 1024 * 1024];
+        let incoming = bytes.len() as u64;
+        let limit = disk_limit_bytes(&root).unwrap();
+        let used = folder_bytes(&root).unwrap();
+        let remaining = incoming
+            .saturating_mul(2)
+            .saturating_add(ARCHIVE_OVERHEAD_BYTES)
+            .saturating_add(incoming / 2);
+        let filler = File::create(root.join("quota-filler")).unwrap();
+        filler.set_len(limit - used - remaining).unwrap();
+        assert!(quota_allows(&root, 0, incoming).unwrap());
+
+        let (left_result, right_result) = tokio::join!(
+            write_tile_under_quota(&root, &left, 0, Tile { z: 2, x: 1, y: 1 }, &bytes),
+            write_tile_under_quota(&root, &right, 0, Tile { z: 2, x: 2, y: 1 }, &bytes),
+        );
+        let results = [left_result, right_result];
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Err(IncidentPackError::DiskCeiling)))
+                .count(),
+            1
+        );
+        assert!(folder_bytes(&root).unwrap() <= limit);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn writes_a_png_pmtiles_archive_and_reads_every_verified_tile_back() {
         let root = temporary("roundtrip");
         let id = "0123456789abcdef01234567";
@@ -1461,6 +1686,58 @@ mod tests {
         assert!(length > record.bytes);
         let hash = verify_archive(&archive, &[record], None).await.unwrap();
         assert_eq!(hash.len(), 64);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn same_length_archive_corruption_fails_before_first_use() {
+        let root = temporary("archive-hash");
+        let id = "0123456789abcdef76543210";
+        let pack = root.join(id);
+        fs::create_dir_all(&pack).unwrap();
+        let archive = pack.join(ARCHIVE_FILE);
+        let original = b"healthy!";
+        let corrupt = b"broken!!";
+        assert_eq!(original.len(), corrupt.len());
+        fs::write(&archive, original).unwrap();
+        let expected_hash = sha256_file(&archive).unwrap();
+        fs::write(&archive, corrupt).unwrap();
+        let timestamp = now();
+        let mut manifest = PackManifest {
+            schema_version: STORE_SCHEMA,
+            id: id.into(),
+            name: "Corrupt archive".into(),
+            bounds: PackBounds {
+                west: -100.0,
+                south: 30.0,
+                east: -90.0,
+                north: 40.0,
+            },
+            min_zoom: 2,
+            max_zoom: 2,
+            status: PackStatus::Ready,
+            tile_count: 1,
+            downloaded_tiles: 1,
+            downloaded_bytes: 0,
+            estimated_bytes: estimated_bytes(1),
+            archive_bytes: original.len() as u64,
+            sha256: Some(expected_hash.clone()),
+            source: SOURCE_NAME.into(),
+            attribution: ATTRIBUTION.into(),
+            error: None,
+            created_at: timestamp.clone(),
+            updated_at: timestamp,
+        };
+        write_manifest(&pack, &manifest).unwrap();
+
+        let error = ensure_archive_verified(&archive, original.len() as u64, &expected_hash)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, IncidentPackError::ArchiveHashMismatch));
+        mark_archive_failed(&pack, &mut manifest, &error);
+        let failed = read_manifest(&pack).unwrap();
+        assert_eq!(failed.status, PackStatus::Failed);
+        assert!(failed.error.unwrap().contains("SHA-256"));
         fs::remove_dir_all(root).unwrap();
     }
 
