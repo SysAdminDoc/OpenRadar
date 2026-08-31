@@ -1,97 +1,178 @@
+<div align="center">
+
 # OpenRadar
 
-![Version](https://img.shields.io/badge/version-0.3.0-68d7ff)
-![License](https://img.shields.io/badge/license-MIT-8bd5ca)
-![Platform](https://img.shields.io/badge/platform-Windows-89b4fa)
+**A desktop weather radar that reads the raw data itself.**
 
-OpenRadar is a map-first desktop weather radar. Pan around the planet, zoom from a globe to a neighborhood, tilt the camera, switch projections, and scrub through live radar frames without moving the map.
+[![Version](https://img.shields.io/badge/version-0.3.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
+[![License](https://img.shields.io/badge/license-MIT-8bd5ca)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-89b4fa)](https://github.com/SysAdminDoc/OpenRadar/releases)
+[![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%C2%B7%20Rust%20%C2%B7%20React-cba6f7)](#how-it-is-put-together)
 
-![OpenRadar radar workspace](assets/screenshots/openradar-main.png)
+[Download](#install) · [What it does](#what-it-does) · [Build from source](#build-from-source) · [Where the data comes from](#where-the-data-comes-from)
 
-It is free, with no ads and no paid feature gates, and it needs no account or API key for anything it does.
+![The OpenRadar workspace](assets/screenshots/openradar-main.png)
 
-## What works
+</div>
 
-- Mouse-driven pan, zoom, bearing, and pitch with flat and globe projection
-- A live two-hour NOAA radar loop at two-minute steps with pause, scrub, speed, and opacity controls
-- Animated GFS wind particles on the flat map and the globe, decoded from GRIB2 locally
-- Canadian radar from Environment and Climate Change Canada, with a rain rate scale of its own, wherever the NOAA mosaics stop
-- Lightning two ways: the MRMS cloud-to-ground density grid, and GOES-East total lightning decoded from the satellite's own files
-- NOAA MRMS leads on the desktop: the one kilometre national grid decoded locally from GRIB2, with rotation tracks and hail size as their own layers
-- Single-site NEXRAD Level II up close: past zoom 8 the nearest site that is actually publishing replaces the mosaic, with tilt and product selection, decoded locally in Rust
-- Velocity unfolded before it is drawn, so a wind faster than the radar can measure is not shown blowing the other way
-- Automatic failover between radar sources, with per-source status and a request budget
-- Optional future radar: up to six hours of HRRR forecast reflectivity on the tail of the same timeline
-- GOES-East GeoColor satellite imagery under the radar, following the same timeline
-- NWS watches and warnings, USGS earthquakes, and NIFC wildfire perimeters, each with click-through detail and a freshness line
-- An Alerts panel listing what is active in the current view, worst first, with a link to the official product
-- Hurricane cones, forecast tracks, coastal watches, and development outlooks, with a storm list you can fly the map to
-- Seven map styles, layer controls, saved views, linked dual panes, draw, range, and point inspection tools
-- A watched place that tells you about warnings near it wherever the map is pointed
-- Export the current view as a picture or the whole loop as a video, with the time and credits burned in
-- Route weather: a drive coloured by the chance of rain at the hour you reach each stretch
-- Storm history: every Atlantic and eastern Pacific cyclone since 1851, with its best track drawn by intensity, and archive radar replay of the ones since 2003
-- GRLevelX `.pal` colour tables applied to the locally decoded radar, with the legend rebuilt from the table
-- Place search, map-centered forecasts, local GeoJSON and GRLevelX placefile import, shareable camera links, dark and light themes
-- Model guidance: what GFS, ECMWF, ICON, and GEM each say about the middle of the map, side by side, so you can see where they disagree
-- Tides from the nearest NOAA station, with the next high and low water, because surge rides on top of the tide
-- Storm surge risk: how far the water could reach for a hurricane of each category, from the National Hurricane Center's own maps
-- English and Spanish, switched in Settings and applied where you are standing rather than on the next launch
-- An offline last view: tiles, radar frames, and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and says how old it is
-- Readable settings storage, stale-data feedback, in-app notifications, and rotating desktop logs
+---
 
-## Run it
+OpenRadar decodes NEXRAD Level II volumes, MRMS national grids, GOES lightning and GFS wind on your own machine, in Rust, and draws them on a GPU vector map. No account, no API key, no subscription, no ads, and nothing held back behind a paid tier.
 
-Requirements: Node.js 22 or newer, Rust 1.85 or newer, and the platform requirements for Tauri 2.
+It is one window. Pan the planet, zoom from a globe down to a street, and scrub two hours of radar without the map moving under you.
+
+## Why it exists
+
+Good radar on Windows is either a web page that throttles you, or an app that charges by the month for the tilt selector. The data underneath all of it is public: NOAA publishes every Level II volume, every MRMS grid and every warning polygon, free, to anyone who asks.
+
+So OpenRadar asks directly. The Rust side is a decoder, not a wrapper around somebody else's rendering service:
+
+- **Single-site NEXRAD Level II** volumes, unpacked from the archive bucket and drawn as a sweep, with tilt and moment selection.
+- **MRMS** GRIB2 grids at one kilometre, including the products that usually cost money: rotation tracks, hail size, echo tops, liquid held aloft.
+- **GOES lightning** from the satellite's own NetCDF files, filtered on the instrument's quality flag.
+- **GFS wind** fields, read a field at a time by byte range out of the run index.
+
+Because the decoding happens here, the picture is not a screenshot of somebody's server. Load your own GRLevelX colour table and the legend rebuilds from it. Set a threshold in dBZ and the gates below it come off the picture.
+
+## What it does
+
+### Radar
+
+- A two-hour NOAA mosaic loop at two-minute steps, with pause, scrub, speed and opacity.
+- Past zoom 8 the nearest site that is actually publishing takes over with its own Level II sweep. Tilt, moment, and a hide-below threshold per product.
+- **Live volumes.** The archive object for a volume only lands once the radar has finished sweeping it, which puts the picture four to six minutes behind. Switch on "Volume in progress" and the sector the radar has reached right now is drawn over the last finished sweep, seconds old, with the legend counting the seconds.
+- Velocity unfolded before it is drawn, so a wind faster than the radar can measure is not shown blowing the other way.
+- Up to six hours of HRRR forecast reflectivity on the tail of the same timeline.
+- Automatic failover between sources, with per-source status and a request budget you can watch in Diagnostics.
+
+### Severe weather
+
+- NWS watches and warnings, filtered by hazard rather than by a list of a hundred product names, with damage threat tags drawn heavier and named in the popup.
+- **Storm cells** from the radar's own tracking algorithm: which blobs are one storm, where each is going, and where it will be in fifteen, thirty, forty-five and sixty minutes. Rotation is ringed.
+- **Severe probability** from the National Severe Storms Laboratory model: how likely each storm is to turn severe in the next hour, and separately for hail, wind and a tornado. It is guidance, it draws under the warnings, and it says so.
+- Storm reports, SPC convective outlooks and mesoscale discussions.
+- A watched place that speaks up when a warning reaches it, wherever the map is pointed, with an optional tone.
+
+### Beyond the United States
+
+- **Canada** from Environment and Climate Change Canada, on its own rain-rate scale.
+- **Germany** from the DWD composite of its seventeen radars, painted in the colours the service publishes it in.
+- Alaska, Hawaii, Guam and the Caribbean each get their own MRMS grid rather than falling through to a personal-use feed.
+
+### Tropical
+
+- Cones, forecast tracks, coastal watches and development outlooks, with a storm list you can fly the map to.
+- **Storm surge risk**: how far the water could reach for a hurricane of each category, from the National Hurricane Center's own maps.
+- **Tides** from the nearest NOAA station, with the next high and low water, because surge rides on top of the tide.
+- **Storm history**: every Atlantic and eastern Pacific cyclone since 1851, drawn by intensity, and archive radar replay for the ones since 2003.
+
+### The rest of the sky
+
+- GOES-East GeoColor satellite imagery under the radar, on the same timeline.
+- Lightning two ways: the MRMS cloud-to-ground density grid, and GOES total lightning.
+- Animated wind particles on the flat map and on the globe.
+- Model guidance: what GFS, ECMWF, ICON and GEM each say about the middle of the map, side by side, so you can see where they disagree.
+
+### Working with it
+
+- Seven map styles, flat and globe projection, pitch and bearing, saved views, linked dual panes.
+- Draw, range and point inspection tools. Beam height at the cursor for the sweep on screen.
+- Per-overlay opacity and a drawing order you choose. Warnings are not in the arrangement, because nothing should be able to put a wildfire perimeter over one.
+- **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in.
+- **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.
+- Place search, map-centred forecasts, GeoJSON and GRLevelX placefile import, shareable `openradar://` links.
+- English and Spanish, switched in Settings and applied where you are standing rather than on the next launch.
+- **An offline last view.** Tiles, radar frames and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and tells you how old it is.
+
+## Install
+
+Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://github.com/SysAdminDoc/OpenRadar/releases) and run it. It installs for the current user, so it needs no administrator rights.
+
+Windows will show a SmartScreen warning the first time. The installer is not Authenticode-signed yet, and SmartScreen warns about anything it has not seen before. Choose **More info**, then **Run anyway**. Every release ships a `SHA256SUMS` file if you would rather check the download first:
+
+```powershell
+Get-FileHash OpenRadar_0.3.0_x64-setup.exe -Algorithm SHA256
+```
+
+Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
+
+Windows x64 is the only target that is built and tested. Tauri 2 itself runs on macOS and Linux and nothing here is deliberately Windows-only, but no installer is produced for them and no release has been run on either, so treat a build there as untested.
+
+## Privacy
+
+Nothing about you leaves the machine. There is no account, no telemetry, no crash reporting and no sync. The app talks to a fixed list of public data hosts and nothing else, enforced in Rust rather than in the page, and you can read the whole list in Diagnostics while it runs. Settings are plain JSON on disk. Logs are plain text on disk.
+
+## Build from source
+
+You will need Node.js 22 or newer, Rust 1.85 or newer, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```powershell
 npm install
 npm run tauri dev
 ```
 
-Windows is the only platform OpenRadar is built and tested on. Tauri 2 itself runs on macOS and Linux, and nothing here is deliberately Windows-only, but no installer is produced for them and no release has been run on either, so treat a build there as untested.
-
-For a browser preview:
+For a browser preview, without any of the local decoding:
 
 ```powershell
 npm run dev
 ```
 
-## Install it
-
-Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://github.com/SysAdminDoc/OpenRadar/releases) and run it. It installs for the current user, so it needs no administrator rights.
-
-Windows will show a SmartScreen warning on first run. The installer is not signed with an Authenticode certificate yet, and SmartScreen warns about anything it has not seen before. Choose More info, then Run anyway. If you would rather check the download first, every release ships a `SHA256SUMS` file:
-
-```powershell
-Get-FileHash OpenRadar_0.3.0_x64-setup.exe -Algorithm SHA256
-```
-
-Once installed, OpenRadar checks for new versions when you ask it to, from Diagnostics. Updates are signed with the project's own key and refused if the signature does not match, so the SmartScreen gap does not extend to what arrives afterwards.
-
-## Build an installer
+To produce the Windows installer:
 
 ```powershell
 npm run tauri build -- --bundles nsis
 ```
 
-The Windows installer is written to `src-tauri/target/release/bundle/nsis/`.
+It lands in `src-tauri/target/release/bundle/nsis/`. Builds happen on the machine in front of you, never on a runner.
 
-The v0.2.0 installer was exercised with a silent install and uninstall. It is not Authenticode-signed because no code-signing certificate is configured on the build machine.
+### Checks
 
-## Data and map credits
+```powershell
+npm run check        # format, lint, unit tests, type-check, build
+npm run test:e2e     # Playwright, headless
+cargo test --lib     # from src-tauri/
+```
 
-- Basemap data comes from OpenStreetMap through OpenFreeMap.
-- Aerial imagery is USGS orthoimagery from The National Map, and the topographic style is OpenTopoMap under CC-BY-SA.
-- Wind comes from the NOAA GFS open data bucket on AWS, read a field at a time through the run index.
-- Lightning flashes come from the GOES-19 Geostationary Lightning Mapper on AWS. This is total lightning, not a strike report, and it is not a warning source.
-- MRMS grids come from the NOAA MRMS open data bucket on AWS and are decoded on your machine, as is single-site NEXRAD Level II from the Unidata archive.
-- Radar comes from NOAA. The NWS RIDGE II base reflectivity mosaic leads, NOAA nowCOAST takes over when RIDGE is unreachable, and both are credited in the map.
-- RainViewer only appears for viewports the NOAA mosaics do not reach.
-- Forecast radar is HRRR reflectivity from the Iowa State Mesonet, and satellite imagery is GOES-East GeoColor through NASA GIBS. We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).
-- Watches and warnings come from the NWS event-driven map service, earthquakes from the USGS, and fire perimeters from NIFC.
-- Canadian radar comes from Environment and Climate Change Canada through GeoMet, under their open data licence.
-- Tropical cones, tracks, watches, and outlooks come from the NHC tropical map service.
-- Past storm tracks come from the NOAA HURDAT2 best track, and archive radar for a replay comes from the Iowa State Mesonet.
+The Rust suite has a second half that reaches the live NOAA buckets and is skipped by default. Run it with `cargo test --lib -- --ignored` when you want to know that the decoders still agree with what the network is actually serving today.
 
-OpenRadar v0.2.0 is an early working release. It is not an official source for warnings or life-safety decisions.
+## How it is put together
+
+Tauri 2 shell, React 19 and TypeScript in the window, MapLibre GL for the map, and Rust for everything that has to read a binary format. Decoded products reach the map through registered URI schemes, so a grid decoded on your machine is an ordinary tile source rather than a special case in the timeline. Every native fetch goes through one host allowlist and one disk cache, which is also what makes the offline view possible.
+
+There is more detail in [docs/architecture.md](docs/architecture.md), and the changelog is in [CHANGELOG.md](CHANGELOG.md).
+
+## Where the data comes from
+
+Everything OpenRadar draws is public data, and every source below is credited in the app as well as here.
+
+| What               | Source                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Radar mosaic       | NWS RIDGE II, with NOAA nowCOAST behind it                                            |
+| National grids     | NOAA MRMS open data on AWS, decoded locally                                           |
+| Single-site radar  | NEXRAD Level II from the Unidata archive and real-time chunk buckets, decoded locally |
+| Forecast radar     | HRRR reflectivity via Iowa State Mesonet                                              |
+| Canadian radar     | Environment and Climate Change Canada, GeoMet                                         |
+| German radar       | Deutscher Wetterdienst GeoServer                                                      |
+| Satellite          | GOES-East GeoColor through NASA GIBS                                                  |
+| Lightning          | GOES-19 Geostationary Lightning Mapper on AWS                                         |
+| Wind               | NOAA GFS open data on AWS                                                             |
+| Warnings           | NWS event-driven map service                                                          |
+| Severe probability | NSSL ProbSevere                                                                       |
+| Tropical           | National Hurricane Center map service, HURDAT2 best track                             |
+| Tides              | NOAA CO-OPS                                                                           |
+| Earthquakes        | USGS                                                                                  |
+| Wildfires          | NIFC                                                                                  |
+| Basemap            | OpenStreetMap via OpenFreeMap; USGS orthoimagery; OpenTopoMap under CC-BY-SA          |
+| Fallback radar     | RainViewer, only where the NOAA mosaics do not reach                                  |
+
+We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's Earth Science Data and Information System (ESDIS).
+
+RainViewer is licensed for personal and small community use, which is why it sits at the end of the chain rather than in front of it.
+
+## Not a warning source
+
+OpenRadar is a viewer for public data and nothing more. It is not an official source for warnings, and it is not something to make a life-safety decision on. When the weather is dangerous, listen to your local National Weather Service office, a NOAA Weather Radio, or whatever your country's equivalent is.
+
+## Licence
+
+[MIT](LICENSE).

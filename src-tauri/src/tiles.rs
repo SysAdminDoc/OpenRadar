@@ -29,6 +29,7 @@ const SERVED_HOSTS: &[&str] = &[
     "tilecache.rainviewer.com",
     "api.rainviewer.com",
     "geo.weather.gc.ca",
+    "maps.dwd.de",
     "mesonet.agron.iastate.edu",
     "gibs.earthdata.nasa.gov",
     "tiles.openfreemap.org",
