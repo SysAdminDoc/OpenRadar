@@ -53,7 +53,7 @@ let inFlight: Promise<Map<string, AlertTags>> | null = null;
  * Nothing here ever rejects. A warning with no tag is an ordinary warning,
  * which is most of them.
  */
-function alertTags(signal?: AbortSignal): Map<string, AlertTags> {
+function alertTags(): Map<string, AlertTags> {
   const now = Date.now();
   const held = cachedTags?.tags ?? new Map<string, AlertTags>();
   if (cachedTags && now - cachedTags.at < TAG_TTL_MS) return held;
@@ -62,7 +62,6 @@ function alertTags(signal?: AbortSignal): Map<string, AlertTags> {
   if (inFlight) return held;
 
   inFlight = fetch(cachedUrl(ALERT_FEED), {
-    signal,
     headers: { Accept: "application/geo+json" },
   })
     .then(async (answer) => {
@@ -106,18 +105,35 @@ const FIRST_TAG_WAIT_MS = 3_000;
 async function alertTagsReady(
   signal?: AbortSignal,
 ): Promise<Map<string, AlertTags>> {
-  const held = alertTags(signal);
-  if (cachedTags || !inFlight) return held;
+  const held = alertTags();
+  const pending = inFlight;
+  if (cachedTags || !pending) return held;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
   try {
-    return await Promise.race([
-      inFlight,
+    const waits: Array<Promise<Map<string, AlertTags>>> = [
+      pending,
       new Promise<Map<string, AlertTags>>((resolve) => {
         timer = setTimeout(() => resolve(held), FIRST_TAG_WAIT_MS);
       }),
-    ]);
+    ];
+    if (signal) {
+      waits.push(
+        new Promise<Map<string, AlertTags>>((_, reject) => {
+          onAbort = () =>
+            reject(
+              signal.reason ??
+                new DOMException("The operation was aborted.", "AbortError"),
+            );
+          if (signal.aborted) onAbort();
+          else signal.addEventListener("abort", onAbort, { once: true });
+        }),
+      );
+    }
+    return await Promise.race(waits);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    if (signal && onAbort) signal.removeEventListener("abort", onAbort);
   }
 }
 

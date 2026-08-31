@@ -55,6 +55,10 @@ export function useSettings(options: {
   const applySettings = useCallback(
     (next: AppSettings) => {
       const normalized = normalizeSettings(next);
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
       settingsRef.current = normalized;
       setSettings(normalized);
       persist(normalized);
@@ -70,10 +74,10 @@ export function useSettings(options: {
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current);
       }
-      saveTimerRef.current = window.setTimeout(
-        () => persist(next),
-        CAMERA_SAVE_DELAY_MS,
-      );
+      saveTimerRef.current = window.setTimeout(() => {
+        saveTimerRef.current = null;
+        persist(settingsRef.current);
+      }, CAMERA_SAVE_DELAY_MS);
     },
     [persist],
   );

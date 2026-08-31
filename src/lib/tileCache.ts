@@ -116,7 +116,7 @@ function isCachedHost(url: string): boolean {
  */
 const AGE_HEADER = "X-OpenRadar-Age";
 
-let servedFromCacheAt = 0;
+let cacheReportSequence = 0;
 let servedAgeSeconds = 0;
 
 /**
@@ -134,20 +134,25 @@ export function noteCachedResponse(response: Response) {
   const age = Number(raw);
   // Zero is a live fetch. Anything above it came out of the cache.
   if (!Number.isFinite(age) || age <= 0) return;
-  servedFromCacheAt = Date.now();
+  cacheReportSequence += 1;
   servedAgeSeconds = age;
 }
 
 /**
- * How old the bytes were, if anything since this moment was served from disk.
+ * A marker for attributing later cache reports to one provider request.
  */
-export function cachedSince(at: number): number | null {
-  return servedFromCacheAt >= at ? servedAgeSeconds : null;
+export function cacheReportMarker(): number {
+  return cacheReportSequence;
+}
+
+/** How old the bytes were if a response after this marker came from disk. */
+export function cachedAfter(marker: number): number | null {
+  return cacheReportSequence > marker ? servedAgeSeconds : null;
 }
 
 /** Only for tests, which need each case to start from nothing. */
 export function resetCacheReports() {
-  servedFromCacheAt = 0;
+  cacheReportSequence = 0;
   servedAgeSeconds = 0;
 }
 

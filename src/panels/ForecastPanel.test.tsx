@@ -1,4 +1,5 @@
 import { act, cleanup, render } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ForecastPanel } from "./ForecastPanel";
 import * as weather from "../lib/weather";
@@ -37,6 +38,20 @@ afterEach(() => {
 });
 
 describe("ForecastPanel", () => {
+  it("loads once when the application runs in Strict Mode", async () => {
+    const { getByText } = render(
+      <StrictMode>
+        <ForecastPanel point={{ lat: 32.78, lon: -96.8 }} onClose={() => {}} />
+      </StrictMode>,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(fetchForecast).toHaveBeenCalledTimes(1);
+    expect(getByText("88°")).toBeTruthy();
+  });
+
   it("issues one request for a burst of small map moves", async () => {
     const { rerender } = render(
       <ForecastPanel point={{ lat: 32.78, lon: -96.8 }} onClose={() => {}} />,

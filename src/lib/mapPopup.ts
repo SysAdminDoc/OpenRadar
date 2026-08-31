@@ -19,6 +19,18 @@ export interface Hit extends Placed {
   properties: Record<string, unknown> | null;
 }
 
+/** Only trusted web links leave a popup. Provider data is remote input. */
+export function safePopupUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * What a click on these features should open, or nothing.
  *
