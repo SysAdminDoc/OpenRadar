@@ -117,3 +117,24 @@ The item, kept whole so it can go back to `ROADMAP.md` unchanged:
           Acceptance: Extrapolated frames appear only where the official layer covers and occupy a distinct dotted timeline segment labeled with method, source, issue time, valid time, and horizon; the last observation remains separately selectable; observations are never blended or relabeled; stale extrapolation disappears before fresh observations do.
           Complexity: M
 
+## European radar through EUMETNET ORD is a no-go for a shipped desktop app
+
+`AUD-082` allowed for closing with a documented no-go if there is no sustainable way for a distributed desktop application to query the Open Radar Data API. Read against the service on 2026-08-31, there is not.
+
+ORD now sits behind the MeteoGate gateway, and its own overview lists three ways in. Anonymous access, which it describes as "suitable for trying out the ORD service, but it is not recommended for permanent usage because anonymous users have low query limits". An API key, "this option allows you to query data with a higher rate limit". Or a subscription to the MQTT notification service, which is the efficient path and wants credentials of its own.
+
+None of those is a shipped desktop app. Anonymous is the tier the service asks people not to rely on, and every copy of OpenRadar in the world would be drawing on the same anonymous pool, which is exactly the load that tier is protected against. A key cannot be shipped: a secret in a downloadable binary is not a secret, and the item forbade embedding one for that reason. Asking each reader to register for their own MeteoGate key is technically possible and is an account, and this project's first promise is that it needs no account, no API key and no subscription.
+
+What is not lost by saying no: Germany's radar already works, through the DWD's own WMS, which needs nothing. What a European reader loses is the OPERA composite and the national products beside it, which is real and is the reason to revisit this rather than delete it.
+
+Unblocked by: a MeteoGate access tier that a redistributed desktop client can use without each reader holding a key, or a decision to change the no-account promise. The overview page is the thing to re-read: https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/
+
+The item, kept whole so it can go back to `ROADMAP.md` unchanged:
+
+    - [ ] AUD-082: Validate a sustainable EUMETNET ORD path for European radar
+          Why: ORD exposes European volumes and composites with useful archives, but anonymous users have low query limits and member licenses can differ.
+          Evidence: `src/lib/providers/dwd.ts`; https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/
+          Touches: Provider feasibility note; credentials strategy; license metadata; OPERA composite adapter; cache and traffic budget
+          Acceptance: The item may close with a documented no-go if a desktop redistribution quota is unavailable; any shipped adapter embeds no secret, names product-level license and attribution, respects rate limits, distinguishes OPERA composite from national products, and has 24-hour cache and schema fixtures.
+          Complexity: XL
+
