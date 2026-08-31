@@ -136,11 +136,13 @@ The command runs every local check, builds and verifies the signed updater insta
 ### Checks
 
 ```powershell
-npm run check        # format, lint, unit tests, type-check, build
+npm run check        # format, lint, unit tests, type-check, build, bundle budget
 npm run test:e2e     # Playwright, headless
 npm run check:live   # asks every live provider whether it still answers
 cargo test --lib     # from src-tauri/
 ```
+
+The build ends on a size gate. `scripts/bundle-budget.mjs` measures each chunk in `dist`, raw and gzipped, against budgets written down beside them, and fails when one grows past its budget. The main chunk is 77 per cent MapLibre GL and React DOM by module bytes, both on the path to the first interactive map, so there is nothing to split out of it that would not put the map behind a second download; the panels, the export encoders and the storm archive already load only when a reader opens them. `node scripts/bundle-report.mjs` says what is inside a chunk when the gate trips, and `--detail` breaks the app's own files out one by one.
 
 The normal gate never touches the network. `npm run check:live` is the one that does: it walks every provider this app reads, in both the browser and the native half, spaced out so it stays a check rather than a small flood, and prints whether each one passed, failed, or was skipped. Add `-- --json` for the machine-readable form, or `-- --only=mrms` for a single source. It exits non-zero only when a source a release depends on is genuinely broken, and it refuses to run on shared build infrastructure, because these are public services that owe this project nothing.
 

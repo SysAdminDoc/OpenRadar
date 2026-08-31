@@ -15,13 +15,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: Either documentation keeps Windows as the explicit boundary, or each added operating system has a locally built installer, real-hardware launch and core-flow evidence, updater and file-dialog checks, and a documented support policy.
       Complexity: XL
 
-- [ ] AUD-008: Reduce or isolate the initial map bundle
-      Why: Lazy panel loading helped, but Vite still reports a roughly 1.4 MB minified main chunk and the MapLibre worker is about 630 kB. Startup cost will grow as archive and offline features arrive.
-      Evidence: `src/App.tsx`; `vite.config.ts`; current production build output; `package.json`
-      Touches: Map bootstrap; provider registration; heavy analysis modules; worker loading; bundle budget
-      Acceptance: A documented bundle budget is enforced locally; optional analysis and archive code load on demand; the first interactive map path does not regress; cold-open and provider fallback scenarios pass; build output shows a material main-chunk reduction or a measured reason to retain it.
-      Complexity: L
-
 - [ ] AUD-010: Capture and inspect a true wide desktop viewport
       Why: The in-app capture backend capped the earlier wide reference at 1248 pixels, so the 1916-pixel README layout has no current isolated evidence.
       Evidence: `assets/screenshots/`; `e2e/`; prior audit notes in Git history
