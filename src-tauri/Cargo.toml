@@ -41,6 +41,7 @@ tauri-plugin-process = "2.3.1"
 netcdf-reader = { version = "0.9.1", default-features = false, features = ["netcdf4"] }
 tokio = { version = "1.53.1", features = ["sync"] }
 tauri-plugin-window-state = "2.4.1"
+tauri-plugin-dialog = "2.7.3"
 
 [dev-dependencies]
 # Level II records are bzip2 inside, so writing a test volume needs an encoder.

@@ -13,6 +13,7 @@
     "store:allow-set",
     "store:allow-save",
     "log:default",
+    "dialog:allow-open",
     "opener:allow-reveal-item-in-dir",
     "deep-link:default",
     "notification:default",

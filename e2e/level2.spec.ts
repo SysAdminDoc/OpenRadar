@@ -55,6 +55,11 @@ async function fakeNativeSide(page: Page) {
           north: 43.8,
           image: png,
           volume: "2026/08/30/KDMX/KDMX20260830_092159_V06",
+          source: {
+            kind: "recent",
+            label: "NOAA NEXRAD Level II",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
         };
       };
 
@@ -185,6 +190,57 @@ async function fakeNativeSide(page: Page) {
               ),
             );
           }
+          if (command === "plugin:dialog|open") {
+            const selected = (
+              window as unknown as { __archivePath?: string }
+            ).__archivePath;
+            return Promise.resolve(
+              selected ?? "C:\\radar\\KTLX20130520_205600_V06",
+            );
+          }
+          if (command === "level2_local_sweep") {
+            if (String(args.path).includes("malformed")) {
+              return Promise.reject({
+                code: "decode",
+                args: ["the Archive II header is missing"],
+                text: "the volume could not be decoded",
+              });
+            }
+            return Promise.resolve({
+              ...sweep(
+                "KTLX",
+                String(args.product),
+                Number(args.tilt),
+                Boolean(args.dealias),
+                (args.motion as [number, number] | null) ?? null,
+              ),
+              collected: "2013-05-20T20:56:00.000Z",
+              volume: "local:fixture",
+              source: {
+                kind: "local",
+                label: "KTLX20130520_205600_V06",
+                url: null,
+              },
+            });
+          }
+          if (command === "level2_archive_sweep") {
+            return Promise.resolve({
+              ...sweep(
+                String(args.station).toUpperCase(),
+                String(args.product),
+                Number(args.tilt),
+                Boolean(args.dealias),
+                (args.motion as [number, number] | null) ?? null,
+              ),
+              collected: "2021-12-10T03:15:00.000Z",
+              volume: "2021/12/10/KDMX/KDMX20211210_031500_V06",
+              source: {
+                kind: "archive",
+                label: "NOAA NEXRAD Level II archive",
+                url: "https://registry.opendata.aws/noaa-nexrad/",
+              },
+            });
+          }
           // The settings store is not what this test is about, and a
           // rejection here would only raise a toast over the map.
           if (command.startsWith("plugin:store|")) return Promise.resolve(null);
@@ -292,6 +348,102 @@ test("switches product and tilt on the site already on screen", async ({
   );
   const sweeps = asked.filter((call) => call.command === "level2_sweep");
   expect(sweeps.at(-1)?.args).toMatchObject({ product: "velocity", tilt: 2 });
+});
+
+test("opens a local Archive II volume and removes current context", async ({
+  page,
+}) => {
+  await open(page, 9);
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  // Put two pieces of current context on first. Neither can stay over a volume
+  // from 2013 and quietly look historical.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const reports = page.getByRole("checkbox", { name: /Storm Reports/ });
+  if (!(await reports.isChecked())) await reports.check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+  await expect(pane).toHaveAttribute("data-layer-stack", /alerts-fill/);
+  await expect(pane).toHaveAttribute("data-layer-stack", /stormReports-points/);
+
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  await page.getByRole("button", { name: "Open local Archive II file" }).click();
+
+  const history = page.locator("[data-historical-radar]");
+  await expect(history).toContainText("Local Archive II");
+  await expect(history).toContainText("KTLX20130520_205600_V06");
+  await expect(page.getByText("KTLX Reflectivity")).toBeVisible();
+  await expect(page.locator(".live-chip", { hasText: "historical volume" })).toBeVisible();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /alerts-fill/);
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /stormReports-points/,
+  );
+
+  await page
+    .getByRole("combobox", { name: "Level II product" })
+    .selectOption("velocity");
+  await page.getByRole("combobox", { name: "Level II tilt" }).selectOption("2");
+  await expect(page.getByText("KTLX Velocity")).toBeVisible();
+  const calls = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level2_local_sweep"),
+  );
+  expect(calls.at(-1)?.args).toMatchObject({ product: "velocity", tilt: 2 });
+
+  await page.getByRole("button", { name: "Return to recent radar" }).click();
+  await expect(history).toHaveCount(0);
+  await expect(page.getByText("KDMX Velocity")).toBeVisible();
+});
+
+test("browses the public archive and refuses a malformed local file", async ({
+  page,
+}) => {
+  await open(page, 9);
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+
+  await page.getByRole("textbox", { name: "NEXRAD site" }).fill("KDMX");
+  await page
+    .getByLabel("UTC date and time")
+    .fill("2021-12-10T03:15");
+  await page
+    .getByRole("button", { name: "Load public archive volume" })
+    .click();
+  await expect(page.locator("[data-historical-radar]")).toContainText(
+    "Public Archive II",
+  );
+  await expect(
+    page.getByRole("link", { name: "NOAA NEXRAD Level II archive" }),
+  ).toBeVisible();
+
+  const archiveCall = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls.find((call) => call.command === "level2_archive_sweep"),
+  );
+  expect(archiveCall?.args).toMatchObject({
+    station: "KDMX",
+    at: "2021-12-10T03:15:00.000Z",
+  });
+
+  await page.getByRole("button", { name: "Return to recent radar" }).click();
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+  await page.evaluate(() => {
+    (window as unknown as { __archivePath: string }).__archivePath =
+      "C:\\radar\\malformed";
+  });
+  await page.getByRole("button", { name: "Open local Archive II file" }).click();
+
+  await expect(page.getByText(/Archive II header is missing/)).toBeVisible();
+  await expect(page.locator("[data-historical-radar]")).toHaveCount(0);
+  // The failed import did not replace the good sweep already on screen.
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
 });
 
 test("hides the weak returns when the reader asks and puts them back", async ({

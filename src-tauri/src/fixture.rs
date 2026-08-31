@@ -371,6 +371,27 @@ pub fn volume(site: &Site, at: DateTime<Utc>, records: &[Vec<Radial>]) -> Vec<u8
     out
 }
 
+/// A legacy uncompressed Archive II volume.
+///
+/// These files put fixed-size overhead messages and contiguous type 31 radial
+/// messages directly after the 24-byte header. The decoder auto-detects the
+/// format from the zeroed CTM prefix on the first overhead frame.
+pub fn uncompressed_volume(site: &Site, at: DateTime<Utc>, records: &[Vec<Radial>]) -> Vec<u8> {
+    let angles: Vec<f32> = records
+        .iter()
+        .filter_map(|group| group.first())
+        .map(|radial| radial.elevation_degrees)
+        .collect();
+    let mut out = volume_header(site, at);
+    out.extend_from_slice(&coverage_pattern_message(at, &angles));
+    for group in records {
+        for radial in group {
+            out.extend_from_slice(&radial_message(site, radial));
+        }
+    }
+    out
+}
+
 /// One cut of a volume, described rather than measured.
 pub struct Cut {
     /// Which cut of the pattern this is, counting from one.

@@ -13,7 +13,11 @@ import {
   type LegendScale,
   type LegendScaleId,
 } from "../lib/legend";
-import { formatFrameTime, type RadarFrame } from "../lib/radar";
+import {
+  formatFrameTime,
+  formatRadarTime,
+  type RadarFrame,
+} from "../lib/radar";
 import { useT } from "../i18n";
 
 function initLabel(initUtc: string): string {
@@ -99,6 +103,7 @@ interface RadarTimelineProps {
   error: string | null;
   sourceLabel: string | null;
   ageMinutes: number | null;
+  historical?: { collected: string; sourceLabel: string } | null;
   onFrameIndex: (index: number) => void;
   onPlaying: (playing: boolean) => void;
 }
@@ -110,23 +115,30 @@ export function RadarTimeline({
   error,
   sourceLabel,
   ageMinutes,
+  historical = null,
   onFrameIndex,
   onPlaying,
 }: RadarTimelineProps) {
   const t = useT();
   const frame = frames[frameIndex];
-  const forecast = frame?.forecast;
+  const historicalTime = historical
+    ? Date.parse(historical.collected) / 1000
+    : Number.NaN;
+  const showingHistory = Number.isFinite(historicalTime);
+  const forecast = showingHistory ? undefined : frame?.forecast;
   return (
     <div
-      className={`radar-timeline ${forecast ? "is-forecast" : ""}`}
+      className={`radar-timeline ${forecast ? "is-forecast" : ""}${showingHistory ? " is-historical" : ""}`}
       aria-label={t("timeline.label")}
     >
       <button
         className="play-button"
         type="button"
-        aria-label={playing ? t("timeline.pause") : t("timeline.play")}
-        aria-pressed={playing}
-        disabled={!frames.length}
+        aria-label={
+          playing && !showingHistory ? t("timeline.pause") : t("timeline.play")
+        }
+        aria-pressed={showingHistory ? false : playing}
+        disabled={showingHistory || !frames.length}
         onClick={() => onPlaying(!playing)}
       >
         {playing ? (
@@ -137,50 +149,64 @@ export function RadarTimeline({
       </button>
       <div className="timeline-copy">
         <strong>
-          {error ??
-            (forecast
-              ? t("timeline.forecastAt", { time: formatFrameTime(frame) })
-              : formatFrameTime(frame))}
+          {showingHistory
+            ? formatRadarTime(historicalTime)
+            : (error ??
+              (forecast
+                ? t("timeline.forecastAt", { time: formatFrameTime(frame) })
+                : formatFrameTime(frame)))}
         </strong>
         <span>
-          {frames.length
+          {showingHistory
             ? [
-                t("timeline.frames", {
-                  index: frameIndex + 1,
-                  total: frames.length,
-                }),
-                forecast
-                  ? t("timeline.hrrr", {
-                      init: initLabel(forecast.initUtc),
-                      lead: forecast.leadMinutes,
-                    })
-                  : sourceLabel,
-                forecast
-                  ? null
-                  : ageMinutes === null
+                t("timeline.frames", { index: 1, total: 1 }),
+                historical?.sourceLabel ?? sourceLabel,
+                t("timeline.historical"),
+              ].join(" \u00b7 ")
+            : frames.length
+              ? [
+                  t("timeline.frames", {
+                    index: frameIndex + 1,
+                    total: frames.length,
+                  }),
+                  forecast
+                    ? t("timeline.hrrr", {
+                        init: initLabel(forecast.initUtc),
+                        lead: forecast.leadMinutes,
+                      })
+                    : sourceLabel,
+                  forecast
                     ? null
-                    : ageMinutes < 1
-                      ? t("timeline.live")
-                      : t("timeline.minutesOld", { count: ageMinutes }),
-              ]
-                .filter(Boolean)
-                .join(" · ")
-            : t("timeline.connecting")}
+                    : ageMinutes === null
+                      ? null
+                      : ageMinutes < 1
+                        ? t("timeline.live")
+                        : t("timeline.minutesOld", { count: ageMinutes }),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : t("timeline.connecting")}
         </span>
       </div>
       <input
         type="range"
         min="0"
-        max={Math.max(0, frames.length - 1)}
-        value={Math.min(frameIndex, Math.max(0, frames.length - 1))}
-        disabled={!frames.length}
+        max={showingHistory ? 0 : Math.max(0, frames.length - 1)}
+        value={
+          showingHistory
+            ? 0
+            : Math.min(frameIndex, Math.max(0, frames.length - 1))
+        }
+        disabled={showingHistory || !frames.length}
         aria-label={t("timeline.frame")}
         aria-valuetext={
-          frame
-            ? forecast
-              ? t("timeline.forecastAt", { time: formatFrameTime(frame) })
-              : formatFrameTime(frame)
-            : t("timeline.connecting")
+          showingHistory
+            ? formatRadarTime(historicalTime)
+            : frame
+              ? forecast
+                ? t("timeline.forecastAt", { time: formatFrameTime(frame) })
+                : formatFrameTime(frame)
+              : t("timeline.connecting")
         }
         onChange={(event) => onFrameIndex(Number(event.target.value))}
       />
@@ -188,7 +214,9 @@ export function RadarTimeline({
         className="timeline-live-button"
         type="button"
         aria-label={t("timeline.goLive")}
-        disabled={!frames.length || frameIndex === frames.length - 1}
+        disabled={
+          showingHistory || !frames.length || frameIndex === frames.length - 1
+        }
         onClick={() => onFrameIndex(frames.length - 1)}
       >
         {t("timeline.live")}

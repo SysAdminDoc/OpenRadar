@@ -16,7 +16,11 @@ export function frameAgeMinutes(frame: RadarFrame, now = Date.now()): number {
 
 export function formatFrameTime(frame: RadarFrame | undefined): string {
   if (!frame) return translate("radar.waiting");
-  return formatClock(new Date(frame.time * 1000), {
+  return formatRadarTime(frame.time);
+}
+
+export function formatRadarTime(time: number): string {
+  return formatClock(new Date(time * 1000), {
     hour: "numeric",
     minute: "2-digit",
     timeZoneName: "short",

@@ -1,4 +1,13 @@
-import { Check, CloudRain, Eye, Gauge, RadioTower } from "lucide-react";
+import {
+  Check,
+  CloudRain,
+  Eye,
+  FolderOpen,
+  Gauge,
+  History,
+  RadioTower,
+} from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { PanelShell } from "../components/PanelShell";
 import {
   LEVEL2_PRODUCTS,
@@ -60,6 +69,21 @@ function ageLabel(minutes: number): string {
   return translate("radar.minutesOld", { count: minutes });
 }
 
+function utcInputValue(now: number): string {
+  return new Date(now).toISOString().slice(0, 16);
+}
+
+function utcArchiveTime(value: string): string {
+  return new Date(`${value}:00Z`).toISOString();
+}
+
+function utcSweepLabel(value: string): string {
+  const at = new Date(value);
+  return Number.isNaN(at.getTime())
+    ? value
+    : `${at.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
 export function RadarProductPanel({
   radar,
   clock,
@@ -70,6 +94,10 @@ export function RadarProductPanel({
   onClose,
 }: RadarProductPanelProps) {
   const t = useT();
+  const [archiveStation, setArchiveStation] = useState(
+    () => radar.station ?? singleSite?.station ?? "",
+  );
+  const [archiveAt, setArchiveAt] = useState(() => utcInputValue(clock));
   const sweep = singleSite?.sweep ?? null;
   const productUnit =
     LEVEL2_PRODUCTS.find((product) => product.id === radar.product)?.unit ?? "";
@@ -120,6 +148,25 @@ export function RadarProductPanel({
     step: speedProduct ? 1 : range.step,
   };
   const tilts = sweep?.tilts ?? [];
+  const showHistorical = () =>
+    onRadar({
+      ...radar,
+      enabled: true,
+      singleSite: true,
+      live: false,
+    });
+  const openLocal = async () => {
+    if (await singleSite?.openLocal()) showHistorical();
+  };
+  const openArchive = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!singleSite) return;
+    const loaded = await singleSite.openArchive(
+      archiveStation,
+      utcArchiveTime(archiveAt),
+    );
+    if (loaded) showHistorical();
+  };
   return (
     <PanelShell
       eyebrow={t("radar.eyebrow")}
@@ -258,14 +305,98 @@ export function RadarProductPanel({
             </span>
             <input
               type="checkbox"
-              checked={radar.live}
-              disabled={!radar.singleSite}
+              checked={radar.live && !singleSite.historical}
+              disabled={!radar.singleSite || singleSite.historical}
               onChange={(event) =>
                 onRadar({ ...radar, live: event.target.checked })
               }
             />
             <i className="toggle-track" aria-hidden="true" />
           </label>
+
+          <section className="archive-browser" aria-labelledby="archive-title">
+            <div className="archive-browser__title">
+              <History size={17} aria-hidden="true" />
+              <span>
+                <strong id="archive-title">{t("radar.archiveBrowse")}</strong>
+                <small>{t("radar.archiveBrowseDetail")}</small>
+              </span>
+            </div>
+
+            {singleSite.historical ? (
+              <div className="archive-current" data-historical-radar>
+                <span>
+                  <strong>
+                    {singleSite.mode === "local"
+                      ? t("radar.localArchive")
+                      : t("radar.publicArchive")}
+                  </strong>
+                  <small>
+                    {sweep
+                      ? t("radar.archiveCurrent", {
+                          source: sweep.source.label,
+                          time: utcSweepLabel(sweep.collected),
+                        })
+                      : singleSite.loading
+                        ? t("radar.archiveReading")
+                        : (singleSite.error ?? t("radar.archiveUnavailable"))}
+                  </small>
+                </span>
+                <button type="button" onClick={singleSite.resumeRecent}>
+                  {t("radar.returnRecent")}
+                </button>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="archive-open"
+              disabled={singleSite.loading}
+              onClick={() => void openLocal()}
+            >
+              <FolderOpen size={16} aria-hidden="true" />
+              {t("radar.openArchive")}
+            </button>
+
+            <form
+              className="archive-form"
+              onSubmit={(event) => void openArchive(event)}
+            >
+              <label>
+                <span>{t("radar.archiveStation")}</span>
+                <input
+                  type="text"
+                  value={archiveStation}
+                  required
+                  minLength={4}
+                  maxLength={4}
+                  pattern="[A-Za-z0-9]{4}"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  aria-label={t("radar.archiveStation")}
+                  placeholder={t("radar.archiveStationPlaceholder")}
+                  onChange={(event) =>
+                    setArchiveStation(event.target.value.toUpperCase())
+                  }
+                />
+              </label>
+              <label>
+                <span>{t("radar.archiveTime")}</span>
+                <input
+                  type="datetime-local"
+                  value={archiveAt}
+                  required
+                  aria-label={t("radar.archiveTime")}
+                  onChange={(event) => setArchiveAt(event.target.value)}
+                />
+              </label>
+              <button type="submit" disabled={singleSite.loading}>
+                {singleSite.loading
+                  ? t("radar.archiveReading")
+                  : t("radar.loadArchive")}
+              </button>
+            </form>
+          </section>
 
           {radar.singleSite ? (
             <div
@@ -276,13 +407,21 @@ export function RadarProductPanel({
                 {singleSite.error
                   ? singleSite.error
                   : sweep
-                    ? t("radar.sweepLine", {
-                        station: sweep.station,
-                        site: sweep.siteName,
-                        product: sweep.product,
-                        tilt: sweep.elevationDegrees.toFixed(2),
-                        age: ageLabel(sweepAgeMinutes(sweep, clock)),
-                      })
+                    ? singleSite.historical
+                      ? t("radar.historicalSweepLine", {
+                          station: sweep.station,
+                          site: sweep.siteName,
+                          product: sweep.product,
+                          tilt: sweep.elevationDegrees.toFixed(2),
+                          time: utcSweepLabel(sweep.collected),
+                        })
+                      : t("radar.sweepLine", {
+                          station: sweep.station,
+                          site: sweep.siteName,
+                          product: sweep.product,
+                          tilt: sweep.elevationDegrees.toFixed(2),
+                          age: ageLabel(sweepAgeMinutes(sweep, clock)),
+                        })
                     : singleSite.loading
                       ? t("radar.reading", {
                           station: singleSite.station ?? t("radar.nearestSite"),

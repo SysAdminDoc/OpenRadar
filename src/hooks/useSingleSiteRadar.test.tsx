@@ -16,6 +16,24 @@ const fetchSweep =
       live: boolean,
     ) => Promise<SweepImage>
   >();
+const fetchArchiveSweep =
+  vi.fn<
+    (
+      station: string,
+      at: string,
+      product: Level2ProductId,
+      tilt: number,
+    ) => Promise<SweepImage>
+  >();
+const fetchLocalSweep =
+  vi.fn<
+    (
+      path: string,
+      product: Level2ProductId,
+      tilt: number,
+    ) => Promise<SweepImage>
+  >();
+const pickArchiveFile = vi.fn<() => Promise<string | null>>();
 
 vi.mock("../lib/level2", async () => {
   const actual =
@@ -33,6 +51,11 @@ vi.mock("../lib/level2", async () => {
       _threshold: number | null,
       live: boolean,
     ) => fetchSweep(station, product, tilt, live),
+    fetchArchiveSweep: (...args: Parameters<typeof actual.fetchArchiveSweep>) =>
+      fetchArchiveSweep(args[0], args[1], args[2], args[3]),
+    fetchLocalSweep: (...args: Parameters<typeof actual.fetchLocalSweep>) =>
+      fetchLocalSweep(args[0], args[1], args[2]),
+    pickArchiveFile: () => pickArchiveFile(),
   };
 });
 
@@ -62,6 +85,11 @@ function sweepFor(
     north: 43.8,
     image: "data:image/png;base64,AAAA",
     volume: `${station}-${product}-${tilt}`,
+    source: {
+      kind: "recent",
+      label: "NOAA NEXRAD Level II",
+      url: "https://registry.opendata.aws/noaa-nexrad/",
+    },
   };
 }
 
@@ -88,11 +116,29 @@ function options(overrides: {
 beforeEach(() => {
   nearestSite.mockReset();
   fetchSweep.mockReset();
+  fetchArchiveSweep.mockReset();
+  fetchLocalSweep.mockReset();
+  pickArchiveFile.mockReset();
   nearestSite.mockResolvedValue("KDMX");
   fetchSweep.mockImplementation(async (station, product, tilt, live) => ({
     ...sweepFor(station, product, tilt),
     live,
   }));
+  fetchArchiveSweep.mockImplementation(async (station, _at, product, tilt) => ({
+    ...sweepFor(station, product, tilt),
+    collected: "2021-12-10T03:15:00.000Z",
+    source: {
+      kind: "archive",
+      label: "NOAA NEXRAD Level II archive",
+      url: "https://registry.opendata.aws/noaa-nexrad/",
+    },
+  }));
+  fetchLocalSweep.mockImplementation(async (_path, product, tilt) => ({
+    ...sweepFor("KTLX", product, tilt),
+    collected: "2013-05-20T20:56:00.000Z",
+    source: { kind: "local", label: "KTLX20130520_205600_V06", url: null },
+  }));
+  pickArchiveFile.mockResolvedValue("C:\\radar\\KTLX20130520_205600_V06");
 });
 
 afterEach(() => {
@@ -218,6 +264,120 @@ describe("what stays on the map", () => {
     // A stale picture under a fresh label is worse than no picture.
     expect(result.current.sweep).toBeNull();
     expect(result.current.active).toBe(false);
+  });
+});
+
+describe("historical volumes", () => {
+  it("keeps the active sweep when a selected local file is malformed", async () => {
+    const { result } = renderHook(() => useSingleSiteRadar(options({})));
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    const before = result.current.sweep;
+    fetchLocalSweep.mockRejectedValue({
+      code: "decode",
+      args: ["the Archive II header is missing"],
+      text: "the volume could not be decoded",
+    });
+
+    let loaded = true;
+    await act(async () => {
+      loaded = await result.current.openLocal();
+    });
+
+    expect(loaded).toBe(false);
+    expect(result.current.sweep).toBe(before);
+    expect(result.current.historical).toBe(false);
+    expect(result.current.mode).toBe("recent");
+    expect(result.current.error).toMatch(/Archive II header is missing/);
+  });
+
+  it("keeps product and tilt controls on the selected public volume", async () => {
+    const { result, rerender } = renderHook(
+      (props: { product: Level2ProductId; tilt: number }) =>
+        useSingleSiteRadar(
+          options({ radar: { product: props.product, tilt: props.tilt } }),
+        ),
+      {
+        initialProps: {
+          product: "reflectivity" as Level2ProductId,
+          tilt: 0,
+        },
+      },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    await act(async () => {
+      await result.current.openArchive("ktlx", "2013-05-20T20:56:00.000Z");
+    });
+    expect(result.current.historical).toBe(true);
+    expect(result.current.mode).toBe("archive");
+    expect(result.current.sweep?.source.kind).toBe("archive");
+    expect(fetchArchiveSweep).toHaveBeenLastCalledWith(
+      "KTLX",
+      "2013-05-20T20:56:00.000Z",
+      "reflectivity",
+      0,
+    );
+
+    rerender({ product: "velocity", tilt: 2 });
+    await waitFor(() => {
+      expect(result.current.sweep?.productId).toBe("velocity");
+      expect(result.current.sweep?.tiltIndex).toBe(2);
+    });
+    expect(fetchArchiveSweep).toHaveBeenLastCalledWith(
+      "KTLX",
+      "2013-05-20T20:56:00.000Z",
+      "velocity",
+      2,
+    );
+  });
+
+  it("keeps the last verified historical picture when another cut fails", async () => {
+    const { result, rerender } = renderHook(
+      (props: { product: Level2ProductId; tilt: number }) =>
+        useSingleSiteRadar(
+          options({ radar: { product: props.product, tilt: props.tilt } }),
+        ),
+      {
+        initialProps: {
+          product: "reflectivity" as Level2ProductId,
+          tilt: 0,
+        },
+      },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    await act(async () => {
+      await result.current.openArchive("KTLX", "2013-05-20T20:56:00.000Z");
+    });
+    const before = result.current.sweep;
+
+    fetchArchiveSweep.mockRejectedValue({
+      code: "noSweep",
+      args: ["KTLX", "Velocity"],
+      text: "KTLX has no Velocity sweep at that tilt",
+    });
+    rerender({ product: "velocity", tilt: 4 });
+
+    await waitFor(() =>
+      expect(result.current.error).toMatch(/no Velocity sweep/),
+    );
+    expect(result.current.sweep).toBe(before);
+    expect(result.current.historical).toBe(true);
+    expect(result.current.active).toBe(true);
+  });
+
+  it("returns from a selected volume to the recent site", async () => {
+    const { result } = renderHook(() => useSingleSiteRadar(options({})));
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+    await act(async () => {
+      await result.current.openArchive("KTLX", "2013-05-20T20:56:00.000Z");
+    });
+    expect(result.current.historical).toBe(true);
+
+    act(() => result.current.resumeRecent());
+    await waitFor(() => {
+      expect(result.current.historical).toBe(false);
+      expect(result.current.sweep?.station).toBe("KDMX");
+    });
   });
 });
 

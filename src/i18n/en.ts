@@ -326,9 +326,26 @@ export const en = {
   "radar.live": "Volume in progress",
   "radar.liveDetail":
     "Draw the sweep the radar is making now over the last one it finished. The finished picture is four to six minutes old by the time it is published; this one is seconds old over the sector the radar has reached, and unchanged everywhere else.",
+  "radar.archiveBrowse": "Archive II",
+  "radar.archiveBrowseDetail":
+    "Open a local volume offline or ask NOAA's public archive for a site and UTC time.",
+  "radar.openArchiveTitle": "Open a NEXRAD Archive II volume",
+  "radar.openArchive": "Open local Archive II file",
+  "radar.archiveStation": "NEXRAD site",
+  "radar.archiveStationPlaceholder": "KDMX",
+  "radar.archiveTime": "UTC date and time",
+  "radar.loadArchive": "Load public archive volume",
+  "radar.archiveReading": "Reading the selected volume...",
+  "radar.archiveUnavailable": "The selected volume is not available.",
+  "radar.localArchive": "Local Archive II",
+  "radar.publicArchive": "Public Archive II",
+  "radar.archiveCurrent": "{source}, {time}",
+  "radar.returnRecent": "Return to recent radar",
   "radar.dealiasDetail":
     "A wind faster than the radar can measure wraps around and is drawn as if it were blowing the other way. This puts it back.",
   "radar.sweepLine": "{station} · {site} · {product} at {tilt}° · {age}",
+  "radar.historicalSweepLine":
+    "{station}, {site}, {product} at {tilt} degrees, {time}",
   "radar.justIn": "just in",
   "radar.minutesOld": "{count} min old",
   "radar.reading": "Reading the latest volume from {station}.",
@@ -345,6 +362,9 @@ export const en = {
   "radar.error.noStormMotion":
     "The wind at {0} could not be read, so there is nothing to take out of the picture.",
   "radar.error.encode": "The image could not be drawn: {0}",
+  "radar.error.invalidTime": "{0} is not a UTC date and time.",
+  "radar.error.localRead": "The selected file could not be read: {0}",
+  "radar.error.localTooLarge": "The selected file is larger than 128 MB.",
   "radar.error.http": "The radar archive could not be reached: {0}",
   "radar.error.unknown": "The radar site did not answer.",
   "radar.dealiasForced":
@@ -615,6 +635,7 @@ export const en = {
   "timeline.forecastAt": "{time} forecast",
   "timeline.hrrr": "HRRR init {init}, +{lead} min",
   "timeline.live": "live",
+  "timeline.historical": "historical volume",
   "timeline.goLive": "Go live",
   "timeline.minutesOld": "{count} min old",
   "zoom.controls": "Map navigation controls",
@@ -644,6 +665,7 @@ export const en = {
   "chrome.composite": "Composite Radar",
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "{degrees}° TILT",
+  "chrome.tiltHistorical": "{degrees}° TILT, HISTORICAL",
   "chrome.tiltDealiased": "{degrees}° TILT · UNFOLDED",
   "chrome.tiltLive": "{degrees}° TILT · LIVE, {seconds} S OLD",
   "chrome.tiltLiveDealiased":

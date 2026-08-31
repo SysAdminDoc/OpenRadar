@@ -6,13 +6,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P1
 
-- [ ] AUD-072: Add local Archive II import and arbitrary site and date browsing
-      Why: Local files and historical volume review are standard research and incident-analysis workflows in NEXRAD Workbench, RadarScope, and scientific tools. OpenRadar currently opens live or recent provider frames, not a user-selected Archive II volume.
-      Evidence: `src-tauri/src/level2.rs`; `src/hooks/useSingleSiteRadar.ts`; https://github.com/danielway/nexrad-workbench ; https://registry.opendata.aws/noaa-nexrad/ ; https://www.ncei.noaa.gov/products/weather-climate-toolkit
-      Touches: Native file picker; Level II decoder entry point; archive browser; timeline; history and source copy; workspace schema
-      Acceptance: A user can open a local Archive II file fully offline or select a site and UTC time from the public archive; product and tilt controls work; the timeline displays volume time and source; current warnings or reports never masquerade as historical context; malformed files fail without changing the active view; fixtures cover compressed and uncompressed samples.
-      Complexity: XL
-
 - [ ] AUD-073: Add resumable offline incident packs with PMTiles
       Why: Storm work often happens with weak connectivity. HookEcho and Anvil prove that a prepared local basemap and incident bundle is useful on desktop.
       Evidence: `src/lib/mapStyles.ts`; `src-tauri/src/cache.rs`; https://github.com/d4vid87/hookecho ; https://github.com/jhammon88219/Anvil ; https://github.com/protomaps/PMTiles ; https://github.com/makinacorpus/maplibre-offline-pmtiles

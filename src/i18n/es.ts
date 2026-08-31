@@ -328,6 +328,23 @@ export const es: Catalogue = {
   "radar.live": "Volumen en curso",
   "radar.liveDetail":
     "Dibuja el barrido que el radar está haciendo ahora sobre el último que terminó. La imagen terminada ya tiene de cuatro a seis minutos cuando se publica; esta tiene segundos en el sector que el radar ha alcanzado, y no cambia en el resto.",
+  "radar.archiveBrowse": "Archive II",
+  "radar.archiveBrowseDetail":
+    "Abre un volumen local sin conexión o consulta el archivo público de NOAA por radar y hora UTC.",
+  "radar.openArchiveTitle": "Abrir un volumen NEXRAD Archive II",
+  "radar.openArchive": "Abrir archivo Archive II local",
+  "radar.archiveStation": "Radar NEXRAD",
+  "radar.archiveStationPlaceholder": "KDMX",
+  "radar.archiveTime": "Fecha y hora UTC",
+  "radar.loadArchive": "Cargar volumen del archivo público",
+  "radar.archiveReading": "Leyendo el volumen seleccionado...",
+  "radar.archiveUnavailable": "El volumen seleccionado no está disponible.",
+  "radar.localArchive": "Archive II local",
+  "radar.publicArchive": "Archive II público",
+  "radar.archiveCurrent": "{source}, {time}",
+  "radar.returnRecent": "Volver al radar reciente",
+  "radar.historicalSweepLine":
+    "{station}, {site}, {product} a {tilt} grados, {time}",
   "radar.dealiasDetail":
     "Un viento más rápido de lo que el radar puede medir se enrolla y se dibuja como si soplara al revés. Esto lo devuelve a su sitio.",
   "radar.sweepLine": "{station} · {site} · {product} a {tilt}° · {age}",
@@ -350,6 +367,9 @@ export const es: Catalogue = {
   "radar.error.encode": "No se pudo dibujar la imagen: {0}",
   "radar.error.http": "No se pudo llegar al archivo de radar: {0}",
   "radar.error.unknown": "El radar no respondió.",
+  "radar.error.invalidTime": "{0} no es una fecha y hora UTC.",
+  "radar.error.localRead": "No se pudo leer el archivo seleccionado: {0}",
+  "radar.error.localTooLarge": "El archivo seleccionado supera los 128 MB.",
   "radar.dealiasForced":
     "La velocidad relativa a la tormenta tiene que desplegar primero, porque el viento que quita se lee del propio barrido",
   "radar.threshold": "Ocultar por debajo de",
@@ -624,6 +644,7 @@ export const es: Catalogue = {
   "timeline.forecastAt": "Pronóstico de las {time}",
   "timeline.hrrr": "HRRR iniciado {init}, +{lead} min",
   "timeline.live": "en vivo",
+  "timeline.historical": "volumen histórico",
   "timeline.goLive": "Ir en vivo",
   "timeline.minutesOld": "de hace {count} min",
   "zoom.controls": "Controles de navegación del mapa",
@@ -653,6 +674,7 @@ export const es: Catalogue = {
   "chrome.composite": "Radar compuesto",
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "ELEVACIÓN {degrees}°",
+  "chrome.tiltHistorical": "ELEVACIÓN {degrees}°, HISTÓRICA",
   "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
   "chrome.tiltLive": "ELEVACIÓN {degrees}° · EN VIVO, HACE {seconds} S",
   "chrome.tiltLiveDealiased":

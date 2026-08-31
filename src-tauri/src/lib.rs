@@ -60,6 +60,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
@@ -126,6 +127,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             exports::save_export,
+            level2::level2_archive_sweep,
+            level2::level2_local_sweep,
             level2::level2_sweep,
             level2::level2_nearest_site,
             level3::level3_cells,
