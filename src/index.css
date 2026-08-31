@@ -2526,7 +2526,7 @@ input[type="range"] {
 .alert-tag {
   margin-left: 6px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 9px;
   font-style: normal;
   font-weight: 600;
@@ -2556,7 +2556,7 @@ input[type="range"] {
   letter-spacing: 0.04em;
   background: var(--surface-sunken, rgb(15 23 42 / 35%));
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 6px;
   vertical-align: middle;
 }
 
