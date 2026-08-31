@@ -103,11 +103,7 @@ export function useExport(options: {
   // The two loop exports are the same walk through the frames with a
   // different encoder on the end, so they are written once.
   const exportLoopAs = useCallback(
-    (
-      extension: string,
-      encode: typeof exportLoop,
-      busyAs: string,
-    ) => {
+    (extension: string, encode: typeof exportLoop, busyAs: string) => {
       void (async () => {
         const canvas = mapRef.current?.canvas();
         if (!canvas || frames.length < 2) return;

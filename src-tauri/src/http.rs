@@ -204,10 +204,7 @@ async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
 
 /// Streams a response into a bounded buffer. Content-Length is only a hint:
 /// chunked responses and dishonest servers still have to meet the same cap.
-async fn read_limited(
-    mut response: reqwest::Response,
-    limit: usize,
-) -> Result<Vec<u8>, HttpError> {
+async fn read_limited(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, HttpError> {
     if response
         .content_length()
         .is_some_and(|length| length > limit as u64)
@@ -370,10 +367,7 @@ mod tests {
     #[test]
     fn validates_byte_ranges_before_sending_them() {
         assert_eq!(range_length(10, 19).unwrap(), 10);
-        assert!(matches!(
-            range_length(19, 10),
-            Err(HttpError::InvalidRange)
-        ));
+        assert!(matches!(range_length(19, 10), Err(HttpError::InvalidRange)));
         assert!(matches!(
             range_length(0, MAX_BODY_BYTES as u64),
             Err(HttpError::TooLarge)

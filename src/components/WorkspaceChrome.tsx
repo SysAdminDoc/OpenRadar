@@ -177,7 +177,9 @@ export function WorkspaceChrome({
               })
             : t(mosaic.labelKey)
         }
-        eyebrow={sweep ? sweepEyebrow(sweep, liveClock) : t("chrome.liveProduct")}
+        eyebrow={
+          sweep ? sweepEyebrow(sweep, liveClock) : t("chrome.liveProduct")
+        }
         scale={
           sweep
             ? sweep.unit === "dBZ"

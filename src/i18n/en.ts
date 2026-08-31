@@ -57,7 +57,8 @@ export const en = {
   "alertType.tropicalDetail":
     "Hurricanes and tropical storms, storm surge, and the hurricane-force wind warnings the marine offices issue.",
   "alertType.fire": "Fire",
-  "alertType.fireDetail": "Red flag warnings, fire weather watches, dense smoke.",
+  "alertType.fireDetail":
+    "Red flag warnings, fire weather watches, dense smoke.",
   "alertType.heat": "Heat",
   "alertType.heatDetail": "Excessive heat and heat advisories.",
   "alertType.other": "Everything else",

@@ -106,9 +106,7 @@ impl Level2Error {
             Self::NoVolume(site) => ("noVolume", vec![site.clone()]),
             Self::BadListing => ("badListing", Vec::new()),
             Self::Decode(why) => ("decode", vec![why.clone()]),
-            Self::NoSweep(site, product) => {
-                ("noSweep", vec![site.clone(), product.clone()])
-            }
+            Self::NoSweep(site, product) => ("noSweep", vec![site.clone(), product.clone()]),
             Self::NoStormMotion(site) => ("noStormMotion", vec![site.clone()]),
             Self::Encode(why) => ("encode", vec![why.clone()]),
             Self::Http(_) => ("http", vec![self.to_string()]),
@@ -479,10 +477,7 @@ fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
 /// The volume being swept right now arrives as loose records rather than as a
 /// file, and it needs this as much as the finished one does: without it there
 /// is no unfolding, and storm relative velocity refuses outright.
-pub fn nyquist_from_records(
-    records: &[volume::Record<'_>],
-    elevation_number: u8,
-) -> Option<f32> {
+pub fn nyquist_from_records(records: &[volume::Record<'_>], elevation_number: u8) -> Option<f32> {
     nyquist_table(records).get(&elevation_number).copied()
 }
 
@@ -795,17 +790,15 @@ pub fn render_sweep(
                 continue;
             };
 
-            let Some((color, alpha)) =
-                gate_color(
-                    &status,
-                    value,
-                    product,
-                    table.as_ref(),
-                    range,
-                    unfolded,
-                    threshold,
-                )
-            else {
+            let Some((color, alpha)) = gate_color(
+                &status,
+                value,
+                product,
+                table.as_ref(),
+                range,
+                unfolded,
+                threshold,
+            ) else {
                 continue;
             };
 
@@ -1100,8 +1093,14 @@ fn draw_sweep(
     let site = site.ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
     let coordinates = RadarCoordinateSystem::new(&site);
 
-    let (mut pixels, [west, south, east, north]) =
-        render_sweep(&chosen.field, &coordinates, product, unit, dealiased, threshold);
+    let (mut pixels, [west, south, east, north]) = render_sweep(
+        &chosen.field,
+        &coordinates,
+        product,
+        unit,
+        dealiased,
+        threshold,
+    );
 
     if let Some(under) = beneath {
         // Every render covers the same extent at the same size, so the two
@@ -1701,8 +1700,14 @@ mod tests {
         // from the command below it, left every test green.
         let drawn = |value: f32, floor: Option<f32>| {
             let (field, coordinates) = flat_field(value, Product::Reflectivity);
-            let (pixels, _) =
-                render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ", false, floor);
+            let (pixels, _) = render_sweep(
+                &field,
+                &coordinates,
+                Product::Reflectivity,
+                "dBZ",
+                false,
+                floor,
+            );
             pixels.chunks_exact(4).filter(|p| p[3] > 0).count()
         };
 
@@ -1722,9 +1727,7 @@ mod tests {
         // unfolded, which drew gates outside the limit on the narrow scale.
         let (mut field, _) = flat_field(3.0, Product::Velocity);
         let before: Vec<f32> = (0..field.azimuth_count())
-            .flat_map(|azimuth| {
-                (0..field.gate_count()).map(move |gate| (azimuth, gate))
-            })
+            .flat_map(|azimuth| (0..field.gate_count()).map(move |gate| (azimuth, gate)))
             .map(|(azimuth, gate)| field.get(azimuth, gate).0)
             .collect();
 
@@ -1734,9 +1737,7 @@ mod tests {
         assert!(!moved, "a sweep with no folds in it was called unfolded");
 
         let after: Vec<f32> = (0..field.azimuth_count())
-            .flat_map(|azimuth| {
-                (0..field.gate_count()).map(move |gate| (azimuth, gate))
-            })
+            .flat_map(|azimuth| (0..field.gate_count()).map(move |gate| (azimuth, gate)))
             .map(|(azimuth, gate)| field.get(azimuth, gate).0)
             .collect();
         assert_eq!(before, after, "the field was written to anyway");
@@ -1794,9 +1795,8 @@ mod tests {
         assert_eq!(rings_that_speak_for_the_sweep(&found).len(), found.len());
 
         // With the band properly filled it speaks for the sweep on its own.
-        let full: Vec<(f64, vad::Wind)> = (0..30)
-            .map(|at| (25.0 + at as f64 * 4.0, flow))
-            .collect();
+        let full: Vec<(f64, vad::Wind)> =
+            (0..30).map(|at| (25.0 + at as f64 * 4.0, flow)).collect();
         assert_eq!(rings_that_speak_for_the_sweep(&full).len(), full.len());
     }
 
@@ -2273,7 +2273,9 @@ mod tests {
     #[test]
     fn the_nearest_site_is_the_one_a_viewer_is_standing_over() {
         assert_eq!(
-            sites_in_reach(35.4676, -97.5164).first().map(|site| site.id),
+            sites_in_reach(35.4676, -97.5164)
+                .first()
+                .map(|site| site.id),
             Some("KTLX")
         );
         assert_eq!(
@@ -2494,7 +2496,7 @@ mod tests {
                 ..SweepRequest::default()
             },
         )
-            .expect("the lowest reflectivity tilt should decode");
+        .expect("the lowest reflectivity tilt should decode");
         let drawn = drawing.elapsed();
 
         assert_eq!(sweep.station, "KDMX");
@@ -2552,8 +2554,14 @@ mod tests {
                 .expect("a sweep")
                 .field
         };
-        let (pixels, _) =
-            render_sweep(&field, &coordinates, Product::Reflectivity, "dBZ", false, None);
+        let (pixels, _) = render_sweep(
+            &field,
+            &coordinates,
+            Product::Reflectivity,
+            "dBZ",
+            false,
+            None,
+        );
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         let total = IMAGE_SIZE * IMAGE_SIZE;
         assert!(
@@ -2604,7 +2612,7 @@ mod tests {
                 ..SweepRequest::default()
             },
         )
-            .expect("a Doppler cut should decode");
+        .expect("a Doppler cut should decode");
         assert_eq!(velocity.product_id, "velocity");
         assert_eq!(velocity.unit, "m/s");
         assert!(velocity.elevation_degrees >= sweep.elevation_degrees);
@@ -2930,7 +2938,11 @@ mod tests {
                     }
                 }
             }
-            if count == 0 { 0.0 } else { total / count as f64 }
+            if count == 0 {
+                0.0
+            } else {
+                total / count as f64
+            }
         };
 
         let before = mean(&chosen.field);
@@ -3242,7 +3254,13 @@ mod tests {
         // the live sweep for that tilt went missing with no message.
         let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
         let older = built_volume(&[
-            fixture::flat_cut(at, fixture::Cut { degrees: 3.08, ..fixture::Cut::default() }),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    degrees: 3.08,
+                    ..fixture::Cut::default()
+                },
+            ),
             fixture::flat_cut(
                 at,
                 fixture::Cut {
@@ -3287,7 +3305,10 @@ mod tests {
                 &none,
                 &live,
                 &none,
-                SweepRequest { tilt_index: tilt, ..asked },
+                SweepRequest {
+                    tilt_index: tilt,
+                    ..asked
+                },
             )
             .expect("both volumes hold the cut");
             assert!(
@@ -3300,7 +3321,10 @@ mod tests {
         // And a cut a real tilt away is still a different cut.
         let far = built_volume(&[fixture::flat_cut(
             at,
-            fixture::Cut { degrees: 4.30, ..fixture::Cut::default() },
+            fixture::Cut {
+                degrees: 4.30,
+                ..fixture::Cut::default()
+            },
         )]);
         let sweep = sweep_over("KTLX", "live", &older, &none, &far, &none, asked)
             .expect("the finished volume answers");
@@ -3531,9 +3555,8 @@ mod tests {
         let nyquist = 25.0f32;
         let azimuths: Vec<f32> = (0..180).map(|step| step as f32 * 2.0).collect();
         let gates = 20usize;
-        let mut field = SweepField::new_empty(
-            "Velocity", "m/s", 0.5, azimuths, 2.0, 2.125, 0.25, gates,
-        );
+        let mut field =
+            SweepField::new_empty("Velocity", "m/s", 0.5, azimuths, 2.0, 2.125, 0.25, gates);
         // Half the sweep just under the limit one way, half just under it the
         // other. The step between them is a whole interval, so it is a fold.
         for azimuth in 0..180 {
@@ -3551,7 +3574,10 @@ mod tests {
             .zip(&before)
             .filter(|(now, was)| (**now - **was).abs() > 0.01)
             .count();
-        assert!(changed > 0, "the sweep has to be changed for this to measure");
+        assert!(
+            changed > 0,
+            "the sweep has to be changed for this to measure"
+        );
         assert!(
             answered,
             "{changed} gates were rewritten and the sweep reported itself untouched"
@@ -3566,9 +3592,8 @@ mod tests {
         let nyquist = 25.0f32;
         let azimuths: Vec<f32> = (0..180).map(|step| step as f32 * 2.0).collect();
         let gates = 20usize;
-        let mut field = SweepField::new_empty(
-            "Velocity", "m/s", 0.5, azimuths, 2.0, 2.125, 0.25, gates,
-        );
+        let mut field =
+            SweepField::new_empty("Velocity", "m/s", 0.5, azimuths, 2.0, 2.125, 0.25, gates);
         for azimuth in 0..180 {
             for gate in 0..gates {
                 field.set(azimuth, gate, 3.0, GateStatus::Valid);
@@ -3590,9 +3615,8 @@ mod tests {
         let interval = 2.0 * nyquist;
         let azimuths: Vec<f32> = (0..360).map(|step| step as f32).collect();
         let gates = 200usize;
-        let mut field = SweepField::new_empty(
-            "Velocity", "m/s", 0.5, azimuths, 1.0, 2.125, 0.25, gates,
-        );
+        let mut field =
+            SweepField::new_empty("Velocity", "m/s", 0.5, azimuths, 1.0, 2.125, 0.25, gates);
 
         // Still air, with one smooth hill of outbound wind in it that just
         // tops the radar's limit. Smooth is the point: a fold is a step of a
@@ -3607,7 +3631,8 @@ mod tests {
             let across = (azimuth - from_azimuth) as f32 / (to_azimuth - from_azimuth) as f32;
             for gate in from_gate..to_gate {
                 let along = (gate - from_gate) as f32 / (to_gate - from_gate) as f32;
-                let hill = (across * std::f32::consts::PI).sin() * (along * std::f32::consts::PI).sin();
+                let hill =
+                    (across * std::f32::consts::PI).sin() * (along * std::f32::consts::PI).sin();
                 truth[azimuth * gates + gate] = peak * hill;
             }
         }
@@ -3623,7 +3648,10 @@ mod tests {
                 field.set(azimuth, gate, folded, GateStatus::Valid);
             }
         }
-        assert!(wrapped > 50, "only {wrapped} gates folded, which is nothing to measure");
+        assert!(
+            wrapped > 50,
+            "only {wrapped} gates folded, which is nothing to measure"
+        );
         let share = wrapped as f32 / (360 * gates) as f32;
         assert!(
             share < 0.005,

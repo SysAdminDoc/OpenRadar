@@ -19,8 +19,7 @@ export const dwdProvider = createWmsProvider({
   label: "DWD Radarkomposit",
   attribution:
     '<a href="https://www.dwd.de/EN/service/copyright/copyright_node.html">Deutscher Wetterdienst</a>',
-  attributionUrl:
-    "https://www.dwd.de/EN/service/copyright/copyright_node.html",
+  attributionUrl: "https://www.dwd.de/EN/service/copyright/copyright_node.html",
   host: DWD_HOST,
   owsUrl: "https://maps.dwd.de/geoserver/dwd/ows",
   // The observation composite. There is a second layer carrying the same thing

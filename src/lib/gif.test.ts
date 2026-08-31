@@ -20,9 +20,12 @@ function pixels(colours: Array<[number, number, number]>): Uint8ClampedArray {
 }
 
 /** Reads the LZW back out, which is the only way to know the bytes are a GIF. */
-function decodeFirstFrame(
-  bytes: Uint8Array,
-): { width: number; height: number; indices: number[]; restarts: number } {
+function decodeFirstFrame(bytes: Uint8Array): {
+  width: number;
+  height: number;
+  indices: number[];
+  restarts: number;
+} {
   expect(String.fromCharCode(...bytes.subarray(0, 6))).toBe("GIF89a");
   const width = bytes[6] | (bytes[7] << 8);
   const height = bytes[8] | (bytes[9] << 8);

@@ -71,9 +71,8 @@ function subscribeSecond(listener: () => void): () => void {
  * that changes every five minutes.
  */
 export function useSecondClock(wanted: boolean): number {
-  const at = useSyncExternalStore(
-    wanted ? subscribeSecond : subscribe,
-    () => (wanted ? second : now),
+  const at = useSyncExternalStore(wanted ? subscribeSecond : subscribe, () =>
+    wanted ? second : now,
   );
   return at;
 }

@@ -67,7 +67,9 @@ describe("reading what the DWD publishes", () => {
   });
 
   it("asks the layer it says it does", async () => {
-    const fetchMock = vi.fn(async () => new Response(CAPABILITIES, { status: 200 }));
+    const fetchMock = vi.fn(
+      async () => new Response(CAPABILITIES, { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     try {
       const frames = await dwdProvider.fetchFrames(120);

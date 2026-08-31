@@ -272,7 +272,9 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
         ));
     }
     if !packing.reference.is_finite() {
-        return Err(GfsError::Decode("the packing reference is not finite".into()));
+        return Err(GfsError::Decode(
+            "the packing reference is not finite".into(),
+        ));
     }
 
     let mut bits = Bits::new(section7);
@@ -363,14 +365,13 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
         }
     } else {
         for at in 2..values.len() {
-            values[at] = values[at]
-                .checked_add(
-                    values[at - 1]
-                        .checked_mul(2)
-                        .ok_or_else(|| GfsError::Decode("spatial differencing overflowed".into()))?,
-                )
-                .and_then(|value| value.checked_sub(values[at - 2]))
-                .ok_or_else(|| GfsError::Decode("spatial differencing overflowed".into()))?;
+            values[at] =
+                values[at]
+                    .checked_add(values[at - 1].checked_mul(2).ok_or_else(|| {
+                        GfsError::Decode("spatial differencing overflowed".into())
+                    })?)
+                    .and_then(|value| value.checked_sub(values[at - 2]))
+                    .ok_or_else(|| GfsError::Decode("spatial differencing overflowed".into()))?;
         }
     }
 

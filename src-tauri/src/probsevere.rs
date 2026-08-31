@@ -152,7 +152,9 @@ pub fn read_reading(bytes: &[u8]) -> Result<ProbSevereReading, ProbSevereError> 
             };
             let mut walk = Vec::with_capacity(points.len());
             for point in points {
-                let Some(pair) = point.as_array() else { continue };
+                let Some(pair) = point.as_array() else {
+                    continue;
+                };
                 let (Some(lon), Some(lat)) = (
                     pair.first().and_then(|v| v.as_f64()),
                     pair.get(1).and_then(|v| v.as_f64()),
@@ -290,13 +292,12 @@ mod tests {
 
     use super::*;
 
-    const READING: &[u8] =
-        include_bytes!("../tests/fixtures/MRMS_PROBSEVERE_20260830_230841.json");
+    const READING: &[u8] = include_bytes!("../tests/fixtures/MRMS_PROBSEVERE_20260830_230841.json");
 
     #[test]
     fn a_key_says_when_it_was_taken() {
-        let at = key_time("ProbSevere/20260830/MRMS_PROBSEVERE_20260830_230841.json")
-            .expect("a time");
+        let at =
+            key_time("ProbSevere/20260830/MRMS_PROBSEVERE_20260830_230841.json").expect("a time");
         assert_eq!(at.to_rfc3339(), "2026-08-30T23:08:41+00:00");
         // Anything that is not one of these is not one.
         assert!(key_time("ProbSevere/20260830/").is_none());
@@ -351,7 +352,10 @@ mod tests {
         assert!(current(now), "a reading published this second is current");
         assert!(current(now - Duration::minutes(STALE_MINUTES)));
         assert!(!current(now - Duration::minutes(STALE_MINUTES + 1)));
-        assert!(current(now + Duration::minutes(AHEAD_MINUTES)), "clock skew");
+        assert!(
+            current(now + Duration::minutes(AHEAD_MINUTES)),
+            "clock skew"
+        );
         assert!(!current(now + Duration::minutes(AHEAD_MINUTES + 1)));
         assert!(!current(now + Duration::days(3)), "a stamp days ahead");
         assert!(!current(now + Duration::days(400)));

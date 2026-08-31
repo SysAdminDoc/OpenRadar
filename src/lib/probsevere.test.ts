@@ -41,7 +41,9 @@ describe("when a reading was taken", () => {
   });
 
   it("keeps a leap day, which is a real date", () => {
-    expect(readingTime("20280229_120000")).toBe(Date.UTC(2028, 1, 29, 12, 0, 0));
+    expect(readingTime("20280229_120000")).toBe(
+      Date.UTC(2028, 1, 29, 12, 0, 0),
+    );
     expect(readingTime("20260229_120000")).toBeNull();
   });
 });

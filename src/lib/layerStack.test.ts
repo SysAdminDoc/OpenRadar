@@ -51,7 +51,9 @@ describe("guidance never sits in front of a decision", () => {
   // measures the order the map is actually built with.
   const order = layerStackOrder(
     OVERLAY_ADAPTERS.flatMap((adapter) =>
-      adapter.layers(`openradar-overlay-${adapter.id}`).map((layer) => layer.id),
+      adapter
+        .layers(`openradar-overlay-${adapter.id}`)
+        .map((layer) => layer.id),
     ),
   );
 
