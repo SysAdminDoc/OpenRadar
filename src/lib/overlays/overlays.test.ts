@@ -712,3 +712,50 @@ describe("the damage threat an office attaches to a warning", () => {
     expect(drawn.features[0].properties.impact).toBe("destructive");
   });
 });
+
+const LIVE = process.env.OPENRADAR_LIVE === "1";
+
+/**
+ * Warnings are the highest-consequence layer in the app and the only one a
+ * reader might act on, so the contract with the service that publishes them is
+ * the one most worth checking against the service itself.
+ */
+describe.runIf(LIVE)("against the live warnings service", () => {
+  // The whole country. Somewhere in it there is always something in force,
+  // even on a quiet day: a marine statement, a heat advisory, a flood watch.
+  const bounds = { west: -125, south: 24, east: -66, north: 50 };
+
+  it("answers with alerts shaped the way the map reads them", async () => {
+    const data = await alertsOverlay.fetchData(bounds);
+    expect(data.type).toBe("FeatureCollection");
+    // An empty answer over the whole United States means the query shape is
+    // wrong rather than the weather being quiet.
+    expect(data.features.length).toBeGreaterThan(0);
+
+    for (const feature of data.features.slice(0, 40)) {
+      const properties = feature.properties;
+      // Every field the drawing and the watch depend on.
+      expect(String(properties.headline).length).toBeGreaterThan(0);
+      expect(["extreme", "severe", "moderate", "minor"]).toContain(
+        String(properties.severity),
+      );
+      expect(properties.severityRank).toBeTypeOf("number");
+      expect(String(properties.kind).length).toBeGreaterThan(0);
+      expect(feature.geometry.type).toMatch(/Polygon/);
+      // The identity the watch keys on, so the same warning is not announced
+      // twice. Without it the fallback id embeds the polygon, and a warning
+      // whose polygon is redrawn looks new.
+      expect(String(properties.url).length).toBeGreaterThan(0);
+    }
+  }, 30_000);
+
+  it("gives every alert a time that can be compared", async () => {
+    const data = await alertsOverlay.fetchData(bounds);
+    for (const feature of data.features.slice(0, 40)) {
+      const expires = feature.properties.expires;
+      // Null is allowed; a string is not, because the watch compares it as a
+      // number and a string would silently never expire.
+      if (expires !== null) expect(expires).toBeTypeOf("number");
+    }
+  }, 30_000);
+});

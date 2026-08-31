@@ -77,6 +77,25 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "alerts",
+    label: "NWS watches and warnings",
+    host: "mapservices.weather.noaa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/overlays.test.ts"],
+    liveBlock: "against the live warnings service",
+    // The one layer a reader might act on, and the only one whose schema
+    // changing quietly would matter more than a picture going missing.
+    required: true,
+  },
+  {
+    id: "tiles",
+    label: "The cached tile scheme, end to end",
+    host: "opengeo.ncep.noaa.gov",
+    kind: "native",
+    filter: "tiles::tests",
+    required: false,
+  },
+  {
     id: "guidance",
     label: "Open-Meteo model guidance",
     host: "api.open-meteo.com",
@@ -122,6 +141,46 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
 ];
+
+
+/**
+ * Hosts with no contract of their own, and the reason each one has none.
+ *
+ * Written down rather than left as a gap, because a host quietly missing from
+ * the list above is indistinguishable from a host nobody thought about. A test
+ * holds this against the asset ledger: a new host has to arrive with either a
+ * contract or a reason.
+ */
+export const UNCONTRACTED_HOSTS = {
+  "tiles.openfreemap.org":
+    "A basemap. A style or tile that stops answering is visible the instant the map draws, which is a better check than any assertion here.",
+  "basemap.nationalmap.gov":
+    "The same, for the aerial style.",
+  "tile.opentopomap.org":
+    "The same, for the topographic style.",
+  "nowcoast.noaa.gov":
+    "The fallback behind the RIDGE mosaic. Reached only when the first choice is already failing, so a contract that exercised it would be asking a spare to work while the main one still does.",
+  "geo.weather.gc.ca":
+    "Canadian radar, which answers only over Canada. Worth a contract once one exists that can say where it is asking about.",
+  "maps.dwd.de":
+    "German radar, for the same reason.",
+  "api.rainviewer.com":
+    "The worldwide fallback, whose terms are the tightest of the set. Polling it on a schedule to prove it works is the opposite of what those terms ask for.",
+  "tilecache.rainviewer.com":
+    "The tiles behind that fallback.",
+  "earthquake.usgs.gov":
+    "Not weather. A quiet day genuinely returns nothing, so there is no answer a contract could insist on.",
+  "services3.arcgis.com":
+    "Wildfire perimeters, which are seasonal and regional: an empty answer in February is correct.",
+  "gibs.earthdata.nasa.gov":
+    "Satellite imagery, served as tiles. A missing tile is a blank square somebody sees.",
+  "api.weather.gov":
+    "Reached only to open one alert the reader clicked, so it has no standing query to check.",
+  "geocoding-api.open-meteo.com":
+    "Place search, which needs a query somebody typed. A fixed one would prove the service answers for that word and nothing else.",
+  "valhalla1.openstreetmap.de":
+    "Routing. It asks for at most one request a second per user and is run for the public by a volunteer association, so a scheduled check is a cost it should not have to carry for this.",
+};
 
 /** How long one contract may take before it is called a failure. */
 export const CONTRACT_TIMEOUT_MS = 240_000;

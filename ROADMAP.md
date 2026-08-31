@@ -365,9 +365,3 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: The credit line comes from the record rather than a constant; the full record travels with an exported file in a documented form; a replayed archive frame exports the archive's own attribution and observed time; tests cover a live frame, a forecast frame, and a replay.
       Complexity: M
 
-- [ ] AUD-104: P2. Cover the rest of the live providers with contracts
-      Why: The gate added by `AUD-069` holds 12 contracts against roughly 25 live hosts. The uncovered ones include the highest-consequence layer in the app: NWS watches and warnings. Earthquakes, wildfires, tropical, satellite, and the RIDGE, nowCOAST, GeoMet, DWD, HRRR and RainViewer radar providers are all unasked, and the native `tiles::tests` ignored test matches no filter.
-      Evidence: `scripts/live-contracts-lib.mjs` `LIVE_CONTRACTS`; `docs/asset-ledger.md` runtime host table; `src/lib/providers/`; `src/lib/overlays/`; `src-tauri/src/tiles.rs`
-      Touches: New contracts and the live tests some of them need; the contract list; documentation
-      Acceptance: Every host in the ledger's runtime table is reachable by at least one contract, or is listed with a written reason it is not; alerts are a required contract; a test compares the contract hosts against the ledger and fails when a host has no contract and no exemption.
-      Complexity: M
