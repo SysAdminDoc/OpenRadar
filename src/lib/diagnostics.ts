@@ -1,7 +1,11 @@
 import { APP_VERSION } from "./settings";
 import type { LogEntry } from "./log";
 import type { ProviderHealth } from "./providers/health";
-import { provenanceLines, type Provenance } from "./provenance";
+import {
+  provenanceLines,
+  provenanceProblems,
+  type Provenance,
+} from "./provenance";
 
 /**
  * The diagnostics block, as plain text somebody can paste into a bug report.
@@ -145,6 +149,16 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
   if (input.layers?.length) {
     lines.push("", "Layers:");
     for (const record of input.layers) {
+      // A record that does not meet the contract is reported as such rather
+      // than written out as though it did. The whole point of this block is
+      // that somebody can trust what it says about a layer, and confident
+      // nonsense in a bug report is worse than an admission.
+      const problems = provenanceProblems(record);
+      if (problems.length) {
+        lines.push(`  ${record.sourceId}: record is not well formed`);
+        for (const problem of problems) lines.push(`    ${problem}`);
+        continue;
+      }
       // Indented under the section the way a source entry is, so the block
       // stays scannable when a reader has several layers on at once.
       for (const line of provenanceLines(record, input.now)) {

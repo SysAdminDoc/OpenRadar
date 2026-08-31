@@ -44,6 +44,7 @@ describe("loop export workspace restoration", () => {
       attribution: null,
       error: null,
       cached: false,
+      cachedAgeSeconds: null,
       newestObserved: undefined,
       setPlaying,
       selectFrame,

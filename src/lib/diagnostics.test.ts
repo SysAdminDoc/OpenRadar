@@ -210,4 +210,59 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
     });
     expect(block).not.toContain("Layers:");
   });
+  it("says a layer record is malformed rather than writing it out", () => {
+    const block = diagnosticsBlock({
+      renderer: "test",
+      mapReady: true,
+      radarReady: true,
+      activeSource: "MRMS",
+      health: [],
+      log: [],
+      layers: [
+        {
+          sourceId: "broken",
+          label: "Broken",
+          attribution: "Somebody",
+          kind: "observation",
+          // Nothing observed it, which an observation cannot say.
+          observedAt: null,
+          validAt: null,
+          fetchedAt: Date.parse("2026-08-31T12:00:00Z"),
+          freshForMs: null,
+          cachedAgeSeconds: null,
+        },
+      ],
+    });
+    expect(block).toContain("broken: record is not well formed");
+    expect(block).toContain("must say when it was observed");
+    // And it does not go on to print the record as though it were sound.
+    expect(block).not.toContain("Broken (broken) · observation");
+  });
+
+  it("reports a radar frame served from the disk as what it is", () => {
+    const fetchedAt = Date.parse("2026-08-31T12:00:00Z");
+    const block = diagnosticsBlock({
+      renderer: "test",
+      mapReady: true,
+      radarReady: true,
+      activeSource: "MRMS",
+      health: [],
+      log: [],
+      now: fetchedAt,
+      layers: [
+        {
+          sourceId: "mrms",
+          label: "MRMS",
+          attribution: "NOAA MRMS",
+          kind: "observation",
+          observedAt: fetchedAt - 600_000,
+          validAt: fetchedAt - 600_000,
+          fetchedAt,
+          freshForMs: 240_000,
+          cachedAgeSeconds: 2400,
+        },
+      ],
+    });
+    expect(block).toContain("cache 2400s old");
+  });
 });
