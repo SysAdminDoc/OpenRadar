@@ -19,15 +19,46 @@ export type AlertType =
   | "heat"
   | "other";
 
-export const ALERT_TYPES: Array<{ id: AlertType; key: StringKey }> = [
-  { id: "tornado", key: "alertType.tornado" },
-  { id: "thunderstorm", key: "alertType.thunderstorm" },
-  { id: "flood", key: "alertType.flood" },
-  { id: "winter", key: "alertType.winter" },
-  { id: "tropical", key: "alertType.tropical" },
-  { id: "fire", key: "alertType.fire" },
-  { id: "heat", key: "alertType.heat" },
-  { id: "other", key: "alertType.other" },
+/**
+ * The switches, each with what it is called and what it actually covers.
+ *
+ * The detail line is not decoration. Grouping is by hazard rather than by
+ * wording, so a switch holds products whose names do not resemble its own: a
+ * tsunami warning and a nuclear plant warning are with the tornado warnings
+ * because all three are somebody telling you to move now. A reader in Honolulu
+ * who turned off a switch labelled only "Tornado", because tornadoes are not
+ * their weather, would have lost tsunami warnings from the map and from the
+ * watch without being told.
+ */
+export const ALERT_TYPES: Array<{
+  id: AlertType;
+  key: StringKey;
+  detailKey: StringKey;
+}> = [
+  {
+    id: "tornado",
+    key: "alertType.tornado",
+    detailKey: "alertType.tornadoDetail",
+  },
+  {
+    id: "thunderstorm",
+    key: "alertType.thunderstorm",
+    detailKey: "alertType.thunderstormDetail",
+  },
+  { id: "flood", key: "alertType.flood", detailKey: "alertType.floodDetail" },
+  {
+    id: "winter",
+    key: "alertType.winter",
+    detailKey: "alertType.winterDetail",
+  },
+  {
+    id: "tropical",
+    key: "alertType.tropical",
+    detailKey: "alertType.tropicalDetail",
+  },
+  { id: "fire", key: "alertType.fire", detailKey: "alertType.fireDetail" },
+  { id: "heat", key: "alertType.heat", detailKey: "alertType.heatDetail" },
+  { id: "other", key: "alertType.other", detailKey: "alertType.otherDetail" },
 ];
 
 /**

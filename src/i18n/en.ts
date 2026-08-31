@@ -39,14 +39,28 @@ export const en = {
   "alerts.issued": "Issued {issued} · expires {expires}",
   "alerts.unknownTime": "unknown",
   "alerts.openProduct": "Open the official product",
-  "alertType.tornado": "Tornado",
+  "alertType.tornado": "Take cover now",
+  "alertType.tornadoDetail":
+    "Tornado warnings and watches, tsunami warnings, extreme wind, and the civil emergencies: hazardous materials, a nuclear plant, a radiological hazard, shelter in place, evacuate immediately.",
   "alertType.thunderstorm": "Thunderstorm and wind",
+  "alertType.thunderstormDetail":
+    "Severe thunderstorm and high wind warnings, wind advisories, dust storms, and the marine wind products.",
   "alertType.flood": "Flood",
+  "alertType.floodDetail":
+    "Flash flood and river flood, coastal and lakeshore flooding, high surf and rip currents.",
   "alertType.winter": "Winter and cold",
+  "alertType.winterDetail":
+    "Winter storms, blizzards, ice and freezing rain, wind chill, hard freeze, avalanche.",
   "alertType.tropical": "Tropical",
+  "alertType.tropicalDetail":
+    "Hurricanes and tropical storms, storm surge, and the hurricane-force wind warnings the marine offices issue.",
   "alertType.fire": "Fire",
+  "alertType.fireDetail": "Red flag warnings, fire weather watches, dense smoke.",
   "alertType.heat": "Heat",
+  "alertType.heatDetail": "Excessive heat and heat advisories.",
   "alertType.other": "Everything else",
+  "alertType.otherDetail":
+    "Anything the list has never seen, so a new product shows up rather than disappearing.",
   "layers.order": "Which overlay sits on top",
   "layers.orderDetail":
     "Warnings always stay above the rest, because a warning is somebody telling you to take cover",

@@ -38,7 +38,22 @@ export const es: Catalogue = {
   "alerts.issued": "Emitido {issued} · vence {expires}",
   "alerts.unknownTime": "sin fecha",
   "alerts.openProduct": "Abrir el producto oficial",
-  "alertType.tornado": "Tornado",
+  "alertType.tornadoDetail":
+    "Avisos y vigilancias de tornado, avisos de tsunami, viento extremo y las emergencias civiles: materiales peligrosos, una central nuclear, un riesgo radiológico, refugiarse en el lugar, evacuación inmediata.",
+  "alertType.thunderstormDetail":
+    "Avisos de tormenta severa y de viento fuerte, avisos de viento, tormentas de polvo y los productos marinos de viento.",
+  "alertType.floodDetail":
+    "Inundaciones repentinas y fluviales, inundación costera y lacustre, oleaje alto y corrientes de resaca.",
+  "alertType.winterDetail":
+    "Tormentas invernales, ventiscas, hielo y lluvia helada, sensación térmica, helada fuerte, avalancha.",
+  "alertType.tropicalDetail":
+    "Huracanes y tormentas tropicales, marejada ciclónica y los avisos de viento con fuerza de huracán de las oficinas marinas.",
+  "alertType.fireDetail":
+    "Avisos de bandera roja, vigilancias de peligro de incendio, humo denso.",
+  "alertType.heatDetail": "Calor excesivo y avisos de calor.",
+  "alertType.otherDetail":
+    "Cualquier producto que la lista no conozca, para que uno nuevo aparezca en lugar de desaparecer.",
+  "alertType.tornado": "Ponerse a cubierto ya",
   "alertType.thunderstorm": "Tormenta y viento",
   "alertType.flood": "Inundación",
   "alertType.winter": "Invierno y frío",

@@ -463,10 +463,15 @@ export function LayersPanel({
             <span>{t("alerts.kinds")}</span>
             <small>{t("alerts.kindsDetail")}</small>
           </div>
-          {ALERT_TYPES.map(({ id, key }) => (
+          {ALERT_TYPES.map(({ id, key, detailKey }) => (
             <label className="toggle-row toggle-row--plain" key={id}>
               <span>
                 <strong>{t(key)}</strong>
+                {/* What the switch actually covers. Grouping is by hazard, so
+                    a switch holds products whose names do not resemble its
+                    own, and switching one off has to be a decision the reader
+                    could have made knowingly. */}
+                <small>{t(detailKey)}</small>
               </span>
               <input
                 type="checkbox"
