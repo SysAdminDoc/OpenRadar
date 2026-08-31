@@ -121,12 +121,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: The component becomes a coordinator instead of owning each layer implementation; adapter lifecycles have pure or MapLibre-mocked tests; final ordering still has one owner; dependency suppressions are removed or justified at the boundary; all existing headless scenarios pass with no visual change.
       Complexity: XL
 
-- [ ] AUD-088: Remove or recapture the stale pre-current screenshot
-      Why: `assets/screenshots/openradar-main.png` shows the removed Videos control, lacks Commands, and is not the current README image. A stale visual asset can be reused by mistake.
-      Evidence: `assets/screenshots/openradar-main.png`; `README.md`; current interface under `src/components/CommandBar.tsx`
-      Touches: Screenshot assets; README reference if needed
-      Acceptance: The stale file is removed if unused, or replaced from the current isolated build at the documented viewport and DPI; `rg` finds no references to removed controls; every retained screenshot has a clear use.
-      Complexity: S
 
 - [ ] AUD-091: Add a privacy-reviewed field report path
       Why: The tracker contains no field reports, while native flows and provider behavior vary by machine and time. Copy Diagnostics exists, but there is no structured report template or redaction contract.
