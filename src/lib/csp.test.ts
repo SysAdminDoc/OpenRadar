@@ -59,11 +59,25 @@ describe("the packaged app's content security policy", () => {
     }
   });
 
+  /**
+   * Hosts the page calls itself and never routes through the cached scheme.
+   *
+   * Checking only `CACHED_HOSTS` left these two unguarded, which is the exact
+   * shape of failure this file exists to catch: both are in the policy and in
+   * the native allowlist, and deleting either from `connect-src` broke nothing
+   * in the suite while it would have taken routing or place search off a
+   * packaged build with no error anywhere.
+   */
+  const DIRECT_HOSTS = [
+    "valhalla1.openstreetmap.de",
+    "geocoding-api.open-meteo.com",
+  ];
+
   it("allows every host the page fetches from directly", () => {
     // A host the page reaches without going through the cached scheme, which
     // is what happens in a browser preview and what happens for anything the
     // cache does not cover.
-    for (const host of CACHED_HOSTS) {
+    for (const host of [...CACHED_HOSTS, ...DIRECT_HOSTS]) {
       const allowed =
         csp["connect-src"].includes(`https://${host}`) ||
         csp["connect-src"].includes(

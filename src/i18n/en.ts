@@ -216,7 +216,7 @@ export const en = {
   "route.miles": "{value} {unit}",
   "route.noValue": "—",
   "route.note":
-    "Roads from the FOSSGIS routing service, weather from Open-Meteo. Every stop on the drive is covered by a single forecast request, so give the servers a moment between tries.",
+    "Roads from OpenStreetMap by way of the FOSSGIS routing service, weather from Open-Meteo. Every stop on the drive is covered by a single forecast request, so give the servers a moment between tries.",
 
   "storm.cat5": "Category 5",
   "storm.cat4": "Category 4",
@@ -796,7 +796,7 @@ export const en = {
   "watch.whyEvent": "A {event} alert, rated {severity}.",
   "watch.whyThreshold": "You asked to hear about {minSeverity} and above.",
   "watch.whyDistance":
-    "It reached {miles} {unit} from your point, inside the {radius} you watch.",
+    "It reached {miles} {unit} from your point, inside the {radius} {unit} you watch.",
   "watch.whyUpgraded":
     "You were told about this one before. The office has raised its damage threat since.",
   "watch.testHeadline": "Test alert",

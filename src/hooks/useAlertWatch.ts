@@ -128,13 +128,19 @@ export function useAlertWatch(
         for (const alert of found) {
           if (!mounted) return;
           // Quiet hours hold the ordinary run back and let the serious ones
-          // through. The alert is still recorded as announced either way, so a
-          // night of held-back warnings does not all arrive at once in the
-          // morning as though it had just happened.
+          // through. Held back, and deliberately not recorded as announced: an
+          // alert this skips is still unannounced, so the next poll after the
+          // window ends says it, and one that expires overnight is dropped by
+          // the expiry check rather than by this.
+          //
+          // Recording it here instead looked tidier and was a way of losing
+          // warnings. A flash flood warning issued at three in the morning is
+          // below the default override, and marking it announced meant it was
+          // filtered out of every later poll: still in force at nine, and never
+          // mentioned once.
           if (
             silencedByQuietHours(watchRef.current, alert.severity, Date.now())
           ) {
-            announced.set(alert.id, alert.rank);
             log.info(
               "watch",
               `Held back during quiet hours: ${alert.headline}`,

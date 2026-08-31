@@ -337,3 +337,42 @@ describe("the demo router is used gently", () => {
     expect(samples[0].distanceMiles).toBe(0);
   });
 });
+
+describe("what the router can answer badly", () => {
+  const SHAPE = "_o}p}@~neswD~nyo@_oyo@~zgeC_{rc@";
+
+  // Found by review: the units check was an exact match on "miles", so any
+  // other spelling was read as kilometres and reported at 62 per cent of the
+  // real distance, with every arrival time along the drive wrong to match.
+  it("reads the units however the service spells them", () => {
+    for (const units of ["miles", "Miles", "mi", "MI"]) {
+      const route = parseRoute({
+        trip: {
+          status: 0,
+          units,
+          summary: { length: 100, time: 7200 },
+          legs: [{ shape: SHAPE }],
+        },
+      });
+      expect(route?.distanceMiles, units).toBeCloseTo(100, 3);
+    }
+  });
+
+  // A drawn route reporting nought miles and nought minutes reads as a bug in
+  // the app rather than as an answer the router could not give, and it puts
+  // the whole drive's weather at the departure hour.
+  it("refuses a route with no length or duration rather than reporting nought", () => {
+    const base = {
+      status: 0,
+      units: "miles",
+      legs: [{ shape: SHAPE }],
+    };
+    expect(parseRoute({ trip: base })).toBeNull();
+    expect(
+      parseRoute({ trip: { ...base, summary: { time: 7200 } } }),
+    ).toBeNull();
+    expect(
+      parseRoute({ trip: { ...base, summary: { length: 100 } } }),
+    ).toBeNull();
+  });
+});
