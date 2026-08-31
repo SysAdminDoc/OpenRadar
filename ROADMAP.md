@@ -371,26 +371,12 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
 
-- [ ] AUD-101: P2. Make the radar record report cache state and freshness
-      Why: The radar layer's record is built with `fetchedAt: Date.now()` and neither a cache age nor a freshness rule, so it always prints "cache live" and can never be stale. The timeline already knows better: `RadarTimelineState.cached` says the frames on screen are the last ones that arrived rather than fresh, which is the single most useful thing a report about a wrong-looking picture could carry.
-      Evidence: `src/App.tsx` diagnostics wiring; `src/hooks/useRadarTimeline.ts` `cached`; `src/lib/tileCache.ts` `CacheReport`; `src/lib/provenance.ts` `provenanceStale`
-      Touches: Threading the cache report and frame cadence into the radar record; diagnostics
-      Acceptance: A frame served from disk reports its age rather than "cache live"; a loop older than its own cadence reports stale; a test drives both states through the diagnostics block.
-      Complexity: M
-
 - [ ] AUD-102: P2. Serialize the whole provenance record into an export
       Why: `AUD-068` asked exports to serialize the record. The caption reads three fields from it and burns a fixed credit line, so an archive replay of a 2005 hurricane still says "OpenRadar · OpenStreetMap · NOAA" rather than who actually served the frames, and nothing in the file carries the observed time, the source id, or the cache state.
       Evidence: `src/hooks/useExport.ts`; `src/lib/export.ts` `ExportCaption`; `src/lib/provenance.ts` `provenanceLines`; AUD-084
       Touches: Export caption and credit; a provenance sidecar or embedded metadata; export tests
       Acceptance: The credit line comes from the record rather than a constant; the full record travels with an exported file in a documented form; a replayed archive frame exports the archive's own attribution and observed time; tests cover a live frame, a forecast frame, and a replay.
       Complexity: M
-
-- [ ] AUD-103: P2. Validate provenance records where they are produced
-      Why: `provenanceProblems` is called only by its own tests. Nothing checks a record on the way into diagnostics or an export, so a malformed one reaches a bug report as confident nonsense rather than being caught.
-      Evidence: `src/lib/provenance.ts` `provenanceProblems`, `provenanceValid`; `src/App.tsx`; `src/hooks/useExport.ts`
-      Touches: The diagnostics layer list; the export path; a development-time warning route
-      Acceptance: A record failing the contract is reported rather than drawn or written, is visible in development, and never throws out of the surface that was formatting it; a test proves a malformed record cannot silently reach a pasted report.
-      Complexity: S
 
 - [ ] AUD-104: P2. Cover the rest of the live providers with contracts
       Why: The gate added by `AUD-069` holds 12 contracts against roughly 25 live hosts. The uncovered ones include the highest-consequence layer in the app: NWS watches and warnings. Earthquakes, wildfires, tropical, satellite, and the RIDGE, nowCOAST, GeoMet, DWD, HRRR and RainViewer radar providers are all unasked, and the native `tiles::tests` ignored test matches no filter.

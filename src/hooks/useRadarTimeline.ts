@@ -58,6 +58,8 @@ export interface RadarTimelineState {
    * they are not live.
    */
   cached: boolean;
+  /** How old the served bytes were, in seconds, or null for a live fetch. */
+  cachedAgeSeconds: number | null;
   /** The newest observation, which is what staleness is measured against. */
   newestObserved: RadarFrame | undefined;
   setPlaying: (playing: boolean) => void;
@@ -160,7 +162,12 @@ export function useRadarTimeline(options: {
   // which is the only thing here that actually knows where the bytes came
   // from. Guessing from navigator.onLine misses a captive portal and a dead
   // service, both of which look online and both of which come off the cache.
-  const [servedFromCache, setServedFromCache] = useState(false);
+  // How old the bytes were when the disk served them, or null for a live
+  // fetch. Kept as the age rather than reduced to a flag, because "the picture
+  // came off the disk" and "the picture is forty minutes old" are different
+  // things to tell somebody, and the second is the one they asked about.
+  const [cachedAgeSeconds, setCachedAgeSeconds] = useState<number | null>(null);
+  const servedFromCache = cachedAgeSeconds !== null;
   const refreshRef = useRef<(() => void) | null>(null);
   const wasOfflineRef = useRef(false);
   // A machine with no network is showing the last view whether or not the most
@@ -263,7 +270,7 @@ export function useRadarTimeline(options: {
         setSource(timeline.provider);
         setError(null);
         setLastRefreshFailed(false);
-        setServedFromCache(timeline.cachedAgeSeconds !== null);
+        setCachedAgeSeconds(timeline.cachedAgeSeconds);
         setObserved(timeline.frames);
         // A refresh only ever decides where the live loop should sit. While a
         // replay is up it must leave the playhead alone: writing to the live
@@ -429,6 +436,7 @@ export function useRadarTimeline(options: {
       attribution,
       error,
       cached,
+      cachedAgeSeconds,
       newestObserved,
       setPlaying,
       selectFrame: (index: number) => {
@@ -441,6 +449,7 @@ export function useRadarTimeline(options: {
     [
       attribution,
       cached,
+      cachedAgeSeconds,
       error,
       frameIndex,
       frames,
