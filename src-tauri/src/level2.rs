@@ -180,6 +180,9 @@ pub struct SweepImage {
     pub product: String,
     /// True when a loaded colour table drew this rather than the built-in ramp.
     pub palette_applied: bool,
+    /// True when the high-contrast ramps drew this, so the legend beside it
+    /// can be the bar the picture was actually painted with.
+    pub high_contrast: bool,
     /// True when the velocity in this sweep has been unfolded, so the legend
     /// can say the picture is no longer the radar's raw reading.
     pub dealiased: bool,
@@ -364,7 +367,7 @@ const WIDE_VELOCITY_RAMP: &[(f32, [u8; 3])] = &[
 /// deficiencies keep. Eight bands rather than fifteen, because separation is
 /// what contrast is for: fifteen steps cannot be told apart by anybody once
 /// the range is divided among them.
-const HIGH_CONTRAST_REFLECTIVITY_RAMP: &[(f32, [u8; 3])] = &[
+pub(crate) const HIGH_CONTRAST_REFLECTIVITY_RAMP: &[(f32, [u8; 3])] = &[
     (5.0, [0x00, 0x25, 0x6c]),
     (15.0, [0x00, 0x44, 0x7e]),
     (25.0, [0x00, 0x65, 0x62]),
@@ -1538,6 +1541,7 @@ fn draw_sweep(
         station: station.to_string(),
         product_id: asked.product_name.to_string(),
         palette_applied: palette::for_unit(unit).is_some(),
+        high_contrast: asked.high_contrast,
         site_name: entry
             .map(|site| format!("{}, {}", site.city, site.state))
             .unwrap_or_else(|| station.to_string()),
