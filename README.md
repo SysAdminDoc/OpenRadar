@@ -84,7 +84,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Place search, map-centred forecasts, GeoJSON and GRLevelX placefile import, shareable `openradar://` links.
 - English and Spanish, switched in Settings and applied where you are standing rather than on the next launch.
 - **An offline last view.** Tiles, radar frames and alert polygons are kept on disk, so a launch with no network opens on the last picture you saw and tells you how old it is.
-- **Prepared offline regions.** Settings can turn the current map view and a chosen zoom range into a PMTiles pack. Downloads pause and resume, each finished archive is checked before use, and a disk ceiling keeps the pack library bounded.
+- **Prepared offline regions.** Settings can turn the current map view and a chosen zoom range into a PMTiles pack. Downloads pause and resume, each finished archive is checked before use and checked again after a restart, and a disk ceiling keeps simultaneous pack writes bounded.
 
 ## Install
 

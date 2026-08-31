@@ -510,7 +510,8 @@ pub fn newest_key(listing: &str) -> Option<String> {
 /// The archive can have gaps while a radar is down, so the actual collection
 /// time travels with the result and the timeline names it. Choosing the nearest
 /// whole volume is more useful than pretending the requested minute exists.
-pub fn closest_key(listing: &str, wanted: DateTime<Utc>) -> Option<String> {
+#[cfg(test)]
+fn closest_key(listing: &str, wanted: DateTime<Utc>) -> Option<String> {
     closest_key_across([listing], wanted)
 }
 
