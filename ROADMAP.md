@@ -8,24 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — The severe-probability layer fails blank
-  Why: `useProbSevere` computes an error and `App.tsx` passes only `.features`, so a reader who switches the layer on when there is no publication gets nothing at all and no message. The hook's own comment says this is a layer somebody might act on.
-  Evidence: `.error` and `.reading` are read nowhere in src/App.tsx, src/components or src/panels.
-  Touches: src/App.tsx, src/panels (wherever the layer's note goes)
-  Acceptance: a failed or stale reading shows the reason where the reader is looking; a test asserts the message reaches the panel.
-
-- [ ] P1 — The severe-probability freshness check only works in one direction
-  Why: `readingTime` uses `Date.UTC`, which rolls month 99 and minute 61 over rather than rejecting them, and the staleness test is `<= STALE_MINUTES`, so any stamp at or after now passes forever. A stamp years ahead, or nonsense, is drawn as current; an ISO stamp or a missing one is silently not drawn. The Rust side has the same one-sidedness.
-  Evidence: `20990101_000000` and `99999999_999999` drawn as current; `2026-08-30T23:08:41Z` and an absent stamp not drawn with no error.
-  Touches: src/lib/probsevere.ts, src/hooks/useProbSevere.ts, src-tauri/src/probsevere.rs
-  Acceptance: a stamp that cannot be read is refused and says so; a stamp implausibly far ahead of the clock is refused; the table of eight cases is a test.
-
-- [ ] P1 — One malformed key throws away a whole ProbSevere listing
-  Why: `newest_in` uses `?` on `after.find("</Key>")` inside the loop, so an unterminated tag returns None from the function and discards keys already found.
-  Evidence: a truncated listing returns None even though a good key preceded the truncation (src-tauri/src/probsevere.rs:206).
-  Touches: src-tauri/src/probsevere.rs
-  Acceptance: a listing that is good up to a truncation still yields the newest good key; a test plants the truncation after a valid key.
-
 - [ ] P1 — Two hook tests assert nothing about the lines they name
   Why: deleting `offerRef.current = null` from the update check's failure path leaves useUpdates.test.ts green, and the line is unreachable anyway. Deleting `setError(null)` on a successful wind read leaves useWind.test.ts green, so the panel would keep reporting a failure while the particles animate.
   Evidence: both mutants survive their own suites.

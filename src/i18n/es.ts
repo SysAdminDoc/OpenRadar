@@ -370,6 +370,8 @@ export const es: Catalogue = {
   "layer.probSevere": "Probabilidad de tiempo severo",
   "layers.probSevereDetail":
     "Lo que un modelo espera de cada tormenta en la próxima hora, que es orientación y no un aviso",
+  "probSevere.stale":
+    "La última lectura tiene más de quince minutos, así que describe tormentas que ya se han movido. No se dibuja nada hasta que se publique una nueva.",
   "probSevere.title": "Probabilidad de tiempo severo",
   "probSevere.headline":
     "{percent}% de probabilidad de tiempo severo en la próxima hora",

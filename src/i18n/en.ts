@@ -367,6 +367,8 @@ export const en = {
   "layers.probSevereDetail":
     "What a model expects of each storm in the next hour, which is guidance rather than a warning",
   "probSevere.title": "Severe probability",
+  "probSevere.stale":
+    "The last reading is more than fifteen minutes old, so it is about storms that have moved on. Nothing is drawn until a fresh one is published.",
   "probSevere.headline": "{percent}% chance of severe weather in the next hour",
   "probSevere.kinds": "Hail {hail}% · Wind {wind}% · Tornado {tornado}%",
   "probSevere.note":
