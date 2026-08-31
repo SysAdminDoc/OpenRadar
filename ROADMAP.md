@@ -329,13 +329,6 @@ The three worth starting with are JOY-007 and JOY-008 together, since the journa
 
 Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
 
-- [ ] AUD-093: P1. Verify toast identity end to end and upgrade severe alert toasts to rich native content
-      Why: Windows silently drops toasts when the Start-menu shortcut does not carry a correct application user model identifier, so the existing alert notification path may already fail on some installs without any error. Separately, the official notification plugin is text-only on Windows (actions are mobile-only, no images), while WinRT toast XML supports a radar snapshot image, an open action, and the urgent scenario, which is what a tornado warning deserves.
-      Evidence: https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/send-local-toast-other-apps ; https://github.com/Ivy-Interactive/Rustino/issues/11 ; https://v2.tauri.app/plugin/notification/ ; `src/hooks/useAlertWatch.ts`; `src-tauri/src/lib.rs`; AUD-004
-      Touches: Installer shortcut and identifier; a small WinRT toast module in Rust; the alert watch handoff; snapshot rendering to a local file; fallback to the plain plugin toast
-      Acceptance: An installed build proves a toast is attributed to OpenRadar and survives the app being minimised; a severe alert toast carries severity, place name, and a local radar snapshot image, and clicking it raises the window on the alert; a machine where rich toasts fail falls back to the plain toast rather than to silence; the dropped-toast failure mode has a documented check.
-      Complexity: M
-
 - [ ] AUD-094: P2. Grow the single colour table into a palette library
       Why: The switching cost in this market is accumulated customization. A community of shared GRLevelX tables is active in 2026 (about 150 tables on the main hub, uploads this year), a competitor bug about tables failing to persist shows persistence is a felt stake, and OpenRadar currently holds exactly one palette at a time in settings.
       Evidence: https://grlevelxusers.com/grlevelx-goodies/categories/color-tables/ ; https://github.com/dpaulat/supercell-wx/issues/639 ; https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/page-2 ; `src/lib/settings.ts`; `src/lib/palette.ts`; `src-tauri/src/palette.rs`

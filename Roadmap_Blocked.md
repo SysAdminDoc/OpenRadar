@@ -67,3 +67,13 @@ Four audit items ask for evidence that cannot be produced from a terminal on thi
 - `AUD-006`, the clean Windows install and uninstall validation. It needs a throwaway Windows image that no session has touched, plus a display to watch the first run on. The virtual machine on the network is not clean and installing into it would stop it being a useful control.
 
 What would unblock all four in one go is an isolated desktop session, either a second physical display this machine may drive or a virtual machine with its own console, plus a certificate for the signing half of `AUD-005`.
+
+## Rich alert toasts, and proving a toast is attributed at all
+
+`AUD-093` belongs with the four above rather than in the active backlog, because every clause of what it asks for ends at a window somebody has to look at.
+
+The useful half of it is a real finding and worth writing down while it is fresh. Windows drops a toast silently when the Start-menu shortcut does not carry a correct application user model identifier, so the alert notification path may already be failing on some installs with nothing said. Nothing in a headless test can tell the difference between a toast that was raised and one that was swallowed, which is exactly why the item asks for an installed build.
+
+The other half is that `tauri-plugin-notification` is text-only on Windows: its actions are mobile-only and it carries no image, while WinRT toast XML supports a radar snapshot, an open action and the urgent scenario a tornado warning deserves. Writing that module without being able to see a single toast come out of it would be building the one thing whose whole acceptance is visual.
+
+What would unblock it is the same isolated desktop session the four above need, plus a packaged build to install.
