@@ -8,6 +8,34 @@ import {
 import { translate } from "../i18n";
 import { distanceUnit, distanceValue } from "./units";
 
+/**
+ * Hours the reader would rather not be spoken to during, and what still gets
+ * through anyway.
+ *
+ * The override is the point of the whole thing. A weather app that can be
+ * silenced completely is one that fails at the only moment it matters, so the
+ * quiet applies to the ordinary run of warnings and never to the ones worth
+ * waking somebody for.
+ */
+export interface QuietHours {
+  enabled: boolean;
+  /** Minutes past local midnight, so 22:30 is 1350. */
+  startMinute: number;
+  endMinute: number;
+  /** Nothing at this severity or above is ever held back. */
+  overrideSeverity: AlertSeverity;
+}
+
+export const DEFAULT_QUIET_HOURS: QuietHours = {
+  enabled: false,
+  // Ten at night until seven in the morning, which is the shape of the thing
+  // most people mean, and which deliberately crosses midnight so the wrap is
+  // exercised the moment anybody switches it on.
+  startMinute: 22 * 60,
+  endMinute: 7 * 60,
+  overrideSeverity: "extreme",
+};
+
 export interface WatchSettings {
   enabled: boolean;
   center: [number, number];
@@ -16,6 +44,72 @@ export interface WatchSettings {
   minSeverity: AlertSeverity;
   /** Whether an announcement also makes a sound. */
   sound: boolean;
+  quietHours?: QuietHours;
+}
+
+/** The reader's own clock, as minutes past their own midnight. */
+export function localMinute(at: number | Date): number {
+  const when = at instanceof Date ? at : new Date(at);
+  return when.getHours() * 60 + when.getMinutes();
+}
+
+/**
+ * Whether a moment falls inside the quiet window.
+ *
+ * A window that crosses midnight is the normal case rather than the awkward
+ * one, so it is handled first: from ten at night until seven means everything
+ * after the start or before the end, not everything between two numbers.
+ */
+export function inQuietHours(quiet: QuietHours, at: number | Date): boolean {
+  if (!quiet.enabled) return false;
+  const minute = localMinute(at);
+  // A window with the same start and end silences nothing rather than
+  // everything, which is the reading that cannot lock somebody out by accident.
+  if (quiet.startMinute === quiet.endMinute) return false;
+  if (quiet.startMinute < quiet.endMinute) {
+    return minute >= quiet.startMinute && minute < quiet.endMinute;
+  }
+  return minute >= quiet.startMinute || minute < quiet.endMinute;
+}
+
+/**
+ * Whether quiet hours hold this one back.
+ *
+ * Severity is what decides, not the reader's own minimum: somebody who has
+ * asked to hear about moderate alerts still does not want one at four in the
+ * morning, and still does want the tornado warning.
+ */
+export function silencedByQuietHours(
+  watch: WatchSettings,
+  severity: AlertSeverity,
+  at: number | Date,
+): boolean {
+  const quiet = watch.quietHours;
+  if (!quiet || !inQuietHours(quiet, at)) return false;
+  return SEVERITY_RANK[severity] < SEVERITY_RANK[quiet.overrideSeverity];
+}
+
+/**
+ * Why one alert was announced, kept so it can be answered afterwards.
+ *
+ * "Why did my computer just make a noise at me" is the question a watch has to
+ * be able to answer, and the parts of the answer are all decided in one place
+ * and then thrown away. Keeping them costs nothing and turns a mystery into a
+ * sentence.
+ */
+export interface WatchReason {
+  /** The kind of alert, which is the switch it belongs to in the panel. */
+  event: string;
+  severity: AlertSeverity;
+  /** The threshold it had to clear to be worth mentioning. */
+  minSeverity: AlertSeverity;
+  radiusMiles: number;
+  distanceMiles: number;
+  /**
+   * The damage threat it carried last time it was announced, when this one is
+   * an upgrade rather than a first sighting. Null on a first sighting.
+   */
+  upgradedFrom: number | null;
 }
 
 export interface WatchAlert {
@@ -28,6 +122,7 @@ export interface WatchAlert {
   severity: AlertSeverity;
   expires: number | null;
   distanceMiles: number;
+  reason: WatchReason;
 }
 
 /** A box around the watched point, which is what the alert service is asked for. */
@@ -141,6 +236,14 @@ export function alertsToAnnounce(
       severity,
       expires: typeof expires === "number" ? expires : null,
       distanceMiles: distance,
+      reason: {
+        event: String(feature.properties.kind ?? "other"),
+        severity,
+        minSeverity: watch.minSeverity,
+        radiusMiles: watch.radiusMiles,
+        distanceMiles: distance,
+        upgradedFrom: told ?? null,
+      },
     });
   }
 
@@ -167,4 +270,58 @@ export function watchAlertBody(alert: WatchAlert): string {
   return `${body} ${translate("alerts.impactLine", {
     tag: translate(`alerts.impact.${alert.impact}` as never),
   })}`;
+}
+
+/**
+ * The reason an alert was announced, as lines somebody can read.
+ *
+ * Written from the record rather than recomposed, so what this says and what
+ * the watch actually decided cannot drift apart.
+ */
+export function watchReasonLines(reason: WatchReason): string[] {
+  const lines = [
+    translate("watch.whyEvent", {
+      event: reason.event,
+      severity: reason.severity,
+    }),
+    translate("watch.whyThreshold", { minSeverity: reason.minSeverity }),
+    translate("watch.whyDistance", {
+      miles: distanceValue(reason.distanceMiles),
+      radius: distanceValue(reason.radiusMiles),
+      unit: distanceUnit(),
+    }),
+  ];
+  if (reason.upgradedFrom !== null) {
+    // The one case where the same alert is mentioned twice, and the only
+    // honest way to explain a second interruption about something already said.
+    lines.push(translate("watch.whyUpgraded"));
+  }
+  return lines;
+}
+
+/**
+ * A harmless alert, for somebody who wants to know what one looks like before
+ * the weather decides to show them.
+ *
+ * It goes through the same delivery as a real one, because the thing worth
+ * testing is the permission, the sound and the notification, not the wording.
+ */
+export function testWatchAlert(watch: WatchSettings): WatchAlert {
+  return {
+    id: `test-${Date.now()}`,
+    rank: 0,
+    headline: translate("watch.testHeadline"),
+    impact: "",
+    severity: watch.minSeverity,
+    expires: null,
+    distanceMiles: 0,
+    reason: {
+      event: "test",
+      severity: watch.minSeverity,
+      minSeverity: watch.minSeverity,
+      radiusMiles: watch.radiusMiles,
+      distanceMiles: 0,
+      upgradedFrom: null,
+    },
+  };
 }

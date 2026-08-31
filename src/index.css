@@ -3318,3 +3318,39 @@ input[type="range"] {
     right: 16px;
   }
 }
+
+/* The quiet-hours fields, which only appear once the switch above them is on.
+   They wrap rather than shrink, because a time field at 130 percent text is
+   already close to half the panel. */
+.quiet-hours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 0 2px;
+}
+
+.quiet-hours label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 120px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.quiet-hours input,
+.quiet-hours select {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.quiet-hours input:focus-visible,
+.quiet-hours select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

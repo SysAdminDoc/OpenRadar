@@ -9,6 +9,7 @@ import type { ClockZone, TextScale, UnitSystem } from "./units";
 export const APP_VERSION = "0.4.0";
 
 import { ALERT_TYPES, type AlertType } from "./alertTypes";
+import { DEFAULT_QUIET_HOURS, type QuietHours } from "./watch";
 
 export type ThemeMode = "dark" | "light";
 export type ProjectionMode = "mercator" | "globe";
@@ -115,6 +116,8 @@ export interface WatchState {
   center: [number, number];
   radiusMiles: number;
   minSeverity: "extreme" | "severe" | "moderate" | "minor";
+  /** Hours to hold ordinary alerts back, and what still gets through. */
+  quietHours: QuietHours;
 }
 
 export interface PresetState {
@@ -250,6 +253,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     radiusMiles: 30,
     sound: false,
     minSeverity: "severe",
+    quietHours: DEFAULT_QUIET_HOURS,
   },
   presets: [null, null, null, null],
   seenWelcome: false,
@@ -346,6 +350,36 @@ function normalizeWatch(value: unknown): WatchState {
     minSeverity: ["extreme", "severe", "moderate", "minor"].includes(severity)
       ? (severity as WatchState["minSeverity"])
       : DEFAULT_SETTINGS.watch.minSeverity,
+    quietHours: normalizeQuietHours(raw.quietHours),
+  };
+}
+
+/**
+ * Quiet hours out of a settings file, which may be older than this build or
+ * may have been edited by hand.
+ *
+ * The bounds matter more here than in most of these. A start or end outside a
+ * day would make the window unreadable, and an override severity that is not
+ * one silences everything, which is the one outcome a weather app must not
+ * arrive at by accident.
+ */
+function normalizeQuietHours(value: unknown): QuietHours {
+  const raw =
+    value && typeof value === "object" ? (value as Partial<QuietHours>) : {};
+  const override = String(raw.overrideSeverity);
+  return {
+    enabled: bool(raw.enabled, DEFAULT_QUIET_HOURS.enabled),
+    startMinute: Math.round(
+      finiteInRange(raw.startMinute, DEFAULT_QUIET_HOURS.startMinute, 0, 1439),
+    ),
+    endMinute: Math.round(
+      finiteInRange(raw.endMinute, DEFAULT_QUIET_HOURS.endMinute, 0, 1439),
+    ),
+    overrideSeverity: ["extreme", "severe", "moderate", "minor"].includes(
+      override,
+    )
+      ? (override as QuietHours["overrideSeverity"])
+      : DEFAULT_QUIET_HOURS.overrideSeverity,
   };
 }
 

@@ -793,6 +793,25 @@ export const en = {
   "export.noFrames": "There are no frames to record.",
   "export.tooLarge": "The recording came out larger than 20 MB.",
   "export.empty": "The recording came out empty.",
+  "watch.whyEvent": "A {event} alert, rated {severity}.",
+  "watch.whyThreshold": "You asked to hear about {minSeverity} and above.",
+  "watch.whyDistance":
+    "It reached {miles} {unit} from your point, inside the {radius} you watch.",
+  "watch.whyUpgraded":
+    "You were told about this one before. The office has raised its damage threat since.",
+  "watch.testHeadline": "Test alert",
+  "watch.quiet": "Quiet hours",
+  "watch.quietDetail":
+    "Hold ordinary alerts back overnight. Anything at the severity you choose still comes through.",
+  "watch.quietFrom": "From",
+  "watch.quietUntil": "Until",
+  "watch.quietOverride": "Always wake me for",
+  "watch.sendTest": "Send a test alert",
+  "watch.sendTestDetail":
+    "Raises one harmless notification, and the tone if it is on, so you know what to expect.",
+  "watch.testSent": "Test alert sent",
+  "watch.testSentBody":
+    "If nothing appeared, Windows may be holding notifications for this app.",
   "watch.alert": "Weather alert",
   "watch.here": "where you are watching",
   "watch.milesAway": "{miles} {unit} from the point you watch",

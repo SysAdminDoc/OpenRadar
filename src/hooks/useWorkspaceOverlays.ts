@@ -14,6 +14,8 @@ export interface WorkspaceOverlays {
   states: OverlayStates;
   /** What the map should draw: null for a layer the user has switched off. */
   data: Partial<Record<OverlayId, OverlayData | null>>;
+  /** Raises one harmless alert, so the reader can see the path works. */
+  sendWatchTest: () => Promise<boolean>;
 }
 
 /**
@@ -65,7 +67,7 @@ export function useWorkspaceOverlays(options: {
   // panel: announcing a kind the panel will not show sends somebody to an
   // empty list, and the switch says it takes the kind off the map and out of
   // the list.
-  useAlertWatch(settings.watch, settings.alertTypes, (alert) =>
+  const watch = useAlertWatch(settings.watch, settings.alertTypes, (alert) =>
     pushToast({
       title: alert.headline,
       detail: watchAlertBody(alert),
@@ -108,5 +110,5 @@ export function useWorkspaceOverlays(options: {
     [shown, states],
   );
 
-  return { states: states_, data };
+  return { states: states_, data, sendWatchTest: watch.sendTest };
 }

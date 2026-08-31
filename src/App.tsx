@@ -141,6 +141,22 @@ export default function App() {
     replaying: replay !== null,
   });
 
+  // A test the reader asked for is answered on the desktop path only. When the
+  // notification does not go out, the watch has already put the same alert in
+  // front of them as a toast, and a second message saying it worked would be
+  // the app talking about itself rather than about the weather.
+  const sendWatchTest = useCallback(() => {
+    void (async () => {
+      const delivered = await overlays.sendWatchTest();
+      if (delivered) {
+        pushToast({
+          title: translate("watch.testSent"),
+          detail: translate("watch.testSentBody"),
+        });
+      }
+    })();
+  }, [overlays, pushToast]);
+
   const paletteGeneration = usePalette({
     ready: hydrated,
     palette: settings.palette,
@@ -637,6 +653,7 @@ export default function App() {
             onRoute={setRoute}
             onUpload={actions.uploadOverlay}
             onWatchHere={actions.watchHere}
+            onSendWatchTest={sendWatchTest}
             onOpenLogFolder={actions.openLogFolder}
             onCopyDiagnostics={copyDiagnostics}
             onReset={actions.resetSettings}
