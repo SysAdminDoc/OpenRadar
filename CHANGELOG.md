@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## OpenRadar v0.6.0
 
 - Snow is drawn as snow. The app painted everything on the rain scale, so a winter storm looked like rain falling hard, and the network has published what is actually falling all along: MRMS PrecipFlag, on the same bucket, every two minutes, in the same packing the other grids already use. The new layer lists its categories by name rather than as a scale, because six is not more than three, it is convection rather than snow. The colours were searched rather than picked: every pair of them stays 17 apart under all three colour-vision simulations, against the 10 the ramps are held to, and none is dark enough to read as a hole in the map. A value the published table does not name is left undrawn, and the legend says the classification is the network's own rather than a report from the ground.
 
