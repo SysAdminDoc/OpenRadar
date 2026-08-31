@@ -5,7 +5,8 @@
 //! radar itself, one site at a time, which is what a close-in view wants.
 
 use std::collections::{BTreeMap, VecDeque};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use chrono::{DateTime, Datelike, Duration, Utc};
@@ -40,6 +41,24 @@ const MAX_RANGE_KM: f64 = 230.0;
 const SITE_REACH_KM: f64 = MAX_RANGE_KM;
 /// Four volumes, as the roadmap asks. They are held compressed, not decoded.
 const CACHE_CAPACITY: usize = 4;
+
+/// How many decoded volumes to keep beside the compressed ones.
+///
+/// Fewer than the compressed cache holds, because a decoded volume is the
+/// expensive one to keep: the compressed bytes are what came off the network
+/// and the scan is what they turn into, several times larger.
+const DECODED_CAPACITY: usize = 3;
+
+/// The ceiling on what the decoded cache may hold, counted in the source bytes
+/// each volume arrived as.
+///
+/// Counted that way deliberately. The decoded scan's own footprint cannot be
+/// measured cheaply through this model's API: a radial's moments expose their
+/// readings only by iterating or by allocating a vector of them, so asking a
+/// volume how large it is would cost most of what decoding it did. The source
+/// length is exact, known before anything is decoded, and moves with the
+/// decoded size rather than independently of it, which is what a budget needs.
+const DECODED_BUDGET_BYTES: usize = 64 * 1024 * 1024;
 
 /// How old a site's newest volume may be before it counts as down.
 const STALE_AFTER_MINUTES: i64 = 20;
@@ -187,6 +206,36 @@ struct CachedVolume {
 }
 
 static CACHE: Mutex<VecDeque<CachedVolume>> = Mutex::new(VecDeque::new());
+
+/// One volume that has already been turned into a scan.
+///
+/// Both halves are here because both cost a pass over the volume. The scan is
+/// the obvious one. The folding velocities are the other: they live only in the
+/// raw radial headers, which the model's scan does not carry, so reading them
+/// back meant walking the whole file again for every cut asked about.
+struct DecodedVolume {
+    key: String,
+    scan: Arc<Scan>,
+    /// Every cut's folding velocity, by elevation number.
+    nyquist: Arc<BTreeMap<u8, f32>>,
+    /// What the volume arrived as, which is what the budget counts.
+    source_bytes: usize,
+}
+
+static DECODED: Mutex<VecDeque<DecodedVolume>> = Mutex::new(VecDeque::new());
+
+/// How many volumes have actually been decoded since this build started.
+///
+/// The whole point of the cache is that changing tilt or product does not
+/// decode anything again, and that is invisible from the outside: the picture
+/// is identical either way, only slower. A counter is what lets a test say the
+/// work did not happen rather than that the answer looked right.
+static DECODES: AtomicUsize = AtomicUsize::new(0);
+
+/// A decoded volume as it is handed out: the scan, and every cut's folding
+/// velocity beside it. Both are shared rather than copied, because the whole
+/// point is that neither is built again.
+type Decoded = (Arc<Scan>, Arc<BTreeMap<u8, f32>>);
 
 /// A site's newest volume time, when the archive was asked, and whether the
 /// asking failed rather than came back empty.
@@ -421,11 +470,102 @@ fn remember(key: &str, data: &[u8]) {
     }
 }
 
+/// A volume as a scan, decoding it only if it has not been decoded already.
+///
+/// Every product and every tilt of one volume is the same scan looked at
+/// differently, so a reader walking up the tilts was paying for the whole
+/// decode once per step, and paying for the folding velocities again on top of
+/// it. This is the one place a volume becomes a scan.
+///
+/// Only finished volumes reach here. The one the radar is sweeping now is
+/// assembled from chunks and is a different thing under the same site's name:
+/// it holds fewer cuts, it changes every few seconds, and caching it under the
+/// volume's own key would let a partial sweep be served as the finished one.
+fn decoded_volume(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
+    if let Some(hit) = decoded_hit(key) {
+        return Ok(hit);
+    }
+
+    let source_bytes = data.len();
+    let file = volume::File::new(data);
+    let scan = Arc::new(
+        file.scan()
+            .map_err(|error| Level2Error::Decode(error.to_string()))?,
+    );
+    // One pass for every cut's folding velocity, rather than one pass per cut
+    // asked about. A volume whose records will not read still decodes: without
+    // the table there is no unfolding, which is a worse picture and not a
+    // failure.
+    let nyquist = Arc::new(
+        file.records()
+            .map(|records| nyquist_table(&records))
+            .unwrap_or_default(),
+    );
+    DECODES.fetch_add(1, Ordering::Relaxed);
+    remember_decoded(key, &scan, &nyquist, source_bytes);
+    Ok((scan, nyquist))
+}
+
+fn decoded_hit(key: &str) -> Option<Decoded> {
+    let decoded = DECODED.lock().ok()?;
+    decoded
+        .iter()
+        .find(|entry| entry.key == key)
+        .map(|entry| (Arc::clone(&entry.scan), Arc::clone(&entry.nyquist)))
+}
+
+fn remember_decoded(
+    key: &str,
+    scan: &Arc<Scan>,
+    nyquist: &Arc<BTreeMap<u8, f32>>,
+    source_bytes: usize,
+) {
+    let Ok(mut decoded) = DECODED.lock() else {
+        return;
+    };
+    if decoded.iter().any(|entry| entry.key == key) {
+        return;
+    }
+    decoded.push_back(DecodedVolume {
+        key: key.to_string(),
+        scan: Arc::clone(scan),
+        nyquist: Arc::clone(nyquist),
+        source_bytes,
+    });
+    // Oldest first, on either limit, and never the one just put in: a single
+    // volume larger than the whole budget is still the one being drawn.
+    while decoded.len() > DECODED_CAPACITY
+        || (decoded.len() > 1
+            && decoded
+                .iter()
+                .map(|entry| entry.source_bytes)
+                .sum::<usize>()
+                > DECODED_BUDGET_BYTES)
+    {
+        decoded.pop_front();
+    }
+}
+
 #[cfg(test)]
 pub fn clear_cache() {
     if let Ok(mut cache) = CACHE.lock() {
         cache.clear();
     }
+    if let Ok(mut decoded) = DECODED.lock() {
+        decoded.clear();
+    }
+}
+
+/// How many volumes have been decoded, for tests that care that one was not.
+#[cfg(test)]
+pub fn decode_count() -> usize {
+    DECODES.load(Ordering::Relaxed)
+}
+
+/// How many decoded volumes are being held.
+#[cfg(test)]
+pub fn decoded_len() -> usize {
+    DECODED.lock().map(|decoded| decoded.len()).unwrap_or(0)
 }
 
 /// What the volume cache is holding, in bytes.
@@ -463,10 +603,15 @@ pub struct ChosenSweep {
 
 /// The velocity a cut folds at.
 ///
+/// Only the tests reach for this now. Everything the app draws goes through
+/// the decoded-volume cache, which builds the whole table once per volume
+/// rather than walking the records again for each cut asked about.
+///
 /// The sweep the model hands back does not carry it, so it is read from the
 /// radial header in the raw messages. Only the first radial of the cut is
 /// needed, and records are read in order, so this stops as soon as it finds one
 /// rather than parsing the whole volume a second time.
+#[cfg(test)]
 fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
     let records = file.records().ok()?;
     nyquist_from_records(&records, elevation_number)
@@ -477,6 +622,7 @@ fn nyquist_velocity(file: &volume::File, elevation_number: u8) -> Option<f32> {
 /// The volume being swept right now arrives as loose records rather than as a
 /// file, and it needs this as much as the finished one does: without it there
 /// is no unfolding, and storm relative velocity refuses outright.
+#[cfg(test)]
 pub fn nyquist_from_records(records: &[volume::Record<'_>], elevation_number: u8) -> Option<f32> {
     nyquist_table(records).get(&elevation_number).copied()
 }
@@ -935,12 +1081,9 @@ pub fn sweep_from_volume(
     data: Vec<u8>,
     asked: SweepRequest<'_>,
 ) -> Result<SweepImage, Level2Error> {
-    let file = volume::File::new(data);
-    let scan = file
-        .scan()
-        .map_err(|error| Level2Error::Decode(error.to_string()))?;
-    let nyquist = |elevation: u8| nyquist_velocity(&file, elevation);
-    sweep_from_scan(station, volume_key, &scan, &nyquist, asked)
+    let (scan, nyquist) = decoded_volume(volume_key, data)?;
+    let folding = |elevation: u8| nyquist.get(&elevation).copied();
+    sweep_from_scan(station, volume_key, &scan, &folding, asked)
 }
 
 /// The same, from a scan that has already been put together.
@@ -1430,15 +1573,16 @@ pub async fn level2_sweep(
         };
         match live {
             Some(found) => {
-                let file = volume::File::new(data);
-                let older = file
-                    .scan()
-                    .map_err(|error| Level2Error::Decode(error.to_string()))?;
+                // The finished volume underneath a live sweep is the same
+                // archive volume as ever, so it comes from the same cache. It
+                // was being decoded again on every refresh, which is once every
+                // few seconds while a live sweep is on.
+                let (older, folding) = decoded_volume(&key, data)?;
                 sweep_over(
                     &station,
                     &found.volume.volume.to_string(),
                     &older,
-                    &|elevation| nyquist_velocity(&file, elevation),
+                    &|elevation| folding.get(&elevation).copied(),
                     &found.scan,
                     &|elevation| found.nyquist.get(&elevation).copied(),
                     asked,
@@ -3680,5 +3824,147 @@ mod tests {
             adrift, 0,
             "{adrift} gates did not come back to the wind that was planted, {back} did"
         );
+    }
+
+    /// The decoded-volume cache and its counter are global, so the tests that
+    /// look at them take turns. A panicking test poisons this; the next one
+    /// carries on rather than failing for a reason that is not its own.
+    static DECODED_CACHE_TESTS: Mutex<()> = Mutex::new(());
+
+    fn decoded_cache_test() -> std::sync::MutexGuard<'static, ()> {
+        DECODED_CACHE_TESTS
+            .lock()
+            .unwrap_or_else(|held| held.into_inner())
+    }
+
+    /// A volume as bytes, so a test can hand the same ones over twice.
+    fn volume_bytes(id: &[u8; 4], at: DateTime<Utc>) -> Vec<u8> {
+        let entry = registry::site_by_id("KTLX").expect("Oklahoma City is in the registry");
+        let site = fixture::Site {
+            id: *id,
+            latitude: entry.latitude,
+            longitude: entry.longitude,
+            height_metres: 370,
+        };
+        let cut = fixture::flat_cut(
+            at,
+            fixture::Cut {
+                velocity: Some(fixture::Gate::Reading(4.0)),
+                ..fixture::Cut::default()
+            },
+        );
+        fixture::volume(&site, at, &[cut])
+    }
+
+    fn ask(tilt_index: usize, product_name: &str) -> SweepRequest<'_> {
+        SweepRequest {
+            product_name,
+            tilt_index,
+            unfold: false,
+            manual_motion: None,
+            threshold: None,
+        }
+    }
+
+    /// The decoded-volume cache, which is invisible except in what it does not
+    /// do: the picture is identical either way, only slower without it.
+    #[test]
+    fn a_volume_is_decoded_once_however_many_ways_it_is_looked_at() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let bytes = volume_bytes(b"KTLX", at);
+        let before = decode_count();
+
+        let first = sweep_from_volume("KTLX", "one", bytes.clone(), ask(0, "reflectivity"))
+            .expect("the fixture volume draws");
+        assert_eq!(decode_count(), before + 1, "the first look has to decode");
+
+        // The same volume, asked about differently. Neither is a new volume.
+        let same_tilt_other_product =
+            sweep_from_volume("KTLX", "one", bytes.clone(), ask(0, "velocity"))
+                .expect("the same volume draws a second product");
+        let again = sweep_from_volume("KTLX", "one", bytes.clone(), ask(0, "reflectivity"))
+            .expect("the same volume draws again");
+        assert_eq!(
+            decode_count(),
+            before + 1,
+            "changing product or asking again must not decode the volume a second time"
+        );
+
+        // Reuse is only worth anything if it is the same picture.
+        assert_eq!(
+            first.image, again.image,
+            "the reused scan drew a different picture"
+        );
+        assert_ne!(
+            first.image, same_tilt_other_product.image,
+            "two products of one volume should not be the same picture"
+        );
+    }
+
+    #[test]
+    fn a_different_volume_is_a_different_entry() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let bytes = volume_bytes(b"KTLX", at);
+        let before = decode_count();
+
+        sweep_from_volume("KTLX", "one", bytes.clone(), ask(0, "reflectivity"))
+            .expect("the first volume draws");
+        sweep_from_volume("KTLX", "two", bytes.clone(), ask(0, "reflectivity"))
+            .expect("the second volume draws");
+        assert_eq!(
+            decode_count(),
+            before + 2,
+            "a volume under a new key is a new volume and has to be decoded"
+        );
+        assert_eq!(decoded_len(), 2);
+    }
+
+    #[test]
+    fn the_oldest_decoded_volume_goes_first() {
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let bytes = volume_bytes(b"KTLX", at);
+
+        // One more than the cache holds, so the first one has to leave.
+        for index in 0..=DECODED_CAPACITY {
+            sweep_from_volume(
+                "KTLX",
+                &format!("volume-{index}"),
+                bytes.clone(),
+                ask(0, "reflectivity"),
+            )
+            .expect("each volume draws");
+        }
+        assert_eq!(
+            decoded_len(),
+            DECODED_CAPACITY,
+            "the cache must not grow past what it says it holds"
+        );
+
+        // The oldest is gone, so asking for it again decodes it again. The
+        // newest is still there, so asking for it does not.
+        let before = decode_count();
+        sweep_from_volume("KTLX", "volume-0", bytes.clone(), ask(0, "reflectivity"))
+            .expect("the evicted volume draws again");
+        assert_eq!(
+            decode_count(),
+            before + 1,
+            "the oldest should have been evicted"
+        );
+
+        let held = decode_count();
+        sweep_from_volume(
+            "KTLX",
+            &format!("volume-{DECODED_CAPACITY}"),
+            bytes.clone(),
+            ask(0, "reflectivity"),
+        )
+        .expect("the newest volume draws");
+        assert_eq!(decode_count(), held, "the newest should still be held");
     }
 }

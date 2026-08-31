@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.4.0
 
+- Walking up the tilts of one radar volume, or switching between reflectivity and velocity, no longer decodes the volume again each time. A volume is turned into a scan once and kept, along with every cut's folding velocity, which used to mean a second pass over the whole file for each cut asked about. A live sweep benefits twice over: the finished volume underneath it was being decoded again every few seconds. Three volumes are held, under a byte ceiling, oldest out first.
+
 - The watched place has quiet hours now. Set a window, pick the severity that still gets through, and ordinary warnings are held back overnight while anything at or above that severity still wakes you. There is also a button that sends one harmless test alert, with the tone if you have it on, because a notification nobody has ever seen work is a notification nobody trusts. Every announcement now records why it fired: the kind of alert, the threshold it cleared, how far away it reached, and whether it was a warning you had already been told about that the office has since escalated.
 
 - Route weather now asks the FOSSGIS public routing service instead of the OSRM demo server. The reason is a rule the old one could not be kept: OSRM asks every request to carry an identifying User-Agent, and a browser will not let a page set that header, so route requests went out anonymous whether they wanted to or not. The new service asks instead for a header a page can send, and says so in its own policy. Routes are still spaced a second apart, and a drive still falls back to a labelled straight-line estimate when the router cannot be reached.
