@@ -578,6 +578,9 @@ export const es: Catalogue = {
   "bar.compact": "Comandos compactos",
   "bar.location": "Ubicación",
   "bar.locate": "Ubicar",
+  "welcome.title": "Todo está en Comandos y Capas",
+  "welcome.detail":
+    "Comandos busca por nombre cualquier producto, lugar o ajuste. Capas es donde se activan y desactivan el radar, los avisos, los rayos y lo demás.",
   "bar.commands": "Comandos",
   "bar.commandsDetail": "Todas las capas, productos y paneles en una lista",
   "bar.dualPane": "Dos paneles",

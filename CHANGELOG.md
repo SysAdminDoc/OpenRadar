@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.3.0 (unreleased)
 
+- A first launch says where everything is. There was no onboarding of any kind: the map opened and nothing on screen mentioned that Commands searches every product, place and setting by name, or that Layers is where the rest is switched on. One toast, once, and it is done with as soon as it has been shown.
+
 - The severe probability layer says when it has nothing to show. Switch a layer on, see a blank map, and it looks like a quiet afternoon rather than a layer that could not read anything, which for guidance somebody might act on is the worst thing it could look like. The reason now appears beside the switch. Its freshness check also worked in one direction only, so a file stamped in the future passed forever and a stamp that was not a date at all rolled over into one: the twelfth of January 8034 was being drawn as the current reading. Both are refused now, and a listing that arrives cut short keeps the readings that came before the cut instead of being thrown away whole.
 
 - The alert switches say what is under them. They are grouped by hazard rather than by product name, which is right, but it means a switch holds products whose names look nothing like its own: tsunami warnings, extreme wind and the civil emergencies sit with the tornado warnings because all of them are somebody telling you to move now. The switch was called "Tornado", so a reader in Honolulu could have turned off tsunami warnings while turning off weather that does not happen there. It is called "Take cover now" now, and every switch carries a line listing what it covers.

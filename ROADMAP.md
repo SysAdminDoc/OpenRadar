@@ -37,10 +37,3 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
   Touches: src/lib/export.ts, src/panels/ExportPanel.tsx, src/i18n
   Acceptance: Export offers GIF with a frame cap of 24 and the same burned-in credits; the file opens in Windows Photos; `export.test.ts` covers the palette quantisation.
   Complexity: M
-
-- [ ] P3 — First-launch hint toast pointing at Commands and the Layers panel
-  Why: there is no onboarding of any kind; the command list is the discoverability feature and nothing surfaces it. A single dismissible toast fits the no-dialog rule.
-  Evidence: recon memo section 4 (no first-run state anywhere); `src/components/CommandPalette.tsx`.
-  Touches: src/lib/settings.ts (a `seenWelcome` flag), src/App.tsx, src/i18n
-  Acceptance: the toast appears once, never again after dismissal or after any command is used; e2e asserts both.
-  Complexity: S

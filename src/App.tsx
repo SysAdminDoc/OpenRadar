@@ -18,6 +18,7 @@ import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts } from "./hooks/useToasts";
+import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
@@ -102,6 +103,18 @@ export default function App() {
   );
   const { settings, hydrated, settingsRef, applySettings, updateCamera } =
     useSettings({ onPersistError });
+
+  // Everything the workspace can do is behind Commands and Layers, and nothing
+  // on screen says either exists. One toast, once.
+  const markWelcomeSeen = useCallback(() => {
+    applySettings({ ...settingsRef.current, seenWelcome: true });
+  }, [applySettings, settingsRef]);
+  useWelcomeHint({
+    ready: hydrated,
+    seen: settings.seenWelcome,
+    push: pushToast,
+    onSeen: markWelcomeSeen,
+  });
 
   const overlays = useWorkspaceOverlays({
     settings,
@@ -350,6 +363,10 @@ export default function App() {
   // the palette itself stays a list rather than a second copy of the app.
   const runCommand = useCallback(
     (action: CommandAction) => {
+      // Nothing about the welcome hint here. It is remembered the moment it
+      // is put on screen, so having found the commands the reader has already
+      // been past it, and a second place that writes the same flag would be a
+      // line that can never run.
       const current = settingsRef.current;
       switch (action.kind) {
         case "layer":

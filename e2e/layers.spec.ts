@@ -356,12 +356,16 @@ test("switching a kind of alert off takes it out of what is drawn", async ({
   await page.getByRole("button", { name: "Close Alerts" }).click();
 
   await page.getByRole("button", { name: "Layers", exact: true }).click();
-  // A kind nobody has touched is on.
-  const tornado = page.getByRole("checkbox", { name: "Tornado", exact: true });
+  // A kind nobody has touched is on. The switch is named for what it is for
+  // rather than for one of the products under it, because it also holds
+  // tsunami warnings and the civil emergencies, and each switch carries a line
+  // saying what is under it: matching on the leading words rather than the
+  // whole label is what that leaves.
+  const tornado = page.getByRole("checkbox", { name: /^Take cover now/ });
   await expect(tornado).toBeChecked();
 
   // Switching off a kind this alert is not, leaves it alone.
-  await page.getByRole("checkbox", { name: "Flood", exact: true }).uncheck();
+  await page.getByRole("checkbox", { name: /^Flood/ }).uncheck();
   await page.getByRole("button", { name: "Close Layers" }).click();
   await page.getByRole("button", { name: "Alerts", exact: true }).click();
   await expect(page.getByText("Tornado Warning")).toBeVisible();
@@ -378,7 +382,7 @@ test("switching a kind of alert off takes it out of what is drawn", async ({
 
   // And back again straight away, without waiting on the service.
   await page.getByRole("button", { name: "Layers", exact: true }).click();
-  await page.getByRole("checkbox", { name: "Tornado", exact: true }).check();
+  await page.getByRole("checkbox", { name: /^Take cover now/ }).check();
   await page.getByRole("button", { name: "Close Layers" }).click();
   await page.getByRole("button", { name: "Alerts", exact: true }).click();
   await expect(page.getByText("Tornado Warning")).toBeVisible();

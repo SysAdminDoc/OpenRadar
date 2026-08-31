@@ -173,6 +173,15 @@ export interface AppSettings {
    */
   overlayOrder: string[];
   presets: Array<PresetState | null>;
+  /**
+   * Whether the reader has been shown where the commands and the layers are.
+   *
+   * There is no other onboarding, and the command list is the thing that makes
+   * everything else findable. It is one toast, shown once, and it is done with
+   * as soon as the reader has either dismissed it or found the commands
+   * without it.
+   */
+  seenWelcome: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -243,6 +252,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     minSeverity: "severe",
   },
   presets: [null, null, null, null],
+  seenWelcome: false,
 };
 
 const STORAGE_KEY = "openradar.settings";
@@ -646,6 +656,7 @@ export function normalizeSettings(value: unknown): AppSettings {
           .slice(0, 32)
       : [],
     presets,
+    seenWelcome: bool(raw.seenWelcome, DEFAULT_SETTINGS.seenWelcome),
   };
 }
 
