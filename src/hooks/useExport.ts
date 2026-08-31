@@ -199,6 +199,13 @@ export function useExport(options: {
             },
             captionFor,
             onProgress: (done, total) => setProgress({ done, total }),
+            // Only the video path can fall back, and it says so because the
+            // slow path costs the loop's own duration in wall clock.
+            onFallback: () =>
+              pushToast({
+                title: translate("export.slowPath"),
+                detail: translate("export.slowPathBody"),
+              }),
           });
           await finish(exportFileName("openradar-loop", extension), blob);
         } catch (failure) {

@@ -1,5 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
-import { exportFileName, exportLoopGif, MAX_GIF_FRAMES } from "./export";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  exportFileName,
+  exportLoop,
+  exportLoopGif,
+  MAX_GIF_FRAMES,
+} from "./export";
 
 /**
  * A canvas that answers the way the real one does, since jsdom has no 2D
@@ -157,5 +162,225 @@ describe("exporting a loop as a GIF", () => {
         }),
       ),
     ).rejects.toThrow();
+  });
+});
+
+/**
+ * The pieces of WebCodecs the export uses, so both paths can be walked in a
+ * runtime that has neither.
+ */
+function stubEncoder(options: { supported: boolean }) {
+  const encoded: Array<{ keyFrame: boolean }> = [];
+  class FakeVideoFrame {
+    constructor(
+      readonly source: unknown,
+      readonly init: { timestamp: number },
+    ) {}
+    close() {}
+  }
+  class FakeVideoEncoder {
+    static isConfigSupported = (config: { codec: string }) =>
+      Promise.resolve({ supported: options.supported, config });
+    state = "unconfigured";
+    constructor(readonly handlers: { output: (chunk: unknown) => void }) {}
+    configure() {
+      this.state = "configured";
+    }
+    encode(frame: FakeVideoFrame, init?: { keyFrame?: boolean }) {
+      const keyFrame = init?.keyFrame === true;
+      encoded.push({ keyFrame });
+      this.handlers.output({
+        byteLength: 900,
+        timestamp: frame.init.timestamp,
+        type: keyFrame ? "key" : "delta",
+        copyTo: (into: Uint8Array) => into.fill(7),
+      });
+    }
+    flush() {
+      return Promise.resolve();
+    }
+    close() {
+      this.state = "closed";
+    }
+  }
+  const globals = globalThis as Record<string, unknown>;
+  globals.VideoEncoder = FakeVideoEncoder;
+  globals.VideoFrame = FakeVideoFrame;
+  return {
+    encoded,
+    restore: () => {
+      delete globals.VideoEncoder;
+      delete globals.VideoFrame;
+    },
+  };
+}
+
+/** A recorder and a stream, for the path taken when there is no encoder. */
+function stubRecorder() {
+  const globals = globalThis as Record<string, unknown>;
+  class FakeRecorder {
+    static isTypeSupported = () => true;
+    mimeType = "video/webm";
+    ondataavailable: ((event: { data: Blob }) => void) | null = null;
+    onstop: (() => void) | null = null;
+    start() {}
+    stop() {
+      this.ondataavailable?.({ data: new Blob([new Uint8Array(9000)]) });
+      this.onstop?.();
+    }
+  }
+  globals.MediaRecorder = FakeRecorder;
+  return () => {
+    delete globals.MediaRecorder;
+  };
+}
+
+describe("exporting a loop as a WebM", () => {
+  const original = document.createElement;
+
+  /** The offscreen canvas the export made for itself on the last run. */
+  let made = fakeCanvas(320, 180);
+
+  function withCanvas<T>(run: (drawn: string[]) => T): T {
+    made = fakeCanvas(320, 180);
+    // Only the recorder path asks for this, and it has to be here either way
+    // so that asking for it is not what decides which path is taken.
+    (made.canvas as unknown as Record<string, unknown>).captureStream = () => ({
+      getVideoTracks: () => [{ requestFrame: () => {}, stop: () => {} }],
+      getTracks: () => [{ stop: () => {} }],
+    });
+    document.createElement = ((tag: string) =>
+      tag === "canvas"
+        ? made.canvas
+        : original.call(document, tag)) as typeof document.createElement;
+    try {
+      return run(made.drawn);
+    } finally {
+      document.createElement = original;
+    }
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("encodes without waiting out the loop it is exporting", async () => {
+    const encoder = stubEncoder({ supported: true });
+    // Under fake timers the recorder path can never finish, because it sleeps
+    // a frame's duration between frames and nothing here advances the clock.
+    // Resolving at all is the assertion.
+    vi.useFakeTimers();
+    const source = fakeCanvas(320, 180);
+    const shown: number[] = [];
+    const fallback = vi.fn();
+    try {
+      const blob = await withCanvas(() =>
+        exportLoop({
+          source: source.canvas,
+          frameCount: 4,
+          showFrame: async (index) => {
+            shown.push(index);
+          },
+          captionFor: (index) => ({
+            lines: [`frame ${index}`],
+            attribution: "OpenRadar",
+          }),
+          frameDurationMs: 400,
+          onFallback: fallback,
+        }),
+      );
+
+      expect(shown).toEqual([0, 1, 2, 3]);
+      expect(fallback).not.toHaveBeenCalled();
+      expect(blob.type).toBe("video/webm");
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      expect([...bytes.slice(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+      // The first frame stands on its own; the rest are differences from it.
+      expect(encoder.encoded.map((each) => each.keyFrame)).toEqual([
+        true,
+        false,
+        false,
+        false,
+      ]);
+    } finally {
+      encoder.restore();
+    }
+  });
+
+  it("rounds the picture to even sides, which encoders insist on", async () => {
+    const encoder = stubEncoder({ supported: true });
+    vi.useFakeTimers();
+    // An odd window is an ordinary window. Several encoders refuse an odd
+    // dimension outright, which is a strange way for an export to fail on one
+    // window size and work on the next.
+    const source = fakeCanvas(641, 361);
+    try {
+      await withCanvas(() =>
+        exportLoop({
+          source: source.canvas,
+          frameCount: 1,
+          showFrame: async () => {},
+          captionFor: () => ({ lines: ["x"], attribution: "OpenRadar" }),
+        }),
+      );
+    } finally {
+      encoder.restore();
+    }
+    expect(made.canvas.width % 2).toBe(0);
+    expect(made.canvas.height % 2).toBe(0);
+    expect(made.canvas.width).toBe(642);
+    expect(made.canvas.height).toBe(362);
+  });
+
+  it("records in real time and says so when there is no encoder", async () => {
+    const restoreRecorder = stubRecorder();
+    const source = fakeCanvas(320, 180);
+    const fallback = vi.fn();
+    try {
+      const blob = await withCanvas(() =>
+        exportLoop({
+          source: source.canvas,
+          frameCount: 3,
+          showFrame: async () => {},
+          captionFor: () => ({ lines: ["x"], attribution: "OpenRadar" }),
+          frameDurationMs: 1,
+          onFallback: fallback,
+        }),
+      );
+      // The reader is told, because this path costs the loop's own duration.
+      expect(fallback).toHaveBeenCalledTimes(1);
+      expect(blob.size).toBeGreaterThan(2000);
+    } finally {
+      restoreRecorder();
+    }
+  });
+
+  it("falls back when the encoder takes the job and then fails", async () => {
+    const encoder = stubEncoder({ supported: true });
+    const restoreRecorder = stubRecorder();
+    const globals = globalThis as Record<string, unknown>;
+    const Encoder = globals.VideoEncoder as { prototype: { encode: unknown } };
+    Encoder.prototype.encode = () => {
+      throw new Error("the hardware encoder gave up");
+    };
+    const source = fakeCanvas(320, 180);
+    const fallback = vi.fn();
+    try {
+      const blob = await withCanvas(() =>
+        exportLoop({
+          source: source.canvas,
+          frameCount: 3,
+          showFrame: async () => {},
+          captionFor: () => ({ lines: ["x"], attribution: "OpenRadar" }),
+          frameDurationMs: 1,
+          onFallback: fallback,
+        }),
+      );
+      expect(fallback).toHaveBeenCalledTimes(1);
+      expect(blob.size).toBeGreaterThan(2000);
+    } finally {
+      encoder.restore();
+      restoreRecorder();
+    }
   });
 });

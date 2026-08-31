@@ -80,7 +80,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Draw, range and point inspection tools. Beam height at the cursor for the sweep on screen.
 - **Cross-section**: draw a line between two points and the Level II volume is cut along it, height against distance. Heights no beam passed through stay empty rather than being filled from the nearest cut.
 - Per-overlay opacity and a drawing order you choose. Warnings are not in the arrangement, because nothing should be able to put a wildfire perimeter over one.
-- **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in. A JSON record lands beside the file naming the source of every frame that reached it. See [What the export record holds](#what-the-export-record-holds).
+- **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in. The video is encoded as fast as the frames can be drawn rather than recorded in real time. A JSON record lands beside the file naming the source of every frame that reached it. See [What the export record holds](#what-the-export-record-holds).
 - **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.
 - Place search, map-centred forecasts, shareable `openradar://` links.
 - **Imported shapes as a managed set**: up to eight GeoJSON or GRLevelX placefiles on the map at once, each with its own name, switch, opacity and place in the drawing order. Importing a file you already have replaces it rather than adding a second copy. All of them draw under the warnings.

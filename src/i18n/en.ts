@@ -918,6 +918,9 @@ export const en = {
   "export.noFrames": "There are no frames to record.",
   "export.tooLarge": "The recording came out larger than 20 MB.",
   "export.empty": "The recording came out empty.",
+  "export.slowPath": "Recording the loop the slow way",
+  "export.slowPathBody":
+    "This build cannot encode video directly, so the loop is being recorded as it plays. It will take about as long as the loop itself.",
   "watch.whyEvent": "A {event} alert, rated {severity}.",
   "watch.whyThreshold": "You asked to hear about {minSeverity} and above.",
   "watch.whyDistance":
