@@ -1,6 +1,6 @@
 # OpenRadar Roadmap
 
-Only unfinished work appears here. This backlog was reconciled against the repository, tracker, external research, and completed 2026-08-30 audit register on 2026-08-31. Historical completed items, including `AUD-001` and `AUD-011` through `AUD-066`, are omitted. External blockers remain documented in `Roadmap_Blocked.md`.
+Only unfinished work appears here. This backlog was reconciled against the repository, tracker, external research, and completed 2026-08-30 audit register on 2026-08-31. Historical completed items, including `AUD-001`, `AUD-002`, and `AUD-011` through `AUD-066`, are omitted. External blockers remain documented in `Roadmap_Blocked.md`.
 
 Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section. Nothing in that section outranks a correctness, security, or release item. `AUD-093` onward and `JOY-021` were added by the 2026-08-31 evening research pass and sit under Research-Driven Additions at the end, each carrying its own priority.
 
@@ -27,13 +27,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Touches: `package.json`; `scripts/`; provider fixtures; native ignored-test selection; release documentation
       Acceptance: One documented local command exercises each supported live provider with rate limits and timeouts, prints a machine-readable pass, fail, or skipped result per contract, exits nonzero for required failures, and never runs on GitHub infrastructure.
       Complexity: M
-
-- [ ] AUD-002: Build and publish the post-audit release
-      Why: The public v0.3.0 release predates the audit repairs on `main`. Users cannot install the reviewed tree until a clean local release is published.
-      Evidence: https://github.com/SysAdminDoc/OpenRadar/releases/tag/v0.3.0 ; `git log`; `scripts/release.mjs`; `ROADMAP.md`
-      Touches: Release artifacts; updater manifest; checksums; tag; GitHub release
-      Acceptance: The clean release gate runs from a commit equal to `origin/main`; tests, build, artifact checks, updater signature verification, and commit proof pass; the tag and release point to that commit; the installer, signature, checksums, and manifest download successfully.
-      Complexity: L
 
 ## P1
 
