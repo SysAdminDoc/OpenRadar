@@ -142,6 +142,38 @@ describe("the wind field the particles follow", () => {
     }
   });
 
+  it("stops reporting a failure once the next run arrives", async () => {
+    // The panel keeps saying the model did not answer while the particles are
+    // moving to a field that did arrive, which is a message about nothing and
+    // the reader has no way to tell it is stale. Nothing was asserting that
+    // the error clears, so deleting the line that clears it kept the suite
+    // green.
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() =>
+        useWind({ ready: true, enabled: true, pageVisible: true }),
+      );
+      await vi.waitFor(() => expect(result.current.field).not.toBeNull());
+
+      wind.mockRejectedValue("the model did not answer");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(WIND_REFRESH_MS + 10);
+      });
+      await vi.waitFor(() =>
+        expect(result.current.error).toBe("the model did not answer"),
+      );
+
+      wind.mockResolvedValue(field({ init: "2026-08-31T00:00:00Z" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(WIND_REFRESH_MS + 10);
+      });
+      await vi.waitFor(() => expect(result.current.error).toBeNull());
+      expect(result.current.field?.init).toBe("2026-08-31T00:00:00Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("is loading only until something arrives", async () => {
     let settle: ((value: WindField) => void) | null = null;
     wind.mockImplementation(

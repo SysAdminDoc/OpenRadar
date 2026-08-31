@@ -83,9 +83,13 @@ export function useUpdates(options: {
         });
       })
       .catch((failure: unknown) => {
+        // Nothing is cleared here. This branch is only reached when there was
+        // no offer to begin with, so the check either rejected before it could
+        // set one, or it set a real one and something after it threw. In the
+        // second case the offer is genuine and the button should still say
+        // install; clearing it would throw away an update that was found.
         const message = messageFor(failure, translate("update.checkFailed"));
         log.warn("app", message);
-        offerRef.current = null;
         setState({ status: "error", message });
       })
       .finally(done);

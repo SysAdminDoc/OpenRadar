@@ -135,6 +135,28 @@ describe("the update button", () => {
     expect(check).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps an offer the check found even when what follows it throws", async () => {
+    // The check's failure path is only reached with no offer standing, so it
+    // has nothing to clear, with one exception: the check found an update and
+    // something after it threw. Then the offer is real and the button has to
+    // still say install, rather than the reader being told the check failed
+    // and losing the update that was found.
+    check.mockResolvedValue(offer);
+    install.mockResolvedValue(undefined);
+    const toast = vi.fn(() => {
+      throw new Error("the toast host went away");
+    });
+    const { result } = renderHook(() => useUpdates({ onToast: toast }));
+
+    await act(async () => result.current.act?.());
+    await waitFor(() => expect(result.current.state.status).toBe("error"));
+
+    // Pressing again installs what was found rather than checking afresh.
+    await act(async () => result.current.act?.());
+    await waitFor(() => expect(install).toHaveBeenCalledTimes(1));
+    expect(check).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the offer when the install fails, so the button still installs", async () => {
     check.mockResolvedValue(offer);
     install.mockRejectedValueOnce("the installer could not be written");
