@@ -513,13 +513,12 @@ pub fn nyquist_table(records: &[volume::Record<'_>]) -> BTreeMap<u8, f32> {
     found
 }
 
-/// How much of a sweep has to move before the picture is a different one.
+/// A little past the radar's own limit, to allow for the arithmetic.
 ///
-/// A calm volume has a handful of noisy gates that unfold, a few hundred in
-/// nearly a million. Calling that sweep unfolded, drawing it on a scale twice
-/// as wide and telling the reader it is no longer the radar's own reading, is
-/// three claims none of which the change supports.
-const MIN_UNFOLD_SHARE: f32 = 0.005;
+/// Whether a sweep counts as unfolded is not a question about how many gates
+/// moved, it is a question about whether the picture now holds readings the
+/// narrow scale cannot draw. A gate a hair outside the limit is rounding.
+const OUTSIDE_LIMIT: f32 = 1.01;
 
 /// How close in a ring may be and still be the wind rather than the ground.
 ///
@@ -661,17 +660,16 @@ fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
         .collect();
 
     let moved = dealias::dealias(&mut values, &valid, azimuths, gates, nyquist);
-    let readings = valid.iter().filter(|held| **held).count();
-    if readings == 0 {
+    if moved == 0 {
         return false;
     }
-    // Deciding here rather than at the call site is what keeps the two
-    // answers together. Writing back a handful of moved gates and then
-    // reporting the sweep as not unfolded drew it on the narrow scale with
-    // readings pushed outside the limit that scale is drawn to.
-    if (moved as f32 / readings as f32) < MIN_UNFOLD_SHARE {
-        return false;
-    }
+
+    // Whatever moved is written back. An earlier version threw the whole
+    // correction away unless a set share of the sweep had moved, which meant a
+    // sweep folded in only one place kept its fold: on a real KDMX cut folded
+    // at 21 m/s, 410 gates wrapped, 0.5 per cent of the sweep, and every one of
+    // them stayed wrapped. A fold in a hundred gates is still a fold, and it is
+    // over the storm somebody is looking at.
     for azimuth in 0..azimuths {
         for gate in 0..gates {
             let at = azimuth * gates + gate;
@@ -680,7 +678,16 @@ fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
             }
         }
     }
-    true
+
+    // Saying so is a separate question from doing it. The legend and the scale
+    // are asking whether the picture holds readings the radar's own limit does
+    // not cover, so that is what is answered, rather than counting gates.
+    let limit = nyquist * OUTSIDE_LIMIT;
+    field
+        .values()
+        .iter()
+        .zip(field.statuses())
+        .any(|(value, status)| matches!(status, GateStatus::Valid) && value.abs() > limit)
 }
 
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the
@@ -2640,78 +2647,84 @@ mod tests {
         (jumps, pairs)
     }
 
-    /// How many neighbouring pairs straddling the wedge's edge are a fold
-    /// apart, which is what a seam is.
+    /// Reports a sweep again at a lower folding limit.
     ///
-    /// The share of planted gates that came back is a poor measure: the
-    /// algorithm places regions relative to each other through the boundaries
-    /// they share, so a patch of the wedge with no boundary to the rest of the
-    /// sweep cannot be placed at all, and how much of the wedge is isolated
-    /// depends entirely on which volume was downloaded. The seam does not: if
-    /// the wedge rejoined the sweep, the edge between them is smooth, and if it
-    /// did not, it is not.
-    fn seam_jumps(
-        field: &SweepField,
-        nyquist: f32,
-        from: usize,
-        to: usize,
-    ) -> (usize, usize) {
-        let azimuths = field.azimuth_count();
-        let gates = field.gate_count();
-        let mut jumps = 0;
-        let mut pairs = 0;
-        for edge in [from, to] {
-            // The pair either side of the edge, all the way out.
-            let before = (edge + azimuths - 1) % azimuths;
-            for gate in 0..gates {
-                let (here, here_status) = field.get(before, gate);
-                let (there, there_status) = field.get(edge % azimuths, gate);
-                if !matches!(here_status, GateStatus::Valid)
-                    || !matches!(there_status, GateStatus::Valid)
-                {
-                    continue;
-                }
-                pairs += 1;
-                if (here - there).abs() > nyquist {
-                    jumps += 1;
-                }
-            }
-        }
-        (jumps, pairs)
-    }
-
-    /// A sweep with folds put into it on purpose, so the live test has
-    /// something to measure on a quiet day.
+    /// A fold cannot be planted by moving readings about. Every reading the
+    /// radar published is already inside its own limit, so shifting one by a
+    /// whole interval and wrapping it back gives the same number again, and
+    /// shifting it without wrapping puts it where no radar could have reported
+    /// it, which is not a fold but a value the algorithm has never been asked
+    /// to handle. The earlier version of this test did the second of those and
+    /// then measured whether the wedge came back; it never did, on any volume.
     ///
-    /// The archive gives whatever the weather was, and most days it is calm
-    /// enough that a real cut folds in a handful of places out of a quarter of
-    /// a million. Asserting the folds went away is then satisfied by doing
-    /// nothing at all. Folding a wedge of the real sweep by hand gives a known
-    /// number to take back out.
-    fn fold_a_wedge(field: &mut SweepField, nyquist: f32) -> Vec<(usize, usize, f32)> {
-        let azimuths = field.azimuth_count();
-        let gates = field.gate_count();
+    /// What does work is to take the sweep as the truth and report it again at
+    /// a limit low enough that some of it wraps. That is exactly what a fold
+    /// is, it happens to the real readings of a real day, and the answer is
+    /// known in advance because it is the sweep that was started with.
+    fn refold(field: &mut SweepField, nyquist: f32) -> usize {
         let interval = 2.0 * nyquist;
-        let mut folded = Vec::new();
-        for azimuth in (azimuths / 4)..(azimuths / 2) {
-            for gate in 0..gates {
+        let mut wrapped = 0;
+        for azimuth in 0..field.azimuth_count() {
+            for gate in 0..field.gate_count() {
                 let (value, status) = field.get(azimuth, gate);
                 if !matches!(status, GateStatus::Valid) {
                     continue;
                 }
-                // An interval down, which puts the wedge outside the range the
-                // radar itself could report. That is deliberate and it is the
-                // only thing that works: a fold is invisible in a single
-                // reading and shows only as a step between neighbours, so
-                // wrapping the wedge back into range would hand back the exact
-                // values it started with and plant nothing at all. What this
-                // does plant is the spatial signature unfolding exists to
-                // remove, which is what the test is about.
-                field.set(azimuth, gate, value - interval, GateStatus::Valid);
-                folded.push((azimuth, gate, value));
+                // Into the half-open band the radar reports in.
+                let folded = value - interval * ((value + nyquist) / interval).floor();
+                if (folded - value).abs() > 0.001 {
+                    wrapped += 1;
+                }
+                field.set(azimuth, gate, folded, GateStatus::Valid);
             }
         }
-        folded
+        wrapped
+    }
+
+    /// Neighbouring pairs that are not as far apart as they were in the truth.
+    ///
+    /// The measure has to be one a constant cannot move. Region dealiasing
+    /// places each patch relative to its neighbours and the largest patch keeps
+    /// whatever it read, so the sweep as a whole is recovered up to a whole
+    /// interval and no further: with no still air anywhere in it, nothing in
+    /// the data says which interval the picture belongs to. Asking every pair
+    /// of touching gates to be the distance apart it was asks exactly what
+    /// unfolding promises, and nothing it does not.
+    fn broken_pairs(now: &SweepField, truth: &SweepField, interval: f32) -> (usize, usize) {
+        let azimuths = now.azimuth_count();
+        let gates = now.gate_count();
+        let mut broken = 0;
+        let mut pairs = 0;
+        for azimuth in 0..azimuths {
+            for gate in 0..gates {
+                let (a_now, a_now_status) = now.get(azimuth, gate);
+                let (a_was, a_was_status) = truth.get(azimuth, gate);
+                if !matches!(a_now_status, GateStatus::Valid)
+                    || !matches!(a_was_status, GateStatus::Valid)
+                {
+                    continue;
+                }
+                for (next_azimuth, next_gate) in
+                    [((azimuth + 1) % azimuths, gate), (azimuth, gate + 1)]
+                {
+                    if next_gate >= gates {
+                        continue;
+                    }
+                    let (b_now, b_now_status) = now.get(next_azimuth, next_gate);
+                    let (b_was, b_was_status) = truth.get(next_azimuth, next_gate);
+                    if !matches!(b_now_status, GateStatus::Valid)
+                        || !matches!(b_was_status, GateStatus::Valid)
+                    {
+                        continue;
+                    }
+                    pairs += 1;
+                    if ((a_now - b_now) - (a_was - b_was)).abs() > interval / 2.0 {
+                        broken += 1;
+                    }
+                }
+            }
+        }
+        (broken, pairs)
     }
 
     #[test]
@@ -2728,7 +2741,7 @@ mod tests {
 
         let file = volume::File::new(data);
         let scan = file.scan().expect("the volume should decode");
-        let mut chosen =
+        let chosen =
             sweep_field(&scan, Product::Velocity, 1).expect("a volume carries a Doppler cut");
         let nyquist = nyquist_velocity(&file, chosen.elevation_number)
             .expect("the radial header carries the velocity the cut folds at");
@@ -2737,180 +2750,97 @@ mod tests {
             "{nyquist} m/s is not a plausible Nyquist velocity"
         );
 
-        let (untouched, pairs) = fold_jumps(&chosen.field, nyquist);
+        let truth = chosen.field;
+        let azimuths = truth.azimuth_count();
+        let gates = truth.gate_count();
+        let (untouched, pairs) = fold_jumps(&truth, nyquist);
         assert!(pairs > 10_000, "only {pairs} gate pairs had readings");
 
-        // The whole sweep as it arrived, to measure against afterwards.
-        let azimuths = chosen.field.azimuth_count();
-        let gates = chosen.field.gate_count();
-        let before: Vec<f32> = chosen.field.values().to_vec();
-
-        // The sweep as it arrived, kept whole, so the seam after unfolding can
-        // be compared with the seam that was there before anything was planted.
-        let planted_edge_reference = chosen.field.clone();
-
-        // Unfolding the sweep as the radar gave it, with nothing planted, must
-        // never leave it more broken than it was. That is the claim that does
-        // not depend on the day, and it has to be measured here rather than
-        // after the wedge goes in: planting a fold across a quarter of the
-        // sweep puts a seam along both its edges that region growing cannot
-        // always close, so the count afterwards is about the planting rather
-        // than about the algorithm.
+        // Unfolding the sweep as the radar gave it must never leave it more
+        // broken than it was. That is the claim that does not depend on the day
+        // and it is measured on the sweep untouched.
         {
-            let mut untouched_copy = chosen.field.clone();
+            let mut untouched_copy = truth.clone();
             unfold_velocity(&mut untouched_copy, nyquist);
             let (after_alone, _) = fold_jumps(&untouched_copy, nyquist);
-            println!(
-                "the sweep on its own: {untouched} folds before, {after_alone} after"
-            );
+            println!("the sweep on its own: {untouched} folds before, {after_alone} after");
             assert!(
                 after_alone <= untouched,
-                "unfolding the sweep as it arrived made it worse:                  {untouched} folds became {after_alone}"
+                "unfolding the sweep as it arrived made it worse: \
+                 {untouched} folds became {after_alone}"
             );
         }
 
-        let planted = fold_a_wedge(&mut chosen.field, nyquist);
+        // A third of the radar's own limit, which is roughly what the lowest
+        // cut of a real pattern runs at: KTBW folds its lowest cut at 8.4 m/s
+        // and its tight ones at 28. Low enough that a day's winds wrap over a
+        // good part of the sweep, high enough that most of it does not, so
+        // there is something either side of each fold to place it by.
+        let tight = nyquist / 3.0;
+        let interval = 2.0 * tight;
+        let mut folded = truth.clone();
+        let wrapped = refold(&mut folded, tight);
         assert!(
-            planted.len() > 1_000,
-            "only {} gates were folded",
-            planted.len()
+            wrapped > 2_000,
+            "only {wrapped} gates wrapped at {tight:.1} m/s, which is too few to measure"
         );
 
-        let unfolded = unfold_velocity(&mut chosen.field, nyquist);
-        let (after, _) = fold_jumps(&chosen.field, nyquist);
-        assert!(unfolded, "nothing was unfolded");
+        let (before, comparable) = broken_pairs(&folded, &truth, interval);
+        assert!(
+            before > 1_000,
+            "folding at {tight:.1} m/s only broke {before} pairs, which is too few to measure"
+        );
 
-        // How far each gate ended up from where it started, in whole intervals.
-        let interval = 2.0 * nyquist;
-        let wedge: std::collections::BTreeSet<(usize, usize)> =
-            planted.iter().map(|(a, g, _)| (*a, *g)).collect();
-        let mut outside: BTreeMap<i32, usize> = BTreeMap::new();
-        let mut inside: BTreeMap<i32, usize> = BTreeMap::new();
-        for azimuth in 0..azimuths {
-            for gate in 0..gates {
-                let (now, status) = chosen.field.get(azimuth, gate);
-                if !matches!(status, GateStatus::Valid) {
-                    continue;
-                }
-                let was = before[azimuth * gates + gate];
-                let steps = ((now - was) / interval).round() as i32;
-                if wedge.contains(&(azimuth, gate)) {
-                    *inside.entry(steps).or_default() += 1;
-                } else {
-                    *outside.entry(steps).or_default() += 1;
-                }
-            }
-        }
-
-        // The sweep as a whole can come back a whole interval out, because
-        // boundaries only place patches relative to each other. Whichever way
-        // it went, the wedge has to have rejoined the rest of it: the gates
-        // outside the wedge and the gates inside it must have taken the same
-        // step, or the seam is still there.
-        let common = outside
-            .iter()
-            .max_by_key(|(_, count)| **count)
-            .map(|(steps, _)| *steps)
-            .unwrap_or(0);
-        let rejoined = inside.get(&common).copied().unwrap_or(0);
-
+        let moved = unfold_velocity(&mut folded, tight);
+        assert!(moved, "nothing was unfolded");
+        let (after, _) = broken_pairs(&folded, &truth, interval);
         println!(
-            "nyquist {nyquist:.1} m/s, {untouched} natural folds, {} planted,              sweep moved {common} intervals, {rejoined} of the wedge came with it,              the sweep counted as unfolded: {unfolded}, {after} jumps of {pairs} pairs"
-        , planted.len());
+            "nyquist {nyquist:.1} m/s, refolded at {tight:.1}, {wrapped} gates wrapped, \
+             broken pairs {before} -> {after} of {comparable}"
+        );
 
-        // Everything below this counts discontinuities, and a field of one
+        // Every measure of a fold counts discontinuities, and a field of one
         // constant value is perfectly continuous: a dealiaser that threw the
-        // readings away and wrote zeros everywhere would score perfectly on
-        // every one of them. So first, the one thing unfolding is allowed to
-        // do at all. It may move a reading by a whole number of intervals and
-        // by nothing else, because that is what a fold is; any other change is
-        // the algorithm inventing a measurement.
-        let interval_now = 2.0 * nyquist;
+        // readings away and wrote zeros everywhere would score perfectly on all
+        // of them. So first, the one thing unfolding is allowed to do at all.
+        // It may move a reading by a whole number of intervals and by nothing
+        // else, because that is what a fold is.
         let mut invented = 0usize;
-        let mut moved_gates = 0usize;
         for azimuth in 0..azimuths {
             for gate in 0..gates {
-                let (now, status) = chosen.field.get(azimuth, gate);
-                if !matches!(status, GateStatus::Valid) {
+                let (now, now_status) = folded.get(azimuth, gate);
+                if !matches!(now_status, GateStatus::Valid) {
                     continue;
                 }
-                let started = before[azimuth * gates + gate];
-                // What the wedge was planted as, for the gates inside it.
-                let started = if wedge.contains(&(azimuth, gate)) {
-                    started - interval_now
-                } else {
-                    started
-                };
-                let steps = (now - started) / interval_now;
-                if (steps - steps.round()).abs() > 0.01 {
-                    invented += 1;
+                let (was, was_status) = truth.get(azimuth, gate);
+                if !matches!(was_status, GateStatus::Valid) {
+                    continue;
                 }
-                if steps.round() != 0.0 {
-                    moved_gates += 1;
+                let apart = (now - was) / interval;
+                if (apart - apart.round()).abs() > 0.01 {
+                    invented += 1;
                 }
             }
         }
         assert_eq!(
             invented, 0,
-            "{invented} gates came back at a value the radar never measured,              which is not an unfolding at all"
-        );
-        assert!(
-            moved_gates > planted.len() / 2,
-            "only {moved_gates} gates moved, against {} planted: nothing was              unfolded and the measures below would all read perfectly",
-            planted.len()
+            "{invented} gates came back at a value the radar never measured, \
+             which is not an unfolding at all"
         );
 
-        // Most of the wedge has to come back with the rest of the sweep. Not
-        // all of it: a patch with no boundary to anything outside itself
-        // cannot be placed, because boundaries are the only thing the
-        // algorithm has to place regions with, and how much of a given volume
-        // is isolated like that is a property of the weather that day.
-        assert!(
-            rejoined * 4 > planted.len() * 3,
-            "only {rejoined} of {} planted gates rejoined the sweep; steps inside {inside:?} outside {outside:?}",
-            planted.len()
-        );
-
-        // The seam is the measure that does not depend on the volume. Planting
-        // the wedge puts a fold along both its edges; unfolding has to take
-        // them out again, back to whatever the sweep had there to begin with.
-        let (seam_before, _) =
-            seam_jumps(&planted_edge_reference, nyquist, azimuths / 4, azimuths / 2);
-        let (seam_after, seam_pairs) =
-            seam_jumps(&chosen.field, nyquist, azimuths / 4, azimuths / 2);
-        // The seam is reported and not asserted on, deliberately.
-        //
-        // The first version of this assertion demanded the edge come back
-        // smooth. It cannot be made to: region growing places one patch
-        // relative to another through the boundary they share, so a patch with
+        // And then the folds themselves. Not all of them come out: a patch with
         // no boundary to anything outside itself has nothing to be placed by,
-        // and where a sweep is sparse the edge is mostly such patches. On the
-        // volume this was written against, only 399 of some two thousand pairs
-        // along the wedge's edges had readings on both sides at all, and 35 of
-        // those stayed a fold apart. Asserting a number that happens to pass
-        // today would be asserting the weather.
-        //
-        // The two claims below do not depend on the day, and they are the ones
-        // that matter: the bulk of the wedge rejoined the sweep, and the sweep
-        // as a whole came out no more broken than it arrived after having a
-        // quarter of it deliberately folded in the middle.
-        println!(
-            "seam along the wedge: {seam_after} jumps of {seam_pairs} pairs,              against {seam_before} before it was planted"
-        );
-
-        // With the wedge in, what has to hold is that the wedge came back, not
-        // that the total improved: the seam it leaves along its own edges is
-        // the planting's doing rather than the algorithm's.
+        // and a real velocity field is speckled with them. What must not happen
+        // again is the algorithm leaving the sweep as it found it, which is
+        // what it did before patches were grown on continuity rather than on
+        // fixed bands: 18615 broken pairs went to 17793.
         assert!(
-            after < untouched + planted.len() / 4,
-            "the sweep arrived with {untouched} folds and came out with {after},              which is more than the planted wedge could account for"
-        );
-        let share = after as f64 / pairs as f64;
-        assert!(
-            share < 0.01,
-            "{after} of {pairs} neighbouring gates still jump a fold apart"
+            after * 4 < before * 3,
+            "folding broke {before} pairs and unfolding left {after} of them, \
+             which is not enough of the sweep put back to be worth drawing"
         );
     }
+
 
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
@@ -3390,5 +3320,80 @@ mod tests {
             .expect("the finished volume's lowest cut");
         assert!(!sweep.live);
         assert!((sweep.elevation_degrees - 0.5).abs() < 0.05);
+    }
+
+    #[test]
+    fn a_fold_over_one_corner_of_a_sweep_is_still_taken_out() {
+        // A sweep folded in one place is folded, and the one place is where the
+        // storm is. An earlier version threw the whole correction away unless
+        // half a per cent of the gates had moved, so on a real KDMX cut folded
+        // at 21 m/s all 410 wrapped gates stayed wrapped and the legend
+        // reported the picture as the radar's own reading.
+        let nyquist = 25.0f32;
+        let interval = 2.0 * nyquist;
+        let azimuths: Vec<f32> = (0..360).map(|step| step as f32).collect();
+        let gates = 200usize;
+        let mut field = SweepField::new_empty(
+            "Velocity", "m/s", 0.5, azimuths, 1.0, 2.125, 0.25, gates,
+        );
+
+        // Still air, with one smooth hill of outbound wind in it that just
+        // tops the radar's limit. Smooth is the point: a fold is a step of a
+        // whole interval between two gates that are otherwise the same air,
+        // and a hill planted as a cliff would be a real wind shift rather than
+        // a fold, which is not something any dealiaser can or should undo.
+        let peak = 28.0f32;
+        let (from_azimuth, to_azimuth) = (40usize, 90usize);
+        let (from_gate, to_gate) = (40usize, 140usize);
+        let mut truth = vec![0.0f32; 360 * gates];
+        for azimuth in from_azimuth..to_azimuth {
+            let across = (azimuth - from_azimuth) as f32 / (to_azimuth - from_azimuth) as f32;
+            for gate in from_gate..to_gate {
+                let along = (gate - from_gate) as f32 / (to_gate - from_gate) as f32;
+                let hill = (across * std::f32::consts::PI).sin() * (along * std::f32::consts::PI).sin();
+                truth[azimuth * gates + gate] = peak * hill;
+            }
+        }
+
+        let mut wrapped = 0usize;
+        for azimuth in 0..360 {
+            for gate in 0..gates {
+                let value = truth[azimuth * gates + gate];
+                let folded = value - interval * ((value + nyquist) / interval).floor();
+                if (folded - value).abs() > 0.001 {
+                    wrapped += 1;
+                }
+                field.set(azimuth, gate, folded, GateStatus::Valid);
+            }
+        }
+        assert!(wrapped > 50, "only {wrapped} gates folded, which is nothing to measure");
+        let share = wrapped as f32 / (360 * gates) as f32;
+        assert!(
+            share < 0.005,
+            "the fold has to be small enough that a share test would drop it, not {share}"
+        );
+
+        assert!(
+            unfold_velocity(&mut field, nyquist),
+            "a sweep with {wrapped} folded gates in it is a folded sweep"
+        );
+
+        let mut back = 0usize;
+        let mut adrift = 0usize;
+        for azimuth in 0..360 {
+            for gate in 0..gates {
+                let now = field.get(azimuth, gate).0;
+                let was = truth[azimuth * gates + gate];
+                if (now - was).abs() < 0.01 {
+                    back += 1;
+                } else {
+                    adrift += 1;
+                }
+            }
+        }
+        assert_eq!(
+            adrift, 0,
+            "{adrift} gates did not come back to the wind that was planted, {back} did"
+        );
     }
 }

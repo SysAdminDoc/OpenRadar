@@ -18,12 +18,23 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, VecDeque};
 
-/// How many bands the velocity range is cut into when patches are grown.
+/// How far two touching gates may read apart and still be one piece of air,
+/// as a fraction of the Nyquist velocity.
 ///
-/// Coarser and a patch spans a real wind shift; finer and a smooth flow breaks
-/// into pieces too small to vote reliably. Six across the full range, which is
-/// three per Nyquist interval, is what Py-ART settles on.
-const BANDS: usize = 6;
+/// A fold is a step of a whole interval, which is two Nyquist velocities, so
+/// nothing this side of half of one is a fold. Gate to gate the wind changes
+/// by far less than that even in shear.
+///
+/// The first version of this grew patches on a fixed set of bands across the
+/// velocity range and joined two gates only if they fell in the same one. That
+/// shatters a real sweep. Noise of a metre or two straddles a band edge
+/// constantly, and a KDMX velocity cut came apart into 13931 patches holding
+/// 78252 readings, only 845 of them with ten gates or more. Patches that small
+/// have no boundary worth voting on, so most of the sweep could not be placed
+/// at all and the folds stayed in. Growing on continuity instead asks the
+/// question the method is about: is the step between these two gates a fold or
+/// is it the weather.
+const CONTINUITY: f32 = 0.5;
 
 /// A patch has to be worth listening to before it is allowed to move its
 /// neighbours. Anything smaller is shifted by whatever it is attached to.
@@ -48,12 +59,6 @@ fn neighbours(azimuth: usize, gate: usize, azimuths: usize, gates: usize) -> [Op
     ]
 }
 
-/// Which band of the velocity range a reading falls in.
-fn band_of(value: f32, nyquist: f32) -> usize {
-    let position = (value + nyquist) / (2.0 * nyquist);
-    ((position * BANDS as f32).floor() as isize).clamp(0, BANDS as isize - 1) as usize
-}
-
 /// Grows patches of gates that read as one piece of air.
 fn grow_regions(
     values: &[f32],
@@ -72,18 +77,22 @@ fn grow_regions(
             if !valid[start] || region[start] != usize::MAX {
                 continue;
             }
-            let band = band_of(values[start], nyquist);
             region[start] = count;
             queue.push_back((azimuth, gate));
 
             while let Some((at_azimuth, at_gate)) = queue.pop_front() {
+                let here = index(at_azimuth, at_gate, gates);
                 for neighbour in neighbours(at_azimuth, at_gate, azimuths, gates)
                     .into_iter()
                     .flatten()
                 {
                     if !valid[neighbour]
                         || region[neighbour] != usize::MAX
-                        || band_of(values[neighbour], nyquist) != band
+                        // Measured against the gate it is reached from, not
+                        // against the seed: a patch is allowed to follow a
+                        // flow that changes across it, and is stopped only by
+                        // a step no weather makes.
+                        || (values[neighbour] - values[here]).abs() > nyquist * CONTINUITY
                     {
                         continue;
                     }

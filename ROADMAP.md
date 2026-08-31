@@ -6,12 +6,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
-- [ ] P0 — The live unfolding test has been failing since before it was rewritten
-  Why: `level2::tests::unfolding_a_live_velocity_sweep_takes_the_folds_out` panics on every run of the ignored suite ("only 0 of 29383 planted gates rejoined the sweep"), and did so at ef940f3~1 too. A test that cannot pass cannot score anything, so the dealiaser has been unmeasured on real data the whole time.
-  Evidence: `cargo test --lib -- --ignored --test-threads=1` at 9b9ff55; two different KDMX volumes, 30721 and 29383 planted gates, none rejoined; `common` decided by a near-tie between 54963 and 30188.
-  Touches: src-tauri/src/level2.rs (the test), src-tauri/src/dealias.rs if the dealiaser is what is wrong
-  Acceptance: the ignored suite passes end to end; whichever of the test and the subject was wrong is named in the commit message; a planted wedge is measurably rejoined, and zeroing the field still fails.
-
 - [ ] P0 — Severe probability takes every click meant for the warning drawn on top of it
   Why: `MapViewport.tsx` queries `openradar-probsevere-fill` first and returns on a hit, before the overlay list is consulted, while `layerStackOrder()` deliberately draws ProbSevere under the alerts. A tornado warning is unreachable by click anywhere the model drew a polygon, which is exactly over the storms that carry warnings.
   Evidence: Playwright against the real handler: without ProbSevere a click reports "Tornado Warning"; with it, "Severe probability"; layer order guess 9, warning 10.
