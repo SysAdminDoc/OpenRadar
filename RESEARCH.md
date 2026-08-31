@@ -1,273 +1,209 @@
 # OpenRadar Research
 
-Research snapshot: 2026-08-31, second pass of the day. Repository snapshot: `0b3c654` on `main`, 131 commits. This document replaces the 2026-08-31 morning pass, which itself replaced 2026-08-30. Everything carried forward from the morning pass was re-verified today; everything new is dated. A parallel working session held uncommitted chrome and stylesheet changes in the tree during this pass (`src/App.tsx`, `src/components/WorkspaceChrome.tsx`, `src/index.css`, `docs/mockups/`); nothing below depends on that in-flight work.
+Research snapshot: 2026-08-31, third pass of the day. Repository snapshot: `e098e40` on `main`, v0.5.0. This document replaces the 2026-08-31 evening pass, which replaced the morning pass, which replaced 2026-08-30. Everything carried forward was re-verified today where cheap to re-verify; everything new is dated and labeled. The repository moved under the previous pass: the 2026-08-31 roadmap drain shipped fifteen items (provenance contract, live-provider gate, SECURITY.md, asset ledger reconciliation, Valhalla routing, quiet hours with emergency override, Level II decoded-volume cache, colour-vision measurement with high-contrast radar ramps, timer ownership, a required warnings contract) and released v0.5.0, so the reliability sections below reflect the post-drain tree, not the one the earlier passes described.
 
 ## Executive Summary
 
-OpenRadar is a credible local-first weather workstation: national mosaics, raw NEXRAD Level II and Level III decoded in Rust, live radial chunks, MRMS, warnings, ProbSevere, tropical products, tides, surge, guidance, route weather, replay, export, backups, English and Spanish, in one Tauri window with no account and no telemetry. The morning pass established the incident-workstation direction (offline packs, archive import, decoded-volume reuse, cross-sections, alert policy, provenance) and the trust-release gate that precedes it. Both were re-verified and stand. This pass adds the research behind the new character-and-personalization backlog (`JOY-001` through `JOY-021`) and refreshes every dependency, provider, and tracker snapshot.
+OpenRadar is a credible local-first weather workstation: national mosaics, raw NEXRAD Level II and Level III decoded in Rust, live radial chunks, MRMS, warnings, ProbSevere, tropical products, tides, surge, guidance, route weather, replay, export, backups, English and Spanish, in one Tauri window with no account and no telemetry. The morning pass established the incident-workstation direction and the trust-release gate; the evening pass added the retention/character lane (`JOY-001` to `JOY-021`) and the platform verdicts. Both stand. This pass asked what data the app is still missing that its own decoders could already carry, and what the two prior passes structurally under-covered: winter weather, surface observations, historical warnings, soundings, smoke, fuzzing, localization beyond Spanish, and non-visual accessibility.
 
-The headline finding: the retention lane is genuinely empty. Across the trackers, docs, and marketing of RadarScope, RadarOmega, GRLevelX, WSV3, Supercell Wx, HookEcho, BowEcho, and Anvil, checked 2026-08-31, no radar product ships personality, seasonal themes, a journal, a recap, an ambient mode, or easter eggs. The adjacent evidence says these features work when done right: Carrot Weather built a durable paid business and a 2021 Apple Design Award on an opt-out personality and collectible secret locations, and The Weather Channel itself shipped an official WeatherStar 4000 nostalgia emulator on 2026-04-01. Nobody in the radar niche has tried. There is opportunity here, and no rejection evidence. [Carrot profile](https://developer.apple.com/news/?id=kf623ldf), [ws4kp](https://github.com/netbymatt/ws4kp), [TWC stunt](https://www.retroist.com/p/weatherstar-4000-then-and-now)
+Top opportunities from this pass, in order:
 
-Top opportunities, in order:
+1. **The winter lane is one product entry away.** MRMS `PrecipFlag_00.00` (surface precipitation type: rain, snow, mix, hail, convection) publishes every 2 minutes on the same bucket, in the same GRIB2 template-41 PNG packing `src-tauri/src/mrms.rs` already decodes — verified 2026-08-31 by downloading the newest file and reading its section-5 template number (41). The app currently draws snow as rain. Supercell Wx has two open/duplicate issues asking for exactly this (#122, #335); RadarScope and MyRadar both ship precip-type products (`AUD-108`). The per-site dual-pol version, Level III N0H/HHC/N0M, was verified still publishing through 2026 by the same bucket-listing method that proved NHI/NTV dead in 2022 (`AUD-109`).
+2. **Surface observations are the layer people literally pay for elsewhere.** AllisonHouse sells METAR feeds at ~$12/month for GRLevelX users; a maintained OSS project exists solely to convert AWC data into placefiles. AWC's keyless `api/data/metar?bbox=` endpoint was verified live (compact JSON, minute-fresh cache, 100 req/min, 400-entry cap, no CORS so it must go through the native fetch — which the allowlist architecture handles) (`AUD-110`).
+3. **Historical warnings complete the replay the app already has.** IEM's `geojson/sbw.py?ts=` returns the storm-based warning polygons valid at any instant back to 2002 (official product from 2007-10-01), with `polygon_begin`/`polygon_end` modelling mid-lifetime SVS shrinks — verified live against 2011-04-27 22:00 UTC (93 polygons). Policy: any lawful purpose. The host (mesonet.agron.iastate.edu) is already a provider (HRRR reflectivity) (`AUD-111`).
+4. **An integrated Skew-T is an open leapfrog.** SHARPpy, the community-standard sounding tool, is abandoned (last release 2020-03, last push 2023-04-07, 64 open issues); no OSS radar app ships one; RadarOmega treats soundings as a paid differentiator. IEM's RAOB JSON endpoint was verified live with open CORS; Open-Meteo pressure-level data (19–44 levels) covers the forecast side keylessly (`AUD-117`).
+5. **Smoke is now an annual national event and the data is free.** NOAA HMS smoke polygons (analyst-drawn, Light/Medium/Heavy) and HRRR near-surface smoke (`MASSDEN`, verified present in the public bucket's `.idx`, readable by the existing byte-range GRIB2 path) together beat what MyRadar added after the 2023-06 Quebec event, during which air-quality apps saw a documented national usage spike (`AUD-113`, `AUD-114`).
+6. **Blind users call radar the least accessible weather feature, and the fix is known.** The map canvas cannot be made accessible (MapLibre's and Mapbox's own trackers say so); the proven pattern is "radar as data" — nearest-storm distance/bearing/intensity as text, aria-live warning announcements, and a keyboard alternative to drag-panning (WCAG 2.2 §2.5.7). No desktop radar app does this (`AUD-116`).
+7. **The decoders are a fuzzing-rich target that has never been fuzzed.** cargo-fuzz works on Windows MSVC now (nightly + the VS AddressSanitizer component); the HDF5 C library had five fuzz-found CVEs in 2025 alone; upstream `netcdf-rust` fuzzes, upstream `nexrad` does not. The realistic bug class here is panic/OOM denial-of-service in hand-written length math (`AUD-112`).
 
-1. The trust release first, unchanged from the morning pass: close the `lru` advisory, land the provenance contract and the live-provider gate, publish the post-audit build (`AUD-067`, `AUD-068`, `AUD-069`, `AUD-002`). Version metadata synchronization (`AUD-001`) was completed to 0.4.0 by a parallel working session on 2026-08-31 while this pass was closing.
-2. The switching lever in this market is accumulated customization, not the renderer. A Stormtrack user announced leaving GRLevelX for Supercell Wx on 2025-02-15 with one reason: "all of my placefiles and colortables is working." A palette library and placefile quality-of-life work convert that lever into an on-ramp (`AUD-094`, `AUD-095`). [Thread](https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/page-2)
-3. The storm journal (`JOY-008`) appears to be unshipped territory anywhere: nothing found auto-drafts a journal entry from radar or warning events. Nearest neighbors are Day One's weather metadata and Apple Journal's suggestion drafts. [Day One](https://dayoneapp.com/guides/day-one-on-the-web/auto-add-location-and-weather-to-entries/), [Apple Journal](https://www.apple.com/newsroom/2023/12/apple-launches-journal-app-a-new-app-for-reflecting-on-everyday-moments/)
-4. A streamer capture mode has zero competition in any tracker and proven bolt-on demand (AtmosphericX exists solely to make weather coverage OBS-friendly; Ryan Hall's overlay kit is community-cloned) (`AUD-093`). [AtmosphericX](https://github.com/AtmosphericX/AtmosphericX), [rh-stream-overlays](https://github.com/dutchdronesquad/rh-stream-overlays)
-5. Platform verdicts for the JOY desktop-presence items are now settled: tray plus glance window, wallpaper writer, and ambient mode are green with concrete APIs and pitfalls; a Windows 11 widget is red for an NSIS app. Details in the platform section.
-6. WebM export can leave real time behind: it currently records the live timeline through MediaRecorder, and WebCodecs `VideoEncoder` is available in every evergreen WebView2 (`AUD-097`). `src/lib/export.ts`, [WebCodecs](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API)
-7. Alert toasts can carry a radar snapshot and an action button by dropping to WinRT, and the AUMID must be right or Windows silently drops them (`AUD-098`). [Toast docs](https://learn.microsoft.com/en-us/windows/apps/design/shell/tiles-and-notifications/toast-desktop-apps)
-8. `AUD-070` now has its answer for routing: the FOSSGIS Valhalla instance explicitly welcomes distributed end-user apps (announce the app, send `X-Client-Id`), which the OSRM demo policy never did. [Valhalla](https://valhalla.openstreetmap.de/)
-9. The legal boundary for alert sounds is settled and verified: 47 CFR 11.45 prohibits transmitting the EAS attention signal or simulations of it, with a $1M consent decree on record; a desktop app's own original tones are plainly outside it, and the actual EAS tones, SAME bursts, WEA cadence, and the NWR 1050 Hz tone stay out of the product. [Rule text](https://www.law.cornell.edu/cfr/text/47/11.45)
+The standing conclusions from the first two passes remain in force: the trust chain before features, the retention lane empty across every radar competitor, customization as the market's switching lever, and the JOY house rules (data never decoration, nothing leaves the machine, playful surfaces stand down during danger).
 
 ## Product Map
 
-Core workflows: watch live radar over a place; interrogate a storm (tilts, moments, dealiased velocity, cells, ProbSevere); monitor warnings for a watched place; replay and export an event; plan around weather (route, guidance, tides, tropical). Evidence: `README.md`, `src/App.tsx`, `src/hooks/`, `src-tauri/src/`.
+Core workflows: watch live radar over a place; interrogate a storm (tilts, moments, dealiased velocity, cells, ProbSevere); monitor warnings for a watched place with quiet hours and an emergency override; replay and export an event; plan around weather (route, guidance, tides, tropical). Evidence: `README.md`, `src/App.tsx`, `src/hooks/`, `src-tauri/src/`.
 
-Personas, updated this pass: the weather enthusiast who refuses subscriptions (the cohort Stormtrack calls out directly, and the AlternativeTo lists confirm: free OSS options dominate requested alternatives to RadarScope and MyRadar); the storm chaser with accumulated palettes and placefiles; the anxious monitor who checks compulsively during events (about 1 in 8 people report weather-related anxiety, and the NWS publishes storm-anxiety guidance); the second-monitor ambient user (MagicMirror's 23,500 stars and DAKboard's business prove the dedicated-display habit); and, newly evidenced, the weather streamer compositing radar into OBS. [Stormtrack](https://stormtrack.org/threads/best-free-radar-software.32006/), [AlternativeTo](https://alternativeto.net/software/radarscope/), [NWS anxiety page](https://www.weather.gov/eax/stormanxiety-wxinfo), [MagicMirror survey](https://www.pistack.xyz/posts/2026-06-05-self-hosted-smart-mirror-digital-display-platforms-guide/)
+Personas (carried from the evening pass, one added): the subscription-refusing enthusiast; the storm chaser with accumulated palettes and placefiles; the anxious monitor; the second-monitor ambient user; the weather streamer; and — newly evidenced this pass — **the winter-weather user the whole radar market underserves**, who cannot tell from any reflectivity product whether the echo over their house is rain or snow (Supercell Wx #122/#335; RadarScope publishes help articles solely to answer this question). [Supercell Wx #122](https://github.com/dpaulat/supercell-wx/issues/122), [RadarScope](https://radarscope.zendesk.com/hc/en-us/articles/4642837862162-Identifying-Snow-in-RadarScope)
 
-Platforms and distribution: Windows x64, current-user NSIS, signed updater payload, local release gate, no CI builds. Unchanged. `src-tauri/tauri.conf.json`, `scripts/release.mjs`.
+Platforms and distribution: Windows x64, current-user NSIS, signed updater payload, local release gate, no CI builds. Discoverability is currently zero-effort: no GitHub topics strategy, no listing anywhere, and the release asset name pattern is undocumented, which blocks community Scoop manifests from auto-updating (`AUD-119`). Authoring winget manifests remains excluded by owner policy.
 
-Key data flows: everything native goes through one allowlist and one disk cache (`src-tauri/src/http.rs`, `src-tauri/src/cache.rs`); webview requests are bounded by the CSP; OSRM and Open-Meteo are called from the webview. Attribution for Open-Meteo and OSRM already exists in panel copy (`src/i18n/en.ts` lines 34, 146, 219), and the native User-Agent carries a contact address (`src-tauri/src/http.rs`).
+Key data flows: everything native goes through one allowlist and one disk cache (`src-tauri/src/http.rs`, `src-tauri/src/cache.rs`); webview requests are bounded by the CSP; Valhalla (FOSSGIS, with `X-Client-Id`) and Open-Meteo are called from the webview. Every switchable layer now carries a provenance record (`src/lib/layerProvenance.ts`), and `npm run check:live` holds fourteen live-provider contracts, four of them release-required.
 
 ## Competitive Landscape
 
-### Radar tools (verdicts re-verified 2026-08-31, condensed from the morning pass)
+### Radar tools (verdicts carried, tracker delta checked 2026-08-31)
 
-- HookEcho: offline chase packs, valid-time replay, alert controls prove the incident direction. Newest issue is a GPU-fallback question (#13, 2026-08-10); nothing on sounds, journaling, or tray. [Repository](https://github.com/d4vid87/hookecho)
-- BowEcho: decoded-volume reuse, cross-section, cancellation. One open issue, macOS signing (2026-06-09). [Repository](https://github.com/FahrenheitResearch/bowecho)
-- Supercell Wx: the only OSS tracker with a real demand corpus; see Reported Issues. Keep OpenRadar's simpler workspace. [Repository](https://github.com/dpaulat/supercell-wx)
-- NEXRAD Workbench: local Archive II import and arbitrary archive browsing are the high-value research workflows. [Repository](https://github.com/danielway/nexrad-workbench)
-- Anvil: PMTiles offline basemaps on desktop. Zero open issues. [Repository](https://github.com/jhammon88219/Anvil)
-- GR2Analyst: loyalty comes from interrogation depth and a decade of tutorial culture (AllisonHouse and Convective Chronicles series keep the workflow entrenched). Cross-section remains the right first vertical feature. [Tutorials](https://support.allisonhouse.com/hc/en-us/articles/206870353--GR2AE-Introduction-to-GR2Analyst-Edition)
-- RadarScope, RadarOmega, Windy, Storm Radar, Pivotal: subscription differentiators unchanged; OpenRadar competes on local-first access and no account. Morning-pass citations stand.
-- MyRadar on Windows: two Store SKUs; the dominant grievance in review aggregates is ad spam and upsell ("deceptive virus warning ads", subscriptions that do not transfer), plus enough Windows breakage for a dedicated vendor support tree. This is the wedge the README already positions against. [Support tree](https://acmeaom.freshdesk.com/support/solutions/folders/44001197238), [reviews](https://justuseapp.com/en/app/322439990/myradar-weather-radar/reviews)
+- HookEcho: offline chase packs, valid-time replay. Delta since the evening pass: #71 (2026-08-23, closed — reflectivity threshold via URL/config) plus heavy PR velocity. [Repository](https://github.com/d4vid87/hookecho)
+- Supercell Wx: the one OSS tracker with a real demand corpus; nothing new past #691 (2026-08-26). The winter items #122/#335 were missed by earlier passes and are directly actionable here. [Tracker](https://github.com/dpaulat/supercell-wx/issues)
+- BowEcho (decoded-volume reuse, cross-section), Anvil (PMTiles), NEXRAD Workbench (archive browsing): no new issues since 2026-08-18. GR2Analyst: loyalty through interrogation depth; notably it has **no native soundings**, which users fill with the now-abandoned SHARPpy — an integration gap OpenRadar can take whole. [SHARPpy](https://github.com/sharppy/SHARPpy)
+- RadarScope: its winter answer is the proprietary DTN "Precipitation Depiction" (super-res reflectivity + surface obs + model). OpenRadar's answer can be the official MRMS PrecipFlag and the radar's own dual-pol classification, locally decoded, which is more honest about what is measured versus modeled.
+- MyRadar: ships an HHC mosaic and added smoke layers after 2023; its review corpus still reads as ad-spam grievance, the wedge the README positions against.
 
-One competitive-moat caution surfaced on Stormtrack (2023-04-15, reported claim, not verified against the patent itself): Baron holds a patent said to block geographic-grid storm arrival-time overlays ("arrives at your location at 3:42"), which WSV3 licenses and GRLevelX lacks. OpenRadar's cell layer draws projected positions, not per-place arrival clocks. Before anyone builds "reaches your house in N minutes", the patent claim needs reading. [Thread](https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/)
+The evening pass's competitive conclusions (customization as switching lever, ~150-table GRLevelX palette culture, placefile ecosystem, Baron arrival-time patent caution) all stand unchanged and are not repeated here; see the roadmap items they already produced (`AUD-094`, `AUD-095`).
 
-### The customization ecosystem (new this pass)
+### The data gap this pass measured (new)
 
-- grlevelxusers.com hosts about 150 color tables across 12 categories with uploads dated into 2026 and per-file download counts up to 179; the site notes its tables also work in RadarScope, Supercell Wx, and WeatherFront. `.pal` is the de facto interchange format, which validates OpenRadar's existing import. [Color tables](https://grlevelxusers.com/grlevelx-goodies/categories/color-tables/)
-- Palette authoring has its own tooling (Mods for GRX Color Table Creator) and palette-hunting is a recurring forum behavior (WXForum request threads). [CTC](https://mods-for-grx.com/ctc), [WXForum](https://www.wxforum.net/index.php?topic=39549.0)
-- The OSS world is rebuilding the paid placefile ecosystem as free directories (placefiles.supercellwx.net). Remote placefile URLs stay blocked in OpenRadar until a trusted-host model exists (`Roadmap_Blocked.md`), but local placefile quality-of-life is where the loyalty sits. [Directory](https://placefiles.supercellwx.net/)
+What the market ships versus what OpenRadar draws today, all sources public and keyless:
 
-### Retention and personality landscape (new this pass)
+- **Precipitation type**: MRMS PrecipFlag categories 0/1/3/6/7/10/91/96 (no precip; warm stratiform; snow; convection; hail; cool stratiform; tropical stratiform; tropical convective), discipline 209 category 6, 2-min cadence, missing −3, no-coverage −1. Verified against the NSSL operational table. There is **no MRMS snow-rate product** — the bucket's 243 CONUS prefixes were enumerated to confirm — so any snow-rate view is a derived product (PrecipRate masked by PrecipFlag=3) and must be labeled derived. [NSSL tables](https://www.nssl.noaa.gov/projects/mrms/operational/tables.php)
+- **Per-site hydrometeor classification**: Level III 165/N0H–N3H and 177/HHC, values in steps of 10 (0 ND, 10 biological, 20 clutter, 30 ice crystals, 40 dry snow, 50 wet snow, 60 rain, 70 heavy rain, 80 big drops, 90 graupel, 100 hail+rain, 110 large hail, 120 giant hail, 140 unknown, 150 range-folded); 166/ML melting-layer rings as linked-contour vectors. All verified publishing through 2026 at the Unidata bucket (`TLX_N0H_2026_…` fresh on 2026-08-30), in contrast to NHI/NTV which died 2022-05. [Class table](https://raw.githubusercontent.com/netbymatt/nexrad-level-3-data/master/src/products/165/index.mjs), [RPCCDS](https://www.weather.gov/tg/rpccds)
+- **Surface observations**: AWC `https://aviationweather.gov/api/data/metar?bbox={s},{w},{n},{e}&format=json` verified live — compact JSON (~20 KB for a state-sized box), fields for a full station plot (temp, dewpoint, wind, gust, visibility, cover, wxString, altimeter, raw METAR), minute-refreshed cache, keyless, 100 req/min, 400 entries per query, **no CORS by policy** so it is a native-fetch layer. IEM `/api/1/currents.geojson?state=`/`?network=` is the CORS-open, public-domain augmentation (mesonet density), with IEM's own warning that the API is finite-capacity. Station-plot conventions (temp upper-left, dewpoint lower-left, barbs at 5/10/50 kt, sky-cover circle) are documented NOAA standards. [AWC API](https://aviationweather.gov/data/api/), [IEM disclaimer](https://mesonet.agron.iastate.edu/disclaimer.php), [JetStream plots](https://www.noaa.gov/jetstream/wxmaps-max)
+- **Historical warnings**: IEM `geojson/sbw.py?ts=` (instant query) and `sts=`/`ets=` (window prefetch, filter client-side on `polygon_begin`/`polygon_end` for smooth scrubbing); `geojson/vtec_event.py` for one event's polygon history. Coverage: polygons 2002+, official 2007-10-01+, county-based TOR/SVR back to 1986 with recorded caveats (backfilled WFOs pre-2005, occasional invalid early geometry). Verified live: `?ts=2011-04-27T22:00:00Z` returned 93 features with `phenomena`, `windtag`, `hailtag`, `damagetag`, `is_emergency`. No official NWS/NCEI queryable archive exists; IEM is the archive of record and states its services are free for any lawful purpose. [Endpoint help](https://mesonet.agron.iastate.edu/geojson/sbw.py?help), [VTEC dataset notes](https://mesonet.agron.iastate.edu/info/datasets/vtec.html)
+- **Soundings**: observed — IEM `json/raob.py?ts=&station=` verified live (open CORS, full profile as pres/hght/tmpc/dwpc/drct/sknt); rucsoundings.noaa.gov refused connections during testing and should not be built on; University of Wyoming is scrape-only. Forecast — Open-Meteo pressure-level variables, 19 levels on best-match and 44 on the GFS endpoint. No maintained JS Skew-T library exists (the best references are 12–25-star projects, newest activity 2026-03), so rendering is in-house work on the well-trodden math. [IEM services](https://mesonet.agron.iastate.edu/json/), [Open-Meteo GFS](https://open-meteo.com/en/docs/gfs-api), [skew-t topic](https://github.com/topics/skew-t)
+- **Smoke**: HMS polygons at `https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/` (Shapefile/KML/GeoTIFF by year/month, `hms_smokeYYYYMMDD`, density Light/Medium/Heavy, finalized next morning ET — poll current day, fall back one). HRRR `MASSDEN` (8 m above ground, µg/m³) and `COLMD` verified present with byte offsets in `hrrr.t00z.wrfsfcf01.grib2.idx` on `noaa-hrrr-bdp-pds` — the same `.idx` byte-range read `src-tauri/src/gfs.rs` already does for wind. Demand: air-quality apps saw a national usage spike during the 2023-06 Quebec event (CNBC, 2023-06-08); NYC activated its emergency plan for Canadian wildfire smoke again on 2026-07-15, its most significant smoke event since 2023; a MyRadar reviewer offers to pay extra for smoke layers. [HMS](https://www.ospo.noaa.gov/products/land/hms.html), [CNBC](https://www.cnbc.com/2023/06/08/air-quality-alert-apps-see-spike-in-usage-as-canada-wildfires-burns.html), [NYCEM](https://www.nyc.gov/site/em/about/press-releases/20260715_pr-NYCEM-NYC-Emergency-Plan-Moves-Into-Thursday-Wildfire-Smoke.page)
+- **Satellite beyond GeoColor**: NASA GIBS serves GOES-East/West Band 13 Clean Infrared, Red Visible, and Air Mass as WMTS at 10-min cadence (~40 min latency, 90-day rolling archive) — same provider and terms as the GeoColor layer already shipped. Clean IR is the overnight-convection view enthusiasts ask for. CIRA SLIDER tiles have no published API or terms and are rejected. [GIBS geostationary](https://nasa-gibs.github.io/gibs-api-docs/available-visualizations/)
 
-What the adjacent evidence says about each JOY lane:
+### Localization and accessibility landscape (new this pass)
 
-- Personality: Carrot Weather is the proof. Five personality levels with a full professional off-switch, over 100 secret locations collected by exploring the map, content updates shipped like live-ops, a 2021 Apple Design Award, and reviewers crediting the character as the reason they open the app on clear days. The moat is fresh writing plus collectibles plus total opt-out. [Behind the Design](https://developer.apple.com/news/?id=kf623ldf), [secret locations](https://forums.macrumors.com/threads/carrot-weather-secret-locations.1862623/), [v5 notes](http://www.meetcarrot.com/weather/v5.html)
-- Seasonal themes: welcomed when visual, ambient, and one click to dismiss; resented when they touch functional surfaces. The canonical failure is Discord Snowsgiving, December 2021: festive notification sounds shipped default-on, coverage was entirely "how to turn this off", and Discord flipped to opt-in within hours. The visual halves of the same event built goodwill. AOL Mail users filed feedback demanding holiday themes back when they were removed. This is why `JOY-002` keeps occasions chrome-only and dismissible, and why anything audible is opt-in. [Newsweek](https://www.newsweek.com/turn-off-discord-christmas-snowsgiving-sound-alerts-1656889), [AOL feedback](https://aol.uservoice.com/forums/939516-aol-mail-norrin/suggestions/47198477-add-more-holiday-themes)
-- Journaling: demand exists in fragments (Weather Diary apps, paper five-year weather logbooks selling steadily, chasearchive.com, Storm Chaser Atlas auto-logging chase routes), and no product auto-drafts entries from weather events. `JOY-008` would be first. [Weather Diary Pro](https://apps.apple.com/us/app/weather-diary-pro/id6757074943), [logbook](https://www.amazon.com/Year-Weather-Logbook-Watching-Notebook/dp/B09NRCZT96), [Storm Chaser Atlas](https://apps.apple.com/us/app/storm-chaser-atlas/id6758031108)
-- Recaps: the Wrapped pattern is ubiquitous and its failure modes are documented. Identity claims share; stat tables do not. Privacy criticism of the genre is structural, and OpenRadar's local-only computation is immune to it, which is itself worth saying out loud. Strava put Year in Sport behind its subscription in December 2025 and the response was overwhelmingly negative. The recap stays free and local forever (`JOY-011`). [Axios](https://www.axios.com/2022/12/21/wrapped-spotify-year-review-personal-data), [road.cc](https://road.cc/content/news/strava-year-sport-now-only-subscribers-317425)
-- Milestones: record, do not obligate. Duolingo streak guilt and Apple Watch ring anxiety are the documented backlash; watchOS 11's rest days were the celebrated correction. Personal weather records are observations about the world, not performance to fail at, which is why `JOY-012` bans streaks and prompts outright. [Streak Creep](https://thedecisionlab.com/insights/consumer-insights/streak-creep-the-perils-of-too-much-gamification), [Fortune](https://www.fortune.com/well/2025/01/24/apple-watch-bullied-burn-calories-close-rings-obsession-fitness-trackers-notifications)
-- Calm mode: about 1 in 8 people report weather-related anxiety, the NWS publishes storm-anxiety guidance, a 2021 controlled study found app warning design directly feeds the compulsive checking loop, and no radar or mainstream weather app ships an anxiety-aware mode. The clinical guidance (bounded checking, plain language, when the threat ends) effectively writes the `JOY-016` spec. [NWS](https://www.weather.gov/oun/stormanxiety), [study](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8392799/)
-- Phosphor and ambient nostalgia: cool-retro-term carries 25,700 GitHub stars twelve years after release; WeatherStar 4000+ has an active fork ecosystem and a hosted instance; The Weather Channel shipped an official WeatherStar emulator as its 2026-04-01 stunt. The phosphor look also has an honest functional story: persistence was how a scope showed contact history, which is exactly what a radar trail is (`JOY-004`, `JOY-017`). [cool-retro-term on HN](https://news.ycombinator.com/item?id=46036895), [ws4kp](https://github.com/netbymatt/ws4kp)
-- Easter eggs: they build loyalty in serious tools (Excel 97's flight simulator, Android's version eggs, ForeFlight's hidden gems) with two documented boundaries: Microsoft banned undocumented hidden code under Trustworthy Computing in 2002 (an open-source app with eggs visible in the repo sidesteps this), and Tesla's Passenger Play drew an NHTSA investigation because play was reachable during the safety-critical moment. The rule that falls out: playful surfaces suppress themselves while a warning is active at a watched place. That rule is now in the roadmap's house rules. [Excel](https://weeklyrecess.com/article/the-story-of-the-hidden-flight-simulator-game-in-microsoft-excel-97/), [NHTSA](https://www.washingtonpost.com/technology/2021/12/22/tesla-video-games/)
+- **French**: ECCC operates under the Official Languages Act — every Canadian public weather product is bilingual, so a tool presenting ECCC data to Canada meets an expectation by shipping French. Quebec's Bill 96 requires French UI for software distributed in Quebec (commercial-focused; enforcement against free OSS implausible, but it sets the norm). No OSS desktop radar app ships any localization at all — Supercell Wx is English-only — so ES+FR would be unique in the niche. Mobile OSS weather (Breezy Weather, Overmorrow) ships FR/DE routinely via Weblate. German is the follow-on case (DWD's own WarnWetter app: 6M+ downloads; Kachelmannwetter ~670K monthly visits) but French comes first: OpenRadar already draws ECCC's bilingual-mandated data. Units: CA/DE are metric (km/h), French Canada uses comma decimals. [MSC](https://en.wikipedia.org/wiki/Meteorological_Service_of_Canada), [Bill 96](https://www.weglot.com/blog/bill-96-explained), [WarnWetter](https://www.dwd.de/EN/ourservices/warnwetterapp/warnwetterapp.html)
+- **Non-visual access**: the canvas is a dead end (MapLibre issues #359/#360/#362 are cosmetic AT bugs; Mapbox's own accessibility RFC #10114 concedes the map cannot describe itself). The working pattern is parallel accessible surfaces: aria-live regions pre-rendered at load (`polite` for updates, `assertive` for warnings), keyboard-queryable point readouts replacing hover, and single-pointer/keyboard alternatives to drag-panning (WCAG 2.2 §2.5.7 Dragging Movements — W3C's own example is a map; §2.4.11 Focus Not Obscured applies to the panel rails). Weather Gods is the blind-community gold standard ("radar as data": nearest-storm distance, bearing, intensity as text); AppleVis threads confirm radar is the feature blind users give up on. Nothing on desktop does this. [WCAG 2.5.7](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html), [Mapbox RFC](https://github.com/mapbox/mapbox-gl-js/issues/10114), [AFB on Weather Gods](https://afb.org/aw/18/10/15272)
+- **Distribution without packaging**: Scoop manifests are community-submitted with `checkver: github` + `autoupdate` regenerating on every release — the developer's only obligations are a stable asset-name pattern and documented silent-install switches (Tauri NSIS supports `/S`). Chocolatey works the same way with heavier moderation. Neither requires authoring anything, so both fit inside the owner's no-winget-authoring rule. Discovery channels that matter in 2026: GitHub topics, AlternativeTo, awesome-windows and definitive-opensource lists (both accept PRs). [Scoop autoupdate](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifest-Autoupdate), [Tauri NSIS flags](https://v2.tauri.app/distribute/windows-installer/)
 
-### Windows platform feasibility (new this pass, all checked 2026-08-31)
+### Retention and platform sections
 
-- Tray and glance window (`JOY-018`): green. Tauri 2 tray is core and Windows is its best platform; dynamic `set_icon` works for hazard-state badges. Pitfalls: ghost tray icons linger after exit unless the icon is dropped explicitly, and config-declared plus programmatic trays duplicate. A second `WebviewWindow` costs roughly one renderer process, but a second live MapLibre map can cost hundreds of MB, so the glance window gets pre-rendered frames, never a second GL map. Always-on-top has a report of differing dev and release behavior; test packaged. [Tray docs](https://v2.tauri.app/learn/system-tray/), [ghost icons](https://github.com/tauri-apps/tauri/discussions/4668), [process model](https://github.com/tauri-apps/tauri/discussions/7904)
-- Windows 11 widget: red for an NSIS app. Widget providers require package identity (MSIX or PWA), the UI is Adaptive Cards only, and Microsoft sidelined the Widgets Board at Build 2026. Whether sparse packaging honors the widget extension is undocumented. Rejected below. [Widget providers](https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-providers)
-- Wallpaper writer (`JOY-019`): green via the `IDesktopWallpaper` COM interface (per-monitor, no elevation, callable from the `windows` crate); `SystemParametersInfoW` is the single-monitor fallback. The cautionary tale is Microsoft's own Bing Wallpaper app, panned in November 2024 for bundling everything but wallpaper. Single-purpose, opt-in, restore-on-disable. Wallpaper Engine's roughly 80,000 concurrent Steam users show the appetite for a living desktop. [IDesktopWallpaper](https://learn.microsoft.com/en-us/windows/desktop/api/shobjidl_core/nf-shobjidl_core-idesktopwallpaper-setwallpaper), [Bing Wallpaper](https://www.techspot.com/news/105673-official-bing-wallpaper-app-does-nasty-malware-like.html), [Steam charts](https://steamdb.info/app/431960/charts/)
-- Notifications (`AUD-098`): tauri-plugin-notification on Windows is text-only (actions are mobile-only; last release 2025-10-27), and toasts are silently dropped without a Start-menu shortcut carrying the right AUMID. Rich toasts (image, buttons, urgent scenario) need WinRT toast XML from Rust, with images as local file paths. [Plugin docs](https://v2.tauri.app/plugin/notification/), [toast requirements](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/send-local-toast-other-apps), [silent drop](https://github.com/Ivy-Interactive/Rustino/issues/11)
-- Ambient mode (`JOY-017`): green as an in-app fullscreen mode, which is what MagicMirror and DAKboard users actually run; shipping a real `.scr` is legacy fragility with no verified 2026 demand. Long-run display care: app-level pixel shift, scheduled auto-dim, no pure-white static text, a frame-rate cap gated on radar cadence, and a docs note that mostly-static dashboards belong on LCD rather than OLED. [Lively's approach](https://github.com/rocksdanister/lively/wiki/Screen-Saver), [burn-in guidance](https://www.viewsonic.com/library/gaming/oled-burn-in-what-it-is-why-it-happens-and-how-to-stop-it/)
+The evening pass's retention landscape (Carrot, Discord Snowsgiving, Wrapped, streak backlash, calm-mode clinical evidence, phosphor nostalgia, easter-egg boundaries) and Windows platform verdicts (tray green with pitfalls, widget red, wallpaper green via `IDesktopWallpaper`, ambient in-app not `.scr`, toasts text-only with the AUMID silent-drop trap) were re-used unchanged by the JOY items and are preserved in those items' notes. Not repeated here; the sources remain listed below.
 
 ## Reported Issues
 
 ### OpenRadar tracker
 
-Re-verified 2026-08-31 at `0b3c654`: zero open or closed issues, zero pull requests, discussions disabled, zero stars, zero forks. The repository is two days old; this is an absence of field evidence, not evidence of defect-free use. The public v0.3.0 release still predates the audit repairs on `main`. [Issues](https://github.com/SysAdminDoc/OpenRadar/issues), [v0.3.0](https://github.com/SysAdminDoc/OpenRadar/releases/tag/v0.3.0)
+Re-verified 2026-08-31 at `e098e40`: zero open or closed issues, zero pull requests, discussions disabled, zero stars, zero forks. Still an absence of field evidence, not evidence of defect-free use. The newest published release is v0.4.0; v0.5.0 is built and staged but unpublished (`npm run release -- --publish` is the next release act).
 
-### Demand corpus from adjacent trackers (2026 filings a prior pass had not seen, checked 2026-08-31)
+### Known red gate in the repo itself
 
-Supercell Wx is the only OSS competitor with a real demand corpus. New in 2026: SPS as a dedicated layer (#685, 2026-08-18); free layer reordering (#691, shipped in OpenRadar already); follow-alerts auto-zoom to new warnings (#637); color tables failing to persist across restart (#639, which shows palette persistence is a felt stake); placefile renaming, quick toggles, and per-file icon scaling (#614); movable toolbox panels (#611); multi-site radar caching (#613); cursor readout across panes (#616); freehand annotation with arrows, text, and measurement (#590, the nearest thing to journaling demand in the niche); voice lightning alerts announcing strike distance (#581); KML/KMZ import (#655); settings export corruption (#675). Nothing anywhere requests tray modes, theming beyond color tables, or multi-location alert profiles, consistent with the retention lane being unexplored rather than rejected. [Tracker](https://github.com/dpaulat/supercell-wx/issues)
+Resolved while this pass was closing: the route e2e fallback fixture had still intercepted the retired OSRM endpoint after routing moved to FOSSGIS Valhalla, so the fallback case was never exercised and the full browser gate failed in both Playwright projects. A parallel working session fixed the fixture and removed the item (`AUD-107`) on 2026-08-31 (`52951cc`). No known-failing check remains in the tree.
 
-HookEcho added one issue since the morning pass (#13, GPU wind fallback question). BowEcho has one open issue (macOS signing). Anvil has none.
+### Demand corpus
 
-The morning pass's standing signals remain in force and are not repeated in full here: alert fatigue on polygon updates (Supercell Wx #617), chrome-only high contrast missing the data (HookEcho #12), observed and forecast radar must stay distinguishable (Windy forum, LibreWXR #24), platform claims need hardware evidence (HookEcho #9), provenance fragility (NEXRAD Workbench #180), beginner overwhelm (r/weather threads).
+The adjacent-tracker corpus from the evening pass stands with one addition this pass: Supercell Wx #122 "Radar with Precipitation Type Display" (open) and #335 (closed duplicate, 2026-07) — the winter demand the earlier passes missed. Delta since 2026-08-18 across all five adjacent trackers is otherwise essentially empty (HookEcho #71 only).
 
 ## Security, Privacy, and Reliability
 
-### Dependency state (all verified 2026-08-31)
+### Dependency state (verified 2026-08-31, evening pass; unchanged by the drain except as noted)
 
-- `npm audit --omit=dev`: zero known production vulnerabilities.
-- `cargo audit`: only unmaintained-crate warnings for Linux-only GTK3 transitives, plus the two known items below.
-- `lru 0.16.4` remains via `netcdf-reader 0.9.1 -> hdf5-reader 0.9.1`, and the fix cannot arrive by `cargo update`: hdf5-reader pins `lru = "^0.16.3"`, so RUSTSEC-2026-0253 (patched in lru 0.18.2, issued 2026-08-11) needs an upstream bump, a `[patch]`, or a vendored fork. The advisory trigger requires a panicking `Drop` on cache keys, so practical risk is low, but the scanner will keep flagging it. This sharpens `AUD-067`. [Advisory](https://rustsec.org/advisories/RUSTSEC-2026-0253.html), [pin](https://crates.io/api/v1/crates/hdf5-reader/0.9.1/dependencies)
-- `glib 0.18.5` remains in all-target scans only (`AUD-009` unchanged). [RUSTSEC-2024-0429](https://rustsec.org/advisories/RUSTSEC-2024-0429.html)
-- Tauri 2.11.5 is current and clean: no advisories after the origin-confusion fix in 2.11.1 (2026-05-06). Vite 8.2.2 contains every 2026 dev-server fix (all advisories were dev-server-only, including the Windows NTFS short-name bypass patched 2026-06-01); none affect production builds. React 19.2.8 is current; the December 2025 React CVEs were server-component packages this app does not use. [Tauri advisories](https://github.com/tauri-apps/tauri/security/advisories), [Vite advisories](https://github.com/vitejs/vite/security/advisories)
-- The frontend lockfile already resolves maplibre-gl 6.6.0, vite 8.2.2, react 19.2.8, and tauri-plugin-log 2.9.0; the manifest minimums lag but the tree is current. RustSec has nothing new in 2026 for reqwest, tokio, png, chrono, flate2, or bzip2.
-- NEXRAD crates: still release candidates (nexrad-data 1.0.0-rc.7, decode rc.3, model rc.2 are the newest published). Upstream is active (pushed 2026-07-21, zero open issues) and holds an unreleased fix worth watching: `decode_angle` in the VCP decoder does not honor the sign bit, reading roughly 360 degrees for negative elevations (issue #144, fixed on main 2026-07-21). OpenRadar is not bitten today because cut matching reads the median of radial-measured angles (`src-tauri/src/level2.rs` lines 442 to 449), not the VCP message, but this belongs in the `AUD-092` compatibility watch. [nexrad](https://github.com/danielway/nexrad)
+- `npm audit --omit=dev` and `cargo audit` were clean on 2026-08-31 apart from the two documented items: `lru 0.16.4` (RUSTSEC-2026-0253, unreachable here, blocked on an upstream decision — full analysis in `Roadmap_Blocked.md`) and all-target-only `glib 0.18.5` (`AUD-009`).
+- Tauri 2.11.5, Vite 8.2.2, React 19.2.8, MapLibre 6.6.0 all current with no applicable advisories. NEXRAD crates remain release candidates with the upstream `decode_angle` sign fix unreleased (`AUD-092` carries it).
+- **New gap identified this pass: none of the native decoders have ever been fuzzed.** The threat model fits: Level II, GRIB2 (two templates decoded by hand), and NetCDF-4/HDF5 all parse remote bytes; the HDF5 C library's 2025 CVE wave (CVE-2025-2923, -2914, -2912, -44905, -6269 — all ASan fuzz finds) shows the format family's density of edge cases; RUSTSEC's trophy history (image/HDR RUSTSEC-2019-0014, libflate RUSTSEC-2019-0010, claxon RUSTSEC-2018-0004) shows pure-Rust decoders yield real findings too. In this codebase the realistic class is panic/OOM DoS in length math rather than memory corruption (little `unsafe`; bzip2 bindings are the one C-adjacent spot deserving ASan scrutiny). cargo-fuzz works on Windows MSVC now (nightly toolchain + VS "C++ AddressSanitizer" component + Developer PowerShell; rough edges tracked in cargo-fuzz #358); `proptest`/`arbitrary` on stable is the friction-free layer that runs in every `cargo test`. Upstream `netcdf-rust` already fuzzes (so the GLM path's parser has coverage); upstream `nexrad` does not, meaning OpenRadar's Level II path relies on unfuzzed release candidates. (`AUD-112`) [Fuzzing on Windows](https://rust-fuzz.github.io/book/cargo-fuzz/windows.html), [HDF5 2025](https://github.com/HDFGroup/hdf5/issues/5381), [trophy case](https://github.com/rust-fuzz/trophy-case)
 
-### Provider terms and continuity (verified 2026-08-31)
+### Provider terms and continuity
 
-- RRFS and REFS v1 remain scheduled operational for 2026-10-06 (SCN 26-48 AAB, issued 2026-07-06; parallel feeds moved to NOMADS 2026-08-11, and the old prototype AWS bucket stopped updating then). `AUD-080`'s wait-and-verify posture is correct. [SCN 26-48 AAB](https://www.weather.gov/media/notification/pdf_2026/scn26-048_RRFS_and_REFS_Implementation.aab.pdf)
-- SCN 26-67 moves real-time Level II from NOMADS to TGFTP on 2026-09-15; OpenRadar's AWS chunk path is untouched. SCN 26-54 confirms the 2027 Level II change is an additive hourly LTR message from about 2027-02-15; the decoder's unknown-type sweep already covers it, and the repo's own bucket listing shows the KCRI testbed stream has no public archive copy to test against. SCN 26-30 changed only the CO-OPS SHEF text feed; the REST API the tides panel uses is unaffected. The only 2026 MRMS notice is the v12.3.1 patch (2026-02-04), which improved Rotation Tracks quality and removed nothing. [Notices index](https://www.weather.gov/notification/)
-- GOES-19 ABI and GLM are green (OSPO status, updated 2026-08-04). New on the five-year horizon: NOAA discontinued the GeoXO Lightning Mapper contract as of 2026-07-24 under the FY2026 restructuring. GLM continuity is safe through the GOES-R series life (first GeoXO launch around 2032), so no action now, but the lightning layer should stay source-pluggable. FY2026 appropriations resolved toward continuity for NWS and open data; no reduction to NEXRAD, Level II dissemination, MRMS, or the AWS open-data buckets was found. [OSPO](https://www.ospo.noaa.gov/operations/goes/status.html), [CRS IF12898](https://www.congress.gov/crs-product/IF12898)
-- Open-Meteo free tier: non-commercial, under 10,000 calls per day and 600 per minute per client, CC-BY attribution. A free app with no ads or subscriptions, where each user's own IP calls the API, fits their own stated examples; the distributed-app case is not explicitly addressed, so this is labeled: terms compatible by their examples, not an explicit blessing. Panel attribution already exists; an app-identifying User-Agent is not possible from the webview, which is acceptable. [Terms](https://open-meteo.com/en/terms)
-- OSRM demo policy is unchanged (non-commercial, one request per second, identifying User-Agent mandatory, withdrawal at any time). The webview cannot send a custom User-Agent, which OpenRadar cannot fix while calling OSRM directly. The durable answer for `AUD-070` is the FOSSGIS Valhalla instance: full-planet, fair use of one call per user per second, and distributed end-user apps are explicitly invited to announce themselves and send an `X-Client-Id` header, which a webview can set. Stadia's hosted Valhalla and a self-hosted US-extract container are the fallbacks. [OSRM policy](https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy), [FOSSGIS Valhalla](https://valhalla.openstreetmap.de/)
-- OpenFreeMap: no limits, no keys, commercial use allowed, and it survived an accidental 100,000 requests-per-second incident. It is also one maintainer funded by about $500 a month in donations with sponsored bandwidth, so the style and tile endpoints should stay configurable and the self-hosting docs are the contingency. [Site](https://openfreemap.org/), [incident writeup](https://blog.hyperknot.com/p/openfreemap-survived-100000-requests)
-- RainViewer terms unchanged since 2026-01-01 (personal use, zoom 7, fallback only). Morning-pass posture stands.
+All evening-pass verdicts stand (RRFS 2026-10-06 wait-and-verify; Level II TGFTP move not affecting the AWS path; GLM safe through the GOES-R life; Open-Meteo terms compatible-by-example; OpenFreeMap healthy but single-maintainer; RainViewer fallback-only). New hosts implied by this pass's items, each needing the usual ledger entry and live contract if adopted: `aviationweather.gov` (METARs — cross-origin sharing explicitly not permitted, so native-only, 100 req/min, custom User-Agent recommended and possible from Rust), `satepsanone.nesdis.noaa.gov` (HMS smoke), `noaa-hrrr-bdp-pds.s3.amazonaws.com` (HRRR smoke fields). IEM (`mesonet.agron.iastate.edu`) is already a provider; its API self-describes as finite-capacity, so archived-warning and RAOB queries must be user-action-driven, never polled.
 
-### Alert sound law (new this pass, verified 2026-08-31)
+### Alert sound law
 
-47 CFR 11.45(a): no person may transmit the EAS codes or attention signal, or a recording or simulation thereof, outside an actual emergency or authorized test. Enforcement history is entirely against regulated transmission (iHeart $1M in 2015 after aired tones triggered downstream EAS boxes; ABC, AMC, Discovery consent decrees in 2019; Fox $504,000 forfeiture ordered 2024). No action against an app has been found, and commentators treat the online edge as open. The practical rule for OpenRadar: original synthesized tones are plainly fine; the EAS attention signal (853+960 Hz), SAME data bursts, the NWR 1050 Hz tone, and the WEA cadence (47 CFR 10.520(d)) are never shipped, imitated, or user-installable defaults, because a user's speakers can be picked up by a live stream or trip a nearby SAME receiver, which is exactly how the iHeart cascade happened. `JOY-015` carries this as a tested boundary. [Rule](https://www.law.cornell.edu/cfr/text/47/11.45), [iHeart](https://www.fcc.gov/document/iheart-pay-1m-misusing-eas-tones-during-bobby-bones-show), [Fox forfeiture](https://docs.fcc.gov/public/attachments/FCC-24-109A1.pdf)
+Carried verbatim in force: 47 CFR 11.45 (EAS attention signal), 47 CFR 10.520(d) (WEA cadence), NWR 1050 Hz — never shipped, imitated, or user-installable as defaults; the boundary is tested in `JOY-015`'s acceptance. [Rule](https://www.law.cornell.edu/cfr/text/47/11.45)
 
-### Remaining reliability gaps (carried, still true at 0b3c654)
+### Remaining reliability gaps (post-drain refresh)
 
-- No common provenance record across radar, overlays, guidance, exports (`AUD-068`).
-- No single local live-provider contract command (`AUD-069`).
-- `MapViewport.tsx` lifecycle concentration and suppressions (`AUD-086`); toast and preset timer ownership (`AUD-089`); no `SECURITY.md` (`AUD-090`).
-- New, small: WebM loop export drives the live timeline in real time through MediaRecorder (`src/lib/export.ts` line 136, `src/hooks/useExport.ts`), so a long loop export occupies the workspace for its full wall-clock duration and any interaction risk is handled by restore-in-finally rather than by isolation. WebCodecs encoding removes the real-time bound (`AUD-097`).
+The evening pass listed four; the drain closed three (provenance record shipped in `src/lib/provenance.ts` + `src/lib/layerProvenance.ts`; `npm run check:live` shipped; `SECURITY.md` and timer ownership shipped). Remaining, all already tracked: `MapViewport.tsx` lifecycle concentration at 1,793 lines (`AUD-086`); WebM export still drives the live timeline (`AUD-097`); export captions read three fields instead of serializing the record (`AUD-102`); the red route-fallback e2e (`AUD-107`).
 
 ## Architecture Assessment
 
-The morning-pass assessment stands (clear browser and native boundary, adapter-chain providers, adversarially tested decoders, normalizing settings envelopes; pressure points in `MapViewport.tsx` at 1,793 lines and `level2.rs` at 3,684 lines, repeated decode work, fragmented live tests). What this pass adds:
+Carried: clear browser/native boundary, adapter-chain providers, adversarially tested decoders; pressure points `MapViewport.tsx` (1,793 lines) and `level2.rs` (now 4,217 lines after the decoded-volume cache). The JOY foundations (`JOY-001` token boundary, `JOY-007` local log) and the one-frame-renderer-many-consumers rule stand.
 
-- The JOY lane has two load-bearing foundations and they are the right ones: the chrome-token boundary (`JOY-001`) is what makes every theme, seasonal pack, and calm mode safe to build, and the local event log (`JOY-007`) is the storage contract behind journal, recap, catch-up, and almanac. Neither should be improvised inside a feature item.
-- Anything that presents radar outside the main window (glance window, wallpaper, ambient snapshot, streamer surface, toast image) should consume pre-rendered frames from the existing providers and cache, never a second live map. The cost evidence is in the platform section; the architectural consequence is one frame-rendering path with many consumers.
-- The suppression rule (playful surfaces stand down while a warning is active at a watched place) belongs in one place that themes, effects, eggs, and ambient mode all consult, not in each feature.
-- A parallel session is reworking `WorkspaceChrome` and the stylesheet; the `AUD-086` decomposition and the `JOY-001` token boundary should land after that pass settles to avoid conflicting ownership of the same files.
+What this pass adds:
+
+- **The MRMS product registry is the app's cheapest growth surface.** Ten products ship today; PrecipFlag rides the identical decode-render-cache path (verified template 41) and differs only in being categorical, which the ramp/legend model must learn once — after which the melting-layer-height, wet-bulb, and FLASH families on the same bucket become S-complexity follow-ons. A categorical ramp is also what Level III N0H needs, so `AUD-108` builds shared vocabulary for `AUD-109`.
+- **Every new layer this pass proposes is native-fetch-first.** METARs (CORS forbidden), HMS (no CORS), HRRR smoke (S3) and archived warnings (capacity-limited) all belong behind `http.rs`, the ledger, and per-source provenance — the contracts the drain just shipped exist precisely so these arrive uniform.
+- **Accessibility work should produce one parallel data surface, not per-layer patches.** The "radar as data" readout, the aria-live warning channel, and the keyboard pan alternative are one coherent subsystem consulted by existing layers, mirroring how the suppression rule was centralized for the JOY lane.
+- The i18n architecture (typed catalogues, pseudolocale clipping test, coverage scan) was built for exactly the French expansion; the cost is translation authorship and review, not plumbing.
 
 ## Rejected Ideas
 
-Carried from the morning pass, all still correct: full 3D before cross-section; local single-flow nowcast before the official ECCC extrapolation lane; generative nowcasting in the bundle; cloud accounts, telemetry, sync; mobile clients; plugin marketplace; arbitrary remote placefile URLs; commercial feed scraping; RainViewer as primary; replacing HRRR before RRFS is verified operational; nine-pane layouts; broad model-layer expansion in one pass; becoming an OGC server.
+Carried from prior passes, all still correct: full 3D before cross-section; local single-flow nowcast before the ECCC lane; generative nowcasting; cloud accounts, telemetry, sync; mobile clients; plugin marketplace; arbitrary remote placefile URLs; RainViewer as primary; HRRR replacement before RRFS verification; Windows 11 widget (MSIX); `.scr` screensaver; EAS/SAME/WEA/1050 Hz imitation; per-place arrival clocks pending patent reading; streaks and guilt notifications; default-on seasonal sounds; second live MapLibre map in secondary surfaces; runtime-generated personality copy.
 
 New rejections from this pass:
 
-| Idea                                                                          | Decision and evidence                                                                                                                                                                                                                                                                                                                      |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Windows 11 Widgets Board widget                                               | Reject. Requires MSIX package identity and Adaptive Cards UI, Microsoft sidelined the board at Build 2026, and the sparse-package route is undocumented for widgets. The tray glance window delivers the value without dual packaging. [Widget providers](https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-providers) |
-| Shipping a real `.scr` screensaver                                            | Reject. Legacy format, WebView2 bootstrap inside the screensaver context is fragile, no verified demand; in-app ambient mode is the proven pattern. [Lively](https://github.com/rocksdanister/lively/wiki/Screen-Saver)                                                                                                                    |
-| EAS, SAME, NWR, or WEA tone imitation in any sound setting                    | Reject permanently, including as user-importable defaults. 47 CFR 11.45 and the enforcement record; the boundary is tested in `JOY-015`. [Rule](https://www.law.cornell.edu/cfr/text/47/11.45)                                                                                                                                             |
-| Per-place storm arrival-time overlay ("reaches you at 3:42")                  | Defer pending patent review. A Baron patent is reported to cover geographic-grid arrival-time overlays; projected cell positions remain fine. [Thread](https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/)                                                                                              |
-| Daily-open streaks, guilt notifications, usage badges                         | Reject. Documented backlash (Duolingo streak anxiety, Apple Watch ring obsession); `JOY-012` ships facts without obligation. [Streak Creep](https://thedecisionlab.com/insights/consumer-insights/streak-creep-the-perils-of-too-much-gamification)                                                                                        |
-| Default-on seasonal sounds or sounds bundled into theme packs                 | Reject. Discord Snowsgiving 2021 is the failure template; audible anything is opt-in and separate from visual packs. [PC Gamer](https://www.pcgamer.com/discord-snowsgiving-sounds-alerts-turn-off/)                                                                                                                                       |
-| A second live MapLibre map in the glance window or ambient snapshot consumers | Reject on cost. A heavy webview renderer runs hundreds of MB; pre-rendered frames serve every secondary surface. [Process model](https://github.com/tauri-apps/tauri/discussions/7904)                                                                                                                                                     |
-| Personality copy generated by a language model at runtime                     | Reject. Carrot's moat is authored writing with a consistent voice; generated copy adds a network or model dependency, an unpredictable tone, and nothing the catalogue cannot do. Authored strings in `src/i18n/` keep the voice testable and translatable. [Behind the Design](https://developer.apple.com/news/?id=kf623ldf)             |
+| Idea | Decision and evidence |
+| --- | --- |
+| CIRA/RAMMB SLIDER as a tile source | Reject. No published API or terms for third-party tile consumption; scraping a research institute's viewer is unpermitted-by-silence. GIBS carries Band 13 legitimately; CIRA composites would mean decoding ABI L1b/L2 from `noaa-goes19` natively. [SLIDER](https://rammb-slider.cira.colostate.edu/) |
+| AirNow / EPA AQS air quality | Reject. Both require registered API keys, violating the no-keys rule. [AirNow API](https://docs.airnowapi.org/) |
+| Open-Meteo air-quality AQI layer | Defer, under consideration only. Keyless and CORS-open but CAMS-modeled (~25–40 km), not US monitor observations; it will disagree with AirNow during sharp smoke gradients and would need prominent "modeled" labeling. HRRR MASSDEN is the honest key-free US answer. [Docs](https://open-meteo.com/en/docs/air-quality-api) |
+| NWS gridpoint forecast raster overlay | Reject. Per-gridpoint REST cannot scale to a pan/zoom raster; no radar competitor renders forecast grids; the real route (NDFD GRIB2 from NOMADS) has no demand signal. Point-tap forecasts already exist. [API](https://www.weather.gov/documentation/services-web-api) |
+| Building soundings on rucsoundings.noaa.gov or UWyo scraping | Reject as foundations. rucsoundings refused connections during testing; UWyo is HTML-scrape-only with no CORS guarantee. IEM RAOB JSON is verified, CORS-open, and policy-clean. |
+| Taking a JS Skew-T library as a dependency | Reject. The field is 12–25-star projects, newest touched 2026-03; the math is textbook and the rendering must match the app's theme/a11y contracts anyway. Use them as references only. [Topic](https://github.com/topics/skew-t) |
+| An MRMS "snow rate" layer presented as measured | Reject as measured; possible later as explicitly derived. The bucket's 243 CONUS products contain no snow-rate grid (enumerated 2026-08-31); PrecipRate masked by PrecipFlag=3 is a derivation and the provenance contract would have to say so. |
+| NWS api.weather.gov as the surface-obs source | Reject. Latest-obs is per-station only; a CONUS layer would mean hundreds of calls per refresh against a service that requests identifying User-Agents. AWC bbox query is the designed bulk path. |
+| German localization before French | Sequence, not reject. The DWD market signal is real, but OpenRadar draws ECCC's bilingual-mandated data today and the francophone claim is normative, not just commercial. German follows the same (already-built) mechanism once French proves the translation workflow. |
+| Chocolatey package maintained from this repo | Reject maintaining one; welcome community packages. Moderation overhead and distribution-rights paperwork for zero control gain; Scoop's autoupdate model needs only stable asset names, which `AUD-119` provides. |
 
 ## Sources
 
-The morning pass's 77-source inventory remains valid and is not repeated; the entries below are the sources this second pass added or re-verified. Repository paths are cited inline throughout.
+Prior passes' source lists (167 entries across retention, community, Windows platform, dependencies, and data-services law) remain valid and are not re-listed; the most load-bearing are retained below beside this pass's new sources.
 
-### Retention, personality, and product culture
+### Winter and dual-pol
+- https://www.nssl.noaa.gov/projects/mrms/operational/tables.php
+- https://noaa-mrms-pds.s3.amazonaws.com/?list-type=2&prefix=CONUS/&delimiter=/
+- https://unidata-nexrad-level3.s3.amazonaws.com/?list-type=2&prefix=TLX_N0H_&delimiter=_
+- https://www.weather.gov/tg/rpccds
+- https://raw.githubusercontent.com/netbymatt/nexrad-level-3-data/master/src/products/165/index.mjs
+- https://github.com/dpaulat/supercell-wx/issues/122
+- https://radarscope.zendesk.com/hc/en-us/articles/4642837862162-Identifying-Snow-in-RadarScope
+- https://www.pivotalweather.com/maps.php?ds=mrms
 
-- https://developer.apple.com/news/?id=kf623ldf
-- https://techcrunch.com/2015/03/20/carrot-weather-delivers-your-daily-forecast-with-a-side-of-snark/
-- https://yourstory.com/2022/12/carrot-weather-app-personality-political-opinions
-- https://forums.macrumors.com/threads/carrot-weather-secret-locations.1862623/
-- http://www.meetcarrot.com/weather/v5.html
-- https://www.macrumors.com/2021/06/10/2021-apple-design-awards/
-- https://problem2product.substack.com/p/does-carrot-weather-solve-a-problem
-- https://www.newsweek.com/turn-off-discord-christmas-snowsgiving-sound-alerts-1656889
-- https://www.pcgamer.com/discord-snowsgiving-sounds-alerts-turn-off/
-- https://sensortower.com/blog/liveops-for-the-holiday-season
-- https://aol.uservoice.com/forums/939516-aol-mail-norrin/suggestions/47198477-add-more-holiday-themes
-- https://dayoneapp.com/guides/day-one-on-the-web/auto-add-location-and-weather-to-entries/
-- https://www.apple.com/newsroom/2023/12/apple-launches-journal-app-a-new-app-for-reflecting-on-everyday-moments/
-- https://apps.apple.com/us/app/weather-diary-pro/id6757074943
-- https://apps.apple.com/us/app/storm-chaser-atlas/id6758031108
-- https://chasearchive.com/
-- https://techcrunch.com/2025/12/06/spotify-wrapped-2024-is-almost-here-its-time-to-explore-all-the-copycats/
-- https://www.axios.com/2022/12/21/wrapped-spotify-year-review-personal-data
-- https://road.cc/content/news/strava-year-sport-now-only-subscribers-317425
-- https://news.slashdot.org/story/25/12/19/2158235/strava-puts-popular-year-in-sport-recap-behind-an-80-paywall
-- https://thedecisionlab.com/insights/consumer-insights/streak-creep-the-perils-of-too-much-gamification
-- https://www.fortune.com/well/2025/01/24/apple-watch-bullied-burn-calories-close-rings-obsession-fitness-trackers-notifications
-- https://www.tomsguide.com/wellness/smartwatches/watchos-11-apple-watch-is-finally-getting-the-fitness-feature-ive-been-waiting-for
-- https://www.weather.gov/eax/stormanxiety-wxinfo
-- https://www.weather.gov/oun/stormanxiety
-- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8392799/
-- https://www.theglobeandmail.com/canada/article-weather-apps-data-wildfires-storms-preparation-obsession-social-media/
-- https://news.ycombinator.com/item?id=46036895
-- https://github.com/netbymatt/ws4kp
-- https://www.retroist.com/p/weatherstar-4000-then-and-now
-- https://weeklyrecess.com/article/the-story-of-the-hidden-flight-simulator-game-in-microsoft-excel-97/
-- https://www.androidauthority.com/android-easter-eggs-818694/
-- https://ipadpilotnews.com/2016/11/8-hidden-features-foreflight-8/
-- https://www.washingtonpost.com/technology/2021/12/22/tesla-video-games/
+### Surface observations
+- https://aviationweather.gov/data/api/
+- https://mesonet.agron.iastate.edu/api/1/currents.geojson?network=IA_ASOS (verified CORS-open)
+- https://mesonet.agron.iastate.edu/disclaimer.php
+- https://github.com/ktrue/metar-placefile
+- https://saratoga-weather.org/grlevelx-placefiles.php
+- https://support.allisonhouse.com/hc/en-us/articles/206870333-Integrate-Radar-Data-with-Gibson-Ridge
+- https://www.noaa.gov/jetstream/wxmaps-max
 
-### Community, ecosystem, and competitors
+### Historical warnings and soundings
+- https://mesonet.agron.iastate.edu/geojson/sbw.py?help
+- https://mesonet.agron.iastate.edu/info/datasets/vtec.html
+- https://mesonet.agron.iastate.edu/json/ (raob.py, vtec_events)
+- https://mesonet.agron.iastate.edu/cow/
+- https://github.com/sharppy/SHARPpy
+- https://open-meteo.com/en/docs/gfs-api
+- https://stormtrack.org/threads/viewing-archived-soundings-in-sharppy.29574/
+- https://github.com/topics/skew-t
 
-- https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/
-- https://stormtrack.org/threads/what-software-do-you-guys-use.26739/
-- https://stormtrack.org/threads/best-free-radar-software.32006/
-- https://grlevelxusers.com/grlevelx-goodies/categories/color-tables/
-- https://itim.co/grlevelx-resources/
-- https://mods-for-grx.com/ctc
-- https://www.wxforum.net/index.php?topic=39549.0
-- https://grlevelx.com/manuals/color_tables/
-- https://placefiles.supercellwx.net/
+### Smoke and satellite
+- https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/
+- https://www.ospo.noaa.gov/products/land/hms.html
+- https://noaa-hrrr-bdp-pds.s3.amazonaws.com/ (wrfsfc .idx MASSDEN/COLMD)
+- https://www.cnbc.com/2023/06/08/air-quality-alert-apps-see-spike-in-usage-as-canada-wildfires-burns.html
+- https://nasa-gibs.github.io/gibs-api-docs/available-visualizations/
+
+### Fuzzing
+- https://rust-fuzz.github.io/book/cargo-fuzz/windows.html
+- https://github.com/rust-fuzz/cargo-fuzz/issues/358
+- https://github.com/HDFGroup/hdf5/issues/5381
+- https://rustsec.org/advisories/RUSTSEC-2019-0014.html
+- https://github.com/rust-fuzz/trophy-case
+- https://github.com/camshaft/bolero
+
+### Localization, accessibility, distribution
+- https://en.wikipedia.org/wiki/Meteorological_Service_of_Canada
+- https://www.weglot.com/blog/bill-96-explained
+- https://www.dwd.de/EN/ourservices/warnwetterapp/warnwetterapp.html
+- https://github.com/breezy-weather/breezy-weather
+- https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html
+- https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html
+- https://github.com/mapbox/mapbox-gl-js/issues/10114
+- https://afb.org/aw/18/10/15272
+- https://www.applevis.com/forum/ios-ipados/accessible-weather-radar
+- https://github.com/ScoopInstaller/Scoop/wiki/App-Manifest-Autoupdate
+- https://v2.tauri.app/distribute/windows-installer/
+- https://github.com/0pandadev/awesome-windows
+
+### Carried load-bearing sources from prior passes
 - https://github.com/dpaulat/supercell-wx/issues
-- https://github.com/AtmosphericX/AtmosphericX
-- https://obsproject.com/forum/threads/weather-alert-notification-in-stream.155531/
-- https://github.com/dutchdronesquad/rh-stream-overlays
-- https://wsv3.com/
-- https://alternativeto.net/software/radarscope/
-- https://alternativeto.net/software/myradar/
-- https://justuseapp.com/en/app/322439990/myradar-weather-radar/reviews
-- https://acmeaom.freshdesk.com/support/solutions/folders/44001197238
-- https://support.allisonhouse.com/hc/en-us/articles/206870353--GR2AE-Introduction-to-GR2Analyst-Edition
-
-### Windows platform
-
-- https://v2.tauri.app/learn/system-tray/
-- https://github.com/tauri-apps/tauri/discussions/4668
-- https://github.com/tauri-apps/tauri/issues/8982
-- https://github.com/tauri-apps/tauri/discussions/7904
-- https://learn.microsoft.com/en-us/windows/apps/develop/widgets/widget-providers
-- https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/grant-identity-to-nonpackaged-apps-overview
-- https://learn.microsoft.com/en-us/windows/desktop/api/shobjidl_core/nf-shobjidl_core-idesktopwallpaper-setwallpaper
-- https://www.techspot.com/news/105673-official-bing-wallpaper-app-does-nasty-malware-like.html
-- https://steamdb.info/app/431960/charts/
-- https://v2.tauri.app/plugin/notification/
-- https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/send-local-toast-other-apps
-- https://github.com/Ivy-Interactive/Rustino/issues/11
-- https://github.com/tauri-apps/tauri/issues/11461
-- https://www.xda-developers.com/3-reasons-eartrumpet-is-a-must-have-for-windows-power-users/
-- https://www.pistack.xyz/posts/2026-06-05-self-hosted-smart-mirror-digital-display-platforms-guide/
-- https://github.com/rocksdanister/lively/wiki/Screen-Saver
-- https://www.viewsonic.com/library/gaming/oled-burn-in-what-it-is-why-it-happens-and-how-to-stop-it/
-
-### Dependencies and toolchain
-
-- https://github.com/maplibre/maplibre-gl-js/releases
-- https://maplibre.org/maplibre-gl-js/docs/examples/pmtiles-source-and-protocol/
-- https://tauri.app/release/tauri/all-versions/
-- https://v2.tauri.app/release/
-- https://github.com/tauri-apps/tauri/security/advisories
-- https://crates.io/api/v1/crates/hdf5-reader/0.9.1/dependencies
-- https://github.com/danielway/nexrad
-- https://rustsec.org/advisories/RUSTSEC-2026-0253.html
-- https://github.com/vitejs/vite/security/advisories
-- https://react.dev/versions
-- https://blogs.windows.com/msedgedev/2026/08/24/webview2-is-moving-to-a-2-week-release-cadence/
-- https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API
-
-### Data services, terms, and law
-
-- https://www.weather.gov/notification/
-- https://www.weather.gov/media/notification/pdf_2026/scn26-048_RRFS_and_REFS_Implementation.aab.pdf
-- https://www.weather.gov/media/notification/pdf_2026/scn26-67_NEXRAD_Level_%202_radar_data_move_NOMADS_to_TGFTP.pdf
-- https://www.weather.gov/media/notification/pdf_2026/scn26-54_WSR-88D_Level2_Add_LTR.pdf
-- https://www.weather.gov/media/notification/pdf_2026/scn26-30_CO-OPS_SHEF_Water_Level_Data_Changes.pdf
-- https://www.ospo.noaa.gov/operations/goes/status.html
-- https://www.congress.gov/crs-product/IF12898
-- https://spacenews.com/omb-suggests-noaa-scale-back-plans-for-geostationary-satellites/
+- https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/page-2
+- https://grlevelxusers.com/grlevelx-goodies/categories/color-tables/
+- https://developer.apple.com/news/?id=kf623ldf
+- https://www.weather.gov/oun/stormanxiety
 - https://www.law.cornell.edu/cfr/text/47/11.45
-- https://www.fcc.gov/document/iheart-pay-1m-misusing-eas-tones-during-bobby-bones-show
-- https://docs.fcc.gov/public/attachments/FCC-24-109A1.pdf
-- https://www.broadcastlawblog.com/2019/09/articles/how-far-does-the-fcc-authority-over-false-eas-alerts-go-could-online-programming-be-subject-to-its-reach/
+- https://rustsec.org/advisories/RUSTSEC-2026-0253.html
+- https://www.weather.gov/media/notification/pdf_2026/scn26-048_RRFS_and_REFS_Implementation.aab.pdf
 - https://open-meteo.com/en/terms
-- https://openfreemap.org/
-- https://blog.hyperknot.com/p/openfreemap-survived-100000-requests
-- https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy
 - https://valhalla.openstreetmap.de/
-- https://www.congress.gov/crs-product/IF13024
+- https://openfreemap.org/
 
 ## Open Questions
 
-1. Will EUMETNET issue a redistribution-friendly ORD key or quota for a desktop app with no central server? Unchanged from the morning pass. [ORD overview](https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/)
-2. Does RRFS v1 actually enter operations on 2026-10-06 with stable filenames? The date was reconfirmed 2026-07-06 (SCN 26-48 AAB) with the standard critical-weather-day slip clause; verify after the day itself.
-3. What does the reported Baron arrival-time patent actually claim, and does it read on anything beyond geographic-grid ETA overlays? Needs the patent number and a reading before any per-place arrival feature is scoped.
-4. Is macOS or Linux support worth the release and hardware matrix, or does Windows remain the explicit boundary? Unchanged.
-5. Which retention feature earns the first sustained users: the journal, the ambient mode, the almanac, or the streamer surface? The tracker has no field evidence yet; the first published release with any of them is the experiment.
+1. The Baron arrival-time patent (reported on Stormtrack, unread): still needs a reading before any per-place arrival clock. Carried.
+2. IEM capacity etiquette: the API self-describes as finite; the proposed usage (user-action-driven archive queries, single-station RAOBs) is far below "highly trafficked website," but if archived-warning replay becomes a headline feature, IEM's bulk shapefile downloads may be the polite prefetch path for famous events. A judgment call at implementation time, not a blocker.
+3. Whether the owner wants to submit the AlternativeTo / awesome-list entries personally or have them drafted (publishing under an identity is a person's act, like the upstream `lru` issue). Blocks nothing; `AUD-119` words its acceptance around what the repo controls.
+4. Carried: the four operator-gated blockers (isolated desktop session, clean VM, Authenticode certificate, upstream issue filing) in `Roadmap_Blocked.md`.
