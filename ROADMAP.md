@@ -6,12 +6,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
-- [ ] P1 — The live legend reads its age off a clock that ticks once a minute
-  Why: `sweepEyebrow` is given the minute clock, so every cut collected since the last tick prints "0 S OLD" whatever its real age, and a stalled radar climbs in sixty-second steps. The acceptance for the live view asked for "live, N s old".
-  Evidence: a minute of the feature working as designed prints ages [0,0,0,0,0] against real ages [2,2,2,2,2].
-  Touches: src/hooks/useClock.ts, src/components/WorkspaceChrome.tsx, src/App.tsx
-  Acceptance: the age on screen is within a few seconds of the real one while a live sweep is drawn, and nothing else starts re-rendering every second.
-
 - [ ] P1 — The live unfolding test asserts a share that one real station does not reach
   Why: it demands a quarter of the broken pairs come back, which KDMX and four others manage and KFWS does not (13 per cent). It is hard-coded to KDMX, so it passes only because of which station it asks.
   Evidence: parameterised over five stations on 2026-08-31: KDMX 22457 to 9342 ok, KFWS 3766 to 3270 FAILED, KTLX 7911 to 5072 ok, KAMX 40248 to 18750 ok, KTBW 24114 to 8176 ok.

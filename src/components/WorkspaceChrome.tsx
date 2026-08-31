@@ -47,6 +47,14 @@ interface WorkspaceChromeProps {
   windReduced: boolean;
   /** Milliseconds, ticking once a minute, for the freshness readouts. */
   clock: number;
+  /**
+   * The same, ticking every second, for the legend over a live sweep.
+   *
+   * A piece of the volume in progress arrives every eleven or twelve seconds,
+   * so an age read off the minute clock said nought for everything collected
+   * since the last tick and then jumped a minute when the radar stalled.
+   */
+  liveClock: number;
   radarAgeMinutes: number | null;
   cursor: GeoPoint | null;
   activeTool: ToolMode;
@@ -81,6 +89,7 @@ export function WorkspaceChrome({
   wind,
   windReduced,
   clock,
+  liveClock,
   radarAgeMinutes,
   cursor,
   activeTool,
@@ -168,7 +177,7 @@ export function WorkspaceChrome({
               ? t("chrome.rainRate")
               : t("chrome.composite")
         }
-        eyebrow={sweep ? sweepEyebrow(sweep, clock) : t("chrome.liveProduct")}
+        eyebrow={sweep ? sweepEyebrow(sweep, liveClock) : t("chrome.liveProduct")}
         scale={
           sweep
             ? sweep.unit === "dBZ"

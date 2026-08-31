@@ -12,7 +12,11 @@ import { MapStage } from "./components/MapStage";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { PanelSurfaces } from "./components/PanelSurfaces";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
-import { useMinuteClock, useReducedMotion } from "./hooks/useClock";
+import {
+  useMinuteClock,
+  useReducedMotion,
+  useSecondClock,
+} from "./hooks/useClock";
 import { useExport } from "./hooks/useExport";
 import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
@@ -169,6 +173,10 @@ export default function App() {
     pageVisible,
     clock,
   });
+  // The live legend counts in seconds, and nothing else on screen does. The
+  // ticking starts only while a live sweep is drawn.
+  const liveClock = useSecondClock(singleSite.sweep?.live === true);
+
   const mrms = useMrmsOverlays({
     ready: hydrated,
     layers: settings.layers,
@@ -544,6 +552,7 @@ export default function App() {
 
       <WorkspaceChrome
         settings={settings}
+        liveClock={liveClock}
         timeline={timeline}
         frames={frames}
         sweep={singleSite.sweep}
