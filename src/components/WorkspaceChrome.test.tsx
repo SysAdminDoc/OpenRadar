@@ -2,6 +2,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceChrome } from "./WorkspaceChrome";
 import { DEFAULT_SETTINGS } from "../lib/settings";
+import type { SweepImage } from "../lib/level2";
 import { formatDistance, setUnits } from "../lib/units";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 
@@ -26,18 +27,50 @@ const timeline: RadarTimelineState = {
   selectFrame: vi.fn(),
 };
 
-function chrome(distanceMiles: number) {
+const COLLECTED = "2026-08-30T12:00:00Z";
+
+/** A drawn sweep, live or not, for the legend to read. */
+function sweepOf(live: boolean): SweepImage {
+  return {
+    station: "KDMX",
+    siteName: "Des Moines, IA",
+    productId: "reflectivity",
+    paletteApplied: false,
+    dealiased: false,
+    live,
+    liveTilts: live ? 3 : 0,
+    stormMotion: null,
+    product: "Reflectivity",
+    unit: "dBZ",
+    elevationDegrees: 0.48,
+    tilts: [0.48, 0.87],
+    tiltIndex: 0,
+    collected: COLLECTED,
+    west: -96.5,
+    south: 40,
+    east: -90.5,
+    north: 44,
+    image: "data:image/png;base64,",
+    volume: "v",
+  };
+}
+
+function chrome(
+  distanceMiles: number,
+  overrides: { sweep?: SweepImage | null; liveClock?: number } = {},
+) {
   return (
     <WorkspaceChrome
       settings={DEFAULT_SETTINGS}
       timeline={timeline}
       frames={[]}
-      sweep={null}
+      sweep={overrides.sweep ?? null}
       mrmsLayers={[]}
       lightning={null}
       wind={null}
       windReduced={false}
       clock={Date.UTC(2026, 7, 30, 12)}
+      liveClock={overrides.liveClock ?? Date.UTC(2026, 7, 30, 12)}
       radarAgeMinutes={null}
       cursor={null}
       activeTool="range"
@@ -68,6 +101,33 @@ function chrome(distanceMiles: number) {
 afterEach(() => {
   cleanup();
   setUnits("imperial");
+});
+
+describe("the legend over a live sweep", () => {
+  it("counts the seconds, not the minutes", () => {
+    // The whole point of the live view is that the picture is seconds behind
+    // rather than minutes. Read off the minute clock the age said nought for
+    // everything collected since the last tick, and jumped a minute at a time
+    // when the radar stalled.
+    render(
+      chrome(113, {
+        sweep: sweepOf(true),
+        liveClock: Date.parse(COLLECTED) + 37_000,
+      }),
+    );
+    expect(screen.getByText(/LIVE, 37 S OLD/)).toBeTruthy();
+  });
+
+  it("says nothing about being live when the sweep is not", () => {
+    render(
+      chrome(113, {
+        sweep: sweepOf(false),
+        liveClock: Date.parse(COLLECTED) + 37_000,
+      }),
+    );
+    expect(screen.queryByText(/LIVE/)).toBeNull();
+    expect(screen.getByText(/0\.48° TILT/)).toBeTruthy();
+  });
 });
 
 describe("the strip over the map", () => {

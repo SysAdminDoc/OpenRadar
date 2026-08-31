@@ -33,6 +33,51 @@ export function useMinuteClock(): number {
   return useSyncExternalStore(subscribe, () => now);
 }
 
+const SECOND_TICK_MS = 1_000;
+
+let second = Date.now();
+let secondTimer: number | null = null;
+const secondListeners = new Set<() => void>();
+
+function subscribeSecond(listener: () => void): () => void {
+  secondListeners.add(listener);
+  if (secondTimer === null) {
+    second = Date.now();
+    secondTimer = window.setInterval(() => {
+      second = Date.now();
+      for (const each of secondListeners) each();
+    }, SECOND_TICK_MS);
+  }
+  return () => {
+    secondListeners.delete(listener);
+    if (!secondListeners.size && secondTimer !== null) {
+      window.clearInterval(secondTimer);
+      secondTimer = null;
+    }
+  };
+}
+
+/**
+ * The same, ticking every second, for the one thing measured in seconds.
+ *
+ * The legend over a live sweep says how many seconds old the picture is, and a
+ * piece of the volume arrives every eleven or twelve. Read off the minute
+ * clock it said nought seconds for everything collected since the last tick,
+ * and then jumped a minute at a time when the radar stalled, which is the
+ * opposite of what the number is for.
+ *
+ * `wanted` is false everywhere else, and the timer is only running while
+ * somebody is subscribed, so nothing re-renders every second for a picture
+ * that changes every five minutes.
+ */
+export function useSecondClock(wanted: boolean): number {
+  const at = useSyncExternalStore(
+    wanted ? subscribeSecond : subscribe,
+    () => (wanted ? second : now),
+  );
+  return at;
+}
+
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 function subscribeMotion(listener: () => void): () => void {
