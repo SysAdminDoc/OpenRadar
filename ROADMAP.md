@@ -6,7 +6,73 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P0
 
+- [ ] P0 — The live unfolding test has been failing since before it was rewritten
+  Why: `level2::tests::unfolding_a_live_velocity_sweep_takes_the_folds_out` panics on every run of the ignored suite ("only 0 of 29383 planted gates rejoined the sweep"), and did so at ef940f3~1 too. A test that cannot pass cannot score anything, so the dealiaser has been unmeasured on real data the whole time.
+  Evidence: `cargo test --lib -- --ignored --test-threads=1` at 9b9ff55; two different KDMX volumes, 30721 and 29383 planted gates, none rejoined; `common` decided by a near-tie between 54963 and 30188.
+  Touches: src-tauri/src/level2.rs (the test), src-tauri/src/dealias.rs if the dealiaser is what is wrong
+  Acceptance: the ignored suite passes end to end; whichever of the test and the subject was wrong is named in the commit message; a planted wedge is measurably rejoined, and zeroing the field still fails.
+
+- [ ] P0 — Severe probability takes every click meant for the warning drawn on top of it
+  Why: `MapViewport.tsx` queries `openradar-probsevere-fill` first and returns on a hit, before the overlay list is consulted, while `layerStackOrder()` deliberately draws ProbSevere under the alerts. A tornado warning is unreachable by click anywhere the model drew a polygon, which is exactly over the storms that carry warnings.
+  Evidence: Playwright against the real handler: without ProbSevere a click reports "Tornado Warning"; with it, "Severe probability"; layer order guess 9, warning 10.
+  Touches: src/components/MapViewport.tsx (the click handler), a test that fixes the order against the render order
+  Acceptance: a click where a warning polygon overlaps a ProbSevere polygon reports the warning; the click order is derived from the render order rather than written out twice, so the two cannot drift; a test fails if a guidance layer is put in front of a decision layer.
+
 ### P1
+
+- [ ] P1 — Panning between MRMS regions serves the previous region's grid
+  Why: all five regions produce the same `coverageKey`, and that key is the only refetch trigger, so moving Honolulu to Anchorage keeps the Hawaii frame list for up to five minutes and requests `/HAWAII/...` tiles that come back empty.
+  Evidence: `renderHook` on the real `useRadarTimeline`, centre Honolulu to Anchorage: `fetchRadarTimeline` called once, expected twice; the Honolulu to Oklahoma City control passes with two.
+  Touches: src/lib/providers/index.ts (`coverageKey`), src/lib/providers/mrms.ts, src/hooks/useRadarTimeline.ts
+  Acceptance: the key separates the five MRMS domains; a test moves between each pair of regions and asserts a refetch; the Honolulu to Oklahoma City control still passes.
+
+- [ ] P1 — Every warning already in force is announced twice on the first poll
+  Why: the shared tag cache returns an empty map on the first `fetchData`, so an alert is recorded at rank 0 and then re-announced at its real rank on the next poll. The first draw also has no impact styling and no tag line, with nothing re-rendering when the tags land.
+  Evidence: driving the real `alertsOverlay.fetchData` twice against a mocked feed produced two announcements for one Tornado Warning, impact "" then "catastrophic".
+  Touches: src/lib/overlays/alerts.ts (`alertTags`, `fetchData`), src/lib/watch.ts
+  Acceptance: an alert whose tag arrives late is announced once, at its real rank; the map redraws when tags land rather than keeping rank 0; the 429 case the shared cache was added for stays fixed.
+
+- [ ] P1 — Tsunami and the civil-emergency products sit behind a switch labelled "Tornado"
+  Why: the grouping is right (they are all extreme, and they belong with the products people act on immediately) but the label is not. A reader in Honolulu who turns off "Tornado" because tornadoes are not their weather silently loses tsunami warnings from the map and from the watch.
+  Evidence: all 118 CAP event values through `alertType`: the tornado bucket holds Civil Danger, Evacuation Immediate, Extreme Wind, Hazardous Materials, Nuclear Power Plant, Radiological Hazard, Shelter In Place, Tornado Warning and Watch, and all three Tsunami products. `en.ts` renders the switch as the bare word "Tornado".
+  Touches: src/i18n/en.ts, src/i18n/es.ts, src/panels/MapOptionsPanels.tsx, src/lib/alertTypes.ts
+  Acceptance: the switch names what it actually covers and carries a detail line listing the life-safety products in it; a test asserts the label mentions more than tornadoes whenever the bucket holds more than tornadoes.
+
+- [ ] P1 — Nothing is checking the same-volume gate on storm rotation
+  Why: replacing the gate in `level3.rs` with `if true` leaves the whole suite green. The test added for it reimplements the comparison as a local closure and asserts on the constant, so it passes whatever production does. Clippy says so too: "this assertion has a constant value".
+  Evidence: `if true {` at src-tauri/src/level3.rs:743 gives `cargo test --lib` 142 passed and the ignored level3 test passed.
+  Touches: src-tauri/src/level3.rs
+  Acceptance: widening the window to forever and closing it to never each turn a test red; the test drives the real path rather than a copy of it.
+
+- [ ] P1 — The severe-probability layer fails blank
+  Why: `useProbSevere` computes an error and `App.tsx` passes only `.features`, so a reader who switches the layer on when there is no publication gets nothing at all and no message. The hook's own comment says this is a layer somebody might act on.
+  Evidence: `.error` and `.reading` are read nowhere in src/App.tsx, src/components or src/panels.
+  Touches: src/App.tsx, src/panels (wherever the layer's note goes)
+  Acceptance: a failed or stale reading shows the reason where the reader is looking; a test asserts the message reaches the panel.
+
+- [ ] P1 — The severe-probability freshness check only works in one direction
+  Why: `readingTime` uses `Date.UTC`, which rolls month 99 and minute 61 over rather than rejecting them, and the staleness test is `<= STALE_MINUTES`, so any stamp at or after now passes forever. A stamp years ahead, or nonsense, is drawn as current; an ISO stamp or a missing one is silently not drawn. The Rust side has the same one-sidedness.
+  Evidence: `20990101_000000` and `99999999_999999` drawn as current; `2026-08-30T23:08:41Z` and an absent stamp not drawn with no error.
+  Touches: src/lib/probsevere.ts, src/hooks/useProbSevere.ts, src-tauri/src/probsevere.rs
+  Acceptance: a stamp that cannot be read is refused and says so; a stamp implausibly far ahead of the clock is refused; the table of eight cases is a test.
+
+- [ ] P1 — One malformed key throws away a whole ProbSevere listing
+  Why: `newest_in` uses `?` on `after.find("</Key>")` inside the loop, so an unterminated tag returns None from the function and discards keys already found.
+  Evidence: a truncated listing returns None even though a good key preceded the truncation (src-tauri/src/probsevere.rs:206).
+  Touches: src-tauri/src/probsevere.rs
+  Acceptance: a listing that is good up to a truncation still yields the newest good key; a test plants the truncation after a valid key.
+
+- [ ] P1 — `coverage.test.ts` tests a copy of its subject
+  Why: it defines a local `covers` instead of importing the real one, so `return true` in types.ts, and a provider claiming the whole globe, both leave it at 6 passed.
+  Evidence: both mutations survive `npx vitest run src/lib/providers/coverage.test.ts`.
+  Touches: src/lib/providers/coverage.test.ts
+  Acceptance: the file imports `covers`; both mutations turn it red.
+
+- [ ] P1 — Two hook tests assert nothing about the lines they name
+  Why: deleting `offerRef.current = null` from the update check's failure path leaves useUpdates.test.ts green, and the line is unreachable anyway. Deleting `setError(null)` on a successful wind read leaves useWind.test.ts green, so the panel would keep reporting a failure while the particles animate.
+  Evidence: both mutants survive their own suites.
+  Touches: src/hooks/useUpdates.ts, src/hooks/useUpdates.test.ts, src/hooks/useWind.ts, src/hooks/useWind.test.ts
+  Acceptance: a wind error clears when the next run arrives, proven by a test that goes red without the line; the unreachable branch in useUpdates is either made reachable and tested or removed.
 
 ### P2
 
