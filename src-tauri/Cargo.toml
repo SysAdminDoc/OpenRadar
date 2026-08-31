@@ -29,6 +29,27 @@ tauri-plugin-notification = "2.3.3"
 # The aws feature is on for the chunk types and the volume assembler, not for
 # its networking: every request in this app goes through src/http.rs so there
 # is one allowlist and one User-Agent. reqwest is already in the tree.
+#
+# All three are release candidates and all three are pinned exactly, because a
+# pre-release may change what it decodes without changing what it is called.
+# `level2::tests::golden` writes down the geometry, the units and the cuts a
+# known volume comes out as, so an update that moves any of them fails rather
+# than quietly redrawing the map, and `level2::tests::malformed` sweeps every
+# corrupt and truncated byte of a volume through the parser.
+#
+# Upstream: https://github.com/danielway/nexrad (active; last release 2026-07,
+# no open issues at the 2026-08-31 review). Two things to pick up when they
+# ship:
+#   - `decode_angle` in the VCP decoder reads a negative elevation as roughly
+#     360 degrees (issue 144, fixed on main 2026-07-21). OpenRadar is not
+#     affected today because cut matching uses median radial angles, and a
+#     negative-elevation fixture goes in with the upgrade.
+#   - `File::records` slices past the Archive II header without checking the
+#     file is that long, so a file under 24 bytes panics. Guarded here in
+#     `level2::normalized_volume`; the guard can go when upstream returns an
+#     error instead.
+#
+# Review by 2027-03-01, or whenever a 1.0.0 lands.
 nexrad-data = { version = "=1.0.0-rc.7", default-features = false, features = ["nexrad-model", "aws"] }
 nexrad-decode = "=1.0.0-rc.3"
 nexrad-model = { version = "=1.0.0-rc.2", features = ["chrono"] }

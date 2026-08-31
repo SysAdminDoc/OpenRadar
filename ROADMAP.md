@@ -58,14 +58,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Complexity: XL
 
 
-- [ ] AUD-092: Stabilize the NEXRAD crate boundary
-      Why: `nexrad-data`, `nexrad-decode`, and `nexrad-model` are release candidates. Decoder behavior should not depend on floating pre-release assumptions without a compatibility plan.
-      Evidence: `src-tauri/Cargo.toml`; `src-tauri/Cargo.lock`; Level II fixtures in `src-tauri/src/level2.rs`
-      Touches: NEXRAD dependencies; fixture corpus; compatibility notes; decoder error mapping
-      Acceptance: Move to stable compatible releases when available, or pin exact pre-release versions with upstream references and a review date; a curated fixture corpus covers supported message families, malformed inputs, and unknown types; dependency updates cannot change decoded geometry or units without an intentional golden update.
-      Note (2026-08-31): Upstream is active (pushed 2026-07-21, zero open issues) and holds an unreleased fix: `decode_angle` in the VCP decoder misreads negative elevations as roughly 360 degrees (danielway/nexrad issue 144, fixed on main 2026-07-21). OpenRadar is unaffected today because cut matching uses median radial angles (`src-tauri/src/level2.rs`), but pick up the fix when it ships and add a negative-elevation fixture.
-      Complexity: L
-
 ## P3
 
 - [ ] AUD-084: Export scientific radar data with provenance

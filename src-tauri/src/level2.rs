@@ -674,9 +674,23 @@ fn decoded_volume(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
     Ok((scan, nyquist))
 }
 
+/// The Archive II volume header, which every file has to begin with.
+///
+/// `nexrad-data` slices past this without checking that there is anything
+/// behind it: `File::records` does `&bytes[size_of::<Header>()..]`, so a file
+/// shorter than the header panics with "range start index 24 out of range"
+/// rather than returning an error. This runs inside a Tauri command, where a
+/// panic is worse than an error: the promise never settles either way, so the
+/// panel waits forever on a file that will never open.
+///
+/// A reader can hand over any file on their machine through the local Archive
+/// II picker, so this is reachable by pointing it at anything small. The
+/// length is checked here, once, on the way in to every path.
+const ARCHIVE_HEADER_BYTES: usize = 24;
+
 fn normalized_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
     if !data.starts_with(&[0x1f, 0x8b]) {
-        return Ok(volume::File::new(data));
+        return checked_volume(data);
     }
 
     let decoder = flate2::read::GzDecoder::new(data.as_slice());
@@ -690,7 +704,17 @@ fn normalized_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
             "the expanded volume is larger than 256 MB".to_string(),
         ));
     }
-    Ok(volume::File::new(expanded))
+    checked_volume(expanded)
+}
+
+fn checked_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
+    if data.len() < ARCHIVE_HEADER_BYTES {
+        return Err(Level2Error::Decode(format!(
+            "the file is {} bytes, which is shorter than an Archive II header",
+            data.len()
+        )));
+    }
+    Ok(volume::File::new(data))
 }
 
 struct LocalVolume {
@@ -3280,6 +3304,211 @@ mod tests {
         assert_eq!(section.unit, "m/s");
         assert!(!section.dealiased);
         assert_eq!(section.lowest_cut, Some(0.5));
+    }
+
+    /// What the NEXRAD crates decode a known volume into, written down.
+    ///
+    /// The three `nexrad-*` crates are release candidates, pinned to exact
+    /// versions in `Cargo.toml`. A pre-release can change what it decodes
+    /// without changing what it is called, and every number below is one a
+    /// change like that would move: the geometry the sweep is drawn on, the
+    /// units it is labelled in, and the cuts the picker offers.
+    ///
+    /// So this is a golden test rather than a behavioural one. If a dependency
+    /// update moves any of it, that is the update telling you it changed the
+    /// picture, and the numbers here are updated deliberately with a note
+    /// saying why rather than adjusted until the run goes green.
+    mod golden {
+        use super::*;
+
+        #[test]
+        fn a_known_volume_decodes_to_a_known_geometry() {
+            let _guard = decoded_cache_test();
+            clear_cache();
+            let (at, key, data) = two_cut_volume();
+            let (scan, _) = decoded_volume(&key, data).expect("the fixture decodes");
+
+            // The cuts the picker offers, in the order it offers them.
+            assert_eq!(tilts(&scan), vec![0.5, 3.5]);
+
+            let cut = sweep_field(&scan, Product::Reflectivity, 0).expect("the lowest cut");
+            assert_eq!(cut.elevation_degrees, 0.5);
+            assert_eq!(cut.elevation_number, 1);
+            assert_eq!(cut.collected, Some(at));
+
+            // The gate geometry, which is what every reading's position is
+            // worked out from. These are the values the fixture writes into
+            // the radial header, so a decoder that read them differently, or
+            // scaled them differently, would show up here rather than as a
+            // picture that is subtly in the wrong place.
+            assert_eq!(cut.field.gate_count(), 400);
+            assert_eq!(cut.field.azimuth_count(), 180);
+            assert!((cut.field.first_gate_range_km() - 2.125).abs() < 1e-6);
+            assert!((cut.field.gate_interval_km() - 0.25).abs() < 1e-6);
+            // One degree, not the two the radials are actually apart. The
+            // ICD encodes azimuth resolution as a code meaning either half a
+            // degree or a whole one, because those are the only two a
+            // WSR-88D uses, so a fixture written at two degrees declares one.
+            // What matters is that the decoder reads the code the same way it
+            // did yesterday.
+            assert!((cut.field.azimuth_spacing_degrees() - 1.0).abs() < 1e-6);
+            assert!((cut.field.max_range_km() - 102.125).abs() < 1e-6);
+
+            // And the units, which the legend is labelled from. A moment
+            // relabelled upstream would put the wrong unit beside the bar.
+            for (product, label, unit) in [
+                ("reflectivity", "Reflectivity", "dBZ"),
+                ("velocity", "Velocity", "m/s"),
+                ("spectrum-width", "Spectrum width", "m/s"),
+                (
+                    "differential-reflectivity",
+                    "Differential reflectivity",
+                    "dB",
+                ),
+                ("correlation-coefficient", "Correlation coefficient", ""),
+            ] {
+                let named = product_from_name(product).expect(product);
+                assert_eq!((named.1, named.2), (label, unit), "{product}");
+            }
+        }
+
+        /// The extent a sweep is laid over, to the metre.
+        ///
+        /// This one is not ours: `RadarCoordinateSystem` works it out, and the
+        /// map lays the picture over exactly this box. A change of a hundredth
+        /// of a degree is two kilometres of storm in the wrong place.
+        #[test]
+        fn a_known_site_draws_over_a_known_box() {
+            let _guard = decoded_cache_test();
+            clear_cache();
+            let (_, key, data) = two_cut_volume();
+            let sweep = sweep_from_volume(
+                "KDMX",
+                &key,
+                data,
+                SweepRequest {
+                    product_name: "reflectivity",
+                    ..SweepRequest::default()
+                },
+            )
+            .expect("the fixture draws");
+
+            // KDMX at 41.731, -93.723, out to the 230 km the sweep is drawn
+            // to, through the 4/3 earth model. Two hundred and thirty
+            // kilometres is 2.07 degrees of latitude and 2.77 of longitude at
+            // this latitude, which is what these come to.
+            let round = |value: f64| (value * 1e6).round() / 1e6;
+            assert_eq!(round(sweep.west), -96.492749);
+            assert_eq!(round(sweep.east), -90.952854);
+            assert_eq!(round(sweep.south), 39.663236);
+            assert_eq!(round(sweep.north), 43.798960);
+            assert_eq!(sweep.elevation_degrees, 0.5);
+            assert_eq!(sweep.unit, "dBZ");
+            assert_eq!(sweep.tilts, vec![0.5, 3.5]);
+        }
+    }
+
+    /// A volume that is not the volume it claims to be.
+    ///
+    /// Every one of these runs inside a Tauri command. A panic there does not
+    /// become an error the caller can see: the promise never settles, so the
+    /// panel sits waiting forever and asks again two minutes later. The Level
+    /// III reader is held to the same standard a few files over.
+    mod malformed {
+        use super::*;
+
+        /// A small volume, so the sweeps below can cover every byte of it.
+        fn small_volume() -> Vec<u8> {
+            let at = Utc
+                .with_ymd_and_hms(2026, 8, 30, 9, 21, 59)
+                .single()
+                .expect("a UTC time");
+            let site = fixture::Site {
+                id: *b"KDMX",
+                latitude: 41.731,
+                longitude: -93.723,
+                height_metres: 299,
+            };
+            let cuts = vec![fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    radials: 4,
+                    gates: 8,
+                    reflectivity: fixture::Gate::Reading(35.0),
+                    velocity: Some(fixture::Gate::Reading(6.0)),
+                    ..fixture::Cut::default()
+                },
+            )];
+            fixture::uncompressed_volume(&site, at, &cuts)
+        }
+
+        /// Decode and choose a cut, which is every line that reads the file.
+        ///
+        /// Deliberately not `sweep_from_volume`: drawing is a million pixels
+        /// per call and is our own arithmetic over values the decoder has
+        /// already validated. What is being swept here is the parser, and
+        /// putting the renderer behind it turns a two-second corpus into a
+        /// twenty-minute one.
+        fn parse(key: &str, data: Vec<u8>) {
+            let Ok((scan, _)) = decoded_volume(key, data) else {
+                return;
+            };
+            let _ = tilts(&scan);
+            let _ = sweep_field(&scan, Product::Reflectivity, 0);
+            let _ = sweep_field(&scan, Product::Velocity, 0);
+        }
+
+        #[test]
+        fn no_single_corrupt_byte_can_take_the_process_down() {
+            let _guard = decoded_cache_test();
+            clear_cache();
+            let volume = small_volume();
+            for at in 0..volume.len() {
+                for byte in [0x00u8, 0x01, 0x7f, 0xff] {
+                    let mut broken = volume.clone();
+                    broken[at] = byte;
+                    // A fresh key each time, or the cache would answer with
+                    // the volume decoded before it was broken.
+                    parse(&format!("broken:{at}:{byte}"), broken);
+                }
+            }
+            clear_cache();
+        }
+
+        #[test]
+        fn a_volume_that_stops_in_the_middle_is_refused_rather_than_fatal() {
+            let _guard = decoded_cache_test();
+            clear_cache();
+            let volume = small_volume();
+            // Every length a truncated download could leave behind.
+            for length in 0..volume.len() {
+                parse(&format!("short:{length}"), volume[..length].to_vec());
+            }
+            // And nothing at all, which is what an empty file is.
+            parse("empty", Vec::new());
+            clear_cache();
+        }
+
+        #[test]
+        fn a_file_that_is_not_a_volume_is_refused() {
+            let _guard = decoded_cache_test();
+            clear_cache();
+            for (name, bytes) in [
+                ("text", b"this is not a radar volume".to_vec()),
+                ("zeros", vec![0u8; 4096]),
+                ("header only", b"AR2V0006.001".to_vec()),
+                // The right header and nothing behind it.
+                ("empty body", {
+                    let mut out = b"AR2V0006.001".to_vec();
+                    out.resize(24, 0);
+                    out
+                }),
+            ] {
+                let asked = decoded_volume(&format!("not-a-volume:{name}"), bytes);
+                assert!(asked.is_err(), "{name} should be refused");
+            }
+            clear_cache();
+        }
     }
 
     #[test]
