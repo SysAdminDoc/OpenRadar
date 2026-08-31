@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "check": "npm run format:check && npm run lint && npm run test && npm run build",
+    "check": "npm run format:check && npm run lint && npm run test && npm run build && npm run check:bundle",
+    "check:bundle": "node scripts/bundle-budget.mjs",
     "check:live": "node scripts/live-contracts.mjs",
     "tauri": "tauri",
     "release": "node scripts/release.mjs"
