@@ -8,15 +8,6 @@ Actionable work only. Completed items are deleted; blocked items live in Roadmap
 
 ### P1
 
-- [ ] P1 — Two hook tests assert nothing about the lines they name
-  Why: deleting `offerRef.current = null` from the update check's failure path leaves useUpdates.test.ts green, and the line is unreachable anyway. Deleting `setError(null)` on a successful wind read leaves useWind.test.ts green, so the panel would keep reporting a failure while the particles animate.
-  Evidence: both mutants survive their own suites.
-  Touches: src/hooks/useUpdates.ts, src/hooks/useUpdates.test.ts, src/hooks/useWind.ts, src/hooks/useWind.test.ts
-  Acceptance: a wind error clears when the next run arrives, proven by a test that goes red without the line; the unreachable branch in useUpdates is either made reachable and tested or removed.
-
-### P2
-
-
 ### P3
 
 - [ ] P3 — Optical-flow radar nowcast for the next 60 minutes on the timeline tail
