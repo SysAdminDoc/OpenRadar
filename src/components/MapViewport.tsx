@@ -61,6 +61,7 @@ import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
+import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -68,7 +69,6 @@ import {
   CELL_POINT_LAYER_ID,
   CELL_TRACK_LAYER_ID,
   CUSTOM_FILL_LAYER_ID,
-  CUSTOM_LAYER_IDS,
   CUSTOM_LINE_LAYER_ID,
   CUSTOM_POINT_LAYER_ID,
   FLASH_LAYER_ID,
@@ -86,7 +86,6 @@ import {
   TOOL_LINE_LAYER_ID,
   TOOL_POINT_LAYER_ID,
   OVERLAY_SOURCE_PREFIX,
-  TRACK_LAYER_IDS,
   TRACK_LINE_LAYER_ID,
   TRACK_POINT_LAYER_ID,
   WIND_LAYER_ID,
@@ -722,29 +721,9 @@ function MapViewportInner(
     openPopup(map, event.lngLat, content);
   };
 
-  const syncRoute = () => {
-    const map = mapRef.current;
-    if (!map || !styleReadyRef.current) return;
-    const data = routeRef.current;
-    const source = map.getSource(ROUTE_SOURCE_ID) as
-      maplibregl.GeoJSONSource | undefined;
-
-    if (!data) {
-      if (source) {
-        if (map.getLayer(ROUTE_LAYER_ID)) map.removeLayer(ROUTE_LAYER_ID);
-        map.removeSource(ROUTE_SOURCE_ID);
-        publishLayers();
-      }
-      return;
-    }
-
-    if (source) {
-      source.setData(data as never);
-      return;
-    }
-
-    map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: data as never });
-    map.addLayer(
+  const ROUTE_LANE: VectorLane = {
+    sourceId: ROUTE_SOURCE_ID,
+    layers: () => [
       {
         id: ROUTE_LAYER_ID,
         type: "line",
@@ -773,9 +752,15 @@ function MapViewportInner(
           ],
         },
       },
-      firstExisting(map, layersAbove(ROUTE_LAYER_ID)),
-    );
-    publishLayers();
+    ],
+  };
+
+  const syncRoute = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (syncVectorLane(map, ROUTE_LANE, routeRef.current, under)) {
+      publishLayers();
+    }
   };
 
   const syncWind = () => {
@@ -1204,153 +1189,98 @@ function MapViewportInner(
     publishLayers();
   };
 
+  const TRACK_LANE: VectorLane = {
+    sourceId: TRACK_SOURCE_ID,
+    layers: () => [
+      {
+        id: TRACK_LINE_LAYER_ID,
+        type: "line",
+        source: TRACK_SOURCE_ID,
+        filter: ["==", ["geometry-type"], "LineString"],
+        paint: {
+          "line-color": ["coalesce", ["get", "color"], "#e2e8f0"],
+          "line-width": ["coalesce", ["get", "width"], 2],
+          "line-opacity": 0.85,
+        },
+      },
+      {
+        id: TRACK_POINT_LAYER_ID,
+        type: "circle",
+        source: TRACK_SOURCE_ID,
+        filter: ["==", ["geometry-type"], "Point"],
+        // Each six-hourly fix is coloured by the wind it carried.
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 3.5, 8, 7],
+          "circle-color": ["coalesce", ["get", "color"], "#94a3b8"],
+          "circle-stroke-color": "#0f172a",
+          "circle-stroke-width": 1,
+        },
+      },
+    ],
+  };
+
   const syncStormTrack = () => {
     const map = mapRef.current;
-    const track = stormTrackRef.current;
     if (!map || !styleReadyRef.current) return;
-
-    let source = map.getSource(TRACK_SOURCE_ID) as
-      maplibregl.GeoJSONSource | undefined;
-    if (!track) {
-      if (source) {
-        for (const id of TRACK_LAYER_IDS) {
-          if (map.getLayer(id)) map.removeLayer(id);
-        }
-        map.removeSource(TRACK_SOURCE_ID);
-      }
+    if (syncVectorLane(map, TRACK_LANE, stormTrackRef.current, under)) {
       publishLayers();
-      return;
     }
-    if (!source) {
-      map.addSource(TRACK_SOURCE_ID, { type: "geojson", data: track as never });
-      const beforeTools = firstExisting(map, layersAbove(TRACK_LINE_LAYER_ID));
-      map.addLayer(
-        {
-          id: TRACK_LINE_LAYER_ID,
-          type: "line",
-          source: TRACK_SOURCE_ID,
-          filter: ["==", ["geometry-type"], "LineString"],
-          paint: {
-            "line-color": ["coalesce", ["get", "color"], "#e2e8f0"],
-            "line-width": ["coalesce", ["get", "width"], 2],
-            "line-opacity": 0.85,
-          },
+  };
+
+  const CUSTOM_LANE: VectorLane = {
+    sourceId: CUSTOM_SOURCE_ID,
+    layers: () => [
+      {
+        id: CUSTOM_FILL_LAYER_ID,
+        type: "fill",
+        source: CUSTOM_SOURCE_ID,
+        filter: ["==", ["geometry-type"], "Polygon"],
+        // A placefile carries its own colours; plain GeoJSON does not.
+        paint: {
+          "fill-color": ["coalesce", ["get", "color"], "#60a5fa"],
+          // A file's own opacity rides on its features, since one set of
+          // layers draws every imported file. Absent means full.
+          "fill-opacity": ["*", 0.18, ["coalesce", ["get", "fileOpacity"], 1]],
         },
-        beforeTools,
-      );
-      map.addLayer(
-        {
-          id: TRACK_POINT_LAYER_ID,
-          type: "circle",
-          source: TRACK_SOURCE_ID,
-          filter: ["==", ["geometry-type"], "Point"],
-          // Each six-hourly fix is coloured by the wind it carried.
-          paint: {
-            "circle-radius": [
-              "interpolate",
-              ["linear"],
-              ["zoom"],
-              3,
-              3.5,
-              8,
-              7,
-            ],
-            "circle-color": ["coalesce", ["get", "color"], "#94a3b8"],
-            "circle-stroke-color": "#0f172a",
-            "circle-stroke-width": 1,
-          },
+      },
+      {
+        id: CUSTOM_LINE_LAYER_ID,
+        type: "line",
+        source: CUSTOM_SOURCE_ID,
+        filter: [
+          "in",
+          ["geometry-type"],
+          ["literal", ["LineString", "Polygon"]],
+        ],
+        paint: {
+          "line-color": ["coalesce", ["get", "color"], "#93c5fd"],
+          "line-width": ["coalesce", ["get", "width"], 2],
+          "line-opacity": ["coalesce", ["get", "fileOpacity"], 1],
         },
-        beforeTools,
-      );
-      source = map.getSource(TRACK_SOURCE_ID) as maplibregl.GeoJSONSource;
-    }
-    source.setData(track as never);
-    publishLayers();
+      },
+      {
+        id: CUSTOM_POINT_LAYER_ID,
+        type: "circle",
+        source: CUSTOM_SOURCE_ID,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 6,
+          "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
+          "circle-stroke-color": "#eff6ff",
+          "circle-stroke-width": 1.5,
+          "circle-opacity": ["coalesce", ["get", "fileOpacity"], 1],
+          "circle-stroke-opacity": ["coalesce", ["get", "fileOpacity"], 1],
+        },
+      },
+    ],
   };
 
   const syncCustomOverlay = () => {
     const map = mapRef.current;
-    const overlay = customOverlayRef.current;
     if (!map || !styleReadyRef.current) return;
-
-    let source = map.getSource(CUSTOM_SOURCE_ID) as
-      maplibregl.GeoJSONSource | undefined;
-    if (!overlay) {
-      // Switching the layer off has to take the shapes with it.
-      if (source) {
-        for (const id of CUSTOM_LAYER_IDS) {
-          if (map.getLayer(id)) map.removeLayer(id);
-        }
-        map.removeSource(CUSTOM_SOURCE_ID);
-      }
+    if (syncVectorLane(map, CUSTOM_LANE, customOverlayRef.current, under)) {
       publishLayers();
-      return;
     }
-    if (!source) {
-      map.addSource(CUSTOM_SOURCE_ID, {
-        type: "geojson",
-        data: overlay as never,
-      });
-      const beforeTools = firstExisting(map, layersAbove(CUSTOM_FILL_LAYER_ID));
-      map.addLayer(
-        {
-          id: CUSTOM_FILL_LAYER_ID,
-          type: "fill",
-          source: CUSTOM_SOURCE_ID,
-          filter: ["==", ["geometry-type"], "Polygon"],
-          // A placefile carries its own colours; plain GeoJSON does not.
-          paint: {
-            "fill-color": ["coalesce", ["get", "color"], "#60a5fa"],
-            // A file's own opacity rides on its features, since one set of
-            // layers draws every imported file. Absent means full.
-            "fill-opacity": [
-              "*",
-              0.18,
-              ["coalesce", ["get", "fileOpacity"], 1],
-            ],
-          },
-        },
-        beforeTools,
-      );
-      map.addLayer(
-        {
-          id: CUSTOM_LINE_LAYER_ID,
-          type: "line",
-          source: CUSTOM_SOURCE_ID,
-          filter: [
-            "in",
-            ["geometry-type"],
-            ["literal", ["LineString", "Polygon"]],
-          ],
-          paint: {
-            "line-color": ["coalesce", ["get", "color"], "#93c5fd"],
-            "line-width": ["coalesce", ["get", "width"], 2],
-            "line-opacity": ["coalesce", ["get", "fileOpacity"], 1],
-          },
-        },
-        beforeTools,
-      );
-      map.addLayer(
-        {
-          id: CUSTOM_POINT_LAYER_ID,
-          type: "circle",
-          source: CUSTOM_SOURCE_ID,
-          filter: ["==", ["geometry-type"], "Point"],
-          paint: {
-            "circle-radius": 6,
-            "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
-            "circle-stroke-color": "#eff6ff",
-            "circle-stroke-width": 1.5,
-            "circle-opacity": ["coalesce", ["get", "fileOpacity"], 1],
-            "circle-stroke-opacity": ["coalesce", ["get", "fileOpacity"], 1],
-          },
-        },
-        beforeTools,
-      );
-      source = map.getSource(CUSTOM_SOURCE_ID) as maplibregl.GeoJSONSource;
-    }
-    source.setData(overlay as never);
-    publishLayers();
   };
 
   /**
