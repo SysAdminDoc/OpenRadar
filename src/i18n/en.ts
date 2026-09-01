@@ -91,9 +91,6 @@ export const en = {
     "The warning archive holds no polygons before 2002, so none are drawn.",
   "replay.warningsHistorical": "Warnings as they stood, {when}",
   "capture.leave": "Leave capture layout",
-  "capture.entered": "Capture layout on",
-  "capture.enteredBody":
-    "The panels and the controls are hidden. The cross at the end of the strip puts them back.",
   "alerts.kinds": "Kinds of alert",
   "alerts.kindsDetail":
     "Unchecking one takes it off the map and out of this list",
@@ -116,6 +113,8 @@ export const en = {
   "alerts.noteOff": "Nothing is being fetched while the layer is off.",
   "alerts.noteError": "Showing the last good list. {error}",
   "alerts.noteChecked": "NWS watches and warnings, checked {when}.",
+  "alerts.noteArchived":
+    "The warnings that were in force at the moment on screen, from the Iowa State archive.",
   "alerts.noteLoading": "Loading NWS watches and warnings.",
   "alerts.noteSafety": "Use official warnings for life-safety decisions.",
 

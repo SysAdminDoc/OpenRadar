@@ -23,10 +23,22 @@ interface AlertsPanelProps {
   onClose: () => void;
 }
 
+/**
+ * A moment, with a year when it is not this one.
+ *
+ * A warning replayed out of the 2011 archive read "Apr 27, 22:00" here, which
+ * is indistinguishable from this April, and that is the one way this layer
+ * could do harm. Adding a year unconditionally would put one on every live
+ * warning for the sake of the rare historical one, so it is added when it
+ * says something.
+ */
 function timeLabel(value: unknown): string {
   if (typeof value !== "number" || !Number.isFinite(value))
     return translate("alerts.unknownTime");
-  return formatClock(new Date(value), {
+  const at = new Date(value);
+  const thisYear = at.getFullYear() === new Date().getFullYear();
+  return formatClock(at, {
+    ...(thisYear ? {} : { year: "numeric" }),
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -52,6 +64,11 @@ export function AlertsPanel({
     return [{ feature, bounds }];
   });
   const loading = layerOn && fetchedAt === null && error === null;
+  // Read off the polygons rather than passed in, so the panel and the map
+  // cannot disagree about which day they are showing.
+  const historical = alerts.features.some(
+    (feature) => feature.properties.historical === true,
+  );
 
   return (
     <PanelShell
@@ -150,9 +167,11 @@ export function AlertsPanel({
           ? t("alerts.noteOff")
           : error
             ? t("alerts.noteError", { error })
-            : fetchedAt
-              ? t("alerts.noteChecked", { when: relativeTime(fetchedAt) })
-              : t("alerts.noteLoading")}{" "}
+            : historical
+              ? t("alerts.noteArchived")
+              : fetchedAt
+                ? t("alerts.noteChecked", { when: relativeTime(fetchedAt) })
+                : t("alerts.noteLoading")}{" "}
         {t("alerts.noteSafety")}
       </p>
     </PanelShell>

@@ -40,7 +40,6 @@ for (const size of SIZES) {
 
     await enterCapture(page);
     await expect(bar).toBeVisible();
-    await expect(page.getByText("Capture layout on")).toBeVisible();
 
     // Everything the streamer operates is gone.
     for (const gone of [
@@ -50,6 +49,7 @@ for (const size of SIZES) {
       ".zoom-controls",
       ".map-watermark",
       ".source-attribution",
+      ".toast-host",
     ]) {
       await expect(page.locator(gone)).toBeHidden();
     }
@@ -85,6 +85,60 @@ for (const size of SIZES) {
     expect(box!.height).toBeLessThan(size.height * 0.16);
   });
 }
+
+test("hides the chrome that only appears in some states", async ({ page }) => {
+  const pane = page
+    .getByRole("application", { name: "Interactive weather map" })
+    .first();
+
+  // Conditional chrome, which is why a first pass missed it: the satellite
+  // chip needs the satellite layer and the cursor readout needs a pointer
+  // over the map. The readout is the worst of them, because it lands in the
+  // lower-right strip this mode promises to leave for the streamer's own
+  // overlay.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Satellite/ }).check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+  await pane.hover();
+  await expect(page.locator(".satellite-chip")).toBeVisible();
+  await expect(page.locator(".map-readout")).toBeVisible();
+
+  await enterCapture(page);
+  await expect(page.locator("[data-capture-bar]")).toBeVisible();
+  await pane.hover();
+
+  await expect(page.locator(".satellite-chip")).toBeHidden();
+  await expect(page.locator(".map-readout")).toBeHidden();
+});
+
+test("hides the compare controls a second pane brings", async ({ page }) => {
+  // They sit at the top right, which is where the alert badge is.
+  await page.getByRole("button", { name: "Dual Pane", exact: true }).click();
+  await expect(page.locator(".pane-compare")).toBeVisible();
+
+  await enterCapture(page);
+  await expect(page.locator("[data-capture-bar]")).toBeVisible();
+  await expect(page.locator(".pane-compare")).toBeHidden();
+});
+
+test("disarms a tool on the way in, whose only control it hides", async ({
+  page,
+}) => {
+  // The tool readout holds the only Clear button, and the mode hides it. A
+  // tool left armed could be drawn into the capture with nothing to undo it,
+  // and the click that drew it opened a panel that appeared on the way out.
+  await page.getByRole("button", { name: "Range", exact: true }).click();
+  await expect(page.locator(".tool-hud")).toBeVisible();
+
+  await enterCapture(page);
+  await expect(page.locator("[data-capture-bar]")).toBeVisible();
+  await expect(page.locator(".tool-hud")).toBeHidden();
+
+  await page.getByRole("button", { name: "Leave capture layout" }).click();
+  // Not merely hidden: put away, so nothing is armed behind a control that
+  // was not on screen.
+  await expect(page.locator(".tool-hud")).toBeHidden();
+});
 
 test("puts the workspace back exactly as it was", async ({ page }) => {
   const pane = page.getByRole("application", {

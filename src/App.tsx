@@ -16,6 +16,7 @@ import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
 import { useArchiveWarnings } from "./hooks/useArchiveWarnings";
 import { alertsOfKind } from "./lib/overlays/alerts";
+import { EMPTY_OVERLAY } from "./lib/overlays";
 import {
   useMinuteClock,
   useReducedMotion,
@@ -268,6 +269,7 @@ export default function App() {
   // polygons back, from the archive, one request for the whole window.
   const archiveWarnings = useArchiveWarnings({
     replay,
+    enabled: settings.layers.weatherAlerts,
     frameTime: activeFrame?.time ?? null,
   });
   const replayedAlerts = useMemo(
@@ -637,25 +639,19 @@ export default function App() {
           // handleTool clears the surface itself.
           handleTool(action.tool as ToolMode);
           return;
-        case "capture": {
-          // The toast is decided out here rather than inside the updater. A
-          // state updater is called more than once in development, and a
-          // toast raised from inside one arrives twice.
-          const on = !capture;
-          setCapture(on);
-          if (on) {
-            pushToast({
-              title: translate("capture.entered"),
-              detail: translate("capture.enteredBody"),
-            });
-          }
+        case "capture":
+          setCapture((on) => !on);
+          // Nothing the mode hides may be left armed behind it. The layout
+          // change is its own announcement, so there is no toast: the mode
+          // hides those, because a toast's action button changes what the
+          // workspace comes back to and it cannot be seen to be pressed.
+          handleTool(null);
           break;
-        }
       }
       // Everything else leaves the map showing rather than the list.
       setActiveSurface(null);
     },
-    [applySettings, capture, handleTool, pushToast, settingsRef],
+    [applySettings, handleTool, settingsRef],
   );
 
   const centerPoint = useMemo<GeoPoint>(
@@ -783,13 +779,18 @@ export default function App() {
             productOpen={productOpen}
             settings={settings}
             overlays={
-              replayedAlerts
+              replay
                 ? {
                     ...overlays.states,
                     alerts: {
                       ...overlays.states.alerts,
-                      data: replayedAlerts,
-                      error: null,
+                      data: replayedAlerts ?? EMPTY_OVERLAY,
+                      // A moment that genuinely holds no warning is an answer,
+                      // not a wait. Without this the panel spins for ever,
+                      // because the live fetch it normally reads is switched
+                      // off for the whole replay and never stamps a time.
+                      fetchedAt: archiveWarnings.loading ? null : clock,
+                      error: archiveWarnings.error,
                     },
                   }
                 : overlays.states
@@ -870,7 +871,7 @@ export default function App() {
           center={settings.camera.center}
           sourceLabel={timeline.sourceLabel}
           attribution={timeline.attribution?.label ?? null}
-          alerts={overlays.data.alerts ?? null}
+          alerts={replayedAlerts ?? overlays.data.alerts ?? null}
           clock={clock}
           onLeave={() => setCapture(false)}
         />

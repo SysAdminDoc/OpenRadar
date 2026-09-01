@@ -289,10 +289,10 @@ export async function routeWorkspace(page: Page) {
       await route.fulfill({ contentType: "image/png", body: transparentPng });
       return;
     }
-    if (url.includes("/geojson/sbw.py")) {
-      // The archive keeps a warning once per shape it held, each with the
-      // window it stood for, so the same warning is in the answer twice and
-      // only one of them belongs on any given frame.
+    if (url.includes("/vtec/sbw_interval")) {
+      // The interval service answers with one row per polygon a warning held,
+      // so the same warning is here twice: the shape it opened with and the
+      // shape the office shrank it to. Only one belongs on any given frame.
       const box = (west: number) => ({
         type: "Polygon",
         coordinates: [
@@ -305,27 +305,29 @@ export async function routeWorkspace(page: Page) {
           ],
         ],
       });
-      const warning = (
+      const version = (
         begin: string,
         end: string,
         west: number,
-        hail: string,
+        status: string,
+        id: string,
       ) => ({
         type: "Feature",
         geometry: box(west),
         properties: {
-          ps: "Tornado Warning",
-          significance: "W",
+          event_label: "Tornado Warning",
+          ph_sig: "TO.W",
           phenomena: "TO",
+          significance: "W",
           wfo: "TBW",
-          polygon_begin: begin,
-          polygon_end: end,
-          product_id: `${begin}-KTBW-WFUS52-TORNAD`,
-          href: "https://mesonet.agron.iastate.edu/vtec/",
-          hailtag: hail,
-          damagetag: null,
-          is_emergency: false,
-          floodtag_damage: null,
+          year: 2022,
+          eventid: 12,
+          status,
+          utc_issue: "2022-09-28T18:00:00Z",
+          utc_expire: "2022-09-28T20:00:00Z",
+          utc_polygon_begin: begin,
+          utc_polygon_end: end,
+          product_id: id,
         },
       });
       await route.fulfill({
@@ -333,8 +335,48 @@ export async function routeWorkspace(page: Page) {
         body: JSON.stringify({
           type: "FeatureCollection",
           features: [
-            warning("2022-09-28T18:00:00Z", "2022-09-28T19:00:00Z", -83, "1.00"),
-            warning("2022-09-28T19:00:00Z", "2022-09-28T20:00:00Z", -82, "2.00"),
+            version(
+              "2022-09-28T18:00:00Z",
+              "2022-09-28T19:00:00Z",
+              -83,
+              "NEW",
+              "issued",
+            ),
+            version(
+              "2022-09-28T19:00:00Z",
+              "2022-09-28T20:00:00Z",
+              -82,
+              "CON",
+              "shrunk",
+            ),
+          ],
+        }),
+      });
+      return;
+    }
+    if (url.includes("/geojson/sbw.py")) {
+      // The tag feed, which knows what the office tagged and nothing about
+      // the revisions. Joined on the event, not on the polygon.
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [-82.5, 26.5] },
+              properties: {
+                wfo: "TBW",
+                year: 2022,
+                phenomena: "TO",
+                significance: "W",
+                eventid: 12,
+                damagetag: "CONSIDERABLE",
+                hailtag: null,
+                is_emergency: false,
+                floodtag_damage: null,
+              },
+            },
           ],
         }),
       });
