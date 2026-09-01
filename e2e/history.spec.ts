@@ -185,3 +185,44 @@ test("searches before any track has been fetched", async ({ page }) => {
   await page.getByRole("button", { name: /IAN 2022/ }).click();
   await expect.poll(() => fetched).toEqual(["index.json", "2020.json"]);
 });
+
+test("draws the warnings that were in force, not today's", async ({ page }) => {
+  // The app replays radar back to 2003 and used to draw today's warnings over
+  // it, or nothing. Both are a claim nobody made.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/geojson/sbw.py")) asked.push(request.url());
+  });
+
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+  await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
+
+  // One request for the whole window, and it asks for that window rather than
+  // for now.
+  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(1);
+  expect(asked[0]).toContain("sts=2022-09-28T16:00:00Z");
+  expect(asked[0]).toContain("ets=2022-09-28T22:00:00Z");
+
+  // The polygons are on the map, drawn by the same layer the live ones use.
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
+
+  // And the popup says which day they are from, first, before anything that
+  // could be mistaken for a time today.
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByText("Tornado Warning").first()).toBeVisible();
+  await page.getByRole("button", { name: "Close Alerts" }).click();
+
+  // Scrubbing to a later frame does not ask the archive again.
+  const scrubber = page.getByRole("slider", { name: /radar frame/i });
+  await scrubber.focus();
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press("ArrowRight");
+  }
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
+  expect(asked).toHaveLength(1);
+});

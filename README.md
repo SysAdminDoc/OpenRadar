@@ -65,7 +65,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Cones, forecast tracks, coastal watches and development outlooks, with a storm list you can fly the map to.
 - **Storm surge risk**: how far the water could reach for a hurricane of each category, from the National Hurricane Center's own maps.
 - **Tides** from the nearest NOAA station, with the next high and low water, because surge rides on top of the tide.
-- **Storm history**: every Atlantic and eastern Pacific cyclone since 1851, drawn by intensity, and archive radar replay for the ones since 2003.
+- **Storm history**: every Atlantic and eastern Pacific cyclone since 1851, drawn by intensity, and archive radar replay for the ones since 2003. A replay draws the warnings that were in force at the moment on screen, out of the Iowa State archive, dated so nothing historical reads as live.
 
 ### The rest of the sky
 

@@ -82,6 +82,13 @@ export const es: Catalogue = {
   "layers.fileRemove": "Quitar {name}",
   "capture.title": "Diseño para captura",
   "capture.noAlerts": "No hay avisos activos a la vista",
+  "replay.warningsUnavailable":
+    "El archivo de avisos no respondió, así que de aquel día solo está el radar.",
+  "replay.warningsPartial":
+    "Antes de octubre de 2007 las oficinas avisaban por condado, así que solo algunas de estas tormentas tienen polígono.",
+  "replay.warningsNone":
+    "El archivo de avisos no guarda polígonos anteriores a 2002, así que no se dibuja ninguno.",
+  "replay.warningsHistorical": "Avisos tal como estaban, {when}",
   "capture.leave": "Salir del diseño para captura",
   "capture.entered": "Diseño para captura activado",
   "capture.enteredBody":

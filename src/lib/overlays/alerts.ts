@@ -467,6 +467,17 @@ export const alertsOverlay: OverlayAdapter = {
   describe: (properties) => ({
     title: String(properties.headline ?? translate("popup.alert")),
     lines: [
+      // First, and only on a polygon out of the archive. A warning from 2011
+      // reading like something somebody is being told right now is the one
+      // way this layer could do harm, so the date leads rather than sitting
+      // under the issue time where a reader might take it for a refresh.
+      ...(properties.historical
+        ? [
+            translate("replay.warningsHistorical", {
+              when: timeLabel(properties.polygonBegin),
+            }),
+          ]
+        : []),
       translate("popup.issued", { when: timeLabel(properties.issued) }),
       translate("popup.expires", { when: timeLabel(properties.expires) }),
       ...(properties.impact

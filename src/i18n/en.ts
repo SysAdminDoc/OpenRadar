@@ -83,6 +83,13 @@ export const en = {
   "layers.fileRemove": "Remove {name}",
   "capture.title": "Capture layout",
   "capture.noAlerts": "No active warnings in view",
+  "replay.warningsUnavailable":
+    "The warning archive did not answer, so only the radar is from that day.",
+  "replay.warningsPartial":
+    "Before October 2007 offices warned by county, so only some of these storms have a polygon.",
+  "replay.warningsNone":
+    "The warning archive holds no polygons before 2002, so none are drawn.",
+  "replay.warningsHistorical": "Warnings as they stood, {when}",
   "capture.leave": "Leave capture layout",
   "capture.entered": "Capture layout on",
   "capture.enteredBody":

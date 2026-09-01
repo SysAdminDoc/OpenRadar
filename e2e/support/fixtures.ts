@@ -289,6 +289,57 @@ export async function routeWorkspace(page: Page) {
       await route.fulfill({ contentType: "image/png", body: transparentPng });
       return;
     }
+    if (url.includes("/geojson/sbw.py")) {
+      // The archive keeps a warning once per shape it held, each with the
+      // window it stood for, so the same warning is in the answer twice and
+      // only one of them belongs on any given frame.
+      const box = (west: number) => ({
+        type: "Polygon",
+        coordinates: [
+          [
+            [west, 26],
+            [west + 1, 26],
+            [west + 1, 27],
+            [west, 27],
+            [west, 26],
+          ],
+        ],
+      });
+      const warning = (
+        begin: string,
+        end: string,
+        west: number,
+        hail: string,
+      ) => ({
+        type: "Feature",
+        geometry: box(west),
+        properties: {
+          ps: "Tornado Warning",
+          significance: "W",
+          phenomena: "TO",
+          wfo: "TBW",
+          polygon_begin: begin,
+          polygon_end: end,
+          product_id: `${begin}-KTBW-WFUS52-TORNAD`,
+          href: "https://mesonet.agron.iastate.edu/vtec/",
+          hailtag: hail,
+          damagetag: null,
+          is_emergency: false,
+          floodtag_damage: null,
+        },
+      });
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "FeatureCollection",
+          features: [
+            warning("2022-09-28T18:00:00Z", "2022-09-28T19:00:00Z", -83, "1.00"),
+            warning("2022-09-28T19:00:00Z", "2022-09-28T20:00:00Z", -82, "2.00"),
+          ],
+        }),
+      });
+      return;
+    }
     if (url.includes("/lsr.geojson")) {
       await route.fulfill({
         contentType: "application/json",
