@@ -2,6 +2,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   type ForwardedRef,
 } from "react";
@@ -1717,7 +1718,12 @@ function MapViewportInner(
       map.remove();
       mapRef.current = null;
     };
-    // The map instance owns initial camera and style. Later changes are bridged below.
+    // The one suppression left in this file, and the only one that is about
+    // the effect rather than about a closure. A map is built once and torn
+    // down once: the camera, style and callbacks it is constructed with are
+    // the opening state, and every later change reaches it through a
+    // `useMapSync` below rather than by building a second map. Listing them
+    // here would say the opposite.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1748,53 +1754,55 @@ function MapViewportInner(
     map.setStyle(mapStyleDefinition(mapStyle, incidentPack));
   }, [incidentPack, mapStyle, styleIdentity]);
 
-  useEffect(() => {
-    radarFrameRef.current = radarFrame;
-    radarVisibleRef.current = radarVisible;
-    radarOpacityRef.current = radarOpacity;
-    sweepRef.current = sweep;
+  // Four inputs draw one lane, so they arrive as one value rather than as
+  // four dependencies with a suppression over them.
+  const radarState = useMemo(
+    () => ({ radarFrame, radarVisible, radarOpacity, sweep }),
+    [radarFrame, radarVisible, radarOpacity, sweep],
+  );
+  useMapSync(radarState, (next) => {
+    radarFrameRef.current = next.radarFrame;
+    radarVisibleRef.current = next.radarVisible;
+    radarOpacityRef.current = next.radarOpacity;
+    sweepRef.current = next.sweep;
     if (containerRef.current) {
-      containerRef.current.dataset.radarFrame = radarFrame
-        ? String(radarFrame.time)
+      containerRef.current.dataset.radarFrame = next.radarFrame
+        ? String(next.radarFrame.time)
         : "";
     }
     syncRadar();
     syncSweep();
-    // The sync functions read the refs above; adding them as dependencies
-    // would rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [radarFrame, radarVisible, radarOpacity, sweep]);
+  });
 
-  useEffect(() => {
-    // A tick of the clock moves the fade and nothing else.
-    flashClockRef.current = flashClock;
-    flashWindowRef.current = flashWindowMinutes;
+  // A tick of the clock moves the fade and nothing else.
+  const flashFade = useMemo(
+    () => ({ flashClock, flashWindowMinutes }),
+    [flashClock, flashWindowMinutes],
+  );
+  useMapSync(flashFade, (next) => {
+    flashClockRef.current = next.flashClock;
+    flashWindowRef.current = next.flashWindowMinutes;
     fadeFlashes();
-    // The fade function reads the refs above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flashClock, flashWindowMinutes]);
+  });
 
-  useEffect(() => {
+  useMapSync(overlayOrder, (next) => {
     // The stack is rebuilt from this, so it has to be in place before the
     // overlays are put back.
-    overlayOrderChosen = overlayOrder;
+    overlayOrderChosen = next;
     const map = mapRef.current;
-    if (map && styleReadyRef.current) {
-      // Taking them all off and adding them again is what puts them in the
-      // new order: MapLibre places a layer relative to the ones already there.
-      for (const adapter of OVERLAY_ADAPTERS) {
-        const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
-        if (!map.getSource(sourceId)) continue;
-        for (const layer of adapter.layers(sourceId)) {
-          if (map.getLayer(layer.id)) map.removeLayer(layer.id);
-        }
-        map.removeSource(sourceId);
+    if (!map || !styleReadyRef.current) return;
+    // Taking them all off and adding them again is what puts them in the new
+    // order: MapLibre places a layer relative to the ones already there.
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
+      if (!map.getSource(sourceId)) continue;
+      for (const layer of adapter.layers(sourceId)) {
+        if (map.getLayer(layer.id)) map.removeLayer(layer.id);
       }
-      syncOverlays();
+      map.removeSource(sourceId);
     }
-    // The sync function reads refs rather than props.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlayOrder]);
+    syncOverlays();
+  });
 
   useEffect(() => {
     overlayOpacityRef.current = overlayOpacity;
@@ -1808,8 +1816,12 @@ function MapViewportInner(
    * them again is to drop them and let the sync put them back. The data is in
    * the refs, so nothing is fetched twice and there is no gap to see.
    */
-  useEffect(() => {
-    highContrastRef.current = highContrast;
+  const preferences = useMemo(
+    () => ({ highContrast, measurements }),
+    [highContrast, measurements],
+  );
+  useMapSync(preferences, (next) => {
+    highContrastRef.current = next.highContrast;
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
     for (const id of CELL_LAYER_IDS) {
@@ -1826,10 +1838,7 @@ function MapViewportInner(
     }
     syncCells();
     syncOverlays();
-    // The sync functions read the refs above; adding them as dependencies
-    // would rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highContrast, measurements]);
+  });
 
   useEffect(() => {
     toolModeRef.current = toolMode;
