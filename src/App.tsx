@@ -12,6 +12,7 @@ import {
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import type { MapViewportHandle } from "./components/MapViewport";
+import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
 import {
   useMinuteClock,
@@ -126,6 +127,7 @@ export default function App() {
   // and are not something a settings file should carry; a workspace backup is
   // where they travel.
   const [overlayFiles, setOverlayFiles] = useState<WorkspaceOverlayFile[]>([]);
+  const [capture, setCapture] = useState(false);
   const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
   const [replay, setReplay] = useState<ArchiveReplay | null>(null);
   const mapRef = useRef<MapViewportHandle>(null);
@@ -617,11 +619,25 @@ export default function App() {
           // handleTool clears the surface itself.
           handleTool(action.tool as ToolMode);
           return;
+        case "capture": {
+          // The toast is decided out here rather than inside the updater. A
+          // state updater is called more than once in development, and a
+          // toast raised from inside one arrives twice.
+          const on = !capture;
+          setCapture(on);
+          if (on) {
+            pushToast({
+              title: translate("capture.entered"),
+              detail: translate("capture.enteredBody"),
+            });
+          }
+          break;
+        }
       }
       // Everything else leaves the map showing rather than the list.
       setActiveSurface(null);
     },
-    [applySettings, handleTool, settingsRef],
+    [applySettings, capture, handleTool, pushToast, settingsRef],
   );
 
   const centerPoint = useMemo<GeoPoint>(
@@ -661,6 +677,10 @@ export default function App() {
     <main
       className={`app-shell ${dualPane ? "is-dual-pane" : ""}`}
       data-panel-side={panelSide}
+      // Everything the streamer operates is hidden by one attribute rather
+      // than by unmounting it, so leaving the mode puts the workspace back
+      // exactly as it was: same panel open, same tool held, same scroll.
+      data-capture={capture ? "1" : undefined}
     >
       <MapStage
         settings={settings}
@@ -800,6 +820,17 @@ export default function App() {
             onExportSettings={actions.exportSettings}
           />
         </Suspense>
+      ) : null}
+
+      {capture ? (
+        <CaptureBar
+          center={settings.camera.center}
+          sourceLabel={timeline.sourceLabel}
+          attribution={timeline.attribution?.label ?? null}
+          alerts={overlays.data.alerts ?? null}
+          clock={clock}
+          onLeave={() => setCapture(false)}
+        />
       ) : null}
 
       <WorkspaceChrome

@@ -81,6 +81,12 @@ export const en = {
   "layers.fileShapes": "{count} shapes",
   "layers.fileShown": "Show {name}",
   "layers.fileRemove": "Remove {name}",
+  "capture.title": "Capture layout",
+  "capture.noAlerts": "No active warnings in view",
+  "capture.leave": "Leave capture layout",
+  "capture.entered": "Capture layout on",
+  "capture.enteredBody":
+    "The panels and the controls are hidden. The cross at the end of the strip puts them back.",
   "alerts.kinds": "Kinds of alert",
   "alerts.kindsDetail":
     "Unchecking one takes it off the map and out of this list",
@@ -451,6 +457,8 @@ export const en = {
   "command.group.style": "Map type",
   "command.group.panel": "Panel",
   "command.group.tool": "Tool",
+  "command.group.layout": "Layout",
+  "keywords.capture": "",
   "layer.probSevere": "Severe Probability",
   "layers.probSevereDetail":
     "What a model expects of each storm in the next hour, which is guidance rather than a warning",

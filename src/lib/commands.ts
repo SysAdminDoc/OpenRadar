@@ -8,7 +8,8 @@ export type CommandAction =
   | { kind: "style"; style: MapStyleId }
   | { kind: "product"; product: string }
   | { kind: "surface"; surface: string }
-  | { kind: "tool"; tool: string };
+  | { kind: "tool"; tool: string }
+  | { kind: "capture" };
 
 export interface Command {
   id: string;
@@ -400,6 +401,17 @@ export function allCommands(which?: LanguageId): Command[] {
       keywords: searchTerms(entry.keywords, entry.extra, which),
       action: { kind: "surface", surface: entry.surface },
     })),
+    {
+      id: "capture",
+      label: translate("capture.title", undefined, which),
+      group: translate("command.group.layout", undefined, which),
+      keywords: searchTerms(
+        ["obs", "stream", "streaming", "broadcast", "capture", "clean"],
+        "keywords.capture",
+        which,
+      ),
+      action: { kind: "capture" },
+    },
     ...TOOL_COMMANDS.map((entry): Command => ({
       id: `tool:${entry.tool}`,
       label: translate(entry.key, undefined, which),
