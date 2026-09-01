@@ -91,7 +91,8 @@ interface PanelSurfacesProps {
   onAlertSelect: (bounds: OverlayBounds) => void;
   onFollowStorm: (point: GeoPoint, name: string) => void;
   onCommand: (action: CommandAction) => void;
-  onClearPalette: () => void;
+  onAssignPalette: (unit: string, name: string | null) => void;
+  onRemovePalette: (name: string) => void;
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onOverlayOpacity: (opacity: Record<string, number>) => void;
   onOverlayOrder: (order: string[]) => void;
@@ -280,8 +281,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
         <UploadPanel
           onClose={onClose}
           onFile={props.onUpload}
-          palette={settings.palette}
-          onClearPalette={props.onClearPalette}
+          palettes={settings.palettes}
+          paletteAssignments={settings.paletteAssignments}
+          onAssignPalette={props.onAssignPalette}
+          onRemovePalette={props.onRemovePalette}
         />
       ) : null}
 

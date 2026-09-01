@@ -1,6 +1,11 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
-import { parsePalette, type Palette } from "./palette";
+import {
+  MAX_PALETTES,
+  paletteUnit,
+  parsePalette,
+  type Palette,
+} from "./palette";
 import { isLanguage, translate, type LanguageId } from "../i18n";
 import { isSurgeCategory, type SurgeCategory } from "./surge";
 import { TEXT_SCALES } from "./units";
@@ -184,7 +189,7 @@ export interface IncidentPackSettings {
  * changes meaning, which is the one case where reading the old value would be
  * worse than ignoring it.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export interface AppSettings {
   schemaVersion: typeof SCHEMA_VERSION;
@@ -199,8 +204,25 @@ export interface AppSettings {
   camera: CameraState;
   radar: RadarSettings;
   layers: LayerSettings;
-  /** A GRLevelX colour table, applied to whatever it says it is for. */
-  palette: Palette | null;
+  /**
+   * The GRLevelX colour tables the reader has imported, up to `MAX_PALETTES`.
+   *
+   * A shelf rather than a slot. Radar people compare a storm across tools by
+   * loading the same table everywhere, and they keep more than one: a
+   * reflectivity scale they read every day and a velocity scale for the
+   * afternoons that need one. Holding a single table meant importing the
+   * second silently threw away the first.
+   */
+  palettes: Palette[];
+  /**
+   * Which table is in force for each unit, by the table's own name.
+   *
+   * Keyed on the lowercased unit rather than on a product, because that is
+   * what a `.pal` file declares and what the native renderer selects on. A
+   * name that is no longer in the library is left in place and ignored, so
+   * removing a table and importing it again puts it back where it was.
+   */
+  paletteAssignments: Record<string, string>;
   /** Which hurricane the surge picture is about, when that layer is on. */
   surgeCategory: SurgeCategory;
   watch: WatchState;
@@ -298,7 +320,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     wind: false,
     surge: false,
   },
-  palette: null,
+  palettes: [],
+  paletteAssignments: {},
   surgeCategory: 3,
   alertTypes: {},
   overlayOpacity: {},
@@ -618,6 +641,127 @@ function normalizeIncidentPacks(value: unknown): IncidentPackSettings {
     selectedId,
     references,
   };
+}
+
+/**
+ * The library, read back from a settings file.
+ *
+ * A build before this one held one table under `palette`, so that becomes a
+ * library of one rather than being dropped: the reader loaded it, and an
+ * upgrade is not a reason to throw somebody's colour scale away.
+ */
+/**
+ * The library with one more table on it, in force for what it is for.
+ *
+ * Null when the shelf is full and this is a table that is not already on it,
+ * because silently dropping one of the reader's own tables to make room is
+ * worse than saying the shelf is full.
+ *
+ * A table imported under a name already there replaces that one in place. It
+ * keeps its position and keeps whatever it was assigned to, since re-importing
+ * an edited file is an update to what the reader arranged rather than a new
+ * thing to arrange.
+ */
+export function withPalette(
+  settings: AppSettings,
+  palette: Palette,
+): AppSettings | null {
+  const at = settings.palettes.findIndex((held) => held.name === palette.name);
+  if (at < 0 && settings.palettes.length >= MAX_PALETTES) return null;
+  const palettes =
+    at < 0
+      ? [...settings.palettes, palette]
+      : settings.palettes.map((held, index) => (index === at ? palette : held));
+  return {
+    ...settings,
+    palettes,
+    paletteAssignments: {
+      ...settings.paletteAssignments,
+      [paletteUnit(palette).toLowerCase()]: palette.name,
+    },
+  };
+}
+
+/** The library without a table, and without any assignment that named it. */
+export function withoutPalette(
+  settings: AppSettings,
+  name: string,
+): AppSettings {
+  const paletteAssignments = Object.fromEntries(
+    Object.entries(settings.paletteAssignments).filter(
+      ([, assigned]) => assigned !== name,
+    ),
+  );
+  return {
+    ...settings,
+    palettes: settings.palettes.filter((held) => held.name !== name),
+    paletteAssignments,
+  };
+}
+
+/** One unit's table put in force, or taken out of force when name is null. */
+export function withPaletteAssigned(
+  settings: AppSettings,
+  unit: string,
+  name: string | null,
+): AppSettings {
+  const key = unit.trim().toLowerCase();
+  const paletteAssignments = { ...settings.paletteAssignments };
+  if (name) {
+    paletteAssignments[key] = name;
+  } else {
+    delete paletteAssignments[key];
+  }
+  return { ...settings, paletteAssignments };
+}
+
+function normalizePalettes(raw: Record<string, unknown>): Palette[] {
+  const source = Array.isArray(raw.palettes)
+    ? raw.palettes
+    : raw.palette
+      ? [raw.palette]
+      : [];
+  const read: Palette[] = [];
+  for (const entry of source) {
+    const palette = normalizePalette(entry);
+    if (!palette) continue;
+    // One name, one table. A second import under a name already on the shelf
+    // replaced the first at import time, so two here is a hand-edited file.
+    if (read.some((held) => held.name === palette.name)) continue;
+    read.push(palette);
+    if (read.length === MAX_PALETTES) break;
+  }
+  return read;
+}
+
+/**
+ * Which table is in force per unit, dropped to the ones that could be true.
+ *
+ * The names are not checked against the library here. A name for a table that
+ * is not on the shelf simply does not resolve, and keeping it means removing a
+ * table and importing it again restores the assignment it had.
+ */
+function normalizePaletteAssignments(
+  raw: Record<string, unknown>,
+): Record<string, string> {
+  const stored = raw.paletteAssignments;
+  const assignments: Record<string, string> = {};
+  if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+    for (const [unit, name] of Object.entries(
+      stored as Record<string, unknown>,
+    )) {
+      if (typeof name !== "string" || !name) continue;
+      assignments[unit.trim().toLowerCase()] = name.slice(0, 60);
+    }
+  } else if (!Array.isArray(raw.palettes) && raw.palette) {
+    // The single table an older build held was always in force, so the
+    // upgrade keeps it in force rather than leaving the map suddenly plain.
+    const only = normalizePalette(raw.palette);
+    if (only) {
+      assignments[paletteUnit(only).toLowerCase()] = only.name;
+    }
+  }
+  return assignments;
 }
 
 function normalizePalette(value: unknown): Palette | null {
@@ -983,10 +1127,11 @@ export function normalizeSettings(value: unknown): AppSettings {
       wind: bool(layers.wind, DEFAULT_SETTINGS.layers.wind),
       surge: bool(layers.surge, DEFAULT_SETTINGS.layers.surge),
     },
-    // A palette is re-read from its own text rather than trusted as an
+    // Every palette is re-read from its own text rather than trusted as an
     // object, so a hand-edited settings file cannot put anything on the map
     // that the parser would not have produced itself.
-    palette: normalizePalette(raw.palette),
+    palettes: normalizePalettes(raw),
+    paletteAssignments: normalizePaletteAssignments(raw),
     surgeCategory: isSurgeCategory(raw.surgeCategory)
       ? raw.surgeCategory
       : DEFAULT_SETTINGS.surgeCategory,

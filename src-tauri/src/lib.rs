@@ -198,7 +198,7 @@ pub fn run() {
             mrms::mrms_frames,
             mrms::mrms_products,
             lightning::lightning_flashes,
-            palette::set_palette,
+            palette::set_palettes,
             gfs::gfs_wind
         ])
         .setup(|_app| {

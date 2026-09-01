@@ -249,3 +249,65 @@ export function looksLikePalette(name: string, text: string): boolean {
     /^\s*(product|units|step)\s*:/im.test(head)
   );
 }
+
+/**
+ * How many tables the library holds.
+ *
+ * A number rather than no limit, because the whole set is written into the
+ * settings file and into every workspace backup, and a reader who imports a
+ * hub's worth of community tables should hit a stated ceiling rather than a
+ * settings file that has quietly become a megabyte.
+ */
+export const MAX_PALETTES = 12;
+
+/**
+ * The unit a table is for, as the assignment map keys it.
+ *
+ * A file that does not say is a reflectivity table, which is what the format
+ * was written for. `paletteApplies` makes the same call, and the native side
+ * makes it a third time; all three have to agree or the legend describes
+ * something the map is not drawing.
+ */
+export function paletteUnit(palette: Palette): string {
+  return palette.units?.trim() || "dBZ";
+}
+
+/** The table assigned to a product measured in this unit, if there is one. */
+export function assignedPalette(
+  palettes: Palette[],
+  assignments: Record<string, string>,
+  unit: string,
+): Palette | null {
+  const wanted = assignments[unit.trim().toLowerCase()];
+  if (!wanted) return null;
+  return (
+    palettes.find(
+      (palette) => palette.name === wanted && paletteApplies(palette, unit),
+    ) ?? null
+  );
+}
+
+/**
+ * Every table actually in force, at most one per unit.
+ *
+ * This is what the renderer is given. The library is the reader's shelf and
+ * this is what they took off it, so importing a table changes nothing on the
+ * map until it is assigned.
+ */
+export function activePalettes(
+  palettes: Palette[],
+  assignments: Record<string, string>,
+): Palette[] {
+  const seen = new Set<string>();
+  const active: Palette[] = [];
+  for (const [unit, name] of Object.entries(assignments)) {
+    if (seen.has(unit)) continue;
+    const found = palettes.find(
+      (palette) => palette.name === name && paletteApplies(palette, unit),
+    );
+    if (!found) continue;
+    seen.add(unit);
+    active.push(found);
+  }
+  return active;
+}

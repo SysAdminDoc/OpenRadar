@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { log } from "../lib/log";
 import { paletteForRenderer, type Palette } from "../lib/palette";
-import { applyPaletteToRenderer } from "../lib/paletteRenderer";
+import { applyPalettesToRenderer } from "../lib/paletteRenderer";
 import { isDesktopRuntime } from "../lib/settings";
 
 /**
@@ -15,19 +15,21 @@ import { isDesktopRuntime } from "../lib/settings";
  */
 export function usePalette(options: {
   ready: boolean;
-  palette: Palette | null;
+  /** Every table in force, at most one per unit. */
+  palettes: Palette[];
 }): number {
-  const { ready, palette } = options;
+  const { ready, palettes } = options;
   const [generation, setGeneration] = useState(0);
 
-  // A table is only sent when it changes, and its own contents are the key.
-  const sent = palette
-    ? JSON.stringify([
-        palette.units,
-        palette.rangeFolded,
-        paletteForRenderer(palette),
-      ])
-    : "";
+  // The set is only sent when it changes, and its own contents are the key,
+  // so re-importing a table that reads identically re-renders nothing.
+  const sent = JSON.stringify(
+    palettes.map((palette) => [
+      palette.units,
+      palette.rangeFolded,
+      paletteForRenderer(palette),
+    ]),
+  );
 
   useEffect(() => {
     if (!ready || !isDesktopRuntime()) return;
@@ -35,7 +37,7 @@ export function usePalette(options: {
 
     void (async () => {
       try {
-        const next = await applyPaletteToRenderer(palette);
+        const next = await applyPalettesToRenderer(palettes);
         if (!open) return;
         if (next !== null) setGeneration(next);
       } catch (failure: unknown) {
@@ -44,7 +46,7 @@ export function usePalette(options: {
           "app",
           failure instanceof Error
             ? failure.message
-            : "The colour table could not be applied.",
+            : "The colour tables could not be applied.",
         );
       }
     })();
@@ -52,7 +54,7 @@ export function usePalette(options: {
     return () => {
       open = false;
     };
-  }, [palette, ready, sent]);
+  }, [palettes, ready, sent]);
 
   return generation;
 }

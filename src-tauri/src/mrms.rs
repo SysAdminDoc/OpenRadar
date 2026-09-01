@@ -2472,16 +2472,16 @@ mod tests {
         assert_eq!(built_in, [0xfd, 0x00, 0x00], "the built-in ramp changed");
 
         // A table saying fifty dBZ is black.
-        crate::palette::set_palette(
-            Some("dBZ".into()),
-            None,
-            vec![crate::palette::Stop {
+        crate::palette::set_palettes(vec![crate::palette::Table {
+            units: Some("dBZ".into()),
+            range_folded: None,
+            stops: vec![crate::palette::Stop {
                 value: 5.0,
                 color: "#000000".into(),
                 to_color: None,
                 solid: false,
             }],
-        );
+        }]);
         assert_eq!(
             color_at(6, 15, 23),
             Some([0x00, 0x00, 0x00]),
@@ -2489,20 +2489,20 @@ mod tests {
         );
 
         // A table for a different unit leaves reflectivity alone.
-        crate::palette::set_palette(
-            Some("mm".into()),
-            None,
-            vec![crate::palette::Stop {
+        crate::palette::set_palettes(vec![crate::palette::Table {
+            units: Some("mm".into()),
+            range_folded: None,
+            stops: vec![crate::palette::Stop {
                 value: 5.0,
                 color: "#000000".into(),
                 to_color: None,
                 solid: false,
             }],
-        );
+        }]);
         assert_eq!(color_at(6, 15, 23), Some(built_in));
 
         // And clearing it puts the built-in ramp back.
-        crate::palette::set_palette(None, None, Vec::new());
+        crate::palette::set_palettes(Vec::new());
         assert_eq!(color_at(6, 15, 23), Some(built_in));
         clear_caches();
     }
@@ -2780,11 +2780,7 @@ mod tests {
             synthetic_grib(0, 41, 0, 4, 4, (2, 2), &samples),
         )
         .expect("a seed");
-        std::fs::write(
-            into.join("half-a-grib"),
-            &good[..good.len() / 2],
-        )
-        .expect("a seed");
+        std::fs::write(into.join("half-a-grib"), &good[..good.len() / 2]).expect("a seed");
     }
 
     #[test]

@@ -705,7 +705,20 @@ test("saves the whole workspace to a file and puts it back", async ({
   // imported. Its own round trip is held by the unit tests.
   expect(parsed.overlayFiles).toEqual([]);
   expect(parsed.settings.units).toBe("metric");
-  expect(parsed.settings.schemaVersion).toBe(2);
+  // The same version the app is writing to its own settings file, read from
+  // the app rather than written here as a number: what matters is that the
+  // backup is stamped with the build that wrote it, and a literal only means
+  // that until the next schema change.
+  const stamped = await page.evaluate(
+    () =>
+      (
+        JSON.parse(
+          window.localStorage.getItem("openradar.settings") ?? "{}",
+        ) as { schemaVersion?: number }
+      ).schemaVersion,
+  );
+  expect(stamped).toBeGreaterThan(0);
+  expect(parsed.settings.schemaVersion).toBe(stamped);
 
   // Back to imperial, then restore the file and watch it return.
   await page.getByRole("button", { name: "Feet and Fahrenheit" }).click();

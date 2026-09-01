@@ -209,13 +209,6 @@ The three worth starting with are JOY-007 and JOY-008 together, since the journa
 
 Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
 
-- [ ] AUD-094: P2. Grow the single colour table into a palette library
-      Why: The switching cost in this market is accumulated customization. A community of shared GRLevelX tables is active in 2026 (about 150 tables on the main hub, uploads this year), a competitor bug about tables failing to persist shows persistence is a felt stake, and OpenRadar currently holds exactly one palette at a time in settings.
-      Evidence: https://grlevelxusers.com/grlevelx-goodies/categories/color-tables/ ; https://github.com/dpaulat/supercell-wx/issues/639 ; https://stormtrack.org/threads/open-source-weather-radar-software-supercell-wx.32393/page-2 ; `src/lib/settings.ts`; `src/lib/palette.ts`; `src-tauri/src/palette.rs`
-      Touches: Settings schema and migration; palette storage and naming; per-product assignment; the radar product panel; generation invalidation; workspace backup
-      Acceptance: Several named palettes import, persist across restart, and round-trip through workspace backup; each supported product can hold its own assignment; the legend rebuilds per assignment; every stored palette is still re-parsed from its own text on load; removing a palette in use falls back to the built-in ramp with a visible note rather than a blank layer.
-      Complexity: L
-
 - [ ] AUD-121: P3. Make the burned basemap credit follow the style on screen
       Why: The weather half of an export's credit now comes from the layer's provenance record, but the map half is still the constant "OpenStreetMap". Two of the seven styles are not OpenStreetMap: aerial draws USGS orthoimagery and topography draws OpenTopoMap, which asks for an exact credit line. An offline incident pack carries its own attribution too. So a picture exported over imagery credits the wrong service.
       Evidence: `src/hooks/useExport.ts` `BASEMAP_CREDIT`; `src/lib/mapStyles.ts` `mapStyleDefinition`; `src/components/MapStage.tsx` style resolution

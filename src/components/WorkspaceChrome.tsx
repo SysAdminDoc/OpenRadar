@@ -8,7 +8,7 @@ import type { FlashWindow } from "../hooks/useLightning";
 import { windLabel, type WindField } from "../lib/wind";
 import { paletteLegend } from "../lib/legend";
 import { mosaicLegend } from "../lib/mosaicLegend";
-import { paletteApplies } from "../lib/palette";
+import { assignedPalette } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
@@ -173,11 +173,16 @@ export function WorkspaceChrome({
   const paletteApplied = sweep
     ? sweep.paletteApplied
     : frames[timeline.frameIndex]?.providerId === "mrms";
+  // Which of the reader's tables is in force for the unit on screen, rather
+  // than "the table", so a velocity scale does not describe reflectivity.
+  const drawnPalette = assignedPalette(
+    settings.palettes,
+    settings.paletteAssignments,
+    drawnUnit,
+  );
   const paletteScale =
-    settings.palette &&
-    paletteApplied &&
-    paletteApplies(settings.palette, drawnUnit)
-      ? paletteLegend(settings.palette, drawnUnit)
+    drawnPalette && paletteApplied
+      ? paletteLegend(drawnPalette, drawnUnit)
       : null;
   // Which ramp the bar has to be drawn from. A sweep says how it was drawn,
   // because it was drawn when it was asked for and a reader who has just
