@@ -178,6 +178,7 @@ describe("settings normalization", () => {
       "qpeHour",
       "rotationTracks",
       "satellite",
+      "smoke",
       "spcDiscussions",
       "spcOutlooks",
       "stormCells",

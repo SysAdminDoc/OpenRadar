@@ -7,6 +7,7 @@ import {
   CloudRain,
   Crosshair,
   Droplets,
+  Cloudy,
   Flame,
   Globe2,
   Map,
@@ -185,6 +186,7 @@ const OVERLAY_LAYERS: Array<{
     labelKey: "layer.earthquakes",
   },
   { key: "wildfires", overlayId: "wildfires", labelKey: "layer.wildfires" },
+  { key: "smoke", overlayId: "smoke", labelKey: "layer.smoke" },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
@@ -270,6 +272,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.wildfires",
     detailKey: "layers.wildfiresDetail",
     icon: Flame,
+  },
+  {
+    key: "smoke",
+    labelKey: "layer.smoke",
+    detailKey: "layers.smokeDetail",
+    icon: Cloudy,
   },
   {
     key: "tropical",

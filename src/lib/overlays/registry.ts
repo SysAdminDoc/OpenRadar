@@ -5,6 +5,7 @@ export type OverlayId =
   | "alerts"
   | "earthquakes"
   | "wildfires"
+  | "smoke"
   | "tropical"
   | "spcOutlooks"
   | "spcDiscussions"

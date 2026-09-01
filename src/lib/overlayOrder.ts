@@ -11,9 +11,12 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   spcDiscussions: 1,
   stormReports: 2,
   tropical: 3,
-  wildfires: 4,
-  earthquakes: 5,
-  alerts: 6,
+  // Under the fire it came from, because a perimeter is where something is
+  // burning and the plume is where the smoke went.
+  smoke: 4,
+  wildfires: 5,
+  earthquakes: 6,
+  alerts: 7,
 };
 
 /**

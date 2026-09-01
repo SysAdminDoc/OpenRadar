@@ -96,6 +96,16 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 900_000,
   },
+  smoke: {
+    sourceId: "smoke",
+    label: "Smoke analysis",
+    attribution: "NOAA Hazard Mapping System",
+    // An analyst drew it off satellite imagery. That is a reading of an
+    // observation rather than an observation, and it is one a day.
+    kind: "derived",
+    derivedFrom: "an analyst reading satellite imagery, once a day",
+    freshForMs: 24 * 3_600_000,
+  },
   tropical: {
     sourceId: "tropical",
     label: "Tropical cyclones",

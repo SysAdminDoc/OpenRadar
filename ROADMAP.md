@@ -246,13 +246,6 @@ Added 2026-08-31 from the third research pass of that day (see `RESEARCH.md`), w
       Acceptance: Past a bounded zoom, stations draw as conventional plots that do not collide at typical density, each with observed time in the popup and the raw METAR text; the layer respects the 100 req/min policy under panning by debouncing and caching; unavailable or stale stations show age rather than vanishing silently; provenance names AWC and the observation time; fixtures cover the JSON shape and a station with missing fields.
       Complexity: L
 
-- [ ] AUD-113: P2. Draw the daily NOAA smoke analysis
-      Why: Smoke is now an annual national event: air-quality apps saw a documented usage spike during the 2023-06 Quebec plume, New York issued advisories again on 2026-07-15, and a MyRadar reviewer offers to pay extra for smoke layers. NOAA HMS publishes analyst-drawn smoke polygons with Light/Medium/Heavy density daily, keyless, as shapefile/KML by date.
-      Evidence: https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/ ; https://www.ospo.noaa.gov/products/land/hms.html ; https://www.cnbc.com/2023/06/08/air-quality-alert-apps-see-spike-in-usage-as-canada-wildfires-burns.html ; `src-tauri/src/http.rs`; `src/lib/overlays/`
-      Touches: The `satepsanone.nesdis.noaa.gov` host in the allowlist and ledger; a native KML (or shapefile) parse for the day's `hms_smokeYYYYMMDD` file with fallback to the previous day until the current one exists; density styling under the warnings layer; provenance naming the analysis time
-      Acceptance: The layer draws Light/Medium/Heavy smoke with a legend and the analysis date visible; the current-day-else-previous-day fallback is tested; malformed files fail with a visible layer note and no partial paint; warnings still draw above it; the parser has fixtures including a polygon with a degenerate ring.
-      Complexity: M
-
 - [ ] AUD-114: P2. Animate forecast smoke from HRRR on the timeline tail
       Why: The HMS analysis says where smoke was; HRRR says where it goes next, hourly to 18 hours (48 on synoptic runs). The MASSDEN near-surface smoke field was verified present with byte offsets in the public bucket's .idx sidecar, which is the exact byte-range GRIB2 read the app already performs for GFS wind. Together the pair beats what MyRadar added after 2023.
       Evidence: `hrrr.t00z.wrfsfcf01.grib2.idx` on https://noaa-hrrr-bdp-pds.s3.amazonaws.com/ (MASSDEN 8 m above ground, COLMD entire atmosphere; verified 2026-08-31); `src-tauri/src/gfs.rs`; `src/hooks/useRadarTimeline.ts` forecast-tail pattern; AUD-113

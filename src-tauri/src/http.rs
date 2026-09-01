@@ -20,6 +20,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "api.weather.gov",
     "earthquake.usgs.gov",
     "services3.arcgis.com",
+    "satepsanone.nesdis.noaa.gov",
     "mesonet.agron.iastate.edu",
     "api.rainviewer.com",
     "tilecache.rainviewer.com",

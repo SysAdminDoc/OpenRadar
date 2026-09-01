@@ -40,7 +40,8 @@ export function useWorkspaceOverlays(options: {
 }): WorkspaceOverlays {
   const { settings, viewport, pushToast, setActiveSurface, replaying } =
     options;
-  const { weatherAlerts, earthquakes, wildfires, tropical } = settings.layers;
+  const { weatherAlerts, earthquakes, wildfires, tropical, smoke } =
+    settings.layers;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
 
   const toggles = useMemo(
@@ -51,6 +52,9 @@ export function useWorkspaceOverlays(options: {
       earthquakes,
       wildfires,
       tropical,
+      // Today's smoke analysis over a replay of some other day is the same
+      // false claim the warnings and the outlooks are held back for.
+      smoke: smoke && !replaying,
       // The Storm Prediction Center publishes what it thinks about today, and
       // a replay is showing some other day's weather. Painting this morning's
       // risk over Katrina would be worse than showing nothing.
@@ -62,6 +66,7 @@ export function useWorkspaceOverlays(options: {
       earthquakes,
       spcDiscussions,
       replaying,
+      smoke,
       spcOutlooks,
       stormReports,
       tropical,
@@ -115,6 +120,7 @@ export function useWorkspaceOverlays(options: {
       alerts: toggles.alerts ? shown : null,
       earthquakes: toggles.earthquakes ? states.earthquakes.data : null,
       wildfires: toggles.wildfires ? states.wildfires.data : null,
+      smoke: toggles.smoke ? states.smoke.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,
       spcDiscussions: toggles.spcDiscussions

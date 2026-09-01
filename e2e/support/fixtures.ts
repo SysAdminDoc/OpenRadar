@@ -42,6 +42,28 @@ function collection(features: unknown[]): string {
   return JSON.stringify({ type: "FeatureCollection", features });
 }
 
+/** A day's smoke analysis with one heavy plume over the default view. */
+function smokeKml(day: string): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<kml xmlns="http://www.opengis.net/kml/2.2">',
+    "<Document>",
+    "<name>HMS Smoke Mapping-" + day + "</name>",
+    "<Folder><name>Overlay</name>",
+    "<ScreenOverlay><name>NOAA logo</name></ScreenOverlay>",
+    "<Placemark>",
+    "<description><![CDATA[<div>Density: Heavy<br>Satellite: GOES-EAST</div>]]></description>",
+    "<styleUrl>#Smoke_Heavy_style</styleUrl>",
+    "<Polygon><outerBoundaryIs><LinearRing><coordinates>",
+    "-99,34,0 -95,34,0 -95,38,0 -99,38,0 -99,34,0",
+    "</coordinates></LinearRing></outerBoundaryIs></Polygon>",
+    "</Placemark>",
+    "</Folder>",
+    "</Document>",
+    "</kml>",
+  ].join("\n");
+}
+
 export const alertFeature = {
   type: "Feature",
   geometry: {
@@ -279,6 +301,26 @@ export async function routeWorkspace(page: Page) {
     await route.fulfill({
       contentType: "application/json",
       body: collection([wildfireFeature]),
+    });
+  });
+  // NOAA HMS publishes one file a day. The stub answers today's 404 and
+  // yesterday's with a plume, which is the day-boundary case the layer has to
+  // survive every morning before the analysis lands.
+  await page.route("https://satepsanone.nesdis.noaa.gov/**", async (route) => {
+    const url = route.request().url();
+    const today = new Date();
+    const stamp = (at: Date) =>
+      `${at.getUTCFullYear()}${String(at.getUTCMonth() + 1).padStart(2, "0")}${String(
+        at.getUTCDate(),
+      ).padStart(2, "0")}`;
+    if (url.includes(`hms_smoke${stamp(today)}`)) {
+      await route.fulfill({ status: 404, body: "not yet" });
+      return;
+    }
+    const yesterday = new Date(today.getTime() - 86_400_000);
+    await route.fulfill({
+      contentType: "application/vnd.google-earth.kml+xml",
+      body: smokeKml(stamp(yesterday)),
     });
   });
   await page.route("https://mesonet.agron.iastate.edu/**", async (route) => {

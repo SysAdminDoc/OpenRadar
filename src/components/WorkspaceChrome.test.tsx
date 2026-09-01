@@ -75,6 +75,7 @@ function chrome(
       sweep={overrides.sweep ?? null}
       mrmsLayers={[]}
       lightning={null}
+      smoke={null}
       wind={null}
       windReduced={false}
       announcement=""

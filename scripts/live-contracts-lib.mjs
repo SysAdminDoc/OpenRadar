@@ -141,6 +141,17 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "smoke",
+    label: "NOAA HMS smoke analysis",
+    host: "satepsanone.nesdis.noaa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/smoke.test.ts"],
+    liveBlock: "against the live analysis",
+    // Seasonal, and a clear day is a real answer, so the contract holds the
+    // path and the document shape rather than insisting there is smoke.
+    required: false,
+  },
+  {
     id: "surge",
     label: "NHC storm surge risk",
     host: "mapservices.weather.noaa.gov",
@@ -150,7 +161,6 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
 ];
-
 
 /**
  * Hosts with no contract of their own, and the reason each one has none.
@@ -165,20 +175,16 @@ export const UNCONTRACTED_HOSTS = {
     "The same service and the same shape as api.open-meteo.com, which does have a contract, reached only while the guidance comparison is switched on. A separate contract would be the same assertion against the same fields.",
   "tiles.openfreemap.org":
     "A basemap. A style or tile that stops answering is visible the instant the map draws, which is a better check than any assertion here.",
-  "basemap.nationalmap.gov":
-    "The same, for the aerial style.",
-  "tile.opentopomap.org":
-    "The same, for the topographic style.",
+  "basemap.nationalmap.gov": "The same, for the aerial style.",
+  "tile.opentopomap.org": "The same, for the topographic style.",
   "nowcoast.noaa.gov":
     "The fallback behind the RIDGE mosaic. Reached only when the first choice is already failing, so a contract that exercised it would be asking a spare to work while the main one still does.",
   "geo.weather.gc.ca":
     "Canadian radar, which answers only over Canada. Worth a contract once one exists that can say where it is asking about.",
-  "maps.dwd.de":
-    "German radar, for the same reason.",
+  "maps.dwd.de": "German radar, for the same reason.",
   "api.rainviewer.com":
     "The worldwide fallback, whose terms are the tightest of the set. Polling it on a schedule to prove it works is the opposite of what those terms ask for.",
-  "tilecache.rainviewer.com":
-    "The tiles behind that fallback.",
+  "tilecache.rainviewer.com": "The tiles behind that fallback.",
   "earthquake.usgs.gov":
     "Not weather. A quiet day genuinely returns nothing, so there is no answer a contract could insist on.",
   "services3.arcgis.com":
@@ -277,7 +283,9 @@ export function vitestRanCount(output) {
   // output for the first "Tests" finds that banner instead: the number after
   // it is a count of failing files, with no "passed" anywhere near it, so the
   // whole run gets read as having run nothing and reported as skipped.
-  const lines = output.split("\n").filter((line) => /^\s*Tests\s+\d/.test(line));
+  const lines = output
+    .split("\n")
+    .filter((line) => /^\s*Tests\s+\d/.test(line));
   const summary = lines.at(-1);
   if (!summary) return 0;
   const passed = /(\d+)\s+passed/.exec(summary);
