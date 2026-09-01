@@ -64,6 +64,7 @@ import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import { syncRadarLane } from "../lib/mapLayers/radar";
 import { syncImageLane, type ImageLane } from "../lib/mapLayers/image";
+import { baseOpacity } from "../lib/mapLayers/opacity";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -97,6 +98,10 @@ const SATELLITE_LANE: RasterLane<number> = {
   layerId: SATELLITE_LAYER_ID,
   attribution: SATELLITE_ATTRIBUTION,
   opacity: 0.85,
+  // MapLibre's own default, which is what this lane has always drawn at: a
+  // continuous picture where a short cross-fade between two tiles is a fade
+  // between two shades of the same cloud.
+  fadeMs: 300,
   maxZoom: SATELLITE_MAX_ZOOM,
   tileUrl: (time) => satelliteTileUrl(time),
 };
@@ -106,6 +111,7 @@ const SURGE_LANE: RasterLane<SurgeCategory> = {
   layerId: SURGE_LAYER_ID,
   attribution: SURGE_ATTRIBUTION,
   opacity: 0.7,
+  fadeMs: 300,
   tileUrl: (category) => surgeTileUrl(category),
 };
 const PROBSEVERE_SOURCE_ID = "openradar-probsevere-source";
@@ -608,26 +614,8 @@ function MapViewportInner(
   const baseOpacityRef = useRef(new Map<string, Array<[string, unknown]>>());
 
   const rememberBaseOpacity = (layer: maplibregl.LayerSpecification) => {
-    // A list rather than one property, because a symbol layer has two: the
-    // icon and the text fade separately. The station plots are drawn as
-    // symbols and their opacity slider did nothing at all until this did.
-    const properties =
-      layer.type === "fill"
-        ? ["fill-opacity"]
-        : layer.type === "line"
-          ? ["line-opacity"]
-          : layer.type === "circle"
-            ? ["circle-opacity"]
-            : layer.type === "symbol"
-              ? ["icon-opacity", "text-opacity"]
-              : [];
-    if (!properties.length) return;
-    const paint = (layer.paint ?? {}) as Record<string, unknown>;
-    baseOpacityRef.current.set(
-      layer.id,
-      // A layer that never said gets MapLibre's own default of one.
-      properties.map((property) => [property, paint[property] ?? 1]),
-    );
+    const held = baseOpacity(layer);
+    if (held.length) baseOpacityRef.current.set(layer.id, held);
   };
 
   const applyOverlayOpacity = () => {
@@ -1025,6 +1013,9 @@ function MapViewportInner(
     attribution:
       '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
     opacity: 0.85,
+    // No fade at all. These carry discrete ramps, and a cross-fade between
+    // two tiles blends two colours into a value that is in neither grid.
+    fadeMs: 0,
     maxZoom: 10,
     replaceOnChange: true,
     tileUrl: (url) => url,

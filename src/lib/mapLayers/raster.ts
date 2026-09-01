@@ -41,6 +41,16 @@ export interface RasterLane<T> {
   attribution: string;
   /** How opaque the layer is drawn before the reader's own slider. */
   opacity: number;
+  /**
+   * How long a tile takes to appear, in milliseconds.
+   *
+   * MapLibre's own default is 300, and for a product with a discrete ramp
+   * that is wrong: a cross-fade between two tiles blends two colours and
+   * briefly paints a value that is in neither grid. Every lane here names one
+   * rather than taking the default, because "the default" is not a decision
+   * anybody made about this picture.
+   */
+  fadeMs: number;
   /** Past this zoom the service has no tiles and the last ones are stretched. */
   maxZoom?: number;
   /**
@@ -81,18 +91,23 @@ export function syncRasterLane<T>(
   }
 
   const url = lane.tileUrl(value);
-  let source = map.getSource(lane.sourceId) as RasterSourceLike | undefined;
-  if (source && lane.replaceOnChange && source.tiles?.[0] !== url) {
+  const source = map.getSource(lane.sourceId) as RasterSourceLike | undefined;
+  if (source) {
+    if (!lane.replaceOnChange) {
+      // A new time or category is the same lane pointed somewhere else.
+      // Building it again would flash the map through empty and lose whatever
+      // the reader had arranged above it.
+      source.setTiles?.([url]);
+      return false;
+    }
+    // A lane that replaces has to compare first. Re-pointing a raster source
+    // in MapLibre reloads every tile in view whether or not the address
+    // moved, and the poll that refreshes these finds the same grid as often
+    // as not, so an unconditional call is a whole product decoded again for
+    // no new data.
+    if (source.tiles?.[0] === url) return false;
     if (map.getLayer(lane.layerId)) map.removeLayer(lane.layerId);
     map.removeSource(lane.sourceId);
-    source = undefined;
-  }
-  if (source) {
-    // A new time or category is the same lane pointed somewhere else. Building
-    // it again would flash the map through empty and lose whatever the reader
-    // had arranged above it.
-    source.setTiles?.([url]);
-    return false;
   }
 
   map.addSource(lane.sourceId, {
@@ -107,7 +122,10 @@ export function syncRasterLane<T>(
       id: lane.layerId,
       type: "raster",
       source: lane.sourceId,
-      paint: { "raster-opacity": lane.opacity },
+      paint: {
+        "raster-opacity": lane.opacity,
+        "raster-fade-duration": lane.fadeMs,
+      },
     } as never,
     before(lane.layerId),
   );

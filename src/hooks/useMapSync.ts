@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Draws one value onto the map, and only when that value changes.
@@ -34,19 +34,4 @@ export function useMapSync<T>(value: T, sync: (value: T) => void): void {
   useEffect(() => {
     latest.current(value);
   }, [value]);
-}
-
-/**
- * A value a sync reads but does not redraw for by itself.
- *
- * Several layers are drawn from more than one input: the radar lane needs the
- * frame, whether it is switched on and how opaque it is. This keeps the ones
- * that are not the trigger where the sync can find them.
- */
-export function useLatest<T>(value: T): RefObject<T> {
-  const held = useRef(value);
-  useEffect(() => {
-    held.current = value;
-  }, [value]);
-  return held;
 }

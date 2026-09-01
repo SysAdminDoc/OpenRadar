@@ -992,6 +992,8 @@ export const es: Catalogue = {
   "metar.air": "{temp}{unit}, punto de rocío {dewp}{unit}.",
   "metar.wind": "Viento de {direction} grados a {knots} kt.",
   "metar.windVariable": "Viento de dirección variable a {knots} kt.",
+  "metar.windVariableGusting":
+    "Viento de dirección variable a {knots} kt, con rachas de {gust}.",
   "metar.windGusting":
     "Viento de {direction} grados a {knots} kt, con rachas de {gust}.",
   "metar.calm": "En calma.",

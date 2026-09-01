@@ -185,11 +185,15 @@ export function thinStations(
     const [lon, lat] = at(feature);
     const clash = kept.some((held) => {
       const [x, y] = at(held);
-      // Longitude runs together towards the poles, so the north-south gap is
-      // the one in degrees and the east-west gap is measured against it.
+      // Screen distance, not ground distance, because what must not overlap
+      // is the plots. The map is Web Mercator, where a degree of longitude is
+      // the same width everywhere and a degree of latitude is stretched by
+      // 1/cos(lat), so the north-south threshold is the one that shrinks
+      // towards the poles. Putting the cosine on the other side made the
+      // spacing half again too generous in Seattle.
       return (
-        Math.abs(lon - x) * Math.cos((lat * Math.PI) / 180) < gap &&
-        Math.abs(lat - y) < gap
+        Math.abs(lon - x) < gap &&
+        Math.abs(lat - y) < gap * Math.cos((lat * Math.PI) / 180)
       );
     });
     if (!clash) kept.push(feature);
@@ -324,9 +328,14 @@ export const metarOverlay: OverlayAdapter = {
     const knots = Number(properties.windKnots);
     if (properties.windVariable === true) {
       lines.push(
-        translate("metar.windVariable", {
-          knots: String(Math.round(knots)),
-        }),
+        Number.isFinite(gust) && gust > 0
+          ? translate("metar.windVariableGusting", {
+              knots: String(Math.round(knots)),
+              gust: String(Math.round(gust)),
+            })
+          : translate("metar.windVariable", {
+              knots: String(Math.round(knots)),
+            }),
       );
     } else if (Number.isFinite(knots) && knots > 0) {
       lines.push(
