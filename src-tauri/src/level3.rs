@@ -21,7 +21,9 @@
 //! to come from somewhere else. That is a fact about the feed, not about this
 //! decoder.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::io::Read;
 
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::Serialize;
@@ -45,6 +47,9 @@ const TABULAR_REPEATED_HEADER: usize = MESSAGE_HEADER + DESCRIPTION_BLOCK;
 /// Symbology positions are in quarter kilometres from the radar, east and
 /// north positive.
 const QUARTER_KM: f64 = 0.25;
+
+/// The ICD's digital radial data array, which is the whole sweep by gate.
+const DIGITAL_RADIAL_PACKET: u16 = 16;
 
 /// A nautical mile, which is what the algorithm's own text is written in.
 const NAUTICAL_MILE_KM: f64 = 1.852;
@@ -273,6 +278,26 @@ fn offset(from: (f64, f64), bearing_degrees: f64, distance_km: f64) -> (f64, f64
     (lat2.to_degrees(), degrees)
 }
 
+/// The symbology block, decompressed when it needs to be.
+///
+/// The graphic products this decoder was written for are a few kilobytes and
+/// arrive plain. The digital ones are a radial image of the whole sweep and
+/// arrive bzip2, with the compressed run starting exactly where the block
+/// does. Nothing in the header says which; the magic does.
+fn symbology_bytes(msg: &[u8], at: usize) -> Result<Cow<'_, [u8]>, Level3Error> {
+    let block = msg
+        .get(at..)
+        .ok_or_else(|| Level3Error::Decode("the symbology block is not there".into()))?;
+    if !block.starts_with(b"BZh") {
+        return Ok(Cow::Borrowed(block));
+    }
+    let mut out = Vec::new();
+    bzip2::read::BzDecoder::new(block)
+        .read_to_end(&mut out)
+        .map_err(|error| Level3Error::Decode(format!("the block would not decompress: {error}")))?;
+    Ok(Cow::Owned(out))
+}
+
 /// One packet in a symbology layer.
 struct Packet<'a> {
     code: u16,
@@ -304,6 +329,15 @@ fn packets(bytes: &[u8]) -> Vec<Packet<'_>> {
 
 /// The packets of the symbology block, flattened across its layers.
 fn symbology_packets(msg: &[u8], at: usize) -> Result<Vec<Packet<'_>>, Level3Error> {
+    symbology_layers(msg, at).map(|layers| layers.into_iter().flatten().collect())
+}
+
+/// The symbology block's layers, each as the run of bytes it holds.
+///
+/// The graphic products are walked into packets from here. The digital ones
+/// are not: their single packet carries no length, so there is nothing for a
+/// generic walker to frame it by, and the body is read directly instead.
+fn symbology_bodies(msg: &[u8], at: usize) -> Result<Vec<&[u8]>, Level3Error> {
     let divider = i16_at(msg, at)
         .ok_or_else(|| Level3Error::Decode("the symbology block is not there".into()))?;
     let id = i16_at(msg, at + 2).unwrap_or(0);
@@ -325,10 +359,22 @@ fn symbology_packets(msg: &[u8], at: usize) -> Result<Vec<Packet<'_>>, Level3Err
         let Some(body) = msg.get(start..end.min(msg.len())) else {
             break;
         };
-        out.extend(packets(body));
+        out.push(body);
         cursor = end;
     }
     Ok(out)
+}
+
+/// The packets of the symbology block, one list per layer.
+///
+/// Flattened by the caller above, which is what the graphic products want:
+/// a storm is a run of packets and the layer it sits in tells them nothing.
+/// A digital product has one packet in one layer and wants it kept apart.
+fn symbology_layers(msg: &[u8], at: usize) -> Result<Vec<Vec<Packet<'_>>>, Level3Error> {
+    Ok(symbology_bodies(msg, at)?
+        .into_iter()
+        .map(packets)
+        .collect())
 }
 
 /// The character a special symbol packet carries, which is what it is for.
@@ -477,6 +523,197 @@ fn parse_pair(word: &str) -> Motion {
         // carries a speed in.
         speed_ms: knots.map(|knots| knots * NAUTICAL_MILE_KM * 1000.0 / 3600.0),
     }
+}
+
+/// What the radar itself says is falling, class by class.
+///
+/// The dual-polarisation classification is the one product that answers the
+/// winter question at site scale: not how much is coming back, but whether it
+/// is rain, wet snow, dry snow, or hail. It is the radar's own algorithm
+/// rather than an observation of the ground, and everything that draws it
+/// has to say so.
+///
+/// The values arrive in steps of ten, which is the ICD's way of leaving room
+/// between classes. Anything this table does not name is drawn as unknown
+/// rather than guessed at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Hydrometeor {
+    None,
+    Biological,
+    Clutter,
+    IceCrystals,
+    DrySnow,
+    WetSnow,
+    Rain,
+    HeavyRain,
+    BigDrops,
+    Graupel,
+    Hail,
+    LargeHail,
+    GiantHail,
+    Unknown,
+    RangeFolded,
+}
+
+impl Hydrometeor {
+    /// The class a stored byte means, or nothing for a value with no class.
+    pub fn from_code(code: u8) -> Option<Self> {
+        // Steps of ten, and nothing in between them means anything.
+        if code % 10 != 0 {
+            return None;
+        }
+        Some(match code / 10 {
+            0 => Self::None,
+            1 => Self::Biological,
+            2 => Self::Clutter,
+            3 => Self::IceCrystals,
+            4 => Self::DrySnow,
+            5 => Self::WetSnow,
+            6 => Self::Rain,
+            7 => Self::HeavyRain,
+            8 => Self::BigDrops,
+            9 => Self::Graupel,
+            10 => Self::Hail,
+            11 => Self::LargeHail,
+            12 => Self::GiantHail,
+            14 => Self::Unknown,
+            15 => Self::RangeFolded,
+            // 130 is reserved and has never been published. Reading it as a
+            // class would put a colour on the map for something the ICD does
+            // not define.
+            _ => return None,
+        })
+    }
+
+    /// Whether this class is worth drawing at all.
+    ///
+    /// The first three are the algorithm saying it found nothing, something
+    /// that is not weather, or ground clutter. Painting them would cover the
+    /// map in a colour that means "no answer".
+    pub fn is_precipitation(self) -> bool {
+        !matches!(
+            self,
+            Self::None | Self::Biological | Self::Clutter | Self::RangeFolded
+        )
+    }
+}
+
+/// One radial of a digital product: where it starts, how wide, and its gates.
+#[derive(Debug, Clone)]
+pub struct Radial {
+    /// Degrees clockwise from north, where the radial begins.
+    pub start_degrees: f32,
+    /// How wide the radial is, in degrees.
+    pub width_degrees: f32,
+    /// One byte per range bin, outward from `first_bin`.
+    pub gates: Vec<u8>,
+}
+
+/// A whole digital radial product, as the ICD's packet 16 carries it.
+#[derive(Debug, Clone)]
+pub struct RadialImage {
+    /// The bin the first gate of every radial sits at, from the radar.
+    pub first_bin: u16,
+    /// How many bins each radial carries.
+    ///
+    /// Read from the header rather than from a radial, because the two can
+    /// disagree in a truncated product and the header is what the ICD says
+    /// the geometry is. The tests hold the two against each other.
+    #[allow(dead_code, reason = "the geometry a test checks the radials against")]
+    pub bins: u16,
+    /// Kilometres per bin, which the product code decides rather than the
+    /// packet: this family is a quarter kilometre for the tilt products and
+    /// a kilometre for the hybrid.
+    pub bin_km: f64,
+    pub radials: Vec<Radial>,
+}
+
+/// Reads a digital radial data array, which is the ICD's packet 16.
+///
+/// A different packet family from the graphic products above: those are lists
+/// of things the algorithms found, this is the sweep itself, one byte per
+/// gate. The header gives the geometry once and then each radial gives its
+/// own start angle and width, because the antenna does not turn at a constant
+/// rate and the gaps are real.
+pub fn read_radial_packet(body: &[u8], bin_km: f64) -> Result<RadialImage, Level3Error> {
+    let short = || Level3Error::Decode("the radial packet ended early".into());
+    // Given the whole layer body rather than a payload, because this packet
+    // carries no length halfword: the generic walker frames a packet as a
+    // code, a byte count and a body, reads a zero here and hands back
+    // nothing. Seven halfwords of header, starting with the code itself: the
+    // first bin, how many bins, the centre of the sweep in I and J, a scale
+    // factor this family does not use, and the radial count.
+    let code = u16_at(body, 0).ok_or_else(short)?;
+    if code != DIGITAL_RADIAL_PACKET {
+        return Err(Level3Error::Decode(format!(
+            "the layer holds packet {code} rather than a radial image"
+        )));
+    }
+    let first_bin = u16_at(body, 2).ok_or_else(short)?;
+    let bins = u16_at(body, 4).ok_or_else(short)?;
+    let count = u16_at(body, 12).ok_or_else(short)? as usize;
+    if bins == 0 || count == 0 {
+        return Err(Level3Error::Decode("the product carries no radials".into()));
+    }
+
+    let mut radials = Vec::with_capacity(count);
+    let mut at = 14usize;
+    for _ in 0..count {
+        let length = u16_at(body, at).ok_or_else(short)? as usize;
+        let start = i16_at(body, at + 2).ok_or_else(short)?;
+        let width = i16_at(body, at + 4).ok_or_else(short)?;
+        let from = at + 6;
+        let to = from + length;
+        let gates = body.get(from..to).ok_or_else(short)?;
+        radials.push(Radial {
+            // Both are tenths of a degree, which is the resolution the
+            // antenna's own encoder reports.
+            start_degrees: start as f32 / 10.0,
+            width_degrees: width as f32 / 10.0,
+            gates: gates.to_vec(),
+        });
+        at = to;
+    }
+    Ok(RadialImage {
+        first_bin,
+        bins,
+        bin_km,
+        radials,
+    })
+}
+
+/// The classification product for one site, decoded.
+///
+/// Unknown packet types are skipped rather than ending the read, which is the
+/// standard the Level II decoder holds itself to: a product that gains a
+/// packet this build has never seen still draws everything it does know.
+fn read_classification(
+    bytes: &[u8],
+    bin_km: f64,
+) -> Result<(Description, RadialImage), Level3Error> {
+    let start =
+        message_start(bytes).ok_or_else(|| Level3Error::Decode("no message header".into()))?;
+    let msg = &bytes[start..];
+    let description = read_description(msg)?;
+    let at = description
+        .symbology
+        .ok_or_else(|| Level3Error::Decode("the product has no symbology block".into()))?;
+    let block = symbology_bytes(msg, at)?;
+    // The block's own offsets are from its start once decompressed, so this
+    // is pointed at zero rather than at where the block sat. The layer bodies
+    // are taken whole rather than walked into packets: a digital product's
+    // one packet has no length field for the walker to frame it by, and a
+    // layer that turns out to hold something else is skipped rather than
+    // ending the read, which is the standard the Level II decoder holds.
+    for body in symbology_bodies(&block, 0)? {
+        if u16_at(body, 0) == Some(DIGITAL_RADIAL_PACKET) {
+            return Ok((description, read_radial_packet(body, bin_km)?));
+        }
+    }
+    Err(Level3Error::Decode(
+        "the product carries no radial image".into(),
+    ))
 }
 
 /// Reads the storm tracking product.
@@ -713,6 +950,123 @@ fn last_key(listing: &str) -> Option<String> {
 }
 
 /// Everything one site is tracking right now.
+/// The classification for one site, as the page draws it.
+///
+/// A polygon per run of gates that share a class, rather than a picture: the
+/// classes are names and not a scale, so there is nothing to interpolate and
+/// nothing that would survive being resampled into an image. Runs also keep
+/// the answer small, because a sweep is mostly one class at a time.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Classification {
+    pub station: String,
+    /// When the volume was taken, not when the product was generated.
+    pub observed: String,
+    /// Which product answered: the tilt, or the hybrid over the whole scan.
+    pub product: String,
+    pub features: Vec<ClassArea>,
+}
+
+/// One run of gates the algorithm gave the same name to.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassArea {
+    pub class: Hydrometeor,
+    /// Clockwise from north, the edges of the wedge.
+    pub from_degrees: f32,
+    pub to_degrees: f32,
+    /// Kilometres from the radar, the near and far edge of the run.
+    pub near_km: f64,
+    pub far_km: f64,
+}
+
+/// The runs of one class along every radial.
+///
+/// Only the classes worth drawing: the algorithm's "nothing here", biological
+/// returns, ground clutter and range folding are answers, and they are not
+/// weather. Painting them would cover a quiet afternoon in colour.
+pub fn classification_areas(image: &RadialImage) -> Vec<ClassArea> {
+    let mut out = Vec::new();
+    for radial in &image.radials {
+        let mut run: Option<(Hydrometeor, usize)> = None;
+        for (at, &code) in radial.gates.iter().enumerate() {
+            let class = Hydrometeor::from_code(code).filter(|one| one.is_precipitation());
+            match (run, class) {
+                (Some((held, _)), Some(now)) if held == now => {}
+                (Some((held, from)), _) => {
+                    out.push(area(image, radial, held, from, at));
+                    run = class.map(|one| (one, at));
+                }
+                (None, Some(now)) => run = Some((now, at)),
+                (None, None) => {}
+            }
+        }
+        if let Some((held, from)) = run {
+            out.push(area(image, radial, held, from, radial.gates.len()));
+        }
+    }
+    out
+}
+
+fn area(
+    image: &RadialImage,
+    radial: &Radial,
+    class: Hydrometeor,
+    from: usize,
+    to: usize,
+) -> ClassArea {
+    let bin = |at: usize| (image.first_bin as usize + at) as f64 * image.bin_km;
+    ClassArea {
+        class,
+        from_degrees: radial.start_degrees,
+        to_degrees: radial.start_degrees + radial.width_degrees,
+        near_km: bin(from),
+        far_km: bin(to),
+    }
+}
+
+/// Which products carry a classification, and how far apart their gates are.
+///
+/// Both are a quarter kilometre. N0H is the lowest tilt, 1,200 bins out to
+/// 300 km; HHC is the hybrid over the whole scan, 920 bins out to the 230 km
+/// the radar reports to. The gate size is the product's, not the packet's:
+/// nothing in packet 16 says how far apart its bins are, so getting this
+/// wrong puts a storm four times further out than it is and nothing in the
+/// data would say so.
+const CLASSIFICATION_PRODUCTS: [(&str, f64); 2] = [("N0H", QUARTER_KM), ("HHC", QUARTER_KM)];
+
+/// The radar's own account of what is falling at a site.
+#[tauri::command]
+pub async fn level3_classification(
+    station: String,
+    product: String,
+) -> Result<Classification, Level3Error> {
+    let station = station.to_uppercase();
+    let site = bucket_site(&station).ok_or_else(|| Level3Error::UnknownSite(station.clone()))?;
+    let wanted = product.to_uppercase();
+    let (code, bin_km) = CLASSIFICATION_PRODUCTS
+        .iter()
+        .find(|(code, _)| *code == wanted)
+        .copied()
+        .ok_or_else(|| Level3Error::NoProduct(station.clone(), wanted.clone()))?;
+
+    let Some(key) = newest_key(&site, code).await? else {
+        return Err(Level3Error::NoProduct(station, "classification".into()));
+    };
+    let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}")).await?;
+    let (description, image) =
+        tauri::async_runtime::spawn_blocking(move || read_classification(&bytes, bin_km))
+            .await
+            .map_err(|error| Level3Error::Decode(error.to_string()))??;
+
+    Ok(Classification {
+        station,
+        observed: description.volume_time.to_rfc3339(),
+        product: code.to_string(),
+        features: classification_areas(&image),
+    })
+}
+
 #[tauri::command]
 pub async fn level3_cells(station: String) -> Result<CellReport, Level3Error> {
     let station = station.to_uppercase();
@@ -767,6 +1121,10 @@ mod tests {
     const NMD: &[u8] = include_bytes!("../tests/fixtures/TBW_NMD_2026_08_30_18_50_19");
     /// The same product from a site with nothing turning: a header and no more.
     const QUIET: &[u8] = include_bytes!("../tests/fixtures/JAX_NMD_2026_08_30_19_53_11");
+    /// The hydrometeor classification for one tilt, and its hybrid over the
+    /// whole scan. Both taken live from the Unidata bucket.
+    const N0H: &[u8] = include_bytes!("../tests/fixtures/TLX_N0H_2026_09_01_17_55_29");
+    const HHC: &[u8] = include_bytes!("../tests/fixtures/TLX_HHC_2026_09_01_17_55_29");
 
     #[test]
     fn the_bucket_files_a_site_under_three_letters() {
@@ -1088,6 +1446,201 @@ mod tests {
                     let _ = read_mesocyclones(&broken);
                 }
             }
+        }
+    }
+
+    #[test]
+    fn reads_the_classification_a_site_published() {
+        // A real product off the bucket, symbology block and all. The graphic
+        // products this decoder started with arrive plain; this one is bzip2,
+        // and nothing in the header says so.
+        let (description, image) = read_classification(N0H, 0.25).expect("a classification");
+        assert!((description.latitude - 35.333).abs() < 0.01);
+        assert!((description.longitude + 97.278).abs() < 0.01);
+        assert_eq!(image.first_bin, 0);
+        assert!(image.bins >= 900, "bins were {}", image.bins);
+        // A full sweep, every radial its own width.
+        assert!(
+            image.radials.len() >= 300,
+            "radials {}",
+            image.radials.len()
+        );
+        let turned: f32 = image.radials.iter().map(|r| r.width_degrees).sum();
+        assert!(
+            (turned - 360.0).abs() < 2.0,
+            "the radials cover {turned} degrees rather than a circle"
+        );
+        for radial in &image.radials {
+            assert_eq!(radial.gates.len(), image.bins as usize);
+            assert!((0.0..360.0).contains(&radial.start_degrees));
+        }
+    }
+
+    #[test]
+    fn the_hybrid_covers_the_scan_the_same_way() {
+        let (_, image) = read_classification(HHC, QUARTER_KM).expect("a hybrid");
+        assert!(!image.radials.is_empty());
+        let turned: f32 = image.radials.iter().map(|r| r.width_degrees).sum();
+        assert!((turned - 360.0).abs() < 2.0, "covers {turned} degrees");
+    }
+
+    #[test]
+    fn each_product_reaches_as_far_as_the_radar_does() {
+        // Nothing in the packet says how far apart its bins are, so the gate
+        // size is the product's and getting it wrong puts a storm four times
+        // further out than it is with nothing in the data to say so. The
+        // check is the far edge: the lowest tilt reports to 300 km and the
+        // hybrid to the 230 the radar covers.
+        for (code, bin_km) in CLASSIFICATION_PRODUCTS {
+            let bytes = if code == "N0H" { N0H } else { HHC };
+            let (_, image) = read_classification(bytes, bin_km).expect(code);
+            let reach = (image.first_bin as f64 + image.bins as f64) * image.bin_km;
+            assert!(
+                (200.0..=310.0).contains(&reach),
+                "{code} reaches {reach} km"
+            );
+        }
+    }
+
+    #[test]
+    fn every_class_a_real_product_carries_is_one_this_build_names() {
+        // The values arrive in steps of ten with room left between them. A
+        // value this table has no name for would otherwise be drawn as
+        // something, and the thing it was drawn as would be a guess.
+        let (_, image) = read_classification(N0H, 0.25).expect("a classification");
+        let mut seen = std::collections::BTreeSet::new();
+        for radial in &image.radials {
+            for &gate in &radial.gates {
+                seen.insert(gate);
+            }
+        }
+        assert!(seen.len() > 1, "the sweep holds one value: {seen:?}");
+        for code in seen {
+            assert!(
+                Hydrometeor::from_code(code).is_some(),
+                "no class for the stored value {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn turns_a_sweep_into_runs_of_one_class() {
+        let (_, image) = read_classification(N0H, QUARTER_KM).expect("a classification");
+        let areas = classification_areas(&image);
+        assert!(!areas.is_empty(), "a whole sweep produced no areas");
+        // Runs, not gates: a sweep is mostly one class at a time, and one
+        // feature per gate would be a million of them.
+        let gates: usize = image.radials.iter().map(|r| r.gates.len()).sum();
+        assert!(
+            areas.len() < gates / 4,
+            "{} areas for {gates} gates",
+            areas.len()
+        );
+
+        for one in &areas {
+            // Only what is worth drawing. The algorithm's own "nothing here",
+            // biological returns, clutter and range folding are answers, and
+            // painting them would cover a quiet afternoon in colour.
+            assert!(one.class.is_precipitation(), "{:?} was drawn", one.class);
+            assert!(one.to_degrees > one.from_degrees);
+            assert!(one.far_km > one.near_km);
+            assert!(one.near_km >= 0.0);
+            // The furthest gate of a quarter-kilometre product at 1,200 bins.
+            assert!(one.far_km <= 301.0, "{} km", one.far_km);
+        }
+    }
+
+    #[test]
+    fn a_run_ends_where_the_class_changes() {
+        // Built by hand, because a real sweep cannot show a boundary on
+        // purpose. Two classes in one radial with a gap of nothing between.
+        let image = RadialImage {
+            first_bin: 0,
+            bins: 6,
+            bin_km: 1.0,
+            radials: vec![Radial {
+                start_degrees: 90.0,
+                width_degrees: 1.0,
+                // rain, rain, nothing, dry snow, dry snow, clutter
+                gates: vec![60, 60, 0, 40, 40, 20],
+            }],
+        };
+        let areas = classification_areas(&image);
+        assert_eq!(areas.len(), 2);
+        assert_eq!(areas[0].class, Hydrometeor::Rain);
+        assert_eq!((areas[0].near_km, areas[0].far_km), (0.0, 2.0));
+        assert_eq!(areas[1].class, Hydrometeor::DrySnow);
+        assert_eq!((areas[1].near_km, areas[1].far_km), (3.0, 5.0));
+    }
+
+    #[test]
+    fn a_run_that_reaches_the_last_gate_is_still_closed() {
+        // The loop closes a run when the class changes, so a run that never
+        // changes has to be closed by the end of the radial or it is lost.
+        let image = RadialImage {
+            first_bin: 2,
+            bins: 3,
+            bin_km: 0.25,
+            radials: vec![Radial {
+                start_degrees: 0.0,
+                width_degrees: 0.5,
+                gates: vec![60, 60, 60],
+            }],
+        };
+        let areas = classification_areas(&image);
+        assert_eq!(areas.len(), 1);
+        // The first bin is an offset from the radar, not always zero.
+        assert_eq!((areas[0].near_km, areas[0].far_km), (0.5, 1.25));
+    }
+
+    #[test]
+    fn the_class_table_matches_the_document() {
+        assert_eq!(Hydrometeor::from_code(0), Some(Hydrometeor::None));
+        assert_eq!(Hydrometeor::from_code(40), Some(Hydrometeor::DrySnow));
+        assert_eq!(Hydrometeor::from_code(50), Some(Hydrometeor::WetSnow));
+        assert_eq!(Hydrometeor::from_code(60), Some(Hydrometeor::Rain));
+        assert_eq!(Hydrometeor::from_code(100), Some(Hydrometeor::Hail));
+        assert_eq!(Hydrometeor::from_code(120), Some(Hydrometeor::GiantHail));
+        assert_eq!(Hydrometeor::from_code(150), Some(Hydrometeor::RangeFolded));
+        // Between the steps is nothing, and so is the one reserved code.
+        assert_eq!(Hydrometeor::from_code(45), None);
+        assert_eq!(Hydrometeor::from_code(1), None);
+        assert_eq!(Hydrometeor::from_code(130), None);
+        assert_eq!(Hydrometeor::from_code(255), None);
+
+        // What is worth painting. The first three are the algorithm saying it
+        // found nothing, something that is not weather, or ground clutter.
+        assert!(!Hydrometeor::None.is_precipitation());
+        assert!(!Hydrometeor::Biological.is_precipitation());
+        assert!(!Hydrometeor::Clutter.is_precipitation());
+        assert!(!Hydrometeor::RangeFolded.is_precipitation());
+        assert!(Hydrometeor::DrySnow.is_precipitation());
+        assert!(Hydrometeor::Hail.is_precipitation());
+    }
+
+    #[test]
+    fn a_truncated_classification_is_refused_rather_than_fatal() {
+        // The same standard the rest of this file is held to: a product that
+        // stops in the middle is an error, never a panic and never a sweep
+        // with a radial of nonsense in it.
+        for cut in [40usize, 200, 1000, 5000, N0H.len() - 1] {
+            let short = &N0H[..cut.min(N0H.len())];
+            assert!(read_classification(short, 0.25).is_err(), "cut at {cut}");
+        }
+    }
+
+    #[test]
+    fn a_corrupt_classification_cannot_take_the_process_down() {
+        // Every byte flipped in turn through a sample of the product, which is
+        // what the fuzz target does on nightly and what this holds on stable.
+        let mut corrupt = N0H.to_vec();
+        for at in (0..corrupt.len()).step_by(97) {
+            let held = corrupt[at];
+            for flipped in [0x00u8, 0xff, held ^ 0xff] {
+                corrupt[at] = flipped;
+                let _ = read_classification(&corrupt, 0.25);
+            }
+            corrupt[at] = held;
         }
     }
 

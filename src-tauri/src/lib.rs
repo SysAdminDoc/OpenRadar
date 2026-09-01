@@ -194,6 +194,7 @@ pub fn run() {
             level2::level2_nearest_site,
             level2::level2_cross_section,
             level3::level3_cells,
+            level3::level3_classification,
             probsevere::probsevere_reading,
             mrms::mrms_frames,
             mrms::mrms_products,
