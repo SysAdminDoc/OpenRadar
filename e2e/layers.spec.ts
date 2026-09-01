@@ -20,7 +20,8 @@ const LAYERS: Array<{ label: RegExp; layerId: string; onByDefault: boolean }> =
       onByDefault: false,
     },
     {
-      label: /Smoke/,
+      // Anchored: the forecast smoke row also carries the word.
+      label: /^Smoke/,
       layerId: "openradar-overlay-smoke-fill",
       onByDefault: false,
     },
@@ -503,7 +504,7 @@ test("falls back to yesterday's smoke before today's analysis lands", async ({
   });
 
   await page.getByRole("button", { name: "Layers", exact: true }).click();
-  await page.getByRole("checkbox", { name: /Smoke/ }).check();
+  await page.getByRole("checkbox", { name: /^Smoke/ }).check();
   await page.getByRole("button", { name: "Close Layers" }).click();
 
   const pane = page.getByRole("application", {

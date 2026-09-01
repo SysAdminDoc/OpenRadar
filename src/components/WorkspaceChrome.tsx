@@ -17,6 +17,12 @@ import {
   type Classification,
 } from "../lib/classification";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
+import {
+  FORECAST_SMOKE_UNIT,
+  forecastSmokeLabel,
+  type SmokeField,
+} from "../lib/forecastSmoke";
+import { formatRadarTime } from "../lib/radar";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
@@ -67,6 +73,8 @@ interface WorkspaceChromeProps {
   smoke: OverlayData | null;
   /** What the held site's own algorithm says is falling, when that layer is on. */
   classification: Classification | null;
+  /** The model's smoke for the hour on screen, when the playhead is on the tail. */
+  forecastSmoke: SmokeField | null;
   /** The wind field the particles follow, when that layer is on. */
   wind: WindField | null;
   /** True when the wind layer is switched on but held back for reduced motion. */
@@ -118,6 +126,7 @@ export function WorkspaceChrome({
   lightning,
   smoke,
   classification,
+  forecastSmoke,
   wind,
   windReduced,
   clock,
@@ -196,9 +205,12 @@ export function WorkspaceChrome({
   // Only when the layer is actually drawing something. An empty analysis is a
   // real answer and gets its own note beside the switch, not a legend for
   // three colours that are not on the map.
-  const smokeScale = smoke?.features.length
-    ? { analysed: Number(smoke.features[0].properties.analysed) || null }
-    : null;
+  // And not while the model's smoke has the map: the analysis is hidden then,
+  // and a scale for a layer that is not drawn would say it was.
+  const smokeScale =
+    smoke?.features.length && !forecastSmoke
+      ? { analysed: Number(smoke.features[0].properties.analysed) || null }
+      : null;
   const drawnUnit = sweep?.unit ?? mosaic.unit;
   const paletteApplied = sweep
     ? sweep.paletteApplied
@@ -312,7 +324,8 @@ export function WorkspaceChrome({
       wind ||
       windReduced ||
       smokeScale ||
-      classification ? (
+      classification ||
+      forecastSmoke ? (
         <div className="product-legends" aria-label={t("chrome.extraScales")}>
           {windReduced ? (
             <div className="product-legend">
@@ -387,6 +400,37 @@ export function WorkspaceChrome({
                   </li>
                 ))}
               </ol>
+            </div>
+          ) : null}
+          {forecastSmoke ? (
+            <div className="product-legend" data-forecast-smoke-legend="1">
+              {/* The unit sits in the run line rather than the heading: the
+                  heading is set in capitals, and a capital micro sign is a
+                  Greek mu that reads as an M, which would make this
+                  milligrams. */}
+              <strong>
+                {t("chrome.forecastSmoke")}
+                <em>
+                  {FORECAST_SMOKE_UNIT}
+                  {" · "}
+                  {forecastSmokeLabel(forecastSmoke, clock)}
+                </em>
+              </strong>
+              {/* The scale the picture was painted with, sent with it. */}
+              <ol>
+                {forecastSmoke.ramp.map((stop) => (
+                  <li key={stop.at}>
+                    <i style={{ background: stop.color }} aria-hidden="true" />
+                    {stop.at}
+                  </li>
+                ))}
+              </ol>
+              <small>
+                {t("chrome.forecastSmokeValid", {
+                  time: formatRadarTime(Date.parse(forecastSmoke.valid) / 1000),
+                })}{" "}
+                {t("chrome.forecastSmokeNote")}
+              </small>
             </div>
           ) : null}
           {classification ? (

@@ -92,6 +92,8 @@ const COVERED_BY_ADAPTERS = new Set(
 );
 import { useStormCells } from "./hooks/useStormCells";
 import { useClassification } from "./hooks/useClassification";
+import { useForecastSmoke } from "./hooks/useForecastSmoke";
+import { forecastSmokeCorners, forecastSmokeValid } from "./lib/forecastSmoke";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
 import { activePalettes, paletteUnit } from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
@@ -325,6 +327,36 @@ export default function App() {
       ? frames[frameIndex - compareOffset]
       : undefined;
 
+  // The model's smoke for the hour the playhead is on, and only on the
+  // forecast tail: an observed frame has nothing from a model on it.
+  const smokeWanted = settings.layers.forecastSmoke && !singleSite.historical;
+  const forecastSmoke = useForecastSmoke({
+    ready: hydrated,
+    enabled: smokeWanted,
+    valid: smokeWanted ? forecastSmokeValid(activeFrame) : null,
+    preferredInit: activeFrame?.forecast?.initUtc ?? null,
+  });
+  const drawnForecastSmoke = useMemo(
+    () =>
+      forecastSmoke.field
+        ? {
+            url: forecastSmoke.field.image,
+            coordinates: forecastSmokeCorners(forecastSmoke.field),
+            opacity: 0.9,
+          }
+        : null,
+    [forecastSmoke.field],
+  );
+  // While the model's smoke is on screen the analysis is not, so a plume
+  // is always one kind of statement: what was seen, or what is expected.
+  const overlayOpacity = useMemo(
+    () =>
+      drawnForecastSmoke
+        ? { ...settings.overlayOpacity, smoke: 0 }
+        : settings.overlayOpacity,
+    [drawnForecastSmoke, settings.overlayOpacity],
+  );
+
   // The satellite image that stands for a frame, held back to the newest slot
   // the archive has actually published.
   const satelliteFor = (frame: RadarFrame | undefined) =>
@@ -504,6 +536,7 @@ export default function App() {
         if (layer === "wind" && !wind.field) continue;
         if (layer === "lightningFlashes" && !lightning.window) continue;
         if (layer === "classification" && !classification.report) continue;
+        if (layer === "forecastSmoke" && !forecastSmoke.field) continue;
         const source = LAYER_SOURCES[layer];
         // Matched on the source rather than on the switch's own name, because
         // the two do not agree: the alerts adapter is `alerts` and the switch
@@ -530,15 +563,26 @@ export default function App() {
                 initUtc: wind.field.init,
                 leadMinutes: wind.field.leadHours * 60,
               }
-            : undefined;
+            : layer === "forecastSmoke" && forecastSmoke.field
+              ? {
+                  initUtc: forecastSmoke.field.init,
+                  leadMinutes: forecastSmoke.field.leadHours * 60,
+                }
+              : undefined;
+        // The smoke names the hour it is for; the wind's hour is worked
+        // forward from now because the field is the run's own analysis.
+        const validAt =
+          layer === "forecastSmoke" && forecastSmoke.field
+            ? Date.parse(forecastSmoke.field.valid)
+            : modelRun
+              ? now + modelRun.leadMinutes * 60_000
+              : (observedAt ?? now);
         layers.push(
           layerProvenance({
             layer,
             fetchedAt: now,
             observedAt: observedAt ?? now,
-            validAt: modelRun
-              ? now + modelRun.leadMinutes * 60_000
-              : (observedAt ?? now),
+            validAt,
             modelRun,
           }),
         );
@@ -593,6 +637,7 @@ export default function App() {
     },
     [
       classification.report,
+      forecastSmoke.field,
       health,
       lightning.window,
       wind.field,
@@ -871,8 +916,9 @@ export default function App() {
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         cells={stormCells.features}
         classification={drawnClassification}
+        forecastSmoke={drawnForecastSmoke}
         probSevere={probSevere.features}
-        overlayOpacity={settings.overlayOpacity}
+        overlayOpacity={overlayOpacity}
         overlayOrder={settings.overlayOrder}
         flashes={singleSite.historical ? null : lightning.points}
         flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
@@ -911,6 +957,7 @@ export default function App() {
               stormReports: overlays.states.stormReports.error,
               stormCells: stormCells.error,
               classification: classification.error,
+              forecastSmoke: forecastSmoke.error,
               probSevere: probSevere.error,
               earthquakes: overlays.states.earthquakes.error,
               wildfires: overlays.states.wildfires.error,
@@ -1061,6 +1108,7 @@ export default function App() {
         lightning={singleSite.historical ? null : lightning.window}
         smoke={overlays.data.smoke ?? null}
         classification={classification.report}
+        forecastSmoke={drawnForecastSmoke ? forecastSmoke.field : null}
         wind={singleSite.historical ? null : wind.field}
         windReduced={
           !singleSite.historical && settings.layers.wind && reducedMotion

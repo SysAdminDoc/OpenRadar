@@ -67,6 +67,7 @@ describe("finding a command by what people call it", () => {
     expect(find("pal")).toContain("surface:upload");
     expect(find("storm cell")).toContain("layer:stormCells");
     expect(find("hydrometeor")).toContain("layer:classification");
+    expect(find("hrrr")).toContain("layer:forecastSmoke");
     expect(find("probsevere")).toContain("layer:probSevere");
     expect(find("wind particles")).toContain("layer:wind");
     expect(find("radar products")).toContain("surface:radar-product");

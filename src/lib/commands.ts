@@ -93,6 +93,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["haze", "air quality", "plume", "hms", "wildfire smoke"],
   },
   {
+    layer: "forecastSmoke",
+    key: "layer.forecastSmoke",
+    extra: "keywords.forecastSmoke",
+    keywords: ["hrrr", "model", "plume", "forecast", "air quality"],
+  },
+  {
     layer: "metar",
     key: "layer.metar",
     extra: "keywords.metar",

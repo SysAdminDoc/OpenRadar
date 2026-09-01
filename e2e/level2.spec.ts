@@ -231,6 +231,37 @@ async function fakeNativeSide(page: Page) {
               legend,
             });
           }
+          if (command === "hrrr_smoke") {
+            // One hour of the model's smoke: a picture over the whole
+            // domain, from the cycle the tail asked for, with the scale it
+            // was painted with.
+            const valid = String(args.valid);
+            const init = String(args.preferredInit ?? valid);
+            const leadHours = Math.round(
+              (Date.parse(valid) - Date.parse(init)) / 3_600_000,
+            );
+            return Promise.resolve({
+              init: init.replace("Z", "+00:00"),
+              leadHours,
+              valid: valid.replace("Z", "+00:00"),
+              west: -134.1,
+              south: 21.1,
+              east: -60.9,
+              north: 52.6,
+              columns: 4,
+              rows: 3,
+              maxUgm3: 42,
+              ramp: [
+                [3, "#fde68a"],
+                [12, "#fbbf24"],
+                [35, "#f97316"],
+                [55, "#dc2626"],
+                [150, "#7e22ce"],
+                [250, "#581c1c"],
+              ].map(([at, color]) => ({ at, color })),
+              image: png,
+            });
+          }
           if (command === "level2_sweep" && String(args.station) === "FAIL") {
             return Promise.reject("the site did not answer");
           }
@@ -861,6 +892,96 @@ test("draws what the site's own algorithm says is falling, and says whose word i
     "data-layer-stack",
     /classification-fill/,
   );
+});
+
+test("carries the model's smoke along the forecast tail and nowhere else", async ({
+  page,
+}) => {
+  // The analysis says where smoke was seen. The model says where it goes,
+  // and only on the frames that have not happened yet: an observed frame
+  // has nothing from a model on it, and the legend names the cycle, the
+  // lead, the hour and whose word it is. The fixture's run is worked out
+  // from the clock, so the hour is read off the timeline rather than
+  // written down here.
+  await open(page, 5);
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Future radar/ }).check();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Forecast Smoke/ })
+    .check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const timeline = page.getByLabel("Radar animation", { exact: true });
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+  const scrubber = page.getByLabel("Radar frame");
+  await scrubber.fill("1");
+  await scrubber.fill("0");
+  // An observed frame: nothing from the model is on the map.
+  await expect(timeline).not.toHaveClass(/is-forecast/);
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /forecast-smoke/);
+  await expect(page.locator("[data-forecast-smoke-legend]")).toHaveCount(0);
+
+  // The end of the tail is a forecast frame whatever the fixture's clock.
+  const last = (await scrubber.getAttribute("max")) ?? "0";
+  await scrubber.fill(last);
+  await expect(timeline).toHaveClass(/is-forecast/);
+  await expect(timeline).toContainText(/HRRR init \d\dZ, \+\d+ min/);
+  const said = (await timeline.textContent()) ?? "";
+  const initHour = Number(/HRRR init (\d\d)Z/.exec(said)?.[1]);
+  const leadMinutes = Number(/\+(\d+) min/.exec(said)?.[1]);
+  const leadHours = Math.max(1, Math.round(leadMinutes / 60));
+
+  await expect(pane).toHaveAttribute("data-layer-stack", /forecast-smoke/);
+  const legend = page.locator("[data-forecast-smoke-legend]");
+  await expect(legend).toContainText("µg/m³");
+  await expect(legend).toContainText(
+    `HRRR ${String(initHour).padStart(2, "0")}Z +${leadHours} h`,
+  );
+  await expect(legend).toContainText("250");
+  await expect(legend).toContainText("never drawn over the analysis");
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  const at = (id: string) => stack.indexOf(id);
+  // Over the forecast reflectivity it belongs with, under the warnings.
+  expect(at("openradar-forecast-smoke")).toBeGreaterThan(
+    at("openradar-radar-layer-forecast"),
+  );
+  expect(at("openradar-forecast-smoke")).toBeLessThan(
+    at("openradar-overlay-alerts-fill"),
+  );
+
+  // The hour asked for is the frame's nearest whole hour, on the hour, from
+  // the cycle the tail is drawn from.
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{
+          command: string;
+          args: { valid?: string; preferredInit?: string };
+        }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "hrrr_smoke"),
+  );
+  const lastAsk = asked.at(-1)?.args;
+  expect(lastAsk?.preferredInit).toMatch(
+    new RegExp(`T${String(initHour).padStart(2, "0")}:00:00`),
+  );
+  expect(lastAsk?.valid).toBe(
+    new Date(Date.parse(lastAsk?.preferredInit ?? "") + leadHours * 3_600_000)
+      .toISOString()
+      .replace(/\.\d{3}Z$/, "Z"),
+  );
+
+  // And back on an observed frame it is gone again.
+  await scrubber.fill("0");
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /forecast-smoke/);
+  await expect(page.locator("[data-forecast-smoke-legend]")).toHaveCount(0);
 });
 
 test("draws severe probability over the pictures and under the warnings", async ({

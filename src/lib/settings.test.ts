@@ -169,6 +169,7 @@ describe("settings normalization", () => {
       "customOverlay",
       "earthquakes",
       "echoTops",
+      "forecastSmoke",
       "hail",
       "hailSwath",
       "lightningDensity",

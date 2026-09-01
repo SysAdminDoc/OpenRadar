@@ -13,6 +13,7 @@ mod exports;
 #[cfg(test)]
 mod fixture;
 mod gfs;
+mod hrrr;
 mod incident_packs;
 mod level2;
 mod level3;
@@ -36,6 +37,7 @@ mod vad;
 #[cfg(feature = "fuzzing")]
 pub mod fuzzing {
     pub use crate::gfs::{decode_complex, decode_message};
+    pub use crate::hrrr::{parse_grid, read_message};
     pub use crate::level2::{scan_volume, Level2Error};
     pub use crate::level3::{read_mesocyclones, read_storm_cells};
     pub use crate::lightning::decode_flashes;
@@ -200,7 +202,8 @@ pub fn run() {
             mrms::mrms_products,
             lightning::lightning_flashes,
             palette::set_palettes,
-            gfs::gfs_wind
+            gfs::gfs_wind,
+            hrrr::hrrr_smoke
         ])
         .setup(|_app| {
             // The cache lives beside the logs rather than in the roaming

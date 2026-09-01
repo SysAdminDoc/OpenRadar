@@ -5,6 +5,7 @@ import type { GeoPoint } from "../lib/geo";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
 import type { ClassStyle } from "../lib/classification";
+import type { PinnedImage } from "../lib/mapLayers/image";
 import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
@@ -41,6 +42,8 @@ interface MapStageProps {
     features: Record<string, unknown>;
     legend: ClassStyle[];
   } | null;
+  /** The model's smoke for the primary pane's frame, or null off the tail. */
+  forecastSmoke: PinnedImage | null;
   /** What the severe-probability model expects of each storm. */
   probSevere: Record<string, unknown> | null;
   /** How solid each overlay is drawn, as a fraction of its own design. */
@@ -83,6 +86,7 @@ export function MapStage({
   flashes,
   cells,
   classification,
+  forecastSmoke,
   probSevere,
   overlayOpacity,
   overlayOrder,
@@ -143,6 +147,7 @@ export function MapStage({
         camera={settings.camera}
         radarFrame={activeFrame}
         satelliteTime={satelliteTime}
+        forecastSmoke={forecastSmoke}
         onCameraChange={onCameraChange}
         onCameraMove={onPrimaryMove}
         onCursorChange={onCursorChange}

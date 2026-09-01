@@ -25,6 +25,11 @@ const MAX_FIELD_BYTES: u64 = 8 * 1024 * 1024;
 /// The published grid, before it is thinned for the map.
 const GRID_COLUMNS: usize = 1440;
 const GRID_ROWS: usize = 721;
+/// The most points one field may claim, which bounds what a header can make
+/// this allocate. The quarter-degree GFS grid is 1,038,240 and the HRRR
+/// CONUS grid the smoke arrives on is 1,905,141; four million is sixteen
+/// megabytes of values, past anything either model publishes.
+pub const MAX_POINTS: usize = 4_000_000;
 /// Every other point, which is half a degree and a quarter of the data. Fine
 /// for particles: they interpolate between grid points anyway.
 const STRIDE: usize = 2;
@@ -243,7 +248,7 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
     if section5[22] != 0 {
         return Err(GfsError::Unsupported("missing value management".into()));
     }
-    if packing.points == 0 || packing.points > GRID_COLUMNS * GRID_ROWS {
+    if packing.points == 0 || packing.points > MAX_POINTS {
         return Err(GfsError::Decode(format!(
             "the packing header claims {} grid points",
             packing.points
@@ -513,7 +518,7 @@ fn to_image(u: &[f32], v: &[f32]) -> Result<(Vec<u8>, usize, usize, [f32; 4]), G
     Ok((pixels, columns, rows, [min_u, max_u, min_v, max_v]))
 }
 
-fn encode_png(pixels: &[u8], columns: usize, rows: usize) -> Result<Vec<u8>, GfsError> {
+pub(crate) fn encode_png(pixels: &[u8], columns: usize, rows: usize) -> Result<Vec<u8>, GfsError> {
     let mut out = Vec::new();
     {
         let mut encoder = png::Encoder::new(&mut out, columns as u32, rows as u32);

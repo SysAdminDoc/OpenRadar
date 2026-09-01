@@ -3,6 +3,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  CloudFog,
   CloudHail,
   CloudRain,
   CloudSnow,
@@ -287,6 +288,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.smoke",
     detailKey: "layers.smokeDetail",
     icon: Cloudy,
+  },
+  {
+    key: "forecastSmoke",
+    labelKey: "layer.forecastSmoke",
+    detailKey: "layers.forecastSmokeDetail",
+    icon: CloudFog,
   },
   {
     key: "metar",
