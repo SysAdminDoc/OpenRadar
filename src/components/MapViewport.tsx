@@ -62,6 +62,7 @@ import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
+import { syncRadarLane } from "../lib/mapLayers/radar";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -487,59 +488,38 @@ function MapViewportInner(
     }
   };
 
-  const syncRadarLane = (lane: RadarLane, frame: RadarFrame | undefined) => {
+  const drawRadarLane = (lane: RadarLane, frame: RadarFrame | undefined) => {
     const map = mapRef.current;
     if (!map) return;
-    const sourceId = `${RADAR_SOURCE_ID}-${lane}`;
-    const layerId = `${RADAR_LAYER_ID}-${lane}`;
-
-    if (frame) {
-      // Tile size, native zoom, and credit belong to the source, so a change of
-      // provider inside one lane still means a fresh source.
-      const key = `${frame.providerId}:${frame.tileSize}:${frame.maxZoom}`;
-      if (map.getSource(sourceId) && radarSourceKeysRef.current[lane] !== key) {
-        if (map.getLayer(layerId)) map.removeLayer(layerId);
-        map.removeSource(sourceId);
-      }
-      radarSourceKeysRef.current[lane] = key;
-
-      const source = map.getSource(sourceId) as
-        maplibregl.RasterTileSource | undefined;
-      if (source) {
-        source.setTiles?.([frame.tileUrl]);
-      } else {
-        map.addSource(sourceId, {
-          type: "raster",
-          tiles: [frame.tileUrl],
-          tileSize: frame.tileSize,
-          maxzoom: frame.maxZoom,
-          attribution: frame.attribution,
-        });
-        map.addLayer(
-          {
-            id: layerId,
-            type: "raster",
-            source: sourceId,
-            paint: { "raster-opacity": 0 },
-          },
-          firstExisting(map, layersAbove(layerId)),
-        );
-        publishLayers();
-      }
-    }
-
-    if (map.getLayer(layerId)) {
-      const opacity =
-        frame && radarVisibleRef.current && !sweepRef.current
-          ? radarOpacityRef.current
-          : 0;
-      map.setPaintProperty(layerId, "raster-opacity", opacity);
-      map.setPaintProperty(layerId, "raster-fade-duration", 150);
-      if (lane === "observed" && containerRef.current) {
-        // What the mosaic is actually contributing, which is zero while a
-        // single site has the map.
-        containerRef.current.dataset.mosaicOpacity = opacity.toFixed(2);
-      }
+    const { added, opacity, key } = syncRadarLane(
+      map,
+      {
+        sourceId: `${RADAR_SOURCE_ID}-${lane}`,
+        layerId: `${RADAR_LAYER_ID}-${lane}`,
+      },
+      frame
+        ? {
+            tileUrl: frame.tileUrl,
+            tileSize: frame.tileSize,
+            maxZoom: frame.maxZoom,
+            attribution: frame.attribution,
+            key: `${frame.providerId}:${frame.tileSize}:${frame.maxZoom}`,
+          }
+        : null,
+      // A single site's own sweep takes the map from the mosaic without
+      // taking the mosaic off it.
+      radarVisibleRef.current && !sweepRef.current
+        ? radarOpacityRef.current
+        : 0,
+      radarSourceKeysRef.current[lane],
+      under,
+    );
+    radarSourceKeysRef.current[lane] = key;
+    if (added) publishLayers();
+    if (lane === "observed" && containerRef.current) {
+      // What the mosaic is actually contributing, which is zero while a
+      // single site has the map.
+      containerRef.current.dataset.mosaicOpacity = opacity.toFixed(2);
     }
   };
 
@@ -553,8 +533,8 @@ function MapViewportInner(
     const frame = radarFrameRef.current;
     if (!map || !styleReadyRef.current || !frame) return;
     const lane: RadarLane = frame.forecast ? "forecast" : "observed";
-    syncRadarLane(lane, frame);
-    syncRadarLane(lane === "observed" ? "forecast" : "observed", undefined);
+    drawRadarLane(lane, frame);
+    drawRadarLane(lane === "observed" ? "forecast" : "observed", undefined);
   };
 
   const overlayLayerIds = () => {
