@@ -37,6 +37,7 @@ const SERVED_HOSTS: &[&str] = &[
     "tile.opentopomap.org",
     "earthquake.usgs.gov",
     "services3.arcgis.com",
+    "satepsanone.nesdis.noaa.gov",
     "api.tidesandcurrents.noaa.gov",
     "api.open-meteo.com",
     "previous-runs-api.open-meteo.com",

@@ -20,6 +20,11 @@ const LAYERS: Array<{ label: RegExp; layerId: string; onByDefault: boolean }> =
       onByDefault: false,
     },
     {
+      label: /Smoke/,
+      layerId: "openradar-overlay-smoke-fill",
+      onByDefault: false,
+    },
+    {
       label: /Tropical/,
       layerId: "openradar-overlay-tropical-cone",
       onByDefault: true,
@@ -416,6 +421,55 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
   // carry the same warning rather than a summary of it.
   await expect(page.locator('.live-region [aria-live="assertive"]')).toHaveText(
     /Tornado Warning.*miles from the point you watch/,
+  );
+});
+
+test("falls back to yesterday's smoke before today's analysis lands", async ({
+  page,
+}) => {
+  // NOAA publishes one file a day and it is not there in the small hours.
+  // The stub answers today with a 404, which is what the reader would meet
+  // every morning, and the layer has to draw yesterday rather than nothing.
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    const url = request.url();
+    if (url.includes("hms_smoke")) asked.push(url);
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Smoke/ }).check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-overlay-smoke-fill/,
+  );
+  // Today first, then yesterday. Asking for yesterday first would be showing
+  // stale smoke on every day the analysis did land.
+  await expect.poll(() => asked.length).toBeGreaterThanOrEqual(2);
+  const today = new Date();
+  const stamp = (at: Date) =>
+    `${at.getUTCFullYear()}${String(at.getUTCMonth() + 1).padStart(2, "0")}${String(
+      at.getUTCDate(),
+    ).padStart(2, "0")}`;
+  expect(asked[0]).toContain(`hms_smoke${stamp(today)}`);
+  expect(asked[1]).toContain(
+    `hms_smoke${stamp(new Date(today.getTime() - 86_400_000))}`,
+  );
+
+  // And it says which day it is showing, beside the scale it is drawn with.
+  const legend = page.locator("[data-smoke-legend]");
+  await expect(legend).toBeVisible();
+  await expect(legend).toContainText("Heavy smoke");
+  await expect(legend).toContainText("analysed");
+
+  // The warning still draws above it, which is the rule no layer may break.
+  const stack = (await pane.getAttribute("data-layer-stack")) ?? "";
+  expect(stack.indexOf("openradar-overlay-smoke-fill")).toBeLessThan(
+    stack.indexOf("openradar-overlay-alerts"),
   );
 });
 

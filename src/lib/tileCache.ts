@@ -36,6 +36,7 @@ export const CACHED_HOSTS = [
   "tile.opentopomap.org",
   "earthquake.usgs.gov",
   "services3.arcgis.com",
+  "satepsanone.nesdis.noaa.gov",
 ];
 
 let base: string | null = null;

@@ -10,16 +10,30 @@ import { paletteLegend } from "../lib/legend";
 import { mosaicLegend } from "../lib/mosaicLegend";
 import { assignedPalette } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
+import type { OverlayData } from "../lib/overlays";
+import type { SmokeDensity } from "../lib/overlays/smoke";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 import { locale, translate, useT, type StringKey } from "../i18n";
-import { useMeasurements } from "../lib/units";
+import { formatClock, useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
 /** Past this the loop is old enough that the timeline should say so. */
 const STALE_MINUTES = 20;
+
+/**
+ * The three boxes an analyst puts a plume in, and the colours the map paints
+ * them. Written here beside the legend and read by nothing else, because the
+ * map's own paint expression is the other half of the pair and the two have
+ * to be looked at together to stay the same.
+ */
+const SMOKE_SCALE: Array<[SmokeDensity, string]> = [
+  ["light", "#d97706"],
+  ["medium", "#b45309"],
+  ["heavy", "#78350f"],
+];
 
 /** How old a grid is, so a layer that has stopped updating cannot pass for live. */
 function gridAge(time: number, nowMs: number): string {
@@ -45,6 +59,8 @@ interface WorkspaceChromeProps {
   mrmsLayers: MrmsLayer[];
   /** The GOES flash window on the map, when that layer is on. */
   lightning: FlashWindow | null;
+  /** The day's smoke analysis, when that layer is on, for its own scale. */
+  smoke: OverlayData | null;
   /** The wind field the particles follow, when that layer is on. */
   wind: WindField | null;
   /** True when the wind layer is switched on but held back for reduced motion. */
@@ -94,6 +110,7 @@ export function WorkspaceChrome({
   sweep,
   mrmsLayers,
   lightning,
+  smoke,
   wind,
   windReduced,
   clock,
@@ -169,6 +186,12 @@ export function WorkspaceChrome({
             : t("chrome.updatedMinutes", { count: radarAgeMinutes });
   // A loaded colour table describes what is on screen only where it was
   // actually applied, which is the locally decoded products and no others.
+  // Only when the layer is actually drawing something. An empty analysis is a
+  // real answer and gets its own note beside the switch, not a legend for
+  // three colours that are not on the map.
+  const smokeScale = smoke?.features.length
+    ? { analysed: Number(smoke.features[0].properties.analysed) || null }
+    : null;
   const drawnUnit = sweep?.unit ?? mosaic.unit;
   const paletteApplied = sweep
     ? sweep.paletteApplied
@@ -277,7 +300,7 @@ export function WorkspaceChrome({
         highContrast={drawnHighContrast}
         onToggle={onToggleProduct}
       />
-      {mrmsLayers.length || lightning || wind || windReduced ? (
+      {mrmsLayers.length || lightning || wind || windReduced || smokeScale ? (
         <div className="product-legends" aria-label={t("chrome.extraScales")}>
           {windReduced ? (
             <div className="product-legend">
@@ -328,6 +351,33 @@ export function WorkspaceChrome({
                 </li>
               </ol>
               <small>{t("chrome.flashNote")}</small>
+            </div>
+          ) : null}
+          {smokeScale ? (
+            <div className="product-legend" data-smoke-legend="1">
+              <strong>
+                {t("layer.smoke")}
+                <em>
+                  {smokeScale.analysed
+                    ? t("chrome.smokeAnalysed", {
+                        when: formatClock(smokeScale.analysed, {
+                          month: "short",
+                          day: "numeric",
+                        }),
+                      })
+                    : t("chrome.smokeAnalysedUnknown")}
+                </em>
+              </strong>
+              {/* Three names rather than a gradient. Heavy is not three times
+                  light; an analyst put each polygon in one of three boxes. */}
+              <ol className="is-categorical">
+                {SMOKE_SCALE.map(([density, color]) => (
+                  <li key={density}>
+                    <i style={{ background: color }} aria-hidden="true" />
+                    {t(`smoke.${density}` as "smoke.light")}
+                  </li>
+                ))}
+              </ol>
             </div>
           ) : null}
           {mrmsLayers.map((layer) => (

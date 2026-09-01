@@ -840,6 +840,7 @@ export default function App() {
               probSevere: probSevere.error,
               earthquakes: overlays.states.earthquakes.error,
               wildfires: overlays.states.wildfires.error,
+              smoke: overlays.states.smoke.error,
               tropical: overlays.states.tropical.error,
               rotationTracks: mrms.error,
               hail: mrms.error,
@@ -968,6 +969,7 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
+        smoke={overlays.data.smoke ?? null}
         wind={singleSite.historical ? null : wind.field}
         windReduced={
           !singleSite.historical && settings.layers.wind && reducedMotion

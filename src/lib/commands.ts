@@ -78,7 +78,13 @@ const LAYER_COMMANDS: Array<{
     layer: "wildfires",
     key: "layer.wildfires",
     extra: "keywords.wildfires",
-    keywords: ["fire", "burn", "perimeter", "nifc", "smoke"],
+    keywords: ["fire", "burn", "perimeter", "nifc"],
+  },
+  {
+    layer: "smoke",
+    key: "layer.smoke",
+    extra: "keywords.smoke",
+    keywords: ["haze", "air quality", "plume", "hms", "wildfire smoke"],
   },
   {
     layer: "tropical",

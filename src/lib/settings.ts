@@ -93,6 +93,8 @@ export interface LayerSettings {
   probSevere: boolean;
   earthquakes: boolean;
   wildfires: boolean;
+  /** NOAA's hand-drawn smoke analysis for the day. */
+  smoke: boolean;
   tropical: boolean;
   satellite: boolean;
   customOverlay: boolean;
@@ -303,6 +305,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     probSevere: false,
     earthquakes: false,
     wildfires: false,
+    smoke: false,
     tropical: true,
     satellite: false,
     customOverlay: false,
@@ -1098,6 +1101,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.earthquakes,
       ),
       wildfires: bool(layers.wildfires, DEFAULT_SETTINGS.layers.wildfires),
+      smoke: bool(layers.smoke, DEFAULT_SETTINGS.layers.smoke),
       tropical: bool(layers.tropical, DEFAULT_SETTINGS.layers.tropical),
       satellite: bool(layers.satellite, DEFAULT_SETTINGS.layers.satellite),
       customOverlay: bool(

@@ -546,6 +546,7 @@ export const es: Catalogue = {
   "layer.weatherAlerts": "Alertas meteorológicas",
   "layer.earthquakes": "Sismos",
   "layer.wildfires": "Incendios",
+  "layer.smoke": "Humo",
   "layer.tropical": "Tropical",
   "layer.satellite": "Satélite",
   "layer.rotationTracks": "Huellas de rotación",
@@ -639,6 +640,7 @@ export const es: Catalogue = {
   "keywords.probSevere": "probabilidad severo granizo viento tornado",
   "keywords.earthquakes": "sismo temblor terremoto magnitud",
   "keywords.wildfires": "incendio fuego perimetro humo",
+  "keywords.smoke": "humo calidad del aire pluma hms bruma",
   "keywords.tropical": "huracan ciclon cono tormenta tifon",
   "keywords.satellite": "satelite nubes imagen visible infrarrojo",
   "keywords.rotationTracks": "mesociclon rotacion cizalladura tornado giro",
@@ -697,6 +699,7 @@ export const es: Catalogue = {
   "layers.earthquakesDetail":
     "Sismos del USGS de magnitud mayor a 2.5 en el último día",
   "layers.wildfiresDetail": "Perímetros del NIFC de más de 100 acres",
+  "layers.smokeDetail": "El análisis a mano de la NOAA, una vez al día",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
@@ -853,6 +856,8 @@ export const es: Catalogue = {
   "chrome.windowMinutes": "{count} min",
   "chrome.flashCount": "{count}{more} de {satellite}",
   "chrome.filesRead": " · {read} de {expected} archivos",
+  "chrome.smokeAnalysed": "analizado el {when}",
+  "chrome.smokeAnalysedUnknown": "fecha desconocida",
   "chrome.flashNote":
     "Son rayos totales, no un reporte de descargas. Usa los avisos oficiales para decisiones que afecten la seguridad.",
   "chrome.densityNote":
@@ -965,6 +970,13 @@ export const es: Catalogue = {
   "popup.perimeterUpdated": "Perímetro actualizado {when}",
   "popup.perimeterUnknown": "Fecha del perímetro desconocida",
   "popup.nifc": "Fuente: NIFC WFIGS",
+  "smoke.light": "Humo ligero",
+  "smoke.medium": "Humo moderado",
+  "smoke.heavy": "Humo denso",
+  "smoke.analysed": "Analizado el {when}.",
+  "smoke.analysedUnknown": "El archivo no trae la fecha del análisis.",
+  "smoke.note":
+    "Lo dibuja a mano un analista de la NOAA a partir de imágenes de satélite, una vez al día. Es dónde estaba el humo, no cómo está el aire a nivel del suelo.",
   "popup.tropicalBasin": "Tropical",
   "popup.outlookTitle": "Perspectiva de {basin}",
   "popup.twoDay": "Probabilidad a dos días {chance} ({risk})",
