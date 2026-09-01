@@ -1,7 +1,7 @@
 import { cleanup, renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useLatest, useMapSync } from "./useMapSync";
+import { useMapSync } from "./useMapSync";
 
 afterEach(() => cleanup());
 
@@ -93,17 +93,5 @@ describe("handing a value to the map", () => {
     expect(result.current.current).toBe("a");
     rerender({ value: "b", sync });
     expect(result.current.current).toBe("b");
-  });
-});
-
-describe("a value the sync reads but does not redraw for", () => {
-  it("follows the renders without calling anything", () => {
-    const { result, rerender } = renderHook(
-      (props: { value: number }) => useLatest(props.value),
-      { initialProps: { value: 1 } },
-    );
-    expect(result.current.current).toBe(1);
-    rerender({ value: 2 });
-    expect(result.current.current).toBe(2);
   });
 });

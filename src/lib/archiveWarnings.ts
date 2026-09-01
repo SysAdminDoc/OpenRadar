@@ -109,10 +109,12 @@ const PHENOMENA_PER_REQUEST = 2;
 /**
  * The requests that together cover the window, in the order they are merged.
  *
- * Two rather than one, because the only way to widen the search is to widen
- * the issuance window, and widening it for every product costs far more than
- * it buys. On the frame this was measured against, the short request alone
- * found 45 of the 65 warnings in force and the pair finds all 65.
+ * More than one, because the only way to widen the search is to widen the
+ * issuance window, and widening it for every product costs far more than it
+ * buys. One short request for everything, then the flood products two
+ * phenomena at a time. At noon on the day Helene came ashore the short
+ * request alone found 88 of the 161 warnings in force and the set finds
+ * every one.
  */
 export function archiveWarningsUrls(fromMs: number, toMs: number): string[] {
   const window = (fromMs: number, extra = "") =>

@@ -64,6 +64,7 @@ const LANE: RasterLane<number> = {
   layerId: "test-layer",
   attribution: "A service",
   opacity: 0.85,
+  fadeMs: 0,
   maxZoom: 8,
   tileUrl: (time) => `https://tiles.test/${time}/{z}/{x}/{y}.png`,
 };
@@ -84,10 +85,14 @@ describe("one raster lane's whole life", () => {
       maxzoom: 8,
       attribution: "A service",
     });
-    expect(map.layers.get("test-layer")).toMatchObject({
+    // Every paint property the lane asked for, not a subset. MapLibre's own
+    // fade default is 300ms, and a lane that means zero and does not say it
+    // gets a cross-fade that blends two grids into a value in neither.
+    expect(map.layers.get("test-layer")).toEqual({
+      id: "test-layer",
       type: "raster",
       source: "test-source",
-      paint: { "raster-opacity": 0.85 },
+      paint: { "raster-opacity": 0.85, "raster-fade-duration": 0 },
     });
   });
 
@@ -184,13 +189,25 @@ describe("one raster lane's whole life", () => {
     ]);
   });
 
-  it("leaves a replacing lane alone when the address has not changed", () => {
+  it("touches nothing when a replacing lane's address has not changed", () => {
+    // Re-pointing a raster source reloads every tile in view whether or not
+    // the address moved, and the poll behind these finds the same grid as
+    // often as not, so an unconditional call is a whole product decoded
+    // again for no new data.
     const map = fakeMap();
     const lane: RasterLane<number> = { ...LANE, replaceOnChange: true };
     syncRasterLane(map, lane, 1, under);
     map.calls.length = 0;
     expect(syncRasterLane(map, lane, 1, under)).toBe(false);
-    expect(map.calls).toEqual(["setTiles test-source"]);
+    expect(map.calls).toEqual([]);
+  });
+
+  it("carries the fade the lane asked for onto the layer", () => {
+    const map = fakeMap();
+    syncRasterLane(map, { ...LANE, fadeMs: 300 }, 1, under);
+    expect(map.layers.get("test-layer")).toMatchObject({
+      paint: { "raster-fade-duration": 300 },
+    });
   });
 
   it("places the lane at the top when nothing is above it yet", () => {

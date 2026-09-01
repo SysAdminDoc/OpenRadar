@@ -117,9 +117,10 @@ function analysedOn(document: Document): number | null {
  * early for everybody west of Greenwich, which is everybody this layer is
  * for.
  */
-export function analysisDate(at: number): string {
+export function analysisDate(at: number, withYear = false): string {
   return formatClock(at, {
     timeZone: "UTC",
+    ...(withYear ? { year: "numeric" as const } : {}),
     month: "short",
     day: "numeric",
   });
@@ -270,7 +271,7 @@ export const smokeOverlay: OverlayAdapter = {
       title: translate(`smoke.${density}` as "smoke.light"),
       lines: [
         Number.isFinite(analysed)
-          ? translate("smoke.analysed", { when: analysisDate(analysed) })
+          ? translate("smoke.analysed", { when: analysisDate(analysed, true) })
           : translate("smoke.analysedUnknown"),
         translate("smoke.note"),
       ],

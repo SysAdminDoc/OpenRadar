@@ -974,6 +974,8 @@ export const en = {
   "metar.air": "{temp}{unit}, dewpoint {dewp}{unit}.",
   "metar.wind": "Wind from {direction} degrees at {knots} kt.",
   "metar.windVariable": "Wind variable in direction at {knots} kt.",
+  "metar.windVariableGusting":
+    "Wind variable in direction at {knots} kt, gusting {gust}.",
   "metar.windGusting":
     "Wind from {direction} degrees at {knots} kt, gusting {gust}.",
   "metar.calm": "Calm.",

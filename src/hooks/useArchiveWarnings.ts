@@ -44,7 +44,7 @@ interface Loaded {
 /**
  * The warnings that were in force while an archived storm was on the map.
  *
- * Two requests for the whole replay window, then a filter per frame. A replay
+ * A handful of requests for the whole replay window, then a filter per frame. A replay
  * is a few dozen frames the reader scrubs back and forth through, and asking
  * per frame would be a request every time the playhead moved: slower for the
  * reader and rude to a service that publishes for nothing.

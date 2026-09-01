@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   METAR_MIN_ZOOM,
   METAR_SPACING,
@@ -37,7 +37,10 @@ function station(overrides: Record<string, unknown> = {}) {
   };
 }
 
-afterEach(() => setUnits("imperial"));
+afterEach(() => {
+  setUnits("imperial");
+  vi.unstubAllGlobals();
+});
 
 describe("reading a surface observation", () => {
   it("places the station and keeps what the plot is drawn from", () => {
@@ -139,6 +142,14 @@ describe("what the popup says", () => {
     expect(metarOverlay.describe(still.properties).lines.join(" ")).toContain(
       "Calm",
     );
+
+    // A variable wind can gust too, and saying only that it is variable loses
+    // the number a pilot or a spotter is reading this for.
+    const varied = parseMetars([station({ wdir: "VRB", wspd: 9, wgst: 24 })])
+      .features[0];
+    const said = metarOverlay.describe(varied.properties).lines.join(" ");
+    expect(said).toContain("variable");
+    expect(said).toContain("24");
   });
 });
 
@@ -166,28 +177,57 @@ describe("thinning the plots so they can be read", () => {
     // spacing allows about one station per twenty-fifth of the width.
     const packed = grid(0.1);
     const kept = thinStations(packed, box).features;
-    expect(kept.length).toBeLessThan(packed.features.length / 4);
+    expect(kept.length).toBeLessThan(packed.features.length / 3);
     expect(kept.length).toBeGreaterThan(4);
   });
 
-  it("never leaves two of the ones it kept too close together", () => {
+  it("never leaves two of the ones it kept too close together on screen", () => {
+    // Screen distance, which is what must not overlap. Web Mercator makes a
+    // degree of latitude taller than a degree of longitude is wide, by
+    // 1/cos(lat), so the north-south threshold is the one that shrinks
+    // towards the poles.
     const kept = thinStations(grid(0.1), box).features;
     const gap = Math.abs(box.east - box.west) * METAR_SPACING;
+    const at = (feature: (typeof kept)[number]) =>
+      (feature.geometry as { coordinates: number[] }).coordinates;
     for (const one of kept) {
       for (const other of kept) {
         if (one === other) continue;
-        const [ax, ay] = (one.geometry as { coordinates: number[] })
-          .coordinates;
-        const [bx, by] = (other.geometry as { coordinates: number[] })
-          .coordinates;
+        const [ax, ay] = at(one);
+        const [bx, by] = at(other);
         const close =
-          Math.abs(ax - bx) * Math.cos((ay * Math.PI) / 180) < gap &&
-          Math.abs(ay - by) < gap;
+          Math.abs(ax - bx) < gap &&
+          Math.abs(ay - by) < gap * Math.cos((ay * Math.PI) / 180);
         expect(close, `${one.properties.id} and ${other.properties.id}`).toBe(
           false,
         );
       }
     }
+  });
+
+  it("keeps the plots the same distance apart wherever on Earth they are", () => {
+    // The same grid at two latitudes. A ground-distance metric thins the
+    // northern one harder, which is the wrong answer: what must not overlap
+    // is the plots on the screen, and Mercator has already stretched them.
+    const rows = (south: number) => {
+      const made = [];
+      for (let lon = -100; lon < -96; lon += 0.1) {
+        for (let lat = south; lat < south + 4; lat += 0.1) {
+          made.push(station({ icaoId: `K${made.length}`, lon, lat }));
+        }
+      }
+      return parseMetars(made);
+    };
+    const held = (south: number) =>
+      thinStations(rows(south), {
+        west: -100,
+        south,
+        east: -96,
+        north: south + 4,
+      }).features.length;
+    const miami = held(25);
+    const seattle = held(46);
+    expect(Math.abs(miami - seattle) / miami).toBeLessThan(0.2);
   });
 
   it("keeps the same stations whatever order the service answered in", () => {
@@ -205,10 +245,29 @@ describe("thinning the plots so they can be read", () => {
 });
 
 describe("what the layer asks the service for", () => {
-  it("asks for the screen and not a box around it", () => {
-    // The service returns fewer stations the larger the box: two and a half
-    // times the screen came back with 38 of the 185 on it. The overlay
-    // machinery pads by half a viewport for everything else.
+  it("asks for the screen and not a box around it", async () => {
+    // Restating the constant would be the same tautology this file's own
+    // history is about, so the box the adapter actually sends is read off the
+    // request it makes. The service returns fewer stations the larger the box
+    // it is given: 2.8 times the screen came back with 38 of the 185 on it,
+    // and the screen exactly returns all of them.
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      asked.push(String(url));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [station()],
+      } as unknown as Response;
+    });
+    await metarOverlay.fetchData({
+      west: -100,
+      south: 34,
+      east: -96,
+      north: 38,
+    });
+    const bbox = new URL(asked[0]).searchParams.get("bbox");
+    expect(bbox).toBe("34.000,-100.000,38.000,-96.000");
     expect(metarOverlay.boundsPadding).toBe(0);
   });
 
