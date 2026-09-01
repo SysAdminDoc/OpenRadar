@@ -115,6 +115,11 @@ interface PanelSurfacesProps {
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
+  /** Keeps the replay on screen as one file, with or without the workspace. */
+  onSaveReplayBundle: (includeWorkspace: boolean) => void;
+  onOpenReplayBundle: () => void;
+  /** False in a browser preview, where nothing can write or read a file. */
+  bundlesAvailable: boolean;
   onRoute: (route: Record<string, unknown> | null) => void;
   onUpload: (file: File) => void;
   onWatchHere: () => void;
@@ -264,6 +269,9 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onSelect={props.onHistoryStorm}
           onReplay={props.onReplayStorm}
           onStopReplay={props.onStopReplay}
+          onSaveBundle={props.onSaveReplayBundle}
+          onOpenBundle={props.onOpenReplayBundle}
+          bundlesAvailable={props.bundlesAvailable}
           onClose={onClose}
         />
       ) : null}

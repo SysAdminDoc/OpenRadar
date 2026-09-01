@@ -75,14 +75,29 @@ async function resultButtons() {
   };
 }
 
-function renderPanel(onSelect = vi.fn(), selectedId: string | null = null) {
+function renderPanel(
+  onSelect = vi.fn(),
+  selectedId: string | null = null,
+  {
+    replayId = null,
+    bundlesAvailable = false,
+    onSaveBundle = vi.fn(),
+  }: {
+    replayId?: string | null;
+    bundlesAvailable?: boolean;
+    onSaveBundle?: (includeWorkspace: boolean) => void;
+  } = {},
+) {
   return render(
     <HistoryPanel
       selectedId={selectedId}
-      replayId={null}
+      replayId={replayId}
       onSelect={onSelect}
       onReplay={() => {}}
       onStopReplay={() => {}}
+      onSaveBundle={onSaveBundle}
+      onOpenBundle={() => {}}
+      bundlesAvailable={bundlesAvailable}
       onClose={() => {}}
     />,
   );
@@ -143,6 +158,9 @@ describe("HistoryPanel selection", () => {
           onSelect={(storm) => setSelectedId(storm?.id ?? null)}
           onReplay={() => {}}
           onStopReplay={() => {}}
+          onSaveBundle={() => {}}
+          onOpenBundle={() => {}}
+          bundlesAvailable={false}
           onClose={() => {}}
         />
       );
@@ -176,6 +194,9 @@ describe("HistoryPanel selection", () => {
           }}
           onReplay={() => {}}
           onStopReplay={() => {}}
+          onSaveBundle={() => {}}
+          onOpenBundle={() => {}}
+          bundlesAvailable={false}
           onClose={() => {}}
         />
       );
@@ -191,5 +212,65 @@ describe("HistoryPanel selection", () => {
     fireEvent.click(clear);
     expect(screen.queryByText("Beta did not load.")).toBeNull();
     expect(onSelect).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe("HistoryPanel replay bundles", () => {
+  it("offers to keep the replay that is actually on the map", async () => {
+    loadStorm.mockResolvedValue(ALPHA);
+    const onSaveBundle = vi.fn();
+    const { rerender } = renderPanel(vi.fn(), ALPHA.id, {
+      bundlesAvailable: true,
+      onSaveBundle,
+    });
+    expect(await screen.findByText("Alpha Storm 2020")).toBeTruthy();
+    // A storm can be picked without being replayed, and there is nothing to
+    // bundle until its frames are on screen.
+    expect(
+      screen.queryByRole("button", { name: /Save replay bundle/ }),
+    ).toBeNull();
+    // Opening one, though, does not depend on a replay.
+    expect(
+      screen.getByRole("button", { name: /Open a replay bundle/ }),
+    ).toBeTruthy();
+
+    rerender(
+      <HistoryPanel
+        selectedId={ALPHA.id}
+        replayId={ALPHA.id}
+        onSelect={() => {}}
+        onReplay={() => {}}
+        onStopReplay={() => {}}
+        onSaveBundle={onSaveBundle}
+        onOpenBundle={() => {}}
+        bundlesAvailable
+        onClose={() => {}}
+      />,
+    );
+    const save = await screen.findByRole("button", {
+      name: /Save replay bundle/,
+    });
+
+    // The workspace stays out until it is asked for, and the panel says so
+    // rather than the caller assuming.
+    fireEvent.click(save);
+    expect(onSaveBundle).toHaveBeenLastCalledWith(false);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Include my workspace/ }),
+    );
+    fireEvent.click(save);
+    expect(onSaveBundle).toHaveBeenLastCalledWith(true);
+  });
+
+  it("offers neither where nothing can write a file", async () => {
+    loadStorm.mockResolvedValue(ALPHA);
+    renderPanel(vi.fn(), ALPHA.id, { replayId: ALPHA.id });
+    expect(await screen.findByText("Alpha Storm 2020")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /Save replay bundle/ }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Open a replay bundle/ }),
+    ).toBeNull();
   });
 });

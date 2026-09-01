@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use reqwest::Url;
 
+use crate::bundles;
 use crate::cache;
 use crate::http;
 
@@ -51,6 +52,9 @@ pub struct Served {
     /// How old the bytes are. Zero for a fresh fetch.
     pub age: Duration,
     pub body: Vec<u8>,
+    /// The replay bundle the bytes came out of, when they did. A bundled
+    /// answer never touched the network, and the page can say so.
+    pub bundle: Option<String>,
 }
 
 /// The address the map asked for, read out of the local request.
@@ -87,8 +91,23 @@ pub async fn serve(uri: &str) -> Served {
             content_type: "text/plain".into(),
             age: Duration::ZERO,
             body: b"OpenRadar will not fetch that address.".to_vec(),
+            bundle: None,
         };
     };
+
+    // An open replay bundle answers first, for the addresses it holds. That
+    // is the whole point of one: the replay is drawn from the bytes that
+    // were kept, whatever the archive would say today and whether or not
+    // there is a network to ask.
+    if let Some((content_type, body, age, bundle)) = bundles::lookup(&url) {
+        return Served {
+            status: 200,
+            content_type,
+            age: Duration::from_secs(age),
+            body: body.to_vec(),
+            bundle: Some(bundle),
+        };
+    }
 
     match http::get_typed(&url).await {
         Ok((body, content_type)) => {
@@ -98,6 +117,7 @@ pub async fn serve(uri: &str) -> Served {
                 content_type,
                 age: Duration::ZERO,
                 body,
+                bundle: None,
             }
         }
         Err(error) => match cache::get_async(&url).await {
@@ -111,6 +131,7 @@ pub async fn serve(uri: &str) -> Served {
                     content_type: held.content_type,
                     age: held.age,
                     body: held.body,
+                    bundle: None,
                 }
             }
             None => Served {
@@ -118,6 +139,7 @@ pub async fn serve(uri: &str) -> Served {
                 content_type: "text/plain".into(),
                 age: Duration::ZERO,
                 body: error.to_string().into_bytes(),
+                bundle: None,
             },
         },
     }

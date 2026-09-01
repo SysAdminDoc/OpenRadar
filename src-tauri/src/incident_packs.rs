@@ -520,13 +520,13 @@ fn new_id(name: &str) -> String {
     format!("{:x}", hash.finalize())[..24].to_string()
 }
 
-fn tile_x(longitude: f64, zoom: u8) -> u32 {
+pub(crate) fn tile_x(longitude: f64, zoom: u8) -> u32 {
     let size = 1_u32 << zoom;
     (((longitude + 180.0) / 360.0 * f64::from(size)).floor() as i64).clamp(0, i64::from(size - 1))
         as u32
 }
 
-fn tile_y(latitude: f64, zoom: u8) -> u32 {
+pub(crate) fn tile_y(latitude: f64, zoom: u8) -> u32 {
     let size = 1_u32 << zoom;
     let radians = latitude.to_radians();
     let value = (1.0 - radians.tan().asinh() / std::f64::consts::PI) / 2.0;

@@ -265,6 +265,39 @@ export const es: Catalogue = {
   "history.closestApproach": "su punto más cercano",
   "history.noteReplaySource":
     "Las repeticiones vienen del archivo de radar de Iowa State.",
+  "history.bundleHeading": "Paquete de repetición",
+  "history.bundleNote":
+    "Un paquete guarda los cuadros de esta repetición y los avisos vigentes, byte a byte, con sus direcciones y sus hashes, para reproducirla igual sin red. Solo entra la vista de la tormenta.",
+  "history.includeWorkspace": "Incluir mi espacio de trabajo",
+  "history.includeWorkspaceDetail":
+    "Casa, lugares vigilados, vistas guardadas y ajustes. Desactivado salvo que lo marques, cada vez.",
+  "history.saveBundle": "Guardar paquete de repetición",
+  "history.openBundle": "Abrir un paquete de repetición",
+  "bundle.replayLabel": "Paquete de repetición",
+  "bundle.openTitle": "Abrir un paquete de repetición de OpenRadar",
+  "bundle.fileKind": "Paquete de repetición de OpenRadar",
+  "bundle.missingTiles": "{count} teselas no estaban en el paquete.",
+  "bundle.missingWarnings":
+    "{count} fuentes de avisos no estaban en el paquete, así que sus avisos pueden estar incompletos.",
+  "bundle.missingBoth":
+    "{tiles} teselas y {warnings} fuentes de avisos no estaban en el paquete.",
+  "bundle.error.invalidRequest": "Esta repetición no se puede empaquetar: {0}.",
+  "bundle.error.tooManyTiles":
+    "La vista cubre {0} teselas a lo largo de la repetición. Acerca o aleja el mapa para que cubra menos.",
+  "bundle.error.tooLarge": "El paquete superaría los 256 MB.",
+  "bundle.error.noFolder": "No hay dónde escribir el paquete.",
+  "bundle.error.write": "No se pudo escribir el paquete: {0}",
+  "bundle.error.read": "No se pudo leer el paquete: {0}",
+  "bundle.error.notABundle":
+    "Ese archivo no es un paquete de repetición de OpenRadar.",
+  "bundle.error.newer":
+    "Ese paquete lo hizo un OpenRadar más nuevo (formato {0}). Actualiza para abrirlo.",
+  "bundle.error.corrupt": "Ese paquete está dañado: {0}",
+  "bundle.error.http": "{0}",
+  "bundle.error.noView": "El mapa aún no tiene una vista que empaquetar.",
+  "bundle.error.noFrames":
+    "Ese paquete no tiene cuadros que esta versión pueda dibujar.",
+  "bundle.error.unknown": "No se pudo manejar el paquete.",
   "route.eyebrow": "El tiempo en el camino",
   "route.title": "Ruta",
   "route.start": "Salida",
@@ -964,6 +997,18 @@ export const es: Catalogue = {
   "toast.paletteFull":
     "Tus tablas de colores están llenas con {count}. Quita una para hacer sitio.",
   "toast.replayStopped": "Repetición detenida",
+  "toast.bundleSaving": "Guardando el paquete de repetición",
+  "toast.bundleSaved": "Paquete de repetición guardado",
+  "toast.bundleSavedBody": "{entries} archivos, {size} MB, en {path}.",
+  "toast.bundleMissing":
+    "{count} de ellos no se pudieron descargar y quedan anotados en el paquete.",
+  "toast.bundleFailed": "El paquete de repetición falló",
+  "toast.bundleOpened": "Reproduciendo {label} desde un paquete",
+  "toast.bundleOpenedBody":
+    "{frames} cuadros, guardados el {made}. No se descarga nada para ellos; responde el paquete.",
+  "toast.bundleApplyWorkspace": "Aplicar su espacio de trabajo",
+  "toast.bundleWorkspaceApplied":
+    "El espacio de trabajo del paquete está en vigor",
   "toast.replayStoppedBody": "El mapa vuelve al bucle en vivo.",
   "toast.shareTitle": "Vista de OpenRadar",
   "toast.shared": "Vista del mapa compartida",

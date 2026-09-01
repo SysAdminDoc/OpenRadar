@@ -68,6 +68,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Storm surge risk**: how far the water could reach for a hurricane of each category, from the National Hurricane Center's own maps.
 - **Tides** from the nearest NOAA station, with the next high and low water, because surge rides on top of the tide.
 - **Storm history**: every Atlantic and eastern Pacific cyclone since 1851, drawn by intensity, and archive radar replay for the ones since 2003. A replay draws the warnings that were in force at the moment on screen, out of the Iowa State archive, dated so nothing historical reads as live.
+- **Replay bundles**: save a replay as one `.orb` file that keeps its frames and the warnings that were in force byte for byte, with every address and SHA-256 in a plain JSON manifest, and open it later to play it back the same with no network. Only the storm's view goes in unless you tick the box to include your workspace, and a bundle's workspace is applied only when you choose to. The layout is four bytes of magic, a version, the manifest, the entries and a whole-file checksum; it's written out in full at the top of `src-tauri/src/bundles.rs`. A damaged or newer file is refused before anything changes.
 
 ### The rest of the sky
 
@@ -133,6 +134,8 @@ None of it is sent anywhere. It goes to the clipboard, and you paste it, having 
 OpenRadar has no account, telemetry, crash reporting or sync. Settings and logs stay on this machine.
 
 Prepared incident packs stay in the app's data folder until you delete them. Workspace backups carry the pack name, bounds, size and hash so the reference survives, but they do not copy the map archive into the backup.
+
+Replay bundles carry the storm's frames, the warnings that were in force and the view they were made at. Your workspace goes in only when you tick the box, and a bundle's workspace is applied only when you choose to. They are written to your downloads folder and read through the system's file picker, so a bundle never crosses into the page as bytes.
 
 The app sends the information needed to answer a request to fixed public providers. Typed place names and forecast coordinates go to Open-Meteo. Route start and end points go to the FOSSGIS routing service, which is told the app is OpenRadar, and points along that route go to Open-Meteo for the weather check. Map and radar requests go to the sources listed in Diagnostics. Those services receive the request and your IP address. Rust limits the desktop app to its configured hosts.
 
