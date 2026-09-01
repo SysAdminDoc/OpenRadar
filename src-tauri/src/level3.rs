@@ -707,13 +707,38 @@ fn read_classification(
     // layer that turns out to hold something else is skipped rather than
     // ending the read, which is the standard the Level II decoder holds.
     for body in symbology_bodies(&block, 0)? {
-        if u16_at(body, 0) == Some(DIGITAL_RADIAL_PACKET) {
-            return Ok((description, read_radial_packet(body, bin_km)?));
+        if let Some(image) = radial_in_layer(body, bin_km)? {
+            return Ok((description, image));
         }
     }
     Err(Level3Error::Decode(
         "the product carries no radial image".into(),
     ))
+}
+
+/// The radial image in one layer, past whatever sits in front of it.
+///
+/// Every other packet in this family frames itself with a byte count, so an
+/// unknown one is stepped over rather than ending the read: a product that
+/// gains a packet ahead of its image still draws the image. A count that runs
+/// past the layer ends the layer, which is the standard the Level II decoder
+/// holds.
+fn radial_in_layer(body: &[u8], bin_km: f64) -> Result<Option<RadialImage>, Level3Error> {
+    let mut at = 0usize;
+    while let Some(code) = u16_at(body, at) {
+        if code == DIGITAL_RADIAL_PACKET {
+            return read_radial_packet(&body[at..], bin_km).map(Some);
+        }
+        let Some(length) = u16_at(body, at + 2) else {
+            break;
+        };
+        let next = at + 4 + length as usize;
+        if next > body.len() {
+            break;
+        }
+        at = next;
+    }
+    Ok(None)
 }
 
 /// Reads the storm tracking product.
@@ -1573,6 +1598,42 @@ mod tests {
         assert!(!image.radials.is_empty());
         let turned: f32 = image.radials.iter().map(|r| r.width_degrees).sum();
         assert!((turned - 360.0).abs() < 2.0, "covers {turned} degrees");
+    }
+
+    #[test]
+    fn a_packet_ahead_of_the_image_is_stepped_over_rather_than_ending_the_read() {
+        // The real N0H layer, with a framed packet nobody has seen planted in
+        // front of it. The image still comes out, whole.
+        let start = message_start(N0H).expect("a message");
+        let description = read_description(&N0H[start..]).expect("a description");
+        let block =
+            symbology_bytes(&N0H[start..], description.symbology.unwrap()).expect("a block");
+        let layer = symbology_bodies(&block, 0).expect("layers")[0];
+        let expected = read_radial_packet(layer, QUARTER_KM).expect("the image");
+
+        let mut planted = Vec::new();
+        planted.extend_from_slice(&0x0f0fu16.to_be_bytes());
+        planted.extend_from_slice(&6u16.to_be_bytes());
+        planted.extend_from_slice(&[1, 2, 3, 4, 5, 6]);
+        planted.extend_from_slice(layer);
+        let image = radial_in_layer(&planted, QUARTER_KM)
+            .expect("no error")
+            .expect("the image is still there");
+        assert_eq!(image.radials.len(), expected.radials.len());
+        assert_eq!(image.radials[7].gates, expected.radials[7].gates);
+
+        // A framed packet whose count runs past the layer ends the layer
+        // without a panic and without an image.
+        let mut runaway = Vec::new();
+        runaway.extend_from_slice(&0x0f0fu16.to_be_bytes());
+        runaway.extend_from_slice(&60000u16.to_be_bytes());
+        runaway.extend_from_slice(&[0; 8]);
+        assert!(radial_in_layer(&runaway, QUARTER_KM)
+            .expect("no error")
+            .is_none());
+        assert!(radial_in_layer(&[], QUARTER_KM)
+            .expect("no error")
+            .is_none());
     }
 
     #[test]

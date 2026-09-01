@@ -1,6 +1,6 @@
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useForecastSmoke } from "./useForecastSmoke";
+import { FALLBACK_RETRY_MS, useForecastSmoke } from "./useForecastSmoke";
 import type { SmokeField } from "../lib/forecastSmoke";
 
 const read =
@@ -162,6 +162,69 @@ describe("the hour the playhead is on", () => {
     rerender({ valid: "2026-08-30T07:00:00Z" });
     await waitFor(() => expect(result.current.field).not.toBeNull());
     expect(result.current.error).toBeNull();
+  });
+
+  it("asks again for an hour an older cycle stood in for, once the newer one could have landed", async () => {
+    // The tail is on 19Z but the native side answered from 18Z because 19Z
+    // had not published. Ten minutes on, 19Z may well be there, and the
+    // hour should come from it. An hour the right cycle answered is left
+    // alone for as long as it is held.
+    vi.useFakeTimers();
+    try {
+      read.mockImplementation(async (valid) =>
+        field(valid, "2026-08-30T04:00:00+00:00"),
+      );
+      const { result, rerender } = renderHook(
+        (props: { valid: string }) =>
+          useForecastSmoke({
+            ready: true,
+            enabled: true,
+            valid: props.valid,
+            preferredInit: INIT,
+          }),
+        { initialProps: { valid: "2026-08-30T06:00:00Z" } },
+      );
+      await vi.waitFor(() =>
+        expect(result.current.field?.init).toBe("2026-08-30T04:00:00+00:00"),
+      );
+      expect(read).toHaveBeenCalledTimes(1);
+
+      // Moving off the hour and back within the grace period asks nothing.
+      rerender({ valid: "2026-08-30T07:00:00Z" });
+      await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+      rerender({ valid: "2026-08-30T06:00:00Z" });
+      expect(read).toHaveBeenCalledTimes(2);
+
+      // Past it, the same hour is asked for again, and the newer cycle's
+      // answer replaces the stand-in.
+      read.mockImplementation(async (valid, preferredInit) =>
+        field(valid, preferredInit ?? undefined),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FALLBACK_RETRY_MS + 10);
+      });
+      rerender({ valid: "2026-08-30T07:00:00Z" });
+      rerender({ valid: "2026-08-30T06:00:00Z" });
+      await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(4));
+      await vi.waitFor(() =>
+        expect(Date.parse(result.current.field?.init ?? "")).toBe(
+          Date.parse(INIT),
+        ),
+      );
+
+      // And now that it is the tail's own cycle, it stays.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FALLBACK_RETRY_MS + 10);
+      });
+      rerender({ valid: "2026-08-30T07:00:00Z" });
+      rerender({ valid: "2026-08-30T06:00:00Z" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10);
+      });
+      expect(read).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("asks for nothing while the layer is off", async () => {

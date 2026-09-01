@@ -20,6 +20,7 @@ import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import {
   FORECAST_SMOKE_UNIT,
   forecastSmokeLabel,
+  swatchOpacity,
   type SmokeField,
 } from "../lib/forecastSmoke";
 import { formatRadarTime } from "../lib/radar";
@@ -416,11 +417,18 @@ export function WorkspaceChrome({
                   {forecastSmokeLabel(forecastSmoke, clock)}
                 </em>
               </strong>
-              {/* The scale the picture was painted with, sent with it. */}
+              {/* The scale the picture was painted with, sent with it, and
+                  each swatch as solid as its step is on the map. */}
               <ol>
                 {forecastSmoke.ramp.map((stop) => (
                   <li key={stop.at}>
-                    <i style={{ background: stop.color }} aria-hidden="true" />
+                    <i
+                      style={{
+                        background: stop.color,
+                        opacity: swatchOpacity(stop),
+                      }}
+                      aria-hidden="true"
+                    />
                     {stop.at}
                   </li>
                 ))}

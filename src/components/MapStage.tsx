@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useMemo, type RefObject } from "react";
 import { MapViewport, type MapViewportHandle } from "./MapViewport";
 import type { ToolMode } from "./CommandBar";
 import type { GeoPoint } from "../lib/geo";
@@ -113,6 +113,14 @@ export function MapStage({
     settings.incidentPacks.references.find(
       (pack) => pack.id === settings.incidentPacks.selectedId,
     ) ?? null;
+  // While the model's smoke has the primary pane, the analysis comes off
+  // it: not faded, off. A faded layer still answers clicks and still counts
+  // as drawn, and a plume must be one kind of statement at a time. The
+  // compare pane follows its own frame and keeps whatever it has.
+  const primaryOverlays = useMemo(
+    () => (forecastSmoke ? { ...overlays, smoke: null } : overlays),
+    [forecastSmoke, overlays],
+  );
   const shared = {
     projection: settings.projection,
     // Auto is resolved here rather than in the viewport, so everything that
@@ -155,6 +163,7 @@ export function MapStage({
         onSection={onSection}
         onMapStatus={onMapStatus}
         {...shared}
+        overlays={primaryOverlays}
       />
       {dualPane ? (
         <MapViewport

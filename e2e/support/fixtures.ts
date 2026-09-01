@@ -1,4 +1,64 @@
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
+
+type Handler = (route: Route) => Promise<void>;
+
+/**
+ * The hosts a spec has stubbed, newest first, so the cached scheme can answer
+ * for them without sending the browser anywhere.
+ *
+ * A spec that fakes the native side gets the cached scheme with it, because
+ * the app routes its requests through Rust whenever Tauri is there. This used
+ * to be answered with a redirect back to the address it named, and the
+ * browser followed that redirect straight past every route to the live
+ * service: a redirected request is not offered to the routes again. Every
+ * desktop-faked spec was reading real alerts, real radar frames and real
+ * model runs, and the one host with no CORS on the real server, the smoke
+ * analysis, simply failed. So the cached scheme now answers from the same
+ * handlers, given a stand-in route that names the inner address.
+ */
+const stubs = new WeakMap<
+  Page,
+  Array<{ matches: (url: string) => boolean; handler: Handler }>
+>();
+
+/** Playwright's URL globs, as a predicate: `**` crosses slashes, `*` does not. */
+function globMatcher(pattern: string): (url: string) => boolean {
+  let expression = "";
+  for (let at = 0; at < pattern.length; at += 1) {
+    const char = pattern[at];
+    if (char === "*" && pattern[at + 1] === "*") {
+      expression += ".*";
+      at += 1;
+    } else if (char === "*") {
+      expression += "[^/]*";
+    } else if (char === "?") {
+      expression += ".";
+    } else if (/[.+^${}()|[\]\\]/.test(char)) {
+      expression += `\\${char}`;
+    } else {
+      expression += char;
+    }
+  }
+  const compiled = new RegExp(`^${expression}$`);
+  return (url) => compiled.test(url);
+}
+
+/**
+ * Routes a host for the page, and remembers the handler so a request for the
+ * same address through the cached scheme is answered by it too. Use this,
+ * rather than `page.route`, for any host the app fetches through the cache.
+ */
+export async function stubHost(page: Page, pattern: string, handler: Handler) {
+  const held = stubs.get(page) ?? [];
+  held.unshift({ matches: globMatcher(pattern), handler });
+  stubs.set(page, held);
+  await page.route(pattern, handler);
+}
+
+/** The stubbed handler for an address, or null when nobody stubbed its host. */
+function stubFor(page: Page, url: string): Handler | null {
+  return stubs.get(page)?.find((entry) => entry.matches(url))?.handler ?? null;
+}
 
 /** A one pixel transparent PNG, which every tile route answers with. */
 export const transparentPng = Buffer.from(
@@ -43,7 +103,7 @@ function collection(features: unknown[]): string {
 }
 
 /** A day's smoke analysis with one heavy plume over the default view. */
-function smokeKml(day: string): string {
+export function smokeKml(day: string): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<kml xmlns="http://www.opengis.net/kml/2.2">',
@@ -299,19 +359,34 @@ export const stormRecord = {
  * needs different data re-routes the host it cares about and reloads.
  */
 export async function routeWorkspace(page: Page) {
-  // A spec that fakes the native side gets the cached scheme with it, because
-  // the app routes its requests through Rust whenever Tauri is there. Nothing
-  // is listening on that host in a browser, so the request is sent back to the
-  // address it names, which is where the rest of these routes are waiting.
+  const stub = (pattern: string, handler: Handler) =>
+    stubHost(page, pattern, handler);
+  // The cached scheme, answered from the stubbed hosts. See `stubs` above for
+  // why this is not a redirect. A host nobody stubbed is still sent back to
+  // its own address, which is the live service, so a spec that reaches one
+  // is at least reaching it on purpose.
   await page.route("http://cached.localhost/**", async (route) => {
     const inner = new URL(route.request().url()).searchParams.get("u");
     if (!inner) {
       await route.fulfill({ status: 400, body: "no address" });
       return;
     }
-    await route.fulfill({ status: 302, headers: { location: inner } });
+    const handler = stubFor(page, inner);
+    if (!handler) {
+      await route.fulfill({ status: 302, headers: { location: inner } });
+      return;
+    }
+    // The handler reads the address and fulfils; everything else on a route
+    // it never touches. The fulfilment lands on the cached-scheme request,
+    // which is the one the page is waiting on.
+    const standIn = {
+      request: () => ({ url: () => inner }),
+      fulfill: (options?: Parameters<Route["fulfill"]>[0]) =>
+        route.fulfill(options),
+    } as unknown as Route;
+    await handler(standIn);
   });
-  await page.route("https://mapservices.weather.noaa.gov/**", async (route) => {
+  await stub("https://mapservices.weather.noaa.gov/**", async (route) => {
     const url = route.request().url();
     let features: unknown[] = [alertFeature];
     if (url.includes("/tropical/")) {
@@ -328,19 +403,19 @@ export async function routeWorkspace(page: Page) {
       body: collection(features),
     });
   });
-  await page.route("https://earthquake.usgs.gov/**", async (route) => {
+  await stub("https://earthquake.usgs.gov/**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: collection([earthquakeFeature]),
     });
   });
-  await page.route("https://services3.arcgis.com/**", async (route) => {
+  await stub("https://services3.arcgis.com/**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: collection([wildfireFeature]),
     });
   });
-  await page.route("https://aviationweather.gov/**", async (route) => {
+  await stub("https://aviationweather.gov/**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify(metarRows),
@@ -349,7 +424,7 @@ export async function routeWorkspace(page: Page) {
   // NOAA HMS publishes one file a day. The stub answers today's 404 and
   // yesterday's with a plume, which is the day-boundary case the layer has to
   // survive every morning before the analysis lands.
-  await page.route("https://satepsanone.nesdis.noaa.gov/**", async (route) => {
+  await stub("https://satepsanone.nesdis.noaa.gov/**", async (route) => {
     const url = route.request().url();
     const today = new Date();
     const stamp = (at: Date) =>
@@ -366,7 +441,7 @@ export async function routeWorkspace(page: Page) {
       body: smokeKml(stamp(yesterday)),
     });
   });
-  await page.route("https://mesonet.agron.iastate.edu/**", async (route) => {
+  await stub("https://mesonet.agron.iastate.edu/**", async (route) => {
     // The same host serves the placefile-style products, the radar archive,
     // and the storm reports.
     const url = route.request().url();
@@ -486,7 +561,7 @@ export async function routeWorkspace(page: Page) {
   // The shipped record is an index with no positions in it and one file of
   // tracks per decade. One handler answers both, because a later route wins
   // over an earlier one and two globs here would shadow each other.
-  await page.route("**/hurdat/*.json", async (route) => {
+  await stub("**/hurdat/*.json", async (route) => {
     const file = new URL(route.request().url()).pathname.split("/").pop() ?? "";
     if (file === "index.json") {
       await route.fulfill({
@@ -517,7 +592,7 @@ export async function routeWorkspace(page: Page) {
       body: JSON.stringify(tracks),
     });
   });
-  await page.route("https://geo.weather.gc.ca/**", async (route) => {
+  await stub("https://geo.weather.gc.ca/**", async (route) => {
     if (route.request().url().includes("GetCapabilities")) {
       await route.fulfill({
         contentType: "application/xml",
@@ -527,7 +602,7 @@ export async function routeWorkspace(page: Page) {
     }
     await route.fulfill({ contentType: "image/png", body: transparentPng });
   });
-  await page.route("https://opengeo.ncep.noaa.gov/**", async (route) => {
+  await stub("https://opengeo.ncep.noaa.gov/**", async (route) => {
     if (route.request().url().includes("GetCapabilities")) {
       await route.fulfill({
         contentType: "application/xml",
