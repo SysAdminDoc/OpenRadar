@@ -562,6 +562,7 @@ export const en = {
   "layer.earthquakes": "Earthquakes",
   "layer.wildfires": "Wildfires",
   "layer.smoke": "Smoke",
+  "layer.forecastSmoke": "Forecast Smoke",
   "layer.metar": "Surface Obs",
   "layer.tropical": "Tropical",
   "layer.satellite": "Satellite",
@@ -657,6 +658,7 @@ export const en = {
   "keywords.earthquakes": "",
   "keywords.wildfires": "",
   "keywords.smoke": "haze air quality plume hms",
+  "keywords.forecastSmoke": "",
   "keywords.metar": "metar station airport dewpoint wind barb observation",
   "keywords.tropical": "",
   "keywords.satellite": "",
@@ -717,6 +719,8 @@ export const en = {
   "layers.earthquakesDetail": "USGS events above magnitude 2.5 in the past day",
   "layers.wildfiresDetail": "NIFC perimeters over 100 acres",
   "layers.smokeDetail": "NOAA's hand-drawn analysis, once a day",
+  "layers.forecastSmokeDetail":
+    "Where the HRRR model expects smoke near the ground to go, hour by hour along the forecast tail",
   "layers.metarDetail": "Airport reports, as station plots",
   "layers.tropicalDetail": "NHC cones, tracks, and development outlooks",
   "layers.satelliteDetail": "GOES-East GeoColor under the radar",
@@ -871,6 +875,11 @@ export const en = {
   "chrome.flashCount": "{count}{more} from {satellite}",
   "chrome.filesRead": " · {read} of {expected} files",
   "chrome.smokeAnalysed": "analysed {when}",
+  "chrome.forecastSmoke": "Forecast smoke",
+  "chrome.forecastSmokeValid": "Valid {time}.",
+  "chrome.forecastSmokeNote":
+    "A model's expectation of smoke near the ground, never drawn over the analysis or over anything observed.",
+  "forecastSmoke.label": "HRRR {hour} +{lead} h · cycle {age} h old",
   "chrome.smokeAnalysedUnknown": "date unknown",
   "chrome.flashNote":
     "Total lightning, not a strike report. Use official warnings for life-safety decisions.",

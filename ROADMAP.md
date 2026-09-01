@@ -225,13 +225,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
 
 Added 2026-08-31 from the third research pass of that day (see `RESEARCH.md`), which covered the source classes the first two passes had not: winter weather, surface observations, historical warnings, soundings, smoke, decoder fuzzing, localization, and non-visual accessibility. IDs continue the audit scheme at `AUD-108` (the last assigned identifier, `AUD-107`, was completed and removed the same day). Ordered by priority, then trust before features.
 
-- [ ] AUD-114: P2. Animate forecast smoke from HRRR on the timeline tail
-      Why: The HMS analysis says where smoke was; HRRR says where it goes next, hourly to 18 hours (48 on synoptic runs). The MASSDEN near-surface smoke field was verified present with byte offsets in the public bucket's .idx sidecar, which is the exact byte-range GRIB2 read the app already performs for GFS wind. Together the pair beats what MyRadar added after 2023.
-      Evidence: `hrrr.t00z.wrfsfcf01.grib2.idx` on https://noaa-hrrr-bdp-pds.s3.amazonaws.com/ (MASSDEN 8 m above ground, COLMD entire atmosphere; verified 2026-08-31); `src-tauri/src/gfs.rs`; `src/hooks/useRadarTimeline.ts` forecast-tail pattern; AUD-113
-      Touches: The `noaa-hrrr-bdp-pds.s3.amazonaws.com` host in the allowlist and ledger; a MASSDEN byte-range fetch and GRIB2 decode reusing the complex-packing path; a concentration ramp with units; forecast provenance carrying the model run; the timeline tail alongside HRRR reflectivity
-      Acceptance: Forecast smoke frames occupy the forecast tail with model run and valid time labeled, never blended with the HMS analysis or any observation; the ramp states µg/m³ and the legend follows; a missing cycle falls back to the previous one with its age said; the field decode has a fixture; requests stay within the budget during playback.
-      Complexity: M
-
 - [ ] AUD-115: P3. Offer Clean IR satellite for the overnight hours
       Why: GeoColor goes effectively dark at night for storm tops; Band 13 Clean Infrared is the overnight-convection view enthusiasts ask for, and it is served by NASA GIBS at 10-minute cadence under the same provider, terms, and WMTS pattern as the GeoColor layer already shipped.
       Evidence: https://nasa-gibs.github.io/gibs-api-docs/available-visualizations/ (GOES-East/West ABI Band 13 Clean Infrared, Red Visible, Air Mass); the existing GeoColor provider in `src/lib/providers/`

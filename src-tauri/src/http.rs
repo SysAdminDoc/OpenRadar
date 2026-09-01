@@ -37,6 +37,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "geo.weather.gc.ca",
     "maps.dwd.de",
     "noaa-gfs-bdp-pds.s3.amazonaws.com",
+    "noaa-hrrr-bdp-pds.s3.amazonaws.com",
     "unidata-nexrad-level2.s3.amazonaws.com",
     "unidata-nexrad-level2-chunks.s3.amazonaws.com",
     "unidata-nexrad-level3.s3.amazonaws.com",

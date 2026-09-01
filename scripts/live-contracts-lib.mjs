@@ -69,6 +69,14 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "hrrr-smoke",
+    label: "HRRR forecast smoke",
+    host: "noaa-hrrr-bdp-pds.s3.amazonaws.com",
+    kind: "native",
+    filter: "hrrr::tests",
+    required: false,
+  },
+  {
     id: "probsevere",
     label: "NSSL ProbSevere",
     host: "noaa-mrms-pds.s3.amazonaws.com",

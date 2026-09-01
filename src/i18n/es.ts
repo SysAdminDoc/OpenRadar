@@ -571,6 +571,7 @@ export const es: Catalogue = {
   "layer.earthquakes": "Sismos",
   "layer.wildfires": "Incendios",
   "layer.smoke": "Humo",
+  "layer.forecastSmoke": "Humo previsto",
   "layer.metar": "Observaciones",
   "layer.tropical": "Tropical",
   "layer.satellite": "Satélite",
@@ -667,6 +668,7 @@ export const es: Catalogue = {
   "keywords.earthquakes": "sismo temblor terremoto magnitud",
   "keywords.wildfires": "incendio fuego perimetro humo",
   "keywords.smoke": "humo calidad del aire pluma hms bruma",
+  "keywords.forecastSmoke": "humo pronostico hrrr modelo pluma",
   "keywords.metar":
     "metar estacion aeropuerto punto de rocio barbas viento observacion",
   "keywords.tropical": "huracan ciclon cono tormenta tifon",
@@ -728,6 +730,8 @@ export const es: Catalogue = {
     "Sismos del USGS de magnitud mayor a 2.5 en el último día",
   "layers.wildfiresDetail": "Perímetros del NIFC de más de 100 acres",
   "layers.smokeDetail": "El análisis a mano de la NOAA, una vez al día",
+  "layers.forecastSmokeDetail":
+    "Adónde espera el modelo HRRR que vaya el humo cerca del suelo, hora a hora a lo largo de la cola de pronóstico",
   "layers.metarDetail": "Informes de aeropuerto, en modelo de estación",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
@@ -886,6 +890,11 @@ export const es: Catalogue = {
   "chrome.flashCount": "{count}{more} de {satellite}",
   "chrome.filesRead": " · {read} de {expected} archivos",
   "chrome.smokeAnalysed": "analizado el {when}",
+  "chrome.forecastSmoke": "Humo previsto",
+  "chrome.forecastSmokeValid": "Válido {time}.",
+  "chrome.forecastSmokeNote":
+    "Lo que un modelo espera del humo cerca del suelo; nunca se dibuja sobre el análisis ni sobre nada observado.",
+  "forecastSmoke.label": "HRRR {hour} +{lead} h · ciclo de hace {age} h",
   "chrome.smokeAnalysedUnknown": "fecha desconocida",
   "chrome.flashNote":
     "Son rayos totales, no un reporte de descargas. Usa los avisos oficiales para decisiones que afecten la seguridad.",

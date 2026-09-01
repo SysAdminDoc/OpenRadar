@@ -106,6 +106,8 @@ export interface LayerSettings {
   wildfires: boolean;
   /** NOAA's hand-drawn smoke analysis for the day. */
   smoke: boolean;
+  /** Where the HRRR model expects smoke to go, along the forecast tail. */
+  forecastSmoke: boolean;
   /** Surface observations, drawn as the conventional station plots. */
   metar: boolean;
   tropical: boolean;
@@ -321,6 +323,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     earthquakes: false,
     wildfires: false,
     smoke: false,
+    forecastSmoke: false,
     metar: false,
     tropical: true,
     satellite: false,
@@ -1127,6 +1130,10 @@ export function normalizeSettings(value: unknown): AppSettings {
       ),
       wildfires: bool(layers.wildfires, DEFAULT_SETTINGS.layers.wildfires),
       smoke: bool(layers.smoke, DEFAULT_SETTINGS.layers.smoke),
+      forecastSmoke: bool(
+        layers.forecastSmoke,
+        DEFAULT_SETTINGS.layers.forecastSmoke,
+      ),
       metar: bool(layers.metar, DEFAULT_SETTINGS.layers.metar),
       tropical: bool(layers.tropical, DEFAULT_SETTINGS.layers.tropical),
       satellite: bool(layers.satellite, DEFAULT_SETTINGS.layers.satellite),

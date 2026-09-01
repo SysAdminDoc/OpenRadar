@@ -47,6 +47,10 @@ export const CLASSIFICATION_LAYER_IDS = [
   CLASSIFICATION_LINE_LAYER_ID,
 ];
 
+/** The model's smoke for the hour on the forecast tail, one pinned picture. */
+export const FORECAST_SMOKE_SOURCE_ID = "openradar-forecast-smoke-source";
+export const FORECAST_SMOKE_LAYER_ID = "openradar-forecast-smoke";
+
 export const CELL_TRACK_LAYER_ID = "openradar-cell-tracks";
 export const CELL_FORECAST_LAYER_ID = "openradar-cell-forecast";
 export const CELL_POINT_LAYER_ID = "openradar-cell-points";
@@ -109,6 +113,9 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // the algorithm's opinion of what the sweep holds, not a second
     // measurement, and nothing that measured something belongs under it.
     ...CLASSIFICATION_LAYER_IDS,
+    // Forecast smoke is drawn only on a forecast frame, over the forecast
+    // reflectivity it belongs with and under everything that was measured.
+    FORECAST_SMOKE_LAYER_ID,
     ...MRMS_LAYER_IDS,
     // What a model expects goes over the pictures it was worked out from and
     // under the warnings a person issued, because guidance belongs under a

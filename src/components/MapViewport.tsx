@@ -63,7 +63,11 @@ import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import { syncRadarLane } from "../lib/mapLayers/radar";
-import { syncImageLane, type ImageLane } from "../lib/mapLayers/image";
+import {
+  syncImageLane,
+  type ImageLane,
+  type PinnedImage,
+} from "../lib/mapLayers/image";
 import { baseOpacity } from "../lib/mapLayers/opacity";
 import { classificationPaint, type ClassStyle } from "../lib/classification";
 import {
@@ -75,6 +79,8 @@ import {
   CLASSIFICATION_FILL_LAYER_ID,
   CLASSIFICATION_LINE_LAYER_ID,
   CLASSIFICATION_SOURCE_ID,
+  FORECAST_SMOKE_LAYER_ID,
+  FORECAST_SMOKE_SOURCE_ID,
   CUSTOM_FILL_LAYER_ID,
   CUSTOM_LINE_LAYER_ID,
   CUSTOM_POINT_LAYER_ID,
@@ -179,6 +185,12 @@ interface MapViewportProps {
   } | null;
   /** What the severe-probability model expects of each storm. */
   probSevere?: Record<string, unknown> | null;
+  /**
+   * The model's smoke for the hour on screen, pinned, or null off the
+   * forecast tail. The primary pane's alone: the compare pane follows its
+   * own frame and is handed nothing.
+   */
+  forecastSmoke?: PinnedImage | null;
   /** How solid each overlay is drawn, as a fraction of its own design. */
   overlayOpacity?: Record<string, number>;
   /** The order the overlays are drawn in, bottom first. */
@@ -299,6 +311,7 @@ function MapViewportInner(
     flashes = null,
     cells = null,
     classification = null,
+    forecastSmoke = null,
     probSevere = null,
     overlayOpacity = {},
     overlayOrder = [],
@@ -331,6 +344,7 @@ function MapViewportInner(
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
   const classificationRef = useRef(classification);
+  const forecastSmokeRef = useRef(forecastSmoke);
   const probSevereRef = useRef<Record<string, unknown> | null>(probSevere);
   // The layer specs are read once, when a source is first added, so the
   // preference has to be readable from inside the sync functions rather than
@@ -1133,6 +1147,27 @@ function MapViewportInner(
     if (changed) publishLayers();
   };
 
+  const FORECAST_SMOKE_LANE: ImageLane = {
+    sourceId: FORECAST_SMOKE_SOURCE_ID,
+    layerId: FORECAST_SMOKE_LAYER_ID,
+    paint: {
+      // A model field at three kilometres, smoothed rather than blocky:
+      // unlike a sweep, nothing in it is a gate a reader would count.
+      "raster-resampling": "linear",
+      "raster-fade-duration": 0,
+    },
+  };
+
+  const syncForecastSmoke = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (
+      syncImageLane(map, FORECAST_SMOKE_LANE, forecastSmokeRef.current, under)
+    ) {
+      publishLayers();
+    }
+  };
+
   const TRACK_LANE: VectorLane = {
     sourceId: TRACK_SOURCE_ID,
     layers: () => [
@@ -1270,6 +1305,10 @@ function MapViewportInner(
   useMapSync(classification, (next) => {
     classificationRef.current = next;
     syncClassification();
+  });
+  useMapSync(forecastSmoke, (next) => {
+    forecastSmokeRef.current = next;
+    syncForecastSmoke();
   });
   useMapSync(flashes, (next) => {
     flashesRef.current = next;
@@ -1430,6 +1469,7 @@ function MapViewportInner(
       syncProbSevere();
       syncCells();
       syncClassification();
+      syncForecastSmoke();
       renderTools();
       syncOverlays();
       syncRoute();

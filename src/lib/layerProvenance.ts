@@ -124,6 +124,15 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "an analyst reading satellite imagery, once a day",
     freshForMs: 24 * 3_600_000,
   },
+  forecastSmoke: {
+    sourceId: "forecastSmoke",
+    label: "HRRR forecast smoke",
+    attribution: "NOAA High-Resolution Rapid Refresh",
+    // A model's expectation of the hours ahead. A cycle every hour, and the
+    // field for an hour is only worth having until the next cycle has it.
+    kind: "forecast",
+    freshForMs: 3_600_000,
+  },
   tropical: {
     sourceId: "tropical",
     label: "Tropical cyclones",
