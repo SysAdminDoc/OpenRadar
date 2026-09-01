@@ -1,5 +1,19 @@
 # OpenRadar Blocked Work
 
+## The NetCDF reader recurses without bound, and only upstream can stop it
+
+Found 2026-08-31 by the `netcdf_flashes` fuzz target, in the first minutes of its first session. Two distinct findings on the GOES lightning path, both from files that pass the HDF5 magic check `decode_flashes` opens with, which is the last thing OpenRadar gets to look at before the reader takes over.
+
+**Fixed here.** A 215-byte file works the element count out as a product of dimension sizes that overflows. With debug assertions that is a panic; without them it is a wrapped count that nothing checks, which is worse. It is contained by a panic guard around the whole read in `src-tauri/src/lightning.rs`, held by `lightning::tests::a_malformed_lightning_file_is_refused_rather_than_fatal`, with the bytes at `src-tauri/fuzz/reproducers/netcdf-flashes-multiply-overflow.bin`.
+
+**Not fixable here.** A 202-byte file sends the reader into unbounded recursion. A stack overflow is not a panic: `catch_unwind` never sees it, Windows raises it as an access violation or STATUS_STACK_OVERFLOW, and the process is gone with no chance to say anything. Nothing outside the reader can bound the nesting depth of an HDF5 structure without parsing HDF5, which is the job the reader exists to do. The bytes are at `src-tauri/fuzz/reproducers/netcdf-flashes-access-violation.bin`.
+
+What that means in practice: the file has to arrive from NOAA's public GOES bucket over TLS, so producing one takes the bucket or the connection, and the realistic case is a corrupt download that happens to nest deeply. The window closing with no message is still the worst outcome this decoder has.
+
+It is checked on every run without taking the suite down: `lightning::tests::a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams` runs the bytes in a child process and asserts the child dies. The day the reader stops recursing, that test fails and says to promote it to an ordinary one and delete this entry.
+
+Blocked on: a fix in `netcdf-reader` or `hdf5-reader`, or a depth limit either of them is willing to expose. Reporting it is a person's act under a person's identity, so the reproducers are committed and ready rather than filed.
+
 ## Release prerequisites
 
 - Authenticode signing needs a code-signing certificate, and buying one is a spending decision rather than an implementation detail. No suitable certificate is installed in the current user or local machine certificate store. Azure Trusted Signing admits individuals at about ten dollars a month, which is the cheapest route found; until someone signs up for it, Windows will warn on first run and the README says so. Everything else about releases works without it: the installer builds, the updater signature is a separate key that costs nothing, and the manifest is published beside the installer.
