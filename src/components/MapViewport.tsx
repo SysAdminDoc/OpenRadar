@@ -58,6 +58,7 @@ import { translate } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
+import { useMapSync } from "../hooks/useMapSync";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -1382,6 +1383,59 @@ function MapViewportInner(
     publishLayers();
   };
 
+  /**
+   * One layer, one value, one redraw.
+   *
+   * Each of these was an effect written out by hand with a suppression on it,
+   * because the sync it calls is a fresh closure every render. `useMapSync`
+   * holds that closure in a ref of its own, so the dependency is honestly the
+   * value alone and none of these needs the rule switched off.
+   */
+  useMapSync(satelliteTime, (next) => {
+    satelliteTimeRef.current = next;
+    syncSatellite();
+  });
+  useMapSync(surgeCategory, (next) => {
+    surgeCategoryRef.current = next;
+    syncSurge();
+  });
+  useMapSync(overlays, (next) => {
+    overlaysRef.current = next;
+    syncOverlays();
+  });
+  useMapSync(route, (next) => {
+    routeRef.current = next;
+    syncRoute();
+  });
+  useMapSync(customOverlay, (next) => {
+    customOverlayRef.current = next;
+    syncCustomOverlay();
+  });
+  useMapSync(wind, (next) => {
+    windRef.current = next;
+    syncWind();
+  });
+  useMapSync(probSevere, (next) => {
+    probSevereRef.current = next;
+    syncProbSevere();
+  });
+  useMapSync(cells, (next) => {
+    cellsRef.current = next;
+    syncCells();
+  });
+  useMapSync(flashes, (next) => {
+    flashesRef.current = next;
+    syncFlashes();
+  });
+  useMapSync(mrmsLayers, (next) => {
+    mrmsLayersRef.current = next;
+    syncMrmsLayers();
+  });
+  useMapSync(stormTrack, (next) => {
+    stormTrackRef.current = next;
+    syncStormTrack();
+  });
+
   useImperativeHandle(ref, () => ({
     zoomIn: () =>
       mapRef.current?.easeTo({
@@ -1712,54 +1766,6 @@ function MapViewportInner(
   }, [radarFrame, radarVisible, radarOpacity, sweep]);
 
   useEffect(() => {
-    satelliteTimeRef.current = satelliteTime;
-    syncSatellite();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [satelliteTime]);
-
-  useEffect(() => {
-    surgeCategoryRef.current = surgeCategory;
-    syncSurge();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surgeCategory]);
-
-  useEffect(() => {
-    overlaysRef.current = overlays;
-    syncOverlays();
-    // The sync functions read the refs above; adding them as dependencies
-    // would rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlays]);
-
-  useEffect(() => {
-    routeRef.current = route;
-    syncRoute();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route]);
-
-  useEffect(() => {
-    customOverlayRef.current = customOverlay;
-    syncCustomOverlay();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customOverlay]);
-
-  useEffect(() => {
-    windRef.current = wind;
-    syncWind();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wind]);
-
-  useEffect(() => {
     // A tick of the clock moves the fade and nothing else.
     flashClockRef.current = flashClock;
     flashWindowRef.current = flashWindowMinutes;
@@ -1795,20 +1801,6 @@ function MapViewportInner(
     applyOverlayOpacity();
   }, [overlayOpacity]);
 
-  useEffect(() => {
-    probSevereRef.current = probSevere;
-    syncProbSevere();
-    // The sync function reads the ref above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [probSevere]);
-
-  useEffect(() => {
-    cellsRef.current = cells;
-    syncCells();
-    // The sync function reads the ref above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cells]);
-
   /**
    * A preference change has to reach layers that are already on the map.
    *
@@ -1838,30 +1830,6 @@ function MapViewportInner(
     // would rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highContrast, measurements]);
-
-  useEffect(() => {
-    flashesRef.current = flashes;
-    syncFlashes();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flashes]);
-
-  useEffect(() => {
-    mrmsLayersRef.current = mrmsLayers;
-    syncMrmsLayers();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mrmsLayers]);
-
-  useEffect(() => {
-    stormTrackRef.current = stormTrack;
-    syncStormTrack();
-    // The sync function reads the ref above; adding it as a dependency would
-    // rebuild the map layers on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stormTrack]);
 
   useEffect(() => {
     toolModeRef.current = toolMode;
