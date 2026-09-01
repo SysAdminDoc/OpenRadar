@@ -840,6 +840,164 @@ mod tests {
         );
     }
 
+    use arbitrary::Arbitrary;
+
+    /// The complex-packing header, as fields rather than as 49 bytes.
+    ///
+    /// Random bytes are refused at the template check nine times in ten and
+    /// never reach the arithmetic worth testing, so the header is built from
+    /// typed fields and only the fields are arbitrary.
+    #[derive(Debug, Arbitrary)]
+    struct PackedHeader {
+        points: u16,
+        reference_bits: u32,
+        binary: i16,
+        decimal: i16,
+        bits: u8,
+        groups: u8,
+        width_reference: u8,
+        width_bits: u8,
+        length_reference: u32,
+        length_increment: u8,
+        last_group_length: u32,
+        length_bits: u8,
+        spatial_order: u8,
+        extra_octets: u8,
+        missing: u8,
+    }
+
+    impl PackedHeader {
+        fn bytes(&self) -> Vec<u8> {
+            let mut out = vec![0u8; 49];
+            out[5..9].copy_from_slice(&u32::from(self.points).to_be_bytes());
+            // Template 3, or nothing below this line is ever reached.
+            out[9..11].copy_from_slice(&3u16.to_be_bytes());
+            out[11..15].copy_from_slice(&self.reference_bits.to_be_bytes());
+            out[15..17].copy_from_slice(&self.binary.to_be_bytes());
+            out[17..19].copy_from_slice(&self.decimal.to_be_bytes());
+            out[19] = self.bits;
+            out[22] = self.missing;
+            out[31..35].copy_from_slice(&u32::from(self.groups).to_be_bytes());
+            out[35] = self.width_reference;
+            out[36] = self.width_bits;
+            out[37..41].copy_from_slice(&self.length_reference.to_be_bytes());
+            out[41] = self.length_increment;
+            out[42..46].copy_from_slice(&self.last_group_length.to_be_bytes());
+            out[46] = self.length_bits;
+            out[47] = self.spatial_order;
+            out[48] = self.extra_octets;
+            out
+        }
+
+        /// The same fields, moved into the set the decoder can accept.
+        ///
+        /// Every rejection in `decode_complex` is a guard, and a generator that
+        /// trips one has tested that guard and nothing behind it. In
+        /// particular the group lengths have to sum to exactly the number of
+        /// points, which arbitrary values never do, so the length fields are
+        /// computed rather than drawn: no bits per length, so every group is
+        /// the reference length, and the last group holds the remainder.
+        ///
+        /// The counts are kept small because the body is drawn from the same
+        /// finite stream, and a header wanting more bits than the body has is
+        /// refused as truncated before the differencing runs.
+        fn consistent(&self) -> Self {
+            let points = u16::max(self.points % 32, 2);
+            let groups = u8::max(self.groups % 8, 1);
+            let per_group = points / u16::from(groups);
+            let last = points - per_group * (u16::from(groups) - 1);
+            Self {
+                points,
+                // A reference that is not a number is its own guard.
+                reference_bits: 1.0f32.to_bits(),
+                binary: self.binary % 8,
+                decimal: self.decimal % 4,
+                bits: self.bits % 9,
+                groups,
+                width_reference: self.width_reference % 9,
+                width_bits: 0,
+                length_reference: u32::from(per_group),
+                length_increment: 0,
+                last_group_length: u32::from(last),
+                length_bits: 0,
+                spatial_order: 1 + self.spatial_order % 2,
+                extra_octets: 1 + self.extra_octets % 8,
+                missing: 0,
+            }
+        }
+    }
+
+    /// A deterministic stream of bytes for `Unstructured` to shape.
+    ///
+    /// Deterministic so a failure is reproducible from its seed rather than
+    /// only from whatever the machine felt like that afternoon.
+    fn pseudo_random(seed: u64, length: usize) -> Vec<u8> {
+        let mut state = seed | 1;
+        (0..length)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                (state >> 24) as u8
+            })
+            .collect()
+    }
+
+    /// What complex packing must hold for, on any bytes at all.
+    ///
+    /// This is the layer the fuzz target covers on nightly, written so it also
+    /// runs in the ordinary gate on stable. The fuzzer explores far further;
+    /// this stops a regression reaching a commit between fuzzing sessions.
+    ///
+    /// Each seed is tried twice: once with the header exactly as it was drawn,
+    /// which mostly exercises the guards, and once moved into the set the
+    /// decoder accepts, which is the only way the differencing and the
+    /// overflow checks behind those guards are ever reached.
+    #[test]
+    fn complex_packing_holds_its_shape_on_arbitrary_input() {
+        let mut decoded = 0usize;
+        for seed in 0..4000u64 {
+            let raw = pseudo_random(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15), 512);
+            let mut source = arbitrary::Unstructured::new(&raw);
+            let Ok(drawn) = PackedHeader::arbitrary(&mut source) else {
+                continue;
+            };
+            let body = source.take_rest();
+
+            for header in [drawn.consistent(), drawn] {
+                // The only hard rule is that no input reaches a panic.
+                // Everything here comes off the network.
+                let Ok(values) = decode_complex(&header.bytes(), body) else {
+                    continue;
+                };
+                decoded += 1;
+
+                // A field that decoded holds exactly the number of points its
+                // own header claimed. Anything else is a picture drawn from a
+                // grid of the wrong size, which is worse than a refusal.
+                assert_eq!(
+                    values.len(),
+                    usize::from(header.points),
+                    "seed {seed} decoded {} values for {} points",
+                    values.len(),
+                    header.points,
+                );
+                assert!(
+                    values.iter().all(|value| value.is_finite()),
+                    "seed {seed} produced a value that is not a number",
+                );
+            }
+        }
+        // And the sweep has to actually reach the decoder, or it is four
+        // thousand repetitions of the template check. A floor on coverage,
+        // not a measurement of it.
+        assert!(
+            decoded >= 50,
+            "only {decoded} shaped inputs decoded; the generator has drifted \
+             away from the header the decoder accepts",
+        );
+    }
+
     #[test]
     fn refuses_a_field_packed_a_way_it_cannot_read() {
         assert!(matches!(

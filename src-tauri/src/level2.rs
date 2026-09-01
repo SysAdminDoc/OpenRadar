@@ -707,6 +707,19 @@ fn normalized_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
     checked_volume(expanded)
 }
 
+/// One volume's bytes, all the way through the parser to a scan.
+///
+/// The whole Archive II path in one call, for a fuzz target: the gzip wrapper
+/// if there is one, the length guard, the LDM records, the bzip inside each of
+/// them, and every message the records hold. Rendering is deliberately not
+/// part of it. Drawing a sweep is a megapixel of work per call and the bugs
+/// worth finding here are in the length arithmetic that runs first.
+pub fn scan_volume(data: Vec<u8>) -> Result<Scan, Level2Error> {
+    normalized_volume(data)?
+        .scan()
+        .map_err(|error| Level2Error::Decode(error.to_string()))
+}
+
 fn checked_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
     if data.len() < ARCHIVE_HEADER_BYTES {
         return Err(Level2Error::Decode(format!(
@@ -3456,6 +3469,46 @@ mod tests {
             let _ = tilts(&scan);
             let _ = sweep_field(&scan, Product::Reflectivity, 0);
             let _ = sweep_field(&scan, Product::Velocity, 0);
+        }
+
+        /// The whole-volume entry the fuzz target calls.
+        ///
+        /// It exists for the fuzz workspace, which means the ordinary gate is
+        /// the only thing standing between it and drifting away from the path
+        /// it is supposed to represent.
+        #[test]
+        fn scanning_a_volume_reads_it_and_refuses_a_stub() {
+            let scan = scan_volume(small_volume()).expect("a volume scans");
+            assert!(!tilts(&scan).is_empty());
+            // Shorter than an Archive II header, which used to panic inside
+            // the library rather than coming back as an error.
+            assert!(scan_volume(vec![0u8; 8]).is_err());
+            assert!(scan_volume(Vec::new()).is_err());
+        }
+
+        /// Writes what the `level2_volume` fuzz target starts from.
+        ///
+        /// A fuzzer given nothing has to discover the Archive II header, the
+        /// LDM record framing and the bzip inside each record before it can
+        /// reach a single line of message parsing, which it will not do in an
+        /// hour. Seeded with a volume that decodes, it spends the hour on the
+        /// arithmetic instead.
+        ///
+        /// Ignored, because it writes files rather than checking anything.
+        /// Run it when the fixtures change:
+        /// `cargo test --lib level2::tests::malformed::writes -- --ignored`
+        #[test]
+        #[ignore = "writes the fuzz seed corpus rather than checking anything"]
+        fn writes_the_fuzz_seed_corpus() {
+            let into = Path::new("fuzz/seeds/level2_volume");
+            std::fs::create_dir_all(into).expect("a corpus directory");
+            let volume = small_volume();
+            std::fs::write(into.join("small-volume"), &volume).expect("a seed");
+            // And the two shapes a real download arrives in beside it: cut
+            // short, which is what an interrupted fetch leaves, and empty.
+            std::fs::write(into.join("half-volume"), &volume[..volume.len() / 2])
+                .expect("a seed");
+            std::fs::write(into.join("empty"), []).expect("a seed");
         }
 
         #[test]

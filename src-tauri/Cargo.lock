@@ -3048,6 +3048,7 @@ dependencies = [
 name = "openradar"
 version = "0.6.0"
 dependencies = [
+ "arbitrary",
  "base64 0.23.1",
  "bytes",
  "bzip2",

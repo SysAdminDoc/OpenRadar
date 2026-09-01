@@ -23,12 +23,45 @@ mod probsevere;
 mod tiles;
 mod vad;
 
+/// The decoder entry points, for the fuzz targets and nothing else.
+///
+/// Every one of these reads bytes fetched from a public service, and none of
+/// the modules holding them is public: the app is one binary and the decoders
+/// are its internals. A fuzz target is a separate crate, though, so it can
+/// only reach what the library exports.
+///
+/// Rather than making the modules public for the sake of a test, this facade
+/// is behind a feature that nothing but the fuzz workspace turns on, so the
+/// shipped library exports exactly what it did before.
+#[cfg(feature = "fuzzing")]
+pub mod fuzzing {
+    pub use crate::gfs::{decode_complex, decode_message};
+    pub use crate::level2::{scan_volume, Level2Error};
+    pub use crate::level3::{read_mesocyclones, read_storm_cells};
+    pub use crate::lightning::decode_flashes;
+    pub use crate::mrms::decode_grib;
+}
+
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 const LOG_MAX_FILE_SIZE_BYTES: u128 = 2_000_000;
 const LOG_ROTATED_FILE_COUNT: usize = 3;
 
+/// Starts the application.
+///
+/// Left out of a fuzz build, which is the one place this feature is ever on.
+/// `tauri::generate_context!` expands into code written by a proc macro
+/// against the version of `tauri-utils` the macro itself was compiled with,
+/// and building for an explicit `--target`, which every fuzz target does,
+/// stops Cargo unifying features between the host and target graphs and can
+/// leave the two sides looking at different versions of that type. A fuzz
+/// target links the decoders and never starts a window, so the whole question
+/// goes away by not compiling the entry point.
+///
+/// Enabling `fuzzing` on an ordinary build is therefore a mistake, and it is a
+/// loud one: `main.rs` calls this and stops compiling without it.
+#[cfg(not(feature = "fuzzing"))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     std::panic::set_hook(Box::new(|panic_info| {

@@ -167,6 +167,30 @@ The normal gate never touches the network. `npm run check:live` is the one that 
 
 The Rust suite has a second half that reaches the live NOAA buckets and is skipped by default. `npm run check:live` runs it for you, and `cargo test --lib -- --ignored` runs it directly when you want the full output.
 
+### Fuzzing the decoders
+
+Every binary format this app reads arrives from a public server, and none of it is a format you get to choose. Level II, GRIB2 in two packings decoded here by hand, and NetCDF-4 on top of HDF5. The bug worth finding is not a wrong picture, it is a panic or an unbounded allocation in length arithmetic reached from bytes somebody else sent, which in an app that fetches on a timer is a remote denial of service.
+
+`src-tauri/fuzz` holds one target per entry point: `level2_volume`, `grib_message`, `grib_complex`, `mrms_grib`, `level3_message` and `netcdf_flashes`. They need a nightly toolchain and the Visual Studio AddressSanitizer component, which the C++ build tools install as `clang_rt.asan_dynamic-x86_64`:
+
+```powershell
+rustup toolchain install nightly
+cargo install cargo-fuzz
+cd src-tauri
+cargo +nightly fuzz build                             # all six
+cargo +nightly fuzz run mrms_grib -- -max_total_time=3600
+```
+
+Seeds are committed under `fuzz/seeds`, written by two ignored tests that build them from the same fixtures the unit tests use, so they can be rebuilt when a fixture changes. Copy them into `fuzz/corpus/<target>` before a session; that directory is where libFuzzer grows its own corpus and is not committed, because the seeds are what is worth keeping and a hundred thousand mutations are not.
+
+```powershell
+cargo test --lib writes_the_fuzz_seed_corpus -- --ignored
+```
+
+Anything a target finds is committed as a reproducer and turned into an ordinary unit test **before** it is fixed, so the fix is proved rather than assumed and the case is checked on every run afterwards.
+
+The half of this that does not need nightly runs in the ordinary gate: `gfs::tests::complex_packing_holds_its_shape_on_arbitrary_input` shapes four thousand seeds into complex-packing headers, half of them moved into the set the decoder accepts so the differencing behind the guards is actually reached, and holds two rules on every one: no input reaches a panic, and a field that decodes holds exactly the number of points its own header claimed.
+
 ## How it is put together
 
 Tauri 2 shell, React 19 and TypeScript in the window, MapLibre GL for the map, and Rust for everything that has to read a binary format. Decoded products reach the map through registered URI schemes, so a grid decoded on your machine is an ordinary tile source rather than a special case in the timeline. Every native fetch goes through one host allowlist. Short-lived responses use a bounded cache; prepared PMTiles packs use a separate durable store so clearing ordinary cache data cannot erase them.
