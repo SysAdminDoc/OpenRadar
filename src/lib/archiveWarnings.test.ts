@@ -3,14 +3,23 @@ import {
   archiveCoverage,
   archiveTagsUrl,
   archiveWarningsAt,
-  archiveWarningsUrl,
+  archiveWarningsUrls,
   parseArchiveTags,
   parseArchiveWarnings,
+  type ArchiveTags,
 } from "./archiveWarnings";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
 
 const AT = (iso: string) => Date.parse(iso);
+
+/**
+ * One answer, as the hook now hands over a list of them. The tests below are
+ * about what the parser makes of a row, not about how many requests it took
+ * to collect them; the merging has tests of its own.
+ */
+const parseOne = (payload: unknown, tags?: Map<string, ArchiveTags>) =>
+  parseArchiveWarnings([payload], tags);
 
 /**
  * A row of the interval service, taken from a live answer for the 2011-04-27
@@ -85,7 +94,7 @@ describe("what the archive can say about a moment", () => {
   });
 
   it("asks the service that knows about polygon revisions", () => {
-    const url = archiveWarningsUrl(
+    const [short, long] = archiveWarningsUrls(
       AT("2011-04-27T19:00:00Z"),
       AT("2011-04-28T01:00:00Z"),
     );
@@ -93,14 +102,61 @@ describe("what the archive can say about a moment", () => {
     // without this a warning disappears from the map the moment its office
     // first revised the polygon, which on 2011-04-27 was two thirds of the
     // tornado warnings.
-    expect(url).toContain("/vtec/sbw_interval.geojson");
-    expect(url).toContain("only_new=false");
-    // Issuance is what the window filters on, so it opens two hours early to
-    // catch a warning already in force when the replay starts.
-    expect(url).toContain("begints=2011-04-27T17:00:00Z");
-    expect(url).toContain("endts=2011-04-28T01:00:00Z");
-    // Seconds, no milliseconds: the archive rejects the fractional form.
-    expect(url).not.toContain(".000Z");
+    for (const url of [short, long]) {
+      expect(url).toContain("/vtec/sbw_interval.geojson");
+      expect(url).toContain("only_new=false");
+      expect(url).toContain("endts=2011-04-28T01:00:00Z");
+      // Seconds, no milliseconds: the archive rejects the fractional form.
+      expect(url).not.toContain(".000Z");
+    }
+    // Issuance is what the window filters on, so it opens early enough to
+    // catch a warning already in force when the replay starts. Two hours is
+    // right for the products that fit in it.
+    expect(short).toContain("begints=2011-04-27T17:00:00Z");
+    expect(short).not.toContain("ph=");
+  });
+
+  it("looks ten days back for the products that hold a polygon that long", () => {
+    // Not one tornado or severe thunderstorm polygon in the week of the 2011
+    // outbreak lasted past 1.2 hours, and 389 of 518 areal flood polygons ran
+    // past two. Asking two hours back for those loses a third of what was in
+    // force at the first frame, all of it flooding.
+    const [, long] = archiveWarningsUrls(
+      AT("2011-04-27T19:00:00Z"),
+      AT("2011-04-28T01:00:00Z"),
+    );
+    expect(long).toContain("begints=2011-04-17T19:00:00Z");
+    expect(long).toContain("ph=FA");
+    expect(long).toContain("ph=FF");
+  });
+
+  it("links to the event rather than to a page that shows another one", () => {
+    const [feature] = parseOne({ features: [polygon()] }).features;
+    // The VTEC browser's router reads the query form first and needs all five
+    // parts. `/vtec/event/<product_id>` parses as nothing, and the page then
+    // falls through to its own defaults and shows an unrelated warning rather
+    // than failing, which is worse than a broken link.
+    const url = new URL(String(feature.properties.url));
+    expect(url.pathname).toBe("/vtec/");
+    expect(url.searchParams.get("year")).toBe("2011");
+    expect(url.searchParams.get("wfo")).toBe("OUN");
+    expect(url.searchParams.get("phenomena")).toBe("TO");
+    expect(url.searchParams.get("significance")).toBe("W");
+    expect(url.searchParams.get("eventid")).toBe("42");
+  });
+
+  it("merges the two answers without drawing the overlap twice", () => {
+    // A flood warning issued inside the short window is in both answers.
+    const flood = polygon({
+      phenomena: "FF",
+      event_label: "Flash Flood Warning",
+      eventid: 46,
+    });
+    const merged = parseArchiveWarnings([
+      { features: [flood] },
+      { features: [flood] },
+    ]);
+    expect(merged.features).toHaveLength(1);
   });
 
   it("asks the tag feed for the same window", () => {
@@ -109,6 +165,8 @@ describe("what the archive can say about a moment", () => {
       AT("2011-04-28T01:00:00Z"),
     );
     expect(url).toContain("/geojson/sbw.py");
+    // The short window only. This feed takes no phenomena filter, so the
+    // flood products' ten days would be megabytes of issuance rows.
     expect(url).toContain("sts=2011-04-27T17:00:00Z");
     expect(url).toContain("ets=2011-04-28T01:00:00Z");
   });
@@ -116,7 +174,7 @@ describe("what the archive can say about a moment", () => {
 
 describe("reading the archive", () => {
   it("gives a polygon the shape the live warnings layer already draws", () => {
-    const [feature] = parseArchiveWarnings({
+    const [feature] = parseOne({
       features: [polygon()],
     }).features;
 
@@ -135,27 +193,38 @@ describe("reading the archive", () => {
     // Two services: one knows every polygon, the other knows what the office
     // tagged. They agree on the office, the year, the hazard, the
     // significance and the number, and on nothing else.
+    // hailtag is a JSON number on this service, not a string. Reading it as a
+    // string dropped every hail size the archive had and, because a row with
+    // no damage tag carries nothing else, dropped the row with it.
     const tags = parseArchiveTags({
-      features: [tagRow({ damagetag: "CONSIDERABLE", hailtag: "2.75" })],
+      features: [tagRow({ damagetag: "CONSIDERABLE", hailtag: 2.75 })],
     });
-    const tagged = parseArchiveWarnings({ features: [polygon()] }, tags)
-      .features[0];
+    const tagged = parseOne({ features: [polygon()] }, tags).features[0];
     expect(tagged.properties.impact).toBe("considerable");
     expect(tagged.properties.hailSize).toBe("2.75");
+
+    // And a row whose only tag is the hail size still reaches the map.
+    const hailOnly = parseArchiveTags({
+      features: [tagRow({ hailtag: 1 })],
+    });
+    expect(
+      parseOne({ features: [polygon()] }, hailOnly).features[0].properties
+        .hailSize,
+    ).toBe("1");
 
     // A tag row for a different event does not reach this one.
     const elsewhere = parseArchiveTags({
       features: [tagRow({ eventid: 43, damagetag: "DESTRUCTIVE" })],
     });
     expect(
-      parseArchiveWarnings({ features: [polygon()] }, elsewhere).features[0]
-        .properties.impact,
+      parseOne({ features: [polygon()] }, elsewhere).features[0].properties
+        .impact,
     ).toBe("");
   });
 
   it("reads a damage threat however the tag feed spelled it", () => {
     const impactOf = (row: Record<string, unknown>) =>
-      parseArchiveWarnings(
+      parseOne(
         { features: [polygon()] },
         parseArchiveTags({ features: [tagRow(row)] }),
       ).features[0].properties.impact;
@@ -171,18 +240,29 @@ describe("reading the archive", () => {
   it("does not draw the area a cancellation released", () => {
     // A cancel's polygon is the area being let go, so drawing it would say
     // the opposite of what happened.
-    const parsed = parseArchiveWarnings({
+    const parsed = parseOne({
       features: [polygon({ status: "CAN" }), polygon({ status: "CON" })],
     });
     expect(parsed.features).toHaveLength(1);
   });
 
   it("draws the worst first, the way the live layer does", () => {
-    const parsed = parseArchiveWarnings({
+    const parsed = parseOne({
+      // Three different warnings, so three different event numbers. Sharing
+      // one would make them three polygons of a single event, which the
+      // merge quite rightly reduces to one.
       features: [
-        polygon({ event_label: "Flood Advisory", significance: "Y" }),
-        polygon({ event_label: "Tornado Warning", is_emergency: true }),
-        polygon({ event_label: "Severe Thunderstorm Warning" }),
+        polygon({
+          event_label: "Flood Advisory",
+          significance: "Y",
+          eventid: 11,
+        }),
+        polygon({ event_label: "Tornado Warning", eventid: 12 }),
+        polygon({
+          event_label: "Severe Thunderstorm Warning",
+          phenomena: "SV",
+          eventid: 13,
+        }),
       ],
     });
     expect(parsed.features.map((f) => f.properties.headline)).toEqual([
@@ -193,7 +273,7 @@ describe("reading the archive", () => {
   });
 
   it("drops an entry it cannot place in time or name", () => {
-    const parsed = parseArchiveWarnings({
+    const parsed = parseOne({
       features: [
         polygon({ utc_polygon_begin: null }),
         polygon({ event_label: "" }),
@@ -205,9 +285,9 @@ describe("reading the archive", () => {
   });
 
   it("survives an answer that is not one", () => {
-    expect(parseArchiveWarnings(null).features).toEqual([]);
-    expect(parseArchiveWarnings({}).features).toEqual([]);
-    expect(parseArchiveWarnings({ features: "no" }).features).toEqual([]);
+    expect(parseOne(null).features).toEqual([]);
+    expect(parseOne({}).features).toEqual([]);
+    expect(parseOne({ features: "no" }).features).toEqual([]);
   });
 });
 
@@ -230,7 +310,7 @@ describe("scrubbing through a warning that changed shape", () => {
       product_id: id,
     });
 
-  const shrinking = parseArchiveWarnings({
+  const shrinking = parseOne({
     features: [
       version("2011-04-27T22:00:00Z", "2011-04-27T22:15:00Z", "NEW", "first"),
       version("2011-04-27T22:15:00Z", "2011-04-27T22:30:00Z", "CON", "second"),
@@ -265,7 +345,7 @@ describe("scrubbing through a warning that changed shape", () => {
   });
 
   it("keeps a polygon the archive never closed", () => {
-    const open = parseArchiveWarnings({
+    const open = parseOne({
       features: [polygon({ utc_polygon_end: null })],
     });
     const shown = archiveWarningsAt(open, AT("2011-04-28T06:00:00Z"));
@@ -292,9 +372,12 @@ describe.runIf(LIVE)("against the live archive", () => {
     return response.json();
   }
 
+  const polygons = async () =>
+    Promise.all(archiveWarningsUrls(...WINDOW).map((url) => fetched(url)));
+
   it("answers with every polygon a warning held, not only its first", async () => {
     const parsed = parseArchiveWarnings(
-      await fetched(archiveWarningsUrl(...WINDOW)),
+      await polygons(),
       parseArchiveTags(await fetched(archiveTagsUrl(...WINDOW))),
     );
     expect(parsed.features.length).toBeGreaterThan(50);
@@ -321,9 +404,7 @@ describe.runIf(LIVE)("against the live archive", () => {
   }, 120_000);
 
   it("keeps a warning on the map for as long as it was in force", async () => {
-    const parsed = parseArchiveWarnings(
-      await fetched(archiveWarningsUrl(...WINDOW)),
-    );
+    const parsed = parseArchiveWarnings(await polygons());
     // Walk the window the way a reader scrubs it. A layer that only had the
     // issuance polygons thinned out badly towards the end of the window,
     // because every revised warning had already fallen off it.
@@ -338,5 +419,30 @@ describe.runIf(LIVE)("against the live archive", () => {
     // And an instant holds fewer than the whole window, which is the filter
     // doing its job rather than passing everything through.
     expect(Math.max(...counts)).toBeLessThan(parsed.features.length);
+  }, 120_000);
+
+  it("holds the flood warnings that were in force before the window opened", async () => {
+    // The check the first version of this contract could not make. At the
+    // first frame of this window the short request alone finds 52 warnings in
+    // force and the pair finds 82; the thirty it missed were all flooding,
+    // because the service filters on issuance and an areal flood polygon can
+    // stand for days.
+    const parsed = parseArchiveWarnings(await polygons());
+    const at = WINDOW[0];
+    const shown = archiveWarningsAt(parsed, at);
+    expect(shown?.features.length).toBeGreaterThan(70);
+
+    // Most of the difference was issued before the short window even opens,
+    // which is the whole reason for the second request.
+    const early = (shown?.features ?? []).filter(
+      (feature) => Number(feature.properties.polygonBegin) < at - 2 * 3_600_000,
+    );
+    expect(early.length).toBeGreaterThan(20);
+    // And every one of them is a flood product, which is what the wide window
+    // asks for. A different phenomenon turning up here means the split
+    // between short-fuse and long-fuse products has stopped being true.
+    for (const feature of early) {
+      expect(String(feature.properties.event).split("|")[2]).toMatch(/^F[AF]$/);
+    }
   }, 120_000);
 });

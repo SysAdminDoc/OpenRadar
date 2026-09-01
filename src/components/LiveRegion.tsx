@@ -1,8 +1,12 @@
 interface LiveRegionProps {
   /** Something worth knowing that can wait for a pause. */
   polite: string;
-  /** A warning at a watched place, which cannot. */
-  assertive: string;
+  /**
+   * A warning at a watched place, which cannot, and the count of how many
+   * have been made. The count is never rendered: it is what makes a second
+   * warning that reads identically to the first a change the reader hears.
+   */
+  assertive: { said: number; text: string };
 }
 
 /**
@@ -30,7 +34,9 @@ export function LiveRegion({ polite, assertive }: LiveRegionProps) {
         {polite}
       </div>
       <div role="alert" aria-live="assertive" aria-atomic="true">
-        {assertive}
+        {/* Keyed, so an identical sentence is a new node rather than an
+            unchanged one a screen reader has no reason to read again. */}
+        <span key={assertive.said}>{assertive.text}</span>
       </div>
     </div>
   );

@@ -17,13 +17,14 @@ export interface WorkspaceOverlays {
   /** Raises one harmless alert, so the reader can see the path works. */
   sendWatchTest: () => Promise<boolean>;
   /**
-   * The last alert the watch announced, as one sentence for a live region.
+   * The last alert the watch announced, as one sentence for a live region,
+   * with a count so that two identical sentences are still two announcements.
    *
    * A toast is a picture. This is the same news for somebody who is not
    * looking at one, and it is fed from the same decision so the two cannot
    * disagree about what was worth interrupting for.
    */
-  announcement: string;
+  announcement: { said: number; text: string };
 }
 
 /**
@@ -82,14 +83,25 @@ export function useWorkspaceOverlays(options: {
   // panel: announcing a kind the panel will not show sends somebody to an
   // empty list, and the switch says it takes the kind off the map and out of
   // the list.
-  const [announcement, setAnnouncement] = useState("");
+  /**
+   * The last announcement, with a number nobody reads.
+   *
+   * A live region announces a change, and two different alerts can produce
+   * the same sentence: `watchAlertBody` rounds the distance to a whole mile,
+   * so two tornado warnings from the same storm complex over the same watched
+   * place read identically. React would bail out of the identical setState,
+   * the text node would not change, and the second warning would be heard
+   * zero times while the sighted reader got a second toast. The count makes
+   * every announcement its own value; the region is keyed on it and reads
+   * only the sentence.
+   */
+  const [announcement, setAnnouncement] = useState({ said: 0, text: "" });
   const announce = useCallback((alert: WatchAlert) => {
-    setAnnouncement(
-      translate("nearby.announcement", {
-        headline: alert.headline,
-        body: watchAlertBody(alert),
-      }),
-    );
+    const text = translate("nearby.announcement", {
+      headline: alert.headline,
+      body: watchAlertBody(alert),
+    });
+    setAnnouncement((was) => ({ said: was.said + 1, text }));
   }, []);
 
   const watch = useAlertWatch(

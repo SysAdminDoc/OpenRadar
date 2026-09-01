@@ -18,6 +18,8 @@ interface AlertsPanelProps {
   fetchedAt: number | null;
   error: string | null;
   layerOn: boolean;
+  /** True while these came out of the archive rather than off the live feed. */
+  replaying: boolean;
   onEnableLayer: () => void;
   onSelect: (bounds: OverlayBounds) => void;
   onClose: () => void;
@@ -54,6 +56,7 @@ export function AlertsPanel({
   layerOn,
   onEnableLayer,
   onSelect,
+  replaying,
   onClose,
 }: AlertsPanelProps) {
   const t = useT();
@@ -64,11 +67,13 @@ export function AlertsPanel({
     return [{ feature, bounds }];
   });
   const loading = layerOn && fetchedAt === null && error === null;
-  // Read off the polygons rather than passed in, so the panel and the map
-  // cannot disagree about which day they are showing.
-  const historical = alerts.features.some(
-    (feature) => feature.properties.historical === true,
-  );
+  // Read off the polygons where there are any, and taken from the caller
+  // where there are none. Deriving it from the features alone meant a replay
+  // frame that genuinely held no warning fell through to "NWS watches and
+  // warnings, checked just now", which is a live claim on a picture of 2022.
+  const historical =
+    replaying ||
+    alerts.features.some((feature) => feature.properties.historical === true);
 
   return (
     <PanelShell

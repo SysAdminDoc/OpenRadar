@@ -84,7 +84,7 @@ interface WorkspaceChromeProps {
   dualPane: boolean;
   toasts: ToastMessage[];
   /** The last warning the watch announced, for the assertive live region. */
-  announcement: string;
+  announcement: { said: number; text: string };
   /** The nearby readout, when the reader has it open, for the polite one. */
   readout: string;
   onClearTools: () => void;

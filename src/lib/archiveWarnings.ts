@@ -64,15 +64,51 @@ function stamp(at: number): string {
  * frame would be a request every time the playhead moved: slower for the
  * reader and rude to a service that publishes for nothing.
  */
-export function archiveWarningsUrl(fromMs: number, toMs: number): string {
-  // Issuance is what the window filters on, so it has to open early enough to
-  // catch a warning already in force when the replay starts. Two hours covers
-  // every storm-based product's own maximum duration.
-  const issuedFrom = fromMs - 2 * 3_600_000;
-  return (
+/**
+ * How long before the replay each class of product has to be looked for.
+ *
+ * The service filters on issuance, not on overlap, so a warning already in
+ * force when the replay starts is only found if the window opens before it
+ * was issued. There is no overlap parameter; the OpenAPI document calls
+ * `begints` and `endts` the issuance window and that is all it offers.
+ *
+ * Two hours was assumed to cover everything and does not. Measured over the
+ * week of 2011-04-22 on the service itself: not one of 2,679 tornado polygons
+ * or 3,778 severe thunderstorm polygons lasted longer than 1.2 hours, and one
+ * of 155 marine polygons reached exactly two. Areal flood and flash flood are
+ * a different kind of product: 389 of 518 areal flood polygons and 387 of 572
+ * flash flood polygons ran past two hours, the longest for 185 hours.
+ *
+ * So the two hours stays for the products it fits, and the flood products get
+ * their own window wide enough for the longest one seen. Asking for ten days
+ * of everything instead would be several megabytes of tornado warnings from
+ * the week before, none of which is in force.
+ */
+const SHORT_LOOKBACK_MS = 2 * 3_600_000;
+const LONG_LOOKBACK_MS = 10 * 24 * 3_600_000;
+
+/** The VTEC phenomena whose polygons outlive the short window. */
+const LONG_FUSE = ["FA", "FF"] as const;
+
+/**
+ * The requests that together cover the window, in the order they are merged.
+ *
+ * Two rather than one, because the only way to widen the search is to widen
+ * the issuance window, and widening it for every product costs far more than
+ * it buys. On the frame this was measured against, the short request alone
+ * found 45 of the 65 warnings in force and the pair finds all 65.
+ */
+export function archiveWarningsUrls(fromMs: number, toMs: number): string[] {
+  const window = (fromMs: number, extra = "") =>
     `${HOST}/api/1/vtec/sbw_interval.geojson` +
-    `?begints=${stamp(issuedFrom)}&endts=${stamp(toMs)}&only_new=false`
-  );
+    `?begints=${stamp(fromMs)}&endts=${stamp(toMs)}&only_new=false${extra}`;
+  return [
+    window(fromMs - SHORT_LOOKBACK_MS),
+    window(
+      fromMs - LONG_LOOKBACK_MS,
+      LONG_FUSE.map((phenomena) => `&ph=${phenomena}`).join(""),
+    ),
+  ];
 }
 
 /**
@@ -85,12 +121,33 @@ export function archiveWarningsUrl(fromMs: number, toMs: number): string {
  * feature and the tags are what the office added to them.
  */
 export function archiveTagsUrl(fromMs: number, toMs: number): string {
-  const issuedFrom = fromMs - 2 * 3_600_000;
+  // The short window only. This feed takes no phenomena filter, so widening
+  // it to the flood products' ten days would be five megabytes of issuance
+  // rows to reach a handful of tags. A flood warning issued before the window
+  // therefore draws without its damage tag, which is the same trade the whole
+  // feed already makes: the polygon is the warning and the tag is what the
+  // office added to it.
+  const issuedFrom = fromMs - SHORT_LOOKBACK_MS;
   return `${HOST}/geojson/sbw.py?sts=${stamp(issuedFrom)}&ets=${stamp(toMs)}`;
 }
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * A field that is a number on one service and a string on the other.
+ *
+ * `hailtag` comes back from sbw.py as a JSON number, so reading it as a
+ * string dropped every hail size the archive had and, with it, every row that
+ * carried nothing else.
+ */
+function measure(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return "";
 }
 
 function moment(value: unknown): number | null {
@@ -114,6 +171,18 @@ function eventKey(properties: Record<string, unknown>): string {
     text(properties.significance),
     String(properties.eventid ?? ""),
   ].join("|");
+}
+
+/** Where the archive's own browser shows one event. */
+function eventUrl(properties: Record<string, unknown>): string {
+  const query = new URLSearchParams({
+    year: String(properties.year ?? ""),
+    wfo: text(properties.wfo),
+    phenomena: text(properties.phenomena),
+    significance: text(properties.significance),
+    eventid: String(properties.eventid ?? ""),
+  });
+  return `${HOST}/vtec/?${query.toString()}`;
 }
 
 export interface ArchiveTags {
@@ -149,7 +218,7 @@ export function parseArchiveTags(payload: unknown): Map<string, ArchiveTags> {
       .properties;
     if (!properties) continue;
     const impact = impactOf(properties);
-    const hailSize = text(properties.hailtag);
+    const hailSize = measure(properties.hailtag);
     if (!impact && !hailSize) continue;
     out.set(eventKey(properties), { impact, hailSize });
   }
@@ -165,16 +234,21 @@ export function parseArchiveTags(payload: unknown): Map<string, ArchiveTags> {
  * makes scrubbing possible, and the flag that says this is history.
  */
 export function parseArchiveWarnings(
-  payload: unknown,
+  payloads: unknown[],
   tags: Map<string, ArchiveTags> = new Map(),
 ): OverlayData {
-  const source = payload as { features?: unknown[] } | null;
   const features: OverlayData["features"] = [];
-  if (!source || !Array.isArray(source.features)) {
-    return { type: "FeatureCollection", features };
+  // The two windows overlap by design: a flood warning issued in the last two
+  // hours is in both answers. One polygon version is one feature, so the same
+  // event, begin and end arriving twice is the same row rather than two.
+  const seen = new Set<string>();
+  const rows: unknown[] = [];
+  for (const payload of payloads) {
+    const source = payload as { features?: unknown[] } | null;
+    if (source && Array.isArray(source.features)) rows.push(...source.features);
   }
 
-  for (const raw of source.features) {
+  for (const raw of rows) {
     const feature = raw as {
       geometry?: unknown;
       properties?: Record<string, unknown>;
@@ -196,7 +270,12 @@ export function parseArchiveWarnings(
       headline,
       text(properties.significance) || "W",
     );
-    const tag = tags.get(eventKey(properties));
+    const event = eventKey(properties);
+    const version = `${event}|${begin}|${end}`;
+    if (seen.has(version)) continue;
+    seen.add(version);
+
+    const tag = tags.get(event);
     const impact = tag?.impact ?? "";
 
     features.push({
@@ -213,7 +292,12 @@ export function parseArchiveWarnings(
         hailSize: tag?.hailSize ?? "",
         motion: "",
         office: text(properties.wfo),
-        url: `${HOST}/vtec/event/${text(properties.product_id)}`,
+        // The event's own page, addressed the way the VTEC browser's parser
+        // reads first. `/vtec/event/<product_id>` looks right and is not: a
+        // product id is a text product, the route wants a seven-part VTEC
+        // string, and the page falls through to its defaults and shows an
+        // unrelated warning rather than failing.
+        url: eventUrl(properties),
         // The event's own life, which is what the popup reports, rather than
         // this polygon's slice of it.
         issued: moment(properties.utc_issue) ?? begin,
@@ -227,7 +311,7 @@ export function parseArchiveWarnings(
         // Which warning this is, across every polygon it held. The office,
         // the year, the hazard, the significance and the number: the only
         // thing that identifies one warning rather than one shape of one.
-        event: eventKey(properties),
+        event,
       },
     });
   }

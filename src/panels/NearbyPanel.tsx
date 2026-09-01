@@ -2,7 +2,7 @@ import { Keyboard, LoaderCircle, TriangleAlert, Wind } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import type { NearbyCell, NearbyWarning } from "../lib/nearby";
 import { relativeTime } from "../lib/overlays";
-import { formatClock } from "../lib/units";
+import { formatClock, useMeasurements } from "../lib/units";
 import { useT } from "../i18n";
 
 export interface NearbyPlaceOption {
@@ -46,6 +46,10 @@ export function NearbyPanel({
   onClose,
 }: NearbyPanelProps) {
   const t = useT();
+  // Every line in this panel is a measurement or a clock, and both are the
+  // reader's own choice. Without the subscription the panel goes on saying
+  // miles after the switch to kilometres, until something else redraws it.
+  useMeasurements();
   return (
     <PanelShell
       eyebrow={t("nearby.eyebrow")}

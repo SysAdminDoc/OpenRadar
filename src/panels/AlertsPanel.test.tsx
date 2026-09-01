@@ -10,6 +10,7 @@ function panel(
   alerts: OverlayData,
   fetchedAt: number | null,
   error: string | null,
+  replaying = false,
 ) {
   return (
     <AlertsPanel
@@ -18,6 +19,7 @@ function panel(
       fetchedAt={fetchedAt}
       error={error}
       layerOn
+      replaying={replaying}
       onEnableLayer={vi.fn()}
       onSelect={vi.fn()}
       onClose={vi.fn()}
@@ -73,5 +75,14 @@ describe("the alerts feed state", () => {
     );
 
     expect(screen.getByText(en["alerts.severity.severe"])).toBeTruthy();
+  });
+
+  it("does not claim a live check on a replay frame that held nothing", () => {
+    // A frame of an archived day with no warning in force is an answer, and
+    // deriving "this is history" from the polygons alone meant the footer
+    // fell through to "checked just now" over a picture of 2022.
+    render(panel(EMPTY_OVERLAY, Date.now(), null, true));
+    expect(screen.queryByText(/checked/)).toBeNull();
+    expect(screen.getByText(/from the Iowa State archive/)).toBeTruthy();
   });
 });
