@@ -148,6 +148,22 @@ export function formatReportMagnitude(value: number, unit: string): string {
   }).trim();
 }
 
+/**
+ * A temperature that arrived in Celsius, in the reader's own scale.
+ *
+ * Most of the app asks a service for the units it wants and never converts.
+ * Surface observations are the exception: METAR is Celsius by the standard
+ * that defines it, whoever is reading.
+ */
+export function temperatureFromCelsius(celsius: number): number {
+  return units === "metric" ? celsius : celsius * 1.8 + 32;
+}
+
+/** The degree sign the reader is reading in. */
+export function temperatureUnit(): string {
+  return units === "metric" ? "°C" : "°F";
+}
+
 /** What a depth of rain arrives in, which is what it has to be labelled as. */
 export function precipitationUnit(): string {
   return units === "metric" ? "mm" : "in";

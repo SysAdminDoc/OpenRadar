@@ -6,6 +6,7 @@ export type OverlayId =
   | "earthquakes"
   | "wildfires"
   | "smoke"
+  | "metar"
   | "tropical"
   | "spcOutlooks"
   | "spcDiscussions"
@@ -45,6 +46,25 @@ export interface OverlayAdapter {
   refreshMs: number;
   /** A worldwide feed that ignores the viewport it is handed. */
   global?: boolean;
+  /**
+   * Below this the layer is not asked for and not drawn.
+   *
+   * Some feeds answer per station rather than per area, and a country's worth
+   * of them at once is both unreadable and a request nobody wanted.
+   */
+  minZoom?: number;
+  /**
+   * Icons this layer's symbols name, registered with the map before its
+   * layers are added. The map answers a missing icon with a transparent
+   * pixel, so a symbol layer naming one that was never registered draws
+   * nothing and says nothing.
+   */
+  images?: () => Array<{
+    id: string;
+    width: number;
+    height: number;
+    data: Uint8Array;
+  }>;
   fetchData: (
     bounds: OverlayBounds,
     signal?: AbortSignal,

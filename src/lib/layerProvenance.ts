@@ -96,6 +96,13 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 900_000,
   },
+  metar: {
+    sourceId: "metar",
+    label: "Surface observations",
+    attribution: "NOAA Aviation Weather Center",
+    kind: "observation",
+    freshForMs: 90 * 60_000,
+  },
   smoke: {
     sourceId: "smoke",
     label: "Smoke analysis",

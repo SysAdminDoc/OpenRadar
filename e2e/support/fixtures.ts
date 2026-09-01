@@ -64,6 +64,43 @@ function smokeKml(day: string): string {
   ].join("\n");
 }
 
+/**
+ * Two surface observations near the default view: one with a strong wind and
+ * an overcast sky, one calm with a missing temperature, which is what an
+ * automated station with no sensor reports.
+ */
+export const metarRows = [
+  {
+    icaoId: "KTST",
+    obsTime: 1788276900,
+    temp: 21.7,
+    dewp: 15.2,
+    wdir: 230,
+    wspd: 27,
+    wgst: 38,
+    rawOb: "METAR KTST 011535Z 23027G38KT 10SM OVC020 22/15 A2992",
+    lat: 26.5,
+    lon: -82.5,
+    name: "Testville Rgnl, FL, US",
+    cover: "OVC",
+    fltCat: "MVFR",
+  },
+  {
+    icaoId: "KQUI",
+    obsTime: 1788276600,
+    temp: null,
+    dewp: null,
+    wdir: 0,
+    wspd: 0,
+    rawOb: "METAR KQUI 011530Z AUTO 00000KT 10SM CLR A2995",
+    lat: 26.9,
+    lon: -82.1,
+    name: "Quiet Field, FL, US",
+    cover: "CLR",
+    fltCat: "VFR",
+  },
+];
+
 export const alertFeature = {
   type: "Feature",
   geometry: {
@@ -301,6 +338,12 @@ export async function routeWorkspace(page: Page) {
     await route.fulfill({
       contentType: "application/json",
       body: collection([wildfireFeature]),
+    });
+  });
+  await page.route("https://aviationweather.gov/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(metarRows),
     });
   });
   // NOAA HMS publishes one file a day. The stub answers today's 404 and

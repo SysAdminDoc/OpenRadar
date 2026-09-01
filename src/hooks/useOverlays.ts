@@ -77,6 +77,7 @@ export function useOverlays(
     earthquakes: IDLE_OVERLAY,
     wildfires: IDLE_OVERLAY,
     smoke: IDLE_OVERLAY,
+    metar: IDLE_OVERLAY,
     tropical: IDLE_OVERLAY,
     spcOutlooks: IDLE_OVERLAY,
     spcDiscussions: IDLE_OVERLAY,

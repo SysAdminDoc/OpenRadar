@@ -40,7 +40,7 @@ import {
 import { createWindLayer } from "../lib/windLayer";
 import type { WindField } from "../lib/wind";
 import type { RadarFrame } from "../lib/radar";
-import { formatHeight } from "../lib/units";
+import { formatHeight, useMeasurements } from "../lib/units";
 import {
   cameraKey,
   sameCamera,
@@ -298,6 +298,9 @@ function MapViewportInner(
   // preference has to be readable from inside the sync functions rather than
   // captured in a render.
   const highContrast = useHighContrast();
+  // A layer that draws a measurement builds it into its own expression, so a
+  // switch to metric has to rebuild the layer rather than only redraw it.
+  const measurements = useMeasurements();
   const highContrastRef = useRef(highContrast);
   const overlayOpacityRef = useRef(overlayOpacity);
   const flashWindowRef = useRef(flashWindowMinutes);
@@ -349,6 +352,19 @@ function MapViewportInner(
     container.dataset.overlayLayers = ids
       .filter((id) => id.startsWith(OVERLAY_SOURCE_PREFIX))
       .join(" ");
+    // Which icons the symbol layers can actually find. MapLibre answers a
+    // missing one with a transparent pixel and no complaint, so a layer whose
+    // icons were never registered is on the stack and draws nothing at all.
+    // Nothing outside this file can see that without being told.
+    container.dataset.overlayIcons = OVERLAY_ADAPTERS.flatMap((adapter) =>
+      (adapter.images?.() ?? [])
+        .map((image) => image.id)
+        // `hasImage` is not the question: this file answers a missing icon
+        // with a one-pixel transparent square, so every id a layer names is
+        // held whether or not the real thing was ever added. The size is what
+        // separates the drawing from the placeholder.
+        .filter((id) => (map.getImage(id)?.data.width ?? 0) > 1),
+    ).join(" ");
   };
 
   const renderTools = () => {
@@ -621,6 +637,12 @@ function MapViewportInner(
         data: data as never,
         attribution: adapter.attribution,
       });
+      // Before the layers, because a symbol layer naming an icon the map does
+      // not hold draws a transparent pixel and reports nothing.
+      for (const image of adapter.images?.() ?? []) {
+        if (map.hasImage(image.id)) continue;
+        map.addImage(image.id, image, { pixelRatio: 2 });
+      }
       // Each overlay goes under whatever belongs above it, so the stack does
       // not depend on which adapter answered first.
       for (const layer of adapter.layers(sourceId)) {
@@ -1815,7 +1837,7 @@ function MapViewportInner(
     // The sync functions read the refs above; adding them as dependencies
     // would rebuild the map layers on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highContrast]);
+  }, [highContrast, measurements]);
 
   useEffect(() => {
     flashesRef.current = flashes;

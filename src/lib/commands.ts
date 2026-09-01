@@ -87,6 +87,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["haze", "air quality", "plume", "hms", "wildfire smoke"],
   },
   {
+    layer: "metar",
+    key: "layer.metar",
+    extra: "keywords.metar",
+    keywords: ["metar", "station", "airport", "dewpoint", "wind barb"],
+  },
+  {
     layer: "tropical",
     key: "layer.tropical",
     extra: "keywords.tropical",

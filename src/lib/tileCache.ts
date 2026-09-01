@@ -37,6 +37,7 @@ export const CACHED_HOSTS = [
   "earthquake.usgs.gov",
   "services3.arcgis.com",
   "satepsanone.nesdis.noaa.gov",
+  "aviationweather.gov",
 ];
 
 let base: string | null = null;

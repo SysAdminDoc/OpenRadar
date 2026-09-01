@@ -141,6 +141,17 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "metar",
+    label: "AWC surface observations",
+    host: "aviationweather.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/metar.test.ts"],
+    liveBlock: "against the live service",
+    // Airports report whatever the weather is, all day, every day, so this
+    // one can insist on an answer rather than on a shape.
+    required: false,
+  },
+  {
     id: "smoke",
     label: "NOAA HMS smoke analysis",
     host: "satepsanone.nesdis.noaa.gov",

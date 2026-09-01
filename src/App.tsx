@@ -93,6 +93,7 @@ const COVERED_BY_ADAPTERS = new Set(
 import { useStormCells } from "./hooks/useStormCells";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
 import { activePalettes, paletteUnit } from "./lib/palette";
+import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
@@ -759,11 +760,14 @@ export default function App() {
       cells,
       summary: nearbySummary(warnings, cells, name),
     };
-  }, [
     // Every sentence here is a distance, a bearing or a speed, and units.ts
     // says plainly that anything formatting a measurement and staying on
     // screen has to subscribe. Without this the readout kept saying miles
-    // after the reader switched to kilometres.
+    // after the reader switched to kilometres. The rule cannot see that,
+    // because the unit is module state the formatters read rather than an
+    // argument they are handed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
     measurements,
     nearbyPlaceId,
     nearbyPlaces,
@@ -878,6 +882,12 @@ export default function App() {
               earthquakes: overlays.states.earthquakes.error,
               wildfires: overlays.states.wildfires.error,
               smoke: overlays.states.smoke.error,
+              // The one layer with a zoom of its own, so its note is what
+              // to do about that rather than a fetch that never happened.
+              metar:
+                settings.camera.zoom < METAR_MIN_ZOOM
+                  ? translate("metar.zoom")
+                  : overlays.states.metar.error,
               tropical: overlays.states.tropical.error,
               rotationTracks: mrms.error,
               hail: mrms.error,

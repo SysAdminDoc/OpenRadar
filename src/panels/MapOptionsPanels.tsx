@@ -9,6 +9,7 @@ import {
   Droplets,
   Cloudy,
   Flame,
+  Thermometer,
   Globe2,
   Map,
   MapPin,
@@ -187,6 +188,7 @@ const OVERLAY_LAYERS: Array<{
   },
   { key: "wildfires", overlayId: "wildfires", labelKey: "layer.wildfires" },
   { key: "smoke", overlayId: "smoke", labelKey: "layer.smoke" },
+  { key: "metar", overlayId: "metar", labelKey: "layer.metar" },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
@@ -278,6 +280,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.smoke",
     detailKey: "layers.smokeDetail",
     icon: Cloudy,
+  },
+  {
+    key: "metar",
+    labelKey: "layer.metar",
+    detailKey: "layers.metarDetail",
+    icon: Thermometer,
   },
   {
     key: "tropical",

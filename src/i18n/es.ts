@@ -547,6 +547,7 @@ export const es: Catalogue = {
   "layer.earthquakes": "Sismos",
   "layer.wildfires": "Incendios",
   "layer.smoke": "Humo",
+  "layer.metar": "Observaciones",
   "layer.tropical": "Tropical",
   "layer.satellite": "Satélite",
   "layer.rotationTracks": "Huellas de rotación",
@@ -641,6 +642,8 @@ export const es: Catalogue = {
   "keywords.earthquakes": "sismo temblor terremoto magnitud",
   "keywords.wildfires": "incendio fuego perimetro humo",
   "keywords.smoke": "humo calidad del aire pluma hms bruma",
+  "keywords.metar":
+    "metar estacion aeropuerto punto de rocio barbas viento observacion",
   "keywords.tropical": "huracan ciclon cono tormenta tifon",
   "keywords.satellite": "satelite nubes imagen visible infrarrojo",
   "keywords.rotationTracks": "mesociclon rotacion cizalladura tornado giro",
@@ -700,6 +703,7 @@ export const es: Catalogue = {
     "Sismos del USGS de magnitud mayor a 2.5 en el último día",
   "layers.wildfiresDetail": "Perímetros del NIFC de más de 100 acres",
   "layers.smokeDetail": "El análisis a mano de la NOAA, una vez al día",
+  "layers.metarDetail": "Informes de aeropuerto, en modelo de estación",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
@@ -979,6 +983,16 @@ export const es: Catalogue = {
   "smoke.analysedUnknown": "El archivo no trae la fecha del análisis.",
   "smoke.note":
     "Lo dibuja a mano un analista de la NOAA a partir de imágenes de satélite, una vez al día. Es dónde estaba el humo, no cómo está el aire a nivel del suelo.",
+  "metar.observed": "Observado a las {when}.",
+  "metar.observedUnknown": "El informe no trae hora.",
+  "metar.air": "{temp}{unit}, punto de rocío {dewp}{unit}.",
+  "metar.wind": "Viento de {direction} grados a {knots} kt.",
+  "metar.windGusting":
+    "Viento de {direction} grados a {knots} kt, con rachas de {gust}.",
+  "metar.calm": "En calma.",
+  "metar.station": "Observación de superficie",
+  "metar.source": "Fuente: NOAA Aviation Weather Center.",
+  "metar.zoom": "Acércate para ver las estaciones.",
   "popup.tropicalBasin": "Tropical",
   "popup.outlookTitle": "Perspectiva de {basin}",
   "popup.twoDay": "Probabilidad a dos días {chance} ({risk})",
