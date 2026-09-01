@@ -108,7 +108,9 @@ export function useOverlays(
     }
 
     if (!viewport) return;
-    const padded = padBounds(viewport, BOUNDS_PADDING);
+    // Per adapter, because one of them is asked for the screen exactly.
+    const boxFor = (adapter: OverlayAdapter) =>
+      padBounds(viewport, adapter.boundsPadding ?? BOUNDS_PADDING);
 
     // A request issued for an area the user has left would stamp coverage with
     // the wrong box and leave the map showing somewhere else.
@@ -131,17 +133,18 @@ export function useOverlays(
         }
 
         const controller = new AbortController();
-        requests.set(adapter.id, { controller, bounds: padded });
+        const box = boxFor(adapter);
+        requests.set(adapter.id, { controller, bounds: box });
         void adapter
-          .fetchData(padded, controller.signal)
+          .fetchData(box, controller.signal)
           .then((data) => {
             if (controller.signal.aborted) return;
-            coverage[adapter.id] = { bounds: padded, at: Date.now() };
+            coverage[adapter.id] = { bounds: box, at: Date.now() };
             setStates((current) => ({
               ...current,
               [adapter.id]: {
                 data,
-                bounds: adapter.global ? null : padded,
+                bounds: adapter.global ? null : box,
                 fetchedAt: Date.now(),
                 error: null,
               },

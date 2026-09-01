@@ -85,6 +85,8 @@ export const en = {
   "capture.noAlerts": "No active warnings in view",
   "replay.warningsUnavailable":
     "The warning archive did not answer, so only the radar is from that day.",
+  "replay.warningsSome":
+    "Some of the flood warnings for this replay could not be fetched. The rest are drawn.",
   "replay.warningsPartial":
     "Before October 2007 offices warned by county, so only some of these storms have a polygon.",
   "replay.warningsNone":
@@ -963,12 +965,15 @@ export const en = {
   "smoke.heavy": "Heavy smoke",
   "smoke.analysed": "Analysed {when}.",
   "smoke.analysedUnknown": "The analysis date is not in the file.",
+  "smoke.clear":
+    "The analysts found no smoke anywhere today. This is the day's file, and it is empty.",
   "smoke.note":
     "Drawn by a NOAA analyst from satellite imagery, once a day. It is where the smoke was, not what the air is like at ground level.",
   "metar.observed": "Observed {when}.",
   "metar.observedUnknown": "The report carries no time.",
   "metar.air": "{temp}{unit}, dewpoint {dewp}{unit}.",
   "metar.wind": "Wind from {direction} degrees at {knots} kt.",
+  "metar.windVariable": "Wind variable in direction at {knots} kt.",
   "metar.windGusting":
     "Wind from {direction} degrees at {knots} kt, gusting {gust}.",
   "metar.calm": "Calm.",

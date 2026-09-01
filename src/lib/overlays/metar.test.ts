@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  METAR_LIMIT,
   METAR_MIN_ZOOM,
+  METAR_SPACING,
   metarOverlay,
   parseMetars,
+  thinStations,
 } from "./metar";
 import { setUnits } from "../units";
 import { stationPlotImages } from "../stationPlot";
@@ -77,6 +78,20 @@ describe("reading a surface observation", () => {
     const [feature] = parseMetars([station({ wdir: "VRB", wspd: 6 })]).features;
     expect(feature.properties.windDirection).toBe(0);
     expect(feature.properties.barb).toBe("station-barb-0");
+    expect(feature.properties.windVariable).toBe(true);
+    // And the popup says so rather than reading the placeholder back out as a
+    // due north wind the station explicitly did not report.
+    const said = metarOverlay.describe(feature.properties).lines.join(" ");
+    expect(said).toContain("variable");
+    expect(said).not.toContain("from 0 degrees");
+  });
+
+  it("reads an empty field as missing rather than as zero", () => {
+    // Number("") is 0, so an empty temperature would plot the station at
+    // freezing instead of leaving the corner blank.
+    const [feature] = parseMetars([station({ temp: "", dewp: "  " })]).features;
+    expect(feature.properties.tempC).toBeNull();
+    expect(feature.properties.dewpC).toBeNull();
   });
 
   it("drops a row with no position rather than putting it at zero", () => {
@@ -127,7 +142,76 @@ describe("what the popup says", () => {
   });
 });
 
+describe("thinning the plots so they can be read", () => {
+  const box = { west: -100, south: 34, east: -96, north: 38 };
+  const grid = (step: number) => {
+    const rows = [];
+    for (let lon = -100; lon < -96; lon += step) {
+      for (let lat = 34; lat < 38; lat += step) {
+        rows.push(station({ icaoId: `K${rows.length}`, lon, lat }));
+      }
+    }
+    return parseMetars(rows);
+  };
+
+  it("keeps every station when they are already far enough apart", () => {
+    const spread = grid(1);
+    expect(thinStations(spread, box).features).toHaveLength(
+      spread.features.length,
+    );
+  });
+
+  it("drops the ones that would sit on top of each other", () => {
+    // A tenth of a degree apart over a four degree screen is a smear: the
+    // spacing allows about one station per twenty-fifth of the width.
+    const packed = grid(0.1);
+    const kept = thinStations(packed, box).features;
+    expect(kept.length).toBeLessThan(packed.features.length / 4);
+    expect(kept.length).toBeGreaterThan(4);
+  });
+
+  it("never leaves two of the ones it kept too close together", () => {
+    const kept = thinStations(grid(0.1), box).features;
+    const gap = Math.abs(box.east - box.west) * METAR_SPACING;
+    for (const one of kept) {
+      for (const other of kept) {
+        if (one === other) continue;
+        const [ax, ay] = (one.geometry as { coordinates: number[] })
+          .coordinates;
+        const [bx, by] = (other.geometry as { coordinates: number[] })
+          .coordinates;
+        const close =
+          Math.abs(ax - bx) * Math.cos((ay * Math.PI) / 180) < gap &&
+          Math.abs(ay - by) < gap;
+        expect(close, `${one.properties.id} and ${other.properties.id}`).toBe(
+          false,
+        );
+      }
+    }
+  });
+
+  it("keeps the same stations whatever order the service answered in", () => {
+    // Nearest the middle first, so a refresh does not swap the reader's
+    // airports for a different set that happens to be listed earlier.
+    const packed = grid(0.25);
+    const shuffled = {
+      ...packed,
+      features: [...packed.features].reverse(),
+    };
+    expect(
+      thinStations(shuffled, box).features.map((f) => f.properties.id),
+    ).toEqual(thinStations(packed, box).features.map((f) => f.properties.id));
+  });
+});
+
 describe("what the layer asks the service for", () => {
+  it("asks for the screen and not a box around it", () => {
+    // The service returns fewer stations the larger the box: two and a half
+    // times the screen came back with 38 of the 185 on it. The overlay
+    // machinery pads by half a viewport for everything else.
+    expect(metarOverlay.boundsPadding).toBe(0);
+  });
+
   it("is switched off below the zoom the plots are legible at", () => {
     expect(metarOverlay.minZoom).toBe(METAR_MIN_ZOOM);
     for (const layer of metarOverlay.layers("s")) {
@@ -155,7 +239,6 @@ describe.runIf(LIVE)("against the live service", () => {
     // of the country means the query shape is wrong rather than the weather
     // being quiet.
     expect(data.features.length).toBeGreaterThan(20);
-    expect(data.features.length).toBeLessThanOrEqual(METAR_LIMIT);
 
     const withTemp = data.features.filter(
       (feature) => feature.properties.tempC !== null,

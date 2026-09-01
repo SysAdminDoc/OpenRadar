@@ -3,6 +3,7 @@ import {
   archiveCoverage,
   archiveTagsUrl,
   archiveWarningsAt,
+  ARCHIVE_REQUIRED_URLS,
   archiveWarningsUrls,
   parseArchiveTags,
   parseArchiveWarnings,
@@ -94,9 +95,25 @@ export function useArchiveWarnings(options: {
         // The polygons are the feature and the tags are what an office added
         // to them, so a tag feed that fails is a warning drawn without its
         // damage threat rather than no warning at all.
+        // The first request is the short window and carries most of what is
+        // in force at any frame; the rest are the flood products, which are a
+        // second and a third request because the service filters on at most
+        // two phenomena at a time. One of those failing is a class of warning
+        // missing rather than a map with nothing on it, so it fails with a
+        // note beside the layer and the polygons still draw. Letting it take
+        // the whole layer down would be worse than the bug this replaced.
+        const urls = archiveWarningsUrls(window.from, window.to);
+        let short = 0;
         const [polygons, tags] = await Promise.all([
           Promise.all(
-            archiveWarningsUrls(window.from, window.to).map((url) => ask(url)),
+            urls.map((url, at) =>
+              at < ARCHIVE_REQUIRED_URLS
+                ? ask(url)
+                : ask(url).catch(() => {
+                    short += 1;
+                    return null;
+                  }),
+            ),
           ),
           ask(archiveTagsUrl(window.from, window.to)).catch(() => null),
         ]);
@@ -104,7 +121,7 @@ export function useArchiveWarnings(options: {
         setLoaded({
           key: window.key,
           data: parseArchiveWarnings(polygons, parseArchiveTags(tags)),
-          error: null,
+          error: short ? translate("replay.warningsSome") : null,
         });
       } catch (failure) {
         if (!mounted || controller.signal.aborted) return;

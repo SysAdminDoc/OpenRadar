@@ -452,6 +452,11 @@ export default function App() {
             adapter,
             fetchedAt: state.fetchedAt,
             kind: described?.kind,
+            // A derived layer has to say what was done to it, and the ledger
+            // beside the switch is where that sentence is written. Leaving it
+            // behind made the record malformed rather than incomplete, which
+            // suppressed the source, the credit and the times as well.
+            derivedFrom: described?.derivedFrom,
           }),
         );
       }
@@ -881,7 +886,16 @@ export default function App() {
               probSevere: probSevere.error,
               earthquakes: overlays.states.earthquakes.error,
               wildfires: overlays.states.wildfires.error,
-              smoke: overlays.states.smoke.error,
+              smoke:
+                overlays.states.smoke.error ??
+                // A day the analysts found no smoke publishes a real file
+                // with nothing in it. Drawing nothing and saying nothing
+                // reads as a layer that is broken.
+                (settings.layers.smoke &&
+                overlays.states.smoke.fetchedAt !== null &&
+                overlays.states.smoke.data.features.length === 0
+                  ? translate("smoke.clear")
+                  : null),
               // The one layer with a zoom of its own, so its note is what
               // to do about that rather than a fetch that never happened.
               metar:

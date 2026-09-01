@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LAYER_SOURCES, layerProvenance } from "./layerProvenance";
-import { provenanceProblems } from "./provenance";
+import { overlayProvenance, provenanceProblems } from "./provenance";
 import { DEFAULT_SETTINGS } from "./settings";
 import { OVERLAY_ADAPTERS } from "./overlays";
 import { MRMS_PRODUCT_IDS } from "./providers/mrms";
@@ -120,6 +120,34 @@ describe("the split between the adapters and the table", () => {
       adapters.has(source.sourceId as never),
     );
     expect(matched).toHaveLength(adapters.size);
+  });
+
+  /**
+   * The path the app actually takes for these layers.
+   *
+   * `layerProvenance` is the table's own reader and the test above uses it.
+   * An adapter-backed switch never goes through it: the workspace builds
+   * those records with `overlayProvenance` and skips the table's loop
+   * entirely. Testing only the table meant the smoke layer's record was
+   * malformed at runtime, saying "a derived layer must say what was done to
+   * it", while every test here passed.
+   */
+  it("produces a record the contract accepts through the adapter path too", () => {
+    for (const adapter of OVERLAY_ADAPTERS) {
+      const described = Object.values(LAYER_SOURCES).find(
+        (source) => source.sourceId === adapter.id,
+      );
+      const record = overlayProvenance({
+        adapter,
+        fetchedAt: FETCHED_AT,
+        kind: described?.kind,
+        derivedFrom: described?.derivedFrom,
+      });
+      expect(provenanceProblems(record), adapter.id).toEqual([]);
+      // And it is the same statement the table makes, so the diagnostics
+      // block and the ledger cannot disagree about what a layer is.
+      expect(record.kind, adapter.id).toBe(described?.kind ?? "observation");
+    }
   });
 
   it("gives every layer a source id of its own", () => {

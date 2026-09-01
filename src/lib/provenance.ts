@@ -270,6 +270,13 @@ export function overlayProvenance(options: {
    * whole contract is for.
    */
   kind?: ProvenanceKind;
+  /**
+   * What was done to the source values, for an adapter whose layer is derived
+   * rather than measured. The contract refuses a derived record without one,
+   * and the smoke analysis was producing exactly that: a layer whose whole
+   * provenance block read "record is not well formed".
+   */
+  derivedFrom?: string;
 }): Provenance {
   const { adapter, fetchedAt } = options;
   // An overlay is a snapshot of what the service was publishing when it was
@@ -292,6 +299,7 @@ export function overlayProvenance(options: {
     // These services publish when they publish and do not date the run behind
     // what they say, so the record says the run is unknown rather than none.
     runUnknown: forecast ? true : undefined,
+    derivedFrom: options.derivedFrom,
   };
 }
 

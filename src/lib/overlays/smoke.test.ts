@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  analysisDate,
   fetchSmoke,
   parseSmoke,
   previousDay,
   smokeUrl,
   type SmokeDensity,
 } from "./smoke";
+import { setClockZone } from "../units";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
 
@@ -55,6 +57,7 @@ const SQUARE = [
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  setClockZone("local");
 });
 
 describe("the day's file", () => {
@@ -107,6 +110,19 @@ describe("reading an analysis", () => {
     expect(data.features[0].properties.analysed).toBe(Date.UTC(2026, 7, 12));
   });
 
+  it("names the day the analyst worked, not the day it is where you are", () => {
+    // The stamp is a calendar day carried as midnight UTC, so formatting it in
+    // the reader's own zone dated every analysis a day early for everybody
+    // west of Greenwich, which is everybody this layer is for. The date is
+    // read back in the zone it was written in.
+    const at = Date.UTC(2026, 7, 31);
+    expect(analysisDate(at)).toBe("Aug 31");
+    // And it is the same day whichever clock the reader has chosen, because
+    // the day is a property of the file rather than of the reader.
+    setClockZone("utc");
+    expect(analysisDate(at)).toBe("Aug 31");
+  });
+
   it("closes a ring the file left open", () => {
     const open = ["-100,40,0", "-99,40,0", "-99,41,0"].join(" ");
     const data = parseSmoke(document(placemark("light", open)));
@@ -117,6 +133,16 @@ describe("reading an analysis", () => {
     ).coordinates[0];
     expect(ring).toHaveLength(4);
     expect(ring[0]).toEqual(ring[3]);
+  });
+
+  it("drops a ring that closes itself over only two corners", () => {
+    // Three positions where the first and last are the same corner is a line
+    // written as a polygon. Counting positions rather than corners would let
+    // it through as a three-position ring, which GeoJSON does not allow.
+    const data = parseSmoke(
+      document(placemark("light", "-100,40,0 -99,40,0 -100,40,0")),
+    );
+    expect(data.features).toEqual([]);
   });
 
   it("drops a degenerate ring and keeps the rest of the day", () => {
@@ -211,6 +237,20 @@ describe("falling back to the day before", () => {
     await expect(fetchSmoke(new Date(Date.UTC(2026, 8, 1, 6)))).rejects.toThrow(
       /503/,
     );
+  });
+
+  it("refuses a file it cannot read rather than showing yesterday's smoke", async () => {
+    // A file that will not parse changed shape or arrived truncated. Falling
+    // back would put yesterday's plume on the map as today's, which nothing
+    // has confirmed is still there; the reader gets a note instead.
+    const asked = stub({
+      hms_smoke20260901: "<html><body>maintenance</body></html>",
+      hms_smoke20260831: document(placemark("heavy", SQUARE), "20260831"),
+    });
+    await expect(
+      fetchSmoke(new Date(Date.UTC(2026, 8, 1, 6))),
+    ).rejects.toThrow();
+    expect(asked).toHaveLength(1);
   });
 });
 

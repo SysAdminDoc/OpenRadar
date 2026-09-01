@@ -39,7 +39,12 @@ export { stormCategory, type TropicalKind } from "./tropical";
 export { parseDiscussions, parseOutlooks, outlookTime } from "./spc";
 export { parseReports, REPORT_HOURS } from "./reports";
 export { parseSmoke, smokeUrl, type SmokeDensity } from "./smoke";
-export { parseMetars, METAR_LIMIT, METAR_MIN_ZOOM } from "./metar";
+export {
+  parseMetars,
+  thinStations,
+  METAR_SPACING,
+  METAR_MIN_ZOOM,
+} from "./metar";
 export {
   EMPTY_OVERLAY,
   boundsContain,

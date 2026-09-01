@@ -47,6 +47,16 @@ export interface OverlayAdapter {
   /** A worldwide feed that ignores the viewport it is handed. */
   global?: boolean;
   /**
+   * How much wider than the screen to ask for, as a fraction of its span.
+   *
+   * Half a viewport by default, so a short pan needs no new request. A feed
+   * that answers per station rather than per area wants none of it: the
+   * Aviation Weather Center thins its answer as the box grows, so asking for
+   * two and a half times the screen came back with a third of the stations
+   * actually on it.
+   */
+  boundsPadding?: number;
+  /**
    * Below this the layer is not asked for and not drawn.
    *
    * Some feeds answer per station rather than per area, and a country's worth
