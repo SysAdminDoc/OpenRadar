@@ -897,6 +897,8 @@ export const en = {
   "toast.paletteCleared": "Colour table removed",
   "toast.paletteClearedBody":
     "{name} is off the shelf, and that product is back to the built-in scale.",
+  "toast.paletteShelvedBody":
+    "{name} is off the shelf. Nothing on the map was using it.",
   "toast.paletteFull":
     "Your colour tables are full at {count}. Remove one to make room for this.",
   "toast.replayStopped": "Replay stopped",

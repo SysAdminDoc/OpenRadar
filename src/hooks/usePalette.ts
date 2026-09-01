@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { log } from "../lib/log";
 import { paletteForRenderer, type Palette } from "../lib/palette";
 import { applyPalettesToRenderer } from "../lib/paletteRenderer";
@@ -31,13 +31,25 @@ export function usePalette(options: {
     ]),
   );
 
+  // Read through a ref rather than depended on. The array's identity changes
+  // on every settings write and every camera move, because normalizing the
+  // settings allocates a fresh one, and depending on it defeated the hash
+  // above entirely: every pan re-sent the set, the native side bumped the
+  // generation, and every radar tile, sweep and MRMS grid was fetched again.
+  // A reader with no colour table at all paid that price, because an empty
+  // set is a new empty array each time.
+  const latest = useRef(palettes);
+  useEffect(() => {
+    latest.current = palettes;
+  }, [palettes]);
+
   useEffect(() => {
     if (!ready || !isDesktopRuntime()) return;
     let open = true;
 
     void (async () => {
       try {
-        const next = await applyPalettesToRenderer(palettes);
+        const next = await applyPalettesToRenderer(latest.current);
         if (!open) return;
         if (next !== null) setGeneration(next);
       } catch (failure: unknown) {
@@ -54,7 +66,7 @@ export function usePalette(options: {
     return () => {
       open = false;
     };
-  }, [palettes, ready, sent]);
+  }, [ready, sent]);
 
   return generation;
 }

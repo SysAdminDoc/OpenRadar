@@ -335,27 +335,31 @@ export async function routeWorkspace(page: Page) {
       // The interval service answers with one row per polygon a warning held,
       // so the same warning is here twice: the shape it opened with and the
       // shape the office shrank it to. Only one belongs on any given frame.
-      const box = (west: number) => ({
+      // Wide enough to hold the camera wherever the replay flies it, because
+      // one of the things being tested is a readout about the map centre.
+      // The office shrinks it from the east, so both versions still differ
+      // and both still cover the place the reader is asking about.
+      const box = (east: number) => ({
         type: "Polygon",
         coordinates: [
           [
-            [west, 26],
-            [west + 1, 26],
-            [west + 1, 27],
-            [west, 27],
-            [west, 26],
+            [-90, 22],
+            [east, 22],
+            [east, 32],
+            [-90, 32],
+            [-90, 22],
           ],
         ],
       });
       const version = (
         begin: string,
         end: string,
-        west: number,
+        east: number,
         status: string,
         id: string,
       ) => ({
         type: "Feature",
-        geometry: box(west),
+        geometry: box(east),
         properties: {
           event_label: "Tornado Warning",
           ph_sig: "TO.W",
@@ -380,14 +384,14 @@ export async function routeWorkspace(page: Page) {
             version(
               "2022-09-28T18:00:00Z",
               "2022-09-28T19:00:00Z",
-              -83,
+              -71,
               "NEW",
               "issued",
             ),
             version(
               "2022-09-28T19:00:00Z",
               "2022-09-28T20:00:00Z",
-              -82,
+              -75,
               "CON",
               "shrunk",
             ),

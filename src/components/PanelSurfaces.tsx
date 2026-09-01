@@ -106,6 +106,8 @@ interface PanelSurfacesProps {
     cells: NearbyCell[];
     summary: string;
   };
+  /** True while archived radar from another day is on the map. */
+  replaying: boolean;
   nearbyPlaces: NearbyPlaceOption[];
   nearbyPlaceId: string;
   onNearbyPlace: (id: string) => void;
@@ -179,6 +181,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           fetchedAt={overlays.alerts.fetchedAt}
           error={overlays.alerts.error}
           layerOn={settings.layers.weatherAlerts}
+          replaying={props.replaying}
           onEnableLayer={() => props.onEnableLayer("weatherAlerts")}
           onSelect={props.onAlertSelect}
           onClose={onClose}

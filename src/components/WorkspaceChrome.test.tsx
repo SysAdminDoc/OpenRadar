@@ -78,7 +78,7 @@ function chrome(
       smoke={null}
       wind={null}
       windReduced={false}
-      announcement=""
+      announcement={{ said: 0, text: "" }}
       readout=""
       clock={Date.UTC(2026, 7, 30, 12)}
       liveClock={overrides.liveClock ?? Date.UTC(2026, 7, 30, 12)}

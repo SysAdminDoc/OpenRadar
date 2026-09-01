@@ -912,6 +912,8 @@ export const es: Catalogue = {
   "toast.paletteCleared": "Tabla de colores quitada",
   "toast.paletteClearedBody":
     "{name} ya no está, y ese producto vuelve a la escala incorporada.",
+  "toast.paletteShelvedBody":
+    "{name} ya no está. Nada en el mapa la estaba usando.",
   "toast.paletteFull":
     "Tus tablas de colores están llenas con {count}. Quita una para hacer sitio.",
   "toast.replayStopped": "Repetición detenida",

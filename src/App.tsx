@@ -45,6 +45,7 @@ import {
   subscribeHealth,
 } from "./lib/providers";
 import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
+import { useMeasurements } from "./lib/units";
 import {
   archiveFrames,
   replayFocus,
@@ -62,6 +63,7 @@ import type {
 } from "./lib/settings";
 import {
   watchedPlaces,
+  withPalette,
   withPaletteAssigned,
   withoutPalette,
 } from "./lib/settings";
@@ -90,7 +92,7 @@ const COVERED_BY_ADAPTERS = new Set(
 );
 import { useStormCells } from "./hooks/useStormCells";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
-import { activePalettes } from "./lib/palette";
+import { activePalettes, paletteUnit } from "./lib/palette";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
@@ -582,19 +584,39 @@ export default function App() {
       const previous = settingsRef.current;
       const found = previous.palettes.find((held) => held.name === name);
       if (!found) return;
+      // Which unit it was in force for, if any, so the undo can put it back
+      // there and the toast can say what actually changed on the map.
+      const heldUnit = Object.entries(previous.paletteAssignments).find(
+        ([, assigned]) => assigned === name,
+      )?.[0];
       applySettings(withoutPalette(previous, name));
       pushToast({
         title: translate("toast.paletteCleared"),
-        detail: translate("toast.paletteClearedBody", { name }),
+        // Only claim the fallback when there was something to fall back from.
+        // A table sitting on the shelf, in force for nothing, changes no
+        // picture when it goes.
+        detail: heldUnit
+          ? translate("toast.paletteClearedBody", { name })
+          : translate("toast.paletteShelvedBody", { name }),
         actionLabel: translate("toast.undo"),
-        // Back onto the shelf and back into force, because putting a table
-        // back without the assignment it had is not an undo.
-        onAction: () =>
-          applySettings({
-            ...settingsRef.current,
-            palettes: previous.palettes,
-            paletteAssignments: previous.paletteAssignments,
-          }),
+        // Only this table, put back where it was. Restoring the whole
+        // snapshot would undo anything else the reader did in between: remove
+        // A, remove B, undo A, and B came back too.
+        onAction: () => {
+          const now = settingsRef.current;
+          const back = withPalette(now, found);
+          if (!back) return;
+          applySettings(
+            heldUnit
+              ? back
+              : withPaletteAssigned(
+                  back,
+                  paletteUnit(found),
+                  now.paletteAssignments[paletteUnit(found).toLowerCase()] ??
+                    null,
+                ),
+          );
+        },
       });
     },
     [applySettings, pushToast, settingsRef],
@@ -695,6 +717,7 @@ export default function App() {
   // watched place instead, because a reader listening from a desk cares about
   // where they live rather than where the camera drifted.
   const [nearbyPlaceId, setNearbyPlaceId] = useState("centre");
+  const measurements = useMeasurements();
   const nearbyPlaces = useMemo(
     () => [
       { id: "centre", name: translate("nearby.placeCentre") },
@@ -714,7 +737,15 @@ export default function App() {
       : centerPoint;
   }, [centerPoint, nearbyPlaceId, settings]);
   const nearby = useMemo(() => {
-    const warnings = warningsOver(overlays.data.alerts ?? null, nearbyPoint);
+    // The same collection the map is handed, so a replay's warnings are in the
+    // readout too. Reading `overlays.data.alerts` alone left a reader who
+    // cannot see the map hearing "no warnings over this place" while the map
+    // drew that day's polygons: the live fetch is switched off for the whole
+    // replay, which is exactly when the archive is on.
+    const warnings = warningsOver(
+      replayedAlerts ?? overlays.data.alerts ?? null,
+      nearbyPoint,
+    );
     const cells = stormCells.report
       ? nearbyCells(stormCells.report.cells, nearbyPoint, {
           rotating: stormCells.rotating,
@@ -729,10 +760,16 @@ export default function App() {
       summary: nearbySummary(warnings, cells, name),
     };
   }, [
+    // Every sentence here is a distance, a bearing or a speed, and units.ts
+    // says plainly that anything formatting a measurement and staying on
+    // screen has to subscribe. Without this the readout kept saying miles
+    // after the reader switched to kilometres.
+    measurements,
     nearbyPlaceId,
     nearbyPlaces,
     nearbyPoint,
     overlays.data.alerts,
+    replayedAlerts,
     stormCells.report,
     stormCells.rotating,
   ]);
@@ -881,6 +918,7 @@ export default function App() {
             singleSite={level2Available() ? singleSite : null}
             stormCells={stormCells}
             nearby={nearby}
+            replaying={Boolean(replay)}
             nearbyPlaces={nearbyPlaces}
             nearbyPlaceId={nearbyPlaceId}
             onNearbyPlace={setNearbyPlaceId}

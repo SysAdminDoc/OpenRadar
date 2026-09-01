@@ -3,7 +3,7 @@ import {
   archiveCoverage,
   archiveTagsUrl,
   archiveWarningsAt,
-  archiveWarningsUrl,
+  archiveWarningsUrls,
   parseArchiveTags,
   parseArchiveWarnings,
   type ArchiveCoverage,
@@ -95,7 +95,9 @@ export function useArchiveWarnings(options: {
         // to them, so a tag feed that fails is a warning drawn without its
         // damage threat rather than no warning at all.
         const [polygons, tags] = await Promise.all([
-          ask(archiveWarningsUrl(window.from, window.to)),
+          Promise.all(
+            archiveWarningsUrls(window.from, window.to).map((url) => ask(url)),
+          ),
           ask(archiveTagsUrl(window.from, window.to)).catch(() => null),
         ]);
         if (!mounted) return;
@@ -127,8 +129,11 @@ export function useArchiveWarnings(options: {
   }, [window, wanted]);
 
   // Only an answer for the window on screen counts, which is what makes the
-  // effect's lack of a reset safe.
-  const held = window && loaded?.key === window.key ? loaded : null;
+  // effect's lack of a reset safe. `wanted` is in it as well as in the effect:
+  // without it, switching the layer off after the archive had loaded stopped
+  // the fetching and left the polygons on the map, with the Alerts panel
+  // saying the layer was off beside a map that was still drawing it.
+  const held = window && wanted && loaded?.key === window.key ? loaded : null;
 
   const data = useMemo(
     () =>

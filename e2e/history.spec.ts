@@ -205,16 +205,24 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
   await page.getByRole("button", { name: /Replay radar/ }).click();
   await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
 
-  // Two requests for the whole window, one for the polygons and one for the
-  // tags, and the polygons come from the service that knows about revisions.
-  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(2);
-  const polygons = asked.find((url) => url.includes("sbw_interval"));
-  expect(polygons).toBeDefined();
-  expect(polygons).toContain("only_new=false");
-  // Issuance is what the window filters on, so it opens two hours before the
-  // replay to catch a warning already in force when it starts.
-  expect(polygons).toContain("begints=2022-09-28T14:00:00Z");
-  expect(polygons).toContain("endts=2022-09-28T22:00:00Z");
+  // Three requests for the whole window and not one per frame: the polygons
+  // for the short-fuse products, the polygons for the flood products that
+  // hold a shape far longer, and the tag feed.
+  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(3);
+  const intervals = asked.filter((url) => url.includes("sbw_interval"));
+  expect(intervals).toHaveLength(2);
+  for (const url of intervals) {
+    expect(url).toContain("only_new=false");
+    expect(url).toContain("endts=2022-09-28T22:00:00Z");
+  }
+  // Issuance is what the window filters on, so it opens before the replay to
+  // catch a warning already in force when it starts: two hours for the
+  // products that fit in that, ten days for the flood products that do not.
+  const short = intervals.find((url) => !url.includes("ph="));
+  const long = intervals.find((url) => url.includes("ph=FA"));
+  expect(short).toContain("begints=2022-09-28T14:00:00Z");
+  expect(long).toContain("begints=2022-09-18T16:00:00Z");
+  expect(long).toContain("ph=FF");
 
   // The polygons are on the map, drawn by the same layer the live ones use.
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
@@ -234,7 +242,7 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
     await page.keyboard.press("ArrowRight");
   }
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
-  expect(asked).toHaveLength(2);
+  expect(asked).toHaveLength(3);
 });
 
 test("keeps a replay's warnings behind the layer switch", async ({ page }) => {
@@ -255,4 +263,69 @@ test("keeps a replay's warnings behind the layer switch", async ({ page }) => {
   await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
   await expect(pane).toHaveAttribute("data-radar-frame", /\d+/);
   await expect(pane).not.toHaveAttribute("data-layer-stack", /overlay-alerts/);
+});
+
+test("takes a replay's warnings off when the switch goes off mid-replay", async ({
+  page,
+}) => {
+  // The order that matters. Unchecking before the replay starts means nothing
+  // was ever fetched, so the switch is honoured by accident; unchecking after
+  // the archive has answered is the case where the polygons stayed on the map
+  // while the Alerts panel said the layer was off.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Weather Alerts/ }).uncheck();
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /overlay-alerts/);
+
+  // And back on again, without asking the archive for a window it already has.
+  await page.getByRole("checkbox", { name: /Weather Alerts/ }).check();
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
+});
+
+test("tells a reader who cannot see the map what the replay is showing", async ({
+  page,
+}) => {
+  // The readout reads the live warnings feed, which is switched off for the
+  // whole replay. Reading only that left it saying there was nothing over the
+  // place while the map drew that day's polygons.
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveAttribute("data-layer-stack", /overlay-alerts/);
+  // Held still on a frame the fixture's warning actually stood for. Playback
+  // would otherwise walk past it while the panel is being opened, and the
+  // readout would be right to say there is nothing there.
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+  const scrubber = page.getByRole("slider", { name: /radar frame/i });
+  await scrubber.focus();
+  for (let step = 0; step < 2; step += 1) {
+    await page.keyboard.press("ArrowRight");
+  }
+
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("nearby");
+  await page.locator('[data-command="surface:nearby"]').click();
+  await expect(
+    page.getByRole("heading", { name: "Nearby weather" }),
+  ).toBeVisible();
+
+  // The fixture's warning covers the default centre, so the readout has
+  // something to say and must say the same thing the map is drawing.
+  await expect(page.getByText("No warnings over this place.")).toHaveCount(0);
+  await expect(page.locator(".nearby-list")).toContainText("Tornado Warning");
+  // And the reader hears it, which is the whole point of the surface.
+  await expect(page.locator('.live-region [aria-live="polite"]')).toContainText(
+    "Tornado Warning",
+  );
 });
