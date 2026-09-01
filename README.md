@@ -181,8 +181,17 @@ rustup toolchain install nightly
 cargo install cargo-fuzz
 cd src-tauri
 cargo +nightly fuzz build                             # all six
-cargo +nightly fuzz run mrms_grib -- -max_total_time=3600
+cargo +nightly fuzz run mrms_grib -- -max_total_time=3600 -rss_limit_mb=4096
 ```
+
+Give the memory ceiling room. An AddressSanitizer process grows with its
+execution count rather than with any one input, so the stock 2048 is tripped by
+a long session and libFuzzer saves whatever happened to be running: an artifact
+that replays clean in a fresh process. Removing the ceiling is worse. Five
+unbounded targets at once exhausted the machine's commit limit and every one of
+them died on an allocation of a few hundred kilobytes, which reads exactly like
+a real finding and is not. Replay any artifact in a fresh process before
+believing it.
 
 Seeds are committed under `fuzz/seeds`, written by two ignored tests that build them from the same fixtures the unit tests use, so they can be rebuilt when a fixture changes. Copy them into `fuzz/corpus/<target>` before a session; that directory is where libFuzzer grows its own corpus and is not committed, because the seeds are what is worth keeping and a hundred thousand mutations are not.
 
@@ -191,6 +200,16 @@ cargo test --lib writes_the_fuzz_seed_corpus -- --ignored
 ```
 
 Anything a target finds is committed as a reproducer and turned into an ordinary unit test **before** it is fixed, so the fix is proved rather than assumed and the case is checked on every run afterwards.
+
+An hour on each of the five decoder targets on 2026-09-01 came to about 584
+million executions and found nothing: 459 million on `grib_message`, 50 million
+on `grib_complex`, 43 million on `level2_volume`, 25 million on
+`level3_message` and 7 million on `mrms_grib`. `netcdf_flashes` is the
+exception and is not in that number. It found two defects in the first minutes
+of its first session, one guarded here and one an unbounded recursion inside
+the reader that nothing outside it can contain; both sets of bytes are
+committed and both are checked on every test run, and the second is written up
+as an upstream problem rather than pretended to be fixed.
 
 The half of this that does not need nightly runs in the ordinary gate: `gfs::tests::complex_packing_holds_its_shape_on_arbitrary_input` shapes four thousand seeds into complex-packing headers, half of them moved into the set the decoder accepts so the differencing behind the guards is actually reached, and holds two rules on every one: no input reaches a panic, and a field that decodes holds exactly the number of points its own header claimed.
 

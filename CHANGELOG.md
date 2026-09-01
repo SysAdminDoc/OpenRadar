@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The native decoders have been fuzzed. Level II, both GRIB2 packings decoded here by hand, the MRMS grids and the Level III messages all parse bytes from a public server that nobody here chose the shape of, and none of them had ever been run against an adversary. An hour on each came to about 584 million executions and turned up nothing. The lightning reader is the exception, and it is written up rather than papered over: it found two defects in its first few minutes, one now guarded and one an unbounded recursion inside the reader that nothing outside it can contain. Both sets of bytes live beside the code and are checked on every test run.
+
 - Flood warnings are back in the replay. The archive is asked for a window of issuances, not for what was in force, so a warning already standing when a replay starts is only found if the window opens before it was issued. Two hours seemed generous and is not: measured over the week of the 2011 outbreak, not one of 2,679 tornado polygons or 3,778 severe thunderstorm polygons lasted past 1.2 hours, while 389 of 518 areal flood polygons ran longer than two, the longest for a week and a half. So a third of what was in force at the first frame of a replay was missing, all of it flooding. The flood products now get their own ten-day window and the rest keep the two hours that fits them.
 
 - A warning's link opens that warning. The archive's product id is not its event id, and the page it was pointed at could not read one, so it fell through to its own defaults and showed an unrelated 2024 tornado warning for every archived alert in the panel and every popup on the map.
