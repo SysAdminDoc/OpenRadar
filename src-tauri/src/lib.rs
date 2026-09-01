@@ -21,6 +21,7 @@ mod lightning;
 mod mrms;
 mod palette;
 mod probsevere;
+mod tdwr;
 mod tiles;
 mod vad;
 
