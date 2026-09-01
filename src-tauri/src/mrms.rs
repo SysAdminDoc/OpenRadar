@@ -2744,6 +2744,49 @@ mod tests {
         assert!(tile_pixels(&grid, entry, 1, 4, 0, None, false).is_none());
     }
 
+    /// Writes what the `mrms_grib` fuzz target starts from.
+    ///
+    /// Three length arithmetics stacked on each other: the gzip wrapper, the
+    /// GRIB2 section chain, and a PNG-packed data section. A fuzzer that has
+    /// to invent a valid PNG before it reaches the third one will spend its
+    /// whole session on the first, so it is handed one that decodes.
+    ///
+    /// Ignored, because it writes files rather than checking anything. Run it
+    /// when the builder changes:
+    /// `cargo test --lib mrms::tests::writes -- --ignored`
+    #[test]
+    #[ignore = "writes the fuzz seed corpus rather than checking anything"]
+    fn writes_the_fuzz_seed_corpus() {
+        let into = std::path::Path::new("fuzz/seeds/mrms_grib");
+        std::fs::create_dir_all(into).expect("a corpus directory");
+        let samples = [9990u16, 10240, 10490, 0];
+
+        // One that reads, and one of each shape the reader refuses, so the
+        // fuzzer starts on both sides of every branch rather than one.
+        let good = synthetic_grib(0, 41, 0, 2, 2, (2, 2), &samples);
+        std::fs::write(into.join("png-packed"), &good).expect("a seed");
+        std::fs::write(
+            into.join("simple-packed"),
+            synthetic_grib(0, 40, 0, 2, 2, (2, 2), &samples),
+        )
+        .expect("a seed");
+        std::fs::write(
+            into.join("lambert"),
+            synthetic_grib(30, 41, 0, 2, 2, (2, 2), &samples),
+        )
+        .expect("a seed");
+        std::fs::write(
+            into.join("image-too-small"),
+            synthetic_grib(0, 41, 0, 4, 4, (2, 2), &samples),
+        )
+        .expect("a seed");
+        std::fs::write(
+            into.join("half-a-grib"),
+            &good[..good.len() / 2],
+        )
+        .expect("a seed");
+    }
+
     #[test]
     fn a_grib_that_is_not_one_is_refused_rather_than_guessed_at() {
         assert!(matches!(

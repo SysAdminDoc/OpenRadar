@@ -1,0 +1,60 @@
+[package]
+name = "openradar-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.openradar]
+path = ".."
+features = ["fuzzing"]
+
+# The targets are what they are worth being: they parse bytes from a public
+# service and they must not panic or allocate without bound on any of them.
+[[bin]]
+name = "level2_volume"
+path = "fuzz_targets/level2_volume.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "grib_message"
+path = "fuzz_targets/grib_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "grib_complex"
+path = "fuzz_targets/grib_complex.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mrms_grib"
+path = "fuzz_targets/mrms_grib.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "level3_message"
+path = "fuzz_targets/level3_message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "netcdf_flashes"
+path = "fuzz_targets/netcdf_flashes.rs"
+test = false
+doc = false
+bench = false

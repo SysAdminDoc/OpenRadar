@@ -2419,6 +2419,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libfuzzer-sys"
+version = "0.4.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9fd2f41a1cba099f79a0b6b6c35656cf7c03351a7bae8ff0f28f25270f929d2"
+dependencies = [
+ "arbitrary",
+ "cc",
+]
+
+[[package]]
 name = "libloading"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3048,10 +3058,8 @@ dependencies = [
 name = "openradar"
 version = "0.6.0"
 dependencies = [
- "arbitrary",
  "base64 0.23.1",
  "bytes",
- "bzip2",
  "chrono",
  "flate2",
  "futures-util",
@@ -3081,6 +3089,15 @@ dependencies = [
  "tauri-plugin-window-state",
  "thiserror 2.0.20",
  "tokio",
+]
+
+[[package]]
+name = "openradar-fuzz"
+version = "0.0.0"
+dependencies = [
+ "arbitrary",
+ "libfuzzer-sys",
+ "openradar",
 ]
 
 [[package]]

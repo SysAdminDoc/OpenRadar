@@ -2,6 +2,14 @@ node_modules/
 dist/
 target/
 src-tauri/target/
+src-tauri/fuzz/target/
+# libFuzzer grows this from the committed seeds while it runs. The seeds are
+# what is worth keeping; a corpus of a hundred thousand mutations is not.
+src-tauri/fuzz/corpus/
+# libFuzzer writes here what it found. A crash is turned into a unit test and
+# its reproducer committed by hand, under fuzz/reproducers, rather than left
+# lying in a directory the tool also treats as scratch.
+src-tauri/fuzz/artifacts/
 coverage/
 playwright-report/
 test-results/
