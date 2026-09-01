@@ -27,6 +27,7 @@ function fakeMap() {
       const held = sources.get(id);
       if (!held) return undefined;
       return {
+        tiles: tiles.get(id),
         setTiles: (next: string[]) => {
           calls.push(`setTiles ${id}`);
           tiles.set(id, next);
@@ -38,6 +39,8 @@ function fakeMap() {
       sources.set(id, source);
       tiles.set(id, source.tiles as string[]);
     }) as MapLike["addSource"],
+    // MapLibre's raster source exposes what it is pointed at, and a lane that
+    // replaces rather than re-points has to read it.
     removeSource: (id) => {
       calls.push(`removeSource ${id}`);
       sources.delete(id);
@@ -158,6 +161,36 @@ describe("one raster lane's whole life", () => {
     expect(syncRasterLane(map, LANE, 2, under)).toBe(false);
     expect(syncRasterLane(map, LANE, null, under)).toBe(true);
     expect(syncRasterLane(map, LANE, null, under)).toBe(false);
+  });
+
+  it("replaces the source when the lane says an address change is new data", () => {
+    // An MRMS grid is a different field every time. Re-pointing leaves the old
+    // one on screen until every tile of the new one has arrived, which reads
+    // as the weather changing in patches rather than all at once.
+    const map = fakeMap();
+    const lane: RasterLane<number> = { ...LANE, replaceOnChange: true };
+    syncRasterLane(map, lane, 1, under);
+    map.calls.length = 0;
+
+    expect(syncRasterLane(map, lane, 2, under)).toBe(true);
+    expect(map.calls).toEqual([
+      "removeLayer test-layer",
+      "removeSource test-source",
+      "addSource test-source",
+      "addLayer test-layer before openradar-radar-layer-observed",
+    ]);
+    expect(map.tiles.get("test-source")).toEqual([
+      "https://tiles.test/2/{z}/{x}/{y}.png",
+    ]);
+  });
+
+  it("leaves a replacing lane alone when the address has not changed", () => {
+    const map = fakeMap();
+    const lane: RasterLane<number> = { ...LANE, replaceOnChange: true };
+    syncRasterLane(map, lane, 1, under);
+    map.calls.length = 0;
+    expect(syncRasterLane(map, lane, 1, under)).toBe(false);
+    expect(map.calls).toEqual(["setTiles test-source"]);
   });
 
   it("places the lane at the top when nothing is above it yet", () => {

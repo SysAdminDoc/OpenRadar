@@ -14,6 +14,7 @@
 
 export interface RasterSourceLike {
   setTiles?: (tiles: string[]) => void;
+  tiles?: string[];
 }
 
 /**
@@ -42,6 +43,16 @@ export interface RasterLane<T> {
   opacity: number;
   /** Past this zoom the service has no tiles and the last ones are stretched. */
   maxZoom?: number;
+  /**
+   * Whether a change of address is a new source rather than a re-point.
+   *
+   * Satellite and the surge picture stay the same picture pointed at another
+   * time, so re-pointing keeps what the reader has above them and does not
+   * blink. An MRMS grid is a different field every time, so it is replaced:
+   * re-pointing leaves the old grid on screen until every tile of the new one
+   * has arrived, which reads as the weather changing in patches.
+   */
+  replaceOnChange?: boolean;
   /** Where this value's tiles are. */
   tileUrl: (value: NonNullable<T>) => string;
 }
@@ -70,7 +81,12 @@ export function syncRasterLane<T>(
   }
 
   const url = lane.tileUrl(value);
-  const source = map.getSource(lane.sourceId) as RasterSourceLike | undefined;
+  let source = map.getSource(lane.sourceId) as RasterSourceLike | undefined;
+  if (source && lane.replaceOnChange && source.tiles?.[0] !== url) {
+    if (map.getLayer(lane.layerId)) map.removeLayer(lane.layerId);
+    map.removeSource(lane.sourceId);
+    source = undefined;
+  }
   if (source) {
     // A new time or category is the same lane pointed somewhere else. Building
     // it again would flash the map through empty and lose whatever the reader

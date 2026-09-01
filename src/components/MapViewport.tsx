@@ -986,47 +986,33 @@ function MapViewportInner(
     }
   };
 
+  const FLASH_LANE: VectorLane = {
+    sourceId: FLASH_SOURCE_ID,
+    layers: () => [
+      {
+        id: FLASH_LAYER_ID,
+        type: "circle",
+        source: FLASH_SOURCE_ID,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 9, 5],
+          // A flash from a minute ago is bright; one from five minutes ago is
+          // a faint trail behind the storm.
+          "circle-color": flashColor(),
+          "circle-opacity": flashOpacity(),
+          "circle-stroke-width": 0,
+        },
+      },
+    ],
+  };
+
   const syncFlashes = () => {
     const map = mapRef.current;
-    const points = flashesRef.current;
     if (!map || !styleReadyRef.current) return;
-
-    let source = map.getSource(FLASH_SOURCE_ID) as
-      maplibregl.GeoJSONSource | undefined;
-    if (!points) {
-      if (source) {
-        if (map.getLayer(FLASH_LAYER_ID)) map.removeLayer(FLASH_LAYER_ID);
-        map.removeSource(FLASH_SOURCE_ID);
-      }
-      publishLayers();
-      return;
-    }
-    if (!source) {
-      map.addSource(FLASH_SOURCE_ID, {
-        type: "geojson",
-        data: points as never,
-      });
-      map.addLayer(
-        {
-          id: FLASH_LAYER_ID,
-          type: "circle",
-          source: FLASH_SOURCE_ID,
-          paint: {
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2, 9, 5],
-            // A flash from a minute ago is bright; one from five minutes ago is
-            // a faint trail behind the storm.
-            "circle-color": flashColor(),
-            "circle-opacity": flashOpacity(),
-            "circle-stroke-width": 0,
-          },
-        },
-        firstExisting(map, layersAbove(FLASH_LAYER_ID)),
-      );
-      source = map.getSource(FLASH_SOURCE_ID) as maplibregl.GeoJSONSource;
-    }
-    source.setData(points as never);
-    fadeFlashes();
-    publishLayers();
+    const changed = syncVectorLane(map, FLASH_LANE, flashesRef.current, under);
+    // The fade is a paint property rather than data, so it is set after every
+    // refill and not only when the layer arrives.
+    if (flashesRef.current) fadeFlashes();
+    if (changed) publishLayers();
   };
 
   /**
@@ -1044,6 +1030,25 @@ function MapViewportInner(
     map.setPaintProperty(FLASH_LAYER_ID, "circle-opacity", flashOpacity());
   };
 
+  /**
+   * One grid, addressed by its own source id.
+   *
+   * Replaced rather than re-pointed when the address changes: an MRMS grid is
+   * a different field every time, and re-pointing leaves the old one on
+   * screen until every tile of the new one has arrived, which reads as the
+   * weather changing in patches.
+   */
+  const mrmsLane = (id: string): RasterLane<string> => ({
+    sourceId: id,
+    layerId: id,
+    attribution:
+      '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
+    opacity: 0.85,
+    maxZoom: 10,
+    replaceOnChange: true,
+    tileUrl: (url) => url,
+  });
+
   const syncMrmsLayers = () => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
@@ -1053,47 +1058,13 @@ function MapViewportInner(
         layer,
       ]),
     );
-
+    let changed = false;
     for (const id of MRMS_LAYER_IDS) {
-      const layer = wanted.get(id);
-      const source = map.getSource(id) as
-        maplibregl.RasterTileSource | undefined;
-
-      if (!layer) {
-        if (source) {
-          if (map.getLayer(id)) map.removeLayer(id);
-          map.removeSource(id);
-        }
-        continue;
-      }
-
-      // A new grid is a new set of tiles, so the source is replaced rather
-      // than asked to refresh what it already has.
-      if (source && source.tiles?.[0] !== layer.tileUrl) {
-        if (map.getLayer(id)) map.removeLayer(id);
-        map.removeSource(id);
-      }
-      if (!map.getSource(id)) {
-        map.addSource(id, {
-          type: "raster",
-          tiles: [layer.tileUrl],
-          tileSize: 256,
-          maxzoom: 10,
-          attribution:
-            '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
-        });
-        map.addLayer(
-          {
-            id,
-            type: "raster",
-            source: id,
-            paint: { "raster-opacity": 0.85, "raster-fade-duration": 0 },
-          },
-          firstExisting(map, layersAbove(id)),
-        );
-      }
+      changed =
+        syncRasterLane(map, mrmsLane(id), wanted.get(id)?.tileUrl, under) ||
+        changed;
     }
-    publishLayers();
+    if (changed) publishLayers();
   };
 
   const syncSweep = () => {
