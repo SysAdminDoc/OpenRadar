@@ -86,6 +86,8 @@ function sweepFor(
     north: 43.8,
     image: "data:image/png;base64,AAAA",
     volume: `${station}-${product}-${tilt}`,
+    radar: "WSR-88D",
+    rangeKm: 230,
     source: {
       kind: "recent",
       label: "NOAA NEXRAD Level II",

@@ -129,7 +129,6 @@ const CELL_SOURCE_ID = "openradar-cell-source";
 const FLASH_SOURCE_ID = "openradar-flash-source";
 /** How far a site's own sweep reaches, which is as far as a beam height
  * means anything: past it the picture is the mosaic again. */
-const MAX_SWEEP_RANGE_KM = 230;
 
 const SWEEP_SOURCE_ID = "openradar-sweep-source";
 const RADAR_SOURCE_ID = "openradar-radar-source";
@@ -1525,7 +1524,7 @@ function MapViewportInner(
         if (drawn) {
           const site = sweepSite(drawn);
           const rangeKm = haversineMiles(site, point) * 1.609344;
-          if (rangeKm <= MAX_SWEEP_RANGE_KM) {
+          if (rangeKm <= drawn.rangeKm) {
             beam = {
               feet: beamHeightFeet(rangeKm, drawn.elevationDegrees),
               tilt: drawn.elevationDegrees,

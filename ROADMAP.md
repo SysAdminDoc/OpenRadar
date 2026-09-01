@@ -8,13 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-081: Add TDWR Level III coverage behind a radar capability descriptor
-      Why: TDWR can improve low-level airport coverage, but its sites, range, and product details differ from WSR-88D. Hard-coded product strings would make those differences unsafe.
-      Evidence: `src-tauri/src/level3.rs`; `src/lib/level2.ts`; https://www.weather.gov/tg/rpccds ; https://www.weather.gov/gsp/tdwr_specs ; https://www.weather.gov/media/tg/rpccds_radar_products.pdf
-      Touches: Site registry; Level III acquisition and decoding; radar capability metadata; selector; legends; coverage
-      Acceptance: A curated TDWR site and product set is identified from official documentation; unsupported products cannot be selected; radar type, range, time, units, and source are visible; fixtures cover representative messages and unknown blocks; WSR-88D behavior is unchanged.
-      Complexity: XL
-
 - [ ] AUD-083: Add deterministic incident replay bundles
       Why: Workspace backups preserve settings, not the exact external bytes and source identities that produced a past analysis. A portable local bundle would make review reproducible after providers change.
       Evidence: `src/lib/workspace.ts`; `src/hooks/useRadarTimeline.ts`; `src/lib/providers/types.ts`; https://github.com/d4vid87/hookecho ; https://github.com/jhammon88219/Anvil

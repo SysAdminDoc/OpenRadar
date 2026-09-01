@@ -49,6 +49,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 ### Severe weather
 
 - NWS watches and warnings, filtered by hazard rather than by a list of a hundred product names, with damage threat tags drawn heavier and named in the popup.
+- **Terminal radars.** The FAA's 47 airport TDWRs, held from the site list. Reflectivity and velocity on three tilts to 48 nautical miles, plus a long range reflectivity to 225, read from their Level III products and drawn exactly like a site's Level II sweep. The panel says which kind of radar you're holding and how far it reaches, and the products the radar doesn't have stay greyed out.
 - **Storm cells** from the radar's own tracking algorithm: which blobs are one storm, where each is going, and where it will be in fifteen, thirty, forty-five and sixty minutes. Rotation is ringed.
 - **Hydrometeor classification** from the held site's own dual-polarisation algorithm: rain, heavy rain, big drops, ice crystals, dry and wet snow, graupel, and three sizes of hail, read from the lowest tilt or the hybrid scan. The legend names every class and says plainly that it's the radar's reading, not a report from the ground. The inspector names the class under the click.
 - **Severe probability** from the National Severe Storms Laboratory model: how likely each storm is to turn severe in the next hour, and separately for hail, wind and a tornado. It is guidance, it draws under the warnings, and it says so.

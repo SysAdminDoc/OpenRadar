@@ -390,6 +390,7 @@ export const es: Catalogue = {
   "product.spectrumWidth": "Ancho espectral",
   "product.differential": "Reflectividad diferencial",
   "product.correlation": "Coeficiente de correlación",
+  "product.longRange": "Reflectividad de largo alcance",
   "radar.eyebrow": "Producto de radar",
   "radar.title": "Radar compuesto",
   "radar.composite": "Reflectividad compuesta",
@@ -440,6 +441,8 @@ export const es: Catalogue = {
   "radar.classificationDetail":
     "Qué producto de Nivel III lee la capa de clasificación de hidrometeoros: la elevación más baja, o el barrido híbrido en el que se lee todo el volumen.",
   "radar.error.unknownSite": "{0} no es un radar NEXRAD.",
+  "radar.error.notWsr88d":
+    "{0} es el radar de terminal de un aeropuerto: no tiene volumen de Nivel II que leer ni archivo.",
   "radar.error.noVolume":
     "No se ha publicado ningún volumen de {0} ni hoy ni ayer.",
   "radar.error.badListing": "No se pudo leer el listado de volúmenes.",
@@ -472,6 +475,11 @@ export const es: Catalogue = {
   "radar.tiltLabel": "Elevación Level II",
   "radar.site": "Radar",
   "radar.siteLabel": "Estación de radar",
+  "radar.terminalRadars": "Radares de terminal (TDWR)",
+  "radar.terminalLine":
+    "Radar Doppler de terminal, {range} km de alcance · {source}",
+  "radar.terminalProducts":
+    "El radar de terminal de un aeropuerto publica solo reflectividad y velocidad, hasta 48 millas náuticas, con una reflectividad de largo alcance hasta 225. Los demás productos quedan sin disponibilidad mientras se mantiene.",
   "radar.followMap": "Seguir el mapa",
   "radar.hold": "Fijar {station}",
   "radar.opacityLabel": "Opacidad del radar",
@@ -877,6 +885,7 @@ export const es: Catalogue = {
   "chrome.tiltLiveDealiased":
     "ELEVACIÓN {degrees}° · DESPLEGADA · EN VIVO, HACE {seconds} S",
   "chrome.liveProduct": "PRODUCTO EN VIVO",
+  "chrome.terminalRadar": "TDWR · {range} km",
   "chrome.extraScales": "Escalas de otros productos",
   "chrome.wind": "Viento",
   "chrome.windReduced":
