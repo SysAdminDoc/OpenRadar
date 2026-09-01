@@ -80,12 +80,14 @@ futures-util = "0.3.31"
 image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png"] }
 pmtiles = { version = "=0.16.0", default-features = false, features = ["mmap-async-tokio", "write"] }
 sha2 = "0.10.9"
+# The digital Level III products (the hydrometeor classification and its
+# hybrid) carry a bzip2 symbology block, where the graphic products this
+# decoder already read are small and plain. Already in the graph as a
+# transitive dependency of nexrad-data, and pinned to the version it pulls.
+bzip2 = "0.6.0"
 
 [dev-dependencies]
 # Shapes bytes into typed values for the property test over complex packing,
 # which is the stable-toolchain half of what the fuzz targets do on nightly.
 arbitrary = { version = "1", features = ["derive"] }
-# Level II records are bzip2 inside, so writing a test volume needs an encoder.
-# The version is the one nexrad-data already pulls in.
-bzip2 = "0.6.0"
 tokio = { version = "1.53.1", features = ["rt", "rt-multi-thread", "macros"] }
