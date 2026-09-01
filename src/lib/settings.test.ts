@@ -171,6 +171,7 @@ describe("settings normalization", () => {
       "hailSwath",
       "lightningDensity",
       "lightningFlashes",
+      "metar",
       "precipRate",
       "precipType",
       "probSevere",

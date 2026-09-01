@@ -424,6 +424,72 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
   );
 });
 
+test("draws surface observations as station plots, and only close in", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const asked: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("aviationweather.gov"))
+      asked.push(request.url());
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Surface Obs/ }).check();
+
+  // The default view is zoomed out past the point the plots are legible, so
+  // the layer says what to do about that rather than asking for a continent.
+  await expect(
+    page.getByText(/Zoom in to see the station plots/),
+  ).toBeVisible();
+  expect(asked).toHaveLength(0);
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /overlay-metar-barb/,
+  );
+
+  await page.getByRole("button", { name: "Close Layers" }).click();
+  // Zoomed by where the camera actually is rather than by a count of clicks,
+  // because the layouts do not all start at the same zoom and the threshold
+  // is a property of the layer, not of the window.
+  const zoomOf = async () =>
+    Number(((await pane.getAttribute("data-camera")) ?? "").split(",")[2]);
+  for (let step = 0; step < 12 && (await zoomOf()) < 6.5; step += 1) {
+    await page.getByRole("button", { name: "Zoom in" }).click();
+  }
+  await expect.poll(zoomOf).toBeGreaterThanOrEqual(6.5);
+
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-metar-barb/);
+  await expect.poll(() => asked.length).toBeGreaterThan(0);
+  // The box it asks for is the view it is drawing, in the order the service
+  // documents: south, west, north, east.
+  const bbox = new URL(asked[0]).searchParams.get("bbox");
+  expect(bbox).toMatch(/^-?\d+\.\d+,-?\d+\.\d+,-?\d+\.\d+,-?\d+\.\d+$/);
+  const [south, west, north, east] = String(bbox).split(",").map(Number);
+  expect(south).toBeLessThan(north);
+  expect(west).toBeLessThan(east);
+
+  // The icons are registered, which the layer stack cannot tell you: MapLibre
+  // answers a missing icon with a transparent pixel and no complaint, so a
+  // symbol layer whose images were never added is on the map drawing nothing.
+  await expect
+    .poll(async () => (await pane.getAttribute("data-overlay-icons")) ?? "")
+    .toContain("station-barb-25");
+  const icons = (await pane.getAttribute("data-overlay-icons")) ?? "";
+  expect(icons).toContain("station-sky-OVC");
+
+  // Every piece of the plot is its own layer, and the warnings stay above.
+  const stack = (await pane.getAttribute("data-layer-stack")) ?? "";
+  for (const part of ["barb", "sky", "temp", "dewp"]) {
+    expect(stack).toContain(`overlay-metar-${part}`);
+  }
+  expect(stack.indexOf("overlay-metar-barb")).toBeLessThan(
+    stack.indexOf("openradar-overlay-alerts"),
+  );
+});
+
 test("falls back to yesterday's smoke before today's analysis lands", async ({
   page,
 }) => {

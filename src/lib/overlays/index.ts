@@ -5,6 +5,7 @@ import { earthquakesOverlay } from "./earthquakes";
 import { tropicalOverlay } from "./tropical";
 import { wildfiresOverlay } from "./wildfires";
 import { smokeOverlay } from "./smoke";
+import { metarOverlay } from "./metar";
 import type { OverlayAdapter, OverlayId } from "./registry";
 
 export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
@@ -15,6 +16,7 @@ export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
   earthquakesOverlay,
   wildfiresOverlay,
   smokeOverlay,
+  metarOverlay,
   tropicalOverlay,
 ];
 
@@ -37,6 +39,7 @@ export { stormCategory, type TropicalKind } from "./tropical";
 export { parseDiscussions, parseOutlooks, outlookTime } from "./spc";
 export { parseReports, REPORT_HOURS } from "./reports";
 export { parseSmoke, smokeUrl, type SmokeDensity } from "./smoke";
+export { parseMetars, METAR_LIMIT, METAR_MIN_ZOOM } from "./metar";
 export {
   EMPTY_OVERLAY,
   boundsContain,

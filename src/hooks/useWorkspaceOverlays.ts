@@ -7,6 +7,7 @@ import { watchAlertBody, type WatchAlert } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";
 import { alertsOfKind } from "../lib/overlays/alerts";
+import { METAR_MIN_ZOOM } from "../lib/overlays/metar";
 import { translate } from "../i18n";
 
 export interface WorkspaceOverlays {
@@ -41,8 +42,9 @@ export function useWorkspaceOverlays(options: {
 }): WorkspaceOverlays {
   const { settings, viewport, pushToast, setActiveSurface, replaying } =
     options;
-  const { weatherAlerts, earthquakes, wildfires, tropical, smoke } =
+  const { weatherAlerts, earthquakes, wildfires, tropical, smoke, metar } =
     settings.layers;
+  const zoom = settings.camera.zoom;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
 
   const toggles = useMemo(
@@ -56,6 +58,11 @@ export function useWorkspaceOverlays(options: {
       // Today's smoke analysis over a replay of some other day is the same
       // false claim the warnings and the outlooks are held back for.
       smoke: smoke && !replaying,
+      // And a surface observation from ten minutes ago over a picture of
+      // 2011 is the same claim again. The zoom is in it too, because this is
+      // the one feed that answers per station: a continent's worth at once is
+      // both unreadable and a request nobody wanted.
+      metar: metar && !replaying && zoom >= METAR_MIN_ZOOM,
       // The Storm Prediction Center publishes what it thinks about today, and
       // a replay is showing some other day's weather. Painting this morning's
       // risk over Katrina would be worse than showing nothing.
@@ -67,8 +74,10 @@ export function useWorkspaceOverlays(options: {
       earthquakes,
       spcDiscussions,
       replaying,
+      metar,
       smoke,
       spcOutlooks,
+      zoom,
       stormReports,
       tropical,
       weatherAlerts,
@@ -133,6 +142,7 @@ export function useWorkspaceOverlays(options: {
       earthquakes: toggles.earthquakes ? states.earthquakes.data : null,
       wildfires: toggles.wildfires ? states.wildfires.data : null,
       smoke: toggles.smoke ? states.smoke.data : null,
+      metar: toggles.metar ? states.metar.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,
       spcDiscussions: toggles.spcDiscussions

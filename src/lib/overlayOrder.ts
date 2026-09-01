@@ -16,7 +16,10 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   smoke: 4,
   wildfires: 5,
   earthquakes: 6,
-  alerts: 7,
+  // Over the areas, because a station plot is a handful of marks and anything
+  // filled underneath would swallow it.
+  metar: 7,
+  alerts: 8,
 };
 
 /**
