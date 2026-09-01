@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { en } from "../i18n/en";
 import { es } from "../i18n/es";
-import { setLanguage } from "../i18n";
+import { ensureLanguage, setLanguage } from "../i18n";
 import {
   SINGLE_SITE_MIN_ZOOM,
   beamHeightFeet,
@@ -122,7 +122,7 @@ describe("how high the beam is", () => {
 describe("what the native side said went wrong", () => {
   afterEach(() => setLanguage("en"));
 
-  it("writes the failure in the language the workspace is in", () => {
+  it("writes the failure in the language the workspace is in", async () => {
     // The command rejects with a code and its parts. Rendering the sentence
     // the native side wrote put an English line in a Spanish panel.
     const failure = {
@@ -133,6 +133,7 @@ describe("what the native side said went wrong", () => {
     expect(sweepErrorText(failure)).toContain("KDMX");
     expect(sweepErrorText(failure)).not.toBe(failure.text);
 
+    await ensureLanguage("es");
     setLanguage("es");
     const spanish = sweepErrorText(failure);
     expect(spanish).toContain("KDMX");

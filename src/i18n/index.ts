@@ -9,10 +9,15 @@
  * what `useSyncExternalStore` is for. A component that shows copy calls
  * `useT()` and re-renders when the language changes, so switching takes effect
  * where you are rather than on the next restart.
+ *
+ * Spanish is fetched when it is first wanted rather than shipped in the first
+ * load. It is as long as the English again, and a reader of English never
+ * needs a byte of it. `ensureLanguage` is how a caller waits for it: both
+ * places that restore a saved language do, so a Spanish reader's first screen
+ * is already Spanish rather than English for a moment.
  */
 import { useCallback, useSyncExternalStore } from "react";
 import { en, type Catalogue, type StringKey } from "./en";
-import { es } from "./es";
 import { pseudo } from "./pseudo";
 
 export type LanguageId = "en" | "es" | "pseudo";
@@ -27,7 +32,34 @@ export const LANGUAGES: Array<{ id: LanguageId; label: string }> = [
   { id: "pseudo", label: "Pseudolocale" },
 ];
 
-const CATALOGUES: Record<LanguageId, Catalogue> = { en, es, pseudo };
+let spanish: Catalogue | null = null;
+let spanishArriving: Promise<void> | null = null;
+
+function catalogue(which: LanguageId): Catalogue {
+  if (which === "es") return spanish ?? en;
+  return which === "pseudo" ? pseudo : en;
+}
+
+/**
+ * Have the copy for a language in hand.
+ *
+ * Resolves at once for everything but Spanish, and for Spanish once it has
+ * been fetched. A fetch that fails leaves English on screen, which is a
+ * readable workspace rather than a screen of keys, and is tried again the
+ * next time somebody asks.
+ */
+export function ensureLanguage(which: LanguageId): Promise<void> {
+  if (which !== "es" || spanish) return Promise.resolve();
+  spanishArriving ??= import("./es")
+    .then((module) => {
+      spanish = module.es;
+      for (const listener of listeners) listener();
+    })
+    .catch(() => {
+      spanishArriving = null;
+    });
+  return spanishArriving;
+}
 
 export function isLanguage(value: unknown): value is LanguageId {
   return value === "en" || value === "es" || value === "pseudo";
@@ -43,6 +75,9 @@ export function language(): LanguageId {
 export function setLanguage(next: LanguageId) {
   if (next === current) return;
   current = next;
+  // Copy that is not here yet arrives on its own and tells the subscribers
+  // again, so a switch made without waiting still lands.
+  void ensureLanguage(next);
   for (const listener of listeners) listener();
 }
 
@@ -75,11 +110,10 @@ export function translate(
   params?: Params,
   which: LanguageId = current,
 ): string {
-  const catalogue = CATALOGUES[which] ?? en;
   // A key missing from a translation falls back to English rather than showing
   // the key itself. The type checker stops this from happening, but a stored
   // language from a future build should not paint the screen with identifiers.
-  const template = catalogue[key] ?? en[key];
+  const template = catalogue(which)[key] ?? en[key];
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
     name in params ? String(params[name]) : whole,

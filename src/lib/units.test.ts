@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setLanguage } from "../i18n";
+import { ensureLanguage, setLanguage } from "../i18n";
 import {
   distanceSlider,
   distanceUnit,
@@ -182,10 +182,11 @@ describe("the units the workspace reads in", () => {
     }
   });
 
-  it("picks the step from the units and not from a translated word", () => {
+  it("picks the step from the units and not from a translated word", async () => {
     // The step used to be chosen by comparing distanceUnit() to "miles",
     // which is "millas" in Spanish, so the imperial slider changed grid with
     // the language.
+    await ensureLanguage("es");
     setLanguage("es");
     expect(distanceSlider(5, 200).step).toBe(5);
     setUnits("metric");

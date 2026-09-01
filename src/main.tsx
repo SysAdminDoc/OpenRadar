@@ -4,7 +4,7 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { NoGpu } from "./components/NoGpu";
 import "./index.css";
-import { setLanguage } from "./i18n";
+import { ensureLanguage, setLanguage } from "./i18n";
 import { gpuSupport } from "./lib/gpu";
 import { loadSettings } from "./lib/settings";
 import { primeTileCache } from "./lib/tileCache";
@@ -31,7 +31,10 @@ if (drawable) {
   // Reading it here is the difference between explaining the problem and
   // explaining it in a language the reader may not have.
   void loadSettings()
-    .then((settings) => setLanguage(settings.language))
+    .then(async (settings) => {
+      await ensureLanguage(settings.language);
+      setLanguage(settings.language);
+    })
     .catch(() => {})
     .finally(() => {
       root.render(
