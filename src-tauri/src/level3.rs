@@ -978,6 +978,13 @@ pub struct ClassArea {
     /// Kilometres from the radar, the near and far edge of the run.
     pub near_km: f64,
     pub far_km: f64,
+    /// The wedge as longitude and latitude, closed, ready to draw.
+    ///
+    /// Worked out here rather than on the page because the conversion is a
+    /// great-circle offset from the radar and the far edge of these products
+    /// is three hundred kilometres out, which is exactly where a flat one
+    /// stops being honest. The same function the storm cells are placed with.
+    pub ring: Vec<[f64; 2]>,
 }
 
 /// The runs of one class along every radial.
@@ -985,7 +992,7 @@ pub struct ClassArea {
 /// Only the classes worth drawing: the algorithm's "nothing here", biological
 /// returns, ground clutter and range folding are answers, and they are not
 /// weather. Painting them would cover a quiet afternoon in colour.
-pub fn classification_areas(image: &RadialImage) -> Vec<ClassArea> {
+pub fn classification_areas(image: &RadialImage, site: (f64, f64)) -> Vec<ClassArea> {
     let mut out = Vec::new();
     for radial in &image.radials {
         let mut run: Option<(Hydrometeor, usize)> = None;
@@ -994,7 +1001,7 @@ pub fn classification_areas(image: &RadialImage) -> Vec<ClassArea> {
             match (run, class) {
                 (Some((held, _)), Some(now)) if held == now => {}
                 (Some((held, from)), _) => {
-                    out.push(area(image, radial, held, from, at));
+                    out.push(area(image, radial, site, held, from, at));
                     run = class.map(|one| (one, at));
                 }
                 (None, Some(now)) => run = Some((now, at)),
@@ -1002,7 +1009,7 @@ pub fn classification_areas(image: &RadialImage) -> Vec<ClassArea> {
             }
         }
         if let Some((held, from)) = run {
-            out.push(area(image, radial, held, from, radial.gates.len()));
+            out.push(area(image, radial, site, held, from, radial.gates.len()));
         }
     }
     out
@@ -1011,17 +1018,36 @@ pub fn classification_areas(image: &RadialImage) -> Vec<ClassArea> {
 fn area(
     image: &RadialImage,
     radial: &Radial,
+    site: (f64, f64),
     class: Hydrometeor,
     from: usize,
     to: usize,
 ) -> ClassArea {
     let bin = |at: usize| (image.first_bin as usize + at) as f64 * image.bin_km;
+    let near_km = bin(from);
+    let far_km = bin(to);
+    let from_degrees = radial.start_degrees;
+    let to_degrees = radial.start_degrees + radial.width_degrees;
+    // Four corners and the close. The radials are a degree wide, so the arc
+    // across one is shorter than a gate and drawing it as a straight edge
+    // costs nothing a reader could see.
+    let corner = |bearing: f32, km: f64| {
+        let (latitude, longitude) = offset(site, bearing as f64, km);
+        [longitude, latitude]
+    };
     ClassArea {
         class,
-        from_degrees: radial.start_degrees,
-        to_degrees: radial.start_degrees + radial.width_degrees,
-        near_km: bin(from),
-        far_km: bin(to),
+        from_degrees,
+        to_degrees,
+        near_km,
+        far_km,
+        ring: vec![
+            corner(from_degrees, near_km),
+            corner(to_degrees, near_km),
+            corner(to_degrees, far_km),
+            corner(from_degrees, far_km),
+            corner(from_degrees, near_km),
+        ],
     }
 }
 
@@ -1063,7 +1089,7 @@ pub async fn level3_classification(
         station,
         observed: description.volume_time.to_rfc3339(),
         product: code.to_string(),
-        features: classification_areas(&image),
+        features: classification_areas(&image, (description.latitude, description.longitude)),
     })
 }
 
@@ -1526,7 +1552,7 @@ mod tests {
     #[test]
     fn turns_a_sweep_into_runs_of_one_class() {
         let (_, image) = read_classification(N0H, QUARTER_KM).expect("a classification");
-        let areas = classification_areas(&image);
+        let areas = classification_areas(&image, (35.333, -97.278));
         assert!(!areas.is_empty(), "a whole sweep produced no areas");
         // Runs, not gates: a sweep is mostly one class at a time, and one
         // feature per gate would be a million of them.
@@ -1547,6 +1573,13 @@ mod tests {
             assert!(one.near_km >= 0.0);
             // The furthest gate of a quarter-kilometre product at 1,200 bins.
             assert!(one.far_km <= 301.0, "{} km", one.far_km);
+            // Closed, and near the radar it came from rather than at zero.
+            assert_eq!(one.ring.len(), 5);
+            assert_eq!(one.ring[0], one.ring[4]);
+            for [lon, lat] in &one.ring {
+                assert!((-101.0..-93.0).contains(lon), "lon {lon}");
+                assert!((32.0..39.0).contains(lat), "lat {lat}");
+            }
         }
     }
 
@@ -1565,7 +1598,7 @@ mod tests {
                 gates: vec![60, 60, 0, 40, 40, 20],
             }],
         };
-        let areas = classification_areas(&image);
+        let areas = classification_areas(&image, (35.0, -97.0));
         assert_eq!(areas.len(), 2);
         assert_eq!(areas[0].class, Hydrometeor::Rain);
         assert_eq!((areas[0].near_km, areas[0].far_km), (0.0, 2.0));
@@ -1587,10 +1620,48 @@ mod tests {
                 gates: vec![60, 60, 60],
             }],
         };
-        let areas = classification_areas(&image);
+        let areas = classification_areas(&image, (35.0, -97.0));
         assert_eq!(areas.len(), 1);
         // The first bin is an offset from the radar, not always zero.
         assert_eq!((areas[0].near_km, areas[0].far_km), (0.5, 1.25));
+    }
+
+    #[test]
+    fn a_wedge_sits_where_its_range_and_bearing_put_it() {
+        // Due north and due east from a radar, a hundred kilometres out. A
+        // flat offset would be wrong here by kilometres, which is why the
+        // great-circle one the storm cells use is the one this shares.
+        let image = RadialImage {
+            first_bin: 0,
+            bins: 400,
+            bin_km: 0.25,
+            radials: vec![
+                Radial {
+                    start_degrees: 0.0,
+                    width_degrees: 1.0,
+                    gates: vec![60; 400],
+                },
+                Radial {
+                    start_degrees: 90.0,
+                    width_degrees: 1.0,
+                    gates: vec![60; 400],
+                },
+            ],
+        };
+        let areas = classification_areas(&image, (35.0, -97.0));
+        assert_eq!(areas.len(), 2);
+
+        // A hundred kilometres north is about nine tenths of a degree of
+        // latitude, and the longitude barely moves.
+        let north = areas[0].ring[3];
+        assert!((north[1] - 35.899).abs() < 0.01, "north lat {}", north[1]);
+        assert!((north[0] + 97.0).abs() < 0.01, "north lon {}", north[0]);
+
+        // A hundred kilometres east at this latitude is about one point one
+        // degrees of longitude, and the latitude barely moves.
+        let east = areas[1].ring[3];
+        assert!((east[0] + 95.902).abs() < 0.01, "east lon {}", east[0]);
+        assert!((east[1] - 35.0).abs() < 0.02, "east lat {}", east[1]);
     }
 
     #[test]
