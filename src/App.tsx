@@ -91,6 +91,7 @@ const COVERED_BY_ADAPTERS = new Set(
   OVERLAY_ADAPTERS.map((adapter) => adapter.id as string),
 );
 import { useStormCells } from "./hooks/useStormCells";
+import { useClassification } from "./hooks/useClassification";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
 import { activePalettes, paletteUnit } from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
@@ -244,6 +245,27 @@ export default function App() {
     pageVisible,
     clock,
   });
+  // The same site's own account of what is falling, read from Level III
+  // beside the cells and tied to the site for the same reason.
+  const classification = useClassification({
+    ready: hydrated,
+    enabled: settings.layers.classification && !singleSite.historical,
+    station: singleSite.station,
+    product: settings.radar.classificationProduct,
+    pageVisible,
+    clock,
+  });
+  // One object, so the map is handed something new only when the answer is.
+  const drawnClassification = useMemo(
+    () =>
+      classification.report && classification.features
+        ? {
+            features: classification.features,
+            legend: classification.report.legend,
+          }
+        : null,
+    [classification.features, classification.report],
+  );
   // One reading covers the whole country, so there is nothing to key on the
   // view: what is on screen is whatever part of it the map is over.
   const probSevere = useProbSevere({
@@ -481,6 +503,7 @@ export default function App() {
         // the opposite of what a report about the picture is for.
         if (layer === "wind" && !wind.field) continue;
         if (layer === "lightningFlashes" && !lightning.window) continue;
+        if (layer === "classification" && !classification.report) continue;
         const source = LAYER_SOURCES[layer];
         // Matched on the source rather than on the switch's own name, because
         // the two do not agree: the alerts adapter is `alerts` and the switch
@@ -496,7 +519,9 @@ export default function App() {
               lightning.window
               ? lightning.window.observed * 1000
               : null
-            : null);
+            : layer === "classification" && classification.report
+              ? Date.parse(classification.report.observed)
+              : null);
         // The wind layer is the one forecast here whose run the app already
         // reads, so it can report a real one rather than saying it does not know.
         const modelRun =
@@ -567,6 +592,7 @@ export default function App() {
       })();
     },
     [
+      classification.report,
       health,
       lightning.window,
       wind.field,
@@ -844,6 +870,7 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         cells={stormCells.features}
+        classification={drawnClassification}
         probSevere={probSevere.features}
         overlayOpacity={settings.overlayOpacity}
         overlayOrder={settings.overlayOrder}
@@ -883,6 +910,7 @@ export default function App() {
               spcDiscussions: overlays.states.spcDiscussions.error,
               stormReports: overlays.states.stormReports.error,
               stormCells: stormCells.error,
+              classification: classification.error,
               probSevere: probSevere.error,
               earthquakes: overlays.states.earthquakes.error,
               wildfires: overlays.states.wildfires.error,
@@ -1032,6 +1060,7 @@ export default function App() {
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
         smoke={overlays.data.smoke ?? null}
+        classification={classification.report}
         wind={singleSite.historical ? null : wind.field}
         windReduced={
           !singleSite.historical && settings.layers.wind && reducedMotion

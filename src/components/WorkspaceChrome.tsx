@@ -12,6 +12,10 @@ import { assignedPalette } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { OverlayData } from "../lib/overlays";
 import { analysisDate, type SmokeDensity } from "../lib/overlays/smoke";
+import {
+  CLASSIFICATION_PRODUCT_KEYS,
+  type Classification,
+} from "../lib/classification";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
@@ -61,6 +65,8 @@ interface WorkspaceChromeProps {
   lightning: FlashWindow | null;
   /** The day's smoke analysis, when that layer is on, for its own scale. */
   smoke: OverlayData | null;
+  /** What the held site's own algorithm says is falling, when that layer is on. */
+  classification: Classification | null;
   /** The wind field the particles follow, when that layer is on. */
   wind: WindField | null;
   /** True when the wind layer is switched on but held back for reduced motion. */
@@ -111,6 +117,7 @@ export function WorkspaceChrome({
   mrmsLayers,
   lightning,
   smoke,
+  classification,
   wind,
   windReduced,
   clock,
@@ -300,7 +307,12 @@ export function WorkspaceChrome({
         highContrast={drawnHighContrast}
         onToggle={onToggleProduct}
       />
-      {mrmsLayers.length || lightning || wind || windReduced || smokeScale ? (
+      {mrmsLayers.length ||
+      lightning ||
+      wind ||
+      windReduced ||
+      smokeScale ||
+      classification ? (
         <div className="product-legends" aria-label={t("chrome.extraScales")}>
           {windReduced ? (
             <div className="product-legend">
@@ -375,6 +387,30 @@ export function WorkspaceChrome({
                   </li>
                 ))}
               </ol>
+            </div>
+          ) : null}
+          {classification ? (
+            <div className="product-legend" data-classification-legend="1">
+              <strong>
+                {t("layer.classification")}
+                <em>
+                  {t(CLASSIFICATION_PRODUCT_KEYS[classification.product])}
+                  {" · "}
+                  {gridAge(Date.parse(classification.observed) / 1000, clock)}
+                </em>
+              </strong>
+              {/* Every class the layer can draw, whether or not this volume
+                  holds it: a legend that lists only what is on screen cannot
+                  be read against what is not. */}
+              <ol className="is-categorical">
+                {classification.legend.map((style) => (
+                  <li key={style.id}>
+                    <i style={{ background: style.color }} aria-hidden="true" />
+                    {t(`hydrometeor.${style.id}` as StringKey)}
+                  </li>
+                ))}
+              </ol>
+              <small>{t("chrome.classificationNote")}</small>
             </div>
           ) : null}
           {mrmsLayers.map((layer) => (

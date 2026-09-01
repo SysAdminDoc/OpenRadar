@@ -139,6 +139,7 @@ describe("settings normalization", () => {
     expect(settings.layers.weatherAlerts).toBe(false);
     expect(Object.keys(settings.radar).sort()).toEqual([
       "animationSpeed",
+      "classificationProduct",
       "dealias",
       "enabled",
       "futureRadar",
@@ -164,6 +165,7 @@ describe("settings normalization", () => {
     expect(settings.radar.product).toBe("reflectivity");
     expect(settings.radar.tilt).toBe(0);
     expect(Object.keys(settings.layers).sort()).toEqual([
+      "classification",
       "customOverlay",
       "earthquakes",
       "echoTops",

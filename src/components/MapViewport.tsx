@@ -55,7 +55,7 @@ import {
   surgeTileUrl,
   type SurgeCategory,
 } from "../lib/surge";
-import { translate } from "../i18n";
+import { translate, type StringKey } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
@@ -65,12 +65,16 @@ import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import { syncRadarLane } from "../lib/mapLayers/radar";
 import { syncImageLane, type ImageLane } from "../lib/mapLayers/image";
 import { baseOpacity } from "../lib/mapLayers/opacity";
+import { classificationPaint, type ClassStyle } from "../lib/classification";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
   CELL_LAYER_IDS,
   CELL_POINT_LAYER_ID,
   CELL_TRACK_LAYER_ID,
+  CLASSIFICATION_FILL_LAYER_ID,
+  CLASSIFICATION_LINE_LAYER_ID,
+  CLASSIFICATION_SOURCE_ID,
   CUSTOM_FILL_LAYER_ID,
   CUSTOM_LINE_LAYER_ID,
   CUSTOM_POINT_LAYER_ID,
@@ -164,6 +168,15 @@ interface MapViewportProps {
   flashes?: Record<string, unknown> | null;
   /** Storm cells with their tracks, from the radar's own algorithm. */
   cells?: Record<string, unknown> | null;
+  /**
+   * What the same algorithm says is falling, with the colours it says to draw
+   * each class in. The legend arrives with the areas so the two cannot
+   * disagree about what a colour means.
+   */
+  classification?: {
+    features: Record<string, unknown>;
+    legend: ClassStyle[];
+  } | null;
   /** What the severe-probability model expects of each storm. */
   probSevere?: Record<string, unknown> | null;
   /** How solid each overlay is drawn, as a fraction of its own design. */
@@ -285,6 +298,7 @@ function MapViewportInner(
     mrmsLayers = [],
     flashes = null,
     cells = null,
+    classification = null,
     probSevere = null,
     overlayOpacity = {},
     overlayOrder = [],
@@ -316,6 +330,7 @@ function MapViewportInner(
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
+  const classificationRef = useRef(classification);
   const probSevereRef = useRef<Record<string, unknown> | null>(probSevere);
   // The layer specs are read once, when a source is first added, so the
   // preference has to be readable from inside the sync functions rather than
@@ -845,6 +860,55 @@ function MapViewportInner(
    * storm itself and its name are four different things and MapLibre draws
    * one kind of geometry per layer.
    */
+  const CLASSIFICATION_LANE: VectorLane = {
+    sourceId: CLASSIFICATION_SOURCE_ID,
+    // Read on every rebuild, because the colours arrive with the data: a
+    // table copied to this side of the boundary drifts, and then the legend
+    // and the map disagree about what a colour means.
+    layers: () => {
+      const fill = classificationPaint(classificationRef.current?.legend ?? []);
+      return [
+        {
+          id: CLASSIFICATION_FILL_LAYER_ID,
+          type: "fill",
+          source: CLASSIFICATION_SOURCE_ID,
+          paint: {
+            "fill-color": fill,
+            // Light enough to read the sweep through, because this is the
+            // algorithm's reading of that sweep rather than a replacement
+            // for it.
+            "fill-opacity": 0.55,
+          },
+        },
+        {
+          id: CLASSIFICATION_LINE_LAYER_ID,
+          type: "line",
+          source: CLASSIFICATION_SOURCE_ID,
+          paint: {
+            "line-color": fill,
+            "line-width": 0.4,
+            "line-opacity": 0.5,
+          },
+        },
+      ];
+    },
+  };
+
+  const syncClassification = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (
+      syncVectorLane(
+        map,
+        CLASSIFICATION_LANE,
+        classificationRef.current?.features ?? null,
+        under,
+      )
+    ) {
+      publishLayers();
+    }
+  };
+
   const CELL_LANE: VectorLane = {
     sourceId: CELL_SOURCE_ID,
     // Read on every rebuild rather than captured: the cells are drawn in one
@@ -1203,6 +1267,10 @@ function MapViewportInner(
     cellsRef.current = next;
     syncCells();
   });
+  useMapSync(classification, (next) => {
+    classificationRef.current = next;
+    syncClassification();
+  });
   useMapSync(flashes, (next) => {
     flashesRef.current = next;
     syncFlashes();
@@ -1361,6 +1429,7 @@ function MapViewportInner(
       syncWind();
       syncProbSevere();
       syncCells();
+      syncClassification();
       renderTools();
       syncOverlays();
       syncRoute();
@@ -1423,6 +1492,19 @@ function MapViewportInner(
             };
           }
         }
+        // What the radar's own algorithm called the gate under the click,
+        // when that layer is on. Read now rather than when the line is
+        // written, because the map under the cursor moves on.
+        let classified: string | null = null;
+        if (map.getLayer(CLASSIFICATION_FILL_LAYER_ID)) {
+          const [hit] = map.queryRenderedFeatures(event.point, {
+            layers: [CLASSIFICATION_FILL_LAYER_ID],
+          });
+          const legend = classificationRef.current?.legend ?? [];
+          classified =
+            legend.find((entry) => entry.class === hit?.properties?.class)
+              ?.id ?? null;
+        }
         // The height is left in feet and written out later, because the units
         // can change while this reading is still on screen.
         onToolResult?.(() => {
@@ -1438,6 +1520,13 @@ function MapViewportInner(
               translate("tool.beamHeight", {
                 height: formatHeight(beam.feet),
                 tilt: beam.tilt.toFixed(2),
+              }),
+            );
+          }
+          if (classified) {
+            lines.push(
+              translate("tool.classified", {
+                class: translate(`hydrometeor.${classified}` as StringKey),
               }),
             );
           }

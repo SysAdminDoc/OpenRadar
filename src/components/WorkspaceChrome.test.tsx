@@ -76,6 +76,7 @@ function chrome(
       mrmsLayers={[]}
       lightning={null}
       smoke={null}
+      classification={null}
       wind={null}
       windReduced={false}
       announcement={{ said: 0, text: "" }}

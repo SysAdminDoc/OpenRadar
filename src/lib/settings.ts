@@ -1,6 +1,10 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
 import {
+  isClassificationProduct,
+  type ClassificationProduct,
+} from "./classification";
+import {
   MAX_PALETTES,
   paletteUnit,
   parsePalette,
@@ -70,6 +74,11 @@ export interface RadarSettings {
   /** The site to hold, or null to follow whichever one the view is over. */
   station: string | null;
   product: Level2ProductId;
+  /**
+   * Which Level III product the hydrometeor classification is read from: the
+   * lowest tilt, or the hybrid scan the whole volume is read into.
+   */
+  classificationProduct: ClassificationProduct;
   tilt: number;
   /**
    * Hide anything weaker than this, per product, in the product's own unit.
@@ -89,6 +98,8 @@ export interface LayerSettings {
   stormReports: boolean;
   /** Storm cells and their tracks, from the radar's own algorithm. */
   stormCells: boolean;
+  /** What the radar's own algorithm says is falling at the held site. */
+  classification: boolean;
   /** What the severe-probability model expects of each storm. */
   probSevere: boolean;
   earthquakes: boolean;
@@ -295,6 +306,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     stormMotion: null,
     station: null,
     product: "reflectivity",
+    classificationProduct: "HHC",
     tilt: 0,
     thresholds: {},
   },
@@ -304,6 +316,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     spcDiscussions: false,
     stormReports: false,
     stormCells: false,
+    classification: false,
     probSevere: false,
     earthquakes: false,
     wildfires: false,
@@ -1070,6 +1083,11 @@ export function normalizeSettings(value: unknown): AppSettings {
       product: isLevel2Product(radar.product)
         ? radar.product
         : DEFAULT_SETTINGS.radar.product,
+      classificationProduct: isClassificationProduct(
+        radar.classificationProduct,
+      )
+        ? radar.classificationProduct
+        : DEFAULT_SETTINGS.radar.classificationProduct,
       tilt: finiteInRange(radar.tilt, DEFAULT_SETTINGS.radar.tilt, 0, 20),
       loopMinutes: finiteInRange(
         radar.loopMinutes,
@@ -1098,6 +1116,10 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.stormReports,
       ),
       stormCells: bool(layers.stormCells, DEFAULT_SETTINGS.layers.stormCells),
+      classification: bool(
+        layers.classification,
+        DEFAULT_SETTINGS.layers.classification,
+      ),
       probSevere: bool(layers.probSevere, DEFAULT_SETTINGS.layers.probSevere),
       earthquakes: bool(
         layers.earthquakes,

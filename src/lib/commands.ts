@@ -63,6 +63,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["cell", "track", "motion", "arrival", "radar"],
   },
   {
+    layer: "classification",
+    key: "layer.classification",
+    extra: "keywords.classification",
+    keywords: ["hydrometeor", "hail", "snow", "rain", "dual-pol", "hca"],
+  },
+  {
     layer: "probSevere",
     key: "layer.probSevere",
     extra: "keywords.probSevere",

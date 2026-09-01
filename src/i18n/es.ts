@@ -435,6 +435,10 @@ export const es: Catalogue = {
     "Acércate más allá de {zoom} sobre Estados Unidos para traer un radar.",
   "radar.product": "Producto",
   "radar.productLabel": "Producto Level II",
+  "radar.classification": "Clasificación",
+  "radar.classificationLabel": "Producto de clasificación de hidrometeoros",
+  "radar.classificationDetail":
+    "Qué producto de Nivel III lee la capa de clasificación de hidrometeoros: la elevación más baja, o el barrido híbrido en el que se lee todo el volumen.",
   "radar.error.unknownSite": "{0} no es un radar NEXRAD.",
   "radar.error.noVolume":
     "No se ha publicado ningún volumen de {0} ni hoy ni ayer.",
@@ -493,6 +497,24 @@ export const es: Catalogue = {
   "layer.stormCells": "Células de tormenta",
   "layers.stormCellsDetail":
     "Lo que sigue el algoritmo del propio radar, con hacia dónde va cada tormenta",
+  "layer.classification": "Clasificación de hidrometeoros",
+  "layers.classificationDetail":
+    "Lo que el algoritmo del propio sitio dice que está cayendo: lluvia, nieve, granizo, o que no lo sabe",
+  "hydrometeor.iceCrystals": "Cristales de hielo",
+  "hydrometeor.drySnow": "Nieve seca",
+  "hydrometeor.wetSnow": "Nieve húmeda",
+  "hydrometeor.graupel": "Granizo blando",
+  "hydrometeor.rain": "Lluvia",
+  "hydrometeor.heavyRain": "Lluvia intensa",
+  "hydrometeor.bigDrops": "Gotas grandes",
+  "hydrometeor.hail": "Granizo",
+  "hydrometeor.largeHail": "Granizo grande",
+  "hydrometeor.giantHail": "Granizo gigante",
+  "hydrometeor.unknown": "Desconocido",
+  "classification.lowestTilt": "Elevación más baja (N0H)",
+  "classification.hybridScan": "Barrido híbrido (HHC)",
+  "chrome.classificationNote":
+    "El propio algoritmo del radar nombrando a qué se parecen sus momentos de doble polarización. No es un informe desde el suelo.",
   "layer.stormReports": "Informes de tormenta",
   "layers.stormReportsDetail":
     "Lo que la gente vio de verdad en el último día: granizo, daños por viento, tornados, inundaciones",
@@ -640,6 +662,7 @@ export const es: Catalogue = {
   "keywords.spcDiscussions": "discusion mesoescala aviso corto",
   "keywords.weatherAlerts": "aviso vigilancia tornado severo poligono",
   "keywords.stormCells": "celula tormenta trayectoria movimiento llegada",
+  "keywords.classification": "hidrometeoro granizo nieve lluvia clasificacion",
   "keywords.probSevere": "probabilidad severo granizo viento tornado",
   "keywords.earthquakes": "sismo temblor terremoto magnitud",
   "keywords.wildfires": "incendio fuego perimetro humo",
@@ -1166,6 +1189,7 @@ export const es: Catalogue = {
   "tool.endHint": "Elige el punto final",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.beamHeight": "haz a {height} sobre el radar con {tilt}°",
+  "tool.classified": "{class} según la clasificación del propio radar",
   "tool.pathPoints": "{count} puntos en la ruta",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",

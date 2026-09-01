@@ -429,6 +429,10 @@ export const en = {
   "radar.zoomIn": "Zoom past {zoom} over the United States to bring a site in.",
   "radar.product": "Product",
   "radar.productLabel": "Level II product",
+  "radar.classification": "Classification",
+  "radar.classificationLabel": "Hydrometeor classification product",
+  "radar.classificationDetail":
+    "Which Level III product the Hydrometeor Classification layer reads: the lowest tilt, or the hybrid scan the whole volume is read into.",
   "radar.error.unknownSite": "{0} is not a NEXRAD site.",
   "radar.error.noVolume":
     "No radar volume has been published for {0} yet today or yesterday.",
@@ -486,6 +490,24 @@ export const en = {
   "layer.stormCells": "Storm Cells",
   "layers.stormCellsDetail":
     "What the radar's own tracking algorithm is following, with where each storm is going",
+  "layer.classification": "Hydrometeor Classification",
+  "layers.classificationDetail":
+    "What the held site's own algorithm says is falling: rain, snow, hail, or that it cannot tell",
+  "hydrometeor.iceCrystals": "Ice crystals",
+  "hydrometeor.drySnow": "Dry snow",
+  "hydrometeor.wetSnow": "Wet snow",
+  "hydrometeor.graupel": "Graupel",
+  "hydrometeor.rain": "Rain",
+  "hydrometeor.heavyRain": "Heavy rain",
+  "hydrometeor.bigDrops": "Big drops",
+  "hydrometeor.hail": "Hail",
+  "hydrometeor.largeHail": "Large hail",
+  "hydrometeor.giantHail": "Giant hail",
+  "hydrometeor.unknown": "Unknown",
+  "classification.lowestTilt": "Lowest tilt (N0H)",
+  "classification.hybridScan": "Hybrid scan (HHC)",
+  "chrome.classificationNote":
+    "The radar's own algorithm naming what its dual-polarisation moments look like. It is not a report from the ground.",
   "layer.stormReports": "Storm Reports",
   "layers.stormReportsDetail":
     "What people on the ground actually saw in the last day: hail, wind damage, tornadoes, flooding",
@@ -630,6 +652,7 @@ export const en = {
   "keywords.spcDiscussions": "mesoscale discussion short fuse",
   "keywords.weatherAlerts": "",
   "keywords.stormCells": "",
+  "keywords.classification": "",
   "keywords.probSevere": "",
   "keywords.earthquakes": "",
   "keywords.wildfires": "",
@@ -1146,6 +1169,7 @@ export const en = {
   "tool.endHint": "Select the end point",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
   "tool.beamHeight": "beam {height} above the radar at {tilt}°",
+  "tool.classified": "{class} by the radar's own classification",
   "tool.pathPoints": "{count} points in path",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Click the map to inspect a point",
