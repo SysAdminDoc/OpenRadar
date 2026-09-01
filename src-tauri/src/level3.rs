@@ -30,7 +30,7 @@ use serde::Serialize;
 
 use crate::http;
 
-const BUCKET: &str = "unidata-nexrad-level3.s3.amazonaws.com";
+pub(crate) const BUCKET: &str = "unidata-nexrad-level3.s3.amazonaws.com";
 
 /// The teletype header every product carries, and which is not part of the
 /// message the length field describes.
@@ -180,17 +180,28 @@ fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
 
 /// The parts of the product description block this decoder reads.
 #[derive(Debug, Clone, Copy)]
-struct Description {
-    latitude: f64,
-    longitude: f64,
+pub(crate) struct Description {
+    pub(crate) latitude: f64,
+    pub(crate) longitude: f64,
     /// When the volume was taken, which is what the cells describe. The
     /// product generation time is several minutes later and is not it.
-    volume_time: DateTime<Utc>,
+    pub(crate) volume_time: DateTime<Utc>,
     /// Byte offsets into the message, already converted from halfwords. Zero
     /// means the block is not there, which is how a product with nothing
     /// detected says so.
-    symbology: Option<usize>,
-    tabular: Option<usize>,
+    pub(crate) symbology: Option<usize>,
+    pub(crate) tabular: Option<usize>,
+    /// The ICD's product code, which says what the bytes are.
+    pub(crate) product_code: u16,
+    /// The tilt a base product was scanned at, from the third product
+    /// dependent halfword, in degrees. Meaningless for a product that has
+    /// no tilt, where the halfword holds something else.
+    pub(crate) elevation_degrees: f32,
+    /// The scale a digital product's bytes are on: the value of level two
+    /// and the step per level. Read off the first two threshold halfwords,
+    /// where the digital products keep them as tenths.
+    pub(crate) minimum: f32,
+    pub(crate) increment: f32,
 }
 
 /// Days in the product header are counted from 1 January 1970 as day one.
@@ -199,7 +210,16 @@ fn julian_day(days: u16, seconds: i32) -> Option<DateTime<Utc>> {
     Some(midnight + Duration::days(days as i64) + Duration::seconds(seconds as i64))
 }
 
-fn read_description(msg: &[u8]) -> Result<Description, Level3Error> {
+/// The header and description of a product, from its first few hundred
+/// bytes: enough to know what it is, where it was scanned and at what tilt,
+/// without the rest of it.
+pub(crate) fn read_header(bytes: &[u8]) -> Result<Description, Level3Error> {
+    let start =
+        message_start(bytes).ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
+    read_description(&bytes[start..])
+}
+
+pub(crate) fn read_description(msg: &[u8]) -> Result<Description, Level3Error> {
     let divider = i16_at(msg, MESSAGE_HEADER)
         .ok_or_else(|| Level3Error::Decode("the product ended before its description".into()))?;
     if divider != -1 {
@@ -232,12 +252,22 @@ fn read_description(msg: &[u8]) -> Result<Description, Level3Error> {
         Some(halfwords as usize * 2)
     };
 
+    // Halfword sixteen is the product code; thirty is the third product
+    // dependent parameter, which a base product uses for its tilt in tenths
+    // of a degree; thirty-one and thirty-two are the scale of a digital
+    // product, in tenths. All read as the ICD numbers them from the start
+    // of the message header, one halfword being two bytes.
+    let halfword = |number: usize| i16_at(msg, (number - 1) * 2).unwrap_or(0);
     Ok(Description {
         latitude,
         longitude,
         volume_time,
         symbology: block(MESSAGE_HEADER + 90),
         tabular: block(MESSAGE_HEADER + 98),
+        product_code: u16_at(msg, 30).unwrap_or(0),
+        elevation_degrees: f32::from(halfword(30)) / 10.0,
+        minimum: f32::from(halfword(31)) / 10.0,
+        increment: f32::from(halfword(32)) / 10.0,
     })
 }
 
@@ -683,12 +713,13 @@ pub fn read_radial_packet(body: &[u8], bin_km: f64) -> Result<RadialImage, Level
     })
 }
 
-/// The classification product for one site, decoded.
+/// A digital radial product for one site, decoded: the classification, or
+/// a TDWR's base reflectivity or velocity, which are the same packet.
 ///
 /// Unknown packet types are skipped rather than ending the read, which is the
 /// standard the Level II decoder holds itself to: a product that gains a
 /// packet this build has never seen still draws everything it does know.
-fn read_classification(
+pub(crate) fn read_radial_product(
     bytes: &[u8],
     bin_km: f64,
 ) -> Result<(Description, RadialImage), Level3Error> {
@@ -943,7 +974,7 @@ fn volume_time_of(bytes: &[u8]) -> Result<DateTime<Utc>, Level3Error> {
 }
 
 /// The newest key for one site and product, from the bucket's own listing.
-async fn newest_key(site: &str, product: &str) -> Result<Option<String>, Level3Error> {
+pub(crate) async fn newest_key(site: &str, product: &str) -> Result<Option<String>, Level3Error> {
     // Yesterday as well as today, because a site is quiet for hours at a time
     // and just after midnight UTC today's listing is empty.
     let now = Utc::now();
@@ -1170,7 +1201,7 @@ pub async fn level3_classification(
     };
     let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}")).await?;
     let (description, image) =
-        tauri::async_runtime::spawn_blocking(move || read_classification(&bytes, bin_km))
+        tauri::async_runtime::spawn_blocking(move || read_radial_product(&bytes, bin_km))
             .await
             .map_err(|error| Level3Error::Decode(error.to_string()))??;
 
@@ -1570,7 +1601,7 @@ mod tests {
         // A real product off the bucket, symbology block and all. The graphic
         // products this decoder started with arrive plain; this one is bzip2,
         // and nothing in the header says so.
-        let (description, image) = read_classification(N0H, 0.25).expect("a classification");
+        let (description, image) = read_radial_product(N0H, 0.25).expect("a classification");
         assert!((description.latitude - 35.333).abs() < 0.01);
         assert!((description.longitude + 97.278).abs() < 0.01);
         assert_eq!(image.first_bin, 0);
@@ -1594,7 +1625,7 @@ mod tests {
 
     #[test]
     fn the_hybrid_covers_the_scan_the_same_way() {
-        let (_, image) = read_classification(HHC, QUARTER_KM).expect("a hybrid");
+        let (_, image) = read_radial_product(HHC, QUARTER_KM).expect("a hybrid");
         assert!(!image.radials.is_empty());
         let turned: f32 = image.radials.iter().map(|r| r.width_degrees).sum();
         assert!((turned - 360.0).abs() < 2.0, "covers {turned} degrees");
@@ -1645,7 +1676,7 @@ mod tests {
         // hybrid to the 230 the radar covers.
         for (code, bin_km) in CLASSIFICATION_PRODUCTS {
             let bytes = if code == "N0H" { N0H } else { HHC };
-            let (_, image) = read_classification(bytes, bin_km).expect(code);
+            let (_, image) = read_radial_product(bytes, bin_km).expect(code);
             let reach = (image.first_bin as f64 + image.bins as f64) * image.bin_km;
             assert!(
                 (200.0..=310.0).contains(&reach),
@@ -1659,7 +1690,7 @@ mod tests {
         // The values arrive in steps of ten with room left between them. A
         // value this table has no name for would otherwise be drawn as
         // something, and the thing it was drawn as would be a guess.
-        let (_, image) = read_classification(N0H, 0.25).expect("a classification");
+        let (_, image) = read_radial_product(N0H, 0.25).expect("a classification");
         let mut seen = std::collections::BTreeSet::new();
         for radial in &image.radials {
             for &gate in &radial.gates {
@@ -1677,7 +1708,7 @@ mod tests {
 
     #[test]
     fn turns_a_sweep_into_runs_of_one_class() {
-        let (_, image) = read_classification(N0H, QUARTER_KM).expect("a classification");
+        let (_, image) = read_radial_product(N0H, QUARTER_KM).expect("a classification");
         let areas = classification_areas(&image, (35.333, -97.278));
         assert!(!areas.is_empty(), "a whole sweep produced no areas");
         // Runs, not gates: a sweep is mostly one class at a time, and one
@@ -1916,7 +1947,7 @@ mod tests {
         // with a radial of nonsense in it.
         for cut in [40usize, 200, 1000, 5000, N0H.len() - 1] {
             let short = &N0H[..cut.min(N0H.len())];
-            assert!(read_classification(short, 0.25).is_err(), "cut at {cut}");
+            assert!(read_radial_product(short, 0.25).is_err(), "cut at {cut}");
         }
     }
 
@@ -1929,7 +1960,7 @@ mod tests {
             let held = corrupt[at];
             for flipped in [0x00u8, 0xff, held ^ 0xff] {
                 corrupt[at] = flipped;
-                let _ = read_classification(&corrupt, 0.25);
+                let _ = read_radial_product(&corrupt, 0.25);
             }
             corrupt[at] = held;
         }

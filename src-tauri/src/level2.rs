@@ -27,13 +27,14 @@ use crate::dealias;
 use crate::http;
 use crate::palette;
 use crate::palette::Palette;
+use crate::tdwr;
 use crate::vad;
 
 const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
 /// The image is square because a sweep is a circle; this is its side in pixels.
-const IMAGE_SIZE: usize = 1024;
+pub(crate) const IMAGE_SIZE: usize = 1024;
 /// A WSR-88D surveillance cut reaches this far, and the extent follows it.
-const MAX_RANGE_KM: f64 = 230.0;
+pub(crate) const MAX_RANGE_KM: f64 = 230.0;
 /// How far a viewport may sit from a site and still be worth handing over to
 /// it. Past this the view is outside the site's coverage and the national
 /// mosaic is the only honest picture, so nothing is offered.
@@ -108,6 +109,8 @@ const EXPANDED_VOLUME_MAX_BYTES: u64 = 256 * 1024 * 1024;
 pub enum Level2Error {
     #[error("{0} is not a NEXRAD site")]
     UnknownSite(String),
+    #[error("{0} is a terminal radar, which has no Level II volume to read")]
+    NotWsr88d(String),
     #[error("no radar volume has been published for {0} yet today or yesterday")]
     NoVolume(String),
     #[error("the volume listing could not be read")]
@@ -143,6 +146,7 @@ impl Level2Error {
     fn parts(&self) -> (&'static str, Vec<String>) {
         match self {
             Self::UnknownSite(site) => ("unknownSite", vec![site.clone()]),
+            Self::NotWsr88d(site) => ("notWsr88d", vec![site.clone()]),
             Self::NoVolume(site) => ("noVolume", vec![site.clone()]),
             Self::BadListing => ("badListing", Vec::new()),
             Self::Decode(why) => ("decode", vec![why.clone()]),
@@ -218,6 +222,11 @@ pub struct SweepImage {
     /// Where the bytes on screen came from. Historical and local sources are
     /// explicit so the timeline never calls them live.
     pub source: SweepSource,
+    /// Which kind of radar drew this: `WSR-88D`, or `TDWR` for an airport's
+    /// own radar, whose products, range and tilts all differ.
+    pub radar: &'static str,
+    /// How far this picture reaches from the site, in kilometres.
+    pub range_km: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -471,14 +480,14 @@ fn blend(low: u8, high: u8, position: f32) -> u8 {
     (low as f32 + (high as f32 - low as f32) * position).round() as u8
 }
 
-fn mercator_y(latitude: f64) -> f64 {
+pub(crate) fn mercator_y(latitude: f64) -> f64 {
     let clamped = latitude.clamp(-85.051_129, 85.051_129);
     (std::f64::consts::FRAC_PI_4 + clamped.to_radians() / 2.0)
         .tan()
         .ln()
 }
 
-fn inverse_mercator_y(y: f64) -> f64 {
+pub(crate) fn inverse_mercator_y(y: f64) -> f64 {
     (2.0 * y.exp().atan() - std::f64::consts::FRAC_PI_2).to_degrees()
 }
 
@@ -763,9 +772,7 @@ fn read_local_volume(path: &Path) -> Result<LocalVolume, Level2Error> {
         .ok_or_else(|| {
             Level2Error::Decode("the Archive II header does not name a radar".to_string())
         })?;
-    if registry::site_by_id(&station).is_none() {
-        return Err(Level2Error::UnknownSite(station));
-    }
+    wsr88d_only(&station)?;
 
     let data = file.data().to_vec();
     let mut hasher = DefaultHasher::new();
@@ -1248,7 +1255,7 @@ pub fn render_sweep(
 
 /// The colour and opacity one gate is drawn in, or None to leave it clear so
 /// the map shows through.
-fn gate_color(
+pub(crate) fn gate_color(
     status: &GateStatus,
     value: f32,
     product: Product,
@@ -1336,7 +1343,7 @@ fn gate_color(
     }
 }
 
-fn encode_png(pixels: &[u8]) -> Result<Vec<u8>, Level2Error> {
+pub(crate) fn encode_png(pixels: &[u8]) -> Result<Vec<u8>, Level2Error> {
     encode_png_sized(pixels, IMAGE_SIZE, IMAGE_SIZE)
 }
 
@@ -1356,7 +1363,7 @@ fn encode_png_sized(pixels: &[u8], width: usize, height: usize) -> Result<Vec<u8
     Ok(out)
 }
 
-fn data_url(png_bytes: &[u8]) -> String {
+pub(crate) fn data_url(png_bytes: &[u8]) -> String {
     format!(
         "data:image/png;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(png_bytes)
@@ -1611,6 +1618,8 @@ fn draw_sweep(
             label: "NOAA NEXRAD Level II".to_string(),
             url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
         },
+        radar: WSR88D,
+        range_km: MAX_RANGE_KM,
     })
 }
 
@@ -1699,6 +1708,21 @@ fn great_circle_km(
 }
 
 /// Every site whose coverage reaches a point, nearest first.
+/// What the sweep says drew it, for a WSR-88D.
+pub(crate) const WSR88D: &str = "WSR-88D";
+
+/// Refuses a station that is not a WSR-88D, naming a terminal radar for what
+/// it is rather than calling it no site at all.
+fn wsr88d_only(station: &str) -> Result<(), Level2Error> {
+    if registry::site_by_id(station).is_some() {
+        return Ok(());
+    }
+    if tdwr::is_tdwr(station) {
+        return Err(Level2Error::NotWsr88d(station.to_string()));
+    }
+    Err(Level2Error::UnknownSite(station.to_string()))
+}
+
 fn sites_in_reach(latitude: f32, longitude: f32) -> Vec<&'static registry::SiteEntry> {
     let mut found: Vec<(f64, &'static registry::SiteEntry)> = registry::sites()
         .iter()
@@ -1884,9 +1908,12 @@ pub async fn level2_sweep(
     high_contrast: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
-    if registry::site_by_id(&station).is_none() {
-        return Err(Level2Error::UnknownSite(station));
+    // An airport's own radar is read from its Level III products; nothing
+    // below applies to it, and nothing about a WSR-88D changes for it.
+    if tdwr::is_tdwr(&station) {
+        return tdwr::sweep(station, product, tilt, threshold, high_contrast).await;
     }
+    wsr88d_only(&station)?;
     let (key, data) = latest_volume(&station).await?;
 
     // The volume in progress is drawn over the last finished one, so the live
@@ -1946,9 +1973,7 @@ pub async fn level2_archive_sweep(
     high_contrast: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
-    if registry::site_by_id(&station).is_none() {
-        return Err(Level2Error::UnknownSite(station));
-    }
+    wsr88d_only(&station)?;
     let wanted = DateTime::parse_from_rfc3339(&at)
         .map_err(|_| Level2Error::InvalidTime(at.clone()))?
         .with_timezone(&Utc);
@@ -2294,9 +2319,7 @@ pub async fn level2_cross_section(
     }
 
     let station = station.unwrap_or_default().to_uppercase();
-    if registry::site_by_id(&station).is_none() {
-        return Err(Level2Error::UnknownSite(station));
-    }
+    wsr88d_only(&station)?;
 
     let (key, data, archived) = match at {
         Some(at) => {
