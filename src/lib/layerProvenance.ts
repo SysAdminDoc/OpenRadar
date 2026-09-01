@@ -65,6 +65,17 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 300_000,
   },
+  classification: {
+    sourceId: "classification",
+    label: "Hydrometeor classification",
+    attribution: `${NWS} Level III`,
+    // The radar's own algorithm reading its own volume and naming what it
+    // thinks is falling. That is not an observation of the ground.
+    kind: "derived",
+    derivedFrom:
+      "the site's own dual-polarisation classification, from Level III",
+    freshForMs: 300_000,
+  },
   stormCells: {
     sourceId: "stormCells",
     label: "Storm cell tracking",

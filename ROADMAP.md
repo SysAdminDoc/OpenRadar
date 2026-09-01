@@ -232,13 +232,6 @@ Added 2026-08-31 from the third research pass of that day (see `RESEARCH.md`), w
       Acceptance: Forecast smoke frames occupy the forecast tail with model run and valid time labeled, never blended with the HMS analysis or any observation; the ramp states µg/m³ and the legend follows; a missing cycle falls back to the previous one with its age said; the field decode has a fixture; requests stay within the budget during playback.
       Complexity: M
 
-- [ ] AUD-109: P2. Decode the radar's own hydrometeor classification at the held site
-      Why: The dual-pol classification (N0H per tilt, HHC hybrid) is what the radar itself says is falling: the winter answer at site scale, and MyRadar ships an HHC mosaic. Verified still publishing through 2026 at the Unidata Level III bucket by the same listing method that proved NHI/NTV dead in 2022; the melting-layer rings (N0M) publish beside them. The Level III path already decodes NST and NMD.
-      Evidence: https://unidata-nexrad-level3.s3.amazonaws.com/?list-type=2&prefix=TLX_N0H_&delimiter=_ (2020 through 2026); https://raw.githubusercontent.com/netbymatt/nexrad-level-3-data/master/src/products/165/index.mjs (class values in steps of 10: ND, biological, clutter, ice crystals, dry snow, wet snow, rain, heavy rain, big drops, graupel, hail, large hail, giant hail, unknown, range-folded); https://www.weather.gov/tg/rpccds ; `src-tauri/src/level3.rs`
-      Touches: Level III radial-image decoding for products 165/N0H and 177/HHC (a different packet family from the graphic products already read); the categorical ramp and legend from AUD-108; product selection beside the Level II moments; optionally the 166/ML rings; provenance and coverage copy
-      Acceptance: A held site can show its classification with every category labeled in the legend and readable in the gate inspector; classes are held by fixtures against the ICD table; unknown packet types are skipped without losing the message after them, matching the Level II decoder's standard; the layer states it is the radar algorithm's classification, not an observation of the ground; WSR-88D behaviour elsewhere is unchanged.
-      Complexity: L
-
 - [ ] AUD-115: P3. Offer Clean IR satellite for the overnight hours
       Why: GeoColor goes effectively dark at night for storm tops; Band 13 Clean Infrared is the overnight-convection view enthusiasts ask for, and it is served by NASA GIBS at 10-minute cadence under the same provider, terms, and WMTS pattern as the GeoColor layer already shipped.
       Evidence: https://nasa-gibs.github.io/gibs-api-docs/available-visualizations/ (GOES-East/West ABI Band 13 Clean Infrared, Red Visible, Air Mass); the existing GeoColor provider in `src/lib/providers/`

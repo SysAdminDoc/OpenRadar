@@ -2667,7 +2667,7 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: calc(var(--screen-height) - 220px);
+  max-height: calc(var(--screen-height) - 238px);
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: auto;
@@ -2725,7 +2725,10 @@ input[type="range"] {
   letter-spacing: 0;
 }
 
-.product-legend--flashes small {
+/* Every legend's note, not only the flashes'. Left to the browser, a note is
+   one long line at body size and the legend grows to fit it, which at 1024
+   wide put the classification legend across most of the map. */
+.product-legend small {
   display: block;
   max-width: 220px;
   margin-top: 5px;
@@ -3631,8 +3634,11 @@ input[type="range"] {
   right: calc(var(--panel-width) + 16px);
 }
 
+/* Above the readout and the credits, which share the row under here and are
+   drawn over anything they meet: the readout starts 216px in from the right,
+   so a legend wider than 200px used to lose its bottom line under it. */
 .product-legends {
-  bottom: calc(var(--timeline-height) + 16px);
+  bottom: calc(var(--timeline-height) + 34px);
 }
 
 .map-readout,

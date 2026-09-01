@@ -177,6 +177,60 @@ async function fakeNativeSide(page: Page) {
               ],
             });
           }
+          if (command === "level3_classification") {
+            // One volume: rain over the middle of the view and a run of hail
+            // to the south-west, with the legend the native side sends with
+            // every answer.
+            const legend = [
+              ["iceCrystals", "#61b1d1"],
+              ["drySnow", "#3085a6"],
+              ["wetSnow", "#996bc7"],
+              ["graupel", "#6b3b9b"],
+              ["rain", "#61d186"],
+              ["heavyRain", "#30a657"],
+              ["bigDrops", "#1c5f32"],
+              ["hail", "#e27250"],
+              ["largeHail", "#b8421e"],
+              ["giantHail", "#692611"],
+              ["unknown", "#8f97a3"],
+            ].map(([id, color]) => ({ class: id, id, color }));
+            return Promise.resolve({
+              station: String(args.station),
+              observed: new Date().toISOString(),
+              product: String(args.product),
+              features: [
+                {
+                  class: "rain",
+                  fromDegrees: 0,
+                  toDegrees: 360,
+                  nearKm: 0,
+                  farKm: 60,
+                  ring: [
+                    [-95.0, 41.0],
+                    [-92.5, 41.0],
+                    [-92.5, 42.5],
+                    [-95.0, 42.5],
+                    [-95.0, 41.0],
+                  ],
+                },
+                {
+                  class: "hail",
+                  fromDegrees: 200,
+                  toDegrees: 210,
+                  nearKm: 60,
+                  farKm: 70,
+                  ring: [
+                    [-94.6, 40.8],
+                    [-94.4, 40.8],
+                    [-94.4, 40.95],
+                    [-94.6, 40.95],
+                    [-94.6, 40.8],
+                  ],
+                },
+              ],
+              legend,
+            });
+          }
           if (command === "level2_sweep" && String(args.station) === "FAIL") {
             return Promise.reject("the site did not answer");
           }
@@ -192,9 +246,8 @@ async function fakeNativeSide(page: Page) {
             );
           }
           if (command === "plugin:dialog|open") {
-            const selected = (
-              window as unknown as { __archivePath?: string }
-            ).__archivePath;
+            const selected = (window as unknown as { __archivePath?: string })
+              .__archivePath;
             return Promise.resolve(
               selected ?? "C:\\radar\\KTLX20130520_205600_V06",
             );
@@ -409,13 +462,17 @@ test("opens a local Archive II volume and removes current context", async ({
   await expect(pane).toHaveAttribute("data-layer-stack", /stormReports-points/);
 
   await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
-  await page.getByRole("button", { name: "Open local Archive II file" }).click();
+  await page
+    .getByRole("button", { name: "Open local Archive II file" })
+    .click();
 
   const history = page.locator("[data-historical-radar]");
   await expect(history).toContainText("Local Archive II");
   await expect(history).toContainText("KTLX20130520_205600_V06");
   await expect(page.getByText("KTLX Reflectivity")).toBeVisible();
-  await expect(page.locator(".live-chip", { hasText: "historical volume" })).toBeVisible();
+  await expect(
+    page.locator(".live-chip", { hasText: "historical volume" }),
+  ).toBeVisible();
   await expect(pane).not.toHaveAttribute("data-layer-stack", /alerts-fill/);
   await expect(pane).not.toHaveAttribute(
     "data-layer-stack",
@@ -448,9 +505,7 @@ test("browses the public archive and refuses a malformed local file", async ({
   await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
 
   await page.getByRole("textbox", { name: "NEXRAD site" }).fill("KDMX");
-  await page
-    .getByLabel("UTC date and time")
-    .fill("2021-12-10T03:15");
+  await page.getByLabel("UTC date and time").fill("2021-12-10T03:15");
   await page
     .getByRole("button", { name: "Load public archive volume" })
     .click();
@@ -479,7 +534,9 @@ test("browses the public archive and refuses a malformed local file", async ({
     (window as unknown as { __archivePath: string }).__archivePath =
       "C:\\radar\\malformed";
   });
-  await page.getByRole("button", { name: "Open local Archive II file" }).click();
+  await page
+    .getByRole("button", { name: "Open local Archive II file" })
+    .click();
 
   await expect(page.getByText(/Archive II header is missing/)).toBeVisible();
   await expect(page.locator("[data-historical-radar]")).toHaveCount(0);
@@ -720,6 +777,92 @@ test("says which storm reaches the watched place and when", async ({
   await expect(page.locator("[data-cell-rotating]")).toHaveText(/Y6/);
 });
 
+test("draws what the site's own algorithm says is falling, and says whose word it is", async ({
+  page,
+}) => {
+  // The classification is the radar naming what its own moments look like,
+  // which is not somebody on the ground seeing hail. The legend has to say
+  // so, every class has to be named, and the inspector has to read the class
+  // under the click rather than leaving the reader to match a colour.
+  await open(page, 9);
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Hydrometeor Classification/ })
+    .check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  await expect(pane).toHaveAttribute("data-layer-stack", /classification-fill/);
+  const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
+  const at = (id: string) => stack.indexOf(id);
+  // Over the sweep it was read from, and under the warnings.
+  expect(at("openradar-classification-fill")).toBeGreaterThan(
+    at("openradar-sweep-layer"),
+  );
+  expect(at("openradar-classification-fill")).toBeLessThan(
+    at("openradar-overlay-alerts-fill"),
+  );
+
+  const legend = page.locator("[data-classification-legend]");
+  await expect(legend).toContainText("Hybrid scan (HHC)");
+  for (const name of [
+    "Ice crystals",
+    "Dry snow",
+    "Wet snow",
+    "Graupel",
+    "Rain",
+    "Heavy rain",
+    "Big drops",
+    "Hail",
+    "Large hail",
+    "Giant hail",
+    "Unknown",
+  ]) {
+    await expect(legend.getByText(name, { exact: true })).toBeVisible();
+  }
+  await expect(legend).toContainText("not a report from the ground");
+
+  // The inspector names the class under the click. Left of centre, because
+  // the legends hang on the right edge and the click has to land on the map.
+  await page.getByRole("button", { name: "Inspector", exact: true }).click();
+  await pane.click({ position: { x: 340, y: 330 } });
+  await expect(
+    page.getByText(/Rain by the radar's own classification/),
+  ).toBeVisible();
+
+  // The other product is asked for by name, and the legend says which.
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  await page
+    .getByRole("combobox", { name: "Hydrometeor classification product" })
+    .selectOption("N0H");
+  await expect(legend).toContainText("Lowest tilt (N0H)");
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: { product?: string } }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level3_classification"),
+  );
+  expect(asked[0]?.args.product).toBe("HHC");
+  expect(asked.at(-1)?.args.product).toBe("N0H");
+  await page.getByRole("button", { name: "Close Composite Radar" }).click();
+
+  // And off again takes the layer down with it.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Hydrometeor Classification/ })
+    .uncheck();
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /classification-fill/,
+  );
+});
+
 test("draws severe probability over the pictures and under the warnings", async ({
   page,
 }) => {
@@ -806,16 +949,15 @@ test("cuts the volume between two points and labels what it drew", async ({
     panel.locator(".cross-section__axis span").first(),
   ).toBeVisible();
 
-  const asked = await page.evaluate(
-    () =>
-      (
-        window as unknown as {
-          __sweepCalls: Array<{
-            command: string;
-            args: Record<string, unknown>;
-          }>;
-        }
-      ).__sweepCalls.filter((call) => call.command === "level2_cross_section"),
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{
+          command: string;
+          args: Record<string, unknown>;
+        }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level2_cross_section"),
   );
   // At least one, and every one asking the same question: StrictMode mounts
   // the panel twice in development, which is a repeated read and not a

@@ -4,6 +4,7 @@ import type { ToolMode } from "./CommandBar";
 import type { GeoPoint } from "../lib/geo";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
+import type { ClassStyle } from "../lib/classification";
 import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
@@ -35,6 +36,11 @@ interface MapStageProps {
   flashes: Record<string, unknown> | null;
   /** Storm cells with their tracks, from the radar's own algorithm. */
   cells: Record<string, unknown> | null;
+  /** What the same algorithm says is falling, with its own legend. */
+  classification: {
+    features: Record<string, unknown>;
+    legend: ClassStyle[];
+  } | null;
   /** What the severe-probability model expects of each storm. */
   probSevere: Record<string, unknown> | null;
   /** How solid each overlay is drawn, as a fraction of its own design. */
@@ -76,6 +82,7 @@ export function MapStage({
   mrmsLayers,
   flashes,
   cells,
+  classification,
   probSevere,
   overlayOpacity,
   overlayOrder,
@@ -118,6 +125,7 @@ export function MapStage({
     mrmsLayers,
     flashes,
     cells,
+    classification,
     probSevere,
     overlayOpacity,
     overlayOrder,

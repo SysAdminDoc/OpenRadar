@@ -33,6 +33,20 @@ export const TRACK_POINT_LAYER_ID = "openradar-track-points";
 export const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
 export const CUSTOM_LINE_LAYER_ID = "openradar-custom-line";
 export const CUSTOM_POINT_LAYER_ID = "openradar-custom-points";
+/**
+ * What the radar's own algorithm says is falling, as areas.
+ *
+ * A fill and its outline, drawn where the sweep is because it is the same
+ * volume read a second way.
+ */
+export const CLASSIFICATION_SOURCE_ID = "openradar-classification-source";
+export const CLASSIFICATION_FILL_LAYER_ID = "openradar-classification-fill";
+export const CLASSIFICATION_LINE_LAYER_ID = "openradar-classification-line";
+export const CLASSIFICATION_LAYER_IDS = [
+  CLASSIFICATION_FILL_LAYER_ID,
+  CLASSIFICATION_LINE_LAYER_ID,
+];
+
 export const CELL_TRACK_LAYER_ID = "openradar-cell-tracks";
 export const CELL_FORECAST_LAYER_ID = "openradar-cell-forecast";
 export const CELL_POINT_LAYER_ID = "openradar-cell-points";
@@ -90,6 +104,11 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     SURGE_LAYER_ID,
     ...RADAR_LANE_LAYER_IDS,
     SWEEP_LAYER_ID,
+    // The classification is the same volume read a second way, so it sits
+    // directly over the sweep it came from and under everything else. It is
+    // the algorithm's opinion of what the sweep holds, not a second
+    // measurement, and nothing that measured something belongs under it.
+    ...CLASSIFICATION_LAYER_IDS,
     ...MRMS_LAYER_IDS,
     // What a model expects goes over the pictures it was worked out from and
     // under the warnings a person issued, because guidance belongs under a

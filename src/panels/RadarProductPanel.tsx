@@ -18,6 +18,11 @@ import {
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { RadarSettings, WatchState } from "../lib/settings";
 import type { StormCellState } from "../hooks/useStormCells";
+import {
+  CLASSIFICATION_PRODUCT_KEYS,
+  CLASSIFICATION_PRODUCTS,
+  type ClassificationProduct,
+} from "../lib/classification";
 import { soonestArrival } from "../lib/cells";
 import { speedFromMetres, speedToMetres, speedUnit } from "../lib/units";
 import { translate, useT } from "../i18n";
@@ -513,6 +518,31 @@ export function RadarProductPanel({
                   )}
                 </select>
               </label>
+
+              {/* Beside the moments rather than in the layers panel, because
+                  it is a product of this site like they are: which Level III
+                  field the classification layer reads. */}
+              <label className="select-row" data-classification-product>
+                <span>{t("radar.classification")}</span>
+                <select
+                  value={radar.classificationProduct}
+                  aria-label={t("radar.classificationLabel")}
+                  onChange={(event) =>
+                    onRadar({
+                      ...radar,
+                      classificationProduct: event.target
+                        .value as ClassificationProduct,
+                    })
+                  }
+                >
+                  {CLASSIFICATION_PRODUCTS.map((product) => (
+                    <option key={product} value={product}>
+                      {t(CLASSIFICATION_PRODUCT_KEYS[product])}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="source-note">{t("radar.classificationDetail")}</p>
 
               {radar.product === "storm-relative-velocity" ? (
                 <div className="settings-section" data-storm-motion>

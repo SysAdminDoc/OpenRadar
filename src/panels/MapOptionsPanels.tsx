@@ -5,6 +5,7 @@ import {
   ChevronUp,
   CloudHail,
   CloudRain,
+  CloudSnow,
   Crosshair,
   Droplets,
   Cloudy,
@@ -256,6 +257,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.stormCells",
     detailKey: "layers.stormCellsDetail",
     icon: Crosshair,
+  },
+  {
+    key: "classification",
+    labelKey: "layer.classification",
+    detailKey: "layers.classificationDetail",
+    icon: CloudSnow,
   },
   {
     key: "probSevere",
