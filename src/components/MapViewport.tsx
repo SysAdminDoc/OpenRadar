@@ -60,6 +60,7 @@ import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { useMapSync } from "../hooks/useMapSync";
+import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -91,8 +92,22 @@ import {
   WIND_LAYER_ID,
 } from "../lib/layerStack";
 
-const SATELLITE_SOURCE_ID = "openradar-satellite-source";
-const SURGE_SOURCE_ID = "openradar-surge-source";
+const SATELLITE_LANE: RasterLane<number> = {
+  sourceId: "openradar-satellite-source",
+  layerId: SATELLITE_LAYER_ID,
+  attribution: SATELLITE_ATTRIBUTION,
+  opacity: 0.85,
+  maxZoom: SATELLITE_MAX_ZOOM,
+  tileUrl: (time) => satelliteTileUrl(time),
+};
+
+const SURGE_LANE: RasterLane<SurgeCategory> = {
+  sourceId: "openradar-surge-source",
+  layerId: SURGE_LAYER_ID,
+  attribution: SURGE_ATTRIBUTION,
+  opacity: 0.7,
+  tileUrl: (category) => surgeTileUrl(category),
+};
 const PROBSEVERE_SOURCE_ID = "openradar-probsevere-source";
 const CELL_SOURCE_ID = "openradar-cell-source";
 const FLASH_SOURCE_ID = "openradar-flash-source";
@@ -446,87 +461,32 @@ function MapViewportInner(
     source.setData({ type: "FeatureCollection", features } as never);
   };
 
+  /**
+   * Where a lane goes, which stays here because the stack has one owner.
+   *
+   * `layersAbove` knows the whole arrangement; the lane module knows nothing
+   * about it and asks.
+   */
+  const under = (layerId: string) => {
+    const map = mapRef.current;
+    return map ? firstExisting(map, layersAbove(layerId)) : undefined;
+  };
+
   const syncSatellite = () => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
-    const time = satelliteTimeRef.current;
-
-    if (time === null) {
-      if (map.getSource(SATELLITE_SOURCE_ID)) {
-        if (map.getLayer(SATELLITE_LAYER_ID))
-          map.removeLayer(SATELLITE_LAYER_ID);
-        map.removeSource(SATELLITE_SOURCE_ID);
-        publishLayers();
-      }
-      return;
-    }
-
-    const url = satelliteTileUrl(time);
-    const source = map.getSource(SATELLITE_SOURCE_ID) as
-      maplibregl.RasterTileSource | undefined;
-    if (source) {
-      source.setTiles?.([url]);
-      return;
-    }
-
-    map.addSource(SATELLITE_SOURCE_ID, {
-      type: "raster",
-      tiles: [url],
-      tileSize: 256,
-      maxzoom: SATELLITE_MAX_ZOOM,
-      attribution: SATELLITE_ATTRIBUTION,
-    });
     // Satellite sits under everything, radar included.
-    map.addLayer(
-      {
-        id: SATELLITE_LAYER_ID,
-        type: "raster",
-        source: SATELLITE_SOURCE_ID,
-        paint: { "raster-opacity": 0.85 },
-      },
-      firstExisting(map, layersAbove(SATELLITE_LAYER_ID)),
-    );
-    publishLayers();
+    if (syncRasterLane(map, SATELLITE_LANE, satelliteTimeRef.current, under)) {
+      publishLayers();
+    }
   };
 
   const syncSurge = () => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
-    const category = surgeCategoryRef.current;
-
-    if (category === null) {
-      if (map.getSource(SURGE_SOURCE_ID)) {
-        if (map.getLayer(SURGE_LAYER_ID)) map.removeLayer(SURGE_LAYER_ID);
-        map.removeSource(SURGE_SOURCE_ID);
-        publishLayers();
-      }
-      return;
+    if (syncRasterLane(map, SURGE_LANE, surgeCategoryRef.current, under)) {
+      publishLayers();
     }
-
-    const url = surgeTileUrl(category);
-    const source = map.getSource(SURGE_SOURCE_ID) as
-      maplibregl.RasterTileSource | undefined;
-    if (source) {
-      source.setTiles?.([url]);
-      return;
-    }
-
-    map.addSource(SURGE_SOURCE_ID, {
-      type: "raster",
-      tiles: [url],
-      tileSize: 256,
-      attribution: SURGE_ATTRIBUTION,
-    });
-    map.addLayer(
-      {
-        id: SURGE_LAYER_ID,
-        type: "raster",
-        source: SURGE_SOURCE_ID,
-        paint: { "raster-opacity": 0.7 },
-      },
-      firstExisting(map, layersAbove(SURGE_LAYER_ID)),
-    );
-    publishLayers();
   };
 
   const syncRadarLane = (lane: RadarLane, frame: RadarFrame | undefined) => {

@@ -16,13 +16,22 @@ export interface RasterSourceLike {
   setTiles?: (tiles: string[]) => void;
 }
 
+/**
+ * The part of MapLibre's `Map` this needs.
+ *
+ * The real signatures are far more specific and return the map for chaining,
+ * so the parameters are widened to `never` here: a structural type has to
+ * accept anything the caller will hand it, and this file builds its own
+ * arguments rather than passing any through. The point is that a stand-in
+ * with six methods satisfies it.
+ */
 export interface MapLike {
   getSource: (id: string) => unknown;
-  addSource: (id: string, source: Record<string, unknown>) => void;
-  removeSource: (id: string) => void;
+  addSource: (id: string, source: never) => unknown;
+  removeSource: (id: string) => unknown;
   getLayer: (id: string) => unknown;
-  addLayer: (layer: Record<string, unknown>, before?: string) => void;
-  removeLayer: (id: string) => void;
+  addLayer: (layer: never, before?: string) => unknown;
+  removeLayer: (id: string) => unknown;
 }
 
 export interface RasterLane<T> {
@@ -76,14 +85,14 @@ export function syncRasterLane<T>(
     tileSize: 256,
     ...(lane.maxZoom === undefined ? {} : { maxzoom: lane.maxZoom }),
     attribution: lane.attribution,
-  });
+  } as never);
   map.addLayer(
     {
       id: lane.layerId,
       type: "raster",
       source: lane.sourceId,
       paint: { "raster-opacity": lane.opacity },
-    },
+    } as never,
     before(lane.layerId),
   );
   return true;
