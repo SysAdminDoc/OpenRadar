@@ -292,6 +292,98 @@ describe("watching a place for alerts", () => {
     }
   });
 
+  /**
+   * The screen reader hears through a separate callback, because the toast one
+   * only fires when the desktop notification failed. Getting that wrong means
+   * a blind reader on the desktop build hears nothing at all.
+   */
+  it("tells the reader about a warning the notification delivered", async () => {
+    vi.useFakeTimers();
+    try {
+      desktop = true;
+      const told = vi.fn();
+      const said = vi.fn();
+      fetchData.mockResolvedValue(alerts("Tornado Warning"));
+      renderHook(() => useAlertWatch(home, {}, told, said));
+
+      await vi.waitFor(() => expect(said).toHaveBeenCalledTimes(1));
+      expect(said.mock.calls[0][0].headline).toBe("Tornado Warning");
+      // The notification landed, so the toast path stayed out of it.
+      expect(notification).toHaveBeenCalledTimes(1);
+      expect(told).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says it once, however many times the watch checks", async () => {
+    vi.useFakeTimers();
+    try {
+      const said = vi.fn();
+      fetchData.mockResolvedValue(alerts("Tornado Warning"));
+      renderHook(() => useAlertWatch(home, {}, vi.fn(), said));
+      await vi.waitFor(() => expect(said).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(45_000 * 4 + 100);
+      });
+      expect(said).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stays silent about one quiet hours held back", async () => {
+    vi.useFakeTimers();
+    try {
+      // Midnight, inside the default quiet window, with an alert below the
+      // override. The reader hears nothing until the window ends.
+      vi.setSystemTime(new Date(2026, 3, 27, 0, 30));
+      const said = vi.fn();
+      // Severe rather than extreme, so it clears the place's floor and still
+      // sits below the override the quiet window lets through.
+      fetchData.mockResolvedValue({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Polygon", coordinates: [near] },
+            properties: {
+              headline: "Flash Flood Warning",
+              severity: "severe",
+              kind: alertType("Flash Flood Warning"),
+              url: "https://example.test/flood",
+            },
+          },
+        ],
+      });
+      renderHook(() =>
+        useAlertWatch(
+          [
+            {
+              ...watch,
+              quietHours: {
+                enabled: true,
+                startMinute: 22 * 60,
+                endMinute: 7 * 60,
+                overrideSeverity: "extreme",
+              },
+            },
+          ],
+          {},
+          vi.fn(),
+          said,
+        ),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      expect(said).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps quiet and carries on when the service fails", async () => {
     vi.useFakeTimers();
     try {

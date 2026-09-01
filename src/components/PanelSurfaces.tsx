@@ -35,10 +35,20 @@ import { RadarProductPanel } from "../panels/RadarProductPanel";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { TropicalPanel } from "../panels/TropicalPanel";
+import { NearbyPanel, type NearbyPlaceOption } from "../panels/NearbyPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
 import type { SurgeCategory } from "../lib/surge";
 import type { StormCellState } from "../hooks/useStormCells";
+import type { NearbyCell, NearbyWarning } from "../lib/nearby";
+import { cellsAvailable } from "../lib/cells";
 import type { AlertType } from "../lib/alertTypes";
+
+/** A stamp the tracker gave us, or nothing when it gave us something else. */
+function observedAt(iso: string | undefined): number | null {
+  if (!iso) return null;
+  const at = Date.parse(iso);
+  return Number.isFinite(at) ? at : null;
+}
 
 interface PanelSurfacesProps {
   activeSurface: SurfaceId;
@@ -89,6 +99,15 @@ interface PanelSurfacesProps {
   onOverlayFiles: (files: WorkspaceOverlayFile[]) => void;
   /** What the radar's tracking algorithm is following, for the radar panel. */
   stormCells: StormCellState;
+  /** The map in words, computed once so the panel and the live region agree. */
+  nearby: {
+    warnings: NearbyWarning[];
+    cells: NearbyCell[];
+    summary: string;
+  };
+  nearbyPlaces: NearbyPlaceOption[];
+  nearbyPlaceId: string;
+  onNearbyPlace: (id: string) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
@@ -161,6 +180,29 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           layerOn={settings.layers.weatherAlerts}
           onEnableLayer={() => props.onEnableLayer("weatherAlerts")}
           onSelect={props.onAlertSelect}
+          onClose={onClose}
+        />
+      ) : null}
+
+      {activeSurface === "nearby" ? (
+        <NearbyPanel
+          places={props.nearbyPlaces}
+          placeId={props.nearbyPlaceId}
+          onPlace={props.onNearbyPlace}
+          warnings={props.nearby.warnings}
+          cells={props.nearby.cells}
+          cellsNote={
+            !cellsAvailable()
+              ? "unavailable"
+              : !settings.layers.stormCells
+                ? "off"
+                : props.stormCells.loading && !props.stormCells.report
+                  ? "loading"
+                  : null
+          }
+          station={props.stormCells.report?.station ?? null}
+          observed={observedAt(props.stormCells.report?.observed)}
+          alertsFetchedAt={overlays.alerts.fetchedAt}
           onClose={onClose}
         />
       ) : null}

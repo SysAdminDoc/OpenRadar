@@ -60,6 +60,7 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
+import { watchedPlaces } from "./lib/settings";
 import {
   mergedOverlayShapes,
   type WorkspaceOverlayFile,
@@ -84,6 +85,7 @@ const COVERED_BY_ADAPTERS = new Set(
   OVERLAY_ADAPTERS.map((adapter) => adapter.id as string),
 );
 import { useStormCells } from "./hooks/useStormCells";
+import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
@@ -658,6 +660,53 @@ export default function App() {
     () => ({ lon: settings.camera.center[0], lat: settings.camera.center[1] }),
     [settings.camera.center],
   );
+
+  // The map, in words, for a reader who is not looking at it. The centre by
+  // default, because that is what the rest of the workspace is about, and any
+  // watched place instead, because a reader listening from a desk cares about
+  // where they live rather than where the camera drifted.
+  const [nearbyPlaceId, setNearbyPlaceId] = useState("centre");
+  const nearbyPlaces = useMemo(
+    () => [
+      { id: "centre", name: translate("nearby.placeCentre") },
+      ...watchedPlaces(settings).map((place) => ({
+        id: place.id,
+        name: place.name,
+      })),
+    ],
+    [settings],
+  );
+  const nearbyPoint = useMemo<GeoPoint>(() => {
+    const watched = watchedPlaces(settings).find(
+      (place) => place.id === nearbyPlaceId,
+    );
+    return watched
+      ? { lon: watched.center[0], lat: watched.center[1] }
+      : centerPoint;
+  }, [centerPoint, nearbyPlaceId, settings]);
+  const nearby = useMemo(() => {
+    const warnings = warningsOver(overlays.data.alerts ?? null, nearbyPoint);
+    const cells = stormCells.report
+      ? nearbyCells(stormCells.report.cells, nearbyPoint, {
+          rotating: stormCells.rotating,
+        })
+      : [];
+    const name =
+      nearbyPlaces.find((place) => place.id === nearbyPlaceId)?.name ??
+      translate("nearby.placeCentre");
+    return {
+      warnings,
+      cells,
+      summary: nearbySummary(warnings, cells, name),
+    };
+  }, [
+    nearbyPlaceId,
+    nearbyPlaces,
+    nearbyPoint,
+    overlays.data.alerts,
+    stormCells.report,
+    stormCells.rotating,
+  ]);
   // Staleness is a property of the observed feed, not of the frame the user
   // scrubbed to and not of a forecast frame that is hours ahead by design.
   const radarAge = timeline.newestObserved
@@ -801,6 +850,10 @@ export default function App() {
             sourceLabel={timeline.sourceLabel}
             singleSite={level2Available() ? singleSite : null}
             stormCells={stormCells}
+            nearby={nearby}
+            nearbyPlaces={nearbyPlaces}
+            nearbyPlaceId={nearbyPlaceId}
+            onNearbyPlace={setNearbyPlaceId}
             clock={clock}
             update={updates.state}
             onUpdate={updates.act}
@@ -898,6 +951,11 @@ export default function App() {
         productOpen={productOpen}
         dualPane={dualPane}
         toasts={toasts.messages}
+        announcement={overlays.announcement}
+        // Only while the panel is open. A reader who asked for the readout
+        // wants to hear it change; everybody else did not ask to be read the
+        // weather every time the radar turns.
+        readout={activeSurface === "nearby" ? nearby.summary : ""}
         onClearTools={() => mapRef.current?.clearTools()}
         onToggleProduct={() => {
           setActiveSurface(null);

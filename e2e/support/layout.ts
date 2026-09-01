@@ -127,3 +127,57 @@ export async function clipped(page: Page) {
     return bad;
   });
 }
+
+/**
+ * Anything that is completely covered at the moment it takes the focus.
+ *
+ * WCAG 2.2's Focus Not Obscured (Minimum). The panels float over the map
+ * rather than pushing it aside, and the command bar sits under them, so a
+ * reader tabbing along the bar with a panel open is the case where a focus
+ * ring can end up behind something. Nothing here objects to a partly covered
+ * control: the rule is about a focused thing a sighted keyboard user cannot
+ * find at all.
+ *
+ * Each control is actually focused before it is measured, which is the state
+ * the rule is written about. It also settles the false positive the first
+ * version had: the command bar scrolls, and a button parked outside its
+ * scroller reads as covered right up until the focus brings it back.
+ */
+export async function obscuredWhenFocused(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const named = (element: Element) =>
+      `${element.tagName.toLowerCase()}.${element.className || "?"} ${(
+        element.textContent ?? ""
+      )
+        .trim()
+        .slice(0, 24)}`;
+    const frame = () =>
+      new Promise((settle) => requestAnimationFrame(() => settle(null)));
+    const was = document.activeElement;
+    const covered: string[] = [];
+    for (const element of document.querySelectorAll<HTMLElement>(
+      ".command-bar button, .surface-panel button, .surface-panel select, .surface-panel input, .radar-timeline button",
+    )) {
+      if (element.hasAttribute("disabled")) continue;
+      element.focus();
+      if (document.activeElement !== element) continue;
+      // The scroll the focus asked for lands on the next frame.
+      await frame();
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) continue;
+      let seen = false;
+      for (const x of [0.15, 0.5, 0.85]) {
+        for (const y of [0.2, 0.5, 0.8]) {
+          const at = document.elementFromPoint(
+            box.left + box.width * x,
+            box.top + box.height * y,
+          );
+          if (at && (at === element || element.contains(at))) seen = true;
+        }
+      }
+      if (!seen) covered.push(named(element));
+    }
+    if (was instanceof HTMLElement) was.focus();
+    return covered;
+  });
+}

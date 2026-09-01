@@ -2,6 +2,7 @@ import { CloudRain, Radar, Trash2 } from "lucide-react";
 import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
+import { LiveRegion } from "./LiveRegion";
 import type { GeoPoint } from "../lib/geo";
 import type { FlashWindow } from "../hooks/useLightning";
 import { windLabel, type WindField } from "../lib/wind";
@@ -66,6 +67,10 @@ interface WorkspaceChromeProps {
   productOpen: boolean;
   dualPane: boolean;
   toasts: ToastMessage[];
+  /** The last warning the watch announced, for the assertive live region. */
+  announcement: string;
+  /** The nearby readout, when the reader has it open, for the polite one. */
+  readout: string;
   onClearTools: () => void;
   onToggleProduct: () => void;
   onSurface: (surface: SurfaceId) => void;
@@ -101,6 +106,8 @@ export function WorkspaceChrome({
   productOpen,
   dualPane,
   toasts,
+  announcement,
+  readout,
   onClearTools,
   onToggleProduct,
   onSurface,
@@ -393,6 +400,7 @@ export function WorkspaceChrome({
         onShare={onShare}
       />
       <ToastHost messages={toasts} onDismiss={onDismissToast} />
+      <LiveRegion polite={readout} assertive={announcement} />
 
       <div className="source-attribution">
         <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">

@@ -404,10 +404,19 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
   await expect(page.getByText("Watching this point")).toBeVisible();
 
   // The fixture alert covers the default centre, so the watch has to speak up.
-  await expect(page.getByText("Tornado Warning").first()).toBeVisible();
+  // Scoped to the toast, because the same news now reaches two places and an
+  // unscoped match resolves to both.
+  const toast = page.locator(".toast-host");
+  await expect(toast.getByText("Tornado Warning").first()).toBeVisible();
   await expect(
-    page.getByText(/miles from the point you watch|where you are watching/),
+    toast.getByText(/miles from the point you watch|where you are watching/),
   ).toBeVisible();
+
+  // The other place is the one a screen reader is listening to, and it has to
+  // carry the same warning rather than a summary of it.
+  await expect(page.locator('.live-region [aria-live="assertive"]')).toHaveText(
+    /Tornado Warning.*miles from the point you watch/,
+  );
 });
 
 test("draws the severe outlook under the warnings it is guidance about", async ({
