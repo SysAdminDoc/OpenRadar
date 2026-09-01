@@ -24,6 +24,11 @@ import {
   type ClassificationProduct,
 } from "../lib/classification";
 import { soonestArrival } from "../lib/cells";
+import {
+  TDWR_SITES,
+  radarCapabilities,
+  supportedProduct,
+} from "../lib/radarKinds";
 import { speedFromMetres, speedToMetres, speedUnit } from "../lib/units";
 import { translate, useT } from "../i18n";
 
@@ -46,6 +51,7 @@ const THRESHOLD_RANGE: Record<
   { min: number; max: number; step: number; unit: "speed" | "own" }
 > = {
   reflectivity: { min: 0, max: 70, step: 1, unit: "own" },
+  "long-range-reflectivity": { min: 0, max: 70, step: 1, unit: "own" },
   // These three are speeds in metres a second, which is what the radar works
   // in and not what most people read in.
   velocity: { min: 0, max: 60, step: 1, unit: "speed" },
@@ -138,6 +144,11 @@ export function RadarProductPanel({
         : t("cells.none");
   const unfoldForced = radar.product === "storm-relative-velocity";
   const range = THRESHOLD_RANGE[radar.product];
+  // What the held radar can be asked for. The map being followed is a
+  // WSR-88D; a terminal radar has to be named to be held.
+  const capabilities = radarCapabilities(
+    singleSite?.station ?? sweep?.station ?? radar.station,
+  );
   // A velocity threshold is a speed, and every other speed in this panel is
   // shown in what the reader reads in. The sweep is handed metres a second
   // whatever the box says, which is what the radar works in.
@@ -433,6 +444,14 @@ export function RadarProductPanel({
                         })
                       : t("radar.zoomIn", { zoom: SINGLE_SITE_MIN_ZOOM })}
               </p>
+              {sweep?.radar === "TDWR" ? (
+                <p className="source-note" data-radar-kind>
+                  {t("radar.terminalLine", {
+                    range: Math.round(sweep.rangeKm),
+                    source: sweep.source.label,
+                  })}
+                </p>
+              ) : null}
 
               <label className="select-row">
                 <span>{t("radar.product")}</span>
@@ -447,12 +466,21 @@ export function RadarProductPanel({
                   }
                 >
                   {LEVEL2_PRODUCTS.map((product) => (
-                    <option key={product.id} value={product.id}>
+                    <option
+                      key={product.id}
+                      value={product.id}
+                      disabled={!capabilities.products.includes(product.id)}
+                    >
                       {t(product.key)}
                     </option>
                   ))}
                 </select>
               </label>
+              {capabilities.radar === "TDWR" ? (
+                <p className="source-note" data-terminal-note>
+                  {t("radar.terminalProducts")}
+                </p>
+              ) : null}
 
               <label className="range-row">
                 <span>
@@ -641,16 +669,33 @@ export function RadarProductPanel({
                 <select
                   value={radar.station ?? ""}
                   aria-label={t("radar.siteLabel")}
-                  onChange={(event) =>
-                    onRadar({ ...radar, station: event.target.value || null })
-                  }
+                  onChange={(event) => {
+                    const station = event.target.value || null;
+                    // A product the new radar does not have goes back to
+                    // reflectivity, so the picker never shows a choice the
+                    // map is not drawing.
+                    onRadar({
+                      ...radar,
+                      station,
+                      product: supportedProduct(station, radar.product),
+                    });
+                  }}
                 >
                   <option value="">{t("radar.followMap")}</option>
-                  {sweep ? (
+                  {sweep && sweep.radar !== "TDWR" ? (
                     <option value={sweep.station}>
                       {t("radar.hold", { station: sweep.station })}
                     </option>
                   ) : null}
+                  {/* The airports' own radars, which the nearest-site search
+                      never hands over: a reader names one to hold it. */}
+                  <optgroup label={t("radar.terminalRadars")}>
+                    {TDWR_SITES.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {site.id} · {site.name}, {site.state}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </label>
             </div>

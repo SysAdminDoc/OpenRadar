@@ -5,7 +5,6 @@ import {
   fetchSweep,
   isSingleSiteViewport,
   level2Available,
-  type Level2ProductId,
   LIVE_REFRESH_MS,
   nearestSite,
   pickArchiveFile,
@@ -17,6 +16,7 @@ import { fetchCrossSection, type CrossSection } from "../lib/crossSection";
 import type { GeoPoint } from "../lib/geo";
 import { highContrastRequested } from "./useClock";
 import { log } from "../lib/log";
+import { isTdwrStation, supportedProduct } from "../lib/radarKinds";
 import type { RadarSettings } from "../lib/settings";
 
 export interface SingleSiteState {
@@ -104,9 +104,13 @@ export function useSingleSiteRadar(options: {
   // values instead of the identity of the object carrying them.
   const motionSpeed = radar.stormMotion?.speedMs ?? null;
   const motionFrom = radar.stormMotion?.fromDegrees ?? null;
+  // A product this radar does not have is asked for as reflectivity, which
+  // every radar has: a terminal radar held with spectrum width chosen draws
+  // something true while the picker shows which products are off.
+  const product = supportedProduct(station, radar.product);
   // A product with no entry is drawn whole, which is what every product does
   // until somebody asks otherwise.
-  const threshold = radar.thresholds[radar.product] ?? null;
+  const threshold = radar.thresholds[product] ?? null;
 
   useEffect(() => {
     if (!wanted || radar.station) return;
@@ -312,7 +316,6 @@ export function useSingleSiteRadar(options: {
   useEffect(() => {
     if (!wanted || !station) return;
     let open = true;
-    const product: Level2ProductId = radar.product;
 
     const refresh = async () => {
       const request = ++requestRef.current;
@@ -374,7 +377,7 @@ export function useSingleSiteRadar(options: {
     paletteGeneration,
     radar.dealias,
     radar.live,
-    radar.product,
+    product,
     // The two numbers rather than the object holding them. A settings object is
     // rebuilt whenever anything in it changes, including the map centre, so
     // depending on the object refetched the sweep on every pan.
@@ -395,7 +398,7 @@ export function useSingleSiteRadar(options: {
       sweep !== null &&
       sweep.station === station &&
       sweep.tiltIndex === radar.tilt &&
-      sweep.productId === radar.product;
+      sweep.productId === product;
     const showing = wanted || historicalWanted;
     const current = showing && (historicalWanted || asked) ? sweep : null;
     return {
@@ -411,8 +414,11 @@ export function useSingleSiteRadar(options: {
       resumeRecent,
       // A slice needs a site whichever way the volume arrived. A held local
       // file carries its own, and the mosaic has none.
+      // And never for a terminal radar, which has no volume to cut.
       crossSection:
-        showing && (historicalSource?.kind === "local" || station)
+        showing &&
+        !isTdwrStation(station) &&
+        (historicalSource?.kind === "local" || station)
           ? takeCrossSection
           : null,
     };
@@ -424,7 +430,7 @@ export function useSingleSiteRadar(options: {
     loading,
     openArchive,
     openLocal,
-    radar.product,
+    product,
     radar.tilt,
     resumeRecent,
     station,

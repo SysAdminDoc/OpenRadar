@@ -35,6 +35,13 @@ export const LEVEL2_PRODUCTS = [
     key: "product.correlation",
     unit: "",
   },
+  // A terminal radar's alone: reflectivity to 225 nautical miles on 300 m
+  // gates. A WSR-88D's capabilities leave it out.
+  {
+    id: "long-range-reflectivity",
+    key: "product.longRange",
+    unit: "dBZ",
+  },
 ] as const satisfies ReadonlyArray<{
   id: string;
   key: StringKey;
@@ -42,6 +49,9 @@ export const LEVEL2_PRODUCTS = [
 }>;
 
 export type Level2ProductId = (typeof LEVEL2_PRODUCTS)[number]["id"];
+
+/** Which kind of radar drew a sweep, which decides its products and reach. */
+export type RadarKind = "WSR-88D" | "TDWR";
 
 export function isLevel2Product(value: unknown): value is Level2ProductId {
   return LEVEL2_PRODUCTS.some((product) => product.id === value);
@@ -101,6 +111,10 @@ export interface SweepImage {
     label: string;
     url: string | null;
   };
+  /** Which kind of radar drew this. */
+  radar: RadarKind;
+  /** How far the picture reaches from the site, in kilometres. */
+  rangeKm: number;
 }
 
 /**

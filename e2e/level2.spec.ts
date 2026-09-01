@@ -66,6 +66,8 @@ async function fakeNativeSide(page: Page) {
             label: "NOAA NEXRAD Level II",
             url: "https://registry.opendata.aws/noaa-nexrad/",
           },
+          radar: "WSR-88D",
+          rangeKm: 230,
         };
       };
 
@@ -265,6 +267,61 @@ async function fakeNativeSide(page: Page) {
                 [250, "#581c1c", 232],
               ].map(([at, color, alpha]) => ({ at, color, alpha })),
               image: png,
+            });
+          }
+          if (
+            command === "level2_sweep" &&
+            String(args.station).startsWith("T")
+          ) {
+            // An airport's terminal radar: fewer products, a shorter reach,
+            // its own tilts, and a Level III source. What it does not have
+            // is refused the way the native side refuses it.
+            const station = String(args.station);
+            const product = String(args.product);
+            const terminal = [
+              "reflectivity",
+              "velocity",
+              "long-range-reflectivity",
+            ];
+            if (!terminal.includes(product)) {
+              return Promise.reject({
+                code: "noSweep",
+                args: [station, product],
+                text: `${station} has no ${product} sweep at that tilt`,
+              });
+            }
+            const long = product === "long-range-reflectivity";
+            const tilt = Math.min(Number(args.tilt), 2);
+            return Promise.resolve({
+              ...sweep(
+                station,
+                product === "velocity" ? "velocity" : "reflectivity",
+                tilt,
+                false,
+                null,
+              ),
+              siteName: "Dallas Love Field, TX",
+              productId: product,
+              product: long
+                ? "Long range reflectivity"
+                : product === "velocity"
+                  ? "Velocity"
+                  : "Reflectivity",
+              elevationDegrees: long ? 0.5 : [0.5, 1.0, 3.1][tilt],
+              tilts: long ? [0.5] : [0.5, 1.0, 3.1],
+              tiltIndex: long ? 0 : tilt,
+              west: long ? -101.4 : -97.9,
+              south: long ? 29.2 : 32.1,
+              east: long ? -92.5 : -96.0,
+              north: long ? 36.7 : 33.7,
+              volume: `DAL_${long ? "TZL" : product === "velocity" ? `TV${tilt}` : `TZ${tilt}`}_2026_09_01_19_56_53`,
+              source: {
+                kind: "recent",
+                label: "NOAA NEXRAD Level III (TDWR)",
+                url: "https://registry.opendata.aws/noaa-nexrad/",
+              },
+              radar: "TDWR",
+              rangeKm: long ? 417 : 88.8,
             });
           }
           if (command === "level2_sweep" && String(args.station) === "FAIL") {
@@ -717,6 +774,78 @@ test("unfolds velocity by default and says so, and can be turned off", async ({
   await page.getByRole("checkbox", { name: /Unfold velocity/ }).uncheck();
   await expect(page.getByText("0.48° TILT", { exact: true })).toBeVisible();
   expect((await asked()).at(-1)?.args).toMatchObject({ dealias: false });
+});
+
+test("holds an airport's terminal radar and offers only what it has", async ({
+  page,
+}) => {
+  // A terminal radar is another instrument: three tilts, two moments, a
+  // shorter reach, read from Level III. Holding one has to say so, keep the
+  // products it does not have out of reach, and hand the WSR-88D back
+  // untouched when the reader lets go.
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  const site = page.getByRole("combobox", { name: "Radar site" });
+  await site.selectOption("TDAL");
+  const kind = page.locator("[data-radar-kind]");
+  await expect(kind).toContainText("Terminal Doppler weather radar");
+  await expect(kind).toContainText("89 km");
+  await expect(kind).toContainText("Level III (TDWR)");
+  await expect(page.locator("[data-terminal-note]")).toBeVisible();
+  await expect(page.getByText("TDAL Reflectivity")).toBeVisible();
+  await expect(page.getByText(/TDWR · 89 km/)).toBeVisible();
+
+  // Checked as a property: Playwright's enabled matcher does not speak
+  // for option elements, and the property is what the picker reads.
+  const products = page.getByRole("combobox", { name: "Level II product" });
+  await expect(
+    products.locator('option[value="spectrum-width"]'),
+  ).toHaveJSProperty("disabled", true);
+  await expect(
+    products.locator('option[value="differential-reflectivity"]'),
+  ).toHaveJSProperty("disabled", true);
+  await expect(
+    products.locator('option[value="long-range-reflectivity"]'),
+  ).toHaveJSProperty("disabled", false);
+  await products.selectOption("long-range-reflectivity");
+  await expect(page.getByText("TDAL Long range reflectivity")).toBeVisible();
+  await expect(page.getByText(/TDWR · 417 km/)).toBeVisible();
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level2_sweep"),
+  );
+  expect(asked.at(-1)?.args).toMatchObject({
+    station: "TDAL",
+    product: "long-range-reflectivity",
+  });
+
+  // Letting go hands the WSR-88D back with every product it has, and the
+  // product the terminal radar alone had is not asked of it.
+  await site.selectOption("");
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+  await expect(
+    products.locator('option[value="spectrum-width"]'),
+  ).toHaveJSProperty("disabled", false);
+  await expect(
+    products.locator('option[value="long-range-reflectivity"]'),
+  ).toHaveJSProperty("disabled", true);
+  await expect(kind).toHaveCount(0);
+  const after = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level2_sweep"),
+  );
+  expect(after.at(-1)?.args).toMatchObject({
+    station: "KDMX",
+    product: "reflectivity",
+  });
 });
 
 test("says how high the beam is over the point you click", async ({ page }) => {

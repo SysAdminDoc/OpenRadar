@@ -55,6 +55,8 @@ function sweepOf(live: boolean): SweepImage {
     north: 44,
     image: "data:image/png;base64,",
     volume: "v",
+    radar: "WSR-88D",
+    rangeKm: 230,
     source: {
       kind: "recent",
       label: "NOAA NEXRAD Level II",

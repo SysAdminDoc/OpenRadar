@@ -581,6 +581,17 @@ export function WorkspaceChrome({
  * so a slow fetch shows as what it is.
  */
 function sweepEyebrow(sweep: SweepImage, clock: number): string {
+  const tilt = tiltEyebrow(sweep, clock);
+  // A terminal radar is named as such, with its reach: the picture is
+  // another instrument's, drawn to another distance, and the legend has to
+  // say so where the tilt is said.
+  if (sweep.radar !== "TDWR") return tilt;
+  return `${tilt} · ${translate("chrome.terminalRadar", {
+    range: Math.round(sweep.rangeKm),
+  })}`;
+}
+
+function tiltEyebrow(sweep: SweepImage, clock: number): string {
   const age = liveAgeSeconds(sweep, clock);
   const degrees = sweep.elevationDegrees.toFixed(2);
   if (sweep.source.kind !== "recent") {

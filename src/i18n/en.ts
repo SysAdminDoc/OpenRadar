@@ -385,6 +385,7 @@ export const en = {
   "product.spectrumWidth": "Spectrum width",
   "product.differential": "Differential reflectivity",
   "product.correlation": "Correlation coefficient",
+  "product.longRange": "Long range reflectivity",
   "radar.eyebrow": "Radar product",
   "radar.title": "Composite Radar",
   "radar.composite": "Composite reflectivity",
@@ -434,6 +435,8 @@ export const en = {
   "radar.classificationDetail":
     "Which Level III product the Hydrometeor Classification layer reads: the lowest tilt, or the hybrid scan the whole volume is read into.",
   "radar.error.unknownSite": "{0} is not a NEXRAD site.",
+  "radar.error.notWsr88d":
+    "{0} is an airport's terminal radar: it has no Level II volume to read and no archive.",
   "radar.error.noVolume":
     "No radar volume has been published for {0} yet today or yesterday.",
   "radar.error.badListing": "The volume listing could not be read.",
@@ -466,6 +469,11 @@ export const en = {
   "radar.tiltLabel": "Level II tilt",
   "radar.site": "Site",
   "radar.siteLabel": "Radar site",
+  "radar.terminalRadars": "Terminal radars (TDWR)",
+  "radar.terminalLine":
+    "Terminal Doppler weather radar, {range} km reach · {source}",
+  "radar.terminalProducts":
+    "An airport's terminal radar publishes reflectivity and velocity only, to 48 nautical miles, with a long range reflectivity to 225. The other products stay unavailable while it is held.",
   "radar.followMap": "Follow the map",
   "radar.hold": "Hold {station}",
   "radar.opacityLabel": "Radar opacity",
@@ -863,6 +871,7 @@ export const en = {
   "chrome.tiltLiveDealiased":
     "{degrees}° TILT · UNFOLDED · LIVE, {seconds} S OLD",
   "chrome.liveProduct": "LIVE PRODUCT",
+  "chrome.terminalRadar": "TDWR · {range} km",
   "chrome.extraScales": "Extra product scales",
   "chrome.wind": "Wind",
   "chrome.windReduced": "Held back because this device asks for less movement.",

@@ -39,6 +39,8 @@ const sweep: SweepImage = {
   north: 43.8,
   image: "data:image/png;base64,AAAA",
   volume: "2026/08/30/KDMX/KDMX20260830_092159_V06",
+  radar: "WSR-88D",
+  rangeKm: 230,
   source: {
     kind: "recent",
     label: "NOAA NEXRAD Level II",
