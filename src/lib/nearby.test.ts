@@ -10,7 +10,7 @@ import {
 import type { StormCell } from "./cells";
 import type { OverlayData } from "./overlays";
 import { setUnits } from "./units";
-import { setLanguage } from "../i18n";
+import { ensureLanguage, setLanguage } from "../i18n";
 
 /** Oklahoma City, which is where the fixtures below are hung off. */
 const HERE = { lon: -97.5, lat: 35.5 };
@@ -143,7 +143,8 @@ describe("the storms near a place", () => {
     expect(said.sentence).not.toContain("mph");
   });
 
-  it("speaks the reader's own language", () => {
+  it("speaks the reader's own language", async () => {
+    await ensureLanguage("es");
     setLanguage("es");
     const [said] = nearbyCells([cell({ id: "A1", latitude: 36.5 })], HERE);
     expect(said.sentence).toContain("norte");

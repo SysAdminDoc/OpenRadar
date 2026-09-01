@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { setLanguage } from "../i18n";
+import { ensureLanguage, setLanguage } from "../i18n";
 import { setClockZone, setUnits } from "../lib/units";
 import {
   DEFAULT_SETTINGS,
@@ -84,7 +84,7 @@ export function useSettings(options: {
 
   useEffect(() => {
     let active = true;
-    void loadSettings().then((stored) => {
+    void loadSettings().then(async (stored) => {
       if (!active) return;
       // A shared view in the address bar wins over what was last saved.
       const params = new URLSearchParams(window.location.search);
@@ -97,6 +97,11 @@ export function useSettings(options: {
       });
       // Apply the saved language before the loading screen gives way to the
       // workspace. Otherwise the first screen after launch is always English.
+      // Spanish is fetched here rather than after the workspace is up, which
+      // is the difference between a Spanish first screen and an English one
+      // that turns Spanish a moment later.
+      await ensureLanguage(next.language);
+      if (!active) return;
       setLanguage(next.language);
       document.documentElement.lang =
         next.language === "pseudo" ? "en" : next.language;

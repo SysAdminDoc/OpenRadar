@@ -723,6 +723,11 @@ fn normalized_volume(data: Vec<u8>) -> Result<volume::File, Level2Error> {
 /// them, and every message the records hold. Rendering is deliberately not
 /// part of it. Drawing a sweep is a megapixel of work per call and the bugs
 /// worth finding here are in the length arithmetic that runs first.
+///
+/// The app itself never calls it: it asks for a sweep, not a whole scan. So
+/// it is compiled only where something does, rather than sitting in a shipped
+/// binary as a function with no callers.
+#[cfg(any(test, feature = "fuzzing"))]
 pub fn scan_volume(data: Vec<u8>) -> Result<Scan, Level2Error> {
     normalized_volume(data)?
         .scan()
