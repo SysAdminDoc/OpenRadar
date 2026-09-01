@@ -194,7 +194,10 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
   });
   const asked: string[] = [];
   page.on("request", (request) => {
-    if (request.url().includes("/geojson/sbw.py")) asked.push(request.url());
+    const url = request.url();
+    if (url.includes("sbw_interval") || url.includes("/geojson/sbw.py")) {
+      asked.push(url);
+    }
   });
 
   await findStorm(page, "Ian 2022");
@@ -202,19 +205,26 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
   await page.getByRole("button", { name: /Replay radar/ }).click();
   await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
 
-  // One request for the whole window, and it asks for that window rather than
-  // for now.
-  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(1);
-  expect(asked[0]).toContain("sts=2022-09-28T16:00:00Z");
-  expect(asked[0]).toContain("ets=2022-09-28T22:00:00Z");
+  // Two requests for the whole window, one for the polygons and one for the
+  // tags, and the polygons come from the service that knows about revisions.
+  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(2);
+  const polygons = asked.find((url) => url.includes("sbw_interval"));
+  expect(polygons).toBeDefined();
+  expect(polygons).toContain("only_new=false");
+  // Issuance is what the window filters on, so it opens two hours before the
+  // replay to catch a warning already in force when it starts.
+  expect(polygons).toContain("begints=2022-09-28T14:00:00Z");
+  expect(polygons).toContain("endts=2022-09-28T22:00:00Z");
 
   // The polygons are on the map, drawn by the same layer the live ones use.
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
 
-  // And the popup says which day they are from, first, before anything that
-  // could be mistaken for a time today.
+  // The panel lists them, says they came out of the archive rather than
+  // pretending to be checking NWS, and dates them with a year.
   await page.getByRole("button", { name: "Alerts", exact: true }).click();
   await expect(page.getByText("Tornado Warning").first()).toBeVisible();
+  await expect(page.getByText(/from the Iowa State archive/)).toBeVisible();
+  await expect(page.getByText(/2022/).first()).toBeVisible();
   await page.getByRole("button", { name: "Close Alerts" }).click();
 
   // Scrubbing to a later frame does not ask the archive again.
@@ -224,5 +234,25 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
     await page.keyboard.press("ArrowRight");
   }
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
-  expect(asked).toHaveLength(1);
+  expect(asked).toHaveLength(2);
+});
+
+test("keeps a replay's warnings behind the layer switch", async ({ page }) => {
+  // Every other layer answers to this switch and the archived warnings did
+  // not, so somebody who had turned warnings off got them back on a replay.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Weather Alerts/ }).uncheck();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  // The Layers panel took History's place, so it has to be reopened.
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await findStorm(page, "Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+  await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
+  await expect(pane).toHaveAttribute("data-radar-frame", /\d+/);
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /overlay-alerts/);
 });

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   archiveCoverage,
+  archiveTagsUrl,
   archiveWarningsAt,
   archiveWarningsUrl,
+  parseArchiveTags,
   parseArchiveWarnings,
   type ArchiveCoverage,
 } from "../lib/archiveWarnings";
@@ -13,10 +15,12 @@ import { translate } from "../i18n";
 import type { ArchiveReplay } from "./useRadarTimeline";
 
 export interface ArchiveWarnings {
-  /** The polygons in force at the frame on screen, or null when there is no replay. */
+  /** The polygons in force at the frame on screen, or null when there is none. */
   data: OverlayData | null;
   /** What the archive can say about the period being replayed. */
   coverage: ArchiveCoverage;
+  /** True while the window is being fetched, so nothing reports an empty sky. */
+  loading: boolean;
   /** Shown where a layer note goes, when the archive could not answer. */
   error: string | null;
 }
@@ -31,7 +35,7 @@ export interface ArchiveWarnings {
  * on screen is simply not the one that matches.
  */
 interface Loaded {
-  id: string;
+  key: string;
   data: OverlayData | null;
   error: string | null;
 }
@@ -39,53 +43,67 @@ interface Loaded {
 /**
  * The warnings that were in force while an archived storm was on the map.
  *
- * One request for the whole replay window, then a filter per frame. A replay
- * is a few dozen frames the reader scrubs back and forth through, and the
- * archive answers a six-hour window in one response, so asking per frame would
- * be a request every time the playhead moved: slower for the reader and rude
- * to a service that publishes for nothing.
+ * Two requests for the whole replay window, then a filter per frame. A replay
+ * is a few dozen frames the reader scrubs back and forth through, and asking
+ * per frame would be a request every time the playhead moved: slower for the
+ * reader and rude to a service that publishes for nothing.
  */
 export function useArchiveWarnings(options: {
   replay: ArchiveReplay | null;
+  /** False when the reader has the warnings layer switched off. */
+  enabled: boolean;
   /** The time on screen, in seconds, as radar frames carry it. */
   frameTime: number | null;
 }): ArchiveWarnings {
-  const { replay, frameTime } = options;
+  const { replay, enabled, frameTime } = options;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   const window = useMemo(() => {
     if (!replay?.frames.length) return null;
-    return {
-      id: replay.id,
-      from: replay.frames[0].time * 1000,
-      to: replay.frames[replay.frames.length - 1].time * 1000,
-    };
+    const from = replay.frames[0].time * 1000;
+    const to = replay.frames[replay.frames.length - 1].time * 1000;
+    // Keyed by what is actually being asked for rather than by the replay
+    // object, which is rebuilt on every selection: choosing the same storm
+    // twice asks the same question and should not ask it again.
+    return { key: `${from}:${to}`, from, to };
   }, [replay]);
 
   const coverage = window ? archiveCoverage(window.from) : "full";
+  const wanted = Boolean(window) && enabled && coverage !== "none";
 
   useEffect(() => {
     // Nothing to ask for, and nothing to clear: what is held is keyed to the
-    // replay it came from, so it stops matching on its own.
-    if (!window || archiveCoverage(window.from) === "none") return;
+    // window it came from, so it stops matching on its own.
+    if (!window || !wanted) return;
 
     let mounted = true;
     const controller = new AbortController();
+    const ask = async (url: string) => {
+      const response = await fetch(cachedUrl(url), {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        throw new Error(`the archive returned ${response.status}`);
+      }
+      return response.json();
+    };
+
     void (async () => {
       try {
-        const response = await fetch(
-          cachedUrl(archiveWarningsUrl(window.from, window.to)),
-          {
-            signal: controller.signal,
-            headers: { Accept: "application/json" },
-          },
-        );
-        if (!response.ok) {
-          throw new Error(`the archive returned ${response.status}`);
-        }
-        const data = parseArchiveWarnings(await response.json());
+        // The polygons are the feature and the tags are what an office added
+        // to them, so a tag feed that fails is a warning drawn without its
+        // damage threat rather than no warning at all.
+        const [polygons, tags] = await Promise.all([
+          ask(archiveWarningsUrl(window.from, window.to)),
+          ask(archiveTagsUrl(window.from, window.to)).catch(() => null),
+        ]);
         if (!mounted) return;
-        setLoaded({ id: window.id, data, error: null });
+        setLoaded({
+          key: window.key,
+          data: parseArchiveWarnings(polygons, parseArchiveTags(tags)),
+          error: null,
+        });
       } catch (failure) {
         if (!mounted || controller.signal.aborted) return;
         log.warn(
@@ -95,7 +113,7 @@ export function useArchiveWarnings(options: {
         // The radar is the point of a replay and it is already on screen, so
         // this is a note beside the layer rather than anything louder.
         setLoaded({
-          id: window.id,
+          key: window.key,
           data: null,
           error: translate("replay.warningsUnavailable"),
         });
@@ -106,11 +124,11 @@ export function useArchiveWarnings(options: {
       mounted = false;
       controller.abort();
     };
-  }, [window]);
+  }, [window, wanted]);
 
-  // Only an answer for the replay on screen counts, which is what makes the
+  // Only an answer for the window on screen counts, which is what makes the
   // effect's lack of a reset safe.
-  const held = window && loaded?.id === window.id ? loaded : null;
+  const held = window && loaded?.key === window.key ? loaded : null;
 
   const data = useMemo(
     () =>
@@ -120,5 +138,10 @@ export function useArchiveWarnings(options: {
     [held, frameTime],
   );
 
-  return { data, coverage, error: held?.error ?? null };
+  return {
+    data,
+    coverage,
+    loading: wanted && !held,
+    error: held?.error ?? null,
+  };
 }

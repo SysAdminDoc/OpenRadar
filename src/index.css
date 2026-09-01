@@ -3991,7 +3991,17 @@ input[type="range"] {
 .app-shell[data-capture="1"] .source-attribution,
 .app-shell[data-capture="1"] .product-legends,
 .app-shell[data-capture="1"] .radar-legend,
-.app-shell[data-capture="1"] .tool-hud {
+.app-shell[data-capture="1"] .tool-hud,
+/* Four more that a first pass missed, each of which only appears in some
+   state and so is only in shot sometimes: the cursor readout, which lands in
+   the lower-right strip a streamer keeps for their own overlay; the compare
+   controls, which sit on top of the alert badge in dual pane; the satellite
+   chip, directly under the clock; and the toasts, which are above the strip
+   and carry buttons that change what the workspace comes back to. */
+.app-shell[data-capture="1"] .map-readout,
+.app-shell[data-capture="1"] .pane-compare,
+.app-shell[data-capture="1"] .satellite-chip,
+.app-shell[data-capture="1"] .toast-host {
   display: none;
 }
 

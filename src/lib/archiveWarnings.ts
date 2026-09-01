@@ -30,7 +30,7 @@ export const POLYGONS_FROM = Date.UTC(2002, 0, 1);
 /** When storm-based warnings became the official product. */
 export const POLYGONS_OFFICIAL_FROM = Date.UTC(2007, 9, 1);
 
-const SERVICE = "https://mesonet.agron.iastate.edu/geojson/sbw.py";
+const HOST = "https://mesonet.agron.iastate.edu";
 
 /** What the archive can say about a moment. */
 export type ArchiveCoverage = "none" | "partial" | "full";
@@ -41,18 +41,52 @@ export function archiveCoverage(atMs: number): ArchiveCoverage {
   return "full";
 }
 
+function stamp(at: number): string {
+  return new Date(at).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 /**
- * One request for the whole replay, rather than one per frame.
+ * Every polygon a warning held during the replay, not just the one it opened
+ * with.
  *
- * A replay is twenty-five frames over six hours and the reader scrubs back and
- * forth through them. Asking the archive per frame would be twenty-five
- * requests for a window it will answer in one, and hammering a service that
- * publishes for nothing.
+ * This is the whole reason the obvious endpoint is not the one used. The
+ * `geojson/sbw.py` service, asked for a time window, answers only the rows
+ * with a status of `NEW`: one polygon per warning, the shape at issuance, and
+ * a `polygon_end` that is the moment the office first revised it rather than
+ * the moment the warning ended. Filtering that on the polygon window drops a
+ * tornado warning off the map partway through its life, which was measured at
+ * a third of the polygons and two thirds of the tornado warnings on
+ * 2011-04-27. `only_new=false` on the interval service returns the revisions
+ * as well, each with the window it actually stood for.
+ *
+ * One request for the whole replay, rather than one per frame. A replay is a
+ * few dozen frames the reader scrubs back and forth through, and asking per
+ * frame would be a request every time the playhead moved: slower for the
+ * reader and rude to a service that publishes for nothing.
  */
 export function archiveWarningsUrl(fromMs: number, toMs: number): string {
-  const stamp = (at: number) =>
-    new Date(at).toISOString().replace(/\.\d{3}Z$/, "Z");
-  return `${SERVICE}?sts=${stamp(fromMs)}&ets=${stamp(toMs)}`;
+  // Issuance is what the window filters on, so it has to open early enough to
+  // catch a warning already in force when the replay starts. Two hours covers
+  // every storm-based product's own maximum duration.
+  const issuedFrom = fromMs - 2 * 3_600_000;
+  return (
+    `${HOST}/api/1/vtec/sbw_interval.geojson` +
+    `?begints=${stamp(issuedFrom)}&endts=${stamp(toMs)}&only_new=false`
+  );
+}
+
+/**
+ * The same window from the service that carries the offices' own tags.
+ *
+ * The interval service knows every polygon and nothing about hail size or a
+ * damage threat; `sbw.py` knows the tags and only the issuance polygon. So
+ * both are asked, once each, and joined on the event they describe. If this
+ * one fails the polygons still draw, untagged, because the polygons are the
+ * feature and the tags are what the office added to them.
+ */
+export function archiveTagsUrl(fromMs: number, toMs: number): string {
+  const issuedFrom = fromMs - 2 * 3_600_000;
+  return `${HOST}/geojson/sbw.py?sts=${stamp(issuedFrom)}&ets=${stamp(toMs)}`;
 }
 
 function text(value: unknown): string {
@@ -66,23 +100,60 @@ function moment(value: unknown): number | null {
 }
 
 /**
+ * One VTEC event, as both services name it.
+ *
+ * An office, a year, a hazard, a significance and a number. That is what makes
+ * a warning one warning across however many polygons it held, and it is the
+ * only thing the two services agree on well enough to join by.
+ */
+function eventKey(properties: Record<string, unknown>): string {
+  return [
+    text(properties.wfo),
+    String(properties.year ?? ""),
+    text(properties.phenomena),
+    text(properties.significance),
+    String(properties.eventid ?? ""),
+  ].join("|");
+}
+
+export interface ArchiveTags {
+  impact: ImpactTag | "";
+  hailSize: string;
+}
+
+/**
  * The damage threat the office tagged, in the words the live feed uses.
  *
  * The archive spells these in its own way and carries an emergency as its own
- * flag rather than as a tag, so the two have to be brought together here or
- * the same warning would read differently depending on which side of
- * 2007 it came from.
+ * flag rather than as a tag, so the two are brought together here or the same
+ * warning would read differently depending on which service answered.
  */
 function impactOf(properties: Record<string, unknown>): ImpactTag | "" {
   if (properties.is_emergency === true) return "catastrophic";
-  const tag = text(properties.damagetag).toLowerCase();
-  if (tag === "catastrophic") return "catastrophic";
-  if (tag === "destructive") return "destructive";
-  if (tag === "considerable") return "considerable";
-  const flood = text(properties.floodtag_damage).toLowerCase();
-  if (flood === "catastrophic") return "catastrophic";
-  if (flood === "considerable") return "considerable";
+  for (const raw of [properties.damagetag, properties.floodtag_damage]) {
+    const tag = text(raw).toLowerCase();
+    if (tag === "catastrophic") return "catastrophic";
+    if (tag === "destructive") return "destructive";
+    if (tag === "considerable") return "considerable";
+  }
   return "";
+}
+
+/** The tag feed, keyed by the event each row describes. */
+export function parseArchiveTags(payload: unknown): Map<string, ArchiveTags> {
+  const out = new Map<string, ArchiveTags>();
+  const source = payload as { features?: unknown[] } | null;
+  if (!source || !Array.isArray(source.features)) return out;
+  for (const raw of source.features) {
+    const properties = (raw as { properties?: Record<string, unknown> })
+      .properties;
+    if (!properties) continue;
+    const impact = impactOf(properties);
+    const hailSize = text(properties.hailtag);
+    if (!impact && !hailSize) continue;
+    out.set(eventKey(properties), { impact, hailSize });
+  }
+  return out;
 }
 
 /**
@@ -93,7 +164,10 @@ function impactOf(properties: Record<string, unknown>): ImpactTag | "" {
  * is the two times the polygon was actually in force between, which is what
  * makes scrubbing possible, and the flag that says this is history.
  */
-export function parseArchiveWarnings(payload: unknown): OverlayData {
+export function parseArchiveWarnings(
+  payload: unknown,
+  tags: Map<string, ArchiveTags> = new Map(),
+): OverlayData {
   const source = payload as { features?: unknown[] } | null;
   const features: OverlayData["features"] = [];
   if (!source || !Array.isArray(source.features)) {
@@ -108,18 +182,22 @@ export function parseArchiveWarnings(payload: unknown): OverlayData {
     const properties = feature.properties;
     if (!feature.geometry || !properties) continue;
 
-    // The archive names the product in `ps` and the office's own code in
-    // `phenomena` and `significance`, which is what the severity table reads.
-    const headline = text(properties.ps);
+    // A cancellation's polygon is the area being released, not an area under
+    // warning, and drawing it would say the opposite of what happened.
+    if (text(properties.status) === "CAN") continue;
+
+    const headline = text(properties.event_label);
     if (!headline) continue;
+    const begin = moment(properties.utc_polygon_begin);
+    if (begin === null) continue;
+    const end = moment(properties.utc_polygon_end);
+
     const severity = alertSeverity(
       headline,
       text(properties.significance) || "W",
     );
-    const impact = impactOf(properties);
-    const begin = moment(properties.polygon_begin);
-    const end = moment(properties.polygon_end);
-    if (begin === null) continue;
+    const tag = tags.get(eventKey(properties));
+    const impact = tag?.impact ?? "";
 
     features.push({
       type: "Feature",
@@ -132,24 +210,30 @@ export function parseArchiveWarnings(payload: unknown): OverlayData {
         kind: alertType(headline),
         impact,
         impactRank: impact ? IMPACT_RANK[impact] : 0,
-        hailSize: text(properties.hailtag),
+        hailSize: tag?.hailSize ?? "",
         motion: "",
         office: text(properties.wfo),
-        url: text(properties.href),
-        issued: begin,
-        expires: end,
+        url: `${HOST}/vtec/event/${text(properties.product_id)}`,
+        // The event's own life, which is what the popup reports, rather than
+        // this polygon's slice of it.
+        issued: moment(properties.utc_issue) ?? begin,
+        expires: moment(properties.utc_expire) ?? end,
         // What this layer adds. The first two decide which frame a polygon
         // belongs to; the third is what stops a warning from 2011 reading as
         // something somebody is being told right now.
         polygonBegin: begin,
         polygonEnd: end,
         historical: true,
+        // Which warning this is, across every polygon it held. The office,
+        // the year, the hazard, the significance and the number: the only
+        // thing that identifies one warning rather than one shape of one.
+        event: eventKey(properties),
       },
     });
   }
 
   // Most severe first, then by damage tag, which is the order the live layer
-  // draws in and the order the capture strip reads the worst one from.
+  // draws in and the order any readout takes the worst one from.
   features.sort(
     (left, right) =>
       Number(right.properties.severityRank) -

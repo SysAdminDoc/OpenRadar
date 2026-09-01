@@ -90,9 +90,6 @@ export const es: Catalogue = {
     "El archivo de avisos no guarda polígonos anteriores a 2002, así que no se dibuja ninguno.",
   "replay.warningsHistorical": "Avisos tal como estaban, {when}",
   "capture.leave": "Salir del diseño para captura",
-  "capture.entered": "Diseño para captura activado",
-  "capture.enteredBody":
-    "Los paneles y los controles están ocultos. La cruz al final de la franja los devuelve.",
   "alerts.kinds": "Tipos de aviso",
   "alerts.kindsDetail": "Al desmarcar uno se quita del mapa y de esta lista",
   "alerts.sound": "Reproducir un sonido",
@@ -115,6 +112,8 @@ export const es: Catalogue = {
     "No se está consultando nada mientras la capa esté apagada.",
   "alerts.noteError": "Mostrando la última lista buena. {error}",
   "alerts.noteChecked": "Vigilancias y avisos del NWS, consultados {when}.",
+  "alerts.noteArchived":
+    "Los avisos que estaban en vigor en el momento que se ve, del archivo de Iowa State.",
   "alerts.noteLoading": "Cargando vigilancias y avisos del NWS.",
   "alerts.noteSafety":
     "Usa los avisos oficiales para decisiones que afecten la seguridad.",
