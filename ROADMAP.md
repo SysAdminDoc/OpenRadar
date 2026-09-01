@@ -22,13 +22,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
       Acceptance: A bounded time window exports selected data, source and valid-time metadata, settings, and hashes into one documented local bundle; import reproduces the same frames offline; missing optional layers stay explicit; personal coordinates and routes require an opt-in; corrupt or newer bundles fail without changing the workspace.
       Complexity: XL
 
-- [ ] AUD-086: Split MapViewport lifecycle ownership behind tested adapters
-      Why: `MapViewport.tsx` is 1,793 lines, owns most source and layer lifecycles, and contains 15 hook dependency suppressions. This makes source generation, cleanup, and layer ordering changes risky.
-      Evidence: `src/components/MapViewport.tsx`; `src/lib/overlays/`; `git log -- src/components/MapViewport.tsx`
-      Touches: Radar image adapter; native image adapter; vector overlay adapter; map generation owner; layer ordering tests
-      Acceptance: The component becomes a coordinator instead of owning each layer implementation; adapter lifecycles have pure or MapLibre-mocked tests; final ordering still has one owner; dependency suppressions are removed or justified at the boundary; all existing headless scenarios pass with no visual change.
-      Complexity: XL
-
 
 ## P3
 
