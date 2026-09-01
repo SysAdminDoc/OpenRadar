@@ -965,6 +965,70 @@ pub struct Classification {
     /// Which product answered: the tilt, or the hybrid over the whole scan.
     pub product: String,
     pub features: Vec<ClassArea>,
+    /// Every class this layer can draw, in the order a legend reads them.
+    pub legend: Vec<ClassStyle>,
+}
+
+/// What each class is drawn in, and the family it belongs to.
+///
+/// Grouped rather than eleven unrelated colours, because the classes are
+/// grouped: hail, large hail and giant hail are one thing at three
+/// intensities, and so are rain, heavy rain and big drops. A hue says which
+/// family and the lightness inside it says how much, which is the same method
+/// the precipitation-type grid's colours were searched with, and it is the
+/// only encoding that survives eleven categories: no set of eleven hues stays
+/// apart under colour blindness, and pretending otherwise would give three
+/// kinds of hail three colours nobody could tell apart anyway.
+///
+/// These were searched rather than chosen. Hue per family, lightness searched
+/// inside it, keeping the worst cross-family pair as far apart as it can be
+/// under every simulation: 11.3 at the worst, against the 10 the reflectivity
+/// ramps are held to. Within a family the lightness falls as the class gets
+/// worse, so a reader who cannot separate two reds can still see which is the
+/// one to worry about. Both are held by tests, because a sentence like that
+/// written from the shape of the hues is a guess.
+pub const CLASS_COLOURS: [(Hydrometeor, &str, [u8; 3]); 11] = [
+    // Frozen, in the blues.
+    (Hydrometeor::IceCrystals, "iceCrystals", [0x61, 0xb1, 0xd1]),
+    (Hydrometeor::DrySnow, "drySnow", [0x30, 0x85, 0xa6]),
+    // Melting, in the violets.
+    (Hydrometeor::WetSnow, "wetSnow", [0x99, 0x6b, 0xc7]),
+    (Hydrometeor::Graupel, "graupel", [0x6b, 0x3b, 0x9b]),
+    // Liquid, in the greens.
+    (Hydrometeor::Rain, "rain", [0x61, 0xd1, 0x86]),
+    (Hydrometeor::HeavyRain, "heavyRain", [0x30, 0xa6, 0x57]),
+    (Hydrometeor::BigDrops, "bigDrops", [0x1c, 0x5f, 0x32]),
+    // Hail, in the reds, worst darkest.
+    (Hydrometeor::Hail, "hail", [0xe2, 0x72, 0x50]),
+    (Hydrometeor::LargeHail, "largeHail", [0xb8, 0x42, 0x1e]),
+    (Hydrometeor::GiantHail, "giantHail", [0x69, 0x26, 0x11]),
+    // No family, because the algorithm is saying it does not know.
+    (Hydrometeor::Unknown, "unknown", [0x8f, 0x97, 0xa3]),
+];
+
+/// One entry of the layer's own legend, sent with the data.
+///
+/// Sent rather than copied onto the page, because a colour table on the other
+/// side of this boundary drifts: the legend and the map would then disagree
+/// about what a colour means, which is worse than either being wrong.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassStyle {
+    pub class: Hydrometeor,
+    /// The key the page looks the name up under, in the reader's language.
+    pub id: &'static str,
+    pub color: String,
+}
+
+fn class_styles() -> Vec<ClassStyle> {
+    CLASS_COLOURS
+        .iter()
+        .map(|(class, id, [r, g, b])| ClassStyle {
+            class: *class,
+            id,
+            color: format!("#{r:02x}{g:02x}{b:02x}"),
+        })
+        .collect()
 }
 
 /// One run of gates the algorithm gave the same name to.
@@ -1090,6 +1154,7 @@ pub async fn level3_classification(
         observed: description.volume_time.to_rfc3339(),
         product: code.to_string(),
         features: classification_areas(&image, (description.latitude, description.longitude)),
+        legend: class_styles(),
     })
 }
 
@@ -1662,6 +1727,100 @@ mod tests {
         let east = areas[1].ring[3];
         assert!((east[0] + 95.902).abs() < 0.01, "east lon {}", east[0]);
         assert!((east[1] - 35.0).abs() < 0.02, "east lat {}", east[1]);
+    }
+
+    /// Which family a class belongs to, for the colour test below.
+    fn family(class: Hydrometeor) -> &'static str {
+        match class {
+            Hydrometeor::IceCrystals | Hydrometeor::DrySnow => "frozen",
+            Hydrometeor::WetSnow | Hydrometeor::Graupel => "melting",
+            Hydrometeor::Rain | Hydrometeor::HeavyRain | Hydrometeor::BigDrops => "liquid",
+            Hydrometeor::Hail | Hydrometeor::LargeHail | Hydrometeor::GiantHail => "hail",
+            _ => "unknown",
+        }
+    }
+
+    #[test]
+    fn the_families_stay_apart_under_colour_blindness() {
+        use crate::contrast::{distance, ColorVision};
+        // Eleven hues cannot all stay apart, and pretending they can would
+        // give three kinds of hail three colours nobody could tell apart. So
+        // what is held is the part a reader needs: which family a colour
+        // belongs to, under every simulation.
+        for vision in [
+            ColorVision::Typical,
+            ColorVision::Protanopia,
+            ColorVision::Deuteranopia,
+            ColorVision::Tritanopia,
+        ] {
+            let mut worst = f32::MAX;
+            let mut pair = ("", "");
+            for (left, left_id, left_rgb) in CLASS_COLOURS {
+                for (right, right_id, right_rgb) in CLASS_COLOURS {
+                    if family(left) == family(right) {
+                        continue;
+                    }
+                    let apart = distance(left_rgb, right_rgb, vision);
+                    if apart < worst {
+                        worst = apart;
+                        pair = (left_id, right_id);
+                    }
+                }
+            }
+            assert!(
+                worst >= 10.0,
+                "{} puts {} and {} {worst:.1} apart",
+                vision.name(),
+                pair.0,
+                pair.1
+            );
+        }
+    }
+
+    #[test]
+    fn a_worse_class_is_darker_than_the_one_before_it() {
+        use crate::contrast::lightness_climbs;
+        // Inside a family the classes are ordered, so the lightness is the
+        // encoding: a reader who cannot separate two reds can still see which
+        // is the worse one. `lightness_climbs` answers whether a ramp gets
+        // lighter, so each pair is handed to it worse first and must not.
+        let ordered = [
+            [Hydrometeor::IceCrystals, Hydrometeor::DrySnow],
+            [Hydrometeor::WetSnow, Hydrometeor::Graupel],
+            [Hydrometeor::Rain, Hydrometeor::HeavyRain],
+            [Hydrometeor::HeavyRain, Hydrometeor::BigDrops],
+            [Hydrometeor::Hail, Hydrometeor::LargeHail],
+            [Hydrometeor::LargeHail, Hydrometeor::GiantHail],
+        ];
+        let rgb = |want: Hydrometeor| {
+            CLASS_COLOURS
+                .iter()
+                .find(|(class, _, _)| *class == want)
+                .map(|(_, _, rgb)| *rgb)
+                .expect("a colour")
+        };
+        for [lighter, darker] in ordered {
+            assert!(
+                !lightness_climbs(&[(0.0, rgb(lighter)), (1.0, rgb(darker))], 0.5),
+                "{darker:?} is not darker than {lighter:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_legend_names_every_class_the_map_can_draw() {
+        // The legend travels with the data rather than being written on the
+        // page, because a colour table copied across that boundary drifts and
+        // then the legend and the map disagree about what a colour means.
+        let drawable: Vec<_> = (0u8..=255)
+            .filter_map(Hydrometeor::from_code)
+            .filter(|one| one.is_precipitation())
+            .collect();
+        let named: Vec<_> = CLASS_COLOURS.iter().map(|(class, _, _)| *class).collect();
+        for class in &drawable {
+            assert!(named.contains(class), "{class:?} has no colour");
+        }
+        assert_eq!(drawable.len(), named.len());
     }
 
     #[test]
