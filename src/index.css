@@ -4145,3 +4145,83 @@ input[type="range"] {
 .capture-bar.is-high-contrast .capture-bar__place {
   color: #ffffff;
 }
+
+/* The two regions a screen reader watches. Off the screen rather than
+   display:none, which would take them out of the accessibility tree with the
+   rest of the layout. */
+.live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.nearby-intro {
+  margin: 0 3px 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.nearby-place {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.nearby-block {
+  margin-bottom: 18px;
+}
+
+.nearby-block h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nearby-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nearby-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.nearby-list svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.nearby-empty {
+  margin: 0 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}

@@ -76,6 +76,15 @@ export function useAlertWatch(
   /** The kinds the reader has left switched on. */
   kinds: Partial<Record<AlertType, boolean>>,
   onFallback: (alert: WatchAlert) => void,
+  /**
+   * Every alert this decides to announce, whichever way it was delivered.
+   *
+   * Separate from `onFallback`, which fires only when the desktop
+   * notification did not land. A screen reader has to hear the ones that did
+   * too, and it has to hear them on the same terms: once each, after quiet
+   * hours and the severity override have had their say.
+   */
+  onAnnounce?: (alert: WatchAlert) => void,
 ): AlertWatchState {
   // What has been announced, and how bad it was when it was: an upgrade is
   // worth saying again, a downgrade is not.
@@ -83,6 +92,11 @@ export function useAlertWatch(
   useEffect(() => {
     fallbackRef.current = onFallback;
   }, [onFallback]);
+
+  const announceRef = useRef(onAnnounce);
+  useEffect(() => {
+    announceRef.current = onAnnounce;
+  }, [onAnnounce]);
 
   // Read through a ref so switching the sound on or off does not restart the
   // watch and re-announce everything already announced.
@@ -213,6 +227,10 @@ export function useAlertWatch(
           if (!delivered) {
             fallbackRef.current(alert);
           }
+          // After delivery rather than instead of it, so the reader hears the
+          // same alert the notification carried and hears it exactly when the
+          // sighted reader sees it.
+          announceRef.current?.(alert);
           // Recorded against each place it was news for, so the next poll
           // says nothing about it and a place added later still hears it.
           for (const place of alert.places ?? []) {

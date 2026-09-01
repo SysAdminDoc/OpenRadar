@@ -77,6 +77,8 @@ function chrome(
       lightning={null}
       wind={null}
       windReduced={false}
+      announcement=""
+      readout=""
       clock={Date.UTC(2026, 7, 30, 12)}
       liveClock={overrides.liveClock ?? Date.UTC(2026, 7, 30, 12)}
       radarAgeMinutes={null}

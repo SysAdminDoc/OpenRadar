@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { ToastMessage } from "../components/ToastHost";
 import type { OverlayBounds, OverlayData, OverlayId } from "../lib/overlays";
 import { watchedPlaces, type AppSettings } from "../lib/settings";
-import { watchAlertBody } from "../lib/watch";
+import { watchAlertBody, type WatchAlert } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";
 import { alertsOfKind } from "../lib/overlays/alerts";
@@ -16,6 +16,14 @@ export interface WorkspaceOverlays {
   data: Partial<Record<OverlayId, OverlayData | null>>;
   /** Raises one harmless alert, so the reader can see the path works. */
   sendWatchTest: () => Promise<boolean>;
+  /**
+   * The last alert the watch announced, as one sentence for a live region.
+   *
+   * A toast is a picture. This is the same news for somebody who is not
+   * looking at one, and it is fed from the same decision so the two cannot
+   * disagree about what was worth interrupting for.
+   */
+  announcement: string;
 }
 
 /**
@@ -69,6 +77,16 @@ export function useWorkspaceOverlays(options: {
   // panel: announcing a kind the panel will not show sends somebody to an
   // empty list, and the switch says it takes the kind off the map and out of
   // the list.
+  const [announcement, setAnnouncement] = useState("");
+  const announce = useCallback((alert: WatchAlert) => {
+    setAnnouncement(
+      translate("nearby.announcement", {
+        headline: alert.headline,
+        body: watchAlertBody(alert),
+      }),
+    );
+  }, []);
+
   const watch = useAlertWatch(
     watchedPlaces(settings),
     settings.alertTypes,
@@ -79,6 +97,7 @@ export function useWorkspaceOverlays(options: {
         actionLabel: translate("toast.show"),
         onAction: () => setActiveSurface("alerts"),
       }),
+    announce,
   );
 
   // The kinds a reader has switched off, taken out here rather than in the
@@ -115,5 +134,5 @@ export function useWorkspaceOverlays(options: {
     [shown, states],
   );
 
-  return { states: states_, data, sendWatchTest: watch.sendTest };
+  return { states: states_, data, sendWatchTest: watch.sendTest, announcement };
 }

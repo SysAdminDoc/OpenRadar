@@ -205,6 +205,12 @@ const SURFACE_COMMANDS: Array<{
     keywords: ["warning", "watch", "list"],
   },
   {
+    surface: "nearby",
+    key: "panel.nearby",
+    extra: "keywords.nearby",
+    keywords: ["accessible", "screen reader", "text", "distance", "bearing"],
+  },
+  {
     surface: "tropical",
     key: "panel.tropical",
     extra: "keywords.tropicalPanel",

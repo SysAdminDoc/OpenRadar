@@ -32,6 +32,7 @@ import { useT } from "../i18n";
 export type SurfaceId =
   | "search"
   | "alerts"
+  | "nearby"
   | "tropical"
   | "history"
   | "commands"
