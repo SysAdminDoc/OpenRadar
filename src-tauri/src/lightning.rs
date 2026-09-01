@@ -150,20 +150,44 @@ pub fn decode_flashes(bytes: &[u8], time: i64) -> Result<Vec<Flash>, LightningEr
         ));
     }
 
-    let file = NcFile::from_bytes_with_options(
-        bytes,
-        NcOpenOptions {
-            metadata_mode: NcMetadataMode::Lossy,
-            ..NcOpenOptions::default()
-        },
-    )
-    .map_err(|error| LightningError::Decode(error.to_string()))?;
+    // The reader is third-party code walking a container format designed for
+    // scientific archives, over bytes a public server sent, and a fuzz target
+    // found a 215-byte file that takes the process down inside it: the element
+    // count comes out of a product of dimension sizes that overflows. With
+    // debug assertions that is a panic, and without them it is a wrapped count
+    // nothing checks, which is worse.
+    //
+    // It cannot be fixed where it happens, so it is contained here. Nothing
+    // survives a panic in this block: the file, the columns and the reader all
+    // go, and the caller is told the file could not be read, which is what a
+    // corrupt download deserves anyway. The guard covers every panic in that
+    // reader rather than the one that has been seen, because the interesting
+    // property is that a malformed file cannot take the window down, not that
+    // one particular malformed file cannot.
+    let columns = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let file = NcFile::from_bytes_with_options(
+            bytes,
+            NcOpenOptions {
+                metadata_mode: NcMetadataMode::Lossy,
+                ..NcOpenOptions::default()
+            },
+        )
+        .map_err(|error| LightningError::Decode(error.to_string()))?;
 
-    let latitudes = read_variable(&file, "flash_lat")?;
-    let longitudes = read_variable(&file, "flash_lon")?;
-    let energies = read_variable(&file, "flash_energy")?;
-    let areas = read_variable(&file, "flash_area")?;
-    let quality = read_variable(&file, "flash_quality_flag")?;
+        Ok::<_, LightningError>([
+            read_variable(&file, "flash_lat")?,
+            read_variable(&file, "flash_lon")?,
+            read_variable(&file, "flash_energy")?,
+            read_variable(&file, "flash_area")?,
+            read_variable(&file, "flash_quality_flag")?,
+        ])
+    }))
+    .map_err(|_| {
+        LightningError::Decode(
+            "the file is not readable as the NetCDF-4 the feed publishes".into(),
+        )
+    })??;
+    let [latitudes, longitudes, energies, areas, quality] = columns;
 
     let count = latitudes.len();
     if count > MAX_FLASHES_PER_FILE {
@@ -309,6 +333,73 @@ pub async fn lightning_flashes() -> Result<FlashWindow, LightningError> {
 
 #[cfg(test)]
 mod tests {
+    /// A file the fuzzer found that takes the process down.
+    ///
+    /// 215 bytes, and it passes the HDF5 magic check the decoder opens with,
+    /// which is as far as anything of ours gets to look before the reader
+    /// takes over. Somewhere in the dimension arithmetic below that, the
+    /// element count is worked out as a product that overflows: a panic with
+    /// debug assertions on, and a wrapped count without them, which is worse
+    /// because nothing says anything went wrong.
+    ///
+    /// Committed as `fuzz/reproducers/netcdf-flashes-multiply-overflow.bin`
+    /// and read from there rather than pasted in, so the file the fuzzer
+    /// produced and the file this checks cannot drift apart.
+    /// Set on the child this test spawns, and on nothing else.
+    const DEEP_CHILD: &str = "OPENRADAR_NETCDF_DEEP_CHILD";
+
+    /// The fuzzer's other find on this path, which nothing here can contain.
+    ///
+    /// 202 bytes that send the reader into unbounded recursion. A stack
+    /// overflow is not a panic: `catch_unwind` never sees it, Windows raises
+    /// it as an access violation or STATUS_STACK_OVERFLOW, and the process is
+    /// gone. It is upstream's to fix, and it is written down in
+    /// `Roadmap_Blocked.md` with this reproducer beside it.
+    ///
+    /// So the bytes are run in a child process, and what is asserted is that
+    /// the child dies. That keeps the case checked on every run without the
+    /// suite dying with it, and the day the reader stops recursing this test
+    /// fails and says to promote it to an ordinary one.
+    #[test]
+    fn a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams() {
+        let bytes =
+            std::fs::read("fuzz/reproducers/netcdf-flashes-access-violation.bin")
+                .expect("the committed reproducer");
+
+        if std::env::var(DEEP_CHILD).is_ok() {
+            // The child. Reaching the line after this is the interesting
+            // outcome, and the parent reads it from the exit status.
+            let _ = decode_flashes(&bytes, 1_756_600_000);
+            return;
+        }
+
+        let status = std::process::Command::new(
+            std::env::current_exe().expect("this test binary"),
+        )
+        .args([
+            "lightning::tests::a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams",
+            "--exact",
+            "--test-threads=1",
+        ])
+        .env(DEEP_CHILD, "1")
+        .output()
+        .expect("the child runs");
+
+        assert!(
+            !status.status.success(),
+            "the reader survived a file that used to take it down. Upstream \
+             has fixed the recursion: turn this into an ordinary test that \
+             asserts an error, and take the entry out of Roadmap_Blocked.md.",
+        );
+    }
+
+    #[test]
+    fn a_malformed_lightning_file_is_refused_rather_than_fatal() {
+        let bytes = std::fs::read("fuzz/reproducers/netcdf-flashes-multiply-overflow.bin")
+            .expect("the committed reproducer");
+        assert!(decode_flashes(&bytes, 1_756_600_000).is_err());
+    }
+
     use super::*;
 
     fn flash(latitude: f32, longitude: f32) -> Flash {
