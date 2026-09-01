@@ -92,7 +92,7 @@ pub fn sanitize_file_name(name: &str) -> Result<String, ExportError> {
     Ok(format!("{stem}.{extension}"))
 }
 
-fn export_folder(app: &AppHandle) -> Result<PathBuf, ExportError> {
+pub(crate) fn export_folder(app: &AppHandle) -> Result<PathBuf, ExportError> {
     let path = app.path();
     path.download_dir()
         .or_else(|_| path.app_data_dir())
@@ -103,7 +103,7 @@ fn export_folder(app: &AppHandle) -> Result<PathBuf, ExportError> {
 /// one rename. `std::fs::rename` has replace-existing semantics for files on
 /// Windows as well as Unix, so a failed replacement leaves the previous export
 /// in place.
-fn write_atomically(target: &Path, bytes: &[u8]) -> io::Result<()> {
+pub(crate) fn write_atomically(target: &Path, bytes: &[u8]) -> io::Result<()> {
     write_atomically_with(target, bytes, |from, to| fs::rename(from, to))
 }
 

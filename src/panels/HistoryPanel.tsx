@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { History, Play, Search, X } from "lucide-react";
+import { FolderOpen, History, Play, Save, Search, X } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import {
   ARCHIVE_FIRST_YEAR,
@@ -21,6 +21,11 @@ interface HistoryPanelProps {
   onSelect: (storm: Storm | null) => void;
   onReplay: (storm: Storm) => void;
   onStopReplay: () => void;
+  /** Keeps the replay on screen as one file, with or without the workspace. */
+  onSaveBundle: (includeWorkspace: boolean) => void;
+  onOpenBundle: () => void;
+  /** False in a browser preview, where nothing can write or read a file. */
+  bundlesAvailable: boolean;
   onClose: () => void;
 }
 
@@ -49,8 +54,14 @@ export function HistoryPanel({
   onSelect,
   onReplay,
   onStopReplay,
+  onSaveBundle,
+  onOpenBundle,
+  bundlesAvailable,
   onClose,
 }: HistoryPanelProps) {
+  // Off unless ticked, every time: the workspace knows where home is, and a
+  // bundle is the kind of file that gets sent to somebody.
+  const [includeWorkspace, setIncludeWorkspace] = useState(false);
   const t = useT();
   const [storms, setStorms] = useState<StormSummary[] | null>(null);
   const [loadedStorm, setLoadedStorm] = useState<Storm | null>(null);
@@ -220,6 +231,50 @@ export function HistoryPanel({
             ? t("history.tooOld", { year: ARCHIVE_FIRST_YEAR })
             : t("history.outside")}
         </p>
+      ) : null}
+
+      {bundlesAvailable && selected && replayId === selected.id ? (
+        <div className="settings-section" data-replay-bundle>
+          <div className="settings-section__title">
+            <span>{t("history.bundleHeading")}</span>
+          </div>
+          <p className="source-note">{t("history.bundleNote")}</p>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("history.includeWorkspace")}</strong>
+              <small>{t("history.includeWorkspaceDetail")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={includeWorkspace}
+              onChange={(event) => setIncludeWorkspace(event.target.checked)}
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+          <div className="storm-row__actions">
+            <button
+              type="button"
+              onClick={() => onSaveBundle(includeWorkspace)}
+            >
+              <Save size={14} /> {t("history.saveBundle")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {bundlesAvailable ? (
+        <div className="storm-row__actions" data-open-bundle>
+          <button type="button" onClick={onOpenBundle}>
+            <FolderOpen size={14} /> {t("history.openBundle")}
+          </button>
+          {replayId?.startsWith("bundle:") ? (
+            // A bundle's replay belongs to no storm row, so the way back to
+            // live radar sits beside the button that opened it.
+            <button type="button" onClick={onStopReplay}>
+              <X size={14} /> {t("history.liveRadar")}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="result-list">

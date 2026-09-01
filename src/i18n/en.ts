@@ -260,6 +260,37 @@ export const en = {
   "history.landfall": "landfall",
   "history.closestApproach": "its closest approach",
   "history.noteReplaySource": "Replays come from the Iowa State radar archive.",
+  "history.bundleHeading": "Replay bundle",
+  "history.bundleNote":
+    "A bundle keeps this replay's frames and the warnings that were in force, byte for byte, with their addresses and hashes, so it plays back the same with no network. Only the storm's view goes in.",
+  "history.includeWorkspace": "Include my workspace",
+  "history.includeWorkspaceDetail":
+    "Home, watched places, saved views and settings. Off unless you tick it, every time.",
+  "history.saveBundle": "Save replay bundle",
+  "history.openBundle": "Open a replay bundle",
+  "bundle.replayLabel": "Replay bundle",
+  "bundle.openTitle": "Open an OpenRadar replay bundle",
+  "bundle.fileKind": "OpenRadar replay bundle",
+  "bundle.missingTiles": "{count} tiles were not in the bundle.",
+  "bundle.missingWarnings":
+    "{count} warnings feeds were not in the bundle, so its warnings may be incomplete.",
+  "bundle.missingBoth":
+    "{tiles} tiles and {warnings} warnings feeds were not in the bundle.",
+  "bundle.error.invalidRequest": "This replay cannot be bundled: {0}.",
+  "bundle.error.tooManyTiles":
+    "The view covers {0} tiles across the replay. Zoom in, or out, so it covers fewer.",
+  "bundle.error.tooLarge": "The bundle would be larger than 256 MB.",
+  "bundle.error.noFolder": "There is nowhere to write the bundle.",
+  "bundle.error.write": "The bundle could not be written: {0}",
+  "bundle.error.read": "The bundle could not be read: {0}",
+  "bundle.error.notABundle": "That file is not an OpenRadar replay bundle.",
+  "bundle.error.newer":
+    "That bundle was made by a newer OpenRadar (layout {0}). Update to open it.",
+  "bundle.error.corrupt": "That bundle is damaged: {0}",
+  "bundle.error.http": "{0}",
+  "bundle.error.noView": "The map has no view to bundle yet.",
+  "bundle.error.noFrames": "That bundle holds no frames this build can draw.",
+  "bundle.error.unknown": "The bundle could not be handled.",
   "route.eyebrow": "Weather along the way",
   "route.title": "Route",
   "route.start": "Start",
@@ -948,6 +979,17 @@ export const en = {
   "toast.paletteFull":
     "Your colour tables are full at {count}. Remove one to make room for this.",
   "toast.replayStopped": "Replay stopped",
+  "toast.bundleSaving": "Saving the replay bundle",
+  "toast.bundleSaved": "Replay bundle saved",
+  "toast.bundleSavedBody": "{entries} files, {size} MB, at {path}.",
+  "toast.bundleMissing":
+    "{count} of them could not be fetched and are listed in the bundle.",
+  "toast.bundleFailed": "The replay bundle failed",
+  "toast.bundleOpened": "Replaying {label} from a bundle",
+  "toast.bundleOpenedBody":
+    "{frames} frames, kept {made}. Nothing is fetched for them; the bundle answers.",
+  "toast.bundleApplyWorkspace": "Apply its workspace",
+  "toast.bundleWorkspaceApplied": "The bundle's workspace is in force",
   "toast.replayStoppedBody": "The map is back on the live loop.",
   "toast.shareTitle": "OpenRadar view",
   "toast.shared": "Map view shared",

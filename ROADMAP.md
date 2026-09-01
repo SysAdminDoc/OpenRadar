@@ -8,14 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-083: Add deterministic incident replay bundles
-      Why: Workspace backups preserve settings, not the exact external bytes and source identities that produced a past analysis. A portable local bundle would make review reproducible after providers change.
-      Evidence: `src/lib/workspace.ts`; `src/hooks/useRadarTimeline.ts`; `src/lib/providers/types.ts`; https://github.com/d4vid87/hookecho ; https://github.com/jhammon88219/Anvil
-      Touches: Bundle schema; selected radar and overlay bytes; hashes; source manifest; import; storage budget; redaction
-      Acceptance: A bounded time window exports selected data, source and valid-time metadata, settings, and hashes into one documented local bundle; import reproduces the same frames offline; missing optional layers stay explicit; personal coordinates and routes require an opt-in; corrupt or newer bundles fail without changing the workspace.
-      Complexity: XL
-
-
 ## P3
 
 - [ ] AUD-084: Export scientific radar data with provenance

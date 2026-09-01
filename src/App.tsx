@@ -48,12 +48,25 @@ import { frameAgeMinutes, type RadarFrame } from "./lib/radar";
 import { useMeasurements } from "./lib/units";
 import {
   archiveFrames,
+  loadStorm,
   replayFocus,
   stormTrack,
   trackBounds,
   type Storm,
 } from "./lib/hurdat";
 import { level2Available } from "./lib/level2";
+import {
+  bundleErrorText,
+  bundleMissingNote,
+  bundleReplay,
+  bundlesAvailable,
+  captureReplayBundle,
+  captureRequestFor,
+  closeReplayBundle,
+  openReplayBundle,
+  pickBundleFile,
+} from "./lib/replayBundle";
+import { createWorkspaceBackup, restoreWorkspace } from "./lib/workspaceBackup";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type {
   CameraState,
@@ -711,6 +724,17 @@ export default function App() {
   const stopReplay = useCallback(() => {
     setReplay(null);
     if (!replay) return;
+    // A replay drawn from a bundle takes the bundle out of the way of the
+    // network with it, and cannot be put back from a toast: its bytes are in
+    // a file that would have to be opened again.
+    if (replay.id.startsWith("bundle:")) {
+      void closeReplayBundle();
+      pushToast({
+        title: translate("toast.replayStopped"),
+        detail: translate("toast.replayStoppedBody"),
+      });
+      return;
+    }
     pushToast({
       title: translate("toast.replayStopped"),
       detail: translate("toast.replayStoppedBody"),
@@ -720,6 +744,142 @@ export default function App() {
     // Depends on the replay itself rather than a ref read during render, which
     // React refuses. It changes when a storm is chosen, which is rare.
   }, [pushToast, replay]);
+
+  // One file that keeps this replay's frames and warnings byte for byte,
+  // written natively into the export folder. The reader's workspace goes in
+  // only when they ticked the box.
+  const saveReplayBundle = useCallback(
+    async (includeWorkspace: boolean) => {
+      if (!replay) return;
+      const bounds = mapRef.current?.bounds();
+      const camera = mapRef.current?.camera() ?? settingsRef.current.camera;
+      if (!bounds) {
+        pushToast({
+          title: translate("toast.bundleFailed"),
+          detail: translate("bundle.error.noView"),
+        });
+        return;
+      }
+      const request = captureRequestFor({
+        replay,
+        storm: historyStorm,
+        bounds,
+        camera,
+        workspace: includeWorkspace
+          ? createWorkspaceBackup(settingsRef.current, overlayFiles)
+          : null,
+      });
+      if (!request) return;
+      pushToast({ title: translate("toast.bundleSaving") });
+      try {
+        const report = await captureReplayBundle(request);
+        const notes = [
+          translate("toast.bundleSavedBody", {
+            entries: report.entries,
+            size: (report.bytes / 1_048_576).toFixed(1),
+            path: report.path,
+          }),
+        ];
+        if (report.missing.length) {
+          notes.push(
+            translate("toast.bundleMissing", { count: report.missing.length }),
+          );
+        }
+        pushToast({
+          title: translate("toast.bundleSaved"),
+          detail: notes.join(" "),
+        });
+      } catch (failure: unknown) {
+        pushToast({
+          title: translate("toast.bundleFailed"),
+          detail: bundleErrorText(failure),
+        });
+      }
+    },
+    [historyStorm, overlayFiles, pushToast, replay, settingsRef],
+  );
+
+  // A bundle's workspace is somebody's home and watched places. It is applied
+  // on this and never on opening the bundle.
+  const applyBundledWorkspace = useCallback(
+    (value: unknown) => {
+      try {
+        const restored = restoreWorkspace(value);
+        applySettings(restored.settings);
+        setOverlayFiles(restored.overlayFiles);
+        mapRef.current?.flyTo(restored.settings.camera);
+        pushToast({ title: translate("toast.bundleWorkspaceApplied") });
+      } catch {
+        pushToast({
+          title: translate("toast.workspaceInvalidTitle"),
+          detail: translate("toast.workspaceInvalid"),
+        });
+      }
+    },
+    [applySettings, pushToast],
+  );
+
+  // A bundle is opened through the operating system's picker, so its bytes
+  // never cross into the page: the native side reads and checks the file and
+  // answers with what it holds. Nothing here changes until it has.
+  const openBundle = useCallback(async () => {
+    try {
+      const path = await pickBundleFile();
+      if (!path) return;
+      const manifest = await openReplayBundle(path);
+      const next = bundleReplay(manifest);
+      if (!next) {
+        await closeReplayBundle();
+        pushToast({
+          title: translate("toast.bundleFailed"),
+          detail: translate("bundle.error.noFrames"),
+        });
+        return;
+      }
+      // The storm's track from the bundled record. A storm the record has
+      // never heard of is still replayed, without a track.
+      let storm: Storm | null = null;
+      if (manifest.storm) {
+        try {
+          storm = await loadStorm(manifest.storm.id);
+        } catch {
+          storm = null;
+        }
+      }
+      setHistoryStorm(storm);
+      setReplay(next);
+      mapRef.current?.flyTo({
+        center: manifest.camera.center,
+        zoom: manifest.camera.zoom,
+        bearing: manifest.camera.bearing,
+        pitch: manifest.camera.pitch,
+      });
+      const missing = bundleMissingNote(manifest);
+      pushToast({
+        title: translate("toast.bundleOpened", { label: manifest.label }),
+        detail: [
+          translate("toast.bundleOpenedBody", {
+            frames: next.frames.length,
+            made: manifest.createdAt.slice(0, 10),
+          }),
+          missing,
+        ]
+          .filter((line): line is string => Boolean(line))
+          .join(" "),
+        ...(manifest.workspace
+          ? {
+              actionLabel: translate("toast.bundleApplyWorkspace"),
+              onAction: () => applyBundledWorkspace(manifest.workspace),
+            }
+          : {}),
+      });
+    } catch (failure: unknown) {
+      pushToast({
+        title: translate("toast.bundleFailed"),
+        detail: bundleErrorText(failure),
+      });
+    }
+  }, [applyBundledWorkspace, pushToast]);
 
   // One place that knows how to do each kind of thing the palette offers, so
   // the palette itself stays a list rather than a second copy of the app.
@@ -1073,6 +1233,9 @@ export default function App() {
             onHistoryStorm={showStorm}
             onReplayStorm={replayStorm}
             onStopReplay={stopReplay}
+            onSaveReplayBundle={saveReplayBundle}
+            onOpenReplayBundle={openBundle}
+            bundlesAvailable={bundlesAvailable()}
             onRoute={setRoute}
             onUpload={actions.uploadOverlay}
             onWatchHere={actions.watchHere}

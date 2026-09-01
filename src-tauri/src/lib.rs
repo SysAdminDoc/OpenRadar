@@ -1,6 +1,7 @@
 // The network boundary every Rust-side fetch goes through.
 mod http;
 
+mod bundles;
 mod cache;
 mod chunks;
 /// The colour-vision measurement the ramps are held to. Only the tests reach
@@ -157,7 +158,12 @@ pub fn run() {
                         // Read by the page so it can say how old the picture
                         // is rather than passing stale tiles off as live.
                         .header("X-OpenRadar-Age", served.age.as_secs().to_string())
-                        .header("Access-Control-Expose-Headers", "X-OpenRadar-Age")
+                        // And which replay bundle it came out of, when one did.
+                        .header("X-OpenRadar-Bundle", served.bundle.unwrap_or_default())
+                        .header(
+                            "Access-Control-Expose-Headers",
+                            "X-OpenRadar-Age, X-OpenRadar-Bundle",
+                        )
                         .body(served.body)
                         .expect("a cached response is well formed"),
                 );
@@ -204,7 +210,10 @@ pub fn run() {
             lightning::lightning_flashes,
             palette::set_palettes,
             gfs::gfs_wind,
-            hrrr::hrrr_smoke
+            hrrr::hrrr_smoke,
+            bundles::replay_bundle_capture,
+            bundles::replay_bundle_open,
+            bundles::replay_bundle_close
         ])
         .setup(|_app| {
             // The cache lives beside the logs rather than in the roaming
