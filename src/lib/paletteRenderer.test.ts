@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parsePalette } from "./palette";
-import { applyPaletteToRenderer } from "./paletteRenderer";
+import { applyPalettesToRenderer } from "./paletteRenderer";
 
 const { invoke, setGeneration } = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -28,11 +28,17 @@ describe("native palette acknowledgement", () => {
     });
     invoke.mockResolvedValue(7);
 
-    await expect(applyPaletteToRenderer(palette)).resolves.toBe(7);
-    expect(invoke).toHaveBeenCalledWith("set_palette", {
-      units: "dBZ",
-      rangeFolded: null,
-      stops: [{ value: 5, color: "#04e9e7", toColor: null }],
+    await expect(applyPalettesToRenderer([palette])).resolves.toBe(7);
+    // `solid` travels with every stop. It used to be dropped here, which is
+    // how every SolidColor line in a reader's table was drawn as a blend.
+    expect(invoke).toHaveBeenCalledWith("set_palettes", {
+      tables: [
+        {
+          units: "dBZ",
+          rangeFolded: null,
+          stops: [{ value: 5, color: "#04e9e7", toColor: null, solid: false }],
+        },
+      ],
     });
     expect(setGeneration).toHaveBeenCalledWith(7);
   });
@@ -43,14 +49,14 @@ describe("native palette acknowledgement", () => {
       value: {},
     });
     invoke.mockRejectedValue(new Error("renderer refused the table"));
-    await expect(applyPaletteToRenderer(palette)).rejects.toThrow(
+    await expect(applyPalettesToRenderer([palette])).rejects.toThrow(
       "renderer refused the table",
     );
     expect(setGeneration).not.toHaveBeenCalled();
   });
 
   it("does not call a native command in the browser preview", async () => {
-    await expect(applyPaletteToRenderer(palette)).resolves.toBeNull();
+    await expect(applyPalettesToRenderer([palette])).resolves.toBeNull();
     expect(invoke).not.toHaveBeenCalled();
   });
 });

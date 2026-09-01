@@ -183,9 +183,7 @@ pub fn decode_flashes(bytes: &[u8], time: i64) -> Result<Vec<Flash>, LightningEr
         ])
     }))
     .map_err(|_| {
-        LightningError::Decode(
-            "the file is not readable as the NetCDF-4 the feed publishes".into(),
-        )
+        LightningError::Decode("the file is not readable as the NetCDF-4 the feed publishes".into())
     })??;
     let [latitudes, longitudes, energies, areas, quality] = columns;
 
@@ -362,9 +360,8 @@ mod tests {
     /// fails and says to promote it to an ordinary one.
     #[test]
     fn a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams() {
-        let bytes =
-            std::fs::read("fuzz/reproducers/netcdf-flashes-access-violation.bin")
-                .expect("the committed reproducer");
+        let bytes = std::fs::read("fuzz/reproducers/netcdf-flashes-access-violation.bin")
+            .expect("the committed reproducer");
 
         if std::env::var(DEEP_CHILD).is_ok() {
             // The child. Reaching the line after this is the interesting

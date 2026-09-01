@@ -60,7 +60,11 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
-import { watchedPlaces } from "./lib/settings";
+import {
+  watchedPlaces,
+  withPaletteAssigned,
+  withoutPalette,
+} from "./lib/settings";
 import {
   mergedOverlayShapes,
   type WorkspaceOverlayFile,
@@ -86,6 +90,7 @@ const COVERED_BY_ADAPTERS = new Set(
 );
 import { useStormCells } from "./hooks/useStormCells";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
+import { activePalettes } from "./lib/palette";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
@@ -167,9 +172,15 @@ export default function App() {
     onSeen: markWelcomeSeen,
   });
 
+  // Every table in force, not "the table": a reflectivity scale and a velocity
+  // scale can both be on at once, and the renderer picks per unit.
+  const activeTables = useMemo(
+    () => activePalettes(settings.palettes, settings.paletteAssignments),
+    [settings.palettes, settings.paletteAssignments],
+  );
   const paletteGeneration = usePalette({
     ready: hydrated,
-    palette: settings.palette,
+    palettes: activeTables,
   });
 
   const timeline = useRadarTimeline({
@@ -564,19 +575,37 @@ export default function App() {
   );
 
   // Loading a colour table is work: a file found, opened and dropped on the
-  // window. Clearing it was the one action that threw that away with nothing
-  // to say so and no way back.
-  const clearPalette = useCallback(() => {
-    const previous = settingsRef.current.palette;
-    applySettings({ ...settingsRef.current, palette: null });
-    pushToast({
-      title: translate("toast.paletteCleared"),
-      detail: translate("toast.paletteClearedBody"),
-      actionLabel: translate("toast.undo"),
-      onAction: () =>
-        applySettings({ ...settingsRef.current, palette: previous }),
-    });
-  }, [applySettings, pushToast, settingsRef]);
+  // window. Removing one was the action that threw that away with nothing to
+  // say so and no way back.
+  const removePalette = useCallback(
+    (name: string) => {
+      const previous = settingsRef.current;
+      const found = previous.palettes.find((held) => held.name === name);
+      if (!found) return;
+      applySettings(withoutPalette(previous, name));
+      pushToast({
+        title: translate("toast.paletteCleared"),
+        detail: translate("toast.paletteClearedBody", { name }),
+        actionLabel: translate("toast.undo"),
+        // Back onto the shelf and back into force, because putting a table
+        // back without the assignment it had is not an undo.
+        onAction: () =>
+          applySettings({
+            ...settingsRef.current,
+            palettes: previous.palettes,
+            paletteAssignments: previous.paletteAssignments,
+          }),
+      });
+    },
+    [applySettings, pushToast, settingsRef],
+  );
+
+  const assignPalette = useCallback(
+    (unit: string, name: string | null) => {
+      applySettings(withPaletteAssigned(settingsRef.current, unit, name));
+    },
+    [applySettings, settingsRef],
+  );
 
   // Finding a storm in the archive takes a search and a choice, and stopping
   // the replay put the reader back at the start of both.
@@ -887,7 +916,8 @@ export default function App() {
             onAlertSelect={actions.flyToBounds}
             onFollowStorm={actions.followStorm}
             onCommand={runCommand}
-            onClearPalette={clearPalette}
+            onAssignPalette={assignPalette}
+            onRemovePalette={removePalette}
             onAlertTypes={(alertTypes) =>
               applySettings({ ...settingsRef.current, alertTypes })
             }

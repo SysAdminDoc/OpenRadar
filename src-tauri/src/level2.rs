@@ -3506,8 +3506,7 @@ mod tests {
             std::fs::write(into.join("small-volume"), &volume).expect("a seed");
             // And the two shapes a real download arrives in beside it: cut
             // short, which is what an interrupted fetch leaves, and empty.
-            std::fs::write(into.join("half-volume"), &volume[..volume.len() / 2])
-                .expect("a seed");
+            std::fs::write(into.join("half-volume"), &volume[..volume.len() / 2]).expect("a seed");
             std::fs::write(into.join("empty"), []).expect("a seed");
         }
 

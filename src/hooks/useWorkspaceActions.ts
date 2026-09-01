@@ -13,12 +13,14 @@ import type { ToastMessage } from "../components/ToastHost";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "../lib/deepLink";
 import { log } from "../lib/log";
 import { looksLikePlacefile, parsePlacefile } from "../lib/placefile";
-import { looksLikePalette, parsePalette } from "../lib/palette";
+import { MAX_PALETTES, looksLikePalette, parsePalette } from "../lib/palette";
 import {
   DEFAULT_SETTINGS,
   isDesktopRuntime,
   looksLikeSettings,
   normalizeSettings,
+  withPalette,
+  withoutPalette,
   type AppSettings,
   type CameraState,
   type ProjectionMode,
@@ -28,7 +30,6 @@ import type { OverlayBounds } from "../lib/overlays";
 import type { PlaceResult } from "../lib/weather";
 import { translate } from "../i18n";
 import { saveFile } from "../lib/saveFile";
-import { applyPaletteToRenderer } from "../lib/paletteRenderer";
 import {
   createWorkspaceBackup,
   looksLikeWorkspaceBackup,
@@ -348,8 +349,16 @@ export function useWorkspaceActions(options: {
           if (!palette) {
             throw new Error(translate("toast.paletteEmpty"));
           }
-          await applyPaletteToRenderer(palette);
-          applySettings({ ...settingsRef.current, palette });
+          // The renderer is not touched here. `usePalette` owns it and
+          // reacts to the settings below, and applying it twice would bump
+          // the generation twice and re-request every tile for nothing.
+          const shelved = withPalette(settingsRef.current, palette);
+          if (!shelved) {
+            throw new Error(
+              translate("toast.paletteFull", { count: MAX_PALETTES }),
+            );
+          }
+          applySettings(shelved);
           setActiveSurface(null);
           const notes = [
             translate("toast.colours", { count: palette.stops.length }),
@@ -367,7 +376,7 @@ export function useWorkspaceActions(options: {
             detail: `${notes.join(", ")}.`,
             actionLabel: translate("toast.remove"),
             onAction: () =>
-              applySettings({ ...settingsRef.current, palette: null }),
+              applySettings(withoutPalette(settingsRef.current, palette.name)),
           });
           return;
         }

@@ -8,8 +8,18 @@ import {
   restoreSettings,
   watchedPlaces,
   sameCamera,
+  withPalette,
+  withPaletteAssigned,
+  withoutPalette,
   SCHEMA_VERSION,
 } from "./settings";
+import {
+  MAX_PALETTES,
+  activePalettes,
+  assignedPalette,
+  parsePalette,
+  type Palette,
+} from "./palette";
 
 describe("settings normalization", () => {
   it("refuses a radar site that is not a four letter call sign", () => {
@@ -122,7 +132,7 @@ describe("settings normalization", () => {
       layers: { weatherAlerts: false, powerOutages: true, droughts: true },
     });
 
-    expect(settings.schemaVersion).toBe(2);
+    expect(settings.schemaVersion).toBe(SCHEMA_VERSION);
     expect(settings.theme).toBe("light");
     expect(settings.mapStyle).toBe("pro-dark");
     expect(settings.radar.opacity).toBe(0.4);
@@ -259,8 +269,41 @@ describe("a stored palette", () => {
   };
 
   it("comes back the way it went in", () => {
+    const settings = normalizeSettings({ palettes: [loaded] });
+    expect(settings.palettes).toEqual([loaded]);
+  });
+
+  it("keeps the one table an older build held, and keeps it in force", () => {
+    // A build before the library had exactly one, under `palette`, and it was
+    // always applied. An upgrade is not a reason to throw somebody's colour
+    // scale away or to leave the map suddenly plain.
     const settings = normalizeSettings({ palette: loaded });
-    expect(settings.palette).toEqual(loaded);
+    expect(settings.palettes).toEqual([loaded]);
+    expect(settings.paletteAssignments).toEqual({ dbz: "reflectivity.pal" });
+  });
+
+  it("holds several at once and stops at the stated ceiling", () => {
+    const many = Array.from({ length: MAX_PALETTES + 4 }, (_, at) => ({
+      ...loaded,
+      name: `table-${at}.pal`,
+    }));
+    expect(normalizeSettings({ palettes: many }).palettes).toHaveLength(
+      MAX_PALETTES,
+    );
+  });
+
+  it("holds one table per name, whatever a hand-edited file says", () => {
+    const twice = normalizeSettings({ palettes: [loaded, loaded] });
+    expect(twice.palettes).toHaveLength(1);
+  });
+
+  it("drops an assignment that is not a name", () => {
+    const settings = normalizeSettings({
+      palettes: [loaded],
+      paletteAssignments: { dBZ: "reflectivity.pal", kt: 7, mm: "" },
+    });
+    // The unit is lowercased so the lookup cannot miss on capitalisation.
+    expect(settings.paletteAssignments).toEqual({ dbz: "reflectivity.pal" });
   });
 
   it("is read again rather than trusted, so a hand-edited file cannot inject", () => {
@@ -276,19 +319,106 @@ describe("a stored palette", () => {
       },
     });
     // Only the one stop that survives the parser.
-    expect(meddled.palette?.stops).toEqual([
+    expect(meddled.palettes[0]?.stops).toEqual([
       { value: 50, color: "#fd0000", solid: true, toColor: null },
     ]);
   });
 
   it("is nothing when there is nothing usable in it", () => {
-    expect(normalizeSettings({}).palette).toBeNull();
-    expect(normalizeSettings({ palette: null }).palette).toBeNull();
-    expect(normalizeSettings({ palette: "a string" }).palette).toBeNull();
-    expect(normalizeSettings({ palette: { stops: [] } }).palette).toBeNull();
+    expect(normalizeSettings({}).palettes).toEqual([]);
+    expect(normalizeSettings({ palette: null }).palettes).toEqual([]);
+    expect(normalizeSettings({ palette: "a string" }).palettes).toEqual([]);
+    expect(normalizeSettings({ palette: { stops: [] } }).palettes).toEqual([]);
     expect(
-      normalizeSettings({ palette: { stops: [{ value: 1 }] } }).palette,
-    ).toBeNull();
+      normalizeSettings({ palette: { stops: [{ value: 1 }] } }).palettes,
+    ).toEqual([]);
+    expect(normalizeSettings({ palettes: "not a list" }).palettes).toEqual([]);
+  });
+});
+
+describe("the colour table library", () => {
+  const table = (name: string, units: string) =>
+    parsePalette(
+      `Units: ${units}
+Color: 5 4 233 231`,
+      name,
+    )!;
+
+  const shelf = (...palettes: Palette[]) => ({
+    ...DEFAULT_SETTINGS,
+    palettes,
+  });
+
+  it("puts an imported table in force for what it says it is for", () => {
+    const next = withPalette(shelf(), table("a.pal", "dBZ"))!;
+    expect(next.palettes.map((one) => one.name)).toEqual(["a.pal"]);
+    expect(next.paletteAssignments).toEqual({ dbz: "a.pal" });
+  });
+
+  it("replaces a table of the same name in place rather than appending", () => {
+    const first = withPalette(shelf(), table("a.pal", "dBZ"))!;
+    const with_b = withPalette(first, table("b.pal", "kt"))!;
+    const again = withPalette(with_b, table("a.pal", "dBZ"))!;
+    expect(again.palettes.map((one) => one.name)).toEqual(["a.pal", "b.pal"]);
+  });
+
+  it("refuses a new table when the shelf is full rather than dropping one", () => {
+    let held = shelf();
+    for (let at = 0; at < MAX_PALETTES; at += 1) {
+      held = withPalette(held, table(`t${at}.pal`, "dBZ"))!;
+    }
+    expect(withPalette(held, table("one-more.pal", "dBZ"))).toBeNull();
+    // But re-importing one already there is not a new table.
+    expect(withPalette(held, table("t0.pal", "dBZ"))).not.toBeNull();
+  });
+
+  it("takes an assignment with the table it names", () => {
+    const held = withPalette(shelf(), table("a.pal", "dBZ"))!;
+    const gone = withoutPalette(held, "a.pal");
+    expect(gone.palettes).toEqual([]);
+    expect(gone.paletteAssignments).toEqual({});
+  });
+
+  it("keeps a reflectivity and a velocity table in force together", () => {
+    const both = withPalette(
+      withPalette(shelf(), table("r.pal", "dBZ"))!,
+      table("v.pal", "kt"),
+    )!;
+    expect(activePalettes(both.palettes, both.paletteAssignments)).toHaveLength(
+      2,
+    );
+    expect(
+      assignedPalette(both.palettes, both.paletteAssignments, "dBZ")?.name,
+    ).toBe("r.pal");
+    expect(
+      assignedPalette(both.palettes, both.paletteAssignments, "kt")?.name,
+    ).toBe("v.pal");
+  });
+
+  it("draws nothing for a unit whose table was taken off the shelf", () => {
+    const held = withPalette(shelf(), table("a.pal", "dBZ"))!;
+    const gone = withoutPalette(held, "a.pal");
+    expect(assignedPalette(gone.palettes, gone.paletteAssignments, "dBZ")).toBe(
+      null,
+    );
+    expect(activePalettes(gone.palettes, gone.paletteAssignments)).toEqual([]);
+  });
+
+  it("ignores an assignment naming a table that is not on the shelf", () => {
+    const held = {
+      ...shelf(table("a.pal", "dBZ")),
+      paletteAssignments: { dbz: "gone.pal" },
+    };
+    expect(assignedPalette(held.palettes, held.paletteAssignments, "dBZ")).toBe(
+      null,
+    );
+  });
+
+  it("takes a table out of force without taking it off the shelf", () => {
+    const held = withPalette(shelf(), table("a.pal", "dBZ"))!;
+    const off = withPaletteAssigned(held, "dBZ", null);
+    expect(off.palettes).toHaveLength(1);
+    expect(activePalettes(off.palettes, off.paletteAssignments)).toEqual([]);
   });
 });
 

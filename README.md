@@ -32,7 +32,7 @@ So OpenRadar asks directly. The Rust side is a decoder, not a wrapper around som
 - **GOES lightning** from the satellite's own NetCDF files, filtered on the instrument's quality flag.
 - **GFS wind** fields, read a field at a time by byte range out of the run index.
 
-Because the decoding happens here, the picture is not a screenshot of somebody's server. Load your own GRLevelX colour table and the legend rebuilds from it. Set a threshold in dBZ and the gates below it come off the picture.
+Because the decoding happens here, the picture is not a screenshot of somebody's server. Load your own GRLevelX colour tables, keep up to twelve of them, and put one in force per product; the legend rebuilds from whichever is drawing. Set a threshold in dBZ and the gates below it come off the picture.
 
 ## What it does
 

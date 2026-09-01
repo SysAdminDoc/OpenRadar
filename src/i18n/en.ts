@@ -309,7 +309,13 @@ export const en = {
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · reflectivity",
   "upload.skipped": "{names} left out",
-  "upload.clearPalette": "Use the built-in colours",
+  "upload.clearPalette": "Remove",
+  "upload.libraryHeading": "Your colour tables",
+  "upload.libraryBody":
+    "Up to {count}. A table is in force for the one thing it says it is for, so a reflectivity scale and a velocity scale can both be on at once.",
+  "upload.useFor": "Use for {unit}",
+  "upload.inForce": "In force for {unit}",
+  "upload.removePalette": "Remove {name}",
   "upload.asSupplied":
     "Drawn as supplied. More contrast changes the built-in ramps, and never a table you loaded.",
   "diagnostics.eyebrow": "OpenRadar v{version}",
@@ -884,7 +890,10 @@ export const en = {
   "toast.presetSaved": "Preset {number} saved",
   "toast.undo": "Undo",
   "toast.paletteCleared": "Colour table removed",
-  "toast.paletteClearedBody": "Back to the built-in scales.",
+  "toast.paletteClearedBody":
+    "{name} is off the shelf, and that product is back to the built-in scale.",
+  "toast.paletteFull":
+    "Your colour tables are full at {count}. Remove one to make room for this.",
   "toast.replayStopped": "Replay stopped",
   "toast.replayStoppedBody": "The map is back on the live loop.",
   "toast.shareTitle": "OpenRadar view",

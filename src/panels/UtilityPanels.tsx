@@ -1,4 +1,5 @@
 import {
+  Check,
   Download,
   FileUp,
   ClipboardCopy,
@@ -9,7 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { PanelShell } from "../components/PanelShell";
-import type { Palette } from "../lib/palette";
+import { MAX_PALETTES, paletteUnit, type Palette } from "../lib/palette";
 import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
 import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
@@ -25,16 +26,21 @@ interface CloseOnlyProps {
 
 interface UploadPanelProps extends CloseOnlyProps {
   onFile: (file: File) => void;
-  /** The colour table in force, if one has been loaded. */
-  palette: Palette | null;
-  onClearPalette: () => void;
+  /** Every colour table the reader has imported. */
+  palettes: Palette[];
+  /** Which one is in force per unit, by name. */
+  paletteAssignments: Record<string, string>;
+  onAssignPalette: (unit: string, name: string | null) => void;
+  onRemovePalette: (name: string) => void;
 }
 
 export function UploadPanel({
   onClose,
   onFile,
-  palette,
-  onClearPalette,
+  palettes,
+  paletteAssignments,
+  onAssignPalette,
+  onRemovePalette,
 }: UploadPanelProps) {
   const t = useT();
   // A loaded table is somebody's own scale, often one they read other tools
@@ -63,29 +69,74 @@ export function UploadPanel({
         />
       </label>
 
-      {palette ? (
-        <div className="storm-row" data-palette={palette.name}>
-          <div>
-            <strong>{palette.name}</strong>
-            <small>
-              {t("upload.colours", { count: palette.stops.length })}
-              {palette.units
-                ? t("upload.forUnits", { units: palette.units })
-                : t("upload.forReflectivity")}
-            </small>
-            {palette.skipped.length ? (
-              <small>
-                {t("upload.skipped", { names: palette.skipped.join(", ") })}
-              </small>
-            ) : null}
-            {highContrast ? <small>{t("upload.asSupplied")}</small> : null}
+      {palettes.length ? (
+        <section className="nearby-block">
+          <h3>{t("upload.libraryHeading")}</h3>
+          <p className="nearby-empty">
+            {t("upload.libraryBody", { count: MAX_PALETTES })}
+          </p>
+          <div className="storm-list">
+            {palettes.map((palette) => {
+              const unit = paletteUnit(palette);
+              const inForce =
+                paletteAssignments[unit.toLowerCase()] === palette.name;
+              return (
+                <div
+                  className="storm-row"
+                  data-palette={palette.name}
+                  data-palette-in-force={inForce ? "1" : "0"}
+                  key={palette.name}
+                >
+                  <div>
+                    <strong>{palette.name}</strong>
+                    <small>
+                      {t("upload.colours", { count: palette.stops.length })}
+                      {palette.units
+                        ? t("upload.forUnits", { units: palette.units })
+                        : t("upload.forReflectivity")}
+                    </small>
+                    {palette.skipped.length ? (
+                      <small>
+                        {t("upload.skipped", {
+                          names: palette.skipped.join(", "),
+                        })}
+                      </small>
+                    ) : null}
+                    {inForce && highContrast ? (
+                      <small>{t("upload.asSupplied")}</small>
+                    ) : null}
+                  </div>
+                  <div className="storm-row__actions">
+                    <button
+                      type="button"
+                      aria-pressed={inForce}
+                      onClick={() =>
+                        onAssignPalette(unit, inForce ? null : palette.name)
+                      }
+                    >
+                      {inForce ? (
+                        <>
+                          <Check size={14} /> {t("upload.inForce", { unit })}
+                        </>
+                      ) : (
+                        t("upload.useFor", { unit })
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t("upload.removePalette", {
+                        name: palette.name,
+                      })}
+                      onClick={() => onRemovePalette(palette.name)}
+                    >
+                      <X size={14} /> {t("upload.clearPalette")}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="storm-row__actions">
-            <button type="button" onClick={onClearPalette}>
-              <X size={14} /> {t("upload.clearPalette")}
-            </button>
-          </div>
-        </div>
+        </section>
       ) : null}
     </PanelShell>
   );

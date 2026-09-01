@@ -51,7 +51,9 @@ struct Held {
     solid: bool,
 }
 
-static LOADED: RwLock<Option<Palette>> = RwLock::new(None);
+/// The tables in force, at most one per unit. A `Vec` rather than a map
+/// because there are only ever a handful and `applies_to` is the lookup.
+static LOADED: RwLock<Vec<Palette>> = RwLock::new(Vec::new());
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 fn parse_hex(value: &str) -> Option<[u8; 3]> {
@@ -172,8 +174,8 @@ fn blend(from: [u8; 3], to: [u8; 3], position: f32) -> [u8; 3] {
 /// The table in force for a product measured in this unit, if there is one.
 pub fn for_unit(unit: &str) -> Option<Palette> {
     let held = LOADED.read().ok()?;
-    held.as_ref()
-        .filter(|palette| palette.applies_to(unit))
+    held.iter()
+        .find(|palette| palette.applies_to(unit))
         .cloned()
 }
 
@@ -181,15 +183,44 @@ pub fn generation() -> u64 {
     GENERATION.load(Ordering::Relaxed)
 }
 
-/// Loads a table, or clears the one in force. Answers with the generation the
-/// frontend puts in tile addresses so nothing drawn with the old one is reused.
+/// One table as the frontend sends it.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Table {
+    pub units: Option<String>,
+    pub range_folded: Option<String>,
+    pub stops: Vec<Stop>,
+}
+
+/// Loads the tables in force, replacing whatever was there. An empty list
+/// clears them. Answers with the generation the frontend puts in tile
+/// addresses so nothing drawn with the old set is reused.
+///
+/// The whole set arrives at once rather than one call per table, so the
+/// renderer is never holding half of a change.
 #[tauri::command]
-pub fn set_palette(units: Option<String>, range_folded: Option<String>, stops: Vec<Stop>) -> u64 {
-    let next = if stops.is_empty() {
-        None
-    } else {
-        Palette::with_range_folded(units, range_folded.as_deref(), &stops)
-    };
+pub fn set_palettes(tables: Vec<Table>) -> u64 {
+    let mut next = Vec::new();
+    for table in tables {
+        if table.stops.is_empty() {
+            continue;
+        }
+        let Some(palette) =
+            Palette::with_range_folded(table.units, table.range_folded.as_deref(), &table.stops)
+        else {
+            continue;
+        };
+        // First one wins for a unit, which is the same rule `for_unit` uses.
+        // Two tables for one unit is a frontend that sent a set it should
+        // have narrowed, not a reason to draw whichever arrived last.
+        if next
+            .iter()
+            .any(|held: &Palette| held.units == palette.units)
+        {
+            continue;
+        }
+        next.push(palette);
+    }
     if let Ok(mut held) = LOADED.write() {
         *held = next;
     }
@@ -375,11 +406,11 @@ mod tests {
     fn loading_one_bumps_the_generation_so_nothing_drawn_before_is_reused() {
         let _turn = one_at_a_time();
         let before = generation();
-        let after = set_palette(
-            Some("dBZ".into()),
-            Some("#77007d".into()),
-            vec![stop(5.0, "#04e9e7", None), stop(50.0, "#fd0000", None)],
-        );
+        let after = set_palettes(vec![Table {
+            units: Some("dBZ".into()),
+            range_folded: Some("#77007d".into()),
+            stops: vec![stop(5.0, "#04e9e7", None), stop(50.0, "#fd0000", None)],
+        }]);
         assert_eq!(
             for_unit("dBZ").and_then(|held| held.range_folded),
             Some([0x77, 0x00, 0x7d]),
@@ -390,8 +421,75 @@ mod tests {
         assert!(for_unit("m/s").is_none());
 
         // Clearing it bumps again, and takes the table with it.
-        let cleared = set_palette(None, None, Vec::new());
+        let cleared = set_palettes(Vec::new());
         assert!(cleared > after);
         assert!(for_unit("dBZ").is_none());
+    }
+
+    #[test]
+    fn holds_one_table_per_unit_at_the_same_time() {
+        let _turn = one_at_a_time();
+        set_palettes(vec![
+            Table {
+                units: Some("dBZ".into()),
+                range_folded: None,
+                stops: vec![stop(5.0, "#04e9e7", None)],
+            },
+            Table {
+                units: Some("kt".into()),
+                range_folded: None,
+                stops: vec![stop(-60.0, "#000000", None)],
+            },
+        ]);
+        // Both, which is the whole point: one slot could not do this.
+        assert!(for_unit("dBZ").is_some());
+        assert!(for_unit("kt").is_some());
+        assert!(for_unit("mm").is_none());
+
+        // A second table for a unit already spoken for is dropped rather than
+        // deciding the answer by arrival order.
+        set_palettes(vec![
+            Table {
+                units: Some("dBZ".into()),
+                range_folded: None,
+                stops: vec![stop(5.0, "#010203", None)],
+            },
+            Table {
+                units: Some("dBZ".into()),
+                range_folded: None,
+                stops: vec![stop(5.0, "#040506", None)],
+            },
+        ]);
+        assert_eq!(for_unit("dBZ").map(|held| held.color(5.0)), Some([1, 2, 3]));
+        set_palettes(Vec::new());
+    }
+
+    #[test]
+    fn a_solid_stop_holds_its_colour_where_a_plain_one_blends() {
+        let _turn = one_at_a_time();
+        // The same two stops, once solid and once not. A solid line holds its
+        // colour to the next stop; a plain one ramps into it. The frontend was
+        // dropping the flag on the way over, so every solid stop in somebody's
+        // table was drawn as a blend.
+        let solid = Palette::new(
+            Some("dBZ".into()),
+            &[
+                Stop {
+                    value: 0.0,
+                    color: "#000000".into(),
+                    to_color: None,
+                    solid: true,
+                },
+                stop(10.0, "#ffffff", None),
+            ],
+        )
+        .expect("a palette");
+        let ramped = Palette::new(
+            Some("dBZ".into()),
+            &[stop(0.0, "#000000", None), stop(10.0, "#ffffff", None)],
+        )
+        .expect("a palette");
+        assert_eq!(solid.color(5.0), [0, 0, 0]);
+        assert_eq!(ramped.color(5.0), [128, 128, 128]);
     }
 }

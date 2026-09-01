@@ -314,7 +314,13 @@ export const es: Catalogue = {
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · reflectividad",
   "upload.skipped": "{names} sin usar",
-  "upload.clearPalette": "Usar los colores de siempre",
+  "upload.clearPalette": "Quitar",
+  "upload.libraryHeading": "Tus tablas de colores",
+  "upload.libraryBody":
+    "Hasta {count}. Una tabla rige lo único para lo que dice servir, así que una escala de reflectividad y otra de velocidad pueden estar activas a la vez.",
+  "upload.useFor": "Usar para {unit}",
+  "upload.inForce": "Rige {unit}",
+  "upload.removePalette": "Quitar {name}",
   "upload.asSupplied":
     "Se dibuja tal cual. Más contraste cambia las escalas propias, nunca una tabla que hayas cargado.",
   "diagnostics.eyebrow": "OpenRadar v{version}",
@@ -899,7 +905,10 @@ export const es: Catalogue = {
   "toast.presetSaved": "Vista {number} guardada",
   "toast.undo": "Deshacer",
   "toast.paletteCleared": "Tabla de colores quitada",
-  "toast.paletteClearedBody": "Se vuelve a las escalas incorporadas.",
+  "toast.paletteClearedBody":
+    "{name} ya no está, y ese producto vuelve a la escala incorporada.",
+  "toast.paletteFull":
+    "Tus tablas de colores están llenas con {count}. Quita una para hacer sitio.",
   "toast.replayStopped": "Repetición detenida",
   "toast.replayStoppedBody": "El mapa vuelve al bucle en vivo.",
   "toast.shareTitle": "Vista de OpenRadar",

@@ -26,7 +26,7 @@ async function fakeNativeSide(page: Page) {
         `http://${scheme}.localhost/${path}`,
       invoke: (command: string, args: Record<string, unknown>) => {
         calls.push({ command, args });
-        if (command === "set_palette") {
+        if (command === "set_palettes") {
           generation += 1;
           return Promise.resolve(generation);
         }
@@ -103,15 +103,22 @@ test("takes a colour table and hands it to the renderers", async ({ page }) => {
           args: Record<string, unknown>;
         }>;
       }
-    ).__paletteCalls.filter((call) => call.command === "set_palette"),
+    ).__paletteCalls.filter((call) => call.command === "set_palettes"),
   );
   expect(sent.length).toBeGreaterThan(0);
+  // Whether a stop is solid travels with it. The last line of the file is a
+  // SolidColor, and dropping that flag on the way over drew it as a blend
+  // into nothing, which is not what the reader's file says.
   expect(sent.at(-1)?.args).toMatchObject({
-    units: "dBZ",
-    stops: [
-      { value: 5, color: "#000000", toColor: null },
-      { value: 50, color: "#808080", toColor: null },
-      { value: 75, color: "#ffffff", toColor: null },
+    tables: [
+      {
+        units: "dBZ",
+        stops: [
+          { value: 5, color: "#000000", toColor: null, solid: false },
+          { value: 50, color: "#808080", toColor: null, solid: false },
+          { value: 75, color: "#ffffff", toColor: null, solid: true },
+        ],
+      },
     ],
   });
 
@@ -154,7 +161,7 @@ test("can be taken off again long after the toast has gone", async ({
   await expect(row).toBeVisible();
   await expect(row).toContainText("3 colours");
 
-  await page.getByRole("button", { name: "Use the built-in colours" }).click();
+  await page.getByRole("button", { name: "Remove reflectivity.pal" }).click();
   await expect(row).toHaveCount(0);
 
   // And the renderer is told, rather than being left drawing the old table.
@@ -167,16 +174,12 @@ test("can be taken off again long after the toast has gone", async ({
         }>;
       }
     ).__paletteCalls
-      .filter((call) => call.command === "set_palette")
+      .filter((call) => call.command === "set_palettes")
       .at(-1),
   );
-  // Every field, not just the two that are easy to name: leaving the folded
-  // colour behind would keep the old table's purple on the map.
-  expect(cleared?.args).toEqual({
-    units: null,
-    rangeFolded: null,
-    stops: [],
-  });
+  // An empty set, not a set holding an empty table: leaving the folded colour
+  // behind would keep the old table's purple on the map.
+  expect(cleared?.args).toEqual({ tables: [] });
 
   // Loading a table is a file found, opened and dropped on the window, and
   // clearing it threw all of that away with no way back.
@@ -194,13 +197,80 @@ test("can be taken off again long after the toast has gone", async ({
         }>;
       }
     ).__paletteCalls
-      .filter((call) => call.command === "set_palette")
+      .filter((call) => call.command === "set_palettes")
       .at(-1),
   );
   // The whole table, not an empty one under the old name.
-  expect(restored?.args.units).toBe("dBZ");
-  expect(Array.isArray(restored?.args.stops)).toBe(true);
-  expect((restored?.args.stops as unknown[]).length).toBe(3);
+  const back = (restored?.args.tables as Array<Record<string, unknown>>)[0];
+  expect(back.units).toBe("dBZ");
+  expect((back.stops as unknown[]).length).toBe(3);
+});
+
+test("holds a reflectivity table and a velocity table at the same time", async ({
+  page,
+}) => {
+  // The whole point of a library. One slot meant importing the second threw
+  // the first away without a word.
+  await loadPalette(page);
+  // Importing closes the panel, so the second one starts from the bar again.
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "velocity.pal",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      ["Units: kt", "Color: -60 0 255 0", "Color: 60 255 0 0"].join("\n"),
+    ),
+  });
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await expect(page.locator("[data-palette='reflectivity.pal']")).toBeVisible();
+  await expect(page.locator("[data-palette='velocity.pal']")).toBeVisible();
+
+  const sent = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __paletteCalls: Array<{
+          command: string;
+          args: Record<string, unknown>;
+        }>;
+      }
+    ).__paletteCalls
+      .filter((call) => call.command === "set_palettes")
+      .at(-1),
+  );
+  const tables = sent?.args.tables as Array<Record<string, unknown>>;
+  expect(tables.map((table) => table.units).sort()).toEqual(["dBZ", "kt"]);
+});
+
+test("takes a table out of force without taking it off the shelf", async ({
+  page,
+}) => {
+  await loadPalette(page);
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  const row = page.locator("[data-palette='reflectivity.pal']");
+  await expect(row).toHaveAttribute("data-palette-in-force", "1");
+
+  await page.getByRole("button", { name: "In force for dBZ" }).click();
+  await expect(row).toHaveAttribute("data-palette-in-force", "0");
+  // Still on the shelf, which is the difference between this and Remove.
+  await expect(row).toBeVisible();
+
+  // And the map goes back to the built-in scale rather than keeping the
+  // table's colours with nothing in force.
+  const sent = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __paletteCalls: Array<{
+          command: string;
+          args: Record<string, unknown>;
+        }>;
+      }
+    ).__paletteCalls
+      .filter((call) => call.command === "set_palettes")
+      .at(-1),
+  );
+  expect(sent?.args).toEqual({ tables: [] });
+  await expect(page.getByLabel(/from 5 to 75 dBZ/)).toBeVisible();
 });
 
 test("refuses a file with no colours in it", async ({ page }) => {
