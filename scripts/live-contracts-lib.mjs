@@ -114,6 +114,15 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "archive-warnings",
+    label: "Archived storm-based warnings",
+    host: "mesonet.agron.iastate.edu",
+    kind: "browser",
+    files: ["src/lib/archiveWarnings.test.ts"],
+    liveBlock: "against the live archive",
+    required: false,
+  },
+  {
     id: "reports",
     label: "Local storm reports",
     host: "mesonet.agron.iastate.edu",

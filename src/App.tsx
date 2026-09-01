@@ -14,6 +14,8 @@ import { MapStage } from "./components/MapStage";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
+import { useArchiveWarnings } from "./hooks/useArchiveWarnings";
+import { alertsOfKind } from "./lib/overlays/alerts";
 import {
   useMinuteClock,
   useReducedMotion,
@@ -259,6 +261,22 @@ export default function App() {
   });
   const { frames, frameIndex, source } = timeline;
   const activeFrame = frames[frameIndex];
+
+  // The warnings that were in force while the archived storm was on the map.
+  // The live layer is switched off during a replay, because today's polygon
+  // over yesterday's storm is a claim nobody made; this puts that day's own
+  // polygons back, from the archive, one request for the whole window.
+  const archiveWarnings = useArchiveWarnings({
+    replay,
+    frameTime: activeFrame?.time ?? null,
+  });
+  const replayedAlerts = useMemo(
+    () =>
+      archiveWarnings.data
+        ? alertsOfKind(archiveWarnings.data, settings.alertTypes)
+        : null,
+    [archiveWarnings.data, settings.alertTypes],
+  );
   // A comparison that asks for more history than exists is left empty. Using
   // the first frame while labelling it "12 back" gave a precise label to a
   // different moment.
@@ -695,7 +713,11 @@ export default function App() {
             ? null
             : Math.max(0, Math.floor(clock / 60_000 - satelliteTime / 60))
         }
-        overlays={overlays.data}
+        overlays={
+          replayedAlerts
+            ? { ...overlays.data, alerts: replayedAlerts }
+            : overlays.data
+        }
         route={route}
         customOverlay={overlayShapes}
         stormTrack={stormTrackData}
@@ -726,7 +748,17 @@ export default function App() {
         <Suspense fallback={null}>
           <PanelSurfaces
             layerNotes={{
-              weatherAlerts: overlays.states.alerts.error,
+              // During a replay this switch is drawing that day's polygons out
+              // of the archive rather than today's, so what it has to say
+              // about itself is what the archive can and cannot cover.
+              weatherAlerts: replay
+                ? (archiveWarnings.error ??
+                  (archiveWarnings.coverage === "none"
+                    ? translate("replay.warningsNone")
+                    : archiveWarnings.coverage === "partial"
+                      ? translate("replay.warningsPartial")
+                      : null))
+                : overlays.states.alerts.error,
               spcOutlooks: overlays.states.spcOutlooks.error,
               spcDiscussions: overlays.states.spcDiscussions.error,
               stormReports: overlays.states.stormReports.error,
@@ -750,7 +782,18 @@ export default function App() {
             activeSurface={activeSurface}
             productOpen={productOpen}
             settings={settings}
-            overlays={overlays.states}
+            overlays={
+              replayedAlerts
+                ? {
+                    ...overlays.states,
+                    alerts: {
+                      ...overlays.states.alerts,
+                      data: replayedAlerts,
+                      error: null,
+                    },
+                  }
+                : overlays.states
+            }
             viewport={viewport}
             centerPoint={centerPoint}
             frameCount={frames.length}
