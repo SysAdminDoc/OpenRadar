@@ -83,6 +83,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - Draw, range and point inspection tools. Beam height at the cursor for the sweep on screen.
 - **Cross-section**: draw a line between two points and the Level II volume is cut along it, height against distance. Heights no beam passed through stay empty rather than being filled from the nearest cut.
 - Per-overlay opacity and a drawing order you choose. Warnings are not in the arrangement, because nothing should be able to put a wildfire perimeter over one.
+- **Export the readings**, not only the picture. The sweep on screen writes as a CSV with a row per gate, its azimuth, range, latitude, longitude, beam height and value; a grid writes as a single-band float GeoTIFF cut to the view, which QGIS, GDAL, rasterio and ArcGIS open directly. Both land beside a JSON file naming the source, the observed time, the units, the missing-value rule and anything done to the numbers. Colour tables and display thresholds are not applied, because a colour is a lossy account of a number. See [What the data export holds](#what-the-data-export-holds).
 - **Export** the view as a picture, or the loop as a video or a GIF, with the time and the credits burned in. The video is encoded as fast as the frames can be drawn rather than recorded in real time. A JSON record lands beside the file naming the source of every frame that reached it. See [What the export record holds](#what-the-export-record-holds).
 - **Capture layout** for streaming: one command hides everything you operate and leaves a strip with the time, the map centre, the worst warning in view and the credits, sized to stay readable after a stream has been compressed. Leaving it puts the workspace back as it was.
 - **Surface observations.** The airport reports nearest whatever you are looking at, drawn as the station plots people already read: a wind barb pointing into the wind with a feather per ten knots, temperature above the disc and dewpoint below, and the disc filled by how much sky is covered. The raw METAR is in the popup. It appears once you are close enough for the plots not to overlap.
@@ -294,6 +295,51 @@ One entry per frame that reached the file, in timeline order. A loop is not one 
 `kind` is `observation`, `forecast` or `derived`, and it decides the rest. A forecast has no `observed` time, because nothing measured it; it carries a `modelRun` with the run's `initUtc` and `leadMinutes`, or `runUnknown` when the source will not say which run it used. A `derived` frame carries `derivedFrom` saying what was done to the values. `cachedAgeSeconds` is null when the bytes came off the network and a number when the disk cache served them, which is what separates a current picture from one that survived an outage.
 
 The times are ISO strings rather than the milliseconds the app uses internally, because a file outlives the program that wrote it and a number with no units is a guess.
+
+### What the data export holds
+
+A picture answers "what did it look like". The data export answers "what did it measure", which is the one you can put next to a rain gauge or into a case study.
+
+Two files land each time: the data, and a `.provenance.json` beside it with the same name. The sidecar is plain JSON with a `format` of `openradar-data-provenance`.
+
+```json
+{
+  "format": "openradar-data-provenance",
+  "formatVersion": 1,
+  "application": "OpenRadar 0.6.0",
+  "writtenAt": "2026-09-02T18:44:03Z",
+  "dataFile": "openradar-kdmx-reflectivity-20260901-173211.csv",
+  "sha256": "9f2c…",
+  "kind": "polar",
+  "product": { "id": "reflectivity", "label": "Reflectivity", "unit": "dBZ" },
+  "observed": "2026-09-01T17:32:11Z",
+  "source": {
+    "kind": "archive",
+    "label": "NOAA NEXRAD Level II archive",
+    "url": "https://registry.opendata.aws/noaa-nexrad/"
+  },
+  "geometry": {
+    "station": "KDMX",
+    "siteLatitude": 41.7311,
+    "siteLongitude": -93.7228,
+    "elevationDegrees": 0.48,
+    "azimuthCount": 720,
+    "gateCount": 1832,
+    "firstGateRangeKm": 2.125,
+    "gateIntervalKm": 0.25,
+    "beamModel": "4/3 effective earth radius"
+  },
+  "coordinateReference": "EPSG:4326",
+  "derivation": [],
+  "missing": "gates below the detection threshold and gates with no data are omitted; a range folded gate has an empty value and status rangeFolded"
+}
+```
+
+A **sweep** is a fan of gates rather than a raster, so it goes out as CSV. Putting it on a grid would mean resampling, which is the loss the export exists to avoid. The header repeats the geometry as comment lines so the file stands on its own, and the columns are `azimuth_index`, `gate_index`, `azimuth_deg`, `range_km`, `latitude`, `longitude`, `height_m`, `value`, `status`. Gates that measured nothing are left out and counted in the header, so a file is the size of the storm rather than the size of the disc. A range folded gate is written with an empty value and its status, because an ambiguous velocity is a measurement and not an absence.
+
+A **grid** goes out as an uncompressed single-band float32 GeoTIFF, cut to the view, tagged EPSG:4326 with `ModelPixelScale`, `ModelTiepoint` and a `GeoKeyDirectory`. Cells outside the grid are NaN and `GDAL_NODATA` says so. Inside it the values are as decoded, including the codes MRMS reserves for missing and for no radar coverage, because rewriting those would be inventing data.
+
+`derivation` is the one thing that changes the numbers. Unfolded velocity and a subtracted storm motion are recorded there; a colour table, the high contrast ramps and a display threshold are not applied at all, so they never appear.
 
 ## Not a warning source
 

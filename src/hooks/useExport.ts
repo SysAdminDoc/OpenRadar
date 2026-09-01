@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { ToastMessage } from "../components/ToastHost";
 import {
@@ -9,7 +9,13 @@ import {
   provenanceFileName,
   type ExportCaption,
 } from "../lib/export";
+import {
+  dataExportErrorText,
+  exportSize,
+  type DataExportReport,
+} from "../lib/dataExport";
 import { log } from "../lib/log";
+import type { OverlayBounds } from "../lib/overlays";
 import type { RadarProvider } from "../lib/providers";
 import {
   provenanceCredit,
@@ -32,6 +38,21 @@ import { translate } from "../i18n";
  */
 const BASEMAP_CREDIT = "OpenStreetMap";
 
+/** One dataset on screen whose readings can be written out. */
+export interface DataExportSource {
+  id: string;
+  label: string;
+  /** The file extension, said plainly beside the button. */
+  format: string;
+  /**
+   * The view at the moment the button was pressed, for a dataset that is cut
+   * to it, and null when the map has not settled on one. It is read here
+   * rather than by the caller because the caller builds this list during a
+   * render, and a camera read then is a camera from before the last move.
+   */
+  run: (view: OverlayBounds | null) => Promise<DataExportReport>;
+}
+
 export interface ExportState {
   /** Which export is running, or null when none is. */
   busy: string | null;
@@ -40,6 +61,13 @@ export interface ExportState {
   exportLoopVideo: () => void;
   /** The same loop as a GIF, which pastes into places a WebM does not. */
   exportLoopGifFile: () => void;
+  /** The readings behind the picture, wrapped so the panel only clicks. */
+  dataExports: Array<{
+    id: string;
+    label: string;
+    format: string;
+    run: () => void;
+  }>;
 }
 
 export function useExport(options: {
@@ -48,9 +76,19 @@ export function useExport(options: {
   frameIndex: number;
   source: RadarProvider | null;
   timeline: RadarTimelineState;
+  /** Datasets drawn right now, in the order the panel should offer them. */
+  dataSources: DataExportSource[];
   pushToast: (message: Omit<ToastMessage, "id">) => void;
 }): ExportState {
-  const { mapRef, frames, frameIndex, source, timeline, pushToast } = options;
+  const {
+    mapRef,
+    frames,
+    frameIndex,
+    source,
+    timeline,
+    dataSources,
+    pushToast,
+  } = options;
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState<{
     done: number;
@@ -262,5 +300,50 @@ export function useExport(options: {
     [exportLoopAs],
   );
 
-  return { busy, progress, exportImage, exportLoopVideo, exportLoopGifFile };
+  // A data export is a native call rather than a canvas walk, so it shares
+  // the busy state and the toasts and nothing else. The file and its sidecar
+  // are both named, because a reader who moves one without the other has half
+  // an export and no way to know what the numbers are.
+  const dataExports = useMemo(
+    () =>
+      dataSources.map((offer) => ({
+        id: offer.id,
+        label: offer.label,
+        format: offer.format,
+        run: () => {
+          void (async () => {
+            setBusy(`data:${offer.id}`);
+            try {
+              const report = await offer.run(mapRef.current?.bounds() ?? null);
+              pushToast({
+                title: translate("export.dataWritten", { label: offer.label }),
+                detail: translate("export.dataWrittenBody", {
+                  readings: report.readings.toLocaleString(),
+                  size: exportSize(report.bytes),
+                  path: report.path,
+                }),
+              });
+            } catch (failure: unknown) {
+              log.warn("export", dataExportErrorText(failure));
+              pushToast({
+                title: translate("export.dataFailed"),
+                detail: dataExportErrorText(failure),
+              });
+            } finally {
+              setBusy(null);
+            }
+          })();
+        },
+      })),
+    [dataSources, mapRef, pushToast],
+  );
+
+  return {
+    busy,
+    progress,
+    exportImage,
+    exportLoopVideo,
+    exportLoopGifFile,
+    dataExports,
+  };
 }

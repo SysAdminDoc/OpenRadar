@@ -81,6 +81,17 @@ async function fakeNativeSide(page: Page) {
           `http://${scheme}.localhost/${path}`,
         invoke: (command: string, args: Record<string, unknown>) => {
           calls.push({ command, args });
+          if (command === "export_sweep_data") {
+            return Promise.resolve({
+              path: "C:/Users/reader/Downloads/openradar-kdmx-reflectivity.csv",
+              sidecar:
+                "C:/Users/reader/Downloads/openradar-kdmx-reflectivity.csv.provenance.json",
+              bytes: 2_202_010,
+              readings: 41_233,
+              omitted: 1_277_807,
+              sha256: "ab".repeat(32),
+            });
+          }
           if (command === "level2_nearest_site") {
             // The real command answers nothing for a point no site can see,
             // which is what the frontend has to cope with.
@@ -496,6 +507,47 @@ test("hands a close-in view over to the nearest site and back again", async ({
   await expect(pane).not.toHaveAttribute("data-layer-stack", /sweep-layer/);
   await expect(pane).toHaveAttribute("data-mosaic-opacity", "0.70");
   await expect(page.getByText("Composite Radar")).toBeVisible();
+});
+
+test("writes the gates of the sweep on screen as numbers", async ({ page }) => {
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  // The picture exports were always here; this is the same readings the
+  // picture was painted from, as a file another tool can read.
+  const write = page.getByRole("button", { name: /Reflectivity as csv/ });
+  await expect(write).toBeVisible();
+  await write.click();
+
+  await expect(page.getByText(/Reflectivity written/)).toBeVisible();
+  await expect(page.getByText(/41,233 readings, 2.1 MB, at C:/)).toBeVisible();
+  await expect(page.getByText(/provenance file beside it/)).toBeVisible();
+
+  const asked = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __sweepCalls: Array<{
+            command: string;
+            args: Record<string, unknown>;
+          }>;
+        }
+      ).__sweepCalls,
+  );
+  const call = asked.find((held) => held.command === "export_sweep_data");
+  const request = call?.args.request as Record<string, unknown>;
+  expect(request).toMatchObject({
+    station: "KDMX",
+    product: "reflectivity",
+    tilt: 0,
+  });
+  // Nothing about how the sweep is drawn travels with the readings: no
+  // threshold, no contrast choice, no colour table.
+  expect(Object.keys(request)).not.toContain("threshold");
+  expect(Object.keys(request)).not.toContain("highContrast");
+  // And no path, because this volume came off the network rather than a disk.
+  expect(request.path).toBeNull();
 });
 
 test("switches product and tilt on the site already on screen", async ({

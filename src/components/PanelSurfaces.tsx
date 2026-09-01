@@ -21,7 +21,7 @@ import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
 import { CrossSectionPanel } from "../panels/CrossSectionPanel";
 import { AlertsPanel } from "../panels/AlertsPanel";
-import { ExportPanel } from "../panels/ExportPanel";
+import { ExportPanel, type DataExportOffer } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
 import { GuidancePanel } from "../panels/GuidancePanel";
 import { TidesPanel } from "../panels/TidesPanel";
@@ -63,6 +63,8 @@ interface PanelSurfacesProps {
   health: ProviderHealth[];
   log: LogEntry[];
   exportState: ExportState;
+  /** The readings behind the picture, one entry per dataset drawn. */
+  dataExports: DataExportOffer[];
   singleSite: SingleSiteState | null;
   /**
    * What a switched-on layer has to say for itself when it is not drawing.
@@ -281,6 +283,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           frameCount={props.frameCount}
           busy={props.exportState.busy}
           progress={props.exportState.progress}
+          dataExports={props.dataExports}
           onExportImage={props.exportState.exportImage}
           onExportLoop={props.exportState.exportLoopVideo}
           onExportGif={props.exportState.exportLoopGifFile}

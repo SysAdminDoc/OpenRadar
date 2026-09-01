@@ -71,6 +71,7 @@ describe("loop export workspace restoration", () => {
         frameIndex: 2,
         source: null,
         timeline,
+        dataSources: [],
         pushToast,
       }),
     );
@@ -117,6 +118,7 @@ describe("the record written beside the picture", () => {
         frameIndex: 1,
         source: null,
         timeline,
+        dataSources: [],
         pushToast: vi.fn(),
         ...over,
       }),

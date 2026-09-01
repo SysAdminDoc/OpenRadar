@@ -24,6 +24,30 @@ export const en = {
     "The map exactly as it is now, with the frame time, the radar source, and the credits burned into the corner.",
   "export.note":
     "Both go straight to your downloads folder, and a small JSON file lands beside each one saying which source every frame came from. Nothing is uploaded.",
+  "export.dataHeading": "The readings behind the picture",
+  "export.dataNote":
+    "A picture is a colour per number, and a colour cannot be compared with a rain gauge. These write the numbers instead, each with a JSON sidecar naming the source, the time, the units and anything done to the readings. Colour tables and display thresholds are not applied.",
+  "export.dataFile": "{label} as {format}",
+  "export.dataRadar": "Radar values",
+  "export.dataComposite": "MRMS composite",
+  "export.dataWritten": "{label} written",
+  "export.dataWrittenBody":
+    "{readings} readings, {size}, at {path}, with a provenance file beside it.",
+  "export.dataFailed": "The data export failed",
+  "export.dataNoView": "The map has no view to cut the grid to yet.",
+  "dataExport.bytes": "{count} bytes",
+  "dataExport.kilobytes": "{count} kB",
+  "dataExport.megabytes": "{count} MB",
+  "dataExport.error.notDrawn":
+    "That grid is not on the map, so there is nothing decoded to write. Turn the layer on and let it draw first.",
+  "dataExport.error.noProduct": "There is no product called {0}.",
+  "dataExport.error.nothingInView": "The view holds no part of that grid.",
+  "dataExport.error.tooLarge":
+    "That would be {0} readings in one file. Zoom in so the export covers less.",
+  "dataExport.error.noFolder": "There is nowhere to write the export.",
+  "dataExport.error.write": "The export could not be written: {0}",
+  "dataExport.error.grid": "{0}",
+  "dataExport.error.unknown": "The export could not be written.",
 
   "search.eyebrow": "Find a place",
   "search.title": "Search",
