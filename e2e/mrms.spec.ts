@@ -131,6 +131,27 @@ async function fakeNativeSide(page: Page) {
               })),
             );
           }
+          if (command === "export_grid_data") {
+            const asked = args.request as { product?: string };
+            if (asked.product === "rotation") {
+              // What a refusal looks like: the reader is holding too much of
+              // the world at once.
+              return Promise.reject({
+                code: "tooLarge",
+                args: ["9840321"],
+                text: "that export would hold 9840321 readings",
+              });
+            }
+            return Promise.resolve({
+              path: "C:/Users/reader/Downloads/openradar-composite.tif",
+              sidecar:
+                "C:/Users/reader/Downloads/openradar-composite.tif.provenance.json",
+              bytes: 1_600_000,
+              readings: 400_000,
+              omitted: 0,
+              sha256: "cd".repeat(32),
+            });
+          }
           if (command.startsWith("plugin:store|")) return Promise.resolve(null);
           return Promise.reject(new Error(`${command} is not stubbed`));
         },
@@ -296,4 +317,64 @@ test("lists precipitation type by name rather than as a scale", async ({
   // And it says what it is: the network's own classification rather than
   // somebody looking out of a window.
   await expect(legend).toContainText("classification");
+});
+
+test("writes a grid as a georeferenced raster of the view", async ({
+  page,
+}) => {
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await expect(page.getByText(/of 20 radar frames · NOAA MRMS/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(page.getByText("The readings behind the picture")).toBeVisible();
+  const write = page.getByRole("button", { name: /MRMS composite as tif/ });
+  await write.click();
+
+  await expect(page.getByText(/MRMS composite written/)).toBeVisible();
+  await expect(page.getByText(/400,000 readings, 1.5 MB/)).toBeVisible();
+
+  const request = await page.evaluate(() => {
+    const calls = (
+      window as unknown as {
+        __mrmsCalls: Array<{ command: string; args: Record<string, unknown> }>;
+      }
+    ).__mrmsCalls;
+    return calls.find((call) => call.command === "export_grid_data")?.args
+      .request as Record<string, number | string>;
+  });
+  expect(request.product).toBe("composite");
+  expect(Number(request.time)).toBeGreaterThan(0);
+  // Cut to what is on screen rather than to the whole continent, so the
+  // corners have to be a real box.
+  expect(Number(request.west)).toBeLessThan(Number(request.east));
+  expect(Number(request.south)).toBeLessThan(Number(request.north));
+  // Nothing about how it is drawn goes with the numbers.
+  expect(Object.keys(request)).not.toContain("threshold");
+  expect(Object.keys(request)).not.toContain("highContrast");
+});
+
+test("says why a grid export was refused, in the reader's words", async ({
+  page,
+}) => {
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  // Rotation tracks are their own layer, and this harness refuses that one.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Rotation Tracks/ }).check();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveAttribute("data-layer-stack", /mrms-rotation/);
+
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await page.getByRole("button", { name: /Rotation tracks.*as tif/ }).click();
+
+  await expect(page.getByText("The data export failed")).toBeVisible();
+  await expect(
+    page.getByText(/9840321 readings in one file. Zoom in/),
+  ).toBeVisible();
 });

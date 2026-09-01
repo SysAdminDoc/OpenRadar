@@ -10,13 +10,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-084: Export scientific radar data with provenance
-      Why: PNG, GIF, and WebM communicate a picture but do not support GIS or scientific reuse. NOAA's Weather and Climate Toolkit validates value-preserving exports.
-      Evidence: `src/hooks/useExport.ts`; `src-tauri/src/level2.rs`; `src-tauri/src/mrms.rs`; https://www.ncei.noaa.gov/products/weather-climate-toolkit
-      Touches: Native Level II and grid export; CSV, GeoTIFF, or NetCDF format selection; file dialogs; provenance sidecar; limits
-      Acceptance: At least one polar product and one gridded product export raw values, coordinates, units, missing-value rules, source, observed time, and derivation without using screen colors; output opens in an independent standard tool; large exports stream or remain bounded; golden fixtures verify values and metadata.
-      Complexity: L
-
 - [ ] AUD-085: Add a focused NWPS stream and flood context layer
       Why: Official stream forecasts and flood information can explain a hazard that radar alone cannot, especially for tropical and heavy-rain events. It should arrive as a focused incident layer, not a general hydrology workstation.
       Evidence: `src/lib/overlays/`; `src/lib/surge.ts`; https://water.noaa.gov/about/api

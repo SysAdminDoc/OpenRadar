@@ -22,6 +22,32 @@ export const es: Catalogue = {
     "El mapa tal como está ahora, con la hora del cuadro, la fuente del radar y los créditos grabados en la esquina.",
   "export.note":
     "Los dos van directo a tu carpeta de descargas, y junto a cada uno queda un archivo JSON pequeño que dice de qué fuente salió cada fotograma. No se sube nada.",
+  "export.dataHeading": "Los datos detrás de la imagen",
+  "export.dataNote":
+    "Una imagen es un color por cada número, y un color no se puede comparar con un pluviómetro. Esto guarda los números, cada uno con un archivo JSON al lado que nombra la fuente, la hora, las unidades y lo que se les haya hecho. No se aplican tablas de color ni umbrales de visualización.",
+  "export.dataFile": "{label} en {format}",
+  "export.dataRadar": "Valores del radar",
+  "export.dataComposite": "Compuesto MRMS",
+  "export.dataWritten": "{label} guardado",
+  "export.dataWrittenBody":
+    "{readings} lecturas, {size}, en {path}, con su archivo de procedencia al lado.",
+  "export.dataFailed": "La exportación de datos falló",
+  "export.dataNoView":
+    "El mapa aún no tiene una vista a la que recortar la malla.",
+  "dataExport.bytes": "{count} bytes",
+  "dataExport.kilobytes": "{count} kB",
+  "dataExport.megabytes": "{count} MB",
+  "dataExport.error.notDrawn":
+    "Esa malla no está en el mapa, así que no hay nada decodificado que guardar. Activa la capa y deja que se dibuje primero.",
+  "dataExport.error.noProduct": "No existe ningún producto llamado {0}.",
+  "dataExport.error.nothingInView":
+    "La vista no contiene ninguna parte de esa malla.",
+  "dataExport.error.tooLarge":
+    "Eso serían {0} lecturas en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
+  "dataExport.error.noFolder": "No hay dónde escribir la exportación.",
+  "dataExport.error.write": "No se pudo escribir la exportación: {0}",
+  "dataExport.error.grid": "{0}",
+  "dataExport.error.unknown": "No se pudo escribir la exportación.",
 
   "search.eyebrow": "Busca un lugar",
   "search.title": "Buscar",

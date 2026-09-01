@@ -1,7 +1,17 @@
-import { Camera, Film, Image, LoaderCircle } from "lucide-react";
+import { Camera, Film, Image, LoaderCircle, Table2 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { useT } from "../i18n";
 import { MAX_GIF_FRAMES } from "../lib/export";
+
+/** One dataset on screen that can be written as numbers. */
+export interface DataExportOffer {
+  /** Stable across renders, so the busy state can name which one is running. */
+  id: string;
+  label: string;
+  /** `csv` or `tif`, said plainly beside the button. */
+  format: string;
+  run: () => void;
+}
 
 interface ExportPanelProps {
   frameCount: number;
@@ -10,6 +20,8 @@ interface ExportPanelProps {
   onExportImage: () => void;
   onExportLoop: () => void;
   onExportGif: () => void;
+  /** The readings behind the picture, one entry per dataset drawn. */
+  dataExports: DataExportOffer[];
   onClose: () => void;
 }
 
@@ -20,6 +32,7 @@ export function ExportPanel({
   onExportImage,
   onExportLoop,
   onExportGif,
+  dataExports,
   onClose,
 }: ExportPanelProps) {
   const t = useT();
@@ -78,6 +91,35 @@ export function ExportPanel({
             })
           : ""}
       </button>
+
+      {dataExports.length ? (
+        <div className="settings-section" data-data-exports>
+          <div className="settings-section__title">
+            <span>{t("export.dataHeading")}</span>
+          </div>
+          <p className="source-note">{t("export.dataNote")}</p>
+          {dataExports.map((offer) => (
+            <button
+              key={offer.id}
+              type="button"
+              className="secondary-button"
+              disabled={Boolean(busy)}
+              onClick={offer.run}
+              data-data-export={offer.id}
+            >
+              {busy === `data:${offer.id}` ? (
+                <LoaderCircle className="spin" size={16} />
+              ) : (
+                <Table2 size={16} />
+              )}
+              {t("export.dataFile", {
+                label: offer.label,
+                format: offer.format,
+              })}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {progress ? (
         <p className="source-note" role="status">

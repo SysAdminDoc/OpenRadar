@@ -17,6 +17,11 @@ import type { GeoPoint } from "../lib/geo";
 import { highContrastRequested } from "./useClock";
 import { log } from "../lib/log";
 import { isTdwrStation, supportedProduct } from "../lib/radarKinds";
+import {
+  dataExportAvailable,
+  exportSweepData,
+  type DataExportReport,
+} from "../lib/dataExport";
 import type { RadarSettings } from "../lib/settings";
 
 export interface SingleSiteState {
@@ -47,6 +52,14 @@ export interface SingleSiteState {
    */
   crossSection:
     ((from: GeoPoint, to: GeoPoint) => Promise<CrossSection>) | null;
+  /**
+   * Writes the gates of the sweep on screen as numbers rather than colours.
+   *
+   * Here for the same reason the slice is: only the hook knows how the volume
+   * on screen arrived, and a chosen file's path is held here and nowhere else.
+   * Null when there is no sweep to write.
+   */
+  exportValues: (() => Promise<DataExportReport>) | null;
 }
 
 type HistoricalSource =
@@ -268,6 +281,33 @@ export function useSingleSiteRadar(options: {
     [historicalSource, radar.dealias, radar.product, station, threshold],
   );
 
+  // The same volume the picture came from, as readings. The product, tilt and
+  // derivation are the ones on screen; the display threshold is not sent,
+  // because an export of what the radar measured is not a drawing.
+  const writeValues = useCallback(() => {
+    const from = historicalSource;
+    return exportSweepData({
+      station: from?.kind === "archive" ? from.station : (station ?? ""),
+      product: radar.product,
+      tilt: radar.tilt,
+      dealias: radar.dealias,
+      motion:
+        motionSpeed !== null && motionFrom !== null
+          ? [motionSpeed, motionFrom]
+          : null,
+      at: from?.kind === "archive" ? from.at : null,
+      path: from?.kind === "local" ? from.path : null,
+    });
+  }, [
+    historicalSource,
+    motionFrom,
+    motionSpeed,
+    radar.dealias,
+    radar.product,
+    radar.tilt,
+    station,
+  ]);
+
   const resumeRecent = useCallback(() => {
     requestRef.current += 1;
     historicalRequestRef.current = null;
@@ -421,6 +461,16 @@ export function useSingleSiteRadar(options: {
         (historicalSource?.kind === "local" || station)
           ? takeCrossSection
           : null,
+      // A terminal radar's picture comes from a Level III product rather than
+      // a volume, so there are no gates of it to write.
+      exportValues:
+        showing &&
+        sweep !== null &&
+        !isTdwrStation(station) &&
+        dataExportAvailable() &&
+        (historicalSource?.kind === "local" || station)
+          ? writeValues
+          : null,
     };
   }, [
     available,
@@ -437,5 +487,6 @@ export function useSingleSiteRadar(options: {
     sweep,
     takeCrossSection,
     wanted,
+    writeValues,
   ]);
 }

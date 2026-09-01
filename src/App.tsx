@@ -22,7 +22,7 @@ import {
   useReducedMotion,
   useSecondClock,
 } from "./hooks/useClock";
-import { useExport } from "./hooks/useExport";
+import { useExport, type DataExportSource } from "./hooks/useExport";
 import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
@@ -55,6 +55,8 @@ import {
   type Storm,
 } from "./lib/hurdat";
 import { level2Available } from "./lib/level2";
+import { dataExportAvailable, exportGridData } from "./lib/dataExport";
+import { domainFor } from "./lib/providers/mrms";
 import {
   bundleErrorText,
   bundleMissingNote,
@@ -392,12 +394,85 @@ export default function App() {
     [overlayFiles],
   );
 
+  // What is drawn right now that has numbers behind it: the sweep, and every
+  // grid on the map. A grid is cut to the view rather than written whole,
+  // because the whole of one is a continent and nobody asked for a continent.
+  const dataSources = useMemo(() => {
+    if (!dataExportAvailable()) return [];
+    const offers: DataExportSource[] = [];
+    if (singleSite.exportValues) {
+      const write = singleSite.exportValues;
+      offers.push({
+        id: "sweep",
+        label: singleSite.sweep?.product ?? translate("export.dataRadar"),
+        format: "csv",
+        // A sweep is a fan around its site rather than a rectangle, so the
+        // view has nothing to say about which gates are in it.
+        run: () => write(),
+      });
+    }
+    // The picture on the map is a grid too when MRMS is drawing it, and it is
+    // the one a reader is most likely to want the numbers behind.
+    const frame = frames[frameIndex];
+    if (frame?.providerId === "mrms") {
+      offers.push({
+        id: "grid:composite",
+        label: translate("export.dataComposite"),
+        format: "tif",
+        run: (view) =>
+          view
+            ? exportGridData({
+                product: "composite",
+                time: frame.time,
+                domain:
+                  domainFor([
+                    (view.west + view.east) / 2,
+                    (view.south + view.north) / 2,
+                  ])?.id ?? null,
+                west: view.west,
+                south: view.south,
+                east: view.east,
+                north: view.north,
+              })
+            : Promise.reject(new Error(translate("export.dataNoView"))),
+      });
+    }
+    for (const layer of mrms.layers) {
+      offers.push({
+        id: `grid:${layer.product}`,
+        label: layer.label,
+        format: "tif",
+        // Cut to the view at the moment the button is pressed. The whole of
+        // one of these grids is a continent, and nobody asked for a continent.
+        run: (view) =>
+          view
+            ? exportGridData({
+                product: layer.product,
+                time: layer.time,
+                west: view.west,
+                south: view.south,
+                east: view.east,
+                north: view.north,
+              })
+            : Promise.reject(new Error(translate("export.dataNoView"))),
+      });
+    }
+    return offers;
+  }, [
+    frameIndex,
+    frames,
+    mrms.layers,
+    singleSite.exportValues,
+    singleSite.sweep?.product,
+  ]);
+
   const exportState = useExport({
     mapRef,
     frames,
     frameIndex,
     source,
     timeline,
+    dataSources,
     pushToast,
   });
 
@@ -1191,6 +1266,7 @@ export default function App() {
             health={health}
             log={logEntries}
             exportState={exportState}
+            dataExports={exportState.dataExports}
             onClose={() => setActiveSurface(null)}
             onCloseProduct={() => setProductOpen(false)}
             onLayers={(layers: LayerSettings) =>

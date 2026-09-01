@@ -143,7 +143,7 @@ impl Level2Error {
     /// Spanish. Sending a code and its parts lets the page write the sentence
     /// itself, and the English text still rides along for anything the page
     /// has no wording for.
-    fn parts(&self) -> (&'static str, Vec<String>) {
+    pub(crate) fn parts(&self) -> (&'static str, Vec<String>) {
         match self {
             Self::UnknownSite(site) => ("unknownSite", vec![site.clone()]),
             Self::NotWsr88d(site) => ("notWsr88d", vec![site.clone()]),
@@ -1400,6 +1400,95 @@ pub fn sweep_from_volume(
     let (scan, nyquist) = decoded_volume(volume_key, data)?;
     let folding = |elevation: u8| nyquist.get(&elevation).copied();
     sweep_from_scan(station, volume_key, &scan, &folding, asked)
+}
+
+/// One sweep's readings, as they are rather than as they look.
+///
+/// The picture path and this one share everything up to the drawing: the same
+/// cut is chosen, the same velocity is unfolded, the same storm motion is
+/// taken out. What comes back here is the field itself, so an export can
+/// write the numbers the picture was painted from rather than sampling their
+/// colours back out of it.
+pub(crate) struct SweepValues {
+    pub station: String,
+    pub site_name: String,
+    pub site: nexrad_model::meta::Site,
+    pub radar: &'static str,
+    pub product_id: String,
+    pub product: &'static str,
+    pub unit: &'static str,
+    pub volume: String,
+    pub collected: Option<DateTime<Utc>>,
+    /// True when the velocity here has been unfolded past the radar's limit.
+    pub dealiased: bool,
+    /// The motion subtracted, on a storm relative product.
+    pub storm_motion: Option<StormMotion>,
+    pub field: SweepField,
+}
+
+/// The readings of one cut of one volume, chosen exactly as the picture is.
+pub(crate) fn sweep_values(
+    station: &str,
+    volume_key: &str,
+    data: Vec<u8>,
+    asked: SweepRequest<'_>,
+) -> Result<SweepValues, Level2Error> {
+    let (scan, nyquist) = decoded_volume(volume_key, data)?;
+    let folding = |elevation: u8| nyquist.get(&elevation).copied();
+    let prepared = prepare_sweep(station, &scan, &folding, asked, None)?;
+    let site = registry::site_by_id(station)
+        .ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
+    let collected = prepared
+        .chosen
+        .collected
+        .or_else(|| scan.time_range().map(|(start, _)| start));
+    Ok(SweepValues {
+        station: station.to_string(),
+        site_name: format!("{}, {}", site.city, site.state),
+        site: site.to_site(),
+        radar: WSR88D,
+        product_id: asked.product_name.to_string(),
+        product: prepared.label,
+        unit: prepared.unit,
+        volume: volume_key.to_string(),
+        collected,
+        dealiased: prepared.dealiased,
+        storm_motion: prepared.storm_motion,
+        field: prepared.chosen.field,
+    })
+}
+
+/// The volume behind a sweep export, fetched the way the picture's was.
+pub(crate) async fn volume_for_export(
+    station: &str,
+    at: Option<DateTime<Utc>>,
+) -> Result<(String, Vec<u8>), Level2Error> {
+    wsr88d_only(station)?;
+    match at {
+        Some(wanted) => archive_volume_at(station, wanted).await,
+        None => latest_volume(station).await,
+    }
+}
+
+/// The same for a volume the reader opened off their own disk.
+pub(crate) fn local_volume_for_export(
+    path: &Path,
+) -> Result<(String, String, Vec<u8>), Level2Error> {
+    let local = read_local_volume(path)?;
+    Ok((local.station, local.key, local.data))
+}
+
+/// A sweep request built the way the picture's is, for an export that has to
+/// match what is on screen.
+pub(crate) fn export_request<'a>(
+    product: &'a str,
+    tilt: usize,
+    dealias: bool,
+    motion: Option<(f32, f32)>,
+) -> SweepRequest<'a> {
+    // No threshold and no contrast choice: both are about drawing, and an
+    // export of the readings is not drawn.
+    requested_sweep(product, tilt, dealias, motion, None, false)
 }
 
 /// The same, from a scan that has already been put together.

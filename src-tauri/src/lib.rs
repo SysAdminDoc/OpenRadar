@@ -10,9 +10,11 @@ mod chunks;
 mod contrast;
 mod cross_section;
 mod dealias;
+mod data_export;
 mod exports;
 #[cfg(test)]
 mod fixture;
+mod geotiff;
 mod gfs;
 mod hrrr;
 mod incident_packs;
@@ -211,6 +213,8 @@ pub fn run() {
             palette::set_palettes,
             gfs::gfs_wind,
             hrrr::hrrr_smoke,
+            data_export::export_sweep_data,
+            data_export::export_grid_data,
             bundles::replay_bundle_capture,
             bundles::replay_bundle_open,
             bundles::replay_bundle_close

@@ -1502,6 +1502,100 @@ fn remember_grid(key: &str, grid: Grid) {
     }
 }
 
+/// The part of a decoded grid inside a bounding box, as floats.
+///
+/// `west` and `north` are the outer edges of the corner cell rather than its
+/// centre, because that is what a raster's tie point means. The grid itself
+/// records centres, so the half cell is added here once instead of in every
+/// reader.
+#[derive(Debug)]
+pub struct GridWindow {
+    pub columns: usize,
+    pub rows: usize,
+    pub west: f64,
+    pub north: f64,
+    pub d_lon: f64,
+    pub d_lat: f64,
+    /// Row major from the north-west corner. A cell the grid does not cover
+    /// is NaN; nothing else is altered, so the values the product reserves for
+    /// missing and for outside coverage arrive as the numbers they are.
+    pub values: Vec<f32>,
+}
+
+/// Why a window could not be cut.
+#[derive(Debug, PartialEq, Eq)]
+pub enum WindowError {
+    /// The grid is not decoded, which means nobody drew it.
+    NotCached,
+    /// The box and the grid do not overlap at all.
+    Outside,
+    /// More cells than the caller allowed, so it can say to zoom in rather
+    /// than write a raster nobody can open.
+    TooLarge(usize),
+}
+
+/// Cuts a cached grid to a bounding box.
+///
+/// The size is worked out before a single sample is read, so an over-large ask
+/// costs nothing and never allocates the raster it refused.
+pub fn grid_window(
+    key: &str,
+    west: f64,
+    south: f64,
+    east: f64,
+    north: f64,
+    max_cells: usize,
+) -> Result<GridWindow, WindowError> {
+    let cache = CACHE.lock().map_err(|_| WindowError::NotCached)?;
+    let grid = &cache
+        .iter()
+        .find(|held| held.key == key)
+        .ok_or(WindowError::NotCached)?
+        .grid;
+
+    // Column and row indices of the cells the box touches, clamped to the
+    // grid. The grid's north and west are cell centres.
+    let first_column = ((west - grid.west) / grid.d_lon).floor();
+    let last_column = ((east - grid.west) / grid.d_lon).ceil();
+    let first_row = ((grid.north - north) / grid.d_lat).floor();
+    let last_row = ((grid.north - south) / grid.d_lat).ceil();
+    if last_column < 0.0
+        || last_row < 0.0
+        || first_column > (grid.columns - 1) as f64
+        || first_row > (grid.rows - 1) as f64
+    {
+        return Err(WindowError::Outside);
+    }
+    let first_column = first_column.max(0.0) as usize;
+    let first_row = first_row.max(0.0) as usize;
+    let last_column = (last_column as usize).min(grid.columns - 1);
+    let last_row = (last_row as usize).min(grid.rows - 1);
+
+    let columns = last_column - first_column + 1;
+    let rows = last_row - first_row + 1;
+    let cells = columns * rows;
+    if cells > max_cells {
+        return Err(WindowError::TooLarge(cells));
+    }
+
+    let mut values = Vec::with_capacity(cells);
+    for row in first_row..=last_row {
+        for column in first_column..=last_column {
+            values.push(grid.value(row, column));
+        }
+    }
+
+    Ok(GridWindow {
+        columns,
+        rows,
+        west: grid.west + first_column as f64 * grid.d_lon - grid.d_lon / 2.0,
+        north: grid.north - first_row as f64 * grid.d_lat + grid.d_lat / 2.0,
+        d_lon: grid.d_lon,
+        d_lat: grid.d_lat,
+        values,
+    })
+}
+
 /// Draws a tile from a grid already decoded, without holding it across an await.
 pub fn tile_from_cache(
     key: &str,
@@ -1572,6 +1666,90 @@ mod tests {
             decimal: 1,
             samples: vec![9990, 10240, 10490, 0],
         }
+    }
+
+    /// A five by four grid at a whole degree a cell, values that name their
+    /// own row and column so a cut can be checked cell by cell.
+    fn countable_grid() -> Grid {
+        let columns = 5;
+        let rows = 4;
+        let mut samples = Vec::with_capacity(columns * rows);
+        for row in 0..rows {
+            for column in 0..columns {
+                // value = sample / 10, so 10 * (row * 10 + column) reads back
+                // as row * 10 + column.
+                samples.push(((row * 10 + column) * 10) as u16);
+            }
+        }
+        Grid {
+            columns,
+            rows,
+            north: 40.0,
+            west: -100.0,
+            d_lat: 1.0,
+            d_lon: 1.0,
+            reference: 0.0,
+            binary: 0,
+            decimal: 1,
+            samples,
+        }
+    }
+
+    #[test]
+    fn a_window_holds_the_cells_the_view_touches() {
+        remember_grid("window/whole", countable_grid());
+        // A box inside the grid, running from the centre of (row 1, column 1)
+        // to the centre of (row 3, column 3). A cell counts when the box
+        // touches any of it, so all nine come back rather than only the ones
+        // whose centres are strictly inside.
+        let cut = grid_window("window/whole", -99.0, 37.0, -97.0, 39.0, 100)
+            .expect("the box is on the grid");
+        assert_eq!((cut.columns, cut.rows), (3, 3));
+        assert_eq!(
+            cut.values,
+            vec![11.0, 12.0, 13.0, 21.0, 22.0, 23.0, 31.0, 32.0, 33.0]
+        );
+        // The corner is the outer edge of the first cell, not its centre,
+        // which is what a raster's tie point means. Half a cell north-west of
+        // the centre of (1, 1) at -99, 39.
+        assert!((cut.west + 99.5).abs() < 1e-9, "west {}", cut.west);
+        assert!((cut.north - 39.5).abs() < 1e-9, "north {}", cut.north);
+        assert_eq!((cut.d_lon, cut.d_lat), (1.0, 1.0));
+    }
+
+    #[test]
+    fn a_window_stops_at_the_edge_of_the_grid() {
+        remember_grid("window/edge", countable_grid());
+        // Asking for the whole world gets the whole grid and no more, rather
+        // than rows of nothing padded out to the box.
+        let cut = grid_window("window/edge", -180.0, -90.0, 180.0, 90.0, 100)
+            .expect("the grid is inside the world");
+        assert_eq!((cut.columns, cut.rows), (5, 4));
+        assert_eq!(cut.values.len(), 20);
+        assert_eq!(cut.values[0], 0.0);
+        assert_eq!(cut.values[19], 34.0);
+
+        // A box beside the grid rather than on it.
+        assert_eq!(
+            grid_window("window/edge", -80.0, 37.0, -70.0, 39.0, 100).err(),
+            Some(WindowError::Outside)
+        );
+        // And one nobody has decoded.
+        assert_eq!(
+            grid_window("window/never-fetched", -99.0, 37.0, -97.0, 39.0, 100).err(),
+            Some(WindowError::NotCached)
+        );
+    }
+
+    #[test]
+    fn a_window_too_large_is_refused_before_it_is_built() {
+        remember_grid("window/large", countable_grid());
+        assert_eq!(
+            grid_window("window/large", -180.0, -90.0, 180.0, 90.0, 19).err(),
+            Some(WindowError::TooLarge(20))
+        );
+        // One cell more of headroom and the same ask goes through.
+        assert!(grid_window("window/large", -180.0, -90.0, 180.0, 90.0, 20).is_ok());
     }
 
     #[test]
