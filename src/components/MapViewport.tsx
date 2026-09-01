@@ -63,6 +63,7 @@ import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import { syncRadarLane } from "../lib/mapLayers/radar";
+import { syncImageLane, type ImageLane } from "../lib/mapLayers/image";
 import {
   CELL_FORECAST_LAYER_ID,
   CELL_LABEL_LAYER_ID,
@@ -1047,55 +1048,34 @@ function MapViewportInner(
     if (changed) publishLayers();
   };
 
+  const SWEEP_LANE: ImageLane = {
+    sourceId: SWEEP_SOURCE_ID,
+    layerId: SWEEP_LAYER_ID,
+    paint: {
+      // The sweep is already drawn at the resolution it was decoded at, and
+      // smoothing it turns gates into mush.
+      "raster-resampling": "nearest",
+      "raster-fade-duration": 0,
+    },
+  };
+
   const syncSweep = () => {
     const map = mapRef.current;
-    const next = sweepRef.current;
     if (!map || !styleReadyRef.current) return;
-
-    const source = map.getSource(SWEEP_SOURCE_ID) as
-      maplibregl.ImageSource | undefined;
-    if (!next || !radarVisibleRef.current) {
-      if (source) {
-        if (map.getLayer(SWEEP_LAYER_ID)) map.removeLayer(SWEEP_LAYER_ID);
-        map.removeSource(SWEEP_SOURCE_ID);
-      }
-      publishLayers();
-      return;
-    }
-
-    const corners = sweepCorners(next);
-    if (!source) {
-      map.addSource(SWEEP_SOURCE_ID, {
-        type: "image",
-        url: next.image,
-        coordinates: corners,
-      });
-      map.addLayer(
-        {
-          id: SWEEP_LAYER_ID,
-          type: "raster",
-          source: SWEEP_SOURCE_ID,
-          paint: {
-            "raster-opacity": radarOpacityRef.current,
-            // The sweep is already drawn at the resolution it was decoded at,
-            // and smoothing it turns gates into mush.
-            "raster-resampling": "nearest",
-            "raster-fade-duration": 0,
-          },
-        },
-        firstExisting(map, layersAbove(SWEEP_LAYER_ID)),
-      );
-    } else {
-      // updateImage takes both together, which is what keeps a new volume from
-      // being drawn over the previous one's footprint for a frame.
-      source.updateImage({ url: next.image, coordinates: corners });
-      map.setPaintProperty(
-        SWEEP_LAYER_ID,
-        "raster-opacity",
-        radarOpacityRef.current,
-      );
-    }
-    publishLayers();
+    const next = sweepRef.current;
+    const changed = syncImageLane(
+      map,
+      SWEEP_LANE,
+      next && radarVisibleRef.current
+        ? {
+            url: next.image,
+            coordinates: sweepCorners(next),
+            opacity: radarOpacityRef.current,
+          }
+        : null,
+      under,
+    );
+    if (changed) publishLayers();
   };
 
   const TRACK_LANE: VectorLane = {
