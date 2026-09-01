@@ -366,14 +366,32 @@ describe.runIf(LIVE)("against the live archive", () => {
     AT("2011-04-27T23:00:00Z"),
   ] as const;
 
+  /** Seconds, no milliseconds, which is the only form the archive accepts. */
+  const stampUtc = (at: number) =>
+    `${new Date(at).toISOString().slice(0, 19)}Z`;
+
   async function fetched(url: string) {
     const response = await fetch(url);
     expect(response.ok).toBe(true);
     return response.json();
   }
 
-  const polygons = async () =>
-    Promise.all(archiveWarningsUrls(...WINDOW).map((url) => fetched(url)));
+  const polygons = async (window: readonly [number, number] = WINDOW) =>
+    Promise.all(archiveWarningsUrls(...window).map((url) => fetched(url)));
+
+  /**
+   * A frame of Hurricane Helene, where the flooding is the weather.
+   *
+   * The outbreak window above is the right one for revisions and for the
+   * short-fuse products, and it is exactly the wrong one for the flood
+   * products: that week holds not a single river flood polygon. At 12Z on
+   * this day, 161 warnings were in force and 100 of them were river flood
+   * warnings.
+   */
+  const TROPICAL = [
+    AT("2024-09-27T12:00:00Z"),
+    AT("2024-09-27T18:00:00Z"),
+  ] as const;
 
   it("answers with every polygon a warning held, not only its first", async () => {
     const parsed = parseArchiveWarnings(
@@ -433,16 +451,45 @@ describe.runIf(LIVE)("against the live archive", () => {
     expect(shown?.features.length).toBeGreaterThan(70);
 
     // Most of the difference was issued before the short window even opens,
-    // which is the whole reason for the second request.
+    // which is the whole reason for the wide requests.
     const early = (shown?.features ?? []).filter(
       (feature) => Number(feature.properties.polygonBegin) < at - 2 * 3_600_000,
     );
     expect(early.length).toBeGreaterThan(20);
-    // And every one of them is a flood product, which is what the wide window
-    // asks for. A different phenomenon turning up here means the split
-    // between short-fuse and long-fuse products has stopped being true.
-    for (const feature of early) {
-      expect(String(feature.properties.event).split("|")[2]).toMatch(/^F[AF]$/);
-    }
   }, 120_000);
+
+  it("misses nothing an unfiltered search of the same frame would find", async () => {
+    // The check the first version of this could not make. Asserting that the
+    // early rows are all flood products is a tautology: the only requests
+    // that can produce one ask for flood products, so it passes however many
+    // other long-lived products are missing. This asks the service for every
+    // phenomenon over a month and requires the app's own requests to find the
+    // same warnings in force at the frame.
+    //
+    // It is the check that would have caught river flood warnings being left
+    // out of the list. On a tropical frame they are most of the map, and the
+    // tornado outbreak the split was measured on holds not one.
+    const at = TROPICAL[0];
+    const wide = await fetched(
+      "https://mesonet.agron.iastate.edu/api/1/vtec/sbw_interval.geojson" +
+        `?begints=${stampUtc(at - 30 * 86_400_000)}` +
+        `&endts=${stampUtc(TROPICAL[1])}&only_new=false`,
+    );
+    const truth = archiveWarningsAt(parseArchiveWarnings([wide]), at);
+    const mine = archiveWarningsAt(
+      parseArchiveWarnings(await polygons(TROPICAL)),
+      at,
+    );
+    // A frame that is mostly flooding, so the comparison has something to
+    // catch. Without this the whole check passes on an outbreak window with
+    // the flood products removed from the list entirely.
+    expect(truth?.features.length).toBeGreaterThan(120);
+
+    const named = (data: ReturnType<typeof archiveWarningsAt>) =>
+      new Set(
+        (data?.features ?? []).map((one) => String(one.properties.event)),
+      );
+    const held = named(mine);
+    expect([...named(truth)].filter((event) => !held.has(event))).toEqual([]);
+  }, 180_000);
 });

@@ -241,11 +241,19 @@ export function skyImage(cover: string): PlotImage {
  * can be drawn at and nine coverage codes, so the map holds thirty images
  * however many stations are on screen.
  */
+let built: PlotImage[] | null = null;
+
 export function stationPlotImages(): PlotImage[] {
+  // Built once. These are drawn pixel by pixel, which costs about four
+  // milliseconds and a megabyte of buffers, and the map asks for the set
+  // whenever it republishes its layer stack: on every sweep of a radar loop,
+  // for every reader, whether or not the layer has ever been switched on.
+  if (built) return built;
   const images: PlotImage[] = [];
   for (let knots = 0; knots <= BARB_MAX_KNOTS; knots += 5) {
     images.push(barbImage(knots));
   }
   for (const cover of Object.keys(SKY_FILL)) images.push(skyImage(cover));
-  return images;
+  built = images;
+  return built;
 }

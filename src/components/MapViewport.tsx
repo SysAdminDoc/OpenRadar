@@ -666,21 +666,29 @@ function MapViewportInner(
    * flattening them to one value would throw away the design and leave the
    * layer readable only at full.
    */
-  const baseOpacityRef = useRef(new Map<string, [string, unknown]>());
+  const baseOpacityRef = useRef(new Map<string, Array<[string, unknown]>>());
 
   const rememberBaseOpacity = (layer: maplibregl.LayerSpecification) => {
-    const property =
+    // A list rather than one property, because a symbol layer has two: the
+    // icon and the text fade separately. The station plots are drawn as
+    // symbols and their opacity slider did nothing at all until this did.
+    const properties =
       layer.type === "fill"
-        ? "fill-opacity"
+        ? ["fill-opacity"]
         : layer.type === "line"
-          ? "line-opacity"
+          ? ["line-opacity"]
           : layer.type === "circle"
-            ? "circle-opacity"
-            : null;
-    if (!property) return;
+            ? ["circle-opacity"]
+            : layer.type === "symbol"
+              ? ["icon-opacity", "text-opacity"]
+              : [];
+    if (!properties.length) return;
     const paint = (layer.paint ?? {}) as Record<string, unknown>;
-    // A layer that never said gets MapLibre's own default of one.
-    baseOpacityRef.current.set(layer.id, [property, paint[property] ?? 1]);
+    baseOpacityRef.current.set(
+      layer.id,
+      // A layer that never said gets MapLibre's own default of one.
+      properties.map((property) => [property, paint[property] ?? 1]),
+    );
   };
 
   const applyOverlayOpacity = () => {
@@ -693,14 +701,15 @@ function MapViewportInner(
         if (!map.getLayer(layer.id)) continue;
         const held = baseOpacityRef.current.get(layer.id);
         if (!held) continue;
-        const [property, base] = held;
-        map.setPaintProperty(
-          layer.id,
-          property as "fill-opacity",
-          factor >= 1
-            ? (base as never)
-            : (["*", base, factor] as unknown as never),
-        );
+        for (const [property, base] of held) {
+          map.setPaintProperty(
+            layer.id,
+            property as "fill-opacity",
+            factor >= 1
+              ? (base as never)
+              : (["*", base, factor] as unknown as never),
+          );
+        }
       }
     }
   };

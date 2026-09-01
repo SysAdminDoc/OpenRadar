@@ -158,6 +158,17 @@ describe("the images the map places", () => {
     }
   });
 
+  it("builds the set once, however many times the map asks for it", () => {
+    // The map republishes its layer stack on every sweep of a radar loop, and
+    // asks every adapter for its icons each time. Drawing thirty of these
+    // pixel by pixel costs about four milliseconds and a megabyte of buffers,
+    // which is a frame budget spent by readers who have never switched the
+    // layer on.
+    const first = stationPlotImages();
+    expect(stationPlotImages()).toBe(first);
+    expect(stationPlotImages()[0]).toBe(first[0]);
+  });
+
   it("builds one image per speed and per coverage code, and no duplicates", () => {
     const images = stationPlotImages();
     const names = images.map((image) => image.id);

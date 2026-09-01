@@ -78,9 +78,13 @@ function ring(text: string): Array<[number, number]> {
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
     points.push([lon, lat]);
   }
-  // Fewer than three distinct corners is not an area. A file with one of
-  // these in it is otherwise fine, so the ring is dropped rather than the day.
-  if (points.length < 3) return [];
+  // Fewer than three distinct corners is not an area. Counted as distinct
+  // rather than as positions, because a ring that already closes itself
+  // carries its first corner twice and three positions would then be a line
+  // written as a polygon. A file with one of these in it is otherwise fine,
+  // so the ring is dropped rather than the day.
+  const corners = new Set(points.map(([lon, lat]) => `${lon},${lat}`));
+  if (corners.size < 3) return [];
   const [firstLon, firstLat] = points[0];
   const [lastLon, lastLat] = points[points.length - 1];
   if (firstLon !== lastLon || firstLat !== lastLat) {
@@ -102,6 +106,23 @@ function analysedOn(document: Document): number | null {
   if (!found) return null;
   const at = Date.UTC(Number(found[1]), Number(found[2]) - 1, Number(found[3]));
   return Number.isFinite(at) ? at : null;
+}
+
+/**
+ * The analysis date, written the way the file wrote it.
+ *
+ * This is a calendar day rather than an instant: the file is named for the
+ * day the analyst worked, and midnight UTC is only how that day is carried
+ * about. Formatting it in the reader's own zone dated every analysis a day
+ * early for everybody west of Greenwich, which is everybody this layer is
+ * for.
+ */
+export function analysisDate(at: number): string {
+  return formatClock(at, {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 /**
@@ -167,7 +188,7 @@ export async function fetchSmoke(
   now: Date,
   signal?: AbortSignal,
 ): Promise<OverlayData> {
-  const read = async (at: Date) => {
+  const download = async (at: Date) => {
     const response = await fetch(cachedUrl(smokeUrl(at)), {
       signal,
       headers: { Accept: "application/vnd.google-earth.kml+xml" },
@@ -175,10 +196,12 @@ export async function fetchSmoke(
     if (!response.ok) {
       throw new Error(`NOAA HMS returned ${response.status}.`);
     }
-    return parseSmoke(await response.text());
+    return response.text();
   };
+
+  let text: string;
   try {
-    return await read(now);
+    text = await download(now);
   } catch (failure) {
     if (failure instanceof DOMException && failure.name === "AbortError") {
       throw failure;
@@ -186,8 +209,13 @@ export async function fetchSmoke(
     // One step back and no further. Two days without an analysis is the
     // service being down, which is a note beside the switch rather than a
     // week of walking backwards through the archive.
-    return read(previousDay(now));
+    text = await download(previousDay(now));
   }
+  // Outside the fallback deliberately. A file that will not parse is a file
+  // that changed shape or arrived truncated, and answering that with
+  // yesterday's plume would put smoke on the map that nothing had confirmed
+  // was there today. The fallback is for a file that is not published yet.
+  return parseSmoke(text);
 }
 
 export const smokeOverlay: OverlayAdapter = {
@@ -242,13 +270,7 @@ export const smokeOverlay: OverlayAdapter = {
       title: translate(`smoke.${density}` as "smoke.light"),
       lines: [
         Number.isFinite(analysed)
-          ? translate("smoke.analysed", {
-              when: formatClock(analysed, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              }),
-            })
+          ? translate("smoke.analysed", { when: analysisDate(analysed) })
           : translate("smoke.analysedUnknown"),
         translate("smoke.note"),
       ],

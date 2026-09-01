@@ -84,6 +84,8 @@ export const es: Catalogue = {
   "capture.noAlerts": "No hay avisos activos a la vista",
   "replay.warningsUnavailable":
     "El archivo de avisos no respondió, así que de aquel día solo está el radar.",
+  "replay.warningsSome":
+    "No se pudieron obtener algunos avisos de inundación de esta reproducción. El resto sí está dibujado.",
   "replay.warningsPartial":
     "Antes de octubre de 2007 las oficinas avisaban por condado, así que solo algunas de estas tormentas tienen polígono.",
   "replay.warningsNone":
@@ -981,12 +983,15 @@ export const es: Catalogue = {
   "smoke.heavy": "Humo denso",
   "smoke.analysed": "Analizado el {when}.",
   "smoke.analysedUnknown": "El archivo no trae la fecha del análisis.",
+  "smoke.clear":
+    "Hoy los analistas no encontraron humo en ninguna parte. Este es el archivo del día, y está vacío.",
   "smoke.note":
     "Lo dibuja a mano un analista de la NOAA a partir de imágenes de satélite, una vez al día. Es dónde estaba el humo, no cómo está el aire a nivel del suelo.",
   "metar.observed": "Observado a las {when}.",
   "metar.observedUnknown": "El informe no trae hora.",
   "metar.air": "{temp}{unit}, punto de rocío {dewp}{unit}.",
   "metar.wind": "Viento de {direction} grados a {knots} kt.",
+  "metar.windVariable": "Viento de dirección variable a {knots} kt.",
   "metar.windGusting":
     "Viento de {direction} grados a {knots} kt, con rachas de {gust}.",
   "metar.calm": "En calma.",

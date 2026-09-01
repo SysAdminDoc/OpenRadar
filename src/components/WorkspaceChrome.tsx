@@ -11,13 +11,13 @@ import { mosaicLegend } from "../lib/mosaicLegend";
 import { assignedPalette } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { OverlayData } from "../lib/overlays";
-import type { SmokeDensity } from "../lib/overlays/smoke";
+import { analysisDate, type SmokeDensity } from "../lib/overlays/smoke";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 import { locale, translate, useT, type StringKey } from "../i18n";
-import { formatClock, useMeasurements } from "../lib/units";
+import { useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
 /** Past this the loop is old enough that the timeline should say so. */
@@ -360,10 +360,7 @@ export function WorkspaceChrome({
                 <em>
                   {smokeScale.analysed
                     ? t("chrome.smokeAnalysed", {
-                        when: formatClock(smokeScale.analysed, {
-                          month: "short",
-                          day: "numeric",
-                        }),
+                        when: analysisDate(smokeScale.analysed),
                       })
                     : t("chrome.smokeAnalysedUnknown")}
                 </em>

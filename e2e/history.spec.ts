@@ -205,12 +205,13 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
   await page.getByRole("button", { name: /Replay radar/ }).click();
   await expect(page.getByText(/Replaying IAN 2022/)).toBeVisible();
 
-  // Three requests for the whole window and not one per frame: the polygons
-  // for the short-fuse products, the polygons for the flood products that
-  // hold a shape far longer, and the tag feed.
-  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(3);
+  // Four requests for the whole window and not one per frame: the polygons
+  // for the short-fuse products, two more for the flood products that hold a
+  // shape far longer, and the tag feed. Two rather than one because the
+  // service filters on at most two phenomena at a time.
+  await expect.poll(() => asked.length, { timeout: 15_000 }).toBe(4);
   const intervals = asked.filter((url) => url.includes("sbw_interval"));
-  expect(intervals).toHaveLength(2);
+  expect(intervals).toHaveLength(3);
   for (const url of intervals) {
     expect(url).toContain("only_new=false");
     expect(url).toContain("endts=2022-09-28T22:00:00Z");
@@ -219,10 +220,17 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
   // catch a warning already in force when it starts: two hours for the
   // products that fit in that, ten days for the flood products that do not.
   const short = intervals.find((url) => !url.includes("ph="));
-  const long = intervals.find((url) => url.includes("ph=FA"));
+  const long = intervals.filter((url) => url.includes("ph="));
   expect(short).toContain("begints=2022-09-28T14:00:00Z");
-  expect(long).toContain("begints=2022-09-18T16:00:00Z");
-  expect(long).toContain("ph=FF");
+  for (const url of long) {
+    expect(url).toContain("begints=2022-09-18T16:00:00Z");
+  }
+  // River flood is the product a tornado outbreak cannot show you and most of
+  // the map on a tropical one, which is what this replay is.
+  const asking = long.join(" ");
+  for (const phenomena of ["ph=FA", "ph=FF", "ph=FL"]) {
+    expect(asking).toContain(phenomena);
+  }
 
   // The polygons are on the map, drawn by the same layer the live ones use.
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
@@ -242,7 +250,7 @@ test("draws the warnings that were in force, not today's", async ({ page }) => {
     await page.keyboard.press("ArrowRight");
   }
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts/);
-  expect(asked).toHaveLength(3);
+  expect(asked).toHaveLength(4);
 });
 
 test("keeps a replay's warnings behind the layer switch", async ({ page }) => {

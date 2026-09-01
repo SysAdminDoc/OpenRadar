@@ -75,8 +75,8 @@ function stamp(at: number): string {
  * Two hours was assumed to cover everything and does not. Measured over the
  * week of 2011-04-22 on the service itself: not one of 2,679 tornado polygons
  * or 3,778 severe thunderstorm polygons lasted longer than 1.2 hours, and one
- * of 155 marine polygons reached exactly two. Areal flood and flash flood are
- * a different kind of product: 389 of 518 areal flood polygons and 387 of 572
+ * of 155 marine polygons reached exactly two. The flood products are a
+ * different kind of thing: 389 of 518 areal flood polygons and 387 of 572
  * flash flood polygons ran past two hours, the longest for 185 hours.
  *
  * So the two hours stays for the products it fits, and the flood products get
@@ -87,8 +87,24 @@ function stamp(at: number): string {
 const SHORT_LOOKBACK_MS = 2 * 3_600_000;
 const LONG_LOOKBACK_MS = 10 * 24 * 3_600_000;
 
-/** The VTEC phenomena whose polygons outlive the short window. */
-const LONG_FUSE = ["FA", "FF"] as const;
+/**
+ * The VTEC phenomena whose polygons outlive the short window.
+ *
+ * `FL`, the river flood warning, is the one that matters most and was missed
+ * when this was measured on a tornado outbreak, because that week held not a
+ * single one. On a tropical frame it is most of the map: at 12Z on
+ * 2024-09-27, during Helene, 161 warnings were in force and 100 of them were
+ * river flood warnings, 73 of those issued before the short window opens.
+ */
+const LONG_FUSE = ["FA", "FF", "FL"] as const;
+
+/**
+ * How many phenomena the service will filter on at once.
+ *
+ * Three is a 422 with a message that says so, so the long-fuse products are
+ * asked for in pairs rather than in one request.
+ */
+const PHENOMENA_PER_REQUEST = 2;
 
 /**
  * The requests that together cover the window, in the order they are merged.
@@ -102,14 +118,29 @@ export function archiveWarningsUrls(fromMs: number, toMs: number): string[] {
   const window = (fromMs: number, extra = "") =>
     `${HOST}/api/1/vtec/sbw_interval.geojson` +
     `?begints=${stamp(fromMs)}&endts=${stamp(toMs)}&only_new=false${extra}`;
-  return [
-    window(fromMs - SHORT_LOOKBACK_MS),
-    window(
-      fromMs - LONG_LOOKBACK_MS,
-      LONG_FUSE.map((phenomena) => `&ph=${phenomena}`).join(""),
-    ),
-  ];
+  const urls = [window(fromMs - SHORT_LOOKBACK_MS)];
+  for (let at = 0; at < LONG_FUSE.length; at += PHENOMENA_PER_REQUEST) {
+    urls.push(
+      window(
+        fromMs - LONG_LOOKBACK_MS,
+        LONG_FUSE.slice(at, at + PHENOMENA_PER_REQUEST)
+          .map((phenomena) => `&ph=${phenomena}`)
+          .join(""),
+      ),
+    );
+  }
+  return urls;
 }
+
+/**
+ * How many of those requests must answer for the layer to be right.
+ *
+ * The first one is the short window and carries most of what is in force at
+ * any frame. The rest are the flood products, and one of them failing is a
+ * layer missing a class of warning rather than a layer with nothing on it, so
+ * they are allowed to fail with a note.
+ */
+export const ARCHIVE_REQUIRED_URLS = 1;
 
 /**
  * The same window from the service that carries the offices' own tags.
