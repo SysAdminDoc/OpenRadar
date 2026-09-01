@@ -76,7 +76,6 @@ import {
   MRMS_LAYER_IDS,
   MRMS_SOURCE_PREFIX,
   PROBSEVERE_FILL_LAYER_ID,
-  PROBSEVERE_LAYER_IDS,
   PROBSEVERE_LINE_LAYER_ID,
   RADAR_LAYER_ID,
   ROUTE_LAYER_ID,
@@ -808,87 +807,66 @@ function MapViewportInner(
    * a glance across the map picks out the two cells the model is worried about
    * among the forty it is not.
    */
+  const PROBSEVERE_LANE: VectorLane = {
+    sourceId: PROBSEVERE_SOURCE_ID,
+    layers: () => [
+      {
+        id: PROBSEVERE_FILL_LAYER_ID,
+        type: "fill",
+        source: PROBSEVERE_SOURCE_ID,
+        paint: {
+          "fill-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "severe"],
+            10,
+            "#fde68a",
+            50,
+            "#fb923c",
+            90,
+            "#dc2626",
+          ],
+          // Light enough to read the radar through: this is guidance about
+          // the storm underneath, not a replacement for looking at it.
+          "fill-opacity": 0.18,
+        },
+      },
+      {
+        id: PROBSEVERE_LINE_LAYER_ID,
+        type: "line",
+        source: PROBSEVERE_SOURCE_ID,
+        paint: {
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "severe"],
+            10,
+            "#fde68a",
+            50,
+            "#fb923c",
+            90,
+            "#dc2626",
+          ],
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["get", "severe"],
+            10,
+            1,
+            90,
+            2.5,
+          ],
+        },
+      },
+    ],
+  };
+
   const syncProbSevere = () => {
     const map = mapRef.current;
-    const drawn = probSevereRef.current;
     if (!map || !styleReadyRef.current) return;
-
-    let source = map.getSource(PROBSEVERE_SOURCE_ID) as
-      maplibregl.GeoJSONSource | undefined;
-    if (!drawn) {
-      if (source) {
-        for (const id of PROBSEVERE_LAYER_IDS) {
-          if (map.getLayer(id)) map.removeLayer(id);
-        }
-        map.removeSource(PROBSEVERE_SOURCE_ID);
-      }
+    if (syncVectorLane(map, PROBSEVERE_LANE, probSevereRef.current, under)) {
       publishLayers();
-      return;
     }
-
-    if (!source) {
-      map.addSource(PROBSEVERE_SOURCE_ID, {
-        type: "geojson",
-        data: drawn as never,
-      });
-      map.addLayer(
-        {
-          id: PROBSEVERE_FILL_LAYER_ID,
-          type: "fill",
-          source: PROBSEVERE_SOURCE_ID,
-          paint: {
-            "fill-color": [
-              "interpolate",
-              ["linear"],
-              ["get", "severe"],
-              10,
-              "#fde68a",
-              50,
-              "#fb923c",
-              90,
-              "#dc2626",
-            ],
-            // Light enough to read the radar through: this is guidance about
-            // the storm underneath, not a replacement for looking at it.
-            "fill-opacity": 0.18,
-          },
-        },
-        firstExisting(map, layersAbove(PROBSEVERE_FILL_LAYER_ID)),
-      );
-      map.addLayer(
-        {
-          id: PROBSEVERE_LINE_LAYER_ID,
-          type: "line",
-          source: PROBSEVERE_SOURCE_ID,
-          paint: {
-            "line-color": [
-              "interpolate",
-              ["linear"],
-              ["get", "severe"],
-              10,
-              "#fde68a",
-              50,
-              "#fb923c",
-              90,
-              "#dc2626",
-            ],
-            "line-width": [
-              "interpolate",
-              ["linear"],
-              ["get", "severe"],
-              10,
-              1,
-              90,
-              2.5,
-            ],
-          },
-        },
-        firstExisting(map, layersAbove(PROBSEVERE_LINE_LAYER_ID)),
-      );
-      source = map.getSource(PROBSEVERE_SOURCE_ID) as maplibregl.GeoJSONSource;
-    }
-    source.setData(drawn as never);
-    publishLayers();
   };
 
   /**
@@ -898,31 +876,16 @@ function MapViewportInner(
    * storm itself and its name are four different things and MapLibre draws
    * one kind of geometry per layer.
    */
-  const syncCells = () => {
-    const map = mapRef.current;
-    const drawn = cellsRef.current;
-    if (!map || !styleReadyRef.current) return;
-    // The cells are drawn in one colour with a second for rotation, so under
-    // more contrast the only thing left to give them is weight. The ordering
-    // between an ordinary storm and a rotating one is kept: both move.
-    const heavier = highContrastRef.current ? 1.6 : 1;
-
-    let source = map.getSource(CELL_SOURCE_ID) as
-      maplibregl.GeoJSONSource | undefined;
-    if (!drawn) {
-      if (source) {
-        for (const id of CELL_LAYER_IDS) {
-          if (map.getLayer(id)) map.removeLayer(id);
-        }
-        map.removeSource(CELL_SOURCE_ID);
-      }
-      publishLayers();
-      return;
-    }
-
-    if (!source) {
-      map.addSource(CELL_SOURCE_ID, { type: "geojson", data: drawn as never });
-      map.addLayer(
+  const CELL_LANE: VectorLane = {
+    sourceId: CELL_SOURCE_ID,
+    // Read on every rebuild rather than captured: the cells are drawn in one
+    // colour with a second for rotation, so under more contrast the only
+    // thing left to give them is weight, and the band is dropped and rebuilt
+    // to apply it. The ordering between an ordinary storm and a rotating one
+    // is kept: both move.
+    layers: () => {
+      const heavier = highContrastRef.current ? 1.6 : 1;
+      return [
         {
           id: CELL_TRACK_LAYER_ID,
           type: "line",
@@ -936,9 +899,6 @@ function MapViewportInner(
             "line-dasharray": [2, 2],
           },
         },
-        firstExisting(map, layersAbove(CELL_TRACK_LAYER_ID)),
-      );
-      map.addLayer(
         {
           id: CELL_FORECAST_LAYER_ID,
           type: "circle",
@@ -960,9 +920,6 @@ function MapViewportInner(
             "circle-stroke-width": 0,
           },
         },
-        firstExisting(map, layersAbove(CELL_FORECAST_LAYER_ID)),
-      );
-      map.addLayer(
         {
           id: CELL_POINT_LAYER_ID,
           type: "circle",
@@ -996,9 +953,6 @@ function MapViewportInner(
             ],
           },
         },
-        firstExisting(map, layersAbove(CELL_POINT_LAYER_ID)),
-      );
-      map.addLayer(
         {
           id: CELL_LABEL_LAYER_ID,
           type: "symbol",
@@ -1020,12 +974,16 @@ function MapViewportInner(
             "text-halo-width": 1.5 * heavier,
           },
         },
-        firstExisting(map, layersAbove(CELL_LABEL_LAYER_ID)),
-      );
-      source = map.getSource(CELL_SOURCE_ID) as maplibregl.GeoJSONSource;
+      ];
+    },
+  };
+
+  const syncCells = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (syncVectorLane(map, CELL_LANE, cellsRef.current, under)) {
+      publishLayers();
     }
-    source.setData(drawn as never);
-    publishLayers();
   };
 
   const syncFlashes = () => {
