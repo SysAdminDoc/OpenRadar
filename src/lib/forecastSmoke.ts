@@ -18,6 +18,8 @@ export interface SmokeRampStop {
   /** Micrograms a cubic metre, the bottom of the step. */
   at: number;
   color: string;
+  /** How solid the step is painted, 0 to 255: faint smoke is drawn faint. */
+  alpha: number;
 }
 
 export interface SmokeField {
@@ -41,6 +43,20 @@ export interface SmokeField {
 }
 
 export const FORECAST_SMOKE_UNIT = "µg/m³";
+
+/**
+ * How solid the picture is drawn on the map. The legend's swatches carry the
+ * same figure, times each step's own alpha, so a colour a reader matches
+ * against the scale is the colour that is on the map.
+ */
+export const FORECAST_SMOKE_OPACITY = 0.9;
+
+/** What a step's swatch is drawn at, to match the picture. */
+export function swatchOpacity(stop: SmokeRampStop): number {
+  return (
+    (Math.min(255, Math.max(0, stop.alpha)) / 255) * FORECAST_SMOKE_OPACITY
+  );
+}
 
 /** The field is decoded natively, so a browser preview has none of it. */
 export function forecastSmokeAvailable(): boolean {

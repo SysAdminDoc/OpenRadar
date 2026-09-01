@@ -10,6 +10,14 @@ import { log } from "../lib/log";
 /** How many hours are kept on the page. A six-hour tail is six of them. */
 export const FORECAST_SMOKE_HELD = 24;
 
+/**
+ * How long an hour answered by an older cycle is trusted before it is asked
+ * for again. The native side leaves a missing cycle alone for ten minutes,
+ * so asking sooner would only be answered from what it already holds; asking
+ * never would leave the tail on the old cycle for as long as it was drawn.
+ */
+export const FALLBACK_RETRY_MS = 10 * 60_000;
+
 export interface ForecastSmokeState {
   /** The hour on screen, or null when the playhead is not on a forecast frame. */
   field: SmokeField | null;
@@ -17,10 +25,25 @@ export interface ForecastSmokeState {
   error: string | null;
 }
 
-/** A field, and the cycle the tail was on when it was asked for. */
+/** A field, the cycle the tail was on when it was asked for, and when. */
 interface Held {
   under: string | null;
   field: SmokeField;
+  at: number;
+}
+
+/**
+ * Whether a held field still answers for its hour.
+ *
+ * One from the cycle the tail is on does for as long as it is held. One the
+ * native side fell back to, because that cycle had not published, is worth
+ * asking about again after a while: the cycle lands, and the hour should
+ * come from it rather than from the one before.
+ */
+function stillGood(entry: Held, now: number): boolean {
+  if (entry.under === null) return true;
+  if (sameInstant(entry.field.init, entry.under)) return true;
+  return now - entry.at < FALLBACK_RETRY_MS;
 }
 
 /**
@@ -28,7 +51,10 @@ interface Held {
  *
  * Playback crosses a forecast hour every four frames and comes back round
  * every loop, so what has been fetched is kept, keyed on the hour, and only
- * an hour never seen is asked for. The native side keeps the painted field
+ * an hour never seen is asked for. A fetch the playhead has moved on from is
+ * kept when it lands rather than thrown away: it is the answer for its hour,
+ * and the next pass through the loop wants it. Only the loading and error
+ * state follow the latest request. The native side keeps the painted field
  * too, so a repeat costs nothing there either. When the tail moves to a new
  * cycle everything held under the old one stops matching and is refetched,
  * which is what keeps the legend's cycle honest.
@@ -54,6 +80,16 @@ export function useForecastSmoke(options: {
   useEffect(() => {
     heldRef.current = held;
   }, [held]);
+  // Whether the hook is still mounted, for a fetch that lands after it is
+  // not. Nothing else is abandoned: a late answer is still the answer.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const requestRef = useRef(0);
 
   const wanted = ready && enabled && forecastSmokeAvailable() && valid !== null;
 
@@ -63,18 +99,19 @@ export function useForecastSmoke(options: {
       heldRef.current.some(
         (entry) =>
           entry.under === preferredInit &&
-          sameInstant(entry.field.valid, valid),
+          sameInstant(entry.field.valid, valid) &&
+          stillGood(entry, Date.now()),
       )
     ) {
       return;
     }
-    let open = true;
 
     const refresh = async () => {
+      const request = ++requestRef.current;
       setLoading(true);
       try {
         const field = await fetchForecastSmoke(valid, preferredInit);
-        if (!open) return;
+        if (!mounted.current) return;
         setHeld((previous) =>
           [
             ...previous.filter(
@@ -84,12 +121,12 @@ export function useForecastSmoke(options: {
                   sameInstant(entry.field.valid, valid)
                 ),
             ),
-            { under: preferredInit, field },
+            { under: preferredInit, field, at: Date.now() },
           ].slice(-FORECAST_SMOKE_HELD),
         );
-        setFailed(null);
+        if (request === requestRef.current) setFailed(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!mounted.current || request !== requestRef.current) return;
         const message =
           typeof failure === "string"
             ? failure
@@ -99,14 +136,13 @@ export function useForecastSmoke(options: {
         log.warn("smoke", `${valid}: ${message}`);
         setFailed({ valid, message });
       } finally {
-        if (open) setLoading(false);
+        if (mounted.current && request === requestRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     void refresh();
-    return () => {
-      open = false;
-    };
   }, [preferredInit, valid, wanted]);
 
   return useMemo(() => {

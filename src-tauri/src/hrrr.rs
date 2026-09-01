@@ -98,6 +98,8 @@ impl Serialize for HrrrError {
 pub struct RampStop {
     pub at: f32,
     pub color: String,
+    /// How solid the step is painted, so the legend's swatch can match.
+    pub alpha: u8,
 }
 
 /// One hour of forecast smoke, painted and pinned.
@@ -127,9 +129,10 @@ pub struct SmokeField {
 
 fn ramp_stops() -> Vec<RampStop> {
     RAMP.iter()
-        .map(|(at, [r, g, b], _)| RampStop {
+        .map(|(at, [r, g, b], alpha)| RampStop {
             at: *at,
             color: format!("#{r:02x}{g:02x}{b:02x}"),
+            alpha: *alpha,
         })
         .collect()
 }
@@ -477,6 +480,14 @@ pub fn to_image(values: &[f32], grid: &Lambert, columns: usize) -> Result<Pictur
     let rows = ((top - bottom) / (east - west).to_radians() * columns as f64)
         .round()
         .max(1.0) as usize;
+    // A grid four times taller than it is wide is not one any model
+    // publishes, and a sliver of a grid would otherwise size a picture in
+    // gigabytes before a single pixel was painted.
+    if rows > columns * 4 {
+        return Err(HrrrError::Unsupported(format!(
+            "a picture {rows} rows tall for {columns} columns"
+        )));
+    }
     let mut pixels = vec![0u8; columns * rows * 4];
     let nx = grid.nx as f64;
     let ny = grid.ny as f64;
@@ -944,6 +955,41 @@ mod tests {
         }
         // Faint smoke is drawn faint, and the alpha climbs with the number.
         assert!(RAMP.windows(2).all(|pair| pair[1].2 > pair[0].2));
+    }
+
+    #[test]
+    fn refuses_a_sliver_of_a_grid_before_sizing_a_picture_from_it() {
+        // Two columns of the real grid, standing on the central meridian so
+        // the cone does not tilt them into a box: a strip a few kilometres
+        // wide and thirty degrees tall, and not a picture worth a gigabyte.
+        let grid = Lambert::new(LambertSpec {
+            nx: 2,
+            ny: 1059,
+            la1: 21.138123,
+            lo1: 262.5,
+            lov: 262.5,
+            lad: 38.5,
+            latin1: 38.5,
+            latin2: 38.5,
+            dx: 3000.0,
+            dy: 3000.0,
+        });
+        let values = vec![0.0f32; 2 * 1059];
+        assert!(matches!(
+            to_image(&values, &grid, OUTPUT_COLUMNS),
+            Err(HrrrError::Unsupported(_))
+        ));
+    }
+
+    #[test]
+    fn the_legend_carries_the_alpha_each_step_is_painted_with() {
+        let stops = ramp_stops();
+        assert_eq!(stops.len(), RAMP.len());
+        for (stop, (at, _, alpha)) in stops.iter().zip(RAMP.iter()) {
+            assert_eq!(stop.at, *at);
+            assert_eq!(stop.alpha, *alpha);
+            assert_eq!(colour(*at)[3], *alpha);
+        }
     }
 
     #[test]

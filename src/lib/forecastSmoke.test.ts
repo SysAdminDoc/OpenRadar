@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  FORECAST_SMOKE_OPACITY,
   forecastSmokeCorners,
   forecastSmokeLabel,
   forecastSmokeValid,
   sameInstant,
+  swatchOpacity,
   type SmokeField,
 } from "./forecastSmoke";
 import type { RadarFrame } from "./providers/types";
@@ -33,7 +35,7 @@ const FIELD: SmokeField = {
   columns: 1200,
   rows: 663,
   maxUgm3: 42,
-  ramp: [{ at: 3, color: "#fde68a" }],
+  ramp: [{ at: 3, color: "#fde68a", alpha: 128 }],
   image: "data:image/png;base64,",
 };
 
@@ -65,6 +67,21 @@ describe("what the map and the legend are handed", () => {
       [-60.9, 21.1],
       [-134.1, 21.1],
     ]);
+  });
+
+  it("draws a swatch as solid as its step is on the map", () => {
+    // The picture is painted with a per-step alpha and drawn at the lane's
+    // opacity. A swatch that ignored either would be a colour the map never
+    // shows.
+    expect(swatchOpacity({ at: 3, color: "#fde68a", alpha: 128 })).toBeCloseTo(
+      (128 / 255) * FORECAST_SMOKE_OPACITY,
+    );
+    expect(
+      swatchOpacity({ at: 250, color: "#581c1c", alpha: 255 }),
+    ).toBeCloseTo(FORECAST_SMOKE_OPACITY);
+    expect(swatchOpacity({ at: 0, color: "#000", alpha: 999 })).toBeCloseTo(
+      FORECAST_SMOKE_OPACITY,
+    );
   });
 
   it("names the cycle, the lead and the cycle's age", () => {

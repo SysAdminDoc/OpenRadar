@@ -93,7 +93,11 @@ const COVERED_BY_ADAPTERS = new Set(
 import { useStormCells } from "./hooks/useStormCells";
 import { useClassification } from "./hooks/useClassification";
 import { useForecastSmoke } from "./hooks/useForecastSmoke";
-import { forecastSmokeCorners, forecastSmokeValid } from "./lib/forecastSmoke";
+import {
+  FORECAST_SMOKE_OPACITY,
+  forecastSmokeCorners,
+  forecastSmokeValid,
+} from "./lib/forecastSmoke";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
 import { activePalettes, paletteUnit } from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
@@ -342,19 +346,10 @@ export default function App() {
         ? {
             url: forecastSmoke.field.image,
             coordinates: forecastSmokeCorners(forecastSmoke.field),
-            opacity: 0.9,
+            opacity: FORECAST_SMOKE_OPACITY,
           }
         : null,
     [forecastSmoke.field],
-  );
-  // While the model's smoke is on screen the analysis is not, so a plume
-  // is always one kind of statement: what was seen, or what is expected.
-  const overlayOpacity = useMemo(
-    () =>
-      drawnForecastSmoke
-        ? { ...settings.overlayOpacity, smoke: 0 }
-        : settings.overlayOpacity,
-    [drawnForecastSmoke, settings.overlayOpacity],
   );
 
   // The satellite image that stands for a frame, held back to the newest slot
@@ -495,6 +490,10 @@ export default function App() {
       for (const adapter of OVERLAY_ADAPTERS) {
         const state = overlays.states[adapter.id];
         if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
+        // The analysis comes off the map while the model's smoke has it, and
+        // a record of a layer that is not drawn describes a picture the
+        // reader cannot see.
+        if (adapter.id === "smoke" && drawnForecastSmoke) continue;
         // The adapter knows how to fetch itself; the table knows what kind of
         // statement it makes, and three of these are forecasts rather than
         // observations.
@@ -637,6 +636,7 @@ export default function App() {
     },
     [
       classification.report,
+      drawnForecastSmoke,
       forecastSmoke.field,
       health,
       lightning.window,
@@ -918,7 +918,7 @@ export default function App() {
         classification={drawnClassification}
         forecastSmoke={drawnForecastSmoke}
         probSevere={probSevere.features}
-        overlayOpacity={overlayOpacity}
+        overlayOpacity={settings.overlayOpacity}
         overlayOrder={settings.overlayOrder}
         flashes={singleSite.historical ? null : lightning.points}
         flashWindowMinutes={lightning.window?.windowMinutes ?? 5}
@@ -1106,7 +1106,7 @@ export default function App() {
         sweep={singleSite.sweep}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
-        smoke={overlays.data.smoke ?? null}
+        smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}
         classification={classification.report}
         forecastSmoke={drawnForecastSmoke ? forecastSmoke.field : null}
         wind={singleSite.historical ? null : wind.field}

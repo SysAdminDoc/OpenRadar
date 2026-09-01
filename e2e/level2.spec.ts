@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace, transparentPng } from "./support/fixtures";
+import {
+  routeWorkspace,
+  smokeKml,
+  stubHost,
+  transparentPng,
+} from "./support/fixtures";
 
 /**
  * Level II is decoded natively, so a browser has no site to show. Standing in
@@ -252,13 +257,13 @@ async function fakeNativeSide(page: Page) {
               rows: 3,
               maxUgm3: 42,
               ramp: [
-                [3, "#fde68a"],
-                [12, "#fbbf24"],
-                [35, "#f97316"],
-                [55, "#dc2626"],
-                [150, "#7e22ce"],
-                [250, "#581c1c"],
-              ].map(([at, color]) => ({ at, color })),
+                [3, "#fde68a", 128],
+                [12, "#fbbf24", 160],
+                [35, "#f97316", 184],
+                [55, "#dc2626", 200],
+                [150, "#7e22ce", 216],
+                [250, "#581c1c", 232],
+              ].map(([at, color, alpha]) => ({ at, color, alpha })),
               image: png,
             });
           }
@@ -903,6 +908,37 @@ test("carries the model's smoke along the forecast tail and nowhere else", async
   // lead, the hour and whose word it is. The fixture's run is worked out
   // from the clock, so the hour is read off the timeline rather than
   // written down here.
+  //
+  // A model run an hour old, so the tail runs past the newest observation.
+  // The shared fixture serves the tiles but not the run index.
+  const init = new Date(
+    Math.floor(Date.now() / 3_600_000) * 3_600_000 - 3_600_000,
+  );
+  await stubHost(
+    page,
+    "https://mesonet.agron.iastate.edu/data/gis/**",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ model_init_utc: init.toISOString() }),
+      });
+    },
+  );
+  // Today's analysis is served outright. The shared fixture answers today
+  // with a 404 so the fallback test can watch the layer reach for yesterday,
+  // which is not what this test is about.
+  await stubHost(
+    page,
+    "https://satepsanone.nesdis.noaa.gov/**",
+    async (route) => {
+      const today = new Date();
+      const stamp = `${today.getUTCFullYear()}${String(today.getUTCMonth() + 1).padStart(2, "0")}${String(today.getUTCDate()).padStart(2, "0")}`;
+      await route.fulfill({
+        contentType: "application/vnd.google-earth.kml+xml",
+        body: smokeKml(stamp),
+      });
+    },
+  );
   await open(page, 5);
   const pane = page.getByRole("application", {
     name: "Interactive weather map",
@@ -916,6 +952,12 @@ test("carries the model's smoke along the forecast tail and nowhere else", async
     .locator(".setting-list")
     .getByRole("checkbox", { name: /Forecast Smoke/ })
     .check();
+  // And the analysis too, because the two must never be on screen together
+  // and that can only be seen with both switched on.
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /^Smoke/ })
+    .check();
   await page.getByRole("button", { name: "Close Layers" }).click();
 
   const timeline = page.getByLabel("Radar animation", { exact: true });
@@ -923,10 +965,13 @@ test("carries the model's smoke along the forecast tail and nowhere else", async
   const scrubber = page.getByLabel("Radar frame");
   await scrubber.fill("1");
   await scrubber.fill("0");
-  // An observed frame: nothing from the model is on the map.
+  // An observed frame: nothing from the model is on the map, and the
+  // analysis is.
   await expect(timeline).not.toHaveClass(/is-forecast/);
   await expect(pane).not.toHaveAttribute("data-layer-stack", /forecast-smoke/);
   await expect(page.locator("[data-forecast-smoke-legend]")).toHaveCount(0);
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-smoke-fill/);
+  await expect(page.locator("[data-smoke-legend]")).toBeVisible();
 
   // The end of the tail is a forecast frame whatever the fixture's clock.
   const last = (await scrubber.getAttribute("max")) ?? "0";
@@ -939,6 +984,13 @@ test("carries the model's smoke along the forecast tail and nowhere else", async
   const leadHours = Math.max(1, Math.round(leadMinutes / 60));
 
   await expect(pane).toHaveAttribute("data-layer-stack", /forecast-smoke/);
+  // The analysis is off the map, not faded on it: a faded layer would still
+  // answer a click and still count as drawn.
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /overlay-smoke-fill/,
+  );
+  await expect(page.locator("[data-smoke-legend]")).toHaveCount(0);
   const legend = page.locator("[data-forecast-smoke-legend]");
   await expect(legend).toContainText("µg/m³");
   await expect(legend).toContainText(
@@ -978,10 +1030,13 @@ test("carries the model's smoke along the forecast tail and nowhere else", async
       .replace(/\.\d{3}Z$/, "Z"),
   );
 
-  // And back on an observed frame it is gone again.
+  // And back on an observed frame it is gone again, and the analysis is
+  // back.
   await scrubber.fill("0");
   await expect(pane).not.toHaveAttribute("data-layer-stack", /forecast-smoke/);
   await expect(page.locator("[data-forecast-smoke-legend]")).toHaveCount(0);
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-smoke-fill/);
+  await expect(page.locator("[data-smoke-legend]")).toBeVisible();
 });
 
 test("draws severe probability over the pictures and under the warnings", async ({
