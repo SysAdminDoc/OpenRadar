@@ -9,10 +9,14 @@ function find(query: string): string[] {
 }
 
 describe("what the palette offers", () => {
-  it("covers every layer, product, map type, panel, and tool", () => {
+  it("covers every layer, product, map type, panel, tool and layout", () => {
+    // Written out rather than derived, deliberately: a group appearing that
+    // nobody meant to add is the thing this catches, so adding one is meant
+    // to be a decision somebody made here.
     const groups = new Set(commands.map((command) => command.group));
     expect([...groups].sort()).toEqual([
       "Layer",
+      "Layout",
       "Map type",
       "Panel",
       "Radar product",

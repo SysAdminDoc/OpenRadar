@@ -216,13 +216,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Acceptance: Several named palettes import, persist across restart, and round-trip through workspace backup; each supported product can hold its own assignment; the legend rebuilds per assignment; every stored palette is still re-parsed from its own text on load; removing a palette in use falls back to the built-in ramp with a visible note rather than a blank layer.
       Complexity: L
 
-- [ ] AUD-096: P2. Add a capture-friendly streamer surface
-      Why: Weather streamers composite radar into OBS today through bolt-on dashboard projects and hand-built overlay kits, no radar application ships a capture mode, and a search of the leading competitor's tracker finds nobody has even asked it for one. Zero-competition surface with proven external demand.
-      Evidence: https://github.com/AtmosphericX/AtmosphericX ; https://obsproject.com/forum/threads/weather-alert-notification-in-stream.155531/ ; https://github.com/dutchdronesquad/rh-stream-overlays ; `src/components/WorkspaceChrome.tsx`; `src/lib/commands.ts`
-      Touches: A capture layout mode; chrome visibility choices; a high-legibility alert and place readout; credits placement; documentation
-      Acceptance: One command switches to a layout built for capture at 1080p and 1440p: chrome the streamer did not ask for is gone, the pieces they did ask for (clock, place, alert banner, credits) are large enough to read in a compressed stream, and source credits remain visible; the mode is plain window content with no keyboard shortcut, no separate window type, and no change to data rendering; leaving the mode restores the previous layout exactly.
-      Complexity: M
-
 - [ ] AUD-121: P3. Make the burned basemap credit follow the style on screen
       Why: The weather half of an export's credit now comes from the layer's provenance record, but the map half is still the constant "OpenStreetMap". Two of the seven styles are not OpenStreetMap: aerial draws USGS orthoimagery and topography draws OpenTopoMap, which asks for an exact credit line. An offline incident pack carries its own attribution too. So a picture exported over imagery credits the wrong service.
       Evidence: `src/hooks/useExport.ts` `BASEMAP_CREDIT`; `src/lib/mapStyles.ts` `mapStyleDefinition`; `src/components/MapStage.tsx` style resolution

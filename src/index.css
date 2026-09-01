@@ -3977,3 +3977,161 @@ input[type="range"] {
   align-items: center;
   gap: 6px;
 }
+
+/* The capture layout. One attribute on the shell takes away everything the
+   streamer operates and leaves what somebody watching needs. Nothing is
+   unmounted, so leaving the mode puts the workspace back exactly as it was:
+   the same panel open, the same tool held, the same scroll position. */
+.app-shell[data-capture="1"] .top-status,
+.app-shell[data-capture="1"] .surface-panel,
+.app-shell[data-capture="1"] .radar-timeline,
+.app-shell[data-capture="1"] .zoom-controls,
+.app-shell[data-capture="1"] .command-bar,
+.app-shell[data-capture="1"] .map-watermark,
+.app-shell[data-capture="1"] .source-attribution,
+.app-shell[data-capture="1"] .product-legends,
+.app-shell[data-capture="1"] .radar-legend,
+.app-shell[data-capture="1"] .tool-hud {
+  display: none;
+}
+
+/* The map takes the whole window, since nothing is reserving room beside it. */
+.app-shell[data-capture="1"] .map-stage {
+  inset: 0;
+}
+
+.capture-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px 8px;
+  color: #f5f8ff;
+  /* Dark under the type whatever the map is doing, because a stream is
+     somebody else's brightness and a legible strip cannot depend on the
+     basemap staying dark. */
+  background: linear-gradient(
+    180deg,
+    rgba(6, 9, 14, 0.92) 0%,
+    rgba(6, 9, 14, 0.78) 70%,
+    rgba(6, 9, 14, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.capture-bar__top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.capture-bar__mark {
+  display: grid;
+  place-items: center;
+  color: #68d7ff;
+}
+
+/* Sized for a stream that has been scaled to 720 and compressed, not for
+   somebody sitting in front of the window. */
+.capture-bar__clock {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.capture-bar__place {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #c7d4e8;
+}
+
+.capture-bar__alert {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-left: auto;
+  padding: 5px 14px;
+  font-size: 19px;
+  font-weight: 700;
+  border-radius: 8px;
+  background: #b4232b;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.capture-bar__alert[data-severity="extreme"] {
+  background: #8c1391;
+}
+
+.capture-bar__alert[data-severity="moderate"] {
+  background: #b06a10;
+}
+
+.capture-bar__alert[data-severity="minor"] {
+  background: #2c6a8f;
+}
+
+.capture-bar__alert em {
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.capture-bar__alert.is-quiet {
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(24, 35, 47, 0.85);
+  box-shadow: none;
+}
+
+.capture-bar__leave {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #f5f8ff;
+  background: transparent;
+  border: 1px solid rgba(245, 248, 255, 0.35);
+  border-radius: 8px;
+  /* Nearly gone until it is pointed at, so a streamer who frames the strip in
+     shot is not framing a button. */
+  opacity: 0.1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity 120ms ease;
+}
+
+.capture-bar__leave:hover,
+.capture-bar__leave:focus-visible {
+  opacity: 1;
+}
+
+.capture-bar__credit {
+  font-size: 14px;
+  font-weight: 600;
+  color: #d5deed;
+}
+
+/* The same switch the rest of the app follows: flat fills, heavier edges. */
+.capture-bar.is-high-contrast {
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.capture-bar.is-high-contrast .capture-bar__alert {
+  box-shadow: none;
+  outline: 2px solid #ffffff;
+}
+
+.capture-bar.is-high-contrast .capture-bar__credit,
+.capture-bar.is-high-contrast .capture-bar__place {
+  color: #ffffff;
+}

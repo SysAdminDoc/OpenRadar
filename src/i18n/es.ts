@@ -80,6 +80,12 @@ export const es: Catalogue = {
   "layers.fileShapes": "{count} formas",
   "layers.fileShown": "Mostrar {name}",
   "layers.fileRemove": "Quitar {name}",
+  "capture.title": "Diseño para captura",
+  "capture.noAlerts": "No hay avisos activos a la vista",
+  "capture.leave": "Salir del diseño para captura",
+  "capture.entered": "Diseño para captura activado",
+  "capture.enteredBody":
+    "Los paneles y los controles están ocultos. La cruz al final de la franja los devuelve.",
   "alerts.kinds": "Tipos de aviso",
   "alerts.kindsDetail": "Al desmarcar uno se quita del mapa y de esta lista",
   "alerts.sound": "Reproducir un sonido",
@@ -457,6 +463,8 @@ export const es: Catalogue = {
   "command.group.style": "Tipo de mapa",
   "command.group.panel": "Panel",
   "command.group.tool": "Herramienta",
+  "command.group.layout": "Disposición",
+  "keywords.capture": "captura directo emisión limpio obs",
   "layer.probSevere": "Probabilidad de tiempo severo",
   "layers.probSevereDetail":
     "Lo que un modelo espera de cada tormenta en la próxima hora, que es orientación y no un aviso",
