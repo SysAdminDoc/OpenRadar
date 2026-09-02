@@ -76,12 +76,13 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P1
 
-- [ ] AUD-170 (P1): Loop the single-site radar across recent volumes
-  Why: Every competitor loops a site (RadarScope 30 frames at Tier 1 and 50 at Tier 2, RadarOmega 75 to 250 frames by tier, Supercell Wx with loop length, speed and delay, GR2Analyst); the app holds exactly one volume, so a reader watching a supercell cannot see it move at site resolution.
-  Evidence: `src/hooks/useSingleSiteRadar.ts:113` (single `sweep` state, modes recent|archive|local); `src/hooks/useRadarTimeline.ts` has no reference to the sweep; the decoded-volume cache in `src-tauri/src/level2.rs` already makes a re-render of a held volume near free; competitor tiers in `RESEARCH.md`.
-  Touches: `src-tauri/src/level2.rs` (list the last N archive keys for a site, render a sweep per volume at the chosen tilt and product), `src/hooks/useSingleSiteRadar.ts`, `src/hooks/useRadarTimeline.ts` (a second frame series keyed by volume time that the scrubber drives when a site is held), `src/lib/mapLayers/image.ts`, `src/components/WorkspaceChrome.tsx` (legend and frame count), `src/lib/provenance.ts` (one record per frame), `src/lib/export.ts` (the loop export follows the active series).
-  Acceptance: With a site held, the timeline scrubs across the last N volumes (default 10, settable to 30) at the chosen tilt and product without re-decoding a volume already seen; frames are keyed by volume and elevation, SAILS repeat cuts are included for the lowest tilt only; the live in-progress composite remains the newest frame; the export and the compare pane follow the series; `e2e/level2.spec.ts` drives a three-volume fixture loop and asserts frame times in the legend.
-  Complexity: L
+- [ ] AUD-201 (P1): The rest of the single-site loop
+  Why: AUD-170 shipped the loop itself: the native side lists a site's recent volume times, the timeline's own scrubber picks the volume each step belongs to, and a decoded volume is held rather than fetched twice. Four parts of that item's acceptance did not ship, and each is a place where the loop is visibly half a feature.
+  Evidence: `src/hooks/useSingleSiteRadar.ts` (the loop effect, which draws a volume per step); `src/lib/siteLoop.ts` and its tests; `src-tauri/src/level2.rs` `recent_times` / `level2_recent_times`. `e2e/level2.spec.ts` proves the listing is asked for and NOT that a scrub draws an older volume: the mosaic frame count in that spec comes from a live-shaped provider stub and changes underneath a scrub, so the assertion could not be held still.
+  Touches: `e2e/level2.spec.ts` (a deterministic frame list for that spec, then a real three-volume scrub), `src/lib/settings.ts` and the Settings panel (the loop length, ten by default and thirty at most, which is `DEFAULT_LOOP_VOLUMES` today and settable by nobody), `src/lib/export.ts` (a saved loop follows the site series rather than the mosaic's), `src/lib/provenance.ts` (one record per volume rather than one for the sweep on screen), `src/components/WorkspaceChrome.tsx` (the legend says which volume of how many).
+  Acceptance: A browser test scrubs a stubbed three-volume site loop and asserts the volume time in the legend changes with the step; the loop length is a setting between one and thirty; a saved loop of a held site contains the site's own volumes; each frame carries its own provenance record.
+  Confidence: Verified
+  Effort: M
 
 ### P2
 

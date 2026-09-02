@@ -335,6 +335,18 @@ async function fakeNativeSide(page: Page) {
               rangeKm: long ? 417 : 88.8,
             });
           }
+          if (command === "level2_recent_times") {
+            // Three volumes, five minutes apart, the newest at the same
+            // moment the mosaic's newest frame is: a real site's volumes and
+            // the mosaic's steps do not line up, and the loop's whole job is
+            // saying which volume a step belongs to.
+            const newest = Date.UTC(2026, 7, 30, 5, 40);
+            return Promise.resolve(
+              [10, 5, 0]
+                .map((back) => new Date(newest - back * 60_000).toISOString())
+                .reverse(),
+            );
+          }
           if (command === "level2_sweep" && String(args.station) === "FAIL") {
             return Promise.reject("the site did not answer");
           }
@@ -390,7 +402,10 @@ async function fakeNativeSide(page: Page) {
                 Boolean(args.dealias),
                 (args.motion as [number, number] | null) ?? null,
               ),
-              collected: "2021-12-10T03:15:00.000Z",
+              // The moment asked for, when one was: a loop draws a volume
+              // per step and a fixed answer would hide a frame drawn from
+              // the wrong one.
+              collected: args.at ? String(args.at) : "2021-12-10T03:15:00.000Z",
               volume: "2021/12/10/KDMX/KDMX20211210_031500_V06",
               source: {
                 kind: "archive",
@@ -507,6 +522,52 @@ test("hands a close-in view over to the nearest site and back again", async ({
   await expect(pane).not.toHaveAttribute("data-layer-stack", /sweep-layer/);
   await expect(pane).toHaveAttribute("data-mosaic-opacity", "0.70");
   await expect(page.getByText("Composite Radar")).toBeVisible();
+});
+
+test("lists the site's recent volumes so the timeline has a loop to scrub", async ({
+  page,
+}) => {
+  // The app held exactly one volume, so somebody watching a supercell at site
+  // resolution could see where it was and not where it was going. There is
+  // one scrubber, and the site's picture follows it: each step of the mosaic
+  // timeline draws whichever of the site's volumes was finished by then.
+  //
+  // What is checked here is the half this spec can hold still: that holding a
+  // site asks the archive what it has published, once, for the site on
+  // screen. Which volume a given step maps to is arithmetic, and it is held
+  // in `src/lib/siteLoop.test.ts` against times that cannot drift; the
+  // mosaic's own frame count in this file comes from a live-shaped provider
+  // stub and changes underneath a scrub.
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+
+  const asked = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __sweepCalls: Array<{
+              command: string;
+              args: Record<string, unknown>;
+            }>;
+          }
+        ).__sweepCalls,
+    );
+
+  await expect
+    .poll(async () =>
+      (await asked()).some((call) => call.command === "level2_recent_times"),
+    )
+    .toBe(true);
+
+  const listing = (await asked()).find(
+    (call) => call.command === "level2_recent_times",
+  );
+  expect(listing?.args).toMatchObject({ station: "KDMX" });
+  // Bounded: every volume is ten megabytes fetched and decoded, and a reader
+  // who asks for a hundred is asking the machine to stop answering.
+  expect(Number(listing?.args.count)).toBeGreaterThan(0);
+  expect(Number(listing?.args.count)).toBeLessThanOrEqual(30);
 });
 
 test("writes the gates of the sweep on screen as numbers", async ({ page }) => {

@@ -593,6 +593,88 @@ pub fn key_time(key: &str) -> Option<DateTime<Utc>> {
     Some(parsed.and_utc())
 }
 
+/// The most recent whole volumes in a listing, newest last.
+///
+/// The app held exactly one volume, so a reader watching a supercell at site
+/// resolution could see where it was and not where it was going. A loop needs
+/// the times, and the times are in the keys: the bucket returns them in order
+/// and a volume's name ends with its collection time.
+///
+/// Times rather than keys, because what the page asks for afterwards is a
+/// moment, and a moment is what the legend has to say. The keys are the
+/// bucket's business.
+pub fn recent_times(listing: &str, want: usize) -> Vec<DateTime<Utc>> {
+    let mut found: Vec<DateTime<Utc>> = Vec::new();
+    let mut rest = listing;
+    while let Some(start) = rest.find("<Key>") {
+        let after = &rest[start + 5..];
+        let Some(end) = after.find("</Key>") else {
+            break;
+        };
+        let key = &after[..end];
+        // A partial upload is published as `_V06_MDM`, and a loop of them
+        // would be the same picture drawn twice with a gap in it.
+        if key.ends_with("_V06") || key.ends_with("_V03") {
+            if let Some(at) = key_time(key) {
+                found.push(at);
+            }
+        }
+        rest = &after[end + 6..];
+    }
+    found.sort_unstable();
+    found.dedup();
+    if found.len() > want {
+        found.drain(..found.len() - want);
+    }
+    found
+}
+
+/// How many volumes a loop may hold.
+///
+/// Ten by default and thirty at the top, which is about ninety minutes of a
+/// storm at a five-minute pattern and half that when the radar is in its fast
+/// severe-weather pattern. Bounded because every one is a volume decoded and a
+/// picture drawn, and a reader who asks for a hundred is asking the machine to
+/// stop answering.
+pub const MAX_LOOP_VOLUMES: usize = 30;
+
+/// The last few volume times a site has published.
+///
+/// Two days are read rather than one, because just after midnight UTC the
+/// day's own prefix holds a handful of volumes or none, and a loop that got
+/// shorter every night at seven in the evening Central would be a puzzle
+/// nobody would enjoy solving.
+#[tauri::command]
+pub async fn level2_recent_times(
+    station: String,
+    count: usize,
+) -> Result<Vec<String>, Level2Error> {
+    let station = station.to_uppercase();
+    wsr88d_only(&station)?;
+    let want = count.clamp(1, MAX_LOOP_VOLUMES);
+    let now = Utc::now();
+
+    let mut found: Vec<DateTime<Utc>> = Vec::new();
+    for day in [now - Duration::days(1), now] {
+        let listing = match http::get_bytes(&listing_url(&station, day)).await {
+            Ok(listing) => listing,
+            // A day with no prefix at all is not an error: it is a radar that
+            // was not publishing then, and yesterday may still answer.
+            Err(_) => continue,
+        };
+        found.extend(recent_times(&String::from_utf8_lossy(&listing), want));
+    }
+    found.sort_unstable();
+    found.dedup();
+    if found.len() > want {
+        found.drain(..found.len() - want);
+    }
+    if found.is_empty() {
+        return Err(Level2Error::NoVolume(station));
+    }
+    Ok(found.iter().map(|at| at.to_rfc3339()).collect())
+}
+
 async fn latest_volume(station: &str) -> Result<(String, Vec<u8>), Level2Error> {
     let now = Utc::now();
     let mut key = None;
@@ -3487,6 +3569,47 @@ mod tests {
             Some("2026/08/30/KDMX/KDMX20260830_092159_V06")
         );
         assert_eq!(newest_key("<ListBucketResult></ListBucketResult>"), None);
+    }
+
+    #[test]
+    fn takes_the_last_few_whole_volumes_for_a_loop() {
+        // Out of order on purpose: the bucket returns keys in order, and
+        // depending on that rather than sorting is how a loop ends up playing
+        // backwards the first time a listing is paginated.
+        let listing = "<ListBucketResult>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_092159_V06</Key></Contents>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_090749_V06</Key></Contents>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_091500_V06</Key></Contents>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_092900_V06_MDM</Key></Contents>\
+            </ListBucketResult>";
+
+        let all = recent_times(listing, 10);
+        assert_eq!(all.len(), 3, "the partial upload is not a volume");
+        // Oldest first, which is the order a loop plays in.
+        assert!(all[0] < all[1] && all[1] < all[2]);
+        assert_eq!(all[2].format("%H%M%S").to_string(), "092159");
+
+        // Asked for fewer, it keeps the NEWEST few rather than the first few:
+        // a loop that dropped the last five minutes of a storm to keep the
+        // first five would be the wrong half.
+        let two = recent_times(listing, 2);
+        assert_eq!(two.len(), 2);
+        assert_eq!(two[1].format("%H%M%S").to_string(), "092159");
+        assert_eq!(two[0].format("%H%M%S").to_string(), "091500");
+
+        assert!(recent_times("<ListBucketResult></ListBucketResult>", 10).is_empty());
+    }
+
+    #[test]
+    fn a_loop_never_holds_the_same_volume_twice() {
+        // Two days are read, and a day boundary can put the same object in
+        // both listings. A duplicate would be a frame that shows the same
+        // picture and a legend that repeats a time.
+        let listing = "<ListBucketResult>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_092159_V06</Key></Contents>\
+            <Contents><Key>2026/08/30/KDMX/KDMX20260830_092159_V06</Key></Contents>\
+            </ListBucketResult>";
+        assert_eq!(recent_times(listing, 10).len(), 1);
     }
 
     #[test]

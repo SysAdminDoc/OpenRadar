@@ -76,6 +76,8 @@
 
 - The full text of a warning is no longer read out as the name of a button. It sat inside the control that takes you to the warning on the map, and a button's name is its contents, so a screen reader announced up to two thousand characters of weather product as the label of a control, with no way to skip it. It sits beside the button now, where it reads as text.
 
+- A held radar site loops. The app kept exactly one volume of a site's own data, so somebody watching a supercell at the resolution the radar actually sees it could tell where the storm was and not where it was going. There is still one scrubber: dragging it back now draws whichever of the site's recent volumes had finished by that moment, and a volume already decoded is kept rather than fetched twice. The newest step is the live picture it always was, in-progress sector and all. Volumes are asked for as you reach them, because each one is ten megabytes fetched and decoded, and a terminal radar has none to list.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

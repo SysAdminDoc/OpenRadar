@@ -215,6 +215,7 @@ pub fn run() {
             incident_packs::incident_pack_delete,
             level2::level2_archive_sweep,
             level2::level2_local_sweep,
+            level2::level2_recent_times,
             level2::level2_sweep,
             level2::level2_gate,
             journal::journal_append,
