@@ -56,6 +56,16 @@ import {
 } from "./lib/hurdat";
 import { basemapCredit } from "./lib/mapStyles";
 import { level2Available } from "./lib/level2";
+import { featureBounds } from "./lib/overlays";
+import { alertId, type WatchAlert } from "./lib/watch";
+
+/**
+ * How long the map is left alone after the reader last moved it.
+ *
+ * Long enough that a warning does not interrupt somebody mid-look, short
+ * enough that the next one still finds them.
+ */
+const FOLLOW_QUIET_MS = 20_000;
 import { dataExportAvailable, exportGridData } from "./lib/dataExport";
 import { domainFor } from "./lib/providers/mrms";
 import {
@@ -234,6 +244,20 @@ export default function App() {
     paletteGeneration,
   });
 
+  // Only that a warning was announced. Whether to fly to it, and where to,
+  // are settled in the effect below, which can see the polygon and the state
+  // of the export.
+  //
+  // The alert itself is held in a ref and the effect is woken by a counter,
+  // because the effect consumes it: clearing a piece of state from inside the
+  // effect that reads it is a cascading render, and clearing a ref is not.
+  const pendingFollowRef = useRef<WatchAlert | null>(null);
+  const [followSignal, setFollowSignal] = useState(0);
+  const rememberFollow = useCallback((alert: WatchAlert) => {
+    pendingFollowRef.current = alert;
+    setFollowSignal((was) => was + 1);
+  }, []);
+
   const overlays = useWorkspaceOverlays({
     settings,
     viewport,
@@ -241,7 +265,14 @@ export default function App() {
     setActiveSurface,
     // Today's warnings and reports cannot sit on a volume from another day.
     replaying: replay !== null || singleSite.historical,
+    onAnnounced: rememberFollow,
   });
+
+  // Take the map to a warning as it arrives, when the reader asked for that.
+  //
+  // Through a ref because the watch is inside the hook that produces the
+  // alerts this reads: the callback has to exist before the hook is called
+  // and see the state that comes out of it.
 
   // A test the reader asked for is answered on the desktop path only. When the
   // notification does not go out, the watch has already put the same alert in
@@ -494,6 +525,58 @@ export default function App() {
     dataSources,
     pushToast,
   });
+
+  // The flight happens here rather than where the alert is announced, because
+  // the watch speaks the moment it sees a warning and the polygon it is about
+  // reaches this component on the render after that.
+  useEffect(() => {
+    const alert = pendingFollowRef.current;
+    if (!alert) return;
+    const drawn = overlays.data.alerts;
+    if (!drawn) return;
+    // One attempt per announcement: a warning whose polygon is not in what
+    // the map is drawing is a warning this cannot fly to, and holding it
+    // would fly to it minutes later out of nowhere.
+    pendingFollowRef.current = null;
+    if (!settingsRef.current.followNewWarnings) return;
+    // Not while a picture or a loop is being written: the export walks the
+    // camera itself, and a warning arriving mid-recording would put a flight
+    // in the middle of somebody's video.
+    if (exportState.busy) return;
+    // And not off somebody who is using the map. MapLibre stops a flight the
+    // moment a gesture starts, which covers an interruption; this is the
+    // other half, which is not starting one over a reader's shoulder.
+    const touched = mapRef.current?.interactedAt() ?? null;
+    if (touched !== null && Date.now() - touched < FOLLOW_QUIET_MS) return;
+
+    // The same identity the watch decided by, from the same function, so a
+    // warning it announced is the warning that is flown to.
+    let box: OverlayBounds | null = null;
+    for (const feature of drawn.features) {
+      const bounds = featureBounds(feature.geometry);
+      if (!bounds) continue;
+      if (alertId(feature.properties, bounds) === alert.id) {
+        box = bounds;
+        break;
+      }
+    }
+    if (!box) return;
+    mapRef.current?.fitBounds(box);
+    pushToast({
+      title: translate("follow.went", { headline: alert.headline }),
+      detail: translate("follow.wentBody"),
+      actionLabel: translate("follow.stop"),
+      onAction: () =>
+        applySettings({ ...settingsRef.current, followNewWarnings: false }),
+    });
+  }, [
+    applySettings,
+    exportState.busy,
+    followSignal,
+    overlays.data.alerts,
+    pushToast,
+    settingsRef,
+  ]);
 
   useEffect(() => {
     const onVisibility = () => setPageVisible(!document.hidden);

@@ -425,6 +425,55 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
   );
 });
 
+test("leaves the map where it is when following is off", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const before = await settledCamera(pane);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  await page.getByLabel("Watched radius, in miles").fill("60");
+  await page.getByRole("button", { name: /Watch the map centre/ }).click();
+
+  // The fixture warning reaches the watched point straight away and says so.
+  // With the switch off, that is all that happens.
+  await expect(
+    page.locator(".toast-host").getByText("Tornado Warning").first(),
+  ).toBeVisible();
+  await expect(page.getByText(/Went to the/)).toBeHidden();
+  expect(await settledCamera(pane)).toBe(before);
+});
+
+test("goes to a new warning when asked, and says how to stop", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const before = await settledCamera(pane);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // Switched on before the watch is, so the first warning to arrive is a
+  // warning this is meant to follow.
+  await page.getByRole("checkbox", { name: /Go to new warnings/ }).check();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  await page.getByLabel("Watched radius, in miles").fill("60");
+  await page.getByRole("button", { name: /Watch the map centre/ }).click();
+
+  await expect(page.getByText(/Went to the Tornado Warning/)).toBeVisible();
+  await expect(page.getByText(/Following new warnings is on/)).toBeVisible();
+  // The camera moved to the polygon rather than staying where the reader had
+  // it, which is the whole of what the switch does.
+  expect(await settledCamera(pane)).not.toBe(before);
+
+  // And the toast carries the way back out, which is the switch itself.
+  await page.getByRole("button", { name: "Stop following" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: /Go to new warnings/ }),
+  ).not.toBeChecked();
+});
+
 test("draws surface observations as station plots, and only close in", async ({
   page,
 }) => {

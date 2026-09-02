@@ -282,7 +282,7 @@ function nearestCorner(bounds: OverlayBounds, point: GeoPoint): number {
  * separately below: an announcement happens when the alert is new, or when its
  * threat has gone up, and never when it has gone down.
  */
-function alertId(
+export function alertId(
   properties: Record<string, unknown>,
   bounds: OverlayBounds,
 ): string {

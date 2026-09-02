@@ -680,6 +680,13 @@ export const en = {
   "nearby.keysBody":
     "Tab to the map, then the arrow keys move it and the plus and minus keys zoom. Hold Shift with an arrow key to turn or tilt it. Nothing on the map needs a drag.",
   "nearby.announcement": "{headline}. {body}",
+  "follow.went": "Went to the {headline}",
+  "follow.wentBody":
+    "Following new warnings is on. Move the map and it will leave you alone for a while.",
+  "follow.stop": "Stop following",
+  "watch.followNew": "Go to new warnings",
+  "watch.followNewDetail":
+    "Take the map to a warning as it arrives at a watched place. Moving the map yourself stops the flight, and stops the next one for a while.",
   "nearby.north": "north",
   "nearby.northeast": "northeast",
   "nearby.east": "east",

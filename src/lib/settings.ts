@@ -245,6 +245,15 @@ export interface AppSettings {
   surgeCategory: SurgeCategory;
   watch: WatchState;
   /**
+   * Take the map to a warning as it arrives.
+   *
+   * Off until asked for, like the tone: an app that moves the view out from
+   * under somebody is worse than one that waits to be asked. One preference
+   * for the workspace rather than one per watched place, because it is about
+   * what the map does and not about which places matter.
+   */
+  followNewWarnings: boolean;
+  /**
    * Places beside home, up to nine of them, so home plus these is ten. Kept
    * as its own key rather than folded into `watch`, which every build since
    * the first has read and written.
@@ -359,6 +368,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     minSeverity: "severe",
     quietHours: DEFAULT_QUIET_HOURS,
   },
+  followNewWarnings: false,
   presets: [null, null, null, null],
   incidentPacks: {
     diskLimitMb: 4096,
@@ -1179,6 +1189,10 @@ export function normalizeSettings(value: unknown): AppSettings {
       ? raw.surgeCategory
       : DEFAULT_SETTINGS.surgeCategory,
     watch: normalizeWatch(raw.watch),
+    followNewWarnings: bool(
+      raw.followNewWarnings,
+      DEFAULT_SETTINGS.followNewWarnings,
+    ),
     watchPlaces: normalizeWatchPlaces(raw.watchPlaces),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
     overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),
