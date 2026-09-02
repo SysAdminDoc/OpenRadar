@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The zoom buttons count every press. They stepped from wherever the map had eased to rather than from the press before, so pressing twelve times as fast as the button took it moved the map about a level and a half. Each press now counts from the last one.
+
 - The map on your desktop, refreshed on a gap you choose. It is off until you ask for it, because it takes something of yours away for as long as it is on: your own wallpaper is recorded before the first write and put back the moment you switch it off. The picture is the same composed still the export writes, so it carries the frame time, the source credits and its own age burned in. The shortest gap on offer is fifteen minutes, which is the point: a wallpaper refreshing every minute is a loop asking a public radar service for a frame every minute, for ever, behind a spreadsheet nobody is looking at. With no frame to draw, offline or before the first fetch lands, it leaves the last picture up rather than writing an empty map. A write that fails says so in a toast and in the log instead of quietly leaving something stale up. Windows only for now, and the setting says so on a machine that cannot do it.
 
 - An icon in the tray, and a small window beside it. The icon says one thing and only one thing: whether a warning stands at a place you named. A left click brings the workspace back, and the menu opens it, opens the small window, or quits. Closing the window closes the app, because an app that silently keeps running after a close is an app people uninstall; you can ask for the other behaviour and then the icon is the way back. Switching the tray off removes the icon rather than hiding it, and quitting removes it explicitly, because Windows leaves a ghost of one behind otherwise.
