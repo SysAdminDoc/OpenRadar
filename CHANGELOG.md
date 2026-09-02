@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.8.0
 
+- Three colours the stylesheet asked for were never written down, so the value nobody chose is what everybody saw. The severity badge on an alert row, the archive browser and the site controls were a fixed dark box inside a white panel with grey text on it. The line that tells you a forecast model is running behind was a dark yellow on white, nearly invisible, and it is the line that matters most on that panel. The two little arrows showing which way a forecast moved were the same. All three follow the theme now, and a test refuses a colour the stylesheet uses without defining.
+
+- The small grey type is legible in both themes. It is the second line under almost everything: the layer state under each command, the subtitles in settings, a search result's detail, the camera labels. It sat just under the readable floor on every surface in the light theme and on the hover state in the dark one.
+
 - The tool rail is readable in the light theme. It stays dark whichever theme you are in, but everything drawn on it was following the theme: hovering a button put its near-white label on a near-white pill and the button disappeared under the pointer, the button you were on and the outline around a focused one both dropped under the contrast floor, and the rail lost its edge and its dividers entirely. The rail carries its own hover, line and accent now, turned down along with everything else in the calmer presentation.
 
 - The small window speaks your language. It was reading the settings through a door only the main window had a key to, so the read failed, the window fell back to its defaults, and it came up in English beside a French workspace. It has its own key now, for the settings and nothing else: not the file picker, not the updater, not notifications.

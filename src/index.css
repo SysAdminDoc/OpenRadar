@@ -2909,7 +2909,7 @@ input[type="range"] {
   gap: 8px;
   padding: 10px;
   margin-top: 8px;
-  background: var(--surface-sunken, rgb(15 23 42 / 35%));
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-radius: 9px;
 }
@@ -2919,7 +2919,7 @@ input[type="range"] {
   gap: 9px;
   padding: 10px;
   margin-top: 8px;
-  background: var(--surface-sunken, rgb(15 23 42 / 35%));
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-radius: 9px;
 }
@@ -3285,7 +3285,7 @@ input[type="range"] {
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: var(--surface-sunken, rgb(15 23 42 / 35%));
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-radius: 6px;
   vertical-align: middle;
@@ -3437,17 +3437,34 @@ input[type="range"] {
   --surface-solid: #0c1219;
   --surface-raised: #111923;
   --surface-hover: #18232f;
+  /* A well inside a panel: the severity badge on an alert row, the archive
+     browser, the site-controls row. Written for the dark theme and then used
+     with a fallback rather than defined, so the light theme drew a #a6abb3
+     box inside a white panel and the muted text in it read at 2.9:1. */
+  --surface-sunken: rgb(15 23 42 / 35%);
   --border: rgba(166, 184, 207, 0.16);
   --border-strong: rgba(166, 184, 207, 0.28);
   --text: #edf3fb;
+  /* Something out of date rather than something wrong. --amber carries it in
+     both themes; a stale model run was drawn in a hardcoded #fbbf24 that came
+     out at 1.67:1 on the light panel. */
+  --warning: var(--amber);
   --muted: #a6b2c2;
-  --subtle: #748195;
+  /* Every secondary line in the app: the "Layer, on" under each command, the
+     settings subtitles, the camera labels, a search result's second line.
+     #748195 was 4.03:1 on the hover surface, which is under the floor for
+     the 10px it is usually set at. */
+  --subtle: #8290a4;
   --accent: #4bc0ff;
   --accent-strong: #2aa8ee;
   --accent-soft: rgba(75, 192, 255, 0.12);
   --green: #48d879;
   --amber: #f7c948;
   --danger: #ff5f6d;
+  /* Which way a forecast moved since the last run. Chrome around a number,
+     not a reading, so it follows the theme rather than the hazard ramps. */
+  --delta-up: #f0a878;
+  --delta-down: #8fc7e8;
   --shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
@@ -3457,17 +3474,22 @@ input[type="range"] {
   --surface-solid: #f8fafc;
   --surface-raised: #ffffff;
   --surface-hover: #eaf1f7;
+  --surface-sunken: color-mix(in srgb, var(--bg) 55%, transparent);
   --border: rgba(36, 51, 71, 0.16);
   --border-strong: rgba(36, 51, 71, 0.27);
   --text: #162133;
   --muted: #4e5e72;
-  --subtle: #708096;
+  /* #708096 was 3.85:1 on the solid surface and 3.45 on the page. The
+     stylesheet noticed this for one card and fixed only that one. */
+  --subtle: #5e6d82;
   --accent: #0879b8;
   --accent-strong: #036aa5;
   --accent-soft: rgba(3, 121, 184, 0.11);
   --green: #168447;
   --amber: #9a6500;
   --danger: #bf173c;
+  --delta-up: #b4501e;
+  --delta-down: #1d6f9c;
 }
 
 .map-stage {
@@ -4909,7 +4931,7 @@ input[type="range"] {
 }
 
 .model-runs li[data-stale="true"] {
-  color: var(--warning, #fbbf24);
+  color: var(--warning);
 }
 
 /* The change since the previous run, under the reading it belongs to. */
@@ -4921,11 +4943,11 @@ input[type="range"] {
 }
 
 .guidance-change[data-direction="up"] {
-  color: #f0a878;
+  color: var(--delta-up);
 }
 
 .guidance-change[data-direction="down"] {
-  color: #8fc7e8;
+  color: var(--delta-down);
 }
 
 /* A legend of names rather than a scale. The swatches stack so the words

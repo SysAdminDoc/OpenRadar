@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { routeWorkspace } from "./support/fixtures";
 
@@ -363,4 +364,46 @@ test("says when each model last ran and how far it has moved since", async ({
   await expect(
     panel.locator('.guidance-change[data-direction="up"]').first(),
   ).toContainText("+1");
+});
+
+test("the run ages and the changes are readable in the light theme", async ({
+  page,
+}) => {
+  // `--warning` was used and defined nowhere, so the line saying a model run
+  // is out of date fell back to a dark-theme yellow at 1.67:1 on the light
+  // panel. The two change colours beside a number were hardcoded pastels at
+  // 1.99 and 1.83 on white.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({ schemaVersion: 3, theme: "light" }),
+    );
+  });
+  await routeData(page);
+  await page.goto("/?testMode=1&lon=-93.7&lat=41.7&zoom=6");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Guidance", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Guidance" });
+  await expect(panel).toBeVisible();
+
+  await page.getByRole("button", { name: "GEM", exact: true }).click();
+  await expect(
+    panel.locator('.model-runs li[data-stale="true"]'),
+  ).toBeVisible();
+  await panel.getByRole("checkbox", { name: /Compare with yesterday/ }).check();
+  await expect(panel.locator(".guidance-change").first()).toBeVisible();
+
+  for (const selector of [".model-runs", ".guidance-change"]) {
+    const results = await new AxeBuilder({ page })
+      .include(selector)
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    const serious = results.violations.filter(
+      (violation) =>
+        violation.impact === "serious" || violation.impact === "critical",
+    );
+    expect(`${selector}: ${serious.map((one) => one.id).join(", ")}`).toBe(
+      `${selector}: `,
+    );
+  }
 });
