@@ -54,6 +54,7 @@ import {
   trackBounds,
   type Storm,
 } from "./lib/hurdat";
+import { basemapCredit } from "./lib/mapStyles";
 import { level2Available } from "./lib/level2";
 import { dataExportAvailable, exportGridData } from "./lib/dataExport";
 import { domainFor } from "./lib/providers/mrms";
@@ -480,6 +481,16 @@ export default function App() {
     frameIndex,
     source,
     timeline,
+    // The map under the weather, for the style on screen: an aerial picture
+    // credits USGS and a topographic one credits OpenTopoMap, rather than
+    // both crediting a service that did not draw them.
+    basemapCredit: basemapCredit(
+      settings.mapStyle,
+      settings.theme,
+      settings.incidentPacks.references.find(
+        (pack) => pack.id === settings.incidentPacks.selectedId,
+      ) ?? null,
+    ),
     dataSources,
     pushToast,
   });

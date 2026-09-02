@@ -29,15 +29,6 @@ import { APP_VERSION } from "../lib/settings";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { translate } from "../i18n";
 
-/**
- * Credit for the map under the weather.
- *
- * Still a constant, unlike the weather credit beside it, because every style
- * the app ships draws OpenStreetMap data by way of OpenFreeMap. Two of them do
- * not, and that is written down as its own item rather than guessed at here.
- */
-const BASEMAP_CREDIT = "OpenStreetMap";
-
 /** One dataset on screen whose readings can be written out. */
 export interface DataExportSource {
   id: string;
@@ -76,6 +67,14 @@ export function useExport(options: {
   frameIndex: number;
   source: RadarProvider | null;
   timeline: RadarTimelineState;
+  /**
+   * Credit for the map under the weather, for the style actually on screen.
+   *
+   * Passed in rather than worked out here, because the style, the theme and
+   * any incident pack are all settled where the map is drawn, and a second
+   * copy of that resolution would be a second thing to keep in step.
+   */
+  basemapCredit: string;
   /** Datasets drawn right now, in the order the panel should offer them. */
   dataSources: DataExportSource[];
   pushToast: (message: Omit<ToastMessage, "id">) => void;
@@ -86,6 +85,7 @@ export function useExport(options: {
     frameIndex,
     source,
     timeline,
+    basemapCredit,
     dataSources,
     pushToast,
   } = options;
@@ -144,10 +144,16 @@ export function useExport(options: {
               ? record.label
               : translate("export.radar"),
         ].filter(Boolean),
-        attribution: provenanceCredit(BASEMAP_CREDIT, record),
+        attribution: provenanceCredit(basemapCredit, record),
       };
     },
-    [frames, source, timeline.cachedAgeSeconds, timeline.fetchedAt],
+    [
+      basemapCredit,
+      frames,
+      source,
+      timeline.cachedAgeSeconds,
+      timeline.fetchedAt,
+    ],
   );
 
   const finish = useCallback(
@@ -166,7 +172,7 @@ export function useExport(options: {
           const sidecar = provenanceDocument({
             picture: name,
             application: `OpenRadar ${APP_VERSION}`,
-            basemap: BASEMAP_CREDIT,
+            basemap: basemapCredit,
             writtenAt: Date.now(),
             frames: drawn,
           });
@@ -197,7 +203,7 @@ export function useExport(options: {
           : undefined,
       });
     },
-    [pushToast],
+    [basemapCredit, pushToast],
   );
 
   const exportImage = useCallback(() => {
