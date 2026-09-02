@@ -117,3 +117,70 @@ test("leaves a place in Florida alone", async ({ page }) => {
   );
   await expect(page.getByText("near Regina")).toHaveCount(0);
 });
+
+/** Hamburg, and a warning square around it. */
+const HAMBURG: [number, number] = [9.99, 53.55];
+
+const dwdFeed = (lon: number, lat: number) => ({
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      geometry: {
+        type: "MultiPolygon",
+        coordinates: [
+          [
+            [
+              [lon - 0.3, lat - 0.3],
+              [lon + 0.3, lat - 0.3],
+              [lon + 0.3, lat + 0.3],
+              [lon - 0.3, lat + 0.3],
+              [lon - 0.3, lat - 0.3],
+            ],
+          ],
+        ],
+      },
+      properties: {
+        IDENTIFIER: "2.49.0.0.276.0.DWD.PVW.e2e",
+        EVENT: "STARKES GEWITTER",
+        EC_GROUP: "GEWITTER",
+        SEVERITY: "Severe",
+        NAME: "Hamburg-Mitte",
+        SENDERNAME: "Deutscher Wetterdienst",
+        WEB: "https://dwd.de/warnungen",
+        ONSET: new Date(Date.now() - 60_000).toISOString(),
+        EXPIRES: new Date(Date.now() + 3_600_000).toISOString(),
+        DESCRIPTION:
+          "Es treten Gewitter mit Starkregen und Sturmböen bis 90 km/h auf.",
+        INSTRUCTION: "Hinweis auf: umherfliegende Gegenstände.",
+      },
+    },
+  ],
+});
+
+test("draws a German warning in the office's own words", async ({ page }) => {
+  // The DWD composite of seventeen radars has been on the map for as long as
+  // the app has looked at Europe, and nothing said a Gewitterwarnung stood
+  // over it. Same layer as the American and Canadian ones, so the switches,
+  // the watch and the readout treat it the same.
+  const [lon, lat] = HAMBURG;
+  await stubHost(page, "https://maps.dwd.de/geoserver/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(dwdFeed(lon, lat)),
+    });
+  });
+  await page.goto(
+    `/?testMode=1&lon=${lon}&lat=${lat}&zoom=7&bearing=0&pitch=0`,
+  );
+  await expect(page.getByRole("application")).toBeVisible();
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  const row = page.locator(".alert-row").first();
+  // Title case, not the office's block capitals, which would read as louder
+  // than the office issued it.
+  await expect(row).toContainText("Starkes Gewitter");
+  // The office's own German, unaltered: an English paraphrase of a Sturmbö
+  // would be this app inventing a warning nobody issued.
+  await expect(row).toContainText("Sturmböen bis 90 km/h");
+});
