@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.8.0
 
+- The boxes you type in and pick from belong to the app now. Anything the app did not paint itself came out as the browser's own white box with black text sitting in a dark panel: the caption on a postcard and its size, the two newest settings, the record's search and its note editor, the storm motion numbers, the readout's place picker, the box you name a storm in. The quiet hours pickers opened a white calendar with a black clock face. The page never told the browser which palette to draw its own parts in, and that one line fixes the popups, the spinners, the dropdown lists and the scrollbars together.
+
+- The second-monitor and wallpaper settings look like settings. Neither had any styling at all, so each came out as its title and its explanation run together in one paragraph at the wrong size with a bare select underneath, directly below a row of switches that all look right. They match their neighbours now.
+
 - Three colours the stylesheet asked for were never written down, so the value nobody chose is what everybody saw. The severity badge on an alert row, the archive browser and the site controls were a fixed dark box inside a white panel with grey text on it. The line that tells you a forecast model is running behind was a dark yellow on white, nearly invisible, and it is the line that matters most on that panel. The two little arrows showing which way a forecast moved were the same. All three follow the theme now, and a test refuses a colour the stylesheet uses without defining.
 
 - The small grey type is legible in both themes. It is the second line under almost everything: the layer state under each command, the subtitles in settings, a search result's detail, the camera labels. It sat just under the readable floor on every surface in the light theme and on the hover state in the dark one.

@@ -143,3 +143,59 @@ for (const look of ["dark", "light"] as const) {
     expect(plainSurface).not.toBe("rgba(255, 0, 0, 0.9)");
   });
 }
+
+// The browser draws parts of the page itself: a select's dropdown list, a
+// number spinner, a date picker's popup, a scrollbar. Which palette it uses
+// is `color-scheme`, and nothing set it, so all of them were the light
+// default inside a dark workspace and the quiet-hours time fields had a black
+// clock face on white.
+for (const look of ["dark", "light"] as const) {
+  test(`tells the browser to draw its own parts in the ${look} look`, async ({
+    page,
+  }) => {
+    await startWith(page, null, look);
+    expect(
+      await page.evaluate(
+        () => getComputedStyle(document.documentElement).colorScheme,
+      ),
+    ).toBe(look);
+  });
+}
+
+test("paints every control a panel puts on screen", async ({ page }) => {
+  // Anything not explicitly painted takes the browser's own box, which
+  // without `color-scheme` is white with black text inside a dark panel.
+  // `color-scheme` alone makes it a grey that is merely not the panel's, so
+  // this asks for the panel's own surface rather than for "not white".
+  await startWith(page, null, "dark");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Export" })).toBeVisible();
+
+  // Through a probe rather than the token's text: a token is written as hex
+  // or as rgba and a computed style always comes back as rgb.
+  const panel = await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.background = "var(--surface)";
+    probe.style.color = "var(--text)";
+    document.body.append(probe);
+    const style = getComputedStyle(probe);
+    const read = { background: style.backgroundColor, colour: style.color };
+    probe.remove();
+    return read;
+  });
+  const controls = page.locator(
+    ".settings-field input, .settings-field select",
+  );
+  const count = await controls.count();
+  expect(count, "no controls were found to check").toBeGreaterThan(1);
+  for (let at = 0; at < count; at += 1) {
+    const painted = await controls.nth(at).evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { background: style.backgroundColor, colour: style.color };
+    });
+    expect(painted.background, `control ${at} background`).toBe(
+      panel.background,
+    );
+    expect(painted.colour, `control ${at} colour`).toBe(panel.colour);
+  }
+});

@@ -138,3 +138,31 @@ test("stands aside for a warning where you watch", async ({ page }) => {
   await expect(page.locator("[data-ambient-readout]")).toHaveCount(0);
   await expect(page.locator(".command-bar")).toBeVisible();
 });
+
+test("the second-monitor setting reads like the switches above it", async ({
+  page,
+}) => {
+  // `.settings-field` had no rule in the stylesheet at all, so this setting's
+  // title rendered inline at 16px beside its detail at 13px in one run-on
+  // paragraph, under a run of switches whose titles are 12px with the detail
+  // on its own line at 10px. It was the one part of Settings that looked
+  // unfinished.
+  await start(page);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const setting = page.locator("[data-ambient-screen-setting]");
+  await setting.scrollIntoViewIfNeeded();
+  await expect(setting).toBeVisible();
+
+  const shape = await setting.evaluate((node) => {
+    const title = node.querySelector("strong")!;
+    const detail = node.querySelector("small")!;
+    const neighbour = node.parentElement!.querySelector(".toggle-row strong")!;
+    return {
+      title: getComputedStyle(title).fontSize,
+      detail: getComputedStyle(detail).display,
+      neighbour: getComputedStyle(neighbour).fontSize,
+    };
+  });
+  expect(shape.title).toBe(shape.neighbour);
+  expect(shape.detail).toBe("block");
+});
