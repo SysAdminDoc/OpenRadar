@@ -1061,7 +1061,10 @@ function MapViewportInner(
             ["==", ["get", "kind"], "rotation"],
           ],
           layout: {
-            "text-field": ["get", "id"],
+            // The reader's name and the algorithm's identifier together,
+            // falling back to the identifier for anything unnamed and for a
+            // rotation, which is not a storm the reader can name.
+            "text-field": ["coalesce", ["get", "label"], ["get", "id"]],
             "text-size": 11,
             "text-offset": [0, -1.4],
             "text-allow-overlap": false,

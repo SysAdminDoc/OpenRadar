@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CELLS_REFRESH_MS,
   CELLS_STALE_MINUTES,
@@ -37,8 +37,29 @@ export function useStormCells(options: {
   pageVisible: boolean;
   /** Milliseconds, ticking once a minute, for judging what is still current. */
   clock: number;
+  /**
+   * What the reader calls each storm, by the algorithm's own identifier.
+   *
+   * Drawn on the map beside that identifier rather than instead of it: the
+   * name is the reader's and the identity is the data's.
+   */
+  names?: ReadonlyMap<string, string>;
+  /**
+   * Told each time a report arrives, before anything is drawn from it.
+   *
+   * This is where the reader's own names for storms are pruned. It has to
+   * happen when the report changes and nowhere else: doing it in an effect
+   * that watches the report is a setState in an effect body, which cascades
+   * a render, and doing it while rendering would mean a name reappearing on
+   * whichever storm inherited the identifier.
+   */
+  onReport?: (report: CellReport | null) => void;
 }): StormCellState {
-  const { ready, enabled, station, pageVisible, clock } = options;
+  const { ready, enabled, station, pageVisible, clock, names } = options;
+  const reportRef = useRef(options.onReport);
+  useEffect(() => {
+    reportRef.current = options.onReport;
+  }, [options.onReport]);
   const [report, setReport] = useState<CellReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +80,7 @@ export function useStormCells(options: {
         const next = await fetchCells(station);
         if (!open) return;
         setReport(next);
+        reportRef.current?.(next);
         setError(null);
       } catch (failure: unknown) {
         if (!open) return;
@@ -74,6 +96,7 @@ export function useStormCells(options: {
         // volume's cells over a newer picture would be worse than drawing
         // none.
         setReport(null);
+        reportRef.current?.(null);
         setError(message);
       } finally {
         if (open) setLoading(false);
@@ -112,8 +135,8 @@ export function useStormCells(options: {
   );
 
   const features = useMemo(
-    () => (current ? cellFeatures(current, rotating) : null),
-    [current, rotating],
+    () => (current ? cellFeatures(current, rotating, names) : null),
+    [current, rotating, names],
   );
 
   return {

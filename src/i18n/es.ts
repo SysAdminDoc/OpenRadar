@@ -1396,6 +1396,10 @@ export const es: Catalogue = {
   "settings.journalWriting": "Anotar lo que hace el tiempo en tus lugares",
   "settings.journalWritingDetail":
     "Desactivarlo detiene las filas nuevas desde este momento. No borra lo que ya está; para eso está el botón de abajo.",
+  "nearby.nameCell": "Cómo llamas a la tormenta {id}",
+  "nearby.nameCellPlaceholder": "Ponle un nombre",
+  "journal.namedCellPassed":
+    "{name}, la tormenta que el radar llamaba {id}, pasó a {distance}",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":

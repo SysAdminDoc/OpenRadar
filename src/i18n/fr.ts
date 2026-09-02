@@ -1412,6 +1412,10 @@ export const fr: Catalogue = {
   "settings.journalWriting": "Noter ce que le temps fait chez vous",
   "settings.journalWritingDetail":
     "Le désactiver arrête les nouvelles lignes à partir de maintenant. Cela n'efface pas ce qui est déjà là ; c'est le bouton ci-dessous qui le fait.",
+  "nearby.nameCell": "Comment vous appelez l'orage {id}",
+  "nearby.nameCellPlaceholder": "Donnez-lui un nom",
+  "journal.namedCellPassed":
+    "{name}, l'orage que le radar appelait {id}, est passé à {distance}",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":

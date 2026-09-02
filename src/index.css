@@ -4416,6 +4416,16 @@ input[type="range"] {
   color: var(--muted);
 }
 
+/* Where a reader names a storm. Sized to sit under the sentence about it
+   rather than beside it, so the line stays readable in the compact layout. */
+.cell-name {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
 /* A place worth knowing about, found by going there. A card, once, in the
    corner: no toast, no sound, nothing that interrupts what somebody was
    actually doing with the map. */

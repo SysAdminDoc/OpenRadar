@@ -124,6 +124,9 @@ interface PanelSurfacesProps {
   nearby: {
     warnings: NearbyWarning[];
     cells: NearbyCell[];
+    /** What the reader calls each of them, by the algorithm's identifier. */
+    cellNames: ReadonlyMap<string, string>;
+    onNameCell: (id: string, name: string) => void;
     summary: string;
   };
   /** True while archived radar from another day is on the map. */
@@ -238,6 +241,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onPlace={props.onNearbyPlace}
           warnings={props.nearby.warnings}
           cells={props.nearby.cells}
+          cellNames={props.nearby.cellNames}
+          onNameCell={props.nearby.onNameCell}
           cellsNote={
             !cellsAvailable()
               ? "unavailable"

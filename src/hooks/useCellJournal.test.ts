@@ -148,6 +148,23 @@ describe("what the record says about a storm going past", () => {
     expect(appended).not.toHaveBeenCalled();
   });
 
+  it("writes down the reader's own name for the storm", () => {
+    renderHook(() =>
+      useCellJournal({
+        report: report([cell("A1", 3)]),
+        places: [place()],
+        enabled: true,
+        names: new Map([["A1", "The one over the lake"]]),
+      }),
+    );
+    const row = appended.mock.calls[0][0];
+    // The reader's word for it, and the algorithm's identifier beside it: a
+    // row somebody reads next year has to be checkable against the office's
+    // own products.
+    expect(row.text).toContain("The one over the lake");
+    expect(row.text).toContain("A1");
+  });
+
   it("hands the picture of the frame along with the row", () => {
     const capture = vi.fn(async () => new Uint8Array([1, 2, 3]));
     renderHook(() =>
