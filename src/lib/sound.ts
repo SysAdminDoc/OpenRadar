@@ -87,6 +87,24 @@ let context: AudioContext | null = null;
  */
 let quietAgain = 0;
 
+/**
+ * How far ahead sounds are allowed to stack up, in seconds.
+ *
+ * The queue has to hold, or two alerts arriving together make a chord. It
+ * must not hold for ever: a reader pressing the preview button ten times
+ * queued nearly a minute of noise with nothing to stop it, and an alert
+ * arriving during that would have been the eleventh in line. Past the ceiling
+ * a sound is dropped rather than queued, which is the right answer for a
+ * preview and for a burst of alerts alike, because the second of two
+ * identical warnings tells nobody anything the first did not.
+ */
+const QUEUE_CEILING_SECONDS = 8;
+
+/** Whether another sound can be added to the queue, or should be dropped. */
+function roomToSound(now: number): boolean {
+  return quietAgain - now < QUEUE_CEILING_SECONDS;
+}
+
 /** Nought to one. The reader's, so it is asked for rather than assumed. */
 let volume = 0.18;
 
@@ -119,6 +137,7 @@ export async function playAlertTone(
     // was refused leaves this null, and the kit answers instead, so the
     // warning still makes a noise.
     if (ownPath && own) {
+      if (!roomToSound(context.currentTime)) return false;
       const source = context.createBufferSource();
       const gain = context.createGain();
       const from = Math.max(context.currentTime, quietAgain);
@@ -139,6 +158,7 @@ export async function playAlertTone(
       return true;
     }
 
+    if (!roomToSound(context.currentTime)) return false;
     // After whatever is still sounding, so two of these never overlap.
     const start = Math.max(context.currentTime, quietAgain);
     quietAgain = start + tone.notes.length * tone.each;

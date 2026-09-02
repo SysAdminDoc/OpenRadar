@@ -377,3 +377,29 @@ describe("a sound of the reader's own", () => {
     expect(DEFAULT_SETTINGS.alertSoundPath).toBeNull();
   });
 });
+
+describe("how far ahead sounds may stack up", () => {
+  it("drops one rather than queueing a minute of noise", async () => {
+    // The queue has to hold, or two alerts arriving together make a chord.
+    // Holding for ever is its own problem: a reader pressing the preview
+    // button ten times queued nearly a minute of sound with nothing to stop
+    // it, and a real alert arriving during that was eleventh in line.
+    const audio = fakeAudio();
+    vi.stubGlobal("AudioContext", function () {
+      return audio.context;
+    });
+
+    const answers: boolean[] = [];
+    for (let press = 0; press < 20; press += 1) {
+      answers.push(await playAlertTone("extreme"));
+    }
+    expect(answers[0]).toBe(true);
+    expect(answers.some((played) => !played)).toBe(true);
+
+    const last = Math.max(
+      ...audio.oscillator.stop.mock.calls.map((call) => call[0] as number),
+    );
+    // Everything scheduled lands inside the ceiling plus one sound's length.
+    expect(last).toBeLessThan(12);
+  });
+});
