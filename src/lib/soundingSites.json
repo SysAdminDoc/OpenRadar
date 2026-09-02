@@ -1,0 +1,604 @@
+[
+  {
+    "id": "K1Y7",
+    "name": "Yuma Prvg Ground",
+    "state": "AZ",
+    "latitude": 32.5,
+    "longitude": -114.4
+  },
+  {
+    "id": "KABQ",
+    "name": "Albuquerq/Krtlnd",
+    "state": "NM",
+    "latitude": 35.05,
+    "longitude": -106.6
+  },
+  {
+    "id": "KABR",
+    "name": "Aberdeen",
+    "state": "SD",
+    "latitude": 45.45,
+    "longitude": -98.4
+  },
+  {
+    "id": "KALY",
+    "name": "Albany",
+    "state": "NY",
+    "latitude": 42.75,
+    "longitude": -72.2
+  },
+  {
+    "id": "KAMA",
+    "name": "Amarillo Arpt",
+    "state": "TX",
+    "latitude": 35.23,
+    "longitude": -101.7
+  },
+  {
+    "id": "KAPX",
+    "name": "Alpena",
+    "state": "MI",
+    "latitude": 45.07,
+    "longitude": -82.4
+  },
+  {
+    "id": "KBIS",
+    "name": "Bismarck Municip",
+    "state": "ND",
+    "latitude": 46.77,
+    "longitude": -100.7
+  },
+  {
+    "id": "KBMX",
+    "name": "Birmingham",
+    "state": "AL",
+    "latitude": 33.18,
+    "longitude": -86.78
+  },
+  {
+    "id": "KBNA",
+    "name": "Nashville Metro",
+    "state": "TN",
+    "latitude": 36.13,
+    "longitude": -86.6
+  },
+  {
+    "id": "KBOI",
+    "name": "Boise Arpt",
+    "state": "ID",
+    "latitude": 43.57,
+    "longitude": -116.2
+  },
+  {
+    "id": "KBRO",
+    "name": "Brownsville Intl",
+    "state": "TX",
+    "latitude": 25.9,
+    "longitude": -97.4
+  },
+  {
+    "id": "KBUF",
+    "name": "Buffalo Intl Arp",
+    "state": "NY",
+    "latitude": 42.93,
+    "longitude": -78.7
+  },
+  {
+    "id": "KCAR",
+    "name": "Caribou",
+    "state": "ME",
+    "latitude": 46.87,
+    "longitude": -68.0
+  },
+  {
+    "id": "KCHS",
+    "name": "Charleston Afb",
+    "state": "SC",
+    "latitude": 32.9,
+    "longitude": -80.0
+  },
+  {
+    "id": "KCRP",
+    "name": "Corpus Christi I",
+    "state": "TX",
+    "latitude": 27.77,
+    "longitude": -97.5
+  },
+  {
+    "id": "KDDC",
+    "name": "Dodge City",
+    "state": "KS",
+    "latitude": 37.77,
+    "longitude": -99.9
+  },
+  {
+    "id": "KDRT",
+    "name": "Del Rio Intl",
+    "state": "TX",
+    "latitude": 29.37,
+    "longitude": -100.9
+  },
+  {
+    "id": "KDTX",
+    "name": "Detroit",
+    "state": "MI",
+    "latitude": 42.7,
+    "longitude": -83.4
+  },
+  {
+    "id": "KDVN",
+    "name": "Davenport",
+    "state": "IA",
+    "latitude": 41.62,
+    "longitude": -90.5
+  },
+  {
+    "id": "KEDW",
+    "name": "Edwards Afb",
+    "state": "CA",
+    "latitude": 34.9,
+    "longitude": -117.8
+  },
+  {
+    "id": "KEPZ",
+    "name": "Santa Teresa",
+    "state": "NM",
+    "latitude": 31.87,
+    "longitude": -106.7
+  },
+  {
+    "id": "KFFC",
+    "name": "Peachtre/Fal Fld",
+    "state": "GA",
+    "latitude": 33.37,
+    "longitude": -84.5
+  },
+  {
+    "id": "KFGZ",
+    "name": "Flgstf/Belemont",
+    "state": "AZ",
+    "latitude": 35.23,
+    "longitude": -111.8
+  },
+  {
+    "id": "KFWD",
+    "name": "Fort_worth",
+    "state": "TX",
+    "latitude": 32.79,
+    "longitude": -96.7
+  },
+  {
+    "id": "KGGW",
+    "name": "Glasgow Intl Arp",
+    "state": "MT",
+    "latitude": 48.22,
+    "longitude": -106.6
+  },
+  {
+    "id": "KGJT",
+    "name": "Grand Junction",
+    "state": "CO",
+    "latitude": 39.13,
+    "longitude": -108.5
+  },
+  {
+    "id": "KGRB",
+    "name": "Green Bay/Straub",
+    "state": "WI",
+    "latitude": 44.48,
+    "longitude": -88.1
+  },
+  {
+    "id": "KGSO",
+    "name": "Greensboro/Hi Pt",
+    "state": "NC",
+    "latitude": 36.08,
+    "longitude": -79.9
+  },
+  {
+    "id": "KGYX",
+    "name": "Gray",
+    "state": "ME",
+    "latitude": 43.8927,
+    "longitude": -70.257
+  },
+  {
+    "id": "KIAD",
+    "name": "Washington/Dulle",
+    "state": "VA",
+    "latitude": 38.95,
+    "longitude": -77.4
+  },
+  {
+    "id": "KILN",
+    "name": "Cncnati-Daytn",
+    "state": "OH",
+    "latitude": 39.43,
+    "longitude": -83.8
+  },
+  {
+    "id": "KILX",
+    "name": "Lincoln",
+    "state": "IL",
+    "latitude": 40.15,
+    "longitude": -88.6
+  },
+  {
+    "id": "KINL",
+    "name": "International Fa",
+    "state": "MN",
+    "latitude": 48.57,
+    "longitude": -93.3
+  },
+  {
+    "id": "KJAN",
+    "name": "Jackson/Thompson",
+    "state": "MS",
+    "latitude": 32.32,
+    "longitude": -90.0
+  },
+  {
+    "id": "KJAX",
+    "name": "Jacksonville Int",
+    "state": "FL",
+    "latitude": 30.5,
+    "longitude": -81.7
+  },
+  {
+    "id": "KLBF",
+    "name": "N. Platte/Lee Bi",
+    "state": "NE",
+    "latitude": 41.13,
+    "longitude": -100.6
+  },
+  {
+    "id": "KLCH",
+    "name": "Lake Charles Mun",
+    "state": "LA",
+    "latitude": 30.12,
+    "longitude": -93.2
+  },
+  {
+    "id": "KLKN",
+    "name": "Elko",
+    "state": "NV",
+    "latitude": 40.87,
+    "longitude": -114.2
+  },
+  {
+    "id": "KLZK",
+    "name": "North Little Roc",
+    "state": "AR",
+    "latitude": 34.83,
+    "longitude": -92.2
+  },
+  {
+    "id": "KMAF",
+    "name": "Midland Regional",
+    "state": "TX",
+    "latitude": 31.95,
+    "longitude": -102.2
+  },
+  {
+    "id": "KMFL",
+    "name": "Miami",
+    "state": "FL",
+    "latitude": 25.75,
+    "longitude": -79.6
+  },
+  {
+    "id": "KMFR",
+    "name": "Medford/Jackson",
+    "state": "OR",
+    "latitude": 42.37,
+    "longitude": -122.8
+  },
+  {
+    "id": "KMHX",
+    "name": "Newport",
+    "state": "NC",
+    "latitude": 34.78,
+    "longitude": -76.88
+  },
+  {
+    "id": "KMPX",
+    "name": "Chanhassen",
+    "state": "MN",
+    "latitude": 44.83,
+    "longitude": -93.55
+  },
+  {
+    "id": "KNKX",
+    "name": "Miramar Nas",
+    "state": "CA",
+    "latitude": 32.85,
+    "longitude": -117.1
+  },
+  {
+    "id": "KOAK",
+    "name": "Oakland",
+    "state": "CA",
+    "latitude": 37.73,
+    "longitude": -122.2
+  },
+  {
+    "id": "KOAX",
+    "name": "Omaha / Valley",
+    "state": "NE",
+    "latitude": 41.32,
+    "longitude": -95.6
+  },
+  {
+    "id": "KOKX",
+    "name": "Brookhaven",
+    "state": "NY",
+    "latitude": 40.8656,
+    "longitude": -72.8645
+  },
+  {
+    "id": "KOTX",
+    "name": "Spokane",
+    "state": "WA",
+    "latitude": 47.7,
+    "longitude": -116.4
+  },
+  {
+    "id": "KOUN",
+    "name": "Norman",
+    "state": "OK",
+    "latitude": 35.22,
+    "longitude": -97.4
+  },
+  {
+    "id": "KPIT",
+    "name": "Pittsburgh Intl",
+    "state": "PA",
+    "latitude": 40.5,
+    "longitude": -80.2
+  },
+  {
+    "id": "KPSR",
+    "name": "Phoenix",
+    "state": "AZ",
+    "latitude": 33.45,
+    "longitude": -111.95
+  },
+  {
+    "id": "KREV",
+    "name": "Reno",
+    "state": "NV",
+    "latitude": 39.57,
+    "longitude": -118.2
+  },
+  {
+    "id": "KRIW",
+    "name": "Riverton",
+    "state": "WY",
+    "latitude": 43.07,
+    "longitude": -108.4
+  },
+  {
+    "id": "KRNK",
+    "name": "Roanoke",
+    "state": "VA",
+    "latitude": 37.2,
+    "longitude": -79.5
+  },
+  {
+    "id": "KSGF",
+    "name": "Springfld Muni",
+    "state": "MO",
+    "latitude": 37.23,
+    "longitude": -93.3
+  },
+  {
+    "id": "KSHV",
+    "name": "Shreveport Regio",
+    "state": "LA",
+    "latitude": 32.47,
+    "longitude": -93.8
+  },
+  {
+    "id": "KSIL",
+    "name": "Slidell Radar S",
+    "state": "LA",
+    "latitude": 30.25,
+    "longitude": -89.7
+  },
+  {
+    "id": "KSLC",
+    "name": "Salt Lake City I",
+    "state": "UT",
+    "latitude": 40.78,
+    "longitude": -111.9
+  },
+  {
+    "id": "KSLE",
+    "name": "Salem/Mcnary",
+    "state": "OR",
+    "latitude": 44.92,
+    "longitude": -123.0
+  },
+  {
+    "id": "KTBW",
+    "name": "Tampa Bay Area",
+    "state": "FL",
+    "latitude": 27.7,
+    "longitude": -82.4
+  },
+  {
+    "id": "KTFX",
+    "name": "Great_falls",
+    "state": "MT",
+    "latitude": 47.46,
+    "longitude": -110.6
+  },
+  {
+    "id": "KTOP",
+    "name": "Topeka/Billard M",
+    "state": "KS",
+    "latitude": 39.07,
+    "longitude": -95.6
+  },
+  {
+    "id": "KUIL",
+    "name": "Quillayute State",
+    "state": "WA",
+    "latitude": 47.95,
+    "longitude": -124.5
+  },
+  {
+    "id": "KUNR",
+    "name": "Rapid City",
+    "state": "SD",
+    "latitude": 44.07,
+    "longitude": -102.8
+  },
+  {
+    "id": "KVBG",
+    "name": "Vandenberg Afb",
+    "state": "CA",
+    "latitude": 34.73,
+    "longitude": -120.5
+  },
+  {
+    "id": "KVEF",
+    "name": "Las Vegas",
+    "state": "NV",
+    "latitude": 36.047,
+    "longitude": -115.1845
+  },
+  {
+    "id": "KVPS",
+    "name": "Eglin Afb/Valpar",
+    "state": "FL",
+    "latitude": 30.48,
+    "longitude": -86.5
+  },
+  {
+    "id": "KWAL",
+    "name": "Wallops Is Stn",
+    "state": "VA",
+    "latitude": 37.93,
+    "longitude": -75.4
+  },
+  {
+    "id": "KXMR",
+    "name": "Cape Canaveral",
+    "state": "FL",
+    "latitude": 28.47,
+    "longitude": -80.5
+  },
+  {
+    "id": "PADQ",
+    "name": "Kodiak",
+    "state": "AK",
+    "latitude": 57.75,
+    "longitude": -152.4
+  },
+  {
+    "id": "PAKN",
+    "name": "King Salmon",
+    "state": "AK",
+    "latitude": 58.68,
+    "longitude": -156.6
+  },
+  {
+    "id": "PANC",
+    "name": "Anchorage IAP/pt. Campbe",
+    "state": "AK",
+    "latitude": 61.17,
+    "longitude": -150.0
+  },
+  {
+    "id": "PANN",
+    "name": "Anette Island",
+    "state": "AK",
+    "latitude": 55.03,
+    "longitude": -131.5
+  },
+  {
+    "id": "PASN",
+    "name": "Saint Paul Island",
+    "state": "AK",
+    "latitude": 57.15,
+    "longitude": -170.2167
+  },
+  {
+    "id": "PASY",
+    "name": "Shemya AFB",
+    "state": "AK",
+    "latitude": 52.7167,
+    "longitude": 174.1
+  },
+  {
+    "id": "PBET",
+    "name": "Bethel",
+    "state": "AK",
+    "latitude": 60.78,
+    "longitude": -161.8
+  },
+  {
+    "id": "PBRW",
+    "name": "Point Barrow",
+    "state": "AK",
+    "latitude": 71.3,
+    "longitude": -156.7
+  },
+  {
+    "id": "PCDB",
+    "name": "Cold Bay",
+    "state": "AK",
+    "latitude": 55.2,
+    "longitude": -162.7
+  },
+  {
+    "id": "PFAI",
+    "name": "Fairbanks",
+    "state": "AK",
+    "latitude": 64.82,
+    "longitude": -147.8
+  },
+  {
+    "id": "PHLI",
+    "name": "Lihue",
+    "state": "HI",
+    "latitude": 21.9933,
+    "longitude": -159.3467
+  },
+  {
+    "id": "PITO",
+    "name": "Hilo",
+    "state": "HI",
+    "latitude": 19.72,
+    "longitude": -155.0
+  },
+  {
+    "id": "PMCG",
+    "name": "Mcgrath",
+    "state": "AK",
+    "latitude": 62.97,
+    "longitude": -155.6
+  },
+  {
+    "id": "POME",
+    "name": "Nome Ap",
+    "state": "AK",
+    "latitude": 64.5,
+    "longitude": -165.4
+  },
+  {
+    "id": "POTZ",
+    "name": "Kotzebue",
+    "state": "AK",
+    "latitude": 66.87,
+    "longitude": -162.6
+  },
+  {
+    "id": "PYAK",
+    "name": "Yakutat",
+    "state": "AK",
+    "latitude": 59.52,
+    "longitude": -139.6
+  }
+]
