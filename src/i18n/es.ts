@@ -32,7 +32,7 @@ export const es: Catalogue = {
   "export.dataComposite": "Compuesto MRMS",
   "export.dataWritten": "{label} guardado",
   "export.dataWrittenBody":
-    "{readings, plural, one {{readings} lectura} other {{readings} lecturas}}, {size}, en {path}, con un archivo de procedencia al lado.",
+    "{readings, plural, one {# lectura} other {# lecturas}}, {size}, en {path}, con un archivo de procedencia al lado.",
   "export.dataFailed": "La exportación de datos falló",
   "export.dataNoView":
     "El mapa aún no tiene una vista a la que recortar la malla.",
@@ -1273,7 +1273,7 @@ export const es: Catalogue = {
   "popup.usgs": "Fuente: USGS",
   "popup.wildfire": "Incendio",
   "popup.acres":
-    "{acres, plural, one {{acres} acre} other {{acres} acres}}, {contained}% contenido",
+    "{acres, plural, one {# acre} other {# acres}}, {contained}% contenido",
   "popup.sizeUnknown": "Tamaño desconocido",
   "popup.perimeterUpdated": "Perímetro actualizado {when}",
   "popup.perimeterUnknown": "Fecha del perímetro desconocida",
@@ -1400,11 +1400,13 @@ export const es: Catalogue = {
   "figures.note":
     "Contado del archivo de esta máquina, de ningún otro sitio. Nada de esto es una racha ni una meta, y nada de esto se anuncia nunca.",
   "figures.rows":
-    "{rows, plural, one {# fila} other {# filas}}: {alerts, plural, one {# aviso} other {# avisos}} y {observations, plural, one {# observación} other {# observaciones}}.",
+    "Entre el {from} y el {to}, tu registro guardó {rows, plural, one {# fila} other {# filas}}: {alerts, plural, one {# aviso} other {# avisos}} y {observations, plural, one {# observación} other {# observaciones}}.",
   "figures.places":
-    "En {places, plural, one {# lugar que nombraste} other {# lugares que nombraste}}.",
+    "En ese periodo conoce {places, plural, one {# lugar que nombraste} other {# lugares que nombraste}}.",
   "figures.period":
-    "Del {from} al {to}, con algo escrito en {days, plural, one {# día} other {# días}}.",
+    "Se escribió algo en {days, plural, one {# de esos días} other {# de esos días}}.",
+  "figures.paused":
+    "No se añade nada nuevo: el registro está desactivado. Lo que hay se queda hasta que lo borres.",
   "figures.off":
     "El registro está desactivado, así que no hay nada que contar.",
   "settings.journalWriting": "Anotar lo que hace el tiempo en tus lugares",

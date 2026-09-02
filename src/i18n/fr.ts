@@ -39,7 +39,7 @@ export const fr: Catalogue = {
   "export.dataComposite": "Composite MRMS",
   "export.dataWritten": "{label} enregistré",
   "export.dataWrittenBody":
-    "{readings, plural, one {{readings} relevé} other {{readings} relevés}}, {size}, dans {path}, avec un fichier de provenance à côté.",
+    "{readings, plural, one {# relevé} other {# relevés}}, {size}, dans {path}, avec un fichier de provenance à côté.",
   "export.dataFailed": "L'exportation des données a échoué",
   "export.dataNoView": "La carte n'a pas encore de vue à découper.",
   "dataExport.bytes": "{count, plural, one {# octet} other {# octets}}",
@@ -1289,7 +1289,7 @@ export const fr: Catalogue = {
   "popup.usgs": "Source : USGS",
   "popup.wildfire": "Feu de forêt",
   "popup.acres":
-    "{acres, plural, one {{acres} acre} other {{acres} acres}}, {contained} % maîtrisé",
+    "{acres, plural, one {# acre} other {# acres}}, {contained} % maîtrisé",
   "popup.sizeUnknown": "Superficie inconnue",
   "popup.perimeterUpdated": "Périmètre mis à jour {when}",
   "popup.perimeterUnknown": "Date du périmètre inconnue",
@@ -1418,11 +1418,13 @@ export const fr: Catalogue = {
   "figures.note":
     "Compté à partir du fichier de cette machine, et de nulle part ailleurs. Rien ici n'est une série ni un objectif, et rien n'en est jamais annoncé.",
   "figures.rows":
-    "{rows, plural, one {# ligne} other {# lignes}} : {alerts, plural, one {# alerte} other {# alertes}} et {observations, plural, one {# observation} other {# observations}}.",
+    "Entre le {from} et le {to}, votre relevé a gardé {rows, plural, one {# ligne} other {# lignes}} : {alerts, plural, one {# alerte} other {# alertes}} et {observations, plural, one {# observation} other {# observations}}.",
   "figures.places":
-    "Sur {places, plural, one {# lieu que vous avez nommé} other {# lieux que vous avez nommés}}.",
+    "Sur cette période il connaît {places, plural, one {# lieu que vous avez nommé} other {# lieux que vous avez nommés}}.",
   "figures.period":
-    "Du {from} au {to}, avec quelque chose de noté sur {days, plural, one {# jour} other {# jours}}.",
+    "Quelque chose a été noté sur {days, plural, one {# de ces jours} other {# de ces jours}}.",
+  "figures.paused":
+    "Rien de nouveau n'est ajouté : le relevé est désactivé. Ce qui est là reste jusqu'à ce que vous l'effaciez.",
   "figures.off": "Le relevé est désactivé, il n'y a donc rien à compter.",
   "settings.journalWriting": "Noter ce que le temps fait chez vous",
   "settings.journalWritingDetail":

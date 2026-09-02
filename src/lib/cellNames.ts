@@ -26,6 +26,14 @@ export const MAX_NAMES = 12;
 /** How long one may be. Long enough for "the one over the lake". */
 export const MAX_NAME = 24;
 
+/** A stored name as anything but the field itself should read it. */
+export function nameOf(
+  names: ReadonlyMap<string, string>,
+  key: string,
+): string {
+  return (names.get(key) ?? "").trim();
+}
+
 /** A name for one cell of one radar's report. */
 export function cellKey(station: string, id: string): string {
   return `${station}|${id}`;
@@ -35,10 +43,16 @@ function tidy(name: string): string {
   // A label on a map, so no line breaks and nothing else that is a control
   // character. Written as an escape rather than as the characters themselves,
   // which is how a literal newline ended up inside this class the first time.
+  //
+  // The leading space goes and the trailing one stays. This is a controlled
+  // input: React writes the tidied value back into the field after every
+  // keystroke, so trimming the end deleted the space the moment it was typed
+  // and "The one over the lake" came out as "Theoneoverthelake". The stored
+  // name is trimmed where it is used instead.
   return name
     .replace(/\p{Cc}/gu, " ")
     .replace(/\s+/g, " ")
-    .trim()
+    .replace(/^\s+/, "")
     .slice(0, MAX_NAME);
 }
 
@@ -57,7 +71,7 @@ export function withName(
   const next = new Map(names);
   const kept = tidy(name);
   next.delete(key);
-  if (!kept) return next;
+  if (!kept.trim()) return next;
   next.set(key, kept);
   while (next.size > MAX_NAMES) {
     const oldest = next.keys().next().value;
@@ -79,10 +93,20 @@ export function livingNames(
   station: string | null,
   tracking: readonly string[],
 ): Map<string, string> {
-  const alive = new Set(tracking.map((id) => cellKey(station ?? "", id)));
+  // Nothing to prune against. A poll that failed, or a moment with no site
+  // tuned, says nothing about which storms the algorithm is still tracking,
+  // and treating it as "none of them" deleted every name a reader had given
+  // over one timeout.
+  if (!station) return new Map(names);
+
+  const alive = new Set(tracking.map((id) => cellKey(station, id)));
   const next = new Map<string, string>();
   for (const [key, name] of names) {
-    if (alive.has(key)) next.set(key, name);
+    // Only this radar's names are judged by this radar's report. Following a
+    // storm across the boundary between two sites changes which one is
+    // tuned, and the names for the site left behind are still good: a reader
+    // panning back finds them where they were.
+    if (!key.startsWith(`${station}|`) || alive.has(key)) next.set(key, name);
   }
   return next;
 }

@@ -1,3 +1,4 @@
+import { locale } from "../i18n";
 import type { GeoPoint } from "./geo";
 import { haversineMiles } from "./geo";
 
@@ -24,15 +25,31 @@ import { haversineMiles } from "./geo";
  *   at them is stated plainly; a record that was actually measured is a fact
  *   worth stating, and a body count is not a curiosity.
  */
+/**
+ * One piece of copy in each language the workspace is written in.
+ *
+ * The stories are prose a person reads, so they are translated like every
+ * other sentence in the app rather than left in English in a data file. The
+ * source's name is not: an office is called what it is called.
+ */
+export type Told = Record<"en" | "es" | "fr", string>;
+
 export interface Curiosity {
   id: string;
-  /** The place's own name, as the story's source calls it. */
-  title: string;
-  /** What happened there, in a few sentences, quoted from the source. */
-  story: string;
-  /** Who says so. */
+  /** The place's own name, in each language. */
+  title: Told;
+  /** What happened there, in a few sentences, in each language. */
+  story: Told;
+  /** Who says so, by name. */
   source: string;
-  /** Where to read it. A curiosity with no citation is not shown at all. */
+  /**
+   * Where to read it.
+   *
+   * A deep link where the office published a page about that event, and the
+   * office's own front door where it did not. Either way the story names who
+   * is speaking, so a reader can check it; an entry with neither a source nor
+   * a link is dropped rather than shown unattributed.
+   */
   url: string;
   place: { lon: number; lat: number };
 }
@@ -56,16 +73,24 @@ export const FIND_MILES = 30;
  */
 export const FIND_ZOOM = 7;
 
+function told(value: unknown): value is Told {
+  if (!value || typeof value !== "object") return false;
+  const one = value as Partial<Told>;
+  // Every language, or none: a card that falls back to English for one reader
+  // and not another is worse than one that is not there.
+  return (["en", "es", "fr"] as const).every(
+    (which) => typeof one[which] === "string" && one[which].length > 0,
+  );
+}
+
 function isCuriosity(value: unknown): value is Curiosity {
   if (!value || typeof value !== "object") return false;
   const one = value as Partial<Curiosity>;
   return (
     typeof one.id === "string" &&
     one.id.length > 0 &&
-    typeof one.title === "string" &&
-    one.title.length > 0 &&
-    typeof one.story === "string" &&
-    one.story.length > 0 &&
+    told(one.title) &&
+    told(one.story) &&
     // A story with nobody behind it is a story this app has no business
     // telling. An uncited entry is dropped rather than shown unattributed.
     typeof one.source === "string" &&
@@ -91,6 +116,14 @@ export function readCuriosities(value: unknown): Curiosity[] {
     out.push(entry);
   }
   return out;
+}
+
+/** A curiosity's own words, in the language the workspace is written in. */
+export function inWords(told: Told): string {
+  const which = locale();
+  if (which.startsWith("es")) return told.es;
+  if (which.startsWith("fr")) return told.fr;
+  return told.en;
 }
 
 /**

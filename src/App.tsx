@@ -222,10 +222,13 @@ export default function App() {
   const [capture, setCapture] = useState(false);
   const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
 
-  // What the reader calls the storms the radar is tracking. Held for the
-  // session and written down nowhere: a name is worth something while the
-  // storm is on screen, and a list of storm names kept on disk beside the
-  // record would be a list of what somebody was watching and when.
+  // What the reader calls the storms the radar is tracking.
+  //
+  // Held for the session. The names themselves are never saved: a list of
+  // storm names on disk beside the record would be a list of what somebody
+  // was watching and when. A row in the record can quote one, because a storm
+  // you named passing your house is the entry worth reading next year, but
+  // that is a record of the weather rather than a saved list of names.
   const [cellNames, setCellNames] = useState<ReadonlyMap<string, string>>(
     new Map(),
   );
@@ -1714,7 +1717,11 @@ export default function App() {
       data-capture={capture ? "1" : undefined}
     >
       {revealing ? <FirstRunReveal onDone={markRevealSeen} /> : null}
-      {curiosity ? (
+      {curiosity && settings.curiosities && !overlays.alertActive ? (
+        // Gated where it is drawn as well as where it is found. The card is
+        // state, and state outlives the condition that created it: a warning
+        // going up while one was on screen used to leave a note about a
+        // measurement taken in 1934 sitting over a live warning.
         <CuriosityCard found={curiosity} onDismiss={() => setCuriosity(null)} />
       ) : null}
       {catchUp && !catchUpGone && !overlays.alertActive ? (

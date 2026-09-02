@@ -1,5 +1,5 @@
 import { useT } from "../i18n";
-import type { Curiosity } from "../lib/curiosities";
+import { inWords, type Curiosity } from "../lib/curiosities";
 
 /**
  * A place where the weather made history, found by going there.
@@ -28,9 +28,9 @@ export function CuriosityCard({
     >
       <div className="curiosity__title">
         <small>{t("curiosity.title")}</small>
-        <span>{found.title}</span>
+        <span>{inWords(found.title)}</span>
       </div>
-      <p>{found.story}</p>
+      <p>{inWords(found.story)}</p>
       <p className="source-note">
         <a href={found.url} target="_blank" rel="noreferrer noopener">
           {found.source}

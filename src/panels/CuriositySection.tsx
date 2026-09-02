@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useT } from "../i18n";
 import {
   CURIOSITY_URL,
+  inWords,
   readCuriosities,
   type Curiosity,
 } from "../lib/curiosities";
@@ -53,7 +54,7 @@ export function CuriositySection({
                   {/* The place's own name once the set has been read, and the
                       identifier until then, so the list is never empty while
                       a file loads. */}
-                  <strong>{one?.title ?? id}</strong>
+                  <strong>{one ? inWords(one.title) : id}</strong>
                   {one ? (
                     <small>
                       <a

@@ -7,7 +7,7 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
-import { locale, translate } from "../../i18n";
+import { translate } from "../../i18n";
 
 const SERVICE =
   "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query";
@@ -108,7 +108,8 @@ export const wildfiresOverlay: OverlayAdapter = {
       lines: [
         Number.isFinite(acres)
           ? translate("popup.acres", {
-              acres: Math.round(acres).toLocaleString(locale()),
+              // Raw, because the sentence counts by it.
+              acres: Math.round(acres),
               contained: Number(properties.contained) || 0,
             })
           : translate("popup.sizeUnknown"),

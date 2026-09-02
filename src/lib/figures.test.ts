@@ -54,12 +54,24 @@ describe("figures about your own record", () => {
     expect(figuresFrom([])).toBeNull();
   });
 
-  it("names the period every figure covers", () => {
-    const said = figureLines(figuresFrom([daysAgo(30), daysAgo(1)])!).join(" ");
-    // A number on its own invites a comparison; a number that says what it
-    // counts and over what period is a fact about a file.
-    expect(said).toContain("2026");
-    expect(said).toMatch(/2 rows|2 records|2 /);
+  it("names the period on every line, not once for the block", () => {
+    const lines = figureLines(figuresFrom([daysAgo(30), daysAgo(1)])!);
+    // Joining them and looking for a year passed while two of the three
+    // lines named no period at all. Each one is checked on its own.
+    expect(lines.length).toBeGreaterThan(1);
+    for (const line of lines) {
+      expect(line, line).toMatch(/2026|those days|that period/);
+    }
+    expect(lines[0]).toContain("2 rows");
+  });
+
+  it("says nothing at all when it cannot name a period", () => {
+    // Every row unreadable: there are rows, so the figures answer, but
+    // there is no period to state and inventing one is the failure these
+    // sentences exist to prevent.
+    const figures = figuresFrom([row({ observed: "one Tuesday" })])!;
+    expect(figures.rows).toBe(1);
+    expect(figureLines(figures)).toEqual([]);
   });
 
   it("is a fact, never a game", () => {

@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   filterJournal,
   journalMarkdown,
@@ -178,30 +178,62 @@ describe("the record written for a person", () => {
 });
 
 describe("switching the record off", () => {
+  /**
+   * The record only exists on the desktop, so the browser check short-circuits
+   * every write under a test runner and the switch is never reached. The
+   * native side is faked here, minimally, so the branch that matters actually
+   * runs: without it this test passed against a build with no switch at all.
+   */
+  function desktop() {
+    const invoked: string[] = [];
+    vi.stubGlobal("__TAURI_INTERNALS__", {
+      invoke: async (command: string) => {
+        invoked.push(command);
+        return command === "journal_append" ? "an-id" : null;
+      },
+    });
+    return invoked;
+  }
+
+  const row = {
+    at: "2026-09-02T13:05:00.000Z",
+    place: "Casa",
+    kind: "observation" as const,
+    source: "KDAL",
+    observed: "2026-09-02T13:00:00.000Z",
+    obtained: "a station report near a place you watch",
+    text: "rain",
+  };
+
+  afterEach(() => {
+    setJournalWriting(true);
+    vi.unstubAllGlobals();
+  });
+
   it("stops every row, whichever thing was writing it", async () => {
-    // The rule is about the file rather than about any one writer, so it is
-    // held in the one place a row can be written from. A fourth writer added
-    // later obeys it without having to remember it.
+    const invoked = desktop();
+    setJournalWriting(false);
+    await appendJournalRow(row);
+    expect(invoked).toEqual([]);
+
+    // And the same call goes through the moment it is switched back on, so
+    // this is the switch rather than a broken write.
+    setJournalWriting(true);
+    await appendJournalRow(row);
+    expect(invoked).toContain("journal_append");
+  });
+
+  it("keeps the rule in the one place a row can be written", () => {
+    // The rule is about the file rather than about any one writer, so a
+    // fourth writer added later obeys it without having to remember it.
     const source = readFileSync(
       join(import.meta.dirname, "journal.ts"),
       "utf8",
     );
-    expect(source).toMatch(
-      /if \(!journalAvailable\(\) \|\| !writing\) return;/,
+    const appends = source.slice(
+      source.indexOf("export async function appendJournalRow"),
     );
-    // And nothing else in the app reaches past it: a caller cannot set the
-    // flag back on its own way in.
-    setJournalWriting(false);
-    await appendJournalRow({
-      at: "2026-09-02T13:05:00.000Z",
-      place: "Casa",
-      kind: "observation",
-      source: "KDAL",
-      observed: "2026-09-02T13:00:00.000Z",
-      obtained: "a station report near a place you watch",
-      text: "rain",
-    });
-    setJournalWriting(true);
+    expect(appends.slice(0, 400)).toContain("!writing");
   });
 });
 

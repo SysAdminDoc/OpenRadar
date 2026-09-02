@@ -238,7 +238,7 @@ test("plays a bundle back as its own replay, on the storm's track and view", asy
   // What the bundle could not fetch when it was made is said, not hidden.
   await expect(
     // One feed, said as one feed. The catalogue counts properly now.
-    page.getByText(/1 warnings feed was not in the bundle/),
+    page.getByText(/1 feed of warnings was not in the bundle/),
   ).toBeVisible();
   await expect(page.getByText(/of 3 radar frames/)).toBeVisible();
 

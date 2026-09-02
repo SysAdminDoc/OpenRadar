@@ -32,7 +32,7 @@ export const en = {
   "export.dataComposite": "MRMS composite",
   "export.dataWritten": "{label} written",
   "export.dataWrittenBody":
-    "{readings, plural, one {{readings} reading} other {{readings} readings}}, {size}, at {path}, with a provenance file beside it.",
+    "{readings, plural, one {# reading} other {# readings}}, {size}, at {path}, with a provenance file beside it.",
   "export.dataFailed": "The data export failed",
   "export.dataNoView": "The map has no view to cut the grid to yet.",
   "dataExport.bytes": "{count, plural, one {# byte} other {# bytes}}",
@@ -330,9 +330,9 @@ export const en = {
   "bundle.missingTiles":
     "{count, plural, one {# tile was} other {# tiles were}} not in the bundle.",
   "bundle.missingWarnings":
-    "{count, plural, one {# warnings feed was} other {# warnings feeds were}} not in the bundle, so its warnings may be incomplete.",
+    "{count, plural, one {# feed of warnings was} other {# feeds of warnings were}} not in the bundle, so its warnings may be incomplete.",
   "bundle.missingBoth":
-    "{tiles, plural, one {# tile} other {# tiles}} and {warnings, plural, one {# warnings feed} other {# warnings feeds}} were not in the bundle.",
+    "{tiles, plural, one {# tile} other {# tiles}} and {warnings, plural, one {# feed of warnings} other {# feeds of warnings}} were not in the bundle.",
   "bundle.error.invalidRequest": "This replay cannot be bundled: {0}.",
   "bundle.error.tooManyTiles":
     "The view covers {0, plural, one {# tile} other {# tiles}} across the replay. Zoom in, or out, so it covers fewer.",
@@ -1250,7 +1250,7 @@ export const en = {
   "popup.usgs": "Source: USGS",
   "popup.wildfire": "Wildfire",
   "popup.acres":
-    "{acres, plural, one {{acres} acre} other {{acres} acres}}, {contained}% contained",
+    "{acres, plural, one {# acre} other {# acres}}, {contained}% contained",
   "popup.sizeUnknown": "Size unknown",
   "popup.perimeterUpdated": "Perimeter updated {when}",
   "popup.perimeterUnknown": "Perimeter date unknown",
@@ -1377,11 +1377,13 @@ export const en = {
   "figures.note":
     "Counted from the file on this machine, nowhere else. Nothing here is a streak or a target, and nothing about it is ever announced.",
   "figures.rows":
-    "{rows, plural, one {# row} other {# rows}}: {alerts, plural, one {# warning} other {# warnings}} and {observations, plural, one {# observation} other {# observations}}.",
+    "Between {from} and {to}, your record kept {rows, plural, one {# row} other {# rows}}: {alerts, plural, one {# warning} other {# warnings}} and {observations, plural, one {# observation} other {# observations}}.",
   "figures.places":
-    "Across {places, plural, one {# place you named} other {# places you named}}.",
+    "Over that period it knows {places, plural, one {# place you named} other {# places you named}}.",
   "figures.period":
-    "From {from} to {to}, with something written on {days, plural, one {# day} other {# days}}.",
+    "Something was written on {days, plural, one {# of those days} other {# of those days}}.",
+  "figures.paused":
+    "Nothing new is being added: the record is switched off. What is here stays until you delete it.",
   "figures.off": "The record is switched off, so there is nothing to count.",
   "settings.journalWriting": "Write down what the weather does at your places",
   "settings.journalWritingDetail":
