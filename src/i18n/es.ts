@@ -1005,9 +1005,20 @@ export const es: Catalogue = {
   "bar.compact": "Comandos compactos",
   "bar.location": "Ubicación",
   "bar.locate": "Ubicar",
-  "welcome.title": "Todo está en Comandos y Capas",
   "welcome.detail":
     "Comandos busca por nombre cualquier producto, lugar o ajuste. Capas es donde se activan y desactivan el radar, los avisos, los rayos y lo demás.",
+  "opening.rain": "lluvia",
+  "opening.snow": "nieve",
+  "opening.fog": "niebla",
+  "opening.thunder": "una tormenta eléctrica",
+  "opening.weather": "{station} informa {weather}, {when}.",
+  "opening.weatherAndAir": "{station} informa {weather} a {degrees}°, {when}.",
+  "opening.quiet": "{station} informa que no cae nada, {when}.",
+  "opening.quietAndAir":
+    "{station} informa que no cae nada, {degrees}°, {when}.",
+  "opening.showAgain": "Mostrar otra vez el saludo de inicio",
+  "opening.showAgainDetail":
+    "La línea de apertura y el disco del radar dibujándose, una vez más en el próximo arranque",
   "bar.commands": "Comandos",
   "bar.commandsDetail": "Todas las capas, productos y paneles en una lista",
   "bar.dualPane": "Dos paneles",

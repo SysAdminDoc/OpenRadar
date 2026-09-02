@@ -992,9 +992,21 @@ export const en = {
   "bar.location": "Location",
   "bar.locate": "Locate",
   "bar.commands": "Commands",
-  "welcome.title": "Everything is under Commands and Layers",
   "welcome.detail":
     "Commands searches every product, place and setting by name. Layers is where you switch the radar, warnings, lightning and the rest on and off.",
+  "opening.rain": "rain",
+  "opening.snow": "snow",
+  "opening.fog": "fog",
+  "opening.thunder": "a thunderstorm",
+  "opening.weather": "{station} is reporting {weather}, {when}.",
+  "opening.weatherAndAir":
+    "{station} is reporting {weather} at {degrees}°, {when}.",
+  "opening.quiet": "{station} is reporting nothing falling, {when}.",
+  "opening.quietAndAir":
+    "{station} is reporting nothing falling, {degrees}°, {when}.",
+  "opening.showAgain": "Show the first-run greeting again",
+  "opening.showAgainDetail":
+    "The opening line and the radar disc drawing itself, once more on the next launch",
   "bar.commandsDetail": "Every layer, product, and panel in one list",
   "bar.dualPane": "Dual Pane",
   "bar.share": "Share",

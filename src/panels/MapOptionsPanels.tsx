@@ -1026,6 +1026,18 @@ export function SettingsPanel({
         >
           {t("settings.export")}
         </button>
+        {/* Somebody who wants the greeting back can have it. Shown once is a
+            rule about not repeating myself, not a rule about never again. */}
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() =>
+            onSettings({ ...settings, seenWelcome: false, seenReveal: false })
+          }
+        >
+          {t("opening.showAgain")}
+        </button>
+        <p className="source-note">{t("opening.showAgainDetail")}</p>
       </div>
 
       <div className="settings-section">
