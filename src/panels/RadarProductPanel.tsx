@@ -25,6 +25,7 @@ import {
   type ClassificationProduct,
 } from "../lib/classification";
 import { soonestArrival } from "../lib/cells";
+import { rangeFill } from "../lib/rangeFill";
 import {
   TDWR_SITES,
   radarCapabilities,
@@ -264,6 +265,7 @@ export function RadarProductPanel({
           min={0}
           max={70}
           step={1}
+          style={rangeFill(mosaicThreshold ?? 0, 0, 70)}
           aria-label={t("radar.thresholdMosaic")}
           value={mosaicThreshold ?? 0}
           onChange={(event) => {
@@ -539,6 +541,11 @@ export function RadarProductPanel({
                   min={shownRange.min}
                   max={shownRange.max}
                   step={shownRange.step}
+                  style={rangeFill(
+                    toShown(threshold ?? range.min),
+                    shownRange.min,
+                    shownRange.max,
+                  )}
                   aria-label={t("radar.thresholdLabel")}
                   value={toShown(threshold ?? range.min)}
                   onChange={(event) => {
@@ -774,6 +781,7 @@ export function RadarProductPanel({
           min="0.05"
           max="1"
           step="0.05"
+          style={rangeFill(radar.opacity, 0.05, 1)}
           aria-label={t("radar.opacityLabel")}
           value={radar.opacity}
           onChange={(event) =>

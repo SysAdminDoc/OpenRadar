@@ -67,16 +67,6 @@ Two things to know before draining. First, most of what follows lives where the 
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-158: README omits two shipped features and the architecture doc is a fifteen-line decision memo
-      Category: docs
-      Where: `README.md` (no mention of the full-screen second-monitor view, `en.ts:1446`, or storm naming, `src/lib/cellNames.ts`; the Storm cells bullet at line 53), `docs/architecture.md:4` (lists MRMS, Level II, GLM and GFS as what Rust decodes; nothing about Level III, TDWR, HRRR smoke, the journal, the tray, the glance window, the wallpaper, replay bundles or the data export) and `:15` (a pre-creation note about the repository not existing yet), linked from `README.md:299` as "more detail"
-      Problem: Two features in the 0.7.0 changelog are absent from the README, and the page the README sends people to for architecture describes the app as it was at the first commit.
-      Evidence: Zero README hits for `monitor|full screen|name a storm`; `architecture.md` is 15 lines with the stale sentences quoted above.
-      Fix: Two README bullets in the house voice; rewrite `architecture.md` from the "Architecture" section of the working notes, which is current, leaving out anything internal.
-      Acceptance: README names both features; `architecture.md` names every native module in `src-tauri/src/lib.rs`'s `mod` list and drops the pre-creation paragraph.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-159: Dead exports and test-only functions
       Category: maintainability
       Where: `src/lib/cellNames.ts:30` (`nameOf`), `src/lib/classification.ts:26` (`DEFAULT_CLASSIFICATION_PRODUCT`), `src/lib/skewt.ts:188` (`isothermLabel`), `src/lib/thermo.ts:398` (`temperatureAt`): referenced nowhere. Test-only: `alertPairings.groupOf:135`, `alertPairings.UNPAIRED:116`, `hurdat.peakPoint:239`, `occasions.occasionWindows:226`, `palette.paletteColor:161`, `provenance.provenanceValid:190`, `thermo.equivalentPotentialTemperature:160`, `overlays/index.overlayAdapter:25`

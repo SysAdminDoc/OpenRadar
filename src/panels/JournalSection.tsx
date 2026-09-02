@@ -217,7 +217,14 @@ export function JournalSection({
       <p className="source-note">{t("figures.note")}</p>
       {figures ? (
         <>
-          <ul role="list" className="recap-lines" data-journal-figures>
+          {/* The figures can come to nothing at all: a record with rows but
+              nothing worth summarising yet. See the note beside the watched
+              places. */}
+          <ul
+            role={figureLines(figures).length ? "list" : undefined}
+            className="recap-lines"
+            data-journal-figures
+          >
             {figureLines(figures).map((line) => (
               <li key={line}>{line}</li>
             ))}

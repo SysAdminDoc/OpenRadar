@@ -330,9 +330,7 @@ test("refuses a bundle from a newer build without touching the map", async ({
 
   await page.getByRole("button", { name: /Open a replay bundle/ }).click();
   await expect(page.getByText(/The replay bundle failed/)).toBeVisible();
-  await expect(
-    page.getByText(/made by a newer OpenRadar \(layout 3\)/),
-  ).toBeVisible();
+  await expect(page.getByText(/made by a newer OpenRadar/)).toBeVisible();
   await expect(page.getByText(/from a bundle/)).toBeHidden();
   // The timeline is still the live feed's: no bundle replay, no storm
   // track, and the camera where it was.

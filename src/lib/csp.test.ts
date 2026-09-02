@@ -89,6 +89,32 @@ describe("the packaged app's content security policy", () => {
     }
   });
 
+  /**
+   * Wildcards, and the code that says why each one is honest.
+   *
+   * RainViewer hands out its own tile origin at runtime and the provider
+   * accepts any subdomain of rainviewer.com, so the policy has to as well.
+   * Declared once and read by both checks below: an exemption written into
+   * one of them on its own is a hole nothing measures.
+   */
+  const WILDCARDS: Record<string, { file: string; trusts: string }> = {
+    "*.rainviewer.com": {
+      file: join("src", "lib", "providers", "rainviewer.ts"),
+      trusts: 'host.endsWith(".rainviewer.com")',
+    },
+  };
+
+  const trustedWildcard = (host: string) => {
+    const declared = WILDCARDS[host];
+    if (!declared) return false;
+    const source = readFileSync(join(process.cwd(), declared.file), "utf8");
+    expect(
+      source.includes(declared.trusts),
+      `${declared.file} no longer trusts ${host}, so the policy should not either`,
+    ).toBe(true);
+    return true;
+  };
+
   it("lets the page reach only what the page itself fetches", () => {
     // The other direction from the test below, and stricter. That one lets a
     // host through if EITHER Rust or the page can reach it, so two S3 buckets
@@ -96,13 +122,17 @@ describe("the packaged app's content security policy", () => {
     // page's allowance for nothing. What the page may reach is what the page
     // routes through the cached scheme, plus the two it fetches directly.
     const pageMay = new Set([...CACHED_HOSTS, ...DIRECT_HOSTS]);
-    const wildcards = ["*.rainviewer.com"];
     const extra: string[] = [];
-    for (const token of csp["connect-src"].split(/\s+/).filter(Boolean)) {
-      if (!token.startsWith("https://")) continue;
-      const host = token.slice("https://".length);
-      if (wildcards.includes(host)) continue;
-      if (!pageMay.has(host)) extra.push(host);
+    // Every directive the page pulls remote bytes over, not connect-src on
+    // its own: a tile host reaches the page under img-src and a glyph range
+    // under font-src, so a host added to either widens the page just as far.
+    for (const directive of ["connect-src", "img-src", "font-src"]) {
+      for (const token of csp[directive].split(/\s+/).filter(Boolean)) {
+        if (!token.startsWith("https://")) continue;
+        const host = token.slice("https://".length);
+        if (trustedWildcard(host)) continue;
+        if (!pageMay.has(host)) extra.push(`${directive}: ${host}`);
+      }
     }
     expect(extra).toEqual([]);
   });
@@ -112,17 +142,6 @@ describe("the packaged app's content security policy", () => {
     // policy after the code that fetched it is gone widens the packaged app
     // for nothing, and nothing else here would notice.
     const union = new Set([...allowedHosts(), ...CACHED_HOSTS]);
-
-    // A wildcard is only honest when some code declares it trusts the whole
-    // suffix. RainViewer hands out its own tile origin at runtime, and the
-    // provider accepts any subdomain of rainviewer.com, so the policy has to
-    // as well.
-    const wildcards: Record<string, { file: string; trusts: string }> = {
-      "*.rainviewer.com": {
-        file: join("src", "lib", "providers", "rainviewer.ts"),
-        trusts: 'host.endsWith(".rainviewer.com")',
-      },
-    };
 
     // Schemes, the local spellings Windows gives them, and the keywords.
     const notHosts =
@@ -137,18 +156,11 @@ describe("the packaged app's content security policy", () => {
         const host = token.slice("https://".length);
 
         if (host.startsWith("*.")) {
-          const declared = wildcards[host];
+          // A wildcard is only honest when some code declares it trusts the
+          // whole suffix.
           expect(
-            declared,
+            trustedWildcard(host),
             `${directive} allows every subdomain of ${host.slice(2)} and no code says why`,
-          ).toBeDefined();
-          const source = readFileSync(
-            join(process.cwd(), declared.file),
-            "utf8",
-          );
-          expect(
-            source.includes(declared.trusts),
-            `${declared.file} no longer trusts ${host}, so the policy should not either`,
           ).toBe(true);
           continue;
         }

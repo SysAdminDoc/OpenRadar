@@ -20,6 +20,50 @@ const TRANSLATIONS: Array<[string, Record<string, string>]> = [
 
 const ROOT = join(import.meta.dirname, "..");
 
+function rustFiles(from: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(from)) {
+    const path = join(from, entry);
+    if (statSync(path).isDirectory()) {
+      found.push(...rustFiles(path));
+      continue;
+    }
+    if (entry.endsWith(".rs")) found.push(path);
+  }
+  return found;
+}
+
+/**
+ * The catalogue keys the code builds rather than writes, as the exact text
+ * before the hole.
+ *
+ * Two ways to get this wrong, and both were here. Taking only the first
+ * segment let one `\`alerts.${x}\`` anywhere in the app excuse every
+ * `alerts.*` key there is, which is the whole family this exists to watch.
+ * And taking every dotted template literal harvested paths that have nothing
+ * to do with the catalogue: `presets.${index}` and `workspace.${key}` are
+ * where a setting failed to validate, and they sat here excusing any future
+ * key that happened to start the same way. So the literal has to be used as a
+ * key: inside a translation call, cast to one, or looked up in the catalogue.
+ */
+function builtPrefixes(sources: string): string[] {
+  const used = /\btranslate\(|\bt\(|StringKey|\ben\[/;
+  const found = new Set<string>();
+  for (const match of sources.matchAll(
+    /`([a-z][A-Za-z0-9]*\.[A-Za-z0-9.]*)\$\{/g,
+  )) {
+    // Before as well as after: the call opens before the literal in
+    // `translate(\`alerts.soundFile.${reason}\`)` and after it in
+    // `const key = \`radar.error.${code}\`; ... translate(key as StringKey)`.
+    const near = sources.slice(
+      Math.max(0, match.index - 30),
+      match.index + 200,
+    );
+    if (used.test(near)) found.add(match[1]);
+  }
+  return [...found];
+}
+
 function sourceFiles(from: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(from)) {
@@ -433,21 +477,66 @@ describe("the workspace is translated", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
 
-    // Every key built rather than written, as the exact text before the
-    // hole. Taking only the first segment instead let one `\`alerts.${x}\``
-    // anywhere in the app excuse every `alerts.*` key there is, which is the
-    // whole family this check exists to watch. An independent scan with the
-    // full prefix found nothing dead today, so this is a gap being closed
-    // rather than a mess being cleaned up.
-    const built = [
-      ...sources.matchAll(/`([a-z][A-Za-z0-9]*\.[A-Za-z0-9.]*)\$\{/g),
-    ].map((match) => match[1]);
     const unused = Object.keys(en).filter(
       (key) =>
         !sources.includes(`"${key}"`) &&
-        !built.some((prefix) => key.startsWith(prefix)),
+        !builtPrefixes(sources).some((prefix) => key.startsWith(prefix)),
     );
     expect(unused).toEqual([]);
+  });
+
+  it("asks for each string in a family by name", () => {
+    // The check above lets a whole family through on one built prefix, and
+    // seventy-three of the catalogue's keys are alive on nothing stronger
+    // than that: `\`radar.error.${code}\`` excuses every `radar.error.*` key
+    // whether or not anything can ever produce that code. So the suffix has
+    // to turn up too, somewhere something could have got it from.
+    //
+    // Rust as well as TypeScript, because most of these families are the
+    // native side's failures and the code is its word: `noVolume` and
+    // `notWsr88d` exist nowhere in the app that renders them.
+    const sources = sourceFiles(ROOT)
+      .filter((path) => !path.includes(`i18n${sep}`))
+      .map((path) => readFileSync(path, "utf8"))
+      .join("\n");
+    const native = rustFiles(join(ROOT, "..", "src-tauri", "src"))
+      .map((path) => readFileSync(path, "utf8"))
+      .join("\n");
+    const everywhere = `${sources}\n${native}`;
+
+    const onPrefix = Object.keys(en).filter(
+      (key) => !sources.includes(`"${key}"`),
+    );
+    expect(
+      onPrefix.length,
+      "nothing is alive on a prefix any more",
+    ).toBeGreaterThan(0);
+
+    const unproven = onPrefix.filter((key) => {
+      // The numbered families are the exception, and only the numbered ones:
+      // a suffix that is a digit cannot be searched for. They get a stricter
+      // check of their own below instead.
+      if (/\d$/.test(key)) return false;
+      return !everywhere.includes(key.slice(key.lastIndexOf(".") + 1));
+    });
+    expect(unproven).toEqual([]);
+  });
+
+  it("has one line per storm surge category and no more", () => {
+    // The one family whose suffix is a number, so the check above cannot see
+    // it. The scale is the guard's own list, and a sixth line here would be a
+    // string nothing can reach while a missing fifth would throw at the
+    // moment somebody needs it most.
+    const guard = readFileSync(join(ROOT, "lib", "surge.ts"), "utf8");
+    const scale = [
+      ...guard
+        .slice(guard.indexOf("export function isSurgeCategory"))
+        .matchAll(/value === (\d)/g),
+    ].map((match) => match[1]);
+    expect(scale.length, "the surge scale was not found").toBeGreaterThan(0);
+    expect(
+      Object.keys(en).filter((key) => key.startsWith("surge.category")),
+    ).toEqual(scale.map((number) => `surge.category${number}`));
   });
 });
 

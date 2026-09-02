@@ -167,8 +167,14 @@ mod tests {
         let at = source
             .find(r#"register_asynchronous_uri_scheme_protocol("cached""#)
             .expect("the cached scheme is no longer registered");
-        let handler = &source[at..at + 2000];
-        let ends = handler.find(".body(served.body)").expect("the response");
+        // To the end of the response rather than a fixed window: the slack
+        // in one was a hundred and fifty bytes, so the next header line would
+        // have taken the search past its own end and failed with a message
+        // about the wrong thing.
+        let handler = &source[at..];
+        let ends = handler
+            .find(".body(served.body)")
+            .expect("the cached response no longer has a body");
         let headers = &handler[..ends];
         assert!(
             headers.contains(r#".header("X-Content-Type-Options", "nosniff")"#),

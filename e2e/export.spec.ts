@@ -13,7 +13,7 @@ test("writes a still of the current view", async ({ page }) => {
   await page.getByRole("button", { name: "Export", exact: true }).click();
 
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export image" }).click();
+  await page.getByRole("button", { name: "Export picture" }).click();
   const file = await download;
 
   expect(file.suggestedFilename()).toMatch(/^openradar-.*\.png$/);
@@ -66,7 +66,7 @@ test("credits the map that was actually under the weather", async ({
   const sidecar = page.waitForEvent("download", {
     predicate: (file) => file.suggestedFilename().endsWith(".json"),
   });
-  await page.getByRole("button", { name: "Export image" }).click();
+  await page.getByRole("button", { name: "Export picture" }).click();
   const file = await sidecar;
   const path = await file.path();
   const record = JSON.parse(

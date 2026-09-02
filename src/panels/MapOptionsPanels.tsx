@@ -34,6 +34,7 @@ import {
 import { useEffect, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
+import { rangeFill } from "../lib/rangeFill";
 import {
   distanceSlider,
   distanceUnit,
@@ -636,6 +637,7 @@ export function LayersPanel({
                         min={10}
                         max={100}
                         step={5}
+                        style={rangeFill(solid, 10, 100)}
                         aria-label={t("layers.opacityFor", {
                           layer: file.name,
                           percent: solid,
@@ -676,6 +678,7 @@ export function LayersPanel({
                     min={10}
                     max={100}
                     step={5}
+                    style={rangeFill(solid, 10, 100)}
                     aria-label={t("layers.opacityFor", {
                       layer: t(labelKey),
                       percent: solid,
@@ -1330,6 +1333,7 @@ export function SettingsPanel({
             min="0.05"
             max="1"
             step="0.05"
+            style={rangeFill(settings.radar.opacity, 0.05, 1)}
             aria-label={t("settings.opacityLabel")}
             value={settings.radar.opacity}
             onChange={(event) =>
@@ -1347,6 +1351,7 @@ export function SettingsPanel({
             min="-0.8"
             max="0.5"
             step="0.1"
+            style={rangeFill(settings.radar.animationSpeed, -0.8, 0.5)}
             aria-label={t("settings.animationSpeedLabel")}
             value={settings.radar.animationSpeed}
             onChange={(event) =>
@@ -1366,6 +1371,7 @@ export function SettingsPanel({
             min="60"
             max="120"
             step="10"
+            style={rangeFill(settings.radar.loopMinutes, 60, 120)}
             aria-label={t("settings.loopLengthLabel")}
             value={settings.radar.loopMinutes}
             onChange={(event) =>
@@ -1444,6 +1450,11 @@ export function SettingsPanel({
                 min={0}
                 max={100}
                 step={5}
+                style={rangeFill(
+                  Math.round(settings.alertVolume * 100),
+                  0,
+                  100,
+                )}
                 value={Math.round(settings.alertVolume * 100)}
                 onChange={(event) =>
                   onSettings({
@@ -1534,6 +1545,7 @@ export function SettingsPanel({
             min={radiusSlider.min}
             max={radiusSlider.max}
             step={radiusSlider.step}
+            style={rangeFill(radiusShown, radiusSlider.min, radiusSlider.max)}
             aria-label={t("settings.radiusLabel", { unit: distanceUnit() })}
             // Snapped to the slider's own stops, so the thumb and the readout
             // beside it cannot disagree about where it is.
@@ -1685,7 +1697,14 @@ export function SettingsPanel({
         {/* The places beside home. One point cannot be home, a school and the
             far end of tomorrow's drive, and a reader who wants all three
             should not have to pick. */}
-        <div className="watch-places" role="list">
+        {/* No role when there is nothing in it: a list that owns no list
+            items is a broken list rather than an empty one, and axe reports it
+            as something it could not decide rather than as a failure, which
+            every gate in the suite drops on the floor. */}
+        <div
+          className="watch-places"
+          role={settings.watchPlaces.length ? "list" : undefined}
+        >
           {settings.watchPlaces.map((place, index) => (
             <div className="watch-place" role="listitem" key={place.id}>
               <label className="watch-place__name">

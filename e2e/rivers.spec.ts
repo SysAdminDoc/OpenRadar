@@ -168,6 +168,6 @@ test("puts the service's own failure beside the switch", async ({ page }) => {
   await row.getByRole("checkbox").check();
 
   await expect(row).toContainText(
-    "The National Water Prediction Service returned 503",
+    "The National Water Prediction Service is busy",
   );
 });

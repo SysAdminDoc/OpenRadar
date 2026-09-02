@@ -235,7 +235,12 @@ export function MorePanel({
           const record = health.find((item) => item.id === provider.id);
           const healthy = Boolean(record?.lastSuccess) && !record?.lastError;
           return (
-            <div key={provider.id}>
+            // Every row, not only the two written out by hand: these are the
+            // rows the count is about, and a screen reader was hearing
+            // "list, two items" over eight of them. axe cannot see it, since
+            // a roleless div has its children spliced into the owned queue
+            // and the two real rows satisfy the rule on their own.
+            <div role="listitem" key={provider.id}>
               <span className={healthy ? "status-dot is-live" : "status-dot"} />
               <span>
                 <strong>{provider.label}</strong>
