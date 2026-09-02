@@ -472,6 +472,9 @@ export const es: Catalogue = {
   "radar.live": "Volumen en curso",
   "radar.liveDetail":
     "Dibuja el barrido que el radar está haciendo ahora sobre el último que terminó. La imagen terminada ya tiene de cuatro a seis minutos cuando se publica; esta tiene segundos en el sector que el radar ha alcanzado, y no cambia en el resto.",
+  "radar.persistence": "Persistencia de fósforo",
+  "radar.persistenceDetail":
+    "Atenúa el barrido terminado que hay detrás del que el radar está haciendo, como lo hace una pantalla de fósforo. Nada de las mediciones cambia; la leyenda dice la antigüedad de la mitad más vieja además de la más nueva, porque una imagen atenuada es más vieja que una que no lo está.",
   "radar.archiveBrowse": "Archive II",
   "radar.archiveBrowseDetail":
     "Abre un volumen local sin conexión o consulta el archivo público de NOAA por radar y hora UTC.",
@@ -1064,6 +1067,7 @@ export const es: Catalogue = {
   "chrome.tiltLiveDealiased":
     "ELEVACIÓN {degrees}° · DESPLEGADA · EN VIVO, HACE {seconds} S",
   "chrome.liveProduct": "PRODUCTO EN VIVO",
+  "chrome.behind": "DETRÁS, DE HACE {count} MIN",
   "chrome.terminalRadar": "TDWR · {range} km",
   "chrome.extraScales": "Escalas de otros productos",
   "chrome.wind": "Viento",
@@ -1419,6 +1423,9 @@ export const es: Catalogue = {
   "tool.startHint": "Elige el punto de inicio",
   "tool.endHint": "Elige el punto final",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
+  "tool.gateValue": "{value} {unit}",
+  "tool.gateLive": "del barrido en curso, {when}",
+  "tool.gateFrom": "del barrido de las {when}",
   "tool.beamHeight": "haz a {height} sobre el radar con {tilt}°",
   "tool.classified": "{class} según la clasificación del propio radar",
   "tool.pathPoints": "{count} puntos en la ruta",

@@ -479,6 +479,9 @@ export const fr: Catalogue = {
   "radar.live": "Volume en cours",
   "radar.liveDetail":
     "Dessiner le balayage que le radar fait en ce moment par-dessus le dernier qu'il a terminé. L'image terminée a de quatre à six minutes au moment d'être publiée; celle-ci a quelques secondes sur le secteur que le radar a atteint, et ne change rien ailleurs.",
+  "radar.persistence": "Rémanence du phosphore",
+  "radar.persistenceDetail":
+    "Estompe le balayage terminé derrière celui que le radar est en train de faire, comme le fait un écran au phosphore. Rien des mesures ne change; la légende donne l'âge de la moitié la plus ancienne autant que de la plus récente, parce qu'une image estompée est plus vieille qu'une image qui ne l'est pas.",
   "radar.archiveBrowse": "Archive II",
   "radar.archiveBrowseDetail":
     "Ouvrez un volume local hors ligne ou demandez à l'archive publique de la NOAA un site et une heure UTC.",
@@ -1077,6 +1080,7 @@ export const fr: Catalogue = {
   "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, {seconds} S",
   "chrome.tiltLiveDealiased": "ANGLE {degrees}° · DÉPLIÉ · DIRECT, {seconds} S",
   "chrome.liveProduct": "PRODUIT EN DIRECT",
+  "chrome.behind": "DERRIÈRE, {count} MIN",
   "chrome.terminalRadar": "TDWR · {range} km",
   "chrome.extraScales": "Échelles des autres produits",
   "chrome.wind": "Vent",
@@ -1437,6 +1441,9 @@ export const fr: Catalogue = {
   "tool.startHint": "Choisissez le point de départ",
   "tool.endHint": "Choisissez le point d'arrivée",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
+  "tool.gateValue": "{value} {unit}",
+  "tool.gateLive": "du balayage en cours, {when}",
+  "tool.gateFrom": "du balayage de {when}",
   "tool.beamHeight": "faisceau à {height} au-dessus du radar, angle {tilt}°",
   "tool.classified": "{class} selon la classification du radar",
   "tool.pathPoints": "{count} points dans le chemin",

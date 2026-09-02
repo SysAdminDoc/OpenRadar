@@ -211,6 +211,13 @@ pub struct SweepImage {
     pub live_tilts: usize,
     /// When the volume was collected, not when it was fetched.
     pub collected: String,
+    /// When the older cut under a live composite was collected.
+    ///
+    /// Present only when two sweeps are on screen at once. The legend says
+    /// the age of the oldest visible sweep as well as the newest, because a
+    /// composite whose age is reported from its newer half is a picture
+    /// claiming to be fresher than it is.
+    pub beneath_collected: Option<String>,
     pub west: f64,
     pub south: f64,
     pub east: f64,
@@ -238,6 +245,26 @@ pub struct SweepSource {
     pub label: String,
     /// Public attribution for provider data. Local files have no link.
     pub url: Option<String>,
+}
+
+/// One gate's reading, and which sweep it came from.
+///
+/// A live picture is two sweeps composited, and with persistence on the older
+/// half is faded rather than absent. A reader inspecting a point has to be
+/// told which of the two answered, and when that one was collected, or the
+/// number is a reading with no time on it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GateReading {
+    pub value: f32,
+    pub unit: String,
+    pub product: String,
+    /// When the sweep this came from was collected.
+    pub collected: String,
+    /// True when it came from the volume the radar is sweeping now.
+    pub live: bool,
+    pub azimuth_degrees: f32,
+    pub range_km: f64,
 }
 
 /// What was subtracted to make a sweep storm relative.
@@ -885,6 +912,13 @@ pub fn tilts(scan: &Scan) -> Vec<f32> {
 /// it was actually collected.
 pub struct ChosenSweep {
     pub field: SweepField,
+    /// Where the beam was when this cut stopped, in degrees from north.
+    ///
+    /// The last radial the radar wrote, in the order it wrote them.
+    /// `SweepField` sorts its radials by azimuth, so the order is gone by the
+    /// time the picture is drawn and has to be kept here. Absent for a
+    /// finished cut, which stopped where it started.
+    pub leading_azimuth: Option<f32>,
     pub elevation_degrees: f32,
     /// The cut's number within the volume, which is how the raw messages name
     /// it and therefore how its Nyquist velocity is found again.
@@ -1168,6 +1202,10 @@ pub fn sweep_field_at(scan: &Scan, product: Product, wanted: f32) -> Option<Chos
         };
         if better {
             best = Some(ChosenSweep {
+                leading_azimuth: sweep
+                    .radials()
+                    .last()
+                    .map(|radial| radial.azimuth_angle_degrees()),
                 field,
                 elevation_degrees: angle,
                 elevation_number: sweep.elevation_number(),
@@ -1389,6 +1427,15 @@ pub struct SweepRequest<'a> {
     pub threshold: Option<f32>,
     /// Draw with the ramps built for a reader who has asked for more contrast.
     pub high_contrast: bool,
+    /// Fade the finished sweep behind the one being made, the way a phosphor
+    /// screen does. Nothing about the readings changes; only the opacity the
+    /// older cut is drawn at, and only outside the sector the radar has
+    /// reached in the volume it is sweeping now.
+    pub persistence: bool,
+    /// True when the reader has asked the system for less movement, which
+    /// keeps the faded composite and drops the bright edge that moves with
+    /// the beam.
+    pub reduced_motion: bool,
 }
 
 pub fn sweep_from_volume(
@@ -1492,7 +1539,9 @@ pub(crate) fn export_request<'a>(
 ) -> SweepRequest<'a> {
     // No threshold and no contrast choice: both are about drawing, and an
     // export of the readings is not drawn.
-    requested_sweep(product, tilt, dealias, motion, None, false)
+    // Values rather than a picture, so neither the threshold nor any of the
+    // drawing options apply.
+    requested_sweep(product, tilt, dealias, motion, None, Look::default())
 }
 
 /// The same, from a scan that has already been put together.
@@ -1553,6 +1602,8 @@ fn prepare_sweep(
         manual_motion,
         threshold: _,
         high_contrast: _,
+        persistence: _,
+        reduced_motion: _,
     } = asked;
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -1658,6 +1709,7 @@ fn draw_sweep(
         },
     );
 
+    let mut beneath_collected = None;
     if let Some(under) = beneath {
         // Every render covers the same extent at the same size, so the two
         // line up pixel for pixel and the sector decides which one shows.
@@ -1672,7 +1724,39 @@ fn draw_sweep(
                 high_contrast: asked.high_contrast,
             },
         );
-        pixels = lay_over(older, pixels, &swept_pixels(&chosen.field, &coordinates));
+        // The older cut's own time, which is what the legend says the oldest
+        // thing on screen is. Without it a composite reports only the age of
+        // its newest half.
+        beneath_collected = under.chosen.collected.or(volume_time);
+        let keep = if asked.persistence {
+            let age = match (chosen.collected, beneath_collected) {
+                (Some(newest), Some(oldest)) => (newest - oldest).num_seconds().max(0) as f32,
+                // No time on one of them is no age to fade by, so the picture
+                // is the one it has always been rather than an invented decay.
+                _ => 0.0,
+            };
+            persistence_keep(age)
+        } else {
+            1.0
+        };
+        pixels = lay_over(
+            older,
+            pixels,
+            &swept_pixels(&chosen.field, &coordinates),
+            keep,
+        );
+        // Only over a composite, and only when the reader asked for the
+        // phosphor picture: a finished volume has no beam position to mark.
+        if asked.persistence && !asked.reduced_motion {
+            if let Some(azimuth) = chosen.leading_azimuth {
+                draw_leading_edge(
+                    &mut pixels,
+                    &coordinates,
+                    chosen.field.elevation_degrees(),
+                    azimuth,
+                );
+            }
+        }
     }
 
     let png_bytes = encode_png(&pixels)?;
@@ -1705,6 +1789,7 @@ fn draw_sweep(
         live: live_tilts.is_some(),
         live_tilts: live_tilts.unwrap_or(0),
         collected: collected.to_rfc3339(),
+        beneath_collected: beneath_collected.map(|at| at.to_rfc3339()),
         west,
         south,
         east,
@@ -1779,16 +1864,160 @@ fn swept_pixels(field: &SweepField, coordinates: &RadarCoordinateSystem) -> Vec<
 }
 
 /// Puts the newer picture over the older one, but only where it was swept.
-fn lay_over(older: Vec<u8>, newer: Vec<u8>, swept: &[bool]) -> Vec<u8> {
+/// The two sweeps composited, with the older one faded by `keep`.
+///
+/// `keep` of 1.0 is the picture as it has always been: the finished volume at
+/// full strength wherever the live cut has not reached. Below that, the older
+/// sweep is drawn dimmer, which is what a phosphor screen does and what
+/// everybody has in their head when they think of radar. It is opacity and
+/// nothing else: no gate value moves, and inside the swept sector the live
+/// pixels win outright as before, empty ones included, so a storm that has
+/// moved on still comes off the picture.
+fn lay_over(older: Vec<u8>, newer: Vec<u8>, swept: &[bool], keep: f32) -> Vec<u8> {
     let mut out = older;
+    let keep = keep.clamp(0.0, 1.0);
     for (index, covered) in swept.iter().enumerate() {
-        if !covered {
-            continue;
-        }
         let at = index * 4;
-        out[at..at + 4].copy_from_slice(&newer[at..at + 4]);
+        if *covered {
+            out[at..at + 4].copy_from_slice(&newer[at..at + 4]);
+        } else if keep < 1.0 {
+            // Only the alpha. Scaling the colour would move a reading towards
+            // a different step on the ramp, which is the one thing this is
+            // not allowed to do.
+            out[at + 3] = (f32::from(out[at + 3]) * keep).round() as u8;
+        }
     }
     out
+}
+
+/// The reading at one point of a prepared cut, if the cut covers it.
+///
+/// The same `value_at_polar` the renderer asks, so the number a reader is
+/// shown is the number the pixel under the cursor was painted from rather
+/// than a colour sampled back out of the picture.
+fn gate_at(
+    prepared: &Prepared,
+    coordinates: &RadarCoordinateSystem,
+    latitude: f64,
+    longitude: f64,
+    volume_time: Option<DateTime<Utc>>,
+    live: bool,
+) -> Option<GateReading> {
+    let field = &prepared.chosen.field;
+    let polar = coordinates.geo_to_polar(
+        GeoPoint {
+            latitude,
+            longitude,
+        },
+        field.elevation_degrees(),
+    );
+    if polar.range_km > MAX_RANGE_KM {
+        return None;
+    }
+    // `value_at_polar` takes the nearest radial it holds, whatever the gap. On
+    // a cut in progress that means a bearing the radar has not swept comes
+    // back with the reading from wherever it stopped, which is not a reading
+    // at that point at all. A radial stands for the wedge it was measured
+    // across and no further.
+    let half = field.azimuth_spacing_degrees().abs().max(0.5);
+    let covered = field.azimuths().iter().any(|azimuth| {
+        let away = (azimuth - polar.azimuth_degrees).rem_euclid(360.0);
+        away.min(360.0 - away) <= half
+    });
+    if !covered {
+        return None;
+    }
+    let (value, status) = field.value_at_polar(polar.azimuth_degrees, polar.range_km)?;
+    // A gate the radar could not read is not a reading. Range folding is the
+    // radar saying it cannot tell where the echo is, which is worse than
+    // nothing to put in front of somebody as a number.
+    if !matches!(status, GateStatus::Valid) {
+        return None;
+    }
+    let collected = prepared.chosen.collected.or(volume_time)?;
+    Some(GateReading {
+        value,
+        unit: prepared.unit.to_string(),
+        product: prepared.label.to_string(),
+        collected: collected.to_rfc3339(),
+        live,
+        azimuth_degrees: (polar.azimuth_degrees * 10.0).round() / 10.0,
+        range_km: (polar.range_km * 10.0).round() / 10.0,
+    })
+}
+
+/// How wide the bright edge at the beam is, in degrees either side.
+const LEADING_EDGE_DEGREES: f32 = 1.6;
+
+/// Brightens the wedge the beam has just left.
+///
+/// This is the part everybody pictures when they picture radar. It is drawn
+/// over the composite rather than into it, and it touches no gate: the pixels
+/// it lightens keep whatever value put them there, and a pixel with nothing in
+/// it stays empty, so the edge marks where the beam is without inventing an
+/// echo along it.
+fn draw_leading_edge(
+    pixels: &mut [u8],
+    coordinates: &RadarCoordinateSystem,
+    elevation: f32,
+    azimuth: f32,
+) {
+    let extent = coordinates.sweep_extent(MAX_RANGE_KM);
+    let west = extent.min.longitude;
+    let east = extent.max.longitude;
+    let top = mercator_y(extent.max.latitude);
+    let bottom = mercator_y(extent.min.latitude);
+    for row in 0..IMAGE_SIZE {
+        let y = top + (bottom - top) * ((row as f64 + 0.5) / IMAGE_SIZE as f64);
+        let latitude = inverse_mercator_y(y);
+        for column in 0..IMAGE_SIZE {
+            let longitude = west + (east - west) * ((column as f64 + 0.5) / IMAGE_SIZE as f64);
+            let polar = coordinates.geo_to_polar(
+                GeoPoint {
+                    latitude,
+                    longitude,
+                },
+                elevation,
+            );
+            if polar.range_km > MAX_RANGE_KM {
+                continue;
+            }
+            let away = (polar.azimuth_degrees - azimuth).rem_euclid(360.0);
+            let away = away.min(360.0 - away);
+            if away > LEADING_EDGE_DEGREES {
+                continue;
+            }
+            let at = (row * IMAGE_SIZE + column) * 4;
+            // Nothing is painted where nothing was measured, and what was
+            // measured is lightened rather than replaced.
+            let strength = 1.0 - away / LEADING_EDGE_DEGREES;
+            let lift = 0.55 * strength;
+            for channel in 0..3 {
+                let held = f32::from(pixels[at + channel]);
+                pixels[at + channel] = (held + (255.0 - held) * lift).round() as u8;
+            }
+            let alpha = f32::from(pixels[at + 3]);
+            pixels[at + 3] = alpha.max(150.0 * strength).round() as u8;
+        }
+    }
+}
+
+/// How much of the finished sweep is left, given how far behind it is.
+///
+/// A volume takes four to six minutes in precipitation mode, so by the time
+/// the next one is being swept the last one is a volume old. This runs from
+/// full at no age down to `PERSISTENCE_FLOOR` at `PERSISTENCE_FULL_SECS` and
+/// stops there: a sweep that fades to nothing is a sweep that has taken the
+/// context away rather than aged it.
+const PERSISTENCE_FULL_SECS: f32 = 360.0;
+const PERSISTENCE_FLOOR: f32 = 0.35;
+
+fn persistence_keep(age_seconds: f32) -> f32 {
+    if !age_seconds.is_finite() || age_seconds <= 0.0 {
+        return 1.0;
+    }
+    let along = (age_seconds / PERSISTENCE_FULL_SECS).clamp(0.0, 1.0);
+    1.0 - along * (1.0 - PERSISTENCE_FLOOR)
 }
 
 fn great_circle_km(
@@ -1952,13 +2181,106 @@ pub async fn level2_nearest_site(latitude: f32, longitude: f32) -> Option<String
     .map(|site| site.id.to_string())
 }
 
+/// What the radar read at one point, and which sweep read it.
+///
+/// The picture path decides which cut is on screen; this asks the same
+/// question of the same cuts. Where a live volume covers the point it answers,
+/// because that is the half of the composite the reader is looking at there,
+/// and where it does not the finished volume does. Either way the answer
+/// carries the time of the sweep it came from, so a number taken off a
+/// composite is never dated by the wrong half of it.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn level2_gate(
+    station: String,
+    latitude: f64,
+    longitude: f64,
+    product: String,
+    tilt: usize,
+    dealias: bool,
+    motion: Option<(f32, f32)>,
+    live: bool,
+) -> Result<Option<GateReading>, Level2Error> {
+    let station = station.to_uppercase();
+    // A terminal radar is drawn from its own Level III products, which this
+    // path knows nothing about.
+    if tdwr::is_tdwr(&station) {
+        return Ok(None);
+    }
+    wsr88d_only(&station)?;
+    let (key, data) = latest_volume(&station).await?;
+    let live = if live {
+        chunks::live_scan(&station).await.ok()
+    } else {
+        None
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let asked = requested_sweep(&product, tilt, dealias, motion, None, Look::default());
+        let site = registry::site_by_id(&station)
+            .ok_or_else(|| Level2Error::UnknownSite(station.to_string()))?;
+        let coordinates = RadarCoordinateSystem::new(&site.to_site());
+        let (older, folding) = decoded_volume(&key, data)?;
+        let older_folding = |elevation: u8| folding.get(&elevation).copied();
+
+        // The angle is taken from the finished volume for the same reason the
+        // picture takes it from there: a volume in progress holds only the
+        // cuts it has reached.
+        let offered = tilts(&older);
+        let angle = offered.get(tilt).or_else(|| offered.first()).copied();
+        let beneath = prepare_sweep(&station, &older, &older_folding, asked, angle);
+
+        if let Some(found) = live {
+            let live_folding = |elevation: u8| found.nyquist.get(&elevation).copied();
+            if let Ok(newer) = prepare_sweep(&station, &found.scan, &live_folding, asked, angle) {
+                if let Some(reading) = gate_at(
+                    &newer,
+                    &coordinates,
+                    latitude,
+                    longitude,
+                    found.scan.time_range().map(|(start, _)| start),
+                    true,
+                ) {
+                    return Ok(Some(reading));
+                }
+            }
+        }
+
+        Ok(beneath.ok().and_then(|under| {
+            gate_at(
+                &under,
+                &coordinates,
+                latitude,
+                longitude,
+                older.time_range().map(|(start, _)| start),
+                false,
+            )
+        }))
+    })
+    .await
+    .map_err(|error| Level2Error::Decode(error.to_string()))?
+}
+
+/// The three answers to "how should this be drawn" that are not about what is
+/// in the volume.
+///
+/// Grouped for the same reason `Shading` is: three bare booleans at a call
+/// site say nothing about which is which, and `false, false, false` reads as
+/// nothing at all.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Look {
+    pub high_contrast: bool,
+    pub persistence: bool,
+    pub reduced_motion: bool,
+}
+
 fn requested_sweep<'a>(
     product: &'a str,
     tilt: usize,
     dealias: bool,
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
-    high_contrast: bool,
+    look: Look,
 ) -> SweepRequest<'a> {
     let manual_motion = motion.map(|(speed, from_degrees)| {
         // A wind named by where it comes from, turned back into the components
@@ -1975,7 +2297,9 @@ fn requested_sweep<'a>(
         unfold: dealias,
         manual_motion,
         threshold,
-        high_contrast,
+        high_contrast: look.high_contrast,
+        persistence: look.persistence,
+        reduced_motion: look.reduced_motion,
     }
 }
 
@@ -2004,6 +2328,13 @@ pub async fn level2_sweep(
     // Sent by the page rather than read here, because the preference belongs to
     // the window and the native side has no view of the media query.
     high_contrast: bool,
+    // Fade the finished sweep behind the one being made. Only ever true on the
+    // live path, because it is the only one with two sweeps to composite.
+    persistence: bool,
+    // Sent by the page, like the contrast preference: the native side has no
+    // view of the media query. It keeps the faded composite and drops the
+    // bright edge that moves with the beam.
+    reduced_motion: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     // An airport's own radar is read from its Level III products; nothing
@@ -2033,7 +2364,18 @@ pub async fn level2_sweep(
     // Decoding and drawing a volume is CPU work; it must not sit on the async
     // runtime the whole time.
     tauri::async_runtime::spawn_blocking(move || {
-        let asked = requested_sweep(&product, tilt, dealias, motion, threshold, high_contrast);
+        let asked = requested_sweep(
+            &product,
+            tilt,
+            dealias,
+            motion,
+            threshold,
+            Look {
+                high_contrast,
+                persistence,
+                reduced_motion,
+            },
+        );
         match live {
             Some(found) => {
                 // The finished volume underneath a live sweep is the same
@@ -2078,7 +2420,19 @@ pub async fn level2_archive_sweep(
     let (key, data) = archive_volume_at(&station, wanted).await?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let asked = requested_sweep(&product, tilt, dealias, motion, threshold, high_contrast);
+        // An archive or a local volume is one finished scan, so there is
+        // nothing behind it to fade.
+        let asked = requested_sweep(
+            &product,
+            tilt,
+            dealias,
+            motion,
+            threshold,
+            Look {
+                high_contrast,
+                ..Look::default()
+            },
+        );
         let mut sweep = sweep_from_volume(&station, &key, data, asked)?;
         sweep.source = SweepSource {
             kind: "archive".to_string(),
@@ -2104,7 +2458,19 @@ pub async fn level2_local_sweep(
 ) -> Result<SweepImage, Level2Error> {
     tauri::async_runtime::spawn_blocking(move || {
         let local = read_local_volume(&PathBuf::from(path))?;
-        let asked = requested_sweep(&product, tilt, dealias, motion, threshold, high_contrast);
+        // An archive or a local volume is one finished scan, so there is
+        // nothing behind it to fade.
+        let asked = requested_sweep(
+            &product,
+            tilt,
+            dealias,
+            motion,
+            threshold,
+            Look {
+                high_contrast,
+                ..Look::default()
+            },
+        );
         let mut sweep = sweep_from_volume(&local.station, &local.key, local.data, asked)?;
         sweep.source = SweepSource {
             kind: "local".to_string(),
@@ -4976,6 +5342,259 @@ mod tests {
         );
     }
 
+    /// Two volumes an age apart, for the phosphor picture.
+    fn faded_pair(older_at: DateTime<Utc>, live_at: DateTime<Utc>) -> (Scan, Scan) {
+        (
+            built_volume(&[fixture::flat_cut(older_at, fixture::Cut::default())]),
+            built_volume(&[sector(0.0, 90.0, fixture::Gate::Reading(50.0), live_at)]),
+        )
+    }
+
+    #[test]
+    fn persistence_off_draws_exactly_what_it_always_did() {
+        // The picture is identical when the reader has not asked for the
+        // phosphor one, proved against the synthetic volume rather than
+        // asserted about a flag.
+        let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+        let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+        let (older, live) = faded_pair(older_at, live_at);
+        let none = |_: u8| None;
+        let plain = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let first =
+            sweep_over("KTLX", "live", &older, &none, &live, &none, plain).expect("a composite");
+        let again =
+            sweep_over("KTLX", "live", &older, &none, &live, &none, plain).expect("a composite");
+        assert_eq!(
+            drawn_pixels(&first),
+            drawn_pixels(&again),
+            "the same request drew two different pictures"
+        );
+        // And the finished volume still shows through at full strength.
+        let older_only =
+            sweep_from_scan("KTLX", "older", &older, &none, plain).expect("the finished sweep");
+        let untouched = drawn_pixels(&first)
+            .chunks_exact(4)
+            .zip(drawn_pixels(&older_only).chunks_exact(4))
+            .filter(|(a, b)| a == b)
+            .count();
+        assert!(
+            untouched > 0,
+            "nothing of the finished volume survived the composite"
+        );
+    }
+
+    #[test]
+    fn persistence_fades_the_older_sweep_and_moves_no_reading() {
+        let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+        let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+        let (older, live) = faded_pair(older_at, live_at);
+        let none = |_: u8| None;
+        let plain = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let faded = SweepRequest {
+            persistence: true,
+            // The bright edge is drawn over the composite and would be a
+            // second difference; this test is about the fade.
+            reduced_motion: true,
+            ..plain
+        };
+        let before = drawn_pixels(
+            &sweep_over("KTLX", "live", &older, &none, &live, &none, plain).expect("a composite"),
+        );
+        let after = drawn_pixels(
+            &sweep_over("KTLX", "live", &older, &none, &live, &none, faded).expect("a composite"),
+        );
+        assert_eq!(before.len(), after.len());
+
+        let mut dimmed = 0;
+        let mut recoloured = 0;
+        for (was, now) in before.chunks_exact(4).zip(after.chunks_exact(4)) {
+            if was[3] == 0 && now[3] == 0 {
+                continue;
+            }
+            // The one thing this is not allowed to do: move a reading towards
+            // a different step on the ramp.
+            if was[..3] != now[..3] {
+                recoloured += 1;
+            }
+            if now[3] < was[3] {
+                dimmed += 1;
+            }
+            assert!(now[3] <= was[3], "a pixel came out brighter than it was");
+        }
+        assert_eq!(recoloured, 0, "the fade changed a colour, not an opacity");
+        assert!(dimmed > 0, "nothing was faded at all");
+
+        // Six minutes is a whole volume behind, so the older sweep is at the
+        // floor rather than gone.
+        let keep = persistence_keep((live_at - older_at).num_seconds() as f32);
+        assert!((keep - PERSISTENCE_FLOOR).abs() < 0.01, "keep was {keep}");
+    }
+
+    #[test]
+    fn the_beam_edge_is_drawn_only_when_something_is_moving() {
+        let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+        let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+        let (older, live) = faded_pair(older_at, live_at);
+        let none = |_: u8| None;
+        let still = SweepRequest {
+            product_name: "reflectivity",
+            persistence: true,
+            reduced_motion: true,
+            ..SweepRequest::default()
+        };
+        let moving = SweepRequest {
+            reduced_motion: false,
+            ..still
+        };
+        let quiet = drawn_pixels(
+            &sweep_over("KTLX", "live", &older, &none, &live, &none, still).expect("a composite"),
+        );
+        let lit = drawn_pixels(
+            &sweep_over("KTLX", "live", &older, &none, &live, &none, moving).expect("a composite"),
+        );
+        assert_ne!(quiet, lit, "the beam edge was drawn either way");
+        // Reduced motion keeps the composite: it is the edge that goes, not
+        // the picture.
+        let different = quiet
+            .chunks_exact(4)
+            .zip(lit.chunks_exact(4))
+            .filter(|(a, b)| a != b)
+            .count();
+        let all = quiet.len() / 4;
+        assert!(
+            different * 20 < all,
+            "the edge covered {different} of {all} pixels, which is a picture rather than an edge"
+        );
+    }
+
+    #[test]
+    fn a_sweep_with_two_ages_reports_both_of_them() {
+        let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+        let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+        let (older, live) = faded_pair(older_at, live_at);
+        let none = |_: u8| None;
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let sweep =
+            sweep_over("KTLX", "live", &older, &none, &live, &none, asked).expect("a composite");
+        // A composite whose age is reported from its newer half is a picture
+        // claiming to be fresher than it is.
+        let beneath = sweep
+            .beneath_collected
+            .as_deref()
+            .expect("two sweeps on screen means two times");
+        assert!(beneath.starts_with("2026-08-30T23:35"), "{beneath}");
+        assert!(sweep.collected.starts_with("2026-08-30T23:41"));
+
+        // And one sweep on its own reports one time.
+        let alone =
+            sweep_from_scan("KTLX", "older", &older, &none, asked).expect("a finished sweep");
+        assert!(alone.beneath_collected.is_none());
+    }
+
+    #[test]
+    fn the_fade_runs_from_full_to_a_floor_and_stops() {
+        assert_eq!(persistence_keep(0.0), 1.0);
+        assert_eq!(persistence_keep(-5.0), 1.0, "a negative age is no age");
+        assert_eq!(persistence_keep(f32::NAN), 1.0);
+        assert!(persistence_keep(180.0) < 1.0);
+        assert!(persistence_keep(180.0) > PERSISTENCE_FLOOR);
+        assert!((persistence_keep(PERSISTENCE_FULL_SECS) - PERSISTENCE_FLOOR).abs() < 1e-6);
+        // A sweep that fades to nothing has taken the context away rather
+        // than aged it.
+        assert!((persistence_keep(86_400.0) - PERSISTENCE_FLOOR).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_gate_comes_back_with_the_sweep_that_read_it() {
+        // The reader clicks a point on a composite. Inside the sector the
+        // radar has reached, the answer is the live cut and the live time;
+        // outside it, the finished cut and the older time. A number off a
+        // composite dated by the wrong half of it is a number nobody can
+        // check.
+        let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+        let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+        let (older, live) = faded_pair(older_at, live_at);
+        let none = |_: u8| None;
+        let asked = SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        };
+        let site = registry::site_by_id("KTLX").expect("a known site");
+        let coordinates = RadarCoordinateSystem::new(&site.to_site());
+        let beneath =
+            prepare_sweep("KTLX", &older, &none, asked, Some(0.5)).expect("the finished cut");
+        let newer =
+            prepare_sweep("KTLX", &live, &none, asked, Some(0.5)).expect("the cut in progress");
+
+        // Thirty kilometres out, north-east and south-west of the site. The
+        // live cut covers the first quadrant only.
+        let site_point = site.to_site();
+        let north_east = (
+            site_point.latitude() as f64 + 0.19,
+            site_point.longitude() as f64 + 0.25,
+        );
+        let south_west = (
+            site_point.latitude() as f64 - 0.19,
+            site_point.longitude() as f64 - 0.25,
+        );
+
+        let inside = gate_at(
+            &newer,
+            &coordinates,
+            north_east.0,
+            north_east.1,
+            Some(live_at),
+            true,
+        )
+        .expect("the live cut covers the north-east");
+        assert_eq!(inside.value, 50.0);
+        assert_eq!(inside.unit, "dBZ");
+        assert!(inside.live);
+        assert!(inside.collected.starts_with("2026-08-30T23:41"));
+
+        // The live cut has nothing to say about the south-west, so a reader
+        // clicking there is answered by the volume underneath and told so.
+        assert!(
+            gate_at(
+                &newer,
+                &coordinates,
+                south_west.0,
+                south_west.1,
+                Some(live_at),
+                true,
+            )
+            .is_none(),
+            "the cut in progress answered for a quadrant it has not swept"
+        );
+        let under = gate_at(
+            &beneath,
+            &coordinates,
+            south_west.0,
+            south_west.1,
+            Some(older_at),
+            false,
+        )
+        .expect("the finished cut covers the whole disc");
+        assert_eq!(under.value, 20.0);
+        assert!(!under.live);
+        assert!(under.collected.starts_with("2026-08-30T23:35"));
+
+        // And nothing at all beyond the radar's reach.
+        assert!(
+            gate_at(&beneath, &coordinates, 0.0, 0.0, Some(older_at), false).is_none(),
+            "a point off the disc came back with a reading"
+        );
+    }
+
     #[test]
     fn the_swept_sector_is_drawn_over_the_volume_before_it() {
         let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
@@ -5362,6 +5981,8 @@ mod tests {
             manual_motion: None,
             threshold: None,
             high_contrast: false,
+            persistence: false,
+            reduced_motion: false,
         }
     }
 

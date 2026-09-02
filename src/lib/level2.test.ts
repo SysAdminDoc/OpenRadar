@@ -36,6 +36,7 @@ const sweep: SweepImage = {
   tilts: [0.48, 0.87, 1.31],
   tiltIndex: 0,
   collected: "2026-08-30T09:21:59+00:00",
+  beneathCollected: null,
   west: -96.5,
   south: 39.6,
   east: -91.0,

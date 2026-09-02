@@ -590,7 +590,7 @@ export function WorkspaceChrome({
  * so a slow fetch shows as what it is.
  */
 function sweepEyebrow(sweep: SweepImage, clock: number): string {
-  const tilt = tiltEyebrow(sweep, clock);
+  const tilt = withOldest(tiltEyebrow(sweep, clock), sweep, clock);
   // A terminal radar is named as such, with its reach: the picture is
   // another instrument's, drawn to another distance, and the legend has to
   // say so where the tilt is said.
@@ -598,6 +598,22 @@ function sweepEyebrow(sweep: SweepImage, clock: number): string {
   return `${tilt} · ${translate("chrome.terminalRadar", {
     range: Math.round(sweep.rangeKm),
   })}`;
+}
+
+/**
+ * The age of the oldest sweep on screen, when there is more than one.
+ *
+ * A live picture is the volume being swept now over the last one finished, and
+ * with persistence on the older half is drawn faded rather than at full
+ * strength. Reporting only the newer half's age would make a decayed picture
+ * read as fresher than it is, which is the one thing a legend must not do.
+ */
+function withOldest(line: string, sweep: SweepImage, clock: number): string {
+  if (!sweep.beneathCollected) return line;
+  const behind = Date.parse(sweep.beneathCollected);
+  if (!Number.isFinite(behind)) return line;
+  const minutes = Math.max(0, Math.floor((clock - behind) / 60_000));
+  return `${line} · ${translate("chrome.behind", { count: minutes })}`;
 }
 
 function tiltEyebrow(sweep: SweepImage, clock: number): string {

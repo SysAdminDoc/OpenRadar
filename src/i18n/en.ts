@@ -467,6 +467,9 @@ export const en = {
   "radar.live": "Volume in progress",
   "radar.liveDetail":
     "Draw the sweep the radar is making now over the last one it finished. The finished picture is four to six minutes old by the time it is published; this one is seconds old over the sector the radar has reached, and unchanged everywhere else.",
+  "radar.persistence": "Phosphor persistence",
+  "radar.persistenceDetail":
+    "Fade the finished sweep behind the one the radar is making, the way a phosphor screen does. Nothing about the readings changes; the legend says the age of the older half as well as the newer, because a decayed picture is older than an undecayed one.",
   "radar.archiveBrowse": "Archive II",
   "radar.archiveBrowseDetail":
     "Open a local volume offline or ask NOAA's public archive for a site and UTC time.",
@@ -1050,6 +1053,7 @@ export const en = {
   "chrome.tiltLiveDealiased":
     "{degrees}° TILT · UNFOLDED · LIVE, {seconds} S OLD",
   "chrome.liveProduct": "LIVE PRODUCT",
+  "chrome.behind": "BEHIND IT, {count} MIN OLD",
   "chrome.terminalRadar": "TDWR · {range} km",
   "chrome.extraScales": "Extra product scales",
   "chrome.wind": "Wind",
@@ -1396,6 +1400,9 @@ export const en = {
   "tool.startHint": "Select the start point",
   "tool.endHint": "Select the end point",
   "tool.inspectAt": "{lat}°, {lon}° · zoom {zoom}",
+  "tool.gateValue": "{value} {unit}",
+  "tool.gateLive": "from the sweep being made, {when}",
+  "tool.gateFrom": "from the sweep of {when}",
   "tool.beamHeight": "beam {height} above the radar at {tilt}°",
   "tool.classified": "{class} by the radar's own classification",
   "tool.pathPoints": "{count} points in path",

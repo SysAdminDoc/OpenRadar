@@ -81,6 +81,12 @@ const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 /** Read at the moment an animation starts, so a live preference change wins. */
 export function reducedMotionRequested(): boolean {
+  // Guarded for the same reason `highContrastRequested` is, and found the
+  // same way: this is now read on the way into fetching a radar sweep, and an
+  // environment with no media query at all, which includes a plain jsdom,
+  // would otherwise take the whole picture down over a question about
+  // animation. A preference nobody can answer is not a preference.
+  if (typeof window.matchMedia !== "function") return false;
   return window.matchMedia(REDUCED_MOTION).matches;
 }
 

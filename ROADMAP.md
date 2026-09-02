@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-004: Give the single-site sweep optional phosphor persistence
-      Why: A radar disc that shows where the beam is now, with the previous sweep fading behind it, is the picture everybody has in their head when they think of radar, and this app is one of the few that actually has the beam position to draw it honestly. The live volume path already composites a partial sweep over a finished one, so the geometry is in hand. It stays optional and it stays labelled, because a decayed picture is older than an undecayed one and the reader has to be able to tell.
-      Evidence: `src-tauri/src/level2.rs`; `src-tauri/src/chunks.rs`; `src/hooks/useSingleSiteRadar.ts`; `src/components/MapViewport.tsx`
-      Touches: Sweep compositing; a decay parameter and its bounds; the legend and its age text; settings; the fixture tests
-      Acceptance: With persistence on, gate values are unchanged and only the drawn opacity decays with the age of the cut that produced it; the legend states the age of the oldest visible sweep, not just the newest; the picture is identical to today's when persistence is off, proved against the synthetic volume; reduced motion keeps the composite and drops the animated leading edge; a reader inspecting a gate gets the value and the time of the sweep it came from.
-      Complexity: L
-
 - [ ] JOY-005: Replace the welcome toast with a first-run reveal and one honest opening line
       Why: The current onboarding is a single toast pointing at the commands, and a first launch is otherwise a map with nothing to say. Two small things fix that. The radar disc drawing itself once, on the very first run, is a signature people remember. A one-line summary of what the weather is actually doing near the opening view is more useful than a hint and is the reason to open the app on a calm day.
       Evidence: `src/hooks/useWelcomeHint.ts`; `src/components/ToastHost.tsx`; `src/lib/weather.ts`; `src/lib/settings.ts`
@@ -151,3 +144,10 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
+
+- [ ] AUD-123: P2. Bring the Rust tree back under the rustfmt that is installed
+      Why: `cargo fmt --check` fails on twelve pre-existing hunks across `bundles.rs`, `data_export.rs`, `geotiff.rs` and others, none of them touched recently. The committed code was formatted by an older rustfmt than the one on this machine, so the release script's own gate cannot pass and every Rust change now has to be hand-matched to a style nothing enforces.
+      Evidence: `cargo fmt --check --manifest-path src-tauri/Cargo.toml`; `scripts/release.mjs` (the `cargo fmt --check` step)
+      Touches: A whole-tree `cargo fmt` in its own commit; a note of the toolchain version it was formatted with
+      Acceptance: WHEN `cargo fmt --check` runs on a clean tree, it SHALL report no differences; the reformatting is its own commit with no behaviour change in it, and the rustfmt version that produced it is written down.
+      Complexity: S

@@ -80,6 +80,7 @@ function sweepFor(
     tilts: [0.48, 0.87, 1.31],
     tiltIndex: tilt,
     collected: new Date().toISOString(),
+    beneathCollected: null,
     west: -96.5,
     south: 39.6,
     east: -91,

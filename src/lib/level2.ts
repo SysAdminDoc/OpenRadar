@@ -103,6 +103,14 @@ export interface SweepImage {
   /** How many cuts the volume in progress has published. Zero when not live. */
   liveTilts: number;
   collected: string;
+  /**
+   * When the older cut under a live composite was collected.
+   *
+   * Present only when two sweeps are on screen at once. The legend says this
+   * as well as `collected`, because a composite whose age is read off its
+   * newer half is a picture claiming to be fresher than it is.
+   */
+  beneathCollected: string | null;
   west: number;
   south: number;
   east: number;
@@ -155,6 +163,14 @@ export async function fetchSweep(
   live: boolean,
   // Draw with the ramps built for a reader who has asked for more contrast.
   highContrast: boolean,
+  // Fade the finished sweep behind the one being made, the way a phosphor
+  // screen does. Only ever true alongside `live`, because it is the only
+  // picture with two sweeps in it.
+  persistence: boolean,
+  // Keep the faded composite and drop the bright edge that moves with the
+  // beam. Sent from here for the same reason the contrast preference is: the
+  // native side has no view of a media query.
+  reducedMotion: boolean,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -166,6 +182,52 @@ export async function fetchSweep(
     threshold,
     live,
     highContrast,
+    persistence,
+    reducedMotion,
+  });
+}
+
+/** One gate's reading, and which of a composite's two sweeps it came from. */
+export interface GateReading {
+  value: number;
+  unit: string;
+  product: string;
+  /** When the sweep this came from was collected. */
+  collected: string;
+  /** True when it came from the volume the radar is sweeping now. */
+  live: boolean;
+  azimuthDegrees: number;
+  rangeKm: number;
+}
+
+/**
+ * What the radar read at one point, from the same cut the picture drew.
+ *
+ * Asked of the native side rather than sampled out of the image, because a
+ * colour is a lossy account of a number. Null when the point is out of range,
+ * when the gate holds no reading, or in a browser preview with no decoder.
+ */
+export async function fetchGate(
+  station: string,
+  lat: number,
+  lon: number,
+  product: Level2ProductId,
+  tilt: number,
+  dealias: boolean,
+  motion: [number, number] | null,
+  live: boolean,
+): Promise<GateReading | null> {
+  if (!isDesktopRuntime()) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<GateReading | null>("level2_gate", {
+    station,
+    latitude: lat,
+    longitude: lon,
+    product,
+    tilt,
+    dealias,
+    motion,
+    live,
   });
 }
 
