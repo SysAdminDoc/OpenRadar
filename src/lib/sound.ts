@@ -1,4 +1,5 @@
 import type { AlertSeverity } from "./overlays/alerts";
+import { isDesktopRuntime } from "./settings";
 
 /**
  * A short sound for an alert reaching the place somebody is watching.
@@ -246,6 +247,67 @@ export function soundNameAllowed(path: string): boolean {
   return SOUND_EXTENSIONS.includes(extension);
 }
 
+/** Why a chosen sound could not be used, in the words the panel has. */
+export type SoundRefusal = "name" | "size" | "decode" | "noAudio";
+
+/**
+ * Whether a path that would not load is worth keeping.
+ *
+ * Only one refusal is about the machine rather than the file: a machine with
+ * no audio at all will play this sound perfectly well on the next one, so the
+ * choice is kept and reported. Everything else means the panel would go on
+ * naming a file that is not playing, and the same toast would arrive on every
+ * launch until the reader found the button that clears it.
+ */
+export function keepSoundPath(reason: SoundRefusal): boolean {
+  return reason === "noAudio";
+}
+
+/**
+ * Gets the bytes of a file the reader picked.
+ *
+ * There is no way for a webview to open a path. The app spent a version
+ * converting the path to an `asset:` address and fetching it, which cannot
+ * work in this build: the scheme is behind a Cargo feature the binary is not
+ * compiled with, the config does not enable it, and the content policy does
+ * not allow it either. So it always threw, the setting was cleared, and the
+ * reader was told their file could not be read as audio. It comes over the
+ * native command now, which is the only path that exists.
+ *
+ * A browser preview has no native side. There the path is treated as an
+ * address, which is what the tests use and what a development preview can do.
+ */
+async function alertSoundBytes(
+  path: string,
+): Promise<
+  { ok: true; bytes: ArrayBuffer } | { ok: false; reason: SoundRefusal }
+> {
+  if (isDesktopRuntime()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const answer = await invoke<ArrayBuffer>("alert_sound_bytes", { path });
+      return { ok: true, bytes: answer };
+    } catch (failure) {
+      // The native side says which of the panel's sentences to show, rather
+      // than handing over an English message from the operating system.
+      const said = (failure as { reason?: string } | null)?.reason;
+      const reason: SoundRefusal =
+        said === "size" || said === "name" ? said : "decode";
+      return { ok: false, reason };
+    }
+  }
+
+  const response = await fetch(path);
+  if (!response.ok) return { ok: false, reason: "decode" };
+  // Asked before it is read. Reading four gigabytes into memory and then
+  // deciding it was too big is the check happening after the damage.
+  const said = Number(response.headers.get("content-length"));
+  if (Number.isFinite(said) && said > MAX_SOUND_BYTES) {
+    return { ok: false, reason: "size" };
+  }
+  return { ok: true, bytes: await response.arrayBuffer() };
+}
+
 /**
  * Reads and decodes the reader's own sound, or says why it will not.
  *
@@ -256,9 +318,7 @@ export function soundNameAllowed(path: string): boolean {
  */
 export async function loadAlertSound(
   path: string,
-): Promise<
-  { ok: true } | { ok: false; reason: "name" | "size" | "decode" | "noAudio" }
-> {
+): Promise<{ ok: true } | { ok: false; reason: SoundRefusal }> {
   if (!soundNameAllowed(path)) return { ok: false, reason: "name" };
   try {
     // A machine with no audio at all is not a bad file, and telling somebody
@@ -266,28 +326,12 @@ export async function loadAlertSound(
     // saying nothing.
     if (typeof AudioContext === "undefined")
       return { ok: false, reason: "noAudio" };
-    // Through the native side when there is one. A browser preview has none,
-    // and the fetch below then simply fails, which is the same answer.
-    let url = path;
-    try {
-      const { convertFileSrc } = await import("@tauri-apps/api/core");
-      url = convertFileSrc(path);
-    } catch {
-      url = path;
-    }
-    const response = await fetch(url);
-    if (!response.ok) return { ok: false, reason: "decode" };
-    // Asked before it is read. Reading four gigabytes into memory and then
-    // deciding it was too big is the check happening after the damage.
-    const said = Number(response.headers.get("content-length"));
-    if (Number.isFinite(said) && said > MAX_SOUND_BYTES) {
-      return { ok: false, reason: "size" };
-    }
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength > MAX_SOUND_BYTES)
+    const read = await alertSoundBytes(path);
+    if (!read.ok) return read;
+    if (read.bytes.byteLength > MAX_SOUND_BYTES)
       return { ok: false, reason: "size" };
     context ??= new AudioContext();
-    own = await context.decodeAudioData(bytes.slice(0));
+    own = await context.decodeAudioData(read.bytes.slice(0));
     ownFor = path;
     ownPath = path;
     return { ok: true };

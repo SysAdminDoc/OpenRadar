@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.8.0
 
+- A sound of your own works. It never could: the file was fetched over an address this build does not serve, so every reader who chose one was told it could not be read as audio, the choice was thrown away, and the same wrong message came back on the next launch. The bytes come over the app's own side now, still refused above two megabytes and still only the six kinds the picker offers, and the file is checked twice on the way in because a file being written to is bigger than the folder said. A file that really has gone is now said once, and the setting stops naming it.
+
 - Links out of the app work again. In the installed build every one of them was dead: the alert's own page at the weather office, the hurricane advisory, the map credits, the sources under a curiosity card. Clicking did nothing at all and nothing said why. The window had never been granted permission to open a link, so the click was caught and dropped on the floor. It is granted now, for https and nothing else, and the two links that arrive in a feed rather than being written by us go through the same check a link in a map popup does.
 
 ## OpenRadar v0.7.0

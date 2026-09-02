@@ -26,6 +26,7 @@ mod lightning;
 mod mrms;
 mod palette;
 mod probsevere;
+mod sound;
 mod tdwr;
 mod tiles;
 mod tray;
@@ -243,6 +244,7 @@ pub fn run() {
             wallpaper::wallpaper_available,
             wallpaper::wallpaper_set,
             wallpaper::wallpaper_restore,
+            sound::alert_sound_bytes,
             tray::tray_enabled
         ])
         .setup(|_app| {

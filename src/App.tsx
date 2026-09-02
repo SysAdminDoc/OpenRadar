@@ -45,6 +45,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import {
   loadAlertSound,
+  keepSoundPath,
   setAlertSound,
   setAlertVolume,
   SOUND_EXTENSIONS,
@@ -423,11 +424,14 @@ export default function App() {
         title: translate("alerts.soundFileFailed"),
         detail: translate(`alerts.soundFile.${answer.reason}`),
       });
+      // Said once, then stop naming it.
+      if (keepSoundPath(answer.reason)) return;
+      applySettings({ ...settingsRef.current, alertSoundPath: null });
     });
     return () => {
       current = false;
     };
-  }, [settings.alertSoundPath, pushToast]);
+  }, [settings.alertSoundPath, pushToast, applySettings, settingsRef]);
 
   const journalFrame = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
