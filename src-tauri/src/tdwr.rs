@@ -428,6 +428,9 @@ pub async fn sweep(
             live: false,
             live_tilts: 0,
             collected: description.volume_time.to_rfc3339(),
+            // A terminal radar publishes one finished product at a time, so
+            // there is never a second sweep under this one.
+            beneath_collected: None,
             west,
             south,
             east,

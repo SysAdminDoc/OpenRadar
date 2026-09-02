@@ -14,7 +14,7 @@ import {
 } from "../lib/level2";
 import { fetchCrossSection, type CrossSection } from "../lib/crossSection";
 import type { GeoPoint } from "../lib/geo";
-import { highContrastRequested } from "./useClock";
+import { highContrastRequested, reducedMotionRequested } from "./useClock";
 import { log } from "../lib/log";
 import { isTdwrStation, supportedProduct } from "../lib/radarKinds";
 import {
@@ -398,6 +398,10 @@ export function useSingleSiteRadar(options: {
           // Read now rather than held, so a preference changed while the app is
           // open reaches the next sweep the reader asks for.
           highContrastRequested(),
+          // Only over a live composite: a finished volume has nothing behind
+          // it to fade and no beam position to mark.
+          radar.live && radar.persistence,
+          reducedMotionRequested(),
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
@@ -441,6 +445,7 @@ export function useSingleSiteRadar(options: {
     paletteGeneration,
     radar.dealias,
     radar.live,
+    radar.persistence,
     product,
     // The two numbers rather than the object holding them. A settings object is
     // rebuilt whenever anything in it changes, including the map centre, so

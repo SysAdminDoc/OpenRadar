@@ -32,11 +32,13 @@ import {
   sweepCorners,
   sweepSite,
   type SweepImage,
+  fetchGate,
+  type GateReading,
 } from "../lib/level2";
 import { createWindLayer } from "../lib/windLayer";
 import type { WindField } from "../lib/wind";
 import type { RadarFrame } from "../lib/radar";
-import { formatHeight, useMeasurements } from "../lib/units";
+import { formatClock, formatHeight, useMeasurements } from "../lib/units";
 import {
   cameraKey,
   sameCamera,
@@ -50,7 +52,12 @@ import {
   surgeTileUrl,
   type SurgeCategory,
 } from "../lib/surge";
-import { formatNumber, translate, type StringKey } from "../i18n";
+import {
+  formatMeasure,
+  formatNumber,
+  translate,
+  type StringKey,
+} from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
@@ -345,6 +352,9 @@ function MapViewportInner(
   const radarVisibleRef = useRef(radarVisible);
   const radarOpacityRef = useRef(radarOpacity);
   const sweepRef = useRef<SweepImage | null>(sweep);
+  // Which inspection is the current one, so a slow gate read cannot overwrite
+  // the readout for a point somebody has already clicked past.
+  const inspectRef = useRef(0);
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
@@ -1620,7 +1630,7 @@ function MapViewportInner(
         }
         // The height is left in feet and written out later, because the units
         // can change while this reading is still on screen.
-        onToolResult?.(() => {
+        const written = (gate: GateReading | null) => () => {
           const lines = [
             translate("tool.inspectAt", {
               lat: formatNumber(point.lat, 4),
@@ -1628,6 +1638,21 @@ function MapViewportInner(
               zoom: formatNumber(zoom, 2),
             }),
           ];
+          if (gate) {
+            // The reading, and which sweep read it. A live picture is two
+            // sweeps composited and with persistence on the older half is
+            // faded rather than absent, so a number off it with no time on
+            // it is a number nobody can check.
+            lines.push(
+              translate("tool.gateValue", {
+                value: formatMeasure(Math.round(gate.value * 10) / 10),
+                unit: gate.unit,
+              }),
+              translate(gate.live ? "tool.gateLive" : "tool.gateFrom", {
+                when: formatClock(Date.parse(gate.collected)),
+              }),
+            );
+          }
           if (beam) {
             lines.push(
               translate("tool.beamHeight", {
@@ -1644,7 +1669,37 @@ function MapViewportInner(
             );
           }
           return lines.join(" · ");
-        });
+        };
+        // Said at once with what is already in hand, then said again with the
+        // gate when the native side answers. A reading that arrives half a
+        // second late is worth waiting for; an empty readout while it does is
+        // not.
+        const asked = ++inspectRef.current;
+        onToolResult?.(written(null));
+        if (drawn && drawn.source.kind !== "local") {
+          void fetchGate(
+            drawn.station,
+            point.lat,
+            point.lon,
+            drawn.productId,
+            drawn.tiltIndex,
+            drawn.dealiased,
+            drawn.stormMotion
+              ? [drawn.stormMotion.speedMs, drawn.stormMotion.fromDegrees]
+              : null,
+            drawn.live,
+          )
+            .then((gate) => {
+              // A second click while this was in flight owns the readout now.
+              if (gate && inspectRef.current === asked) {
+                onToolResult?.(written(gate));
+              }
+            })
+            .catch(() => {
+              // A gate that cannot be read is a readout without one rather
+              // than an error over a point somebody clicked.
+            });
+        }
       } else if (toolModeRef.current === "draw") {
         drawPointsRef.current = [...drawPointsRef.current, point];
         renderTools();

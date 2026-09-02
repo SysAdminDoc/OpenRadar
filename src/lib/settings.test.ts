@@ -146,6 +146,7 @@ describe("settings normalization", () => {
       "live",
       "loopMinutes",
       "opacity",
+      "persistence",
       "product",
       "singleSite",
       "station",

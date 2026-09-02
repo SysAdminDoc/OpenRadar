@@ -202,6 +202,7 @@ pub fn run() {
             level2::level2_archive_sweep,
             level2::level2_local_sweep,
             level2::level2_sweep,
+            level2::level2_gate,
             level2::level2_nearest_site,
             level2::level2_cross_section,
             level3::level3_cells,

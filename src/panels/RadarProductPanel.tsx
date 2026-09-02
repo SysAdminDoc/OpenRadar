@@ -331,6 +331,28 @@ export function RadarProductPanel({
             <i className="toggle-track" aria-hidden="true" />
           </label>
 
+          {/* Only offered where there are two sweeps to composite. A finished
+              volume has nothing behind it to fade. */}
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("radar.persistence")}</strong>
+              <small>{t("radar.persistenceDetail")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={
+                radar.persistence && radar.live && !singleSite.historical
+              }
+              disabled={
+                !radar.singleSite || !radar.live || singleSite.historical
+              }
+              onChange={(event) =>
+                onRadar({ ...radar, persistence: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+
           <section className="archive-browser" aria-labelledby="archive-title">
             <div className="archive-browser__title">
               <History size={17} aria-hidden="true" />

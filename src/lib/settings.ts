@@ -79,6 +79,17 @@ export interface RadarSettings {
    * over a full one rather than a fresher full one.
    */
   live: boolean;
+  /**
+   * Fade the finished sweep behind the one being made, the way a phosphor
+   * screen does.
+   *
+   * Only ever drawn alongside `live`, which is the only picture with two
+   * sweeps in it. It is opacity and nothing else: no gate value moves, and
+   * the legend says the age of the older half as well as the newer, because a
+   * decayed picture is older than an undecayed one and the reader has to be
+   * able to tell.
+   */
+  persistence: boolean;
   /** A motion the viewer gave, rather than one read off the sweep. */
   stormMotion: { speedMs: number; fromDegrees: number } | null;
   /** The site to hold, or null to follow whichever one the view is over. */
@@ -377,6 +388,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     singleSite: true,
     dealias: true,
     live: false,
+    persistence: false,
     stormMotion: null,
     station: null,
     product: "reflectivity",
@@ -1243,6 +1255,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ),
       singleSite: bool(radar.singleSite, DEFAULT_SETTINGS.radar.singleSite),
       live: bool(radar.live, DEFAULT_SETTINGS.radar.live),
+      persistence: bool(radar.persistence, DEFAULT_SETTINGS.radar.persistence),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
       stormMotion: normalizeStormMotion(radar.stormMotion),
       station:

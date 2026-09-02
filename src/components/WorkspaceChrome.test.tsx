@@ -49,6 +49,7 @@ function sweepOf(live: boolean): SweepImage {
     tilts: [0.48, 0.87],
     tiltIndex: 0,
     collected: COLLECTED,
+    beneathCollected: null,
     west: -96.5,
     south: 40,
     east: -90.5,
