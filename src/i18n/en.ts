@@ -827,6 +827,9 @@ export const en = {
   "rivers.zoom": "Zoom in to see the gauges near the storm.",
   "rivers.replay":
     "River levels are current, so they are held back while a replay is on the map.",
+  "sounding.failed": "The upper air archive returned {status}.",
+  "sounding.failedModel": "The model returned {status}.",
+  "sounding.hereLabel": "The middle of the map",
   "layers.tropicalDetail": "NHC cones, tracks, and development outlooks",
   "layers.satelliteDetail": "GOES-East GeoColor under the radar",
   "layers.rotationDetail": "MRMS azimuthal shear over the past hour",

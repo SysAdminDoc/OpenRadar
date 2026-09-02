@@ -844,6 +844,9 @@ export const es: Catalogue = {
   "rivers.zoom": "Acerca el mapa para ver las estaciones cerca de la tormenta.",
   "rivers.replay":
     "Los niveles de los ríos son actuales, así que se retienen mientras hay una repetición en el mapa.",
+  "sounding.failed": "El archivo de aire superior respondió {status}.",
+  "sounding.failedModel": "El modelo respondió {status}.",
+  "sounding.hereLabel": "El centro del mapa",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
