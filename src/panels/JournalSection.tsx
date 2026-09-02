@@ -1,28 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
-import { Trash2, Download } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trash2, Download, Pencil } from "lucide-react";
 import { translate, useT } from "../i18n";
 import { formatClock } from "../lib/units";
 import {
   clearJournal,
+  filterJournal,
   journalAvailable,
+  journalMarkdown,
   journalPath,
   journalRows,
   journalText,
+  journalThumbData,
+  journalThumbFileName,
+  removeJournalRow,
+  setJournalNote,
+  JOURNAL_FILTER,
   JOURNAL_MAX_MB,
   JOURNAL_RETENTION_DAYS,
+  type JournalFilter,
   type JournalRow,
 } from "../lib/journal";
 import { saveFile } from "../lib/saveFile";
 
 /**
- * The reader's own record, in plain form, with the two buttons that matter.
+ * The reader's own record, in plain form, with the buttons that matter.
  *
  * This is the one file in the app that writes down where somebody lives, so
  * the panel says exactly what is in it, shows every row of it as it is on
- * disk, hands it over as itself, and deletes the whole thing in one press.
- * Nothing here is a summary or a count standing in for the content: the
- * reader looks at the file.
+ * disk, hands it over as itself, and deletes it in one press, whole or a row
+ * at a time. Nothing here is a summary or a count standing in for the content:
+ * the reader looks at the file.
+ *
+ * A row is the app's account of what the weather did. The note on it is the
+ * reader's, and it is the only part of this the app never writes.
  */
+
 /** A row's own time, or a plain word when the row cannot say. */
 function observedLabel(observed: string): string {
   const at = Date.parse(observed);
@@ -34,6 +46,9 @@ function observedLabel(observed: string): string {
     minute: "2-digit",
   });
 }
+
+/** How far back the reader can narrow to, in days. Zero is everything kept. */
+const SPANS = [0, 7, 30, 365] as const;
 
 export function JournalSection({
   /** Ticks once a minute, which is how the list notices a row that arrived. */
@@ -50,6 +65,10 @@ export function JournalSection({
   const t = useT();
   const [rows, setRows] = useState<JournalRow[]>([]);
   const [where, setWhere] = useState<string | null>(null);
+  const [filter, setFilter] = useState<JournalFilter>(JOURNAL_FILTER);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(
+    null,
+  );
 
   const reload = useCallback(() => {
     void journalRows().then(setRows);
@@ -61,6 +80,53 @@ export function JournalSection({
   // the snapshot from when it opened, so what a reader took away was not the
   // whole file.
   useEffect(reload, [reload, clock]);
+
+  const shown = useMemo(
+    () => filterJournal(rows, filter, clock),
+    [rows, filter, clock],
+  );
+
+  // One object URL per picture, made once and let go when the panel closes.
+  // A picture the budget has taken back simply does not appear; the row it
+  // belonged to is still the record and still reads.
+  const [pictures, setPictures] = useState<Record<string, string>>({});
+  const heldRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    let open = true;
+    for (const row of shown) {
+      if (!row.thumb || heldRef.current[row.id]) continue;
+      heldRef.current[row.id] = "";
+      void journalThumbData(row.thumb).then((bytes) => {
+        if (!open || !bytes) return;
+        const url = URL.createObjectURL(
+          new Blob([bytes as BlobPart], { type: "image/png" }),
+        );
+        heldRef.current[row.id] = url;
+        setPictures((held) => ({ ...held, [row.id]: url }));
+      });
+    }
+    return () => {
+      open = false;
+    };
+  }, [shown]);
+  useEffect(() => {
+    const held = heldRef.current;
+    return () => {
+      for (const url of Object.values(held)) {
+        if (url) URL.revokeObjectURL(url);
+      }
+    };
+  }, []);
+
+  const failed = useCallback(
+    (failure: unknown) =>
+      onFailed(
+        failure instanceof Error
+          ? failure.message
+          : translate("journal.failed"),
+      ),
+    [onFailed],
+  );
 
   if (!journalAvailable()) {
     return (
@@ -86,13 +152,64 @@ export function JournalSection({
         })}
       </p>
       {where ? <p className="source-note">{where}</p> : null}
+
       {rows.length ? (
+        <div className="journal-filter">
+          <input
+            type="search"
+            value={filter.query}
+            aria-label={t("journal.search")}
+            placeholder={t("journal.search")}
+            onChange={(event) =>
+              setFilter((held) => ({ ...held, query: event.target.value }))
+            }
+          />
+          <select
+            value={filter.kind}
+            aria-label={t("journal.kind")}
+            onChange={(event) =>
+              setFilter((held) => ({ ...held, kind: event.target.value }))
+            }
+          >
+            <option value="">{t("journal.kindAny")}</option>
+            <option value="alert">{t("journal.kindAlert")}</option>
+            <option value="observation">{t("journal.kindObservation")}</option>
+          </select>
+          <select
+            value={String(filter.days)}
+            aria-label={t("journal.since")}
+            onChange={(event) =>
+              setFilter((held) => ({
+                ...held,
+                days: Number(event.target.value),
+              }))
+            }
+          >
+            {SPANS.map((days) => (
+              <option key={days} value={String(days)}>
+                {days === 0
+                  ? t("journal.sinceAny")
+                  : t("journal.sinceDays", { days })}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {shown.length ? (
         <ol className="journal-rows">
-          {rows
+          {shown
             .slice()
             .reverse()
             .map((row) => (
-              <li key={`${row.at}-${row.place}-${row.text}`}>
+              <li key={row.id} data-journal-row={row.id}>
+                {pictures[row.id] ? (
+                  <img
+                    className="journal-thumb"
+                    src={pictures[row.id]}
+                    alt={t("journal.picture", { text: row.text })}
+                  />
+                ) : null}
                 <strong>{row.place}</strong>
                 <span>{row.text}</span>
                 <small>
@@ -106,12 +223,81 @@ export function JournalSection({
                     obtained: row.obtained,
                   })}
                 </small>
+                {editing?.id === row.id ? (
+                  <div className="journal-note-edit">
+                    <textarea
+                      value={editing.text}
+                      aria-label={t("journal.noteLabel")}
+                      placeholder={t("journal.notePlaceholder")}
+                      rows={3}
+                      autoFocus
+                      onChange={(event) =>
+                        setEditing({ id: row.id, text: event.target.value })
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        const text = editing.text;
+                        setEditing(null);
+                        void setJournalNote(row.id, text)
+                          .then(reload)
+                          .catch(failed);
+                      }}
+                    >
+                      {t("journal.noteSave")}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setEditing(null)}
+                    >
+                      {t("journal.noteDiscard")}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {row.note ? (
+                      <p className="journal-note">{row.note}</p>
+                    ) : null}
+                    <div className="journal-row-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() =>
+                          setEditing({ id: row.id, text: row.note })
+                        }
+                      >
+                        <Pencil size={14} />{" "}
+                        {row.note
+                          ? t("journal.noteEdit")
+                          : t("journal.noteAdd")}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        aria-label={t("journal.removeRow")}
+                        onClick={() => {
+                          void removeJournalRow(row.id)
+                            .then(reload)
+                            .catch(failed);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
         </ol>
       ) : (
-        <p className="source-note">{t("journal.empty")}</p>
+        <p className="source-note">
+          {rows.length ? t("journal.noneMatch") : t("journal.empty")}
+        </p>
       )}
+
       <button
         type="button"
         className="secondary-button"
@@ -119,17 +305,34 @@ export function JournalSection({
         onClick={() => {
           void (async () => {
             try {
+              // Files, plural, and readable ones. The record as it is on disk,
+              // the same thing written for a person, and every picture beside
+              // them under the name the text refers to. A single blob would
+              // be smaller and would need this app to open it.
               const saved = await saveFile(
                 "openradar-journal.jsonl",
                 new Blob([journalText(rows)], { type: "application/x-ndjson" }),
               );
+              await saveFile(
+                "openradar-journal.md",
+                new Blob([journalMarkdown(rows, t("journal.exportHeading"))], {
+                  type: "text/markdown",
+                }),
+              );
+              for (const row of rows) {
+                if (!row.thumb) continue;
+                const bytes = await journalThumbData(row.thumb);
+                if (!bytes) continue;
+                await saveFile(
+                  journalThumbFileName(row),
+                  new Blob([bytes as BlobPart], { type: "image/png" }),
+                );
+              }
+              // One toast, naming the folder the whole set landed in. A
+              // message per file during an export of a year is not feedback.
               onSaved(saved.path);
             } catch (failure) {
-              onFailed(
-                failure instanceof Error
-                  ? failure.message
-                  : t("journal.failed"),
-              );
+              failed(failure);
             }
           })();
         }}
@@ -148,13 +351,7 @@ export function JournalSection({
               reload();
               onCleared();
             })
-            .catch((failure: unknown) =>
-              onFailed(
-                failure instanceof Error
-                  ? failure.message
-                  : translate("journal.failed"),
-              ),
-            );
+            .catch(failed);
         }}
       >
         <Trash2 size={16} /> {t("journal.clear")}

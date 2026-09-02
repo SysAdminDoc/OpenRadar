@@ -100,6 +100,13 @@ export function useAlertWatch(
    * hours and the severity override have had their say.
    */
   onAnnounce?: (alert: WatchAlert) => void,
+  /**
+   * The frame that was on screen, for the row this writes.
+   *
+   * Passed in rather than reached for, because this hook has no business
+   * knowing there is a map: it knows about warnings and about the record.
+   */
+  capture?: () => Promise<Uint8Array | null>,
 ): AlertWatchState {
   // What has been announced, and how bad it was when it was: an upgrade is
   // worth saying again, a downgrade is not.
@@ -112,6 +119,11 @@ export function useAlertWatch(
   useEffect(() => {
     fallbackRef.current = onFallback;
   }, [onFallback]);
+
+  const captureRef = useRef(capture);
+  useEffect(() => {
+    captureRef.current = capture;
+  }, [capture]);
 
   const announceRef = useRef(onAnnounce);
   useEffect(() => {
@@ -276,19 +288,22 @@ export function useAlertWatch(
           // place they have claimed, and nothing about how the app was used
           // goes anywhere near this file.
           for (const place of claimed) {
-            void appendJournalRow({
-              at: new Date().toISOString(),
-              place: place.name,
-              kind: "alert",
-              source: translate("journal.sourceNws"),
-              // The office's own issue time when the alert carries one, and
-              // only the poll's time when it does not. A row that dates a
-              // warning by the moment the app noticed it is a row that says
-              // something untrue about the office.
-              observed: new Date(alert.issued ?? Date.now()).toISOString(),
-              obtained: translate("journal.obtainedWatch"),
-              text: alert.headline,
-            });
+            void appendJournalRow(
+              {
+                at: new Date().toISOString(),
+                place: place.name,
+                kind: "alert",
+                source: translate("journal.sourceNws"),
+                // The office's own issue time when the alert carries one, and
+                // only the poll's time when it does not. A row that dates a
+                // warning by the moment the app noticed it is a row that says
+                // something untrue about the office.
+                observed: new Date(alert.issued ?? Date.now()).toISOString(),
+                obtained: translate("journal.obtainedWatch"),
+                text: alert.headline,
+              },
+              captureRef.current,
+            );
           }
           // Without the names. The log goes into the block a reader pastes
           // into a bug report, and `redact` blurs coordinates and folder

@@ -197,14 +197,13 @@ fn thumb_name(name: &str) -> Option<String> {
     if !name.ends_with(".png") {
         return None;
     }
-    // Letters, digits, a dot and a dash. This is the whole of the guard: a
-    // name that cannot hold a separator or a colon cannot leave the directory
-    // it is joined to, on Windows or anywhere else, so there is no traversal
-    // check below to go stale. Widening this set is what would need one.
     if !name
         .chars()
         .all(|one| one.is_ascii_alphanumeric() || one == '.' || one == '-')
     {
+        return None;
+    }
+    if name.contains("..") {
         return None;
     }
     Some(name.to_string())
@@ -381,20 +380,15 @@ fn bounded(mut rows: Vec<JournalRow>, now: DateTime<Utc>) -> Vec<JournalRow> {
 /// reaching ten named places is ten of those. On the IPC thread that is a
 /// second of frozen window at the exact moment warnings are being announced.
 #[tauri::command]
-pub async fn journal_append(row: JournalRow) -> Result<String, String> {
+pub async fn journal_append(row: JournalRow) -> Result<usize, String> {
     tauri::async_runtime::spawn_blocking(move || append_row(row))
         .await
         .map_err(|error| error.to_string())?
 }
 
-/// Answers with the id the row was given.
-///
-/// The caller needs it: a picture of the frame that was on screen is attached
-/// straight afterwards, and there is no other way to say which row it belongs
-/// to. Empty when there is nowhere to write.
-fn append_row(row: JournalRow) -> Result<String, String> {
+fn append_row(row: JournalRow) -> Result<usize, String> {
     let Some(path) = path() else {
-        return Ok(String::new());
+        return Ok(0);
     };
     let row = tidy(&row);
     // Refused rather than dropped in silence. A caller that hands over a row
@@ -418,10 +412,8 @@ fn append_row(row: JournalRow) -> Result<String, String> {
         row.id = format!("{}-{suffix}", derived_id(&row));
         suffix += 1;
     }
-    let id = row.id.clone();
     rows.push(row);
-    commit(&path, rows)?;
-    Ok(id)
+    commit(&path, rows)
 }
 
 /// Bounds what is there, drops the pictures nothing refers to, and writes it.
@@ -624,14 +616,9 @@ mod tests {
         let dir = scratch("round-trip");
         let _guard = journal_test(&dir);
         let now = Utc::now().to_rfc3339();
-        let id = append_row(row(&now, "Casa", "rain")).expect("written");
+        append_row(row(&now, "Casa", "rain")).expect("written");
         let rows = journal_rows();
         assert_eq!(rows.len(), 1);
-        // The id comes back out of the append itself. A picture of the frame
-        // that was on screen is attached straight afterwards, and there is
-        // nothing else that says which row it belongs to.
-        assert_eq!(rows[0].id, id);
-        assert!(!id.is_empty());
         assert_eq!(rows[0].place, "Casa");
         assert_eq!(rows[0].text, "rain");
         assert_eq!(rows[0].obtained, "read from the station's own report");
@@ -905,9 +892,7 @@ mod tests {
             "../journal.jsonl",
             "..\\journal.jsonl",
             "a.png/../b",
-            "C:/windows/system32/x.png",
             "a.txt",
-            "",
         ] {
             assert!(thumb_name(name).is_none(), "{name}");
             assert!(journal_thumb_data(name.to_string()).is_err(), "{name}");

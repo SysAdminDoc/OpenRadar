@@ -51,6 +51,14 @@ export function useWorkspaceOverlays(options: {
    * second, quieter rule about which ones matter.
    */
   onAnnounced?: (alert: WatchAlert) => void;
+  /**
+   * The frame that was on screen, for the record's own entries.
+   *
+   * Handed down rather than reached for: the record keeps a picture of what
+   * the reader was looking at when the weather did something, and only the
+   * workspace knows what that was.
+   */
+  capture?: () => Promise<Uint8Array | null>;
 }): WorkspaceOverlays {
   const { settings, viewport, pushToast, setActiveSurface, replaying } =
     options;
@@ -155,6 +163,7 @@ export function useWorkspaceOverlays(options: {
         onAction: () => setActiveSurface("alerts"),
       }),
     announce,
+    options.capture,
   );
 
   // The kinds a reader has switched off, taken out here rather than in the

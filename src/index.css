@@ -4395,6 +4395,74 @@ input[type="range"] {
   color: var(--muted);
 }
 
+/* Narrowing the record. A search box and two selects on one line, wrapping to
+   two on the compact layout rather than shrinking to nothing. */
+.journal-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journal-filter input[type="search"] {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.journal-filter select {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+/* An illustration of a row, not evidence: the export is where a full-size
+   frame with its credits burned in comes from. Sized so a list of them still
+   scrolls rather than becoming a gallery. */
+.journal-thumb {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+/* The one part of a row the reader wrote, so it reads as writing rather than
+   as another field. */
+.journal-note {
+  margin: 3px 0 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--accent);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.journal-note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.journal-note-edit textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 12px;
+}
+
+.journal-row-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.journal-row-actions .secondary-button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
 .watch-place {
   display: flex;
   flex-direction: column;
