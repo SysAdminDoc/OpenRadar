@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { allCommands, searchCommands } from "./commands";
 import { DEFAULT_SETTINGS } from "./settings";
+import { ensureLanguage } from "../i18n";
 
 const commands = allCommands();
 
@@ -91,5 +92,63 @@ describe("finding a command by what people call it", () => {
   it("ignores case and surrounding space", () => {
     expect(find("  MESO  ")).toContain("layer:rotationTracks");
     expect(find("HaIl")).toContain("layer:hail");
+  });
+});
+
+describe("finding a command without holding a dead key", () => {
+  // Every French and Spanish label in the palette carries an accent, and
+  // nobody types one on the way to a command bar.
+  const strip = (text: string) =>
+    text.normalize("NFD").replace(/\p{Diacritic}/gu, "");
+
+  it.each([
+    ["es", "Pronóstico", "surface:forecast"],
+    ["es", "Satélite", "layer:satellite"],
+    ["fr", "Réglages", "surface:settings"],
+    ["fr", "Prévisions", "surface:forecast"],
+    ["fr", "Séismes", "layer:earthquakes"],
+  ] as const)("finds %s's %s typed either way", async (which, label, id) => {
+    await ensureLanguage(which);
+    const list = allCommands(which);
+    const word = label.split(" ")[0];
+    expect(word).not.toBe(strip(word));
+    // The same rank either way, not merely a match: a reader who does type
+    // the accent must not be offered a worse list than one who does not.
+    const accented = searchCommands(list, word).map((one) => one.id);
+    const plain = searchCommands(list, strip(word)).map((one) => one.id);
+    expect(accented).toContain(id);
+    expect(plain).toEqual(accented);
+  });
+
+  it("carries no keyword that is only a label word with its accents off", () => {
+    // Those entries existed to stand in for the folding the matcher now
+    // does. Leaving them would mean every new label needs a shadow copy
+    // beside it for ever.
+    const offenders: string[] = [];
+    // The English aliases are the same list in every language, so a French
+    // label that happens to be the accented spelling of one of them is not a
+    // keyword somebody added to fake folding.
+    const english = new Map(
+      allCommands("en").map((command) => [command.id, command.keywords]),
+    );
+    for (const which of ["en", "es", "fr"] as const) {
+      for (const command of allCommands(which)) {
+        const words = command.label.toLowerCase().split(/\s+/);
+        for (const keyword of command.keywords) {
+          const plain = keyword.toLowerCase();
+          // A keyword that repeats a label word exactly is fine and often
+          // useful, since a two-word query needs both halves to land. What
+          // has no reason to exist any more is one that differs from a label
+          // word only by its accents.
+          const faking =
+            !english.get(command.id)?.includes(keyword) &&
+            words.some(
+              (word) => word !== plain && strip(word) === strip(plain),
+            );
+          if (faking) offenders.push(`${which} ${command.id}: ${keyword}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

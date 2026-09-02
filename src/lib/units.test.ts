@@ -92,6 +92,33 @@ describe("the units the workspace reads in", () => {
     expect(formatClock(at)).not.toContain("Z");
   });
 
+  it("marks UTC in a way each language recognises", async () => {
+    // A bare Z is what a forecaster writes and what English and Spanish
+    // products carry. French writes the time itself as "18 h 05", and a
+    // letter run onto the end of that is not a time anybody reads.
+    const at = Date.UTC(2026, 7, 30, 18, 5);
+    setClockZone("utc");
+
+    await ensureLanguage("es");
+    setLanguage("es");
+    expect(formatClock(at)).toMatch(/^18:05Z$/);
+
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    const french = formatClock(at);
+    expect(french).toContain("18");
+    expect(french).toMatch(/ UTC$/);
+    expect(french).not.toMatch(/Z$/);
+
+    // And nothing is marked when the clock is the machine's own.
+    setClockZone("local");
+    expect(formatClock(at)).not.toMatch(/UTC$/);
+
+    setLanguage("en");
+    setClockZone("utc");
+    expect(formatClock(at)).toMatch(/^18:05Z$/);
+  });
+
   it("marks a time and leaves a date alone", () => {
     // A Z after a bare weekday says nothing true. It belongs on a clock, and
     // on a format that already names the zone it would be said twice.

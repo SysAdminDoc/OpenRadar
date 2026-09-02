@@ -473,13 +473,31 @@ export function allCommands(which?: LanguageId): Command[] {
 }
 
 /**
+ * A word as somebody typing in a hurry writes it.
+ *
+ * Lowercased and stripped of its accents. Every French and Spanish label the
+ * palette offers carries at least one, and nobody reaching for the command
+ * bar stops to hold a dead key: a reader looking for Prévisions types
+ * "prevision", and before this that missed the label entirely and only landed
+ * because the catalogue carried an unaccented copy of the same word beside
+ * it. Decomposing first is what separates the accent from the letter, so this
+ * is one normalise and one replace rather than a table.
+ */
+function fold(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+/**
  * Matches on the label first, then on what people actually call the thing. An
  * empty query offers everything, which is the point of a list you can browse.
  */
 export function searchCommands(commands: Command[], query: string): Command[] {
-  const trimmed = query.trim().toLowerCase();
+  const trimmed = query.trim();
   if (!trimmed) return commands;
-  const words = trimmed.split(/\s+/);
+  const words = fold(trimmed).split(/\s+/);
 
   return commands
     .map((command) => ({ command, rank: rank(command, words) }))
@@ -489,8 +507,8 @@ export function searchCommands(commands: Command[], query: string): Command[] {
 }
 
 function rank(command: Command, words: string[]): number {
-  const label = command.label.toLowerCase();
-  const keywords = command.keywords.map((word) => word.toLowerCase());
+  const label = fold(command.label);
+  const keywords = command.keywords.map(fold);
 
   let total = 0;
   for (const word of words) {
