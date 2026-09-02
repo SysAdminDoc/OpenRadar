@@ -155,13 +155,78 @@ test("puts satellite under the radar and names its own image time", async ({
   expect(stack.indexOf("openradar-satellite-layer")).toBeLessThan(
     stack.indexOf("openradar-radar-layer-observed"),
   );
-  await expect(page.locator(".satellite-chip small")).toContainText("min old");
+  await expect(page.locator(".satellite-chip small").first()).toContainText(
+    "min old",
+  );
 
   await page.getByRole("checkbox", { name: /Satellite/ }).uncheck();
   await expect(pane).not.toHaveAttribute(
     "data-layer-stack",
     /openradar-satellite-layer/,
   );
+});
+
+test("offers the infrared band beside GeoColor and swaps only itself", async ({
+  page,
+}) => {
+  const asked: string[] = [];
+  await page.route("https://gibs.earthdata.nasa.gov/**", async (route) => {
+    asked.push(route.request().url());
+    await route.fulfill({ contentType: "image/png", body: transparentPng });
+  });
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Satellite/ }).check();
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-satellite-layer/,
+  );
+
+  // GeoColor to begin with, which is what the chip says and what is asked for.
+  const chip = page.locator(".satellite-chip");
+  await expect(chip).toContainText("GeoColor");
+  await expect(chip).toContainText("A rendering, not a measurement");
+  await expect
+    .poll(() => asked.filter((url) => url.includes("GeoColor")).length)
+    .toBeGreaterThan(0);
+
+  const before = (await pane.getAttribute("data-layer-stack")) ?? "";
+  const mosaicBefore = await pane.getAttribute("data-mosaic-opacity");
+  const nonSatellite = () =>
+    asked.filter((url) => !url.includes("gibs.earthdata.nasa.gov")).length;
+  const otherBefore = nonSatellite();
+
+  await page.getByRole("button", { name: "Clean infrared" }).click();
+
+  // The other band, at its own layer and its own matrix set, and the chip
+  // says it is a measurement with a scale rather than a picture.
+  await expect(chip).toContainText("Clean infrared");
+  await expect(chip.locator(".satellite-chip__legend")).toContainText(
+    "Brightness temperature",
+  );
+  await expect
+    .poll(
+      () => asked.filter((url) => url.includes("Band13_Clean_Infrared")).length,
+    )
+    .toBeGreaterThan(0);
+  expect(
+    asked.some(
+      (url) =>
+        url.includes("Band13_Clean_Infrared") &&
+        url.includes("GoogleMapsCompatible_Level6"),
+    ),
+  ).toBe(true);
+
+  // Nothing outside the satellite layer moved: the same layers in the same
+  // order, the radar drawn at the same strength, and no request to anything
+  // that is not the satellite service. The radar frame itself is not checked
+  // because the loop advances on its own clock.
+  expect(await pane.getAttribute("data-layer-stack")).toBe(before);
+  expect(await pane.getAttribute("data-mosaic-opacity")).toBe(mosaicBefore);
+  expect(nonSatellite()).toBe(otherBefore);
 });
 
 test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
@@ -472,6 +537,79 @@ test("goes to a new warning when asked, and says how to stop", async ({
   await expect(
     page.getByRole("checkbox", { name: /Go to new warnings/ }),
   ).not.toBeChecked();
+});
+
+test("never saves a warning up to fly to later", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  // Warnings off first, so the announcement arrives with nothing for the
+  // flight to look a polygon up in. That is also the whole of a replay, and
+  // the watch keeps announcing through both.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const alerts = page
+    .locator(".toggle-row")
+    .filter({ hasText: "Weather Alerts" })
+    .getByRole("checkbox");
+  await alerts.uncheck();
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /overlay-alerts-fill/,
+  );
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Go to new warnings/ }).check();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  await page.getByLabel("Watched radius, in miles").fill("60");
+  await page.getByRole("button", { name: /Watch the map centre/ }).click();
+
+  // Announced, and not flown to, because there is nothing drawn to fly to.
+  await expect(
+    page.locator(".toast-host").getByText("Tornado Warning").first(),
+  ).toBeVisible();
+  await expect(page.getByText(/Went to the/)).toBeHidden();
+  const parked = await settledCamera(pane);
+
+  // An announcement that could not be acted on is spent, not saved. Coming
+  // back to the map minutes later and being flown somewhere is worse than
+  // not flying at all.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await alerts.check();
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts-fill/);
+  await expect(page.getByText(/Went to the/)).toBeHidden();
+  expect(await settledCamera(pane)).toBe(parked);
+});
+
+test("leaves the camera alone after the reader has moved it themselves", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Go to new warnings/ }).check();
+  await page.keyboard.press("Escape");
+
+  // Zooming with the button is the reader moving the map, and so is panning
+  // with the keyboard. Neither fires the gesture events a drag does, so both
+  // used to leave somebody open to having the view taken off them.
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  const mine = await settledCamera(pane);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Tell me about warnings/ }).check();
+  await page.getByLabel("Watched radius, in miles").fill("60");
+  await page.getByRole("button", { name: /Watch the map centre/ }).click();
+
+  // The warning still arrives and is still announced. What it does not do is
+  // move the view.
+  await expect(
+    page.locator(".toast-host").getByText("Tornado Warning").first(),
+  ).toBeVisible();
+  await expect(page.getByText(/Went to the/)).toBeHidden();
+  expect(await settledCamera(pane)).toBe(mine);
 });
 
 test("draws surface observations as station plots, and only close in", async ({

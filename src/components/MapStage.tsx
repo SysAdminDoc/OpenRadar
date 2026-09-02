@@ -6,6 +6,7 @@ import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
 import type { ClassStyle } from "../lib/classification";
 import type { PinnedImage } from "../lib/mapLayers/image";
+import { satelliteProduct } from "../lib/providers/satellite";
 import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
@@ -121,8 +122,10 @@ export function MapStage({
     () => (forecastSmoke ? { ...overlays, smoke: null } : overlays),
     [forecastSmoke, overlays],
   );
+  const chosenSatellite = satelliteProduct(settings.satelliteProduct);
   const shared = {
     projection: settings.projection,
+    satelliteProductId: settings.satelliteProduct,
     // Auto is resolved here rather than in the viewport, so everything that
     // reads the drawn style, the compare pane included, agrees on one answer.
     mapStyle: resolvedMapStyle(settings.mapStyle, settings.theme),
@@ -181,13 +184,25 @@ export function MapStage({
       ) : null}
 
       {satelliteTime !== null ? (
-        <div className="satellite-chip">
-          <strong>GOES-East GeoColor</strong>
+        <div
+          className="satellite-chip"
+          data-satellite={settings.satelliteProduct}
+        >
+          <strong>
+            {t("stage.satellite", { product: t(chosenSatellite.key) })}
+          </strong>
           <small>
             {formatClock(new Date(satelliteTime * 1000))}
             {satelliteAgeMinutes === null
               ? ""
               : t("stage.satelliteAge", { count: satelliteAgeMinutes })}
+          </small>
+          {/* GeoColor is a rendering and the infrared band is a measurement
+              with a scale. A picture of cloud tops that does not say which it
+              is invites somebody to read a temperature off a colour that has
+              none. */}
+          <small className="satellite-chip__legend">
+            {t(chosenSatellite.legendKey)}
           </small>
         </div>
       ) : null}

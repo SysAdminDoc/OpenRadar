@@ -71,6 +71,28 @@ type HistoricalSource =
  * asks the native side for the sweep, and keeps it fresh while the view stays
  * close in.
  */
+/**
+ * Whether a fetched sweep is an answer to what is being asked for now.
+ *
+ * A product or tilt change leaves the last picture on screen until the next
+ * one arrives, and everything downstream has to agree about which of the two
+ * it is looking at: the panel names one and an export must not write the
+ * other.
+ */
+function answersTheRequest(
+  sweep: SweepImage | null,
+  station: string | null,
+  tilt: number,
+  product: string,
+): boolean {
+  return (
+    sweep !== null &&
+    sweep.station === station &&
+    sweep.tiltIndex === tilt &&
+    sweep.productId === product
+  );
+}
+
 export function useSingleSiteRadar(options: {
   ready: boolean;
   radar: RadarSettings;
@@ -286,7 +308,10 @@ export function useSingleSiteRadar(options: {
     const from = historicalSource;
     return exportSweepData({
       station: from?.kind === "archive" ? from.station : (station ?? ""),
-      product: sweep?.productId ?? product,
+      product:
+        answersTheRequest(sweep, station, radar.tilt, product) && sweep
+          ? sweep.productId
+          : product,
       tilt: radar.tilt,
       dealias: radar.dealias,
       motion:
@@ -304,7 +329,7 @@ export function useSingleSiteRadar(options: {
     radar.dealias,
     radar.tilt,
     station,
-    sweep?.productId,
+    sweep,
   ]);
 
   const resumeRecent = useCallback(() => {
@@ -433,11 +458,7 @@ export function useSingleSiteRadar(options: {
     // the question being asked now. History keeps its last verified picture
     // while another cut is being decoded, because that picture still names its
     // own product, tilt, source, and collection time.
-    const asked =
-      sweep !== null &&
-      sweep.station === station &&
-      sweep.tiltIndex === radar.tilt &&
-      sweep.productId === product;
+    const asked = answersTheRequest(sweep, station, radar.tilt, product);
     const showing = wanted || historicalWanted;
     const current = showing && (historicalWanted || asked) ? sweep : null;
     return {
@@ -462,9 +483,12 @@ export function useSingleSiteRadar(options: {
           : null,
       // A terminal radar's picture comes from a Level III product rather than
       // a volume, so there are no gates of it to write.
+      // The sweep on screen rather than whatever was fetched last: during a
+      // product switch those are two different pictures, and the button is
+      // named after the one the reader is looking at.
       exportValues:
         showing &&
-        sweep !== null &&
+        current !== null &&
         !isTdwrStation(station) &&
         dataExportAvailable() &&
         (historicalSource?.kind === "local" || station)

@@ -151,7 +151,10 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
   },
   satellite: {
     sourceId: "satellite",
-    label: "GOES-East GeoColor",
+    // Whichever of the two views is drawn. The record names the service and
+    // the instrument rather than the product, because the product is a
+    // setting and this table is not read per render.
+    label: "GOES-East ABI",
     attribution: "NASA GIBS and NOAA NESDIS",
     kind: "observation",
     freshForMs: 600_000,

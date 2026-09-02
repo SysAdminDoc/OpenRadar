@@ -182,13 +182,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
 
 Added 2026-08-31 from the third research pass of that day (see `RESEARCH.md`), which covered the source classes the first two passes had not: winter weather, surface observations, historical warnings, soundings, smoke, decoder fuzzing, localization, and non-visual accessibility. IDs continue the audit scheme at `AUD-108` (the last assigned identifier, `AUD-107`, was completed and removed the same day). Ordered by priority, then trust before features.
 
-- [ ] AUD-115: P3. Offer Clean IR satellite for the overnight hours
-      Why: GeoColor goes effectively dark at night for storm tops; Band 13 Clean Infrared is the overnight-convection view enthusiasts ask for, and it is served by NASA GIBS at 10-minute cadence under the same provider, terms, and WMTS pattern as the GeoColor layer already shipped.
-      Evidence: https://nasa-gibs.github.io/gibs-api-docs/available-visualizations/ (GOES-East/West ABI Band 13 Clean Infrared, Red Visible, Air Mass); the existing GeoColor provider in `src/lib/providers/`
-      Touches: A satellite product selector where there is currently one product; the GIBS layer identifiers; legend and attribution copy; timeline behaviour identical to GeoColor
-      Acceptance: Band 13 is selectable beside GeoColor, drawn with a labeled brightness-temperature presentation, on the same timeline with the same latency accounting; attribution still names GIBS/ESDIS; switching products invalidates nothing outside the satellite layer; the provider is covered by the existing satellite live contract.
-      Complexity: S
-
 - [ ] AUD-120: P3. Hand a warning to the layer that explains it
       Why: The app often already holds the data that explains a warning (flash flood and the QPE accumulation grids, snow squall and reflectivity/precip type, tornado and velocity) but the reader has to know to go find it. A one-action handoff from the warning popup to the relevant layer turns the alert stream into a teaching surface, and competitors do nothing here beyond push notifications.
       Evidence: The warnings adapter popup in `src/lib/overlays/alerts.ts`; the MRMS registry in `src-tauri/src/mrms.rs`; hazard filtering in `src/lib/alertTypes.ts`; competitor absence per `RESEARCH.md` (2026-08-31 pass three)

@@ -12,6 +12,10 @@ import {
 } from "./palette";
 import { isLanguage, translate, type LanguageId } from "../i18n";
 import { isSurgeCategory, type SurgeCategory } from "./surge";
+import {
+  SATELLITE_PRODUCTS,
+  type SatelliteProductId,
+} from "./providers/satellite";
 import { TEXT_SCALES } from "./units";
 import type { ClockZone, TextScale, UnitSystem } from "./units";
 
@@ -254,6 +258,14 @@ export interface AppSettings {
    */
   followNewWarnings: boolean;
   /**
+   * Which GOES-East view the satellite layer draws.
+   *
+   * GeoColor by default, which is the picture people expect. The infrared
+   * band is the one to switch to after dark, when GeoColor has nothing to say
+   * about a storm top.
+   */
+  satelliteProduct: SatelliteProductId;
+  /**
    * Places beside home, up to nine of them, so home plus these is ten. Kept
    * as its own key rather than folded into `watch`, which every build since
    * the first has read and written.
@@ -369,6 +381,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     quietHours: DEFAULT_QUIET_HOURS,
   },
   followNewWarnings: false,
+  satelliteProduct: "geocolor",
   presets: [null, null, null, null],
   incidentPacks: {
     diskLimitMb: 4096,
@@ -1193,6 +1206,11 @@ export function normalizeSettings(value: unknown): AppSettings {
       raw.followNewWarnings,
       DEFAULT_SETTINGS.followNewWarnings,
     ),
+    satelliteProduct: SATELLITE_PRODUCTS.some(
+      (product) => product.id === raw.satelliteProduct,
+    )
+      ? (raw.satelliteProduct as SatelliteProductId)
+      : DEFAULT_SETTINGS.satelliteProduct,
     watchPlaces: normalizeWatchPlaces(raw.watchPlaces),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
     overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),

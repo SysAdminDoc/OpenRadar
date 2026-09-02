@@ -242,6 +242,19 @@ fn polar_csv(
     values: &level2::SweepValues,
     written_at: DateTime<Utc>,
 ) -> Result<(String, usize, usize), DataExportError> {
+    polar_csv_capped(values, written_at, MAX_ROWS)
+}
+
+/// The same, with the cap as an argument.
+///
+/// A test cannot build four million gates in any reasonable time, and a
+/// refusal nothing exercises is a refusal that quietly becomes a truncation
+/// again. The cap is the only thing that moves.
+fn polar_csv_capped(
+    values: &level2::SweepValues,
+    written_at: DateTime<Utc>,
+    max_rows: usize,
+) -> Result<(String, usize, usize), DataExportError> {
     let field = &values.field;
     let coordinates = RadarCoordinateSystem::new(&values.site);
     let azimuths = field.azimuths();
@@ -323,11 +336,16 @@ fn polar_csv(
                     continue;
                 }
             };
-            if written >= MAX_ROWS {
+            if written >= max_rows {
                 // Refused rather than truncated: a file that quietly stops at
                 // four million rows is a file whose last row is a lie about
                 // where the storm ended.
-                return Err(DataExportError::TooLarge(written + 1));
+                // The whole cut rather than the row it stopped on: a
+                // reader deciding whether to zoom in needs to know how much
+                // there is, not where the cap fell.
+                return Err(DataExportError::TooLarge(
+                    field.azimuth_count() * field.gate_count(),
+                ));
             }
             let at = coordinates.gate_location(
                 *azimuth,
@@ -820,6 +838,63 @@ mod tests {
         let derivation = header_of(&csv, "derivation");
         assert!(derivation.contains("unfolded"), "{derivation}");
         assert!(derivation.contains("12.0 m/s from 240 degrees"), "{derivation}");
+    }
+
+    #[test]
+    fn a_cut_bigger_than_one_file_should_hold_is_refused_not_truncated() {
+        // A file that quietly stops at its cap is a file whose last row is a
+        // lie about where the storm ended. The cap is an argument here
+        // because four million gates is not a thing a test can build.
+        let values = values();
+        let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
+        let refused = polar_csv_capped(&values, at, 2).expect_err("a refusal");
+        match refused {
+            DataExportError::TooLarge(count) => {
+                // Twelve gates in this fixture, and the refusal names all of
+                // them rather than the row it stopped on.
+                assert_eq!(count, 12);
+            }
+            other => panic!("expected a refusal, got {other:?}"),
+        }
+        // One more than it holds, and the same cut goes through.
+        let (_, written, _) = polar_csv_capped(&values, at, 4).expect("a csv");
+        assert_eq!(written, 4);
+    }
+
+    #[test]
+    fn a_data_file_does_not_outlive_a_sidecar_that_could_not_be_written() {
+        // Numbers with nothing beside them saying what they are is the one
+        // outcome this module exists to prevent, and the page has already
+        // been told the export failed.
+        let folder = std::env::temp_dir().join(format!(
+            "openradar-sidecar-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&folder).expect("a folder");
+        let name = "openradar-rollback-test.csv".to_string();
+        // A directory where the sidecar wants to be, which no write can
+        // replace.
+        std::fs::create_dir_all(folder.join(format!("{name}.provenance.json")))
+            .expect("a blocker");
+
+        let values = values();
+        let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
+        let provenance = polar_provenance(
+            &values,
+            at,
+            ProvenanceSource {
+                kind: "live",
+                label: "NOAA NEXRAD Level II".to_string(),
+                url: None,
+            },
+        );
+        let failed = write_pair(&folder, name.clone(), b"1,2,3\n", provenance, 1, 0);
+        assert!(matches!(failed, Err(DataExportError::Write(_))));
+        assert!(
+            !folder.join(&name).exists(),
+            "the data file was left behind with nothing saying what it is"
+        );
+        let _ = std::fs::remove_dir_all(&folder);
     }
 
     #[test]

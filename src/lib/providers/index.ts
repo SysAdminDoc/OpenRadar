@@ -247,6 +247,10 @@ export type {
 export {
   SATELLITE_ATTRIBUTION,
   SATELLITE_MAX_ZOOM,
+  SATELLITE_PRODUCTS,
+  satelliteProduct,
+  type SatelliteProduct,
+  type SatelliteProductId,
   satelliteFrameTime,
   satelliteTileUrl,
 } from "./satellite";

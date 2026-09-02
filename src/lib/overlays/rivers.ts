@@ -44,24 +44,36 @@ export function gaugeUrl(lid: string): string {
  */
 export const GAUGE_MIN_ZOOM = 7;
 
-/** How bad it is, worst first, which is also how the map ranks them. */
+/**
+ * How bad it is, worst first, which is also how the map ranks them.
+ *
+ * `unknown` is last and is not a state of the river: it is the service
+ * declining to say. Most of the gauges in a typical box are that, because
+ * they have no flood stages defined at all, and calling them "below flood
+ * stage" would be telling a reader something nobody knows.
+ */
 export const FLOOD_CATEGORIES = [
   "major",
   "moderate",
   "minor",
   "action",
   "none",
+  "unknown",
 ] as const;
 
 export type FloodCategory = (typeof FLOOD_CATEGORIES)[number];
 
-/** Colour per category. Blue for a river behaving, warm for one that is not. */
+/**
+ * Colour per category. Blue for a river behaving, warm for one that is not,
+ * grey for one nobody has said anything about.
+ */
 export const FLOOD_COLOR: Record<FloodCategory, string> = {
   major: "#c026d3",
   moderate: "#ef4444",
   minor: "#f59e0b",
   action: "#facc15",
   none: "#38bdf8",
+  unknown: "#94a3b8",
 };
 
 /** The service's own words for a category, and what this layer calls them. */
@@ -87,6 +99,11 @@ function categoryOf(value: unknown): FloodCategory | null {
 
 /** A number the service means, rather than one of its sentinels. */
 function reading(value: unknown): number | null {
+  // `Number(null)`, `Number("")` and `Number(false)` are all 0, which is a
+  // perfectly good river stage and would be drawn as one. A field the service
+  // starts sending as null has to read as nothing, not as a gauge at zero.
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "number" && typeof value !== "string") return null;
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
   // -999 for a stage, -9999 for a threshold; both are "no value" and both
@@ -153,14 +170,17 @@ export function parseGauges(payload: unknown): OverlayData {
     if (stage === null && forecastStage === null) continue;
 
     // The map is coloured by the worse of the two, because a river that is
-    // fine now and major by morning is not a blue dot.
-    const worst =
+    // fine now and major by morning is not a blue dot. Neither side saying
+    // anything is `unknown` rather than `none`: most gauges have no flood
+    // stages defined, and painting them the same blue as a river measured to
+    // be below its own flood stage claims something nobody said.
+    const worst: FloodCategory =
       observedCategory && forecastCategory
         ? FLOOD_CATEGORIES.indexOf(forecastCategory) <
           FLOOD_CATEGORIES.indexOf(observedCategory)
           ? forecastCategory
           : observedCategory
-        : (forecastCategory ?? observedCategory ?? "none");
+        : (forecastCategory ?? observedCategory ?? "unknown");
 
     parsed.push({
       type: "Feature",
@@ -201,6 +221,21 @@ export function parseGauges(payload: unknown): OverlayData {
       Number(left.properties.rank) - Number(right.properties.rank),
   );
   return { type: "FeatureCollection", features: parsed };
+}
+
+/**
+ * How much of a date a time needs.
+ *
+ * A reading from this morning wants the clock. One from Saturday wants to say
+ * Saturday, and a crest two days out wants to say which day it is two days
+ * from. The cut is six hours, which is inside any gauge's own reporting
+ * interval and outside anything anybody would read as "now".
+ */
+function clockOptions(at: number): Intl.DateTimeFormatOptions {
+  const near = Math.abs(Date.now() - at) < 6 * 3_600_000;
+  return near
+    ? { hour: "numeric", minute: "2-digit" }
+    : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
 }
 
 function stageLine(value: unknown, unit: unknown): string {
@@ -272,7 +307,11 @@ export const riverGaugesOverlay: OverlayAdapter = {
           FLOOD_COLOR.minor,
           "action",
           FLOOD_COLOR.action,
+          "none",
           FLOOD_COLOR.none,
+          // A gauge the service says nothing about is grey rather than the
+          // blue of one measured to be below its own flood stage.
+          FLOOD_COLOR.unknown,
         ],
         "circle-stroke-width": 1.5,
         // A ring in the forecast's own colour on a river the office expects
@@ -292,12 +331,18 @@ export const riverGaugesOverlay: OverlayAdapter = {
     const lines: string[] = [];
     const stage = properties.stage;
     if (typeof stage === "number") {
-      const when = Number(properties.observedAt);
+      // A gauge the service marks as not reporting can be days behind, and a
+      // bare clock time on a four-day-old reading reads as this afternoon.
+      // The date goes on anything older than the morning.
+      const when =
+        properties.observedAt === null || properties.observedAt === undefined
+          ? Number.NaN
+          : Number(properties.observedAt);
       lines.push(
         translate("rivers.observed", {
           stage: stageLine(stage, properties.stageUnit),
           when: Number.isFinite(when)
-            ? formatClock(when)
+            ? formatClock(when, clockOptions(when))
             : translate("rivers.timeUnknown"),
         }),
       );
@@ -307,19 +352,17 @@ export const riverGaugesOverlay: OverlayAdapter = {
 
     const forecast = properties.forecastStage;
     if (typeof forecast === "number") {
-      const when = Number(properties.forecastAt);
+      const when =
+        properties.forecastAt === null || properties.forecastAt === undefined
+          ? Number.NaN
+          : Number(properties.forecastAt);
       lines.push(
         translate("rivers.forecast", {
           stage: stageLine(forecast, properties.forecastUnit),
-          // A crest can be days out, so this one carries its day as well as
-          // its clock. An hour on its own would read as this afternoon.
+          // A crest can be days out, so this carries its day as well as its
+          // clock whenever it is not within a few hours.
           when: Number.isFinite(when)
-            ? formatClock(when, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })
+            ? formatClock(when, clockOptions(when))
             : translate("rivers.timeUnknown"),
         }),
       );
@@ -328,15 +371,21 @@ export const riverGaugesOverlay: OverlayAdapter = {
     }
 
     const category = String(properties.category);
-    lines.push(
-      category === "none"
-        ? translate("rivers.categoryNone")
-        : translate("rivers.category", {
-            category: translate(
-              `rivers.flood.${category}` as "rivers.flood.minor",
-            ),
-          }),
-    );
+    if (category === "unknown") {
+      // The service said `not_defined`, `out_of_service` or one of the
+      // `not_current` codes. None of those is a state of the river.
+      lines.push(translate("rivers.categoryUnknown"));
+    } else if (category === "none") {
+      lines.push(translate("rivers.categoryNone"));
+    } else {
+      lines.push(
+        translate("rivers.category", {
+          category: translate(
+            `rivers.flood.${category}` as "rivers.flood.minor",
+          ),
+        }),
+      );
+    }
     if (properties.rising === true) {
       lines.push(translate("rivers.rising"));
     }

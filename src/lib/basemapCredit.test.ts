@@ -9,6 +9,7 @@ import {
   resolvedMapStyle,
 } from "./mapStyles";
 import type { IncidentPackReference, MapStyleId } from "./settings";
+import { incidentTileTemplate } from "./incidentPacks";
 
 const PACK: IncidentPackReference = {
   id: "ian-2022",
@@ -55,22 +56,49 @@ describe("the credit for the map under the weather", () => {
     }
   });
 
-  it("credits an incident pack, because the tiles came out of it", () => {
-    // A prepared pack draws from the disk. Whatever style is chosen behind it,
-    // nothing on screen came from that service.
+  it("credits an incident pack only when the pack is what is drawn", () => {
+    // A prepared pack draws from the disk. Whatever style is chosen behind
+    // it, nothing on screen came from that service.
+    //
+    // Outside the desktop app there is no way to address the pack's own
+    // tiles, so the style falls back to the network and the credit has to
+    // fall back with it. Crediting a pack for a picture it did not draw is
+    // the same error as crediting OpenStreetMap for USGS imagery.
+    if (incidentTileTemplate(PACK.id) === null) {
+      // No way to address the pack's tiles here, so the style is the network
+      // one and the credit is the network one.
+      expect(basemapCredit("aerial", "dark", PACK)).toBe(USGS_IMAGERY_CREDIT);
+      expect(basemapCredit("pro-dark", "dark", PACK)).toBe(
+        OPENSTREETMAP_CREDIT,
+      );
+      return;
+    }
     expect(basemapCredit("aerial", "dark", PACK)).toBe(PACK.attribution);
     expect(basemapCredit("pro-dark", "dark", PACK)).toBe(PACK.attribution);
   });
 
   it("says the same thing the map's own attribution bar says", () => {
-    // The corner of an exported picture and the corner of the window read
-    // from one place, so they cannot drift apart.
+    // The two styles this app builds itself carry their credit in the style,
+    // and the corner of an exported picture reads from the same place.
     for (const id of ["aerial", "topography"] as const) {
       expect(styleAttribution(id)).toBe(basemapCredit(id, "dark"));
     }
     // OpenTopoMap asks for its line word for word.
     expect(OPENTOPOMAP_CREDIT).toContain("OpenTopoMap (CC-BY-SA)");
     expect(OPENTOPOMAP_CREDIT).toContain("Kartendaten");
+
+    // The other five are OpenFreeMap styles, whose attribution comes from
+    // their own TileJSON rather than from anything here, so the credit has to
+    // be checked against what that says rather than against this file. Fetched
+    // from https://tiles.openfreemap.org/planet on 2026-09-02:
+    //
+    //   OpenFreeMap  © OpenMapTiles  Data from OpenStreetMap
+    //
+    // Naming one of those three, which is what this used to do, puts a
+    // picture's corner at odds with the window it was taken in.
+    for (const name of ["OpenFreeMap", "OpenMapTiles", "OpenStreetMap"]) {
+      expect(OPENSTREETMAP_CREDIT).toContain(name);
+    }
   });
 
   it("has an answer for every style the panel offers", () => {

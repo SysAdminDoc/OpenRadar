@@ -925,6 +925,41 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_box_that_ends_on_a_tile_edge_does_not_pull_in_the_next_tile() {
+        // The east and south edges belong to the tile after them. At zoom 3 a
+        // tile is 45 degrees wide, so a box from -90 to -45 is exactly two
+        // tiles across, and reading its east edge as inside the third one
+        // would capture a column of tiles nobody is looking at.
+        let urls = tile_urls(
+            "https://mesonet.agron.iastate.edu/cache/tile.py/{z}/{x}/{y}.png",
+            BundleBounds {
+                west: -90.0,
+                south: 0.0,
+                east: -45.0,
+                north: 45.0,
+            },
+            3,
+            3,
+        )
+        .expect("a valid box");
+        // One column wide: the box runs from the west edge of column 2 to the
+        // west edge of column 3, and column 3 is not in it. Reading the east
+        // edge as inside the next tile captures a column of the map nobody is
+        // looking at, on every frame and at every zoom.
+        assert!(
+            urls.iter().all(|url| url.contains("/3/2/")),
+            "the column past the east edge came too: {urls:#?}"
+        );
+        assert!(!urls.is_empty());
+        // And the south edge is the same rule the other way round.
+        let rows: Vec<&str> = urls
+            .iter()
+            .map(|url| url.rsplit('/').next().unwrap_or(""))
+            .collect();
+        assert!(!rows.contains(&"4.png"), "{urls:#?}");
+    }
+
+    #[test]
     fn names_every_tile_of_the_view_once_and_the_documents_beside_them() {
         let urls = addresses(&request()).expect("a valid request");
         // Two frames, two zooms. The box covers a few tiles at each zoom, and
@@ -991,6 +1026,23 @@ pub(crate) mod tests {
             addresses(&sky_high),
             Err(BundleError::InvalidRequest(_))
         ));
+    }
+
+    #[test]
+    fn an_entry_whose_type_does_not_match_the_manifest_is_refused() {
+        // The content type reaches the webview as a response header, so an
+        // entry the manifest does not vouch for in full is an entry that was
+        // not verified. A PNG that arrives claiming to be a document is the
+        // shape of thing this is for.
+        let entries = entries();
+        let mut manifest = manifest(&entries);
+        manifest.entries[0].content_type = "text/html".into();
+        let bytes = write_bundle(&manifest, &entries).expect("writes");
+        let refused = read_bundle(&bytes).expect_err("a refusal");
+        assert!(
+            matches!(refused, BundleError::Corrupt(_)),
+            "{refused:?}"
+        );
     }
 
     #[test]

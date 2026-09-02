@@ -116,6 +116,19 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "satellite",
+    label: "GOES-East imagery",
+    host: "gibs.earthdata.nasa.gov",
+    kind: "browser",
+    files: ["src/lib/providers/satellite.test.ts"],
+    liveBlock: "against the live service",
+    // A missing tile is a blank square somebody sees, but a renamed layer or
+    // a matrix set that moved is a 400 on every tile, which looks exactly
+    // like a quiet sky. The two products are published at different depths,
+    // so each has to be asked for itself.
+    required: false,
+  },
+  {
     id: "guidance",
     label: "Open-Meteo model guidance",
     host: "api.open-meteo.com",
@@ -220,8 +233,6 @@ export const UNCONTRACTED_HOSTS = {
     "Not weather. A quiet day genuinely returns nothing, so there is no answer a contract could insist on.",
   "services3.arcgis.com":
     "Wildfire perimeters, which are seasonal and regional: an empty answer in February is correct.",
-  "gibs.earthdata.nasa.gov":
-    "Satellite imagery, served as tiles. A missing tile is a blank square somebody sees.",
   "api.weather.gov":
     "Reached only to open one alert the reader clicked, so it has no standing query to check.",
   "geocoding-api.open-meteo.com":
