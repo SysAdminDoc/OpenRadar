@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "glance",
+  "description": "The small glance window, which reads the settings and nothing else",
+  "windows": [
+    "glance"
+  ],
+  "permissions": [
+    "core:default",
+    "store:allow-load",
+    "store:allow-get"
+  ]
+}

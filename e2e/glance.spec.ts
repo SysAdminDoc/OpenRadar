@@ -15,21 +15,35 @@ const transparentPng =
 async function open(
   page: import("@playwright/test").Page,
   glance: Record<string, unknown> | null,
+  settings: Record<string, unknown> | null = null,
 ) {
-  await page.addInitScript((value: Record<string, unknown> | null) => {
-    (
-      window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
-    ).__TAURI_INTERNALS__ = {
-      convertFileSrc: (path: string) => path,
-      transformCallback: (callback: unknown) => callback,
-      invoke: async (command: string) => {
-        if (command === "glance_read") return value;
-        if (command === "plugin:store|load") return 1;
-        if (command === "plugin:store|get") return [null, false];
-        return null;
-      },
-    };
-  }, glance);
+  await page.addInitScript(
+    (value: {
+      glance: Record<string, unknown> | null;
+      settings: Record<string, unknown> | null;
+    }) => {
+      (
+        window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
+      ).__TAURI_INTERNALS__ = {
+        convertFileSrc: (path: string) => path,
+        transformCallback: (callback: unknown) => callback,
+        invoke: async (command: string) => {
+          if (command === "glance_read") return value.glance;
+          // The store answers only because this window has a capability
+          // granting it. It did not for a version, and Tauri rejected the
+          // load: `loadSettings` caught that and answered with the defaults,
+          // so the window came up in English beside a French workspace.
+          if (command === "plugin:store|load") return 1;
+          if (command === "plugin:store|get")
+            return value.settings ? [value.settings, true] : [null, false];
+          // Anything else is a command this window has no business calling,
+          // and answering null would hide it inside whatever asked.
+          throw new Error(`the glance window invoked ${command}`);
+        },
+      };
+    },
+    { glance, settings },
+  );
   await page.goto("/glance.html");
 }
 
@@ -94,4 +108,26 @@ test("draws no map of its own", async ({ page }) => {
   await open(page, null);
   await expect(page.locator("canvas")).toHaveCount(0);
   await expect(page.locator(".glance")).toContainText("Waiting");
+});
+
+test("speaks the language the workspace is in", async ({ page }) => {
+  // The window reads the settings through the store plugin, which Tauri gates
+  // per window. With only the main window named in the capability files, the
+  // read was rejected, the catch answered with the defaults, and this window
+  // was the one English surface in a French app.
+  await open(
+    page,
+    {
+      place: "Chez moi",
+      warning: false,
+      headline: "",
+      picture: "",
+      observedMs: null,
+      source: "MRMS",
+      at: Date.UTC(2026, 8, 2, 12, 0),
+    },
+    { language: "fr" },
+  );
+  const glance = page.locator(".glance");
+  await expect(glance).toContainText("Rien en cours là où vous surveillez");
 });
