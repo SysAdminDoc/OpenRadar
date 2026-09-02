@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   Pencil,
   Radar,
+  ScrollText,
   Search,
   Send,
   Settings,
@@ -25,6 +26,7 @@ import {
   Command,
   Rows3,
   Waves,
+  Wind,
 } from "lucide-react";
 import { useEffect, useRef, type ComponentType } from "react";
 import { useT } from "../i18n";
@@ -205,6 +207,12 @@ export function CommandBar({
           onClick={() => toggleSurface("alerts")}
         />
         <CommandButton
+          icon={ScrollText}
+          label={t("panel.nearby")}
+          active={activeSurface === "nearby"}
+          onClick={() => toggleSurface("nearby")}
+        />
+        <CommandButton
           icon={CloudSun}
           label={t("panel.forecast")}
           active={activeSurface === "forecast"}
@@ -295,6 +303,12 @@ export function CommandBar({
             label={t("tool.section")}
             active={activeTool === "section"}
             onClick={() => toggleTool("section")}
+          />
+          <CommandButton
+            icon={Wind}
+            label={t("panel.sounding")}
+            active={activeSurface === "sounding"}
+            onClick={() => toggleSurface("sounding")}
           />
         </div>
 

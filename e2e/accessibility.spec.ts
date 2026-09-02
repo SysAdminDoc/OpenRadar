@@ -216,15 +216,16 @@ test("every panel the command bar opens is clean too", async ({ page }) => {
 });
 
 /**
- * The readout has no button on the command bar, so it is opened the way a
- * keyboard reader finds anything else that does not: through Commands.
+ * The readout has a button of its own on the rail now.
+ *
+ * It used to open only by typing "nearby" into Commands, which is the wrong
+ * way round: this is the surface that answers the map in words, so the reader
+ * it exists for is the one least able to guess the word it is filed under.
+ * Opened here the way that reader would open it, so the rail losing the
+ * button fails this rather than passing through the palette.
  */
 async function openNearby(page: Page) {
-  await page.getByRole("button", { name: "Commands", exact: true }).click();
-  await page
-    .getByRole("searchbox", { name: /Search every layer/ })
-    .fill("nearby");
-  await page.locator('[data-command="surface:nearby"]').click();
+  await page.getByRole("button", { name: "Nearby weather" }).click();
 }
 
 test("the readout is clean in both themes", async ({ page }) => {
