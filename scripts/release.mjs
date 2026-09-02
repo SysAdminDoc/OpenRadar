@@ -14,6 +14,7 @@ import {
   releaseAssetNames,
   sha256File,
   sourceVersion,
+  supportedMinor,
   validateReleaseProof,
   verifyUpdaterSignature,
 } from "./release-lib.mjs";
@@ -88,6 +89,7 @@ function assertVersions(version, conf) {
   );
   const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
   const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+  const security = fs.readFileSync(path.join(root, "SECURITY.md"), "utf8");
   const found = {
     "package.json": packageJson.version,
     "package-lock.json": packageLock.version,
@@ -113,6 +115,13 @@ function assertVersions(version, conf) {
   }
   if (!new RegExp(`^## OpenRadar v${version}\\s*$`, "m").test(changelog)) {
     fail(`CHANGELOG.md has no OpenRadar v${version} section.`);
+  }
+  const supported = supportedMinor(security);
+  const line = version.split(".").slice(0, 2).join(".");
+  if (supported !== line) {
+    fail(
+      `SECURITY.md says ${supported}.x gets fixes; this release is ${version}.`,
+    );
   }
   if (conf.bundle?.createUpdaterArtifacts !== true) {
     fail("tauri.conf.json is not configured to create updater artifacts.");

@@ -6,8 +6,8 @@ OpenRadar reads public weather data and draws it. It has no account, no server o
 
 | Version | Fixes |
 | ------- | ----- |
-| 0.6.x   | Yes   |
-| 0.5.x and earlier | No |
+| 0.7.x   | Yes   |
+| 0.6.x and earlier | No |
 
 This is a small project with one maintainer. Only the newest release gets fixes, and the honest reason is capacity rather than policy. If you are running something older, updating is the fix.
 
