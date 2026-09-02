@@ -257,7 +257,11 @@ fn open_glance(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(320.0, 220.0)
         .min_inner_size(240.0, 160.0)
         .resizable(true)
-        .always_on_top(*GLANCE_ON_TOP.lock().unwrap_or_else(|held| held.into_inner()))
+        .always_on_top(
+            *GLANCE_ON_TOP
+                .lock()
+                .unwrap_or_else(|held| held.into_inner()),
+        )
         .skip_taskbar(false)
         .build()?;
     told_it_opened(app);
@@ -468,7 +472,10 @@ mod tests {
         // The catalogue and the fallback have to agree, or the words differ
         // and the guard cannot help.
         assert_eq!(Copy::default(), english);
-        assert!(!take_copy(english.clone()), "the same words are not a change");
+        assert!(
+            !take_copy(english.clone()),
+            "the same words are not a change"
+        );
         assert!(!take_copy(english.clone()), "and still are not");
 
         let french = Copy {
