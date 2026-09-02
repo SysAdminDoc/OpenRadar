@@ -97,6 +97,19 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.
 - Place search, map-centred forecasts, shareable `openradar://` links.
 - **Imported shapes as a managed set**: up to eight GeoJSON or GRLevelX placefiles on the map at once, each with its own name, switch, opacity and place in the drawing order. Importing a file you already have replaces it rather than adding a second copy. All of them draw under the warnings.
+- **The workspace in your own colour, and the data left alone.** Settings carries a colour picker for the accent, and a theme file dropped on the Upload panel goes further. What a theme can reach is a fixed list: surface, border, accent, shadow and heading weight. It cannot reach a reflectivity ramp, a warning outline, a hazard colour or a storm track, and that boundary is a test rather than a promise. A theme file is plain text, one directive per line:
+
+  ```
+  OpenRadar theme
+  Name: Harbour
+  Base: dark
+  Accent: #7cc4ff
+  Surface: rgba(14, 20, 30, 0.94)
+  Shadow: 0 18px 45px rgba(0, 0, 0, 0.4)
+  HeadingWeight: 700
+  ```
+
+  Directives this build does not know are named in the toast rather than refused. Dark and light stay the built-ins, one action puts the plain workspace back, and a reader who has asked Windows for more contrast gets it whatever a theme says.
 - English, Spanish and Canadian French, switched in Settings and applied where you are standing rather than on the next launch. Each translation is written by hand against the English catalogue, and only the one you are reading is downloaded.
 - **Nearby weather, in words.** A map canvas has nothing a screen reader can read, so the same three questions get answered as text: which warnings cover a place, which storms the radar is tracking near it, and how far and which way each one is moving. It answers about the map centre or any place you watch, and a warning at a watched place is announced once as it arrives. Open it from Commands. The map itself takes the keyboard: tab to it, then the arrow keys move it and plus and minus zoom, so nothing needs a drag.
 - **More contrast, if Windows is set to ask for it.** Every locally drawn picture switches to a scale measured under three kinds of colour blindness, and the bar beside the map is built from whichever scale painted what you are looking at. Warning outlines and storm tracks are stroked heavier. A colour table you loaded yourself is left exactly as you supplied it.

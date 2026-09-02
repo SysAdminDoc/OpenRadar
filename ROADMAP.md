@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-001: Separate interface styling from data styling and make the interface themeable
-      Why: The workspace has exactly two looks, written as two blocks of custom properties in one stylesheet, and every accent in the app reads from them. There is no way to give the window any character without risking the colours that carry meaning. The boundary between chrome colour and data colour half exists already, since ramps and hazard styling live in their own modules, but nothing holds it, so any theming work done without this first is one careless commit away from restyling a warning polygon.
-      Evidence: `src/index.css`; `src/lib/settings.ts`; `src/lib/legend.ts`; `src/lib/mosaicLegend.ts`; `src/lib/mapStyles.ts`; `src-tauri/src/palette.rs`
-      Touches: The token contract; a theme record in settings and its migration; a small theme file format; the settings surface; a contract test; the accessibility scenarios
-      Acceptance: A named theme can set surface, border, accent, shadow, and heading weight through tokens and nothing else; an enumerated test fails if a data colour becomes reachable from a theme; a theme loaded from a file is re-parsed from its own text rather than trusted as an object, the way a colour table already is; dark and light remain the built-ins and remain the default; `e2e/accessibility.spec.ts` passes for every shipped theme; a personal accent colour is one of the things a theme can carry, so somebody can have the app in their own colour without writing a file.
-      Complexity: L
-
 - [ ] JOY-002: Ship seasonal and occasion theme packs that arrive on their own
       Why: An app that looks slightly different in late October than it does in March is an app people notice they live with. This is cheap to do and easy to do badly, so the constraints matter more than the packs: it is chrome only, it is a local date calculation, and it can be told to go away for good.
       Evidence: `src/hooks/useClock.ts`; `src/lib/settings.ts`; `src/i18n/en.ts`; JOY-001

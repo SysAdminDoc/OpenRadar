@@ -16,6 +16,7 @@ import {
   SATELLITE_PRODUCTS,
   type SatelliteProductId,
 } from "./providers/satellite";
+import { parseTheme, themeText, type WorkspaceTheme } from "./theme";
 import { TEXT_SCALES } from "./units";
 import type { ClockZone, TextScale, UnitSystem } from "./units";
 
@@ -216,6 +217,14 @@ export const SCHEMA_VERSION = 3;
 export interface AppSettings {
   schemaVersion: typeof SCHEMA_VERSION;
   theme: ThemeMode;
+  /**
+   * A look over the top of the built-in one, or null for the plain workspace.
+   *
+   * It reaches the chrome tokens and nothing else, which is the point of it
+   * living in its own module: see `theme.ts`. A reader who has only picked an
+   * accent colour has one of these carrying three tokens.
+   */
+  workspaceTheme: WorkspaceTheme | null;
   /** Which language the workspace is written in. */
   language: LanguageId;
   units: UnitSystem;
@@ -306,6 +315,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: SCHEMA_VERSION,
   theme: "dark",
+  workspaceTheme: null,
   language: "en",
   units: "imperial",
   clock: "local",
@@ -811,6 +821,32 @@ function normalizePaletteAssignments(
   return assignments;
 }
 
+/**
+ * A stored theme, read back out of its own text.
+ *
+ * The same rule a colour table follows, for the same reason: a hand-edited
+ * `settings.json` must not be able to put anything on screen that the parser
+ * would not have produced from a file. So the object is written back out as
+ * the theme file it came from and read again, and whatever survives that is
+ * what applies.
+ */
+function normalizeTheme(value: unknown): WorkspaceTheme | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<WorkspaceTheme>;
+  if (!raw.tokens || typeof raw.tokens !== "object") return null;
+  const name = typeof raw.name === "string" ? raw.name : "theme";
+  const text = themeText({
+    name,
+    base: raw.base === "light" ? "light" : "dark",
+    tokens: Object.fromEntries(
+      Object.entries(raw.tokens as Record<string, unknown>).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    ),
+  });
+  return parseTheme(text, name)?.theme ?? null;
+}
+
 function normalizePalette(value: unknown): Palette | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<Palette>;
@@ -932,6 +968,7 @@ export function restoreSettings(value: unknown): RestoredSettings {
   );
   const radar = raw.radar as Record<string, unknown> | undefined;
   nested(radar?.stormMotion, ["speedMs", "fromDegrees"], "radar.stormMotion");
+  nested(raw.workspaceTheme, ["name", "base", "tokens"], "workspaceTheme");
   nested(
     raw.palette,
     ["name", "product", "units", "step", "stops", "rangeFolded", "skipped"],
@@ -1073,6 +1110,7 @@ export function normalizeSettings(value: unknown): AppSettings {
   return {
     schemaVersion: SCHEMA_VERSION,
     theme: raw.theme === "light" ? "light" : "dark",
+    workspaceTheme: normalizeTheme(raw.workspaceTheme),
     // A language from a build that had one this build does not falls back to
     // English rather than painting the screen with missing keys.
     language: isLanguage(raw.language) ? raw.language : "en",
