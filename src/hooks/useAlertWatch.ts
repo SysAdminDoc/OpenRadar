@@ -247,7 +247,7 @@ export function useAlertWatch(
           // One tone for the batch rather than one per alert: three warnings
           // arriving together should not sound like an alarm going off.
           if (soundRef.current && spoken === 0) {
-            void playAlertTone();
+            void playAlertTone(alert.severity);
           }
           spoken += 1;
           let delivered = false;
@@ -352,7 +352,10 @@ export function useAlertWatch(
     // The tone goes with it, because "does the sound work" is half of what
     // somebody pressing this wants to know. Quiet hours are deliberately not
     // consulted: a test asked for now is answered now.
-    if (first.sound) void playAlertTone();
+    // The severity the test alert carries, which is the one the reader set
+    // as their floor: pressing this should sound like the quietest thing
+    // they have asked to be told about.
+    if (first.sound) void playAlertTone(alert.severity);
     let delivered = false;
     if (isDesktopRuntime()) {
       try {

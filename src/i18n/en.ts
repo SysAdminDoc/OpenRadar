@@ -125,6 +125,19 @@ export const en = {
   "alerts.kinds": "Kinds of alert",
   "alerts.kindsDetail":
     "Unchecking one takes it off the map and out of this list",
+  "alerts.volume": "How loud",
+  "alerts.volumeValue": "{percent}%",
+  "alerts.previewNote": "Hear each of them before a warning does it for you.",
+  "alerts.soundFile": "Use a sound of your own",
+  "alerts.soundFileDetail":
+    "Kept by where it is rather than copied, so a workspace backup does not swallow it. Under 2 MB, and one of wav, mp3, ogg, flac or m4a.",
+  "alerts.soundFileChoose": "Choose a file",
+  "alerts.soundFileClear": "Back to the built-in sounds",
+  "alerts.soundFileFailed": "That sound could not be used",
+  "alerts.soundFile.name": "It has to be a wav, mp3, ogg, flac or m4a file.",
+  "alerts.soundFile.size": "It is larger than 2 MB.",
+  "alerts.soundFile.decode":
+    "It could not be read as audio. It may have moved, or it may not be a sound file.",
   "alerts.sound": "Play a sound",
   "alerts.soundDetail":
     "One short tone when a new or upgraded alert reaches the place you watch",

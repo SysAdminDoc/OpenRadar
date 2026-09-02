@@ -127,6 +127,20 @@ export const es: Catalogue = {
   "capture.leave": "Salir del diseño para captura",
   "alerts.kinds": "Tipos de aviso",
   "alerts.kindsDetail": "Al desmarcar uno se quita del mapa y de esta lista",
+  "alerts.volume": "Volumen",
+  "alerts.volumeValue": "{percent}%",
+  "alerts.previewNote": "Escucha cada uno antes de que lo haga un aviso.",
+  "alerts.soundFile": "Usar un sonido propio",
+  "alerts.soundFileDetail":
+    "Se guarda por dónde está, no copiado, así que una copia del espacio de trabajo no se lo traga. Menos de 2 MB, y en wav, mp3, ogg, flac o m4a.",
+  "alerts.soundFileChoose": "Elegir un archivo",
+  "alerts.soundFileClear": "Volver a los sonidos incluidos",
+  "alerts.soundFileFailed": "Ese sonido no se pudo usar",
+  "alerts.soundFile.name":
+    "Tiene que ser un archivo wav, mp3, ogg, flac o m4a.",
+  "alerts.soundFile.size": "Pesa más de 2 MB.",
+  "alerts.soundFile.decode":
+    "No se pudo leer como audio. Puede que se haya movido o que no sea un archivo de sonido.",
   "alerts.sound": "Reproducir un sonido",
   "alerts.soundDetail":
     "Un tono corto cuando un aviso nuevo o elevado llega al punto vigilado",

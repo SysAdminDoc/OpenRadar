@@ -392,6 +392,21 @@ export interface AppSettings {
    * every row being written from that moment; it does not delete what is
    * already there, which is what the delete button is for.
    */
+  /**
+   * How loud an alert sounds, nought to one.
+   *
+   * Asked for rather than assumed. The sound is off until somebody turns it
+   * on, and somebody who turns it on has an opinion about how loud it is.
+   */
+  alertVolume: number;
+  /**
+   * A sound file of the reader's own, by path.
+   *
+   * The path and not the bytes: a workspace backup carries settings, and one
+   * that swallowed the audio would quietly become the only copy of it. A file
+   * that has moved away simply falls back to the built-in kit.
+   */
+  alertSoundPath: string | null;
   journal: boolean;
   catchUp: boolean;
   /**
@@ -514,6 +529,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   seenWelcome: false,
   seenReveal: false,
+  alertVolume: 0.18,
+  alertSoundPath: null,
   journal: true,
   catchUp: true,
   curiosities: true,
@@ -1445,6 +1462,16 @@ export function normalizeSettings(value: unknown): AppSettings {
       : [],
     presets,
     incidentPacks: normalizeIncidentPacks(raw.incidentPacks),
+    alertVolume:
+      Number.isFinite(Number(raw.alertVolume)) &&
+      Number(raw.alertVolume) >= 0 &&
+      Number(raw.alertVolume) <= 1
+        ? Number(raw.alertVolume)
+        : DEFAULT_SETTINGS.alertVolume,
+    alertSoundPath:
+      typeof raw.alertSoundPath === "string" && raw.alertSoundPath.length
+        ? raw.alertSoundPath.slice(0, 1024)
+        : null,
     journal: bool(raw.journal, DEFAULT_SETTINGS.journal),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
     curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),

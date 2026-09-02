@@ -165,6 +165,7 @@ interface PanelSurfacesProps {
   hasWatchedPlace: boolean;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
+  onChooseSound: () => Promise<void>;
 }
 
 /** Every surface the command bar opens, and the radar product sheet. */
@@ -307,6 +308,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           clock={props.clock}
           onReset={props.onReset}
           onExportSettings={props.onExportSettings}
+          onChooseSound={props.onChooseSound}
           onClose={onClose}
         />
       ) : null}
