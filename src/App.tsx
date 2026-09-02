@@ -56,6 +56,7 @@ import {
 } from "./lib/hurdat";
 import { basemapCredit } from "./lib/mapStyles";
 import { level2Available } from "./lib/level2";
+import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
 import { alertId, type WatchAlert } from "./lib/watch";
 
@@ -82,6 +83,7 @@ import {
 import { createWorkspaceBackup, restoreWorkspace } from "./lib/workspaceBackup";
 import type { ArchiveReplay } from "./hooks/useRadarTimeline";
 import type {
+  AppSettings,
   CameraState,
   LayerSettings,
   MapStyleId,
@@ -273,6 +275,37 @@ export default function App() {
   // Through a ref because the watch is inside the hook that produces the
   // alerts this reads: the callback has to exist before the hook is called
   // and see the state that comes out of it.
+
+  // The layer that explains a warning, from the warning's own popup.
+  //
+  // Switches only. It does not move the camera, does not restyle the
+  // polygon, and does not touch the warning's own presentation: the pairing
+  // is a suggestion about where to look rather than a claim about the hazard.
+  const applyPairing = useCallback(
+    (id: string) => {
+      const pairing = pairingById(id);
+      if (!pairing) return;
+      const current = settingsRef.current;
+      const next: AppSettings = {
+        ...current,
+        layers: { ...current.layers, ...pairing.layers },
+      };
+      if (pairing.radarProduct) {
+        next.radar = { ...current.radar, product: pairing.radarProduct };
+      }
+      applySettings(next);
+      const names = Object.keys(pairing.layers)
+        .map((key) => translate(`layer.${key}` as "layer.metar"))
+        .join(", ");
+      pushToast({
+        title: translate("pairing.shown", { layer: names }),
+        detail: translate("pairing.shownBody"),
+        actionLabel: translate("toast.undo"),
+        onAction: () => applySettings(current),
+      });
+    },
+    [applySettings, pushToast, settingsRef],
+  );
 
   // A test the reader asked for is answered on the desktop path only. When the
   // notification does not go out, the watch has already put the same alert in
@@ -1321,6 +1354,7 @@ export default function App() {
         onCursorChange={setCursor}
         onToolResult={showToolResult}
         onSection={handleSection}
+        onOverlayAction={applyPairing}
         onMapStatus={handleMapStatus}
       />
 

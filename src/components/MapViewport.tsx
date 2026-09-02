@@ -228,6 +228,13 @@ interface MapViewportProps {
    * handler calling the first one forever.
    */
   onSection?: (from: GeoPoint, to: GeoPoint) => void;
+  /**
+   * The one thing a popup offered to do about what it is describing.
+   *
+   * The viewport renders the button and knows nothing about what the action
+   * means; the workspace owns the settings it changes.
+   */
+  onOverlayAction?: (id: string) => void;
   onMapStatus?: (status: "loading" | "ready" | "error") => void;
 }
 
@@ -324,6 +331,7 @@ function MapViewportInner(
     onCursorChange,
     onToolResult,
     onSection,
+    onOverlayAction,
     onMapStatus,
   }: MapViewportProps,
   ref: ForwardedRef<MapViewportHandle>,
@@ -360,6 +368,9 @@ function MapViewportInner(
     customOverlay,
   );
   const stormTrackRef = useRef<Record<string, unknown> | null>(stormTrack);
+  // Read when the button is pressed rather than when the popup was built,
+  // which can be many renders earlier.
+  const onOverlayActionRef = useRef(onOverlayAction);
   const satelliteTimeRef = useRef(satelliteTime);
   const satelliteProductRef = useRef(satelliteProductId);
   // What is on the map now, which is not the same thing while a switch is
@@ -682,7 +693,12 @@ function MapViewportInner(
   const openPopup = (
     map: maplibregl.Map,
     at: maplibregl.LngLat,
-    description: { title: string; lines: string[]; url?: string },
+    description: {
+      title: string;
+      lines: string[];
+      url?: string;
+      action?: { id: string; label: string };
+    },
   ) => {
     const node = document.createElement("div");
     node.className = "map-popup";
@@ -703,10 +719,27 @@ function MapViewportInner(
       link.textContent = translate("popup.openProduct");
       node.append(link);
     }
-    new maplibregl.Popup({ closeButton: true, maxWidth: "260px" })
+    const popup = new maplibregl.Popup({
+      closeButton: true,
+      maxWidth: "260px",
+    })
       .setLngLat(at)
       .setDOMContent(node)
       .addTo(map);
+    // The layer that explains what this popup is about. It closes with the
+    // click, because the reader asked to look at something else.
+    if (description.action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "map-popup__action";
+      button.textContent = description.action.label;
+      button.dataset.popupAction = description.action.id;
+      button.addEventListener("click", () => {
+        onOverlayActionRef.current?.(description.action?.id ?? "");
+        popup.remove();
+      });
+      node.append(button);
+    }
   };
 
   const showOverlayPopup = (event: maplibregl.MapMouseEvent) => {
@@ -1282,6 +1315,9 @@ function MapViewportInner(
     satelliteTimeRef.current = next;
     syncSatellite();
   });
+  useEffect(() => {
+    onOverlayActionRef.current = onOverlayAction;
+  }, [onOverlayAction]);
   useMapSync(satelliteProductId, (next) => {
     satelliteProductRef.current = next;
     syncSatellite();

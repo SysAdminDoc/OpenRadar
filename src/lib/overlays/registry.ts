@@ -35,6 +35,15 @@ export interface OverlayDescription {
   title: string;
   lines: string[];
   url?: string;
+  /**
+   * One thing the reader can do about what they are looking at.
+   *
+   * A layer that can point at another layer says so here rather than the
+   * popup knowing anything about hazards. The action changes switches and
+   * nothing else: it does not restyle the feature it came from, and the
+   * popup renders it as a button beside the source link.
+   */
+  action?: { id: string; label: string };
 }
 
 export interface OverlayAdapter {

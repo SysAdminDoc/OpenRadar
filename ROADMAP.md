@@ -182,13 +182,6 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
 
 Added 2026-08-31 from the third research pass of that day (see `RESEARCH.md`), which covered the source classes the first two passes had not: winter weather, surface observations, historical warnings, soundings, smoke, decoder fuzzing, localization, and non-visual accessibility. IDs continue the audit scheme at `AUD-108` (the last assigned identifier, `AUD-107`, was completed and removed the same day). Ordered by priority, then trust before features.
 
-- [ ] AUD-120: P3. Hand a warning to the layer that explains it
-      Why: The app often already holds the data that explains a warning (flash flood and the QPE accumulation grids, snow squall and reflectivity/precip type, tornado and velocity) but the reader has to know to go find it. A one-action handoff from the warning popup to the relevant layer turns the alert stream into a teaching surface, and competitors do nothing here beyond push notifications.
-      Evidence: The warnings adapter popup in `src/lib/overlays/alerts.ts`; the MRMS registry in `src-tauri/src/mrms.rs`; hazard filtering in `src/lib/alertTypes.ts`; competitor absence per `RESEARCH.md` (2026-08-31 pass three)
-      Touches: A hazard-to-layer mapping with copy; a popup action that enables the paired layer and, where relevant, sets its product; state restore when the reader turns the pairing off
-      Acceptance: A flash flood warning popup offers one action that shows rainfall accumulation, a snow squall offers precipitation type or reflectivity, and a tornado warning offers velocity at the nearest held site; the action changes layer switches only, never the warning's own presentation; each pairing is enumerated in one tested table so a new hazard without a pairing is a visible decision rather than a silent gap.
-      Complexity: S
-
 - [ ] AUD-117: P3. Build an integrated Skew-T and hodograph
       Why: The community-standard sounding tool is dead software (SHARPpy: last release 2020-03, last push 2023-04-07) and no OSS radar application ships an integrated sounding view; RadarOmega treats one as a paid differentiator. The observed side (IEM RAOB JSON, verified live with open CORS) and the forecast side (Open-Meteo pressure levels, 19 to 44 levels, the API the guidance panel already uses) are both keyless.
       Evidence: https://github.com/sharppy/SHARPpy ; https://mesonet.agron.iastate.edu/json/ (raob.py verified 2026-08-31); https://open-meteo.com/en/docs/gfs-api ; https://stormtrack.org/threads/viewing-archived-soundings-in-sharppy.29574/ ; `src/lib/guidance.ts`

@@ -10,6 +10,7 @@ import { translate } from "../../i18n";
 import { formatClock } from "../units";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { alertType, type AlertType } from "../alertTypes";
+import { pairingFor } from "../alertPairings";
 import { highContrastRequested } from "../../hooks/useClock";
 
 /**
@@ -476,40 +477,51 @@ export const alertsOverlay: OverlayAdapter = {
       },
     },
   ],
-  describe: (properties) => ({
-    title: String(properties.headline ?? translate("popup.alert")),
-    lines: [
-      // First, and only on a polygon out of the archive. A warning from 2011
-      // reading like something somebody is being told right now is the one
-      // way this layer could do harm, so the date leads rather than sitting
-      // under the issue time where a reader might take it for a refresh.
-      ...(properties.historical
-        ? [
-            translate("replay.warningsHistorical", {
-              when: timeLabel(properties.polygonBegin),
-            }),
-          ]
-        : []),
-      translate("popup.issued", { when: timeLabel(properties.issued) }),
-      translate("popup.expires", { when: timeLabel(properties.expires) }),
-      ...(properties.impact
-        ? [
-            translate("alerts.impactLine", {
-              tag: translate(
-                `alerts.impact.${String(properties.impact)}` as never,
-              ),
-            }),
-          ]
-        : []),
-      ...(properties.hailSize
-        ? [translate("alerts.hailTo", { size: String(properties.hailSize) })]
-        : []),
-      translate("popup.alertSource", {
-        office:
-          String(properties.office ?? "").trim() ||
-          translate("popup.alertOffice"),
-      }),
-    ],
-    url: typeof properties.url === "string" ? properties.url : undefined,
-  }),
+  describe: (properties) => {
+    // A warning out of the archive is a picture of a day that is over, and
+    // turning on today's rainfall to explain it would be the false-currency
+    // mistake the whole replay path is careful about.
+    const pairing = properties.historical
+      ? null
+      : pairingFor(String(properties.headline ?? ""));
+    return {
+      title: String(properties.headline ?? translate("popup.alert")),
+      lines: [
+        // First, and only on a polygon out of the archive. A warning from 2011
+        // reading like something somebody is being told right now is the one
+        // way this layer could do harm, so the date leads rather than sitting
+        // under the issue time where a reader might take it for a refresh.
+        ...(properties.historical
+          ? [
+              translate("replay.warningsHistorical", {
+                when: timeLabel(properties.polygonBegin),
+              }),
+            ]
+          : []),
+        translate("popup.issued", { when: timeLabel(properties.issued) }),
+        translate("popup.expires", { when: timeLabel(properties.expires) }),
+        ...(properties.impact
+          ? [
+              translate("alerts.impactLine", {
+                tag: translate(
+                  `alerts.impact.${String(properties.impact)}` as never,
+                ),
+              }),
+            ]
+          : []),
+        ...(properties.hailSize
+          ? [translate("alerts.hailTo", { size: String(properties.hailSize) })]
+          : []),
+        translate("popup.alertSource", {
+          office:
+            String(properties.office ?? "").trim() ||
+            translate("popup.alertOffice"),
+        }),
+      ],
+      url: typeof properties.url === "string" ? properties.url : undefined,
+      action: pairing
+        ? { id: pairing.id, label: translate(pairing.key) }
+        : undefined,
+    };
+  },
 };
