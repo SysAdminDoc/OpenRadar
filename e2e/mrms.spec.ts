@@ -375,6 +375,8 @@ test("says why a grid export was refused, in the reader's words", async ({
 
   await expect(page.getByText("The data export failed")).toBeVisible();
   await expect(
-    page.getByText(/9840321 readings in one file. Zoom in/),
+    // Grouped, because the count is in a sentence a person reads. It used to
+    // arrive as the native side's digits and read the same in every language.
+    page.getByText(/9,840,321 readings in one file\. Zoom in/),
   ).toBeVisible();
 });

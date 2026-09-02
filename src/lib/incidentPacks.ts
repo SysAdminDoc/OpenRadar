@@ -1,4 +1,4 @@
-import { formatNumber } from "../i18n";
+import { formatNumber, translate } from "../i18n";
 import type { IncidentPackReference } from "./settings";
 import { isDesktopRuntime } from "./settings";
 
@@ -144,9 +144,14 @@ export function incidentTileTemplate(id: string): string | null {
 }
 
 export function formatPackBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
-  const megabytes = bytes / (1024 * 1024);
-  if (megabytes < 1024)
-    return `${formatNumber(Math.max(0.1, megabytes), megabytes < 10 ? 1 : 0)} MB`;
-  return `${formatNumber(megabytes / 1024, 1)} GB`;
+  const megabytes = (value: number, digits: number) =>
+    translate("packs.megabytes", { count: formatNumber(value, digits) });
+  if (!Number.isFinite(bytes) || bytes <= 0) return megabytes(0, 0);
+  const size = bytes / (1024 * 1024);
+  if (size < 1024) {
+    return megabytes(Math.max(0.1, size), size < 10 ? 1 : 0);
+  }
+  return translate("packs.gigabytes", {
+    count: formatNumber(size / 1024, 1),
+  });
 }

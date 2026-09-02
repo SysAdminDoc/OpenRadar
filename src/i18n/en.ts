@@ -187,6 +187,8 @@ export const en = {
   "packs.defaultName": "Incident pack",
   "packs.ceiling": "Pack disk ceiling",
   "packs.used": "{used} used of {limit}",
+  "packs.megabytes": "{count} MB",
+  "packs.gigabytes": "{count} GB",
   "packs.name": "Pack name",
   "packs.minZoom": "Minimum zoom",
   "packs.maxZoom": "Maximum zoom",
@@ -874,6 +876,20 @@ export const en = {
   "layers.wind": "Wind",
   "layers.windDetail": "Animated GFS wind at ten metres",
   "layers.customDetail": "Local GeoJSON workspace",
+  // What each MRMS grid is called on the legend beside the map. The
+  // native side names its own products in English; these are the same
+  // names in the language the reader chose.
+  "mrms.rotation": "Rotation tracks, past hour",
+  "mrms.mesh": "Maximum estimated hail size",
+  "mrms.echoTops": "Echo tops",
+  "mrms.vil": "Vertically integrated liquid",
+  "mrms.precipRate": "Rain rate",
+  "mrms.qpeHour": "Rain in the past hour",
+  "mrms.qpeDay": "Rain in the past day",
+  "mrms.hailSwath": "Largest hail in the past day",
+  "mrms.lightning": "Cloud-to-ground lightning, 5 min",
+  "mrms.precipType": "Precipitation type",
+
   "layers.note":
     "Layer switches save immediately and take effect on the map right away. Alerts come from the NWS, earthquakes from the USGS, and fire perimeters from NIFC.",
   "settings.eyebrow": "OpenRadar preferences",

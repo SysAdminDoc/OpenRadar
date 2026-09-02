@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useT, type StringKey } from "../i18n";
+import { formatNumber, useT, type StringKey } from "../i18n";
 import {
   asIncidentPackReference,
   cancelIncidentPack,
@@ -313,7 +313,11 @@ export function IncidentPackManager({
                 })
               }
             />
-            <output>{settings.incidentPacks.diskLimitMb} MB</output>
+            <output>
+              {t("packs.megabytes", {
+                count: formatNumber(settings.incidentPacks.diskLimitMb),
+              })}
+            </output>
           </label>
 
           <div className="incident-pack-create">
@@ -360,7 +364,7 @@ export function IncidentPackManager({
               <span>
                 {bounds && estimate
                   ? t("packs.estimate", {
-                      count: estimate.tileCount,
+                      count: formatNumber(estimate.tileCount),
                       final: formatPackBytes(estimate.estimatedBytes),
                       temporary: formatPackBytes(estimate.temporaryBytes),
                     })
@@ -448,8 +452,8 @@ export function IncidentPackManager({
                     <label className="incident-pack-progress">
                       <span>
                         {t("packs.progress", {
-                          done: pack.downloadedTiles,
-                          total: pack.tileCount,
+                          done: formatNumber(pack.downloadedTiles),
+                          total: formatNumber(pack.tileCount),
                           percent: progress,
                         })}
                       </span>

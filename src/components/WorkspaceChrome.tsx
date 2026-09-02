@@ -27,7 +27,14 @@ import { formatRadarTime } from "../lib/radar";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
-import { formatNumber, locale, translate, useT, type StringKey } from "../i18n";
+import {
+  formatMeasure,
+  formatNumber,
+  locale,
+  translate,
+  useT,
+  type StringKey,
+} from "../i18n";
 import { useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
@@ -470,10 +477,10 @@ export function WorkspaceChrome({
               <strong>
                 {layer.unit
                   ? t("chrome.layerUnit", {
-                      label: layer.label,
+                      label: t(layer.labelKey),
                       unit: layer.unit,
                     })
-                  : layer.label}
+                  : t(layer.labelKey)}
                 <em>{gridAge(layer.time, clock)}</em>
               </strong>
               {/* A grid whose numbers are names is listed as names. A
@@ -486,7 +493,9 @@ export function WorkspaceChrome({
                   return (
                     <li key={value}>
                       <i style={{ background: color }} aria-hidden="true" />
-                      {id ? t(`precipType.${id}` as StringKey) : value}
+                      {id
+                        ? t(`precipType.${id}` as StringKey)
+                        : formatMeasure(value)}
                     </li>
                   );
                 })}

@@ -145,17 +145,38 @@ export function formatNumber(
   digits = 0,
   which: LanguageId = current,
 ): string {
-  const tag = locale(which);
-  const key = `${tag}:${digits}`;
+  return formatter(locale(which), digits, digits).format(value);
+}
+
+/**
+ * A number whose precision is the number's own, in the reader's notation.
+ *
+ * A legend stop is 5, 20 and 35 on one scale and 0.01, 0.1 and 0.5 on the
+ * next, and a fixed digit count is wrong for at least one of them: it either
+ * writes 5 as 5.00 or throws away the hundredth that made the stop worth
+ * labelling. This is `String(value)` with a comma where the reader writes a
+ * comma, which is what a legend, a storm report magnitude and a count all
+ * want.
+ */
+export function formatMeasure(
+  value: number,
+  maxDigits = 2,
+  which: LanguageId = current,
+): string {
+  return formatter(locale(which), 0, maxDigits).format(value);
+}
+
+function formatter(tag: string, min: number, max: number): Intl.NumberFormat {
+  const key = `${tag}:${min}:${max}`;
   let format = numberFormats.get(key);
   if (!format) {
     format = new Intl.NumberFormat(tag, {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
+      minimumFractionDigits: min,
+      maximumFractionDigits: max,
     });
     numberFormats.set(key, format);
   }
-  return format.format(value);
+  return format;
 }
 
 export type Params = Record<string, string | number>;

@@ -336,22 +336,22 @@ function SoundingView({
               <>
                 <div>
                   <dt>{t("sounding.cape")}</dt>
-                  <dd>{Math.round(parcel.cape)} J/kg</dd>
+                  <dd>{formatNumber(Math.round(parcel.cape))} J/kg</dd>
                 </div>
                 <div>
                   <dt>{t("sounding.cin")}</dt>
-                  <dd>{Math.round(parcel.cin)} J/kg</dd>
+                  <dd>{formatNumber(Math.round(parcel.cin))} J/kg</dd>
                 </div>
                 <div>
                   <dt>{t("sounding.lcl")}</dt>
-                  <dd>{Math.round(parcel.lcl.pressure)} hPa</dd>
+                  <dd>{formatNumber(Math.round(parcel.lcl.pressure))} hPa</dd>
                 </div>
                 <div>
                   <dt>{t("sounding.lfc")}</dt>
                   <dd>
                     {parcel.lfc === null
                       ? t("sounding.none")
-                      : `${Math.round(parcel.lfc)} hPa`}
+                      : `${formatNumber(Math.round(parcel.lfc))} hPa`}
                   </dd>
                 </div>
                 <div>
@@ -359,7 +359,7 @@ function SoundingView({
                   <dd>
                     {parcel.el === null
                       ? t("sounding.none")
-                      : `${Math.round(parcel.el)} hPa`}
+                      : `${formatNumber(Math.round(parcel.el))} hPa`}
                   </dd>
                 </div>
               </>
@@ -371,7 +371,7 @@ function SoundingView({
                   const shear = bulkShear(sounding.levels, 6000);
                   return shear === null
                     ? t("sounding.none")
-                    : `${Math.round(shear)} kt`;
+                    : `${formatNumber(Math.round(shear))} kt`;
                 })()}
               </dd>
             </div>

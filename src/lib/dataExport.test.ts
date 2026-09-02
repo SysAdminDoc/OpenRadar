@@ -3,9 +3,13 @@ import { dataExportErrorText, exportSize } from "./dataExport";
 
 describe("what a refused data export says", () => {
   it("uses the reader's wording for a code it knows", () => {
+    // The count is a number a person reads, so it is grouped rather than
+    // being handed on as the native side's digits. This asserted the raw
+    // string, which is the bug: a Spanish or French reader was being told
+    // the export would be "9000000 mediciones".
     expect(
       dataExportErrorText({ code: "tooLarge", args: ["9000000"] }),
-    ).toContain("9000000");
+    ).toContain("9,000,000");
     expect(dataExportErrorText({ code: "notDrawn", args: [] })).toContain(
       "not on the map",
     );
