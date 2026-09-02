@@ -49,6 +49,32 @@ test("writes a still of the current view", async ({ page }) => {
   expect(captionPixels).toBeGreaterThan(80);
 });
 
+test("credits the map that was actually under the weather", async ({
+  page,
+}) => {
+  // Two of the styles are not OpenStreetMap. A picture exported over
+  // imagery used to credit a service that had nothing to do with it, in the
+  // corner of the picture and in the record beside it.
+  await page.getByRole("button", { name: "Map Type", exact: true }).click();
+  await page.getByRole("button", { name: /Aerial/ }).click();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveAttribute("data-map-style", "aerial");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const sidecar = page.waitForEvent("download", {
+    predicate: (file) => file.suggestedFilename().endsWith(".json"),
+  });
+  await page.getByRole("button", { name: "Export image" }).click();
+  const file = await sidecar;
+  const path = await file.path();
+  const record = JSON.parse(
+    await import("node:fs/promises").then((fs) => fs.readFile(path, "utf8")),
+  ) as { basemap?: string };
+  expect(record.basemap).toBe("USDA, USGS The National Map: Orthoimagery");
+});
+
 // The still test proves the caption is burned in; reading it back out of a
 // WebM would mean decoding video, so this covers the recording itself.
 test("writes the loop as a WebM the size cap allows", async ({ page }) => {
@@ -91,9 +117,7 @@ test("writes the loop as a GIF that a picture viewer opens", async ({
   // the screen size, a global colour table, the Netscape block that makes it
   // loop, and the trailer.
   await page.getByRole("button", { name: "Export", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: /Export GIF/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Export GIF/ })).toBeVisible();
 
   const download = page.waitForEvent("download", { timeout: 60_000 });
   await page.getByRole("button", { name: /Export GIF/ }).click();

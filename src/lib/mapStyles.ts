@@ -75,6 +75,42 @@ const EMPTY_TEST_STYLE: StyleSpecification = {
   ],
 };
 
+/**
+ * The credit for the map under the weather, for the style on screen.
+ *
+ * Five of the eight styles are OpenStreetMap data by way of OpenFreeMap, and
+ * saying so is right for those. Aerial is USGS orthoimagery and topography is
+ * OpenTopoMap, which asks for an exact line, so a picture exported over either
+ * one used to credit a service that had nothing to do with it. An incident
+ * pack carries its own, because the tiles came out of the pack rather than off
+ * a network at all.
+ *
+ * The same strings the map's own attribution bar shows, from the same place,
+ * so the corner of an exported picture and the corner of the window cannot
+ * drift apart.
+ */
+export const OPENSTREETMAP_CREDIT = "OpenStreetMap";
+export const USGS_IMAGERY_CREDIT = "USDA, USGS The National Map: Orthoimagery";
+/** OpenTopoMap asks for this exact credit line. */
+export const OPENTOPOMAP_CREDIT =
+  "Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung: © OpenTopoMap (CC-BY-SA)";
+
+export function basemapCredit(
+  id: MapStyleId,
+  theme: ThemeMode,
+  incidentPack?: IncidentPackReference | null,
+): string {
+  if (incidentPack) return incidentPack.attribution;
+  switch (resolvedMapStyle(id, theme)) {
+    case "aerial":
+      return USGS_IMAGERY_CREDIT;
+    case "topography":
+      return OPENTOPOMAP_CREDIT;
+    default:
+      return OPENSTREETMAP_CREDIT;
+  }
+}
+
 function rasterStyle(
   tiles: string[],
   attribution: string,
@@ -155,14 +191,13 @@ export function mapStyleDefinition(
         [
           "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
         ],
-        "USDA, USGS The National Map: Orthoimagery",
+        USGS_IMAGERY_CREDIT,
         19,
       );
     case "topography":
       return rasterStyle(
         ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
-        // OpenTopoMap asks for this exact credit line.
-        "Kartendaten: © OpenStreetMap-Mitwirkende, SRTM | Kartendarstellung: © OpenTopoMap (CC-BY-SA)",
+        OPENTOPOMAP_CREDIT,
         17,
       );
     case "dark":

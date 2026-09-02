@@ -173,13 +173,6 @@ The three worth starting with are JOY-007 and JOY-008 together, since the journa
 
 Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
 
-- [ ] AUD-121: P3. Make the burned basemap credit follow the style on screen
-      Why: The weather half of an export's credit now comes from the layer's provenance record, but the map half is still the constant "OpenStreetMap". Two of the seven styles are not OpenStreetMap: aerial draws USGS orthoimagery and topography draws OpenTopoMap, which asks for an exact credit line. An offline incident pack carries its own attribution too. So a picture exported over imagery credits the wrong service.
-      Evidence: `src/hooks/useExport.ts` `BASEMAP_CREDIT`; `src/lib/mapStyles.ts` `mapStyleDefinition`; `src/components/MapStage.tsx` style resolution
-      Touches: A credit for a resolved style id and incident pack; passing it to the export hook from where the style is already resolved; the sidecar's `basemap` field; export tests per style
-      Acceptance: A picture exported on each style burns that style's own credit, with OpenTopoMap's exact line used verbatim and an incident pack's attribution used when one is loaded; the sidecar carries the same string; the on-screen attribution bar and the burned credit name the same sources.
-      Complexity: S
-
 - [ ] AUD-098: P3. Offer to follow new warnings, off by default
       Why: A competitor request asks the map to fly to a warning as it is issued. As an opt-in behaviour with the camera returning control the moment the reader touches the map, it turns monitoring into something the app does with you rather than a thing you chase.
       Evidence: https://github.com/dpaulat/supercell-wx/issues/637 ; `src/hooks/useAlertWatch.ts`; `src/components/MapViewport.tsx`; `src/hooks/useClock.ts`

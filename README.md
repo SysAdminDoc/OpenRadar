@@ -291,6 +291,8 @@ It is plain JSON with a `format` of `openradar-provenance` and a `formatVersion`
 
 One entry per frame that reached the file, in timeline order. A loop is not one source: its observed frames and its forecast tail come from different services, and a GIF holds only the last two dozen frames, so a single record for the whole file would be wrong for most of it.
 
+`basemap` is the credit for the map under the weather, and it follows the style that was on screen: five of the eight are OpenStreetMap data by way of OpenFreeMap, aerial is USGS orthoimagery, topography is OpenTopoMap's own exact line, and a picture drawn over a prepared incident pack credits the pack. It is the same string the map's attribution bar shows and the same one burned into the corner.
+
 `fetched` is when those bytes reached the machine, not when the file was written, so an export made an hour after the last refresh says so. `freshForMs` is how long the source's own publishing cadence says a frame stays current, worked out from the gap between the frames on the timeline.
 
 `kind` is `observation`, `forecast` or `derived`, and it decides the rest. A forecast has no `observed` time, because nothing measured it; it carries a `modelRun` with the run's `initUtc` and `leadMinutes`, or `runUnknown` when the source will not say which run it used. A `derived` frame carries `derivedFrom` saying what was done to the values. `cachedAgeSeconds` is null when the bytes came off the network and a number when the disk cache served them, which is what separates a current picture from one that survived an outage.
