@@ -136,6 +136,8 @@ Get-FileHash OpenRadar_0.7.0_x64-setup.exe -Algorithm SHA256
 
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
 
+What the app offers you is whatever `latest.json` on the newest published release says, which is not always the newest version in this repository: a release can be built and staged without being published, and while it sits there the app tells you that you are up to date. The releases page is the truth about what has actually shipped. Building a release now prints the published version beside this one and stops if the gap has grown.
+
 ### What a release is named, and installing it without the window
 
 Every release publishes the same five files, and the names do not change between releases. Only the version moves:

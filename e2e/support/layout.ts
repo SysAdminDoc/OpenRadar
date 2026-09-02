@@ -20,10 +20,13 @@ import type { Page } from "@playwright/test";
  */
 export async function unreachable(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const scrollerOf = (element: HTMLElement): HTMLElement => {
+    const scrollerOf = (element: HTMLElement, axis: "X" | "Y"): HTMLElement => {
       let at = element.parentElement;
       while (at && at !== document.documentElement) {
-        const overflow = getComputedStyle(at).overflowX;
+        const overflow =
+          axis === "X"
+            ? getComputedStyle(at).overflowX
+            : getComputedStyle(at).overflowY;
         if (overflow === "auto" || overflow === "scroll") return at;
         at = at.parentElement;
       }
@@ -44,14 +47,37 @@ export async function unreachable(page: Page): Promise<string[]> {
     )) {
       const box = element.getBoundingClientRect();
       if (box.width === 0 || box.height === 0) continue;
-      const scroller = scrollerOf(element);
-      const frame = scroller.getBoundingClientRect();
-      const left = (box.left - frame.left) / scale + scroller.scrollLeft;
+
+      const across = scrollerOf(element, "X");
+      const acrossFrame = across.getBoundingClientRect();
+      const left = (box.left - acrossFrame.left) / scale + across.scrollLeft;
       const right = left + box.width / scale;
       // Two pixels of rounding is not a layout fault.
-      if (left < -2 || right > scroller.scrollWidth + 2) {
+      if (left < -2 || right > across.scrollWidth + 2) {
         out.push(
-          `${element.className || element.tagName} ${Math.round(left)}..${Math.round(right)} of ${scroller.scrollWidth}`,
+          `${element.className || element.tagName} ${Math.round(left)}..${Math.round(right)} of ${across.scrollWidth}`,
+        );
+      }
+
+      // And the same question downwards, which this only ever asked
+      // sideways. The tool rail scrolls vertically, and a fixed group above
+      // it that grows with the text scale can squeeze the scrolling part to
+      // nothing: at 1024 by 720 with the text at 130 percent, twenty
+      // controls sat inside a region with a client height of zero. Every
+      // horizontal check passed, because horizontally they were fine.
+      const down = scrollerOf(element, "Y");
+      const downFrame = down.getBoundingClientRect();
+      if (down !== document.documentElement && down.clientHeight === 0) {
+        out.push(
+          `${element.className || element.tagName} is inside ${down.className || down.tagName}, which has no height to show it in`,
+        );
+        continue;
+      }
+      const top = (box.top - downFrame.top) / scale + down.scrollTop;
+      const bottom = top + box.height / scale;
+      if (top < -2 || bottom > down.scrollHeight + 2) {
+        out.push(
+          `${element.className || element.tagName} ${Math.round(top)}..${Math.round(bottom)} down, of ${down.scrollHeight}`,
         );
       }
     }

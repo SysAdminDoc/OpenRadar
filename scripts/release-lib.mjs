@@ -149,6 +149,61 @@ export function supportedMinor(securityText) {
   return `${row[1]}.${row[2]}`;
 }
 
+/**
+ * How far behind the published updater manifest is.
+ *
+ * The updater is the only channel an installed copy has, and it reads one
+ * file: `releases/latest/download/latest.json`. On 2026-09-02 that file said
+ * 0.4.0 while every manifest in the tree said 0.7.0, so every installed copy
+ * had been told it was up to date through three releases, including the one
+ * that fixed every external link being dead in the packaged build. Nothing
+ * anywhere compared the two numbers.
+ *
+ * Counted in releases rather than in patches: a patch behind is a release
+ * staged and not yet pushed, which is ordinary and passes. Two minors behind
+ * is a channel that has stopped.
+ */
+export function publishedLag(published, repo) {
+  const parts = (value) => {
+    const found = /^(\d+)\.(\d+)\.(\d+)/.exec(String(value ?? ""));
+    if (!found) return null;
+    return found.slice(1, 4).map(Number);
+  };
+  const here = parts(repo);
+  if (!here) throw new Error(`The repository version reads as ${repo}.`);
+  const there = parts(published);
+  if (!there) {
+    // Unreadable is not the same as behind. A first release has no manifest
+    // at all, and a machine with no route to GitHub can still stage a build;
+    // failing either would be a gate that fires on the wrong thing.
+    return { published: null, repo, behind: null, stalled: false };
+  }
+
+  const [major, minor] = there;
+  const [ourMajor, ourMinor] = here;
+  // A major behind is every minor of it and then some; there is no honest
+  // count, and any number over one is the same answer.
+  const behind =
+    major === ourMajor ? ourMinor - minor : (ourMajor - major) * 1000;
+  return {
+    published: published,
+    repo,
+    behind,
+    stalled: behind > 1,
+  };
+}
+
+/** The line a release prints about it. */
+export function publishedLagLine(lag) {
+  if (lag.published === null) {
+    return `The published updater manifest could not be read. The repository is at ${lag.repo}.`;
+  }
+  if (lag.behind <= 0) {
+    return `Published ${lag.published}, repository ${lag.repo}.`;
+  }
+  return `Published ${lag.published}, repository ${lag.repo}: ${lag.behind} release${lag.behind === 1 ? "" : "s"} behind.`;
+}
+
 export function sourceVersion(settingsText) {
   const found = /APP_VERSION\s*=\s*"([^"]+)"/.exec(settingsText)?.[1];
   if (!found) throw new Error("settings.ts has no APP_VERSION.");

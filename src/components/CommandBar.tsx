@@ -207,12 +207,6 @@ export function CommandBar({
           onClick={() => toggleSurface("alerts")}
         />
         <CommandButton
-          icon={ScrollText}
-          label={t("panel.nearby")}
-          active={activeSurface === "nearby"}
-          onClick={() => toggleSurface("nearby")}
-        />
-        <CommandButton
           icon={CloudSun}
           label={t("panel.forecast")}
           active={activeSurface === "forecast"}
@@ -229,6 +223,18 @@ export function CommandBar({
       <div ref={advancedRef} className="command-scroll-region">
         <div className="command-divider" />
         <div className="command-group command-group--workspace">
+          {/* The readout leads the scrolling half rather than joining the
+              fixed one above it. In the fixed group it cost the scrolling
+              region a button's height at every text scale, and at 1024 by 720
+              with the text at 130 percent that took the region to nothing at
+              all: twenty controls inside a box with no height to show them
+              in. Reachability is the point of putting it on the rail. */}
+          <CommandButton
+            icon={ScrollText}
+            label={t("panel.nearby")}
+            active={activeSurface === "nearby"}
+            onClick={() => toggleSurface("nearby")}
+          />
           <CommandButton
             icon={Map}
             label={t("panel.mapType")}

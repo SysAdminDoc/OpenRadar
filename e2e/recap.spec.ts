@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { fakeDesktop, routeWorkspace } from "./support/fixtures";
 
 /**
  * A year at your own places, from your own record.
@@ -28,49 +28,26 @@ function journalRow(daysAgo: number, place: string, kind: string) {
   };
 }
 
+const RECAP_SETTINGS = {
+  schemaVersion: 3,
+  seenWelcome: true,
+  seenReveal: true,
+  catchUp: false,
+  watch: {
+    enabled: true,
+    sound: false,
+    name: "Casa",
+    center: [-96.8, 32.78],
+    radiusMiles: 30,
+    minSeverity: "severe",
+  },
+};
+
 async function start(page: Page, rows: unknown[]) {
-  await page.addInitScript((value: unknown[]) => {
-    const settings = {
-      schemaVersion: 3,
-      seenWelcome: true,
-      seenReveal: true,
-      catchUp: false,
-      watch: {
-        enabled: true,
-        sound: false,
-        name: "Casa",
-        center: [-96.8, 32.78],
-        radiusMiles: 30,
-        minSeverity: "severe",
-      },
-    };
-    (
-      window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
-    ).__TAURI_INTERNALS__ = {
-      convertFileSrc: (path: string, scheme: string) =>
-        `http://${scheme}.localhost/${path}`,
-      transformCallback: (callback: unknown) => callback,
-      invoke: async (command: string, args: Record<string, unknown> = {}) => {
-        if (command === "journal_rows") return value;
-        if (command === "journal_path") return "C:/test/journal.jsonl";
-        // Opening Settings brings the incident-pack library with it, and a
-        // fake that answers nothing crashes the panel before the recap is
-        // ever drawn.
-        if (
-          command === "incident_pack_list" ||
-          command === "incident_pack_set_limit"
-        ) {
-          return { packs: [], usedBytes: 0, diskLimitBytes: 4_294_967_296 };
-        }
-        if (command === "plugin:event|listen") return 1;
-        if (command === "plugin:store|load") return 1;
-        if (command === "plugin:store|get") {
-          return args.key === "settings" ? [settings, true] : [null, false];
-        }
-        return null;
-      },
-    };
-  }, rows);
+  await fakeDesktop(page, {
+    settings: RECAP_SETTINGS,
+    journalRows: rows,
+  });
   await routeWorkspace(page);
   await page.goto("/?testMode=1");
   await expect(page.getByRole("application")).toBeVisible();

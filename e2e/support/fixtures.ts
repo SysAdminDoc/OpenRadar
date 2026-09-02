@@ -355,6 +355,140 @@ export const stormRecord = {
 };
 
 /**
+ * What the workspace asks the native side for on any launch, whatever the
+ * spec is about.
+ *
+ * A spec that fakes `__TAURI_INTERNALS__` has to answer EVERY command the
+ * workspace sends, not the ones its own feature needs. Five specs each grew
+ * their own switch and diverged, and the ones that ended in `return null`
+ * answered `incident_pack_set_limit` with null: `setLibrary(null)` ran and
+ * the whole workspace fell to the error boundary reading `library.packs`,
+ * which reads as a crash in a panel nowhere near the change. It cost most of
+ * an afternoon once already.
+ */
+export interface DesktopStub {
+  /** The stored settings, or null for a workspace opening on its defaults. */
+  settings?: Record<string, unknown> | null;
+  /**
+   * Read the stored settings out of `window.__settings` instead.
+   *
+   * For a spec whose settings carry a clock: they have to be built in the
+   * page, where `Date.now()` is the page's own, rather than handed in from
+   * here.
+   */
+  settingsFromPage?: boolean;
+  /** The record's rows. */
+  journalRows?: unknown[];
+  /** What the offline map packs answer with. */
+  packs?: Record<string, unknown>;
+}
+
+/**
+ * Fake the desktop for a spec, and fail loudly on anything unlisted.
+ *
+ * A spec with commands of its own registers them BEFORE calling this, by
+ * setting `window.__answer`: a function taking the command and its arguments
+ * and returning `[value]` when it handles one, or `undefined` when it does
+ * not. The wrapper is what separates "here is your answer, which is null"
+ * from "not mine", which a bare null cannot say.
+ *
+ * Anything nothing answers throws, naming the command. A test that fails
+ * with `the workspace invoked incident_pack_estimate` names its own gap in
+ * seconds; the same test with a null fallback fails somewhere else entirely,
+ * later, in a component.
+ */
+export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
+  await page.addInitScript(
+    (held: {
+      settings: Record<string, unknown> | null;
+      fromPage: boolean;
+      journalRows: unknown[];
+      packs: Record<string, unknown>;
+    }) => {
+      const settings = held.fromPage
+        ? ((window as unknown as { __settings?: Record<string, unknown> })
+            .__settings ?? null)
+        : held.settings;
+      const own = (
+        window as unknown as {
+          __answer?: (
+            command: string,
+            args: Record<string, unknown>,
+          ) => [unknown] | undefined;
+        }
+      ).__answer;
+      (
+        window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
+      ).__TAURI_INTERNALS__ = {
+        // Windows spells a custom scheme as a host on http, which is the
+        // platform this is built for.
+        convertFileSrc: (path: string, scheme: string) =>
+          `http://${scheme}.localhost/${path}`,
+        transformCallback: (callback: unknown) => callback,
+        invoke: async (command: string, args: Record<string, unknown> = {}) => {
+          const mine = own?.(command, args);
+          if (mine) return mine[0];
+
+          // The store, which is where the settings live once the app believes
+          // it is on the desktop. The plugin unpacks a pair of the value and
+          // whether the key was there at all: answering with the value alone
+          // reads as "not found" and the workspace opens on defaults.
+          if (command === "plugin:store|load") return 1;
+          if (command === "plugin:store|get") {
+            return args.key === "settings" && settings
+              ? [settings, true]
+              : [null, false];
+          }
+          if (command === "plugin:store|set") return null;
+          if (command === "plugin:store|save") return null;
+          if (command === "plugin:store|close") return null;
+          if (command === "plugin:event|listen") return 1;
+          if (command === "plugin:event|unlisten") return null;
+
+          if (command === "journal_rows") return held.journalRows;
+          if (command === "journal_path") return "C:/test/journal.jsonl";
+          if (command === "journal_write") return null;
+          if (command === "journal_append") return null;
+
+          // The radar the workspace asks for on any launch, answered with
+          // nothing to draw. A spec about the radar answers these itself; a
+          // spec about the record or the wallpaper wants an empty timeline,
+          // and saying so here is different from a null fallback saying it by
+          // accident for every command in the app.
+          if (command === "mrms_products") return [];
+          if (command === "mrms_frames") return [];
+          if (command === "set_palettes") return 0;
+          if (command === "set_palette") return 0;
+
+          // Read on every launch by the settings panel. Answering null here
+          // is what took the workspace down.
+          if (
+            command === "incident_pack_list" ||
+            command === "incident_pack_set_limit"
+          ) {
+            return held.packs;
+          }
+
+          throw new Error(
+            `the workspace invoked ${command}, which no stub in this spec answers`,
+          );
+        },
+      };
+    },
+    {
+      settings: stub.settings ?? null,
+      fromPage: stub.settingsFromPage ?? false,
+      journalRows: stub.journalRows ?? [],
+      packs: stub.packs ?? {
+        packs: [],
+        usedBytes: 0,
+        diskLimitBytes: 8_589_934_592,
+      },
+    },
+  );
+}
+
+/**
  * Every network route the workspace touches, answered locally. A test that
  * needs different data re-routes the host it cares about and reloads.
  */

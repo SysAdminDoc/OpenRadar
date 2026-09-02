@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { fakeDesktop, routeWorkspace } from "./support/fixtures";
 
 // Replay bundles: one file that keeps a replay's bytes. The native side
 // fetches, hashes, writes and later serves them; here it is a fake that
@@ -26,7 +26,10 @@ async function fakeNative(page: Page): Promise<void> {
       const w = window as unknown as {
         __bundleCalls: Call[];
         __bundlePath: string;
-        __TAURI_INTERNALS__: Record<string, unknown>;
+        __answer: (
+          command: string,
+          args: Record<string, unknown>,
+        ) => [unknown] | undefined;
       };
       w.__bundleCalls = calls;
       w.__bundlePath = ianPath;
@@ -69,47 +72,57 @@ async function fakeNative(page: Page): Promise<void> {
         missing,
         workspace,
       });
-      w.__TAURI_INTERNALS__ = {
-        convertFileSrc: (path: string, scheme: string) =>
-          `http://${scheme}.localhost/${path}`,
-        invoke: (command: string, args: Record<string, unknown>) => {
+      // Only the commands this file is about. Everything else the
+      // workspace asks for on a launch is the shared stub's, which throws on
+      // anything nobody answers rather than handing back a null for a panel
+      // to fall over reading.
+      w.__answer = (command: string, args: Record<string, unknown>) => {
+        {
           calls.push({ command, args });
           if (command === "plugin:dialog|open") {
-            return Promise.resolve(w.__bundlePath);
+            return [w.__bundlePath];
           }
+          // Letting go of a bundle is this file's business too.
+          if (command === "replay_bundle_close") return [null];
           if (command === "replay_bundle_capture") {
-            return Promise.resolve({
-              id: "abc12345def67890",
-              path: w.__bundlePath,
-              bytes: 5_452_595,
-              entries: 42,
-              missing: [],
-              sha256: "ab".repeat(32),
-            });
+            return [
+              {
+                id: "abc12345def67890",
+                path: w.__bundlePath,
+                bytes: 5_452_595,
+                entries: 42,
+                missing: [],
+                sha256: "ab".repeat(32),
+              },
+            ];
           }
           if (command === "replay_bundle_open") {
             const path = String(args.path);
             if (path.endsWith("newer.orb")) {
-              return Promise.reject({
-                code: "newer",
-                args: ["3"],
-                text: "bundle layout 3 is newer than this build reads",
-              });
+              return [
+                Promise.reject({
+                  code: "newer",
+                  args: ["3"],
+                  text: "bundle layout 3 is newer than this build reads",
+                }),
+              ];
             }
             if (path.endsWith("unusable.orb")) {
               // Structurally fine, and every frame names a provider this
               // build does not draw.
               const held = manifest(null, []);
-              return Promise.resolve({
-                ...held,
-                frames: held.frames.map((frame) => ({
-                  ...frame,
-                  providerId: "somebody-else",
-                })),
-              });
+              return [
+                {
+                  ...held,
+                  frames: held.frames.map((frame) => ({
+                    ...frame,
+                    providerId: "somebody-else",
+                  })),
+                },
+              ];
             }
             if (path.endsWith("workspace.orb")) {
-              return Promise.resolve(
+              return [
                 manifest(
                   {
                     type: "OpenRadarWorkspace",
@@ -119,23 +132,24 @@ async function fakeNative(page: Page): Promise<void> {
                   },
                   [],
                 ),
-              );
+              ];
             }
-            return Promise.resolve(
+            return [
               manifest(null, [
                 {
                   url: "https://mesonet.agron.iastate.edu/api/1/vtec/sbw_interval.geojson?begints=2022-09-28T13:00:00Z",
                   reason: "504",
                 },
               ]),
-            );
+            ];
           }
-          return Promise.resolve(null);
-        },
+          return undefined;
+        }
       };
     },
     { ianPath: IAN_PATH },
   );
+  await fakeDesktop(page);
 }
 
 async function openHistory(page: Page): Promise<void> {

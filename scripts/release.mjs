@@ -11,6 +11,8 @@ import path from "node:path";
 import {
   assertReleaseAssetNames,
   cargoVersion,
+  publishedLag,
+  publishedLagLine,
   releaseAssetNames,
   sha256File,
   sourceVersion,
@@ -128,6 +130,42 @@ function assertVersions(version, conf) {
   }
 }
 
+/**
+ * What an installed copy is being told, against what this tree says.
+ *
+ * The updater reads one file and nothing here had ever compared it to the
+ * repository. It said 0.4.0 through the whole of 0.5, 0.6 and 0.7, so every
+ * installed copy was told it was up to date while three releases of fixes sat
+ * unpublished, including the one that made every external link in the
+ * packaged build work again.
+ *
+ * A release behind is ordinary: a build staged and not yet pushed. More than
+ * one is a channel that has stopped, and the fix is not a code change. Nobody
+ * here can publish: it is the owner's act, and the message says so.
+ */
+async function assertPublishedIsCurrent(version) {
+  const url =
+    "https://github.com/SysAdminDoc/OpenRadar/releases/latest/download/latest.json";
+  let published = null;
+  try {
+    const answer = await fetch(url, { redirect: "follow" });
+    if (answer.ok) published = (await answer.json())?.version ?? null;
+  } catch {
+    // Unreadable is not the same as behind: a first release has no manifest
+    // at all, and a machine with no route to GitHub can still stage a build.
+    published = null;
+  }
+  const lag = publishedLag(published, version);
+  console.log(publishedLagLine(lag));
+  if (lag.stalled) {
+    fail(
+      `The updater is offering ${lag.published} while this tree is ${lag.repo}. ` +
+        "Every installed copy is being told it is up to date. " +
+        "Publish the staged releases first: that is the owner's act, not this script's.",
+    );
+  }
+}
+
 function installerPaths(version) {
   // The one place the name is written is `releaseAssetNames`, so the check on
   // what the bundler actually built and the check on what is published cannot
@@ -156,6 +194,7 @@ const version = conf.version;
 const tag = `v${version}`;
 assertVersions(version, conf);
 assertClean();
+await assertPublishedIsCurrent(version);
 
 if (!fs.existsSync(keyPath)) {
   fail(

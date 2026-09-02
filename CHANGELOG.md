@@ -64,6 +64,10 @@
 
 - The small window follows the theme. It was dark whatever you had chosen, so a reader on the light theme opened a small dark window beside a light workspace and nothing anywhere said that was on purpose.
 
+- The tool rail keeps its scrolling half. Putting the readout's new button in the fixed part above it cost that half a button's height at every text size, and on a 1024 by 720 window with the text at 130 percent it left twenty controls in a box with no room to show them: the sounding, the drawing tools, the cross-section, six panels. The check that is supposed to catch exactly this only ever looked sideways, and the rail scrolls downwards.
+
+- A record with nothing worth summarising yet no longer hands a screen reader an empty list.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

@@ -36,16 +36,6 @@ Two things to know before draining. First, most of what follows lives where the 
 
 ### P3
 
-- [ ] AUD-161: Two e2e stubs answer unknown commands with `null`, which crashes Settings the moment a future test opens it
-      Category: testing
-      Where: `e2e/catch-up.spec.ts:120`, `e2e/glance.spec.ts:29` (bare `return null`); the crash path `src/panels/IncidentPackManager.tsx:150` (`setLibrary(null)` on `incident_pack_set_limit`) and `:268` (`library.packs`)
-      Problem: Neither spec opens Settings today, so nothing fails, but the working notes record that this exact fallback took the whole workspace to the error boundary during the wallpaper work. Three other specs handle the two incident-pack commands explicitly and diverge from each other.
-      Evidence: The five specs that stub `__TAURI_INTERNALS__` each carry their own `invoke` switch.
-      Fix: One `fakeDesktop(page, answers)` helper in `e2e/support/fixtures.ts` that answers the store, journal and incident-pack commands with sane defaults and throws on anything else, so an unhandled command fails the test with its name rather than a `null` deep inside a panel.
-      Acceptance: Every spec that sets `__TAURI_INTERNALS__` imports the helper; a spec that invokes an unlisted command fails with that command's name in the message.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-162: The axe gate never scans most of the app
       Category: testing
       Where: `e2e/accessibility.spec.ts`
@@ -85,13 +75,6 @@ These could not be observed in this pass, which ran headless browser automation 
 Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries the evidence). Numbered on from `AUD-168`. Every host named below is either already in `ALLOWED_HOSTS` or is named in the item, and any new one needs the ledger row, the CSP entry and a `check:live` contract like the rest. Nothing here outranks an open audit item of the same priority.
 
 ### P1
-
-- [ ] AUD-168 (P1): Publish the staged releases and gate the updater manifest against the repo version
-  Why: `releases/latest/download/latest.json` returned `version: 0.4.0` on 2026-09-02 while every manifest says 0.7.0, so no installed copy has been offered the 0.5, 0.6 or 0.7 fixes, including the dead external links and the custom sound that could never load; the updater is the only channel and it reports "up to date".
-  Evidence: `gh release list` (newest v0.4.0, 2026-08-31); fetched `latest.json`; `CHANGELOG.md` 0.8.0 entries on links and sounds.
-  Touches: `scripts/release.mjs`, `scripts/release-lib.mjs` (a `publishedLag()` that reads the live manifest), `npm run check:live`, `README.md` install section.
-  Acceptance: `npm run release -- --publish` has run for the current version so the live `latest.json` equals the tagged version; `check:live` (or `release`) prints the published version beside the repo version and fails when the published one is more than one release behind; the publish step itself is the owner's act and is noted as such in the output.
-  Complexity: S
 
 - [ ] AUD-169 (P1): Canadian warnings from ECCC, drawn and watched like NWS ones
   Why: The app draws ECCC radar and ships Canadian French, but a watched place in Canada never speaks; HookEcho added ECCC alerts on 2026-08-31 and Canadian public alerts are the one hazard layer the francophone lane exists for.
