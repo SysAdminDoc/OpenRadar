@@ -2,18 +2,41 @@
  *
  * Its own stylesheet rather than the workspace's, because the workspace's is
  * a hundred and fifty kilobytes and this window shows a picture and four
- * lines. Dark, quiet, and legible from across a desk.
+ * lines. Quiet, and legible from across a desk.
+ *
+ * It follows the theme, which it did not: a reader on the light theme opened
+ * a small dark window beside a light workspace, and nothing anywhere said the
+ * window was meant to be dark. Five colours, written once each here and
+ * overridden once below, so the two looks cannot drift apart.
  */
 :root {
   color-scheme: dark;
+
+  --glance-ground: #090b10;
+  --glance-ink: #e7edf7;
+  --glance-name: #c8d3e4;
+  --glance-aside: #8b97ab;
+  --glance-warning: #ff8b84;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --glance-ground: #f2f5fa;
+  --glance-ink: #131924;
+  --glance-name: #3a465c;
+  --glance-aside: #55617a;
+  /* Darker than the dark theme's, because the same red on a light ground is
+     the one colour in this window that has to carry a warning. */
+  --glance-warning: #b3241c;
 }
 
 html,
 body {
   margin: 0;
   height: 100%;
-  background: #090b10;
-  color: #e7edf7;
+  background: var(--glance-ground);
+  color: var(--glance-ink);
   font:
     13px/1.4 "Segoe UI",
     system-ui,
@@ -43,7 +66,7 @@ body {
 
 .glance__words strong {
   font-size: 14px;
-  color: #c8d3e4;
+  color: var(--glance-name);
 }
 
 .glance__words span {
@@ -54,13 +77,13 @@ body {
    its voice about, and it does it in the colour the app uses everywhere
    else for the same thing. */
 .glance[data-warning] .glance__words span {
-  color: #ff8b84;
+  color: var(--glance-warning);
   font-weight: 600;
 }
 
 .glance__words small {
   font-size: 11px;
-  color: #8b97ab;
+  color: var(--glance-aside);
 }
 
 .glance--empty {
@@ -68,5 +91,5 @@ body {
   justify-content: center;
   padding: 16px;
   text-align: center;
-  color: #8b97ab;
+  color: var(--glance-aside);
 }

@@ -122,6 +122,13 @@ async function start() {
     const settings = await loadSettings();
     await ensureLanguage(settings.language);
     setLanguage(settings.language);
+    // And the reader's own theme. The stylesheet was dark whatever the
+    // workspace was, so a reader on the light theme opened a small dark
+    // window beside a light one. The attribute is the same one the workspace
+    // sets on itself, and the dark look is what the absence of it means.
+    if (settings.theme === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
   } catch {
     // A window that cannot read the settings still has something to say.
   }

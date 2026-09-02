@@ -36,16 +36,6 @@ Two things to know before draining. First, most of what follows lives where the 
 
 ### P3
 
-- [ ] AUD-150: The glance window ignores the light theme
-      Category: visual
-      Where: `src/glance.css:7-20` (`color-scheme: dark`, fixed `#090b10` / `#e7edf7`), `src/glance.tsx` (never reads `settings.theme`)
-      Problem: A reader on the light theme opens a small dark window beside a light workspace. The stylesheet says dark-only is by design ("Dark, quiet, and legible from across a desk"), which is a fair call for an always-on glance, but the reader is never told and the workspace's accent never reaches it either. Once AUD-129 lets the window read settings, following `theme` costs one attribute.
-      Evidence: Browser probe of `/glance.html` with `theme: "light"` saved: `html[data-theme]` is null, `.glance` background transparent over a `#090b10` body, text `rgb(231,237,247)`.
-      Fix: Either set `data-theme` from the loaded settings and add a light block to `glance.css` (three tokens), or keep it dark and say so in `glance.settingDetail`.
-      Acceptance: With `theme: "light"` saved, `html[data-theme="light"]` is set on the glance page and its body is a light surface, or the setting copy says the small window is always dark.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-159: Dead exports and test-only functions
       Category: maintainability
       Where: `src/lib/cellNames.ts:30` (`nameOf`), `src/lib/classification.ts:26` (`DEFAULT_CLASSIFICATION_PRODUCT`), `src/lib/skewt.ts:188` (`isothermLabel`), `src/lib/thermo.ts:398` (`temperatureAt`): referenced nowhere. Test-only: `alertPairings.groupOf:135`, `alertPairings.UNPAIRED:116`, `hurdat.peakPoint:239`, `occasions.occasionWindows:226`, `palette.paletteColor:161`, `provenance.provenanceValid:190`, `thermo.equivalentPotentialTemperature:160`, `overlays/index.overlayAdapter:25`
