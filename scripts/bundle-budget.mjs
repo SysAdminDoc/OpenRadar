@@ -54,6 +54,11 @@ const BUDGETS = [
     // Every panel the command bar opens, fetched on the first one opened.
     raw: 140,
     gzip: 40,
+    // Which is to say: not before the map is interactive. It is behind a
+    // `lazy` and a `Suspense` in App.tsx and nothing on the way to a first
+    // frame touches it, so counting it in the first load was measuring
+    // something else and charging the map for it.
+    firstLoad: false,
   },
   {
     name: "styles",
@@ -63,8 +68,13 @@ const BUDGETS = [
   },
 ];
 
-/** Everything the browser has to fetch before the map is interactive. */
-const FIRST_LOAD_GZIP_KB = 620;
+/**
+ * Everything the browser has to fetch before the map is interactive.
+ *
+ * The chunks marked `firstLoad: false` above are not in it. The worker is,
+ * because the map asks for it on the way to its first frame.
+ */
+const FIRST_LOAD_GZIP_KB = 600;
 
 function kilobytes(bytes) {
   return Math.round(bytes / 1024);
@@ -99,8 +109,8 @@ for (const budget of BUDGETS) {
   const gzip = kilobytes(gzipSync(bytes).length);
   rows.push({ name: budget.name, file: found[0], raw, gzip, budget });
   // The worker is fetched by the map rather than by the page, and it is on the
-  // way to the first frame either way.
-  firstLoadGzip += gzip;
+  // way to the first frame either way. A chunk behind a `lazy` is not.
+  if (budget.firstLoad !== false) firstLoadGzip += gzip;
   if (raw > budget.raw) {
     failures.push(
       `${budget.name} is ${raw} kB, over its ${budget.raw} kB budget.`,

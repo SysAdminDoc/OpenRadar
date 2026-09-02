@@ -1656,6 +1656,15 @@ export default function App() {
             onCopyDiagnostics={copyDiagnostics}
             hasWatchedPlace={settings.watch.enabled}
             onReset={actions.resetSettings}
+            almanac={settings.almanac && !overlays.alertActive}
+            onFlyTo={(point) =>
+              mapRef.current?.flyTo({
+                center: [point.lon, point.lat],
+                zoom: Math.max(settingsRef.current.camera.zoom, 6),
+                bearing: 0,
+                pitch: 0,
+              })
+            }
             ambient={ambient}
             onJournalSaved={(path) =>
               pushToast({

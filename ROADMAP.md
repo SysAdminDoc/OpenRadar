@@ -30,13 +30,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Acceptance: An entry is created automatically for a defined and documented set of events, is always editable and deletable, and is never created for anything the reader did rather than anything the weather did; each entry keeps the source and observed time of what it depicts, so a picture in the journal can still be dated years later; thumbnails obey a byte budget with the whole journal bounded; the journal exports as readable files rather than as an opaque blob; nothing about it is notified, counted, or scored.
       Complexity: XL
 
-- [ ] JOY-009: Add an offline almanac card for the day
-      Why: The best track archive back to 1851 is already bundled, sitting in the repository doing nothing on a calm afternoon. A card that says what happened on this date, with a way to fly the map to it and replay the radar where the archive reaches, gives somebody a reason to open the app on the three hundred days a year when the weather is boring. It costs one bundled data file and no network at all.
-      Evidence: `src/lib/hurdat.ts`; `public/hurdat/`; `src/panels/HistoryPanel.tsx`; `scripts/build-hurdat.mjs`; https://www.nhc.noaa.gov/data/hurdat/ ; https://registry.opendata.aws/noaa-nexrad/
-      Touches: A date index over the bundled track record; a small curated events file with sources; the card and its dismissal; the fly-to and replay handoff; the data rebuild script and its documentation
-      Acceptance: The card is built entirely from bundled data and works with networking off; every entry names its source and its date and distinguishes a track record from a curated note; a curated entry carries a citation and no editorialising about casualties; the fly-to sets the camera and the date without disturbing live layers, and offers replay only where the archive actually covers it; the card can be switched off and it never appears while a warning is active for a watched place.
-      Complexity: L
-
 - [ ] JOY-010: Say what was missed since the last time the app was open
       Why: Opening a weather app after four days away and getting a live map is a small missed opportunity. The log knows what happened at the named places while nobody was looking, and a short, dismissible summary of it is the most natural reason to come back.
       Evidence: JOY-007; JOY-006; `src/hooks/useAlertWatch.ts`; `src/components/ToastHost.tsx`

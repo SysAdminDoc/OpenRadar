@@ -1,0 +1,52 @@
+[
+  {
+    "id": "tri-state-1925",
+    "year": 1925,
+    "month": 3,
+    "day": 18,
+    "title": "The Tri-State Tornado crossed Missouri, Illinois and Indiana.",
+    "source": "NWS Paducah",
+    "url": "https://www.weather.gov/pah/1925Tornado",
+    "place": { "lon": -89.2, "lat": 37.9 }
+  },
+  {
+    "id": "new-england-1938",
+    "year": 1938,
+    "month": 9,
+    "day": 21,
+    "title": "The 1938 hurricane came ashore on Long Island and into New England.",
+    "source": "NWS Boston",
+    "url": "https://www.weather.gov/box/1938hurricane",
+    "place": { "lon": -72.5, "lat": 41.3 }
+  },
+  {
+    "id": "super-outbreak-1974",
+    "year": 1974,
+    "month": 4,
+    "day": 3,
+    "title": "The Super Outbreak ran across thirteen states over two days.",
+    "source": "NWS Wilmington, Ohio",
+    "url": "https://www.weather.gov/iln/19740403",
+    "place": { "lon": -84.5, "lat": 39.1 }
+  },
+  {
+    "id": "great-plains-1999",
+    "year": 1999,
+    "month": 5,
+    "day": 3,
+    "title": "The Great Plains outbreak crossed central Oklahoma.",
+    "source": "NWS Norman",
+    "url": "https://www.weather.gov/oun/events-19990503",
+    "place": { "lon": -97.5, "lat": 35.3 }
+  },
+  {
+    "id": "april-27-2011",
+    "year": 2011,
+    "month": 4,
+    "day": 27,
+    "title": "The outbreak of 27 April 2011 crossed the Deep South.",
+    "source": "NWS Birmingham",
+    "url": "https://www.weather.gov/bmx/event_04272011",
+    "place": { "lon": -87.0, "lat": 33.4 }
+  }
+]

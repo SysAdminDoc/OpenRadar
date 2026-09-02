@@ -268,6 +268,15 @@ export interface AppSettings {
    * stops when that report is too old to speak for the present.
    */
   ambient: boolean;
+  /**
+   * The almanac card in Storm history.
+   *
+   * On unless somebody says otherwise: it is built from a file already on the
+   * disk, it costs no request, and a reader who never opens Storm history
+   * never meets it. It stands down while a warning is in force at a watched
+   * place, like everything else here.
+   */
+  almanac: boolean;
   occasions: {
     enabled: boolean;
     declined: Record<string, number>;
@@ -375,6 +384,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
   workspaceTheme: null,
   ambient: false,
+  almanac: true,
   occasions: { enabled: true, declined: {}, seen: {} },
   language: "en",
   units: "imperial",
@@ -1235,6 +1245,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     theme: raw.theme === "light" ? "light" : "dark",
     workspaceTheme: normalizeTheme(raw.workspaceTheme),
     ambient: bool(raw.ambient, DEFAULT_SETTINGS.ambient),
+    almanac: bool(raw.almanac, DEFAULT_SETTINGS.almanac),
     occasions: normalizeOccasions(raw.occasions),
     // A language from a build that had one this build does not falls back to
     // English rather than painting the screen with missing keys.

@@ -149,6 +149,9 @@ interface PanelSurfacesProps {
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   onJournalSaved: (path: string | null) => void;
+  /** Whether the almanac card is drawn: off by choice, or quiet during danger. */
+  almanac: boolean;
+  onFlyTo: (point: { lon: number; lat: number }) => void;
   onJournalFailed: (why: string) => void;
   onOpenLogFolder: () => void;
   onCopyDiagnostics: (withPlace: boolean) => void;
@@ -302,6 +305,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onSaveBundle={props.onSaveReplayBundle}
           onOpenBundle={props.onOpenReplayBundle}
           bundlesAvailable={props.bundlesAvailable}
+          almanac={props.almanac}
+          onFlyTo={props.onFlyTo}
           onClose={onClose}
         />
       ) : null}

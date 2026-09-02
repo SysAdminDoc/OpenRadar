@@ -4287,6 +4287,79 @@ input[type="range"] {
    scrollable rather than truncated: a panel that shows the first ten rows and
    says nothing about the rest is a panel that has hidden a file about where
    somebody lives. */
+/* What the weather did on this date in other years, out of the record that
+   ships with the app. Above the search results and only when nobody has
+   typed anything: somebody in the middle of a search has asked about
+   something in particular. */
+.almanac-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.almanac-card ol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.almanac-card li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "year text"
+    "year source"
+    "year action";
+  column-gap: 10px;
+  row-gap: 1px;
+  align-items: baseline;
+}
+
+.almanac-card strong {
+  grid-area: year;
+  align-self: center;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.almanac-card span {
+  grid-area: text;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.almanac-card small {
+  grid-area: source;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.almanac-card small a {
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.almanac-card button {
+  grid-area: action;
+  justify-self: start;
+  margin-top: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
 .journal-rows {
   display: flex;
   flex-direction: column;
