@@ -1,5 +1,15 @@
 # OpenRadar Blocked Work
 
+## Three releases are built and never published, and only the owner can publish them
+
+Found 2026-09-02, and confirmed live the same day: `https://github.com/SysAdminDoc/OpenRadar/releases/latest/download/latest.json` answers with `version: 0.4.0`, dated 31 August, while every manifest in this tree says 0.7.0 and the changelog carries an unreleased 0.8.0. The updater is the only channel an installed copy has, and it reads that one file, so every installed copy has been told it is up to date through 0.5, 0.6 and 0.7. Among the fixes sitting unpublished is the one that made every external link in the packaged build work again: in an installed 0.4.0, clicking the weather office's own page for a warning does nothing at all.
+
+**Done here.** `npm run release` now reads the published manifest, prints it beside the repository version, and refuses to stage a build when the gap is more than one release, naming the publish as the owner's act. `publishedLag` and `publishedLagLine` in `scripts/release-lib.mjs` carry the rule, with the live 0.4.0-against-0.7.0 case pinned as a test. The README's install section says what an installed copy is actually being offered and why that can lag this repository.
+
+**Not doable here.** Publishing means tagging, pushing, building a signed installer with the updater key at `~/.tauri/openradar_updater.key`, and creating public GitHub releases under the owner's identity. Every part of that is outward-facing and cannot be taken back once it is done. The command is `npm run release -- --publish`, run from a clean `main` that matches `origin/main`, once per version that should exist as a release.
+
+Blocked on: the owner running that publish. When the live manifest matches the newest tag, this entry goes and the gate stays.
+
 ## The NetCDF reader recurses without bound, and only upstream can stop it
 
 Found 2026-08-31 by the `netcdf_flashes` fuzz target, in the first minutes of its first session. Two distinct findings on the GOES lightning path, both from files that pass the HDF5 magic check `decode_flashes` opens with, which is the last thing OpenRadar gets to look at before the reader takes over.

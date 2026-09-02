@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace, stubHost } from "./support/fixtures";
+import { fakeDesktop, routeWorkspace, stubHost } from "./support/fixtures";
 
 /**
  * What the weather did at your places while the app was closed.
@@ -89,40 +89,23 @@ async function start(
         "openradar.settings",
         JSON.stringify(settings),
       );
+      // The stored settings carry a clock, so they are built here rather than
+      // handed in from the test, and the shared stub reads them from here.
+      (window as unknown as { __settings: unknown }).__settings = settings;
       // Only the record is faked. Nothing here answers a question about what
       // the weather was doing: the summary is the rows or it is nothing.
       (
-        window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
-      ).__TAURI_INTERNALS__ = {
-        convertFileSrc: (path: string, scheme: string) =>
-          `http://${scheme}.localhost/${path}`,
-        transformCallback: (callback: unknown) => callback,
-        invoke: async (command: string, args: Record<string, unknown> = {}) => {
-          if (command === "journal_rows") return value.rows;
-          if (command === "journal_path") return "C:/test/journal.jsonl";
-          // The settings live behind the store plugin once the app believes
-          // it is on the desktop, which is what makes the record readable at
-          // all, so the fake has to answer for both or the workspace opens on
-          // defaults and there is no gap to summarise.
-          if (command === "plugin:store|load") return 1;
-          if (command === "plugin:store|get") {
-            // The plugin unpacks a pair: the value and whether the key was
-            // there at all. Answering with the value alone reads as "not
-            // found", and the workspace opens on defaults.
-            return args.key === "settings" ? [settings, true] : [null, false];
-          }
-          if (
-            command === "plugin:store|set" ||
-            command === "plugin:store|save"
-          ) {
-            return null;
-          }
-          return null;
-        },
+        window as unknown as {
+          __answer: (command: string) => [unknown] | undefined;
+        }
+      ).__answer = (command: string) => {
+        if (command === "journal_rows") return [value.rows];
+        return undefined;
       };
     },
     { rows: options.rows, catchUp: options.catchUp ?? true, away },
   );
+  await fakeDesktop(page, { settingsFromPage: true });
   await routeWorkspace(page);
   // The alerts the workspace draws come from the office's own map service,
   // and `routeWorkspace` already answers it with a warning over Florida. This

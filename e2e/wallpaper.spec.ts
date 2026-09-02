@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { fakeDesktop, routeWorkspace } from "./support/fixtures";
 
 /**
  * The current view on the desktop.
@@ -16,29 +16,16 @@ async function start(page: Page, options: { windows?: boolean } = {}) {
     const calls: string[] = [];
     (window as unknown as { __wallpaper: string[] }).__wallpaper = calls;
     (
-      window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
-    ).__TAURI_INTERNALS__ = {
-      convertFileSrc: (path: string, scheme: string) =>
-        `http://${scheme}.localhost/${path}`,
-      transformCallback: (callback: unknown) => callback,
-      invoke: async (command: string) => {
-        if (command.startsWith("wallpaper_")) calls.push(command);
-        if (command === "wallpaper_available") return windows;
-        if (command === "journal_rows") return [];
-        if (
-          command === "incident_pack_list" ||
-          command === "incident_pack_set_limit"
-        ) {
-          return { packs: [], usedBytes: 0, diskLimitBytes: 0 };
-        }
-        if (command === "plugin:store|load") return 1;
-        if (command === "plugin:store|get") {
-          return [null, false];
-        }
-        return null;
-      },
+      window as unknown as {
+        __answer: (command: string) => [unknown] | undefined;
+      }
+    ).__answer = (command: string) => {
+      if (!command.startsWith("wallpaper_")) return undefined;
+      calls.push(command);
+      return [command === "wallpaper_available" ? windows : null];
     };
   }, options.windows ?? true);
+  await fakeDesktop(page);
   await routeWorkspace(page);
   await page.goto("/");
   await page.getByRole("button", { name: "Settings", exact: true }).click();

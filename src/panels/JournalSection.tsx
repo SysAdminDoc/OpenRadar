@@ -217,18 +217,20 @@ export function JournalSection({
       <p className="source-note">{t("figures.note")}</p>
       {figures ? (
         <>
-          {/* The figures can come to nothing at all: a record with rows but
-              nothing worth summarising yet. See the note beside the watched
-              places. */}
-          <ul
-            role={figureLines(figures).length ? "list" : undefined}
-            className="recap-lines"
-            data-journal-figures
-          >
-            {figureLines(figures).map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
+          {/* No list at all when there is nothing in it. The figures can come
+              to nothing: a record with rows whose times cannot be read yet.
+              An empty list is a broken list rather than an empty one, and
+              dropping the `role` is not enough here, because a `ul` carries
+              the role implicitly and axe only looks at elements that write
+              one down: that hides the fault from the gate instead of fixing
+              it. See the note beside the watched places. */}
+          {figureLines(figures).length ? (
+            <ul className="recap-lines" data-journal-figures>
+              {figureLines(figures).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
           {/* Switching the record off stops new rows; it does not delete the
               ones already there, and the list, the export and the year card
               all still show them. Saying "nothing to count" over the top of

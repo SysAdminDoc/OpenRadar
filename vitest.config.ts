@@ -33,11 +33,13 @@ export default defineConfig({
       // nudged up a point at a time.
       thresholds: {
         // Today's numbers over the WHOLE tree, rounded down and given a
-        // point of slack: statements 64.4, branches 57.3, functions 58.8,
-        // lines 65.6. They read lower than the figures this floor was first
-        // written with, because those were the share of the files a test
-        // happened to load rather than the share of the app. The panels are
-        // most of what is missing.
+        // point of slack: statements 64.2, branches 57.1, functions 58.8,
+        // lines 65.4, measured on 2026-09-02. They read lower than the
+        // figures this floor was first written with, because those were the
+        // share of the files a test happened to load rather than the share
+        // of the app. The panels are most of what is missing. The figures
+        // move by a tenth or so between runs as tests are added, which is
+        // what the point of slack is for.
         statements: 63,
         branches: 56,
         functions: 57,

@@ -513,11 +513,19 @@ describe("the workspace is translated", () => {
     ).toBeGreaterThan(0);
 
     const unproven = onPrefix.filter((key) => {
-      // The numbered families are the exception, and only the numbered ones:
-      // a suffix that is a digit cannot be searched for. They get a stricter
-      // check of their own below instead.
-      if (/\d$/.test(key)) return false;
-      return !everywhere.includes(key.slice(key.lastIndexOf(".") + 1));
+      // The storm surge lines are the one exception, and they are named
+      // rather than matched on shape: their suffix is a digit, which cannot
+      // be searched for, and they get a stricter check of their own below.
+      // Waiving every key that ends in a number instead would have quietly
+      // covered `chrome.windAt10`, `sounding.shear6`, `spc.outlookDay1` and
+      // the five `storm.cat` lines as well.
+      if (key.startsWith("surge.category")) return false;
+      // As a quoted string, not as a substring of whatever prose happens to
+      // be nearby. A bare `includes` proved `bundle.error.read` with the word
+      // "reader" in a comment, `dataExport.error.grid` with "grid on the
+      // map", and both `tooLarge` keys with one unrelated `export.tooLarge`.
+      // Something that can produce a code writes it down as a string.
+      return !everywhere.includes(`"${key.slice(key.lastIndexOf(".") + 1)}"`);
     });
     expect(unproven).toEqual([]);
   });

@@ -644,7 +644,11 @@ test("hands a warning to the layer that explains it", async ({ page }) => {
       (box?.y ?? 0) + (box?.height ?? 0) / 2,
     );
     await expect(popup).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15_000 });
+    // Six seconds, not fifteen. The wait is for MapLibre to make a layer it
+    // has already published queryable, which takes one frame; a window wide
+    // enough to sit through a click being swallowed or a popup taking ten
+    // seconds to open would hide the next regression rather than this one.
+  }).toPass({ timeout: 6_000 });
   await expect(popup).toContainText("Tornado Warning");
 
   // The app already holds the thing that explains this warning. The reader
