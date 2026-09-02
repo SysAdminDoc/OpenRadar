@@ -1,0 +1,73 @@
+{
+  "note": "Where OpenRadar can be listed, and the copy to list it with. Submitting to any of these means posting under a personal account, which is the owner's act and not something a build step should do, so this file prepares the submission and stops there. URLs checked 2026-09-01.",
+  "descriptions": {
+    "tagline": "A desktop weather radar that reads the raw data itself.",
+    "short": "Free, open source weather radar for Windows. It decodes NEXRAD Level II volumes, MRMS national grids, GOES lightning and GFS wind on your own machine and draws them on a GPU vector map. No account, no API key, no ads.",
+    "long": "OpenRadar is a map-first desktop weather radar for Windows. Rather than showing pictures a service already drew, it decodes the raw products in Rust on your own machine: NEXRAD Level II volumes with velocity dealiasing and cross-sections, MRMS national grids, GOES lightning, GFS wind, HRRR smoke and forecast reflectivity. Warnings, storm reports, river gauges, soundings and satellite sit over the same map, and every reading carries the source it came from and how old it is.\n\nIt is one window. Pan the planet, zoom from a globe down to a street, and scrub two hours of radar without the map moving under you. Nothing is uploaded, there is no account, and an offline cache means a launch with no network still opens on the last picture you saw.\n\nMIT licensed. English, Spanish and Canadian French.",
+    "licence": "MIT",
+    "platforms": ["Windows x64"],
+    "repository": "https://github.com/SysAdminDoc/OpenRadar",
+    "releases": "https://github.com/SysAdminDoc/OpenRadar/releases",
+    "tags": [
+      "weather",
+      "weather radar",
+      "NEXRAD",
+      "radar",
+      "meteorology",
+      "severe weather",
+      "open source",
+      "Tauri",
+      "Rust"
+    ]
+  },
+  "venues": [
+    {
+      "name": "AlternativeTo",
+      "url": "https://alternativeto.net/",
+      "how": "Sign in, then Add application. It is a form, not a pull request.",
+      "needs": [
+        "name, official URL and licence",
+        "the short description",
+        "platforms, which is Windows only",
+        "at least one screenshot: assets/screenshots/openradar-main.png",
+        "tags, and the alternatives it should sit beside: MyRadar, RadarScope, GRLevelX, Windy"
+      ]
+    },
+    {
+      "name": "awesome-tauri",
+      "url": "https://github.com/tauri-apps/awesome-tauri",
+      "how": "Pull request adding one line under the applications section.",
+      "needs": [
+        "a one-line entry: name, link, and a sentence",
+        "the repository has to be public, maintained and MIT or similar",
+        "read the repository's contributing rules first, since the entry format is checked"
+      ]
+    },
+    {
+      "name": "awesome-windows (0pandadev)",
+      "url": "https://github.com/0pandadev/awesome-windows",
+      "how": "Pull request. The contributing guide is at https://github.com/0pandadev/awesome-windows/blob/main/CONTRIBUTING.md",
+      "needs": [
+        "a one-line entry with the tagline",
+        "the category it belongs in, which is closest to utilities",
+        "an open source badge, since the list marks those"
+      ]
+    },
+    {
+      "name": "Scoop, community bucket",
+      "url": "https://github.com/ScoopInstaller/Extras",
+      "how": "Somebody outside this project writes the manifest. Nothing here authors or submits one; the README documents what a manifest needs so that one can exist and keep working.",
+      "needs": [
+        "the stable asset name pattern, which the README states and scripts/release-lib.mjs holds a release to",
+        "the silent install switches, which the README shows",
+        "autoupdate rules: https://github.com/ScoopInstaller/Scoop/wiki/App-Manifest-Autoupdate"
+      ]
+    },
+    {
+      "name": "GitHub topic pages",
+      "url": "https://github.com/topics/weather-radar",
+      "how": "Already done. The repository carries weather-radar, nexrad, tauri, mrms, noaa and the rest, so it appears on those pages without a submission.",
+      "needs": []
+    }
+  ]
+}

@@ -137,3 +137,39 @@ export function sourceVersion(settingsText) {
   if (!found) throw new Error("settings.ts has no APP_VERSION.");
   return found;
 }
+
+/**
+ * The five files a release publishes, in the shape outside packaging expects.
+ *
+ * A community Scoop manifest autoupdates by substituting the new version into
+ * a name it was given once, so a renamed, added or dropped asset silently
+ * breaks every one of them and nobody here finds out. The set is written down
+ * so a release can be held to it rather than described after the fact.
+ */
+export function releaseAssetNames(version) {
+  const installer = `OpenRadar_${version}_x64-setup.exe`;
+  return [
+    installer,
+    `${installer}.sig`,
+    "SHA256SUMS",
+    "latest.json",
+    "release-metadata.json",
+  ];
+}
+
+/** Throws unless the staged files are exactly those names. */
+export function assertReleaseAssetNames(staged, version) {
+  const expected = releaseAssetNames(version);
+  const found = [...staged];
+  const missing = expected.filter((name) => !found.includes(name));
+  const extra = found.filter((name) => !expected.includes(name));
+  if (!missing.length && !extra.length) return;
+  const parts = [];
+  if (missing.length) parts.push(`missing ${missing.join(", ")}`);
+  if (extra.length) parts.push(`unexpected ${extra.join(", ")}`);
+  throw new Error(
+    `The staged release does not match the published asset names: ${parts.join("; ")}. ` +
+      "The names are a promise to whoever packages this outside the repository; " +
+      "changing one means changing README.md and releaseAssetNames together.",
+  );
+}
