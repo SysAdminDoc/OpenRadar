@@ -37,13 +37,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Acceptance: A name follows the cell the algorithm says is the same storm and disappears when that track ends rather than jumping to a different cell; the algorithm's own identifier stays visible somewhere, because the name is the reader's and the identity is the data's; names never overlap warning text or obscure a polygon; a named cell can be carried into a journal entry; names are local, bounded in number and length, and cleared with the session unless saved deliberately.
       Complexity: M
 
-- [ ] JOY-014: Answer a storm name in search with its track
-      Why: Typing Katrina into the place search currently asks a geocoder about a town. The best track record is bundled and covers every Atlantic and eastern Pacific cyclone since 1851, so the app can answer with the storm instead, draw the track, and offer the archive replay where it reaches. It reads like an easter egg and it is actually the fastest path to a feature the app already has.
-      Evidence: `src/panels/SearchPanel.tsx`; `src/lib/hurdat.ts`; `src/panels/HistoryPanel.tsx`; `public/hurdat/`
-      Touches: Search result types; storm name matching and disambiguation; the handoff to history and replay; result copy and its translations
-      Acceptance: A name that matches one or more storms returns them alongside place results, clearly distinguished, with year, basin, and peak intensity, and reused names return every storm that carried it; matching happens against the bundled index with no network; choosing a storm draws its track and offers replay only for the years the archive covers; a name that is also a place still returns the place; no result implies a storm is current.
-      Complexity: M
-
 - [ ] JOY-015: Replace the single tone with a small sound kit
       Why: There is one synthesised note today, at one pitch, for every alert that reaches the watched place. A tornado warning and a special weather statement should not sound identical. A short set of tones by severity, still synthesised so nothing has to ship or be fetched, plus the option to point at your own audio file, is the difference between a sound somebody keeps on and a sound somebody switches off in the first week.
       Evidence: `src/lib/sound.ts`; `src/hooks/useAlertWatch.ts`; `src/lib/settings.ts`; AUD-075; 47 CFR 11.45
