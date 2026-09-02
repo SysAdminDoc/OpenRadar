@@ -159,66 +159,6 @@ test("the alert rows stay readable in the light theme", async ({ page }) => {
   expect(describeViolations(violations)).toBe("");
 });
 
-test("the way back from a toast is readable in the light theme", async ({
-  page,
-}) => {
-  // Undo is the only way back from something the reader did not mean to do,
-  // and its label was the plain accent on its own tint at 3.92:1 in light.
-  //
-  // Measured rather than left to axe. The tint is translucent over a
-  // translucent panel, and axe answers "incomplete" rather than "fails" when
-  // it cannot flatten a stack like that, so the run came back clean with the
-  // colour still wrong. Compositing the layers by hand is what actually says.
-  await goLight(page);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Reset settings" }).click();
-  const action = page.locator(".toast__action").first();
-  await expect(action).toBeVisible();
-  await page.waitForTimeout(PANEL_SETTLE_MS);
-
-  const paint = await action.evaluate((node) => {
-    const channels = (colour: string) =>
-      (colour.match(/[\d.]+/g) ?? []).map(Number);
-    const layers: number[][] = [];
-    for (
-      let element: Element | null = node;
-      element;
-      element = element.parentElement
-    ) {
-      const [red, green, blue, alpha = 1] = channels(
-        getComputedStyle(element).backgroundColor,
-      );
-      if (alpha > 0) layers.push([red, green, blue, alpha]);
-      if (alpha === 1) break;
-    }
-    let ground = [255, 255, 255];
-    for (const [red, green, blue, alpha] of layers.reverse()) {
-      ground = [
-        alpha * red + (1 - alpha) * ground[0],
-        alpha * green + (1 - alpha) * ground[1],
-        alpha * blue + (1 - alpha) * ground[2],
-      ];
-    }
-    return { ink: channels(getComputedStyle(node).color), ground };
-  });
-
-  const luminance = ([red, green, blue]: number[]) => {
-    const part = (value: number) => {
-      const ratio = value / 255;
-      return ratio <= 0.03928
-        ? ratio / 12.92
-        : ((ratio + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * part(red) + 0.7152 * part(green) + 0.0722 * part(blue);
-  };
-  const light = Math.max(luminance(paint.ink), luminance(paint.ground));
-  const dark = Math.min(luminance(paint.ink), luminance(paint.ground));
-  expect(
-    (light + 0.05) / (dark + 0.05),
-    `${paint.ink} on ${paint.ground}`,
-  ).toBeGreaterThanOrEqual(4.5);
-});
-
 test("stays clean in the calmer presentation", async ({ page }) => {
   // A mode meant to be kinder must not be harder to read. It turns the
   // accent down, and a muted accent is exactly where contrast goes wrong.

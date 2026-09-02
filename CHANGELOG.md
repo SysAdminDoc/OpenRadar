@@ -8,6 +8,8 @@
 
 - The straight-line drive gives its assumed speed in your own units instead of always in miles an hour.
 
+- A colour you pick yourself cannot make a button unreadable. Whatever you choose, a filled accent is held light enough for the dark text on it, which leaves the app looking exactly as it did unless your colour was too dark to write on. The button that says the map is already live is no longer filled at all, because filled green beside a filled accent was two buttons a shade apart, and under one of the seasonal packs the accent is a green.
+
 - The colour you choose reaches the rest of the app. The Live button, the chip that says the map is current, the glow behind the startup screen and the highlight on selected text were all a fixed cyan, so the calmer look left the loudest control in the workspace shouting, and a seasonal pack or an accent of your own stopped at their edges. The dark square on a filled button follows the theme too, instead of being a single dark colour that lost its contrast on the light theme's darker accent.
 
 - The map credits are readable over the light map. They sat straight on it in near-white with nothing behind them. The readout beside them was given a light counterpart when the light theme arrived and these were missed.
