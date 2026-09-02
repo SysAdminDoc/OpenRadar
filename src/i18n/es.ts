@@ -1476,6 +1476,22 @@ export const es: Catalogue = {
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minuto} other {# minutos}}",
   "command.ambientScreen": "Vista a pantalla completa",
+  "glance.waiting":
+    "Esperando a que el espacio de trabajo diga qué está mostrando.",
+  "glance.picture": "El mapa tal como lo dibujó el espacio de trabajo",
+  "glance.warning": "Hay un aviso donde vigilas",
+  "glance.quiet": "No hay nada donde vigilas",
+  "glance.updated": "A las {when}",
+  "glance.setting": "Una ventana pequeña que se queda donde la pongas",
+  "glance.settingDetail":
+    "El lugar que vigilas, si hay un aviso allí y una imagen fija del mapa. Muestra lo que el espacio de trabajo ya ha dibujado en vez de dibujarlo otra vez, así que dejarla abierta no cuesta casi nada. Se abre desde la bandeja.",
+  "glance.onTop": "Mantener la ventana pequeña por encima de todo",
+  "tray.setting": "Poner un icono en la bandeja",
+  "tray.settingDetail":
+    "El icono dice una cosa: si hay un aviso en un lugar que nombraste. Desactivarlo lo quita, no lo esconde.",
+  "tray.closeToTray": "Al cerrar la ventana, seguir en la bandeja",
+  "tray.closeToTrayDetail":
+    "Desactivado, porque una aplicación que sigue funcionando después de cerrarla es una aplicación que la gente desinstala. Con esto activado, el icono de la bandeja es la forma de volver.",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":

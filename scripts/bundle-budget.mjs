@@ -36,7 +36,7 @@ const ASSETS = resolve(process.cwd(), "dist", "assets");
 const BUDGETS = [
   {
     name: "main",
-    match: /^index-.*\.js$/,
+    match: /^main-.*\.js$/,
     // MapLibre GL, React DOM, and the map itself.
     raw: 1500,
     gzip: 430,
@@ -77,8 +77,26 @@ const BUDGETS = [
     firstLoad: false,
   },
   {
+    name: "glance",
+    match: /^glance-.*\.js$/,
+    // The small window's own entry. It shows a picture the workspace already
+    // drew and four lines of text, and the whole point of it being a second
+    // page is that it does not carry MapLibre: if this ever approaches the
+    // workspace's size, it has started drawing its own map.
+    raw: 8,
+    gzip: 4,
+    firstLoad: false,
+  },
+  {
+    name: "glance styles",
+    match: /^glance-.*\.css$/,
+    raw: 4,
+    gzip: 2,
+    firstLoad: false,
+  },
+  {
     name: "styles",
-    match: /^index-.*\.css$/,
+    match: /^main-.*\.css$/,
     raw: 160,
     gzip: 26,
   },

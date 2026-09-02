@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -29,5 +30,15 @@ export default defineConfig({
     target: "es2022",
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     sourcemap: Boolean(process.env.TAURI_ENV_DEBUG),
+    rollupOptions: {
+      // Two pages, not one. The glance window is its own entry so that it
+      // carries its own two hundred kilobytes rather than the workspace's
+      // two megabytes: a window whose job is one picture and four lines has
+      // no business loading MapLibre.
+      input: {
+        main: fileURLToPath(new URL("index.html", import.meta.url)),
+        glance: fileURLToPath(new URL("glance.html", import.meta.url)),
+      },
+    },
   },
 });

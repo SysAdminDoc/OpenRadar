@@ -48,6 +48,13 @@ import {
   setAlertVolume,
   SOUND_EXTENSIONS,
 } from "./lib/sound";
+import {
+  setCloseToTray,
+  setGlanceOnTop,
+  setTrayEnabled,
+  setTrayHazard,
+  writeGlance,
+} from "./lib/tray";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
@@ -426,6 +433,55 @@ export default function App() {
     onAnnounced: rememberFollow,
     capture: journalFrame,
   });
+
+  useEffect(() => {
+    void setTrayEnabled(settings.tray);
+  }, [settings.tray]);
+
+  useEffect(() => {
+    // With the tray off there is nothing to close to, so the window closes
+    // the app whatever this says.
+    void setCloseToTray(settings.tray && settings.closeToTray);
+  }, [settings.closeToTray, settings.tray]);
+
+  useEffect(() => {
+    void setGlanceOnTop(settings.glanceOnTop);
+  }, [settings.glanceOnTop]);
+
+  // The icon says one thing: whether a warning stands at a place the reader
+  // named. Not how many, not what the app is doing.
+  useEffect(() => {
+    if (settings.tray) void setTrayHazard(overlays.alertActive);
+  }, [overlays.alertActive, settings.tray]);
+
+  /**
+   * What the small window shows, handed over rather than drawn again.
+   *
+   * A second live map would be a second WebGL context and a few hundred
+   * megabytes for a window whose whole job is one glance, so the workspace
+   * puts the frame it has already drawn where that window can read it. On the
+   * clock, because that window is asking on a clock of its own.
+   */
+  useEffect(() => {
+    if (!settings.tray) return;
+    void (async () => {
+      const canvas = mapRef.current?.canvas();
+      const picture = canvas ? await thumbnailFrom(canvas) : null;
+      await writeGlance({
+        place: settings.watch.name?.trim() ?? "",
+        warning: overlays.alertActive,
+        headline: overlays.announcement.text,
+        picture: picture
+          ? `data:image/png;base64,${btoa(String.fromCharCode(...picture))}`
+          : "",
+        observed: timeline.newestObserved?.time ?? null,
+        source: timeline.sourceLabel ?? "",
+        at: Date.now(),
+      });
+    })();
+    // `clock` is what makes this run again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, overlays.alertActive, settings.tray]);
 
   // What the window looks like: the built-in look, a theme the reader
   // loaded, and the season, in that order of who asked for what. A warning in

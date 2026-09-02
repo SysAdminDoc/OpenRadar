@@ -16,6 +16,7 @@ mod exports;
 mod fixture;
 mod geotiff;
 mod gfs;
+mod glance;
 mod hrrr;
 mod incident_packs;
 mod journal;
@@ -27,6 +28,7 @@ mod palette;
 mod probsevere;
 mod tdwr;
 mod tiles;
+mod tray;
 mod vad;
 
 /// The decoder entry points, for the fuzz targets and nothing else.
@@ -228,7 +230,14 @@ pub fn run() {
             data_export::export_grid_data,
             bundles::replay_bundle_capture,
             bundles::replay_bundle_open,
-            bundles::replay_bundle_close
+            bundles::replay_bundle_close,
+            glance::glance_write,
+            glance::glance_read,
+            tray::tray_hazard,
+            tray::tray_close_behaviour,
+            tray::glance_on_top,
+            tray::glance_open,
+            tray::tray_enabled
         ])
         .setup(|_app| {
             // The cache lives beside the logs rather than in the roaming
@@ -256,6 +265,13 @@ pub fn run() {
                 }
             }
 
+            // The tray is built here and nowhere else. Declaring one in the
+            // config as well gives two icons, one of which nothing is
+            // listening to.
+            if let Err(error) = tray::init(_app.handle()) {
+                log::warn!("OpenRadar could not put an icon in the tray: {error}");
+            }
+
             // Development builds are not installed, so the scheme has to be
             // claimed at runtime for a link to reach the app at all.
             #[cfg(all(desktop, debug_assertions))]
@@ -266,6 +282,22 @@ pub fn run() {
                 }
             }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // The main window only. Closing the small one closes the
+                // small one, whatever this is set to.
+                if window.label() != "main" || !tray::closes_to_tray() {
+                    // And the icon goes with the app, explicitly: Windows
+                    // leaves a ghost of it behind otherwise.
+                    if window.label() == "main" {
+                        tray::drop_tray();
+                    }
+                    return;
+                }
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .run(tauri::generate_context!())
         .expect("OpenRadar could not start");

@@ -414,6 +414,23 @@ export interface AppSettings {
    */
   ambientIdleMinutes: number;
   /**
+   * Whether there is an icon in the tray at all.
+   *
+   * On, because it is the one place the app can say something useful while
+   * it is not in front of anybody. Off removes it rather than hiding it.
+   */
+  tray: boolean;
+  /**
+   * Whether closing the window leaves the app running in the tray.
+   *
+   * Off. An app that silently keeps running after a close is an app people
+   * uninstall, and finding it in the tray afterwards is not a happy
+   * surprise. A reader who wants that says so.
+   */
+  closeToTray: boolean;
+  /** Whether the small window stays above everything else. */
+  glanceOnTop: boolean;
+  /**
    * What the speculative layers were before the calmer presentation put them
    * away, so turning it off gives them back.
    *
@@ -555,6 +572,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenReveal: false,
   calm: false,
   ambientIdleMinutes: 0,
+  tray: true,
+  closeToTray: false,
+  glanceOnTop: false,
   calmBorrowed: {},
   alertVolume: 0.18,
   alertSoundPath: null,
@@ -1499,6 +1519,9 @@ export function normalizeSettings(value: unknown): AppSettings {
       typeof raw.alertSoundPath === "string" && raw.alertSoundPath.length
         ? raw.alertSoundPath.slice(0, 1024)
         : null,
+    tray: bool(raw.tray, DEFAULT_SETTINGS.tray),
+    closeToTray: bool(raw.closeToTray, DEFAULT_SETTINGS.closeToTray),
+    glanceOnTop: bool(raw.glanceOnTop, DEFAULT_SETTINGS.glanceOnTop),
     calm: bool(raw.calm, DEFAULT_SETTINGS.calm),
     calmBorrowed:
       raw.calmBorrowed && typeof raw.calmBorrowed === "object"

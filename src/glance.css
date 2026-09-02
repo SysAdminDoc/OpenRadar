@@ -1,0 +1,72 @@
+/* The small window beside the workspace.
+ *
+ * Its own stylesheet rather than the workspace's, because the workspace's is
+ * a hundred and fifty kilobytes and this window shows a picture and four
+ * lines. Dark, quiet, and legible from across a desk.
+ */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #090b10;
+  color: #e7edf7;
+  font:
+    13px/1.4 "Segoe UI",
+    system-ui,
+    sans-serif;
+}
+
+.glance {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.glance img {
+  display: block;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  object-fit: cover;
+}
+
+.glance__words {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px 10px;
+}
+
+.glance__words strong {
+  font-size: 14px;
+  color: #c8d3e4;
+}
+
+.glance__words span {
+  font-size: 15px;
+}
+
+/* A warning where the reader watches is the only thing this window raises
+   its voice about, and it does it in the colour the app uses everywhere
+   else for the same thing. */
+.glance[data-warning] .glance__words span {
+  color: #ff8b84;
+  font-weight: 600;
+}
+
+.glance__words small {
+  font-size: 11px;
+  color: #8b97ab;
+}
+
+.glance--empty {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  color: #8b97ab;
+}

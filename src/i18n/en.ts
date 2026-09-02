@@ -1452,6 +1452,21 @@ export const en = {
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minute} other {# minutes}}",
   "command.ambientScreen": "Full-screen view",
+  "glance.waiting": "Waiting for the workspace to say what it is showing.",
+  "glance.picture": "The map as the workspace last drew it",
+  "glance.warning": "A warning stands where you watch",
+  "glance.quiet": "Nothing standing where you watch",
+  "glance.updated": "As of {when}",
+  "glance.setting": "A small window that stays where you put it",
+  "glance.settingDetail":
+    "The place you watch, whether a warning stands there, and one still of the map. It shows what the workspace has already drawn rather than drawing it again, so it costs almost nothing to leave open. Open it from the tray.",
+  "glance.onTop": "Keep the small window above everything else",
+  "tray.setting": "Put an icon in the tray",
+  "tray.settingDetail":
+    "The icon says one thing: whether a warning stands at a place you named. Switching it off removes it rather than hiding it.",
+  "tray.closeToTray": "Closing the window leaves it running in the tray",
+  "tray.closeToTrayDetail":
+    "Off, because an app that keeps running after you close it is an app people uninstall. With it on, the tray icon is how you get back.",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":
