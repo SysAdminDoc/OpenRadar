@@ -2,6 +2,7 @@ import { ExternalLink, LoaderCircle, Navigation, Tornado } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
 import { relativeTime, stormCategory, type OverlayData } from "../lib/overlays";
+import { safePopupUrl } from "../lib/mapPopup";
 import { activeStorms } from "../lib/tropical";
 import { useT } from "../i18n";
 
@@ -64,50 +65,55 @@ export function TropicalPanel({
 
       {storms.length ? (
         <div className="storm-list">
-          {storms.map((storm) => (
-            <div className="storm-row" key={storm.id}>
-              <div>
-                <strong>{storm.name}</strong>
-                <small>
-                  {t("tropical.strength", {
-                    category: stormCategory(storm.windKt),
-                    knots: storm.windKt,
-                  })}
-                  {storm.pressureMb
-                    ? t("tropical.pressure", { value: storm.pressureMb })
-                    : ""}
-                </small>
-                <small>
-                  {t("tropical.advisory", {
-                    number: storm.advisoryNumber,
-                    date: storm.advisoryDate,
-                  })}
-                </small>
-              </div>
-              <div className="storm-row__actions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    onFollow({ lat: storm.lat, lon: storm.lon }, storm.name)
-                  }
-                >
-                  <Navigation size={14} /> {t("tropical.follow")}
-                </button>
-                {storm.advisoryUrl ? (
-                  <a
-                    href={storm.advisoryUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={t("tropical.readAdvisory", {
-                      name: storm.name,
+          {storms.map((storm) => {
+            // Straight out of the feed, so it goes through the same check a
+            // map popup's link does: https only, no credentials in it.
+            const advisory = safePopupUrl(storm.advisoryUrl);
+            return (
+              <div className="storm-row" key={storm.id}>
+                <div>
+                  <strong>{storm.name}</strong>
+                  <small>
+                    {t("tropical.strength", {
+                      category: stormCategory(storm.windKt),
+                      knots: storm.windKt,
                     })}
+                    {storm.pressureMb
+                      ? t("tropical.pressure", { value: storm.pressureMb })
+                      : ""}
+                  </small>
+                  <small>
+                    {t("tropical.advisory", {
+                      number: storm.advisoryNumber,
+                      date: storm.advisoryDate,
+                    })}
+                  </small>
+                </div>
+                <div className="storm-row__actions">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onFollow({ lat: storm.lat, lon: storm.lon }, storm.name)
+                    }
                   >
-                    <ExternalLink size={14} /> {t("tropical.advisoryLink")}
-                  </a>
-                ) : null}
+                    <Navigation size={14} /> {t("tropical.follow")}
+                  </button>
+                  {advisory ? (
+                    <a
+                      href={advisory}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={t("tropical.readAdvisory", {
+                        name: storm.name,
+                      })}
+                    >
+                      <ExternalLink size={14} /> {t("tropical.advisoryLink")}
+                    </a>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
