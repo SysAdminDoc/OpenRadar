@@ -152,6 +152,34 @@ pub async fn serve(uri: &str) -> Served {
 mod tests {
     use super::*;
 
+    /// What the served bytes are wrapped in.
+    ///
+    /// The handler lives in a closure inside `lib.rs`'s builder, which no
+    /// test can call, so this reads the registration instead. The type comes
+    /// from whatever the upstream service said and goes back out on an origin
+    /// the page can reach: `nosniff` keeps the browser from guessing a
+    /// different one, and the `sandbox` policy means anything that did manage
+    /// to open one of these gets a document that can do nothing at all.
+    /// Nothing navigates to that origin today, so both are insurance.
+    #[test]
+    fn the_cached_scheme_serves_nothing_a_browser_will_guess_at() {
+        let source = include_str!("lib.rs");
+        let at = source
+            .find(r#"register_asynchronous_uri_scheme_protocol("cached""#)
+            .expect("the cached scheme is no longer registered");
+        let handler = &source[at..at + 2000];
+        let ends = handler.find(".body(served.body)").expect("the response");
+        let headers = &handler[..ends];
+        assert!(
+            headers.contains(r#".header("X-Content-Type-Options", "nosniff")"#),
+            "the cached scheme passes an upstream content type through without nosniff"
+        );
+        assert!(
+            headers.contains(r#".header("Content-Security-Policy", "sandbox")"#),
+            "the cached scheme serves a document with no sandbox policy"
+        );
+    }
+
     #[test]
     fn reads_the_whole_address_out_of_the_request() {
         // A tile address carries its own query string, which has to survive

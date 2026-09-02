@@ -432,12 +432,20 @@ describe("the workspace is translated", () => {
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
 
-    const unused = Object.keys(en).filter((key) => {
-      // Some families are reached by building the key rather than writing it,
-      // so the prefix standing in the source is what proves they are used.
-      const prefix = key.slice(0, key.indexOf(".") + 1);
-      return !sources.includes(`"${key}"`) && !sources.includes(`\`${prefix}`);
-    });
+    // Every key built rather than written, as the exact text before the
+    // hole. Taking only the first segment instead let one `\`alerts.${x}\``
+    // anywhere in the app excuse every `alerts.*` key there is, which is the
+    // whole family this check exists to watch. An independent scan with the
+    // full prefix found nothing dead today, so this is a gap being closed
+    // rather than a mess being cleaned up.
+    const built = [
+      ...sources.matchAll(/`([a-z][A-Za-z0-9]*\.[A-Za-z0-9.]*)\$\{/g),
+    ].map((match) => match[1]);
+    const unused = Object.keys(en).filter(
+      (key) =>
+        !sources.includes(`"${key}"`) &&
+        !built.some((prefix) => key.startsWith(prefix)),
+    );
     expect(unused).toEqual([]);
   });
 });

@@ -19,7 +19,7 @@ import {
 } from "../lib/providers";
 import { log } from "../lib/log";
 import { setMrmsHighContrast, setMrmsThreshold } from "../lib/providers/mrms";
-import { useHighContrast } from "./useClock";
+import { reducedMotionRequested, useHighContrast } from "./useClock";
 import { animationIntervalMs, type RadarFrame } from "../lib/radar";
 import { translate } from "../i18n";
 
@@ -214,9 +214,11 @@ export function useRadarTimeline(options: {
     time: null,
     replay: null,
   });
-  const [playing, setPlaying] = useState(
-    () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
+  // Through the reader that already guards this. Asking `window.matchMedia`
+  // directly meant an environment without it, which includes a plain jsdom,
+  // took the whole timeline down over a question about animation, and three
+  // test files had to stub it at module level to load this hook at all.
+  const [playing, setPlaying] = useState(() => !reducedMotionRequested());
 
   // Panning inside one provider's footprint must not refetch, so the effect
   // keys on the covering chain rather than the raw center.
