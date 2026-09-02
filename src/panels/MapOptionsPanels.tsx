@@ -38,6 +38,7 @@ import {
   distanceSlider,
   distanceUnit,
   distanceValue,
+  formatAge,
   formatClock,
   formatDistance,
   milesFromDistance,
@@ -102,7 +103,12 @@ import {
   type SatelliteProductId,
 } from "../lib/providers/satellite";
 import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
-import { MAX_WATCH_PLACES } from "../lib/watch";
+import {
+  MAX_WATCH_PLACES,
+  WATCH_FAILURES_BEFORE_SAYING,
+  WATCH_HEALTHY,
+  type WatchHealth,
+} from "../lib/watch";
 import { overlayBandOrder } from "../lib/overlayOrder";
 
 interface MapTypePanelProps {
@@ -803,6 +809,13 @@ interface SettingsPanelProps {
   bounds?: PackBounds | null;
   onSettings: (settings: AppSettings) => void;
   onSendWatchTest: () => void;
+  /**
+   * Whether the watch is still hearing back from the service.
+   *
+   * The watch is the one thing in the app that runs whether or not anybody
+   * is looking, so it is the one thing that has to say when it has stopped.
+   */
+  watchHealth?: WatchHealth;
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   /** The record was written to a file, at this path when there is one. */
@@ -877,6 +890,7 @@ export function SettingsPanel({
   onJournalRemoved,
   clock,
   onSendWatchTest,
+  watchHealth = WATCH_HEALTHY,
   onWatchHere,
   onAddWatchPlace,
   onReset,
@@ -1644,6 +1658,29 @@ export function SettingsPanel({
             lon: formatNumber(settings.watch.center[0], 2),
           })}
         </p>
+        {/* Whether it is actually working. The panel said it was watching
+            whatever had happened, and a watch that had stopped reaching the
+            service at two in the morning looked exactly like one that was
+            hearing back every forty-five seconds. */}
+        {watchHealth.lastCheckedAt !== null &&
+        watchHealth.failing < WATCH_FAILURES_BEFORE_SAYING ? (
+          <p className="source-note" data-watch-checked>
+            {t("watch.lastChecked", {
+              // The minute clock, not the wall clock: reading the time
+              // during a render is impure, and this line only has to be
+              // right to the minute.
+              age: formatAge((clock - watchHealth.lastCheckedAt) / 60_000),
+            })}
+          </p>
+        ) : null}
+        {watchHealth.failing >= WATCH_FAILURES_BEFORE_SAYING &&
+        watchHealth.failingSince !== null ? (
+          <p className="watch-not-reaching" data-watch-failing>
+            {t("watch.notReaching", {
+              age: formatAge((clock - watchHealth.failingSince) / 60_000),
+            })}
+          </p>
+        ) : null}
 
         {/* The places beside home. One point cannot be home, a school and the
             far end of tomorrow's drive, and a reader who wants all three

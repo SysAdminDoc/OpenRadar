@@ -20,6 +20,7 @@ import type { ExportState } from "../hooks/useExport";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
+import type { WatchHealth } from "../lib/watch";
 import { CrossSectionPanel } from "../panels/CrossSectionPanel";
 /**
  * The sounding is its own chunk.
@@ -174,6 +175,7 @@ interface PanelSurfacesProps {
   onWatchHere: () => void;
   onAddWatchPlace: () => void;
   onSendWatchTest: () => void;
+  watchHealth: WatchHealth;
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   onJournalSaved: (path: string | null) => void;
@@ -329,6 +331,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onWatchHere={props.onWatchHere}
             onAddWatchPlace={props.onAddWatchPlace}
             onSendWatchTest={props.onSendWatchTest}
+            watchHealth={props.watchHealth}
             ambient={props.ambient}
             onJournalSaved={props.onJournalSaved}
             onJournalFailed={props.onJournalFailed}

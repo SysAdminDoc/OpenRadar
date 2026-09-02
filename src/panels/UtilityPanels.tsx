@@ -17,7 +17,7 @@ import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
 import { gpuSupport } from "../lib/gpu";
 import { translate, useT } from "../i18n";
-import { formatClock } from "../lib/units";
+import { formatAge, formatClock } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
 interface CloseOnlyProps {
@@ -174,7 +174,7 @@ function ageLabel(at: number | null): string {
   if (at === null) return translate("diagnostics.neverContacted");
   const minutes = Math.max(0, Math.floor((Date.now() - at) / 60_000));
   if (minutes < 1) return translate("diagnostics.underAMinute");
-  return translate("diagnostics.minutesAgo", { count: minutes });
+  return translate("diagnostics.ago", { age: formatAge(minutes) });
 }
 
 export function MorePanel({

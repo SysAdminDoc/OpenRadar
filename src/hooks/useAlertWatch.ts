@@ -4,13 +4,16 @@ import { alertsOfKind, alertsOverlay } from "../lib/overlays/alerts";
 import type { AlertType } from "../lib/alertTypes";
 import { isDesktopRuntime } from "../lib/settings";
 import {
+  afterWatchPoll,
   alertsToAnnounceAcross,
   silencedByQuietHours,
   testWatchAlert,
   watchAlertBody,
   watchesBounds,
   watchReasonLines,
+  WATCH_HEALTHY,
   type WatchAlert,
+  type WatchHealth,
   type WatchPlace,
 } from "../lib/watch";
 import { translate } from "../i18n";
@@ -62,6 +65,12 @@ async function announceOnDesktop(
  * preview falls back to the in-app toast.
  */
 export interface AlertWatchState {
+  /** When a poll last came back with an answer, or null before the first. */
+  lastCheckedAt: number | null;
+  /** How many polls in a row have failed since then. */
+  failing: number;
+  /** When the current run of failures began, or null when there is none. */
+  failingSince: number | null;
   /**
    * True while a warning the reader asked to hear about stands over a place
    * they watch.
@@ -101,6 +110,11 @@ export function useAlertWatch(
    */
   onAnnounce?: (alert: WatchAlert) => void,
   /**
+   * Said when the watch stops reaching the service, and again when it comes
+   * back. Not per failure: at the third in a row, once.
+   */
+  onHealth?: (say: "failing" | "recovered") => void,
+  /**
    * The frame that was on screen, for the row this writes.
    *
    * Passed in rather than reached for, because this hook has no business
@@ -115,6 +129,21 @@ export function useAlertWatch(
   // warning stands there, and deriving that beats resetting it: a setState in
   // the body of an effect is a cascading render.
   const [standing, setStanding] = useState({ key: "", active: false });
+  const [health, setHealth] = useState<WatchHealth>(WATCH_HEALTHY);
+  // The decision is taken off the ref rather than off the state, so a poll
+  // landing before React has rendered the last one still counts.
+  const healthRef = useRef<WatchHealth>(WATCH_HEALTHY);
+  const healthSayRef = useRef(onHealth);
+  useEffect(() => {
+    healthSayRef.current = onHealth;
+  }, [onHealth]);
+
+  const recordPoll = useCallback((answered: boolean) => {
+    const outcome = afterWatchPoll(healthRef.current, answered, Date.now());
+    healthRef.current = outcome.health;
+    setHealth(outcome.health);
+    if (outcome.say) healthSayRef.current?.(outcome.say);
+  }, []);
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
     fallbackRef.current = onFallback;
@@ -197,6 +226,7 @@ export function useAlertWatch(
         if (!bounds) return;
         const alerts = await alertsOverlay.fetchData(bounds, controller.signal);
         if (!mounted) return;
+        recordPoll(true);
         const wanted = alertsOfKind(alerts, kindsRef.current);
         // What stands, not what is new: the same predicate with nothing yet
         // announced. This is one pass over a list already in memory.
@@ -329,6 +359,7 @@ export function useAlertWatch(
             ? failure.message
             : translate("watch.failed"),
         );
+        recordPoll(false);
       } finally {
         checking = false;
       }
@@ -343,7 +374,7 @@ export function useAlertWatch(
     };
     // The key stands in for the places, which are read through a ref inside so
     // that renaming one does not restart the watch and re-announce everything.
-  }, [key]);
+  }, [key, recordPoll]);
 
   const sendTest = useCallback(async () => {
     const first = placesRef.current[0];
@@ -381,5 +412,10 @@ export function useAlertWatch(
     // extra caution: renaming a place during a tornado warning used to bring
     // the seasonal pack and the ambient effect straight back.
     alertActive: key !== "" && standing.active,
+    /** When a poll last came back, so the panel can say it out loud. */
+    lastCheckedAt: health.lastCheckedAt,
+    /** How many polls in a row have failed since then. */
+    failing: health.failing,
+    failingSince: health.failingSince,
   };
 }

@@ -38,6 +38,14 @@ pub enum Hazard {
     Quiet,
     /// A warning stands at a place the reader named.
     Warning,
+    /// The watch has stopped hearing back from the service.
+    ///
+    /// Not a colour of its own on purpose. The icon means one thing, which is
+    /// whether there is weather where the reader watches, and an amber dot
+    /// for "the app is having trouble" would compete with that. It says it in
+    /// the words under the icon instead, where somebody who wondered why it
+    /// has been quiet will look.
+    Unreachable,
 }
 
 static TRAY: Mutex<Option<TrayIcon>> = Mutex::new(None);
@@ -57,6 +65,7 @@ pub struct Copy {
     pub quit: String,
     pub quiet: String,
     pub warning: String,
+    pub unreachable: String,
 }
 
 impl Default for Copy {
@@ -67,6 +76,7 @@ impl Default for Copy {
             quit: "Quit".to_string(),
             quiet: "OpenRadar".to_string(),
             warning: "OpenRadar: a warning stands where you watch".to_string(),
+            unreachable: "OpenRadar: the watch is not reaching the service".to_string(),
         }
     }
 }
@@ -97,6 +107,7 @@ pub fn tray_copy(
     quit: String,
     quiet: String,
     warning: String,
+    unreachable: String,
 ) -> Result<(), String> {
     let next = Copy {
         open,
@@ -104,6 +115,7 @@ pub fn tray_copy(
         quit,
         quiet,
         warning,
+        unreachable,
     };
     let changed = take_copy(next);
     // A menu cannot be relabelled in place, so the icon is rebuilt. Only when
@@ -127,6 +139,7 @@ fn tooltip(hazard: Hazard) -> String {
     match hazard {
         Hazard::Quiet => words.quiet,
         Hazard::Warning => words.warning,
+        Hazard::Unreachable => words.unreachable,
     }
 }
 
@@ -139,7 +152,7 @@ fn tooltip(hazard: Hazard) -> String {
 fn icon(hazard: Hazard) -> Image<'static> {
     const SIZE: u32 = 16;
     let (r, g, b) = match hazard {
-        Hazard::Quiet => (0x4b, 0xc0, 0xff),
+        Hazard::Quiet | Hazard::Unreachable => (0x4b, 0xc0, 0xff),
         Hazard::Warning => (0xff, 0x51, 0x4b),
     };
     let middle = (SIZE as f32 - 1.0) / 2.0;
@@ -303,12 +316,27 @@ fn take_copy(next: Copy) -> bool {
 /// Separate from the command because it is the half that has to survive a
 /// rebuild, and because a test cannot call the command itself: the tray types
 /// pull in a library the test harness does not load.
-fn remember_hazard(warning: bool) -> Hazard {
-    let hazard = if warning {
+/// What the icon should be saying, given what the workspace knows.
+///
+/// Pure, and separate from writing it down, because the write goes to a
+/// static that every test in this file shares: a test asserting the mapping
+/// used to set that static out from under the test asserting the write.
+///
+/// A warning outranks everything. A reader whose watch is failing still needs
+/// to know about the one it did hear about, and the icon has room for one
+/// answer.
+fn hazard_for(warning: bool, reaching: bool) -> Hazard {
+    if warning {
         Hazard::Warning
-    } else {
+    } else if reaching {
         Hazard::Quiet
-    };
+    } else {
+        Hazard::Unreachable
+    }
+}
+
+fn remember_hazard(warning: bool, reaching: bool) -> Hazard {
+    let hazard = hazard_for(warning, reaching);
     // Remembered whether or not there is an icon to put it on, so one built
     // later starts out telling the truth.
     *HAZARD.lock().unwrap_or_else(|held| held.into_inner()) = hazard;
@@ -317,8 +345,8 @@ fn remember_hazard(warning: bool) -> Hazard {
 
 /// Says what the tray should be showing. Called from the workspace.
 #[tauri::command]
-pub fn tray_hazard(warning: bool) -> Result<(), String> {
-    let hazard = remember_hazard(warning);
+pub fn tray_hazard(warning: bool, reaching: bool) -> Result<(), String> {
+    let hazard = remember_hazard(warning, reaching);
     let held = TRAY.lock().unwrap_or_else(|held| held.into_inner());
     let Some(tray) = held.as_ref() else {
         return Ok(());
@@ -445,6 +473,7 @@ mod tests {
             quit: "Quitter".to_string(),
             quiet: "OpenRadar".to_string(),
             warning: "OpenRadar : une alerte est en cours".to_string(),
+            unreachable: "OpenRadar : la surveillance n'atteint pas le service".to_string(),
         });
         assert_eq!(
             tooltip(Hazard::Warning),
@@ -468,6 +497,7 @@ mod tests {
             quit: "Quit".to_string(),
             quiet: "OpenRadar".to_string(),
             warning: "OpenRadar: a warning stands where you watch".to_string(),
+            unreachable: "OpenRadar: the watch is not reaching the service".to_string(),
         };
         // The catalogue and the fallback have to agree, or the words differ
         // and the guard cannot help.
@@ -494,7 +524,7 @@ mod tests {
         // state changes, so without this a warning standing through a
         // language change left a blue dot saying nothing was happening, which
         // is the opposite of the icon's one job.
-        assert_eq!(remember_hazard(true), Hazard::Warning);
+        assert_eq!(remember_hazard(true, true), Hazard::Warning);
         assert_eq!(
             *HAZARD.lock().unwrap_or_else(|held| held.into_inner()),
             Hazard::Warning
@@ -505,11 +535,42 @@ mod tests {
             icon(Hazard::Warning).rgba()
         );
 
-        assert_eq!(remember_hazard(false), Hazard::Quiet);
+        assert_eq!(remember_hazard(false, true), Hazard::Quiet);
         assert_eq!(
             *HAZARD.lock().unwrap_or_else(|held| held.into_inner()),
             Hazard::Quiet
         );
+    }
+
+    /// The third thing the icon can be saying.
+    ///
+    /// The watch polls every forty-five seconds whether or not the map is
+    /// looking, and when it stopped reaching the service it wrote one line to
+    /// the log and nothing else. The icon stayed blue, which is the icon
+    /// saying nothing is happening where the reader watches, which nobody
+    /// knew any more.
+    #[test]
+    fn says_when_the_watch_has_stopped_hearing_back() {
+        assert_eq!(hazard_for(false, false), Hazard::Unreachable);
+        assert_eq!(
+            tooltip(Hazard::Unreachable),
+            Copy::default().unreachable,
+            "the words under the icon are the only place this is said"
+        );
+        assert_ne!(tooltip(Hazard::Unreachable), tooltip(Hazard::Quiet));
+
+        // And it is not a colour. The icon means weather, and an amber dot
+        // for "the app is having trouble" would compete with the one thing
+        // it exists to say.
+        assert_eq!(
+            icon(Hazard::Unreachable).rgba(),
+            icon(Hazard::Quiet).rgba(),
+            "a third colour would compete with the warning"
+        );
+
+        // A warning outranks it: a reader whose watch is failing still needs
+        // the one it did hear about, and the icon has room for one answer.
+        assert_eq!(hazard_for(true, false), Hazard::Warning);
     }
 
     #[test]
@@ -522,6 +583,7 @@ mod tests {
             words.glance,
             words.quit,
             words.quiet,
+            words.unreachable,
             words.warning,
         ] {
             assert!(!line.contains('—'), "{line}");

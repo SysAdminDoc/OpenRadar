@@ -19,7 +19,7 @@ import {
   type RadarFrame,
 } from "../lib/radar";
 import { formatMeasure, useT } from "../i18n";
-import { utcHourLabel } from "../lib/units";
+import { formatAge, utcHourLabel } from "../lib/units";
 
 function initLabel(initUtc: string): string {
   return utcHourLabel(new Date(initUtc).getTime());
@@ -184,7 +184,7 @@ export function RadarTimeline({
                       ? null
                       : ageMinutes < 1
                         ? t("timeline.live")
-                        : t("timeline.minutesOld", { count: ageMinutes }),
+                        : t("timeline.age", { age: formatAge(ageMinutes) }),
                 ]
                   .filter(Boolean)
                   .join(" · ")

@@ -477,3 +477,60 @@ export function testWatchAlert(place: WatchPlace): WatchAlert {
     },
   };
 }
+
+/** How many polls in a row have to fail before the reader is told. */
+export const WATCH_FAILURES_BEFORE_SAYING = 3;
+
+/** What the watch knows about its own health. */
+export interface WatchHealth {
+  /** When a poll last came back with an answer, or null before the first. */
+  lastCheckedAt: number | null;
+  /** How many polls in a row have failed since then. */
+  failing: number;
+  /** When the current run of failures began, or null when there is none. */
+  failingSince: number | null;
+}
+
+export const WATCH_HEALTHY: WatchHealth = {
+  lastCheckedAt: null,
+  failing: 0,
+  failingSince: null,
+};
+
+/**
+ * What a poll's outcome does to the watch's health, and whether to say so.
+ *
+ * The watch is the safety feature: it polls every forty-five seconds whether
+ * or not the map is looking, and it is the thing a reader asleep at two in
+ * the morning is relying on. When the fetch failed it wrote one line to the
+ * log and nothing else. No state left the hook, the settings panel went on
+ * saying it was watching, the tray icon stayed blue, and there was no way for
+ * anybody to find out it had stopped working.
+ *
+ * Said at the third failure rather than the first, because one dropped
+ * request on a laptop lid is not news, and said once rather than every
+ * forty-five seconds, because an app that nags about a captive portal is an
+ * app that gets closed. Said again when it recovers, because "is it working
+ * now" is the other half of the question.
+ */
+export function afterWatchPoll(
+  health: WatchHealth,
+  answered: boolean,
+  now: number,
+): { health: WatchHealth; say: "failing" | "recovered" | null } {
+  if (answered) {
+    const recovered = health.failing >= WATCH_FAILURES_BEFORE_SAYING;
+    return {
+      health: { lastCheckedAt: now, failing: 0, failingSince: null },
+      say: recovered ? "recovered" : null,
+    };
+  }
+  const failing = health.failing + 1;
+  return {
+    // Measured from the first failure rather than counted off the poll
+    // interval, so a machine asleep for six hours says six hours.
+    health: { ...health, failing, failingSince: health.failingSince ?? now },
+    // The moment it crosses, and not again while it stays there.
+    say: failing === WATCH_FAILURES_BEFORE_SAYING ? "failing" : null,
+  };
+}

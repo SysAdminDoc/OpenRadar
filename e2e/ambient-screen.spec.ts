@@ -153,16 +153,46 @@ test("the second-monitor setting reads like the switches above it", async ({
   await setting.scrollIntoViewIfNeeded();
   await expect(setting).toBeVisible();
 
+  // Measured against the switches it actually sits under, and on every
+  // figure that was wrong rather than only the two easy ones. The first pass
+  // mirrored the bare `.toggle-row`, but every switch in this panel is a
+  // `.toggle-row--plain` inside a `.surface-panel`, and both add overrides:
+  // the block came out indented four pixels past every switch, its detail a
+  // point smaller with the wrong line height, and it was the only row in the
+  // panel with no rule under it. The old assertions passed over all three.
   const shape = await setting.evaluate((node) => {
-    const title = node.querySelector("strong")!;
-    const detail = node.querySelector("small")!;
-    const neighbour = node.parentElement!.querySelector(".toggle-row strong")!;
+    const row = node.parentElement!.querySelector(".toggle-row")!;
+    const read = (element: Element) => {
+      const style = getComputedStyle(element);
+      return {
+        size: style.fontSize,
+        leading: style.lineHeight,
+        display: style.display,
+      };
+    };
+    const box = (element: Element) => {
+      const style = getComputedStyle(element);
+      return {
+        // The title's own edge, not the block's: padding moves the words and
+        // leaves the container where it was, so measuring the container said
+        // nothing about the four pixels this got wrong.
+        left: element.querySelector("strong")!.getBoundingClientRect().left,
+        rule: `${style.borderBottomWidth} ${style.borderBottomColor}`,
+      };
+    };
     return {
-      title: getComputedStyle(title).fontSize,
-      detail: getComputedStyle(detail).display,
-      neighbour: getComputedStyle(neighbour).fontSize,
+      title: read(node.querySelector("strong")!),
+      detail: read(node.querySelector("small")!),
+      rowTitle: read(row.querySelector("strong")!),
+      rowDetail: read(row.querySelector("small")!),
+      field: box(node),
+      row: box(row),
     };
   });
-  expect(shape.title).toBe(shape.neighbour);
-  expect(shape.detail).toBe("block");
+  expect(shape.title.size).toBe(shape.rowTitle.size);
+  expect(shape.detail.display).toBe("block");
+  expect(shape.detail.size).toBe(shape.rowDetail.size);
+  expect(shape.detail.leading).toBe(shape.rowDetail.leading);
+  expect(shape.field.left).toBe(shape.row.left);
+  expect(shape.field.rule).toBe(shape.row.rule);
 });

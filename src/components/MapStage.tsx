@@ -13,7 +13,7 @@ import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
 import { useT } from "../i18n";
 import { resolvedMapStyle } from "../lib/mapStyles";
-import { formatClock, useMeasurements } from "../lib/units";
+import { formatAge, formatClock, useMeasurements } from "../lib/units";
 
 /** How many frames back the compare pane can be held. */
 const COMPARE_OFFSETS = [0, 3, 6, 12];
@@ -200,7 +200,9 @@ export function MapStage({
             {formatClock(new Date(satelliteTime * 1000))}
             {satelliteAgeMinutes === null
               ? ""
-              : t("stage.satelliteAge", { count: satelliteAgeMinutes })}
+              : t("stage.satelliteAge", {
+                  age: formatAge(satelliteAgeMinutes),
+                })}
           </small>
           {/* GeoColor is a rendering and the infrared band is a measurement
               with a scale. A picture of cloud tops that does not say which it
