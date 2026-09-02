@@ -38,6 +38,12 @@ Camera state is kept independent of radar playback, which is what lets a loop ru
 
 MapLibre 6 requires WebGL2 and has no software fallback, so the app checks for it before mounting and explains the failure rather than letting the renderer throw.
 
+## Rules live in functions, not in components
+
+A rule a component applies inline can only be tested by a test that writes the rule out again, and a test that restates a rule passes against code that no longer follows it. Three did here before anybody noticed. So a rule of any weight is pulled out into a named function next to the code that calls it, exported, and driven directly by its test: which frames fall inside the loop, when an overlay is worth refetching, how long to wait before trying a stale forecast cycle again, which warnings pair with which layer.
+
+That means about a hundred and fifty exported symbols in `src/` whose only caller outside their own file is a test. They are not dead code and they are not an oversight. `scripts/unused-exports.mjs`, which `npm run check` runs, reports a symbol nothing in the tree names at all, and says nothing about one a test drives.
+
 ## Why this stack
 
 WPF with WebView2 would be Windows-only and still carry two runtimes. Avalonia has a weaker path for the raster and custom radar layers this needs. Electron adds a much larger desktop runtime. Qt brings licensing and distribution friction that does not help this project.

@@ -56,16 +56,6 @@ Two things to know before draining. First, most of what follows lives where the 
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-168: A hundred and fifty-five exports exist only because a test calls them
-      Category: maintainability
-      Where: everything `node scripts/unused-exports.mjs` reports when its rule is widened from "named by nothing" to "named by no production file"; concentrated in `src/hooks/` (`useRadarTimeline.nearestFrameIndex`, `useLightning.flashPoints`, `useForecastSmoke.FALLBACK_RETRY_MS`, `useOverlays.shouldRefetch`) and `src/lib/` (`alertPairings.groupOf`, `hurdat.peakPoint`, `occasions.occasionWindows`, `palette.paletteColor`, `provenance.provenanceValid`, `thermo.equivalentPotentialTemperature`)
-      Problem: AUD-159 asked for no unused export outside `src/i18n` and named eight of these. The measured figure is 155, which makes it a convention rather than a defect: each one is a rule extracted out of a hook or a component so a test can drive the real thing instead of a copy of it, which is exactly what this project's own notes prescribe after three tests were found asserting models of rules they never called. Removing the exports would put the rules back inside the components. Leaving them means the export list says less than it looks like it says.
-      Evidence: `scripts/unused-exports.mjs` with the wider rule reports 310 symbols, 155 of them called only from a `.test.ts`. The narrow rule, which is what ships, reports 0 after the six genuinely dead ones were deleted.
-      Fix: A decision, not a refactor. Either accept the pattern and say so where somebody will read it (a line in the architecture page and the gate's own comment, which is where it currently lives), or agree a marker that says "exported for its test" and hold the rest to production callers. Do not delete these one at a time.
-      Acceptance: Either the convention is written down in `docs/architecture.md` and the gate's rule stays as it is, or a marker exists and `scripts/unused-exports.mjs` enforces the wider rule with the marked ones excused.
-      Confidence: Verified
-      Effort: M
-
 ### Unaudited, needs a pass
 
 These could not be observed in this pass, which ran headless browser automation and read the packaged binary's configuration but did not drive the installed app on a screen. Each is a place where the e2e suite also cannot see.
