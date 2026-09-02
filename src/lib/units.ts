@@ -282,9 +282,14 @@ export function formatClock(
   const text = new Intl.DateTimeFormat(locale(), settings).format(
     typeof at === "number" ? new Date(at) : at,
   );
-  // Z marks a time, so it goes on anything carrying a clock and on nothing
-  // that does not. A format already asking for the zone by name says it once.
+  // The marker goes on anything carrying a clock and on nothing that does
+  // not. A format already asking for the zone by name says it once. What the
+  // marker is depends on the language: a bare Z is what a forecaster writes
+  // in English, and French writes the time as "14 h 35", where a letter on
+  // the end is not a time anybody recognises.
   const marks =
     options.hour !== undefined && options.timeZoneName === undefined;
-  return zone === "utc" && marks ? `${text}Z` : text;
+  return zone === "utc" && marks
+    ? `${text}${translate("time.utcSuffix")}`
+    : text;
 }

@@ -356,6 +356,11 @@ export const en = {
   "weather.snowShowers": "Snow showers",
   "weather.thunderstorms": "Thunderstorms",
   "weather.mixed": "Mixed conditions",
+  // The marker on a time read in UTC. A bare Z is what a forecaster writes
+  // and what English and Spanish products carry. French writes the time as
+  // "14 h 35", and a letter run onto the end of that is not a time anybody
+  // recognises, so French names the zone instead.
+  "time.utcSuffix": "Z",
   "time.justNow": "just now",
   "time.minutesAgo": "{count} min ago",
   "time.hoursAgo": "{count} h ago",

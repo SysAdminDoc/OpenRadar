@@ -172,17 +172,3 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
-
-- [ ] AUD-121: P3. Fold accents when matching a command
-      Why: The command palette matches on the lowercased string with no accent folding, so a French reader typing "prevision" misses the label "Prévisions" and only lands because the catalogue carries an unaccented keyword beside it. Every French and Spanish label is now carrying a shadow list of unaccented aliases to work around one missing `normalize("NFD")`.
-      Evidence: `src/lib/commands.ts` (`searchCommands`, `rank`); the `keywords.*` families in `src/i18n/es.ts` and `src/i18n/fr.ts`
-      Touches: The matcher; the keyword lists that exist only to stand in for folding; the command search tests
-      Acceptance: WHEN a reader types a word without its accents, the matcher SHALL rank the accented label exactly as it ranks the accented spelling; English matching is unchanged; the keyword lists lose the entries that were only there to fake folding, and a test covers a query in each shipped language with and without accents.
-      Complexity: S
-
-- [ ] AUD-122: P3. Say a UTC time in French without running the marker into the minutes
-      Why: `formatClock` appends a bare `Z` to mark UTC, which reads correctly in English ("14:35Z") and badly in Canadian French, where `Intl` writes the time as "14 h 35" and the result is "14 h 35Z". The marker is right; where it lands is not.
-      Evidence: `src/lib/units.ts` (`formatClock`); `src/i18n/index.ts` (`locale`)
-      Touches: How the UTC marker is attached per locale; the clock tests
-      Acceptance: WHEN the clock is set to UTC and the language is French, the time SHALL read as a French time with the zone marked in a way a French reader recognises rather than a letter run into the minutes; English output is unchanged; a test covers each shipped language in both clock settings.
-      Complexity: S
