@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+import {
+  awayFor,
+  catchUpFrom,
+  CATCH_UP_GAP_MS,
+  CATCH_UP_LINES,
+} from "./catchUp";
+import type { JournalRow } from "./journal";
+
+const NOW = Date.parse("2026-09-02T13:00:00.000Z");
+const AWAY = NOW - 3 * 86_400_000;
+
+function row(over: Partial<JournalRow> = {}): JournalRow {
+  return {
+    id: "one",
+    at: new Date(NOW).toISOString(),
+    place: "Casa",
+    kind: "alert",
+    source: "NWS",
+    observed: new Date(NOW - 86_400_000).toISOString(),
+    obtained: "a warning that reached a place you watch",
+    text: "Severe Thunderstorm Warning",
+    note: "",
+    thumb: "",
+    ...over,
+  };
+}
+
+describe("what happened while the app was closed", () => {
+  it("covers the gap and nothing outside it", () => {
+    const before = row({
+      id: "before",
+      observed: new Date(AWAY - 60_000).toISOString(),
+    });
+    const during = row({ id: "during" });
+    const summary = catchUpFrom([before, during], AWAY, NOW);
+    expect(summary?.lines.map((line) => line.id)).toEqual(["during"]);
+    expect(summary?.total).toBe(1);
+  });
+
+  it("says nothing at all when the app was barely away", () => {
+    // A restart to change a setting is not an absence, and a summary of it is
+    // the app talking about itself.
+    expect(catchUpFrom([row()], NOW - CATCH_UP_GAP_MS + 1_000, NOW)).toBeNull();
+    // A first run has no gap to measure from.
+    expect(catchUpFrom([row()], 0, NOW)).toBeNull();
+  });
+
+  it("tells an empty gap apart from no gap at all", () => {
+    // Two different answers. One means the app was not away; the other means
+    // it was away and nothing happened, which is worth its own line.
+    const quiet = catchUpFrom([], AWAY, NOW);
+    expect(quiet).not.toBeNull();
+    expect(quiet?.lines).toHaveLength(0);
+    expect(quiet?.total).toBe(0);
+  });
+
+  it("caps the lines and still says how many there were", () => {
+    const many = Array.from({ length: CATCH_UP_LINES + 4 }, (_, index) =>
+      row({
+        id: `row-${index}`,
+        observed: new Date(AWAY + (index + 1) * 3_600_000).toISOString(),
+      }),
+    );
+    const summary = catchUpFrom(many, AWAY, NOW);
+    expect(summary?.lines).toHaveLength(CATCH_UP_LINES);
+    // Newest first, and the count is the whole gap rather than what fitted,
+    // so the rest is findable rather than hidden.
+    expect(summary?.lines[0].id).toBe(`row-${CATCH_UP_LINES + 3}`);
+    expect(summary?.total).toBe(CATCH_UP_LINES + 4);
+  });
+
+  it("leaves out a row whose time it cannot read", () => {
+    // Placing it inside the gap would be a guess, and a guess is the one
+    // thing a summary of what happened must not make.
+    const summary = catchUpFrom([row({ observed: "last Tuesday" })], AWAY, NOW);
+    expect(summary?.lines).toHaveLength(0);
+  });
+
+  it("gives every line its own time", () => {
+    const summary = catchUpFrom([row()], AWAY, NOW);
+    // A warning that reached somewhere on Tuesday is not a warning now, and a
+    // line with no time on it reads like one.
+    expect(summary?.lines[0].when).toBeTruthy();
+    expect(summary?.lines[0].when).not.toBe("");
+  });
+
+  it("says how long it was away in hours, then in days", () => {
+    expect(awayFor(NOW - 5 * 3_600_000, NOW)).toContain("5");
+    expect(awayFor(NOW - 5 * 86_400_000, NOW)).toContain("5");
+  });
+});

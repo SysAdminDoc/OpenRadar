@@ -13,8 +13,10 @@ import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
+import { CatchUpCard } from "./components/CatchUpCard";
 import { useAmbient } from "./hooks/useAmbient";
-import { appendJournalRow, thumbnailFrom } from "./lib/journal";
+import { appendJournalRow, journalRows, thumbnailFrom } from "./lib/journal";
+import { catchUpFrom, type CatchUp } from "./lib/catchUp";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
@@ -309,6 +311,37 @@ export default function App() {
   // rather than gates. Nothing at all under reduced motion, because the whole
   // of it is the motion.
   const revealing = hydrated && !settings.seenReveal && !reducedMotion;
+
+  // What the weather did at the reader's places while the app was closed.
+  //
+  // The gap is measured from the last time the app was running, which is read
+  // once, at hydration, before the clock below starts writing it again. Read
+  // out of the record on the disk: nothing is fetched to answer this, so it
+  // cannot claim a warning stood somewhere it did not.
+  const [catchUp, setCatchUp] = useState<CatchUp | null>(null);
+  const [catchUpGone, setCatchUpGone] = useState(false);
+  const awaySince = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hydrated || awaySince.current !== null) return;
+    awaySince.current = settingsRef.current.lastSeen;
+    if (!settingsRef.current.catchUp) return;
+    const since = awaySince.current;
+    void journalRows().then((rows) => {
+      setCatchUp(catchUpFrom(rows, since, Date.now()));
+    });
+  }, [hydrated, settingsRef]);
+
+  // Written while the window is open rather than on the way out. A process
+  // that is killed, crashes or loses power never runs its closing code, and a
+  // summary that only survives a tidy exit is missing exactly when somebody
+  // wants it. The clock ticks once a minute, so this costs one settings write
+  // a minute, which is what the workspace already does.
+  useEffect(() => {
+    if (!hydrated) return;
+    applySettings({ ...settingsRef.current, lastSeen: Date.now() });
+    // `clock` is what makes this run again; nothing else here changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, hydrated]);
   // Stable, or the effect that owns the sweep's timer restarts on every
   // render of the app and the flag is never written.
   const markRevealSeen = useCallback(() => {
@@ -1476,6 +1509,20 @@ export default function App() {
       data-capture={capture ? "1" : undefined}
     >
       {revealing ? <FirstRunReveal onDone={markRevealSeen} /> : null}
+      {catchUp && !catchUpGone && !overlays.alertActive ? (
+        // Stood down while a warning is in force at a watched place, like
+        // everything else discoverable here: a map with a warning on it is a
+        // serious instrument and this is a card about last Tuesday.
+        <CatchUpCard
+          summary={catchUp}
+          now={clock}
+          onDismiss={() => setCatchUpGone(true)}
+          onOpenRecord={() => {
+            setCatchUpGone(true);
+            setActiveSurface("settings");
+          }}
+        />
+      ) : null}
       <MapStage
         settings={settings}
         mapRef={mapRef}

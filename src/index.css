@@ -4397,6 +4397,72 @@ input[type="range"] {
 
 /* Narrowing the record. A search box and two selects on one line, wrapping to
    two on the compact layout rather than shrinking to nothing. */
+/* What happened while the app was closed. A card over the map rather than a
+   toast: several lines, each with its own time, is not something to read in
+   the four seconds a toast lasts. */
+.catch-up {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.catch-up__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catch-up__title span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.catch-up__title small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.catch-up__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catch-up__lines li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.catch-up__lines span {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.catch-up__lines small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.catch-up__actions {
+  display: flex;
+  gap: 6px;
+}
+
 .journal-filter {
   display: flex;
   flex-wrap: wrap;

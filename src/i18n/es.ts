@@ -1315,6 +1315,19 @@ export const es: Catalogue = {
   "watch.testHeadline": "Alerta de prueba",
   "watch.quiet": "Horas de silencio",
   "watch.home": "Casa",
+  "catchUp.title": "Mientras no estabas",
+  "catchUp.away":
+    "OpenRadar estuvo cerrado {away}. Esto es lo que el registro guarda de ese tiempo, en los lugares que nombraste.",
+  "catchUp.awayHours": "{hours} horas",
+  "catchUp.awayDays": "{days} días",
+  "catchUp.quiet": "No pasó nada en tus lugares mientras no estabas.",
+  "catchUp.more": "Hay {count} más en tu registro.",
+  "catchUp.line": "{place} · {when}",
+  "catchUp.dismiss": "Gracias",
+  "catchUp.open": "Abrir el registro",
+  "catchUp.setting": "Contarme lo que pasó mientras no estaba",
+  "catchUp.settingDetail":
+    "Se lee de tu propio registro al abrir la aplicación tras unas horas fuera. No se consulta nada para responderlo, y cada línea lleva la hora en que ocurrió.",
   "journal.title": "Tu registro",
   "journal.count": "{count} filas",
   "journal.note":

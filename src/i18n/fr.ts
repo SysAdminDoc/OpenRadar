@@ -1332,6 +1332,19 @@ export const fr: Catalogue = {
   "watch.testHeadline": "Alerte de test",
   "watch.quiet": "Heures de silence",
   "watch.home": "Domicile",
+  "catchUp.title": "Pendant votre absence",
+  "catchUp.away":
+    "OpenRadar est resté fermé {away}. Voici ce que le relevé garde de cette période, aux lieux que vous avez nommés.",
+  "catchUp.awayHours": "{hours} heures",
+  "catchUp.awayDays": "{days} jours",
+  "catchUp.quiet": "Rien ne s'est passé chez vous pendant votre absence.",
+  "catchUp.more": "Il y en a {count} autres dans votre relevé.",
+  "catchUp.line": "{place} · {when}",
+  "catchUp.dismiss": "Merci",
+  "catchUp.open": "Ouvrir le relevé",
+  "catchUp.setting": "Me dire ce qui s'est passé pendant mon absence",
+  "catchUp.settingDetail":
+    "Lu dans votre propre relevé au lancement, après quelques heures d'absence. Rien n'est demandé à un service pour y répondre, et chaque ligne porte l'heure à laquelle cela est arrivé.",
   "journal.title": "Votre registre",
   "journal.count": "{count} lignes",
   "journal.note":
