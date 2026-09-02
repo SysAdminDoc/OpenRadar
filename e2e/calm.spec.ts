@@ -148,13 +148,16 @@ test("the calmer look reaches the Live button too", async ({ page }) => {
 
   const calm = await button.evaluate((node) => {
     const style = getComputedStyle(node);
+    // Against `--accent-fill` rather than `--accent`: every filled accent in
+    // the app holds its lightness above a floor the fixed ink clears, so that
+    // a colour the reader chose from a well cannot make a button unreadable.
     const probe = document.createElement("div");
-    probe.style.background = "var(--accent)";
+    probe.style.background = "var(--accent-fill)";
     document.body.append(probe);
-    const accent = getComputedStyle(probe).backgroundColor;
+    const fill = getComputedStyle(probe).backgroundColor;
     probe.remove();
-    return { background: style.backgroundColor, accent };
+    return { background: style.backgroundColor, fill };
   });
   expect(calm.background).not.toBe(loud);
-  expect(calm.background).toBe(calm.accent);
+  expect(calm.background).toBe(calm.fill);
 });

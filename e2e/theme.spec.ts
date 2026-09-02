@@ -305,3 +305,203 @@ test("the map credits are readable over the light basemap", async ({
   const dark = Math.min(luminance(paint.ink), luminance(paint.ground));
   expect((light + 0.05) / (dark + 0.05)).toBeGreaterThanOrEqual(4.5);
 });
+
+/**
+ * The composited contrast of one element against everything behind it.
+ *
+ * axe cannot answer this: the tint is translucent over a translucent panel,
+ * and it returns "incomplete" rather than "fails" for a stack like that, so
+ * a run comes back clean with the colour still wrong.
+ */
+async function contrastOf(page: Page, selector: string): Promise<number> {
+  return page.evaluate((wanted) => {
+    const node = document.querySelector(wanted);
+    if (!node) throw new Error(`${wanted} is not on the page`);
+    // Through a canvas, painted and sampled rather than read back as a
+    // string. A colour built with `oklch(from ...)` or `color-mix` comes out
+    // of a computed style still written that way, and out of `fillStyle`
+    // written that way too, so reading either as red, green and blue gives a
+    // figure that means nothing: a first version measured `0.87 0.16 90` as a
+    // colour and reported 1.02:1 for a pale yellow on near-black.
+    const paint = document.createElement("canvas").getContext("2d", {
+      willReadFrequently: true,
+    })!;
+    const channels = (colour: string) => {
+      paint.fillStyle = "#000";
+      paint.fillStyle = colour;
+      paint.clearRect(0, 0, 1, 1);
+      paint.fillRect(0, 0, 1, 1);
+      const [red, green, blue, alpha] = paint.getImageData(0, 0, 1, 1).data;
+      return [red, green, blue, alpha / 255];
+    };
+    const luminance = ([red, green, blue]: number[]) => {
+      const part = (value: number) => {
+        const ratio = value / 255;
+        return ratio <= 0.03928
+          ? ratio / 12.92
+          : ((ratio + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * part(red) + 0.7152 * part(green) + 0.0722 * part(blue);
+    };
+    const layers: number[][] = [];
+    for (
+      let element: Element | null = node;
+      element;
+      element = element.parentElement
+    ) {
+      const [red, green, blue, alpha = 1] = channels(
+        getComputedStyle(element).backgroundColor,
+      );
+      if (alpha > 0) layers.push([red, green, blue, alpha]);
+      if (alpha === 1) break;
+    }
+    let ground = [255, 255, 255];
+    for (const [red, green, blue, alpha] of layers.reverse()) {
+      ground = [
+        alpha * red + (1 - alpha) * ground[0],
+        alpha * green + (1 - alpha) * ground[1],
+        alpha * blue + (1 - alpha) * ground[2],
+      ];
+    }
+    const ink = channels(getComputedStyle(node).color);
+    const light = Math.max(luminance(ink), luminance(ground));
+    const dark = Math.min(luminance(ink), luminance(ground));
+    return (light + 0.05) / (dark + 0.05);
+  }, selector);
+}
+
+// Undo is the only way back from something the reader did not mean to do.
+// The plain accent on its own tint is 3.91:1 on a light ground; the strong
+// one is 4.18 in the dark calmer look. Neither colour is right for both.
+//
+// Four page loads rather than four attribute writes. Setting `data-theme`
+// and `data-calm` by hand and measuring in the same breath gave the same
+// number for calm as for plain: the root's own custom properties change, and
+// a descendant's inherited copy does not catch up until the page has settled.
+// The workspace owns those attributes, so it is asked to set them.
+for (const look of ["dark", "light"] as const) {
+  for (const calm of [false, true] as const) {
+    const name = `${look}${calm ? " in the calmer look" : ""}`;
+    test(`the way back from a toast is readable in ${name}`, async ({
+      page,
+    }) => {
+      await page.addInitScript(
+        (value: { look: string; calm: boolean }) => {
+          window.localStorage.setItem(
+            "openradar.settings",
+            JSON.stringify({
+              schemaVersion: 3,
+              theme: value.look,
+              calm: value.calm,
+            }),
+          );
+        },
+        { look, calm },
+      );
+      await routeWorkspace(page);
+      await page.goto("/?testMode=1");
+      await expect(page.getByRole("application")).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", look);
+      if (calm) {
+        await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
+      }
+
+      // The app's own markup in the app's own host, so the ground under the
+      // action is the ground a real toast gives it.
+      await page.evaluate(() => {
+        const host = document.querySelector(".toast-host")!;
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        const action = document.createElement("button");
+        action.type = "button";
+        action.className = "toast__action";
+        action.textContent = "Undo";
+        toast.append(action);
+        host.append(toast);
+      });
+
+      expect(await contrastOf(page, ".toast__action")).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    });
+  }
+}
+
+// A pale accent is one click away: the colour well in Settings takes any
+// colour at all. Choosing the ink per theme fixed the built-in palettes and
+// handed a reader who picked a pale yellow white text on it, at 1.44:1. The
+// fill is what moves now, so the fixed ink clears whatever they choose.
+for (const look of ["dark", "light"] as const) {
+  test(`a pale accent of the reader's own stays readable in ${look}`, async ({
+    page,
+  }) => {
+    await startWith(
+      page,
+      { name: "Pale", base: look, tokens: { Accent: "#ffd166" } },
+      look,
+    );
+    await expect.poll(() => token(page, "--accent")).toBe("#ffd166");
+    // A probe carrying the two tokens, because the pair is what is under
+    // test: every filled accent in the app is `--accent-ink` on
+    // `--accent-fill`, and the Live button in a workspace with no frames yet
+    // is the disabled one, which is deliberately not filled at all.
+    await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.id = "accent-fill-probe";
+      probe.style.background = "var(--accent-fill)";
+      probe.style.color = "var(--accent-ink)";
+      probe.textContent = "Live";
+      document.body.append(probe);
+    });
+    expect(await contrastOf(page, "#accent-fill-probe")).toBeGreaterThanOrEqual(
+      4.5,
+    );
+
+    // And it is still their colour. Readable is easy if the fill quietly
+    // falls back to the app's own blue and ignores what they picked.
+    const fill = await page.locator("#accent-fill-probe").evaluate((node) => {
+      const paint = document.createElement("canvas").getContext("2d")!;
+      paint.fillStyle = getComputedStyle(node).backgroundColor;
+      paint.fillRect(0, 0, 1, 1);
+      const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
+      return { red, green, blue };
+    });
+    expect(fill.red, JSON.stringify(fill)).toBeGreaterThan(fill.blue);
+    expect(fill.green, JSON.stringify(fill)).toBeGreaterThan(fill.blue);
+  });
+}
+
+test("the button that is already live does not look like the one you press", async ({
+  page,
+}) => {
+  // Both were filled, a colour apart, and under the spring pack the accent
+  // IS a green: 1.13:1 between them, with `opacity: 1` taking away the only
+  // other cue. The one you cannot press is not filled at all now.
+  await startWith(page, null, "light");
+  const button = page.locator(".timeline-live-button");
+  await expect(button).toBeVisible();
+
+  const seen = await button.evaluate((node) => {
+    const style = getComputedStyle(node);
+    const probe = document.createElement("div");
+    probe.style.background = "var(--accent-fill)";
+    document.body.append(probe);
+    const fill = getComputedStyle(probe).backgroundColor;
+    probe.style.background = "var(--surface-raised)";
+    const raised = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return {
+      background: style.backgroundColor,
+      disabled: (node as HTMLButtonElement).disabled,
+      fill,
+      raised,
+    };
+  });
+
+  if (seen.disabled) {
+    expect(seen.background).toBe(seen.raised);
+    expect(seen.background).not.toBe(seen.fill);
+  } else {
+    expect(seen.background).toBe(seen.fill);
+  }
+});

@@ -425,16 +425,30 @@ describe("the stylesheet", () => {
     // changed nothing on screen and every contrast figure had to be read off
     // the second.
     for (const selector of [":root {", ':root[data-theme="light"] {']) {
-      const seen = new Map<string, number>();
-      let at = css.indexOf(`\n${selector}`);
+      const seen = new Map<string, string[]>();
+      // From the start of a line, or from the start of the file: the block
+      // that was deleted lived at byte 0, which is exactly where a
+      // reintroduced one would go.
+      let at = css.startsWith(selector) ? 0 : css.indexOf(`\n${selector}`);
+      expect(at, `${selector} is gone`).toBeGreaterThan(-1);
       while (at > -1) {
         const body = css.slice(at, css.indexOf("\n}", at));
-        for (const match of body.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
-          seen.set(match[1], (seen.get(match[1]) ?? 0) + 1);
+        for (const match of body.matchAll(/(--[a-z0-9-]+)\s*:([^;]*);/g)) {
+          seen.set(match[1], [...(seen.get(match[1]) ?? []), match[2]]);
         }
         at = css.indexOf(`\n${selector}`, at + selector.length);
       }
-      const twice = [...seen].filter(([, count]) => count > 1).map(([n]) => n);
+      const twice = [...seen]
+        // One exception, and only one: a pair where the second declaration
+        // is a relative colour, which an engine that does not understand it
+        // drops, leaving the plain colour above it. That is a fallback, not
+        // a second opinion.
+        .filter(
+          ([, values]) =>
+            values.length > 2 ||
+            (values.length === 2 && !values[1].includes("from var(")),
+        )
+        .map(([name]) => name);
       expect(twice, selector).toEqual([]);
     }
   });

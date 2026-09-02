@@ -76,7 +76,7 @@ a {
 
 ::selection {
   color: var(--accent-ink);
-  background: var(--accent);
+  background: var(--accent-fill);
 }
 
 .app-shell {
@@ -620,7 +620,7 @@ a {
   height: 37px;
   place-items: center;
   color: var(--accent-ink);
-  background: var(--accent);
+  background: var(--accent-fill);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 7px;
   cursor: pointer;
@@ -2440,10 +2440,11 @@ input[type="range"] {
 
 .toast__action {
   padding: 6px 8px;
-  /* The strong accent, not the plain one: the plain accent on its own tint is
-     3.91:1 in the light theme, and undo is the only way back from something
-     the reader did not mean to do. */
-  color: var(--accent-strong);
+  /* Undo is the only way back from something the reader did not mean to do,
+     and on a light ground the plain accent on its own tint is 3.91:1. On a
+     dark ground it is the strong one that is too dark, so this is a token
+     rather than one colour for both. */
+  color: var(--accent-on-tint);
   font-size: 10px;
   font-weight: 700;
   background: var(--accent-soft);
@@ -2519,7 +2520,7 @@ input[type="range"] {
   padding: 0 15px;
   color: var(--accent-ink);
   font-weight: 700;
-  background: var(--accent);
+  background: var(--accent-fill);
   border: 0;
   border-radius: 7px;
   cursor: pointer;
@@ -3466,11 +3467,26 @@ input[type="range"] {
   --accent: #4bc0ff;
   --accent-strong: #2aa8ee;
   --accent-soft: rgba(75, 192, 255, 0.12);
-  /* What goes on top of a filled accent. The dark theme's accent is a light
-     blue and the light theme's is a dark one, so a single hardcoded dark ink
-     was 4.04:1 on the fatal screen's button in light, 4.00 on the play icon
-     and 2.94 under the midwinter pack. */
+  /* A filled accent, and what goes on top of it.
+     A single hardcoded dark ink was 4.04:1 on the fatal screen's button in
+     the light theme, 4.00 on the play icon and 2.94 under one of the seasonal
+     packs. Choosing the ink per theme fixed those and broke something worse:
+     the reader picks their accent from a colour well, and white ink on a pale
+     yellow is 1.44:1. No black-or-white rule can save a mid-grey accent
+     either, because neither clears 4.5 on it.
+     So the FILL is what moves. Its lightness is held above a floor the fixed
+     dark ink clears whatever hue and chroma the reader chose, which is 5.2:1
+     at the worst colour there is. An accent already light enough is
+     untouched, so the app looks exactly as it did. Declared twice because the
+     first is what an engine with no relative colour syntax keeps. */
   --accent-ink: #06121a;
+  --accent-fill: #4bc0ff;
+  --accent-fill: oklch(from var(--accent) max(l, 0.7) c h);
+  /* The accent as text on its own tint, which is a different question: on a
+     dark ground the plain accent reads and the strong one is too dark, and on
+     a light ground it is the other way round. Using the strong one in both
+     took the toast's undo action to 4.18:1 in the dark calmer look. */
+  --accent-on-tint: var(--accent);
   --green: #48d879;
   /* Green text on a green tint, which is 3.99:1 in the light theme: the ink
      and the ground move together, so thinning the tint does not help and the
@@ -3511,6 +3527,9 @@ input[type="range"] {
   --delta-up: #b4501e;
   --delta-down: #1d6f9c;
   --accent-ink: #ffffff;
+  --accent-fill: #0879b8;
+  --accent-fill: oklch(from var(--accent) min(l, 0.5) c h);
+  --accent-on-tint: var(--accent-strong);
   /* Softer and further from black than the dark theme's, which is what a
      shadow on a light ground has to be. Carried over from the block that
      used to sit at the top of this file. */
@@ -3632,9 +3651,9 @@ input[type="range"] {
 }
 
 .top-status__health .live-chip.is-live {
-  color: var(--accent-ink);
-  background: var(--green);
-  border-color: var(--green);
+  color: var(--green-strong);
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  border-color: color-mix(in srgb, var(--green) 45%, transparent);
 }
 
 .command-bar {
@@ -3820,7 +3839,7 @@ input[type="range"] {
   width: 40px;
   height: 40px;
   color: var(--accent-ink);
-  background: var(--accent);
+  background: var(--accent-fill);
   border: 1px solid color-mix(in srgb, white 24%, transparent);
   border-radius: 8px;
   box-shadow: none;
@@ -3846,17 +3865,21 @@ input[type="range"] {
   font-size: 12px;
   font-weight: 750;
   text-transform: capitalize;
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--accent-fill);
+  border: 1px solid var(--accent-fill);
   border-radius: 7px;
   cursor: pointer;
 }
 
-/* Already live, which is a state rather than an accent: green says "this is
-   the present" the way the chip in the header does. */
+/* Already live, which is a state rather than a thing to press.
+   Filled green beside a filled accent was two filled buttons a colour apart,
+   and under the spring pack the accent IS a green: 1.13:1 between them, with
+   `opacity: 1` removing the only other cue. Not filled at all now, which is
+   what a control you cannot press should look like whatever colour the
+   reader has chosen. */
 .timeline-live-button:disabled {
-  color: var(--accent-ink);
-  background: var(--green);
+  color: var(--green-strong);
+  background: var(--surface-raised);
   border: 1px solid var(--green);
   opacity: 1;
 }
