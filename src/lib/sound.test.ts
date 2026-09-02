@@ -391,7 +391,7 @@ describe("how far ahead sounds may stack up", () => {
 
     const answers: boolean[] = [];
     for (let press = 0; press < 20; press += 1) {
-      answers.push(await playAlertTone("extreme"));
+      answers.push(await playAlertTone("extreme", { preview: true }));
     }
     expect(answers[0]).toBe(true);
     expect(answers.some((played) => !played)).toBe(true);
@@ -401,5 +401,26 @@ describe("how far ahead sounds may stack up", () => {
     );
     // Everything scheduled lands inside the ceiling plus one sound's length.
     expect(last).toBeLessThan(12);
+  });
+});
+
+describe("what the ceiling is allowed to silence", () => {
+  it("never drops a warning, however full the queue is", async () => {
+    // "Silent" is a far worse answer than "a few seconds late" for the thing
+    // the app exists to say. Two presses of a preview with a reader's own six
+    // second file fill the queue, and a warning arriving in that window would
+    // otherwise have made no sound at all.
+    const audio = fakeAudio();
+    vi.stubGlobal("AudioContext", function () {
+      return audio.context;
+    });
+
+    for (let press = 0; press < 30; press += 1) {
+      await playAlertTone("extreme", { preview: true });
+    }
+    // The queue is full: another preview is refused.
+    expect(await playAlertTone("extreme", { preview: true })).toBe(false);
+    // The warning is not.
+    expect(await playAlertTone("extreme")).toBe(true);
   });
 });

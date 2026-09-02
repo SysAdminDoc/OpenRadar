@@ -24,6 +24,22 @@ export interface Glance {
   at: number;
 }
 
+/**
+ * When a frame was observed, in the unit the small window reads.
+ *
+ * A frame carries its time in seconds, which is what every radar service
+ * publishes; the small window subtracts it from `Date.now()`. Handing one
+ * over unmultiplied made a four minute old picture read as twenty-nine
+ * million minutes old, on every open, for every reader. Named and tested here
+ * because both sides are plain numbers and nothing else can catch it.
+ */
+export function observedMsFrom(
+  frame: { time: number } | null | undefined,
+): number | null {
+  if (!frame) return null;
+  return frame.time * 1000;
+}
+
 async function tell<T>(command: string, args?: Record<string, unknown>) {
   if (!isDesktopRuntime()) return null;
   try {
@@ -83,6 +99,23 @@ export async function setGlanceOnTop(on: boolean): Promise<void> {
  */
 export async function glanceIsShowing(): Promise<boolean> {
   return (await tell<boolean>("glance_showing")) ?? false;
+}
+
+/**
+ * Runs something when the small window opens, however it was opened.
+ *
+ * The tray menu can open it without the workspace hearing, and the workspace
+ * is what composes the picture for it. Asking once a minute meant up to a
+ * minute of a window with words and no map.
+ */
+export async function whenGlanceOpens(ready: () => void): Promise<() => void> {
+  if (!isDesktopRuntime()) return () => {};
+  try {
+    const { listen } = await import("@tauri-apps/api/event");
+    return await listen("glance-opened", () => ready());
+  } catch {
+    return () => {};
+  }
 }
 
 /** Opens the small window, as the tray menu does. */

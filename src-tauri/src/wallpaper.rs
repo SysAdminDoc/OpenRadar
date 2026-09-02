@@ -179,9 +179,27 @@ fn remember_previous() {
         *held = Some(recorded);
         return;
     }
-    let was = not_our_own(current().ok().flatten());
-    if let Some(path) = record_path() {
-        let _ = std::fs::write(path, was.clone().unwrap_or_default());
+    // A read that failed is not an answer. Treating it as "the reader had a
+    // plain colour" writes an empty note, and an empty note is read back as a
+    // real answer for ever: restore then clears a desktop that had a picture
+    // on it. Nothing is recorded and nothing is claimed.
+    let found = match current() {
+        Ok(found) => found,
+        Err(error) => {
+            log::warn!("OpenRadar could not read the current wallpaper: {error}");
+            return;
+        }
+    };
+    let was = not_our_own(found);
+    let Some(path) = record_path() else {
+        return;
+    };
+    // The note is the only durable record of what was taken. Without it a
+    // restart records OpenRadar's own picture instead, so a write that fails
+    // is said out loud and nothing is taken.
+    if let Err(error) = std::fs::write(path, was.clone().unwrap_or_default()) {
+        log::warn!("OpenRadar could not write down the current wallpaper: {error}");
+        return;
     }
     *held = Some(was);
 }
@@ -200,26 +218,71 @@ fn current() -> Result<Option<String>, String> {
         ])
         .output()
         .map_err(|error| error.to_string())?;
-    let text = String::from_utf8_lossy(&output.stdout);
-    // Both types, because a wallpaper set by a theme or by policy is often
-    // REG_EXPAND_SZ, and "REG_EXPAND_SZ" does not contain "REG_SZ". Missing
-    // it read as "no wallpaper", which is how a reader's own picture gets
-    // recorded as nothing and never comes back.
-    let value = text
-        .lines()
-        .find_map(|line| {
-            line.split_once("REG_EXPAND_SZ")
-                .or_else(|| line.split_once("REG_SZ"))
-                .map(|(_, rest)| rest)
-        })
-        .map(|rest| rest.trim().to_string())
-        .filter(|rest| !rest.is_empty());
-    Ok(value)
+    Ok(parse_wallpaper(&String::from_utf8_lossy(&output.stdout)))
 }
 
 #[cfg(not(windows))]
 fn current() -> Result<Option<String>, String> {
     Ok(None)
+}
+
+/// Reads a wallpaper path out of what `reg query` printed.
+///
+/// Both value types, because a wallpaper set by a theme or by policy is often
+/// REG_EXPAND_SZ, and "REG_EXPAND_SZ" does not contain "REG_SZ". Missing it
+/// read as "no wallpaper", which is how a reader's own picture gets recorded
+/// as nothing and never comes back. Expanded here rather than kept raw: the
+/// whole point of the expandable type is that the reader expands it, and
+/// `SystemParametersInfoW` will not.
+fn parse_wallpaper(text: &str) -> Option<String> {
+    text.lines()
+        .find_map(|line| {
+            line.split_once("REG_EXPAND_SZ")
+                .or_else(|| line.split_once("REG_SZ"))
+                .map(|(_, rest)| rest)
+        })
+        .map(|rest| expand(rest.trim()))
+        .filter(|rest| !rest.is_empty())
+}
+
+/// Fills in the `%VARIABLES%` an expandable registry value is stored with.
+///
+/// The whole point of REG_EXPAND_SZ is that whoever reads it expands it, and
+/// `SystemParametersInfoW` does not: handed `%SystemRoot%\\web\\...` it either
+/// fails, or succeeds against a path that does not exist and leaves the
+/// desktop blank with the note already deleted. An unknown name is left as it
+/// was found rather than blanked, because a path with a stray percent sign in
+/// it is still closer to the reader's picture than an empty string is.
+fn expand(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let mut rest = raw;
+    while let Some(open) = rest.find('%') {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        match after.find('%') {
+            Some(close) => {
+                let name = &after[..close];
+                match std::env::var(name) {
+                    Ok(value) => out.push_str(&value),
+                    Err(_) => {
+                        out.push('%');
+                        out.push_str(name);
+                        out.push('%');
+                    }
+                }
+                rest = &after[close + 1..];
+            }
+            None => {
+                // An unpaired percent sign. Whatever it is, it is not a
+                // variable, so it goes through as written.
+                out.push('%');
+                out.push_str(after);
+                return out;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 #[cfg(windows)]
@@ -449,6 +512,93 @@ mod tests {
         })
         .unwrap();
         assert_eq!(asked.into_inner().unwrap_or_else(|held| held.into_inner()), 0);
+    }
+
+    /// A name this machine will certainly answer to, whichever it is.
+    fn a_real_variable() -> (String, String) {
+        for name in ["SystemRoot", "HOME", "PATH"] {
+            if let Ok(value) = std::env::var(name) {
+                return (name.to_string(), value);
+            }
+        }
+        panic!("no environment at all");
+    }
+
+    #[test]
+    fn an_expandable_path_is_expanded_before_it_is_kept() {
+        // Driven through the parser rather than through `expand`, because the
+        // parser is where the expansion has to happen: reading the value and
+        // keeping it raw leaves a path SystemParametersInfoW cannot use, and
+        // a restore that either fails for ever or blanks the desktop with the
+        // note already deleted.
+        let (name, value) = a_real_variable();
+        let printed = format!(
+            "\r\nHKEY_CURRENT_USER\\Control Panel\\Desktop\r\n    \
+             Wallpaper    REG_EXPAND_SZ    %{name}%\\web\\img19.jpg\r\n\r\n"
+        );
+        let read = parse_wallpaper(&printed).expect("a value was printed");
+        assert!(!read.contains('%'), "{read}");
+        assert!(read.starts_with(&value), "{read}");
+        assert!(read.ends_with(r"\web\img19.jpg"), "{read}");
+    }
+
+    #[test]
+    fn a_plain_value_is_read_whole() {
+        let printed = "\r\nHKEY_CURRENT_USER\\Control Panel\\Desktop\r\n    \
+             Wallpaper    REG_SZ    C:\\WINDOWS\\web\\wallpaper\\Windows\\img19.jpg\r\n";
+        assert_eq!(
+            parse_wallpaper(printed).as_deref(),
+            Some(r"C:\WINDOWS\web\wallpaper\Windows\img19.jpg")
+        );
+    }
+
+    #[test]
+    fn an_empty_value_and_no_value_both_read_as_nothing() {
+        let empty = "    Wallpaper    REG_SZ    \r\n";
+        assert_eq!(parse_wallpaper(empty), None);
+        assert_eq!(parse_wallpaper("ERROR: The system was unable to find"), None);
+        assert_eq!(parse_wallpaper(""), None);
+    }
+
+    #[test]
+    fn a_name_nothing_answers_to_is_left_as_it_was_found() {
+        // Blanking it would be worse: a path with a stray percent sign is
+        // still closer to the reader's own picture than an empty string.
+        let odd = expand("%NOTHING_ANSWERS_TO_THIS_NAME%/dog.jpg");
+        assert_eq!(odd, "%NOTHING_ANSWERS_TO_THIS_NAME%/dog.jpg");
+        assert_eq!(expand("100% cotton"), "100% cotton");
+        assert_eq!(expand(r"C:\Users\somebody\dog.jpg"), r"C:\Users\somebody\dog.jpg");
+        assert_eq!(expand(""), "");
+    }
+
+    #[test]
+    fn a_read_that_failed_takes_nothing_and_claims_nothing() {
+        // The failure this holds shut: a failed registry read was recorded as
+        // "the reader had a plain colour", written as an empty note, and read
+        // back as a real answer for ever. Restore then cleared a desktop that
+        // had a picture on it.
+        let held = guard();
+        // Nowhere to write the note is the same shape of "cannot tell": a
+        // directory where the file goes.
+        std::fs::create_dir_all(held.dir.join("wallpaper-previous.txt")).unwrap();
+        remember_previous();
+        let recorded = PREVIOUS
+            .lock()
+            .unwrap_or_else(|inner| inner.into_inner())
+            .clone();
+        assert_eq!(recorded, None, "nothing may be claimed when nothing is kept");
+        // And with nothing recorded, restore asks the desktop for nothing
+        // rather than clearing it.
+        let asked = Mutex::new(0usize);
+        restore_with(|_| {
+            *asked.lock().unwrap_or_else(|held| held.into_inner()) += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            asked.into_inner().unwrap_or_else(|held| held.into_inner()),
+            0
+        );
     }
 
     #[test]
