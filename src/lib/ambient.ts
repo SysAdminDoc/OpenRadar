@@ -67,9 +67,16 @@ export function conditionFromMetar(raw: string): AmbientCondition | null {
   const body = raw.toUpperCase().split(/\s(?=RMK)/)[0];
   const groups = body.split(/\s+/);
   let found: AmbientCondition | null = null;
+  // The report can open with any of METAR, SPECI and COR before the station,
+  // and a corrected special carries two of them: `SPECI COR KRAL` left the
+  // identifier in the list, and Riverside reported rain in clear air.
+  let head = 0;
+  while (head < groups.length && /^(METAR|SPECI|COR)$/.test(groups[head])) {
+    head += 1;
+  }
+  // Then the identifier itself, and then the time group.
   for (const [at, group] of groups.entries()) {
-    // The station identifier, with or without the word in front of it.
-    if (at < 2 && /^(METAR|SPECI|COR|[A-Z]{4})$/.test(group)) continue;
+    if (at <= head + 1 && /^([A-Z]{3,4}|\d{6}Z)$/.test(group)) continue;
     // A trend group, and everything after it, is a forecast.
     if (group === "TEMPO" || group === "BECMG" || group === "NOSIG") break;
     // A present-weather group is short and carries no digits. That one rule

@@ -28,6 +28,8 @@ function panel(
         ambient={{ seen: null, dropped: false }}
         onJournalSaved={vi.fn()}
         onJournalFailed={vi.fn()}
+        onJournalCleared={vi.fn()}
+        clock={0}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}
         onClose={vi.fn()}

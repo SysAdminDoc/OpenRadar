@@ -14,8 +14,10 @@
 //! - **Plain.** One JSON object per line, readable in any editor, exported as
 //!   itself, and deleted in one action.
 //! - **Local.** It never leaves the machine, it is never fetched, and it is
-//!   not in the diagnostics report. `diagnostics.rs` builds that block from a
-//!   fixed list and this is not on it.
+//!   not in the diagnostics report. That block is built on the frontend, in
+//!   `src/lib/diagnostics.ts`, from a fixed list of inputs; nothing here is
+//!   on it, and `src/lib/journal.test.ts` holds that by handing the builder a
+//!   log line naming a place and asserting the name does not come out.
 //!
 //! A line that will not parse is skipped and the good rows around it are
 //! kept. A file that has been half-written by a crash loses its last line and
@@ -67,6 +69,14 @@ struct State {
     path: PathBuf,
 }
 
+/// Held across a whole read-modify-write.
+///
+/// An append reads the file, adds a row, bounds it and writes it back. Two of
+/// those interleaved lose rows, and eight of them lose most of them. Tauri
+/// happens to run synchronous commands inline today, which is not a guarantee
+/// worth resting a reader's own record on.
+static WRITING: Mutex<()> = Mutex::new(());
+
 static STATE: OnceLock<Mutex<Option<State>>> = OnceLock::new();
 
 fn state() -> &'static Mutex<Option<State>> {
@@ -117,6 +127,18 @@ fn tidy(row: &JournalRow) -> JournalRow {
     }
 }
 
+/// Whether a row is one at all.
+///
+/// Every row carries a place, a source and a time the thing was observed, or
+/// it is not a record of anything. A row with a date nothing can read is the
+/// worst of them: it can never be aged out, so it would live for ever.
+fn worth_keeping(row: &JournalRow) -> bool {
+    !row.place.is_empty()
+        && !row.source.is_empty()
+        && !row.text.is_empty()
+        && DateTime::parse_from_rfc3339(&row.at).is_ok()
+}
+
 /// Every row in the file, oldest first, with anything unreadable left out.
 pub fn read_rows() -> Vec<JournalRow> {
     let Some(path) = path() else {
@@ -155,9 +177,12 @@ fn write_rows(path: &Path, rows: &[JournalRow]) -> std::io::Result<()> {
 fn bounded(mut rows: Vec<JournalRow>, now: DateTime<Utc>) -> Vec<JournalRow> {
     let cutoff = now - Duration::days(RETENTION_DAYS);
     rows.retain(|row| match DateTime::parse_from_rfc3339(&row.at) {
-        // A row with no readable time cannot be aged, and a row that cannot
-        // age is a row that would live for ever.
-        Err(_) => false,
+        // A row already on the disk that this cannot date is still the
+        // reader's. It is kept, and the ceiling below takes it first, because
+        // deleting somebody's record to tidy the file is the one thing this
+        // must never do. Nothing new can arrive in that state: `worth_keeping`
+        // refuses a row whose date is not one.
+        Err(_) => true,
         Ok(at) => at.with_timezone(&Utc) >= cutoff,
     });
     let mut total: u64 = rows
@@ -173,13 +198,34 @@ fn bounded(mut rows: Vec<JournalRow>, now: DateTime<Utc>) -> Vec<JournalRow> {
 }
 
 /// Adds one row, then holds the file to its bounds.
+///
+/// Async, and the work is on a blocking thread: an append reads and rewrites
+/// the whole file, which on a full one is a tenth of a second, and a warning
+/// reaching ten named places is ten of those. On the IPC thread that is a
+/// second of frozen window at the exact moment warnings are being announced.
 #[tauri::command]
-pub fn journal_append(row: JournalRow) -> Result<usize, String> {
+pub async fn journal_append(row: JournalRow) -> Result<usize, String> {
+    tauri::async_runtime::spawn_blocking(move || append_row(row))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn append_row(row: JournalRow) -> Result<usize, String> {
     let Some(path) = path() else {
         return Ok(0);
     };
+    let row = tidy(&row);
+    // Refused rather than dropped in silence. A caller that hands over a row
+    // with no source, or a date nothing can read, has a bug worth hearing
+    // about; the old code answered `Ok(0)` and wrote nothing.
+    if !worth_keeping(&row) {
+        return Err(format!(
+            "a journal row needs a place, a source, some text and an RFC 3339 time: {row:?}"
+        ));
+    }
+    let _guard = WRITING.lock().unwrap_or_else(|held| held.into_inner());
     let mut rows = read_rows();
-    rows.push(tidy(&row));
+    rows.push(row);
     let kept = bounded(rows, Utc::now());
     write_rows(&path, &kept).map_err(|error| error.to_string())?;
     Ok(kept.len())
@@ -197,11 +243,17 @@ pub fn journal_clear() -> Result<(), String> {
     let Some(path) = path() else {
         return Ok(());
     };
-    match fs::remove_file(&path) {
+    let _guard = WRITING.lock().unwrap_or_else(|held| held.into_inner());
+    // Both of them. A crash between the write and the rename leaves a whole
+    // copy of the record under the temporary name, and the one action that
+    // promises to remove it has to remove that too.
+    let gone = |at: PathBuf| match fs::remove_file(&at) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(error.to_string()),
-    }
+    };
+    gone(path.with_extension("jsonl.writing"))?;
+    gone(path)
 }
 
 /// Where the file is, so the panel can say it and a reader can open it.
@@ -248,7 +300,7 @@ mod tests {
         let dir = scratch("round-trip");
         let _guard = journal_test(&dir);
         let now = Utc::now().to_rfc3339();
-        journal_append(row(&now, "Casa", "rain")).expect("written");
+        append_row(row(&now, "Casa", "rain")).expect("written");
         let rows = journal_rows();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].place, "Casa");
@@ -261,8 +313,8 @@ mod tests {
         let dir = scratch("corrupt");
         let _guard = journal_test(&dir);
         let now = Utc::now().to_rfc3339();
-        journal_append(row(&now, "Casa", "first")).expect("written");
-        journal_append(row(&now, "Casa", "second")).expect("written");
+        append_row(row(&now, "Casa", "first")).expect("written");
+        append_row(row(&now, "Casa", "second")).expect("written");
         // A crash mid-write leaves exactly this: a last line that is half a
         // row. The good rows above it are still good.
         let file = path().expect("a path");
@@ -280,8 +332,8 @@ mod tests {
         let _guard = journal_test(&dir);
         let old = (Utc::now() - Duration::days(RETENTION_DAYS + 1)).to_rfc3339();
         let fresh = Utc::now().to_rfc3339();
-        journal_append(row(&old, "Casa", "last year")).expect("written");
-        journal_append(row(&fresh, "Casa", "today")).expect("written");
+        append_row(row(&old, "Casa", "last year")).expect("written");
+        append_row(row(&fresh, "Casa", "today")).expect("written");
         let rows = journal_rows();
         assert_eq!(rows.len(), 1, "{rows:?}");
         assert_eq!(rows[0].text, "today");
@@ -317,7 +369,7 @@ mod tests {
         let _guard = journal_test(&dir);
         let mut awkward = row(&Utc::now().to_rfc3339(), "Casa", "a\nb");
         awkward.source = "x".repeat(1000);
-        journal_append(awkward).expect("written");
+        append_row(awkward).expect("written");
         let rows = journal_rows();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].text, "a b");
@@ -325,10 +377,97 @@ mod tests {
     }
 
     #[test]
+    fn a_row_that_is_not_one_is_refused_out_loud() {
+        let dir = scratch("refused");
+        let _guard = journal_test(&dir);
+        let now = Utc::now().to_rfc3339();
+        // A row nothing can date could never be aged out, so it would live
+        // for ever. A row with no place or no source is a record of nothing.
+        // All of them are refused rather than reported as written, which is
+        // what `Ok(0)` used to do.
+        for broken in [
+            row("not a date", "Casa", "rain"),
+            row(&now, "   ", "rain"),
+            JournalRow {
+                source: String::new(),
+                ..row(&now, "Casa", "rain")
+            },
+            JournalRow {
+                text: String::new(),
+                ..row(&now, "Casa", "rain")
+            },
+        ] {
+            let refused = append_row(broken).expect_err("a refusal");
+            assert!(refused.contains("journal row"), "{refused}");
+        }
+        assert!(journal_rows().is_empty());
+    }
+
+    #[test]
+    fn a_row_it_cannot_date_is_kept_rather_than_swept_away() {
+        let dir = scratch("undatable");
+        let _guard = journal_test(&dir);
+        let file = path().expect("a path");
+        // A hand-edited file, or one from a build that wrote dates another
+        // way. Deleting somebody's record to tidy the file is the one thing
+        // this must never do.
+        let stubborn = JournalRow {
+            at: "2026/09/02 13:05".to_string(),
+            ..row("2026-09-02T13:05:00Z", "Casa", "kept")
+        };
+        fs::write(
+            &file,
+            format!("{}\n", serde_json::to_string(&stubborn).expect("json")),
+        )
+        .expect("written");
+        append_row(row(&Utc::now().to_rfc3339(), "Casa", "new")).expect("written");
+        let rows = journal_rows();
+        assert_eq!(rows.len(), 2, "{rows:?}");
+        assert!(rows.iter().any(|row| row.text == "kept"));
+    }
+
+    #[test]
+    fn appends_from_several_threads_all_land() {
+        let dir = scratch("threads");
+        let _guard = journal_test(&dir);
+        let now = Utc::now();
+        std::thread::scope(|scope| {
+            for index in 0..8 {
+                scope.spawn(move || {
+                    append_row(row(
+                        &(now + Duration::seconds(index)).to_rfc3339(),
+                        "Casa",
+                        &format!("row {index}"),
+                    ))
+                    .expect("written");
+                });
+            }
+        });
+        // Read, add, bound, write. Two of those interleaved lose rows; this
+        // used to lose six of eight.
+        assert_eq!(journal_rows().len(), 8);
+    }
+
+    #[test]
+    fn clearing_it_takes_a_half_written_copy_with_it() {
+        let dir = scratch("half-written");
+        let _guard = journal_test(&dir);
+        append_row(row(&Utc::now().to_rfc3339(), "Casa", "rain")).expect("written");
+        // A crash between the write and the rename leaves a whole copy of the
+        // record under the temporary name.
+        let file = path().expect("a path");
+        let leftover = file.with_extension("jsonl.writing");
+        fs::copy(&file, &leftover).expect("copied");
+        journal_clear().expect("cleared");
+        assert!(!file.exists());
+        assert!(!leftover.exists(), "the record survived being deleted");
+    }
+
+    #[test]
     fn clearing_it_leaves_nothing_at_all() {
         let dir = scratch("clear");
         let _guard = journal_test(&dir);
-        journal_append(row(&Utc::now().to_rfc3339(), "Casa", "rain")).expect("written");
+        append_row(row(&Utc::now().to_rfc3339(), "Casa", "rain")).expect("written");
         journal_clear().expect("cleared");
         assert!(journal_rows().is_empty());
         // And clearing an empty journal is not an error.

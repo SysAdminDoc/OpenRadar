@@ -60,7 +60,7 @@ export function openingLine(
       : formatNumber(Math.round(temperatureFromCelsius(reading.temperatureC)));
 
   if (condition) {
-    const falling = translate(`opening.${condition}` as never);
+    const falling = translate(`opening.${condition}`);
     return temperature === null
       ? translate("opening.weather", {
           station: reading.station,

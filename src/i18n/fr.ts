@@ -957,6 +957,8 @@ export const fr: Catalogue = {
   "settings.ambientSeen": "Affiche ce que {station} a rapporté à {when}.",
   "settings.ambientQuiet":
     "Rien à dessiner : aucune station proche ne rapporte de temps.",
+  "settings.ambientNeedsWatch":
+    "Rien n'est dessiné tant que vous ne surveillez pas un endroit : c'est là que la météo est lue.",
   "settings.ambientDropped":
     "Arrêté : cette fenêtre ne suivait pas, alors l'effet s'est retiré. Éteignez-le et rallumez-le pour réessayer.",
   "settings.occasions": "Apparence saisonnière",
@@ -1042,7 +1044,7 @@ export const fr: Catalogue = {
     "{station} rapporte que rien ne tombe, {degrees} °, {when}.",
   "opening.showAgain": "Revoir l'accueil du premier lancement",
   "opening.showAgainDetail":
-    "La ligne d'ouverture et le disque radar qui se dessine, une fois de plus au prochain démarrage",
+    "La ligne d'ouverture et le disque radar qui se dessine, une fois de plus, maintenant",
   "bar.commandsDetail":
     "Chaque couche, produit et panneau dans une seule liste",
   "bar.dualPane": "Double volet",
@@ -1339,6 +1341,8 @@ export const fr: Catalogue = {
   "journal.row": "{source}, {when} · {obtained}",
   "journal.export": "Enregistrer le registre dans un fichier",
   "journal.clear": "Tout supprimer",
+  "journal.undated": "une heure non précisée",
+  "journal.cleared": "Registre supprimé",
   "journal.failed": "Le registre n'a pas pu être écrit.",
   "journal.saved": "Registre enregistré",
   "journal.sourceNws": "NWS",

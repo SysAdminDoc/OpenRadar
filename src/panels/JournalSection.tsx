@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Trash2, Download } from "lucide-react";
-import { useT } from "../i18n";
+import { translate, useT } from "../i18n";
 import { formatClock } from "../lib/units";
 import {
   clearJournal,
@@ -23,12 +23,29 @@ import { saveFile } from "../lib/saveFile";
  * Nothing here is a summary or a count standing in for the content: the
  * reader looks at the file.
  */
+/** A row's own time, or a plain word when the row cannot say. */
+function observedLabel(observed: string): string {
+  const at = Date.parse(observed);
+  if (!Number.isFinite(at)) return translate("journal.undated");
+  return formatClock(at, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function JournalSection({
+  /** Ticks once a minute, which is how the list notices a row that arrived. */
+  clock,
   onSaved,
   onFailed,
+  onCleared,
 }: {
+  clock: number;
   onSaved: (path: string | null) => void;
   onFailed: (why: string) => void;
+  onCleared: () => void;
 }) {
   const t = useT();
   const [rows, setRows] = useState<JournalRow[]>([]);
@@ -39,7 +56,11 @@ export function JournalSection({
     void journalPath().then(setWhere);
   }, []);
 
-  useEffect(reload, [reload]);
+  // Re-read on the clock as well as on mount. A warning arriving while the
+  // panel is open used to leave the list, the count and the export holding
+  // the snapshot from when it opened, so what a reader took away was not the
+  // whole file.
+  useEffect(reload, [reload, clock]);
 
   if (!journalAvailable()) {
     return (
@@ -77,12 +98,11 @@ export function JournalSection({
                 <small>
                   {t("journal.row", {
                     source: row.source,
-                    when: formatClock(Date.parse(row.observed), {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    }),
+                    // A hand-edited line can carry a time that is not one, and
+                    // `Intl` throws on an invalid date rather than returning
+                    // something. One bad row used to take the whole panel down,
+                    // which is the opposite of keeping the good rows.
+                    when: observedLabel(row.observed),
                     obtained: row.obtained,
                   })}
                 </small>
@@ -121,7 +141,20 @@ export function JournalSection({
         className="secondary-button"
         disabled={!rows.length}
         onClick={() => {
-          void clearJournal().then(reload);
+          // No dialog, per the project's own rule, but an acknowledgement:
+          // the most destructive control in the app said nothing at all.
+          void clearJournal()
+            .then(() => {
+              reload();
+              onCleared();
+            })
+            .catch((failure: unknown) =>
+              onFailed(
+                failure instanceof Error
+                  ? failure.message
+                  : translate("journal.failed"),
+              ),
+            );
         }}
       >
         <Trash2 size={16} /> {t("journal.clear")}

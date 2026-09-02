@@ -934,6 +934,8 @@ export const en = {
   "settings.ambientSeen": "Drawing what {station} reported at {when}.",
   "settings.ambientQuiet":
     "Nothing to draw: no station near you is reporting weather.",
+  "settings.ambientNeedsWatch":
+    "Nothing is drawn until you are watching a place: it is that place the weather is read at.",
   "settings.ambientDropped":
     "Stopped: this window was not keeping up, so the effect took itself off. Switch it off and on to try again.",
   "settings.occasions": "Seasonal look",
@@ -1015,7 +1017,7 @@ export const en = {
     "{station} is reporting nothing falling, {degrees}°, {when}.",
   "opening.showAgain": "Show the first-run greeting again",
   "opening.showAgainDetail":
-    "The opening line and the radar disc drawing itself, once more on the next launch",
+    "The opening line and the radar disc drawing itself, once more, now",
   "bar.commandsDetail": "Every layer, product, and panel in one list",
   "bar.dualPane": "Dual Pane",
   "bar.share": "Share",
@@ -1302,6 +1304,8 @@ export const en = {
   "journal.row": "{source}, {when} · {obtained}",
   "journal.export": "Save the record to a file",
   "journal.clear": "Delete all of it",
+  "journal.undated": "an unstated time",
+  "journal.cleared": "Record deleted",
   "journal.failed": "The record could not be written.",
   "journal.saved": "Record saved",
   "journal.sourceNws": "NWS",

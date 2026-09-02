@@ -271,7 +271,6 @@ export function useAlertWatch(
           const claimed = (alert.places ?? []).filter(
             (place) => place.named !== false,
           );
-          const named = claimed.map((place) => place.name).join(", ");
           // And into the reader's own record, one row per named place. Only
           // named ones: a coordinate somebody never called anything is not a
           // place they have claimed, and nothing about how the app was used
@@ -282,16 +281,24 @@ export function useAlertWatch(
               place: place.name,
               kind: "alert",
               source: translate("journal.sourceNws"),
-              observed: new Date().toISOString(),
+              // The office's own issue time when the alert carries one, and
+              // only the poll's time when it does not. A row that dates a
+              // warning by the moment the app noticed it is a row that says
+              // something untrue about the office.
+              observed: new Date(alert.issued ?? Date.now()).toISOString(),
               obtained: translate("journal.obtainedWatch"),
               text: alert.headline,
             });
           }
+          // Without the names. The log goes into the block a reader pastes
+          // into a bug report, and `redact` blurs coordinates and folder
+          // names and knows nothing about what somebody called their house.
+          // How many places it reached is the part that helps.
           log.info(
             "watch",
-            `Announced ${alert.headline}${named ? ` at ${named}` : ""}. ${watchReasonLines(
-              alert.reason,
-            ).join(" ")}`,
+            `Announced ${alert.headline} at ${
+              (alert.places ?? []).length
+            } watched place(s). ${watchReasonLines(alert.reason).join(" ")}`,
           );
         }
       } catch (failure) {
@@ -350,8 +357,11 @@ export function useAlertWatch(
 
   return {
     sendTest,
-    // Only for the watch it was read for. Nothing being watched is nothing
-    // standing over a watched place, whatever the last poll found.
-    alertActive: standing.key === key && standing.active,
+    // Nothing being watched is nothing standing over a watched place,
+    // whatever the last poll found. A watch that has merely changed keeps
+    // what it knew until the next poll, which is up to forty-five seconds of
+    // extra caution: renaming a place during a tornado warning used to bring
+    // the seasonal pack and the ambient effect straight back.
+    alertActive: key !== "" && standing.active,
   };
 }
