@@ -8,14 +8,20 @@
  * `nameOf` took a Map the app no longer holds names in, and `temperatureAt`
  * inverted a formula the file's own parcel code had stopped using.
  *
- * The rule is narrow on purpose. It reports a symbol NOTHING names, tests
- * included, and says nothing about one that only a test calls. There are a
- * hundred and fifty-five of those, and they are the shape this codebase is
- * deliberately written in: a rule extracted out of a hook or a component so a
- * test can drive the real thing rather than a copy of it. Removing those
- * exports would put the rules back inside the components and leave the tests
- * asserting models of them, which is the exact failure this project has
- * already been bitten by.
+ * The rule is narrow, and it is worth being exact about how narrow. A symbol
+ * is reported when NOTHING else in the tree names it AND its own file names it
+ * only once, which is the declaration itself. So it catches a symbol nobody
+ * anywhere calls, and it deliberately says nothing about two much larger
+ * groups: the hundred and fifty whose only caller is inside their own file,
+ * and the hundred and fifty-five whose only caller is a test.
+ *
+ * Both of those are the shape this codebase is deliberately written in: a rule
+ * extracted out of a hook or a component so a test can drive the real thing
+ * rather than a copy of it, and exported so the test can reach it. Removing
+ * those exports would put the rules back inside the components and leave the
+ * tests asserting models of them, which is the exact failure this project has
+ * already been bitten by. `docs/architecture.md` says so where somebody will
+ * read it.
  *
  * Not a parser. It reads declarations and counts identifier occurrences,
  * which is enough for a codebase that exports named symbols and imports them
@@ -84,7 +90,28 @@ if (declared.length < 100) {
   process.exit(1);
 }
 
-const said = new Map(files.map((path) => [path, readFileSync(path, "utf8")]));
+/**
+ * A file's code, with its comments and its catalogue strings out of the way.
+ *
+ * The scan is a word search, and a word search over raw text finds a symbol
+ * named in a comment or, worse, in a translated string: `Appearance` is an
+ * export in `useAppearance.ts` and also the English for a settings heading,
+ * `Flash` is a type and also half of "Flash Flood Warning", and `Told` is a
+ * type and also a word somebody used in a sentence. Each was permanently
+ * unreportable. Stripping comments is enough for those, and the catalogues
+ * are dropped whole.
+ */
+function code(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+const said = new Map(
+  files
+    .filter((path) => !path.includes(`i18n${sep}`))
+    .map((path) => [path, code(readFileSync(path, "utf8"))]),
+);
 
 const dead = [];
 for (const { path, name } of declared) {

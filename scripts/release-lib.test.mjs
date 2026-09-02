@@ -219,11 +219,24 @@ describe("how far behind the published updater manifest is", () => {
     expect(publishedLagLine(lag)).toContain("3 releases behind");
   });
 
-  it("treats a major behind as far behind whatever the minors say", () => {
-    // 0.9 to 1.0 is one release; 1.9 published against 2.0 here is not
-    // something to count in minors, and any answer over one is the same
-    // answer.
-    expect(publishedLag("1.9.0", "2.0.0").stalled).toBe(true);
+  it("counts the first release after a major bump as one", () => {
+    // 0.9.0 published against 1.0.0 here is one release, and the first
+    // version of this said a thousand and refused the 1.0.0 release outright.
+    expect(publishedLag("0.9.0", "1.0.0").behind).toBe(1);
+    expect(publishedLag("0.9.0", "1.0.0").stalled).toBe(false);
+    // Further across a major there is no honest count, and every answer over
+    // one is the same answer.
+    expect(publishedLag("1.9.0", "2.1.0").stalled).toBe(true);
+    expect(publishedLag("0.9.0", "2.0.0").stalled).toBe(true);
+  });
+
+  it("says so when the published version is ahead of the tree", () => {
+    // Somebody released from another machine. Reading that as zero behind
+    // and saying nothing is how two people publish over each other.
+    const ahead = publishedLag("0.8.0", "0.7.0");
+    expect(ahead.ahead).toBe(true);
+    expect(ahead.stalled).toBe(false);
+    expect(publishedLagLine(ahead)).toContain("AHEAD");
   });
 
   it("does not call an unreadable manifest a lag", () => {

@@ -438,14 +438,19 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
         ? ((window as unknown as { __settings?: Record<string, unknown> })
             .__settings ?? null)
         : held.settings;
-      const own = (
-        window as unknown as {
-          __answer?: (
-            command: string,
-            args: Record<string, unknown>,
-          ) => [unknown] | undefined;
-        }
-      ).__answer;
+      // Read at call time, not here. Captured at init time, a spec that
+      // registers its answerer in a LATER init script or after the page
+      // loads would be ignored, and the failure would surface as the
+      // confusing "the workspace invoked X" throw this exists to prevent.
+      const own = () =>
+        (
+          window as unknown as {
+            __answer?: (
+              command: string,
+              args: Record<string, unknown>,
+            ) => [unknown] | undefined;
+          }
+        ).__answer;
       (
         window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
       ).__TAURI_INTERNALS__ = {
@@ -455,7 +460,7 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
           `http://${scheme}.localhost/${path}`,
         transformCallback: (callback: unknown) => callback,
         invoke: async (command: string, args: Record<string, unknown> = {}) => {
-          const mine = own?.(command, args);
+          const mine = own()?.(command, args);
           if (mine) return mine[0];
 
           // The store, which is where the settings live once the app believes

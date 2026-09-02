@@ -6,7 +6,6 @@ import {
   parseAlertTags,
   parseAlerts,
   resetAlertTags,
-  unwrap,
 } from "./alerts";
 import { earthquakesOverlay, parseEarthquakes } from "./earthquakes";
 import { parseWildfires, wildfiresOverlay } from "./wildfires";
@@ -642,18 +641,56 @@ describe("the damage threat an office attaches to a warning", () => {
     expect(tags.get("urn:oid:2.49.0.1.840.0.ccc.001.1")?.instruction).toBe("");
   });
 
-  it("unwraps the teleprinter width without joining the paragraphs", () => {
-    // The office writes at about sixty-six columns, which is right for the
-    // product and wrong for a panel that already wraps: every line would
-    // break twice. A blank line is a real paragraph and stays one.
-    expect(unwrap("a line\nbroken here")).toBe("a line broken here");
-    expect(unwrap("one thing\n\nanother thing")).toBe(
-      "one thing\n\nanother thing",
+  it("leaves the office's layout exactly as it was issued", () => {
+    // An earlier version folded the hard wrapping out, on the theory that
+    // sixty-six columns is a teleprinter's width and a panel wraps for
+    // itself. It is not only wrapping, and the shapes below are real ones
+    // off the live feed: a flood warning naming three rivers one per line
+    // with three different severities, and a details block written as a
+    // dash-bulleted list. Folding those together put three severities into
+    // one sentence and ran the bullets into a paragraph, which is altering
+    // what the office said. The stylesheet keeps the breaks instead.
+    const rivers =
+      "For the Neches River...Moderate flooding is forecast.\n" +
+      "For the Village Creek...Major flooding is forecast.\n" +
+      "For the Pine Island Bayou...Minor flooding is forecast.";
+    const bullets =
+      "* ADDITIONAL DETAILS...\n" +
+      "- A swath of 3 to 10 inches has fallen.\n" +
+      "- http://www.weather.gov/safety/flood";
+
+    const tags = parseAlertTags({
+      features: [
+        {
+          properties: {
+            id: "urn:oid:river",
+            event: "Flood Warning",
+            description: rivers,
+            instruction: bullets,
+            areaDesc: "Hardin, TX",
+          },
+        },
+      ],
+    });
+    const held = tags.get("urn:oid:river");
+    expect(held?.description).toBe(rivers);
+    expect(held?.instruction).toBe(bullets);
+    // Trimmed at the ends and nowhere else: a leading blank line is not
+    // something the office meant to say.
+    const padded = parseAlertTags({
+      features: [
+        {
+          properties: {
+            id: "urn:oid:pad",
+            event: "Flood Warning",
+            description: "\n  Two lines\nkept apart.  \n",
+          },
+        },
+      ],
+    });
+    expect(padded.get("urn:oid:pad")?.description).toBe(
+      "Two lines\nkept apart.",
     );
-    expect(unwrap("  padded  \n  lines  ")).toBe("padded lines");
-    expect(unwrap("")).toBe("");
-    // And it never invents a paragraph out of trailing space.
-    expect(unwrap("only\n\n\n\n")).toBe("only");
   });
 
   it("puts the office's words on the feature the map draws", () => {

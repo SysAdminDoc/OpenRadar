@@ -181,14 +181,27 @@ export function publishedLag(published, repo) {
 
   const [major, minor] = there;
   const [ourMajor, ourMinor] = here;
-  // A major behind is every minor of it and then some; there is no honest
-  // count, and any number over one is the same answer.
+
+  // Within a major, the count is the minors between them. Across one there is
+  // no honest count, because nothing here knows how many minors the older
+  // major ended up with, so the only case that can be answered is the one
+  // that matters: 0.9.0 published against 1.0.0 here is the first release
+  // after a major bump, which is one release, not a thousand. The first
+  // version of this said a thousand and refused the 1.0.0 release.
   const behind =
-    major === ourMajor ? ourMinor - minor : (ourMajor - major) * 1000;
+    major === ourMajor
+      ? ourMinor - minor
+      : ourMajor - major === 1 && ourMinor === 0
+        ? 1
+        : Number.POSITIVE_INFINITY;
+
   return {
-    published: published,
+    published,
     repo,
     behind,
+    // A published version AHEAD of this tree is not a lag, and it is worth
+    // saying rather than reading as zero: somebody published from elsewhere.
+    ahead: behind < 0,
     stalled: behind > 1,
   };
 }
@@ -198,8 +211,14 @@ export function publishedLagLine(lag) {
   if (lag.published === null) {
     return `The published updater manifest could not be read. The repository is at ${lag.repo}.`;
   }
+  if (lag.ahead) {
+    return `Published ${lag.published}, which is AHEAD of this repository at ${lag.repo}. Somebody released from somewhere else.`;
+  }
   if (lag.behind <= 0) {
     return `Published ${lag.published}, repository ${lag.repo}.`;
+  }
+  if (!Number.isFinite(lag.behind)) {
+    return `Published ${lag.published}, repository ${lag.repo}: a major version behind.`;
   }
   return `Published ${lag.published}, repository ${lag.repo}: ${lag.behind} release${lag.behind === 1 ? "" : "s"} behind.`;
 }
