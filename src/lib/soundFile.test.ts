@@ -36,7 +36,14 @@ function audioIsAvailable() {
     resume: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
     destination: {},
-    decodeAudioData: vi.fn(async () => ({ duration: 0.4 })),
+    // A real decoder is handed an ArrayBuffer and nothing else. A fake that
+    // accepts anything cannot tell whether the bridge handed back bytes.
+    decodeAudioData: vi.fn(async (bytes: unknown) => {
+      if (!(bytes instanceof ArrayBuffer)) {
+        throw new TypeError("decodeAudioData was not given an ArrayBuffer");
+      }
+      return { duration: 0.4 };
+    }),
   };
   vi.stubGlobal("AudioContext", function () {
     return context;
@@ -73,6 +80,40 @@ describe("reading the reader's own alert sound in the packaged app", () => {
       path: "C:/sounds/alert.wav",
     });
     expect(context.decodeAudioData).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes the bytes in whichever shape the bridge hands them over", async () => {
+    // Tauri returns a raw body as an ArrayBuffer over its custom protocol
+    // and as a list of numbers over the postMessage fallback. Assuming the
+    // first meant `byteLength` was undefined, the size ceiling below was
+    // skipped without anyone noticing, and the decoder then threw and blamed
+    // the reader's file, which is the message this whole change exists to
+    // stop showing.
+    const context = audioIsAvailable();
+    insideTheApp();
+    invoke.mockResolvedValue([82, 73, 70, 70]);
+    expect(await loadAlertSound("C:/sounds/alert.wav")).toEqual({ ok: true });
+    expect(context.decodeAudioData).toHaveBeenCalledTimes(1);
+  });
+
+  it("still refuses a list of numbers over the ceiling", async () => {
+    audioIsAvailable();
+    insideTheApp();
+    invoke.mockResolvedValue(new Array(MAX_SOUND_BYTES + 1).fill(0));
+    expect(await loadAlertSound("C:/sounds/big.wav")).toEqual({
+      ok: false,
+      reason: "size",
+    });
+  });
+
+  it("refuses an answer that is not bytes at all", async () => {
+    audioIsAvailable();
+    insideTheApp();
+    invoke.mockResolvedValue({ unexpected: true });
+    expect(await loadAlertSound("C:/sounds/alert.wav")).toEqual({
+      ok: false,
+      reason: "decode",
+    });
   });
 
   it("shows the sentence the native side asked for", async () => {

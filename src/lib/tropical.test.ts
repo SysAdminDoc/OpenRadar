@@ -148,3 +148,48 @@ describe("forecast hour", () => {
     expect(activeStorms(data).map((storm) => storm.name)).toEqual(["Real"]);
   });
 });
+
+describe("the advisory address", () => {
+  /** One storm at forecast hour zero, with whatever bin the feed sent. */
+  function withBin(binnumber: string): OverlayData {
+    return {
+      type: "FeatureCollection",
+      features: parseTropicalLayer(
+        {
+          features: [
+            {
+              geometry: { type: "Point", coordinates: [-70, 25] },
+              properties: {
+                stormname: "Ida",
+                stormtype: "HU",
+                maxwind: 90,
+                tau: 0,
+                binnumber,
+              },
+            },
+          ],
+        },
+        "point",
+      ),
+    } as OverlayData;
+  }
+
+  it("is https at the hurricane centre or nothing, whatever the feed sends", () => {
+    // The panel renders this straight into an href. It is built here rather
+    // than taken from the feed, and this is what says so: a bin carrying a
+    // scheme, a host or a path cannot turn it into a link somewhere else.
+    for (const bin of [
+      "AT1",
+      "",
+      "//evil.example",
+      "https://evil.example/x",
+      "javascript:alert(1)",
+      "../../../etc",
+    ]) {
+      const [storm] = activeStorms(withBin(bin));
+      const url = storm?.advisoryUrl ?? "";
+      if (!url) continue;
+      expect(new URL(url).origin, bin).toBe("https://www.nhc.noaa.gov");
+    }
+  });
+});
