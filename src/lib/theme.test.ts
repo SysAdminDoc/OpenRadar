@@ -453,6 +453,25 @@ describe("the stylesheet", () => {
     }
   });
 
+  it("draws a slider handle big enough to grab", () => {
+    // WCAG 2.5.8 asks twenty-four pixels of a pointer target. The scrubber
+    // under the map is the most dragged control in the app and its handle was
+    // whatever the browser drew, about sixteen; so was every slider in
+    // Settings and Layers. Held here rather than in the browser suite because
+    // Chromium will not report a form control's internal pseudo element
+    // through `getComputedStyle`: it answers with the input's own values, so
+    // an assertion there passed at any size.
+    for (const thumb of ["-webkit-slider-thumb", "-moz-range-thumb"]) {
+      const at = css.indexOf(`::${thumb} {`);
+      expect(at, `${thumb} is not drawn`).toBeGreaterThan(-1);
+      const body = css.slice(at, css.indexOf("\n}", at));
+      for (const side of ["width", "height"]) {
+        const size = new RegExp(`${side}:\\s*(\\d+)px`).exec(body)?.[1];
+        expect(Number(size), `${thumb} ${side}`).toBeGreaterThanOrEqual(22);
+      }
+    }
+  });
+
   it("gives the dark theme a value for everything the light theme sets", () => {
     // A guard rather than a regression test: this was already true when it
     // was written, and it is here so that it stays true. The light block is

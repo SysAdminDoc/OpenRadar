@@ -2,6 +2,12 @@
 
 ## OpenRadar v0.8.0
 
+- The scrubber under the map has a handle you can actually grab. It was whatever the browser drew, about two thirds of the size a pointer target is meant to be, and so was every slider in Settings and Layers.
+
+- The tool rail says when there is more of it than fits. It scrolls, its scrollbar is hidden, and on a shorter window it ended partway through a button: half a label was the only sign the tools below it existed, which reads as something broken rather than as something to scroll to. There is a fade at whichever edge has more behind it now, and a thin scrollbar once the pointer is on the rail.
+
+- A screen reader is told how many warnings are in view and where in the list each one sits, and the same for the sources in Diagnostics and the places you watch. All three were built out of plain boxes that say none of that. The line that announces the tool you picked, the progress of a recording and each message about an offline map pack are now on the page before they have anything to say, because a region that arrives already carrying its words is usually not read out at all.
+
 - The page is allowed to reach two fewer places than it was. Both are fetched by the app itself and never by the page, so naming them widened what the window could do for nothing. Tiles served out of the local cache now carry two headers that stop a browser guessing at what they are.
 
 - A workspace file you hand to somebody no longer carries the path to your own alert sound, which named your user folder and was useless at the other end anyway. It stays on the machine that chose it.

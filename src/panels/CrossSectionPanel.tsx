@@ -130,7 +130,7 @@ export function CrossSectionPanel({
             </figcaption>
           </figure>
 
-          <ul className="reading-list">
+          <ul role="list" className="reading-list">
             <li>
               {t("section.collected", {
                 when: formatClock(new Date(section.collected), {

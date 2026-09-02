@@ -651,11 +651,59 @@ a {
   font-size: 9px;
 }
 
+/* The scrubber under the map is the most dragged thing in the app, and its
+   handle was whatever the browser draws: about sixteen pixels, under the
+   twenty-four WCAG asks for a pointer target. Every slider in Settings and
+   Layers had the same handle. Drawing it here means drawing the track too,
+   because a browser stops drawing its own the moment the handle is styled. */
 input[type="range"] {
   width: 100%;
-  height: 4px;
-  accent-color: var(--accent-strong);
+  height: 24px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
   cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  /* Centred on a four pixel track: half the handle, less half the track and
+     its border. */
+  margin-top: -10px;
+  appearance: none;
+  background: var(--accent-fill);
+  border: 1px solid var(--surface-solid);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: var(--accent-fill);
+  border: 1px solid var(--surface-solid);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
+}
+
+input[type="range"]:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .zoom-controls {
@@ -2348,6 +2396,29 @@ input[type="range"] {
   transform: translateX(-50%);
 }
 
+/* Empty and out of sight, but still in the tree: a live region has to be
+   there before it has anything to say, or the first thing it says is often
+   not announced at all. `display: none` would take it out of the tree the
+   same way unmounting did. */
+[role="status"][data-empty],
+[role="alert"][data-empty] {
+  /* Deliberately still in flow. The usual visually-hidden recipe takes the
+     box out with `position: absolute`, and an absolutely positioned box
+     inside a scrolling panel is placed against the PANEL rather than against
+     the content it was written beside: it landed nine hundred pixels below
+     the panel's own foot and the layout check called the whole panel
+     overflowing. One pixel in the flow costs nothing. */
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .tool-hud > span {
   display: flex;
   flex-direction: column;
@@ -3690,6 +3761,47 @@ input[type="range"] {
 
 .command-scroll-region::-webkit-scrollbar {
   display: none;
+}
+
+/* Something is up there, or down there. The region scrolls with its scrollbar
+   hidden, and at 1440 by 900 it ends partway through a button: half a label
+   was the only sign that the tools below it existed at all, and it reads as a
+   layout fault rather than as "there is more". Masked rather than shaded so
+   the fade is the bar's own background whatever the theme is doing. */
+.command-scroll-region[data-more-above] {
+  mask-image: linear-gradient(to bottom, transparent, #000 12px);
+}
+
+.command-scroll-region[data-more-below] {
+  mask-image: linear-gradient(to top, transparent, #000 12px);
+}
+
+.command-scroll-region[data-more-above][data-more-below] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 12px,
+    #000 calc(100% - 12px),
+    transparent
+  );
+}
+
+/* And a scrollbar for anybody who reaches for one, once the pointer is on the
+   rail. Hidden by default because it is 68 pixels wide and a permanent
+   scrollbar in it is most of a button. */
+.command-scroll-region:hover {
+  scrollbar-width: thin;
+  scrollbar-color: var(--command-line) transparent;
+}
+
+.command-scroll-region:hover::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.command-scroll-region:hover::-webkit-scrollbar-thumb {
+  background: var(--command-line);
+  border-radius: 3px;
 }
 
 .command-group {

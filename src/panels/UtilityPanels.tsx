@@ -201,8 +201,10 @@ export function MorePanel({
       onClose={onClose}
       className="surface-panel--right"
     >
-      <div className="status-list">
-        <div>
+      {/* How many sources answered is the information here, so it is said as
+          a list rather than as a run of boxes. */}
+      <div className="status-list" role="list">
+        <div role="listitem">
           <span className={mapReady ? "status-dot is-live" : "status-dot"} />
           <span>
             <strong>{t("diagnostics.renderer")}</strong>
@@ -216,7 +218,7 @@ export function MorePanel({
             </small>
           </span>
         </div>
-        <div>
+        <div role="listitem">
           <span className={radarReady ? "status-dot is-live" : "status-dot"} />
           <span>
             <strong>{t("diagnostics.timeline")}</strong>
@@ -281,7 +283,7 @@ export function MorePanel({
           </label>
         ) : null}
         {log.length ? (
-          <ol>
+          <ol role="list">
             {log
               .slice(-12)
               .reverse()

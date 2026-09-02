@@ -217,7 +217,7 @@ export function JournalSection({
       <p className="source-note">{t("figures.note")}</p>
       {figures ? (
         <>
-          <ul className="recap-lines" data-journal-figures>
+          <ul role="list" className="recap-lines" data-journal-figures>
             {figureLines(figures).map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -282,7 +282,7 @@ export function JournalSection({
       ) : null}
 
       {shown.length ? (
-        <ol className="journal-rows">
+        <ol role="list" className="journal-rows">
           {shown
             .slice()
             .reverse()

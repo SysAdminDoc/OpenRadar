@@ -46,7 +46,7 @@ export function CuriositySection({
       </div>
       {found.length ? (
         <>
-          <ul>
+          <ul role="list">
             {found.map((id) => {
               const one = set.find((entry) => entry.id === id);
               return (

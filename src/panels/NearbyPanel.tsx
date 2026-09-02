@@ -83,7 +83,7 @@ export function NearbyPanel({
       <section className="nearby-block">
         <h3>{t("nearby.warningsHeading")}</h3>
         {warnings.length ? (
-          <ul className="nearby-list">
+          <ul role="list" className="nearby-list">
             {warnings.map((warning) => (
               <li key={warning.id}>
                 <TriangleAlert size={14} aria-hidden="true" />
@@ -108,7 +108,7 @@ export function NearbyPanel({
         ) : cellsNote === "unavailable" ? (
           <p className="nearby-empty">{t("nearby.cellsUnavailable")}</p>
         ) : cells.length ? (
-          <ul className="nearby-list">
+          <ul role="list" className="nearby-list">
             {cells.map((cell) => (
               <li key={cell.id}>
                 <Wind size={14} aria-hidden="true" />

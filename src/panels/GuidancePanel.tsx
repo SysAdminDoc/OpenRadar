@@ -204,7 +204,7 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
 
       {/* When each model last ran, which is the difference between two models
           disagreeing and one of them being twelve hours behind the other. */}
-      <ul className="model-runs">
+      <ul role="list" className="model-runs">
         {GUIDANCE_MODELS.filter((model) => chosen.includes(model.id)).map(
           (model) => {
             const run = runs[model.id];
