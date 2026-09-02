@@ -1502,6 +1502,10 @@ export const es: Catalogue = {
   "wallpaper.unavailable":
     "Esto es cosa de Windows por ahora, así que aquí no hay nada que activar.",
   "wallpaper.failed": "No se pudo escribir el fondo de pantalla",
+  "wallpaper.failedDetail":
+    "Tu propio fondo de pantalla sigue intacto. OpenRadar lo intentará de nuevo en el siguiente turno.",
+  "wallpaper.age":
+    "{minutes, plural, one {hace # minuto} other {hace # minutos}}",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":

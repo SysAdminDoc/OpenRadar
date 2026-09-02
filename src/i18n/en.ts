@@ -1477,6 +1477,10 @@ export const en = {
   "wallpaper.unavailable":
     "This is a Windows thing for now, so there is nothing to switch on here.",
   "wallpaper.failed": "The wallpaper could not be written",
+  "wallpaper.failedDetail":
+    "Your own wallpaper is untouched. OpenRadar will try again on the next turn.",
+  "wallpaper.age":
+    "{minutes, plural, one {# minute old} other {# minutes old}}",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":
