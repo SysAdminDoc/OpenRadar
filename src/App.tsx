@@ -14,7 +14,7 @@ import { MapStage } from "./components/MapStage";
 import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
 import { useAmbient } from "./hooks/useAmbient";
-import { appendJournalRow } from "./lib/journal";
+import { appendJournalRow, thumbnailFrom } from "./lib/journal";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
@@ -133,6 +133,7 @@ const COVERED_BY_ADAPTERS = new Set(
   OVERLAY_ADAPTERS.map((adapter) => adapter.id as string),
 );
 import { useStormCells } from "./hooks/useStormCells";
+import { useCellJournal } from "./hooks/useCellJournal";
 import { useClassification } from "./hooks/useClassification";
 import { useForecastSmoke } from "./hooks/useForecastSmoke";
 import {
@@ -276,6 +277,14 @@ export default function App() {
     setFollowSignal((was) => was + 1);
   }, []);
 
+  // The frame that was on screen, small, for whatever the record writes down
+  // next. Null when there is no map yet or the picture comes back over its
+  // budget, which is a row without a picture rather than no row.
+  const journalFrame = useCallback(async () => {
+    const canvas = mapRef.current?.canvas();
+    return canvas ? await thumbnailFrom(canvas) : null;
+  }, []);
+
   const overlays = useWorkspaceOverlays({
     settings,
     viewport,
@@ -284,6 +293,7 @@ export default function App() {
     // Today's warnings and reports cannot sit on a volume from another day.
     replaying: replay !== null || singleSite.historical,
     onAnnounced: rememberFollow,
+    capture: journalFrame,
   });
 
   // What the window looks like: the built-in look, a theme the reader
@@ -349,16 +359,19 @@ export default function App() {
     const key = `${home}|${station}|${condition}`;
     if (lastRecorded.current === key) return;
     lastRecorded.current = key;
-    void appendJournalRow({
-      at: new Date().toISOString(),
-      place: home,
-      kind: "observation",
-      source: station,
-      observed: new Date(observed).toISOString(),
-      obtained: translate("journal.obtainedStation"),
-      text: translate(`opening.${condition}`),
-    });
-  }, [ambient.seen, settings.watch.enabled, settings.watch.name]);
+    void appendJournalRow(
+      {
+        at: new Date().toISOString(),
+        place: home,
+        kind: "observation",
+        source: station,
+        observed: new Date(observed).toISOString(),
+        obtained: translate("journal.obtainedStation"),
+        text: translate(`opening.${condition}`),
+      },
+      journalFrame,
+    );
+  }, [ambient.seen, journalFrame, settings.watch.enabled, settings.watch.name]);
 
   // One line, once a year, the first time a pack is on screen. It carries the
   // way to send that occasion away until next year; the switch that ends them
@@ -451,6 +464,11 @@ export default function App() {
     })();
   }, [overlays, pushToast]);
 
+  // The third of the three things that open an entry in the record, after a
+  // warning reaching a named place and the sky changing at one. All three are
+  // the weather doing something; nothing the reader does writes a row.
+  const watchedForJournal = useMemo(() => watchedPlaces(settings), [settings]);
+
   // Tied to whichever site the single-site radar is reading, because the cells
   // are that radar's own account of that volume.
   const stormCells = useStormCells({
@@ -459,6 +477,13 @@ export default function App() {
     station: singleSite.station,
     pageVisible,
     clock,
+  });
+
+  useCellJournal({
+    report: stormCells.report,
+    places: watchedForJournal,
+    enabled: settings.watch.enabled,
+    capture: journalFrame,
   });
   // The same site's own account of what is falling, read from Level III
   // beside the cells and tied to the site for the same reason.

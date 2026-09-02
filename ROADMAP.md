@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-008: Add a storm journal that writes its own first draft
-      Why: This is the item that earns a year of use. When a warning reaches a named place, when a cell passes within a few miles, or when the reader exports a picture, the app can open an entry with the time, the place, the hazard, and a thumbnail of the frame that was on screen, and leave room for a sentence in the reader's own words. Over a couple of seasons that becomes a personal weather history nothing else has, and it is the thing somebody would refuse to switch away from.
-      Evidence: `src/hooks/useAlertWatch.ts`; `src/hooks/useExport.ts`; `src/lib/export.ts`; `src/hooks/useStormCells.ts`; JOY-007; AUD-083
-      Touches: Journal entries and their storage; automatic draft triggers; a thumbnail budget; a journal surface with search by place, date, and hazard; export and deletion; workspace backup
-      Acceptance: An entry is created automatically for a defined and documented set of events, is always editable and deletable, and is never created for anything the reader did rather than anything the weather did; each entry keeps the source and observed time of what it depicts, so a picture in the journal can still be dated years later; thumbnails obey a byte budget with the whole journal bounded; the journal exports as readable files rather than as an opaque blob; nothing about it is notified, counted, or scored.
-      Complexity: XL
-
 - [ ] JOY-010: Say what was missed since the last time the app was open
       Why: Opening a weather app after four days away and getting a live map is a small missed opportunity. The log knows what happened at the named places while nobody was looking, and a short, dismissible summary of it is the most natural reason to come back.
       Evidence: JOY-007; JOY-006; `src/hooks/useAlertWatch.ts`; `src/components/ToastHost.tsx`
@@ -111,7 +104,7 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Acceptance: The card carries observed time, source credits, and the app name in every variant, and the caption cannot displace any of them; the reader's location is included only when they choose to include it; the picture is never presented as an official product and carries the same not-a-warning-source position the app takes; sizes are documented and the layout holds at each of them in both languages; the plain export stays exactly as it is, because evidence and a postcard are different jobs.
       Complexity: M
 
-The three worth starting with are JOY-007 and JOY-008 together, since the journal is what a year of use turns into, JOY-006, because naming a place is what makes the rest of it personal, and JOY-001, because every visual item here is unsafe to attempt before the token boundary is held by a test.
+The record, the named places and the token boundary are all in place now, so the rest of this section can be taken in any order.
 
 ## Research-Driven Additions
 

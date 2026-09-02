@@ -1,15 +1,22 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  filterJournal,
+  journalMarkdown,
   journalText,
+  journalThumbFileName,
   JOURNAL_MAX_MB,
   JOURNAL_RETENTION_DAYS,
+  JOURNAL_THUMB_MAX_BYTES,
   type JournalRow,
 } from "./journal";
 import { diagnosticsBlock } from "./diagnostics";
 
 const row = (over: Partial<JournalRow> = {}): JournalRow => ({
+  id: "one",
+  note: "",
+  thumb: "",
   at: "2026-09-02T13:05:00.000Z",
   place: "Casa",
   kind: "observation",
@@ -58,8 +65,166 @@ describe("the bounds the panel promises", () => {
     );
     const days = /RETENTION_DAYS: i64 = (\d+)/.exec(rust)?.[1];
     const megabytes = /MAX_BYTES: u64 = (\d+) \* 1024 \* 1024/.exec(rust)?.[1];
+    const thumb = /MAX_THUMB_BYTES: usize = (\d+) \* 1024/.exec(rust)?.[1];
     expect(Number(days)).toBe(JOURNAL_RETENTION_DAYS);
     expect(Number(megabytes)).toBe(JOURNAL_MAX_MB);
+    // The picture budget is checked on both sides, and only one of them is
+    // the one that counts. A thumbnail refused by Rust after passing here is
+    // a picture the reader was told was kept.
+    expect(Number(thumb) * 1024).toBe(JOURNAL_THUMB_MAX_BYTES);
+  });
+});
+
+describe("narrowing the record", () => {
+  const now = Date.parse("2026-09-02T13:05:00.000Z");
+  const rows = [
+    row({
+      id: "a",
+      place: "Casa",
+      kind: "alert",
+      text: "Severe Thunderstorm Warning",
+      observed: "2026-08-01T09:00:00.000Z",
+    }),
+    row({ id: "b", place: "Casa", text: "rain", note: "Hail on the roof" }),
+    row({ id: "c", place: "The cabin", text: "snow", source: "KBOI" }),
+  ];
+
+  it("matches a place, a word in a note, a kind and a date", () => {
+    const only = (over: Partial<Parameters<typeof filterJournal>[1]> = {}) =>
+      filterJournal(rows, { query: "", kind: "", days: 0, ...over }, now).map(
+        (found) => found.id,
+      );
+    expect(only()).toEqual(["a", "b", "c"]);
+    expect(only({ query: "cabin" })).toEqual(["c"]);
+    expect(only({ query: "KBOI" })).toEqual(["c"]);
+    // The note is the reader's own, so it is the first thing they would
+    // search for and the easiest one to leave out of a search.
+    expect(only({ query: "hail" })).toEqual(["b"]);
+    expect(only({ kind: "alert" })).toEqual(["a"]);
+    expect(only({ days: 7 })).toEqual(["b", "c"]);
+    expect(only({ days: 7, kind: "observation", query: "snow" })).toEqual([
+      "c",
+    ]);
+  });
+
+  it("keeps a row whose time it cannot read rather than hiding it", () => {
+    const stubborn = row({ id: "d", observed: "last Tuesday" });
+    const found = filterJournal(
+      [...rows, stubborn],
+      { ...{ query: "", kind: "", days: 1 } },
+      now,
+    );
+    expect(found.map((one) => one.id)).toContain("d");
+  });
+});
+
+describe("the record written for a person", () => {
+  it("carries every fact the row has, and the note last", () => {
+    const text = journalMarkdown(
+      [
+        row({
+          id: "a",
+          place: "Casa",
+          text: "rain",
+          note: "Woke us up.",
+          thumb: "kept.png",
+        }),
+      ],
+      "What the weather did",
+    );
+    expect(text).toContain("# What the weather did");
+    expect(text).toContain("Casa: rain");
+    expect(text).toContain("- Observed: 2026-09-02T13:00:00.000Z");
+    expect(text).toContain("- Source: KDAL");
+    expect(text).toContain(
+      "- Obtained: a station report near a place you watch",
+    );
+    // The picture is referenced by the name it is written under beside this
+    // file, not by the name it has inside the app's own folder, or the
+    // exported folder is a set of links to nothing.
+    expect(text).toContain("(openradar-journal-a.png)");
+    expect(text).not.toContain("kept.png");
+    expect(text.trimEnd().endsWith("Woke us up.")).toBe(true);
+  });
+
+  it("puts the newest first, the way the panel shows them", () => {
+    const text = journalMarkdown(
+      [row({ id: "a", text: "first" }), row({ id: "b", text: "second" })],
+      "Heading",
+    );
+    expect(text.indexOf("second")).toBeLessThan(text.indexOf("first"));
+  });
+
+  it("names a picture after the row it belongs to", () => {
+    expect(journalThumbFileName(row({ id: "abc" }))).toBe(
+      "openradar-journal-abc.png",
+    );
+  });
+});
+
+describe("what opens an entry", () => {
+  /**
+   * The three things, and only these three.
+   *
+   * All of them are the weather doing something at a place the reader named:
+   * a warning reaching one, the sky changing at one, and a tracked storm
+   * passing one. Nothing the reader does writes a row, which is the rule that
+   * keeps this a record of the weather rather than a record of a person, and
+   * it is the rule that is easiest to break by accident: an export, a panel
+   * opened, a search run, all of them feel like things worth remembering.
+   *
+   * A fourth caller fails this. That is the point: adding one means saying
+   * here what event it is, in a file the reviewer reads.
+   */
+  const WRITERS = [
+    "App.tsx",
+    "hooks/useAlertWatch.ts",
+    "hooks/useCellJournal.ts",
+  ];
+
+  const walk = (from: string): string[] => {
+    const found: string[] = [];
+    for (const entry of readdirSync(from)) {
+      const path = join(from, entry);
+      if (statSync(path).isDirectory()) {
+        found.push(...walk(path));
+        continue;
+      }
+      if (/\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry)) {
+        found.push(path);
+      }
+    }
+    return found;
+  };
+
+  it("is the weather, in three named places in the source", () => {
+    const root = join(import.meta.dirname, "..");
+    const writers = walk(root)
+      .filter((path) => {
+        const source = readFileSync(path, "utf8");
+        // The definition and the re-export do not count as writing a row.
+        return (
+          /appendJournalRow\(/.test(source) && !path.endsWith("lib\\journal.ts")
+        );
+      })
+      .map((path) => path.slice(root.length + 1).replace(/\\/g, "/"))
+      .sort();
+    expect(writers).toEqual(WRITERS.slice().sort());
+  });
+
+  it("is never something the reader did", () => {
+    const root = join(import.meta.dirname, "..");
+    for (const name of WRITERS) {
+      const source = readFileSync(join(root, ...name.split("/")), "utf8");
+      // A call reachable from a click, a change or a submit is a row about a
+      // person. Read off the source rather than reasoned about, because the
+      // reasoning is what goes stale.
+      for (const call of source.matchAll(
+        /on(?:Click|Change|Submit|Input|PointerDown|KeyDown)=\{([\s\S]{0,600}?)\n\s{0,10}\}/g,
+      )) {
+        expect(call[1], name).not.toContain("appendJournalRow");
+      }
+    }
   });
 });
 
