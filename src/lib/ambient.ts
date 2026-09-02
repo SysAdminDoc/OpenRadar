@@ -41,26 +41,43 @@ export const AMBIENT_STALE_MS = 90 * 60_000;
 /**
  * The present-weather groups of a raw METAR, as the code writes them.
  *
- * A group is an optional intensity or proximity, then two-letter codes run
- * together: `-RA`, `+SHRA`, `TSRA`, `VCSH`, `BR`, `FG`, `SN`, `FZRA`. They sit
- * between the visibility and the cloud groups, and the two things this has to
- * avoid reading as weather are the station identifier at the front and the
- * temperature and pressure groups at the back.
+ * A group is an optional intensity, then two-letter codes run together:
+ * `-RA`, `+SHRA`, `TSRA`, `BR`, `FG`, `SN`, `FZRA`. Four things in a report
+ * look like present weather and are not, and all four were being read as it:
+ *
+ * - The station identifier. A special is often published with a `METAR` or
+ *   `SPECI` word in front of it, so dropping the first token dropped the word
+ *   and left the id, and stations called KRAL and KSNA reported rain and snow
+ *   in clear air.
+ * - Anything after `TEMPO`, `BECMG` or `NOSIG`. That is a forecast of what
+ *   the weather is about to do, not what it is doing.
+ * - A `RE` group. `RERA` means the rain ended within the hour.
+ * - A `VC` group. That is weather in the vicinity rather than at the station,
+ *   and `VCTS` is not a thunderstorm overhead.
  *
  * Order matters. A thunderstorm with rain in it is a thunderstorm, and a
  * report of both snow and rain is drawn as the colder of the two, because
  * that is the one somebody is dressing for.
  */
 export function conditionFromMetar(raw: string): AmbientCondition | null {
-  // Everything after the report's own remarks section is prose, not code.
-  const body = raw.split(" RMK")[0].toUpperCase();
-  const groups = body.split(/\s+/).slice(1);
+  // Everything from the remarks on is prose. Split on the word rather than on
+  // one space before it: a report wrapped onto a second line puts a newline
+  // there, and the remarks of most automated stations carry `TSNO`, which
+  // says the thunderstorm sensor is out of service.
+  const body = raw.toUpperCase().split(/\s(?=RMK)/)[0];
+  const groups = body.split(/\s+/);
   let found: AmbientCondition | null = null;
-  for (const group of groups) {
+  for (const [at, group] of groups.entries()) {
+    // The station identifier, with or without the word in front of it.
+    if (at < 2 && /^(METAR|SPECI|COR|[A-Z]{4})$/.test(group)) continue;
+    // A trend group, and everything after it, is a forecast.
+    if (group === "TEMPO" || group === "BECMG" || group === "NOSIG") break;
     // A present-weather group is short and carries no digits. That one rule
     // keeps out the wind (`24015G25KT`), the visibility (`10SM`), the cloud
     // layers (`BKN035`), the temperature (`M02/M08`) and the altimeter.
     if (!/^[+-]?[A-Z]{2,8}$/.test(group)) continue;
+    // Recent weather is over, and vicinity weather is somewhere else.
+    if (group.startsWith("RE") || group.startsWith("VC")) continue;
     if (group.includes("TS")) return "thunder";
     if (/SN|SG|IC|PL|GS|GR/.test(group)) found = "snow";
     else if (/RA|DZ|UP/.test(group) && found !== "snow") found = "rain";

@@ -338,13 +338,24 @@ describe("why an alert was announced", () => {
 });
 
 describe("the test alert", () => {
+  const home: WatchPlace = { ...watch, id: "home", name: "Home", named: false };
+
   it("is harmless and carries its own reason", () => {
-    const alert = testWatchAlert(watch);
+    const alert = testWatchAlert(home);
     expect(alert.reason.event).toBe("test");
     expect(alert.distanceMiles).toBe(0);
     expect(alert.impact).toBe("");
     // It must never look like a real warning that has expired.
     expect(alert.expires).toBeNull();
+  });
+
+  it("names the place, so a reader can see the naming works", () => {
+    // The point of the test alert is that somebody can watch the real
+    // delivery path do its job. A reader who has called home something and
+    // sees a sentence with the name left out has not seen it work.
+    const named: WatchPlace = { ...home, name: "Casa", named: true };
+    expect(watchAlertBody(testWatchAlert(named))).toContain("At Casa");
+    expect(watchAlertBody(testWatchAlert(home))).not.toContain("At Home");
   });
 });
 

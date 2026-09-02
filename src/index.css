@@ -274,7 +274,8 @@ a {
 /* The weather where the reader watches, on the chrome and nowhere else.
    Painted as the command bar's own background image, which is the one place
    it cannot reach: a background does not overlap a control, cannot leave the
-   element, and the bar sits below the map stage rather than over it. The
+   element, and the bar shares an edge with the map stage rather than sitting
+   over it, whichever layout the window is in. The
    colour underneath is untouched, so the bar reads the same either way.
    `src/lib/ambient.ts` decides what is drawn and stops when the station's
    report is too old to speak for the present. */
@@ -290,12 +291,12 @@ a {
     rgba(173, 210, 255, 0) 1px 9px
   );
   background-size: auto 26px;
-  animation: ambient-fall 0.9s linear infinite;
+  animation: ambient-rain 0.9s linear infinite;
 }
 
 :root[data-ambient="thunder"] .command-bar {
   animation:
-    ambient-fall 0.7s linear infinite,
+    ambient-rain 0.7s linear infinite,
     ambient-flash 9s ease-in-out infinite;
 }
 
@@ -306,7 +307,7 @@ a {
     rgba(226, 240, 255, 0) 1.2px
   );
   background-size: 22px 22px;
-  animation: ambient-fall 5.5s linear infinite;
+  animation: ambient-snow 5.5s linear infinite;
 }
 
 /* Fog is the one that does not move, which is also what fog does. */
@@ -318,29 +319,44 @@ a {
   );
 }
 
-@keyframes ambient-fall {
+/* One tile of travel, not one box of it. A percentage resolves against the
+   element's height minus the tile, so the loop snapped mid-tile and ran at a
+   different speed in a tall window than in a short one. */
+@keyframes ambient-rain {
   from {
     background-position: 0 0;
   }
   to {
-    background-position: 0 100%;
+    background-position: 0 26px;
   }
 }
 
+@keyframes ambient-snow {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 22px;
+  }
+}
+
+/* Every edge rather than the top one. The bar is a bottom strip in one
+   layout and a left rail in the other, and each gives its border width to a
+   different side; a colour on a zero-width border shows nothing. */
 @keyframes ambient-flash {
   0%,
   92%,
   100% {
-    border-top-color: var(--border-strong);
+    border-color: var(--border-strong);
   }
   94% {
-    border-top-color: rgba(206, 226, 255, 0.85);
+    border-color: rgba(206, 226, 255, 0.85);
   }
   96% {
-    border-top-color: var(--border-strong);
+    border-color: var(--border-strong);
   }
   98% {
-    border-top-color: rgba(206, 226, 255, 0.6);
+    border-color: rgba(206, 226, 255, 0.6);
   }
 }
 

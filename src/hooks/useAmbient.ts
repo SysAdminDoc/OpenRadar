@@ -52,6 +52,16 @@ export function useAmbient(options: {
   /** Motion is the whole effect, so this decides whether it runs at all. */
   reducedMotion: boolean;
   /**
+   * False while the window is hidden.
+   *
+   * Two things depend on it. A hidden window has no reason to ask a service
+   * about the weather at a place nobody is looking at. And a hidden window
+   * gets no animation frames at all, so measuring one is measuring the
+   * browser rather than the effect: without this, minimising the app for ten
+   * seconds took the effect off for the rest of the session.
+   */
+  pageVisible: boolean;
+  /**
    * How long each frame-rate measurement runs.
    *
    * A budget rather than a detail: shorten it and the effect gives up sooner,
@@ -61,7 +71,13 @@ export function useAmbient(options: {
    */
   sampleMs?: number;
 }): AmbientState {
-  const { enabled, clock, reducedMotion, sampleMs = SAMPLE_MS } = options;
+  const {
+    enabled,
+    clock,
+    reducedMotion,
+    pageVisible,
+    sampleMs = SAMPLE_MS,
+  } = options;
   const [lon, lat] = options.center;
   const [report, setReport] = useState<{
     raw: string;
@@ -70,11 +86,19 @@ export function useAmbient(options: {
   } | null>(null);
   const [dropped, setDropped] = useState(false);
 
+  // Switching it off and on again is the one way back. Sticky within a run,
+  // because an effect that returns the moment the machine recovers is the
+  // same stutter over and over, but a reader who asks for it again has said
+  // something about it and gets it.
   useEffect(() => {
-    if (!enabled) {
-      setReport(null);
-      return;
-    }
+    if (!enabled) setDropped(false);
+  }, [enabled]);
+
+  useEffect(() => {
+    // Cleared rather than kept: the place has changed or the switch has gone
+    // off, and either way the last station's weather is not this place's.
+    setReport(null);
+    if (!enabled || !pageVisible) return;
     const controller = new AbortController();
     let live = true;
 
@@ -138,7 +162,7 @@ export function useAmbient(options: {
       controller.abort();
       window.clearInterval(timer);
     };
-  }, [enabled, lat, lon]);
+  }, [enabled, lat, lon, pageVisible]);
 
   const seen =
     enabled && !dropped && report
@@ -148,7 +172,10 @@ export function useAmbient(options: {
   // Measured rather than assumed. The effect is CSS and should cost nothing,
   // and "should" is not a budget: this counts frames while it is on screen
   // and takes it off if the window is not keeping up.
-  const running = Boolean(seen) && !reducedMotion;
+  // Nothing is animating in a window nobody can see, and a window nobody can
+  // see is handed no frames, so measuring one would take the effect off for
+  // the rest of the session over a minimise.
+  const running = Boolean(seen) && !reducedMotion && pageVisible;
   const strikesRef = useRef(0);
   useEffect(() => {
     if (!running) return;

@@ -383,10 +383,9 @@ export function stationSummary(
       haversineMiles({ lon: watch.center[0], lat: watch.center[1] }, site),
     ),
     home: watch.name?.trim() || translate("watch.home"),
-    age:
-      minutes < 1
-        ? translate("radar.justIn")
-        : translate("radar.minutesOld", { count: minutes }),
+    // The number, not the phrase. "Nothing new for 25 min old" is what
+    // reusing the age label produced.
+    count: minutes,
   });
 }
 

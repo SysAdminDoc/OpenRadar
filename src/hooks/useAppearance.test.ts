@@ -98,12 +98,63 @@ describe("what the workspace is wearing", () => {
     expect(css).not.toContain(AUTUMN_ACCENT);
   });
 
+  it("does not rebuild the theme when nothing about it moved", () => {
+    // A settings read rebuilds the record of declined occasions, and a camera
+    // move is a settings read, so depending on that object rewrote the theme
+    // element twice a second through a pan.
+    const settings: AppSettings = { ...DEFAULT_SETTINGS };
+    const { rerender } = renderHook(
+      ({ at }: { at: AppSettings }) => useAppearance(at, IN_AUTUMN, false),
+      { initialProps: { at: settings } },
+    );
+    const element = document.getElementById(THEME_STYLE_ID);
+    expect(element?.textContent).toContain(ACCENT);
+    // Writing the rule replaces the element's text, so watching for that is
+    // watching for the effect running again.
+    // Read with `takeRecords` rather than from the callback: the callback is
+    // a microtask and would not have run by the time this asserts.
+    const watcher = new MutationObserver(() => {});
+    watcher.observe(element!, { childList: true, characterData: true });
+    // The same settings, freshly normalised, which is what every camera save
+    // hands back: a new `declined` object holding exactly nothing.
+    rerender({
+      at: {
+        ...settings,
+        camera: { ...settings.camera, zoom: 6 },
+        occasions: { ...settings.occasions, declined: {} },
+      },
+    });
+    const rewrites = watcher.takeRecords().length;
+    watcher.disconnect();
+    expect(rewrites).toBe(0);
+    expect(document.getElementById(THEME_STYLE_ID)).toBe(element);
+  });
+
   it("follows the reader's own half of the world", () => {
     const south: AppSettings = {
       ...DEFAULT_SETTINGS,
-      watch: { ...DEFAULT_SETTINGS.watch, center: [172.64, -43.53] },
+      watch: {
+        ...DEFAULT_SETTINGS.watch,
+        enabled: true,
+        center: [172.64, -43.53],
+      },
     };
     const { result } = renderHook(() => useAppearance(south, IN_AUTUMN, false));
+    expect(result.current.occasion).toBe("spring");
+  });
+
+  it("asks where the map is looking when nothing is watched", () => {
+    // The watch's default centre is a place in Texas nobody chose, so a
+    // reader with no watched place and the map over Canterbury was being
+    // given the northern calendar for it.
+    const looking: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      watch: { ...DEFAULT_SETTINGS.watch, enabled: false },
+      camera: { ...DEFAULT_SETTINGS.camera, center: [172.64, -43.53] },
+    };
+    const { result } = renderHook(() =>
+      useAppearance(looking, IN_AUTUMN, false),
+    );
     expect(result.current.occasion).toBe("spring");
   });
 });

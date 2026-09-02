@@ -295,10 +295,13 @@ export default function App() {
   // command bar and there is no way for it to reach the map: see the
   // `[data-ambient]` rules in `index.css`.
   const ambient = useAmbient({
-    enabled: settings.ambient,
+    // The place has to be one the reader chose. Without a watch there is only
+    // the default centre, and a reader in Oslo does not want Dallas' rain.
+    enabled: settings.ambient && settings.watch.enabled,
     center: settings.watch.center,
     clock,
     reducedMotion,
+    pageVisible,
   });
   useEffect(() => {
     const root = document.documentElement;
@@ -318,6 +321,11 @@ export default function App() {
   useEffect(() => {
     const { occasion, year, showing } = appearance;
     if (!showing || !occasion) return;
+    // Not until the stored settings are in. Before they are, `settings` is
+    // the defaults, so writing to them here saved a file of defaults over the
+    // reader's own workspace and then gave the notice a second time once the
+    // real file arrived.
+    if (!hydrated) return;
     const current = settingsRef.current;
     if (current.occasions.seen[occasion] === year) return;
     applySettings({
@@ -342,7 +350,7 @@ export default function App() {
         });
       },
     });
-  }, [appearance, applySettings, pushToast, settingsRef]);
+  }, [appearance, applySettings, hydrated, pushToast, settingsRef]);
 
   // Take the map to a warning as it arrives, when the reader asked for that.
   //
@@ -1605,6 +1613,7 @@ export default function App() {
             onCopyDiagnostics={copyDiagnostics}
             hasWatchedPlace={settings.watch.enabled}
             onReset={actions.resetSettings}
+            ambient={ambient}
             onExportSettings={actions.exportSettings}
           />
         </Suspense>

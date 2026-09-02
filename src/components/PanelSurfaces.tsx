@@ -64,6 +64,8 @@ function observedAt(iso: string | undefined): number | null {
   return Number.isFinite(at) ? at : null;
 }
 
+import type { AmbientState } from "../hooks/useAmbient";
+
 interface PanelSurfacesProps {
   activeSurface: SurfaceId;
   productOpen: boolean;
@@ -144,6 +146,8 @@ interface PanelSurfacesProps {
   onWatchHere: () => void;
   onAddWatchPlace: () => void;
   onSendWatchTest: () => void;
+  /** What the chrome is drawing, so the switch can name its source. */
+  ambient: AmbientState;
   onOpenLogFolder: () => void;
   onCopyDiagnostics: (withPlace: boolean) => void;
   hasWatchedPlace: boolean;
@@ -277,6 +281,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onWatchHere={props.onWatchHere}
           onAddWatchPlace={props.onAddWatchPlace}
           onSendWatchTest={props.onSendWatchTest}
+          ambient={props.ambient}
           onReset={props.onReset}
           onExportSettings={props.onExportSettings}
           onClose={onClose}

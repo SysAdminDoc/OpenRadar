@@ -25,6 +25,7 @@ function panel(
         onWatchHere={vi.fn()}
         onAddWatchPlace={vi.fn()}
         onSendWatchTest={onSendWatchTest}
+        ambient={{ seen: null, dropped: false }}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}
         onClose={vi.fn()}

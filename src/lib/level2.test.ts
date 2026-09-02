@@ -259,7 +259,12 @@ describe("a station the reader is holding", () => {
     const quiet = collected + STATION_QUIET_AFTER_MINUTES * 60_000;
     const said = stationSummary(sweep, home, quiet);
     expect(said).not.toContain("publishing");
-    expect(said).toContain(`${STATION_QUIET_AFTER_MINUTES} min`);
+    // The number, in a sentence a person would write. Reusing the age label
+    // here produced "Nothing new for 25 min old."
+    expect(said).toContain(
+      `Nothing new for ${STATION_QUIET_AFTER_MINUTES} min.`,
+    );
+    expect(said).not.toContain("min old");
     // A minute earlier it is a slow scan rather than an outage.
     expect(stationSummary(sweep, home, quiet - 60_000)).toContain("publishing");
   });
