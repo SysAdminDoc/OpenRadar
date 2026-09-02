@@ -3820,6 +3820,194 @@ input[type="range"] {
    picture is a plain image, so the axes are drawn over it rather than into
    it, which is what lets the labels follow the reader's units and language
    without the slice being taken again. */
+/* The Skew-T and its hodograph.
+   Drawn as SVG in the panel rather than fetched as a picture, so it keeps its
+   edges at any size and follows the theme's own colours. The background lines
+   are deliberately faint: they are a coordinate system, and the two traces
+   over them are the data. */
+.skewt {
+  margin: 12px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skewt svg {
+  width: 100%;
+  height: auto;
+  background: var(--surface-raised);
+  border-radius: 10px;
+}
+
+.skewt figcaption,
+.hodograph figcaption {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.skewt-background path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.skewt-iso {
+  stroke: color-mix(in srgb, var(--border) 70%, transparent);
+  stroke-width: 0.6;
+}
+
+/* Freezing, which is the one isotherm anybody looks for. */
+.skewt-iso--zero {
+  stroke: color-mix(in srgb, #38bdf8 60%, transparent);
+  stroke-width: 1;
+}
+
+.skewt-pressure {
+  stroke: color-mix(in srgb, var(--border) 60%, transparent);
+  stroke-width: 0.6;
+  fill: none;
+}
+
+.skewt-dry {
+  stroke: color-mix(in srgb, #f59e0b 28%, transparent);
+  stroke-width: 0.6;
+  fill: none;
+}
+
+.skewt-moist {
+  stroke: color-mix(in srgb, #34d399 30%, transparent);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 3;
+  fill: none;
+}
+
+.skewt-mixing {
+  stroke: color-mix(in srgb, #22d3ee 30%, transparent);
+  stroke-width: 0.6;
+  stroke-dasharray: 1 4;
+  fill: none;
+}
+
+.skewt-temperature {
+  stroke: #f43f5e;
+  stroke-width: 2;
+  fill: none;
+  stroke-linejoin: round;
+}
+
+.skewt-dewpoint {
+  stroke: #22c55e;
+  stroke-width: 2;
+  fill: none;
+  stroke-linejoin: round;
+}
+
+/* The parcel, which is worked out here rather than measured, so it is drawn
+   as a dashed line: the two solid traces are what the balloon or the model
+   actually said. */
+.skewt-parcel {
+  stroke: var(--text);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+  fill: none;
+  opacity: 0.75;
+}
+
+.skewt-frame {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.skewt-label {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.hodograph {
+  margin: 6px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.hodograph svg {
+  width: 180px;
+  max-width: 100%;
+  height: auto;
+  background: var(--surface-raised);
+  border-radius: 10px;
+}
+
+.hodograph-ring,
+.hodograph-axis {
+  fill: none;
+  stroke: color-mix(in srgb, var(--border) 70%, transparent);
+  stroke-width: 0.8;
+}
+
+.hodograph-trace {
+  fill: none;
+  stroke: #a78bfa;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.hodograph-ground {
+  fill: var(--text);
+}
+
+.sounding-source {
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.sounding-source strong {
+  font-size: 12px;
+}
+
+.sounding-source small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* A forecast is not an observation, and the panel says so in a colour as
+   well as in words. */
+.sounding-source--forecast {
+  border-color: color-mix(in srgb, #a78bfa 50%, var(--border));
+}
+
+.sounding-numbers {
+  margin: 4px 0 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px 10px;
+}
+
+.sounding-numbers div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sounding-numbers dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sounding-numbers dd {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .cross-section {
   margin: 0 0 12px;
   display: flex;

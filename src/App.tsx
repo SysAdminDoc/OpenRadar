@@ -1457,6 +1457,7 @@ export default function App() {
             historyStormId={historyStorm?.id ?? null}
             replayId={replay?.id ?? null}
             sectionLine={sectionLine}
+            soundingAt={activeFrame?.time ?? Math.floor(clock / 1000)}
             mapReady={mapStatus === "ready"}
             health={health}
             log={logEntries}

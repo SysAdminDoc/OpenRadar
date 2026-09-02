@@ -38,6 +38,7 @@ export type SurfaceId =
   | "commands"
   | "route"
   | "guidance"
+  | "sounding"
   | "tides"
   | "map-type"
   | "layers"

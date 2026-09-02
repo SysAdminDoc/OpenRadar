@@ -271,6 +271,20 @@ const SURFACE_COMMANDS: Array<{
     keywords: ["model", "ensemble", "compare", "gfs", "ecmwf", "icon"],
   },
   {
+    surface: "sounding",
+    key: "panel.sounding",
+    extra: "keywords.sounding",
+    keywords: [
+      "skew-t",
+      "skewt",
+      "hodograph",
+      "raob",
+      "cape",
+      "shear",
+      "upper air",
+    ],
+  },
+  {
     surface: "tides",
     key: "panel.tides",
     extra: "keywords.tides",
