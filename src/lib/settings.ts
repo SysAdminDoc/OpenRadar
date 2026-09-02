@@ -385,6 +385,14 @@ export interface AppSettings {
    * the record already on the disk: nothing is fetched to answer it and
    * nothing is reconstructed. Off in one press, for good.
    */
+  /**
+   * Whether the weather at your places is written down at all.
+   *
+   * On, because the record is the thing a year of use turns into. Off stops
+   * every row being written from that moment; it does not delete what is
+   * already there, which is what the delete button is for.
+   */
+  journal: boolean;
   catchUp: boolean;
   /**
    * Whether the map holds anything to find.
@@ -506,6 +514,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   seenWelcome: false,
   seenReveal: false,
+  journal: true,
   catchUp: true,
   curiosities: true,
   curiositiesFound: [],
@@ -1436,6 +1445,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       : [],
     presets,
     incidentPacks: normalizeIncidentPacks(raw.incidentPacks),
+    journal: bool(raw.journal, DEFAULT_SETTINGS.journal),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
     curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),
     // Bounded and cleaned, because this comes off a file somebody can edit

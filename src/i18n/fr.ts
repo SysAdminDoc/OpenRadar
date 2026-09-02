@@ -1399,6 +1399,19 @@ export const fr: Catalogue = {
   "curiosity.found": "Les lieux que vous avez trouvés",
   "curiosity.foundEmpty": "Rien de trouvé pour l'instant.",
   "curiosity.forget": "Les oublier",
+  "figures.title": "Ce que garde votre relevé",
+  "figures.note":
+    "Compté à partir du fichier de cette machine, et de nulle part ailleurs. Rien ici n'est une série ni un objectif, et rien n'en est jamais annoncé.",
+  "figures.rows":
+    "{rows, plural, one {# ligne} other {# lignes}} : {alerts, plural, one {# alerte} other {# alertes}} et {observations, plural, one {# observation} other {# observations}}.",
+  "figures.places":
+    "Sur {places, plural, one {# lieu que vous avez nommé} other {# lieux que vous avez nommés}}.",
+  "figures.period":
+    "Du {from} au {to}, avec quelque chose de noté sur {days, plural, one {# jour} other {# jours}}.",
+  "figures.off": "Le relevé est désactivé, il n'y a donc rien à compter.",
+  "settings.journalWriting": "Noter ce que le temps fait chez vous",
+  "settings.journalWritingDetail":
+    "Le désactiver arrête les nouvelles lignes à partir de maintenant. Cela n'efface pas ce qui est déjà là ; c'est le bouton ci-dessous qui le fait.",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":

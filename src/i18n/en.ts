@@ -1360,6 +1360,19 @@ export const en = {
   "curiosity.found": "Places you have found",
   "curiosity.foundEmpty": "Nothing found yet.",
   "curiosity.forget": "Forget them",
+  "figures.title": "What your record holds",
+  "figures.note":
+    "Counted from the file on this machine, nowhere else. Nothing here is a streak or a target, and nothing about it is ever announced.",
+  "figures.rows":
+    "{rows, plural, one {# row} other {# rows}}: {alerts, plural, one {# warning} other {# warnings}} and {observations, plural, one {# observation} other {# observations}}.",
+  "figures.places":
+    "Across {places, plural, one {# place you named} other {# places you named}}.",
+  "figures.period":
+    "From {from} to {to}, with something written on {days, plural, one {# day} other {# days}}.",
+  "figures.off": "The record is switched off, so there is nothing to count.",
+  "settings.journalWriting": "Write down what the weather does at your places",
+  "settings.journalWritingDetail":
+    "Off stops new rows from this moment. It does not delete what is already there; the button below does that.",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

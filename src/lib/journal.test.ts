@@ -6,6 +6,8 @@ import {
   journalMarkdown,
   journalText,
   journalThumbFileName,
+  setJournalWriting,
+  appendJournalRow,
   JOURNAL_MAX_MB,
   JOURNAL_RETENTION_DAYS,
   JOURNAL_THUMB_MAX_BYTES,
@@ -172,6 +174,34 @@ describe("the record written for a person", () => {
     expect(journalThumbFileName(row({ id: "abc" }))).toBe(
       "openradar-journal-abc.png",
     );
+  });
+});
+
+describe("switching the record off", () => {
+  it("stops every row, whichever thing was writing it", async () => {
+    // The rule is about the file rather than about any one writer, so it is
+    // held in the one place a row can be written from. A fourth writer added
+    // later obeys it without having to remember it.
+    const source = readFileSync(
+      join(import.meta.dirname, "journal.ts"),
+      "utf8",
+    );
+    expect(source).toMatch(
+      /if \(!journalAvailable\(\) \|\| !writing\) return;/,
+    );
+    // And nothing else in the app reaches past it: a caller cannot set the
+    // flag back on its own way in.
+    setJournalWriting(false);
+    await appendJournalRow({
+      at: "2026-09-02T13:05:00.000Z",
+      place: "Casa",
+      kind: "observation",
+      source: "KDAL",
+      observed: "2026-09-02T13:00:00.000Z",
+      obtained: "a station report near a place you watch",
+      text: "rain",
+    });
+    setJournalWriting(true);
   });
 });
 

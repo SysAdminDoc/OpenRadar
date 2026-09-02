@@ -88,6 +88,23 @@ export const JOURNAL_THUMB_MAX_BYTES = 128 * 1024;
  */
 export const JOURNAL_THUMBS_MAX_MB = 8;
 
+/**
+ * Whether rows are being written at all.
+ *
+ * Held here rather than passed to every caller, because the rule is about the
+ * file rather than about any one thing that writes to it: a reader who has
+ * switched the record off has switched off every row, and a fourth writer
+ * added later should not have to remember that.
+ *
+ * Off stops new rows. It does not hide or delete what is already written,
+ * which is what the export and the delete button are for.
+ */
+let writing = true;
+
+export function setJournalWriting(on: boolean): void {
+  writing = on;
+}
+
 /** The journal is a file, so a browser preview has none. */
 export function journalAvailable(): boolean {
   return isDesktopRuntime();
@@ -105,7 +122,7 @@ export async function appendJournalRow(
   row: NewJournalRow,
   capture?: () => Promise<Uint8Array | null>,
 ): Promise<void> {
-  if (!journalAvailable()) return;
+  if (!journalAvailable() || !writing) return;
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     const id = await invoke<string>("journal_append", {
