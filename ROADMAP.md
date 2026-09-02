@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-012: Show honest usage and coverage figures without turning them into a game
-      Why: People do like knowing they have tracked ninety storms and watched two hundred hours of radar. They do not like being nudged about a streak, and a weather app that manufactures engagement pressure around severe weather would be genuinely distasteful. The figures belong in the journal as facts, with no reward layer on top.
-      Evidence: JOY-007; JOY-008; JOY-011
-      Touches: Journal statistics; the presentation; an explicit exclusion list
-      Acceptance: Figures are shown only where the reader has gone to look for them and are never notified, badged, or celebrated; there is no streak, no level, no comparison against a previous period framed as a target, and no prompt to return; every figure names the period it covers and the log it came from; turning the log off leaves the figures unavailable rather than estimated.
-      Complexity: S
-
 - [ ] JOY-013: Let a reader name a storm cell and keep the name as it moves
       Why: The tracking algorithm already decides which blobs are one storm across frames, and it labels them with identifiers that mean nothing to a person. Somebody watching a supercell for two hours will call it something. Letting the app carry that name across the loop, into the journal, and into an export is a very small change with a disproportionate hold on the person doing the watching.
       Evidence: `src/lib/cells.ts`; `src/hooks/useStormCells.ts`; `src/components/MapViewport.tsx`; JOY-008

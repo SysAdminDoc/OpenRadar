@@ -23,6 +23,7 @@ import {
   type JournalRow,
 } from "../lib/journal";
 import { saveFile } from "../lib/saveFile";
+import { figureLines, figuresFrom } from "../lib/figures";
 
 /**
  * The reader's own record, in plain form, with the buttons that matter.
@@ -55,12 +56,17 @@ const SPANS = [0, 7, 30, 365] as const;
 export function JournalSection({
   /** Ticks once a minute, which is how the list notices a row that arrived. */
   clock,
+  /** False when the reader has stopped the record being written to. */
+  writing,
+  onWriting,
   onSaved,
   onFailed,
   onCleared,
   onRemoved,
 }: {
   clock: number;
+  writing: boolean;
+  onWriting: (on: boolean) => void;
   onSaved: (path: string | null) => void;
   onFailed: (why: string) => void;
   /**
@@ -97,6 +103,11 @@ export function JournalSection({
     () => filterJournal(rows, filter, clock),
     [rows, filter, clock],
   );
+
+  // Counted off the whole record rather than off what a filter has left, so
+  // narrowing the list to look at one place does not silently change what
+  // the figures say.
+  const figures = useMemo(() => figuresFrom(rows), [rows]);
 
   // One object URL per picture, asked for once and let go when the panel
   // closes. A picture the budget has taken back simply does not appear; the
@@ -186,6 +197,38 @@ export function JournalSection({
         })}
       </p>
       {where ? <p className="source-note">{where}</p> : null}
+
+      <label className="toggle-row toggle-row--plain">
+        <span>
+          <strong>{t("settings.journalWriting")}</strong>
+          <small>{t("settings.journalWritingDetail")}</small>
+        </span>
+        <input
+          type="checkbox"
+          checked={writing}
+          onChange={(event) => onWriting(event.target.checked)}
+        />
+        <i className="toggle-track" aria-hidden="true" />
+      </label>
+
+      <div className="settings-section__title">
+        <span>{t("figures.title")}</span>
+      </div>
+      <p className="source-note">{t("figures.note")}</p>
+      {figures && writing ? (
+        <ul className="recap-lines" data-journal-figures>
+          {figureLines(figures).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : (
+        // Unavailable rather than estimated. A guess about somebody's own
+        // weather is worth less than nothing, and a row of noughts reads as
+        // a quiet year rather than as a record that was switched off.
+        <p className="source-note">
+          {writing ? t("journal.empty") : t("figures.off")}
+        </p>
+      )}
 
       {rows.length ? (
         <div className="journal-filter">

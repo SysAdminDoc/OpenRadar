@@ -18,7 +18,12 @@ import { CuriosityCard } from "./components/CuriosityCard";
 import { useCuriosities } from "./hooks/useCuriosities";
 import type { Curiosity } from "./lib/curiosities";
 import { useAmbient } from "./hooks/useAmbient";
-import { appendJournalRow, journalRows, thumbnailFrom } from "./lib/journal";
+import {
+  appendJournalRow,
+  journalRows,
+  setJournalWriting,
+  thumbnailFrom,
+} from "./lib/journal";
 import { catchUpFrom, type CatchUp } from "./lib/catchUp";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
@@ -294,6 +299,13 @@ export default function App() {
   // The frame that was on screen, small, for whatever the record writes down
   // next. Null when there is no map yet or the picture comes back over its
   // budget, which is a row without a picture rather than no row.
+  // The record's own switch, told to the module that writes it rather than
+  // passed to each of the three things that write rows: the rule is about the
+  // file, and a fourth writer added later should not have to remember it.
+  useEffect(() => {
+    setJournalWriting(settings.journal);
+  }, [settings.journal]);
+
   const journalFrame = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
     return canvas ? await thumbnailFrom(canvas) : null;

@@ -1031,6 +1031,8 @@ export function SettingsPanel({
 
       <JournalSection
         clock={clock}
+        writing={settings.journal}
+        onWriting={(journal) => onSettings({ ...settings, journal })}
         onSaved={(path) => onJournalSaved(path)}
         onFailed={(why) => onJournalFailed(why)}
         onCleared={onJournalCleared}

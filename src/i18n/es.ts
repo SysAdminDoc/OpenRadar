@@ -1382,6 +1382,20 @@ export const es: Catalogue = {
   "curiosity.found": "Lugares que has encontrado",
   "curiosity.foundEmpty": "Todavía no has encontrado ninguno.",
   "curiosity.forget": "Olvidarlos",
+  "figures.title": "Lo que guarda tu registro",
+  "figures.note":
+    "Contado del archivo de esta máquina, de ningún otro sitio. Nada de esto es una racha ni una meta, y nada de esto se anuncia nunca.",
+  "figures.rows":
+    "{rows, plural, one {# fila} other {# filas}}: {alerts, plural, one {# aviso} other {# avisos}} y {observations, plural, one {# observación} other {# observaciones}}.",
+  "figures.places":
+    "En {places, plural, one {# lugar que nombraste} other {# lugares que nombraste}}.",
+  "figures.period":
+    "Del {from} al {to}, con algo escrito en {days, plural, one {# día} other {# días}}.",
+  "figures.off":
+    "El registro está desactivado, así que no hay nada que contar.",
+  "settings.journalWriting": "Anotar lo que hace el tiempo en tus lugares",
+  "settings.journalWritingDetail":
+    "Desactivarlo detiene las filas nuevas desde este momento. No borra lo que ya está; para eso está el botón de abajo.",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":
