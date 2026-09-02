@@ -2,6 +2,12 @@
 
 ## OpenRadar v0.8.0
 
+- The colour you choose reaches the rest of the app. The Live button, the chip that says the map is current, the glow behind the startup screen and the highlight on selected text were all a fixed cyan, so the calmer look left the loudest control in the workspace shouting, and a seasonal pack or an accent of your own stopped at their edges. The dark square on a filled button follows the theme too, instead of being a single dark colour that lost its contrast on the light theme's darker accent.
+
+- The map credits are readable over the light map. They sat straight on it in near-white with nothing behind them. The readout beside them was given a light counterpart when the light theme arrived and these were missed.
+
+- The retry button on a failed route is the app's button rather than the browser's grey default, and the line confirming an offline map pack was saved is dark enough to read on its own tint.
+
 - Big files no longer freeze the window on their way out. A saved loop, the picture written to your desktop and each thumbnail kept beside a record entry were all being spelled out as text before they were handed over, which costs three and a half characters for every byte and happens on the thread drawing the map. A sixteen megabyte loop spent half a second building a fifty-seven megabyte string, and the ceiling is four times that. They go over as bytes now.
 
 - The watch says when it has stopped working. It checks every forty-five seconds whether or not you are looking at the map, and it is the thing you are relying on while you are asleep. When those checks failed, because the network went, or a hotel portal got in the way, or the service had a bad hour, it wrote a line in a log nobody reads and carried on saying it was watching. Settings now shows when a check last came back, and after three failures in a row it says so plainly, once, in the panel and in a notification and under the tray icon. It says so again when it recovers. The icon does not change colour for it: the colour means weather, and this is the app having trouble.

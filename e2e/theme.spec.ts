@@ -268,3 +268,40 @@ test("the reader's own accent reaches the command rail", async ({ page }) => {
     `${rail.ink} on ${rail.ground}`,
   ).toBeGreaterThanOrEqual(4.5);
 });
+
+test("the map credits are readable over the light basemap", async ({
+  page,
+}) => {
+  // The basemap follows the theme, so in light these three links sit on a
+  // light map. They were near-white with nothing behind them, at about
+  // 1.03:1. The readout beside them got a light counterpart when the theme
+  // was added and this did not.
+  await startWith(page, null, "light");
+  const credits = page.locator(".source-attribution");
+  await expect(credits).toBeVisible();
+
+  const paint = await credits.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { ink: style.color, ground: style.backgroundColor };
+  });
+  const channels = (colour: string) =>
+    (colour.match(/[\d.]+/g) ?? []).map(Number);
+  const luminance = (colour: string) => {
+    const [red, green, blue] = channels(colour);
+    const part = (value: number) => {
+      const ratio = value / 255;
+      return ratio <= 0.03928
+        ? ratio / 12.92
+        : ((ratio + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * part(red) + 0.7152 * part(green) + 0.0722 * part(blue);
+  };
+
+  // Dark ink, and something behind it: over a map the ground is the only
+  // thing that makes the contrast a promise rather than a hope.
+  expect(luminance(paint.ink)).toBeLessThan(0.2);
+  expect(channels(paint.ground)[3] ?? 1).toBeGreaterThan(0.5);
+  const light = Math.max(luminance(paint.ink), luminance(paint.ground));
+  const dark = Math.min(luminance(paint.ink), luminance(paint.ground));
+  expect((light + 0.05) / (dark + 0.05)).toBeGreaterThanOrEqual(4.5);
+});

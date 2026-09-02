@@ -1,3 +1,10 @@
+/* The page itself. Every colour lives in the palette further down, which is
+   the block that actually wins: this one carried a second copy of all
+   nineteen with different numbers in it, so anybody editing a colour here
+   changed nothing on screen and every contrast figure had to be read off the
+   other one. The root's own ink and ground are written as the tokens rather
+   than as literals for the same reason: they were the palette's old values,
+   two revisions behind the tokens beside them. */
 :root {
   /* Everything in this stylesheet is sized in pixels, so a root font size
      would move nothing. Zoom scales the whole workspace, layout and all,
@@ -9,52 +16,12 @@
      These are the sizes to lay out against. */
   --screen-height: calc(100vh / var(--text-scale));
   --screen-width: calc(100vw / var(--text-scale));
+  --heading-weight: 750;
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  color: #e7edf7;
-  background: #090b10;
+  color: var(--text);
+  background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #090b10;
-  --surface: rgba(17, 21, 30, 0.94);
-  --surface-solid: #11151e;
-  --surface-raised: #181e29;
-  --surface-hover: #202837;
-  --border: rgba(173, 187, 211, 0.2);
-  --border-strong: rgba(173, 187, 211, 0.34);
-  --text: #e7edf7;
-  --muted: #9da9bb;
-  --subtle: #6f7b8d;
-  --accent: #6dd5fa;
-  --accent-strong: #38bdf8;
-  --accent-soft: rgba(56, 189, 248, 0.16);
-  --green: #4ade80;
-  --amber: #fbbf24;
-  --danger: #fb7185;
-  --shadow: 0 18px 45px rgba(0, 0, 0, 0.36);
-  --heading-weight: 750;
-  --command-height: 50px;
-}
-
-:root[data-theme="light"] {
-  color: #172033;
-  background: #eef2f6;
-  --bg: #eef2f6;
-  --surface: rgba(248, 250, 252, 0.96);
-  --surface-solid: #f8fafc;
-  --surface-raised: #ffffff;
-  --surface-hover: #edf3f8;
-  --border: rgba(36, 51, 71, 0.17);
-  --border-strong: rgba(36, 51, 71, 0.29);
-  --text: #172033;
-  --muted: #4e5b6e;
-  --subtle: #738093;
-  --accent: #0369a1;
-  --accent-strong: #0284c7;
-  --accent-soft: rgba(2, 132, 199, 0.12);
-  --green: #168447;
-  --amber: #a16207;
-  --danger: #be123c;
-  --shadow: 0 18px 45px rgba(34, 48, 66, 0.2);
 }
 
 * {
@@ -108,8 +75,8 @@ a {
 }
 
 ::selection {
-  color: #071019;
-  background: #7dd3fc;
+  color: var(--accent-ink);
+  background: var(--accent);
 }
 
 .app-shell {
@@ -652,7 +619,7 @@ a {
   width: 37px;
   height: 37px;
   place-items: center;
-  color: #071019;
+  color: var(--accent-ink);
   background: var(--accent);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 7px;
@@ -1184,6 +1151,22 @@ input[type="range"] {
 
 .source-attribution a:hover {
   color: #fff;
+}
+
+/* The basemap under the light theme is a light one, and these three links sit
+   straight on it with no backing at about 1.03:1. The readout beside them got
+   its light counterpart and this did not, which is why it went unnoticed:
+   there is nothing behind the words to make the problem visible in a
+   screenshot of the dark theme. */
+:root[data-theme="light"] .source-attribution {
+  padding: 2px 6px;
+  color: #172033;
+  background: rgba(248, 250, 252, 0.72);
+  border-radius: 4px;
+}
+
+:root[data-theme="light"] .source-attribution a:hover {
+  color: #000;
 }
 
 .map-watermark {
@@ -1798,7 +1781,7 @@ input[type="range"] {
 }
 
 .incident-pack-notice {
-  color: var(--green);
+  color: var(--green-strong);
   background: color-mix(in srgb, var(--green) 10%, transparent);
 }
 
@@ -2457,7 +2440,10 @@ input[type="range"] {
 
 .toast__action {
   padding: 6px 8px;
-  color: var(--accent);
+  /* The strong accent, not the plain one: the plain accent on its own tint is
+     3.91:1 in the light theme, and undo is the only way back from something
+     the reader did not mean to do. */
+  color: var(--accent-strong);
   font-size: 10px;
   font-weight: 700;
   background: var(--accent-soft);
@@ -2485,7 +2471,7 @@ input[type="range"] {
   background:
     radial-gradient(
       circle at 50% 42%,
-      rgba(56, 189, 248, 0.15),
+      color-mix(in srgb, var(--accent) 15%, transparent),
       transparent 32%
     ),
     var(--bg);
@@ -2531,7 +2517,7 @@ input[type="range"] {
 .fatal-error button {
   min-height: 38px;
   padding: 0 15px;
-  color: #071019;
+  color: var(--accent-ink);
   font-weight: 700;
   background: var(--accent);
   border: 0;
@@ -3480,7 +3466,17 @@ input[type="range"] {
   --accent: #4bc0ff;
   --accent-strong: #2aa8ee;
   --accent-soft: rgba(75, 192, 255, 0.12);
+  /* What goes on top of a filled accent. The dark theme's accent is a light
+     blue and the light theme's is a dark one, so a single hardcoded dark ink
+     was 4.04:1 on the fatal screen's button in light, 4.00 on the play icon
+     and 2.94 under the midwinter pack. */
+  --accent-ink: #06121a;
   --green: #48d879;
+  /* Green text on a green tint, which is 3.99:1 in the light theme: the ink
+     and the ground move together, so thinning the tint does not help and the
+     ink has to come down. The dark theme already clears it at 8.59, so this
+     is the same colour there. */
+  --green-strong: #48d879;
   --amber: #f7c948;
   --danger: #ff5f6d;
   /* Which way a forecast moved since the last run. Chrome around a number,
@@ -3509,10 +3505,16 @@ input[type="range"] {
   --accent-strong: #036aa5;
   --accent-soft: rgba(3, 121, 184, 0.11);
   --green: #168447;
+  --green-strong: #0d6b38;
   --amber: #9a6500;
   --danger: #bf173c;
   --delta-up: #b4501e;
   --delta-down: #1d6f9c;
+  --accent-ink: #ffffff;
+  /* Softer and further from black than the dark theme's, which is what a
+     shadow on a light ground has to be. Carried over from the block that
+     used to sit at the top of this file. */
+  --shadow: 0 18px 45px rgba(34, 48, 66, 0.2);
 }
 
 .map-stage {
@@ -3630,9 +3632,9 @@ input[type="range"] {
 }
 
 .top-status__health .live-chip.is-live {
-  color: #042f2e;
-  background: #6ee7b7;
-  border-color: #6ee7b7;
+  color: var(--accent-ink);
+  background: var(--green);
+  border-color: var(--green);
 }
 
 .command-bar {
@@ -3817,7 +3819,7 @@ input[type="range"] {
 .play-button {
   width: 40px;
   height: 40px;
-  color: #06121a;
+  color: var(--accent-ink);
   background: var(--accent);
   border: 1px solid color-mix(in srgb, white 24%, transparent);
   border-radius: 8px;
@@ -3833,24 +3835,29 @@ input[type="range"] {
   font-size: 10px;
 }
 
+/* The loudest control in the workspace, and it was a fixed cyan: the calmer
+   look turns the accent down and this stayed shouting, a reader's own accent
+   stopped at its edge, and so did every seasonal pack. */
 .timeline-live-button {
   min-width: 68px;
   height: 38px;
   padding: 0 14px;
-  color: #001018;
+  color: var(--accent-ink);
   font-size: 12px;
   font-weight: 750;
   text-transform: capitalize;
-  background: #67e8f9;
-  border: 1px solid #67e8f9;
+  background: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 7px;
   cursor: pointer;
 }
 
+/* Already live, which is a state rather than an accent: green says "this is
+   the present" the way the chip in the header does. */
 .timeline-live-button:disabled {
-  color: #042f2e;
-  background: #6ee7b7;
-  border: 1px solid #6ee7b7;
+  color: var(--accent-ink);
+  background: var(--green);
+  border: 1px solid var(--green);
   opacity: 1;
 }
 

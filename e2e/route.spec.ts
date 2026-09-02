@@ -133,7 +133,13 @@ test("offers the straight line when the road router refuses", async ({
   await expect(failure).toBeVisible();
   await expect(failure).toContainText("429");
 
-  await failure.getByRole("button", { name: "Use a straight line" }).click();
+  // The app's own button, not the browser's. Every other classless button in
+  // a panel is covered by an ancestor rule and this one was not, so the error
+  // state of Route showed a default grey button in the middle of the
+  // workspace.
+  const offer = failure.getByRole("button", { name: "Use a straight line" });
+  await expect(offer).toHaveClass(/secondary-button/);
+  await offer.click();
 
   // The drive is planned, and the panel says what it is looking at.
   await expect(

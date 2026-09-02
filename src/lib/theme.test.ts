@@ -417,6 +417,28 @@ describe("the stylesheet", () => {
     return found;
   }
 
+  it("writes each colour down once per theme", () => {
+    // The palette existed twice, at the top of the file and again two
+    // thousand lines further down, with different numbers in each: nineteen
+    // colours where `--surface-hover` was #202837 in one and #18232f in the
+    // other. The later pair is what shipped, so anybody editing the first one
+    // changed nothing on screen and every contrast figure had to be read off
+    // the second.
+    for (const selector of [":root {", ':root[data-theme="light"] {']) {
+      const seen = new Map<string, number>();
+      let at = css.indexOf(`\n${selector}`);
+      while (at > -1) {
+        const body = css.slice(at, css.indexOf("\n}", at));
+        for (const match of body.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
+          seen.set(match[1], (seen.get(match[1]) ?? 0) + 1);
+        }
+        at = css.indexOf(`\n${selector}`, at + selector.length);
+      }
+      const twice = [...seen].filter(([, count]) => count > 1).map(([n]) => n);
+      expect(twice, selector).toEqual([]);
+    }
+  });
+
   it("gives the dark theme a value for everything the light theme sets", () => {
     // A guard rather than a regression test: this was already true when it
     // was written, and it is here so that it stays true. The light block is
