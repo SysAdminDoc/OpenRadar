@@ -46,8 +46,7 @@ pub fn init(dir: &std::path::Path) {
         log::warn!("OpenRadar has nowhere to write a wallpaper: {error}");
         return;
     }
-    *TARGET.lock().unwrap_or_else(|held| held.into_inner()) =
-        Some(dir.join("wallpaper.png"));
+    *TARGET.lock().unwrap_or_else(|held| held.into_inner()) = Some(dir.join("wallpaper.png"));
 }
 
 /// Where the note about the reader's own wallpaper is kept.
@@ -83,10 +82,7 @@ pub fn wallpaper_set(bytes: Vec<u8>) -> Result<(), String> {
 /// The seam exists for the tests. Without it, running them on Windows sets
 /// the desktop of whoever ran them, which is how the suite once wiped its
 /// own author's wallpaper.
-fn set_with(
-    bytes: Vec<u8>,
-    apply_to: impl Fn(&str) -> Result<(), String>,
-) -> Result<(), String> {
+fn set_with(bytes: Vec<u8>, apply_to: impl Fn(&str) -> Result<(), String>) -> Result<(), String> {
     // Asked before the file is written, not after. Writing the picture and
     // then failing to apply it left a machine that cannot do this rewriting
     // a megabyte of PNG every fifteen minutes for nothing.
@@ -119,9 +115,7 @@ pub fn wallpaper_restore() -> Result<(), String> {
     restore_with(apply)
 }
 
-fn restore_with(
-    apply_to: impl Fn(&str) -> Result<(), String>,
-) -> Result<(), String> {
+fn restore_with(apply_to: impl Fn(&str) -> Result<(), String>) -> Result<(), String> {
     let held = {
         let mut held = PREVIOUS.lock().unwrap_or_else(|held| held.into_inner());
         if held.is_none() {
@@ -210,12 +204,7 @@ fn current() -> Result<Option<String>, String> {
     // per monitor and this only has to put one thing back; the value under
     // `Control Panel\Desktop` is what the shell itself restores from.
     let output = std::process::Command::new("reg")
-        .args([
-            "query",
-            r"HKCU\Control Panel\Desktop",
-            "/v",
-            "Wallpaper",
-        ])
+        .args(["query", r"HKCU\Control Panel\Desktop", "/v", "Wallpaper"])
         .output()
         .map_err(|error| error.to_string())?;
     Ok(parse_wallpaper(&String::from_utf8_lossy(&output.stdout)))
@@ -511,7 +500,10 @@ mod tests {
             Ok(())
         })
         .unwrap();
-        assert_eq!(asked.into_inner().unwrap_or_else(|held| held.into_inner()), 0);
+        assert_eq!(
+            asked.into_inner().unwrap_or_else(|held| held.into_inner()),
+            0
+        );
     }
 
     /// A name this machine will certainly answer to, whichever it is.
@@ -556,7 +548,10 @@ mod tests {
     fn an_empty_value_and_no_value_both_read_as_nothing() {
         let empty = "    Wallpaper    REG_SZ    \r\n";
         assert_eq!(parse_wallpaper(empty), None);
-        assert_eq!(parse_wallpaper("ERROR: The system was unable to find"), None);
+        assert_eq!(
+            parse_wallpaper("ERROR: The system was unable to find"),
+            None
+        );
         assert_eq!(parse_wallpaper(""), None);
     }
 
@@ -567,7 +562,10 @@ mod tests {
         let odd = expand("%NOTHING_ANSWERS_TO_THIS_NAME%/dog.jpg");
         assert_eq!(odd, "%NOTHING_ANSWERS_TO_THIS_NAME%/dog.jpg");
         assert_eq!(expand("100% cotton"), "100% cotton");
-        assert_eq!(expand(r"C:\Users\somebody\dog.jpg"), r"C:\Users\somebody\dog.jpg");
+        assert_eq!(
+            expand(r"C:\Users\somebody\dog.jpg"),
+            r"C:\Users\somebody\dog.jpg"
+        );
         assert_eq!(expand(""), "");
     }
 
@@ -586,7 +584,10 @@ mod tests {
             .lock()
             .unwrap_or_else(|inner| inner.into_inner())
             .clone();
-        assert_eq!(recorded, None, "nothing may be claimed when nothing is kept");
+        assert_eq!(
+            recorded, None,
+            "nothing may be claimed when nothing is kept"
+        );
         // And with nothing recorded, restore asks the desktop for nothing
         // rather than clearing it.
         let asked = Mutex::new(0usize);
