@@ -30,6 +30,16 @@ export interface RestoredWorkspace extends RestoredSettings {
   overlayFiles: WorkspaceOverlayFile[];
 }
 
+/**
+ * A backup is a file somebody hands to somebody else.
+ *
+ * Which is why the chosen alert sound's path does not travel in it: it is an
+ * absolute path on the machine that wrote the file, `C:\\Users\\<their
+ * name>\\...`, and it says who they are and how their disk is laid out to
+ * anybody they send their settings to. It is useless at the other end
+ * regardless, because the file it names is not there. It stays in
+ * `settings.json`, where it belongs.
+ */
 export function createWorkspaceBackup(
   settings: AppSettings,
   overlayFiles: WorkspaceOverlayFile[],
@@ -37,7 +47,7 @@ export function createWorkspaceBackup(
   return {
     type: "OpenRadarWorkspace",
     backupVersion: WORKSPACE_BACKUP_VERSION,
-    settings,
+    settings: { ...settings, alertSoundPath: null },
     overlayFiles,
   };
 }
@@ -122,6 +132,10 @@ export function restoreWorkspace(value: unknown): RestoredWorkspace {
     throw new Error("workspace.invalid");
   }
   const restored = restoreSettings(isEnvelope ? raw.settings : value);
+  // And ignored on the way back in, so a backup written by an older build, or
+  // edited by hand, cannot point this machine's sound setting at a path from
+  // somebody else's disk.
+  restored.settings = { ...restored.settings, alertSoundPath: null };
   const unread = [...restored.unread];
   let overlayFiles: WorkspaceOverlayFile[] = [];
 

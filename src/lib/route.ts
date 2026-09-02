@@ -65,7 +65,7 @@ export interface RouteShape {
 }
 
 /** What a car averages door to door, near enough to time a straight line by. */
-const ESTIMATED_MPH = 55;
+export const ESTIMATED_MPH = 55;
 
 /**
  * The line between two places, for when the router refuses.

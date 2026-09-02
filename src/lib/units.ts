@@ -325,3 +325,9 @@ export function formatAge(minutes: number): string {
   if (hours < 48) return translate("age.hours", { count: hours });
   return translate("age.days", { count: Math.round(hours / 24) });
 }
+
+/** A speed given in miles an hour, said in whichever units are asked for. */
+export function formatSpeedFromMph(mph: number): string {
+  const shown = units === "metric" ? mph * MILES_TO_KM : mph;
+  return `${formatNumber(Math.round(shown))} ${speedUnit()}`;
+}
