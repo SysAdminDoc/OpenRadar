@@ -126,11 +126,26 @@ pub fn write(
     // (id, location, count, value); a location of 0 means the value is the
     // fourth field itself rather than an offset into another tag.
     let geo_keys = Value::Short(vec![
-        1, 1, 1, 4, // header: 4 keys follow
-        1024, 0, 1, 2, // GTModelType: geographic
-        1025, 0, 1, 1, // GTRasterType: pixel is area
-        2048, 0, 1, 4326, // GeographicType: WGS 84
-        2049, GEO_ASCII_PARAMS, 7, 0, // GeogCitation: the ascii tag's first 7 bytes
+        1,
+        1,
+        1,
+        4, // header: 4 keys follow
+        1024,
+        0,
+        1,
+        2, // GTModelType: geographic
+        1025,
+        0,
+        1,
+        1, // GTRasterType: pixel is area
+        2048,
+        0,
+        1,
+        4326, // GeographicType: WGS 84
+        2049,
+        GEO_ASCII_PARAMS,
+        7,
+        0, // GeogCitation: the ascii tag's first 7 bytes
     ]);
 
     let tags: Vec<(u16, Value)> = vec![
@@ -381,7 +396,10 @@ mod tests {
             if length > 4 {
                 let at = u32::from_le_bytes(*inline) as usize;
                 assert_eq!(at % 2, 0, "tag {tag} starts on an even offset");
-                assert!(at + length <= file.len(), "tag {tag} points inside the file");
+                assert!(
+                    at + length <= file.len(),
+                    "tag {tag} points inside the file"
+                );
             }
         }
     }

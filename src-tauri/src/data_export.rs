@@ -286,9 +286,15 @@ fn polar_csv_capped(
     };
     header("OpenRadar radar data export".to_string());
     header("format: openradar-polar-csv/1".to_string());
-    header(format!("station: {} ({})", values.station, values.site_name));
+    header(format!(
+        "station: {} ({})",
+        values.station, values.site_name
+    ));
     header(format!("radar: {}", values.radar));
-    header(format!("product: {} [{}]", values.product, values.product_id));
+    header(format!(
+        "product: {} [{}]",
+        values.product, values.product_id
+    ));
     header(format!("unit: {}", values.unit));
     header(format!("elevation_degrees: {elevation:.2}"));
     header(format!(
@@ -347,13 +353,8 @@ fn polar_csv_capped(
                     field.azimuth_count() * field.gate_count(),
                 ));
             }
-            let at = coordinates.gate_location(
-                *azimuth,
-                elevation,
-                gate_index,
-                first_km,
-                interval_km,
-            );
+            let at =
+                coordinates.gate_location(*azimuth, elevation, gate_index, first_km, interval_km);
             let range_km = first_km + gate_index as f64 * interval_km;
             let reading = match status {
                 GateStatus::Valid => format!("{value}"),
@@ -501,14 +502,7 @@ pub async fn export_sweep_data(
 
     let provenance = polar_provenance(&values, written_at, source);
 
-    write_pair(
-        &folder,
-        name,
-        csv.as_bytes(),
-        provenance,
-        written,
-        omitted,
-    )
+    write_pair(&folder, name, csv.as_bytes(), provenance, written, omitted)
 }
 
 /// What the sidecar says about one sweep.
@@ -730,16 +724,8 @@ mod tests {
     /// read line by line and checked against what went in.
     fn values() -> level2::SweepValues {
         let azimuths = vec![0.0f32, 90.0, 180.0];
-        let mut field = SweepField::new_empty(
-            "Reflectivity",
-            "dBZ",
-            0.5,
-            azimuths,
-            1.0,
-            2.125,
-            0.25,
-            4,
-        );
+        let mut field =
+            SweepField::new_empty("Reflectivity", "dBZ", 0.5, azimuths, 1.0, 2.125, 0.25, 4);
         field.set(0, 0, 32.5, GateStatus::Valid);
         field.set(0, 1, -8.25, GateStatus::Valid);
         field.set(1, 2, 0.0, GateStatus::RangeFolded);
@@ -837,7 +823,10 @@ mod tests {
         let (csv, _, _) = polar_csv(&values, at).expect("a csv");
         let derivation = header_of(&csv, "derivation");
         assert!(derivation.contains("unfolded"), "{derivation}");
-        assert!(derivation.contains("12.0 m/s from 240 degrees"), "{derivation}");
+        assert!(
+            derivation.contains("12.0 m/s from 240 degrees"),
+            "{derivation}"
+        );
     }
 
     #[test]
@@ -866,16 +855,12 @@ mod tests {
         // Numbers with nothing beside them saying what they are is the one
         // outcome this module exists to prevent, and the page has already
         // been told the export failed.
-        let folder = std::env::temp_dir().join(format!(
-            "openradar-sidecar-{}",
-            std::process::id()
-        ));
+        let folder = std::env::temp_dir().join(format!("openradar-sidecar-{}", std::process::id()));
         std::fs::create_dir_all(&folder).expect("a folder");
         let name = "openradar-rollback-test.csv".to_string();
         // A directory where the sidecar wants to be, which no write can
         // replace.
-        std::fs::create_dir_all(folder.join(format!("{name}.provenance.json")))
-            .expect("a blocker");
+        std::fs::create_dir_all(folder.join(format!("{name}.provenance.json"))).expect("a blocker");
 
         let values = values();
         let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
@@ -920,7 +905,6 @@ mod tests {
         assert!(csv.contains("azimuth_index,gate_index,"));
         assert!(rows_of(&csv).is_empty());
     }
-
 
     fn grid_request(over: fn(&mut GridDataRequest)) -> GridDataRequest {
         let mut request = GridDataRequest {

@@ -1039,10 +1039,7 @@ pub(crate) mod tests {
         manifest.entries[0].content_type = "text/html".into();
         let bytes = write_bundle(&manifest, &entries).expect("writes");
         let refused = read_bundle(&bytes).expect_err("a refusal");
-        assert!(
-            matches!(refused, BundleError::Corrupt(_)),
-            "{refused:?}"
-        );
+        assert!(matches!(refused, BundleError::Corrupt(_)), "{refused:?}");
     }
 
     #[test]

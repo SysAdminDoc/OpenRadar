@@ -9,8 +9,8 @@ mod chunks;
 #[cfg(test)]
 mod contrast;
 mod cross_section;
-mod dealias;
 mod data_export;
+mod dealias;
 mod exports;
 #[cfg(test)]
 mod fixture;
