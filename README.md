@@ -4,7 +4,7 @@
 
 **A desktop weather radar that reads the raw data itself.**
 
-[![Version](https://img.shields.io/badge/version-0.6.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
+[![Version](https://img.shields.io/badge/version-0.7.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
 [![License](https://img.shields.io/badge/license-MIT-8bd5ca)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-89b4fa)](https://github.com/SysAdminDoc/OpenRadar/releases)
 [![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%C2%B7%20Rust%20%C2%B7%20React-cba6f7)](#how-it-is-put-together)
@@ -129,7 +129,7 @@ Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://gi
 Windows will show a SmartScreen warning the first time. The installer is not Authenticode-signed yet, and SmartScreen warns about anything it has not seen before. Choose **More info**, then **Run anyway**. Every release ships a `SHA256SUMS` file if you would rather check the download first:
 
 ```powershell
-Get-FileHash OpenRadar_0.6.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash OpenRadar_0.7.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
@@ -151,8 +151,8 @@ That is a promise, not a description: `npm run release` refuses to publish a set
 The installer is NSIS and installs for the current user, so it needs no elevation. `/S` runs it silently and `/D=` sets the directory, which has to come last and unquoted:
 
 ```powershell
-.\OpenRadar_0.6.0_x64-setup.exe /S
-.\OpenRadar_0.6.0_x64-setup.exe /S /D=C:\Tools\OpenRadar
+.\OpenRadar_0.7.0_x64-setup.exe /S
+.\OpenRadar_0.7.0_x64-setup.exe /S /D=C:\Tools\OpenRadar
 ```
 
 Uninstalling is the same shape. `uninstall.exe` is written beside the app, in `%LOCALAPPDATA%\OpenRadar` by default, and takes `/S` too.
@@ -337,7 +337,7 @@ It is plain JSON with a `format` of `openradar-provenance` and a `formatVersion`
 {
   "format": "openradar-provenance",
   "formatVersion": 1,
-  "application": "OpenRadar 0.6.0",
+  "application": "OpenRadar 0.7.0",
   "writtenAt": "2026-08-31T18:04:12.318Z",
   "picture": "openradar-loop-2026-08-31T18-04-11.webm",
   "basemap": "OpenStreetMap",
@@ -379,7 +379,7 @@ Two files land each time: the data, and a `.provenance.json` beside it with the 
 {
   "format": "openradar-data-provenance",
   "formatVersion": 1,
-  "application": "OpenRadar 0.6.0",
+  "application": "OpenRadar 0.7.0",
   "writtenAt": "2026-09-02T18:44:03Z",
   "dataFile": "openradar-kdmx-reflectivity-20260901-173211.csv",
   "sha256": "9f2c…",
