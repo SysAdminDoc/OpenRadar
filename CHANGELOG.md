@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## OpenRadar v0.7.0
 
 - The alert sound will not stack up more than a few seconds ahead. Pressing the preview button ten times queued nearly a minute of noise with nothing to stop it, and a real warning arriving during that was eleventh in line. Past the ceiling a sound is dropped instead, which is the right answer for a preview and for a burst of alerts alike.
 
