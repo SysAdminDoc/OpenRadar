@@ -14,6 +14,7 @@ import { MapStage } from "./components/MapStage";
 import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
 import { useAmbient } from "./hooks/useAmbient";
+import { appendJournalRow } from "./lib/journal";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
@@ -327,6 +328,33 @@ export default function App() {
       delete root.dataset.ambient;
     }
   }, [ambient.seen, overlays.alertActive]);
+
+  // What the station said, into the reader's own record, when it changes.
+  //
+  // The station near a watched place is the only observation this app takes
+  // of somewhere the reader named, and it is taken only while the weather on
+  // the chrome is switched on. One row per change rather than one per poll: a
+  // record of six identical rows an hour is a record nobody reads.
+  const lastRecorded = useRef<string | null>(null);
+  useEffect(() => {
+    const home = settings.watch.name?.trim();
+    if (!settings.watch.enabled || !home || !ambient.seen) {
+      lastRecorded.current = null;
+      return;
+    }
+    const { condition, station, observed } = ambient.seen;
+    if (lastRecorded.current === condition) return;
+    lastRecorded.current = condition;
+    void appendJournalRow({
+      at: new Date().toISOString(),
+      place: home,
+      kind: "observation",
+      source: station,
+      observed: new Date(observed).toISOString(),
+      obtained: translate("journal.obtainedStation"),
+      text: translate(`opening.${condition}`),
+    });
+  }, [ambient.seen, settings.watch.enabled, settings.watch.name]);
 
   // One line, once a year, the first time a pack is on screen. It carries the
   // way to send that occasion away until next year; the switch that ends them
@@ -1629,6 +1657,15 @@ export default function App() {
             hasWatchedPlace={settings.watch.enabled}
             onReset={actions.resetSettings}
             ambient={ambient}
+            onJournalSaved={(path) =>
+              pushToast({
+                title: translate("journal.saved"),
+                detail: path ?? translate("export.downloads"),
+              })
+            }
+            onJournalFailed={(why) =>
+              pushToast({ title: translate("journal.failed"), detail: why })
+            }
             onExportSettings={actions.exportSettings}
           />
         </Suspense>

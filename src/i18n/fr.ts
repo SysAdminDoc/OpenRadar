@@ -1321,6 +1321,22 @@ export const fr: Catalogue = {
   "watch.testHeadline": "Alerte de test",
   "watch.quiet": "Heures de silence",
   "watch.home": "Domicile",
+  "journal.title": "Votre registre",
+  "journal.count": "{count} lignes",
+  "journal.note":
+    "Ce que la météo a fait aux endroits que vous avez nommés. Seulement les endroits nommés, seulement des observations et des événements, et jamais rien sur votre façon d'utiliser l'application. Conservé {days} jours ou {size} Mo, selon ce qui arrive en premier, le plus ancien partant d'abord. Il reste sur cette machine et ne figure pas dans le rapport de diagnostic.",
+  "journal.empty": "Rien de consigné pour le moment.",
+  "journal.desktopOnly": "Le registre est tenu par l'application de bureau.",
+  "journal.row": "{source}, {when} · {obtained}",
+  "journal.export": "Enregistrer le registre dans un fichier",
+  "journal.clear": "Tout supprimer",
+  "journal.failed": "Le registre n'a pas pu être écrit.",
+  "journal.saved": "Registre enregistré",
+  "journal.sourceNws": "NWS",
+  "journal.obtainedWatch":
+    "une alerte qui a atteint un endroit que vous surveillez",
+  "journal.obtainedStation":
+    "un rapport de station près d'un endroit que vous surveillez",
   "watch.goHome": "Revenir chez soi",
   "watch.atPlace": "À {place}.",
   "watch.atPlaces": "À {places}.",

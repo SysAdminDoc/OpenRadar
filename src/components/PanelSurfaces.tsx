@@ -148,6 +148,8 @@ interface PanelSurfacesProps {
   onSendWatchTest: () => void;
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
+  onJournalSaved: (path: string | null) => void;
+  onJournalFailed: (why: string) => void;
   onOpenLogFolder: () => void;
   onCopyDiagnostics: (withPlace: boolean) => void;
   hasWatchedPlace: boolean;
@@ -282,6 +284,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onAddWatchPlace={props.onAddWatchPlace}
           onSendWatchTest={props.onSendWatchTest}
           ambient={props.ambient}
+          onJournalSaved={props.onJournalSaved}
+          onJournalFailed={props.onJournalFailed}
           onReset={props.onReset}
           onExportSettings={props.onExportSettings}
           onClose={onClose}

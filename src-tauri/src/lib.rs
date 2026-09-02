@@ -18,6 +18,7 @@ mod geotiff;
 mod gfs;
 mod hrrr;
 mod incident_packs;
+mod journal;
 mod level2;
 mod level3;
 mod lightning;
@@ -203,6 +204,10 @@ pub fn run() {
             level2::level2_local_sweep,
             level2::level2_sweep,
             level2::level2_gate,
+            journal::journal_append,
+            journal::journal_rows,
+            journal::journal_clear,
+            journal::journal_path,
             level2::level2_nearest_site,
             level2::level2_cross_section,
             level3::level3_cells,
@@ -234,7 +239,13 @@ pub fn run() {
             // Packs are user-kept data rather than cache entries. They live in
             // app data so an ordinary cache clear cannot erase a prepared map.
             match _app.path().app_data_dir() {
-                Ok(dir) => incident_packs::init(&dir),
+                Ok(dir) => {
+                    incident_packs::init(&dir);
+                    // The journal is the reader's own record, not a cache
+                    // entry, so it lives beside the packs rather than
+                    // anywhere a cache clear can reach.
+                    journal::init(&dir);
+                }
                 Err(error) => {
                     log::warn!("OpenRadar has nowhere to keep incident packs: {error}");
                 }

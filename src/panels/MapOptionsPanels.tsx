@@ -81,6 +81,7 @@ function timeToMinute(value: string, fallback: number): number {
 import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
 import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
+import { JournalSection } from "./JournalSection";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
@@ -796,6 +797,9 @@ interface SettingsPanelProps {
   onSendWatchTest: () => void;
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
+  /** The record was written to a file, at this path when there is one. */
+  onJournalSaved: (path: string | null) => void;
+  onJournalFailed: (why: string) => void;
   onWatchHere: () => void;
   /** Adds the map centre as another watched place. */
   onAddWatchPlace: () => void;
@@ -853,6 +857,8 @@ export function SettingsPanel({
   bounds = null,
   onSettings,
   ambient,
+  onJournalSaved,
+  onJournalFailed,
   onSendWatchTest,
   onWatchHere,
   onAddWatchPlace,
@@ -984,6 +990,11 @@ export function SettingsPanel({
           <p className="source-note">{t("settings.themeNote")}</p>
         )}
       </div>
+
+      <JournalSection
+        onSaved={(path) => onJournalSaved(path)}
+        onFailed={(why) => onJournalFailed(why)}
+      />
 
       <IncidentPackManager
         settings={settings}
