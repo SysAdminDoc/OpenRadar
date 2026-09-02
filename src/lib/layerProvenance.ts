@@ -114,6 +114,15 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: 90 * 60_000,
   },
+  riverGauges: {
+    sourceId: "riverGauges",
+    label: "River gauges",
+    attribution: "NOAA National Water Prediction Service",
+    // The dot carries both a reading and a forecast, and the reading is what
+    // places it. What the office expects is in the panel, said as a forecast.
+    kind: "observation",
+    freshForMs: 20 * 60_000,
+  },
   smoke: {
     sourceId: "smoke",
     label: "Smoke analysis",

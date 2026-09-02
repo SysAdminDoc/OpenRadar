@@ -8,6 +8,7 @@ import { useAlertWatch } from "./useAlertWatch";
 import { useOverlays, type OverlayStates } from "./useOverlays";
 import { alertsOfKind } from "../lib/overlays/alerts";
 import { METAR_MIN_ZOOM } from "../lib/overlays/metar";
+import { GAUGE_MIN_ZOOM } from "../lib/overlays/rivers";
 import { translate } from "../i18n";
 
 export interface WorkspaceOverlays {
@@ -42,8 +43,15 @@ export function useWorkspaceOverlays(options: {
 }): WorkspaceOverlays {
   const { settings, viewport, pushToast, setActiveSurface, replaying } =
     options;
-  const { weatherAlerts, earthquakes, wildfires, tropical, smoke, metar } =
-    settings.layers;
+  const {
+    weatherAlerts,
+    earthquakes,
+    wildfires,
+    tropical,
+    smoke,
+    metar,
+    riverGauges,
+  } = settings.layers;
   const zoom = settings.camera.zoom;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
 
@@ -63,6 +71,11 @@ export function useWorkspaceOverlays(options: {
       // the one feed that answers per station: a continent's worth at once is
       // both unreadable and a request nobody wanted.
       metar: metar && !replaying && zoom >= METAR_MIN_ZOOM,
+      // A river reading is current the same way a surface observation is, so
+      // it is held back over a replay for the same reason, and it answers per
+      // gauge rather than per area so it waits for a view close enough to
+      // read as well.
+      riverGauges: riverGauges && !replaying && zoom >= GAUGE_MIN_ZOOM,
       // The Storm Prediction Center publishes what it thinks about today, and
       // a replay is showing some other day's weather. Painting this morning's
       // risk over Katrina would be worse than showing nothing.
@@ -75,6 +88,7 @@ export function useWorkspaceOverlays(options: {
       spcDiscussions,
       replaying,
       metar,
+      riverGauges,
       smoke,
       spcOutlooks,
       zoom,
@@ -143,6 +157,7 @@ export function useWorkspaceOverlays(options: {
       wildfires: toggles.wildfires ? states.wildfires.data : null,
       smoke: toggles.smoke ? states.smoke.data : null,
       metar: toggles.metar ? states.metar.data : null,
+      riverGauges: toggles.riverGauges ? states.riverGauges.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,
       spcDiscussions: toggles.spcDiscussions

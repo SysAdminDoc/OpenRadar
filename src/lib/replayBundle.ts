@@ -18,9 +18,12 @@ import { en } from "../i18n/en";
  * writes and reads the file and serves its bytes ahead of the network; this
  * is the page's half: what to ask for, and what an opened bundle means.
  *
- * Nothing personal goes in unless the reader says so. The frames, the
- * window, the storm and the camera the replay opens on are the storm's; the
- * workspace, which knows where home is, travels only with an opt-in.
+ * What travels: the frames, the window, the storm, and the view the reader
+ * had when they saved it. That last one is their own map position, and it is
+ * in the file because the tiles that were captured are the tiles that view
+ * covers; a bundle cannot both reproduce offline and keep the view out of it.
+ * The workspace, which knows where home is and which places are watched, is
+ * the part that stays out unless the reader ticks the box.
  */
 
 export const BUNDLE_EXTENSION = "orb";

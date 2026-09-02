@@ -41,6 +41,7 @@ const SERVED_HOSTS: &[&str] = &[
     "satepsanone.nesdis.noaa.gov",
     "aviationweather.gov",
     "api.tidesandcurrents.noaa.gov",
+    "api.water.noaa.gov",
     "api.open-meteo.com",
     "previous-runs-api.open-meteo.com",
 ];
@@ -53,7 +54,9 @@ pub struct Served {
     pub age: Duration,
     pub body: Vec<u8>,
     /// The replay bundle the bytes came out of, when they did. A bundled
-    /// answer never touched the network, and the page can say so.
+    /// answer never touched the network. It rides out as a response header so
+    /// a reader looking at the network panel, or a test proving the offline
+    /// path, can tell the two apart.
     pub bundle: Option<String>,
 }
 
@@ -233,6 +236,51 @@ mod tests {
                 "{host} is routed here but this refuses it"
             );
         }
+    }
+
+    /// The whole point of a replay bundle: the bytes come out of the file
+    /// rather than off the network, and they do it here rather than in every
+    /// caller.
+    ///
+    /// This runs with no network at all. A bundled address that fell through
+    /// to `http::get_typed` in this test would come back as a 504, so a pass
+    /// is proof the bundle answered first.
+    #[tokio::test]
+    async fn an_open_bundle_answers_before_the_network_does() {
+        let (manifest, entries) = crate::bundles::tests::sample_bundle();
+        let bundled = entries[0].url.clone();
+        let body = entries[0].body.clone();
+        crate::bundles::activate(&manifest, entries);
+
+        let served = serve(&format!(
+            "http://cached.localhost/?u={}",
+            urlencoding_for_test(&bundled)
+        ))
+        .await;
+        assert_eq!(served.status, 200);
+        assert_eq!(served.body, body, "the bundle's own bytes");
+        assert_eq!(served.content_type, "image/png");
+        // And it says which bundle, so a reader looking at the network panel
+        // and a test proving the offline path can both tell.
+        assert_eq!(served.bundle.as_deref(), Some(manifest.id.as_str()));
+
+        // An address the bundle does not hold is not invented for it; it
+        // carries on to the network like any other. Asked directly rather
+        // than through `serve`, because the point is that nothing bundled
+        // answers rather than what the network would say, and a unit test
+        // should not be reaching for a tile service to find that out.
+        let elsewhere = "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/ridge::USCOMP-N0Q-1/5/9/13.png";
+        assert!(
+            crate::bundles::lookup(elsewhere).is_none(),
+            "nothing bundled answers an address the file does not hold"
+        );
+
+        crate::bundles::deactivate();
+        // Closed, the same address is nobody's business again.
+        assert!(
+            crate::bundles::lookup(&bundled).is_none(),
+            "a closed bundle answers nothing"
+        );
     }
 
     /// A real fetch through the whole path, kept, and then served back when

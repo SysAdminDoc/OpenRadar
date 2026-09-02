@@ -1554,11 +1554,15 @@ pub fn grid_window(
         .grid;
 
     // Column and row indices of the cells the box touches, clamped to the
-    // grid. The grid's north and west are cell centres.
-    let first_column = ((west - grid.west) / grid.d_lon).floor();
-    let last_column = ((east - grid.west) / grid.d_lon).ceil();
-    let first_row = ((grid.north - north) / grid.d_lat).floor();
-    let last_row = ((grid.north - south) / grid.d_lat).ceil();
+    // grid. The grid's north and west are cell CENTRES, so cell c covers
+    // centre ± half a cell and the first one the box touches is the first
+    // whose far edge is past the box's near edge. Reading these as edges
+    // instead pulls in an extra cell of data on each side, which is a raster
+    // wider than the view it claims to be.
+    let first_column = ((west - grid.west) / grid.d_lon + 0.5).ceil() - 1.0;
+    let last_column = ((east - grid.west) / grid.d_lon - 0.5).floor() + 1.0;
+    let first_row = ((grid.north - north) / grid.d_lat + 0.5).ceil() - 1.0;
+    let last_row = ((grid.north - south) / grid.d_lat - 0.5).floor() + 1.0;
     if last_column < 0.0
         || last_row < 0.0
         || first_column > (grid.columns - 1) as f64
@@ -1715,6 +1719,23 @@ mod tests {
         assert!((cut.west + 99.5).abs() < 1e-9, "west {}", cut.west);
         assert!((cut.north - 39.5).abs() < 1e-9, "north {}", cut.north);
         assert_eq!((cut.d_lon, cut.d_lat), (1.0, 1.0));
+    }
+
+    #[test]
+    fn a_window_takes_the_cells_the_box_is_actually_over() {
+        remember_grid("window/offset", countable_grid());
+        // A box whose corners fall inside cells rather than on their centres,
+        // which is every real view. Cell c covers centre plus or minus half a
+        // cell, so -98.4 is inside column 2 (which spans -98.5 to -97.5) and
+        // -96.6 is inside column 3. Reading the corners as cell edges instead
+        // pulls in column 1 and column 4 as well: two columns of data west and
+        // east of anything the reader asked for.
+        let cut = grid_window("window/offset", -98.4, 36.6, -96.6, 38.4, 100)
+            .expect("the box is on the grid");
+        assert_eq!((cut.columns, cut.rows), (2, 2));
+        assert_eq!(cut.values, vec![22.0, 23.0, 32.0, 33.0]);
+        assert!((cut.west + 98.5).abs() < 1e-9, "west {}", cut.west);
+        assert!((cut.north - 38.5).abs() < 1e-9, "north {}", cut.north);
     }
 
     #[test]

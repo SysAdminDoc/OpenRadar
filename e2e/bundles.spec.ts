@@ -16,6 +16,7 @@ const IAN_PATH =
   "C:\\Users\\reader\\Downloads\\openradar-replay-ian-2022-abc12345.orb";
 const WORKSPACE_PATH = "C:\\Users\\reader\\Downloads\\workspace.orb";
 const NEWER_PATH = "C:\\Users\\reader\\Downloads\\newer.orb";
+const UNUSABLE_PATH = "C:\\Users\\reader\\Downloads\\unusable.orb";
 
 async function fakeNative(page: Page): Promise<void> {
   await routeWorkspace(page);
@@ -93,6 +94,18 @@ async function fakeNative(page: Page): Promise<void> {
                 code: "newer",
                 args: ["3"],
                 text: "bundle layout 3 is newer than this build reads",
+              });
+            }
+            if (path.endsWith("unusable.orb")) {
+              // Structurally fine, and every frame names a provider this
+              // build does not draw.
+              const held = manifest(null, []);
+              return Promise.resolve({
+                ...held,
+                frames: held.frames.map((frame) => ({
+                  ...frame,
+                  providerId: "somebody-else",
+                })),
               });
             }
             if (path.endsWith("workspace.orb")) {
@@ -327,4 +340,57 @@ test("refuses a bundle from a newer build without touching the map", async ({
   await expect(pane).not.toHaveAttribute("data-layer-stack", /track-line/);
   expect(await pane.getAttribute("data-camera")).toBe(before);
   expect(await commands(page)).not.toContain("replay_bundle_close");
+});
+
+test("lets go of the bundle whichever way the reader leaves it", async ({
+  page,
+}) => {
+  await fakeNative(page);
+  await openHistory(page);
+
+  await page.getByRole("button", { name: /Open a replay bundle/ }).click();
+  await expect(
+    page.getByText(/Replaying IAN 2022 from a bundle/),
+  ).toBeVisible();
+  expect(await commands(page)).not.toContain("replay_bundle_close");
+
+  // Not the button that stops the replay: picking a storm out of the list.
+  // An open bundle answers for its own addresses ahead of the network, so one
+  // left open would keep answering for a replay nobody is watching.
+  await page
+    .getByRole("searchbox", { name: /Search past storms/ })
+    .fill("Ian 2022");
+  await page.getByRole("button", { name: /IAN 2022/ }).click();
+  await page.getByRole("button", { name: /Replay radar/ }).click();
+
+  await expect.poll(() => commands(page)).toContain("replay_bundle_close");
+});
+
+test("says so when a bundle it cannot use replaces the one that was open", async ({
+  page,
+}) => {
+  await fakeNative(page);
+  await openHistory(page);
+
+  await page.getByRole("button", { name: /Open a replay bundle/ }).click();
+  await expect(
+    page.getByText(/Replaying IAN 2022 from a bundle/),
+  ).toBeVisible();
+
+  // Opening has already replaced whatever was answering, so a second bundle
+  // this build cannot draw takes the first one with it. The reader is told,
+  // and the map goes back to live radar rather than running a replay whose
+  // frames now quietly come off the network.
+  await page.evaluate((path) => {
+    (window as unknown as { __bundlePath: string }).__bundlePath = path;
+  }, UNUSABLE_PATH);
+  await page.getByRole("button", { name: /Open a replay bundle/ }).click();
+
+  await expect(page.getByText(/The replay bundle failed/)).toBeVisible();
+  await expect(
+    page.getByText(/holds no frames this build can draw/),
+  ).toBeVisible();
+  await expect(page.getByText(/back on live radar/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Replay bundle" })).toBeHidden();
+  await expect.poll(() => commands(page)).toContain("replay_bundle_close");
 });

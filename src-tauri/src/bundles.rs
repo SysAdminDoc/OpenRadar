@@ -20,19 +20,24 @@
 //! ```
 //!
 //! Every entry is also named in the manifest with its own SHA-256 and size,
-//! so a file can be checked entry by entry and a tampered one is refused
-//! before any of it is served. Opening a bundle loads its entries into a
+//! so a file can be checked entry by entry and a damaged one is refused
+//! before any of it is served. Both hashes live in the file beside the bytes
+//! they describe, so this catches a bundle that got corrupted on the way and
+//! not one somebody rewrote on purpose. Opening a bundle loads its entries into a
 //! store the cached scheme consults before the network: a replay drawn
 //! from a bundle is drawn from the bundle, whatever the network says today.
 //! Anything the bundle does not hold (the basemap, a feed that was missing
 //! when it was made) is fetched or refused the way it always was, and the
 //! manifest says which is which.
 //!
-//! Nothing personal goes in unless the reader says so. The frames, the
-//! window, the storm and the camera the replay opens on are the storm's, not
-//! the reader's; the workspace, which knows where home is, travels only with
-//! an explicit opt-in on the way out and is applied only on an explicit
-//! action on the way in.
+//! What travels: the frames, the window, the storm, and the view the reader
+//! had when they saved it. That last one is the reader's own map position,
+//! and it is in the file because the tiles that were captured are the tiles
+//! that view covers, so a bundle cannot both reproduce offline and keep the
+//! view out of it. The workspace, which knows where home is and which places
+//! are watched, is the part that stays out: it travels only with an explicit
+//! opt-in on the way out and is applied only on an explicit action on the way
+//! in.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -289,10 +294,17 @@ pub fn tile_urls(
     }
     let mut urls = Vec::new();
     for zoom in min_zoom..=max_zoom {
+        // The east and south edges belong to the next tile along, so a box
+        // that ends exactly on a tile boundary must not pull that tile in.
+        // Nudged by a fraction of one tile rather than by a machine epsilon,
+        // which at these magnitudes is smaller than the last bit of the
+        // number and rounded away before it can do anything.
+        let span = 360.0 / f64::from(1u32 << zoom);
+        let nudge = span / 1024.0;
         let min_x = incident_packs::tile_x(bounds.west, zoom);
-        let max_x = incident_packs::tile_x(bounds.east - f64::EPSILON * 180.0, zoom);
+        let max_x = incident_packs::tile_x((bounds.east - nudge).max(bounds.west), zoom);
         let min_y = incident_packs::tile_y(bounds.north, zoom);
-        let max_y = incident_packs::tile_y(bounds.south + f64::EPSILON * 85.0, zoom);
+        let max_y = incident_packs::tile_y((bounds.south + nudge).min(bounds.north), zoom);
         for x in min_x..=max_x {
             for y in min_y..=max_y {
                 urls.push(
@@ -505,7 +517,14 @@ pub fn read_bundle(bytes: &[u8]) -> Result<(Manifest, Vec<Entry>), BundleError> 
             )));
         }
         let body = cursor.take(body_length as usize)?.to_vec();
-        if url != record.url || body_length != record.bytes || sha256_hex(&body) != record.sha256 {
+        // The content type is checked with the rest of it: it reaches the
+        // webview as a response header, and an entry the manifest does not
+        // vouch for in full is an entry that was not verified.
+        if url != record.url
+            || body_length != record.bytes
+            || content_type != record.content_type
+            || sha256_hex(&body) != record.sha256
+        {
             return Err(BundleError::Corrupt(format!(
                 "{} does not match the manifest's record of it",
                 record.url
@@ -623,9 +642,6 @@ fn slug(label: &str) -> String {
     }
 }
 
-/// One address and what the network said about it.
-type Fetched = (String, Result<(Vec<u8>, String), http::HttpError>);
-
 /// Fetches every address a request names and writes the bundle.
 async fn capture(request: CaptureRequest, folder: PathBuf) -> Result<CaptureReport, BundleError> {
     let urls = addresses(&request)?;
@@ -635,19 +651,21 @@ async fn capture(request: CaptureRequest, folder: PathBuf) -> Result<CaptureRepo
     // Fetched a few at a time, the way the packs do, so an archive is not
     // hammered by a thousand tiles at once. Each answer is kept with its
     // hash or written down as missing with the reason.
-    let outcomes: Vec<Fetched> = stream::iter(urls.into_iter().map(|url| async move {
+    //
+    // Taken as they arrive rather than collected first: collecting holds
+    // every body at once, so the cap on the finished file would have bounded
+    // nothing about the memory it took to reach it.
+    let mut answers = stream::iter(urls.into_iter().map(|url| async move {
         let outcome = http::get_typed(&url).await;
         (url, outcome)
     }))
-    .buffer_unordered(CONCURRENCY)
-    .collect()
-    .await;
+    .buffer_unordered(CONCURRENCY);
 
     let mut entries = Vec::new();
     let mut records = Vec::new();
     let mut missing = Vec::new();
     let mut total = 0u64;
-    for (url, outcome) in outcomes {
+    while let Some((url, outcome)) = answers.next().await {
         match outcome {
             Ok((body, content_type)) => {
                 if body.len() > MAX_ENTRY_BYTES {
@@ -790,7 +808,7 @@ pub fn replay_bundle_close() {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// The open bundle is one global, and the tests that open and close it
@@ -895,6 +913,15 @@ mod tests {
                 body: br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
             },
         ]
+    }
+
+    /// Everything a test outside this module needs to stand a bundle up.
+    ///
+    /// `tiles` proves the offline path, and the only honest way to do that is
+    /// with a real open bundle rather than a stub of one.
+    pub(crate) fn sample_bundle() -> (Manifest, Vec<Entry>) {
+        let entries = entries();
+        (manifest(&entries), entries)
     }
 
     #[test]

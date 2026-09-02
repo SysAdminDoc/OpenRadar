@@ -19,7 +19,10 @@ export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   // Over the areas, because a station plot is a handful of marks and anything
   // filled underneath would swallow it.
   metar: 7,
-  alerts: 8,
+  // Over the plots for the same reason they are over the areas: a gauge is a
+  // single dot and the thing a reader is looking for when they turned it on.
+  riverGauges: 8,
+  alerts: 9,
 };
 
 /**

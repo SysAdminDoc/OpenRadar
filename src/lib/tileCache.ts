@@ -23,6 +23,7 @@ export const CACHED_HOSTS = [
   "mapservices.weather.noaa.gov",
   "api.weather.gov",
   "api.tidesandcurrents.noaa.gov",
+  "api.water.noaa.gov",
   "api.open-meteo.com",
   "previous-runs-api.open-meteo.com",
   "tilecache.rainviewer.com",

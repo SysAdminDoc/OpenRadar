@@ -293,7 +293,7 @@ export const es: Catalogue = {
     "Las repeticiones vienen del archivo de radar de Iowa State.",
   "history.bundleHeading": "Paquete de repetición",
   "history.bundleNote":
-    "Un paquete guarda los cuadros de esta repetición y los avisos vigentes, byte a byte, con sus direcciones y sus hashes, para reproducirla igual sin red. Solo entra la vista de la tormenta.",
+    "Un paquete guarda los cuadros de esta repetición y los avisos vigentes, byte a byte, con sus direcciones y sus hashes, para reproducirla igual sin red. La vista que tienes delante entra con ellos, porque los cuadros que guarda son los que esa vista abarca.",
   "history.includeWorkspace": "Incluir mi espacio de trabajo",
   "history.includeWorkspaceDetail":
     "Casa, lugares vigilados, vistas guardadas y ajustes. Desactivado salvo que lo marques, cada vez.",
@@ -323,6 +323,8 @@ export const es: Catalogue = {
   "bundle.error.noView": "El mapa aún no tiene una vista que empaquetar.",
   "bundle.error.noFrames":
     "Ese paquete no tiene cuadros que esta versión pueda dibujar.",
+  "bundle.error.letGo":
+    "Se ha soltado el paquete que estaba abierto, así que el mapa vuelve al radar en vivo.",
   "bundle.error.unknown": "No se pudo manejar el paquete.",
   "route.eyebrow": "El tiempo en el camino",
   "route.title": "Ruta",
@@ -738,6 +740,8 @@ export const es: Catalogue = {
   "keywords.forecastSmoke": "humo pronostico hrrr modelo pluma",
   "keywords.metar":
     "metar estacion aeropuerto punto de rocio barbas viento observacion",
+  "keywords.riverGauges":
+    "rio inundacion aforo nivel creciente agua hidrologia",
   "keywords.tropical": "huracan ciclon cono tormenta tifon",
   "keywords.satellite": "satelite nubes imagen visible infrarrojo",
   "keywords.rotationTracks": "mesociclon rotacion cizalladura tornado giro",
@@ -800,6 +804,26 @@ export const es: Catalogue = {
   "layers.forecastSmokeDetail":
     "Adónde espera el modelo HRRR que vaya el humo cerca del suelo, hora a hora a lo largo de la cola de pronóstico",
   "layers.metarDetail": "Informes de aeropuerto, en modelo de estación",
+  "layer.riverGauges": "Estaciones de aforo",
+  "layers.riverGaugesDetail":
+    "Lo que marcan ahora los ríos cerca de la tormenta y hasta dónde espera que suban la oficina de pronóstico. Solo los puntos cercanos, desde el zoom 7.",
+  "rivers.observed": "Medido {stage} a las {when}",
+  "rivers.forecast": "Previsto {stage} para {when}",
+  "rivers.noObservation": "Esta estación no tiene una medición actual.",
+  "rivers.noForecast": "Esta estación no tiene un pronóstico actual.",
+  "rivers.timeUnknown": "una hora sin indicar",
+  "rivers.category": "En inundación {category}",
+  "rivers.categoryNone": "Por debajo del nivel de inundación",
+  "rivers.rising":
+    "La oficina espera que este empeore respecto a como está ahora.",
+  "rivers.office": "Pronosticado por {office}",
+  "rivers.flood.major": "mayor",
+  "rivers.flood.moderate": "moderada",
+  "rivers.flood.minor": "menor",
+  "rivers.flood.action": "de aviso",
+  "rivers.flood.none": "sin",
+  "rivers.failed": "El National Water Prediction Service respondió {status}.",
+  "rivers.zoom": "Acerca el mapa para ver las estaciones cerca de la tormenta.",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
@@ -1035,6 +1059,8 @@ export const es: Catalogue = {
   "toast.bundleApplyWorkspace": "Aplicar su espacio de trabajo",
   "toast.bundleWorkspaceApplied":
     "El espacio de trabajo del paquete está en vigor",
+  "toast.bundleWorkspacePartly":
+    "El espacio de trabajo del paquete está en vigor, en parte",
   "toast.replayStoppedBody": "El mapa vuelve al bucle en vivo.",
   "toast.shareTitle": "Vista de OpenRadar",
   "toast.shared": "Vista del mapa compartida",

@@ -180,6 +180,7 @@ describe("settings normalization", () => {
       "probSevere",
       "qpeDay",
       "qpeHour",
+      "riverGauges",
       "rotationTracks",
       "satellite",
       "smoke",

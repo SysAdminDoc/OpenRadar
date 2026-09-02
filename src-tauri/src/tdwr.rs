@@ -177,6 +177,21 @@ fn asked_for(product: &str, tilt: usize) -> Option<Asked> {
     }
 }
 
+/// The bytes say what they are.
+///
+/// A listing that answered with some other product, or a file the feed
+/// mislabelled, must not be drawn on this product's scale: velocity painted
+/// on the reflectivity ramp is a picture of weather that is not there. Its own
+/// function so a test can hold it to that without reaching for the network.
+fn product_matches(code: &str, found: u16, expected: u16) -> Result<(), Level2Error> {
+    if found == expected {
+        return Ok(());
+    }
+    Err(Level2Error::Decode(format!(
+        "{code} holds product {found} where {expected} was expected"
+    )))
+}
+
 /// What a gate's byte means on the product's own scale.
 ///
 /// The description block gives the scale as a minimum, an increment and a
@@ -372,15 +387,7 @@ pub async fn sweep(
     tauri::async_runtime::spawn_blocking(move || {
         let (description, image) =
             level3::read_radial_product(&bytes, asked.bin_km).map_err(decode_error)?;
-        // The bytes say what they are. A listing that answered with some
-        // other product, or a file the feed mislabelled, must not be drawn
-        // on this product's scale.
-        if description.product_code != asked.expected {
-            return Err(Level2Error::Decode(format!(
-                "{} holds product {} where {} was expected",
-                asked.code, description.product_code, asked.expected
-            )));
-        }
+        product_matches(asked.code, description.product_code, asked.expected)?;
         let shading = Shading {
             unfolded: false,
             threshold,
@@ -515,6 +522,19 @@ mod tests {
         // Velocity: level 129 is zero, and the scale runs either side.
         assert!(gate_value(129, -63.5, 0.5).1.abs() < 1e-6);
         assert!((gate_value(161, -63.5, 0.5).1 - 16.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_product_that_is_not_what_was_asked_for_is_refused() {
+        // The guard itself, rather than a fact about the fixture. Velocity
+        // painted on the reflectivity ramp is a picture of weather that is not
+        // there, so a file the feed mislabelled must not be drawn at all.
+        assert!(product_matches("TZ0", 180, 180).is_ok());
+        let refused = product_matches("TZ0", 182, 180).expect_err("a refusal");
+        let said = refused.to_string();
+        assert!(said.contains("182"), "{said}");
+        assert!(said.contains("180"), "{said}");
+        assert!(said.contains("TZ0"), "{said}");
     }
 
     #[test]
