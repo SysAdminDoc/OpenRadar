@@ -134,6 +134,21 @@ export const fr: Catalogue = {
   "alerts.kinds": "Types d'alerte",
   "alerts.kindsDetail":
     "En décocher un le retire de la carte et de cette liste",
+  "alerts.volume": "Volume",
+  "alerts.volumeValue": "{percent} %",
+  "alerts.previewNote":
+    "Écoutez-les chacun avant qu'une alerte ne le fasse pour vous.",
+  "alerts.soundFile": "Utiliser un son à vous",
+  "alerts.soundFileDetail":
+    "Gardé par son emplacement plutôt que copié, pour qu'une sauvegarde de l'espace de travail ne l'avale pas. Moins de 2 Mo, et en wav, mp3, ogg, flac ou m4a.",
+  "alerts.soundFileChoose": "Choisir un fichier",
+  "alerts.soundFileClear": "Revenir aux sons fournis",
+  "alerts.soundFileFailed": "Ce son n'a pas pu être utilisé",
+  "alerts.soundFile.name":
+    "Ce doit être un fichier wav, mp3, ogg, flac ou m4a.",
+  "alerts.soundFile.size": "Il pèse plus de 2 Mo.",
+  "alerts.soundFile.decode":
+    "Il n'a pas pu être lu comme de l'audio. Il a peut-être été déplacé, ou ce n'est pas un fichier son.",
   "alerts.sound": "Émettre un son",
   "alerts.soundDetail":
     "Une brève tonalité quand une alerte nouvelle ou rehaussée atteint l'endroit que vous surveillez",

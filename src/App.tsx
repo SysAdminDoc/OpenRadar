@@ -41,6 +41,12 @@ import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
+import {
+  loadAlertSound,
+  setAlertSound,
+  setAlertVolume,
+  SOUND_EXTENSIONS,
+} from "./lib/sound";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
@@ -115,6 +121,7 @@ import type {
 } from "./lib/settings";
 import {
   watchedPlaces,
+  isDesktopRuntime,
   withPalette,
   withPaletteAssigned,
   withoutPalette,
@@ -316,6 +323,55 @@ export default function App() {
   useEffect(() => {
     setJournalWriting(settings.journal);
   }, [settings.journal]);
+
+  useEffect(() => {
+    setAlertVolume(settings.alertVolume);
+  }, [settings.alertVolume]);
+
+  /**
+   * Asks for a sound file of the reader's own.
+   *
+   * The path is what is kept. Whether it can actually be used is decided by
+   * the effect below, in one place, so a file that stops working later is
+   * reported the same way as one that never worked.
+   */
+  const chooseAlertSound = useCallback(async () => {
+    if (!isDesktopRuntime()) return;
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const chosen = await open({
+        multiple: false,
+        filters: [{ name: "Audio", extensions: SOUND_EXTENSIONS }],
+      });
+      if (typeof chosen !== "string") return;
+      applySettings({ ...settingsRef.current, alertSoundPath: chosen });
+    } catch (failure) {
+      pushToast({
+        title: translate("alerts.soundFileFailed"),
+        detail:
+          failure instanceof Error
+            ? failure.message
+            : translate("alerts.soundFile.decode"),
+      });
+    }
+  }, [applySettings, pushToast, settingsRef]);
+
+  // Read once, when the path changes. A file that has moved away, grown too
+  // big or stopped being audio is reported here and the built-in kit answers
+  // instead, rather than a warning arriving in silence.
+  useEffect(() => {
+    const path = settings.alertSoundPath;
+    setAlertSound(path);
+    if (!path) return;
+    void loadAlertSound(path).then((answer) => {
+      if (answer.ok) return;
+      setAlertSound(null);
+      pushToast({
+        title: translate("alerts.soundFileFailed"),
+        detail: translate(`alerts.soundFile.${answer.reason}`),
+      });
+    });
+  }, [settings.alertSoundPath, pushToast]);
 
   const journalFrame = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
@@ -1924,6 +1980,7 @@ export default function App() {
               })
             }
             onExportSettings={actions.exportSettings}
+            onChooseSound={chooseAlertSound}
           />
         </Suspense>
       ) : null}

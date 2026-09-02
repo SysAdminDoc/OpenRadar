@@ -29,6 +29,7 @@ import {
   Wind,
   X,
   Zap,
+  Volume2,
 } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
@@ -82,6 +83,7 @@ import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
 import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
+import { playAlertTone } from "../lib/sound";
 import { RecapSection } from "./RecapSection";
 import { CuriositySection } from "./CuriositySection";
 import {
@@ -811,6 +813,8 @@ interface SettingsPanelProps {
   onAddWatchPlace: () => void;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
+  /** Asks for a sound file of the reader's own, or leaves it as it was. */
+  onChooseSound: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -873,6 +877,7 @@ export function SettingsPanel({
   onAddWatchPlace,
   onReset,
   onExportSettings,
+  onChooseSound,
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
@@ -1285,6 +1290,85 @@ export function SettingsPanel({
             onSettings({ ...settings, watch: { ...settings.watch, sound } })
           }
         />
+        {settings.watch.sound ? (
+          <>
+            <label className="range-row">
+              <span>
+                <strong>{t("alerts.volume")}</strong>
+                <output>
+                  {t("alerts.volumeValue", {
+                    percent: Math.round(settings.alertVolume * 100),
+                  })}
+                </output>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={Math.round(settings.alertVolume * 100)}
+                onChange={(event) =>
+                  onSettings({
+                    ...settings,
+                    alertVolume: Number(event.target.value) / 100,
+                  })
+                }
+              />
+            </label>
+            <div className="sound-kit">
+              {/* Heard before it is committed to. A sound somebody has not
+                  heard is a sound they find out about during a warning,
+                  which is the worst moment to discover it is wrong. */}
+              <p className="source-note">{t("alerts.previewNote")}</p>
+              <div className="sound-kit__row">
+                {(["minor", "moderate", "severe", "extreme"] as const).map(
+                  (severity) => (
+                    <button
+                      key={severity}
+                      type="button"
+                      className="secondary-button"
+                      data-sound-preview={severity}
+                      onClick={() => void playAlertTone(severity)}
+                    >
+                      <Volume2 size={14} /> {t(`alerts.severity.${severity}`)}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+            <div className="sound-kit">
+              <p className="source-note">
+                <strong>{t("alerts.soundFile")}</strong>
+              </p>
+              <p className="source-note">{t("alerts.soundFileDetail")}</p>
+              {settings.alertSoundPath ? (
+                <p className="source-note" data-alert-sound-path>
+                  {settings.alertSoundPath}
+                </p>
+              ) : null}
+              <div className="sound-kit__row">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void onChooseSound()}
+                >
+                  {t("alerts.soundFileChoose")}
+                </button>
+                {settings.alertSoundPath ? (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      onSettings({ ...settings, alertSoundPath: null })
+                    }
+                  >
+                    {t("alerts.soundFileClear")}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </>
+        ) : null}
         <ToggleSetting
           label={t("watch.followNew")}
           detail={t("watch.followNewDetail")}

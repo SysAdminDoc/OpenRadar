@@ -4416,6 +4416,26 @@ input[type="range"] {
   color: var(--muted);
 }
 
+/* The alert sounds, heard before they are committed to. A row of small
+   buttons rather than a list, because four of them fit on one line and the
+   point is to press them one after another. */
+.sound-kit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sound-kit__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sound-kit__row .secondary-button {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
 /* Where a reader names a storm. Sized to sit under the sentence about it
    rather than beside it, so the line stays readable in the compact layout. */
 .cell-name {

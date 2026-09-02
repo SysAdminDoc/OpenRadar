@@ -30,6 +30,7 @@ function panel(
         onJournalFailed={vi.fn()}
         onJournalCleared={vi.fn()}
         onJournalRemoved={vi.fn()}
+        onChooseSound={vi.fn()}
         clock={0}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}
