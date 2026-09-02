@@ -4400,6 +4400,18 @@ input[type="range"] {
 /* What happened while the app was closed. A card over the map rather than a
    toast: several lines, each with its own time, is not something to read in
    the four seconds a toast lasts. */
+/* The recap's own figures. A list of plain sentences, because every one of
+   them is a statement about the record rather than a number to look at. */
+.recap-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 16px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .catch-up {
   position: absolute;
   top: 64px;

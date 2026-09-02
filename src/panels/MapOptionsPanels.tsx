@@ -82,6 +82,7 @@ import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
 import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
+import { RecapSection } from "./RecapSection";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
@@ -1018,6 +1019,12 @@ export function SettingsPanel({
         onSaved={(path) => onJournalSaved(path)}
         onFailed={(why) => onJournalFailed(why)}
         onCleared={onJournalCleared}
+      />
+
+      <RecapSection
+        clock={clock}
+        onSaved={(path) => onJournalSaved(path)}
+        onFailed={(why) => onJournalFailed(why)}
       />
 
       <IncidentPackManager
