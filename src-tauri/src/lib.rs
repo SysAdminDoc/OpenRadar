@@ -235,8 +235,10 @@ pub fn run() {
             glance::glance_write,
             glance::glance_read,
             tray::tray_hazard,
+            tray::tray_copy,
             tray::tray_close_behaviour,
             tray::glance_on_top,
+            tray::glance_showing,
             tray::glance_open,
             wallpaper::wallpaper_available,
             wallpaper::wallpaper_set,
@@ -299,7 +301,13 @@ pub fn run() {
                     // And the icon goes with the app, explicitly: Windows
                     // leaves a ghost of it behind otherwise.
                     if window.label() == "main" {
-                        tray::drop_tray();
+                        let app = window.app_handle();
+                        tray::drop_tray(app);
+                        // Said rather than left to the last window closing.
+                        // With the glance window open, closing the main one
+                        // took the workspace away and left the process
+                        // running with no way back to it.
+                        app.exit(0);
                     }
                     return;
                 }

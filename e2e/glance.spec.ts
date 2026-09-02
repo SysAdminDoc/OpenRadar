@@ -8,6 +8,10 @@ import { expect, test } from "@playwright/test";
  * whole job is one glance.
  */
 
+/** One transparent pixel, so the drawing branch has something to draw. */
+const transparentPng =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
 async function open(
   page: import("@playwright/test").Page,
   glance: Record<string, unknown> | null,
@@ -37,7 +41,7 @@ test("says the place, the state and how old the picture is", async ({
     warning: true,
     headline: "Tornado Warning",
     picture: "",
-    observed: Date.now() - 4 * 60_000,
+    observedMs: Date.now() - 4 * 60_000,
     source: "MRMS",
     at: Date.now(),
   });
@@ -46,6 +50,11 @@ test("says the place, the state and how old the picture is", async ({
   await expect(glance).toContainText("Casa");
   await expect(glance).toContainText("Tornado Warning");
   await expect(glance).toContainText("MRMS");
+  // The number, not just that a number is there. It went unasserted, and the
+  // workspace was handing over a frame time in seconds against a window
+  // subtracting it from milliseconds: a four minute old picture read as
+  // twenty-nine million minutes old, for every reader, on every open.
+  await expect(glance).toContainText(/\b4 minutes old/);
   await expect(glance).toHaveAttribute("data-warning", "1");
 });
 
@@ -55,7 +64,7 @@ test("says plainly when nothing is standing", async ({ page }) => {
     warning: false,
     headline: "",
     picture: "",
-    observed: Date.now(),
+    observedMs: Date.now(),
     source: "MRMS",
     at: Date.now(),
   });
@@ -65,9 +74,24 @@ test("says plainly when nothing is standing", async ({ page }) => {
 });
 
 test("draws no map of its own", async ({ page }) => {
-  await open(page, null);
+  // With something to show, not with nothing: the empty branch is one
+  // paragraph, so counting canvases there proves nothing about the branch
+  // that actually draws.
+  await open(page, {
+    place: "Casa",
+    warning: false,
+    headline: "",
+    picture: transparentPng,
+    observedMs: Date.now() - 60_000,
+    source: "MRMS",
+    at: Date.now(),
+  });
+  await expect(page.locator(".glance img")).toBeVisible();
   // The whole reason it is a second page. A canvas here would mean a second
   // WebGL context beside a workspace that already has one.
+  await expect(page.locator("canvas")).toHaveCount(0);
+
+  await open(page, null);
   await expect(page.locator("canvas")).toHaveCount(0);
   await expect(page.locator(".glance")).toContainText("Waiting");
 });

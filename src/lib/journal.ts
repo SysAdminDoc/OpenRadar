@@ -196,6 +196,24 @@ export async function removeJournalRow(id: string): Promise<void> {
  * a perfectly good entry, and the row has already been written by the time
  * this runs.
  */
+/**
+ * PNG bytes as a data URL.
+ *
+ * A chunked loop rather than `String.fromCharCode(...bytes)`, which spreads
+ * one argument per byte and blows the call stack somewhere above a hundred
+ * thousand of them. A thumbnail is allowed up to `JOURNAL_THUMB_MAX_BYTES`,
+ * which is above that line, so the short version threw on a picture that was
+ * otherwise perfectly acceptable.
+ */
+export function pictureDataUrl(bytes: Uint8Array): string {
+  let text = "";
+  const STRIDE = 8192;
+  for (let at = 0; at < bytes.length; at += STRIDE) {
+    text += String.fromCharCode(...bytes.subarray(at, at + STRIDE));
+  }
+  return `data:image/png;base64,${btoa(text)}`;
+}
+
 export async function thumbnailFrom(
   source: HTMLCanvasElement,
 ): Promise<Uint8Array | null> {

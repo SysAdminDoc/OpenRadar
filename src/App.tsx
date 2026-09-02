@@ -23,6 +23,7 @@ import {
   appendJournalRow,
   journalRows,
   setJournalWriting,
+  pictureDataUrl,
   thumbnailFrom,
 } from "./lib/journal";
 import { catchUpFrom, type CatchUp } from "./lib/catchUp";
@@ -52,6 +53,8 @@ import {
   setCloseToTray,
   setGlanceOnTop,
   setTrayEnabled,
+  glanceIsShowing,
+  setTrayCopy,
   setTrayHazard,
   writeGlance,
 } from "./lib/tray";
@@ -439,6 +442,18 @@ export default function App() {
     capture: journalFrame,
   });
 
+  // The words before the icon, so the first tray a reader ever sees is
+  // already in their own language rather than English for a moment.
+  useEffect(() => {
+    void setTrayCopy({
+      open: translate("tray.menuOpen"),
+      glance: translate("tray.menuGlance"),
+      quit: translate("tray.menuQuit"),
+      quiet: translate("tray.quiet"),
+      warning: translate("tray.warning"),
+    });
+  }, [settings.language]);
+
   useEffect(() => {
     void setTrayEnabled(settings.tray);
   }, [settings.tray]);
@@ -459,6 +474,24 @@ export default function App() {
     if (settings.tray) void setTrayHazard(overlays.alertActive);
   }, [overlays.alertActive, settings.tray]);
 
+  // Whether the small window is actually open. Asked on the clock rather
+  // than assumed, because it can be opened from the tray menu, which the
+  // workspace never hears about.
+  const [glanceOpen, setGlanceOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void glanceIsShowing().then((showing) => {
+      if (alive) setGlanceOpen(showing);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [clock, settings.tray]);
+  // With no tray there is no way to have opened it, whatever the last answer
+  // was. Derived rather than written back, so the answer arriving late cannot
+  // undo the switch.
+  const glanceShowing = settings.tray && glanceOpen;
+
   /**
    * What the small window shows, handed over rather than drawn again.
    *
@@ -470,22 +503,31 @@ export default function App() {
   useEffect(() => {
     if (!settings.tray) return;
     void (async () => {
-      const canvas = mapRef.current?.canvas();
+      // The picture only when there is a window to look at it. Reading the
+      // map back, rescaling it and encoding a PNG once a minute is real work,
+      // and the tray is on by default, so every reader was paying it for a
+      // window most of them have never opened. The words are cheap and go
+      // either way, so the window has something to show the moment it opens.
+      const canvas = glanceShowing ? mapRef.current?.canvas() : null;
       const picture = canvas ? await thumbnailFrom(canvas) : null;
       await writeGlance({
         place: settings.watch.name?.trim() ?? "",
         warning: overlays.alertActive,
         headline: overlays.announcement.text,
-        picture: picture
-          ? `data:image/png;base64,${btoa(String.fromCharCode(...picture))}`
-          : "",
-        observed: timeline.newestObserved?.time ?? null,
+        picture: picture ? pictureDataUrl(picture) : "",
+        // Milliseconds, which is what the small window subtracts from
+        // `Date.now()`. A frame's own time is in seconds, and handing that
+        // over unmultiplied had the window reporting a five minute old
+        // picture as twenty-nine million minutes old.
+        observedMs: timeline.newestObserved
+          ? timeline.newestObserved.time * 1000
+          : null,
         source: timeline.sourceLabel ?? "",
         at: Date.now(),
       });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock, overlays.alertActive, settings.tray]);
+  }, [clock, glanceShowing, overlays.alertActive, settings.tray]);
 
   // What the window looks like: the built-in look, a theme the reader
   // loaded, and the season, in that order of who asked for what. A warning in

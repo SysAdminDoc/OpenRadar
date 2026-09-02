@@ -16,7 +16,10 @@ export interface Glance {
   headline: string;
   /** A still of the map as a data URL, or empty. */
   picture: string;
-  observed: number | null;
+  /** When the frame it shows was observed, in milliseconds since the epoch.
+   * The unit is in the name because a frame's own time is in seconds, and
+   * handing one over unmultiplied read as twenty-nine million minutes old. */
+  observedMs: number | null;
   source: string;
   at: number;
 }
@@ -31,6 +34,24 @@ async function tell<T>(command: string, args?: Record<string, unknown>) {
     // there, and the workspace has nothing to say about it.
     return null;
   }
+}
+
+/**
+ * The words the tray shows, in the reader's own language.
+ *
+ * The menu and the tooltip are built in Rust, which cannot reach the
+ * catalogue, so the workspace hands them over once it knows the language. The
+ * small window already goes out of its way not to be the one English surface
+ * in a French app; the menu that opens it should not be either.
+ */
+export async function setTrayCopy(words: {
+  open: string;
+  glance: string;
+  quit: string;
+  quiet: string;
+  warning: string;
+}): Promise<void> {
+  await tell("tray_copy", words);
 }
 
 /** Says whether a warning stands at a place the reader named. */
@@ -51,6 +72,17 @@ export async function setCloseToTray(hide: boolean): Promise<void> {
 /** Keeps the small window above everything else, or stops. */
 export async function setGlanceOnTop(on: boolean): Promise<void> {
   await tell("glance_on_top", { on });
+}
+
+/**
+ * Whether the small window is open.
+ *
+ * The workspace composes a still for it once a minute, which is a canvas
+ * readback and a PNG encode. With the tray on by default, every reader was
+ * paying that for a window most of them have never opened.
+ */
+export async function glanceIsShowing(): Promise<boolean> {
+  return (await tell<boolean>("glance_showing")) ?? false;
 }
 
 /** Opens the small window, as the tray menu does. */
