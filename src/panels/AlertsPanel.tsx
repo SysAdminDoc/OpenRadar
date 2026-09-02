@@ -11,6 +11,7 @@ import {
 import type { AlertSeverity } from "../lib/overlays/alerts";
 import { translate, useT } from "../i18n";
 import { calmAdvice } from "../lib/calm";
+import { safePopupUrl } from "../lib/mapPopup";
 import { formatClock } from "../lib/units";
 
 interface AlertsPanelProps {
@@ -107,7 +108,9 @@ export function AlertsPanel({
             const severity = String(
               feature.properties.severity ?? "minor",
             ) as AlertSeverity;
-            const url = String(feature.properties.url ?? "");
+            // Straight out of the feed, so it goes through the same check a
+            // map popup's link does: https only, no credentials in it.
+            const url = safePopupUrl(String(feature.properties.url ?? ""));
             // The damage threat the office attached, when they attached one.
             // Most warnings carry none, and those read exactly as before.
             const impact = String(feature.properties.impact ?? "");

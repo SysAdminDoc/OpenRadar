@@ -1,5 +1,9 @@
 # Changelog
 
+## OpenRadar v0.8.0
+
+- Links out of the app work again. In the installed build every one of them was dead: the alert's own page at the weather office, the hurricane advisory, the map credits, the sources under a curiosity card. Clicking did nothing at all and nothing said why. The window had never been granted permission to open a link, so the click was caught and dropped on the floor. It is granted now, for https and nothing else, and the two links that arrive in a feed rather than being written by us go through the same check a link in a map popup does.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.
