@@ -145,12 +145,38 @@ export function AlertsPanel({
                         expires: timeLabel(feature.properties.expires),
                       })}
                     </small>
-                    {calm ? (
+                    {/* What the office wrote about this warning, before
+                        anything this app has to say about it. It is the
+                        forecaster's own account of what is happening and
+                        where, and until now it was only ever a link out. */}
+                    {feature.properties.area ? (
+                      <small className="alert-area">
+                        {t("alerts.area", {
+                          places: String(feature.properties.area),
+                        })}
+                      </small>
+                    ) : null}
+                    {feature.properties.description ? (
+                      <small className="alert-office" data-office-text>
+                        {String(feature.properties.description)}
+                      </small>
+                    ) : null}
+                    {feature.properties.instruction ? (
+                      <small className="alert-office" data-office-instruction>
+                        <strong>{t("alerts.instruction")}</strong>{" "}
+                        {String(feature.properties.instruction)}
+                      </small>
+                    ) : null}
+                    {calm && !feature.properties.instruction ? (
                       // The warning is unchanged: the same headline, the same
                       // severity, the same colour, at the same moment. This is
                       // a line under it saying what to do, which is what
                       // somebody frightened of the weather actually needs and
                       // what the office's own headline is not for.
+                      //
+                      // Only when the office gave no instruction of its own.
+                      // A line this app wrote is a fallback for silence, not
+                      // something to print above a forecaster's words.
                       <small className="alert-advice" data-calm-advice>
                         <strong>{t("calm.what")}</strong>{" "}
                         {/* From the office's own name for the product, not

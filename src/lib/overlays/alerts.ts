@@ -183,6 +183,21 @@ function impactOf(word: unknown): ImpactTag | null {
 }
 
 /** A parameter in the feed is a list, because one alert can carry several. */
+/**
+ * The office's text, unwrapped from the width its own products are printed at.
+ *
+ * A warning arrives hard-wrapped at about sixty-six columns, which is right
+ * for a teleprinter and wrong for a panel that already wraps: every line
+ * would break twice. A blank line is a real paragraph and stays one.
+ */
+export function unwrap(said: string): string {
+  return said
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function firstParameter(parameters: unknown, name: string): unknown {
   if (!parameters || typeof parameters !== "object") return null;
   const found = (parameters as Record<string, unknown>)[name];
@@ -194,6 +209,19 @@ export interface AlertTags {
   /** The larger of the two threats, since a warning can carry both. */
   hailSize: string;
   motion: string;
+  /**
+   * What the office actually wrote.
+   *
+   * The map service the polygons come from carries a product type and some
+   * times, so the app was showing "Tornado Warning", an expiry and a link
+   * out, and writing its own line about what to do because the office's own
+   * was never read. It is in this feed, which is already fetched once a
+   * minute for the damage tags: taking three more fields off it costs nothing
+   * and asks nobody for anything.
+   */
+  description: string;
+  instruction: string;
+  area: string;
 }
 
 /**
@@ -228,6 +256,12 @@ export function parseAlertTags(payload: unknown): Map<string, AlertTags> {
       impact,
       hailSize: text(firstParameter(parameters, "maxHailSize")),
       motion: text(firstParameter(parameters, "eventMotionDescription")),
+      // The office's own words, unaltered. The feed wraps them at the width
+      // its own products are printed at, which reads as ragged in a panel, so
+      // a single newline becomes a space and a blank line stays a break.
+      description: unwrap(text(properties.description)),
+      instruction: unwrap(text(properties.instruction)),
+      area: text(properties.areaDesc),
     });
   }
   return out;
@@ -348,6 +382,9 @@ export function parseAlerts(
         impactRank: tagged?.impact ? IMPACT_RANK[tagged.impact] : 0,
         hailSize: tagged?.hailSize ?? "",
         motion: tagged?.motion ?? "",
+        description: tagged?.description ?? "",
+        instruction: tagged?.instruction ?? "",
+        area: tagged?.area ?? "",
         office: text(properties.wfo),
         url: text(properties.url),
         issued: epoch(properties.issuance) ?? epoch(properties.onset),
@@ -512,6 +549,15 @@ export const alertsOverlay: OverlayAdapter = {
         ...(properties.hailSize
           ? [translate("alerts.hailTo", { size: Number(properties.hailSize) })]
           : []),
+        // What the office wrote, which is what the reader came for. Its own
+        // words are not summarised, shortened or rewritten: an instruction
+        // out of a warning is the one piece of text in this app that must
+        // arrive exactly as it was issued.
+        ...(properties.area
+          ? [translate("alerts.area", { places: String(properties.area) })]
+          : []),
+        ...(properties.description ? [String(properties.description)] : []),
+        ...(properties.instruction ? [String(properties.instruction)] : []),
         translate("popup.alertSource", {
           office:
             String(properties.office ?? "").trim() ||

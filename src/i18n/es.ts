@@ -70,6 +70,8 @@ export const es: Catalogue = {
   "alerts.layerOffTitle": "La capa de alertas está apagada",
   "alerts.layerOffBody": "Vuelve a encenderla para ver vigilancias y avisos.",
   "alerts.turnOn": "Encender alertas meteorológicas",
+  "alerts.area": "Cubre {places}",
+  "alerts.instruction": "Lo que la oficina indica hacer:",
   "alerts.issued": "Emitido {issued} · vence {expires}",
   "alerts.unknownTime": "sin fecha",
   "alerts.openProduct": "Abrir el producto oficial",

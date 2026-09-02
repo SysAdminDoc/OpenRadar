@@ -6,6 +6,7 @@ import {
   parseAlertTags,
   parseAlerts,
   resetAlertTags,
+  unwrap,
 } from "./alerts";
 import { earthquakesOverlay, parseEarthquakes } from "./earthquakes";
 import { parseWildfires, wildfiresOverlay } from "./wildfires";
@@ -593,6 +594,11 @@ describe("the damage threat an office attaches to a warning", () => {
         properties: {
           id: "urn:oid:2.49.0.1.840.0.bbb.001.1",
           event: "Tornado Warning",
+          areaDesc: "Tarrant, TX; Dallas, TX",
+          description:
+            "At 253 PM CDT, a severe thunderstorm capable of producing a\ntornado was located near Arlington, moving east at 45 mph.\n\nHAZARD...Tornado.",
+          instruction:
+            "TAKE COVER NOW! Move to a basement or an interior room on\nthe lowest floor of a sturdy building.",
           parameters: { tornadoDamageThreat: ["DESTRUCTIVE"] },
         },
       },
@@ -619,6 +625,56 @@ describe("the damage threat an office attaches to a warning", () => {
     expect(tags.get("urn:oid:2.49.0.1.840.0.ccc.001.1")?.impact).toBeNull();
     expect(parseAlertTags(null).size).toBe(0);
     expect(parseAlertTags({ features: "not a list" }).size).toBe(0);
+  });
+
+  it("carries the office's own words, out of the feed it already reads", () => {
+    // The map service the polygons come from has a product type and some
+    // times and nothing else, so a warning showed a headline, an expiry and
+    // a link out, while the description and the instruction sat in a feed
+    // this file already fetches once a minute for the damage tags. Reading
+    // three more fields off it asks nobody for anything.
+    const tags = parseAlertTags(feed);
+    const tornado = tags.get("urn:oid:2.49.0.1.840.0.bbb.001.1");
+    expect(tornado?.instruction).toContain("TAKE COVER NOW!");
+    expect(tornado?.area).toBe("Tarrant, TX; Dallas, TX");
+    expect(tornado?.description).toContain("moving east at 45 mph");
+    // A warning with none of it reads exactly as it did.
+    expect(tags.get("urn:oid:2.49.0.1.840.0.ccc.001.1")?.instruction).toBe("");
+  });
+
+  it("unwraps the teleprinter width without joining the paragraphs", () => {
+    // The office writes at about sixty-six columns, which is right for the
+    // product and wrong for a panel that already wraps: every line would
+    // break twice. A blank line is a real paragraph and stays one.
+    expect(unwrap("a line\nbroken here")).toBe("a line broken here");
+    expect(unwrap("one thing\n\nanother thing")).toBe(
+      "one thing\n\nanother thing",
+    );
+    expect(unwrap("  padded  \n  lines  ")).toBe("padded lines");
+    expect(unwrap("")).toBe("");
+    // And it never invents a paragraph out of trailing space.
+    expect(unwrap("only\n\n\n\n")).toBe("only");
+  });
+
+  it("puts the office's words on the feature the map draws", () => {
+    const drawn = parseAlerts(
+      {
+        features: [
+          {
+            geometry: { type: "Polygon", coordinates: [] },
+            properties: {
+              prod_type: "Tornado Warning",
+              sig: "W",
+              cap_id: "urn:oid:2.49.0.1.840.0.bbb.001.1",
+              wfo: "FWD",
+            },
+          },
+        ],
+      },
+      parseAlertTags(feed),
+    );
+    expect(drawn.features[0].properties.instruction).toContain("TAKE COVER");
+    expect(drawn.features[0].properties.area).toContain("Tarrant");
   });
 
   it("keeps the stronger of two threats on one warning", () => {

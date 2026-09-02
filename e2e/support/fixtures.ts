@@ -175,7 +175,36 @@ export const alertFeature = {
       ],
     ],
   },
-  properties: { prod_type: "Tornado Warning", sig: "W", wfo: "MFL" },
+  properties: {
+    prod_type: "Tornado Warning",
+    sig: "W",
+    wfo: "MFL",
+    // The identifier the polygon service and the alert feed both spell the
+    // same way, which is what joins the office's own words to the shape.
+    cap_id: "urn:oid:2.49.0.1.840.0.test.001.1",
+  },
+};
+
+/**
+ * The alert feed, which carries what the office actually wrote.
+ *
+ * The polygon service has a product type and some times; the description,
+ * the instruction and the counties are only here. The app reads this feed
+ * once a minute for the damage tags whether or not anything is stubbed, so
+ * leaving it unanswered meant every browser test ran with the office's words
+ * missing and nothing noticed when they started being drawn.
+ */
+export const alertFeedFeature = {
+  properties: {
+    id: "urn:oid:2.49.0.1.840.0.test.001.1",
+    event: "Tornado Warning",
+    areaDesc: "Collier, FL; Hendry, FL",
+    description:
+      "At 402 PM EDT, a confirmed tornado was located near Immokalee,\nmoving northeast at 30 mph.",
+    instruction:
+      "TAKE COVER NOW! Move to a basement or an interior room on the\nlowest floor of a sturdy building.",
+    parameters: { AWIPSidentifier: ["TORMFL"] },
+  },
 };
 
 export const earthquakeFeature = {
@@ -535,6 +564,12 @@ export async function routeWorkspace(page: Page) {
     await route.fulfill({
       contentType: "application/json",
       body: collection(features),
+    });
+  });
+  await stub("https://api.weather.gov/alerts/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/geo+json",
+      body: collection([alertFeedFeature]),
     });
   });
   await stub("https://earthquake.usgs.gov/**", async (route) => {

@@ -90,13 +90,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: With a site held, the timeline scrubs across the last N volumes (default 10, settable to 30) at the chosen tilt and product without re-decoding a volume already seen; frames are keyed by volume and elevation, SAILS repeat cuts are included for the lowest tilt only; the live in-progress composite remains the newest frame; the export and the compare pane follow the series; `e2e/level2.spec.ts` drives a three-volume fixture loop and asserts frame times in the legend.
   Complexity: L
 
-- [ ] AUD-171 (P1): Show the office's own warning text in the popup and the Alerts panel
-  Why: The popup and panel show a headline, an expiry and an outbound link; every competitor and weather.gov itself show the description, the instruction and the counties, and the calm presentation's "what to do" line is written by this app rather than by the office because the office text is never fetched.
-  Evidence: `src/lib/overlays/alerts.ts:39` requests `objectid,cap_id,prod_type,msg_type,phenom,sig,wfo,url,onset,ends,expiration,issuance` and nothing else; `src/panels/AlertsPanel.tsx:121-162` renders headline plus `calmAdvice()`; `api.weather.gov/alerts/{id}` carries `description`, `instruction`, `areaDesc`, `parameters` and is already in `ALLOWED_HOSTS` and the ledger (User-Agent required, so the native fetch).
-  Touches: `src/lib/overlays/alerts.ts` (a detail fetch on open keyed by `cap_id`, cached), `src/lib/mapPopup.ts`, `src/panels/AlertsPanel.tsx`, `src/lib/nearby.ts` (the non-visual surface reads the instruction), `src/lib/calm.ts` (office instruction first, app advice only as fallback), `src/i18n/*` for the labels.
-  Acceptance: Opening a warning shows description, instruction and area within the app, fetched once per alert on open and never polled; the Nearby surface reads the instruction; the calm presentation shows the office's instruction before any app-written advice; a fixture e2e asserts the text appears and that no detail request is made for alerts never opened.
-  Complexity: M
-
 ### P2
 
 - [ ] AUD-172 (P2): German warnings from the DWD, drawn and watched

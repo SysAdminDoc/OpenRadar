@@ -650,6 +650,12 @@ test("hands a warning to the layer that explains it", async ({ page }) => {
     // seconds to open would hide the next regression rather than this one.
   }).toPass({ timeout: 6_000 });
   await expect(popup).toContainText("Tornado Warning");
+  // What the office wrote, which used to be a link out and nothing else. The
+  // words are the forecaster's own: the app neither shortens nor rewrites
+  // them.
+  await expect(popup).toContainText("confirmed tornado was located");
+  await expect(popup).toContainText("TAKE COVER NOW!");
+  await expect(popup).toContainText("Collier, FL");
 
   // The app already holds the thing that explains this warning. The reader
   // should not have to know where it is.
