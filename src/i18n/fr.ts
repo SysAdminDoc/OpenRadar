@@ -939,6 +939,9 @@ export const fr: Catalogue = {
   "occasion.notice":
     "L'espace de travail porte la saison. Rien sur la carte n'a changé.",
   "occasion.notThisYear": "Pas cette année",
+  "settings.ambient": "La météo sur l'habillage",
+  "settings.ambientDetail":
+    "Pluie, neige ou brouillard dessinés sur la barre du bas tant que la station la plus proche de l'endroit que vous surveillez le rapporte. Jamais par-dessus la carte, et cela s'arrête quand le rapport vieillit",
   "settings.occasions": "Apparence saisonnière",
   "settings.occasionsDetail":
     "Un changement d'accent pendant quelques semaines par année. Elle n'atteint jamais la carte, et elle se retire tant qu'une alerte est en vigueur là où vous surveillez",

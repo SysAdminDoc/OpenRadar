@@ -916,6 +916,9 @@ export const en = {
   "occasion.notice":
     "The workspace is wearing the season. Nothing on the map has changed.",
   "occasion.notThisYear": "Not this year",
+  "settings.ambient": "Weather on the chrome",
+  "settings.ambientDetail":
+    "Rain, snow or fog drawn on the bar at the bottom while the station nearest the place you watch is reporting it. Never over the map, and it stops when the report goes stale",
   "settings.occasions": "Seasonal look",
   "settings.occasionsDetail":
     "A change of accent for a few weeks of the year. It never reaches the map, and it stands down while a warning is in force where you watch",

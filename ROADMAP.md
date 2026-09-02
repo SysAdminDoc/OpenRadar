@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-003: Add ambient weather effects to the chrome, driven by real conditions
-      Why: Rain running down the edge of a panel while it is actually raining where you are watching is the sort of small thing people show other people. The catch is that it must be driven by observed conditions rather than invented, must never sit over the map, and must cost almost nothing, because a decorative animation that drops the radar loop below its frame budget is a bug wearing a costume.
-      Evidence: `src/components/MapChrome.tsx`; `src/components/WorkspaceChrome.tsx`; `src/lib/weather.ts`; `src/hooks/useLightning.ts`; `src/index.css`
-      Touches: A chrome effect layer outside the map canvas; the condition source and its staleness rule; a frame and CPU budget; the reduced-motion path; settings
-      Acceptance: Effects are chosen from an observed condition with a named source and an age, and stop when that observation goes stale rather than continuing on the last thing they knew; nothing draws over the map canvas or over any legend, readout, or alert surface; a measured budget caps the cost and the effect drops itself if the radar loop misses frames; reduced motion leaves a still treatment or nothing at all; the feature is off until asked for, and one switch removes it everywhere.
-      Complexity: M
-
 - [ ] JOY-004: Give the single-site sweep optional phosphor persistence
       Why: A radar disc that shows where the beam is now, with the previous sweep fading behind it, is the picture everybody has in their head when they think of radar, and this app is one of the few that actually has the beam position to draw it honestly. The live volume path already composites a partial sweep over a finished one, so the geometry is in hand. It stays optional and it stays labelled, because a decayed picture is older than an undecayed one and the reader has to be able to tell.
       Evidence: `src-tauri/src/level2.rs`; `src-tauri/src/chunks.rs`; `src/hooks/useSingleSiteRadar.ts`; `src/components/MapViewport.tsx`

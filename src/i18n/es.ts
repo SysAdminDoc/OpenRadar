@@ -928,6 +928,9 @@ export const es: Catalogue = {
   "occasion.notice":
     "El espacio de trabajo lleva la estación. Nada del mapa ha cambiado.",
   "occasion.notThisYear": "Este año no",
+  "settings.ambient": "El tiempo en el entorno",
+  "settings.ambientDetail":
+    "Lluvia, nieve o niebla dibujadas en la barra inferior mientras la estación más cercana al lugar que vigilas lo está informando. Nunca sobre el mapa, y se detiene cuando el informe caduca",
   "settings.occasions": "Aspecto de temporada",
   "settings.occasionsDetail":
     "Un cambio de acento durante unas semanas al año. Nunca llega al mapa, y se retira mientras hay un aviso en vigor donde vigilas",

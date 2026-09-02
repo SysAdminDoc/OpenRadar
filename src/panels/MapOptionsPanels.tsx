@@ -929,6 +929,12 @@ export function SettingsPanel({
           />
         </label>
         <ToggleSetting
+          label={t("settings.ambient")}
+          detail={t("settings.ambientDetail")}
+          checked={settings.ambient}
+          onChange={(ambient) => onSettings({ ...settings, ambient })}
+        />
+        <ToggleSetting
           label={t("settings.occasions")}
           detail={t("settings.occasionsDetail")}
           checked={settings.occasions.enabled}

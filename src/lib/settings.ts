@@ -249,6 +249,14 @@ export interface AppSettings {
    * which is the year its window began rather than the calendar year: a
    * midwinter pack declined in December does not return on the first.
    */
+  /**
+   * The weather where the reader watches, drawn on the chrome.
+   *
+   * Off until asked for, because an app that animates on its own is one
+   * people switch off in the first week. It reads a station's own report and
+   * stops when that report is too old to speak for the present.
+   */
+  ambient: boolean;
   occasions: {
     enabled: boolean;
     declined: Record<string, number>;
@@ -346,6 +354,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: SCHEMA_VERSION,
   theme: "dark",
   workspaceTheme: null,
+  ambient: false,
   occasions: { enabled: true, declined: {}, seen: {} },
   language: "en",
   units: "imperial",
@@ -1203,6 +1212,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     schemaVersion: SCHEMA_VERSION,
     theme: raw.theme === "light" ? "light" : "dark",
     workspaceTheme: normalizeTheme(raw.workspaceTheme),
+    ambient: bool(raw.ambient, DEFAULT_SETTINGS.ambient),
     occasions: normalizeOccasions(raw.occasions),
     // A language from a build that had one this build does not falls back to
     // English rather than painting the screen with missing keys.
