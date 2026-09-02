@@ -16,8 +16,15 @@ export async function saveFile(
   blob: Blob,
 ): Promise<SavedFile> {
   if (isDesktopRuntime()) {
-    const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-    const path = await invoke<string>("save_export", { fileName, bytes });
+    // The bytes go over as a raw body. Spelling them as a JSON array of
+    // numbers cost three and a half bytes of string per byte of file, built
+    // on this thread while the reader waited: a sixteen megabyte loop
+    // measured 411 ms to convert and 141 ms to serialise, and the ceiling is
+    // sixty-four.
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const path = await invoke<string>("save_export", bytes, {
+      headers: { "x-file-name": fileName },
+    });
     return { path };
   }
 

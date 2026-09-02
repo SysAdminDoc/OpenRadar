@@ -89,7 +89,7 @@ export async function writeWallpaperIfDue(options: {
 /** Writes the picture and puts it on the desktop. Throws with why it failed. */
 export async function setWallpaper(bytes: Uint8Array): Promise<void> {
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("wallpaper_set", { bytes: Array.from(bytes) });
+  await invoke("wallpaper_set", bytes);
 }
 
 /** Puts back whatever was on the desktop before. */

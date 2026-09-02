@@ -73,8 +73,14 @@ pub fn wallpaper_available() -> bool {
 /// here knows anything about radar: it writes a file and asks the desktop to
 /// show it.
 #[tauri::command]
-pub fn wallpaper_set(bytes: Vec<u8>) -> Result<(), String> {
-    set_with(bytes, apply)
+pub fn wallpaper_set(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    // A raw body rather than a JSON array of numbers. This runs on a timer
+    // for the whole session, and a megabyte of PNG spelled as JSON is three
+    // and a half megabytes of string built on the interface thread.
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("the wallpaper has to arrive as bytes".to_string());
+    };
+    set_with(bytes.clone(), apply)
 }
 
 /// The write, with the thing that touches the desktop handed in.
@@ -330,7 +336,9 @@ mod tests {
     fn a_picture_that_is_not_one_is_refused() {
         // This ends up as the desktop background of somebody's machine, so
         // the format is checked rather than trusted.
-        let answer = wallpaper_set(b"<svg onload=alert(1)>".to_vec());
+        // Through the same seam the command uses, because the command now
+        // takes an IPC request and a test cannot build one.
+        let answer = set_with(b"<svg onload=alert(1)>".to_vec(), |_| Ok(()));
         assert!(answer.is_err());
     }
 

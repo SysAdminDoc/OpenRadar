@@ -161,14 +161,41 @@ fn temporary_file(target: &Path) -> io::Result<(PathBuf, File)> {
     ))
 }
 
+/// The name a raw-body request carries its file name under.
+pub const FILE_NAME_HEADER: &str = "x-file-name";
+
+/// Reads the file name and the bytes out of a raw-body request.
+///
+/// The bytes used to arrive as a JSON array of numbers, which is three and a
+/// half bytes of string per byte of file: a sixteen megabyte loop took 411 ms
+/// to convert and 141 ms to serialise on the machine this was measured on,
+/// and produced a 57 MB string, on the interface thread, while the reader
+/// waited. The ceiling here is 64 MB, so the worst case was a 230 MB string.
+///
+/// Takes the two halves rather than the request, because a test cannot build
+/// one: `tauri::ipc::Request` has no public constructor.
+fn unpack(
+    body: &tauri::ipc::InvokeBody,
+    headers: &tauri::http::HeaderMap,
+) -> Result<(String, Vec<u8>), ExportError> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = body else {
+        return Err(ExportError::BadName);
+    };
+    let name = headers
+        .get(FILE_NAME_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or(ExportError::BadName)?;
+    Ok((name.to_string(), bytes.clone()))
+}
+
 /// Writes the bytes and answers with the full path, so the caller can offer to
 /// show the file.
 #[tauri::command]
 pub fn save_export(
     app: AppHandle,
-    file_name: String,
-    bytes: Vec<u8>,
+    request: tauri::ipc::Request<'_>,
 ) -> Result<String, ExportError> {
+    let (file_name, bytes) = unpack(request.body(), request.headers())?;
     if bytes.len() > MAX_BYTES {
         return Err(ExportError::TooLarge);
     }
@@ -185,6 +212,39 @@ pub fn save_export(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The bytes and the name, out of a raw body and a header.
+    ///
+    /// They used to arrive as a JSON array of numbers, which is three and a
+    /// half bytes of string per byte of file, built on the thread drawing the
+    /// map while the reader waited. Nothing else in the suite can see the
+    /// shape of an invoke, so this is where it is held.
+    #[test]
+    fn reads_the_name_out_of_a_header_and_the_bytes_out_of_the_body() {
+        let mut headers = tauri::http::HeaderMap::new();
+        headers.insert(FILE_NAME_HEADER, "loop.webm".parse().unwrap());
+        let body = tauri::ipc::InvokeBody::Raw(vec![1, 2, 3]);
+        let (name, bytes) = unpack(&body, &headers).expect("a raw body");
+        assert_eq!(name, "loop.webm");
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn refuses_a_body_that_is_not_bytes() {
+        // A caller still spelling the file out as a JSON array gets an error
+        // rather than an empty file with a plausible name.
+        let mut headers = tauri::http::HeaderMap::new();
+        headers.insert(FILE_NAME_HEADER, "loop.webm".parse().unwrap());
+        let body = tauri::ipc::InvokeBody::Json(serde_json::json!([1, 2, 3]));
+        assert!(unpack(&body, &headers).is_err());
+    }
+
+    #[test]
+    fn refuses_a_request_that_names_no_file() {
+        let headers = tauri::http::HeaderMap::new();
+        let body = tauri::ipc::InvokeBody::Raw(vec![1, 2, 3]);
+        assert!(unpack(&body, &headers).is_err());
+    }
 
     /// Every kind of file this app actually offers to save.
     ///
