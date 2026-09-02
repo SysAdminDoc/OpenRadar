@@ -979,6 +979,33 @@ export function SettingsPanel({
                   : t("settings.ambientQuiet")}
           </p>
         ) : null}
+        <div className="settings-field" data-ambient-screen-setting>
+          <span>
+            <strong>{t("ambientScreen.setting")}</strong>
+            <small>{t("ambientScreen.settingDetail")}</small>
+          </span>
+          <label className="settings-field">
+            <span>{t("ambientScreen.idle")}</span>
+            <select
+              value={String(settings.ambientIdleMinutes)}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  ambientIdleMinutes: Number(event.target.value),
+                })
+              }
+            >
+              {/* Never, by default. A workspace that takes itself over while
+                  somebody is reading is a workspace they stop leaving open. */}
+              <option value="0">{t("ambientScreen.idleOff")}</option>
+              {[5, 15, 30, 60].map((minutes) => (
+                <option key={minutes} value={String(minutes)}>
+                  {t("ambientScreen.idleMinutes", { minutes })}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <ToggleSetting
           label={t("calm.setting")}
           detail={t("calm.settingDetail")}

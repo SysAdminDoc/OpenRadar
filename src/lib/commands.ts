@@ -10,6 +10,7 @@ export type CommandAction =
   | { kind: "surface"; surface: string }
   | { kind: "tool"; tool: string }
   | { kind: "capture" }
+  | { kind: "ambientScreen" }
   | { kind: "home" };
 
 export interface Command {
@@ -475,6 +476,17 @@ export function allCommands(which?: LanguageId): Command[] {
         which,
       ),
       action: { kind: "capture" },
+    },
+    {
+      id: "ambient-screen",
+      label: translate("command.ambientScreen", undefined, which),
+      group: translate("command.group.layout", undefined, which),
+      keywords: searchTerms(
+        ["ambient", "second monitor", "screen", "fullscreen", "kiosk", "wall"],
+        "keywords.ambientScreen",
+        which,
+      ),
+      action: { kind: "ambientScreen" },
     },
     ...TOOL_COMMANDS.map((entry): Command => ({
       id: `tool:${entry.tool}`,

@@ -585,6 +585,8 @@ export const en = {
   "command.group.panel": "Panel",
   "command.group.tool": "Tool",
   "command.group.layout": "Layout",
+  "keywords.ambientScreen":
+    "ambient, second monitor, screen, fullscreen, kiosk, wall",
   "keywords.capture": "",
   "keywords.home": "",
   "layer.probSevere": "Severe Probability",
@@ -1426,6 +1428,17 @@ export const en = {
   "postcard.size.wide": "Wide",
   "postcard.size.tall": "Tall",
   "postcard.sizeLabel": "Shape",
+  "ambientScreen.age":
+    "{source} · {minutes, plural, one {# minute old} other {# minutes old}}",
+  "ambientScreen.setting": "Full-screen view for a second monitor",
+  "ambientScreen.settingDetail":
+    "The map with nothing else on it, a clock, and what it is showing. The loop keeps running and slows down when nobody has touched anything for a while, so a screen left on overnight is not asking a public service for a picture every minute. A warning where you watch takes it down and puts the workspace back.",
+  "ambientScreen.leave": "Leave the full-screen view",
+  "ambientScreen.idle": "Go into it on its own after",
+  "ambientScreen.idleOff": "Never",
+  "ambientScreen.idleMinutes":
+    "{minutes, plural, one {# minute} other {# minutes}}",
+  "command.ambientScreen": "Full-screen view",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

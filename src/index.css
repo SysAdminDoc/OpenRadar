@@ -2653,6 +2653,74 @@ input[type="range"] {
 
 /* Someone who has asked for more contrast gets firmer edges and brighter text
    rather than the softer palette the default look is built on. */
+/* The second monitor's own readout.
+ *
+ * Everything somebody glances at from across a room and nothing they would
+ * walk over to read. Never pure white and never held still: it drifts a few
+ * pixels every few minutes and fades after a while unattended, both of which
+ * are invisible to a person and matter to a panel left on all night.
+ */
+.ambient-readout {
+  position: absolute;
+  left: 32px;
+  bottom: 32px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+  color: #d6dfeb;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+  transition:
+    opacity 1.2s linear,
+    transform 1.2s linear;
+}
+
+.ambient-readout strong {
+  font-size: 46px;
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ambient-readout span {
+  font-size: 17px;
+}
+
+.ambient-readout small {
+  font-size: 13px;
+  color: #a9b6c6;
+}
+
+/* The way out, at a tenth opacity until it is pointed at, so a monitor left
+   on a wall is not showing a button all night. */
+.ambient-readout__leave {
+  pointer-events: auto;
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(9, 11, 16, 0.6);
+  color: #d6dfeb;
+  opacity: 0.1;
+  cursor: pointer;
+}
+
+.ambient-readout__leave:hover,
+.ambient-readout__leave:focus-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The drift is motion a reader asked not to have. The loop keeps running:
+     reduced motion removes the movement, never the feature. */
+  .ambient-readout {
+    transition: none;
+    transform: none !important;
+  }
+}
+
 /* The calmer presentation.
  *
  * Chrome only, and deliberately nothing else. Every colour that carries a

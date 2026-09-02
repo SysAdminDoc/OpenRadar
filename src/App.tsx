@@ -15,6 +15,7 @@ import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
 import { CatchUpCard } from "./components/CatchUpCard";
 import { CuriosityCard } from "./components/CuriosityCard";
+import { AmbientReadout } from "./components/AmbientReadout";
 import { useCuriosities } from "./hooks/useCuriosities";
 import type { Curiosity } from "./lib/curiosities";
 import { useAmbient } from "./hooks/useAmbient";
@@ -220,6 +221,16 @@ export default function App() {
   // where they travel.
   const [overlayFiles, setOverlayFiles] = useState<WorkspaceOverlayFile[]>([]);
   const [capture, setCapture] = useState(false);
+  /**
+   * The full-screen view for a second monitor.
+   *
+   * The capture layout with a readout put back, so nothing is unmounted and
+   * leaving it returns the workspace exactly as it was: the same panel open,
+   * the same tool held, the same scroll.
+   */
+  const [ambientAsked, setAmbientAsked] = useState(false);
+  /** When anybody last touched the machine, for the dimming and the slowing. */
+  const [touchedAt, setTouchedAt] = useState(() => Date.now());
   const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
 
   // What the reader calls the storms the radar is tracking.
@@ -279,6 +290,11 @@ export default function App() {
     palettes: activeTables,
   });
 
+  // How long since anybody touched the machine. Read by the readout for its
+  // dimming, by the loop for how often it asks, and by the full-screen view
+  // for whether to let itself in.
+  const idleMs = clock - touchedAt;
+
   const timeline = useRadarTimeline({
     ready: hydrated,
     center: settings.camera.center,
@@ -288,6 +304,10 @@ export default function App() {
     pageVisible,
     archive: replay,
     paletteGeneration,
+    // How long nobody has touched anything, so a loop left on a second
+    // monitor overnight asks for a newer picture four times an hour rather
+    // than twelve. Nothing about the playback changes.
+    idleMs,
     // The mosaic has a threshold of its own. It is composite reflectivity,
     // the strongest return anywhere in the column, and the single-site product
     // is one tilt of it; the same number means something different in each, so
@@ -963,6 +983,40 @@ export default function App() {
   } | null>(null);
   const [curiosity, setCuriosity] = useState<Curiosity | null>(null);
 
+  // Any of the ordinary ways somebody says they are still there. Recorded
+  // rather than reacted to: the readout dims itself off this and the loop
+  // slows itself off this, and neither of them wants a render per keystroke.
+  useEffect(() => {
+    const touched = () => setTouchedAt(Date.now());
+    const events = ["pointerdown", "keydown", "wheel"] as const;
+    for (const name of events)
+      window.addEventListener(name, touched, { passive: true });
+    return () => {
+      for (const name of events) window.removeEventListener(name, touched);
+    };
+  }, []);
+
+  /**
+   * Whether the full-screen view is actually on, worked out rather than kept.
+   *
+   * Three things decide it and all three are already known during a render:
+   * whether the reader asked for it, whether they have been away long enough
+   * to have asked for it by default, and whether a warning is standing at a
+   * place they watch. Writing it into state from an effect would cascade a
+   * render for each of them, and the warning case would then have to be
+   * undone by hand when the warning cleared.
+   *
+   * A warning takes it down and puts the workspace back, because the whole
+   * point of the app is the thing that just happened, and a second monitor
+   * showing a clean loop through it is the app hiding its own reason to
+   * exist. It comes back when the warning does not stand any more.
+   */
+  const ambientScreen =
+    (ambientAsked ||
+      (settings.ambientIdleMinutes > 0 &&
+        idleMs >= settings.ambientIdleMinutes * 60_000)) &&
+    !overlays.alertActive;
+
   const handleCameraChange = useCallback(
     (camera: CameraState) => {
       updateCamera(camera);
@@ -1600,6 +1654,10 @@ export default function App() {
             pitch: 0,
           });
           break;
+        case "ambientScreen":
+          setAmbientAsked((on) => !on);
+          handleTool(null);
+          break;
         case "capture":
           setCapture((on) => !on);
           // Nothing the mode hides may be left armed behind it. The layout
@@ -1720,8 +1778,26 @@ export default function App() {
       // Everything the streamer operates is hidden by one attribute rather
       // than by unmounting it, so leaving the mode puts the workspace back
       // exactly as it was: same panel open, same tool held, same scroll.
-      data-capture={capture ? "1" : undefined}
+      data-capture={capture || ambientScreen ? "1" : undefined}
+      // Its own attribute as well, because the readout is the difference
+      // between a streamer's clean frame and a second monitor's.
+      data-ambient-screen={ambientScreen ? "1" : undefined}
     >
+      {ambientScreen ? (
+        <AmbientReadout
+          clock={clock}
+          place={settings.watch.name?.trim() ?? ""}
+          source={timeline.sourceLabel ?? ""}
+          frameAgeMinutes={radarAge}
+          idleMs={idleMs}
+          onLeave={() => {
+            setAmbientAsked(false);
+            // Also counts as being here, which is what stops the idle rule
+            // putting it straight back.
+            setTouchedAt(Date.now());
+          }}
+        />
+      ) : null}
       {revealing ? <FirstRunReveal onDone={markRevealSeen} /> : null}
       {curiosity &&
       settings.curiosities &&

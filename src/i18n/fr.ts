@@ -602,6 +602,8 @@ export const fr: Catalogue = {
   "command.group.panel": "Panneau",
   "command.group.tool": "Outil",
   "command.group.layout": "Disposition",
+  "keywords.ambientScreen":
+    "ambiant, second moniteur, écran, plein écran, kiosque, mur",
   "keywords.capture": "capture direct diffusion propre observation",
   "keywords.home": "chez soi maison retour endroit surveille",
   "layer.probSevere": "Probabilité de sévérité",
@@ -1467,6 +1469,17 @@ export const fr: Catalogue = {
   "postcard.size.wide": "Large",
   "postcard.size.tall": "Haute",
   "postcard.sizeLabel": "Format",
+  "ambientScreen.age":
+    "{source} · {minutes, plural, one {# minute} other {# minutes}}",
+  "ambientScreen.setting": "Vue plein écran pour un second moniteur",
+  "ambientScreen.settingDetail":
+    "La carte sans rien d'autre dessus, une horloge et ce qu'elle montre. La boucle continue et ralentit quand personne ne touche à rien pendant un moment, pour qu'un écran laissé allumé la nuit ne demande pas une image par minute. Une alerte là où vous surveillez la referme et rend l'espace de travail.",
+  "ambientScreen.leave": "Quitter la vue plein écran",
+  "ambientScreen.idle": "Y entrer seule après",
+  "ambientScreen.idleOff": "Jamais",
+  "ambientScreen.idleMinutes":
+    "{minutes, plural, one {# minute} other {# minutes}}",
+  "command.ambientScreen": "Vue plein écran",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":
