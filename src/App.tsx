@@ -12,6 +12,7 @@ import {
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import { useAppearance } from "./hooks/useAppearance";
+import { useAmbient } from "./hooks/useAmbient";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
@@ -287,6 +288,29 @@ export default function App() {
   // stands.
   const appearance = useAppearance(settings, clock, overlays.alertActive);
 
+  const reducedMotion = useReducedMotion();
+
+  // The weather where the reader watches, on the chrome. A data attribute
+  // rather than an element, so the effect is one background image on the
+  // command bar and there is no way for it to reach the map: see the
+  // `[data-ambient]` rules in `index.css`.
+  const ambient = useAmbient({
+    enabled: settings.ambient,
+    center: settings.watch.center,
+    clock,
+    reducedMotion,
+  });
+  useEffect(() => {
+    const root = document.documentElement;
+    // It stands down with everything else while a warning is in force at a
+    // watched place.
+    if (ambient.seen && !overlays.alertActive) {
+      root.dataset.ambient = ambient.seen.condition;
+    } else {
+      delete root.dataset.ambient;
+    }
+  }, [ambient.seen, overlays.alertActive]);
+
   // One line, once a year, the first time a pack is on screen. It carries the
   // way to send that occasion away until next year; the switch that ends them
   // for good is in Settings, because a toast is not where somebody makes a
@@ -429,7 +453,6 @@ export default function App() {
   });
   // Animated particles are motion for its own sake, so a viewer who has asked
   // for less of it does not get them at all.
-  const reducedMotion = useReducedMotion();
   const wind = useWind({
     ready: hydrated,
     enabled: settings.layers.wind && !reducedMotion,

@@ -271,6 +271,79 @@ a {
   scrollbar-width: thin;
 }
 
+/* The weather where the reader watches, on the chrome and nowhere else.
+   Painted as the command bar's own background image, which is the one place
+   it cannot reach: a background does not overlap a control, cannot leave the
+   element, and the bar sits below the map stage rather than over it. The
+   colour underneath is untouched, so the bar reads the same either way.
+   `src/lib/ambient.ts` decides what is drawn and stops when the station's
+   report is too old to speak for the present. */
+:root[data-ambient] .command-bar {
+  background-repeat: repeat;
+}
+
+:root[data-ambient="rain"] .command-bar,
+:root[data-ambient="thunder"] .command-bar {
+  background-image: repeating-linear-gradient(
+    102deg,
+    rgba(173, 210, 255, 0.13) 0 1px,
+    rgba(173, 210, 255, 0) 1px 9px
+  );
+  background-size: auto 26px;
+  animation: ambient-fall 0.9s linear infinite;
+}
+
+:root[data-ambient="thunder"] .command-bar {
+  animation:
+    ambient-fall 0.7s linear infinite,
+    ambient-flash 9s ease-in-out infinite;
+}
+
+:root[data-ambient="snow"] .command-bar {
+  background-image: radial-gradient(
+    circle at 3px 3px,
+    rgba(226, 240, 255, 0.24) 1.1px,
+    rgba(226, 240, 255, 0) 1.2px
+  );
+  background-size: 22px 22px;
+  animation: ambient-fall 5.5s linear infinite;
+}
+
+/* Fog is the one that does not move, which is also what fog does. */
+:root[data-ambient="fog"] .command-bar {
+  background-image: linear-gradient(
+    180deg,
+    rgba(203, 214, 228, 0.14),
+    rgba(203, 214, 228, 0.02)
+  );
+}
+
+@keyframes ambient-fall {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 100%;
+  }
+}
+
+@keyframes ambient-flash {
+  0%,
+  92%,
+  100% {
+    border-top-color: var(--border-strong);
+  }
+  94% {
+    border-top-color: rgba(206, 226, 255, 0.85);
+  }
+  96% {
+    border-top-color: var(--border-strong);
+  }
+  98% {
+    border-top-color: rgba(206, 226, 255, 0.6);
+  }
+}
+
 .command-group {
   display: flex;
   /* No shrinking: a squeezed group used to overlap its neighbour, which put
