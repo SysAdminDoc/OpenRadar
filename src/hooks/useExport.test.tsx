@@ -5,10 +5,11 @@ import type { RadarFrame } from "../lib/radar";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { useExport } from "./useExport";
 
-const { exportLoop, exportStill, saveFile } = vi.hoisted(() => ({
+const { exportLoop, exportStill, saveFile, setWallpaper } = vi.hoisted(() => ({
   exportLoop: vi.fn(),
   exportStill: vi.fn(),
   saveFile: vi.fn(),
+  setWallpaper: vi.fn(),
 }));
 
 vi.mock("../lib/export", async (importOriginal) => {
@@ -16,6 +17,10 @@ vi.mock("../lib/export", async (importOriginal) => {
   return { ...actual, exportLoop, exportStill };
 });
 vi.mock("../lib/saveFile", () => ({ saveFile }));
+vi.mock("../lib/wallpaper", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/wallpaper")>();
+  return { ...actual, setWallpaper };
+});
 
 /** When the frames on the timeline reached this machine. */
 const FETCHED_AT = Date.parse("2026-08-31T18:00:00Z");
@@ -254,6 +259,86 @@ describe("the record written beside the picture", () => {
     expect(saveFile).toHaveBeenCalledTimes(2);
     expect(pushToast).toHaveBeenCalledWith(
       expect.objectContaining({ detail: "C:/downloads/openradar.png" }),
+    );
+  });
+});
+
+describe("the picture that goes on the desktop", () => {
+  const timeline: RadarTimelineState = {
+    frames,
+    frameIndex: 1,
+    playing: false,
+    source: null,
+    sourceLabel: null,
+    attribution: null,
+    error: null,
+    cached: false,
+    cachedAgeSeconds: null,
+    fetchedAt: FETCHED_AT,
+    newestObserved: undefined,
+    setPlaying: vi.fn(),
+    selectFrame: vi.fn(),
+  };
+
+  function renderExport(over: Partial<Parameters<typeof useExport>[0]> = {}) {
+    const map = {
+      canvas: () => document.createElement("canvas"),
+      onceIdle: vi.fn().mockResolvedValue(undefined),
+    } as unknown as MapViewportHandle;
+    return renderHook(() =>
+      useExport({
+        mapRef: { current: map },
+        frames,
+        frameIndex: 1,
+        source: null,
+        timeline,
+        basemapCredit: "OpenStreetMap",
+        dataSources: [],
+        pushToast: vi.fn(),
+        ...over,
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    exportStill.mockReset();
+    setWallpaper.mockReset();
+    exportStill.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])]));
+  });
+
+  it("writes the same composed still a saved picture gets", async () => {
+    const { result } = renderExport();
+    await act(async () => {
+      await result.current.writeWallpaper();
+    });
+    expect(exportStill).toHaveBeenCalledTimes(1);
+    // The caption is what carries the frame time, the credits and the age, so
+    // the desktop and a saved file cannot say different things about the same
+    // frame.
+    const caption = exportStill.mock.calls[0][1];
+    expect(caption).toEqual(
+      expect.objectContaining({ attribution: expect.any(String) }),
+    );
+    expect(setWallpaper).toHaveBeenCalledTimes(1);
+    expect(setWallpaper.mock.calls[0][0]).toBeInstanceOf(Uint8Array);
+  });
+
+  it("leaves the last picture up when there is no frame to draw", async () => {
+    // Offline, or before the first fetch lands. An empty map on somebody's
+    // desktop is worse than the one that is already there.
+    const { result } = renderExport({ frames: [], frameIndex: 0 });
+    await act(async () => {
+      await result.current.writeWallpaper();
+    });
+    expect(exportStill).not.toHaveBeenCalled();
+    expect(setWallpaper).not.toHaveBeenCalled();
+  });
+
+  it("hands a failed write back to be said out loud", async () => {
+    setWallpaper.mockRejectedValue(new Error("the folder is gone"));
+    const { result } = renderExport();
+    await expect(result.current.writeWallpaper()).rejects.toThrow(
+      "the folder is gone",
     );
   });
 });

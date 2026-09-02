@@ -1467,6 +1467,16 @@ export const en = {
   "tray.closeToTray": "Closing the window leaves it running in the tray",
   "tray.closeToTrayDetail":
     "Off, because an app that keeps running after you close it is an app people uninstall. With it on, the tray icon is how you get back.",
+  "wallpaper.setting": "Put the current view on the desktop",
+  "wallpaper.settingDetail":
+    "A composed picture of the map behind whatever you are working on, with the time, the source and its own age burned in, refreshed on the gap you choose. It writes one file in the app's own folder and nowhere else, and switching it off puts your own wallpaper back. Windows only for now.",
+  "wallpaper.every": "How often",
+  "wallpaper.never": "Never",
+  "wallpaper.everyMinutes":
+    "{minutes, plural, one {Every minute} other {Every # minutes}}",
+  "wallpaper.unavailable":
+    "This is a Windows thing for now, so there is nothing to switch on here.",
+  "wallpaper.failed": "The wallpaper could not be written",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

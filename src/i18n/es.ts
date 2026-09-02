@@ -1492,6 +1492,16 @@ export const es: Catalogue = {
   "tray.closeToTray": "Al cerrar la ventana, seguir en la bandeja",
   "tray.closeToTrayDetail":
     "Desactivado, porque una aplicación que sigue funcionando después de cerrarla es una aplicación que la gente desinstala. Con esto activado, el icono de la bandeja es la forma de volver.",
+  "wallpaper.setting": "Poner la vista actual en el escritorio",
+  "wallpaper.settingDetail":
+    "Una imagen compuesta del mapa detrás de lo que estés haciendo, con la hora, la fuente y su propia antigüedad grabadas, actualizada con la frecuencia que elijas. Escribe un archivo en la carpeta de la aplicación y en ningún otro sitio, y al desactivarlo vuelve tu fondo de pantalla. Solo en Windows por ahora.",
+  "wallpaper.every": "Cada cuánto",
+  "wallpaper.never": "Nunca",
+  "wallpaper.everyMinutes":
+    "{minutes, plural, one {Cada minuto} other {Cada # minutos}}",
+  "wallpaper.unavailable":
+    "Esto es cosa de Windows por ahora, así que aquí no hay nada que activar.",
+  "wallpaper.failed": "No se pudo escribir el fondo de pantalla",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":

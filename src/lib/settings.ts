@@ -419,6 +419,12 @@ export interface AppSettings {
    * On, because it is the one place the app can say something useful while
    * it is not in front of anybody. Off removes it rather than hiding it.
    */
+  /**
+   * How often the current view goes on the desktop, in minutes. Zero is
+   * never, which is the default: this takes something of the reader's away
+   * for as long as it is on, so it is asked for rather than assumed.
+   */
+  wallpaperMinutes: number;
   tray: boolean;
   /**
    * Whether closing the window leaves the app running in the tray.
@@ -572,6 +578,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenReveal: false,
   calm: false,
   ambientIdleMinutes: 0,
+  wallpaperMinutes: 0,
   tray: true,
   closeToTray: false,
   glanceOnTop: false,
@@ -1519,6 +1526,14 @@ export function normalizeSettings(value: unknown): AppSettings {
       typeof raw.alertSoundPath === "string" && raw.alertSoundPath.length
         ? raw.alertSoundPath.slice(0, 1024)
         : null,
+    // Nothing under the floor, whatever a stored file asks for: a
+    // wallpaper refreshing every minute is a loop asking a public service
+    // for a frame every minute behind a spreadsheet nobody is looking at.
+    wallpaperMinutes: [0, 15, 30, 60, 180].includes(
+      Number(raw.wallpaperMinutes),
+    )
+      ? Number(raw.wallpaperMinutes)
+      : DEFAULT_SETTINGS.wallpaperMinutes,
     tray: bool(raw.tray, DEFAULT_SETTINGS.tray),
     closeToTray: bool(raw.closeToTray, DEFAULT_SETTINGS.closeToTray),
     glanceOnTop: bool(raw.glanceOnTop, DEFAULT_SETTINGS.glanceOnTop),

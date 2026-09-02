@@ -189,6 +189,8 @@ Typing a storm's name into the place search answers with the storm rather than a
 
 **A tray icon** says whether a warning stands where you watch, and nothing else. Beside it is a small window with the place, the state and one still of the map, its own page rather than a second copy of the workspace, so it weighs two kilobytes and draws no map of its own. Closing the main window closes the app unless you ask otherwise, and switching the tray off removes the icon rather than hiding it.
 
+**The map on your desktop**, refreshed on a gap you choose, off until you ask for it. It is the same composed still the export writes, with the frame time, the source credits and its own age burned in. Fifteen minutes is the shortest gap on offer, because anything shorter is a loop asking a public radar service for a frame every minute behind whatever you are actually working on. Your own wallpaper comes back the moment you switch it off. Windows only for now.
+
 **A calmer presentation** is there for readers who find severe weather distressing. It turns the app down and never the weather: the same warnings, at the same moment, in the same colours, with a line under each one about what to do rather than how bad it could be. Probability layers start off and come back with one press. Every accessibility check passes with it on.
 
 Alerts have four sounds rather than one, by severity, and you can hear each before committing to it. You can point at a sound file of your own instead, which replaces all four and is cut off after six seconds. None of them imitates the Emergency Alert System attention signal, the wireless alert signal or NOAA Weather Radio's tone, and tests hold that boundary because 47 CFR 11.45 makes it a law rather than a preference.

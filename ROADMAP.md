@@ -8,6 +8,13 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
+- [ ] AUD-126: The station-plot e2e fails in the compact project
+      Why: `e2e/layers.spec.ts:659` ("draws surface observations as station plots, and only close in") fails under `--project=compact` and passes under chromium and wide. It was failing at `70fa292` before any of this session's work, so it is a standing red in the suite rather than a regression, and a standing red is how a real one goes unnoticed.
+      Evidence: `npx playwright test layers --project=compact -g "station plots"` fails at `expect.poll(() => asked.length).toBeGreaterThan(0)` (line 697), verified against a clean worktree at `70fa292`
+      Touches: The surface-observation request, whatever suppresses it at the compact viewport, and the spec's own assumptions about that viewport
+      Acceptance: The spec passes in all three projects, and if the layer is genuinely meant to stay off at that width, the spec says so instead of asking for the request.
+      Priority: P2
+
 ## P3
 
 ## Character and personalization
@@ -23,10 +30,3 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-019: Write the current view to the desktop wallpaper on a schedule
-      Why: This is the quiet showpiece. A composed radar picture of your own area, refreshed on the desktop every fifteen minutes, is something people notice and talk about, and it needs no new data path at all because the still export already exists.
-      Evidence: `src/hooks/useExport.ts`; `src/lib/export.ts`; `src-tauri/src/exports.rs`; `src-tauri/src/lib.rs`
-      Touches: A native wallpaper write on Windows; the schedule and its bounds; the composed frame including time, place, and credits; the previous wallpaper; failure reporting; settings
-      Acceptance: The reader's previous wallpaper is recorded before the first write and restored when the feature is switched off; the schedule has a floor that keeps provider requests inside the budget, and it stops while the machine is offline rather than writing an empty map; every written picture carries its time, its source credits, and its own age; a failed write reaches a toast and the log instead of failing silently; the feature is Windows-only for now and says so; nothing is written anywhere except the configured wallpaper path.
-      Note (2026-08-31): Use the `IDesktopWallpaper` COM interface from the `windows` crate (per-monitor, no elevation); `SystemParametersInfoW` is the single-monitor fallback. The cautionary tale is Microsoft's own Bing Wallpaper app, panned in November 2024 for bundling everything but wallpaper: this feature does one thing, opt-in, and restores what it found.
-      Complexity: L
