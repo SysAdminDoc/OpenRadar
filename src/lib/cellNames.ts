@@ -26,14 +26,6 @@ export const MAX_NAMES = 12;
 /** How long one may be. Long enough for "the one over the lake". */
 export const MAX_NAME = 24;
 
-/** A stored name as anything but the field itself should read it. */
-export function nameOf(
-  names: ReadonlyMap<string, string>,
-  key: string,
-): string {
-  return (names.get(key) ?? "").trim();
-}
-
 /** A name for one cell of one radar's report. */
 export function cellKey(station: string, id: string): string {
   return `${station}|${id}`;

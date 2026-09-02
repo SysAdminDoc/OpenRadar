@@ -28,14 +28,6 @@ export function overlayAdapter(id: OverlayId): OverlayAdapter {
   return adapter;
 }
 
-export type OverlaySnapshot = {
-  id: OverlayId;
-  data: import("./registry").OverlayData;
-  fetchedAt: number;
-  bounds: import("./registry").OverlayBounds;
-  stale: boolean;
-};
-
 export { alertSeverity, SEVERITY_COLOR, SEVERITY_RANK } from "./alerts";
 export { stormCategory, type TropicalKind } from "./tropical";
 export { parseDiscussions, parseOutlooks, outlookTime } from "./spc";

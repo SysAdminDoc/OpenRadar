@@ -184,16 +184,5 @@ export function pathOf(points: Array<{ x: number; y: number }>): string {
     .join(" ");
 }
 
-/** The temperature an isotherm has at the top of the chart, for its label. */
-export function isothermLabel(
-  box: ChartBox,
-  temperature: number,
-): {
-  x: number;
-  y: number;
-} {
-  return plot(box, temperature, box.bottom);
-}
-
 /** Potential temperature, re-exported so a caller drawing labels has it. */
 export { potentialTemperature };
