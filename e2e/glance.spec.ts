@@ -131,3 +131,102 @@ test("speaks the language the workspace is in", async ({ page }) => {
   const glance = page.locator(".glance");
   await expect(glance).toContainText("Rien en cours là où vous surveillez");
 });
+
+/** What a colour actually paints as, composited, in this page. */
+async function painted(
+  page: import("@playwright/test").Page,
+  selector: string,
+) {
+  return page.evaluate((css: string) => {
+    const node = document.querySelector(css)!;
+    const seen = getComputedStyle(node);
+    // Through a canvas, because a computed colour can come back as `oklch(...)`
+    // or a `color-mix`, and reading the numbers out of those as if they were
+    // sRGB reports contrasts that are not there.
+    const read = (value: string) => {
+      const paint = document
+        .createElement("canvas")
+        .getContext("2d", { willReadFrequently: true })!;
+      paint.canvas.width = 1;
+      paint.canvas.height = 1;
+      paint.fillStyle = "#ffffff";
+      paint.fillRect(0, 0, 1, 1);
+      paint.fillStyle = value;
+      paint.fillRect(0, 0, 1, 1);
+      const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
+      return [red, green, blue] as [number, number, number];
+    };
+    return {
+      ink: read(seen.color),
+      ground: read(getComputedStyle(document.body).backgroundColor),
+    };
+  }, selector);
+}
+
+/** WCAG contrast of two painted colours. */
+function contrast(
+  one: [number, number, number],
+  two: [number, number, number],
+) {
+  const light = ([red, green, blue]: [number, number, number]) => {
+    const channel = (value: number) => {
+      const part = value / 255;
+      return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
+    };
+    return (
+      0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+    );
+  };
+  const [high, low] = [light(one), light(two)].sort((a, b) => b - a);
+  return (high + 0.05) / (low + 0.05);
+}
+
+test("comes up in the theme the workspace is in", async ({ page }) => {
+  // It was dark whatever the reader had chosen: a small dark window beside a
+  // light workspace, with nothing anywhere saying it was meant to be. The
+  // stylesheet said dark-only was deliberate; the reader was never told.
+  await open(
+    page,
+    {
+      place: "Home",
+      warning: true,
+      headline: "Tornado Warning",
+      picture: "",
+      observedMs: Date.now() - 60_000,
+      source: "MRMS",
+      at: Date.now(),
+    },
+    { theme: "light" },
+  );
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  // A light surface, not a dark one with a light attribute on it.
+  const words = await painted(page, ".glance__words span");
+  expect(words.ground[0]).toBeGreaterThan(200);
+  // And the warning line, which is the one thing this window raises its voice
+  // about, still carries on it.
+  expect(contrast(words.ink, words.ground)).toBeGreaterThan(4.5);
+
+  const aside = await painted(page, ".glance__words small");
+  expect(contrast(aside.ink, aside.ground)).toBeGreaterThan(4.5);
+});
+
+test("stays dark when the workspace is", async ({ page }) => {
+  await open(
+    page,
+    {
+      place: "Home",
+      warning: false,
+      headline: "",
+      picture: "",
+      observedMs: null,
+      source: "MRMS",
+      at: Date.now(),
+    },
+    { theme: "dark" },
+  );
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", "light");
+  const words = await painted(page, ".glance__words span");
+  expect(words.ground[0]).toBeLessThan(60);
+  expect(contrast(words.ink, words.ground)).toBeGreaterThan(4.5);
+});
