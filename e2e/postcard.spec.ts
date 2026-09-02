@@ -9,16 +9,57 @@ import { routeWorkspace } from "./support/fixtures";
  * every language rather than only in English.
  */
 
-test.beforeEach(async ({ page }) => {
+/** Opens the export panel with the workspace in one language. */
+async function openIn(
+  page: import("@playwright/test").Page,
+  language: string,
+  label: string,
+) {
+  await page.addInitScript((value: string) => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({ schemaVersion: 3, language: value }),
+    );
+  }, language);
   await routeWorkspace(page);
   await page.goto("/?testMode=1");
   await expect(page.getByRole("application")).toBeVisible();
-  await page.getByRole("button", { name: "Export", exact: true }).click();
+  // Named in whatever language is on, so the button is found by its own
+  // label rather than by an English one.
+  await page.getByRole("button", { name: label, exact: true }).click();
+}
+
+test("says the same things in Spanish and in French", async ({ page }) => {
+  // The disclaimer is three characters longer in French than in English and
+  // feeds straight into the layout, and the shapes are named in the
+  // catalogue rather than in the component. Neither was ever exercised
+  // outside English.
+  for (const [language, label, shapes, official] of [
+    [
+      "es",
+      "Exportar",
+      ["Cuadrada", "Apaisada", "Vertical"],
+      "producto oficial",
+    ],
+    ["fr", "Exportation", ["Carrée", "Large", "Haute"], "produit officiel"],
+  ] as const) {
+    await openIn(page, language, label);
+    const postcard = page.locator("[data-postcard]");
+    await expect(postcard, language).toBeVisible();
+    await expect(postcard, language).toContainText(official);
+    for (const shape of shapes) {
+      await expect(
+        postcard.locator("option", { hasText: shape }),
+        `${language} ${shape}`,
+      ).toHaveCount(1);
+    }
+  }
 });
 
 test("offers a postcard beside the plain picture, not instead of it", async ({
   page,
 }) => {
+  await openIn(page, "en", "Export");
   // Evidence and a postcard are different jobs. The plain export is still
   // the first thing in the panel and still says what it always did.
   await expect(
@@ -34,6 +75,7 @@ test("offers a postcard beside the plain picture, not instead of it", async ({
 });
 
 test("saves one with whatever the reader wrote on it", async ({ page }) => {
+  await openIn(page, "en", "Export");
   const postcard = page.locator("[data-postcard]");
   await postcard.getByRole("textbox").fill("Hail the size of marbles");
   const download = page.waitForEvent("download");

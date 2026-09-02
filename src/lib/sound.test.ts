@@ -11,6 +11,7 @@ import {
   setAlertSound,
   soundNameAllowed,
   MAX_SOUND_BYTES,
+  MAX_SOUND_SECONDS,
 } from "./sound";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -48,6 +49,7 @@ function fakeAudio() {
       buffer: null,
       connect: vi.fn(() => ({ connect: vi.fn() })),
       start: vi.fn(),
+      stop: vi.fn(),
     })),
   };
   return { context, oscillator, started };
@@ -182,15 +184,97 @@ describe("what this app will not play", () => {
     );
   });
 
-  it("never sounds two notes at once", () => {
-    // The attention signal is two tones together. These are sequences, and
-    // the code that plays them starts each note after the last one ends, so
-    // there is no arrangement of this table that produces a chord.
-    const source = readFileSync(join(import.meta.dirname, "sound.ts"), "utf8");
-    expect(source).toContain("start + at * tone.each");
-    expect(source).not.toMatch(
-      /setValueAtTime\([^)]*\)\s*;\s*.*createOscillator/,
+  it("never sounds two notes at once, however it is asked", async () => {
+    // The attention signal is two tones together, so this is the shape the
+    // whole module exists to avoid. Measured from what was actually
+    // scheduled rather than read off the source: the version of this that
+    // grepped for a pattern passed against an implementation that really did
+    // play chords.
+    const audio = fakeAudio();
+    vi.stubGlobal("AudioContext", function () {
+      return audio.context;
+    });
+
+    // Every severity, and the worst one three times in a row, which is what
+    // a reader pressing a preview button does.
+    await playAlertTone("extreme");
+    await playAlertTone("extreme");
+    await playAlertTone("minor");
+    await playAlertTone("severe");
+
+    const windows = audio.oscillator.start.mock.calls.map(
+      (call, at) =>
+        [
+          call[0] as number,
+          audio.oscillator.stop.mock.calls[at][0] as number,
+        ] as const,
     );
+    expect(windows.length).toBeGreaterThan(6);
+    const order = [...windows].sort((one, two) => one[0] - two[0]);
+    for (let at = 1; at < order.length; at += 1) {
+      expect(
+        order[at][0],
+        `a note starting at ${order[at][0]} while one runs to ${order[at - 1][1]}`,
+      ).toBeGreaterThanOrEqual(order[at - 1][1] - 1e-9);
+    }
+  });
+
+  it("cuts off a sound of the reader's own rather than letting it run", async () => {
+    // Two megabytes at a low bit rate is several minutes. A warning at four
+    // in the morning must not start something nobody can stop.
+    const audio = fakeAudio();
+    audio.context.decodeAudioData = vi.fn(async () => ({ duration: 600 }));
+    vi.stubGlobal("AudioContext", function () {
+      return audio.context;
+    });
+    vi.stubGlobal("fetch", async () => ({
+      ok: true,
+      headers: { get: () => null },
+      arrayBuffer: async () => new ArrayBuffer(64),
+    }));
+    expect(await loadAlertSound("C:/sounds/long.wav")).toEqual({ ok: true });
+    expect(await playAlertTone("severe")).toBe(true);
+    const source = audio.context.createBufferSource.mock.results[0].value as {
+      start: { mock: { calls: number[][] } };
+      stop: { mock: { calls: number[][] } };
+    };
+    const from = source.start.mock.calls[0][0];
+    const until = source.stop.mock.calls[0][0];
+    expect(until - from).toBeLessThanOrEqual(MAX_SOUND_SECONDS);
+  });
+
+  it("says a machine has no audio rather than blaming the file", async () => {
+    // The file is fine. Telling somebody their sound could not be read, on
+    // every launch, when the machine simply has no speakers, is the app
+    // being wrong out loud.
+    vi.stubGlobal("AudioContext", undefined);
+    expect(await loadAlertSound("C:/sounds/alert.wav")).toEqual({
+      ok: false,
+      reason: "noAudio",
+    });
+  });
+
+  it("asks how big a file is before reading it", async () => {
+    const audio = fakeAudio();
+    vi.stubGlobal("AudioContext", function () {
+      return audio.context;
+    });
+    let read = false;
+    vi.stubGlobal("fetch", async () => ({
+      ok: true,
+      headers: { get: () => String(MAX_SOUND_BYTES * 100) },
+      arrayBuffer: async () => {
+        read = true;
+        return new ArrayBuffer(8);
+      },
+    }));
+    expect(await loadAlertSound("C:/sounds/huge.wav")).toEqual({
+      ok: false,
+      reason: "size",
+    });
+    // Reading four gigabytes into memory and then deciding it was too big is
+    // the check happening after the damage.
+    expect(read).toBe(false);
   });
 });
 
@@ -238,6 +322,7 @@ describe("a sound of the reader's own", () => {
     });
     vi.stubGlobal("fetch", async () => ({
       ok: true,
+      headers: { get: () => null },
       arrayBuffer: async () => new ArrayBuffer(MAX_SOUND_BYTES + 1),
     }));
     // Reported now, where the reader chose it, rather than as an
@@ -258,6 +343,7 @@ describe("a sound of the reader's own", () => {
     });
     vi.stubGlobal("fetch", async () => ({
       ok: true,
+      headers: { get: () => null },
       arrayBuffer: async () => new ArrayBuffer(64),
     }));
     expect(await loadAlertSound("C:/sounds/alert.wav")).toEqual({

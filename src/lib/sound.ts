@@ -76,6 +76,17 @@ export function toneIsSafe(tone: Tone): boolean {
 
 let context: AudioContext | null = null;
 
+/**
+ * When the last sound finishes, in the context's own clock.
+ *
+ * One sound at a time. The context is module-level and every call read
+ * `currentTime` fresh, so pressing a preview twice in a second put two
+ * oscillators on the output together: a chord, which is the one shape this
+ * must never make. A second sound now waits for the first to finish rather
+ * than joining it.
+ */
+let quietAgain = 0;
+
 /** Nought to one. The reader's, so it is asked for rather than assumed. */
 let volume = 0.18;
 
@@ -110,14 +121,27 @@ export async function playAlertTone(
     if (ownPath && own) {
       const source = context.createBufferSource();
       const gain = context.createGain();
+      const from = Math.max(context.currentTime, quietAgain);
+      // Cut off rather than refused: the reader chose the file, and the first
+      // few seconds are what they will recognise. Something several minutes
+      // long arriving at four in the morning is not a sound, it is an alarm
+      // nobody can stop.
+      const seconds = Math.min(own.duration, MAX_SOUND_SECONDS);
+      quietAgain = from + seconds;
       source.buffer = own;
-      gain.gain.setValueAtTime(volume, context.currentTime);
+      gain.gain.setValueAtTime(0, from);
+      gain.gain.linearRampToValueAtTime(volume, from + 0.02);
+      gain.gain.setValueAtTime(volume, from + Math.max(0.03, seconds - 0.08));
+      gain.gain.linearRampToValueAtTime(0, from + seconds);
       source.connect(gain).connect(context.destination);
-      source.start();
+      source.start(from);
+      source.stop(from + seconds);
       return true;
     }
 
-    const start = context.currentTime;
+    // After whatever is still sounding, so two of these never overlap.
+    const start = Math.max(context.currentTime, quietAgain);
+    quietAgain = start + tone.notes.length * tone.each;
     tone.notes.forEach((note, at) => {
       const held = context as AudioContext;
       const from = start + at * tone.each;
@@ -148,6 +172,16 @@ export async function playAlertTone(
  * the reason a warning was slow.
  */
 export const MAX_SOUND_BYTES = 2 * 1024 * 1024;
+
+/**
+ * The longest a reader's own sound is allowed to play, in seconds.
+ *
+ * Two megabytes of a low bit rate is several minutes, and a warning arriving
+ * at four in the morning must not start something nobody can stop. The file
+ * is cut off rather than refused, because the reader chose it and the first
+ * few seconds of it are what they will recognise.
+ */
+export const MAX_SOUND_SECONDS = 6;
 
 /** The kinds this will try to decode. Anything else is refused by name. */
 export const SOUND_EXTENSIONS = ["wav", "mp3", "ogg", "oga", "flac", "m4a"];
@@ -187,11 +221,16 @@ export function soundNameAllowed(path: string): boolean {
  */
 export async function loadAlertSound(
   path: string,
-): Promise<{ ok: true } | { ok: false; reason: "name" | "size" | "decode" }> {
+): Promise<
+  { ok: true } | { ok: false; reason: "name" | "size" | "decode" | "noAudio" }
+> {
   if (!soundNameAllowed(path)) return { ok: false, reason: "name" };
   try {
+    // A machine with no audio at all is not a bad file, and telling somebody
+    // their sound could not be read when the sound is fine is worse than
+    // saying nothing.
     if (typeof AudioContext === "undefined")
-      return { ok: false, reason: "decode" };
+      return { ok: false, reason: "noAudio" };
     // Through the native side when there is one. A browser preview has none,
     // and the fetch below then simply fails, which is the same answer.
     let url = path;
@@ -203,6 +242,12 @@ export async function loadAlertSound(
     }
     const response = await fetch(url);
     if (!response.ok) return { ok: false, reason: "decode" };
+    // Asked before it is read. Reading four gigabytes into memory and then
+    // deciding it was too big is the check happening after the damage.
+    const said = Number(response.headers.get("content-length"));
+    if (Number.isFinite(said) && said > MAX_SOUND_BYTES) {
+      return { ok: false, reason: "size" };
+    }
     const bytes = await response.arrayBuffer();
     if (bytes.byteLength > MAX_SOUND_BYTES)
       return { ok: false, reason: "size" };
@@ -222,6 +267,8 @@ export async function loadAlertSound(
 export function resetSound() {
   void context?.close();
   context = null;
+  quietAgain = 0;
+  volume = 0.18;
   own = null;
   ownFor = null;
   ownPath = null;

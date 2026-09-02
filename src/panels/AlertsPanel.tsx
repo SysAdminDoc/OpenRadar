@@ -149,7 +149,13 @@ export function AlertsPanel({
                       // what the office's own headline is not for.
                       <small className="alert-advice" data-calm-advice>
                         <strong>{t("calm.what")}</strong>{" "}
-                        {calmAdvice(String(feature.properties.kind ?? "other"))}
+                        {/* From the office's own name for the product, not
+                            from the app's hazard grouping: that grouping puts
+                            a tsunami warning and an evacuation order in with
+                            the tornadoes on purpose, and advice written for
+                            the group told both of them to go to the lowest
+                            floor. */}
+                        {calmAdvice(String(feature.properties.headline ?? ""))}
                       </small>
                     ) : null}
                   </span>

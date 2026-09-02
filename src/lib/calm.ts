@@ -1,5 +1,5 @@
 import { translate } from "../i18n";
-import type { AlertType } from "./alertTypes";
+import type { AppSettings } from "./settings";
 
 /**
  * A calmer way to read the same weather.
@@ -16,46 +16,121 @@ import type { AlertType } from "./alertTypes";
  *   this app could ship.
  * - **It mutes the app, not the weather.** What goes quiet is the chrome:
  *   pulsing, accents, the seasonal decoration, the effects. The reflectivity
- *   ramp, the warning outline and every figure stay exactly as they are.
+ *   ramp, the warning outline, the severity word and every figure stay exactly
+ *   as they are.
  * - **Speculative guidance is put away, not deleted.** Probability layers are
- *   off by default in this mode and one press from being back, because a
- *   forecast probability is the part that keeps somebody awake and it is also
- *   the part they may want to check.
+ *   off by default in this mode and one press from being back, and turning
+ *   the mode off puts them exactly as they were.
  * - **The words change.** An alert says what to do rather than how bad it
- *   could be, written by hand in each language rather than generated.
+ *   could be, written by hand in each language.
  */
 
-/** Layers that speculate rather than report. Off in this mode by default. */
+/**
+ * Layers that speculate rather than report, put away while calm is on.
+ *
+ * Restored to whatever they were when the mode is turned off, because they
+ * are the reader's own settings and a mode borrowing them has to give them
+ * back.
+ */
 export const SPECULATIVE_LAYERS = ["probSevere", "stormCells"] as const;
 
 /**
- * What to do about a kind of warning, in the reader's own language.
+ * The settings with the speculative layers put away, and a note of what they
+ * were.
  *
- * The plainest thing that is true. Written by hand for each kind: a sentence
- * assembled from parts reads like an app talking, and this is the one place
- * where the wording is the point.
- *
- * A kind with nothing written for it falls back to the general line rather
- * than to the office's own headline, which is where the how-bad-it-could-be
- * wording lives.
+ * Borrowed rather than changed. The note is what makes it a mode instead of
+ * an edit: without it, a reader who switched calm on and off again lost the
+ * probability layer for good, which is the opposite of "leaving the mode
+ * restores everything".
  */
-export function calmAdvice(kind: AlertType | string): string {
-  switch (kind) {
-    case "tornado":
-      return translate("calm.advice.tornado");
-    case "thunderstorm":
-      return translate("calm.advice.thunderstorm");
-    case "flood":
-      return translate("calm.advice.flood");
-    case "winter":
-      return translate("calm.advice.winter");
-    case "tropical":
-      return translate("calm.advice.tropical");
-    case "heat":
-      return translate("calm.advice.heat");
-    case "fire":
-      return translate("calm.advice.fire");
-    default:
-      return translate("calm.advice.general");
+export function putSpeculationAway(settings: AppSettings): AppSettings {
+  const borrowed: Record<string, boolean> = {};
+  const layers = { ...settings.layers };
+  for (const layer of SPECULATIVE_LAYERS) {
+    borrowed[layer] = layers[layer];
+    layers[layer] = false;
   }
+  return { ...settings, calm: true, layers, calmBorrowed: borrowed };
+}
+
+/** The settings with the speculative layers exactly as they were. */
+export function giveSpeculationBack(settings: AppSettings): AppSettings {
+  const layers = { ...settings.layers };
+  for (const layer of SPECULATIVE_LAYERS) {
+    const was = settings.calmBorrowed[layer];
+    if (typeof was === "boolean") layers[layer] = was;
+  }
+  return { ...settings, calm: false, layers, calmBorrowed: {} };
+}
+
+/**
+ * What to do about a warning, from the office's own name for the product.
+ *
+ * Keyed on the product rather than on the app's own hazard grouping, and this
+ * is not a detail. The grouping is deliberately coarse: `alertType` puts a
+ * tsunami warning, an evacuation order and a hazardous materials warning in
+ * the same bucket as a tornado, because all four mean move now and none of
+ * them should sit behind a switch nobody would think to look under. Advice
+ * written for that bucket told a tsunami warning to go to the lowest floor,
+ * which is the opposite of what saves somebody, and told an evacuation order
+ * to shelter in place.
+ *
+ * So: an exact hazard gets its own words, and anything this does not
+ * recognise gets a line that sends the reader to the office's own
+ * instruction. A general line is not the best answer; wrong advice is very
+ * much the worst one.
+ */
+export function calmAdvice(headline: string): string {
+  const name = headline.toLowerCase();
+
+  // Move away and upward. Nothing about these is a sheltering hazard.
+  if (name.includes("tsunami")) return translate("calm.advice.tsunami");
+  if (name.includes("evacuation")) return translate("calm.advice.evacuate");
+  if (
+    name.includes("hazardous materials") ||
+    name.includes("radiological") ||
+    name.includes("nuclear") ||
+    name.includes("shelter in place")
+  ) {
+    return translate("calm.advice.shelterInPlace");
+  }
+  if (name.includes("civil danger")) return translate("calm.advice.civil");
+
+  // Get low and inside, away from windows.
+  if (name.includes("tornado") || name.includes("extreme wind")) {
+    return translate("calm.advice.tornado");
+  }
+
+  if (name.includes("rip current") || name.includes("high surf")) {
+    return translate("calm.advice.surf");
+  }
+  if (name.includes("flood") || name.includes("dam break")) {
+    return translate("calm.advice.flood");
+  }
+  if (
+    name.includes("hurricane") ||
+    name.includes("typhoon") ||
+    name.includes("tropical") ||
+    name.includes("storm surge")
+  ) {
+    return translate("calm.advice.tropical");
+  }
+  if (name.includes("thunderstorm") || name.includes("lightning")) {
+    return translate("calm.advice.thunderstorm");
+  }
+  if (
+    name.includes("winter") ||
+    name.includes("snow") ||
+    name.includes("ice") ||
+    name.includes("blizzard") ||
+    name.includes("cold")
+  ) {
+    return translate("calm.advice.winter");
+  }
+  if (name.includes("heat")) return translate("calm.advice.heat");
+  if (name.includes("fire") || name.includes("smoke")) {
+    return translate("calm.advice.fire");
+  }
+
+  return translate("calm.advice.general");
 }
