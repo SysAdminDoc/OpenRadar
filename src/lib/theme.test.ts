@@ -72,6 +72,7 @@ describe("a theme reaches the chrome and nothing else", () => {
       "--surface-solid",
       "--surface-raised",
       "--surface-hover",
+      "--surface-sunken",
       "--border",
       "--border-strong",
       "--accent",
@@ -332,5 +333,50 @@ describe("putting a theme on the page", () => {
     expect(element?.textContent).toContain("--accent: #ff8a3d;");
     applyTheme(null);
     expect(document.getElementById(THEME_STYLE_ID)).toBeNull();
+  });
+});
+
+describe("the stylesheet", () => {
+  const css = readFileSync(join(ROOT, "index.css"), "utf8");
+
+  it("defines every custom property it reads", () => {
+    // Two shipped without being defined anywhere, both with a fallback that
+    // hid it. `--surface-sunken` left three chrome surfaces as a fixed dark
+    // box inside a white panel, with the text in them at 2.87:1, and
+    // `--warning` left the line that says a model run is out of date at
+    // 1.67:1. A fallback is not a definition: it is the value nobody chose,
+    // rendered for every reader.
+    const used = new Set(
+      [...css.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map((match) => match[1]),
+    );
+    const defined = new Set(
+      [...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((match) => match[1]),
+    );
+    expect([...used].filter((name) => !defined.has(name))).toEqual([]);
+  });
+
+  /** Every property set inside the blocks matching a selector. */
+  function setIn(selector: string): Set<string> {
+    const found = new Set<string>();
+    let at = css.indexOf(selector);
+    expect(at, `${selector} is gone`).toBeGreaterThan(-1);
+    while (at > -1) {
+      const body = css.slice(at, css.indexOf("\n}", at));
+      for (const match of body.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
+        found.add(match[1]);
+      }
+      at = css.indexOf(selector, at + selector.length);
+    }
+    return found;
+  }
+
+  it("gives the dark theme a value for everything the light theme sets", () => {
+    // The light block is an override of the base one. A colour that exists
+    // only there has no value at all in the dark theme, which is the shipped
+    // default, and whatever reads it falls back to whatever it inherits.
+    const base = setIn(":root {");
+    const light = setIn(':root[data-theme="light"] {');
+    expect(light.size).toBeGreaterThan(10);
+    expect([...light].filter((name) => !base.has(name))).toEqual([]);
   });
 });

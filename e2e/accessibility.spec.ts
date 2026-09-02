@@ -137,6 +137,28 @@ test("the command rail stays readable in the light theme", async ({ page }) => {
   ).toBeGreaterThanOrEqual(4.5);
 });
 
+test("the alert rows stay readable in the light theme", async ({ page }) => {
+  // `--surface-sunken` was used with a fallback and defined nowhere, so the
+  // severity badge on every alert row was a fixed dark box inside a white
+  // panel with muted text on it, at 2.87:1. The archive browser and the
+  // site-controls row used the same undefined token.
+  await goLight(page);
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Alerts" })).toBeVisible();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  await expect(page.locator(".alert-severity").first()).toBeVisible();
+
+  const results = await new AxeBuilder({ page })
+    .include(".alert-list")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const violations = results.violations.filter(
+    (violation) =>
+      violation.impact === "serious" || violation.impact === "critical",
+  );
+  expect(describeViolations(violations)).toBe("");
+});
+
 test("stays clean in the calmer presentation", async ({ page }) => {
   // A mode meant to be kinder must not be harder to read. It turns the
   // accent down, and a muted accent is exactly where contrast goes wrong.

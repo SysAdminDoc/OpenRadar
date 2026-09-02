@@ -47,6 +47,7 @@ export const THEME_TOKENS: ThemeToken[] = [
   { directive: "SurfaceSolid", property: "--surface-solid", kind: "color" },
   { directive: "SurfaceRaised", property: "--surface-raised", kind: "color" },
   { directive: "SurfaceHover", property: "--surface-hover", kind: "color" },
+  { directive: "SurfaceSunken", property: "--surface-sunken", kind: "color" },
   { directive: "Border", property: "--border", kind: "color" },
   { directive: "BorderStrong", property: "--border-strong", kind: "color" },
   { directive: "Accent", property: "--accent", kind: "color" },
