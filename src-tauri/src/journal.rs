@@ -577,10 +577,20 @@ fn restore_rows(putting: Vec<JournalRow>) -> Result<usize, String> {
         }
         rows.push(row);
     }
-    // Back into the order the file keeps, oldest first, or a restored row
-    // would sit at the end whatever its time says.
+    // Back into the order the file keeps, oldest first. The sort is stable
+    // and the rows arrive in the order they left, so two rows agreeing on
+    // the time keep the order they had: an id tie-break would have been
+    // deterministic and meaningless, sorting them by the hash of their own
+    // contents.
     rows.sort_by(|left, right| left.at.cmp(&right.at));
-    commit(&path, rows)
+    let wanted = rows.len();
+    let kept = commit(&path, rows)?;
+    // What actually went back, not what was asked for. A record already at
+    // its byte ceiling loses its oldest rows to the bounds on the way in, and
+    // answering with the number asked for would report a restore that did not
+    // happen.
+    let _ = wanted;
+    Ok(kept)
 }
 
 /// One picture's bytes, for the panel to show.
@@ -1012,6 +1022,26 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["first", "second", "third"]
         );
+    }
+
+    #[test]
+    fn a_restore_answers_with_what_actually_went_back() {
+        let dir = scratch("restore-bounded");
+        let _guard = journal_test(&dir);
+        // A row well past the retention period cannot come back, because the
+        // bounds are applied on the way in as they are on every other write.
+        // Answering with the number asked for would report a restore that did
+        // not happen.
+        let old = (Utc::now() - Duration::days(RETENTION_DAYS + 5)).to_rfc3339();
+        let now = Utc::now().to_rfc3339();
+        append_row(row(&now, "Casa", "today")).expect("written");
+        let kept = restore_rows(vec![
+            row(&old, "Casa", "long ago"),
+            row(&now, "Casa", "also today"),
+        ])
+        .expect("restored");
+        assert_eq!(kept, 2, "{:?}", journal_rows());
+        assert!(journal_rows().iter().all(|row| row.text != "long ago"));
     }
 
     #[test]

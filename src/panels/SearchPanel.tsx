@@ -10,7 +10,15 @@ import {
 import { PanelShell } from "../components/PanelShell";
 import { formatNumber, useT } from "../i18n";
 
-/** More than this and the storms crowd out the places somebody asked for. */
+/**
+ * How many storms are shown before the rest are put behind a press.
+ *
+ * More than this and the places somebody asked for are pushed off the panel.
+ * Fewer than all of them is only acceptable because the rest are one press
+ * away and the press says how many there are: fifteen storms have been called
+ * Florence, and answering with six of them and no sign of the other nine is
+ * answering a different question.
+ */
 const STORM_RESULTS = 6;
 
 interface SearchPanelProps {
@@ -62,12 +70,16 @@ export function SearchPanel({
   // been called Bonnie, and answering with one of them is answering a
   // different question.
   const named = useMemo(
-    () =>
-      query.trim().length >= 2
-        ? searchStorms(storms, query).slice(0, STORM_RESULTS)
-        : [],
+    () => (query.trim().length >= 2 ? searchStorms(storms, query) : []),
     [storms, query],
   );
+
+  // Which question "all of them" was asked about, rather than a flag to be
+  // cleared. Derived during render, so changing the query collapses the list
+  // without an effect writing state and cascading a render to do it.
+  const [expandedFor, setExpandedFor] = useState<string | null>(null);
+  const shownStorms =
+    expandedFor === query ? named : named.slice(0, STORM_RESULTS);
 
   useEffect(() => {
     if (query.trim().length < 2) {
@@ -130,7 +142,7 @@ export function SearchPanel({
         {named.length ? (
           <div className="result-group" data-search-storms>
             <p className="result-group__title">{t("search.storms")}</p>
-            {named.map((storm) => (
+            {shownStorms.map((storm) => (
               <button
                 type="button"
                 className="result-row"
@@ -156,6 +168,17 @@ export function SearchPanel({
                 </span>
               </button>
             ))}
+            {named.length > shownStorms.length ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setExpandedFor(query)}
+              >
+                {t("search.stormsMore", {
+                  count: named.length - shownStorms.length,
+                })}
+              </button>
+            ) : null}
             {/* Every one of these is a record of something that has already
                 happened. Nothing here is a storm now, and a search result
                 that could be read as one would be the worst kind of wrong. */}

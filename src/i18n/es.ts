@@ -32,7 +32,7 @@ export const es: Catalogue = {
   "export.dataComposite": "Compuesto MRMS",
   "export.dataWritten": "{label} guardado",
   "export.dataWrittenBody":
-    "{readings} lecturas, {size}, en {path}, con su archivo de procedencia al lado.",
+    "{readings, plural, one {{readings} lectura} other {{readings} lecturas}}, {size}, en {path}, con un archivo de procedencia al lado.",
   "export.dataFailed": "La exportación de datos falló",
   "export.dataNoView":
     "El mapa aún no tiene una vista a la que recortar la malla.",
@@ -45,7 +45,7 @@ export const es: Catalogue = {
   "dataExport.error.nothingInView":
     "La vista no contiene ninguna parte de esa malla.",
   "dataExport.error.tooLarge":
-    "Eso serían {0} lecturas en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
+    "Serían {0, plural, one {# lectura} other {# lecturas}} en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
   "dataExport.error.noFolder": "No hay dónde escribir la exportación.",
   "dataExport.error.write": "No se pudo escribir la exportación: {0}",
   "dataExport.error.grid": "{0}",
@@ -58,6 +58,8 @@ export const es: Catalogue = {
   "search.unavailable":
     "La búsqueda de lugares no está disponible. El mapa sigue funcionando.",
   "search.storms": "Tormentas con ese nombre",
+  "search.stormsMore":
+    "Mostrar {count, plural, one {la otra} other {las otras #}}",
   "search.stormsNote":
     "Del registro de trayectorias que viene con la aplicación. Ninguna de estas es una tormenta actual.",
   "search.none": "No se encontró ningún lugar.",
@@ -137,7 +139,8 @@ export const es: Catalogue = {
   "alerts.severity.minor": "Menor",
   "alerts.impactLine": "La oficina la marcó como {tag}.",
   "alerts.impactBadge": "{tag}",
-  "alerts.hailTo": "Granizo de hasta {size} pulgadas.",
+  "alerts.hailTo":
+    "{size, plural, one {{size} pulgada} other {{size} pulgadas}} de granizo",
   "alerts.noneTitle": "No hay alertas activas a la vista",
   "alerts.noneBody":
     "Mueve el mapa o aléjalo para ver una zona más amplia. Las alertas se actualizan cada minuto.",
@@ -287,7 +290,8 @@ export const es: Catalogue = {
   "history.failedTitle": "El archivo de tormentas no se cargó",
   "history.failedBody": "El archivo de tormentas no se cargó.",
   "history.peak": "{category} · máximo de {knots} kt",
-  "history.ace": "ACE {ace} · {fixes} posiciones · del {start} al {end}",
+  "history.ace":
+    "ACE {ace} · {fixes, plural, one {# posición} other {# posiciones}} · del {from} al {to}",
   "history.liveRadar": "Radar en vivo",
   "history.replayRadar": "Repetir el radar",
   "history.clear": "Quitar",
@@ -327,7 +331,7 @@ export const es: Catalogue = {
     "{tiles, plural, one {# tesela} other {# teselas}} y {warnings, plural, one {# fuente de avisos} other {# fuentes de avisos}} no estaban en el paquete.",
   "bundle.error.invalidRequest": "Esta repetición no se puede empaquetar: {0}.",
   "bundle.error.tooManyTiles":
-    "La vista cubre {0} teselas a lo largo de la repetición. Acerca o aleja el mapa para que cubra menos.",
+    "La vista abarca {0, plural, one {# tesela} other {# teselas}} a lo largo de la reproducción. Acerca o aleja el mapa para que abarque menos.",
   "bundle.error.tooLarge": "El paquete superaría los 256 MB.",
   "bundle.error.noFolder": "No hay dónde escribir el paquete.",
   "bundle.error.write": "No se pudo escribir el paquete: {0}",
@@ -1010,7 +1014,7 @@ export const es: Catalogue = {
   "settings.removePlace": "Dejar de vigilar {place}",
   "settings.addPlace": "Añadir el centro del mapa como lugar",
   "settings.placesFull":
-    "Son ya {count, plural, one {# lugar} other {# lugares}}. Quita uno para vigilar otro sitio.",
+    "{count, plural, one {Es ya # lugar} other {Son ya # lugares}}. Quita uno para vigilar otro sitio.",
   "settings.watching": "Vigilando {lat}, {lon} por avisos y cosas peores.",
   "settings.camera": "Estado de la cámara",
   "settings.zoom": "Acercamiento",
@@ -1115,7 +1119,8 @@ export const es: Catalogue = {
   "chrome.now": "ahora",
   "chrome.windowMinutes": "{count} min",
   "chrome.flashCount": "{count}{more} de {satellite}",
-  "chrome.filesRead": " · {read} de {expected} archivos",
+  "chrome.filesRead":
+    " · {read} de {expected, plural, one {# archivo} other {# archivos}}",
   "chrome.smokeAnalysed": "analizado el {when}",
   "chrome.forecastSmoke": "Humo previsto",
   "chrome.forecastSmokeValid": "Válido {time}.",
@@ -1185,13 +1190,14 @@ export const es: Catalogue = {
   "toast.replayStopped": "Repetición detenida",
   "toast.bundleSaving": "Guardando el paquete de repetición",
   "toast.bundleSaved": "Paquete de repetición guardado",
-  "toast.bundleSavedBody": "{entries} archivos, {size} MB, en {path}.",
+  "toast.bundleSavedBody":
+    "{entries, plural, one {# archivo} other {# archivos}}, {size} MB, en {path}.",
   "toast.bundleMissing":
     "{count} de ellos no se pudieron descargar y quedan anotados en el paquete.",
   "toast.bundleFailed": "El paquete de repetición falló",
   "toast.bundleOpened": "Reproduciendo {label} desde un paquete",
   "toast.bundleOpenedBody":
-    "{frames, plural, one {# fotograma} other {# fotogramas}}, guardado {made}. No se pide nada para ellos; responde el paquete.",
+    "{frames, plural, one {# fotograma guardado} other {# fotogramas guardados}} el {made}. No se pide nada para ellos; responde el paquete.",
   "toast.bundleApplyWorkspace": "Aplicar su espacio de trabajo",
   "toast.bundleWorkspaceApplied":
     "El espacio de trabajo del paquete está en vigor",
@@ -1252,7 +1258,8 @@ export const es: Catalogue = {
   "popup.depthUnknown": "Profundidad desconocida",
   "popup.usgs": "Fuente: USGS",
   "popup.wildfire": "Incendio",
-  "popup.acres": "{acres} acres, {contained} % contenido",
+  "popup.acres":
+    "{acres, plural, one {{acres} acre} other {{acres} acres}}, {contained}% contenido",
   "popup.sizeUnknown": "Tamaño desconocido",
   "popup.perimeterUpdated": "Perímetro actualizado {when}",
   "popup.perimeterUnknown": "Fecha del perímetro desconocida",
@@ -1329,8 +1336,7 @@ export const es: Catalogue = {
   "catchUp.awayHours": "{hours, plural, one {# hora} other {# horas}}",
   "catchUp.awayDays": "{days, plural, one {# día} other {# días}}",
   "catchUp.quiet": "No pasó nada en tus lugares mientras no estabas.",
-  "catchUp.more":
-    "Hay {count, plural, one {# más} other {# más}} en tu registro.",
+  "catchUp.more": "Hay {count} más en tu registro.",
   "catchUp.line": "{place} · {when}",
   "catchUp.dismiss": "Gracias",
   "catchUp.open": "Abrir el registro",
@@ -1343,15 +1349,16 @@ export const es: Catalogue = {
   "recap.note":
     "Hecho aquí, a partir de tu propio registro, y nunca de nada que alguien haya recopilado sobre ti.",
   "recap.period": "Del {from} al {to}",
-  "recap.coveredWhole": "Tu registro cubre los {period} días.",
+  "recap.coveredWhole":
+    "Tu registro cubre {period, plural, one {el único día} other {los {period} días}}.",
   "recap.began":
-    "Tu registro empieza el {when} y llega {days} de estos {period} días atrás. Antes de eso no hay registro, que no es lo mismo que no haber tiempo.",
+    "Lo más antiguo que guarda tu registro es del {when}, que llega {days, plural, one {# día} other {# días}} atrás de estos {period, plural, one {# día} other {# días}}. Antes de eso no queda nada guardado, que no es lo mismo que no haber pasado nada.",
   "recap.counted":
     "{alerts, plural, one {# aviso} other {# avisos}} y {observations, plural, one {# observación} other {# observaciones}}.",
   "recap.days":
-    "Se registró algo en {days, plural, one {# de ellos} other {# de ellos}}. Un día sin nada fue un día tranquilo o un día con la aplicación cerrada, y el registro no distingue entre las dos cosas.",
+    "Se registró algo en {days, plural, one {# día} other {# días}}. Un día sin nada fue un día tranquilo o un día con la aplicación cerrada, y el registro no distingue entre las dos cosas.",
   "recap.busiest":
-    "El día con más fue el {when}, con {rows, plural, one {#} other {#}}.",
+    "El día con más fue el {when}, con {rows, plural, one {# registro} other {# registros}}.",
   "recap.place":
     "{place}: {alerts, plural, one {# aviso} other {# avisos}}, {observations, plural, one {# observación} other {# observaciones}}.",
   "recap.placesHidden":
@@ -1362,10 +1369,19 @@ export const es: Catalogue = {
   "recap.save": "Guardarlo como imagen",
   "recap.empty": "Todavía no hay nada de este periodo en tu registro.",
   "recap.span": "Cuánto tiempo",
-  "recap.spanDays": "Los últimos {days, plural, one {día} other {# días}}",
+  "recap.spanDays":
+    "{days, plural, one {El último día} other {Los últimos # días}}",
   "recap.spanYear": "El último año",
   "journal.countShown":
     "{shown} de {count, plural, one {# fila} other {# filas}}",
+  "curiosity.title": "Un lugar que vale la pena conocer",
+  "curiosity.dismiss": "Cerrar",
+  "curiosity.setting": "Que el mapa guarde cosas por descubrir",
+  "curiosity.settingDetail":
+    "Un pequeño conjunto de lugares reales donde el tiempo hizo historia, cada uno con la oficina que publicó la historia. Nada los señala y nada se cuenta; se encuentra uno yendo a mirar esa parte del mundo.",
+  "curiosity.found": "Lugares que has encontrado",
+  "curiosity.foundEmpty": "Todavía no has encontrado ninguno.",
+  "curiosity.forget": "Olvidarlos",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":
@@ -1392,7 +1408,8 @@ export const es: Catalogue = {
   "journal.kindObservation": "Observaciones",
   "journal.since": "Hasta cuándo",
   "journal.sinceAny": "Todo lo guardado",
-  "journal.sinceDays": "Los últimos {days, plural, one {día} other {# días}}",
+  "journal.sinceDays":
+    "{days, plural, one {El último día} other {Los últimos # días}}",
   "journal.noneMatch": "Nada en el registro coincide con eso.",
   "journal.picture": "El mapa cuando se registró {text}",
   "journal.noteLabel": "Lo que recuerdas de aquello",

@@ -23,7 +23,7 @@ export const fr: Catalogue = {
   "export.loopFrames": " ({count, plural, one {# image} other {# images}})",
   "export.gif": "Exporter en GIF",
   "export.gifFrames":
-    " ({count, plural, one {dernière # image} other {# dernières images}})",
+    " ({count, plural, one {la dernière image} other {les # dernières images}})",
   "export.recording":
     "Enregistrement de l'image {done} sur {total}. Laissez la fenêtre au premier plan pendant l'opération.",
   "export.cardTitle": "Ce qui se retrouve dans le fichier",
@@ -39,7 +39,7 @@ export const fr: Catalogue = {
   "export.dataComposite": "Composite MRMS",
   "export.dataWritten": "{label} enregistré",
   "export.dataWrittenBody":
-    "{readings} mesures, {size}, dans {path}, avec un fichier de provenance à côté.",
+    "{readings, plural, one {{readings} relevé} other {{readings} relevés}}, {size}, dans {path}, avec un fichier de provenance à côté.",
   "export.dataFailed": "L'exportation des données a échoué",
   "export.dataNoView": "La carte n'a pas encore de vue à découper.",
   "dataExport.bytes": "{count, plural, one {# octet} other {# octets}}",
@@ -51,7 +51,7 @@ export const fr: Catalogue = {
   "dataExport.error.nothingInView":
     "La vue ne contient aucune partie de cette grille.",
   "dataExport.error.tooLarge":
-    "Cela ferait {0} mesures dans un seul fichier. Rapprochez-vous pour que l'exportation en couvre moins.",
+    "Cela ferait {0, plural, one {# relevé} other {# relevés}} dans un seul fichier. Zoomez pour que l'export couvre moins de terrain.",
   "dataExport.error.noFolder": "Il n'y a nulle part où écrire l'exportation.",
   "dataExport.error.write": "L'exportation n'a pas pu être écrite : {0}",
   "dataExport.error.grid": "{0}",
@@ -64,6 +64,8 @@ export const fr: Catalogue = {
   "search.unavailable":
     "La recherche d'endroits est indisponible. La carte reste utilisable.",
   "search.storms": "Tempêtes portant ce nom",
+  "search.stormsMore":
+    "Afficher {count, plural, one {l'autre} other {les # autres}}",
   "search.stormsNote":
     "Tiré du relevé de trajectoires fourni avec l'application. Aucune de ces tempêtes n'est en cours.",
   "search.none": "Aucun endroit correspondant.",
@@ -144,7 +146,8 @@ export const fr: Catalogue = {
   "alerts.severity.minor": "Mineure",
   "alerts.impactLine": "Le bureau a qualifié celle-ci de {tag}.",
   "alerts.impactBadge": "{tag}",
-  "alerts.hailTo": "Grêle jusqu'à {size} pouces.",
+  "alerts.hailTo":
+    "{size, plural, one {{size} pouce} other {{size} pouces}} de grêle",
   "alerts.noneTitle": "Aucune alerte en cours dans la vue",
   "alerts.noneBody":
     "Déplacez la carte ou éloignez-vous pour couvrir une zone plus large. Les alertes se rafraîchissent chaque minute.",
@@ -207,7 +210,7 @@ export const fr: Catalogue = {
   "packs.minZoom": "Zoom minimal",
   "packs.maxZoom": "Zoom maximal",
   "packs.estimate":
-    "{count, plural, one {# tuile} other {# tuiles}}. Environ {final} une fois terminé et jusqu'à {temporary} pendant la construction.",
+    "{count, plural, one {# tuile} other {# tuiles}}. Environ {final} une fois terminée et jusqu'à {temporary} pendant la construction.",
   "packs.noRegion":
     "Amenez la carte sur la région que vous voulez enregistrer.",
   "packs.wontFit": "Cette trousse dépasserait le plafond disque configuré.",
@@ -229,7 +232,7 @@ export const fr: Catalogue = {
   "packs.status.failed": "À vérifier",
   "packs.packMeta": "Zoom {min} à {max} · {size}",
   "packs.progress":
-    "{done} sur {total, plural, one {# tuile} other {# tuiles}}, {percent}%",
+    "{done} sur {total, plural, one {# tuile} other {# tuiles}}, {percent} %",
   "packs.usePack": "Utiliser hors ligne",
   "packs.pause": "Suspendre",
   "packs.resume": "Reprendre",
@@ -291,7 +294,8 @@ export const fr: Catalogue = {
   "history.failedTitle": "L'archive des tempêtes ne s'est pas chargée",
   "history.failedBody": "L'archive des tempêtes ne s'est pas chargée.",
   "history.peak": "{category} · pointe de {knots} nœuds",
-  "history.ace": "ACE {ace} · {fixes} relevés · du {start} au {end}",
+  "history.ace":
+    "ACE {ace} · {fixes, plural, one {# position} other {# positions}} · du {from} au {to}",
   "history.liveRadar": "Radar en direct",
   "history.replayRadar": "Rejouer le radar",
   "history.clear": "Effacer",
@@ -332,7 +336,7 @@ export const fr: Catalogue = {
   "bundle.error.invalidRequest":
     "Cette reprise ne peut pas être mise en dossier : {0}.",
   "bundle.error.tooManyTiles":
-    "La vue couvre {0} tuiles sur l'ensemble de la reprise. Rapprochez-vous, ou éloignez-vous, pour qu'elle en couvre moins.",
+    "La vue couvre {0, plural, one {# tuile} other {# tuiles}} sur toute la relecture. Zoomez, ou dézoomez, pour qu'elle en couvre moins.",
   "bundle.error.tooLarge": "Le dossier dépasserait 256 Mo.",
   "bundle.error.noFolder": "Il n'y a nulle part où écrire le dossier.",
   "bundle.error.write": "Le dossier n'a pas pu être écrit : {0}",
@@ -1128,7 +1132,8 @@ export const fr: Catalogue = {
   "chrome.now": "maintenant",
   "chrome.windowMinutes": "{count} min",
   "chrome.flashCount": "{count}{more} de {satellite}",
-  "chrome.filesRead": " · {read} fichiers sur {expected}",
+  "chrome.filesRead":
+    " · {read} sur {expected, plural, one {# fichier} other {# fichiers}}",
   "chrome.smokeAnalysed": "analysée {when}",
   "chrome.forecastSmoke": "Fumée prévue",
   "chrome.forecastSmokeValid": "Valide {time}.",
@@ -1198,13 +1203,14 @@ export const fr: Catalogue = {
   "toast.replayStopped": "Reprise arrêtée",
   "toast.bundleSaving": "Enregistrement du dossier de reprise",
   "toast.bundleSaved": "Dossier de reprise enregistré",
-  "toast.bundleSavedBody": "{entries} fichiers, {size} Mo, à {path}.",
+  "toast.bundleSavedBody":
+    "{entries, plural, one {# fichier} other {# fichiers}}, {size} Mo, dans {path}.",
   "toast.bundleMissing":
     "{count} d'entre eux n'ont pas pu être récupérés et sont énumérés dans le dossier.",
   "toast.bundleFailed": "Le dossier de reprise a échoué",
   "toast.bundleOpened": "Reprise de {label} depuis un dossier",
   "toast.bundleOpenedBody":
-    "{frames, plural, one {# image} other {# images}}, conservé {made}. Rien n'est demandé pour elles ; le paquet répond.",
+    "{frames, plural, one {# image conservée} other {# images conservées}} le {made}. Rien n'est demandé pour elles ; le paquet répond.",
   "toast.bundleApplyWorkspace": "Appliquer son espace de travail",
   "toast.bundleWorkspaceApplied":
     "L'espace de travail du dossier est en vigueur",
@@ -1267,7 +1273,8 @@ export const fr: Catalogue = {
   "popup.depthUnknown": "Profondeur inconnue",
   "popup.usgs": "Source : USGS",
   "popup.wildfire": "Feu de forêt",
-  "popup.acres": "{acres} acres, contenu à {contained} %",
+  "popup.acres":
+    "{acres, plural, one {{acres} acre} other {{acres} acres}}, {contained} % maîtrisé",
   "popup.sizeUnknown": "Superficie inconnue",
   "popup.perimeterUpdated": "Périmètre mis à jour {when}",
   "popup.perimeterUnknown": "Date du périmètre inconnue",
@@ -1359,15 +1366,16 @@ export const fr: Catalogue = {
   "recap.note":
     "Fait ici, à partir de votre propre relevé, et jamais de quoi que ce soit recueilli à votre sujet.",
   "recap.period": "Du {from} au {to}",
-  "recap.coveredWhole": "Votre relevé couvre les {period} jours.",
+  "recap.coveredWhole":
+    "Votre relevé couvre {period, plural, one {le seul jour} other {les {period} jours}}.",
   "recap.began":
-    "Votre relevé commence le {when} et remonte {days} de ces {period} jours. Avant cela il n'y a pas de relevé, ce qui ne veut pas dire qu'il n'y a pas eu de temps.",
+    "La plus ancienne chose que votre relevé garde encore date du {when}, ce qui remonte {days, plural, one {# jour} other {# jours}} sur ces {period, plural, one {# jour} other {# jours}}. Avant cela rien n'est conservé, ce qui ne veut pas dire qu'il ne s'est rien passé.",
   "recap.counted":
     "{alerts, plural, one {# alerte} other {# alertes}} et {observations, plural, one {# observation} other {# observations}}.",
   "recap.days":
-    "Quelque chose a été noté sur {days, plural, one {# d'entre eux} other {# d'entre eux}}. Un jour sans rien était un jour calme ou un jour où l'application était fermée, et le relevé ne fait pas la différence.",
+    "Quelque chose a été noté sur {days, plural, one {# jour} other {# jours}}. Un jour sans rien était un jour calme ou un jour où l'application était fermée, et le relevé ne fait pas la différence.",
   "recap.busiest":
-    "Le jour le plus chargé a été le {when}, avec {rows, plural, one {#} other {#}}.",
+    "Le jour le plus chargé a été le {when}, avec {rows, plural, one {# enregistrement} other {# enregistrements}}.",
   "recap.place":
     "{place} : {alerts, plural, one {# alerte} other {# alertes}}, {observations, plural, one {# observation} other {# observations}}.",
   "recap.placesHidden":
@@ -1383,6 +1391,14 @@ export const fr: Catalogue = {
   "recap.spanYear": "La dernière année",
   "journal.countShown":
     "{shown} sur {count, plural, one {# ligne} other {# lignes}}",
+  "curiosity.title": "Un endroit qui vaut le détour",
+  "curiosity.dismiss": "Fermer",
+  "curiosity.setting": "Laisser la carte garder des choses à trouver",
+  "curiosity.settingDetail":
+    "Un petit ensemble de lieux réels où le temps a marqué l'histoire, chacun avec le service qui a publié le récit. Rien ne les signale et rien n'est compté ; on en trouve un en allant regarder cette partie du monde.",
+  "curiosity.found": "Les lieux que vous avez trouvés",
+  "curiosity.foundEmpty": "Rien de trouvé pour l'instant.",
+  "curiosity.forget": "Les oublier",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":

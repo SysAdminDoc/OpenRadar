@@ -271,6 +271,7 @@ describe("the workspace is translated", () => {
      * a plural block would be ceremony rather than correctness.
      */
     const FIXED = new Set([
+      // Units and abbreviations, which do not inflect.
       "min",
       "h",
       "kB",
@@ -283,6 +284,8 @@ describe("the workspace is translated", () => {
       "mm",
       "dBZ",
       "UTC",
+      "Z",
+      // Words that follow a number without being counted by it.
       "back",
       "tracked",
       "more",
@@ -291,8 +294,21 @@ describe("the workspace is translated", () => {
       "from",
       "at",
       "to",
-      "in",
       "on",
+      "is",
+      "was",
+      "ago",
+      "out",
+      "old",
+      "across",
+      "percent",
+      // Not nouns being counted: a verb, a preposition, and a bearing, which
+      // is a direction rather than a number of things. A wind from 001
+      // degrees is still "degrees".
+      "as",
+      "has",
+      "reaches",
+      "degrees",
     ]);
 
     // A number written straight into a sentence, with the next word hard
@@ -324,8 +340,13 @@ describe("the workspace is translated", () => {
 
     const wrong: string[] = [];
     for (const [key, value] of Object.entries(en)) {
+      // Every placeholder, not a list of the names somebody thought of. A
+      // hand-written list of parameter names is the same shape of mistake as
+      // a hand-written list of file extensions, and it went stale the same
+      // way: `{readings} readings`, `{fixes} fixes`, `{acres} acres` and four
+      // others were all invisible to the first version of this.
       for (const match of outsideBlocks(value).matchAll(
-        /\{(count|days|hours|frames|rows|alerts|observations|total|tiles|shapes|colours|points|places)\}\s+([A-Za-z]+)/g,
+        /\{(\w+)\}\s+([A-Za-z]+)/g,
       )) {
         const word = match[2];
         if (FIXED.has(word) || !word.endsWith("s")) continue;

@@ -3,6 +3,16 @@ import type { ToastMessage } from "../components/ToastHost";
 
 /** How long a message stays on screen before it fades on its own. */
 const LIFETIME_MS = 5200;
+
+/**
+ * How long a message carrying an undo stays.
+ *
+ * Five seconds is right for "that worked" and wrong for the only way back
+ * from deleting a year of somebody's own weather. Half a minute is long
+ * enough to notice what happened and short enough that it is still a toast.
+ */
+export const UNDO_LIFETIME_MS = 30_000;
+
 /** Three at once is as many as anyone reads. */
 const MAX_VISIBLE = 3;
 
@@ -42,19 +52,28 @@ export function useToasts(): Toasts {
       setMessages((current) => {
         // Anything pushed off the end goes now, along with its timer, rather
         // than waiting for a dismissal nobody will see.
-        const kept = current.slice(-(MAX_VISIBLE - 1));
-        for (const gone of current.slice(0, -(MAX_VISIBLE - 1))) {
+        // A message carrying an undo is not pushed off by newer ones. It is
+        // the only way back from something destructive, and two toasts about
+        // a layer failing to load should not take it away.
+        const holding = current.filter((toast) => toast.onAction);
+        const ordinary = current.filter((toast) => !toast.onAction);
+        const room = Math.max(0, MAX_VISIBLE - 1 - holding.length);
+        const kept = [...holding, ...ordinary.slice(-room)];
+        for (const gone of ordinary.slice(0, -room || undefined)) {
           const timer = timers.current.get(gone.id);
           if (timer !== undefined) {
             window.clearTimeout(timer);
             timers.current.delete(gone.id);
           }
         }
-        return [...kept, { ...message, id }];
+        return [
+          ...current.filter((toast) => kept.includes(toast)),
+          { ...message, id },
+        ];
       });
       timers.current.set(
         id,
-        window.setTimeout(() => dismiss(id), LIFETIME_MS),
+        window.setTimeout(() => dismiss(id), message.lifetimeMs ?? LIFETIME_MS),
       );
     },
     [dismiss],

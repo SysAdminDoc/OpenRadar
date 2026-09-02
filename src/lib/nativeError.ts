@@ -1,5 +1,3 @@
-import { formatMeasure } from "../i18n";
-
 /**
  * The arguments a native failure carries, ready to fill a sentence with.
  *
@@ -21,18 +19,27 @@ const COUNTED = new Set(["tooLarge", "tooManyTiles"]);
 export function nativeErrorParams(
   code: string,
   args: readonly unknown[],
-): Record<string, string> {
+): Record<string, string | number> {
   const counted = COUNTED.has(code);
-  const params: Record<string, string> = {};
+  const params: Record<string, string | number> = {};
   args.forEach((value, at) => {
     params[String(at)] = counted ? measured(value) : String(value);
   });
   return params;
 }
 
-function measured(value: unknown): string {
+/**
+ * A counted argument as a number, so the sentence can choose its own words.
+ *
+ * Handed over raw rather than formatted. These two sentences count things, and
+ * a plural block cannot read "4,300,000" as a number: it would fall to the
+ * plural arm and print no number at all. The block writes the number itself,
+ * in the reader's own notation, which is what the formatting here was for.
+ * Anything that is not a number still comes through as it was.
+ */
+function measured(value: unknown): string | number {
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) && String(value).trim() !== ""
-    ? formatMeasure(number)
+    ? number
     : String(value);
 }
