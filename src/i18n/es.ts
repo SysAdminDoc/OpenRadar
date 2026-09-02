@@ -1328,6 +1328,28 @@ export const es: Catalogue = {
   "catchUp.setting": "Contarme lo que pasó mientras no estaba",
   "catchUp.settingDetail":
     "Se lee de tu propio registro al abrir la aplicación tras unas horas fuera. No se consulta nada para responderlo, y cada línea lleva la hora en que ocurrió.",
+  "recap.credits":
+    "Hecho a partir de tu propio registro. Lecturas de {sources}. Creado con OpenRadar.",
+  "recap.title": "Tu año de tiempo",
+  "recap.note":
+    "Hecho aquí, a partir de tu propio registro, y nunca de nada que alguien haya recopilado sobre ti.",
+  "recap.period": "Del {from} al {to}",
+  "recap.covered":
+    "Tu registro cubre {days} de estos {period} días. El resto falta, no está vacío.",
+  "recap.coveredWhole": "Tu registro cubre los {period} días.",
+  "recap.counted": "{alerts} avisos y {observations} observaciones.",
+  "recap.days": "Se registró algo en {days} días.",
+  "recap.busiest": "El día con más fue el {when}, con {rows}.",
+  "recap.place": "{place}: {alerts} avisos, {observations} observaciones.",
+  "recap.placesHidden": "En {count} lugares, sin nombrarlos aquí.",
+  "recap.includePlaces": "Poner los nombres de los lugares en la imagen",
+  "recap.includePlacesDetail":
+    "Desactivado por defecto. Dónde vives no es algo que una imagen necesite decir.",
+  "recap.save": "Guardarlo como imagen",
+  "recap.empty": "Todavía no hay nada de este periodo en tu registro.",
+  "recap.span": "Cuánto tiempo",
+  "recap.spanDays": "Los últimos {days} días",
+  "recap.spanYear": "El último año",
   "journal.title": "Tu registro",
   "journal.count": "{count} filas",
   "journal.note":

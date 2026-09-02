@@ -1345,6 +1345,28 @@ export const fr: Catalogue = {
   "catchUp.setting": "Me dire ce qui s'est passé pendant mon absence",
   "catchUp.settingDetail":
     "Lu dans votre propre relevé au lancement, après quelques heures d'absence. Rien n'est demandé à un service pour y répondre, et chaque ligne porte l'heure à laquelle cela est arrivé.",
+  "recap.credits":
+    "Fait à partir de votre propre relevé. Relevés de {sources}. Créé avec OpenRadar.",
+  "recap.title": "Votre année de météo",
+  "recap.note":
+    "Fait ici, à partir de votre propre relevé, et jamais de quoi que ce soit recueilli à votre sujet.",
+  "recap.period": "Du {from} au {to}",
+  "recap.covered":
+    "Votre relevé couvre {days} de ces {period} jours. Le reste manque, il n'est pas vide.",
+  "recap.coveredWhole": "Votre relevé couvre les {period} jours.",
+  "recap.counted": "{alerts} alertes et {observations} observations.",
+  "recap.days": "Quelque chose a été noté sur {days} jours.",
+  "recap.busiest": "Le jour le plus chargé a été le {when}, avec {rows}.",
+  "recap.place": "{place} : {alerts} alertes, {observations} observations.",
+  "recap.placesHidden": "Sur {count} lieux, non nommés ici.",
+  "recap.includePlaces": "Mettre les noms des lieux sur l'image",
+  "recap.includePlacesDetail":
+    "Désactivé par défaut. Où vous habitez n'a pas à figurer sur une image.",
+  "recap.save": "L'enregistrer comme image",
+  "recap.empty": "Il n'y a encore rien de cette période dans votre relevé.",
+  "recap.span": "Sur combien de temps",
+  "recap.spanDays": "Les {days} derniers jours",
+  "recap.spanYear": "La dernière année",
   "journal.title": "Votre registre",
   "journal.count": "{count} lignes",
   "journal.note":

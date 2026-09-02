@@ -1308,6 +1308,28 @@ export const en = {
   "catchUp.setting": "Say what happened while I was away",
   "catchUp.settingDetail":
     "Read out of your own record on a launch after a few hours away. Nothing is fetched to answer it, and every line carries the time it happened.",
+  "recap.credits":
+    "Built from your own record. Readings by {sources}. Made with OpenRadar.",
+  "recap.title": "Your year in weather",
+  "recap.note":
+    "Built here, from your own record, and never from anything anybody collected about you.",
+  "recap.period": "{from} to {to}",
+  "recap.covered":
+    "Your record covers {days} of these {period} days. The rest is missing rather than empty.",
+  "recap.coveredWhole": "Your record covers all {period} days.",
+  "recap.counted": "{alerts} warnings and {observations} observations.",
+  "recap.days": "Something was recorded on {days} days.",
+  "recap.busiest": "The busiest was {when}, with {rows} of them.",
+  "recap.place": "{place}: {alerts} warnings, {observations} observations.",
+  "recap.placesHidden": "Across {count} places, not named here.",
+  "recap.includePlaces": "Put the place names on the picture",
+  "recap.includePlacesDetail":
+    "Off by default. Where you live is not something a picture needs to say.",
+  "recap.save": "Save it as a picture",
+  "recap.empty": "There is nothing in your record from this period yet.",
+  "recap.span": "How long",
+  "recap.spanDays": "The last {days} days",
+  "recap.spanYear": "The last year",
   "journal.title": "Your record",
   "journal.count": "{count} rows",
   "journal.note":

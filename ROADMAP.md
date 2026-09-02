@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-011: Build a local year in weather from what the app already recorded
-      Why: A recap of the year at your own places, assembled on your machine from your own log, is the strongest loyalty feature in this list and the one most likely to be shared as a picture. It is also the one that would be most obviously wrong to build on top of collected data, which is exactly why it should be built here, where the log never leaves the machine.
-      Evidence: JOY-007; JOY-008; `src/hooks/useExport.ts`; `src/lib/export.ts`
-      Touches: Recap aggregation over the log; the recap surface; a composed image export; coverage and honesty rules; translations
-      Acceptance: Every figure in the recap is derived only from the local log and states the period and the number of days actually covered, so a partial year cannot read as a full one; missing coverage is shown as missing rather than as zero; the exported picture carries the period, the place name only if the reader includes it, and the data credits; nothing is compared against other users, ranked, or scored; the recap is available on any date rather than only in December, because somebody who installed the app in March should not wait.
-      Complexity: L
-
 - [ ] JOY-012: Show honest usage and coverage figures without turning them into a game
       Why: People do like knowing they have tracked ninety storms and watched two hundred hours of radar. They do not like being nudged about a streak, and a weather app that manufactures engagement pressure around severe weather would be genuinely distasteful. The figures belong in the journal as facts, with no reward layer on top.
       Evidence: JOY-007; JOY-008; JOY-011
