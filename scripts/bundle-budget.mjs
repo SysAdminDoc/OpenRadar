@@ -29,9 +29,9 @@ const ASSETS = resolve(process.cwd(), "dist", "assets");
  * so there is no split available that does not put the map behind a second
  * download. What is left of it is under 300 kB of application code, and the
  * panels, the export encoders and the storm archive are already in chunks of
- * their own that are only fetched when a reader opens them. So is the Spanish
- * copy, which is as long again as the English and is fetched when a reader
- * asks for it.
+ * their own that are only fetched when a reader opens them. So is each
+ * translation, every one of which is as long again as the English, and only
+ * the one a reader asks for is fetched.
  */
 const BUDGETS = [
   {

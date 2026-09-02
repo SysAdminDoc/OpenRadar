@@ -2,29 +2,38 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ensureLanguage, setLanguage, translate } from "./index";
 import { en } from "./en";
 import { es } from "./es";
+import { fr } from "./fr";
 
-// Spanish is fetched when it is first wanted, so that a reader of English
-// never downloads it. Importing the catalogue here does not install it: what
-// is being checked is that the workspace stays readable in the window before
-// it arrives, and turns Spanish once it has.
+// Spanish and French are fetched when first wanted, so that a reader of one
+// never downloads the others. Importing the catalogues here does not install
+// them: what is being checked is that the workspace stays readable in the
+// window before one arrives, and turns that language once it has.
 
 afterEach(() => setLanguage("en"));
 
+const FETCHED = [
+  ["es", es],
+  ["fr", fr],
+] as const;
+
 describe("copy that is not in the first load", () => {
-  it("falls back to English until the Spanish arrives, then reads Spanish", async () => {
-    const key = "history.liveRadar";
-    expect(en[key]).not.toBe(es[key]);
-    // Nothing has asked for Spanish yet in this file.
-    expect(translate(key, undefined, "es")).toBe(en[key]);
+  it.each(FETCHED)(
+    "falls back to English until %s arrives, then reads it",
+    async (which, copy) => {
+      const key = "history.liveRadar";
+      expect(en[key]).not.toBe(copy[key]);
+      // Nothing has asked for this language yet in this file.
+      expect(translate(key, undefined, which)).toBe(en[key]);
 
-    await ensureLanguage("es");
-    expect(translate(key, undefined, "es")).toBe(es[key]);
+      await ensureLanguage(which);
+      expect(translate(key, undefined, which)).toBe(copy[key]);
 
-    // And a switch made without waiting lands too, because the fetch tells
-    // the subscribers again when it is done.
-    setLanguage("es");
-    expect(translate(key)).toBe(es[key]);
-  });
+      // And a switch made without waiting lands too, because the fetch tells
+      // the subscribers again when it is done.
+      setLanguage(which);
+      expect(translate(key)).toBe(copy[key]);
+    },
+  );
 
   it("has nothing to wait for in the languages that ship", async () => {
     // Resolved promises, not a network round trip: English is the first load

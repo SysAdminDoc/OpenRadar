@@ -2,21 +2,66 @@ import { expect, test, type Page } from "@playwright/test";
 import { routeWorkspace } from "./support/fixtures";
 import { clipped } from "./support/layout";
 import { pseudoize } from "../src/i18n/pseudo";
+import { en, type StringKey } from "../src/i18n/en";
+import { fr } from "../src/i18n/fr";
 
-/** The panels that hold copy, and the button that opens each one. */
-const PANELS = [
-  "Layers",
-  "Map Type",
-  "Settings",
-  "Alerts",
-  "Tropical",
-  "Route",
-  "Export",
-  "Upload",
-  "Forecast",
-  "Search",
-  "Diagnostics",
+/**
+ * The panels that hold copy, named by the catalogue key that labels each
+ * button rather than by its English words, because the same list has to find
+ * those buttons in a language that does not use them.
+ */
+const PANELS: StringKey[] = [
+  "panel.layers",
+  "panel.mapType",
+  "panel.settings",
+  "panel.alerts",
+  "layer.tropical",
+  "panel.route",
+  "panel.export",
+  "panel.upload",
+  "panel.forecast",
+  "panel.search",
+  "panel.more",
 ];
+
+/**
+ * Open every panel in turn and report the text that does not fit its box.
+ *
+ * The buttons are labelled in whatever language is on, so the selector has to
+ * be too, or this loop would quietly open nothing and pass without looking at
+ * a single panel. That is what the count is for.
+ */
+async function clippedAcrossPanels(
+  page: Page,
+  label: (key: StringKey) => string,
+): Promise<string[]> {
+  const offenders: string[] = [];
+  let opened = 0;
+  for (const key of PANELS) {
+    const button = page.locator(
+      `.command-bar button[aria-label="${label(key)}"]`,
+    );
+    if (!(await button.count())) continue;
+    await button.first().click();
+    await expect(page.locator(".surface-panel")).toBeVisible();
+    opened += 1;
+    offenders.push(...(await clipped(page)).map((text) => `${key}: ${text}`));
+    await button.first().click();
+  }
+  expect(opened, "no panel was opened, so nothing was measured").toBe(
+    PANELS.length,
+  );
+  return offenders;
+}
+
+/** The page itself does not scroll sideways to make room for a long label. */
+async function sidewaysOverflow(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+}
 
 async function startIn(page: Page, language: string) {
   await page.addInitScript((value) => {
@@ -84,36 +129,47 @@ test.describe("a workspace in another language", () => {
     // so seeing one means the screen really is drawn in it.
     await expect(page.locator(".command-bar")).toContainText("⟦");
 
-    const offenders: string[] = [];
-    let opened = 0;
-    for (const panel of PANELS) {
-      // The buttons are labelled in the generated language too, so the
-      // selector has to be, or this loop would quietly open nothing and pass
-      // without looking at a single panel.
-      const button = page.locator(
-        `.command-bar button[aria-label="${pseudoize(panel)}"]`,
-      );
-      if (!(await button.count())) continue;
-      await button.first().click();
-      await expect(page.locator(".surface-panel")).toBeVisible();
-      opened += 1;
-      offenders.push(
-        ...(await clipped(page)).map((text) => `${panel}: ${text}`),
-      );
-      await button.first().click();
-    }
-
-    expect(opened, "no panel was opened, so nothing was measured").toBe(
-      PANELS.length,
+    const offenders = await clippedAcrossPanels(page, (key) =>
+      pseudoize(en[key]),
     );
     expect(offenders).toEqual([]);
 
     // And the window itself does not scroll sideways to make room.
-    const overflow = await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth -
-        document.documentElement.clientWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
+    expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test("fits its labels in French at 1024 by 720", async ({ page }) => {
+    // The pseudolocale is longer than any real translation, so this cannot
+    // find a box French overflows and it does not. It is here because French
+    // is copy somebody wrote rather than copy a function generated, and a
+    // sentence that runs long in one panel is exactly the kind of thing the
+    // padding rule cannot predict.
+    await startIn(page, "fr");
+    await expect(page.locator(".command-bar")).toContainText("Couches");
+
+    const offenders = await clippedAcrossPanels(page, (key) => fr[key]);
+    expect(offenders).toEqual([]);
+    expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test("shows French copy the moment the language is switched", async ({
+    page,
+  }) => {
+    await startIn(page, "en");
+
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Français", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Réglages" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Couches", exact: true }),
+    ).toBeVisible();
+
+    // Back to English, in place, with no restart. The panel that made the
+    // change is still open, so the way back is the button beside the one just
+    // pressed rather than a second trip through the command bar.
+    await page.getByRole("button", { name: "English", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 });
