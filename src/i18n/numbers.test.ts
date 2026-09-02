@@ -50,6 +50,8 @@ const MACHINE_VALUES: Record<string, number> = {
   "lib/watch.ts": 1,
   // Coordinates in an SVG path.
   "lib/skewt.ts": 2,
+  // A CSS length: how much of a slider's track sits behind its handle.
+  "lib/rangeFill.ts": 1,
   // data-* attributes the browser tests read.
   "panels/GuidancePanel.tsx": 1,
   "panels/HistoryPanel.tsx": 1,

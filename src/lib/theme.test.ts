@@ -467,8 +467,50 @@ describe("the stylesheet", () => {
       const body = css.slice(at, css.indexOf("\n}", at));
       for (const side of ["width", "height"]) {
         const size = new RegExp(`${side}:\\s*(\\d+)px`).exec(body)?.[1];
-        expect(Number(size), `${thumb} ${side}`).toBeGreaterThanOrEqual(22);
+        expect(Number(size), `${thumb} ${side}`).toBeGreaterThanOrEqual(24);
       }
+    }
+  });
+
+  it("still paints the part of a slider behind the handle", () => {
+    // Drawing the handle cost this: a browser paints the passed part of the
+    // track in the accent colour on its own, and stops the moment the thumb
+    // is styled, so all twelve sliders became a uniform grey line with a dot
+    // on it. Chromium has no pseudo element for the filled part, so the share
+    // arrives as `--range-fill` and the track is a gradient. Held on the
+    // source for the same reason the handle size is.
+    const at = css.indexOf("::-webkit-slider-runnable-track {");
+    expect(at, "the track is not drawn").toBeGreaterThan(-1);
+    const track = css.slice(at, css.indexOf("\n}", at));
+    expect(track).toContain("var(--range-fill");
+    expect(track).toContain("var(--accent-fill)");
+
+    // Gecko has one, and it is the whole fix there.
+    const gecko = css.indexOf("::-moz-range-progress {");
+    expect(gecko, "the Gecko fill is not drawn").toBeGreaterThan(-1);
+    expect(css.slice(gecko, css.indexOf("\n}", gecko))).toContain(
+      "var(--accent-fill)",
+    );
+
+    // And every slider hands the share over. A slider without it paints an
+    // empty track whatever its value, which is the regression this is about.
+    const sliders = readdirSync(ROOT, { recursive: true })
+      .map((name) => String(name))
+      .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
+      .map((name) => join(ROOT, name))
+      .flatMap((path) => {
+        const source = readFileSync(path, "utf8");
+        return source
+          .split("<input")
+          .slice(1)
+          .filter((tag) =>
+            tag.slice(0, tag.indexOf("/>")).includes('type="range"'),
+          )
+          .map((tag) => [path, tag.slice(0, tag.indexOf("/>"))] as const);
+      });
+    expect(sliders.length).toBeGreaterThan(0);
+    for (const [path, tag] of sliders) {
+      expect(tag, path).toContain("style={rangeFill(");
     }
   });
 

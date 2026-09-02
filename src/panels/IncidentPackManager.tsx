@@ -30,6 +30,7 @@ import {
   type PackBounds,
 } from "../lib/incidentPacks";
 import type { AppSettings } from "../lib/settings";
+import { rangeFill } from "../lib/rangeFill";
 
 const EMPTY_LIBRARY: IncidentPackLibrary = {
   packs: [],
@@ -301,6 +302,7 @@ export function IncidentPackManager({
               min={256}
               max={32_768}
               step={256}
+              style={rangeFill(settings.incidentPacks.diskLimitMb, 256, 32_768)}
               value={settings.incidentPacks.diskLimitMb}
               aria-label={t("packs.ceiling")}
               onChange={(event) =>
@@ -419,7 +421,12 @@ export function IncidentPackManager({
           {library.packs.length === 0 ? (
             <p className="empty-copy">{t("packs.empty")}</p>
           ) : null}
-          <div className="incident-pack-list" role="list">
+          {/* No role when there is nothing in it. See the note beside the
+              watched places. */}
+          <div
+            className="incident-pack-list"
+            role={library.packs.length ? "list" : undefined}
+          >
             {library.packs.map((pack) => {
               const progress = pack.tileCount
                 ? Math.round((pack.downloadedTiles / pack.tileCount) * 100)

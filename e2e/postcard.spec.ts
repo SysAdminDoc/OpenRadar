@@ -63,7 +63,7 @@ test("offers a postcard beside the plain picture, not instead of it", async ({
   // Evidence and a postcard are different jobs. The plain export is still
   // the first thing in the panel and still says what it always did.
   await expect(
-    page.getByRole("button", { name: /Export image/ }),
+    page.getByRole("button", { name: /Export picture/ }),
   ).toBeVisible();
 
   const postcard = page.locator("[data-postcard]");

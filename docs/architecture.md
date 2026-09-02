@@ -1,15 +1,43 @@
-# Architecture decision
+# Architecture
 
-OpenRadar uses Tauri 2 with React 19, TypeScript, Vite, and MapLibre GL. This keeps the desktop shell small while letting the app render vector maps and raster weather data on the GPU.
+OpenRadar is a Tauri 2 desktop app: a Rust binary that decodes weather data and a React 19 interface drawn with MapLibre GL, built with TypeScript and Vite. The shell stays small, and the map renders vector tiles and raster weather on the GPU.
 
-The Rust side is not a thin wrapper. It decodes the weather data itself, away from the interface thread and away from any service that would otherwise have to render it first: the MRMS national grid and its rotation, hail and lightning products from GRIB2, single-site NEXRAD Level II volumes, GOES-East lightning from the satellite's own NetCDF files, and GFS wind fields. Decoded tiles reach the map through registered URI schemes, so a locally decoded product is an ordinary tile source rather than a special case in the timeline. Everything native fetches goes through one host allowlist and a bounded cache, which is what lets the app open on the last view with no network.
+## Why the Rust side is not a thin wrapper
 
-Prepared incident packs use a different store because they are user-kept data, not disposable cache entries. Rust downloads a bounded USGS tile set into an append-only hash journal, builds one PMTiles archive, reads every tile back, and hashes the finished file before an atomic rename makes it selectable. A store-wide write gate joins each quota decision to the tile or archive write it permits, and final archive builds are serialized. After a restart, the stored SHA-256 is checked once before the archive serves a tile. The `incident` URI scheme reads only that local archive, with no network fallback. Pack bytes stay in app data until deletion; workspace backups contain portable references rather than the archives.
+Most of the weather this app draws arrives as a format a browser cannot open: GRIB2 grids, NEXRAD Level II volumes, NetCDF satellite files, PMTiles archives. Decoding those in Rust keeps the work off the thread drawing the map, and it means no service has to render the data first and hand over a picture somebody else has already made decisions about.
 
-Settings are stored as readable JSON. The MapLibre worker stays on the app origin. Globe projection, pitch, bearing, center, and zoom are first-class camera state, kept independent of radar playback, which is what lets a loop run while the camera moves.
+A decoded product reaches the map through a registered URI scheme, so it is an ordinary tile source rather than a special case in the timeline. Everything the native side fetches goes through one host allowlist and one bounded cache, which is what lets the app open on the last view with no network.
+
+## The native modules
+
+Every module in `src-tauri/src/`:
+
+**The network boundary.** `http` is the one place a Rust-side fetch happens, and every address is checked against the allowlist first. `cache` is the disk cache behind the offline last view: entries are written beside their name and renamed into place, the format version is the directory name, and the budget is 2,048 entries or 256 MiB with the oldest going first. A hash collision is a miss rather than the wrong tile, because the address is written into the entry and checked on the way out. `tiles` serves the `cached` scheme to the webview, falling back to what was kept when a fetch fails.
+
+**Radar.** `mrms` decodes the national mosaic. Those files are GRIB2 with data representation template 41, which is a 16-bit PNG plus a linear scale, so the decode needs no GRIB library at all. `level2` is single-site NEXRAD: it lists the recent and historical archive buckets, opens local Archive II files, decodes volumes and draws one sweep as a Web Mercator PNG laid over the site's own extent. `chunks` is the same radar a few minutes earlier, assembling the pieces of a volume the radar is still sweeping. `level3` reads the products a site publishes ready-made, and `tdwr` is the FAA's airport radars, which publish only in that form. `dealias` unfolds velocity, and `vad` fits the wind a sweep is moving in so storm-relative velocity has something to subtract. `cross_section` cuts a volume along a line between two points.
+
+**Everything else in the sky.** `lightning` reads GOES flash centroids out of NetCDF-4, which is HDF5 underneath. `gfs` and `hrrr` decode the model fields the wind particles and the forecast tail are drawn from, including HRRR's near-surface smoke. `probsevere` reads the severe-probability model.
+
+**Leaving with something.** `exports` writes the picture, the video and the GIF. `data_export` writes the readings rather than the picture, and `geotiff` is the single-band float raster half of that. `bundles` reads and writes the `.orb` replay file, whose layout is documented in full at the top of the module. `palette` holds the colour tables, and `contrast` is the colour-vision measurement they are held to; it is compiled into the tests only, because what ships is the ramps it vouches for rather than the arithmetic.
+
+**Kept on the machine.** `incident_packs` owns durable offline basemaps, separately from the disposable cache: a bounded tile set is journaled with per-tile hashes, written to PMTiles, read back tile by tile and hashed before an atomic rename makes it selectable. `journal` is the reader's own record, one JSON row per line so a damaged line costs one entry rather than the file.
+
+**The desktop itself.** `tray` owns the icon, its menu and the small glance window; `glance` is what that window reads. `wallpaper` writes one PNG and points the desktop at it, remembering what was there before so it can be put back. `sound` reads the alert sound a reader chose, refusing anything too large or of a kind the picker does not offer.
+
+**Testing.** `fixture` writes Level II volumes byte by byte to the published layout, so a test has a volume with known readings in it. A real one is ten megabytes, cannot be committed, and would make the weather part of the test.
+
+## The interface
+
+`src/components/MapViewport.tsx` owns the MapLibre instance and the camera bridge. `src/lib/overlays/` holds one adapter per non-radar layer, each owning its fetch, its layer specs and its popup text, driven from the viewport by `src/hooks/useOverlays.ts`. `src/lib/providers/` holds the radar source chain, its rolling request budget and its per-source health. `src/App.tsx` wires the hooks together and lays out three pieces: the panes, everything the command bar opens, and the chrome around the map.
+
+Camera state is kept independent of radar playback, which is what lets a loop run while the camera moves. Settings are stored as readable JSON. The MapLibre worker stays on the app origin.
+
+`src/i18n/` holds the copy. English is the source and the other languages are typed against it, so a string added on one side and not the others is a build error rather than a blank label. Each translation is a chunk fetched on demand.
+
+`src/lib/theme.ts` is the boundary between how the workspace looks and how the data looks. A theme can reach eleven chrome tokens and nothing else: not a reflectivity ramp, not a warning outline, not a hazard colour. That boundary is a test rather than a promise.
 
 MapLibre 6 requires WebGL2 and has no software fallback, so the app checks for it before mounting and explains the failure rather than letting the renderer throw.
 
-WPF with WebView2 would be Windows-only and still carry two runtimes. Avalonia has a weaker path for the raster and custom radar layers this needs. Electron adds a much larger desktop runtime. Qt brings licensing and distribution friction that does not help this project.
+## Why this stack
 
-The product name is OpenRadar. GitHub has unrelated projects with the same words, mainly mmWave and software issue trackers, but no repository exists under the selected owner and no exact weather app listing surfaced in the Microsoft Store search.
+WPF with WebView2 would be Windows-only and still carry two runtimes. Avalonia has a weaker path for the raster and custom radar layers this needs. Electron adds a much larger desktop runtime. Qt brings licensing and distribution friction that does not help this project.

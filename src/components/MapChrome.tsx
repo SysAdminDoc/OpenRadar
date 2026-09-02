@@ -20,6 +20,7 @@ import {
 } from "../lib/radar";
 import { formatMeasure, useT } from "../i18n";
 import { formatAge, utcHourLabel } from "../lib/units";
+import { rangeFill } from "../lib/rangeFill";
 
 function initLabel(initUtc: string): string {
   return utcHourLabel(new Date(initUtc).getTime());
@@ -129,6 +130,8 @@ export function RadarTimeline({
     : Number.NaN;
   const showingHistory = Number.isFinite(historicalTime);
   const forecast = showingHistory ? undefined : frame?.forecast;
+  const lastFrame = showingHistory ? 0 : Math.max(0, frames.length - 1);
+  const atFrame = showingHistory ? 0 : Math.min(frameIndex, lastFrame);
   return (
     <div
       className={`radar-timeline ${forecast ? "is-forecast" : ""}${showingHistory ? " is-historical" : ""}`}
@@ -194,12 +197,9 @@ export function RadarTimeline({
       <input
         type="range"
         min="0"
-        max={showingHistory ? 0 : Math.max(0, frames.length - 1)}
-        value={
-          showingHistory
-            ? 0
-            : Math.min(frameIndex, Math.max(0, frames.length - 1))
-        }
+        max={lastFrame}
+        value={atFrame}
+        style={rangeFill(atFrame, 0, lastFrame)}
         disabled={showingHistory || !frames.length}
         aria-label={t("timeline.frame")}
         aria-valuetext={

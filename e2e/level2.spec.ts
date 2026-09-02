@@ -1158,10 +1158,10 @@ test("carries the model's smoke along the forecast tail and nowhere else", async
   const last = (await scrubber.getAttribute("max")) ?? "0";
   await scrubber.fill(last);
   await expect(timeline).toHaveClass(/is-forecast/);
-  await expect(timeline).toContainText(/HRRR init \d\dZ, \+\d+ min/);
+  await expect(timeline).toContainText(/HRRR run \d\dZ, \d+ min ahead/);
   const said = (await timeline.textContent()) ?? "";
-  const initHour = Number(/HRRR init (\d\d)Z/.exec(said)?.[1]);
-  const leadMinutes = Number(/\+(\d+) min/.exec(said)?.[1]);
+  const initHour = Number(/HRRR run (\d\d)Z/.exec(said)?.[1]);
+  const leadMinutes = Number(/, (\d+) min ahead/.exec(said)?.[1]);
   const leadHours = Math.max(1, Math.round(leadMinutes / 60));
 
   await expect(pane).toHaveAttribute("data-layer-stack", /forecast-smoke/);

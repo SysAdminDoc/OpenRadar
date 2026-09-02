@@ -863,7 +863,7 @@ test("switching a kind of alert off takes it out of what is drawn", async ({
 
   await page.getByRole("button", { name: "Alerts", exact: true }).click();
   await expect(page.getByText("Tornado Warning")).toHaveCount(0);
-  await expect(page.getByText("No active alerts in view")).toBeVisible();
+  await expect(page.getByText("No active warnings in view")).toBeVisible();
   await page.getByRole("button", { name: "Close Alerts" }).click();
 
   // And back again straight away, without waiting on the service.

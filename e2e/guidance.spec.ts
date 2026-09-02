@@ -201,7 +201,7 @@ test("names the nearest tide station and what the water does next", async ({
   const station = page.locator("[data-tide-station='8761724']");
   await expect(station).toBeVisible();
   await expect(station).toContainText("Grand Isle, LA");
-  await expect(station).toContainText("miles from the middle of the map");
+  await expect(station).toContainText("miles from the map centre");
   // Rising or falling, said plainly, because that is the thing people want.
   await expect(station.locator("[data-tide-state]")).toBeVisible();
 
@@ -286,9 +286,7 @@ test("switches the whole workspace to metric and to UTC", async ({ page }) => {
 
   // Imperial to start, which is what a fresh install shows.
   await page.getByRole("button", { name: "Tides", exact: true }).click();
-  await expect(
-    page.getByText(/miles from the middle of the map/),
-  ).toBeVisible();
+  await expect(page.getByText(/miles from the map centre/)).toBeVisible();
   await expect(page.locator(".route-row").first()).toContainText(" ft");
 
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -298,9 +296,7 @@ test("switches the whole workspace to metric and to UTC", async ({ page }) => {
   // The measurement and the word for it change together: a label reading
   // kilometres over a figure still counted in miles would be worse than either.
   await page.getByRole("button", { name: "Tides", exact: true }).click();
-  await expect(
-    page.getByText(/kilometres from the middle of the map/),
-  ).toBeVisible();
+  await expect(page.getByText(/kilometres from the map centre/)).toBeVisible();
   await expect(page.locator(".route-row").first()).toContainText(" m");
 });
 

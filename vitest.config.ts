@@ -16,18 +16,32 @@ export default defineConfig({
     hookTimeout: 10_000,
     coverage: {
       reporter: ["text", "html"],
+      // Every source file, whether or not a test happens to load it. Without
+      // this the denominator is only what the run touched, so deleting a
+      // test raises the percentage and the floor cannot catch an area going
+      // untested: `vitest run --coverage scripts/hurdat-parse.test.mjs`
+      // reported 90 percent over one file out of a hundred and ninety.
+      include: ["src/**/*.{ts,tsx}", "scripts/**/*.mjs"],
+      exclude: [
+        "**/*.test.{ts,tsx,mjs}",
+        "src/test/**",
+        "src/vite-env.d.ts",
+        "scripts/*.d.mts",
+      ],
       // Collected and never enforced, which is a number nobody has to keep.
-      // The floor is today's, rounded down: it is here to catch a whole area
-      // going untested, not to be nudged up a point at a time.
+      // The floor is here to catch a whole area going untested, not to be
+      // nudged up a point at a time.
       thresholds: {
-        // Today's numbers rounded down, measured rather than guessed:
-        // statements 79.9, branches 70.4, functions 73.9, lines 81.7. The
-        // floor is here to catch a whole area going untested, not to be
-        // nudged up a point at a time.
-        statements: 78,
-        branches: 69,
-        functions: 72,
-        lines: 80,
+        // Today's numbers over the WHOLE tree, rounded down and given a
+        // point of slack: statements 64.4, branches 57.3, functions 58.8,
+        // lines 65.6. They read lower than the figures this floor was first
+        // written with, because those were the share of the files a test
+        // happened to load rather than the share of the app. The panels are
+        // most of what is missing.
+        statements: 63,
+        branches: 56,
+        functions: 57,
+        lines: 64,
       },
     },
   },

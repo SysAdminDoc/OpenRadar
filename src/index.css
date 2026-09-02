@@ -657,6 +657,12 @@ a {
    Layers had the same handle. Drawing it here means drawing the track too,
    because a browser stops drawing its own the moment the handle is styled. */
 input[type="range"] {
+  /* How much of the track sits behind the handle. Written per slider by
+     `rangeFill()`, because the value is only known in React; the zero here is
+     the contract, and a slider that forgets the style paints an empty track
+     rather than an undefined length. */
+  --range-fill: 0%;
+
   width: 100%;
   height: 24px;
   margin: 0;
@@ -665,9 +671,19 @@ input[type="range"] {
   cursor: pointer;
 }
 
+/* The part of the track behind the handle. A browser paints it in the accent
+   colour on its own, and stops the moment the handle is styled, so drawing a
+   handle big enough to hit cost every slider its filled track. Chromium has no
+   pseudo-element for the filled part, which is why the share arrives as
+   `--range-fill` from `rangeFill()` on the input itself: custom properties
+   inherit into these pseudo-elements. Gecko does have one, below. */
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
-  background: var(--surface-hover);
+  background: linear-gradient(
+    to right,
+    var(--accent-fill) 0 var(--range-fill, 0%),
+    var(--surface-hover) var(--range-fill, 0%)
+  );
   border: 1px solid var(--border);
   border-radius: 3px;
 }
@@ -676,6 +692,12 @@ input[type="range"]::-moz-range-track {
   height: 4px;
   background: var(--surface-hover);
   border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  background: var(--accent-fill);
   border-radius: 3px;
 }
 
@@ -693,8 +715,8 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   background: var(--accent-fill);
   border: 1px solid var(--surface-solid);
   border-radius: 50%;
@@ -2402,14 +2424,20 @@ input[type="range"]:disabled {
    same way unmounting did. */
 [role="status"][data-empty],
 [role="alert"][data-empty] {
-  /* Deliberately still in flow. The usual visually-hidden recipe takes the
-     box out with `position: absolute`, and an absolutely positioned box
-     inside a scrolling panel is placed against the PANEL rather than against
-     the content it was written beside: it landed nine hundred pixels below
-     the panel's own foot and the layout check called the whole panel
-     overflowing. One pixel in the flow costs nothing. */
+  /* Out of flow AND pinned. The usual visually-hidden recipe takes the box
+     out with `position: absolute` and stops there, and a box with no offsets
+     inside a scrolling panel is placed at its static position against the
+     PANEL: it landed nine hundred pixels below the panel's own foot and the
+     layout check called the whole panel overflowing. Leaving it in flow
+     instead fixed that and cost twenty-three pixels of dead space at the
+     foot of a flex column, because `gap` applies to a one pixel child as
+     much as to a real one. Pinned to the corner it is neither. */
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
+  min-width: 0;
   min-height: 0;
   padding: 0;
   margin: 0;

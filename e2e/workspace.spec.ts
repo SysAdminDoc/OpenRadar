@@ -557,7 +557,7 @@ test("says the alerts layer is off instead of showing an empty list", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Turn on Weather Alerts" }).click();
-  await expect(page.getByText("No active alerts in view")).toBeVisible();
+  await expect(page.getByText("No active warnings in view")).toBeVisible();
   await expect(
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toHaveAttribute("data-layer-stack", /alerts-fill/);
@@ -631,9 +631,9 @@ test("extends the scrubber past now with the forecast run", async ({
   await scrubber.fill("8");
   // The run starts at 05Z and the newest observation is 05:40, so the tail
   // picks up at the next quarter-hour step after it.
-  await expect(timeline).toContainText("HRRR init 05Z, +45 min");
+  await expect(timeline).toContainText("HRRR run 05Z, 45 min ahead");
   await scrubber.fill("31");
-  await expect(timeline).toContainText("HRRR init 05Z, +390 min");
+  await expect(timeline).toContainText("HRRR run 05Z, 390 min ahead");
   await expect(page.locator(".radar-timeline")).toHaveClass(/is-forecast/);
 });
 

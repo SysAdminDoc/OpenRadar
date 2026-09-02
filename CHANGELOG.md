@@ -54,6 +54,12 @@
 
 - The app stopped talking about itself. Shaders, tokens, providers, indexes, request budgets and layout numbers are the code's words for things, and they were reaching the screen: "could not create a shader", "Request budget reached", "{count} chrome tokens", "Forecast response was incomplete". Nine messages printed a bare number out of the web instead of saying what it meant, so a tide service having a bad hour read as "returned 503". A busy service now says it is busy, one that cannot find a place says so, and the number still goes to the log for a bug report.
 
+- Every slider got its filled track back. Giving the handle a size a pointer can actually hit turned the browser's own drawing off, and the coloured part of the track behind the handle went with it: twelve sliders became a grey line with a dot on it, which says nothing about where you are in the range until you look at the dot.
+
+- The README says what the app does again. The full-screen view for a second monitor and naming a storm the radar is tracking had both shipped without ever being written down, and the page the README sends people to for architecture described the app as it was at the very first commit, native modules and all. A test now holds that page to the code: a module added to the Rust side and not to the page is a failing build.
+
+- Three lists that could be empty said they were lists anyway. A reader with no watched places, no offline map packs or a record with nothing to summarise yet was handed a list containing nothing, which a screen reader reports as broken rather than as empty.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

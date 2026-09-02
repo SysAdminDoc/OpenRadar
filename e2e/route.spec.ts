@@ -131,7 +131,9 @@ test("offers the straight line when the road router refuses", async ({
 
   const failure = page.locator(".panel-error");
   await expect(failure).toBeVisible();
-  await expect(failure).toContainText("429");
+  // The reader is told what to do about it rather than the number: the code
+  // still goes to the log.
+  await expect(failure).toContainText("asked too often");
 
   // The app's own button, not the browser's. Every other classless button in
   // a panel is covered by an ancestor rule and this one was not, so the error
