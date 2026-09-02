@@ -57,6 +57,10 @@ test("gives the reader their own wallpaper back when it is switched off", async 
   const control = page.locator("[data-wallpaper-setting] select");
   await expect(control).toBeEnabled();
   await control.selectOption("60");
+  // Taken before it is given back. Without this the test passes against a
+  // feature that never wrote anything and then congratulated itself for
+  // restoring what it had not taken.
+  await expect.poll(async () => await chosen(page)).toContain("wallpaper_set");
   // Nothing is put back while it is on: that would undo the picture it just
   // wrote.
   expect(await chosen(page)).not.toContain("wallpaper_restore");

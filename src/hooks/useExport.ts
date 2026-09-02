@@ -25,7 +25,11 @@ import {
   timelineProvenance,
   type Provenance,
 } from "../lib/provenance";
-import { formatFrameTime, type RadarFrame } from "../lib/radar";
+import {
+  frameAgeMinutes,
+  formatFrameTime,
+  type RadarFrame,
+} from "../lib/radar";
 import { saveFile } from "../lib/saveFile";
 import { APP_VERSION } from "../lib/settings";
 import type { RadarTimelineState } from "./useRadarTimeline";
@@ -65,7 +69,7 @@ export interface ExportState {
    * the frame time, the source credits and its own age exactly as a saved one
    * does, and the two cannot drift apart.
    */
-  writeWallpaper: () => Promise<void>;
+  writeWallpaper: () => Promise<boolean>;
   exportPostcard: (options: {
     size: PostcardSize;
     written: string;
@@ -251,14 +255,43 @@ export function useExport(options: {
     })();
   }, [captionFor, finish, frameIndex, mapRef, pushToast]);
 
+  /**
+   * The caption a wallpaper gets: the saved one, plus how old it is.
+   *
+   * A saved picture is looked at the moment it is made, so the observation
+   * time answers "how old is this" on its own. One on a desktop is looked at
+   * hours later, on a gap of up to three hours, and an absolute time in the
+   * corner gives a reader nothing to judge it by. So the age goes on the
+   * picture, worked out when it is drawn.
+   */
+  const wallpaperCaption = useCallback(
+    (index: number): ExportCaption => {
+      const caption = captionFor(index);
+      const frame = frames[index];
+      if (!frame) return caption;
+      return {
+        ...caption,
+        lines: [
+          ...caption.lines,
+          translate("wallpaper.age", { minutes: frameAgeMinutes(frame) }),
+        ],
+      };
+    },
+    [captionFor, frames],
+  );
+
   const writeWallpaper = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
     // Nothing to draw is not a failure. A wallpaper of an empty map is worse
-    // than the one that is already there.
-    if (!canvas || !frames.length) return;
-    const blob = await exportStill(canvas, captionFor(frameIndex));
+    // than the one that is already there. Answering false rather than
+    // throwing is what lets the schedule tell "there was nothing yet" from
+    // "it went wrong", so a cold start does not spend its first slot on a
+    // map that had not come up.
+    if (!canvas || !frames.length) return false;
+    const blob = await exportStill(canvas, wallpaperCaption(frameIndex));
     await setWallpaper(new Uint8Array(await blob.arrayBuffer()));
-  }, [captionFor, frameIndex, frames.length, mapRef]);
+    return true;
+  }, [frameIndex, frames.length, mapRef, wallpaperCaption]);
 
   const exportPostcard = useCallback(
     (options: { size: PostcardSize; written: string; place: string }) => {

@@ -30,7 +30,15 @@ use std::sync::Mutex;
 static TARGET: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 /// What was on the desktop before this feature first wrote anything.
-static PREVIOUS: Mutex<Option<String>> = Mutex::new(None);
+///
+/// The outer option is whether it has been recorded at all; the inner one is
+/// what was there, because "nothing, a plain colour" is a real answer and has
+/// to be told apart from "not asked yet". It is written to a file beside the
+/// picture as well, and that file is the point: held only in memory, a
+/// restart forgets what it took, the next write records OpenRadar's own
+/// picture as the thing to go back to, and the reader's own wallpaper is
+/// gone for good with the app reporting success.
+static PREVIOUS: Mutex<Option<Option<String>>> = Mutex::new(None);
 
 /// Points the wallpaper writer at a directory. Called once, at startup.
 pub fn init(dir: &std::path::Path) {
@@ -40,6 +48,11 @@ pub fn init(dir: &std::path::Path) {
     }
     *TARGET.lock().unwrap_or_else(|held| held.into_inner()) =
         Some(dir.join("wallpaper.png"));
+}
+
+/// Where the note about the reader's own wallpaper is kept.
+fn record_path() -> Option<PathBuf> {
+    target().map(|path| path.with_file_name("wallpaper-previous.txt"))
 }
 
 fn target() -> Option<PathBuf> {
@@ -62,6 +75,24 @@ pub fn wallpaper_available() -> bool {
 /// show it.
 #[tauri::command]
 pub fn wallpaper_set(bytes: Vec<u8>) -> Result<(), String> {
+    set_with(bytes, apply)
+}
+
+/// The write, with the thing that touches the desktop handed in.
+///
+/// The seam exists for the tests. Without it, running them on Windows sets
+/// the desktop of whoever ran them, which is how the suite once wiped its
+/// own author's wallpaper.
+fn set_with(
+    bytes: Vec<u8>,
+    apply_to: impl Fn(&str) -> Result<(), String>,
+) -> Result<(), String> {
+    // Asked before the file is written, not after. Writing the picture and
+    // then failing to apply it left a machine that cannot do this rewriting
+    // a megabyte of PNG every fifteen minutes for nothing.
+    if !wallpaper_available() {
+        return Err("setting the wallpaper is a Windows thing for now".to_string());
+    }
     if !bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]) {
         return Err("a wallpaper has to be a PNG".to_string());
     }
@@ -75,23 +106,66 @@ pub fn wallpaper_set(bytes: Vec<u8>) -> Result<(), String> {
     remember_previous();
 
     std::fs::write(&path, &bytes).map_err(|error| error.to_string())?;
-    apply(&path.to_string_lossy())
+    apply_to(&path.to_string_lossy())
 }
 
 /// Puts back whatever was on the desktop before.
+///
+/// Including a desktop that had no picture on it at all: an empty path is
+/// what Windows itself takes to mean the plain colour, and a reader who
+/// started with a colour has to end with one.
 #[tauri::command]
 pub fn wallpaper_restore() -> Result<(), String> {
-    let held = PREVIOUS
-        .lock()
-        .unwrap_or_else(|held| held.into_inner())
-        .clone();
+    restore_with(apply)
+}
+
+fn restore_with(
+    apply_to: impl Fn(&str) -> Result<(), String>,
+) -> Result<(), String> {
+    let held = {
+        let mut held = PREVIOUS.lock().unwrap_or_else(|held| held.into_inner());
+        if held.is_none() {
+            *held = read_record();
+        }
+        held.clone()
+    };
     let Some(was) = held else {
         // Nothing was ever taken away, so there is nothing to give back.
         return Ok(());
     };
-    apply(&was)?;
+    apply_to(was.as_deref().unwrap_or(""))?;
     *PREVIOUS.lock().unwrap_or_else(|held| held.into_inner()) = None;
+    if let Some(path) = record_path() {
+        let _ = std::fs::remove_file(path);
+    }
     Ok(())
+}
+
+/// The note from a previous run, if this app wrote one and has not put it back.
+fn read_record() -> Option<Option<String>> {
+    let path = record_path()?;
+    let text = std::fs::read_to_string(path).ok()?;
+    let trimmed = text.trim().to_string();
+    // An empty note is a real answer: the desktop was a plain colour.
+    Some(if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    })
+}
+
+/// Never record our own picture as the thing to go back to.
+///
+/// It happens when the note has been deleted under us. The original is gone
+/// by then, and the honest answer is the plain colour: recording our own
+/// path would restore OpenRadar to itself for ever, which is the one outcome
+/// a reader can never undo.
+fn not_our_own(found: Option<String>) -> Option<String> {
+    let ours = target()?;
+    match found {
+        Some(path) if path.eq_ignore_ascii_case(&ours.to_string_lossy()) => None,
+        other => other,
+    }
 }
 
 fn remember_previous() {
@@ -99,7 +173,17 @@ fn remember_previous() {
     if held.is_some() {
         return;
     }
-    *held = current().ok().flatten();
+    // A note from a previous run outranks the registry, because by now the
+    // registry says OpenRadar's own picture.
+    if let Some(recorded) = read_record() {
+        *held = Some(recorded);
+        return;
+    }
+    let was = not_our_own(current().ok().flatten());
+    if let Some(path) = record_path() {
+        let _ = std::fs::write(path, was.clone().unwrap_or_default());
+    }
+    *held = Some(was);
 }
 
 #[cfg(windows)]
@@ -117,9 +201,17 @@ fn current() -> Result<Option<String>, String> {
         .output()
         .map_err(|error| error.to_string())?;
     let text = String::from_utf8_lossy(&output.stdout);
+    // Both types, because a wallpaper set by a theme or by policy is often
+    // REG_EXPAND_SZ, and "REG_EXPAND_SZ" does not contain "REG_SZ". Missing
+    // it read as "no wallpaper", which is how a reader's own picture gets
+    // recorded as nothing and never comes back.
     let value = text
         .lines()
-        .find_map(|line| line.split("REG_SZ").nth(1))
+        .find_map(|line| {
+            line.split_once("REG_EXPAND_SZ")
+                .or_else(|| line.split_once("REG_SZ"))
+                .map(|(_, rest)| rest)
+        })
         .map(|rest| rest.trim().to_string())
         .filter(|rest| !rest.is_empty());
     Ok(value)
@@ -199,7 +291,204 @@ mod tests {
 
     #[test]
     fn putting_it_back_with_nothing_taken_away_is_not_a_failure() {
+        let _held = guard();
         *PREVIOUS.lock().unwrap_or_else(|held| held.into_inner()) = None;
         assert!(wallpaper_restore().is_ok());
+    }
+
+    /// One test at a time: the statics and the note on disk are shared.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+    struct Fixture {
+        _lock: std::sync::MutexGuard<'static, ()>,
+        dir: std::path::PathBuf,
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            *TARGET.lock().unwrap_or_else(|held| held.into_inner()) = None;
+            *PREVIOUS.lock().unwrap_or_else(|held| held.into_inner()) = None;
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn guard() -> Fixture {
+        let lock = ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|held| held.into_inner());
+        let dir = std::env::temp_dir().join(format!(
+            "openradar-wallpaper-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        init(&dir);
+        *PREVIOUS.lock().unwrap_or_else(|held| held.into_inner()) = None;
+        Fixture { _lock: lock, dir }
+    }
+
+    #[test]
+    fn what_it_took_survives_the_app_closing() {
+        // The failure this holds shut: the note lived only in memory, so a
+        // restart forgot it, the next write recorded OpenRadar's own picture
+        // as the thing to go back to, and the reader's own wallpaper was
+        // gone for good with the app reporting success.
+        let held = guard();
+        std::fs::write(
+            held.dir.join("wallpaper-previous.txt"),
+            r"C:\Users\somebody\Pictures\dog.jpg",
+        )
+        .unwrap();
+        remember_previous();
+        let recorded = PREVIOUS
+            .lock()
+            .unwrap_or_else(|inner| inner.into_inner())
+            .clone();
+        assert_eq!(
+            recorded,
+            Some(Some(r"C:\Users\somebody\Pictures\dog.jpg".to_string()))
+        );
+    }
+
+    #[test]
+    fn a_desktop_with_no_picture_is_a_real_answer() {
+        // An empty note means the reader had a plain colour. Told apart from
+        // "not asked yet", or every write re-reads the registry and by then
+        // the registry says OpenRadar.
+        let held = guard();
+        std::fs::write(held.dir.join("wallpaper-previous.txt"), "").unwrap();
+        remember_previous();
+        let recorded = PREVIOUS
+            .lock()
+            .unwrap_or_else(|inner| inner.into_inner())
+            .clone();
+        assert_eq!(recorded, Some(None));
+    }
+
+    #[test]
+    fn it_never_records_its_own_picture_as_the_thing_to_go_back_to() {
+        // What a deleted note plus a previous run looks like: the desktop
+        // already shows ours. The original is gone by then, and restoring
+        // ours to itself for ever is the one answer nobody can undo.
+        let held = guard();
+        let ours = held.dir.join("wallpaper.png").to_string_lossy().to_string();
+        assert_eq!(not_our_own(Some(ours.clone())), None);
+        assert_eq!(not_our_own(Some(ours.to_uppercase())), None);
+        // Anything else is the reader's and is kept.
+        assert_eq!(
+            not_our_own(Some(r"C:\Users\somebody\dog.jpg".to_string())),
+            Some(r"C:\Users\somebody\dog.jpg".to_string())
+        );
+    }
+
+    #[test]
+    fn a_note_is_written_the_first_time_and_not_the_second() {
+        let held = guard();
+        remember_previous();
+        let note = held.dir.join("wallpaper-previous.txt");
+        assert!(note.exists(), "the first write records what it took");
+        std::fs::write(&note, "kept").unwrap();
+        remember_previous();
+        assert_eq!(std::fs::read_to_string(&note).unwrap(), "kept");
+    }
+
+    #[test]
+    fn putting_it_back_gives_back_what_was_taken_and_forgets_it() {
+        let held = guard();
+        let note = held.dir.join("wallpaper-previous.txt");
+        std::fs::write(&note, r"C:\Users\somebody\dog.jpg").unwrap();
+
+        // Handed a fake applier rather than the real one, because the real
+        // one sets the desktop of whoever runs the suite.
+        let asked = Mutex::new(Vec::<String>::new());
+        let answer = restore_with(|path| {
+            asked
+                .lock()
+                .unwrap_or_else(|held| held.into_inner())
+                .push(path.to_string());
+            Ok(())
+        });
+        assert!(answer.is_ok(), "{answer:?}");
+        assert_eq!(
+            asked.into_inner().unwrap_or_else(|held| held.into_inner()),
+            vec![r"C:\Users\somebody\dog.jpg".to_string()]
+        );
+        assert!(!note.exists(), "the note goes once it is given back");
+    }
+
+    #[test]
+    fn a_desktop_that_had_no_picture_gets_its_plain_colour_back() {
+        // Not the same as never having taken anything: an empty path is what
+        // Windows itself reads as the plain colour, so it is asked for.
+        let held = guard();
+        std::fs::write(held.dir.join("wallpaper-previous.txt"), "").unwrap();
+        let asked = Mutex::new(Vec::<String>::new());
+        restore_with(|path| {
+            asked
+                .lock()
+                .unwrap_or_else(|held| held.into_inner())
+                .push(path.to_string());
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            asked.into_inner().unwrap_or_else(|held| held.into_inner()),
+            vec![String::new()]
+        );
+    }
+
+    #[test]
+    fn taking_nothing_asks_the_desktop_for_nothing() {
+        let held = guard();
+        let _ = std::fs::remove_file(held.dir.join("wallpaper-previous.txt"));
+        *PREVIOUS.lock().unwrap_or_else(|inner| inner.into_inner()) = None;
+        let asked = Mutex::new(0usize);
+        restore_with(|_| {
+            *asked.lock().unwrap_or_else(|held| held.into_inner()) += 1;
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(asked.into_inner().unwrap_or_else(|held| held.into_inner()), 0);
+    }
+
+    #[test]
+    fn nothing_is_written_where_it_cannot_be_applied() {
+        // A machine that cannot set a wallpaper must not have a picture
+        // rewritten into its app data every fifteen minutes for nothing.
+        let held = guard();
+        let png = [
+            vec![0x89u8, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+            vec![0u8; 16],
+        ]
+        .concat();
+        let answer = set_with(png.clone(), |_| Ok(()));
+        if cfg!(windows) {
+            assert!(answer.is_ok(), "{answer:?}");
+            assert!(held.dir.join("wallpaper.png").exists());
+        } else {
+            assert!(answer.is_err());
+            assert!(!held.dir.join("wallpaper.png").exists());
+        }
+    }
+
+    #[test]
+    fn it_writes_the_picture_where_it_says_and_nowhere_else() {
+        let held = guard();
+        let png = [
+            vec![0x89u8, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a],
+            vec![7u8; 16],
+        ]
+        .concat();
+        if set_with(png.clone(), |_| Ok(())).is_err() {
+            return; // Not a Windows build; the refusal is its own test.
+        }
+        let written: Vec<String> = std::fs::read_dir(&held.dir)
+            .unwrap()
+            .filter_map(|entry| Some(entry.ok()?.file_name().to_string_lossy().to_string()))
+            .collect();
+        assert_eq!(written.len(), 2, "{written:?}");
+        assert!(written.contains(&"wallpaper.png".to_string()));
+        assert!(written.contains(&"wallpaper-previous.txt".to_string()));
+        assert_eq!(std::fs::read(held.dir.join("wallpaper.png")).unwrap(), png);
     }
 }

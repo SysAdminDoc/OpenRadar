@@ -312,13 +312,17 @@ describe("the picture that goes on the desktop", () => {
       await result.current.writeWallpaper();
     });
     expect(exportStill).toHaveBeenCalledTimes(1);
-    // The caption is what carries the frame time, the credits and the age, so
-    // the desktop and a saved file cannot say different things about the same
-    // frame.
-    const caption = exportStill.mock.calls[0][1];
-    expect(caption).toEqual(
-      expect.objectContaining({ attribution: expect.any(String) }),
-    );
+    // The caption is what carries the frame time, the credits and the age.
+    // A picture on a desktop is looked at hours after it was made, so the
+    // age is the line that stops a reader trusting a stale map, and the
+    // assertion names it rather than checking a string is a string.
+    const caption = exportStill.mock.calls[0][1] as {
+      lines: string[];
+      attribution: string;
+    };
+    expect(caption.attribution).toContain("OpenRadar");
+    expect(caption.lines.join(" | ")).toMatch(/minute/);
+    expect(caption.lines.length).toBeGreaterThanOrEqual(3);
     expect(setWallpaper).toHaveBeenCalledTimes(1);
     expect(setWallpaper.mock.calls[0][0]).toBeInstanceOf(Uint8Array);
   });

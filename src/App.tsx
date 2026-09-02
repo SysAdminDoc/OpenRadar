@@ -55,7 +55,11 @@ import {
   setTrayHazard,
   writeGlance,
 } from "./lib/tray";
-import { restoreWallpaper, wallpaperDue } from "./lib/wallpaper";
+import {
+  restoreWallpaper,
+  wallpaperAvailable,
+  wallpaperDue,
+} from "./lib/wallpaper";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
@@ -480,7 +484,6 @@ export default function App() {
         at: Date.now(),
       });
     })();
-    // `clock` is what makes this run again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock, overlays.alertActive, settings.tray]);
 
@@ -997,34 +1000,65 @@ export default function App() {
    * that is already there.
    */
   const wallpaperAt = useRef(0);
+  const wallpaperBusy = useRef(false);
+  // Asked once. Whether this machine can have its wallpaper set does not
+  // change while the app is running, and without the question a settings file
+  // carried over from a Windows machine has a Mac writing a picture nothing
+  // can apply, every hour, for ever.
+  const [wallpaperOk, setWallpaperOk] = useState(false);
   useEffect(() => {
+    let alive = true;
+    void wallpaperAvailable().then((ok) => {
+      if (alive) setWallpaperOk(ok);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!wallpaperOk || wallpaperBusy.current) return;
     if (!wallpaperDue(settings.wallpaperMinutes, wallpaperAt.current, clock)) {
       return;
     }
-    wallpaperAt.current = clock;
+    wallpaperBusy.current = true;
     void (async () => {
       try {
-        await exportState.writeWallpaper();
+        // The gap is counted from a picture that went up, not from an attempt
+        // that found nothing to draw. Counted from the attempt, a cold start
+        // with no frames yet burned the first slot and left the desktop
+        // untouched for the whole of the reader's chosen gap.
+        if (await exportState.writeWallpaper()) wallpaperAt.current = clock;
       } catch (failure) {
         // Said out loud rather than leaving a stale picture up and saying
-        // nothing. The log gets it too, because this runs unattended and the
-        // reader may not be at the machine when it fails.
+        // nothing. The log gets the reason, which comes from the operating
+        // system and is in English; the reader gets their own words.
         log.warn(
           "wallpaper",
           failure instanceof Error ? failure.message : "It was not written.",
         );
         pushToast({
           title: translate("wallpaper.failed"),
-          detail:
-            failure instanceof Error
-              ? failure.message
-              : translate("wallpaper.failed"),
+          detail: translate("wallpaper.failedDetail"),
         });
+        // A machine that refused once refuses every fifteen minutes, so the
+        // slot is spent on a failure and the reader is told once per gap.
+        wallpaperAt.current = clock;
+      } finally {
+        wallpaperBusy.current = false;
       }
     })();
-    // `clock` is what makes this run again.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock, exportState, pushToast, settings.wallpaperMinutes, translate]);
+    // `clock` and the arrival of frames are what make this run again. The
+    // second one matters on a cold start: the clock ticks once a minute, and
+    // without it a launch that had nothing to draw waited a whole minute
+    // after the first frames landed before trying again.
+  }, [
+    clock,
+    exportState,
+    frames.length,
+    pushToast,
+    settings.wallpaperMinutes,
+    wallpaperOk,
+  ]);
 
   // Switched off puts the reader's own wallpaper back, which is the whole
   // reason this is safe to have at all.
