@@ -115,6 +115,29 @@ Get-FileHash OpenRadar_0.6.0_x64-setup.exe -Algorithm SHA256
 
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
 
+### What a release is named, and installing it without the window
+
+Every release publishes the same five files, and the names do not change between releases. Only the version moves:
+
+| Asset | What it is |
+| --- | --- |
+| `OpenRadar_<version>_x64-setup.exe` | The installer |
+| `OpenRadar_<version>_x64-setup.exe.sig` | Its updater signature |
+| `SHA256SUMS` | A hash for each of the other four |
+| `latest.json` | The update manifest the app reads |
+| `release-metadata.json` | The version, the tag, the commit, and the installer hash |
+
+That is a promise, not a description: `npm run release` refuses to publish a set of assets whose names do not match, so anything built on the pattern outside this repository, a Scoop manifest for instance, keeps working across versions.
+
+The installer is NSIS and installs for the current user, so it needs no elevation. `/S` runs it silently and `/D=` sets the directory, which has to come last and unquoted:
+
+```powershell
+.\OpenRadar_0.6.0_x64-setup.exe /S
+.\OpenRadar_0.6.0_x64-setup.exe /S /D=C:\Tools\OpenRadar
+```
+
+Uninstalling is the same shape. `uninstall.exe` is written beside the app, in `%LOCALAPPDATA%\OpenRadar` by default, and takes `/S` too.
+
 ## Which platforms this runs on
 
 Windows x64, and only Windows x64. That is the target the installer is built for, the one every release is tested on, and the one the whole test suite runs against.

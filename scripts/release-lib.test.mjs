@@ -4,7 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  assertReleaseAssetNames,
   cargoVersion,
+  releaseAssetNames,
   sha256File,
   sourceVersion,
   validateReleaseProof,
@@ -116,6 +118,39 @@ describe("release integrity", () => {
     expect(() =>
       validateReleaseProof({ ...expected, commit: "stale" }, expected),
     ).toThrow(/commit=stale/);
+  });
+
+  it("holds a release to the asset names outside packaging depends on", () => {
+    const staged = releaseAssetNames("0.6.0");
+    expect(staged).toContain("OpenRadar_0.6.0_x64-setup.exe");
+    // Order is not part of the promise; the set is.
+    expect(() =>
+      assertReleaseAssetNames([...staged].reverse(), "0.6.0"),
+    ).not.toThrow();
+
+    // The three ways a release can break a Scoop manifest that autoupdates
+    // from it: a renamed asset, a dropped one, and a stray one.
+    expect(() =>
+      assertReleaseAssetNames(
+        staged.map((name) => (name === "SHA256SUMS" ? "checksums.txt" : name)),
+        "0.6.0",
+      ),
+    ).toThrow(/missing SHA256SUMS.*unexpected checksums\.txt/s);
+    expect(() =>
+      assertReleaseAssetNames(
+        staged.filter((name) => name !== "latest.json"),
+        "0.6.0",
+      ),
+    ).toThrow(/missing latest\.json/);
+    expect(() =>
+      assertReleaseAssetNames([...staged, "notes.txt"], "0.6.0"),
+    ).toThrow(/unexpected notes\.txt/);
+
+    // And the version really does travel through the name, or the pattern
+    // would be pinned to whatever shipped first.
+    expect(() => assertReleaseAssetNames(staged, "0.7.0")).toThrow(
+      /OpenRadar_0\.7\.0_x64-setup\.exe/,
+    );
   });
 
   it("reads versions and hashes without accepting missing fields", () => {

@@ -9,6 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  assertReleaseAssetNames,
   cargoVersion,
   sha256File,
   sourceVersion,
@@ -245,6 +246,15 @@ const sums = fs
   .map((name) => `${sha256File(path.join(stageDir, name))}  ${name}`)
   .join("\n");
 fs.writeFileSync(path.join(stageDir, "SHA256SUMS"), `${sums}\n`);
+
+// These names are what anybody packaging OpenRadar outside this repository
+// builds on, so a release that would publish a different set stops here
+// rather than breaking them quietly.
+try {
+  assertReleaseAssetNames(fs.readdirSync(stageDir), version);
+} catch (error) {
+  fail(error.message);
+}
 
 console.log(`\nVerified and staged in ${stageDir}:`);
 for (const name of fs.readdirSync(stageDir)) {
