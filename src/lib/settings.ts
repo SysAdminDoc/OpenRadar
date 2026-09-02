@@ -377,6 +377,25 @@ export interface AppSettings {
    * for the greeting again.
    */
   seenReveal: boolean;
+  /**
+   * Whether the app says what happened while it was closed.
+   *
+   * On, because it is the one thing a weather app can say on a launch that is
+   * about the weather rather than about itself, and it is built entirely from
+   * the record already on the disk: nothing is fetched to answer it and
+   * nothing is reconstructed. Off in one press, for good.
+   */
+  catchUp: boolean;
+  /**
+   * When the app was last running, in milliseconds.
+   *
+   * Written on the clock while the window is open rather than on the way out,
+   * because a process that is killed, crashes or loses power never runs its
+   * closing code, and a summary that only appears after a tidy exit is a
+   * summary that appears least often when somebody most wants it. Zero on a
+   * first run, which is not a gap, so nothing is said.
+   */
+  lastSeen: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -471,6 +490,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   seenWelcome: false,
   seenReveal: false,
+  catchUp: true,
+  lastSeen: 0,
 };
 
 const STORAGE_KEY = "openradar.settings";
@@ -1397,6 +1418,17 @@ export function normalizeSettings(value: unknown): AppSettings {
       : [],
     presets,
     incidentPacks: normalizeIncidentPacks(raw.incidentPacks),
+    catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
+    // A time from a file somebody can edit. Anything that is not a number, or
+    // is in the future, is treated as no gap at all rather than as a gap of
+    // fifty years: the summary is bounded by what the record holds anyway,
+    // but a nonsense figure would put a nonsense date in the sentence.
+    lastSeen:
+      Number.isFinite(Number(raw.lastSeen)) &&
+      Number(raw.lastSeen) > 0 &&
+      Number(raw.lastSeen) <= Date.now()
+        ? Number(raw.lastSeen)
+        : DEFAULT_SETTINGS.lastSeen,
     seenWelcome: bool(raw.seenWelcome, DEFAULT_SETTINGS.seenWelcome),
     seenReveal: bool(raw.seenReveal, DEFAULT_SETTINGS.seenReveal),
   };

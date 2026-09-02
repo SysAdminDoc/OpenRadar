@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-010: Say what was missed since the last time the app was open
-      Why: Opening a weather app after four days away and getting a live map is a small missed opportunity. The log knows what happened at the named places while nobody was looking, and a short, dismissible summary of it is the most natural reason to come back.
-      Evidence: JOY-007; JOY-006; `src/hooks/useAlertWatch.ts`; `src/components/ToastHost.tsx`
-      Touches: A last-seen marker; the catch-up summary and its bounds; the surface it appears on; settings
-      Acceptance: The summary covers only named places, only since the recorded last close, and only events that were logged rather than events reconstructed from a fresh query; it is capped in length with the rest reachable in the journal; it never shows an expired warning as though it were live and every line carries its own time; one dismissal removes it for that session and one setting removes it for good; an absence of anything to report says so in one line rather than showing an empty panel.
-      Complexity: M
-
 - [ ] JOY-011: Build a local year in weather from what the app already recorded
       Why: A recap of the year at your own places, assembled on your machine from your own log, is the strongest loyalty feature in this list and the one most likely to be shared as a picture. It is also the one that would be most obviously wrong to build on top of collected data, which is exactly why it should be built here, where the log never leaves the machine.
       Evidence: JOY-007; JOY-008; `src/hooks/useExport.ts`; `src/lib/export.ts`

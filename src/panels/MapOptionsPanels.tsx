@@ -971,6 +971,12 @@ export function SettingsPanel({
           </p>
         ) : null}
         <ToggleSetting
+          label={t("catchUp.setting")}
+          detail={t("catchUp.settingDetail")}
+          checked={settings.catchUp}
+          onChange={(catchUp) => onSettings({ ...settings, catchUp })}
+        />
+        <ToggleSetting
           label={t("settings.almanac")}
           detail={t("settings.almanacDetail")}
           checked={settings.almanac}

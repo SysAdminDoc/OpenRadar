@@ -1295,6 +1295,19 @@ export const en = {
   "watch.testHeadline": "Test alert",
   "watch.quiet": "Quiet hours",
   "watch.home": "Home",
+  "catchUp.title": "While you were away",
+  "catchUp.away":
+    "OpenRadar was closed for {away}. This is what the record has from that time, at the places you named.",
+  "catchUp.awayHours": "{hours} hours",
+  "catchUp.awayDays": "{days} days",
+  "catchUp.quiet": "Nothing happened at your places while you were away.",
+  "catchUp.more": "{count} more are in your record.",
+  "catchUp.line": "{place} · {when}",
+  "catchUp.dismiss": "Thanks",
+  "catchUp.open": "Open the record",
+  "catchUp.setting": "Say what happened while I was away",
+  "catchUp.settingDetail":
+    "Read out of your own record on a launch after a few hours away. Nothing is fetched to answer it, and every line carries the time it happened.",
   "journal.title": "Your record",
   "journal.count": "{count} rows",
   "journal.note":
