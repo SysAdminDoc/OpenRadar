@@ -10,6 +10,17 @@ import { log } from "../lib/log";
 const BOX_DEGREES = 1.25;
 
 /**
+ * How long the greeting waits for a station before going without one.
+ *
+ * The signpost is the part somebody actually needs: everything the workspace
+ * can do is behind two buttons and nothing on screen says so. The weather is
+ * the part that makes it worth reading. Waiting on a service for the second
+ * one held up the first indefinitely, and a machine with no network never got
+ * either.
+ */
+const STATION_WAIT_MS = 2_500;
+
+/**
  * One toast, once: what the weather is doing, and where everything is.
  *
  * There is no other onboarding. Everything the workspace can do is in the
@@ -50,9 +61,36 @@ export function useWelcomeHint(options: {
   // settings come back round.
   const shown = useRef(false);
 
+  // Everything this needs, read through refs, so the effect below depends on
+  // one thing and one thing only.
+  //
+  // It runs once and then waits on a service. Anything that restarts it in
+  // the meantime aborts that wait and takes the greeting with it, and there
+  // were two such things: the flag is written the moment the greeting is
+  // decided on, which changes `seen`, and a caller passing an inline
+  // `onSeen` changes its identity on every render. `shown` is what keeps
+  // this to once; the dependency list is not doing that job.
+  const seenRef = useRef(seen);
+  const seenCallbackRef = useRef(onSeen);
+  const pushRef = useRef(push);
   useEffect(() => {
-    if (!ready || seen || shown.current) return;
+    seenRef.current = seen;
+    seenCallbackRef.current = onSeen;
+    pushRef.current = push;
+  }, [onSeen, push, seen]);
+
+  useEffect(() => {
+    if (!ready || seenRef.current || shown.current) return;
     shown.current = true;
+    // Written now, not when the station answers.
+    //
+    // This used to run at the end of the fetch below, which made "shown once"
+    // a promise the app could only keep if a service answered before the
+    // reader did anything. Quitting during the wait, or being offline, meant
+    // the flag was never written and the greeting came back on the next
+    // launch, every launch. It also made an end-to-end test that reloads
+    // straight after a click fail whenever the machine was busy.
+    seenCallbackRef.current();
     const [lon, lat] = centerRef.current;
     let live = true;
     const controller = new AbortController();
@@ -117,21 +155,29 @@ export function useWelcomeHint(options: {
       }
     };
 
-    void nearest().then((line) => {
+    // Whichever comes first: the station, or the end of the wait. A greeting
+    // that waits on a service is a greeting nobody sees.
+    let waiting = 0;
+    const waited = new Promise<string | null>((resolve) => {
+      waiting = window.setTimeout(() => resolve(null), STATION_WAIT_MS);
+    });
+
+    void Promise.race([nearest(), waited]).then((line) => {
+      window.clearTimeout(waiting);
       if (!live) return;
-      push({
+      pushRef.current({
         // The weather first when there is any to report, and the signpost
         // either way: somebody who has just installed this still needs to
         // know where everything is.
         title: line ?? translate("welcome.detail"),
         detail: line ? translate("welcome.detail") : undefined,
       });
-      onSeen();
     });
 
     return () => {
       live = false;
+      window.clearTimeout(waiting);
       controller.abort();
     };
-  }, [onSeen, push, ready, seen]);
+  }, [ready]);
 }

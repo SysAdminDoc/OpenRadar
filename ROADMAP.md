@@ -92,13 +92,6 @@ The record, the named places and the token boundary are all in place now, so the
       Acceptance: A count of one reads correctly in English, Spanish and French, using each language's own categories through `Intl.PluralRules` rather than an English if-statement; every counted string in the catalogue is converted, and a test fails on a template holding a bare count with a hard-coded plural noun; nothing that is not a count is touched.
       Complexity: M
 
-- [ ] AUD-125: P2. Make the welcome-hint e2e stop failing under load
-      Why: `e2e/workspace.spec.ts:102` "does not say it again to somebody who found the commands first" failed once in a full 380-test run on 2026-09-02 and passed alone, in its own file, and in two full runs since. A test that fails once in three full runs is a test nobody can read a gate from, and this one guards a settings write surviving a reload, which is worth guarding properly.
-      Evidence: `e2e/workspace.spec.ts:102`; `src/hooks/useSettings.ts` `applySettings`; the reload happens straight after a command writes settings
-      Touches: The waiting in that test; whatever ordering between a settings write and a reload it depends on
-      Acceptance: The cause is found rather than papered over with a timeout, and stated in the test; if the race is real the app is fixed rather than the test; the full suite passes ten times running.
-      Complexity: S
-
 ## Research-Driven Additions
 
 Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
