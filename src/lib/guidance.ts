@@ -11,6 +11,7 @@
  * models and not a smoothing of them.
  */
 import { cachedUrl } from "./tileCache";
+import { serviceAnswer } from "./serviceAnswer";
 import { translate, type StringKey } from "../i18n";
 import type { GeoPoint } from "./geo";
 import { forecastUnits } from "./units";
@@ -317,7 +318,9 @@ export async function fetchGuidance(
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(translate("guidance.failed", { status: response.status }));
+    throw new Error(
+      translate("guidance.failed", { answer: serviceAnswer(response.status) }),
+    );
   }
   return parseGuidance(await response.json(), point, models, withPrevious);
 }

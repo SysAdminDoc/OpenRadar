@@ -305,11 +305,12 @@ export const fr: Catalogue = {
   "history.title": "Historique des tempêtes",
   "history.placeholder": "Ian 2022",
   "history.searchLabel": "Chercher une tempête passée par nom ou par année",
-  "history.archiveStatus": "L'archive des tempêtes a répondu {status}.",
+  "history.archiveStatus": "L'archive des tempêtes {answer}.",
   "history.unknownStorm": "Cette tempête ne figure pas au registre.",
   "history.archiveDate": "{date} UTC",
   "history.failedTitle": "L'archive des tempêtes ne s'est pas chargée",
-  "history.failedBody": "L'archive des tempêtes ne s'est pas chargée.",
+  "history.failedBody":
+    "Réessayez dans un moment. La carte est toujours en direct.",
   "history.peak": "{category} · pointe de {knots} nœuds",
   "history.ace":
     "ACE {ace} · {fixes, plural, one {# position} other {# positions}} · du {from} au {to}",
@@ -361,7 +362,7 @@ export const fr: Catalogue = {
   "bundle.error.notABundle":
     "Ce fichier n'est pas un dossier de reprise OpenRadar.",
   "bundle.error.newer":
-    "Ce dossier a été fait par un OpenRadar plus récent (disposition {0}). Mettez à jour pour l'ouvrir.",
+    "Ce dossier a été fait par un OpenRadar plus récent. Mettez à jour pour l'ouvrir.",
   "bundle.error.corrupt": "Ce dossier est endommagé : {0}",
   "bundle.error.http": "{0}",
   "bundle.error.noView": "La carte n'a pas encore de vue à mettre en dossier.",
@@ -379,9 +380,14 @@ export const fr: Catalogue = {
   "route.leaving": "Départ à",
   "route.plan": "Planifier le trajet",
   "route.failedTitle": "Le trajet n'a pas pu être planifié",
-  "route.failed": "Le trajet n'a pas pu être planifié.",
+  "route.failed": "Vérifiez les deux endroits et réessayez.",
   "route.placeMissing": "Un de ces endroits est introuvable.",
-  "route.routerRefused": "Le calculateur d'itinéraire a répondu {status}.",
+  "service.busy": "est occupé",
+  "service.notFound": "ne l'a pas trouvé",
+  "service.tooMany": "a reçu trop de demandes",
+  "service.refused": "a refusé",
+  "service.unexpected": "a répondu d'une manière illisible",
+  "route.routerRefused": "Le calculateur d'itinéraire {answer}.",
   "route.straightOffer": "Utiliser plutôt une ligne droite",
   "route.straightNote":
     "Sans tracé routier : voici la ligne droite entre les deux endroits, et les heures le long de celle-ci supposent une vitesse constante de {speed}. La météo, elle, est réelle.",
@@ -645,8 +651,7 @@ export const fr: Catalogue = {
   "layers.stormReportsDetail":
     "Ce que des gens sur le terrain ont vraiment vu depuis un jour : grêle, dégâts de vent, tornades, inondations",
   "keywords.stormReports": "rapport local orage observation terrain témoin sol",
-  "reports.serviceStatus":
-    "Le service des rapports d'orage a répondu {status}.",
+  "reports.serviceStatus": "Le service des rapports d'orage {answer}.",
   "reports.measured": "{value} {unit}",
   "reports.reported": "Signalé {when}",
   "reports.reportedUnknown": "Heure du signalement inconnue",
@@ -685,8 +690,7 @@ export const fr: Catalogue = {
   "layer.spcDiscussions": "Discussions à méso-échelle",
   "layers.spcDiscussionsDetail":
     "Ce que les prévisionnistes surveillent en ce moment, une heure ou deux avant toute alerte",
-  "spc.serviceStatus":
-    "Le service du Storm Prediction Center a répondu {status}.",
+  "spc.serviceStatus": "Le service du Storm Prediction Center {answer}.",
   "spc.outlookDay1": "Perspective convective du jour 1",
   "spc.validBetween": "Valide de {from} à {to} UTC",
   "spc.guidanceNote":
@@ -900,12 +904,12 @@ export const fr: Catalogue = {
   "rivers.flood.moderate": "modérée",
   "rivers.flood.minor": "mineure",
   "rivers.flood.action": "seuil d'intervention",
-  "rivers.failed": "Le National Water Prediction Service a répondu {status}.",
+  "rivers.failed": "Le National Water Prediction Service {answer}.",
   "rivers.zoom": "Rapprochez-vous pour voir les jauges près de l'orage.",
   "rivers.replay":
     "Les niveaux des rivières sont courants, alors ils sont retenus tant qu'une reprise est sur la carte.",
-  "sounding.failed": "L'archive d'air en altitude a répondu {status}.",
-  "sounding.failedModel": "Le modèle a répondu {status}.",
+  "sounding.failed": "L'archive d'air en altitude {answer}.",
+  "sounding.failedModel": "Le modèle {answer}.",
   "sounding.hereLabel": "Le milieu de la carte",
   "sounding.eyebrow": "Air en altitude",
   "sounding.title": "Radiosondage",
@@ -1048,7 +1052,7 @@ export const fr: Catalogue = {
   "settings.placesFull":
     "Cela fait déjà {count, plural, one {# lieu} other {# lieux}}. Retirez-en un pour en surveiller un autre.",
   "settings.watching": "Surveillance de {lat}, {lon} pour les alertes et pire.",
-  "settings.camera": "État de la caméra",
+  "settings.camera": "Où regarde la carte",
   "settings.zoom": "Zoom",
   "settings.bearing": "Orientation",
   "settings.pitch": "Inclinaison",
@@ -1092,7 +1096,7 @@ export const fr: Catalogue = {
   "palette.on": " · allumé",
   "palette.off": " · éteint",
   "palette.none": "Rien ici ne correspond. Essayez un mot plus court.",
-  "legend.hidden": "PRODUIT MASQUÉ",
+  "legend.hidden": "RADAR MASQUÉ",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",
   "timeline.play": "Lancer l'animation du radar",
@@ -1102,7 +1106,7 @@ export const fr: Catalogue = {
   "timeline.frames":
     "{index} sur {total, plural, one {# image radar} other {# images radar}}",
   "timeline.forecastAt": "prévision de {time}",
-  "timeline.hrrr": "HRRR init {init}, +{lead} min",
+  "timeline.hrrr": "Sortie HRRR {init}, {lead} min d'avance",
   "timeline.live": "en direct",
   "timeline.historical": "volume d'archive",
   "timeline.goLive": "Revenir au direct",
@@ -1136,8 +1140,9 @@ export const fr: Catalogue = {
   "chrome.tilt": "ANGLE {degrees}°",
   "chrome.tiltHistorical": "ANGLE {degrees}°, ARCHIVE",
   "chrome.tiltDealiased": "ANGLE {degrees}° · DÉPLIÉ",
-  "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, {seconds} S",
-  "chrome.tiltLiveDealiased": "ANGLE {degrees}° · DÉPLIÉ · DIRECT, {seconds} S",
+  "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, IL Y A {seconds} S",
+  "chrome.tiltLiveDealiased":
+    "ANGLE {degrees}° · DÉPLIÉ · DIRECT, IL Y A {seconds} S",
   "chrome.liveProduct": "PRODUIT EN DIRECT",
   "chrome.behind": "DERRIÈRE, {count} MIN",
   "chrome.terminalRadar": "TDWR · {range} km",
@@ -1187,7 +1192,7 @@ export const fr: Catalogue = {
   "stage.satelliteAge": " · {age}",
   "stage.satellite": "GOES-East {product}",
   "stage.compare": "Comparer",
-  "stage.compareOffset": "Décalage d'image du deuxième volet",
+  "stage.compareOffset": "De combien le deuxième plan est en retard",
   "stage.compareUnavailable": "Pas assez d'images antérieures",
   "stage.live": "En direct",
   "stage.back": "{count} en arrière",
@@ -1241,6 +1246,8 @@ export const fr: Catalogue = {
   "toast.shared": "Vue de la carte partagée",
   "toast.linkCopied": "Lien de la carte copié",
   "toast.linkFailed": "Le lien de la carte n'a pas pu être copié",
+  "toast.linkFailedBody":
+    "Le presse-papiers a refusé. Le même lien se trouve dans l'adresse que compose le bouton de partage.",
   "toast.show": "Afficher",
   "toast.fileTooBig": "Le fichier dépasse 5 Mo.",
   "toast.paletteEmpty":
@@ -1249,7 +1256,7 @@ export const fr: Catalogue = {
   "toast.paletteApplied": "{name} appliquée",
   "toast.themeApplied": "{name} est l'apparence maintenant",
   "toast.themeBody":
-    "{count} éléments de l'habillage. Rien du radar, des alertes ni des échelles n'a changé.",
+    "{count, plural, one {# couleur} other {# couleurs}} changées. Rien du radar, des alertes ni des échelles n'a changé.",
   "toast.themeEmpty":
     "Ce fichier de thème ne définit rien que cette version comprend.",
   "toast.remove": "Retirer",
@@ -1331,7 +1338,8 @@ export const fr: Catalogue = {
   "popup.advisory": "Bulletin {number}",
   "popup.tropicalSystem": "Système tropical",
 
-  "update.notInstalled": "La mise à jour ne s'est pas installée.",
+  "update.notInstalled":
+    "La version que vous avez continue de fonctionner. Réessayez depuis Diagnostic.",
   "update.notInstalledTitle": "La mise à jour ne s'est pas installée",
   "update.upToDate": "OpenRadar est à jour",
   "update.available": "OpenRadar {version} est disponible",
@@ -1345,6 +1353,8 @@ export const fr: Catalogue = {
   "export.show": "Afficher",
   "export.failed": "L'exportation a échoué",
   "export.imageFailed": "L'image n'a pas pu être exportée",
+  "export.imageFailedBody":
+    "La carte est toujours à l'écran. Réessayez une fois qu'elle a fini de se dessiner.",
   "export.loopFailed": "La boucle n'a pas pu être exportée",
   "export.nothingWritten": "Rien n'a été écrit.",
   "export.noCanvas": "Cet affichage ne peut pas produire une exportation.",
@@ -1493,7 +1503,7 @@ export const fr: Catalogue = {
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minute} other {# minutes}}",
   "command.ambientScreen": "Vue plein écran",
-  "glance.waiting": "En attente de ce que l'espace de travail affiche.",
+  "glance.waiting": "En attente de la carte.",
   "glance.picture": "La carte telle que l'espace de travail l'a dessinée",
   "glance.warning": "Une alerte est en cours là où vous surveillez",
   "glance.quiet": "Rien en cours là où vous surveillez",
@@ -1503,7 +1513,7 @@ export const fr: Catalogue = {
     "Le lieu que vous surveillez, s'il y a une alerte, et une image fixe de la carte. Elle montre ce que l'espace de travail a déjà dessiné plutôt que de le redessiner, la laisser ouverte ne coûte donc presque rien. Elle s'ouvre depuis la zone de notification.",
   "glance.onTop": "Garder la petite fenêtre au-dessus de tout",
   "tray.menuOpen": "Ouvrir OpenRadar",
-  "tray.menuGlance": "Coup d'oeil",
+  "tray.menuGlance": "Petite fenêtre",
   "tray.menuQuit": "Quitter",
   "tray.quiet": "OpenRadar",
   "tray.warning": "OpenRadar : une alerte est en cours la ou vous surveillez",
@@ -1605,9 +1615,9 @@ export const fr: Catalogue = {
   "guidance.noModels": "Choisissez au moins un modèle.",
   "guidance.keepTwo":
     "Gardez au moins deux modèles choisis pour une comparaison utile.",
-  "guidance.failed": "Le service d'orientation a répondu {status}.",
+  "guidance.failed": "Le service d'orientation {answer}.",
   "tides.stationsFailed": "La liste des stations de marée n'a pas pu être lue.",
-  "tides.failed": "Le service des marées a répondu {status}.",
+  "tides.failed": "Le service des marées {answer}.",
   "surge.category1": "Catégorie 1",
   "surge.category2": "Catégorie 2",
   "surge.category3": "Catégorie 3",
@@ -1676,13 +1686,13 @@ export const fr: Catalogue = {
   "radar.unavailable": "Radar temporairement indisponible",
   "radar.requestFailed": "La demande au radar a échoué",
   "radar.waiting": "En attente du radar",
-  "radar.budgetReached": "Quota de requêtes atteint",
+  "radar.budgetReached": "Trop de demandes, on patiente un moment",
   "radar.noFrames": "Aucune image n'a été publiée.",
-  "radar.noProvider": "Aucun fournisseur radar n'est disponible.",
+  "radar.noProvider": "Aucune source radar n'a répondu.",
   "radar.noTimes": "Aucune heure radar n'a été publiée.",
   "radar.rainviewerEmpty": "RainViewer n'a retourné aucune image utilisable.",
   "radar.requestFailedShort": "La demande a échoué.",
-  "radar.noRun": "L'index des prévisions n'a nommé aucune sortie de modèle.",
+  "radar.noRun": "La prévision n'a pas encore publié de nouvelle sortie.",
   "radar.archive": "Archive radar de l'Iowa State",
   "replay.title": "Reprise de {name} {year}",
   "replay.atLandfall":
@@ -1708,10 +1718,10 @@ export const fr: Catalogue = {
   "pairing.shownBody":
     "Allumée pour expliquer l'alerte. Rien d'autre n'a changé.",
   "map.label": "Carte météo interactive",
-  "weather.incomplete": "La réponse de prévision était incomplète.",
+  "weather.incomplete": "La prévision est arrivée avec des morceaux manquants.",
   "route.noRoad": "Aucune route ne relie ces deux endroits.",
-  "wind.noShader": "La couche de vent n'a pas pu créer de nuanceur.",
-  "wind.noProgram": "La couche de vent n'a pas pu créer de programme.",
+  "wind.noDraw":
+    "La couche de vent n'a pas pu être dessinée sur cette carte graphique.",
   "tool.drawHint": "Cliquez la carte pour tracer un chemin",
   "tool.startHint": "Choisissez le point de départ",
   "tool.endHint": "Choisissez le point d'arrivée",

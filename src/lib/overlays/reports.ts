@@ -1,4 +1,5 @@
 import { translate } from "../../i18n";
+import { serviceAnswer } from "../serviceAnswer";
 import { cachedUrl } from "../tileCache";
 import { formatReportMagnitude } from "../units";
 import {
@@ -128,7 +129,9 @@ export const stormReportsOverlay: OverlayAdapter = {
     });
     if (!response.ok) {
       throw new Error(
-        translate("reports.serviceStatus", { status: response.status }),
+        translate("reports.serviceStatus", {
+          answer: serviceAnswer(response.status),
+        }),
       );
     }
     return parseReports(await response.json());

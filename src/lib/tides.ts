@@ -11,6 +11,7 @@
  * connection.
  */
 import { haversineMiles, type GeoPoint } from "./geo";
+import { serviceAnswer } from "./serviceAnswer";
 import { cachedUrl } from "./tileCache";
 import { translate } from "../i18n";
 
@@ -164,7 +165,9 @@ export async function fetchTides(
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(translate("tides.failed", { status: response.status }));
+    throw new Error(
+      translate("tides.failed", { answer: serviceAnswer(response.status) }),
+    );
   }
   return {
     station,
