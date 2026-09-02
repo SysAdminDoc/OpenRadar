@@ -238,6 +238,23 @@ export interface AppSettings {
    * accent colour has one of these carrying three tokens.
    */
   workspaceTheme: WorkspaceTheme | null;
+  /**
+   * The seasonal packs, and which of them have been sent away.
+   *
+   * On unless somebody says otherwise, because a pack that has to be found in
+   * a settings panel is a pack nobody ever sees. It reaches the same chrome
+   * tokens a theme file does and nothing else, it stands down while a warning
+   * is in force at a watched place, and the switch gives the plain workspace
+   * back at once. `declined` maps an occasion to the year it was sent away,
+   * which is the year its window began rather than the calendar year: a
+   * midwinter pack declined in December does not return on the first.
+   */
+  occasions: {
+    enabled: boolean;
+    declined: Record<string, number>;
+    /** The year each occasion's one-line notice was given, so it is given once. */
+    seen: Record<string, number>;
+  };
   /** Which language the workspace is written in. */
   language: LanguageId;
   units: UnitSystem;
@@ -329,6 +346,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   schemaVersion: SCHEMA_VERSION,
   theme: "dark",
   workspaceTheme: null,
+  occasions: { enabled: true, declined: {}, seen: {} },
   language: "en",
   units: "imperial",
   clock: "local",
@@ -851,6 +869,35 @@ function normalizePaletteAssignments(
  * the theme file it came from and read again, and whatever survives that is
  * what applies.
  */
+/**
+ * The seasonal packs out of a settings file.
+ *
+ * A year that is not a year is dropped rather than repaired: the worst that
+ * does is show a pack somebody sent away once, which is a great deal better
+ * than reading a hand-edited file as "declined for ever".
+ */
+function normalizeOccasions(value: unknown): AppSettings["occasions"] {
+  const raw =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+  const years = (value: unknown): Record<string, number> => {
+    const out: Record<string, number> = {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return out;
+    for (const [id, year] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof year !== "number" || !Number.isInteger(year)) continue;
+      if (year < 1970 || year > 9999) continue;
+      out[id.slice(0, 40)] = year;
+    }
+    return out;
+  };
+  return {
+    enabled: bool(raw.enabled, DEFAULT_SETTINGS.occasions.enabled),
+    declined: years(raw.declined),
+    seen: years(raw.seen),
+  };
+}
+
 function normalizeTheme(value: unknown): WorkspaceTheme | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<WorkspaceTheme>;
@@ -984,6 +1031,7 @@ export function restoreSettings(value: unknown): RestoredSettings {
   // `name` is optional, so it is not a key of the default and has to be
   // named here or a backup carrying one reports it as a key this build did
   // not read.
+  nested(raw.occasions, Object.keys(DEFAULT_SETTINGS.occasions), "occasions");
   nested(raw.watch, [...Object.keys(DEFAULT_SETTINGS.watch), "name"], "watch");
   nested(
     raw.incidentPacks,
@@ -1155,6 +1203,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     schemaVersion: SCHEMA_VERSION,
     theme: raw.theme === "light" ? "light" : "dark",
     workspaceTheme: normalizeTheme(raw.workspaceTheme),
+    occasions: normalizeOccasions(raw.occasions),
     // A language from a build that had one this build does not falls back to
     // English rather than painting the screen with missing keys.
     language: isLanguage(raw.language) ? raw.language : "en",

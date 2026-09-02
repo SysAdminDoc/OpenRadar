@@ -932,6 +932,16 @@ export const fr: Catalogue = {
   "settings.dark": "Sombre",
   "settings.light": "Clair",
   "settings.accent": "Couleur d'accent",
+  "occasion.spring": "Printemps",
+  "occasion.summer": "Été",
+  "occasion.autumn": "Automne",
+  "occasion.midwinter": "Cœur de l'hiver",
+  "occasion.notice":
+    "L'espace de travail porte la saison. Rien sur la carte n'a changé.",
+  "occasion.notThisYear": "Pas cette année",
+  "settings.occasions": "Apparence saisonnière",
+  "settings.occasionsDetail":
+    "Un changement d'accent pendant quelques semaines par année. Elle n'atteint jamais la carte, et elle se retire tant qu'une alerte est en vigueur là où vous surveillez",
   "settings.accentDetail":
     "La couleur des titres, des interrupteurs et de l'anneau de focus. Elle n'atteint jamais une échelle du radar, le contour d'une alerte ni la trajectoire d'un orage.",
   "settings.themeInForce": "{name} s'applique par-dessus l'apparence intégrée.",

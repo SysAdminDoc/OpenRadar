@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ensureLanguage, setLanguage } from "../i18n";
-import { applyTheme } from "../lib/theme";
 import { setClockZone, setUnits } from "../lib/units";
 import {
   DEFAULT_SETTINGS,
@@ -160,21 +159,6 @@ export function useSettings(options: {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [settings.textScale]);
-
-  useEffect(() => {
-    // The reader's own look sits over the built-in one, so it goes on with
-    // the base rather than after it: applying the two in separate effects
-    // showed a frame of the plain workspace on every theme change.
-    applyTheme(settings.workspaceTheme);
-    document.documentElement.dataset.theme = settings.theme;
-    const meta = document.querySelector<HTMLMetaElement>(
-      'meta[name="theme-color"]',
-    );
-    meta?.setAttribute(
-      "content",
-      settings.theme === "dark" ? "#090b10" : "#eef2f6",
-    );
-  }, [settings.theme, settings.workspaceTheme]);
 
   useEffect(
     () => () => {

@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-002: Ship seasonal and occasion theme packs that arrive on their own
-      Why: An app that looks slightly different in late October than it does in March is an app people notice they live with. This is cheap to do and easy to do badly, so the constraints matter more than the packs: it is chrome only, it is a local date calculation, and it can be told to go away for good.
-      Evidence: `src/hooks/useClock.ts`; `src/lib/settings.ts`; `src/i18n/en.ts`; JOY-001
-      Touches: Theme pack definitions; a local occasion calendar; the one-line notice and its dismissal; settings and migration; fixed-clock tests
-      Acceptance: Occasion windows are computed from the local clock with no network call and no bundled calendar service; each occasion can be declined once for that year or switched off for good, and the master switch returns the plain workspace immediately; nothing about hazard rendering, ramps, or legends changes in any pack; the notice is one line that is dismissed rather than a dialog; fixed-clock tests cover the first and last day of each window, a machine crossing midnight, a machine in a different time zone from its data, and 29 February.
-      Complexity: M
-
 - [ ] JOY-003: Add ambient weather effects to the chrome, driven by real conditions
       Why: Rain running down the edge of a panel while it is actually raining where you are watching is the sort of small thing people show other people. The catch is that it must be driven by observed conditions rather than invented, must never sit over the map, and must cost almost nothing, because a decorative animation that drops the radar loop below its frame budget is a bug wearing a costume.
       Evidence: `src/components/MapChrome.tsx`; `src/components/WorkspaceChrome.tsx`; `src/lib/weather.ts`; `src/hooks/useLightning.ts`; `src/index.css`
