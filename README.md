@@ -181,6 +181,8 @@ None of it is sent anywhere. It goes to the clipboard, and you paste it, having 
 
 OpenRadar has no account, telemetry, crash reporting or sync. Settings and logs stay on this machine.
 
+Typing a storm's name into the place search answers with the storm rather than asking a geocoder about a town. The whole best track record back to 1851 is bundled, so it works offline, and every storm that carried the name is listed with its year, basin and peak intensity. A name that is also a place still returns the place. Choosing a storm opens its track in Storm history.
+
 **Your record** is the one file here that writes down where you live, so this says exactly what is in it. It is `journal.jsonl` in the app's data folder, one JSON object per line, and each line holds: the name you gave a place, whether the row is an observation or an event, who said it, when the thing was observed, how it was obtained, and one short line of what it was. Nothing about how you use the app ever goes into it. Nothing goes into it for a place you have not named. It is kept for 400 days or 4 MB, whichever runs out first, oldest first. It never leaves the machine, it is not in the diagnostics report, and Settings shows the whole of it, hands it over as itself, and deletes all of it in one press.
 
 Settings also builds a year out of it, over the last month, season or year, on any date. Every figure is counted off the file, and it states how much of the period the record can actually speak for, so three months of record cannot read as a year. It saves as a picture with the period and the data credits on it, and your own words for where you live only when you ask for them. Nothing in it is ranked or scored.
