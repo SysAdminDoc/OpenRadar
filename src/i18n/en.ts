@@ -67,6 +67,8 @@ export const en = {
   "alerts.layerOffTitle": "The alerts layer is switched off",
   "alerts.layerOffBody": "Turn it back on to see watches and warnings.",
   "alerts.turnOn": "Turn on Weather Alerts",
+  "alerts.area": "Covers {places}",
+  "alerts.instruction": "What the office says to do:",
   "alerts.issued": "Issued {issued} · expires {expires}",
   "alerts.unknownTime": "unknown",
   "alerts.openProduct": "Open the official product",

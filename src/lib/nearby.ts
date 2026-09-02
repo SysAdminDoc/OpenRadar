@@ -169,6 +169,12 @@ export function warningsOver(
         translate("nearby.warningUntil", { when: formatClock(expires) }),
       );
     }
+    // The office's own instruction, read out with the warning. This surface
+    // exists for a reader who cannot see the map, and what to do about a
+    // tornado warning is the part of it that matters most; it was the one
+    // place the app could only offer a link to.
+    const instruction = String(properties.instruction ?? "").trim();
+    if (instruction) parts.push(instruction);
     found.push({
       id: String(properties.capId ?? headline),
       sentence: parts.join(" "),

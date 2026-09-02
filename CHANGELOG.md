@@ -68,6 +68,8 @@
 
 - A record with nothing worth summarising yet no longer hands a screen reader an empty list.
 
+- A warning says what the office said. Until now the app showed the product's name, when it expires and a link to the weather office's own page, and wrote its own line about what to do because the forecaster's was never read. The description, the instruction and the counties covered are now in the popup, in the Alerts panel and in the readout that answers the map in words, exactly as the office wrote them. Nothing new is fetched for it: the app was already reading that feed once a minute for the damage tags. Where the office wrote an instruction, the calmer presentation shows that instead of the line this app composes, because a forecaster's words belong above anything written here.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

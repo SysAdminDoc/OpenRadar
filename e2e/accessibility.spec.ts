@@ -291,6 +291,23 @@ test("tells a reader who never touches the map what is near a place", async ({
   ).toBeAttached();
 });
 
+test("reads out what the office says to do, not just that there is a warning", async ({
+  page,
+}) => {
+  // The fixture warning is a square from -86,26 to -85,27, so the map goes to
+  // the middle of it and the watched place is inside the polygon.
+  await page.goto("/?testMode=1&lon=-85.5&lat=26.5&zoom=7&bearing=0&pitch=0");
+  await expect(page.getByRole("application")).toBeVisible();
+  await openNearby(page);
+
+  const warnings = page.locator(".nearby-list").first();
+  await expect(warnings).toContainText("Tornado Warning");
+  // The instruction the office wrote. This surface exists for a reader who
+  // cannot see the map, and an instruction reachable only through a link out
+  // of the app is not reachable at all for them.
+  await expect(warnings).toContainText("TAKE COVER NOW!");
+});
+
 test("moves the map from the keyboard, with no drag anywhere", async ({
   page,
 }) => {

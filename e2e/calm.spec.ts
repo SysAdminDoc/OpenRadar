@@ -112,6 +112,65 @@ test("adds a line about what to do rather than how bad it could be", async ({
   );
 });
 
+test("stands its own advice down when the office wrote some", async ({
+  page,
+}) => {
+  // The calm line is written by this app out of the product's name. It exists
+  // because the office's headline is not advice. Where the office DID write
+  // an instruction, that is the one a reader should be reading: a line this
+  // app composed sitting above a forecaster's own words is the wrong way
+  // round, and two sets of instructions on one warning is worse than either.
+  await start(page, true);
+  await stubHost(
+    page,
+    "https://mapservices.weather.noaa.gov/**",
+    async (route) => {
+      const [lon, lat] = HOME;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [lon - 0.2, lat - 0.2],
+                    [lon + 0.2, lat - 0.2],
+                    [lon + 0.2, lat + 0.2],
+                    [lon - 0.2, lat + 0.2],
+                    [lon - 0.2, lat - 0.2],
+                  ],
+                ],
+              },
+              properties: {
+                prod_type: "Tornado Warning",
+                sig: "W",
+                wfo: "FWD",
+                cap_id: "urn:oid:2.49.0.1.840.0.test.001.1",
+                issuance: new Date(Date.now() - 60_000).toISOString(),
+                expiration: new Date(Date.now() + 3_600_000).toISOString(),
+              },
+            },
+          ],
+        }),
+      });
+    },
+  );
+  await page.reload();
+  await expect(page.getByRole("application")).toBeVisible();
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+
+  const row = page.locator(".alert-row").first();
+  await expect(row).toContainText("Tornado Warning");
+  await expect(row.locator("[data-office-instruction]")).toContainText(
+    "TAKE COVER NOW!",
+  );
+  await expect(page.locator("[data-calm-advice]")).toHaveCount(0);
+});
+
 test("leaves nothing behind when it is switched off", async ({ page }) => {
   await start(page, true);
   await expect(page.locator("html")).toHaveAttribute("data-calm", "1");

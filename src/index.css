@@ -1102,6 +1102,22 @@ input[type="range"]:disabled {
   font-size: 10.5px;
 }
 
+/* What the office wrote. Left in its own paragraphs and given the ordinary
+   reading colour rather than the muted one the times use: this is the text
+   the reader is here for, not a caption under it. */
+.alert-row .alert-office {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.alert-row .alert-area {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
 .alert-row > a {
   display: grid;
   width: 34px;

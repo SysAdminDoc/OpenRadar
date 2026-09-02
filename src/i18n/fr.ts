@@ -76,6 +76,8 @@ export const fr: Catalogue = {
   "alerts.layerOffTitle": "La couche des alertes est désactivée",
   "alerts.layerOffBody": "Réactivez-la pour voir les veilles et les alertes.",
   "alerts.turnOn": "Activer les alertes météo",
+  "alerts.area": "Couvre {places}",
+  "alerts.instruction": "Ce que le bureau demande de faire :",
   "alerts.issued": "Émise {issued} · expire {expires}",
   "alerts.unknownTime": "inconnue",
   "alerts.openProduct": "Ouvrir le produit officiel",
