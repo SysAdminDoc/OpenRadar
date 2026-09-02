@@ -811,6 +811,30 @@ input[type="range"] {
   font-weight: 600;
 }
 
+/* The layer that explains what this popup is about. A button rather than a
+   link, because it changes the map rather than leaving it. */
+.map-popup__action {
+  margin-top: 6px;
+  padding: 6px 10px;
+  color: #0b1220;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.map-popup__action:hover {
+  background: #cbd5e1;
+}
+
+.map-popup__action:focus-visible {
+  outline: 2px solid #0369a1;
+  outline-offset: 2px;
+}
+
 .alert-list {
   display: flex;
   flex-direction: column;

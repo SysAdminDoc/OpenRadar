@@ -612,6 +612,50 @@ test("leaves the camera alone after the reader has moved it themselves", async (
   expect(await settledCamera(pane)).toBe(mine);
 });
 
+test("hands a warning to the layer that explains it", async ({ page }) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts-fill/);
+
+  // The fixture warning is a square from -86,26 to -85,27, so the view goes
+  // to the middle of it and the click lands inside the polygon.
+  await page.goto("/?testMode=1&lon=-85.5&lat=26.5&zoom=7&bearing=0&pitch=0");
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts-fill/);
+  const box = await pane.boundingBox();
+  await page.mouse.click(
+    (box?.x ?? 0) + (box?.width ?? 0) / 2,
+    (box?.y ?? 0) + (box?.height ?? 0) / 2,
+  );
+  const popup = page.locator(".map-popup");
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText("Tornado Warning");
+
+  // The app already holds the thing that explains this warning. The reader
+  // should not have to know where it is.
+  const action = popup.getByRole("button", { name: /wind in the storm/ });
+  await expect(action).toBeVisible();
+  await action.click();
+
+  await expect(page.getByText(/Rotation Tracks is on/)).toBeVisible();
+  await expect(page.getByText(/Nothing else changed/)).toBeVisible();
+  // Switches only: the warning is still drawn exactly as it was, and the
+  // switch the action named is the one that moved. The grid itself is
+  // decoded natively and draws nothing in a browser preview, which is why
+  // this reads the switch rather than the layer stack.
+  await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts-fill/);
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const rotation = page
+    .locator(".toggle-row")
+    .filter({ hasText: "Rotation Tracks" })
+    .getByRole("checkbox");
+  await expect(rotation).toBeChecked();
+
+  // And it is one action, undone in one.
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(rotation).not.toBeChecked();
+});
+
 test("draws surface observations as station plots, and only close in", async ({
   page,
 }) => {
