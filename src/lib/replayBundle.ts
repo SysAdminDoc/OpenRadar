@@ -6,6 +6,7 @@ import type { Storm } from "./hurdat";
 import type { WorkspaceBackup } from "./workspaceBackup";
 import { archiveTagsUrl, archiveWarningsUrls } from "./archiveWarnings";
 import { translate, type StringKey } from "../i18n";
+import { nativeErrorParams } from "./nativeError";
 import { en } from "../i18n/en";
 
 /**
@@ -255,10 +256,7 @@ export function bundleErrorText(failure: unknown): string {
   if (failure && typeof failure === "object" && "code" in failure) {
     const named = failure as { code?: unknown; args?: unknown; text?: unknown };
     const args = Array.isArray(named.args) ? named.args : [];
-    const params: Record<string, string> = {};
-    args.forEach((value, at) => {
-      params[String(at)] = String(value);
-    });
+    const params = nativeErrorParams(String(named.code), args);
     const key = `bundle.error.${String(named.code)}`;
     if (key in en) return translate(key as StringKey, params);
     if (typeof named.text === "string" && named.text) return named.text;

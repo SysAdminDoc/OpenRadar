@@ -10,6 +10,7 @@ import {
   type MrmsProductInfo,
 } from "../lib/providers/mrms";
 import type { LayerSettings } from "../lib/settings";
+import type { StringKey } from "../i18n";
 import { useHighContrast } from "./useClock";
 
 /** The grids land every two minutes, so this is the useful refresh. */
@@ -32,9 +33,40 @@ export const MRMS_LAYERS: Array<{
   { layer: "precipType", product: "precip-type" },
 ];
 
+/**
+ * What each grid is called in the reader's language.
+ *
+ * The native side names its own products, in English, and the legend beside
+ * the map was showing that name whatever language the workspace was in. These
+ * are the same names in the catalogue, so nothing is lost: a rotation track
+ * still says it covers the past hour, in whichever language.
+ */
+const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
+  // The composite is the radar timeline rather than a grid with its own
+  // legend, so it never reaches this, but the map has to be complete.
+  composite: "chrome.composite",
+  rotation: "mrms.rotation",
+  mesh: "mrms.mesh",
+  "hail-swath": "mrms.hailSwath",
+  lightning: "mrms.lightning",
+  "echo-tops": "mrms.echoTops",
+  vil: "mrms.vil",
+  "precip-rate": "mrms.precipRate",
+  "qpe-hour": "mrms.qpeHour",
+  "qpe-day": "mrms.qpeDay",
+  "precip-type": "mrms.precipType",
+};
+
 export interface MrmsLayer {
   product: MrmsProductId;
+  /**
+   * The name the native side gives the grid, which is English wherever the
+   * reader is. `labelKey` is the one to show; this one is for a log line or a
+   * file name.
+   */
   label: string;
+  /** The catalogue key for the layer switch this grid is behind. */
+  labelKey: StringKey;
   unit: string;
   tileUrl: string;
   /** When the grid was valid, so the legend can say how old it is. */
@@ -159,6 +191,7 @@ export function useMrmsOverlays(options: {
         .map((entry) => ({
           product: entry.id,
           label: entry.label,
+          labelKey: LABEL_KEYS[entry.id],
           unit: entry.unit,
           time: times[entry.id] ?? 0,
           tileUrl: tileUrl(

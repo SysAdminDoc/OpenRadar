@@ -509,7 +509,7 @@ export default function App() {
     for (const layer of mrms.layers) {
       offers.push({
         id: `grid:${layer.product}`,
-        label: layer.label,
+        label: t(layer.labelKey),
         format: "tif",
         // Cut to the view at the moment the button is pressed. The whole of
         // one of these grids is a continent, and nobody asked for a continent.

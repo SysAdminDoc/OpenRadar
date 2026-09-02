@@ -100,11 +100,13 @@ describe("numbers a reader reads", () => {
   });
 
   it("groups thousands the way each language groups them", () => {
-    // Grouping is the one place English does move, and only above a thousand,
-    // which no caller of this reaches: a tilt, a coordinate, a magnitude, a
-    // depth in metres and a size in megabytes are all smaller than that. It
-    // is on because a number that did reach a thousand should be grouped in
-    // the reader's own notation rather than run together.
+    // Grouping is the one place English does move, and only above a
+    // thousand. Almost nothing here reaches that: a tilt, a coordinate, a
+    // magnitude and a depth are all smaller. Two callers do, and they were
+    // meant to: an export over a gigabyte reads 1,536.0 MB rather than
+    // 1536.0 MB, and a pack ceiling reads 4,096 MB. A number that reaches a
+    // thousand should be grouped in the reader's own notation rather than
+    // run together, which is what the other half of this asked for.
     expect(formatNumber(1234.5, 1)).toBe("1,234.5");
     expect(formatNumber(999.9, 1)).toBe("999.9");
   });
@@ -125,6 +127,22 @@ describe("numbers a reader reads", () => {
       found[path.slice(ROOT.length + 1).replace(/\\/g, "/")] = count;
     }
     expect(found).toEqual(MACHINE_VALUES);
+  });
+
+  it("never formats a number in the machine's locale instead of the reader's", () => {
+    // `toLocaleString()` with nothing in the brackets formats in whatever
+    // locale the operating system is in, which is not the language the reader
+    // chose: a French reader on an English Windows got English numbers and an
+    // English reader on a French one got French. Every call has to name the
+    // locale, and `locale()` is the only thing that knows it.
+    const offenders: string[] = [];
+    for (const path of sourceFiles(ROOT)) {
+      const source = readFileSync(path, "utf8");
+      for (const match of source.matchAll(/\.toLocaleString\(\s*\)/g)) {
+        offenders.push(`${path.slice(ROOT.length + 1)}: ${match[0]}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it("never puts a formatted number back into a control", () => {

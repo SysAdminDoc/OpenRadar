@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { formatNumber, locale, translate } from "../i18n";
+import { formatMeasure, formatNumber, locale, translate } from "../i18n";
 
 /**
  * Which units the workspace shows, and which clock it reads.
@@ -119,14 +119,14 @@ export function formatReportMagnitude(value: number, unit: string): string {
   const named = unit.trim().toUpperCase();
   if (units === "imperial") {
     return translate("reports.measured", {
-      value: String(value),
+      value: formatMeasure(value),
       unit: unit || "",
     }).trim();
   }
   if (named === "MPH" || named === "KTS" || named === "KNOTS") {
     const mph = named === "MPH" ? value : value * 1.15078;
     return translate("reports.measured", {
-      value: Math.round(mph * 1.609344).toString(),
+      value: formatNumber(Math.round(mph * 1.609344)),
       unit: "km/h",
     });
   }
@@ -143,7 +143,7 @@ export function formatReportMagnitude(value: number, unit: string): string {
     });
   }
   return translate("reports.measured", {
-    value: String(value),
+    value: formatMeasure(value),
     unit: unit || "",
   }).trim();
 }
@@ -177,13 +177,13 @@ export function speedUnit(): string {
 export function formatDistance(miles: number): string {
   if (units === "metric") {
     const km = miles * MILES_TO_KM;
-    if (km < 1) return `${Math.round(km * 1000)} m`;
+    if (km < 1) return `${formatNumber(Math.round(km * 1000))} m`;
     if (km < 10) return `${formatNumber(km, 1)} km`;
-    return `${Math.round(km)} km`;
+    return `${formatNumber(Math.round(km))} km`;
   }
-  if (miles < 0.1) return `${Math.round(miles * 5280)} ft`;
+  if (miles < 0.1) return `${formatNumber(Math.round(miles * 5280))} ft`;
   if (miles < 10) return `${formatNumber(miles, 1)} mi`;
-  return `${Math.round(miles)} mi`;
+  return `${formatNumber(Math.round(miles))} mi`;
 }
 
 /** Miles, rounded, for the places that want a bare number with a word. */
@@ -254,7 +254,7 @@ export function formatDepth(feet: number): string {
       ? `${formatNumber(metres, 1)} m`
       : `${Math.round(metres).toLocaleString(locale())} m`;
   }
-  return `${Math.round(feet)} ft`;
+  return `${formatNumber(Math.round(feet))} ft`;
 }
 
 /** A tide, which NOAA publishes in feet and which is read to a tenth. */

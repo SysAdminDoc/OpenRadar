@@ -1,5 +1,6 @@
 import { isDesktopRuntime } from "./settings";
 import { translate, type StringKey } from "../i18n";
+import { nativeErrorParams } from "./nativeError";
 import { en } from "../i18n/en";
 
 /** Below this the national mosaic is the better picture, and cheaper. */
@@ -252,10 +253,7 @@ export function sweepErrorText(failure: unknown): string {
       text?: unknown;
     };
     const args = Array.isArray(named.args) ? named.args : [];
-    const params: Record<string, string> = {};
-    args.forEach((value, at) => {
-      params[String(at)] = String(value);
-    });
+    const params = nativeErrorParams(String(named.code), args);
     const key = `radar.error.${String(named.code)}`;
     // A build that has never heard of this failure has no wording for it, and
     // asking for one that is not there throws rather than answering.

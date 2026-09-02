@@ -18,7 +18,7 @@ import {
   formatRadarTime,
   type RadarFrame,
 } from "../lib/radar";
-import { useT } from "../i18n";
+import { formatMeasure, useT } from "../i18n";
 
 function initLabel(initUtc: string): string {
   const at = new Date(initUtc);
@@ -79,8 +79,8 @@ export function RadarLegend({
             className="legend-scale"
             aria-label={t("legend.scale", {
               product: productLabel,
-              min: reading.min,
-              max: reading.max,
+              min: formatMeasure(reading.min),
+              max: formatMeasure(reading.max),
               unit: reading.unit,
             })}
           >
@@ -89,7 +89,7 @@ export function RadarLegend({
                 key={stop}
                 style={{ left: `${stopPosition(reading, stop)}%` }}
               >
-                {stop}
+                {formatMeasure(stop)}
               </em>
             ))}
           </span>

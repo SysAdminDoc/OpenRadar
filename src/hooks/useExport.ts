@@ -27,7 +27,7 @@ import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import { saveFile } from "../lib/saveFile";
 import { APP_VERSION } from "../lib/settings";
 import type { RadarTimelineState } from "./useRadarTimeline";
-import { translate } from "../i18n";
+import { formatNumber, translate } from "../i18n";
 
 /** One dataset on screen whose readings can be written out. */
 export interface DataExportSource {
@@ -324,7 +324,7 @@ export function useExport(options: {
               pushToast({
                 title: translate("export.dataWritten", { label: offer.label }),
                 detail: translate("export.dataWrittenBody", {
-                  readings: report.readings.toLocaleString(),
+                  readings: formatNumber(report.readings),
                   size: exportSize(report.bytes),
                   path: report.path,
                 }),

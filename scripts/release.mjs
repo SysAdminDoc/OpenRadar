@@ -11,6 +11,7 @@ import path from "node:path";
 import {
   assertReleaseAssetNames,
   cargoVersion,
+  releaseAssetNames,
   sha256File,
   sourceVersion,
   validateReleaseProof,
@@ -119,7 +120,10 @@ function assertVersions(version, conf) {
 }
 
 function installerPaths(version) {
-  const installerName = `OpenRadar_${version}_x64-setup.exe`;
+  // The one place the name is written is `releaseAssetNames`, so the check on
+  // what the bundler actually built and the check on what is published cannot
+  // drift into agreeing with each other while both being wrong.
+  const [installerName] = releaseAssetNames(version);
   const installer = path.join(bundleDir, installerName);
   const signaturePath = `${installer}.sig`;
   if (!fs.existsSync(installer))
@@ -250,11 +254,15 @@ fs.writeFileSync(path.join(stageDir, "SHA256SUMS"), `${sums}\n`);
 // These names are what anybody packaging OpenRadar outside this repository
 // builds on, so a release that would publish a different set stops here
 // rather than breaking them quietly.
-try {
-  assertReleaseAssetNames(fs.readdirSync(stageDir), version);
-} catch (error) {
-  fail(error.message);
+function assertAssetNames(names) {
+  try {
+    assertReleaseAssetNames(names, version);
+  } catch (error) {
+    fail(error.message);
+  }
 }
+
+assertAssetNames(fs.readdirSync(stageDir));
 
 console.log(`\nVerified and staged in ${stageDir}:`);
 for (const name of fs.readdirSync(stageDir)) {
@@ -285,9 +293,12 @@ if (succeeds("git", ["show-ref", "--verify", "--quiet", tagRef])) {
 }
 run("git", ["push", "origin", tag]);
 
-const assets = fs
-  .readdirSync(stageDir)
-  .map((name) => path.join(stageDir, name));
+// Checked again on the way out rather than trusting the check above. The tag
+// has been pushed and the notes file is about to be written into the same
+// directory between the two, so what is uploaded is what is asserted.
+const assetNames = fs.readdirSync(stageDir);
+assertAssetNames(assetNames);
+const assets = assetNames.map((name) => path.join(stageDir, name));
 const notesPath = path.join(stageDir, "release-notes.md");
 fs.writeFileSync(notesPath, `${notes}\n`);
 run("gh", [

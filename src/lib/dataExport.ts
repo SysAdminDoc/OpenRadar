@@ -1,6 +1,7 @@
 import { isDesktopRuntime } from "./settings";
 import { formatNumber, translate, type StringKey } from "../i18n";
 import { en } from "../i18n/en";
+import { nativeErrorParams } from "./nativeError";
 
 /**
  * The readings behind the picture, in formats other tools read.
@@ -76,10 +77,7 @@ export function dataExportErrorText(failure: unknown): string {
   if (failure && typeof failure === "object" && "code" in failure) {
     const named = failure as { code?: unknown; args?: unknown; text?: unknown };
     const args = Array.isArray(named.args) ? named.args : [];
-    const params: Record<string, string> = {};
-    args.forEach((value, at) => {
-      params[String(at)] = String(value);
-    });
+    const params = nativeErrorParams(String(named.code), args);
     const key = `dataExport.error.${String(named.code)}`;
     if (key in en) return translate(key as StringKey, params);
     // A radar failure keeps the wording the picture would have had.
