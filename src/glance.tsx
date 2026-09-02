@@ -29,8 +29,8 @@ interface Glance {
   headline: string;
   /** A still of the map as a data URL, or empty. */
   picture: string;
-  /** When the frame it shows was observed. */
-  observed: number | null;
+  /** When the frame it shows was observed, in milliseconds. */
+  observedMs: number | null;
   /** Who it came from. */
   source: string;
   /** When the workspace last wrote this. */
@@ -80,9 +80,9 @@ function Window() {
   }
 
   const minutes =
-    held.observed === null
+    held.observedMs === null
       ? null
-      : Math.max(0, Math.round((now - held.observed) / 60_000));
+      : Math.max(0, Math.round((now - held.observedMs) / 60_000));
 
   return (
     <main className="glance" data-warning={held.warning ? "1" : undefined}>

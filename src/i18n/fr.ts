@@ -1501,6 +1501,11 @@ export const fr: Catalogue = {
   "glance.settingDetail":
     "Le lieu que vous surveillez, s'il y a une alerte, et une image fixe de la carte. Elle montre ce que l'espace de travail a déjà dessiné plutôt que de le redessiner, la laisser ouverte ne coûte donc presque rien. Elle s'ouvre depuis la zone de notification.",
   "glance.onTop": "Garder la petite fenêtre au-dessus de tout",
+  "tray.menuOpen": "Ouvrir OpenRadar",
+  "tray.menuGlance": "Coup d'oeil",
+  "tray.menuQuit": "Quitter",
+  "tray.quiet": "OpenRadar",
+  "tray.warning": "OpenRadar : une alerte est en cours la ou vous surveillez",
   "tray.setting": "Mettre une icône dans la zone de notification",
   "tray.settingDetail":
     "L'icône dit une chose : s'il y a une alerte à un lieu que vous avez nommé. La désactiver la retire, elle ne la cache pas.",

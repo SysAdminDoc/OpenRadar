@@ -1486,6 +1486,11 @@ export const es: Catalogue = {
   "glance.settingDetail":
     "El lugar que vigilas, si hay un aviso allí y una imagen fija del mapa. Muestra lo que el espacio de trabajo ya ha dibujado en vez de dibujarlo otra vez, así que dejarla abierta no cuesta casi nada. Se abre desde la bandeja.",
   "glance.onTop": "Mantener la ventana pequeña por encima de todo",
+  "tray.menuOpen": "Abrir OpenRadar",
+  "tray.menuGlance": "Vistazo",
+  "tray.menuQuit": "Salir",
+  "tray.quiet": "OpenRadar",
+  "tray.warning": "OpenRadar: hay un aviso donde vigilas",
   "tray.setting": "Poner un icono en la bandeja",
   "tray.settingDetail":
     "El icono dice una cosa: si hay un aviso en un lugar que nombraste. Desactivarlo lo quita, no lo esconde.",

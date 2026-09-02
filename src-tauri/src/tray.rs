@@ -42,11 +42,88 @@ pub enum Hazard {
 
 static TRAY: Mutex<Option<TrayIcon>> = Mutex::new(None);
 
+/// The id the tray is built under, and the only handle that removes it.
+const TRAY_ID: &str = "openradar";
+
+/// The words on the menu and under the icon.
+///
+/// English until the workspace says otherwise. The glance window goes out of
+/// its way not to be the one English surface in a French app, and the menu
+/// that opens it should not be either.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Copy {
+    pub open: String,
+    pub glance: String,
+    pub quit: String,
+    pub quiet: String,
+    pub warning: String,
+}
+
+impl Default for Copy {
+    fn default() -> Self {
+        Self {
+            open: "Open OpenRadar".to_string(),
+            glance: "Glance".to_string(),
+            quit: "Quit".to_string(),
+            quiet: "OpenRadar".to_string(),
+            warning: "OpenRadar: a warning stands where you watch".to_string(),
+        }
+    }
+}
+
+static COPY: Mutex<Option<Copy>> = Mutex::new(None);
+
+fn copy() -> Copy {
+    COPY.lock()
+        .unwrap_or_else(|held| held.into_inner())
+        .clone()
+        .unwrap_or_default()
+}
+
+/// The words the tray shows. Said by the workspace once it knows the language.
+#[tauri::command]
+pub fn tray_copy(
+    app: AppHandle,
+    open: String,
+    glance: String,
+    quit: String,
+    quiet: String,
+    warning: String,
+) -> Result<(), String> {
+    let next = Copy {
+        open,
+        glance,
+        quit,
+        quiet,
+        warning,
+    };
+    let changed = {
+        let mut held = COPY.lock().unwrap_or_else(|held| held.into_inner());
+        let changed = held.as_ref() != Some(&next);
+        *held = Some(next);
+        changed
+    };
+    // A menu cannot be relabelled in place, so the icon is rebuilt. Only when
+    // the words actually changed: rebuilding on every settings write would
+    // make the icon flicker out and back on a machine that is doing nothing.
+    if changed
+        && TRAY
+            .lock()
+            .unwrap_or_else(|held| held.into_inner())
+            .is_some()
+    {
+        drop_tray(&app);
+        init(&app).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 /// The label under the icon, which is what a hover actually shows.
-fn tooltip(hazard: Hazard) -> &'static str {
+fn tooltip(hazard: Hazard) -> String {
+    let words = copy();
     match hazard {
-        Hazard::Quiet => "OpenRadar",
-        Hazard::Warning => "OpenRadar — a warning stands where you watch",
+        Hazard::Quiet => words.quiet,
+        Hazard::Warning => words.warning,
     }
 }
 
@@ -80,12 +157,13 @@ fn icon(hazard: Hazard) -> Image<'static> {
 
 /// Builds the tray icon and its menu. Called once, at startup.
 pub fn init(app: &AppHandle) -> tauri::Result<()> {
-    let show = MenuItem::with_id(app, "show", "Open OpenRadar", true, None::<&str>)?;
-    let glance = MenuItem::with_id(app, "glance", "Glance", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let words = copy();
+    let show = MenuItem::with_id(app, "show", &words.open, true, None::<&str>)?;
+    let glance = MenuItem::with_id(app, "glance", &words.glance, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", &words.quit, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &glance, &quit])?;
 
-    let tray = TrayIconBuilder::with_id("openradar")
+    let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon(Hazard::Quiet))
         .tooltip(tooltip(Hazard::Quiet))
         .menu(&menu)
@@ -100,7 +178,7 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
             "quit" => {
                 // The icon goes first. Windows leaves a ghost behind until
                 // somebody moves the mouse over it otherwise.
-                drop_tray();
+                drop_tray(app);
                 app.exit(0);
             }
             _ => {}
@@ -108,8 +186,18 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
         .on_tray_icon_event(|tray, event| {
             // A left click is the shortest way back to the window, which is
             // what somebody clicking a tray icon almost always wants.
-            if let TrayIconEvent::Click { button, .. } = event {
-                if button == tauri::tray::MouseButton::Left {
+            // On the release, not the press. The event carries both, so
+            // ignoring the state brought the window forward twice for one
+            // click.
+            if let TrayIconEvent::Click {
+                button,
+                button_state,
+                ..
+            } = event
+            {
+                if button == tauri::tray::MouseButton::Left
+                    && button_state == tauri::tray::MouseButtonState::Up
+                {
                     show_main(tray.app_handle());
                 }
             }
@@ -121,7 +209,13 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
 }
 
 /// Takes the icon out of the tray, explicitly.
-pub fn drop_tray() {
+///
+/// Both halves are needed. Tauri keeps its own clone of the icon in the app's
+/// resource table for the life of the app, so dropping ours only made the
+/// icon unaddressable: it stayed on screen, frozen at whatever colour it last
+/// had, and switching the tray back on built a second one beside it.
+pub fn drop_tray(app: &AppHandle) {
+    app.remove_tray_by_id(TRAY_ID);
     let mut held = TRAY.lock().unwrap_or_else(|held| held.into_inner());
     *held = None;
 }
@@ -133,6 +227,12 @@ fn show_main(app: &AppHandle) {
         let _ = window.set_focus();
     }
 }
+
+/// Whether the small window should sit above everything else.
+///
+/// Held here rather than only on the window, because the reader can ask for
+/// it before the window exists and the answer has to survive until it does.
+static GLANCE_ON_TOP: Mutex<bool> = Mutex::new(false);
 
 /// Opens the small always-there window, or brings it back to the front.
 fn open_glance(app: &AppHandle) -> tauri::Result<()> {
@@ -149,7 +249,7 @@ fn open_glance(app: &AppHandle) -> tauri::Result<()> {
         .inner_size(320.0, 220.0)
         .min_inner_size(240.0, 160.0)
         .resizable(true)
-        .always_on_top(false)
+        .always_on_top(*GLANCE_ON_TOP.lock().unwrap_or_else(|held| held.into_inner()))
         .skip_taskbar(false)
         .build()?;
     Ok(())
@@ -198,12 +298,30 @@ pub fn closes_to_tray() -> bool {
 /// Always-on-top for the small window, when the reader asks for it.
 #[tauri::command]
 pub fn glance_on_top(app: AppHandle, on: bool) -> Result<(), String> {
+    // Recorded whether or not the window is there. Asked for before it opens,
+    // the answer used to be thrown away and the window opened behind
+    // everything with the setting still ticked.
+    *GLANCE_ON_TOP
+        .lock()
+        .unwrap_or_else(|held| held.into_inner()) = on;
     let Some(window) = app.get_webview_window("glance") else {
         return Ok(());
     };
     window
         .set_always_on_top(on)
         .map_err(|error| error.to_string())
+}
+
+/// Whether the small window is open and visible.
+///
+/// Asked so the workspace can stop composing a picture for a window nobody
+/// has open. The tray menu can open it without the workspace hearing, so it
+/// is asked rather than remembered.
+#[tauri::command]
+pub fn glance_showing(app: AppHandle) -> bool {
+    app.get_webview_window("glance")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false)
 }
 
 /// Opens the small window from the workspace, as the tray menu does.
@@ -227,7 +345,7 @@ pub fn tray_enabled(app: AppHandle, on: bool) -> Result<(), String> {
     }
     // Switched off leaves nothing behind, which on Windows means removing it
     // rather than hiding it.
-    drop_tray();
+    drop_tray(&app);
     Ok(())
 }
 
@@ -255,7 +373,46 @@ mod tests {
     #[test]
     fn the_tooltip_says_what_the_icon_means() {
         // An icon nobody can read is an icon that needs words on hover.
+        *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
         assert!(tooltip(Hazard::Warning).contains("warning"));
         assert!(!tooltip(Hazard::Quiet).contains("warning"));
+    }
+
+    #[test]
+    fn the_words_are_the_readers_own() {
+        // The glance window goes out of its way not to be the one English
+        // surface in a French app. The menu that opens it should not be
+        // either.
+        *COPY.lock().unwrap_or_else(|held| held.into_inner()) = Some(Copy {
+            open: "Ouvrir OpenRadar".to_string(),
+            glance: "Coup d'oeil".to_string(),
+            quit: "Quitter".to_string(),
+            quiet: "OpenRadar".to_string(),
+            warning: "OpenRadar : une alerte est en cours".to_string(),
+        });
+        assert_eq!(
+            tooltip(Hazard::Warning),
+            "OpenRadar : une alerte est en cours"
+        );
+        assert_eq!(copy().quit, "Quitter");
+        *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
+        assert_eq!(copy().quit, "Quit");
+    }
+
+    #[test]
+    fn nothing_it_says_carries_a_dash_nobody_types() {
+        // The repository's own rule about prose a reader sees. The Rust side
+        // is invisible to the i18n coverage test, so it is checked here.
+        let words = Copy::default();
+        for line in [
+            words.open,
+            words.glance,
+            words.quit,
+            words.quiet,
+            words.warning,
+        ] {
+            assert!(!line.contains('—'), "{line}");
+            assert!(!line.contains('–'), "{line}");
+        }
     }
 }

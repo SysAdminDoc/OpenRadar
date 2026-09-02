@@ -1461,6 +1461,11 @@ export const en = {
   "glance.settingDetail":
     "The place you watch, whether a warning stands there, and one still of the map. It shows what the workspace has already drawn rather than drawing it again, so it costs almost nothing to leave open. Open it from the tray.",
   "glance.onTop": "Keep the small window above everything else",
+  "tray.menuOpen": "Open OpenRadar",
+  "tray.menuGlance": "Glance",
+  "tray.menuQuit": "Quit",
+  "tray.quiet": "OpenRadar",
+  "tray.warning": "OpenRadar: a warning stands where you watch",
   "tray.setting": "Put an icon in the tray",
   "tray.settingDetail":
     "The icon says one thing: whether a warning stands at a place you named. Switching it off removes it rather than hiding it.",

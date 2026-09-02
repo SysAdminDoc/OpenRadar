@@ -26,7 +26,7 @@ pub struct Glance {
     /// A still of the map as a data URL, or empty.
     pub picture: String,
     /// When the frame it shows was observed, in milliseconds.
-    pub observed: Option<f64>,
+    pub observed_ms: Option<f64>,
     /// Who it came from.
     pub source: String,
     /// When the workspace wrote this.
@@ -71,7 +71,7 @@ mod tests {
             warning: true,
             headline: "Tornado Warning".to_string(),
             picture: picture.to_string(),
-            observed: Some(1.0),
+            observed_ms: Some(1.0),
             source: "MRMS".to_string(),
             at: 2.0,
         }
