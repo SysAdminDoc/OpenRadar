@@ -450,7 +450,10 @@ describe("earthquake parsing", () => {
       url: "https://earthquake.usgs.gov/x",
     });
     expect(description.title).toBe("M 4.2 Puerto Rico");
-    expect(description.lines[0]).toContain("2 h ago");
+    // The abbreviation went with the split: an age is said one way
+    // everywhere now, because the same age used to read "2 h ago" here
+    // and "4908 min old" under the map.
+    expect(description.lines[0]).toContain("2 hours ago");
     expect(description.url).toBe("https://earthquake.usgs.gov/x");
   });
 });
@@ -560,7 +563,7 @@ describe("bounds helpers", () => {
     const now = Date.UTC(2026, 7, 30, 12, 0, 0);
     expect(relativeTime(now - 30_000, now)).toBe("just now");
     expect(relativeTime(now - 20 * 60_000, now)).toBe("20 min ago");
-    expect(relativeTime(now - 5 * 3_600_000, now)).toBe("5 h ago");
+    expect(relativeTime(now - 5 * 3_600_000, now)).toBe("5 hours ago");
     expect(relativeTime(now - 4 * 86_400_000, now)).toBe("4 days ago");
   });
 });

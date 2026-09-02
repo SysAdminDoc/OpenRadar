@@ -305,3 +305,23 @@ export function formatClock(
     ? `${text}${translate("time.utcSuffix")}`
     : text;
 }
+
+/**
+ * How old something is, in a unit somebody reads at a glance.
+ *
+ * Every age in the app was a minute count that never changed unit, so a view
+ * cached over a long weekend said "Updated 4908 min ago" in the header and
+ * "Radar is stale, 4908 min old" under the map, three times on one screen.
+ * Nobody reads 4908 minutes as three and a half days, and the number gets
+ * longer the more stale the picture is, which is exactly when it matters most.
+ *
+ * The minute count itself is still what the staleness comparisons use. This
+ * is only how it is said.
+ */
+export function formatAge(minutes: number): string {
+  const whole = Math.max(0, Math.round(minutes));
+  if (whole < 60) return translate("age.minutes", { count: whole });
+  const hours = Math.round(whole / 60);
+  if (hours < 48) return translate("age.hours", { count: hours });
+  return translate("age.days", { count: Math.round(hours / 24) });
+}

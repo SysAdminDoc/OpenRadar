@@ -72,7 +72,6 @@ describe("a theme reaches the chrome and nothing else", () => {
       "--surface-solid",
       "--surface-raised",
       "--surface-hover",
-      "--surface-sunken",
       "--border",
       "--border-strong",
       "--accent",
@@ -355,25 +354,75 @@ describe("the stylesheet", () => {
     expect([...used].filter((name) => !defined.has(name))).toEqual([]);
   });
 
+  /**
+   * The selectors that draw a reading rather than the workspace around it.
+   *
+   * A theme reaches the eleven chrome tokens and nothing else, and the source
+   * scan above holds that for TypeScript. It cannot see the stylesheet, which
+   * is where this went wrong: `--surface-sunken` was added to the token list
+   * as chrome, and it backs the office's own severity word on every alert
+   * row. A theme setting it to the text colour painted "Extreme" at 1:1, in
+   * both looks, with axe reporting nothing because the two colours matched.
+   */
+  const READINGS = [
+    ".alert-severity",
+    ".alert-row i",
+    ".alert-tag",
+    ".legend-ramp",
+    ".alert-advice",
+  ];
+
+  it("keeps every theme token out of the ink and ground of a reading", () => {
+    // Only `color` and `background`, which is the whole claim: a theme may
+    // tint the border around a badge, and it may not touch what the badge
+    // says or the ground it says it on. A border is chrome; the word is the
+    // office's reading of how bad this is.
+    const properties = THEME_TOKENS.map((token) => token.property);
+    const offenders: string[] = [];
+    for (const rule of css.split("}")) {
+      const [selector, body] = rule.split("{");
+      if (!body) continue;
+      if (!READINGS.some((name) => selector.includes(name))) continue;
+      for (const line of body.split(";")) {
+        const [property, value] = line.split(":");
+        if (!value) continue;
+        if (!/^\s*(color|background(-color)?)\s*$/.test(property)) continue;
+        for (const token of properties) {
+          // On a word boundary, or `--surface` matches `--surface-sunken`.
+          if (new RegExp(`${token}(?![a-z-])`).test(value)) {
+            offenders.push(`${selector.trim()}: ${property.trim()} ${token}`);
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   /** Every property set inside the blocks matching a selector. */
   function setIn(selector: string): Set<string> {
     const found = new Set<string>();
-    let at = css.indexOf(selector);
+    // At the start of a line, so `:root {` does not also match the doubled
+    // `:root:root:root {` the prefers-contrast block uses. Matched loosely it
+    // swept those in and this said less than it looked like it said.
+    const opens = `\n${selector}`;
+    let at = css.indexOf(opens);
     expect(at, `${selector} is gone`).toBeGreaterThan(-1);
     while (at > -1) {
       const body = css.slice(at, css.indexOf("\n}", at));
       for (const match of body.matchAll(/(--[a-z0-9-]+)\s*:/g)) {
         found.add(match[1]);
       }
-      at = css.indexOf(selector, at + selector.length);
+      at = css.indexOf(opens, at + opens.length);
     }
     return found;
   }
 
   it("gives the dark theme a value for everything the light theme sets", () => {
-    // The light block is an override of the base one. A colour that exists
-    // only there has no value at all in the dark theme, which is the shipped
-    // default, and whatever reads it falls back to whatever it inherits.
+    // A guard rather than a regression test: this was already true when it
+    // was written, and it is here so that it stays true. The light block is
+    // an override of the base one, so a colour that exists only there has no
+    // value at all in the dark theme, which is the shipped default, and
+    // whatever reads it falls back to whatever it inherits.
     const base = setIn(":root {");
     const light = setIn(':root[data-theme="light"] {');
     expect(light.size).toBeGreaterThan(10);

@@ -20,6 +20,9 @@ export interface WorkspaceOverlays {
   sendWatchTest: () => Promise<boolean>;
   /** True while a warning stands over a place the reader watches. */
   alertActive: boolean;
+  watchLastCheckedAt: number | null;
+  watchFailing: number;
+  watchFailingSince: number | null;
   /**
    * The last alert the watch announced, as one sentence for a live region,
    * with a count so that two identical sentences are still two announcements.
@@ -163,6 +166,18 @@ export function useWorkspaceOverlays(options: {
         onAction: () => setActiveSurface("alerts"),
       }),
     announce,
+    (say) =>
+      pushToast(
+        say === "failing"
+          ? {
+              title: translate("watch.failed"),
+              detail: translate("watch.failedBody"),
+            }
+          : {
+              title: translate("watch.recovered"),
+              detail: translate("watch.recoveredBody"),
+            },
+      ),
     options.capture,
   );
 
@@ -208,6 +223,9 @@ export function useWorkspaceOverlays(options: {
     data,
     sendWatchTest: watch.sendTest,
     alertActive: watch.alertActive,
+    watchLastCheckedAt: watch.lastCheckedAt,
+    watchFailing: watch.failing,
+    watchFailingSince: watch.failingSince,
     announcement,
   };
 }

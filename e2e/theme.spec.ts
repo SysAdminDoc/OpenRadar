@@ -199,3 +199,72 @@ test("paints every control a panel puts on screen", async ({ page }) => {
     expect(painted.colour, `control ${at} colour`).toBe(panel.colour);
   }
 });
+
+test("the reader's own accent reaches the command rail", async ({ page }) => {
+  // The rail is a fixed dark surface, so it cannot take the workspace accent
+  // straight: in the light theme that is 3.65:1 on an 8px label and under the
+  // calmer look 2.90. The first fix replaced it with a fixed blue, which
+  // fixed the contrast and quietly threw away the colour the reader chose,
+  // while the setting for it still says it reaches the focus ring.
+  await startWith(page, {
+    name: "Warm",
+    base: "dark",
+    tokens: { Accent: ACCENT },
+  });
+  await expect.poll(() => token(page, "--accent")).toBe(ACCENT);
+
+  const rail = await page.evaluate(() => {
+    // Through a canvas, because a colour built from `oklch(from ...)` is
+    // still an oklch string when it comes back out of a computed style and
+    // nothing downstream can read its channels.
+    const paint = document.createElement("canvas").getContext("2d")!;
+    const toRgb = (colour: string) => {
+      paint.fillStyle = "#000";
+      paint.fillStyle = colour;
+      paint.clearRect(0, 0, 1, 1);
+      paint.fillRect(0, 0, 1, 1);
+      const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
+      return `rgb(${red}, ${green}, ${blue})`;
+    };
+    const bar = document.querySelector(".command-bar")!;
+    const probe = document.createElement("div");
+    probe.style.color = "var(--command-accent)";
+    bar.append(probe);
+    const ink = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      ink: toRgb(ink),
+      said: ink,
+      ground: toRgb(getComputedStyle(bar).backgroundColor),
+    };
+  });
+
+  // The relative colour really resolved, rather than the fallback standing.
+  expect(rail.said).not.toBe("rgb(75, 192, 255)");
+
+  const channels = (colour: string) =>
+    (colour.match(/[\d.]+/g) ?? []).map(Number);
+  const luminance = (colour: string) => {
+    const [red, green, blue] = channels(colour);
+    const part = (value: number) => {
+      const ratio = value / 255;
+      return ratio <= 0.03928
+        ? ratio / 12.92
+        : ((ratio + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * part(red) + 0.7152 * part(green) + 0.0722 * part(blue);
+  };
+  const [red, green, blue] = channels(rail.ink);
+
+  // Their hue, not ours: the app's own accent is a blue, and this one is not.
+  expect(red, `${rail.ink} should be warm`).toBeGreaterThan(blue);
+  expect(green).toBeGreaterThan(blue);
+
+  // And still legible on the bar, which is what the fixed colour bought.
+  const light = Math.max(luminance(rail.ink), luminance(rail.ground));
+  const dark = Math.min(luminance(rail.ink), luminance(rail.ground));
+  expect(
+    (light + 0.05) / (dark + 0.05),
+    `${rail.ink} on ${rail.ground}`,
+  ).toBeGreaterThanOrEqual(4.5);
+});

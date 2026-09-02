@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderHook, act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ensureLanguage, setLanguage } from "../i18n";
 import {
   distanceSlider,
+  formatAge,
   distanceUnit,
   milesFromDistance,
   distanceValue,
@@ -244,5 +247,71 @@ describe("the units the workspace reads in", () => {
     listener.mockClear();
     act(() => setUnits("metric"));
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("how old something is", () => {
+  /**
+   * The readouts never changed unit, so a view cached over a long weekend
+   * said "Updated 4908 min ago" in the header, "Radar is stale, 4908 min old"
+   * under the map and "Showing the last view, 4908 min old" beside it. Nobody
+   * reads 4908 minutes as three and a half days, and the number gets longer
+   * the more stale the picture is.
+   */
+  const CASES: [number, string][] = [
+    [0, "0 min"],
+    [1, "1 min"],
+    [59, "59 min"],
+    [60, "1 hour"],
+    [90, "2 hours"],
+    [119, "2 hours"],
+    [120, "2 hours"],
+    [2879, "2 days"],
+    [2880, "2 days"],
+    [4908, "3 days"],
+  ];
+
+  it("rolls minutes into hours and hours into days", () => {
+    setLanguage("en");
+    for (const [minutes, said] of CASES) {
+      expect(formatAge(minutes), `${minutes} minutes`).toBe(said);
+    }
+  });
+
+  it("never says a negative age", () => {
+    setLanguage("en");
+    // A clock that moved backwards, or a frame stamped a moment ahead.
+    expect(formatAge(-5)).toBe("0 min");
+  });
+
+  it("is the only place a raw minute count is written", () => {
+    // The eight readouts that shipped with no unit change each spelled the
+    // count themselves. One of them was fixed once before and the others were
+    // not noticed, because nothing said where a minute count may be written.
+    // English is the source the other two are typed against, and an age
+    // there is written "min old" or "min ago". A duration is not an age:
+    // a loop length, a lead time and a quiet-hours window are all honestly
+    // minutes however large they get, and they are left alone.
+    const source = readFileSync(
+      join(import.meta.dirname, "..", "i18n", "en.ts"),
+      "utf8",
+    );
+    const raw = [
+      ...source.matchAll(/^\s*"([^"]+)":.*\{count\} min (old|ago)/gm),
+    ].map((match) => match[1]);
+    expect(raw).toEqual([]);
+  });
+
+  it("says it in the reader's own language", async () => {
+    await ensureLanguage("es");
+    setLanguage("es");
+    expect(formatAge(30)).toBe("30 min");
+    expect(formatAge(4908)).toBe("3 días");
+
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    expect(formatAge(30)).toBe("30 min");
+    expect(formatAge(4908)).toBe("3 jours");
+    setLanguage("en");
   });
 });

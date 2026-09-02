@@ -30,7 +30,12 @@ import {
   radarCapabilities,
   supportedProduct,
 } from "../lib/radarKinds";
-import { speedFromMetres, speedToMetres, speedUnit } from "../lib/units";
+import {
+  formatAge,
+  speedFromMetres,
+  speedToMetres,
+  speedUnit,
+} from "../lib/units";
 import { formatNumber, translate, useT } from "../i18n";
 
 /**
@@ -78,7 +83,7 @@ interface RadarProductPanelProps {
 
 function ageLabel(minutes: number): string {
   if (minutes < 1) return translate("radar.justIn");
-  return translate("radar.minutesOld", { count: minutes });
+  return translate("radar.age", { age: formatAge(minutes) });
 }
 
 function utcInputValue(now: number): string {

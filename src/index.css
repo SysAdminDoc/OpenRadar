@@ -262,8 +262,24 @@ a {
   --command-ink-faint: #7c8899;
   --command-hover: #18232f;
   --command-line: rgba(166, 184, 207, 0.28);
+  /* The reader's own accent, lifted only as far as the dark bar needs.
+     Declared twice on purpose: the first is what an engine with no relative
+     colour syntax keeps, and it is the app's own blue.
+
+     Taking `--accent` straight was how this started: in the light theme it is
+     3.65:1 on the bar for an 8px label, and under the calmer look 2.90.
+     Replacing it with a fixed colour fixed that and threw away the colour the
+     reader had chosen, which the setting says reaches the focus ring. This
+     keeps their hue and their chroma and raises the lightness to the floor
+     the bar needs, so an accent already light enough is untouched. */
   --command-accent: #4bc0ff;
+  --command-accent: oklch(from var(--accent) max(l, 0.76) c h);
   --command-accent-soft: rgba(75, 192, 255, 0.14);
+  --command-accent-soft: color-mix(
+    in srgb,
+    var(--command-accent) 14%,
+    transparent
+  );
   position: absolute;
   z-index: 50;
   left: 0;
@@ -2768,14 +2784,6 @@ input[type="range"] {
   --accent-soft: rgba(74, 104, 129, 0.14);
 }
 
-/* The bar is dark in every theme, so its accent is turned down towards the
-   light rather than towards the dark the workspace uses. #7f9bb8 is 6.6:1 on
-   the bar, where the workspace's calm light accent would be 2.9. */
-[data-calm] .command-bar {
-  --command-accent: #7f9bb8;
-  --command-accent-soft: rgba(127, 155, 184, 0.16);
-}
-
 [data-calm] .alert-tag {
   /* A badge this app draws around the office's words, with its own emphasis
      taken off. The severity word beside it is deliberately not in here: it
@@ -3039,7 +3047,11 @@ input[type="range"] {
   color: var(--muted);
 }
 
-.select-row select {
+/* The number boxes in a row belong to the row, not to the shared recipe:
+   taking that gave them a larger type size and a rounder corner than the
+   select sitting beside them in the same row. */
+.select-row select,
+.select-row input {
   min-width: 150px;
   padding: 6px 8px;
   color: var(--text);
@@ -3445,7 +3457,12 @@ input[type="range"] {
   /* A well inside a panel: the severity badge on an alert row, the archive
      browser, the site-controls row. Written for the dark theme and then used
      with a fallback rather than defined, so the light theme drew a #a6abb3
-     box inside a white panel and the muted text in it read at 2.9:1. */
+     box inside a white panel and the muted text in it read at 2.9:1.
+
+     Deliberately NOT a token a theme file can set. It backs the office's own
+     severity word on every alert row, and a theme setting it to the same
+     colour as the text painted "Extreme" at 1:1 with nothing to stop it.
+     Everything a theme may reach is chrome; this one is under a reading. */
   --surface-sunken: rgb(15 23 42 / 35%);
   --border: rgba(166, 184, 207, 0.16);
   --border-strong: rgba(166, 184, 207, 0.28);
@@ -4916,7 +4933,6 @@ input[type="range"] {
 .journal-note-edit textarea,
 .nearby-place select,
 .cell-name,
-.select-row input,
 [data-recap] select,
 .watch-place__row input,
 .watch-place__row select {
@@ -4939,8 +4955,14 @@ input[type="range"] {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 7px 8px;
+  /* The inset and the rule under it are the switches', measured rather than
+     guessed: `.toggle-row--plain` takes 4px of side padding and
+     `.surface-panel .toggle-row` draws the line. Mirroring the bare
+     `.toggle-row` alone left this block indented four pixels past every
+     switch above it and the only one in the panel with nothing under it. */
+  padding: 7px 4px;
   border: 1px solid transparent;
+  border-bottom: 1px solid var(--border);
   border-radius: 7px;
 }
 
@@ -4958,7 +4980,10 @@ input[type="range"] {
 .settings-field small {
   display: block;
   color: var(--muted);
-  font-size: 9px;
+  /* The panel's own size for a detail line, not the bare one: 9px with no
+     line height left this a point smaller than every switch above it. */
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 /* The inner label is the control's own row: its name on the left and the
@@ -4969,9 +4994,13 @@ input[type="range"] {
   justify-content: space-between;
   gap: 10px;
   padding: 0;
+  border-bottom: 0;
 }
 
-.settings-field label.settings-field > span {
+/* A label carrying the class is a control's own row wherever it is, so the
+   postcard's caption and size get the same treatment as the two in Settings
+   rather than a 16px heading over each box. */
+label.settings-field > span {
   font-size: 11px;
   color: var(--muted);
 }

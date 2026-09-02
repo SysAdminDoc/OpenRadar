@@ -98,7 +98,11 @@ import { basemapCredit } from "./lib/mapStyles";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
-import { alertId, type WatchAlert } from "./lib/watch";
+import {
+  alertId,
+  WATCH_FAILURES_BEFORE_SAYING,
+  type WatchAlert,
+} from "./lib/watch";
 
 /**
  * How long the map is left alone after the reader last moved it.
@@ -458,6 +462,7 @@ export default function App() {
       quit: translate("tray.menuQuit"),
       quiet: translate("tray.quiet"),
       warning: translate("tray.warning"),
+      unreachable: translate("tray.unreachable"),
     });
   }, [settings.language]);
 
@@ -478,8 +483,16 @@ export default function App() {
   // The icon says one thing: whether a warning stands at a place the reader
   // named. Not how many, not what the app is doing.
   useEffect(() => {
-    if (settings.tray) void setTrayHazard(overlays.alertActive);
-  }, [overlays.alertActive, settings.tray]);
+    if (settings.tray) {
+      // A watch that has stopped hearing back says so under the icon.
+      // Not in its colour: the colour means weather, and an amber dot
+      // for "the app is having trouble" would compete with that.
+      void setTrayHazard(
+        overlays.alertActive,
+        overlays.watchFailing < WATCH_FAILURES_BEFORE_SAYING,
+      );
+    }
+  }, [overlays.alertActive, overlays.watchFailing, settings.tray]);
 
   // Whether the small window is actually open. Asked on the clock rather
   // than assumed, because it can be opened from the tray menu, which the
@@ -2250,6 +2263,11 @@ export default function App() {
             onWatchHere={actions.watchHere}
             onAddWatchPlace={actions.addWatchPlace}
             onSendWatchTest={sendWatchTest}
+            watchHealth={{
+              lastCheckedAt: overlays.watchLastCheckedAt,
+              failing: overlays.watchFailing,
+              failingSince: overlays.watchFailingSince,
+            }}
             onOpenLogFolder={actions.openLogFolder}
             onCopyDiagnostics={copyDiagnostics}
             hasWatchedPlace={settings.watch.enabled}

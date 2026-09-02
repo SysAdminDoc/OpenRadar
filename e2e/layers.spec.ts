@@ -155,8 +155,14 @@ test("puts satellite under the radar and names its own image time", async ({
   expect(stack.indexOf("openradar-satellite-layer")).toBeLessThan(
     stack.indexOf("openradar-radar-layer-observed"),
   );
+  // The unit, not the number: this fixture's image is four days old and the
+  // chip used to say so as a five-digit minute count, which is the thing the
+  // age formatting exists to stop. Asserting "min old" was asserting that.
   await expect(page.locator(".satellite-chip small").first()).toContainText(
-    "min old",
+    /\d+ (min|hours?|days?) old/,
+  );
+  await expect(page.locator(".satellite-chip small").first()).not.toContainText(
+    /\d{3,} min/,
   );
 
   await page.getByRole("checkbox", { name: /Satellite/ }).uncheck();

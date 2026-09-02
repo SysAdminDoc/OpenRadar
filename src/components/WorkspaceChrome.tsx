@@ -35,7 +35,7 @@ import {
   useT,
   type StringKey,
 } from "../i18n";
-import { useMeasurements } from "../lib/units";
+import { formatAge, useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
 /** Past this the loop is old enough that the timeline should say so. */
@@ -57,7 +57,7 @@ const SMOKE_SCALE: Array<[SmokeDensity, string]> = [
 function gridAge(time: number, nowMs: number): string {
   const minutes = Math.max(0, Math.floor(nowMs / 60_000 - time / 60));
   if (minutes < 1) return translate("chrome.justIn");
-  return translate("chrome.minutesOld", { count: minutes });
+  return translate("chrome.age", { age: formatAge(minutes) });
 }
 
 const TOOL_LABELS: Record<Exclude<ToolMode, null>, StringKey> = {
@@ -171,7 +171,7 @@ export function WorkspaceChrome({
   useMeasurements();
   const stale =
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
-      ? t("chrome.stale", { count: radarAgeMinutes })
+      ? t("chrome.stale", { age: formatAge(radarAgeMinutes) })
       : null;
   // Frames that are on screen because the network is gone, not because they
   // just arrived. Saying which is the difference between a map you can trust
@@ -179,7 +179,7 @@ export function WorkspaceChrome({
   const cached = timeline.cached
     ? radarAgeMinutes === null
       ? t("chrome.cached")
-      : t("chrome.cachedAge", { count: radarAgeMinutes })
+      : t("chrome.cachedAge", { age: formatAge(radarAgeMinutes) })
     : null;
   // Not every mosaic is reflectivity in dBZ, and not every reflectivity
   // mosaic is painted with the same ramp, so the source says which bar
@@ -207,7 +207,7 @@ export function WorkspaceChrome({
           ? t("chrome.connecting")
           : radarAgeMinutes < 1
             ? t("chrome.updatedNow")
-            : t("chrome.updatedMinutes", { count: radarAgeMinutes });
+            : t("chrome.updatedAge", { age: formatAge(radarAgeMinutes) });
   // A loaded colour table describes what is on screen only where it was
   // actually applied, which is the locally decoded products and no others.
   // Only when the layer is actually drawing something. An empty analysis is a

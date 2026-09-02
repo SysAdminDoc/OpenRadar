@@ -66,13 +66,24 @@ export async function setTrayCopy(words: {
   quit: string;
   quiet: string;
   warning: string;
+  unreachable: string;
 }): Promise<void> {
   await tell("tray_copy", words);
 }
 
-/** Says whether a warning stands at a place the reader named. */
-export async function setTrayHazard(warning: boolean): Promise<void> {
-  await tell("tray_hazard", { warning });
+/**
+ * Says whether a warning stands at a place the reader named, and whether the
+ * watch is still hearing back from the service.
+ *
+ * The second one has no colour of its own: a watch that has stopped checking
+ * is the app having trouble, not the weather, and the words under the icon
+ * are where somebody wondering why it has been quiet will look.
+ */
+export async function setTrayHazard(
+  warning: boolean,
+  reaching: boolean,
+): Promise<void> {
+  await tell("tray_hazard", { warning, reaching });
 }
 
 /** Puts the icon in the tray, or takes it out for good. */

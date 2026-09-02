@@ -2,6 +2,14 @@
 
 ## OpenRadar v0.8.0
 
+- Big files no longer freeze the window on their way out. A saved loop, the picture written to your desktop and each thumbnail kept beside a record entry were all being spelled out as text before they were handed over, which costs three and a half characters for every byte and happens on the thread drawing the map. A sixteen megabyte loop spent half a second building a fifty-seven megabyte string, and the ceiling is four times that. They go over as bytes now.
+
+- The watch says when it has stopped working. It checks every forty-five seconds whether or not you are looking at the map, and it is the thing you are relying on while you are asleep. When those checks failed, because the network went, or a hotel portal got in the way, or the service had a bad hour, it wrote a line in a log nobody reads and carried on saying it was watching. Settings now shows when a check last came back, and after three failures in a row it says so plainly, once, in the panel and in a notification and under the tray icon. It says so again when it recovers. The icon does not change colour for it: the colour means weather, and this is the app having trouble.
+
+- Ages are said in a unit you can read. Everything that told you how old a picture was counted in minutes and never stopped, so a view cached over a long weekend read "Updated 4908 min ago" at the top, "Radar is stale, 4908 min old" under the map and the same number again beside it. Nobody reads 4908 minutes as three and a half days, and the number gets longer the staler the picture is, which is when it matters. Hours after an hour, days after two days, in all three languages.
+
+- The security policy names the release you are running. It still said 0.6.x through the whole of 0.7.0, which read as the shipped version getting no fixes. The release now refuses to build if that table and the version disagree.
+
 - The boxes you type in and pick from belong to the app now. Anything the app did not paint itself came out as the browser's own white box with black text sitting in a dark panel: the caption on a postcard and its size, the two newest settings, the record's search and its note editor, the storm motion numbers, the readout's place picker, the box you name a storm in. The quiet hours pickers opened a white calendar with a black clock face. The page never told the browser which palette to draw its own parts in, and that one line fixes the popups, the spinners, the dropdown lists and the scrollbars together.
 
 - The second-monitor and wallpaper settings look like settings. Neither had any styling at all, so each came out as its title and its explanation run together in one paragraph at the wrong size with a bare select underneath, directly below a row of switches that all look right. They match their neighbours now.
