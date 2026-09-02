@@ -85,6 +85,10 @@ import {
   surgeCategoryKey,
   type SurgeCategory,
 } from "../lib/surge";
+import {
+  SATELLITE_PRODUCTS,
+  type SatelliteProductId,
+} from "../lib/providers/satellite";
 import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
 import { MAX_WATCH_PLACES } from "../lib/watch";
 import { overlayBandOrder } from "../lib/overlayOrder";
@@ -222,9 +226,12 @@ interface LayersPanelProps {
   alertTypes: Partial<Record<AlertType, boolean>>;
   /** Which hurricane the surge picture is about. */
   surgeCategory: SurgeCategory;
+  /** Which GOES-East view the satellite layer draws. */
+  satelliteProduct: SatelliteProductId;
   onLayers: (layers: LayerSettings) => void;
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
+  onSatelliteProduct: (product: SatelliteProductId) => void;
   onClose: () => void;
 }
 
@@ -424,6 +431,8 @@ export function LayersPanel({
   onLayers,
   onAlertTypes,
   onSurgeCategory,
+  satelliteProduct,
+  onSatelliteProduct,
   onClose,
 }: LayersPanelProps) {
   const t = useT();
@@ -701,6 +710,40 @@ export function LayersPanel({
               <i className="toggle-track" aria-hidden="true" />
             </label>
           ))}
+        </div>
+      ) : null}
+
+      {layers.satellite ? (
+        <div
+          className="settings-section"
+          data-satellite-product={satelliteProduct}
+        >
+          <div className="settings-section__title">
+            <span>{t("satellite.product")}</span>
+            <small>
+              {t(
+                SATELLITE_PRODUCTS.find(
+                  (product) => product.id === satelliteProduct,
+                )?.detailKey ?? "satellite.geocolorDetail",
+              )}
+            </small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("satellite.product")}
+          >
+            {SATELLITE_PRODUCTS.map((product) => (
+              <button
+                key={product.id}
+                type="button"
+                className={satelliteProduct === product.id ? "is-active" : ""}
+                aria-pressed={satelliteProduct === product.id}
+                onClick={() => onSatelliteProduct(product.id)}
+              >
+                {t(product.key)}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 

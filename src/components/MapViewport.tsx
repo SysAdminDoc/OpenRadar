@@ -25,12 +25,7 @@ import {
 } from "../lib/overlays";
 import { cachedUrl } from "../lib/tileCache";
 import { log } from "../lib/log";
-import {
-  SATELLITE_ATTRIBUTION,
-  SATELLITE_MAX_ZOOM,
-  guardRadarRequest,
-  satelliteTileUrl,
-} from "../lib/providers";
+import { guardRadarRequest, type SatelliteProductId } from "../lib/providers";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import {
   beamHeightFeet,
@@ -61,6 +56,7 @@ import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
+import { syncSatelliteLane } from "../lib/mapLayers/satellite";
 import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import { syncRadarLane } from "../lib/mapLayers/radar";
 import {
@@ -102,19 +98,6 @@ import {
   TRACK_POINT_LAYER_ID,
   WIND_LAYER_ID,
 } from "../lib/layerStack";
-
-const SATELLITE_LANE: RasterLane<number> = {
-  sourceId: "openradar-satellite-source",
-  layerId: SATELLITE_LAYER_ID,
-  attribution: SATELLITE_ATTRIBUTION,
-  opacity: 0.85,
-  // MapLibre's own default, which is what this lane has always drawn at: a
-  // continuous picture where a short cross-fade between two tiles is a fade
-  // between two shades of the same cloud.
-  fadeMs: 300,
-  maxZoom: SATELLITE_MAX_ZOOM,
-  tileUrl: (time) => satelliteTileUrl(time),
-};
 
 const SURGE_LANE: RasterLane<SurgeCategory> = {
   sourceId: "openradar-surge-source",
@@ -219,6 +202,8 @@ interface MapViewportProps {
   wind?: WindField | null;
   /** The published image time to show, or null when the layer is off. */
   satelliteTime?: number | null;
+  /** Which GOES-East view the satellite layer draws. */
+  satelliteProductId?: SatelliteProductId;
   /** The hurricane category the surge picture is for, or null for no picture. */
   surgeCategory?: SurgeCategory | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
@@ -327,6 +312,7 @@ function MapViewportInner(
     flashClock,
     wind = null,
     satelliteTime = null,
+    satelliteProductId = "geocolor",
     surgeCategory = null,
     overlays = {},
     route = null,
@@ -375,6 +361,10 @@ function MapViewportInner(
   );
   const stormTrackRef = useRef<Record<string, unknown> | null>(stormTrack);
   const satelliteTimeRef = useRef(satelliteTime);
+  const satelliteProductRef = useRef(satelliteProductId);
+  // What is on the map now, which is not the same thing while a switch is
+  // still to be applied.
+  const drawnSatelliteRef = useRef(satelliteProductId);
   const surgeCategoryRef = useRef(surgeCategory);
   const overlaysRef = useRef(overlays);
   const routeRef = useRef(route);
@@ -522,9 +512,16 @@ function MapViewportInner(
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
     // Satellite sits under everything, radar included.
-    if (syncRasterLane(map, SATELLITE_LANE, satelliteTimeRef.current, under)) {
-      publishLayers();
-    }
+    const { drawn, changed } = syncSatelliteLane(
+      map,
+      SATELLITE_LAYER_ID,
+      drawnSatelliteRef.current,
+      satelliteProductRef.current,
+      satelliteTimeRef.current,
+      under,
+    );
+    drawnSatelliteRef.current = drawn;
+    if (changed) publishLayers();
   };
 
   const syncSurge = () => {
@@ -1285,6 +1282,10 @@ function MapViewportInner(
     satelliteTimeRef.current = next;
     syncSatellite();
   });
+  useMapSync(satelliteProductId, (next) => {
+    satelliteProductRef.current = next;
+    syncSatellite();
+  });
   useMapSync(surgeCategory, (next) => {
     surgeCategoryRef.current = next;
     syncSurge();
@@ -1335,16 +1336,26 @@ function MapViewportInner(
   });
 
   useImperativeHandle(ref, () => ({
-    zoomIn: () =>
+    // The zoom and compass buttons are the reader moving the map as much as
+    // a drag is. They go through `easeTo` with no browser event, so the map
+    // cannot tell them from a camera the app moved, and they are stamped
+    // here instead.
+    zoomIn: () => {
+      interactedAtRef.current = Date.now();
       mapRef.current?.easeTo({
         zoom: Math.min(15, (mapRef.current?.getZoom() ?? 4) + 1),
-      }),
-    zoomOut: () =>
+      });
+    },
+    zoomOut: () => {
+      interactedAtRef.current = Date.now();
       mapRef.current?.easeTo({
         zoom: Math.max(2.5, (mapRef.current?.getZoom() ?? 4) - 1),
-      }),
-    resetNorth: () =>
-      mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 450 }),
+      });
+    },
+    resetNorth: () => {
+      interactedAtRef.current = Date.now();
+      mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 450 });
+    },
     syncCamera: (nextCamera) => {
       const map = mapRef.current;
       if (!map || sameCamera(asCamera(map), nextCamera)) return;
@@ -1500,20 +1511,20 @@ function MapViewportInner(
       if (suppressCameraEventsRef.current) return;
       onCameraChange?.(asCamera(map));
     });
-    // A gesture rather than a camera the app moved: MapLibre marks its own
-    // moves with no original event, which is exactly the difference here.
-    for (const kind of [
-      "dragstart",
-      "zoomstart",
-      "rotatestart",
-      "pitchstart",
-    ] as const) {
-      map.on(kind, (event) => {
-        if ("originalEvent" in event && event.originalEvent) {
-          interactedAtRef.current = Date.now();
-        }
-      });
-    }
+    // A move the reader made rather than one the app made. MapLibre carries
+    // the browser event that caused a gesture and carries none for a camera
+    // it moved itself, which is the whole of the difference.
+    //
+    // `movestart` rather than the four gesture events: a keyboard pan goes
+    // through `easeTo` with the original key event attached and fires none of
+    // dragstart, zoomstart, rotatestart or pitchstart, so listening for those
+    // left somebody panning with the arrow keys open to having the camera
+    // taken off them.
+    map.on("movestart", (event) => {
+      if ("originalEvent" in event && event.originalEvent) {
+        interactedAtRef.current = Date.now();
+      }
+    });
     map.on("mousemove", (event) =>
       onCursorChange?.({ lon: event.lngLat.lng, lat: event.lngLat.lat }),
     );

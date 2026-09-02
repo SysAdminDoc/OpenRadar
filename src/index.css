@@ -912,6 +912,14 @@ input[type="range"] {
   font-size: 11px;
 }
 
+/* What the picture is: a rendering, or a temperature with a scale. Quieter
+   than the time above it, because it does not change while a reader watches
+   and they only need to read it once. */
+.satellite-chip__legend {
+  max-width: 240px;
+  opacity: 0.85;
+}
+
 .pane-compare {
   position: absolute;
   z-index: 18;

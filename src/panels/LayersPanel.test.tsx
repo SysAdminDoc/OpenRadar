@@ -17,6 +17,8 @@ function panel(overrides: {
     <LayersPanel
       layers={{ ...DEFAULT_SETTINGS.layers, ...overrides.layers }}
       layerNotes={overrides.layerNotes}
+      satelliteProduct={DEFAULT_SETTINGS.satelliteProduct}
+      onSatelliteProduct={vi.fn()}
       overlayOpacity={DEFAULT_SETTINGS.overlayOpacity}
       onOverlayOpacity={vi.fn()}
       overlayOrder={DEFAULT_SETTINGS.overlayOrder}

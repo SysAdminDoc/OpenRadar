@@ -532,12 +532,15 @@ export default function App() {
   useEffect(() => {
     const alert = pendingFollowRef.current;
     if (!alert) return;
+    // One attempt per announcement, and the announcement is spent here
+    // whatever happens next. Holding it until the alerts layer has something
+    // to search flies to a warning minutes later out of nowhere, and the
+    // layer is empty for the whole of a replay and any time the reader has
+    // warnings switched off, which is exactly when the watch is still
+    // announcing.
+    pendingFollowRef.current = null;
     const drawn = overlays.data.alerts;
     if (!drawn) return;
-    // One attempt per announcement: a warning whose polygon is not in what
-    // the map is drawing is a warning this cannot fly to, and holding it
-    // would fly to it minutes later out of nowhere.
-    pendingFollowRef.current = null;
     if (!settingsRef.current.followNewWarnings) return;
     // Not while a picture or a loop is being written: the export walks the
     // camera itself, and a warning arriving mid-recording would put a flight
@@ -569,14 +572,12 @@ export default function App() {
       onAction: () =>
         applySettings({ ...settingsRef.current, followNewWarnings: false }),
     });
-  }, [
-    applySettings,
-    exportState.busy,
-    followSignal,
-    overlays.data.alerts,
-    pushToast,
-    settingsRef,
-  ]);
+    // Deliberately not depending on the drawn alerts: this runs when a
+    // warning is announced and reads whatever the layer holds at that moment.
+    // Waking it again when the layer changes is how a spent announcement came
+    // back to life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applySettings, exportState.busy, followSignal, pushToast, settingsRef]);
 
   useEffect(() => {
     const onVisibility = () => setPageVisible(!document.hidden);
@@ -1365,8 +1366,11 @@ export default function App() {
                   : overlays.states.metar.error,
               // The other layer with a zoom of its own, and the same note:
               // what to do about it rather than a fetch that never happened.
-              riverGauges:
-                settings.camera.zoom < GAUGE_MIN_ZOOM
+              riverGauges: replay
+                ? // Today's river levels over a replay of some other day is
+                  // the same false claim the warnings are held back for.
+                  translate("rivers.replay")
+                : settings.camera.zoom < GAUGE_MIN_ZOOM
                   ? translate("rivers.zoom")
                   : overlays.states.riverGauges.error,
               tropical: overlays.states.tropical.error,
@@ -1462,6 +1466,9 @@ export default function App() {
             }
             onSurgeCategory={(surgeCategory) =>
               applySettings({ ...settingsRef.current, surgeCategory })
+            }
+            onSatelliteProduct={(satelliteProduct) =>
+              applySettings({ ...settingsRef.current, satelliteProduct })
             }
             onHistoryStorm={showStorm}
             onReplayStorm={replayStorm}

@@ -89,7 +89,16 @@ const EMPTY_TEST_STYLE: StyleSpecification = {
  * so the corner of an exported picture and the corner of the window cannot
  * drift apart.
  */
-export const OPENSTREETMAP_CREDIT = "OpenStreetMap";
+/**
+ * The three the OpenFreeMap styles credit.
+ *
+ * Not "OpenStreetMap" alone, which is what the burned line used to say: the
+ * attribution bar on screen reads the style's own TileJSON, and that names
+ * OpenFreeMap for the hosting, OpenMapTiles for the schema and OpenStreetMap
+ * for the data. A picture that credits one of the three is a picture whose
+ * corner disagrees with the window it was taken from.
+ */
+export const OPENSTREETMAP_CREDIT = "OpenFreeMap, OpenMapTiles, OpenStreetMap";
 export const USGS_IMAGERY_CREDIT = "USDA, USGS The National Map: Orthoimagery";
 /** OpenTopoMap asks for this exact credit line. */
 export const OPENTOPOMAP_CREDIT =
@@ -100,7 +109,13 @@ export function basemapCredit(
   theme: ThemeMode,
   incidentPack?: IncidentPackReference | null,
 ): string {
-  if (incidentPack) return incidentPack.attribution;
+  // A pack only gets the credit when its tiles are the ones being drawn.
+  // `mapStyleDefinition` falls back to the network style when the pack has no
+  // template to draw from, and crediting a pack for a picture it did not draw
+  // is the same error as crediting OpenStreetMap for USGS imagery.
+  if (incidentPack && incidentTileTemplate(incidentPack.id)) {
+    return incidentPack.attribution;
+  }
   switch (resolvedMapStyle(id, theme)) {
     case "aerial":
       return USGS_IMAGERY_CREDIT;

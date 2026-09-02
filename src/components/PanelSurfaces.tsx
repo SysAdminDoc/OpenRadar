@@ -38,6 +38,7 @@ import { TropicalPanel } from "../panels/TropicalPanel";
 import { NearbyPanel, type NearbyPlaceOption } from "../panels/NearbyPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
 import type { SurgeCategory } from "../lib/surge";
+import type { SatelliteProductId } from "../lib/providers/satellite";
 import type { StormCellState } from "../hooks/useStormCells";
 import type { NearbyCell, NearbyWarning } from "../lib/nearby";
 import { cellsAvailable } from "../lib/cells";
@@ -114,6 +115,7 @@ interface PanelSurfacesProps {
   nearbyPlaceId: string;
   onNearbyPlace: (id: string) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
+  onSatelliteProduct: (product: SatelliteProductId) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -177,6 +179,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onLayers={props.onLayers}
           onAlertTypes={props.onAlertTypes}
           onSurgeCategory={props.onSurgeCategory}
+          satelliteProduct={settings.satelliteProduct}
+          onSatelliteProduct={props.onSatelliteProduct}
           onClose={onClose}
         />
       ) : null}

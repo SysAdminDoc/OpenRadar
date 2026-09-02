@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FLOOD_CATEGORIES,
+  GAUGE_MIN_ZOOM,
   gaugeUrl,
   parseGauges,
   riverGaugesOverlay,
@@ -114,9 +115,11 @@ describe("reading the gauges", () => {
     expect(row.stageUnit).toBe("");
     expect(row.office).toBe("");
     expect(row.observedCategory).toBeNull();
-    // No category from either side is not a flood; it is a river with no
-    // stages defined, and the map draws it as the calm colour.
-    expect(row.category).toBe("none");
+    // No category from either side is not "below flood stage": it is a gauge
+    // with no flood stages defined, which most of them are. Saying it is
+    // below a threshold nobody has set is telling a reader something nobody
+    // knows, so it is its own category and its own colour.
+    expect(row.category).toBe("unknown");
     expect(row.rising).toBe(false);
   });
 
@@ -167,6 +170,88 @@ describe("reading the gauges", () => {
     expect(better.rising).toBe(false);
   });
 
+  it("does not call a gauge with no flood stages one that is below them", () => {
+    // Most of a real answer is this: 45 of the 79 drawn gauges in a live box
+    // over Iowa carried `not_defined`, and every one of them used to be
+    // painted the calm blue and told as "Below flood stage". There is no
+    // flood stage to be below.
+    const undefinedStages = gauge({
+      lid: "ADEI4",
+      name: "North Raccoon River near Adel IA",
+      status: {
+        observed: {
+          primary: 885.14,
+          primaryUnit: "ft",
+          floodCategory: "not_defined",
+          validTime: "2026-09-01T21:30:00Z",
+        },
+        forecast: {
+          primary: -999,
+          floodCategory: "fcst_not_current",
+          validTime: "0001-01-01T00:00:00Z",
+        },
+      },
+    });
+    const [row] = parseGauges({ gauges: [undefinedStages] }).features;
+    expect(row.properties.category).toBe("unknown");
+    const said = riverGaugesOverlay.describe(row.properties);
+    const text = said.lines.join(" | ");
+    expect(text).toContain("885.14 ft");
+    expect(text).not.toContain("Below flood stage");
+    expect(text.toLowerCase()).toContain("no flood stages");
+  });
+
+  it("reads a field the service starts sending as null as nothing, not as zero", () => {
+    // Number(null) is 0, which is a perfectly good river stage, so a shape
+    // change would have drawn a gauge sitting at zero feet.
+    const nulled = gauge({
+      lid: "NULL1",
+      status: {
+        observed: {
+          primary: null,
+          primaryUnit: null,
+          floodCategory: "no_flooding",
+          validTime: "2026-09-01T22:00:00Z",
+        },
+        forecast: {
+          primary: "",
+          floodCategory: "fcst_not_current",
+          validTime: "",
+        },
+      },
+    });
+    // Nothing measured and nothing forecast, so there is nothing to draw.
+    expect(parseGauges({ gauges: [nulled] }).features).toHaveLength(0);
+  });
+
+  it("puts a date on a reading that is not from the last few hours", () => {
+    const stale = gauge({
+      lid: "WCBI4",
+      name: "Walnut Creek at Des Moines",
+      status: {
+        observed: {
+          primary: 1.64,
+          primaryUnit: "ft",
+          floodCategory: "obs_not_current",
+          // Four days before the fixture's "now", which is what a gauge the
+          // service marks as not reporting actually looks like.
+          validTime: new Date(Date.now() - 4 * 86_400_000).toISOString(),
+        },
+        forecast: {
+          primary: -999,
+          floodCategory: "fcst_not_current",
+          validTime: "0001-01-01T00:00:00Z",
+        },
+      },
+    });
+    const [row] = parseGauges({ gauges: [stale] }).features;
+    const said = riverGaugesOverlay.describe(row.properties);
+    const observed = said.lines[0];
+    expect(observed).toContain("1.64 ft");
+    // A bare clock on a four-day-old number reads as this afternoon.
+    expect(observed).toMatch(/[A-Z][a-z]{2}\s\d/);
+  });
+
   it("ranks the categories worst first", () => {
     expect([...FLOOD_CATEGORIES]).toEqual([
       "major",
@@ -174,6 +259,8 @@ describe("reading the gauges", () => {
       "minor",
       "action",
       "none",
+      // Last, and not a state of the river: the service declining to say.
+      "unknown",
     ]);
   });
 });
@@ -224,10 +311,15 @@ describe("what the panel says about one", () => {
 
 describe("what the layer asks for", () => {
   it("stays off the map until the view is close enough to read", () => {
-    expect(riverGaugesOverlay.minZoom).toBeGreaterThanOrEqual(6);
+    // Pinned rather than bounded. The service sends no Cache-Control, no
+    // ETag and no Expires, so this interval is the whole of the politeness,
+    // and a change to it is a change to how hard the app leans on somebody
+    // else's server. Halving it should be a decision, not a passing test.
+    expect(riverGaugesOverlay.minZoom).toBe(GAUGE_MIN_ZOOM);
+    expect(GAUGE_MIN_ZOOM).toBe(7);
     expect(riverGaugesOverlay.host).toBe("api.water.noaa.gov");
     // Ten minutes against a fifteen minute publishing cycle.
-    expect(riverGaugesOverlay.refreshMs).toBeGreaterThanOrEqual(5 * 60_000);
+    expect(riverGaugesOverlay.refreshMs).toBe(10 * 60_000);
   });
 
   it("asks in degrees, which the service does not assume", async () => {

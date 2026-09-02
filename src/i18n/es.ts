@@ -644,6 +644,16 @@ export const es: Catalogue = {
   "layer.metar": "Observaciones",
   "layer.tropical": "Tropical",
   "layer.satellite": "Satélite",
+  "satellite.geocolor": "GeoColor",
+  "satellite.geocolorDetail":
+    "La imagen diurna, tal como la vería el ojo. De noche se queda a oscuras sobre los topes de las tormentas.",
+  "satellite.geocolorLegend": "Una representación, no una medición",
+  "satellite.cleanIr": "Infrarrojo limpio",
+  "satellite.cleanIrDetail":
+    "Banda 13, 10,3 µm. La temperatura de aquello cuyo tope ve el satélite, que se lee igual a medianoche que a mediodía.",
+  "satellite.cleanIrLegend":
+    "Temperatura de brillo, de −92 a +57 °C, coloreada por NASA GIBS",
+  "satellite.product": "Vista del satélite",
   "layer.rotationTracks": "Huellas de rotación",
   "layer.hail": "Tamaño de granizo",
   "layer.lightningDensity": "Densidad de rayos",
@@ -821,6 +831,8 @@ export const es: Catalogue = {
   "rivers.timeUnknown": "una hora sin indicar",
   "rivers.category": "En inundación {category}",
   "rivers.categoryNone": "Por debajo del nivel de inundación",
+  "rivers.categoryUnknown":
+    "Esta estación no tiene niveles de inundación definidos, o no los está reportando.",
   "rivers.rising":
     "La oficina espera que este empeore respecto a como está ahora.",
   "rivers.office": "Pronosticado por {office}",
@@ -828,9 +840,10 @@ export const es: Catalogue = {
   "rivers.flood.moderate": "moderada",
   "rivers.flood.minor": "menor",
   "rivers.flood.action": "de aviso",
-  "rivers.flood.none": "sin",
   "rivers.failed": "El National Water Prediction Service respondió {status}.",
   "rivers.zoom": "Acerca el mapa para ver las estaciones cerca de la tormenta.",
+  "rivers.replay":
+    "Los niveles de los ríos son actuales, así que se retienen mientras hay una repetición en el mapa.",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
@@ -1019,6 +1032,7 @@ export const es: Catalogue = {
   "fatal.reload": "Recargar OpenRadar",
   "stage.secondary": "Mapa meteorológico interactivo secundario",
   "stage.satelliteAge": " · de hace {count} min",
+  "stage.satellite": "GOES-East {product}",
   "stage.compare": "Comparar",
   "stage.compareOffset": "Desfase de cuadros del panel secundario",
   "stage.compareUnavailable": "No hay suficientes cuadros anteriores",
