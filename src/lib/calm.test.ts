@@ -83,11 +83,15 @@ describe("what the calmer presentation may touch", () => {
     // is exactly the kind of thing that would arrive that way.
     for (const line of rules.split("\n")) {
       if (!/#[0-9a-f]{3,8}|rgba?\(/i.test(line)) continue;
-      // Only the workspace's own accent may be given a literal colour here.
-      // Named as a pattern rather than spelled out, because the theme
-      // boundary test forbids any source file but its own from naming a
-      // token, and this file is not the boundary.
-      expect(line, line.trim()).toMatch(/-[-]accent/);
+      // Only an accent may be given a literal colour here: the workspace's
+      // own, or the command rail's, which is fixed rather than themed
+      // because the rail stays dark in every theme. Named as a pattern
+      // rather than spelled out, because the theme boundary test forbids any
+      // source file but its own from naming a token, and this file is not
+      // the boundary. Matching the exact workspace token alone was the
+      // narrower rule and it refused the rail's, which is the same decision
+      // about the same colour on a surface that cannot take the themed one.
+      expect(line, line.trim()).toMatch(/-[-][a-z-]*accent/);
     }
   });
 
