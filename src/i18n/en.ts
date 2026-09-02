@@ -1412,6 +1412,20 @@ export const en = {
   "calm.advice.general":
     "Read what the office says and follow what your local officials tell you.",
   "calm.what": "What to do",
+  "postcard.notOfficial":
+    "Made with OpenRadar. Not an official product, and not a source of warnings: the office that issues them is.",
+  "postcard.title": "Send it to somebody",
+  "postcard.note":
+    "A composed card rather than the plain picture. The time, the credits and this line are on every one of them, whatever you write:",
+  "postcard.caption": "Write something on it",
+  "postcard.captionPlaceholder":
+    "Hail the size of marbles, and no power since nine.",
+  "postcard.includePlace": "Put the place name on it",
+  "postcard.save": "Save the postcard",
+  "postcard.size.square": "Square",
+  "postcard.size.wide": "Wide",
+  "postcard.size.tall": "Tall",
+  "postcard.sizeLabel": "Shape",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

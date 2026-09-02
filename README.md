@@ -185,6 +185,8 @@ A dozen places where the weather made history are hidden on the map. Nothing mar
 
 Typing a storm's name into the place search answers with the storm rather than asking a geocoder about a town. The whole best track record back to 1851 is bundled, so it works offline, and every storm that carried the name is listed with its year, basin and peak intensity. A name that is also a place still returns the place. Choosing a storm opens its track in Storm history.
 
+**Postcards** sit beside the plain export: the same frame composed as a card, in a square, a wide or a tall shape, with room for a line of your own. Every one carries the observed time, the credits and a line saying it is not an official product, and a caption cannot push any of them off. The place name goes on only if you ask for it.
+
 **A calmer presentation** is there for readers who find severe weather distressing. It turns the app down and never the weather: the same warnings, at the same moment, in the same colours, with a line under each one about what to do rather than how bad it could be. Probability layers start off and come back with one press. Every accessibility check passes with it on.
 
 Alerts have four sounds rather than one, by severity, and you can hear each before committing to it or point at a sound file of your own. None of them imitates the Emergency Alert System attention signal, the wireless alert signal or NOAA Weather Radio's tone, and tests hold that boundary because 47 CFR 11.45 makes it a law rather than a preference.

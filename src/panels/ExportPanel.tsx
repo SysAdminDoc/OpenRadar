@@ -1,7 +1,20 @@
-import { Camera, Film, Image, LoaderCircle, Table2 } from "lucide-react";
+import {
+  Camera,
+  Film,
+  Image,
+  ImageDown,
+  LoaderCircle,
+  Table2,
+} from "lucide-react";
+import { useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { useT } from "../i18n";
 import { MAX_GIF_FRAMES } from "../lib/export";
+import {
+  MAX_CAPTION,
+  POSTCARD_SIZES,
+  type PostcardSize,
+} from "../lib/postcard";
 
 /** One dataset on screen that can be written as numbers. */
 export interface DataExportOffer {
@@ -18,6 +31,14 @@ interface ExportPanelProps {
   busy: string | null;
   progress: { done: number; total: number } | null;
   onExportImage: () => void;
+  /** The same frame as a card to send somebody, beside the plain picture. */
+  onExportPostcard: (options: {
+    size: PostcardSize;
+    written: string;
+    place: string;
+  }) => void;
+  /** The reader's own word for where they live, when they have one. */
+  placeName: string;
   onExportLoop: () => void;
   onExportGif: () => void;
   /** The readings behind the picture, one entry per dataset drawn. */
@@ -30,11 +51,16 @@ export function ExportPanel({
   busy,
   progress,
   onExportImage,
+  onExportPostcard,
+  placeName,
   onExportLoop,
   onExportGif,
   dataExports,
   onClose,
 }: ExportPanelProps) {
+  const [written, setWritten] = useState("");
+  const [withPlace, setWithPlace] = useState(false);
+  const [size, setSize] = useState<PostcardSize>(POSTCARD_SIZES[0]);
   const t = useT();
 
   return (
@@ -91,6 +117,75 @@ export function ExportPanel({
             })
           : ""}
       </button>
+
+      <div className="settings-section" data-postcard>
+        <div className="settings-section__title">
+          <span>{t("postcard.title")}</span>
+        </div>
+        <p className="source-note">{t("postcard.note")}</p>
+        {/* The line the picture carries, shown here as well, so what the
+            card says about itself is not a promise made out of sight. */}
+        <p className="source-note" data-postcard-disclaimer>
+          {t("postcard.notOfficial")}
+        </p>
+        <label className="settings-field">
+          <span>{t("postcard.caption")}</span>
+          <input
+            type="text"
+            value={written}
+            maxLength={MAX_CAPTION}
+            placeholder={t("postcard.captionPlaceholder")}
+            onChange={(event) => setWritten(event.target.value)}
+          />
+        </label>
+        <label className="settings-field">
+          <span>{t("postcard.sizeLabel")}</span>
+          <select
+            value={size.id}
+            onChange={(event) =>
+              setSize(
+                POSTCARD_SIZES.find((one) => one.id === event.target.value) ??
+                  POSTCARD_SIZES[0],
+              )
+            }
+          >
+            {POSTCARD_SIZES.map((one) => (
+              <option key={one.id} value={one.id}>
+                {t(`postcard.size.${one.id}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {placeName ? (
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("postcard.includePlace")}</strong>
+            </span>
+            <input
+              type="checkbox"
+              checked={withPlace}
+              onChange={(event) => setWithPlace(event.target.checked)}
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+        ) : null}
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={busy !== null}
+          onClick={() =>
+            onExportPostcard({
+              size,
+              written,
+              // Off unless the reader said so: where somebody lives is not
+              // something a picture they are about to send needs to say.
+              place: withPlace ? placeName : "",
+            })
+          }
+        >
+          <ImageDown size={16} /> {t("postcard.save")}
+        </button>
+      </div>
 
       {dataExports.length ? (
         <div className="settings-section" data-data-exports>

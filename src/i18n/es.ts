@@ -1436,6 +1436,20 @@ export const es: Catalogue = {
   "calm.advice.general":
     "Lee lo que dice la oficina y haz lo que te digan las autoridades locales.",
   "calm.what": "Qué hacer",
+  "postcard.notOfficial":
+    "Hecho con OpenRadar. No es un producto oficial ni una fuente de avisos: lo es la oficina que los emite.",
+  "postcard.title": "Mándasela a alguien",
+  "postcard.note":
+    "Una tarjeta compuesta en lugar de la imagen simple. La hora, los créditos y esta línea van en todas ellas, escribas lo que escribas:",
+  "postcard.caption": "Escribe algo en ella",
+  "postcard.captionPlaceholder":
+    "Granizo del tamaño de canicas, y sin luz desde las nueve.",
+  "postcard.includePlace": "Poner el nombre del lugar",
+  "postcard.save": "Guardar la postal",
+  "postcard.size.square": "Cuadrada",
+  "postcard.size.wide": "Apaisada",
+  "postcard.size.tall": "Vertical",
+  "postcard.sizeLabel": "Formato",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":

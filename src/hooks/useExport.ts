@@ -15,6 +15,7 @@ import {
   type DataExportReport,
 } from "../lib/dataExport";
 import { log } from "../lib/log";
+import { drawPostcard, type PostcardSize } from "../lib/postcard";
 import type { OverlayBounds } from "../lib/overlays";
 import type { RadarProvider } from "../lib/providers";
 import {
@@ -49,6 +50,17 @@ export interface ExportState {
   busy: string | null;
   progress: { done: number; total: number } | null;
   exportImage: () => void;
+  /**
+   * The same frame as a card to send somebody.
+   *
+   * Beside the plain export rather than instead of it: evidence and a
+   * postcard are different jobs, and the plain one is unchanged.
+   */
+  exportPostcard: (options: {
+    size: PostcardSize;
+    written: string;
+    place: string;
+  }) => void;
   exportLoopVideo: () => void;
   /** The same loop as a GIF, which pastes into places a WebM does not. */
   exportLoopGifFile: () => void;
@@ -229,6 +241,44 @@ export function useExport(options: {
     })();
   }, [captionFor, finish, frameIndex, mapRef, pushToast]);
 
+  const exportPostcard = useCallback(
+    (options: { size: PostcardSize; written: string; place: string }) => {
+      void (async () => {
+        const canvas = mapRef.current?.canvas();
+        if (!canvas) return;
+        drawnRef.current.clear();
+        setBusy("image");
+        try {
+          const blob = await drawPostcard({
+            frame: canvas,
+            size: options.size,
+            // The same caption the plain export burns in, written from the
+            // frame's own provenance, so the two pictures cannot disagree
+            // about what they are of.
+            caption: captionFor(frameIndex),
+            written: options.written,
+            place: options.place,
+          });
+          await finish(
+            exportFileName(`openradar-postcard-${options.size.id}`, "png"),
+            blob,
+          );
+        } catch (failure) {
+          log.warn(
+            "export",
+            failure instanceof Error
+              ? failure.message
+              : translate("export.failed"),
+          );
+          pushToast({ title: translate("export.imageFailed") });
+        } finally {
+          setBusy(null);
+        }
+      })();
+    },
+    [captionFor, finish, frameIndex, mapRef, pushToast],
+  );
+
   // The two loop exports are the same walk through the frames with a
   // different encoder on the end, so they are written once.
   const exportLoopAs = useCallback(
@@ -349,6 +399,7 @@ export function useExport(options: {
     busy,
     progress,
     exportImage,
+    exportPostcard,
     exportLoopVideo,
     exportLoopGifFile,
     dataExports,

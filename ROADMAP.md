@@ -46,16 +46,3 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Acceptance: The reader's previous wallpaper is recorded before the first write and restored when the feature is switched off; the schedule has a floor that keeps provider requests inside the budget, and it stops while the machine is offline rather than writing an empty map; every written picture carries its time, its source credits, and its own age; a failed write reaches a toast and the log instead of failing silently; the feature is Windows-only for now and says so; nothing is written anywhere except the configured wallpaper path.
       Note (2026-08-31): Use the `IDesktopWallpaper` COM interface from the `windows` crate (per-monitor, no elevation); `SystemParametersInfoW` is the single-monitor fallback. The cautionary tale is Microsoft's own Bing Wallpaper app, panned in November 2024 for bundling everything but wallpaper: this feature does one thing, opt-in, and restores what it found.
       Complexity: L
-
-- [ ] JOY-020: Compose a shareable postcard rather than a bare screenshot
-      Why: The export produces an accurate picture with credits burned in, which is right for evidence and slightly plain for the thing somebody wants to send a relative. A composed card with the place, the time, an optional line the reader writes, and sensible dimensions for sharing costs little and is how the app travels to people who have not heard of it.
-      Evidence: `src/hooks/useExport.ts`; `src/panels/ExportPanel.tsx`; `src/lib/export.ts`; JOY-008
-      Touches: Card layout and sizes; the caption field; attribution placement; the existing export path; translations
-      Acceptance: The card carries observed time, source credits, and the app name in every variant, and the caption cannot displace any of them; the reader's location is included only when they choose to include it; the picture is never presented as an official product and carries the same not-a-warning-source position the app takes; sizes are documented and the layout holds at each of them in both languages; the plain export stays exactly as it is, because evidence and a postcard are different jobs.
-      Complexity: M
-
-The record, the named places and the token boundary are all in place now, so the rest of this section can be taken in any order.
-
-## Research-Driven Additions
-
-Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
