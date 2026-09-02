@@ -1056,6 +1056,14 @@ export function SettingsPanel({
             onSettings({ ...settings, watch: { ...settings.watch, sound } })
           }
         />
+        <ToggleSetting
+          label={t("watch.followNew")}
+          detail={t("watch.followNewDetail")}
+          checked={settings.followNewWarnings}
+          onChange={(followNewWarnings) =>
+            onSettings({ ...settings, followNewWarnings })
+          }
+        />
         <label className="range-row">
           <span>
             <strong>{t("settings.radius")}</strong>

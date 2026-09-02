@@ -173,13 +173,6 @@ The three worth starting with are JOY-007 and JOY-008 together, since the journa
 
 Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
 
-- [ ] AUD-098: P3. Offer to follow new warnings, off by default
-      Why: A competitor request asks the map to fly to a warning as it is issued. As an opt-in behaviour with the camera returning control the moment the reader touches the map, it turns monitoring into something the app does with you rather than a thing you chase.
-      Evidence: https://github.com/dpaulat/supercell-wx/issues/637 ; `src/hooks/useAlertWatch.ts`; `src/components/MapViewport.tsx`; `src/hooks/useClock.ts`
-      Touches: An opt-in setting; camera handoff rules; interruption and reduced-motion behaviour; interaction with export and ambient states
-      Acceptance: With the option on, a newly issued warning matching the reader's filters flies the camera once and says why; any user interaction cancels the follow instantly; it never fires during an export and respects reduced motion; with the option off nothing changes; alert copy for the flight lives in the catalogue in both languages.
-      Complexity: S
-
 - [ ] JOY-021: P3. Hide a small set of map curiosities worth finding
       Why: Collectible secret locations are a proven loyalty mechanic in exactly one weather app, which built a business partly on people hunting them. OpenRadar's version is truthful rather than fictional: a curated set of places where the weather made history, each telling its story when found, with the bundled track archive already able to draw many of them.
       Evidence: https://forums.macrumors.com/threads/carrot-weather-secret-locations.1862623/ ; https://developer.apple.com/news/?id=kf623ldf ; `src/lib/hurdat.ts`; `public/hurdat/`; JOY-009; JOY-014

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { ToastMessage } from "../components/ToastHost";
 import type { OverlayBounds, OverlayData, OverlayId } from "../lib/overlays";
@@ -40,6 +40,15 @@ export function useWorkspaceOverlays(options: {
   replaying: boolean;
   pushToast: (message: Omit<ToastMessage, "id">) => void;
   setActiveSurface: (surface: SurfaceId) => void;
+  /**
+   * Every alert the watch decided was worth saying, for a caller that wants
+   * to do something with the map about it.
+   *
+   * The same decision the toast and the live region are made from, so a
+   * followed warning is a warning the reader was told about rather than a
+   * second, quieter rule about which ones matter.
+   */
+  onAnnounced?: (alert: WatchAlert) => void;
 }): WorkspaceOverlays {
   const { settings, viewport, pushToast, setActiveSurface, replaying } =
     options;
@@ -119,12 +128,18 @@ export function useWorkspaceOverlays(options: {
    * only the sentence.
    */
   const [announcement, setAnnouncement] = useState({ said: 0, text: "" });
+  const announcedRef = useRef(options.onAnnounced);
+  useEffect(() => {
+    announcedRef.current = options.onAnnounced;
+  }, [options.onAnnounced]);
+
   const announce = useCallback((alert: WatchAlert) => {
     const text = translate("nearby.announcement", {
       headline: alert.headline,
       body: watchAlertBody(alert),
     });
     setAnnouncement((was) => ({ said: was.said + 1, text }));
+    announcedRef.current?.(alert);
   }, []);
 
   const watch = useAlertWatch(

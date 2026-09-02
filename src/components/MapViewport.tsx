@@ -153,6 +153,15 @@ export interface MapViewportHandle {
   canvas: () => HTMLCanvasElement | null;
   /** Resolves once the map has finished drawing what it was given. */
   onceIdle: () => Promise<void>;
+  /**
+   * When the reader last moved the map themselves, or null if they never
+   * have.
+   *
+   * MapLibre stops a camera animation the moment a gesture starts, so an
+   * interruption needs nothing from us. This is for the other half: not
+   * taking the camera off somebody who is using it.
+   */
+  interactedAt: () => number | null;
 }
 
 interface MapViewportProps {
@@ -335,6 +344,9 @@ function MapViewportInner(
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  // When the reader last moved the map themselves, so nothing takes the
+  // camera off somebody who is using it.
+  const interactedAtRef = useRef<number | null>(null);
   const radarFrameRef = useRef<RadarFrame | undefined>(radarFrame);
   const radarVisibleRef = useRef(radarVisible);
   const radarOpacityRef = useRef(radarOpacity);
@@ -1348,6 +1360,7 @@ function MapViewportInner(
         suppressCameraEventsRef.current -= 1;
       }
     },
+    interactedAt: () => interactedAtRef.current,
     fitBounds: (bounds) => {
       const map = mapRef.current;
       if (!map) return;
@@ -1487,6 +1500,20 @@ function MapViewportInner(
       if (suppressCameraEventsRef.current) return;
       onCameraChange?.(asCamera(map));
     });
+    // A gesture rather than a camera the app moved: MapLibre marks its own
+    // moves with no original event, which is exactly the difference here.
+    for (const kind of [
+      "dragstart",
+      "zoomstart",
+      "rotatestart",
+      "pitchstart",
+    ] as const) {
+      map.on(kind, (event) => {
+        if ("originalEvent" in event && event.originalEvent) {
+          interactedAtRef.current = Date.now();
+        }
+      });
+    }
     map.on("mousemove", (event) =>
       onCursorChange?.({ lon: event.lngLat.lng, lat: event.lngLat.lat }),
     );

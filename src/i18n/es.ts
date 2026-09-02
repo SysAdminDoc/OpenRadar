@@ -694,6 +694,13 @@ export const es: Catalogue = {
   "nearby.keysBody":
     "Tabula hasta el mapa; las flechas lo desplazan y las teclas más y menos hacen zoom. Mantén Mayús con una flecha para girarlo o inclinarlo. Nada en el mapa necesita arrastrar.",
   "nearby.announcement": "{headline}. {body}",
+  "follow.went": "El mapa fue al {headline}",
+  "follow.wentBody":
+    "Seguir los avisos nuevos está activado. Mueve el mapa y te dejará en paz un rato.",
+  "follow.stop": "Dejar de seguir",
+  "watch.followNew": "Ir a los avisos nuevos",
+  "watch.followNewDetail":
+    "Lleva el mapa a un aviso en cuanto llega a un lugar vigilado. Si mueves el mapa se detiene el vuelo, y el siguiente espera un rato.",
   "nearby.north": "norte",
   "nearby.northeast": "noreste",
   "nearby.east": "este",
