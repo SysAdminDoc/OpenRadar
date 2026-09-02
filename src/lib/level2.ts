@@ -2,6 +2,8 @@ import { isDesktopRuntime } from "./settings";
 import { translate, type StringKey } from "../i18n";
 import { nativeErrorParams } from "./nativeError";
 import { en } from "../i18n/en";
+import { haversineMiles } from "./geo";
+import { formatDistance } from "./units";
 
 /** Below this the national mosaic is the better picture, and cheaper. */
 export const SINGLE_SITE_MIN_ZOOM = 8;
@@ -283,6 +285,47 @@ export function sweepAgeMinutes(sweep: SweepImage, nowMs: number): number {
   const collected = Date.parse(sweep.collected);
   if (!Number.isFinite(collected)) return 0;
   return Math.max(0, Math.floor((nowMs - collected) / 60_000));
+}
+
+/**
+ * A held station's own line: what it is called, how far it is, and whether it
+ * is still sending.
+ *
+ * A reader who has pinned a station has made it theirs, and the two things
+ * they cannot read off the picture are how far away it is and whether the
+ * picture is still arriving. A WSR-88D runs a volume every four to six
+ * minutes in precipitation mode and about ten in clear air, so twenty minutes
+ * of silence is the site being down rather than a slow scan.
+ *
+ * The site's own position is the middle of the extent the sweep was drawn
+ * over, which is the site by construction: the renderer squares the picture
+ * on the radar.
+ */
+export const STATION_QUIET_AFTER_MINUTES = 20;
+
+export function stationSummary(
+  sweep: SweepImage,
+  watch: { center: [number, number]; name?: string },
+  nowMs: number,
+): string {
+  const site = {
+    lon: (sweep.west + sweep.east) / 2,
+    lat: (sweep.south + sweep.north) / 2,
+  };
+  const minutes = sweepAgeMinutes(sweep, nowMs);
+  const publishing =
+    sweep.source.kind === "recent" && minutes < STATION_QUIET_AFTER_MINUTES;
+  return translate(publishing ? "radar.stationHeld" : "radar.stationQuiet", {
+    station: sweep.station,
+    distance: formatDistance(
+      haversineMiles({ lon: watch.center[0], lat: watch.center[1] }, site),
+    ),
+    home: watch.name?.trim() || translate("watch.home"),
+    age:
+      minutes < 1
+        ? translate("radar.justIn")
+        : translate("radar.minutesOld", { count: minutes }),
+  });
 }
 
 /** Earth's radius, in kilometres. */

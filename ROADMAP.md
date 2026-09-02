@@ -51,13 +51,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
       Acceptance: The reveal plays once, can be skipped by any interaction, never delays the map becoming usable, and does not play at all under reduced motion; the opening line names a real observation with a source and a time and says plainly when it has nothing to report; it never invents a hazard or softens one; both strings live in the catalogue and pass the pseudolocale clipping test; a reader who has seen it once never sees it again, and a reader who wants it back can ask.
       Complexity: M
 
-- [ ] JOY-006: Let a reader name their home place and their radar
-      Why: Every attachment this app can earn starts here. Right now the watched place is a coordinate pair with a radius, and the single-site radar is whichever station the view happens to be over. Somebody who can call a place Home and a station Ours, see the call sign on the legend, and get back to both in one action has a workspace rather than a viewer.
-      Evidence: `src/lib/watch.ts`; `src/hooks/useAlertWatch.ts`; `src/hooks/useSingleSiteRadar.ts`; `src/lib/settings.ts`; `src/panels/MapOptionsPanels.tsx`; AUD-077
-      Touches: Named place and station records; the home action; the legend and station badge; search and command entries; settings migration; workspace backup
-      Acceptance: A place carries a name the reader chose and that name appears in the watch surface, in alert text, and in the journal; a held station shows its call sign, its distance from home, and whether it is currently publishing; one action returns the camera home from anywhere including the globe; names round-trip through workspace backup; nothing about naming changes what is polled or how often.
-      Complexity: M
-
 - [ ] JOY-007: Keep a bounded local log of observations and events at the reader's places
       Why: Almost everything below wants a memory the app does not have. There is a disk cache for tiles and frames, which is about not refetching, and there is nothing that records that it hailed here on the fourteenth. This is the foundation item for the journal, the recap, and any local climate context, and it needs designing once, carefully, because it is a file of somebody's whereabouts.
       Evidence: `src-tauri/src/cache.rs`; `src/lib/settings.ts`; `src/hooks/useAlertWatch.ts`; `src/lib/workspaceBackup.ts`; JOY-006

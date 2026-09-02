@@ -18,6 +18,7 @@ import {
   speedToMetres,
   speedUnit,
   useMeasurements,
+  utcHourLabel,
 } from "./units";
 
 afterEach(() => {
@@ -117,6 +118,19 @@ describe("the units the workspace reads in", () => {
     setLanguage("en");
     setClockZone("utc");
     expect(formatClock(at)).toMatch(/^18:05Z$/);
+  });
+
+  it("names a model cycle with the same marker the clock uses", async () => {
+    // A legend that says 12Z beside a clock that says 18 h 05 UTC is a window
+    // arguing with itself.
+    const at = Date.UTC(2026, 7, 30, 12, 0);
+    expect(utcHourLabel(at)).toBe("12Z");
+
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    expect(utcHourLabel(at)).toBe("12 UTC");
+    setClockZone("utc");
+    expect(formatClock(at)).toMatch(/ UTC$/);
   });
 
   it("marks a time and leaves a date alone", () => {

@@ -134,8 +134,9 @@ const numberFormats = new Map<string, Intl.NumberFormat>();
  * The digit count is the caller's, because it is a statement about the
  * instrument rather than about the language: a radar tilt is read to a
  * hundredth of a degree whoever is looking at it. Grouping is the locale's,
- * and no caller here has ever reached a thousand, so this changes nothing
- * about what an English reader sees today.
+ * and almost nothing here reaches a thousand: the two that do, an export over
+ * a gigabyte and a pack ceiling, gain the separator English has always wanted
+ * there.
  *
  * The formatters are kept because building one is the expensive part and the
  * readouts call this on every mouse move.
@@ -160,10 +161,26 @@ export function formatNumber(
  */
 export function formatMeasure(
   value: number,
-  maxDigits = 2,
+  maxDigits = decimals(value),
   which: LanguageId = current,
 ): string {
   return formatter(locale(which), 0, maxDigits).format(value);
+}
+
+/**
+ * How many decimals a number is actually carrying.
+ *
+ * The default has to be the value's own precision rather than a number
+ * somebody picked, or this quietly rounds. A colour table can label a stop at
+ * 0.0125, and a cap of two digits turned that into 0.01 and a stop at 0.001
+ * into 0, so the bar beside the map stopped saying what the map was painted
+ * with. Twenty is the ceiling `Intl` accepts and far past anything real.
+ */
+function decimals(value: number): number {
+  const text = String(value);
+  if (/e/i.test(text)) return 20;
+  const point = text.indexOf(".");
+  return point < 0 ? 0 : Math.min(text.length - point - 1, 20);
 }
 
 function formatter(tag: string, min: number, max: number): Intl.NumberFormat {

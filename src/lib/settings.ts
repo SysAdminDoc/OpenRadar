@@ -16,7 +16,12 @@ import {
   SATELLITE_PRODUCTS,
   type SatelliteProductId,
 } from "./providers/satellite";
-import { parseTheme, themeText, type WorkspaceTheme } from "./theme";
+import {
+  parseTheme,
+  themeText,
+  THEME_TOKENS,
+  type WorkspaceTheme,
+} from "./theme";
 import { TEXT_SCALES } from "./units";
 import type { ClockZone, TextScale, UnitSystem } from "./units";
 
@@ -143,6 +148,14 @@ export interface LayerSettings {
 
 export interface WatchState {
   enabled: boolean;
+  /**
+   * What the reader calls home, when they have called it anything.
+   *
+   * Absent until somebody names it, and then it is what the watch surface and
+   * an alert say instead of the built-in word. It is a label and nothing
+   * else: no request, no poll and no radius depends on it.
+   */
+  name?: string;
   /**
    * A short tone when an alert reaches the watched place. Off until asked
    * for: a weather app that makes a noise on its own is one people close.
@@ -493,6 +506,9 @@ function normalizeWatch(value: unknown): WatchState {
       ? (severity as WatchState["minSeverity"])
       : DEFAULT_SETTINGS.watch.minSeverity,
     quietHours: normalizeQuietHours(raw.quietHours),
+    ...(typeof raw.name === "string" && raw.name.trim()
+      ? { name: raw.name.trim().slice(0, 60) }
+      : {}),
   };
 }
 
@@ -516,7 +532,12 @@ export function watchedPlaces(settings: AppSettings): WatchPlace[] {
   const home: WatchPlace = {
     ...settings.watch,
     id: "home",
-    name: translate("watch.home"),
+    // The reader's own word for it if they have one, and the built-in word if
+    // they have not. `named` is what tells an announcement apart: a place
+    // somebody called Casa is worth saying, and the default "Home" said back
+    // to somebody who watches one place is noise.
+    name: settings.watch.name?.trim() || translate("watch.home"),
+    named: Boolean(settings.watch.name?.trim()),
   };
   return [home, ...settings.watchPlaces].slice(0, MAX_WATCH_PLACES);
 }
@@ -960,7 +981,10 @@ export function restoreSettings(value: unknown): RestoredSettings {
   nested(raw.camera, Object.keys(DEFAULT_SETTINGS.camera), "camera");
   nested(raw.radar, Object.keys(DEFAULT_SETTINGS.radar), "radar");
   nested(raw.layers, Object.keys(DEFAULT_SETTINGS.layers), "layers");
-  nested(raw.watch, Object.keys(DEFAULT_SETTINGS.watch), "watch");
+  // `name` is optional, so it is not a key of the default and has to be
+  // named here or a backup carrying one reports it as a key this build did
+  // not read.
+  nested(raw.watch, [...Object.keys(DEFAULT_SETTINGS.watch), "name"], "watch");
   nested(
     raw.incidentPacks,
     Object.keys(DEFAULT_SETTINGS.incidentPacks),
@@ -968,7 +992,27 @@ export function restoreSettings(value: unknown): RestoredSettings {
   );
   const radar = raw.radar as Record<string, unknown> | undefined;
   nested(radar?.stormMotion, ["speedMs", "fromDegrees"], "radar.stormMotion");
-  nested(raw.workspaceTheme, ["name", "base", "tokens"], "workspaceTheme");
+  // A theme is checked to its own tokens too, the way a palette's stops are:
+  // a directive this build has never heard of is dropped by the parser, and
+  // dropping it silently is how a reader restores a file and cannot see what
+  // did not come back. A value that is not a theme at all is reported as one
+  // key rather than inspected, since there is nothing inside it to inspect.
+  const storedTheme = raw.workspaceTheme;
+  const themeIsRecord =
+    !!storedTheme &&
+    typeof storedTheme === "object" &&
+    !Array.isArray(storedTheme);
+  // Null is the value for "no theme" rather than a value nobody could read.
+  if (storedTheme !== undefined && storedTheme !== null && !themeIsRecord) {
+    unread.push("workspaceTheme");
+  } else {
+    nested(storedTheme, ["name", "base", "tokens"], "workspaceTheme");
+    nested(
+      (storedTheme as Record<string, unknown> | undefined)?.tokens,
+      THEME_TOKENS.map((token) => token.directive),
+      "workspaceTheme.tokens",
+    );
+  }
   nested(
     raw.palette,
     ["name", "product", "units", "step", "stops", "rangeFolded", "skipped"],

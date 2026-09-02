@@ -1,7 +1,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ensureLanguage, formatNumber, setLanguage } from "./index";
+import {
+  ensureLanguage,
+  formatMeasure,
+  formatNumber,
+  setLanguage,
+} from "./index";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -116,6 +121,36 @@ describe("numbers a reader reads", () => {
     // a radar tilt is read to a hundredth of a degree whoever is looking.
     expect(formatNumber(0.5, 2)).toBe("0.50");
     expect(formatNumber(12, 0)).toBe("12");
+  });
+
+  it("keeps a measured number's own precision by default", async () => {
+    // A legend stop is whatever the colour table said it was. Capping the
+    // decimals turned a stop at 0.0125 into 0.01 and one at 0.001 into 0, so
+    // the bar beside the map stopped saying what the map was painted with.
+    for (const value of [0, 5, 0.5, 0.001, 0.0125, 12.75, -2, 1.5]) {
+      expect(formatMeasure(value), String(value)).toBe(String(value));
+    }
+    // And a caller that does want a cap still gets one.
+    expect(formatMeasure(0.0125, 2)).toBe("0.01");
+
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    expect(formatMeasure(0.0125)).toBe("0,0125");
+  });
+
+  it("marks a UTC hour in one place", () => {
+    // Three legends built "12Z" by hand while the clock beside them said
+    // "18 h 05 UTC", so a French window contradicted itself. The marker is a
+    // catalogue string and `utcHourLabel` is the only thing that appends it.
+    const offenders: string[] = [];
+    for (const path of sourceFiles(ROOT)) {
+      if (path.endsWith(join("lib", "units.ts"))) continue;
+      const source = readFileSync(path, "utf8");
+      for (const match of source.matchAll(/padStart\(2, "0"\)\}Z/g)) {
+        offenders.push(`${path.slice(ROOT.length + 1)}: ${match[0]}`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   it("leaves toFixed only where nobody reads the result", () => {

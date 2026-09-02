@@ -388,9 +388,17 @@ export function useWorkspaceActions(options: {
         if (looksLikeTheme(file.name, text)) {
           const read = parseTheme(text, file.name);
           if (!read) throw new Error(translate("toast.themeEmpty"));
-          const previous = settingsRef.current.workspaceTheme;
+          const previous = {
+            theme: settingsRef.current.theme,
+            workspaceTheme: settingsRef.current.workspaceTheme,
+          };
+          // `Base` is the look the file was drawn against, so importing one
+          // takes the workspace there. It is a statement about the file
+          // rather than a setting of its own: the dark and light buttons
+          // still work afterwards, and the theme stays on either way.
           applySettings({
             ...settingsRef.current,
+            theme: read.theme.base,
             workspaceTheme: read.theme,
           });
           setActiveSurface(null);
@@ -409,10 +417,7 @@ export function useWorkspaceActions(options: {
             detail: notes.join(" "),
             actionLabel: translate("toast.undo"),
             onAction: () =>
-              applySettings({
-                ...settingsRef.current,
-                workspaceTheme: previous,
-              }),
+              applySettings({ ...settingsRef.current, ...previous }),
           });
           return;
         }

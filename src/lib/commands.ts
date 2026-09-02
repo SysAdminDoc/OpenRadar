@@ -9,7 +9,8 @@ export type CommandAction =
   | { kind: "product"; product: string }
   | { kind: "surface"; surface: string }
   | { kind: "tool"; tool: string }
-  | { kind: "capture" };
+  | { kind: "capture" }
+  | { kind: "home" };
 
 export interface Command {
   id: string;
@@ -451,6 +452,19 @@ export function allCommands(which?: LanguageId): Command[] {
       keywords: searchTerms(entry.keywords, entry.extra, which),
       action: { kind: "surface", surface: entry.surface },
     })),
+    {
+      // One action back to the place the reader watches, from anywhere,
+      // including the far side of the globe.
+      id: "home",
+      label: translate("watch.goHome", undefined, which),
+      group: translate("command.group.layout", undefined, which),
+      keywords: searchTerms(
+        ["home", "back", "my place", "watched"],
+        "keywords.home",
+        which,
+      ),
+      action: { kind: "home" },
+    },
     {
       id: "capture",
       label: translate("capture.title", undefined, which),

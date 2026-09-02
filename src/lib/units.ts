@@ -264,6 +264,18 @@ export function formatTideHeight(feet: number): string {
 }
 
 /**
+ * A model cycle, named by the UTC hour it started.
+ *
+ * A run is called 12Z by everybody who works with one, and the marker is the
+ * same one a clock carries, so it is the same string: a French window that
+ * says "18 h 05 UTC" on the clock must not say "12Z" in the legend beside it.
+ */
+export function utcHourLabel(atMs: number): string {
+  const hour = String(new Date(atMs).getUTCHours()).padStart(2, "0");
+  return `${hour}${translate("time.utcSuffix")}`;
+}
+
+/**
  * A time, in the clock the reader asked for.
  *
  * UTC is what a forecaster works in and what every product is stamped with, so

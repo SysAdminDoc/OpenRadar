@@ -553,6 +553,10 @@ export const fr: Catalogue = {
     "Le radar terminal d'un aéroport ne publie que la réflectivité et la vitesse, jusqu'à 48 milles marins, avec une réflectivité longue portée jusqu'à 225. Les autres produits restent indisponibles tant qu'il est retenu.",
   "radar.followMap": "Suivre la carte",
   "radar.hold": "Retenir {station}",
+  "radar.stationHeld":
+    "{station}, à {distance} de {home}, en train de publier.",
+  "radar.stationQuiet":
+    "{station}, à {distance} de {home}. Rien de nouveau depuis {age}.",
   "radar.opacityLabel": "Opacité du radar",
 
   "command.group.layer": "Couche",
@@ -562,6 +566,7 @@ export const fr: Catalogue = {
   "command.group.tool": "Outil",
   "command.group.layout": "Disposition",
   "keywords.capture": "capture direct diffusion propre observation",
+  "keywords.home": "chez soi maison retour endroit surveille",
   "layer.probSevere": "Probabilité de sévérité",
   "layers.probSevereDetail":
     "Ce qu'un modèle attend de chaque orage dans la prochaine heure, ce qui tient de l'orientation et non de l'alerte",
@@ -969,6 +974,7 @@ export const fr: Catalogue = {
   "settings.radiusValue": "{distance}",
   "settings.radiusLabel": "Rayon surveillé, en {unit}",
   "settings.watchCentre": "Surveiller le centre de la carte",
+  "settings.homeName": "Le nom que vous donnez à chez vous",
   "settings.placeName": "Nom de l'endroit",
   "settings.placeNumber": "Endroit {number}",
   "settings.placeRadius": "Rayon autour de {place}, en {unit}",
@@ -1281,6 +1287,7 @@ export const fr: Catalogue = {
   "watch.testHeadline": "Alerte de test",
   "watch.quiet": "Heures de silence",
   "watch.home": "Domicile",
+  "watch.goHome": "Revenir chez soi",
   "watch.atPlace": "À {place}.",
   "watch.atPlaces": "À {places}.",
   "watch.quietDetail":

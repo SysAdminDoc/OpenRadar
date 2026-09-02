@@ -832,13 +832,16 @@ function ToggleSetting({
 /**
  * What the colour control shows before anybody has chosen anything.
  *
- * The built-in accent per theme, copied from the stylesheet. A colour input
- * has no "unset" state, so it has to open on something, and opening on the
- * colour actually on screen is the only honest choice.
+ * The built-in accent per theme, copied from the LAST accent declaration in
+ * `index.css` rather than the first: the stylesheet sets it twice and the
+ * later pair is what a reader is looking at. A colour input has no "unset"
+ * state, so it has to open on something, and opening on the colour actually
+ * on screen is the only honest choice, so `theme.test.ts` holds these two in
+ * step with the stylesheet.
  */
 const BUILT_IN_ACCENT: Record<AppSettings["theme"], string> = {
-  dark: "#6dd5fa",
-  light: "#0369a1",
+  dark: "#4bc0ff",
+  light: "#0879b8",
 };
 
 export function SettingsPanel({
@@ -1145,6 +1148,26 @@ export function SettingsPanel({
             onSettings({ ...settings, watch: { ...settings.watch, enabled } })
           }
         />
+        {/* Home is a coordinate pair until somebody calls it something, and
+            a place with a name is the difference between a viewer and a
+            workspace. It is a label and nothing else: nothing about what is
+            polled, or how often, reads it. */}
+        <label className="watch-place__name">
+          <span>{t("settings.homeName")}</span>
+          <input
+            type="text"
+            maxLength={60}
+            value={settings.watch.name ?? ""}
+            placeholder={t("watch.home")}
+            aria-label={t("settings.homeName")}
+            onChange={(event) =>
+              onSettings({
+                ...settings,
+                watch: { ...settings.watch, name: event.target.value },
+              })
+            }
+          />
+        </label>
         <ToggleSetting
           label={t("alerts.sound")}
           detail={t("alerts.soundDetail")}

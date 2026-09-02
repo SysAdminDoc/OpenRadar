@@ -540,6 +540,9 @@ export const en = {
     "An airport's terminal radar publishes reflectivity and velocity only, to 48 nautical miles, with a long range reflectivity to 225. The other products stay unavailable while it is held.",
   "radar.followMap": "Follow the map",
   "radar.hold": "Hold {station}",
+  "radar.stationHeld": "{station}, {distance} from {home}, publishing.",
+  "radar.stationQuiet":
+    "{station}, {distance} from {home}. Nothing new for {age}.",
   "radar.opacityLabel": "Radar opacity",
 
   "command.group.layer": "Layer",
@@ -549,6 +552,7 @@ export const en = {
   "command.group.tool": "Tool",
   "command.group.layout": "Layout",
   "keywords.capture": "",
+  "keywords.home": "",
   "layer.probSevere": "Severe Probability",
   "layers.probSevereDetail":
     "What a model expects of each storm in the next hour, which is guidance rather than a warning",
@@ -943,6 +947,7 @@ export const en = {
   "settings.radiusValue": "{distance}",
   "settings.radiusLabel": "Watched radius, in {unit}",
   "settings.watchCentre": "Watch the map centre",
+  "settings.homeName": "What you call home",
   "settings.placeName": "Place name",
   "settings.placeNumber": "Place {number}",
   "settings.placeRadius": "Radius around {place}, in {unit}",
@@ -1245,6 +1250,7 @@ export const en = {
   "watch.testHeadline": "Test alert",
   "watch.quiet": "Quiet hours",
   "watch.home": "Home",
+  "watch.goHome": "Go home",
   "watch.atPlace": "At {place}.",
   "watch.atPlaces": "At {places}.",
   "watch.quietDetail":

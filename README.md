@@ -97,6 +97,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Route weather**: a drive coloured by the chance of rain at the hour you reach each stretch.
 - Place search, map-centred forecasts, shareable `openradar://` links.
 - **Imported shapes as a managed set**: up to eight GeoJSON or GRLevelX placefiles on the map at once, each with its own name, switch, opacity and place in the drawing order. Importing a file you already have replaces it rather than adding a second copy. All of them draw under the warnings.
+- **A place you named, and one action back to it.** The watched place carries whatever you call it, and that word is what the panel shows and what a warning says when it reaches you. Naming it changes nothing about what is polled. **Home** in Commands brings the camera back from anywhere, the globe included, without touching the projection or the layers. A radar site you have pinned says its call sign, how far it is from home, and whether it is still publishing.
 - **The workspace in your own colour, and the data left alone.** Settings carries a colour picker for the accent, and a theme file dropped on the Upload panel goes further. What a theme can reach is a fixed list: surface, border, accent, shadow and heading weight. It cannot reach a reflectivity ramp, a warning outline, a hazard colour or a storm track, and that boundary is a test rather than a promise. A theme file is plain text, one directive per line:
 
   ```

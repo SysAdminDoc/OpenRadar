@@ -1,5 +1,6 @@
 import { isDesktopRuntime } from "./settings";
 import { translate } from "../i18n";
+import { utcHourLabel } from "./units";
 
 export interface WindField {
   columns: number;
@@ -34,7 +35,7 @@ export async function fetchWind(): Promise<WindField> {
 export function windLabel(field: WindField, nowMs: number): string {
   const init = Date.parse(field.init);
   const hour = Number.isFinite(init)
-    ? `${String(new Date(init).getUTCHours()).padStart(2, "0")}Z`
+    ? utcHourLabel(init)
     : translate("wind.unknownHour");
   const age = Number.isFinite(init)
     ? Math.max(0, Math.floor((nowMs - init) / 3_600_000))

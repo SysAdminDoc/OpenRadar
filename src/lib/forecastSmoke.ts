@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "./settings";
+import { utcHourLabel } from "./units";
 import { translate } from "../i18n";
 import type { RadarFrame } from "./providers/types";
 
@@ -113,7 +114,7 @@ export function forecastSmokeCorners(
 export function forecastSmokeLabel(field: SmokeField, nowMs: number): string {
   const init = Date.parse(field.init);
   const hour = Number.isFinite(init)
-    ? `${String(new Date(init).getUTCHours()).padStart(2, "0")}Z`
+    ? utcHourLabel(init)
     : translate("wind.unknownHour");
   const age = Number.isFinite(init)
     ? Math.max(0, Math.floor((nowMs - init) / 3_600_000))

@@ -71,6 +71,24 @@ export interface WorkspaceTheme {
 /** The longest a name may be, so a hand-edited file cannot fill the panel. */
 const MAX_NAME = 60;
 
+/**
+ * A name as one line of ordinary text.
+ *
+ * The name is the one field written back into the file text verbatim, and the
+ * file is read a line at a time, so a name carrying a newline is a name that
+ * can write a directive the stored theme never had. A hand-edited
+ * `settings.json` whose name held a line break followed by `Surface: #ff0000`
+ * grew a Surface token out of nothing before this. Everything that is not
+ * printable text goes.
+ */
+function cleanName(value: string): string {
+  return value
+    .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_NAME);
+}
+
 function clampChannel(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(255, Math.round(value)));
@@ -192,7 +210,7 @@ export function parseTheme(
     const key = trimmed.slice(0, at).trim().toLowerCase();
     const rest = trimmed.slice(at + 1).trim();
     if (key === "name") {
-      name = rest.slice(0, MAX_NAME);
+      name = cleanName(rest);
       continue;
     }
     if (key === "base") {
@@ -215,7 +233,7 @@ export function parseTheme(
   }
   if (!Object.keys(tokens).length) return null;
   return {
-    theme: { name: name || fallbackName.slice(0, MAX_NAME), base, tokens },
+    theme: { name: name || cleanName(fallbackName), base, tokens },
     skipped,
   };
 }
@@ -224,7 +242,7 @@ export function parseTheme(
 export function themeText(theme: WorkspaceTheme): string {
   const lines = [
     "OpenRadar theme",
-    `Name: ${theme.name}`,
+    `Name: ${cleanName(theme.name)}`,
     `Base: ${theme.base}`,
   ];
   for (const token of THEME_TOKENS) {
@@ -314,5 +332,8 @@ export function themeCss(theme: WorkspaceTheme): string {
     declarations.push(`  ${token.property}: ${safe};`);
   }
   if (!declarations.length) return "";
-  return `:root {\n${declarations.join("\n")}\n}\n`;
+  // Doubled: see `applyTheme`. One `:root` loses to the light look, and a
+  // theme that silently does nothing for half the readers who set one is
+  // worse than no theming at all.
+  return `:root:root {\n${declarations.join("\n")}\n}\n`;
 }

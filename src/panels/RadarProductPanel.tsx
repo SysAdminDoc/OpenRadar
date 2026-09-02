@@ -12,6 +12,7 @@ import { PanelShell } from "../components/PanelShell";
 import {
   LEVEL2_PRODUCTS,
   SINGLE_SITE_MIN_ZOOM,
+  stationSummary,
   sweepAgeMinutes,
   type Level2ProductId,
 } from "../lib/level2";
@@ -444,6 +445,14 @@ export function RadarProductPanel({
                         })
                       : t("radar.zoomIn", { zoom: SINGLE_SITE_MIN_ZOOM })}
               </p>
+              {/* Only for a station the reader pinned. The site the map
+                  happens to be over is not theirs and does not need a badge
+                  saying how far away it is. */}
+              {sweep && radar.station ? (
+                <p className="source-note" data-station-badge={sweep.station}>
+                  {stationSummary(sweep, watch, clock)}
+                </p>
+              ) : null}
               {sweep?.radar === "TDWR" ? (
                 <p className="source-note" data-radar-kind>
                   {t("radar.terminalLine", {

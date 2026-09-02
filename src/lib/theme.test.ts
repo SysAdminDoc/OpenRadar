@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -19,6 +19,26 @@ import { DEFAULT_SETTINGS, normalizeSettings } from "./settings";
 const ROOT = join(import.meta.dirname, "..");
 
 afterEach(() => applyTheme(null));
+
+/**
+ * Every TypeScript file in the app, tests included.
+ *
+ * A test that reaches for a theme token is a test written against a boundary
+ * that has already moved, so it is scanned like everything else.
+ */
+function sourceFiles(from: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(from)) {
+    const path = join(from, entry);
+    if (statSync(path).isDirectory()) {
+      found.push(...sourceFiles(path));
+      continue;
+    }
+    if (!/\.tsx?$/.test(entry)) continue;
+    found.push(path);
+  }
+  return found;
+}
 
 const SAMPLE = `OpenRadar theme
 Name: Harbour
@@ -63,32 +83,61 @@ describe("a theme reaches the chrome and nothing else", () => {
   });
 
   it("leaves every colour that carries a reading out of reach", () => {
-    // The modules that decide what a number looks like. None of them reads a
-    // custom property, so nothing a theme can write is on the path between a
-    // reflectivity value and the colour drawn for it. A ramp moved onto a
-    // token would fail here rather than being noticed on a storm day.
+    // Not a list of the modules somebody thought of. Every source file under
+    // src/, minus the two that define the boundary, must not mention a theme
+    // token at all: the colours a reading is drawn in are written where the
+    // reading is decided, and none of that reads a custom property. A hand
+    // list is how `src/lib/overlays/alerts.ts`, which draws the warning
+    // outlines this whole separation exists for, went unchecked.
     const properties = THEME_TOKENS.map((token) => token.property);
+    const allowed = new Set([
+      join(ROOT, "lib", "theme.ts"),
+      join(ROOT, "lib", "theme.test.ts"),
+    ]);
     const offenders: string[] = [];
-    for (const file of [
-      "lib/legend.ts",
-      "lib/mosaicLegend.ts",
-      "lib/alertTypes.ts",
-      "lib/cells.ts",
-      "lib/classification.ts",
-      "lib/palette.ts",
-      "lib/surge.ts",
-      "lib/mapStyles.ts",
-      "lib/mapLayers/radar.ts",
-      "lib/mapLayers/vector.ts",
-      "lib/mapLayers/raster.ts",
-      "lib/mapLayers/image.ts",
-    ]) {
-      const source = readFileSync(join(ROOT, file), "utf8");
+    for (const path of sourceFiles(ROOT)) {
+      if (allowed.has(path)) continue;
+      const source = readFileSync(path, "utf8");
       for (const property of properties) {
-        if (source.includes(property)) offenders.push(`${file}: ${property}`);
+        if (source.includes(property)) {
+          offenders.push(`${path.slice(ROOT.length + 1)}: ${property}`);
+        }
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("opens the colour control on the accent that is actually on screen", () => {
+    // The stylesheet defines the accent twice per look and the later one
+    // wins, so a swatch copied from the first pair opens on a colour nobody
+    // is looking at. Read the last of each here rather than trusting a
+    // comment to stay true.
+    const css = readFileSync(join(ROOT, "index.css"), "utf8");
+    // Walked as rules rather than searched from a selector, because the last
+    // rule that names a look is not the last rule that sets its accent.
+    const accents: Record<"dark" | "light", string | null> = {
+      dark: null,
+      light: null,
+    };
+    for (const rule of css.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+      const value = /--accent:\s*([^;]+);/.exec(rule[2])?.[1].trim();
+      if (!value) continue;
+      accents[rule[1].includes('data-theme="light"') ? "light" : "dark"] =
+        value;
+    }
+    const lastAccent = (mode: "dark" | "light") => accents[mode];
+    const panel = readFileSync(
+      join(ROOT, "panels", "MapOptionsPanels.tsx"),
+      "utf8",
+    );
+    const shown = (mode: string) =>
+      new RegExp(`${mode}:\\s*"([^"]+)"`).exec(
+        panel.slice(panel.indexOf("BUILT_IN_ACCENT:")),
+      )?.[1];
+    expect(lastAccent("dark")).toBeTruthy();
+    expect(lastAccent("light")).toBeTruthy();
+    expect(shown("dark")).toBe(lastAccent("dark"));
+    expect(shown("light")).toBe(lastAccent("light"));
   });
 
   it("draws every ramp from its own colours rather than from a token", () => {
@@ -105,19 +154,62 @@ describe("a theme reaches the chrome and nothing else", () => {
     }
   });
 
-  it("lets more contrast outrank a theme", () => {
-    // A theme is a plain `:root` rule, so the contrast block has to be
-    // doubled or a reader who asked the system for more contrast would lose
-    // it to a colour somebody picked.
+  it("outranks both built-in looks and loses to more contrast", () => {
+    // Three tiers, and a theme has to sit in the middle one. `:root` alone
+    // loses to `:root[data-theme="light"]`, which meant a theme applied in
+    // dark and did nothing whatever in light. One more `:root` again is what
+    // keeps the contrast block above it.
+    const written = themeCss({
+      name: "x",
+      base: "dark",
+      tokens: { Accent: "#ffffff" },
+    });
+    expect(written.startsWith(":root:root {")).toBe(true);
+
     const css = readFileSync(join(ROOT, "index.css"), "utf8");
     const at = css.indexOf("@media (prefers-contrast: more)");
     expect(at).toBeGreaterThan(0);
     const block = css.slice(at, at + 900);
-    expect(block).toContain(":root:root {");
-    expect(block).toContain(':root:root[data-theme="light"] {');
-    expect(
-      themeCss({ name: "x", base: "dark", tokens: { Accent: "#fff" } }),
-    ).toContain(":root {");
+    expect(block).toContain(":root:root:root {");
+    expect(block).toContain(':root:root:root[data-theme="light"] {');
+
+    // And the base looks are the tier below, or the doubling above would be
+    // pointless. Both are written once each with a plain selector.
+    expect(css).toContain("\n:root {");
+    expect(css).toContain('\n:root[data-theme="light"] {');
+  });
+
+  it("cannot grow a token out of the name it was given", () => {
+    // The name is the one field written back into the file text as it stands,
+    // and the file is read a line at a time, so a name with a line break in
+    // it used to write a directive the stored theme never carried.
+    const forged = normalizeSettings({
+      schemaVersion: 3,
+      workspaceTheme: {
+        name: "a\nSurface: #ff0000",
+        base: "dark",
+        tokens: { Accent: "#00ff00" },
+      },
+    } as unknown as Record<string, unknown>);
+    expect(forged.workspaceTheme?.tokens).toEqual({ Accent: "#00ff00" });
+    expect(forged.workspaceTheme?.name).toBe("a Surface: #ff0000");
+    // And it cannot rename itself either.
+    const renamed = normalizeSettings({
+      schemaVersion: 3,
+      workspaceTheme: {
+        name: "a\nName: b",
+        base: "dark",
+        tokens: { Accent: "#00ff00" },
+      },
+    } as unknown as Record<string, unknown>);
+    expect(renamed.workspaceTheme?.name).not.toBe("b");
+  });
+
+  it("carries the base the file was drawn against", () => {
+    const read = parseTheme(SAMPLE.replace("Base: dark", "Base: light"), "x");
+    expect(read?.theme.base).toBe("light");
+    // Round-trips, because the import path takes the workspace to it.
+    expect(parseTheme(themeText(read!.theme), "x")?.theme.base).toBe("light");
   });
 });
 

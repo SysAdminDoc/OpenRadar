@@ -4,7 +4,7 @@ import { formatMeasure } from "../i18n";
  * The arguments a native failure carries, ready to fill a sentence with.
  *
  * The Rust side sends its arguments as strings, because most of them are: a
- * call sign, a product name, a path, whatever a service said. Three of them
+ * call sign, a product name, a path, whatever a service said. Two of them
  * are counts, and a count that lands in a sentence is read by a person, so it
  * has to be written the way that person writes numbers rather than the way
  * `usize::to_string` writes them. A French reader was being told the export
@@ -12,9 +12,11 @@ import { formatMeasure } from "../i18n";
  *
  * Which failures carry a count is written down rather than guessed at from
  * the shape of the string. A layout version and a station whose name happens
- * to be digits are both machine values that must come through untouched.
+ * to be digits are both machine values that must come through untouched, and
+ * these two are every native variant that carries a count: `TooLarge` in
+ * `data_export.rs` and `TooManyTiles` in `bundles.rs`.
  */
-const COUNTED = new Set(["tooLarge", "tooManyTiles", "tooManyFeatures"]);
+const COUNTED = new Set(["tooLarge", "tooManyTiles"]);
 
 export function nativeErrorParams(
   code: string,
