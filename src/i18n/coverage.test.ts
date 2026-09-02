@@ -3,7 +3,19 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { en } from "./en";
 import { es } from "./es";
+import { fr } from "./fr";
 import { pseudoize } from "./pseudo";
+
+/**
+ * Every language written by hand, checked the same way.
+ *
+ * A translation added without being named here would be tested by nothing,
+ * which is how a catalogue falls behind without the build noticing.
+ */
+const TRANSLATIONS: Array<[string, Record<string, string>]> = [
+  ["Spanish", es],
+  ["French", fr],
+];
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -153,25 +165,24 @@ function untranslatedStrings(source: string): string[] {
 }
 
 describe("the workspace is translated", () => {
-  it("has a Spanish string for every English one", () => {
+  it.each(TRANSLATIONS)("has a %s string for every English one", (_, copy) => {
     const english = Object.keys(en).sort();
-    const spanish = Object.keys(es).sort();
-    expect(spanish).toEqual(english);
+    expect(Object.keys(copy).sort()).toEqual(english);
     // And none of them is the key left in by accident, or an empty string
     // where a sentence should be.
-    for (const [key, value] of Object.entries(es)) {
+    for (const [key, value] of Object.entries(copy)) {
       expect(typeof value, key).toBe("string");
       if (key.startsWith("keywords.")) continue;
       expect(value.length, key).toBeGreaterThan(0);
     }
   });
 
-  it("says something different in Spanish", () => {
+  it.each(TRANSLATIONS)("says something different in %s", (_, copy) => {
     // Some strings are the same word in both languages: a unit, a name, a
     // number format. Most are not, and a catalogue that was copied rather
     // than translated would fail this.
     const differing = Object.keys(en).filter(
-      (key) => es[key as keyof typeof es] !== en[key as keyof typeof en],
+      (key) => copy[key] !== en[key as keyof typeof en],
     );
     expect(differing.length / Object.keys(en).length).toBeGreaterThan(0.8);
   });
@@ -209,14 +220,14 @@ describe("the workspace is translated", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("fills in the same blanks in both languages", () => {
+  it.each(TRANSLATIONS)("fills in the same blanks in %s", (_, copy) => {
     // A translation that drops a placeholder does not fail to build and does
     // not throw: it simply never shows the number. One that invents a new one
     // renders the braces on screen.
     const names = (value: string) =>
       [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
     for (const key of Object.keys(en) as Array<keyof typeof en>) {
-      expect(names(es[key]), key).toEqual(names(en[key]));
+      expect(names(copy[key]), key).toEqual(names(en[key]));
     }
   });
 

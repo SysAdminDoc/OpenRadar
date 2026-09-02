@@ -1,68 +1,87 @@
 /**
  * The workspace in more than one language.
  *
- * Copy lives in `en.ts` and `es.ts` rather than in the components. `es.ts` is
- * typed against `en.ts`, so a string added on one side and not the other is a
- * build error rather than an English sentence in a Spanish window.
+ * Copy lives in `en.ts`, `es.ts` and `fr.ts` rather than in the components.
+ * The translations are typed against `en.ts`, so a string added on one side
+ * and not the others is a build error rather than an English sentence in a
+ * Spanish or French window.
  *
  * The language is external mutable state with its own subscribers, which is
  * what `useSyncExternalStore` is for. A component that shows copy calls
  * `useT()` and re-renders when the language changes, so switching takes effect
  * where you are rather than on the next restart.
  *
- * Spanish is fetched when it is first wanted rather than shipped in the first
- * load. It is as long as the English again, and a reader of English never
- * needs a byte of it. `ensureLanguage` is how a caller waits for it: both
- * places that restore a saved language do, so a Spanish reader's first screen
- * is already Spanish rather than English for a moment.
+ * Spanish and French are fetched when first wanted rather than shipped in the
+ * first load. Each is as long again as the English, and a reader of one needs
+ * no byte of the others. `ensureLanguage` is how a caller waits: both places
+ * that restore a saved language do, so a French reader's first screen is
+ * already French rather than English for a moment.
  */
 import { useCallback, useSyncExternalStore } from "react";
 import { en, type Catalogue, type StringKey } from "./en";
 import { pseudo } from "./pseudo";
 
-export type LanguageId = "en" | "es" | "pseudo";
+export type LanguageId = "en" | "es" | "fr" | "pseudo";
+
+/** The languages that are fetched rather than shipped in the first load. */
+type FetchedId = "es" | "fr";
 
 export const LANGUAGES: Array<{ id: LanguageId; label: string }> = [
   // Each language is named in itself, which is how someone who cannot read the
   // current one finds their own.
   { id: "en", label: "English" },
   { id: "es", label: "Español" },
-  // A generated language that is longer and more accented than either, for
-  // finding labels that only fit in English.
+  { id: "fr", label: "Français" },
+  // A generated language that is longer and more accented than any of them,
+  // for finding labels that only fit in English.
   { id: "pseudo", label: "Pseudolocale" },
 ];
 
-let spanish: Catalogue | null = null;
-let spanishArriving: Promise<void> | null = null;
+const FETCHERS: Record<FetchedId, () => Promise<Catalogue>> = {
+  es: () => import("./es").then((module) => module.es),
+  fr: () => import("./fr").then((module) => module.fr),
+};
+
+const fetched: Partial<Record<FetchedId, Catalogue>> = {};
+const arriving: Partial<Record<FetchedId, Promise<void>>> = {};
+
+function isFetched(which: LanguageId): which is FetchedId {
+  return which === "es" || which === "fr";
+}
 
 function catalogue(which: LanguageId): Catalogue {
-  if (which === "es") return spanish ?? en;
+  if (isFetched(which)) return fetched[which] ?? en;
   return which === "pseudo" ? pseudo : en;
 }
 
 /**
  * Have the copy for a language in hand.
  *
- * Resolves at once for everything but Spanish, and for Spanish once it has
- * been fetched. A fetch that fails leaves English on screen, which is a
+ * Resolves at once for the languages that ship, and for the fetched ones once
+ * they have arrived. A fetch that fails leaves English on screen, which is a
  * readable workspace rather than a screen of keys, and is tried again the
  * next time somebody asks.
  */
 export function ensureLanguage(which: LanguageId): Promise<void> {
-  if (which !== "es" || spanish) return Promise.resolve();
-  spanishArriving ??= import("./es")
-    .then((module) => {
-      spanish = module.es;
+  if (!isFetched(which) || fetched[which]) return Promise.resolve();
+  const already = arriving[which];
+  if (already) return already;
+  const wanted = FETCHERS[which]()
+    .then((copy) => {
+      fetched[which] = copy;
       for (const listener of listeners) listener();
     })
     .catch(() => {
-      spanishArriving = null;
+      arriving[which] = undefined;
     });
-  return spanishArriving;
+  arriving[which] = wanted;
+  return wanted;
 }
 
 export function isLanguage(value: unknown): value is LanguageId {
-  return value === "en" || value === "es" || value === "pseudo";
+  return (
+    value === "en" || value === "es" || value === "fr" || value === "pseudo"
+  );
 }
 
 let current: LanguageId = "en";
@@ -91,9 +110,15 @@ function subscribe(listener: () => void): () => void {
  *
  * The pseudolocale is English underneath, so dates in it stay readable and the
  * padding is what is being looked at.
+ *
+ * French is Canadian French, which is the reason it is here: the app draws
+ * ECCC's radar and every Canadian weather product is published in it. The
+ * region matters to more than the wording, since fr-CA writes a date the way
+ * a reader in Quebec expects rather than the way one in France does.
  */
 export function locale(which: LanguageId = current): string {
-  return which === "es" ? "es" : "en";
+  if (which === "es") return "es";
+  return which === "fr" ? "fr-CA" : "en";
 }
 
 export type Params = Record<string, string | number>;
