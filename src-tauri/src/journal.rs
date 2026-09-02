@@ -484,9 +484,32 @@ fn remove_row(id: &str) -> Result<usize, String> {
     }
 }
 
+/// The name a raw-body request carries the row's id under.
+pub const ROW_ID_HEADER: &str = "x-row-id";
+
+/// The row's id and the picture, out of a header and a raw body.
+///
+/// A raw body for the same reason the export uses one: a JSON array of
+/// numbers is three and a half bytes of string per byte of picture. Split out
+/// because a test cannot build a `tauri::ipc::Request`.
+fn unpack_thumb(
+    body: &tauri::ipc::InvokeBody,
+    headers: &tauri::http::HeaderMap,
+) -> Result<(String, Vec<u8>), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = body else {
+        return Err("a journal thumbnail has to arrive as bytes".to_string());
+    };
+    let id = headers
+        .get(ROW_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| "a journal thumbnail has to name its row".to_string())?;
+    Ok((id.to_string(), bytes.clone()))
+}
+
 /// Keeps the frame that was on screen beside a row, under its own budget.
 #[tauri::command]
-pub async fn journal_thumb(id: String, bytes: Vec<u8>) -> Result<String, String> {
+pub async fn journal_thumb(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let (id, bytes) = unpack_thumb(request.body(), request.headers())?;
     tauri::async_runtime::spawn_blocking(move || write_thumb(&id, &bytes))
         .await
         .map_err(|error| error.to_string())?

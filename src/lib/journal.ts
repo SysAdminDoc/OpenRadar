@@ -246,7 +246,7 @@ export async function saveJournalThumb(
   if (!journalAvailable()) return;
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("journal_thumb", { id, bytes: Array.from(bytes) });
+    await invoke("journal_thumb", bytes, { headers: { "x-row-id": id } });
   } catch (failure) {
     log.info(
       "journal",
