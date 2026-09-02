@@ -10,6 +10,7 @@ import {
 } from "../lib/overlays";
 import type { AlertSeverity } from "../lib/overlays/alerts";
 import { translate, useT } from "../i18n";
+import { calmAdvice } from "../lib/calm";
 import { formatClock } from "../lib/units";
 
 interface AlertsPanelProps {
@@ -21,6 +22,7 @@ interface AlertsPanelProps {
   /** True while these came out of the archive rather than off the live feed. */
   replaying: boolean;
   onEnableLayer: () => void;
+  calm: boolean;
   onSelect: (bounds: OverlayBounds) => void;
   onClose: () => void;
 }
@@ -55,6 +57,8 @@ export function AlertsPanel({
   error,
   layerOn,
   onEnableLayer,
+  /** True in the calmer presentation, which adds a line about what to do. */
+  calm,
   onSelect,
   replaying,
   onClose,
@@ -137,6 +141,17 @@ export function AlertsPanel({
                         expires: timeLabel(feature.properties.expires),
                       })}
                     </small>
+                    {calm ? (
+                      // The warning is unchanged: the same headline, the same
+                      // severity, the same colour, at the same moment. This is
+                      // a line under it saying what to do, which is what
+                      // somebody frightened of the weather actually needs and
+                      // what the office's own headline is not for.
+                      <small className="alert-advice" data-calm-advice>
+                        <strong>{t("calm.what")}</strong>{" "}
+                        {calmAdvice(String(feature.properties.kind ?? "other"))}
+                      </small>
+                    ) : null}
                   </span>
                 </button>
                 {url ? (

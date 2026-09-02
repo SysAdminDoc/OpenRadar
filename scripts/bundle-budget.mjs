@@ -61,6 +61,18 @@ const BUDGETS = [
     firstLoad: false,
   },
   {
+    name: "settings",
+    match: /^MapOptionsPanels-.*\.js$/,
+    // Settings, the layers panel and the map-type panel, fetched when one of
+    // them is opened. Split out of the panel chunk because it is most of it:
+    // the watch, the themes, the record with its figures, the year card, the
+    // sounds, the curiosities and the incident packs are all in here, and a
+    // reader opening Alerts was fetching every one of them.
+    raw: 70,
+    gzip: 18,
+    firstLoad: false,
+  },
+  {
     name: "styles",
     match: /^index-.*\.css$/,
     raw: 160,

@@ -1433,6 +1433,26 @@ export const fr: Catalogue = {
   "nearby.nameCellPlaceholder": "Donnez-lui un nom",
   "journal.namedCellPassed":
     "{name}, l'orage que le radar appelait {id}, est passé à {distance}",
+  "calm.setting": "Une façon plus calme de le lire",
+  "calm.settingDetail":
+    "Baisse le ton de l'application, jamais celui du temps. Les alertes arrivent au même moment, par le même chemin, dans les couleurs que publie le service. Ce qui se tait, c'est le décor autour : les accents, l'habillage saisonnier, les effets. Les couches de probabilité démarrent éteintes et reviennent d'une pression.",
+  "calm.advice.tornado":
+    "Descendez à l'étage le plus bas, au centre du bâtiment, loin des fenêtres. Prenez de quoi vous couvrir la tête.",
+  "calm.advice.thunderstorm":
+    "Rentrez et quittez la terrasse. Éloignez-vous des fenêtres jusqu'à ce que ce soit passé.",
+  "calm.advice.flood":
+    "Gagnez un terrain plus haut. N'engagez pas la voiture dans l'eau sur une route, quel que soit son aspect.",
+  "calm.advice.winter":
+    "Restez chez vous si vous le pouvez. Si vous devez sortir, dites à quelqu'un où vous allez et prenez des vêtements chauds.",
+  "calm.advice.tropical":
+    "Suivez ce que disent les autorités locales. Si elles ont dit de partir, partez maintenant.",
+  "calm.advice.heat":
+    "Restez à l'abri du soleil, buvez de l'eau, et prenez des nouvelles de qui vit seul.",
+  "calm.advice.fire":
+    "Soyez prêt à partir. Gardez ensemble vos clés, votre téléphone et vos médicaments.",
+  "calm.advice.general":
+    "Lisez ce que dit le service et suivez ce que vous disent les autorités locales.",
+  "calm.what": "Ce qu'il faut faire",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":

@@ -33,17 +33,40 @@ const SoundingPanel = lazy(async () => {
   const module = await import("../panels/SoundingPanel");
   return { default: module.SoundingPanel };
 });
+
+/**
+ * The map's own options, on their own, for the same reason.
+ *
+ * Settings is the largest panel by a distance: the watch, the layers' own options,
+ * the themes, the record with its figures, the year card, the sounds, the
+ * curiosities and the incident packs are all in it. A reader opening Alerts
+ * should not fetch any of that, and the panel chunk was over its budget
+ * carrying it.
+ *
+ * All three of that module's panels are asked for this way rather than one,
+ * because a module that is also imported normally cannot be split out: the
+ * dynamic import is quietly ignored and everything stays where it was.
+ */
+const SettingsPanel = lazy(async () => {
+  const module = await import("../panels/MapOptionsPanels");
+  return { default: module.SettingsPanel };
+});
+
+const LayersPanel = lazy(async () => {
+  const module = await import("../panels/MapOptionsPanels");
+  return { default: module.LayersPanel };
+});
+
+const MapTypePanel = lazy(async () => {
+  const module = await import("../panels/MapOptionsPanels");
+  return { default: module.MapTypePanel };
+});
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel, type DataExportOffer } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
 import { GuidancePanel } from "../panels/GuidancePanel";
 import { TidesPanel } from "../panels/TidesPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
-import {
-  LayersPanel,
-  MapTypePanel,
-  SettingsPanel,
-} from "../panels/MapOptionsPanels";
 import { RadarProductPanel } from "../panels/RadarProductPanel";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
@@ -191,38 +214,43 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "map-type" ? (
-        <MapTypePanel
-          mapStyle={settings.mapStyle}
-          projection={settings.projection}
-          onMapStyle={props.onMapStyle}
-          onProjection={props.onProjection}
-          onClose={onClose}
-        />
+        <Suspense fallback={null}>
+          <MapTypePanel
+            mapStyle={settings.mapStyle}
+            projection={settings.projection}
+            onMapStyle={props.onMapStyle}
+            onProjection={props.onProjection}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "layers" ? (
-        <LayersPanel
-          layers={settings.layers}
-          layerNotes={props.layerNotes}
-          overlayOpacity={settings.overlayOpacity}
-          onOverlayOpacity={props.onOverlayOpacity}
-          overlayOrder={settings.overlayOrder}
-          onOverlayOrder={props.onOverlayOrder}
-          overlayFiles={props.overlayFiles}
-          onOverlayFiles={props.onOverlayFiles}
-          alertTypes={settings.alertTypes}
-          surgeCategory={settings.surgeCategory}
-          onLayers={props.onLayers}
-          onAlertTypes={props.onAlertTypes}
-          onSurgeCategory={props.onSurgeCategory}
-          satelliteProduct={settings.satelliteProduct}
-          onSatelliteProduct={props.onSatelliteProduct}
-          onClose={onClose}
-        />
+        <Suspense fallback={null}>
+          <LayersPanel
+            layers={settings.layers}
+            layerNotes={props.layerNotes}
+            overlayOpacity={settings.overlayOpacity}
+            onOverlayOpacity={props.onOverlayOpacity}
+            overlayOrder={settings.overlayOrder}
+            onOverlayOrder={props.onOverlayOrder}
+            overlayFiles={props.overlayFiles}
+            onOverlayFiles={props.onOverlayFiles}
+            alertTypes={settings.alertTypes}
+            surgeCategory={settings.surgeCategory}
+            onLayers={props.onLayers}
+            onAlertTypes={props.onAlertTypes}
+            onSurgeCategory={props.onSurgeCategory}
+            satelliteProduct={settings.satelliteProduct}
+            onSatelliteProduct={props.onSatelliteProduct}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "alerts" ? (
         <AlertsPanel
+          calm={settings.calm}
           alerts={overlays.alerts.data}
           viewport={props.viewport}
           fetchedAt={overlays.alerts.fetchedAt}
@@ -293,24 +321,26 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "settings" ? (
-        <SettingsPanel
-          settings={settings}
-          bounds={props.viewport}
-          onSettings={props.onSettings}
-          onWatchHere={props.onWatchHere}
-          onAddWatchPlace={props.onAddWatchPlace}
-          onSendWatchTest={props.onSendWatchTest}
-          ambient={props.ambient}
-          onJournalSaved={props.onJournalSaved}
-          onJournalFailed={props.onJournalFailed}
-          onJournalCleared={props.onJournalCleared}
-          onJournalRemoved={props.onJournalRemoved}
-          clock={props.clock}
-          onReset={props.onReset}
-          onExportSettings={props.onExportSettings}
-          onChooseSound={props.onChooseSound}
-          onClose={onClose}
-        />
+        <Suspense fallback={null}>
+          <SettingsPanel
+            settings={settings}
+            bounds={props.viewport}
+            onSettings={props.onSettings}
+            onWatchHere={props.onWatchHere}
+            onAddWatchPlace={props.onAddWatchPlace}
+            onSendWatchTest={props.onSendWatchTest}
+            ambient={props.ambient}
+            onJournalSaved={props.onJournalSaved}
+            onJournalFailed={props.onJournalFailed}
+            onJournalCleared={props.onJournalCleared}
+            onJournalRemoved={props.onJournalRemoved}
+            clock={props.clock}
+            onReset={props.onReset}
+            onExportSettings={props.onExportSettings}
+            onChooseSound={props.onChooseSound}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "history" ? (

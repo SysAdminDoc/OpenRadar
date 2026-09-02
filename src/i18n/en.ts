@@ -1392,6 +1392,26 @@ export const en = {
   "nearby.nameCellPlaceholder": "Call it something",
   "journal.namedCellPassed":
     "{name}, the storm the radar was calling {id}, came within {distance}",
+  "calm.setting": "A calmer way to read it",
+  "calm.settingDetail":
+    "Turns down the app, never the weather. Warnings arrive at the same moment, through the same path, in the colours the office publishes. What goes quiet is the decoration around them: the accents, the seasonal look, the effects. Forecast probability layers start switched off and are one press from coming back.",
+  "calm.advice.tornado":
+    "Go to the lowest floor, in the middle of the building, away from windows. Take something to cover your head.",
+  "calm.advice.thunderstorm":
+    "Go indoors and stay off the porch. Keep away from windows until it has passed.",
+  "calm.advice.flood":
+    "Move to higher ground. Do not drive into water on a road, whatever it looks like.",
+  "calm.advice.winter":
+    "Stay in if you can. If you must go out, tell somebody where you are going and take warm clothes.",
+  "calm.advice.tropical":
+    "Follow what your local officials are telling you to do. If they have said leave, leave now.",
+  "calm.advice.heat":
+    "Stay out of the sun, drink water, and check on anybody who lives alone.",
+  "calm.advice.fire":
+    "Be ready to leave. Keep your keys, your phone and your medicines together.",
+  "calm.advice.general":
+    "Read what the office says and follow what your local officials tell you.",
+  "calm.what": "What to do",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

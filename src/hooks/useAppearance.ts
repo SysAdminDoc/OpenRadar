@@ -90,11 +90,16 @@ export function useAppearance(
   useEffect(() => {
     applyTheme(wanted);
     document.documentElement.dataset.theme = settings.theme;
+    // One attribute, so the stylesheet decides what goes quiet rather than
+    // twenty components each deciding for themselves. What it may reach is
+    // held by `theme.test.ts`: chrome, never a reading.
+    if (settings.calm) document.documentElement.dataset.calm = "1";
+    else delete document.documentElement.dataset.calm;
     const meta = document.querySelector<HTMLMetaElement>(
       'meta[name="theme-color"]',
     );
     meta?.setAttribute("content", CHROME_COLOR[settings.theme]);
-  }, [settings.theme, wanted]);
+  }, [settings.calm, settings.theme, wanted]);
 
   return {
     occasion,

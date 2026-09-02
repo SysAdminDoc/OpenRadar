@@ -976,7 +976,13 @@ export default function App() {
     // Nothing discoverable reveals itself while a warning is in force at a
     // watched place. The standing rule, and the reason this is safe to ship.
     enabled:
-      hydrated && settings.curiosities && !overlays.alertActive && !replay,
+      hydrated &&
+      settings.curiosities &&
+      // Nothing discoverable in the calmer presentation either: somebody who
+      // asked for less is not asking to be surprised.
+      !settings.calm &&
+      !overlays.alertActive &&
+      !replay,
     camera: resting,
     already: settings.curiositiesFound,
     onFound: useCallback(
@@ -1717,7 +1723,10 @@ export default function App() {
       data-capture={capture ? "1" : undefined}
     >
       {revealing ? <FirstRunReveal onDone={markRevealSeen} /> : null}
-      {curiosity && settings.curiosities && !overlays.alertActive ? (
+      {curiosity &&
+      settings.curiosities &&
+      !settings.calm &&
+      !overlays.alertActive ? (
         // Gated where it is drawn as well as where it is found. The card is
         // state, and state outlives the condition that created it: a warning
         // going up while one was on screen used to leave a note about a

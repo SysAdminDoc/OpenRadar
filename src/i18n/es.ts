@@ -1416,6 +1416,26 @@ export const es: Catalogue = {
   "nearby.nameCellPlaceholder": "Ponle un nombre",
   "journal.namedCellPassed":
     "{name}, la tormenta que el radar llamaba {id}, pasó a {distance}",
+  "calm.setting": "Una forma más tranquila de leerlo",
+  "calm.settingDetail":
+    "Baja el volumen de la aplicación, nunca del tiempo. Los avisos llegan en el mismo momento, por el mismo camino y con los colores que publica la oficina. Lo que se calla es la decoración alrededor: los acentos, el aspecto de temporada, los efectos. Las capas de probabilidad empiezan apagadas y vuelven con una pulsación.",
+  "calm.advice.tornado":
+    "Baja al piso más bajo, en el centro del edificio y lejos de las ventanas. Lleva algo con que cubrirte la cabeza.",
+  "calm.advice.thunderstorm":
+    "Métete dentro y sal del porche. Aléjate de las ventanas hasta que pase.",
+  "calm.advice.flood":
+    "Sube a un terreno más alto. No metas el coche en el agua de una carretera, tenga el aspecto que tenga.",
+  "calm.advice.winter":
+    "Quédate en casa si puedes. Si tienes que salir, dile a alguien adónde vas y lleva ropa de abrigo.",
+  "calm.advice.tropical":
+    "Haz lo que digan las autoridades locales. Si han dicho que hay que salir, sal ya.",
+  "calm.advice.heat":
+    "No te pongas al sol, bebe agua y pregunta por quien viva solo.",
+  "calm.advice.fire":
+    "Prepárate para salir. Ten juntas las llaves, el teléfono y las medicinas.",
+  "calm.advice.general":
+    "Lee lo que dice la oficina y haz lo que te digan las autoridades locales.",
+  "calm.what": "Qué hacer",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":

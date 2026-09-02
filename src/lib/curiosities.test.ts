@@ -143,7 +143,12 @@ describe("standing down during danger", () => {
       join(import.meta.dirname, "..", "App.tsx"),
       "utf8",
     );
-    const drawn = /\{curiosity[^\n]*\?/.exec(app)?.[0] ?? "";
+    // Across however many lines the condition takes: it grew a third
+    // clause and a single-line read stopped seeing any of it.
+    const drawn = app.slice(
+      app.indexOf("{curiosity"),
+      app.indexOf("<CuriosityCard"),
+    );
     expect(drawn, "the card's own render condition").toContain("alertActive");
     expect(drawn).toContain("settings.curiosities");
 
@@ -153,10 +158,9 @@ describe("standing down during danger", () => {
       join(import.meta.dirname, "..", "App.tsx"),
       "utf8",
     );
-    const found = hook.slice(
-      hook.indexOf("useCuriosities({"),
-      hook.indexOf("useCuriosities({") + 400,
-    );
+    // The whole options object, however long the enabled clause grows.
+    const at = hook.indexOf("useCuriosities({");
+    const found = hook.slice(at, hook.indexOf("onFound:", at));
     expect(found).toContain("alertActive");
   });
 });
