@@ -406,6 +406,13 @@ export interface AppSettings {
    * is the app around them.
    */
   calm: boolean;
+  /**
+   * How long the workspace waits before going into the full-screen view on
+   * its own, in minutes. Zero is never, which is the default: a workspace
+   * that takes itself over while somebody is reading is a workspace they
+   * stop leaving open.
+   */
+  ambientIdleMinutes: number;
   alertVolume: number;
   /**
    * A sound file of the reader's own, by path.
@@ -538,6 +545,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenWelcome: false,
   seenReveal: false,
   calm: false,
+  ambientIdleMinutes: 0,
   alertVolume: 0.18,
   alertSoundPath: null,
   journal: true,
@@ -1482,6 +1490,11 @@ export function normalizeSettings(value: unknown): AppSettings {
         ? raw.alertSoundPath.slice(0, 1024)
         : null,
     calm: bool(raw.calm, DEFAULT_SETTINGS.calm),
+    ambientIdleMinutes: [0, 5, 15, 30, 60].includes(
+      Number(raw.ambientIdleMinutes),
+    )
+      ? Number(raw.ambientIdleMinutes)
+      : DEFAULT_SETTINGS.ambientIdleMinutes,
     journal: bool(raw.journal, DEFAULT_SETTINGS.journal),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
     curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),

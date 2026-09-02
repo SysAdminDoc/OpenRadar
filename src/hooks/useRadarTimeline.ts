@@ -39,6 +39,8 @@ interface Selection {
   replay: string | null;
 }
 
+import { ambientRefreshMs } from "../lib/ambientScreen";
+
 const REFRESH_MS = 5 * 60_000;
 /** Always fetch the longest loop so changing the setting needs no new request. */
 export const MAX_LOOP_MINUTES = 120;
@@ -139,6 +141,13 @@ export function useRadarTimeline(options: {
   pageVisible: boolean;
   /** Frames from a past event, which stand in for the live loop while set. */
   archive?: ArchiveReplay | null;
+  /**
+   * How long since anybody touched the machine, in milliseconds.
+   *
+   * Only used to decide how often to ask for a newer loop. A workspace
+   * somebody is watching refreshes as it always did.
+   */
+  idleMs?: number;
   /** Bumped when a colour table is loaded, so locally drawn tiles refresh. */
   paletteGeneration?: number;
   /**
@@ -157,6 +166,7 @@ export function useRadarTimeline(options: {
     archive = null,
     paletteGeneration = 0,
     mosaicThreshold = null,
+    idleMs = 0,
   } = options;
   // The provider builds its own tile addresses inside fetchFrames, where no
   // argument of ours reaches, so this is put where it can read it before the
@@ -183,6 +193,10 @@ export function useRadarTimeline(options: {
   const [fetchedAt, setFetchedAt] = useState(() => Date.now());
   const servedFromCache = cachedAgeSeconds !== null;
   const refreshRef = useRef<(() => void) | null>(null);
+  const idleRef = useRef(idleMs);
+  useEffect(() => {
+    idleRef.current = idleMs;
+  }, [idleMs]);
   const wasOfflineRef = useRef(false);
   // A machine with no network is showing the last view whether or not the most
   // recent refresh happened to fail: the tiles under it came off the disk.
@@ -327,7 +341,22 @@ export function useRadarTimeline(options: {
     // than waiting out the rest of the interval. Five minutes of stale radar
     // labelled as live is exactly what the label exists to prevent.
     refreshRef.current = () => void refresh();
-    const timer = window.setInterval(() => void refresh(), REFRESH_MS);
+    // The timer keeps its own cadence and the decision is made inside it.
+    //
+    // How often to ask depends on how long nobody has touched the machine,
+    // which changes every minute; as a dependency it would tear down and
+    // rebuild the whole timeline, refetching every frame, once a minute for
+    // ever. So the interval stays put and simply skips a turn until the
+    // stretched cadence is due. Never faster than the usual one, never
+    // slower than the ceiling, and the loop keeps playing either way: this
+    // is only how often it asks for a newer one.
+    let asked = Date.now();
+    const timer = window.setInterval(() => {
+      const wanted = ambientRefreshMs(REFRESH_MS, idleRef.current);
+      if (Date.now() - asked < wanted) return;
+      asked = Date.now();
+      void refresh();
+    }, REFRESH_MS);
     return () => {
       mounted = false;
       requestGeneration += 1;

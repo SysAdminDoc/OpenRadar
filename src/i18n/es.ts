@@ -594,6 +594,8 @@ export const es: Catalogue = {
   "command.group.panel": "Panel",
   "command.group.tool": "Herramienta",
   "command.group.layout": "Disposición",
+  "keywords.ambientScreen":
+    "ambiental, segundo monitor, pantalla, pantalla completa, quiosco, pared",
   "keywords.capture": "captura directo emisión limpio obs",
   "keywords.home": "casa inicio volver lugar vigilado",
   "layer.probSevere": "Probabilidad de tiempo severo",
@@ -1450,6 +1452,17 @@ export const es: Catalogue = {
   "postcard.size.wide": "Apaisada",
   "postcard.size.tall": "Vertical",
   "postcard.sizeLabel": "Formato",
+  "ambientScreen.age":
+    "{source} · {minutes, plural, one {# minuto} other {# minutos}} de antigüedad",
+  "ambientScreen.setting": "Vista a pantalla completa para un segundo monitor",
+  "ambientScreen.settingDetail":
+    "El mapa sin nada más encima, un reloj y lo que está mostrando. La animación sigue y se ralentiza cuando nadie toca nada durante un rato, para que una pantalla encendida toda la noche no pida una imagen cada minuto. Un aviso donde vigilas la quita y devuelve el espacio de trabajo.",
+  "ambientScreen.leave": "Salir de la vista a pantalla completa",
+  "ambientScreen.idle": "Entrar sola después de",
+  "ambientScreen.idleOff": "Nunca",
+  "ambientScreen.idleMinutes":
+    "{minutes, plural, one {# minuto} other {# minutos}}",
+  "command.ambientScreen": "Vista a pantalla completa",
   "journal.title": "Tu registro",
   "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":
