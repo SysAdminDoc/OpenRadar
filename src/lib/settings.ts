@@ -359,6 +359,15 @@ export interface AppSettings {
    * without it.
    */
   seenWelcome: boolean;
+  /**
+   * Whether the disc has drawn itself.
+   *
+   * Its own flag rather than `seenWelcome`, because the greeting toast writes
+   * that one the moment it is pushed and the reveal would have been cut off
+   * by the thing it plays beside. Both are cleared by the control that asks
+   * for the greeting again.
+   */
+  seenReveal: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -451,6 +460,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     references: [],
   },
   seenWelcome: false,
+  seenReveal: false,
 };
 
 const STORAGE_KEY = "openradar.settings";
@@ -1377,6 +1387,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     presets,
     incidentPacks: normalizeIncidentPacks(raw.incidentPacks),
     seenWelcome: bool(raw.seenWelcome, DEFAULT_SETTINGS.seenWelcome),
+    seenReveal: bool(raw.seenReveal, DEFAULT_SETTINGS.seenReveal),
   };
 }
 

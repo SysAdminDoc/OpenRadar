@@ -360,6 +360,55 @@ a {
   }
 }
 
+/* The disc drawing itself, once, on a first run. Over the map and taking no
+   pointer events, so the workspace is usable straight through it: this is a
+   greeting rather than a gate. `FirstRunReveal` removes it when the sweep
+   ends or the reader does anything at all, and never renders it under
+   reduced motion, because the whole of it is the motion. */
+.first-run-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  animation: first-run-fade 2.4s ease-out forwards;
+}
+
+.first-run-reveal::before {
+  content: "";
+  width: min(58vmin, 520px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--accent-soft);
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--accent) 26%, transparent) 0deg,
+    transparent 62deg,
+    transparent 360deg
+  );
+  animation: first-run-sweep 1.2s linear 2;
+}
+
+@keyframes first-run-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes first-run-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .command-group {
   display: flex;
   /* No shrinking: a squeezed group used to overlap its neighbour, which put

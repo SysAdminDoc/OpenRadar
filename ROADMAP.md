@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-005: Replace the welcome toast with a first-run reveal and one honest opening line
-      Why: The current onboarding is a single toast pointing at the commands, and a first launch is otherwise a map with nothing to say. Two small things fix that. The radar disc drawing itself once, on the very first run, is a signature people remember. A one-line summary of what the weather is actually doing near the opening view is more useful than a hint and is the reason to open the app on a calm day.
-      Evidence: `src/hooks/useWelcomeHint.ts`; `src/components/ToastHost.tsx`; `src/lib/weather.ts`; `src/lib/settings.ts`
-      Touches: The first-run animation and its skip; the opening summary and its data source; the seen flag and its migration; translations
-      Acceptance: The reveal plays once, can be skipped by any interaction, never delays the map becoming usable, and does not play at all under reduced motion; the opening line names a real observation with a source and a time and says plainly when it has nothing to report; it never invents a hazard or softens one; both strings live in the catalogue and pass the pseudolocale clipping test; a reader who has seen it once never sees it again, and a reader who wants it back can ask.
-      Complexity: M
-
 - [ ] JOY-007: Keep a bounded local log of observations and events at the reader's places
       Why: Almost everything below wants a memory the app does not have. There is a disk cache for tiles and frames, which is about not refetching, and there is nothing that records that it hailed here on the fourteenth. This is the foundation item for the journal, the recap, and any local climate context, and it needs designing once, carefully, because it is a file of somebody's whereabouts.
       Evidence: `src-tauri/src/cache.rs`; `src/lib/settings.ts`; `src/hooks/useAlertWatch.ts`; `src/lib/workspaceBackup.ts`; JOY-006

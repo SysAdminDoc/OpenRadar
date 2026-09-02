@@ -83,8 +83,10 @@ test("switches globe projection without changing the radar timeline", async ({
 test("says where everything is, once", async ({ page }) => {
   // There is no other onboarding. Everything the workspace can do is behind
   // Commands and Layers, and nothing on screen says either exists, so somebody
-  // opening it for the first time sees a map and no way in.
-  const hint = page.getByText("Everything is under Commands and Layers");
+  // opening it for the first time sees a map and no way in. The station the
+  // fixture serves reported hours ago, so the opening line has nothing worth
+  // saying and the signpost is the whole of it.
+  const hint = page.getByText("Commands searches every product");
   await expect(hint).toBeVisible();
 
   // Dismissing it is the end of it, this run and every run after.
@@ -101,9 +103,7 @@ test("does not say it again to somebody who found the commands first", async ({
   page,
 }) => {
   // Running a command is finding them, so the hint has nothing left to say.
-  await expect(
-    page.getByText("Everything is under Commands and Layers"),
-  ).toBeVisible();
+  await expect(page.getByText("Commands searches every product")).toBeVisible();
   await page.getByRole("button", { name: "Commands", exact: true }).click();
   await page.locator('[data-command="layer:stormReports"]').click();
 
@@ -111,9 +111,7 @@ test("does not say it again to somebody who found the commands first", async ({
   await expect(
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Everything is under Commands and Layers"),
-  ).toBeHidden();
+  await expect(page.getByText("Commands searches every product")).toBeHidden();
 });
 
 test("opens layers and saves a map preset", async ({ page }) => {

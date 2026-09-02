@@ -1019,9 +1019,21 @@ export const fr: Catalogue = {
   "bar.location": "Position",
   "bar.locate": "Me localiser",
   "bar.commands": "Commandes",
-  "welcome.title": "Tout se trouve sous Commandes et Couches",
   "welcome.detail":
     "Commandes cherche par nom chaque produit, endroit et réglage. Couches est l'endroit où vous allumez et éteignez le radar, les alertes, la foudre et le reste.",
+  "opening.rain": "de la pluie",
+  "opening.snow": "de la neige",
+  "opening.fog": "du brouillard",
+  "opening.thunder": "un orage",
+  "opening.weather": "{station} rapporte {weather}, {when}.",
+  "opening.weatherAndAir":
+    "{station} rapporte {weather} à {degrees} °, {when}.",
+  "opening.quiet": "{station} rapporte que rien ne tombe, {when}.",
+  "opening.quietAndAir":
+    "{station} rapporte que rien ne tombe, {degrees} °, {when}.",
+  "opening.showAgain": "Revoir l'accueil du premier lancement",
+  "opening.showAgainDetail":
+    "La ligne d'ouverture et le disque radar qui se dessine, une fois de plus au prochain démarrage",
   "bar.commandsDetail":
     "Chaque couche, produit et panneau dans une seule liste",
   "bar.dualPane": "Double volet",

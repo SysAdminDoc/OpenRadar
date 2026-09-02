@@ -12,6 +12,7 @@ import {
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import { useAppearance } from "./hooks/useAppearance";
+import { FirstRunReveal } from "./components/FirstRunReveal";
 import { useAmbient } from "./hooks/useAmbient";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
@@ -219,6 +220,8 @@ export default function App() {
   useWelcomeHint({
     ready: hydrated,
     seen: settings.seenWelcome,
+    // Where the map opened, which is what the line is about.
+    center: settings.camera.center,
     push: pushToast,
     onSeen: markWelcomeSeen,
   });
@@ -289,6 +292,17 @@ export default function App() {
   const appearance = useAppearance(settings, clock, overlays.alertActive);
 
   const reducedMotion = useReducedMotion();
+
+  // The disc drawing itself, once, on a first run. Rendered over a map that
+  // is already live and gone the moment anybody does anything, so it greets
+  // rather than gates. Nothing at all under reduced motion, because the whole
+  // of it is the motion.
+  const revealing = hydrated && !settings.seenReveal && !reducedMotion;
+  // Stable, or the effect that owns the sweep's timer restarts on every
+  // render of the app and the flag is never written.
+  const markRevealSeen = useCallback(() => {
+    applySettings({ ...settingsRef.current, seenReveal: true });
+  }, [applySettings, settingsRef]);
 
   // The weather where the reader watches, on the chrome. A data attribute
   // rather than an element, so the effect is one background image on the
@@ -1404,6 +1418,7 @@ export default function App() {
       // exactly as it was: same panel open, same tool held, same scroll.
       data-capture={capture ? "1" : undefined}
     >
+      {revealing ? <FirstRunReveal onDone={markRevealSeen} /> : null}
       <MapStage
         settings={settings}
         mapRef={mapRef}
