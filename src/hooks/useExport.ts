@@ -16,6 +16,7 @@ import {
 } from "../lib/dataExport";
 import { log } from "../lib/log";
 import { drawPostcard, type PostcardSize } from "../lib/postcard";
+import { setWallpaper } from "../lib/wallpaper";
 import type { OverlayBounds } from "../lib/overlays";
 import type { RadarProvider } from "../lib/providers";
 import {
@@ -56,6 +57,15 @@ export interface ExportState {
    * Beside the plain export rather than instead of it: evidence and a
    * postcard are different jobs, and the plain one is unchanged.
    */
+  /**
+   * The same still, onto the desktop rather than into a file.
+   *
+   * Here rather than in the workspace because this is where a caption is
+   * written from a frame's own provenance: the picture on the desktop carries
+   * the frame time, the source credits and its own age exactly as a saved one
+   * does, and the two cannot drift apart.
+   */
+  writeWallpaper: () => Promise<void>;
   exportPostcard: (options: {
     size: PostcardSize;
     written: string;
@@ -241,6 +251,15 @@ export function useExport(options: {
     })();
   }, [captionFor, finish, frameIndex, mapRef, pushToast]);
 
+  const writeWallpaper = useCallback(async () => {
+    const canvas = mapRef.current?.canvas();
+    // Nothing to draw is not a failure. A wallpaper of an empty map is worse
+    // than the one that is already there.
+    if (!canvas || !frames.length) return;
+    const blob = await exportStill(canvas, captionFor(frameIndex));
+    await setWallpaper(new Uint8Array(await blob.arrayBuffer()));
+  }, [captionFor, frameIndex, frames.length, mapRef]);
+
   const exportPostcard = useCallback(
     (options: { size: PostcardSize; written: string; place: string }) => {
       void (async () => {
@@ -400,6 +419,7 @@ export function useExport(options: {
     progress,
     exportImage,
     exportPostcard,
+    writeWallpaper,
     exportLoopVideo,
     exportLoopGifFile,
     dataExports,

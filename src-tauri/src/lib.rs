@@ -30,6 +30,7 @@ mod tdwr;
 mod tiles;
 mod tray;
 mod vad;
+mod wallpaper;
 
 /// The decoder entry points, for the fuzz targets and nothing else.
 ///
@@ -237,6 +238,9 @@ pub fn run() {
             tray::tray_close_behaviour,
             tray::glance_on_top,
             tray::glance_open,
+            wallpaper::wallpaper_available,
+            wallpaper::wallpaper_set,
+            wallpaper::wallpaper_restore,
             tray::tray_enabled
         ])
         .setup(|_app| {
@@ -259,6 +263,10 @@ pub fn run() {
                     // entry, so it lives beside the packs rather than
                     // anywhere a cache clear can reach.
                     journal::init(&dir);
+                    // The wallpaper picture is written here too, one file
+                    // overwritten each time rather than a growing folder of
+                    // yesterdays somewhere the reader has to find.
+                    wallpaper::init(&dir);
                 }
                 Err(error) => {
                     log::warn!("OpenRadar has nowhere to keep incident packs: {error}");

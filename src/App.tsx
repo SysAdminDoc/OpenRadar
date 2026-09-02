@@ -55,6 +55,7 @@ import {
   setTrayHazard,
   writeGlance,
 } from "./lib/tray";
+import { restoreWallpaper, wallpaperDue } from "./lib/wallpaper";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
@@ -65,7 +66,7 @@ import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { CommandAction } from "./lib/commands";
 import type { GeoPoint } from "./lib/geo";
-import { recentLog, subscribeLog } from "./lib/log";
+import { log, recentLog, subscribeLog } from "./lib/log";
 import type { OverlayBounds } from "./lib/overlays";
 import {
   providerHealth,
@@ -985,6 +986,58 @@ export default function App() {
     dataSources,
     pushToast,
   });
+
+  /**
+   * The current view on the desktop, on the gap the reader chose.
+   *
+   * The same composed still the export writes, so the picture on the desktop
+   * carries the frame time, the source credits and its own age exactly as a
+   * saved one does. It writes nothing when there is no frame to draw or the
+   * map has not come up: a wallpaper of an empty map is worse than the one
+   * that is already there.
+   */
+  const wallpaperAt = useRef(0);
+  useEffect(() => {
+    if (!wallpaperDue(settings.wallpaperMinutes, wallpaperAt.current, clock)) {
+      return;
+    }
+    wallpaperAt.current = clock;
+    void (async () => {
+      try {
+        await exportState.writeWallpaper();
+      } catch (failure) {
+        // Said out loud rather than leaving a stale picture up and saying
+        // nothing. The log gets it too, because this runs unattended and the
+        // reader may not be at the machine when it fails.
+        log.warn(
+          "wallpaper",
+          failure instanceof Error ? failure.message : "It was not written.",
+        );
+        pushToast({
+          title: translate("wallpaper.failed"),
+          detail:
+            failure instanceof Error
+              ? failure.message
+              : translate("wallpaper.failed"),
+        });
+      }
+    })();
+    // `clock` is what makes this run again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, exportState, pushToast, settings.wallpaperMinutes, translate]);
+
+  // Switched off puts the reader's own wallpaper back, which is the whole
+  // reason this is safe to have at all.
+  const hadWallpaper = useRef(false);
+  useEffect(() => {
+    if (settings.wallpaperMinutes > 0) {
+      hadWallpaper.current = true;
+      return;
+    }
+    if (!hadWallpaper.current) return;
+    hadWallpaper.current = false;
+    void restoreWallpaper();
+  }, [settings.wallpaperMinutes]);
 
   // The flight happens here rather than where the alert is announced, because
   // the watch speaks the moment it sees a warning and the polygon it is about

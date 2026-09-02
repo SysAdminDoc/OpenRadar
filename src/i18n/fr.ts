@@ -1508,6 +1508,16 @@ export const fr: Catalogue = {
     "Fermer la fenêtre la laisse dans la zone de notification",
   "tray.closeToTrayDetail":
     "Désactivé, parce qu'une application qui continue après qu'on l'a fermée est une application qu'on désinstalle. Activé, l'icône est le chemin du retour.",
+  "wallpaper.setting": "Mettre la vue actuelle sur le bureau",
+  "wallpaper.settingDetail":
+    "Une image composée de la carte derrière ce sur quoi vous travaillez, avec l'heure, la source et son propre âge inscrits dessus, actualisée à l'intervalle que vous choisissez. Elle écrit un fichier dans le dossier de l'application et nulle part ailleurs, et la désactiver remet votre fond d'écran. Windows seulement pour l'instant.",
+  "wallpaper.every": "À quelle fréquence",
+  "wallpaper.never": "Jamais",
+  "wallpaper.everyMinutes":
+    "{minutes, plural, one {Chaque minute} other {Toutes les # minutes}}",
+  "wallpaper.unavailable":
+    "C'est une affaire Windows pour l'instant, il n'y a donc rien à activer ici.",
+  "wallpaper.failed": "Le fond d'écran n'a pas pu être écrit",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":

@@ -31,6 +31,7 @@ import {
   Zap,
   Volume2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
 import {
@@ -86,6 +87,7 @@ import { JournalSection } from "./JournalSection";
 import { playAlertTone } from "../lib/sound";
 import { openGlance } from "../lib/tray";
 import { giveSpeculationBack, putSpeculationAway } from "../lib/calm";
+import { WALLPAPER_EVERY, wallpaperAvailable } from "../lib/wallpaper";
 import { RecapSection } from "./RecapSection";
 import { CuriositySection } from "./CuriositySection";
 import {
@@ -883,6 +885,21 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
+
+  // Asked once: whether this machine can have its wallpaper set cannot change
+  // while the app is running. Null until the answer comes back, so the
+  // control neither promises nor refuses before it knows.
+  const [wallpaperOk, setWallpaperOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void wallpaperAvailable().then((ok) => {
+      if (alive) setWallpaperOk(ok);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const accent = themeAccent(settings.workspaceTheme);
 
   // The watched radius is stored in miles, which is what the watch works in,
@@ -1041,6 +1058,38 @@ export function SettingsPanel({
             </button>
           </>
         ) : null}
+        {/* Windows only for now, and it says so rather than offering a
+            control that would quietly do nothing. */}
+        <div className="settings-field" data-wallpaper-setting>
+          <span>
+            <strong>{t("wallpaper.setting")}</strong>
+            <small>
+              {wallpaperOk === false
+                ? t("wallpaper.unavailable")
+                : t("wallpaper.settingDetail")}
+            </small>
+          </span>
+          <label className="settings-field">
+            <span>{t("wallpaper.every")}</span>
+            <select
+              value={String(settings.wallpaperMinutes)}
+              disabled={wallpaperOk === false}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  wallpaperMinutes: Number(event.target.value),
+                })
+              }
+            >
+              <option value="0">{t("wallpaper.never")}</option>
+              {WALLPAPER_EVERY.filter((every) => every > 0).map((every) => (
+                <option key={every} value={String(every)}>
+                  {t("wallpaper.everyMinutes", { minutes: every })}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <ToggleSetting
           label={t("calm.setting")}
           detail={t("calm.settingDetail")}
