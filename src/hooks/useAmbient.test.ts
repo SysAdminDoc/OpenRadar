@@ -97,12 +97,19 @@ describe("the weather on the chrome", () => {
         clock: NOW,
         reducedMotion: false,
         pageVisible: true,
-        sampleMs: 20,
+        // Long enough that the mocked fetch resolves before the first
+        // measurement lands: a twenty-millisecond window could strike twice
+        // before `seen` arrived, and then `seen` never arrived at all,
+        // because a dropped effect has nothing to show. That failed only
+        // under load, which is the worst way for a test to fail.
+        sampleMs: 300,
       }),
     );
     await waitFor(() => expect(result.current.seen).not.toBeNull());
     expect(frames.length).toBeGreaterThan(0);
-    await waitFor(() => expect(result.current.dropped).toBe(true));
+    await waitFor(() => expect(result.current.dropped).toBe(true), {
+      timeout: 4000,
+    });
     expect(result.current.seen).toBeNull();
   });
 

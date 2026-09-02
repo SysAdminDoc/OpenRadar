@@ -800,6 +800,9 @@ interface SettingsPanelProps {
   /** The record was written to a file, at this path when there is one. */
   onJournalSaved: (path: string | null) => void;
   onJournalFailed: (why: string) => void;
+  onJournalCleared: () => void;
+  /** Ticks once a minute, so the record on screen notices a row arriving. */
+  clock: number;
   onWatchHere: () => void;
   /** Adds the map centre as another watched place. */
   onAddWatchPlace: () => void;
@@ -859,6 +862,8 @@ export function SettingsPanel({
   ambient,
   onJournalSaved,
   onJournalFailed,
+  onJournalCleared,
+  clock,
   onSendWatchTest,
   onWatchHere,
   onAddWatchPlace,
@@ -950,14 +955,19 @@ export function SettingsPanel({
             to be data. */}
         {settings.ambient ? (
           <p className="source-note">
-            {ambient.dropped
-              ? t("settings.ambientDropped")
-              : ambient.seen
-                ? t("settings.ambientSeen", {
-                    station: ambient.seen.station,
-                    when: formatClock(ambient.seen.observed),
-                  })
-                : t("settings.ambientQuiet")}
+            {!settings.watch.enabled
+              ? // Nothing is fetched at all without one, so saying no station
+                // is reporting weather would be a claim about the sky rather
+                // than about the setting.
+                t("settings.ambientNeedsWatch")
+              : ambient.dropped
+                ? t("settings.ambientDropped")
+                : ambient.seen
+                  ? t("settings.ambientSeen", {
+                      station: ambient.seen.station,
+                      when: formatClock(ambient.seen.observed),
+                    })
+                  : t("settings.ambientQuiet")}
           </p>
         ) : null}
         <ToggleSetting
@@ -998,8 +1008,10 @@ export function SettingsPanel({
       </div>
 
       <JournalSection
+        clock={clock}
         onSaved={(path) => onJournalSaved(path)}
         onFailed={(why) => onJournalFailed(why)}
+        onCleared={onJournalCleared}
       />
 
       <IncidentPackManager

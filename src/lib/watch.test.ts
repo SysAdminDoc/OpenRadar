@@ -77,6 +77,27 @@ describe("watched area", () => {
     expect(watchAlertBody(found[0])).toContain("where you are watching");
   });
 
+  it("carries the office's own issuance, and says so when there isn't one", () => {
+    const issued = Date.parse("2026-08-30T11:41:00Z");
+    const [dated, undated] = alertsToAnnounce(
+      {
+        type: "FeatureCollection",
+        features: [
+          alert("Tornado Warning", "extreme", near, { issued }),
+          alert("Severe Thunderstorm Warning", "severe", near),
+        ],
+      },
+      watch,
+      new Map(),
+      now,
+    );
+    // The journal dates a row by this. Reading it back as the moment a poll
+    // returned would put a time on the office's warning that the office never
+    // said, and nineteen minutes is the whole life of some of them.
+    expect(dated.issued).toBe(issued);
+    expect(undated.issued).toBeNull();
+  });
+
   it("stays quiet for anything too far, too mild, expired, or already said", () => {
     const features = [
       alert("Distant Warning", "extreme", far),

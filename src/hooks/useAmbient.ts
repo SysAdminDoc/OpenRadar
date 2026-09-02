@@ -178,7 +178,14 @@ export function useAmbient(options: {
   const running = Boolean(seen) && !reducedMotion && pageVisible;
   const strikesRef = useRef(0);
   useEffect(() => {
-    if (!running) return;
+    if (!running) {
+      // Cleared with the sampler. A slow moment, an hour minimised, and one
+      // more slow moment used to add up to two strikes and take the effect
+      // off for the session, which is the failure the visibility check above
+      // exists to prevent.
+      strikesRef.current = 0;
+      return;
+    }
     let frames = 0;
     let handle = requestAnimationFrame(function tick() {
       frames += 1;

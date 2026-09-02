@@ -57,6 +57,20 @@ describe("what a station says is falling", () => {
     expect(
       conditionFromMetar("METAR KSNA 011953Z 27008KT 10SM CLR 28/12 A2992"),
     ).toBeNull();
+    // A corrected special carries two words before the identifier, which is
+    // where the first attempt at this stopped looking.
+    expect(
+      conditionFromMetar("SPECI COR KRAL 021253Z 18008KT 10SM CLR 12/11 A2989"),
+    ).toBeNull();
+    expect(
+      conditionFromMetar("METAR COR KSNA 021253Z 18008KT 10SM CLR 12/11 A2989"),
+    ).toBeNull();
+    // And the weather in a corrected report still reads.
+    expect(
+      conditionFromMetar(
+        "SPECI COR KRAL 021253Z 18008KT 2SM -SN OVC008 M01/M02 A2989",
+      ),
+    ).toBe("snow");
     // And the remarks are prose. RMK carries things like RAB35 for the minute
     // rain began, which is history rather than the present, and TSNO, which
     // says the thunderstorm sensor is out of service.

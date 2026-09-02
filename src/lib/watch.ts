@@ -236,6 +236,13 @@ export interface WatchAlert {
   /** The damage threat the office attached, or empty for most warnings. */
   impact: string;
   severity: AlertSeverity;
+  /**
+   * When the office issued it, in milliseconds, or null when it did not say.
+   *
+   * Kept apart from when the app noticed it. A record that dates a warning by
+   * the moment a poll came back says something untrue about the office.
+   */
+  issued: number | null;
   expires: number | null;
   distanceMiles: number;
   reason: WatchReason;
@@ -339,6 +346,11 @@ export function alertsToAnnounce(
 
     const expires = feature.properties.expires;
     if (typeof expires === "number" && expires <= now) continue;
+    // The overlay has already turned the office's own timestamps into
+    // milliseconds, so this reads one rather than parsing a string a second
+    // time. A feed that sent no issuance leaves it null, and the caller dates
+    // the row by when it noticed instead of by the epoch.
+    const issued = feature.properties.issued;
 
     const bounds = featureBounds(feature.geometry);
     if (!bounds) continue;
@@ -359,6 +371,7 @@ export function alertsToAnnounce(
       headline: String(feature.properties.headline ?? translate("watch.alert")),
       impact: String(feature.properties.impact ?? ""),
       severity,
+      issued: typeof issued === "number" ? issued : null,
       expires: typeof expires === "number" ? expires : null,
       distanceMiles: distance,
       reason: {
@@ -451,6 +464,7 @@ export function testWatchAlert(place: WatchPlace): WatchAlert {
     headline: translate("watch.testHeadline"),
     impact: "",
     severity: place.minSeverity,
+    issued: Date.now(),
     expires: null,
     distanceMiles: 0,
     reason: {

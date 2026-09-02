@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { journalText, type JournalRow } from "./journal";
+import {
+  journalText,
+  JOURNAL_MAX_MB,
+  JOURNAL_RETENTION_DAYS,
+  type JournalRow,
+} from "./journal";
 import { diagnosticsBlock } from "./diagnostics";
 
 const row = (over: Partial<JournalRow> = {}): JournalRow => ({
@@ -40,21 +47,73 @@ describe("the record a reader takes away", () => {
   });
 });
 
+describe("the bounds the panel promises", () => {
+  it("are the bounds the file is actually held to", () => {
+    // Two hand-typed copies of the same two numbers, in two languages, with
+    // the panel note, the README and the privacy section quoting them. This
+    // is what keeps them from drifting into a lie.
+    const rust = readFileSync(
+      join(import.meta.dirname, "..", "..", "src-tauri", "src", "journal.rs"),
+      "utf8",
+    );
+    const days = /RETENTION_DAYS: i64 = (\d+)/.exec(rust)?.[1];
+    const megabytes = /MAX_BYTES: u64 = (\d+) \* 1024 \* 1024/.exec(rust)?.[1];
+    expect(Number(days)).toBe(JOURNAL_RETENTION_DAYS);
+    expect(Number(megabytes)).toBe(JOURNAL_MAX_MB);
+  });
+});
+
+describe("what the log may say about it", () => {
+  it("counts the places rather than naming them", () => {
+    // `redact` blurs coordinates and folder names and knows nothing about
+    // what somebody called their house, so the only defence is not putting a
+    // name in the line. Read off the source, because the alternative is a
+    // test that asserts a property of a string it wrote itself.
+    const source = readFileSync(
+      join(import.meta.dirname, "..", "hooks", "useAlertWatch.ts"),
+      "utf8",
+    );
+    for (const call of source.matchAll(/log\.\w+\(([\s\S]{0,400}?)\);/g)) {
+      expect(call[1], call[1].slice(0, 80)).not.toMatch(
+        /place\.name|\bnamed\b|places\.map/,
+      );
+    }
+    // And the line that does exist says how many, which is the part that
+    // helps somebody reading a bug report.
+    expect(source).toContain("watched place(s)");
+  });
+});
+
 describe("what the diagnostics report may say about it", () => {
   it("says nothing at all", () => {
     // The one file in the app that writes down where somebody lives is not in
     // the block a reader pastes into a bug report. The report is built from a
     // fixed list and this holds that list to it.
+    // Handed a log line that names a place, which is the only way a name can
+    // reach the block at all: `redact` blurs coordinates and folder names and
+    // knows nothing about what somebody called their house. The old version
+    // of this test passed an empty log and asserted a name it had never given
+    // anything, so it could not fail for the reason it exists.
     const block = diagnosticsBlock({
       renderer: "test",
       mapReady: true,
       radarReady: true,
       activeSource: "mrms",
       health: [],
-      log: [],
+      log: [
+        {
+          at: Date.now(),
+          level: "info",
+          scope: "watch",
+          message: "Announced Tornado Warning at 2 watched place(s).",
+        },
+      ],
       platform: "windows",
     });
+    expect(block).toContain("Announced Tornado Warning");
+    // The count is what helps somebody reading a bug report. The names are
+    // the reader's own and are not in it.
     expect(block).not.toContain("Casa");
-    expect(block).not.toContain("journal");
+    expect(block).not.toContain("journal.jsonl");
   });
 });

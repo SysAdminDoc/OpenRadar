@@ -22,13 +22,18 @@ export function FirstRunReveal({ onDone }: { onDone: () => void }) {
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
-    // Two separate things, deliberately. An interaction takes it off screen
-    // at once; the flag that stops it ever playing again is written when the
-    // sweep would have ended anyway. Writing it from the interaction meant a
-    // settings save landing between a pointer going down and the click that
-    // follows it, which took the map's own popup with it.
-    const timer = window.setTimeout(onDone, DURATION_MS);
-    const skip = () => setGone(true);
+    let timer = window.setTimeout(onDone, DURATION_MS);
+    const skip = () => {
+      // Two separate things, deliberately: off screen at once, and the flag
+      // that stops it playing again a moment later. Writing the flag from the
+      // interaction itself put a settings save between a pointer going down
+      // and the click that follows it, which took the map's own popup with
+      // it. Leaving it until the whole sweep had run meant a reader who
+      // skipped and then quit saw the animation again on the next launch.
+      setGone(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(onDone, SETTLE_MS);
+    };
     const events = ["pointerdown", "keydown", "wheel"] as const;
     for (const name of events) window.addEventListener(name, skip, true);
     return () => {
@@ -43,3 +48,12 @@ export function FirstRunReveal({ onDone }: { onDone: () => void }) {
 
 /** Long enough to read as a sweep, short enough that nobody waits for it. */
 export const DURATION_MS = 2400;
+
+/**
+ * How long after a skip the flag is written.
+ *
+ * Past the pointerdown, pointerup and click that a single press is, so a save
+ * cannot land in the middle of one, and far short of anything a reader would
+ * notice.
+ */
+export const SETTLE_MS = 300;

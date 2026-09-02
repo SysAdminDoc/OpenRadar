@@ -149,6 +149,7 @@ interface PanelSurfacesProps {
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   onJournalSaved: (path: string | null) => void;
+  onJournalCleared: () => void;
   /** Whether the almanac card is drawn: off by choice, or quiet during danger. */
   almanac: boolean;
   onFlyTo: (point: { lon: number; lat: number }) => void;
@@ -289,6 +290,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           ambient={props.ambient}
           onJournalSaved={props.onJournalSaved}
           onJournalFailed={props.onJournalFailed}
+          onJournalCleared={props.onJournalCleared}
+          clock={props.clock}
           onReset={props.onReset}
           onExportSettings={props.onExportSettings}
           onClose={onClose}
