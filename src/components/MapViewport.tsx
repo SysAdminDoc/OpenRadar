@@ -348,6 +348,34 @@ function MapViewportInner(
   // When the reader last moved the map themselves, so nothing takes the
   // camera off somebody who is using it.
   const interactedAtRef = useRef<number | null>(null);
+
+  /**
+   * Where the zoom buttons are taking the map, while they are taking it.
+   *
+   * `getZoom` answers where the camera is this instant, which during an ease
+   * is nowhere near where the last click asked for. Stepping from that number
+   * swallows every click made before the previous one lands: twelve rapid
+   * presses moved the map about a level and a half instead of twelve. Null
+   * whenever nothing is in flight, so a drag or a wheel is stepped from where
+   * the reader actually left the map.
+   */
+  const zoomTargetRef = useRef<number | null>(null);
+
+  /** One press of a zoom button, counted from the last press rather than the
+   * frame the map happens to be on. */
+  const stepZoom = (delta: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    interactedAtRef.current = Date.now();
+    const from = zoomTargetRef.current ?? map.getZoom();
+    const target = Math.min(15, Math.max(2.5, from + delta));
+    // After the call, not before it: starting an ease stops the one already
+    // running, and stopping one fires `moveend`, which is what clears this.
+    // Recorded first, the press erased its own target and the next press
+    // counted from the frame the map was on again.
+    map.easeTo({ zoom: target });
+    zoomTargetRef.current = target;
+  };
   const radarFrameRef = useRef<RadarFrame | undefined>(radarFrame);
   const radarVisibleRef = useRef(radarVisible);
   const radarOpacityRef = useRef(radarOpacity);
@@ -1389,18 +1417,8 @@ function MapViewportInner(
     // a drag is. They go through `easeTo` with no browser event, so the map
     // cannot tell them from a camera the app moved, and they are stamped
     // here instead.
-    zoomIn: () => {
-      interactedAtRef.current = Date.now();
-      mapRef.current?.easeTo({
-        zoom: Math.min(15, (mapRef.current?.getZoom() ?? 4) + 1),
-      });
-    },
-    zoomOut: () => {
-      interactedAtRef.current = Date.now();
-      mapRef.current?.easeTo({
-        zoom: Math.max(2.5, (mapRef.current?.getZoom() ?? 4) - 1),
-      });
-    },
+    zoomIn: () => stepZoom(1),
+    zoomOut: () => stepZoom(-1),
     resetNorth: () => {
       interactedAtRef.current = Date.now();
       mapRef.current?.easeTo({ bearing: 0, pitch: 0, duration: 450 });
@@ -1557,6 +1575,8 @@ function MapViewportInner(
       onCameraMove?.(next);
     });
     map.on("moveend", () => {
+      // The map has stopped, so the next press counts from here.
+      zoomTargetRef.current = null;
       if (suppressCameraEventsRef.current) return;
       onCameraChange?.(asCamera(map));
     });

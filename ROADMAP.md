@@ -8,12 +8,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P2
 
-- [ ] AUD-126: The station-plot e2e fails in the compact project
-      Why: `e2e/layers.spec.ts:659` ("draws surface observations as station plots, and only close in") fails under `--project=compact` and passes under chromium and wide. It was failing at `70fa292` before any of this session's work, so it is a standing red in the suite rather than a regression, and a standing red is how a real one goes unnoticed.
-      Evidence: `npx playwright test layers --project=compact -g "station plots"` fails at `expect.poll(() => asked.length).toBeGreaterThan(0)` (line 697), verified against a clean worktree at `70fa292`
-      Touches: The surface-observation request, whatever suppresses it at the compact viewport, and the spec's own assumptions about that viewport
-      Acceptance: The spec passes in all three projects, and if the layer is genuinely meant to stay off at that width, the spec says so instead of asking for the request.
-      Priority: P2
 
 ## P3
 

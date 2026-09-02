@@ -810,3 +810,28 @@ test("saves the whole workspace to a file and puts it back", async ({
     page.getByText("That settings file could not be read"),
   ).toBeVisible();
 });
+
+test("counts every press of the zoom button, not just the ones between eases", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  const zoomOf = async () =>
+    Number(((await pane.getAttribute("data-camera")) ?? "").split(",")[2]);
+  const before = await zoomOf();
+
+  // Pressed the way somebody actually presses it: as fast as the button
+  // takes it, without waiting for the map to settle. Stepping from the live
+  // zoom counts from wherever the ease has got to, so all but the first
+  // press or two are swallowed.
+  for (let press = 0; press < 6; press += 1) {
+    await page.getByRole("button", { name: "Zoom in" }).click();
+  }
+  await expect.poll(zoomOf).toBeGreaterThanOrEqual(before + 5.5);
+
+  for (let press = 0; press < 6; press += 1) {
+    await page.getByRole("button", { name: "Zoom out" }).click();
+  }
+  await expect.poll(zoomOf).toBeLessThanOrEqual(before + 0.5);
+});
