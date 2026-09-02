@@ -305,8 +305,8 @@ export function HistoryPanel({
               {t("history.ace", {
                 ace: formatNumber(selected.ace, 2),
                 fixes: selected.track.length,
-                start: dateLabel(selected.start),
-                end: dateLabel(selected.end),
+                from: dateLabel(selected.start),
+                to: dateLabel(selected.end),
               })}
             </small>
           </div>

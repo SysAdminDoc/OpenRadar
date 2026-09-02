@@ -510,7 +510,7 @@ export const alertsOverlay: OverlayAdapter = {
             ]
           : []),
         ...(properties.hailSize
-          ? [translate("alerts.hailTo", { size: String(properties.hailSize) })]
+          ? [translate("alerts.hailTo", { size: Number(properties.hailSize) })]
           : []),
         translate("popup.alertSource", {
           office:

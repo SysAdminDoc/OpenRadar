@@ -215,16 +215,24 @@ export function JournalSection({
         <span>{t("figures.title")}</span>
       </div>
       <p className="source-note">{t("figures.note")}</p>
-      {figures && writing ? (
-        <ul className="recap-lines" data-journal-figures>
-          {figureLines(figures).map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
+      {figures ? (
+        <>
+          <ul className="recap-lines" data-journal-figures>
+            {figureLines(figures).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          {/* Switching the record off stops new rows; it does not delete the
+              ones already there, and the list, the export and the year card
+              all still show them. Saying "nothing to count" over the top of
+              a list of rows was two things on one screen disagreeing. */}
+          {writing ? null : (
+            <p className="source-note">{t("figures.paused")}</p>
+          )}
+        </>
       ) : (
-        // Unavailable rather than estimated. A guess about somebody's own
-        // weather is worth less than nothing, and a row of noughts reads as
-        // a quiet year rather than as a record that was switched off.
+        // Nothing counted rather than a row of noughts: an absence of records
+        // is not an absence of weather.
         <p className="source-note">
           {writing ? t("journal.empty") : t("figures.off")}
         </p>

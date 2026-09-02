@@ -62,6 +62,35 @@ describe("what a toast is worth waiting for", () => {
     expect(result.current.messages.length).toBeLessThanOrEqual(3);
   });
 
+  it("holds two undos and still keeps to three on screen", () => {
+    const { result } = renderHook(() => useToasts());
+    for (const title of ["Row deleted", "Record deleted"]) {
+      act(() =>
+        result.current.push({
+          title,
+          actionLabel: "Undo",
+          onAction: () => undefined,
+          lifetimeMs: UNDO_LIFETIME_MS,
+        }),
+      );
+    }
+    for (const title of ["A layer failed", "Another failed", "And another"]) {
+      act(() => result.current.push({ title }));
+    }
+    // With two undos held there is no room left, and the arithmetic that
+    // works that out used a negative count: `slice(-0)` is the whole array,
+    // so everything was kept and the timers of messages still on screen were
+    // cancelled. They stayed for ever.
+    expect(result.current.messages.length).toBeLessThanOrEqual(3);
+    expect(result.current.messages.filter((one) => one.onAction)).toHaveLength(
+      2,
+    );
+
+    // And whatever is left still goes on its own.
+    act(() => void vi.advanceTimersByTime(6_000));
+    expect(result.current.messages.every((one) => one.onAction)).toBe(true);
+  });
+
   it("still gives up its timer when it is dismissed by hand", () => {
     const { result } = renderHook(() => useToasts());
     act(() => result.current.push({ title: "Saved" }));

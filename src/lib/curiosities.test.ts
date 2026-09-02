@@ -16,11 +16,13 @@ const SHIPPED = JSON.parse(
   ),
 ) as unknown;
 
+const SAID = (text: string) => ({ en: text, es: text, fr: text });
+
 function one(over: Partial<Curiosity> = {}): Curiosity {
   return {
     id: "somewhere",
-    title: "Somewhere",
-    story: "Something was measured here.",
+    title: SAID("Somewhere"),
+    story: SAID("Something was measured here."),
     source: "An office",
     url: "https://example.invalid/story",
     place: { lon: -97, lat: 35 },
@@ -43,7 +45,34 @@ describe("the set that ships with the app", () => {
       // telling, so an uncited entry never reaches the screen.
       expect(found.source.length, found.id).toBeGreaterThan(0);
       expect(found.url, found.id).toMatch(/^https:\/\//);
-      expect(found.story.length, found.id).toBeGreaterThan(40);
+      for (const which of ["en", "es", "fr"] as const) {
+        // In every language the workspace is written in. A card that falls
+        // back to English for a French reader is an untranslated surface,
+        // and the stories are the whole of what these cards say.
+        expect(
+          found.story[which].length,
+          `${found.id} ${which}`,
+        ).toBeGreaterThan(40);
+        expect(
+          found.title[which].length,
+          `${found.id} ${which}`,
+        ).toBeGreaterThan(2);
+      }
+      // The story says who is speaking wherever the citation is the office's
+      // front door rather than a page about that event, so a reader can check
+      // it either way.
+      // A page about the event, not just the office's front door: one path
+      // segment is a landing page, which cites the publisher rather than the
+      // claim.
+      const deep =
+        new URL(found.url).pathname.split("/").filter(Boolean).length > 1;
+      // Any word of the office's name, other than the initials every one of
+      // them shares. "The Portland forecast office" names NWS Portland.
+      const names = found.source
+        .split(/[\s,]+/)
+        .filter((word) => word.length > 3 && word !== "NWS")
+        .some((word) => found.story.en.includes(word));
+      expect(deep || names, `${found.id} cites only a front door`).toBe(true);
     }
   });
 
@@ -87,12 +116,48 @@ describe("the set that ships with the app", () => {
     // No citation, no card.
     expect(readCuriosities([one({ url: "" })])).toEqual([]);
     expect(readCuriosities([one({ source: "" })])).toEqual([]);
+    // And no card at all rather than one that falls back to English for a
+    // French reader.
+    expect(
+      readCuriosities([
+        one({ story: { en: "x".repeat(50), es: "", fr: "y" } as never }),
+      ]),
+    ).toEqual([]);
     // And a plain http link is not a citation this app will open.
     expect(readCuriosities([one({ url: "http://example.invalid" })])).toEqual(
       [],
     );
     // The same entry twice is one entry.
     expect(readCuriosities([one(), one()])).toHaveLength(1);
+  });
+});
+
+describe("standing down during danger", () => {
+  it("is gated where the card is drawn, not only where one is found", () => {
+    // The card is state, and state outlives the condition that created it.
+    // Gating only the detection left a note about a measurement taken in
+    // 1934 sitting over a live warning: found in the quiet, still there when
+    // the warning went up. Held by reading the source, because reproducing
+    // it needs a second alerts poll to land mid-test.
+    const app = readFileSync(
+      join(import.meta.dirname, "..", "App.tsx"),
+      "utf8",
+    );
+    const drawn = /\{curiosity[^\n]*\?/.exec(app)?.[0] ?? "";
+    expect(drawn, "the card's own render condition").toContain("alertActive");
+    expect(drawn).toContain("settings.curiosities");
+
+    // And the detection is gated too, which is the half that was already
+    // right: a card must not be found during a warning either.
+    const hook = readFileSync(
+      join(import.meta.dirname, "..", "App.tsx"),
+      "utf8",
+    );
+    const found = hook.slice(
+      hook.indexOf("useCuriosities({"),
+      hook.indexOf("useCuriosities({") + 400,
+    );
+    expect(found).toContain("alertActive");
   });
 });
 

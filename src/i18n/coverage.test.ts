@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { sep } from "node:path";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { en } from "./en";
@@ -356,6 +357,48 @@ describe("the workspace is translated", () => {
     // All of them at once, because fixing these one failure at a time is how
     // a conversion like this gets abandoned half done.
     expect(wrong).toEqual([]);
+  });
+
+  it("is filled in with the blanks the copy actually has", () => {
+    // A placeholder renamed in three catalogues and not at its one call site
+    // does not fail to build and does not throw: `translate` leaves an
+    // unmatched `{from}` on screen, and the caller's `start:` goes nowhere.
+    // Storm history said "ACE 17.47 · 156 fixes · {from} to {to}" for a
+    // fortnight because nothing read the two halves together.
+    const root = join(import.meta.dirname, "..");
+    const wrong: string[] = [];
+    for (const path of sourceFiles(root)) {
+      if (path.includes(`i18n${sep}`)) continue;
+      const source = readFileSync(path, "utf8");
+      for (const call of source.matchAll(
+        /\bt\(\s*"([\w.]+)"\s*,\s*\{([\s\S]{0,600}?)\}\s*\)/g,
+      )) {
+        const key = call[1] as keyof typeof en;
+        if (!(key in en)) continue;
+        const wanted = new Set(
+          [...en[key].matchAll(/\{(\w+)[,}]/g)].map((one) => one[1]),
+        );
+        if (!wanted.size) continue;
+        // Only the names at the top of the object. `formatClock(at, { month,
+        // day })` nested inside a parameter is an option for the formatter,
+        // not a blank in the sentence.
+        let depth = 0;
+        // Comments out first: a note written above a parameter is prose, and
+        // "Raw: the sentence chooses its words" is not a blank.
+        const given = call[2]
+          .replace(new RegExp(String.raw`/\*[^]*?\*/`, "g"), "")
+          .replace(new RegExp(String.raw`//.*`, "g"), "");
+        for (const token of given.matchAll(/[{}[\]()]|(\w+)\s*:/g)) {
+          if (token[1] === undefined) {
+            depth += "{[(".includes(token[0]) ? 1 : -1;
+            continue;
+          }
+          if (depth !== 0 || wanted.has(token[1])) continue;
+          wrong.push(`${key}: "${token[1]}" is not a blank in that string`);
+        }
+      }
+    }
+    expect([...new Set(wrong)]).toEqual([]);
   });
 
   it("makes the pseudolocale longer than the original", () => {

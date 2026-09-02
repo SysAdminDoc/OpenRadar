@@ -55,11 +55,17 @@ export function useToasts(): Toasts {
         // A message carrying an undo is not pushed off by newer ones. It is
         // the only way back from something destructive, and two toasts about
         // a layer failing to load should not take it away.
+        //
+        // Sliced by an index rather than by a negative count: `slice(-0)` is
+        // the whole array, so with two undos held the arithmetic inverted and
+        // kept everything while cancelling the timers of messages that were
+        // still on screen. They then stayed for ever.
         const holding = current.filter((toast) => toast.onAction);
         const ordinary = current.filter((toast) => !toast.onAction);
         const room = Math.max(0, MAX_VISIBLE - 1 - holding.length);
-        const kept = [...holding, ...ordinary.slice(-room)];
-        for (const gone of ordinary.slice(0, -room || undefined)) {
+        const from = Math.max(0, ordinary.length - room);
+        const kept = [...holding, ...ordinary.slice(from)];
+        for (const gone of ordinary.slice(0, from)) {
           const timer = timers.current.get(gone.id);
           if (timer !== undefined) {
             window.clearTimeout(timer);

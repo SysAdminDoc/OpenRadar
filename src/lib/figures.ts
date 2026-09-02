@@ -83,30 +83,24 @@ export function figuresFrom(rows: readonly JournalRow[]): Figures | null {
  * and over what period is a fact about a file.
  */
 export function figureLines(figures: Figures): string[] {
-  const lines = [
+  // Every line names the period, because a number on its own invites a
+  // comparison and a number that says what it counts and over what period is
+  // a fact about a file. A record with no readable time on any row has no
+  // period to name, and says nothing rather than making one up.
+  if (figures.from === null || figures.to === null) return [];
+  const when = (at: number) =>
+    formatClock(at, { year: "numeric", month: "short", day: "numeric" });
+  const from = when(figures.from);
+  const to = when(figures.to);
+  return [
     translate("figures.rows", {
+      from,
+      to,
       rows: figures.rows,
       alerts: figures.alerts,
       observations: figures.observations,
     }),
     translate("figures.places", { places: figures.places }),
+    translate("figures.period", { days: figures.days }),
   ];
-  if (figures.from !== null && figures.to !== null) {
-    lines.push(
-      translate("figures.period", {
-        from: formatClock(figures.from, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
-        to: formatClock(figures.to, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
-        days: figures.days,
-      }),
-    );
-  }
-  return lines;
 }

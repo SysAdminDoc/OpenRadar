@@ -985,12 +985,6 @@ export function SettingsPanel({
           checked={settings.curiosities}
           onChange={(curiosities) => onSettings({ ...settings, curiosities })}
         />
-        {settings.curiosities ? (
-          <CuriositySection
-            found={settings.curiositiesFound}
-            onForget={() => onSettings({ ...settings, curiositiesFound: [] })}
-          />
-        ) : null}
         <ToggleSetting
           label={t("catchUp.setting")}
           detail={t("catchUp.settingDetail")}
@@ -1043,6 +1037,13 @@ export function SettingsPanel({
         onCleared={onJournalCleared}
         onRemoved={onJournalRemoved}
       />
+
+      {settings.curiosities ? (
+        <CuriositySection
+          found={settings.curiositiesFound}
+          onForget={() => onSettings({ ...settings, curiositiesFound: [] })}
+        />
+      ) : null}
 
       <RecapSection
         clock={clock}

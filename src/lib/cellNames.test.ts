@@ -55,9 +55,17 @@ describe("when the algorithm stops tracking it", () => {
     expect(alive.has(cellKey("KFWS", "B2"))).toBe(false);
   });
 
-  it("lets them all go when the radar changes", () => {
+  it("keeps a name the radar in question knows nothing about", () => {
+    // Following a storm across the boundary between two sites changes which
+    // one is tuned, and this used to delete every name over about six miles
+    // of panning. A name is judged by the report of the radar that gave the
+    // storm its identifier, and by nothing else.
     const names = new Map([[cellKey("KFWS", "A1"), "The big one"]]);
-    expect(livingNames(names, "KDYX", ["A1"]).size).toBe(0);
-    expect(livingNames(names, null, ["A1"]).size).toBe(0);
+    expect(livingNames(names, "KDYX", ["B2"]).size).toBe(1);
+    // And a poll that failed says nothing about which storms are tracked.
+    // Treating it as "none of them" was a timeout deleting the lot.
+    expect(livingNames(names, null, []).size).toBe(1);
+    // The site's own report still decides its own names.
+    expect(livingNames(names, "KFWS", ["B2"]).size).toBe(0);
   });
 });
