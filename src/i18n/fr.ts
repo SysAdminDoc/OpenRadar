@@ -1492,6 +1492,22 @@ export const fr: Catalogue = {
   "ambientScreen.idleMinutes":
     "{minutes, plural, one {# minute} other {# minutes}}",
   "command.ambientScreen": "Vue plein écran",
+  "glance.waiting": "En attente de ce que l'espace de travail affiche.",
+  "glance.picture": "La carte telle que l'espace de travail l'a dessinée",
+  "glance.warning": "Une alerte est en cours là où vous surveillez",
+  "glance.quiet": "Rien en cours là où vous surveillez",
+  "glance.updated": "À {when}",
+  "glance.setting": "Une petite fenêtre qui reste où vous la mettez",
+  "glance.settingDetail":
+    "Le lieu que vous surveillez, s'il y a une alerte, et une image fixe de la carte. Elle montre ce que l'espace de travail a déjà dessiné plutôt que de le redessiner, la laisser ouverte ne coûte donc presque rien. Elle s'ouvre depuis la zone de notification.",
+  "glance.onTop": "Garder la petite fenêtre au-dessus de tout",
+  "tray.setting": "Mettre une icône dans la zone de notification",
+  "tray.settingDetail":
+    "L'icône dit une chose : s'il y a une alerte à un lieu que vous avez nommé. La désactiver la retire, elle ne la cache pas.",
+  "tray.closeToTray":
+    "Fermer la fenêtre la laisse dans la zone de notification",
+  "tray.closeToTrayDetail":
+    "Désactivé, parce qu'une application qui continue après qu'on l'a fermée est une application qu'on désinstalle. Activé, l'icône est le chemin du retour.",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":

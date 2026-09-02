@@ -423,14 +423,12 @@ describe("the workspace is translated", () => {
     // A key left behind when its caller changed is dead weight that still has
     // to be translated, and the parity test above is happy to keep both
     // languages carrying it for ever.
-    const sources = [
-      ...sourceFiles(join(ROOT, "panels")),
-      ...sourceFiles(join(ROOT, "components")),
-      ...sourceFiles(join(ROOT, "hooks")),
-      ...sourceFiles(join(ROOT, "lib")),
-      join(ROOT, "App.tsx"),
-      join(ROOT, "main.tsx"),
-    ]
+    // Every source file under src/, minus the catalogues themselves, rather
+    // than a list of the four directories somebody thought of. The list
+    // version went stale the first time a second entry point was added: the
+    // glance window's own strings all read as dead.
+    const sources = sourceFiles(ROOT)
+      .filter((path) => !path.includes(`i18n${sep}`))
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
 

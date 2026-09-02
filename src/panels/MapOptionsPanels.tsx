@@ -84,6 +84,7 @@ import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
 import { playAlertTone } from "../lib/sound";
+import { openGlance } from "../lib/tray";
 import { giveSpeculationBack, putSpeculationAway } from "../lib/calm";
 import { RecapSection } from "./RecapSection";
 import { CuriositySection } from "./CuriositySection";
@@ -1007,6 +1008,39 @@ export function SettingsPanel({
             </select>
           </label>
         </div>
+        <ToggleSetting
+          label={t("tray.setting")}
+          detail={t("tray.settingDetail")}
+          checked={settings.tray}
+          onChange={(tray) => onSettings({ ...settings, tray })}
+        />
+        {settings.tray ? (
+          <>
+            <ToggleSetting
+              label={t("tray.closeToTray")}
+              detail={t("tray.closeToTrayDetail")}
+              checked={settings.closeToTray}
+              onChange={(closeToTray) =>
+                onSettings({ ...settings, closeToTray })
+              }
+            />
+            <ToggleSetting
+              label={t("glance.onTop")}
+              detail={t("glance.settingDetail")}
+              checked={settings.glanceOnTop}
+              onChange={(glanceOnTop) =>
+                onSettings({ ...settings, glanceOnTop })
+              }
+            />
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void openGlance()}
+            >
+              {t("glance.setting")}
+            </button>
+          </>
+        ) : null}
         <ToggleSetting
           label={t("calm.setting")}
           detail={t("calm.settingDetail")}

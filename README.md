@@ -187,6 +187,8 @@ Typing a storm's name into the place search answers with the storm rather than a
 
 **Postcards** sit beside the plain export: the same frame composed as a card, in a square, a wide or a tall shape, with room for a line of your own. Every one carries the observed time, the credits and a line saying it is not an official product, and a caption cannot push any of them off. The place name goes on only if you ask for it.
 
+**A tray icon** says whether a warning stands where you watch, and nothing else. Beside it is a small window with the place, the state and one still of the map, its own page rather than a second copy of the workspace, so it weighs two kilobytes and draws no map of its own. Closing the main window closes the app unless you ask otherwise, and switching the tray off removes the icon rather than hiding it.
+
 **A calmer presentation** is there for readers who find severe weather distressing. It turns the app down and never the weather: the same warnings, at the same moment, in the same colours, with a line under each one about what to do rather than how bad it could be. Probability layers start off and come back with one press. Every accessibility check passes with it on.
 
 Alerts have four sounds rather than one, by severity, and you can hear each before committing to it. You can point at a sound file of your own instead, which replaces all four and is cut off after six seconds. None of them imitates the Emergency Alert System attention signal, the wireless alert signal or NOAA Weather Radio's tone, and tests hold that boundary because 47 CFR 11.45 makes it a law rather than a preference.

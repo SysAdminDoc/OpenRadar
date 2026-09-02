@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenRadar</title>
+  </head>
+  <body>
+    <!--
+      The small window that answers "is it about to rain" without bringing
+      the workspace to the front.
+
+      Its own page rather than the workspace in a small window, and that is
+      the whole design: a second live map is a second WebGL context and a few
+      hundred megabytes for something that only has to show one picture and
+      four lines of text. What it draws is a still frame the workspace has
+      already rendered, handed over through the app's own store.
+    -->
+    <div id="glance"></div>
+    <script type="module" src="/src/glance.tsx"></script>
+  </body>
+</html>
