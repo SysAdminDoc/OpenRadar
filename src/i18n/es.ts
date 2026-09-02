@@ -13,8 +13,10 @@ export const es: Catalogue = {
   "export.image": "Exportar imagen",
   "export.loop": "Exportar animación",
   "export.gif": "Exportar GIF",
-  "export.gifFrames": " (últimos {count} fotogramas)",
-  "export.loopFrames": " ({count} cuadros)",
+  "export.gifFrames":
+    " (últimos {count, plural, one {# fotograma} other {# fotogramas}})",
+  "export.loopFrames":
+    " ({count, plural, one {# fotograma} other {# fotogramas}})",
   "export.recording":
     "Grabando el cuadro {done} de {total}. Deja la ventana al frente mientras tanto.",
   "export.cardTitle": "Lo que queda en el archivo",
@@ -34,7 +36,7 @@ export const es: Catalogue = {
   "export.dataFailed": "La exportación de datos falló",
   "export.dataNoView":
     "El mapa aún no tiene una vista a la que recortar la malla.",
-  "dataExport.bytes": "{count} bytes",
+  "dataExport.bytes": "{count, plural, one {# byte} other {# bytes}}",
   "dataExport.kilobytes": "{count} kB",
   "dataExport.megabytes": "{count} MB",
   "dataExport.error.notDrawn":
@@ -106,7 +108,7 @@ export const es: Catalogue = {
     "Cada uno con su propio interruptor, y el último de la lista se dibuja encima",
   "layers.filesNone":
     "Todavía no has importado nada. Suelta un placefile o un archivo GeoJSON en el panel de Carga.",
-  "layers.fileShapes": "{count} formas",
+  "layers.fileShapes": "{count, plural, one {# forma} other {# formas}}",
   "layers.fileShown": "Mostrar {name}",
   "layers.fileRemove": "Quitar {name}",
   "capture.title": "Diseño para captura",
@@ -199,7 +201,7 @@ export const es: Catalogue = {
   "packs.minZoom": "Zoom mínimo",
   "packs.maxZoom": "Zoom máximo",
   "packs.estimate":
-    "{count} teselas. Unos {final} al terminar y hasta {temporary} mientras se crea.",
+    "{count, plural, one {# tesela} other {# teselas}}. Unos {final} al terminar y hasta {temporary} mientras se construye.",
   "packs.noRegion": "Mueve el mapa a la región que quieras guardar.",
   "packs.wontFit": "Este paquete superaría el límite de disco configurado.",
   "packs.download": "Descargar la región actual del mapa",
@@ -221,7 +223,8 @@ export const es: Catalogue = {
   "packs.status.ready": "Listo sin conexión",
   "packs.status.failed": "Necesita atención",
   "packs.packMeta": "Zoom {min} a {max} · {size}",
-  "packs.progress": "{done} de {total} teselas, {percent}%",
+  "packs.progress":
+    "{done} de {total, plural, one {# tesela} other {# teselas}}, {percent}%",
   "packs.usePack": "Usar sin conexión",
   "packs.pause": "Pausar",
   "packs.resume": "Reanudar",
@@ -297,7 +300,7 @@ export const es: Catalogue = {
   "history.result": "{basin} · {category} · ACE {ace}",
   "history.none": "Nada coincide. Prueba con un nombre, un año o los dos.",
   "history.noteCount":
-    "{count} tormentas desde 1851, de la mejor trayectoria HURDAT2 de la NOAA.",
+    "{count, plural, one {# tormenta} other {# tormentas}} desde 1851, del registro HURDAT2 de la NOAA.",
   "history.noteLoading": "Cargando el archivo de mejores trayectorias.",
   "history.noteReplay":
     "Una repetición cubre tres horas antes y después de {moment} el {date}, del archivo de radar de Iowa State.",
@@ -316,11 +319,12 @@ export const es: Catalogue = {
   "bundle.replayLabel": "Paquete de repetición",
   "bundle.openTitle": "Abrir un paquete de repetición de OpenRadar",
   "bundle.fileKind": "Paquete de repetición de OpenRadar",
-  "bundle.missingTiles": "{count} teselas no estaban en el paquete.",
+  "bundle.missingTiles":
+    "{count, plural, one {# tesela no estaba} other {# teselas no estaban}} en el paquete.",
   "bundle.missingWarnings":
-    "{count} fuentes de avisos no estaban en el paquete, así que sus avisos pueden estar incompletos.",
+    "{count, plural, one {# fuente de avisos no estaba} other {# fuentes de avisos no estaban}} en el paquete, así que sus avisos pueden estar incompletos.",
   "bundle.missingBoth":
-    "{tiles} teselas y {warnings} fuentes de avisos no estaban en el paquete.",
+    "{tiles, plural, one {# tesela} other {# teselas}} y {warnings, plural, one {# fuente de avisos} other {# fuentes de avisos}} no estaban en el paquete.",
   "bundle.error.invalidRequest": "Esta repetición no se puede empaquetar: {0}.",
   "bundle.error.tooManyTiles":
     "La vista cubre {0} teselas a lo largo de la repetición. Acerca o aleja el mapa para que cubra menos.",
@@ -381,14 +385,13 @@ export const es: Catalogue = {
   "time.justNow": "hace un momento",
   "time.minutesAgo": "hace {count} min",
   "time.hoursAgo": "hace {count} h",
-  "time.daysAgo": "hace {count} días",
-
+  "time.daysAgo": "hace {count, plural, one {# día} other {# días}}",
   "upload.eyebrow": "Datos locales",
   "upload.title": "Cargar",
   "upload.dropTitle": "Añade una capa o una tabla de colores",
   "upload.dropBody":
     "Elige un archivo GeoJSON local, un placefile de GRLevelX o una tabla de colores .pal. No se envía nada a ningún servidor.",
-  "upload.colours": "{count} colores",
+  "upload.colours": "{count, plural, one {# color} other {# colores}}",
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · reflectividad",
   "upload.skipped": "{names} sin usar",
@@ -412,7 +415,8 @@ export const es: Catalogue = {
   "diagnostics.live": "En vivo",
   "diagnostics.waiting": "Esperando datos",
   "diagnostics.failing": "{error} ({count} seguidas)",
-  "diagnostics.frames": "{count} cuadros, {when}",
+  "diagnostics.frames":
+    "{count, plural, one {# fotograma} other {# fotogramas}}, {when}",
   "diagnostics.answered": "Respondió {when}",
   "diagnostics.standingBy": "En espera",
   "diagnostics.neverContacted": "todavía sin contactar",
@@ -1006,7 +1010,7 @@ export const es: Catalogue = {
   "settings.removePlace": "Dejar de vigilar {place}",
   "settings.addPlace": "Añadir el centro del mapa como lugar",
   "settings.placesFull":
-    "Son los {count} lugares. Quita uno para vigilar otro sitio.",
+    "Son ya {count, plural, one {# lugar} other {# lugares}}. Quita uno para vigilar otro sitio.",
   "settings.watching": "Vigilando {lat}, {lon} por avisos y cosas peores.",
   "settings.camera": "Estado de la cámara",
   "settings.zoom": "Acercamiento",
@@ -1057,7 +1061,8 @@ export const es: Catalogue = {
   "timeline.pause": "Pausar la animación del radar",
   "timeline.frame": "Cuadro del radar",
   "timeline.connecting": "Conectando con el radar",
-  "timeline.frames": "{index} de {total} cuadros de radar",
+  "timeline.frames":
+    "{index} de {total, plural, one {# fotograma de radar} other {# fotogramas de radar}}",
   "timeline.forecastAt": "Pronóstico de las {time}",
   "timeline.hrrr": "HRRR iniciado {init}, +{lead} min",
   "timeline.live": "en vivo",
@@ -1186,7 +1191,7 @@ export const es: Catalogue = {
   "toast.bundleFailed": "El paquete de repetición falló",
   "toast.bundleOpened": "Reproduciendo {label} desde un paquete",
   "toast.bundleOpenedBody":
-    "{frames} cuadros, guardados el {made}. No se descarga nada para ellos; responde el paquete.",
+    "{frames, plural, one {# fotograma} other {# fotogramas}}, guardado {made}. No se pide nada para ellos; responde el paquete.",
   "toast.bundleApplyWorkspace": "Aplicar su espacio de trabajo",
   "toast.bundleWorkspaceApplied":
     "El espacio de trabajo del paquete está en vigor",
@@ -1208,13 +1213,13 @@ export const es: Catalogue = {
   "toast.themeEmpty":
     "Ese archivo de tema no define nada que esta versión entienda.",
   "toast.remove": "Quitar",
-  "toast.colours": "{count} colores",
+  "toast.colours": "{count, plural, one {# color} other {# colores}}",
   "toast.forUnits": "para {units}",
   "toast.leftOut": "{names} sin usar",
   "toast.overlayLocal": "La capa se queda en este dispositivo.",
   "toast.placefileEmpty":
     "Ese placefile no tiene nada que este mapa pueda dibujar.",
-  "toast.shapes": "{count} formas",
+  "toast.shapes": "{count, plural, one {# forma} other {# formas}}",
   "toast.refreshEvery": "pide actualizarse cada {minutes} min",
   "toast.truncated": "el archivo terminó a media forma",
   "toast.notGeoJson": "Elige un archivo GeoJSON o un placefile de GRLevelX.",
@@ -1222,7 +1227,7 @@ export const es: Catalogue = {
   "toast.overlayAdded": "{name} añadida",
   "toast.overlayReplaced": "{name} reemplazada",
   "toast.overlaySetFull":
-    "Ya tienes {count} archivos en el mapa. Quita uno en Capas y vuelve a importar este.",
+    "Ya tienes {count, plural, one {# archivo} other {# archivos}} en el mapa. Quita uno en Capas y luego importa este.",
   "toast.overlayFailed": "No se pudo añadir la capa",
   "toast.unreadable": "No se pudo leer el archivo.",
   "toast.watching": "Vigilando este punto",
@@ -1321,10 +1326,11 @@ export const es: Catalogue = {
   "catchUp.title": "Mientras no estabas",
   "catchUp.away":
     "OpenRadar estuvo cerrado {away}. Esto es lo que el registro guarda de ese tiempo, en los lugares que nombraste.",
-  "catchUp.awayHours": "{hours} horas",
-  "catchUp.awayDays": "{days} días",
+  "catchUp.awayHours": "{hours, plural, one {# hora} other {# horas}}",
+  "catchUp.awayDays": "{days, plural, one {# día} other {# días}}",
   "catchUp.quiet": "No pasó nada en tus lugares mientras no estabas.",
-  "catchUp.more": "Hay {count} más en tu registro.",
+  "catchUp.more":
+    "Hay {count, plural, one {# más} other {# más}} en tu registro.",
   "catchUp.line": "{place} · {when}",
   "catchUp.dismiss": "Gracias",
   "catchUp.open": "Abrir el registro",
@@ -1340,25 +1346,30 @@ export const es: Catalogue = {
   "recap.coveredWhole": "Tu registro cubre los {period} días.",
   "recap.began":
     "Tu registro empieza el {when} y llega {days} de estos {period} días atrás. Antes de eso no hay registro, que no es lo mismo que no haber tiempo.",
-  "recap.counted": "{alerts} avisos y {observations} observaciones.",
+  "recap.counted":
+    "{alerts, plural, one {# aviso} other {# avisos}} y {observations, plural, one {# observación} other {# observaciones}}.",
   "recap.days":
-    "Se registró algo en {days} de ellos. Un día sin nada fue un día tranquilo o un día con la aplicación cerrada, y el registro no distingue entre las dos cosas.",
-  "recap.busiest": "El día con más fue el {when}, con {rows}.",
-  "recap.place": "{place}: {alerts} avisos, {observations} observaciones.",
-  "recap.placesHidden": "En {count} lugares, sin nombrarlos aquí.",
+    "Se registró algo en {days, plural, one {# de ellos} other {# de ellos}}. Un día sin nada fue un día tranquilo o un día con la aplicación cerrada, y el registro no distingue entre las dos cosas.",
+  "recap.busiest":
+    "El día con más fue el {when}, con {rows, plural, one {#} other {#}}.",
+  "recap.place":
+    "{place}: {alerts, plural, one {# aviso} other {# avisos}}, {observations, plural, one {# observación} other {# observaciones}}.",
+  "recap.placesHidden":
+    "En {count, plural, one {# lugar} other {# lugares}}, sin nombrarlos aquí.",
   "recap.includePlaces": "Poner los nombres de los lugares en la imagen",
   "recap.includePlacesDetail":
     "Desactivado por defecto. Dónde vives no es algo que una imagen necesite decir.",
   "recap.save": "Guardarlo como imagen",
   "recap.empty": "Todavía no hay nada de este periodo en tu registro.",
   "recap.span": "Cuánto tiempo",
-  "recap.spanDays": "Los últimos {days} días",
+  "recap.spanDays": "Los últimos {days, plural, one {día} other {# días}}",
   "recap.spanYear": "El último año",
-  "journal.countShown": "{shown} de {count} filas",
+  "journal.countShown":
+    "{shown} de {count, plural, one {# fila} other {# filas}}",
   "journal.title": "Tu registro",
-  "journal.count": "{count} filas",
+  "journal.count": "{count, plural, one {# fila} other {# filas}}",
   "journal.note":
-    "Lo que hizo el tiempo en los lugares que nombraste. Solo lugares con nombre, solo observaciones y sucesos, y nunca nada sobre cómo usaste la aplicación. Se guarda {days} días o {size} MB, lo que se agote antes, y lo más viejo se va primero, con hasta {pictures} MB de imágenes al lado. Se queda en esta máquina y no aparece en el informe de diagnóstico.",
+    "Lo que hizo el tiempo en los lugares que nombraste. Solo lugares con nombre, solo observaciones y sucesos, y nunca nada sobre cómo usaste la aplicación. Se guarda {days, plural, one {# día} other {# días}} o {size} MB, lo que se agote antes, y lo más viejo se va primero, con hasta {pictures} MB de imágenes al lado. Se queda en esta máquina y no aparece en el informe de diagnóstico.",
   "journal.empty": "Todavía no hay nada registrado.",
   "journal.desktopOnly": "El registro lo guarda la aplicación de escritorio.",
   "journal.row": "{source}, {when} · {obtained}",
@@ -1381,7 +1392,7 @@ export const es: Catalogue = {
   "journal.kindObservation": "Observaciones",
   "journal.since": "Hasta cuándo",
   "journal.sinceAny": "Todo lo guardado",
-  "journal.sinceDays": "Los últimos {days} días",
+  "journal.sinceDays": "Los últimos {days, plural, one {día} other {# días}}",
   "journal.noneMatch": "Nada en el registro coincide con eso.",
   "journal.picture": "El mapa cuando se registró {text}",
   "journal.noteLabel": "Lo que recuerdas de aquello",
@@ -1536,7 +1547,8 @@ export const es: Catalogue = {
   "tool.gateFrom": "del barrido de las {when}",
   "tool.beamHeight": "haz a {height} sobre el radar con {tilt}°",
   "tool.classified": "{class} según la clasificación del propio radar",
-  "tool.pathPoints": "{count} puntos en la ruta",
+  "tool.pathPoints":
+    "{count, plural, one {# punto} other {# puntos}} en la ruta",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Toca el mapa para inspeccionar un punto",
   "tool.sectionStartHint":

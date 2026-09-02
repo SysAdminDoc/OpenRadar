@@ -221,14 +221,16 @@ export function recapLines(
       : translate("recap.coveredWhole", {
           period: formatNumber(recap.daysInPeriod),
         }),
+    // Raw numbers, not formatted ones: these sentences choose their words by
+    // the count, and a plural block cannot read "1,024" as a number.
     translate("recap.counted", {
-      alerts: formatNumber(recap.alerts),
-      observations: formatNumber(recap.observations),
+      alerts: recap.alerts,
+      observations: recap.observations,
     }),
     // And what a day with nothing on it means, which is two different things
     // the record genuinely cannot tell apart.
     translate("recap.days", {
-      days: formatNumber(recap.daysWithSomething),
+      days: recap.daysWithSomething,
     }),
   ];
 
@@ -239,7 +241,7 @@ export function recapLines(
           month: "long",
           day: "numeric",
         }),
-        rows: formatNumber(recap.busiest.rows),
+        rows: recap.busiest.rows,
       }),
     );
   }
@@ -251,15 +253,15 @@ export function recapLines(
       lines.push(
         translate("recap.place", {
           place: place.name,
-          alerts: formatNumber(place.alerts),
-          observations: formatNumber(place.observations),
+          alerts: place.alerts,
+          observations: place.observations,
         }),
       );
     }
   } else if (recap.places.length) {
     lines.push(
       translate("recap.placesHidden", {
-        count: formatNumber(recap.places.length),
+        count: recap.places.length,
       }),
     );
   }

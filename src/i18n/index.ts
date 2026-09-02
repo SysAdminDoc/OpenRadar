@@ -198,6 +198,96 @@ function formatter(tag: string, min: number, max: number): Intl.NumberFormat {
 
 export type Params = Record<string, string | number>;
 
+const plurals = new Map<string, Intl.PluralRules>();
+
+function pluralRules(where: string): Intl.PluralRules {
+  let held = plurals.get(where);
+  if (!held) {
+    held = new Intl.PluralRules(where);
+    plurals.set(where, held);
+  }
+  return held;
+}
+
+/**
+ * Picks the arm of a plural block that matches the number.
+ *
+ * A subset of ICU message syntax, which is what every catalogue in the world
+ * uses for this, written out here rather than pulled in as a dependency:
+ *
+ *     {count, plural, one {# row} other {# rows}}
+ *
+ * `#` is the number, written the way the reader writes numbers. Which arms a
+ * language needs is the language's business and not this file's: English has
+ * one and other, Spanish adds many for its millions, and French counts zero
+ * and one together. `Intl.PluralRules` knows all of it; an if-statement on
+ * `count === 1` knows only English, and this app is not written only in
+ * English.
+ *
+ * A block whose number is missing, or whose language does not use the arm
+ * that was selected, falls back to `other`, which every plural must have.
+ */
+function plural(template: string, params: Params, which: LanguageId): string {
+  let out = "";
+  let at = 0;
+  while (at < template.length) {
+    const start = template.indexOf("{", at);
+    if (start === -1) break;
+    const head = /^\{(\w+),\s*plural,\s*/.exec(template.slice(start));
+    if (!head) {
+      out += template.slice(at, start + 1);
+      at = start + 1;
+      continue;
+    }
+
+    // Walk the arms by counting braces, because an arm's own text can hold a
+    // placeholder and a naive match would stop at the first closing brace.
+    let depth = 1;
+    let cursor = start + head[0].length;
+    const arms = new Map<string, string>();
+    let name = "";
+    while (cursor < template.length && depth > 0) {
+      const character = template[cursor];
+      if (character === "{") {
+        if (depth === 1) {
+          const armStart = cursor + 1;
+          let armDepth = 1;
+          let armCursor = armStart;
+          while (armCursor < template.length && armDepth > 0) {
+            if (template[armCursor] === "{") armDepth += 1;
+            if (template[armCursor] === "}") armDepth -= 1;
+            if (armDepth > 0) armCursor += 1;
+          }
+          arms.set(name.trim(), template.slice(armStart, armCursor));
+          name = "";
+          cursor = armCursor + 1;
+          continue;
+        }
+        depth += 1;
+      } else if (character === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      } else {
+        name += character;
+      }
+      cursor += 1;
+    }
+
+    out += template.slice(at, start);
+    const value = Number(params[head[1]]);
+    const arm = Number.isFinite(value)
+      ? (arms.get(pluralRules(locale(which)).select(value)) ??
+        arms.get("other") ??
+        "")
+      : (arms.get("other") ?? "");
+    out += arm.replace(/#/g, () =>
+      Number.isFinite(value) ? formatNumber(value, 0, which) : "",
+    );
+    at = cursor + 1;
+  }
+  return out + template.slice(at);
+}
+
 /**
  * One string, with its parameters filled in.
  *
@@ -215,7 +305,12 @@ export function translate(
   // language from a future build should not paint the screen with identifiers.
   const template = catalogue(which)[key] ?? en[key];
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
+  // Plural blocks first, because an arm can hold ordinary placeholders and
+  // the arms that were not chosen must not be filled in and left on screen.
+  const chosen = template.includes(", plural,")
+    ? plural(template, params, which)
+    : template;
+  return chosen.replace(/\{(\w+)\}/g, (whole, name: string) =>
     name in params ? String(params[name]) : whole,
   );
 }

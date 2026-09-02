@@ -20,9 +20,10 @@ export const fr: Catalogue = {
   "export.title": "Exporter",
   "export.image": "Exporter l'image",
   "export.loop": "Exporter la boucle",
-  "export.loopFrames": " ({count} images)",
+  "export.loopFrames": " ({count, plural, one {# image} other {# images}})",
   "export.gif": "Exporter en GIF",
-  "export.gifFrames": " ({count} dernières images)",
+  "export.gifFrames":
+    " ({count, plural, one {dernière # image} other {# dernières images}})",
   "export.recording":
     "Enregistrement de l'image {done} sur {total}. Laissez la fenêtre au premier plan pendant l'opération.",
   "export.cardTitle": "Ce qui se retrouve dans le fichier",
@@ -41,7 +42,7 @@ export const fr: Catalogue = {
     "{readings} mesures, {size}, dans {path}, avec un fichier de provenance à côté.",
   "export.dataFailed": "L'exportation des données a échoué",
   "export.dataNoView": "La carte n'a pas encore de vue à découper.",
-  "dataExport.bytes": "{count} octets",
+  "dataExport.bytes": "{count, plural, one {# octet} other {# octets}}",
   "dataExport.kilobytes": "{count} ko",
   "dataExport.megabytes": "{count} Mo",
   "dataExport.error.notDrawn":
@@ -113,7 +114,7 @@ export const fr: Catalogue = {
     "Chacun avec son propre interrupteur, le dernier de la liste dessiné par-dessus",
   "layers.filesNone":
     "Rien d'importé pour l'instant. Déposez un placefile ou un fichier GeoJSON dans le panneau Importer.",
-  "layers.fileShapes": "{count} formes",
+  "layers.fileShapes": "{count, plural, one {# forme} other {# formes}}",
   "layers.fileShown": "Afficher {name}",
   "layers.fileRemove": "Retirer {name}",
   "capture.title": "Disposition de capture",
@@ -206,7 +207,7 @@ export const fr: Catalogue = {
   "packs.minZoom": "Zoom minimal",
   "packs.maxZoom": "Zoom maximal",
   "packs.estimate":
-    "{count} tuiles. Environ {final} une fois terminée et jusqu'à {temporary} pendant la construction.",
+    "{count, plural, one {# tuile} other {# tuiles}}. Environ {final} une fois terminé et jusqu'à {temporary} pendant la construction.",
   "packs.noRegion":
     "Amenez la carte sur la région que vous voulez enregistrer.",
   "packs.wontFit": "Cette trousse dépasserait le plafond disque configuré.",
@@ -227,7 +228,8 @@ export const fr: Catalogue = {
   "packs.status.ready": "Prête hors ligne",
   "packs.status.failed": "À vérifier",
   "packs.packMeta": "Zoom {min} à {max} · {size}",
-  "packs.progress": "{done} tuiles sur {total}, {percent} %",
+  "packs.progress":
+    "{done} sur {total, plural, one {# tuile} other {# tuiles}}, {percent}%",
   "packs.usePack": "Utiliser hors ligne",
   "packs.pause": "Suspendre",
   "packs.resume": "Reprendre",
@@ -302,7 +304,7 @@ export const fr: Catalogue = {
   "history.result": "{basin} · {category} · ACE {ace}",
   "history.none": "Rien ne correspond. Essayez un nom, une année, ou les deux.",
   "history.noteCount":
-    "{count} tempêtes jusqu'en 1851, d'après la meilleure trajectoire HURDAT2 de la NOAA.",
+    "{count, plural, one {# tempête} other {# tempêtes}} depuis 1851, d'après le relevé HURDAT2 de la NOAA.",
   "history.noteLoading": "Chargement de l'archive des meilleures trajectoires.",
   "history.noteReplay":
     "Une reprise couvre trois heures de part et d'autre de {moment} le {date}, d'après l'archive radar de l'Iowa State.",
@@ -321,11 +323,12 @@ export const fr: Catalogue = {
   "bundle.replayLabel": "Dossier de reprise",
   "bundle.openTitle": "Ouvrir un dossier de reprise OpenRadar",
   "bundle.fileKind": "Dossier de reprise OpenRadar",
-  "bundle.missingTiles": "{count} tuiles ne se trouvaient pas dans le dossier.",
+  "bundle.missingTiles":
+    "{count, plural, one {# tuile ne figurait pas} other {# tuiles ne figuraient pas}} dans le paquet.",
   "bundle.missingWarnings":
-    "{count} flux d'alertes ne se trouvaient pas dans le dossier; ses alertes sont donc peut-être incomplètes.",
+    "{count, plural, one {# flux d'alertes ne figurait pas} other {# flux d'alertes ne figuraient pas}} dans le paquet, ses alertes peuvent donc être incomplètes.",
   "bundle.missingBoth":
-    "{tiles} tuiles et {warnings} flux d'alertes ne se trouvaient pas dans le dossier.",
+    "{tiles, plural, one {# tuile} other {# tuiles}} et {warnings, plural, one {# flux d'alertes} other {# flux d'alertes}} ne figuraient pas dans le paquet.",
   "bundle.error.invalidRequest":
     "Cette reprise ne peut pas être mise en dossier : {0}.",
   "bundle.error.tooManyTiles":
@@ -387,14 +390,13 @@ export const fr: Catalogue = {
   "time.justNow": "à l'instant",
   "time.minutesAgo": "il y a {count} min",
   "time.hoursAgo": "il y a {count} h",
-  "time.daysAgo": "il y a {count} jours",
-
+  "time.daysAgo": "il y a {count, plural, one {# jour} other {# jours}}",
   "upload.eyebrow": "Données locales",
   "upload.title": "Téléversement",
   "upload.dropTitle": "Ajouter une couche ou une table de couleurs",
   "upload.dropBody":
     "Choisissez un fichier GeoJSON local, un placefile GRLevelX ou une table de couleurs .pal. Rien n'est envoyé à un serveur.",
-  "upload.colours": "{count} couleurs",
+  "upload.colours": "{count, plural, one {# couleur} other {# couleurs}}",
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · réflectivité",
   "upload.skipped": "{names} laissés de côté",
@@ -418,7 +420,8 @@ export const fr: Catalogue = {
   "diagnostics.live": "En direct",
   "diagnostics.waiting": "En attente de données",
   "diagnostics.failing": "{error} ({count} d'affilée)",
-  "diagnostics.frames": "{count} images, {when}",
+  "diagnostics.frames":
+    "{count, plural, one {# image} other {# images}}, {when}",
   "diagnostics.answered": "A répondu {when}",
   "diagnostics.standingBy": "En attente",
   "diagnostics.neverContacted": "pas encore contacté",
@@ -1019,7 +1022,7 @@ export const fr: Catalogue = {
   "settings.removePlace": "Cesser de surveiller {place}",
   "settings.addPlace": "Ajouter le centre de la carte comme endroit",
   "settings.placesFull":
-    "C'est là tous les {count} endroits. Retirez-en un pour en surveiller un autre.",
+    "Cela fait déjà {count, plural, one {# lieu} other {# lieux}}. Retirez-en un pour en surveiller un autre.",
   "settings.watching": "Surveillance de {lat}, {lon} pour les alertes et pire.",
   "settings.camera": "État de la caméra",
   "settings.zoom": "Zoom",
@@ -1072,7 +1075,8 @@ export const fr: Catalogue = {
   "timeline.pause": "Suspendre l'animation du radar",
   "timeline.frame": "Image radar",
   "timeline.connecting": "Connexion au radar",
-  "timeline.frames": "{index} de {total} images radar",
+  "timeline.frames":
+    "{index} sur {total, plural, one {# image radar} other {# images radar}}",
   "timeline.forecastAt": "prévision de {time}",
   "timeline.hrrr": "HRRR init {init}, +{lead} min",
   "timeline.live": "en direct",
@@ -1200,7 +1204,7 @@ export const fr: Catalogue = {
   "toast.bundleFailed": "Le dossier de reprise a échoué",
   "toast.bundleOpened": "Reprise de {label} depuis un dossier",
   "toast.bundleOpenedBody":
-    "{frames} images, gardées {made}. Rien n'est récupéré pour elles; le dossier répond.",
+    "{frames, plural, one {# image} other {# images}}, conservé {made}. Rien n'est demandé pour elles ; le paquet répond.",
   "toast.bundleApplyWorkspace": "Appliquer son espace de travail",
   "toast.bundleWorkspaceApplied":
     "L'espace de travail du dossier est en vigueur",
@@ -1223,13 +1227,13 @@ export const fr: Catalogue = {
   "toast.themeEmpty":
     "Ce fichier de thème ne définit rien que cette version comprend.",
   "toast.remove": "Retirer",
-  "toast.colours": "{count} couleurs",
+  "toast.colours": "{count, plural, one {# couleur} other {# couleurs}}",
   "toast.forUnits": "pour {units}",
   "toast.leftOut": "{names} laissés de côté",
   "toast.overlayLocal": "La couche reste sur cet appareil.",
   "toast.placefileEmpty":
     "Ce placefile ne contient rien que cette carte peut dessiner.",
-  "toast.shapes": "{count} formes",
+  "toast.shapes": "{count, plural, one {# forme} other {# formes}}",
   "toast.refreshEvery": "il demande à être rafraîchi toutes les {minutes} min",
   "toast.truncated": "le fichier s'est terminé au milieu d'une forme",
   "toast.notGeoJson": "Choisissez un fichier GeoJSON ou un placefile GRLevelX.",
@@ -1238,7 +1242,7 @@ export const fr: Catalogue = {
   "toast.overlayAdded": "{name} ajoutée",
   "toast.overlayReplaced": "{name} remplacée",
   "toast.overlaySetFull":
-    "Vous avez déjà {count} fichiers sur la carte. Retirez-en un dans Couches, puis importez celui-ci.",
+    "Vous avez déjà {count, plural, one {# fichier} other {# fichiers}} sur la carte. Retirez-en un dans Couches, puis importez celui-ci.",
   "toast.overlayFailed": "La couche n'a pas pu être ajoutée",
   "toast.unreadable": "Le fichier n'a pas pu être lu.",
   "toast.watching": "Surveillance de ce point",
@@ -1338,10 +1342,11 @@ export const fr: Catalogue = {
   "catchUp.title": "Pendant votre absence",
   "catchUp.away":
     "OpenRadar est resté fermé {away}. Voici ce que le relevé garde de cette période, aux lieux que vous avez nommés.",
-  "catchUp.awayHours": "{hours} heures",
-  "catchUp.awayDays": "{days} jours",
+  "catchUp.awayHours": "{hours, plural, one {# heure} other {# heures}}",
+  "catchUp.awayDays": "{days, plural, one {# jour} other {# jours}}",
   "catchUp.quiet": "Rien ne s'est passé chez vous pendant votre absence.",
-  "catchUp.more": "Il y en a {count} autres dans votre relevé.",
+  "catchUp.more":
+    "Il y en a {count, plural, one {# autre} other {# autres}} dans votre relevé.",
   "catchUp.line": "{place} · {when}",
   "catchUp.dismiss": "Merci",
   "catchUp.open": "Ouvrir le relevé",
@@ -1357,25 +1362,31 @@ export const fr: Catalogue = {
   "recap.coveredWhole": "Votre relevé couvre les {period} jours.",
   "recap.began":
     "Votre relevé commence le {when} et remonte {days} de ces {period} jours. Avant cela il n'y a pas de relevé, ce qui ne veut pas dire qu'il n'y a pas eu de temps.",
-  "recap.counted": "{alerts} alertes et {observations} observations.",
+  "recap.counted":
+    "{alerts, plural, one {# alerte} other {# alertes}} et {observations, plural, one {# observation} other {# observations}}.",
   "recap.days":
-    "Quelque chose a été noté sur {days} d'entre eux. Un jour sans rien était un jour calme ou un jour où l'application était fermée, et le relevé ne fait pas la différence.",
-  "recap.busiest": "Le jour le plus chargé a été le {when}, avec {rows}.",
-  "recap.place": "{place} : {alerts} alertes, {observations} observations.",
-  "recap.placesHidden": "Sur {count} lieux, non nommés ici.",
+    "Quelque chose a été noté sur {days, plural, one {# d'entre eux} other {# d'entre eux}}. Un jour sans rien était un jour calme ou un jour où l'application était fermée, et le relevé ne fait pas la différence.",
+  "recap.busiest":
+    "Le jour le plus chargé a été le {when}, avec {rows, plural, one {#} other {#}}.",
+  "recap.place":
+    "{place} : {alerts, plural, one {# alerte} other {# alertes}}, {observations, plural, one {# observation} other {# observations}}.",
+  "recap.placesHidden":
+    "Sur {count, plural, one {# lieu} other {# lieux}}, non nommés ici.",
   "recap.includePlaces": "Mettre les noms des lieux sur l'image",
   "recap.includePlacesDetail":
     "Désactivé par défaut. Où vous habitez n'a pas à figurer sur une image.",
   "recap.save": "L'enregistrer comme image",
   "recap.empty": "Il n'y a encore rien de cette période dans votre relevé.",
   "recap.span": "Sur combien de temps",
-  "recap.spanDays": "Les {days} derniers jours",
+  "recap.spanDays":
+    "{days, plural, one {Le dernier jour} other {Les # derniers jours}}",
   "recap.spanYear": "La dernière année",
-  "journal.countShown": "{shown} sur {count} lignes",
+  "journal.countShown":
+    "{shown} sur {count, plural, one {# ligne} other {# lignes}}",
   "journal.title": "Votre registre",
-  "journal.count": "{count} lignes",
+  "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":
-    "Ce que le temps a fait aux lieux que vous avez nommés. Uniquement des lieux nommés, uniquement des observations et des événements, et jamais rien sur votre usage de l'application. Conservé {days} jours ou {size} Mo, selon ce qui s'épuise en premier, le plus ancien partant d'abord, avec jusqu'à {pictures} Mo d'images à côté. Cela reste sur cette machine et ne figure pas dans le rapport de diagnostic.",
+    "Ce que le temps a fait aux lieux que vous avez nommés. Uniquement des lieux nommés, uniquement des observations et des événements, et jamais rien sur votre usage de l'application. Conservé {days, plural, one {# jour} other {# jours}} ou {size} Mo, selon ce qui s'épuise en premier, le plus ancien partant d'abord, avec jusqu'à {pictures} Mo d'images à côté. Cela reste sur cette machine et ne figure pas dans le rapport de diagnostic.",
   "journal.empty": "Rien de consigné pour le moment.",
   "journal.desktopOnly": "Le registre est tenu par l'application de bureau.",
   "journal.row": "{source}, {when} · {obtained}",
@@ -1399,7 +1410,8 @@ export const fr: Catalogue = {
   "journal.kindObservation": "Observations",
   "journal.since": "Jusqu'où en arrière",
   "journal.sinceAny": "Tout ce qui est conservé",
-  "journal.sinceDays": "Les {days} derniers jours",
+  "journal.sinceDays":
+    "{days, plural, one {Le dernier jour} other {Les # derniers jours}}",
   "journal.noneMatch": "Rien dans le relevé ne correspond à cela.",
   "journal.picture": "La carte au moment où {text} a été noté",
   "journal.noteLabel": "Ce dont vous vous souvenez",
@@ -1556,7 +1568,8 @@ export const fr: Catalogue = {
   "tool.gateFrom": "du balayage de {when}",
   "tool.beamHeight": "faisceau à {height} au-dessus du radar, angle {tilt}°",
   "tool.classified": "{class} selon la classification du radar",
-  "tool.pathPoints": "{count} points dans le chemin",
+  "tool.pathPoints":
+    "{count, plural, one {# point} other {# points}} sur le tracé",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Cliquez la carte pour inspecter un point",
   "tool.sectionStartHint":
