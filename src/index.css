@@ -2653,6 +2653,49 @@ input[type="range"] {
 
 /* Someone who has asked for more contrast gets firmer edges and brighter text
    rather than the softer palette the default look is built on. */
+/* The calmer presentation.
+ *
+ * Chrome only, and deliberately nothing else. Every colour that carries a
+ * reading is untouched: the reflectivity ramp, the warning fill and outline,
+ * the severity swatch beside an alert, every legend. `theme.test.ts` holds
+ * that boundary for themes and this block is inside it for the same reason.
+ * A mode that muted a tornado warning's own colour would be the most
+ * dangerous thing this app could ship.
+ *
+ * What it does turn down: the accent the workspace is decorated with, the
+ * animation on anything that pulses, and the weight of the badges the app
+ * adds around a warning rather than the warning itself.
+ */
+:root:root[data-calm] {
+  --accent: #7f9bb8;
+  --accent-strong: #6f8aa6;
+}
+
+[data-calm] .alert-tag,
+[data-calm] .alert-severity {
+  /* Still there and still readable, with the app's own emphasis taken off:
+     these are badges this app draws around the office's words. */
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+[data-calm] .alert-advice {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+[data-calm] *,
+[data-calm] *::before,
+[data-calm] *::after {
+  /* No pulsing, anywhere. This is the same thing `prefers-reduced-motion`
+     does, asked for by a reader rather than by their system, and it removes
+     the motion rather than the feature. */
+  animation: none !important;
+  transition-duration: 0.001ms !important;
+}
+
 @media (prefers-contrast: more) {
   /* Tripled on purpose. The two base blocks are `:root` and
      `:root[data-theme="light"]`, and a theme has to beat both, so

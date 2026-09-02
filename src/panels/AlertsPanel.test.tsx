@@ -19,6 +19,7 @@ function panel(
       fetchedAt={fetchedAt}
       error={error}
       layerOn
+      calm={false}
       replaying={replaying}
       onEnableLayer={vi.fn()}
       onSelect={vi.fn()}

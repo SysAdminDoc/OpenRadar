@@ -65,6 +65,17 @@ test("the workspace has no serious accessibility violations in the light theme",
   expect(describeViolations(violations)).toBe("");
 });
 
+test("stays clean in the calmer presentation", async ({ page }) => {
+  // A mode meant to be kinder must not be harder to read. It turns the
+  // accent down, and a muted accent is exactly where contrast goes wrong.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /A calmer way to read it/ }).check();
+  await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  const violations = await scan(page);
+  expect(describeViolations(violations)).toBe("");
+});
+
 test("every panel the command bar opens is clean too", async ({ page }) => {
   for (const name of [
     "Layers",

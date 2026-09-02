@@ -398,6 +398,14 @@ export interface AppSettings {
    * Asked for rather than assumed. The sound is off until somebody turns it
    * on, and somebody who turns it on has an opinion about how loud it is.
    */
+  /**
+   * The calmer presentation.
+   *
+   * A presentation and not a filter: the same warnings arrive at the same
+   * moment, drawn in the same colours the office publishes. What goes quiet
+   * is the app around them.
+   */
+  calm: boolean;
   alertVolume: number;
   /**
    * A sound file of the reader's own, by path.
@@ -529,6 +537,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   seenWelcome: false,
   seenReveal: false,
+  calm: false,
   alertVolume: 0.18,
   alertSoundPath: null,
   journal: true,
@@ -1472,6 +1481,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       typeof raw.alertSoundPath === "string" && raw.alertSoundPath.length
         ? raw.alertSoundPath.slice(0, 1024)
         : null,
+    calm: bool(raw.calm, DEFAULT_SETTINGS.calm),
     journal: bool(raw.journal, DEFAULT_SETTINGS.journal),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
     curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),

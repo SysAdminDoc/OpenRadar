@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-016: Add a calm presentation for readers who find severe weather distressing
-      Why: A significant number of people follow weather closely because it frightens them, and this app is currently tuned for the person who wants more detail rather than less. A calm mode that keeps every fact and removes the pressure, with muted hazard styling, no motion, no probability figures pushed at the reader, and plainer language, is a thoughtful thing to ship and costs very little once JOY-001 exists.
-      Evidence: `src/index.css`; `src/lib/alertTypes.ts`; `src/hooks/useProbSevere.ts`; `src/panels/AlertsPanel.tsx`; `src/i18n/en.ts`; JOY-001
-      Touches: The mode and its token set; hazard styling under the mode; which layers default off; alert copy variants; settings; accessibility scenarios
-      Acceptance: The mode never hides or downgrades an active warning and never delays one, and the mode says so where it is turned on; muting applies to styling and to speculative guidance, not to the warning itself; probability and threat figures remain reachable rather than removed; alert copy in the mode states what to do rather than how bad it could get, and is written by hand in both languages instead of generated; every existing accessibility scenario passes in the mode; leaving the mode restores everything with no residue.
-      Complexity: M
-
 - [ ] JOY-017: Add an ambient mode for a second screen
       Why: The most loyal thing a desktop app can achieve is a permanent place on somebody's second monitor. That needs a view with no chrome, a legible clock, the current conditions, and a loop that keeps running, plus a slowly rotating globe for the times when nothing is happening anywhere near you.
       Evidence: `src/App.tsx`; `src/components/MapStage.tsx`; `src/hooks/useRadarTimeline.ts`; `src/hooks/useClock.ts`; `src/lib/providers/budget.ts`

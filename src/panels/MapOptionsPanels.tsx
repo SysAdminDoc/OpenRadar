@@ -980,6 +980,23 @@ export function SettingsPanel({
           </p>
         ) : null}
         <ToggleSetting
+          label={t("calm.setting")}
+          detail={t("calm.settingDetail")}
+          checked={settings.calm}
+          onChange={(calm) =>
+            onSettings({
+              ...settings,
+              calm,
+              layers: calm
+                ? // Put away rather than deleted: a forecast probability is
+                  // the part that keeps somebody awake, and it is also the
+                  // part they may want to check. One press brings it back.
+                  { ...settings.layers, probSevere: false }
+                : settings.layers,
+            })
+          }
+        />
+        <ToggleSetting
           label={t("curiosity.setting")}
           detail={t("curiosity.settingDetail")}
           checked={settings.curiosities}
