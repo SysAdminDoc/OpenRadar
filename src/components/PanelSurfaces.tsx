@@ -366,6 +366,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           progress={props.exportState.progress}
           dataExports={props.dataExports}
           onExportImage={props.exportState.exportImage}
+          onExportPostcard={props.exportState.exportPostcard}
+          placeName={settings.watch.name?.trim() ?? ""}
           onExportLoop={props.exportState.exportLoopVideo}
           onExportGif={props.exportState.exportLoopGifFile}
           onClose={onClose}

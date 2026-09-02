@@ -1453,6 +1453,20 @@ export const fr: Catalogue = {
   "calm.advice.general":
     "Lisez ce que dit le service et suivez ce que vous disent les autorités locales.",
   "calm.what": "Ce qu'il faut faire",
+  "postcard.notOfficial":
+    "Créé avec OpenRadar. Ce n'est pas un produit officiel ni une source d'alertes : c'est le service qui les émet.",
+  "postcard.title": "Envoyez-la à quelqu'un",
+  "postcard.note":
+    "Une carte composée plutôt que l'image simple. L'heure, les crédits et cette ligne figurent sur chacune, quoi que vous écriviez :",
+  "postcard.caption": "Écrivez quelque chose dessus",
+  "postcard.captionPlaceholder":
+    "De la grêle grosse comme des billes, et plus de courant depuis neuf heures.",
+  "postcard.includePlace": "Mettre le nom du lieu",
+  "postcard.save": "Enregistrer la carte",
+  "postcard.size.square": "Carrée",
+  "postcard.size.wide": "Large",
+  "postcard.size.tall": "Haute",
+  "postcard.sizeLabel": "Format",
   "journal.title": "Votre registre",
   "journal.count": "{count, plural, one {# ligne} other {# lignes}}",
   "journal.note":
