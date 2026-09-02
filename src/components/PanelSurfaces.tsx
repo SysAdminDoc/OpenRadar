@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import type { SurfaceId } from "./CommandBar";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GeoPoint } from "../lib/geo";
@@ -20,6 +21,18 @@ import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
 import { CrossSectionPanel } from "../panels/CrossSectionPanel";
+/**
+ * The sounding is its own chunk.
+ *
+ * A Skew-T carries a chart, a hodograph and the thermodynamics behind both,
+ * which is twenty kilobytes nobody who never opens it should download. Every
+ * other panel here is opened by most readers at some point; this one is for
+ * the ones who came looking for it.
+ */
+const SoundingPanel = lazy(async () => {
+  const module = await import("../panels/SoundingPanel");
+  return { default: module.SoundingPanel };
+});
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel, type DataExportOffer } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
@@ -115,6 +128,8 @@ interface PanelSurfacesProps {
   nearbyPlaceId: string;
   onNearbyPlace: (id: string) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
+  /** The moment a sounding is asked for, which is the timeline's own. */
+  soundingAt: number;
   onSatelliteProduct: (product: SatelliteProductId) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
@@ -320,6 +335,19 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           hasWatchedPlace={props.hasWatchedPlace}
           onClose={onClose}
         />
+      ) : null}
+
+      {activeSurface === "sounding" ? (
+        // Nothing while the chunk is on its way: the panel's own shell would
+        // be a frame around an empty rectangle, and the chunk is small enough
+        // that a flash of one is worse than a moment of nothing.
+        <Suspense fallback={null}>
+          <SoundingPanel
+            center={settings.camera.center}
+            at={props.soundingAt}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "section" && props.sectionLine ? (

@@ -847,6 +847,40 @@ export const es: Catalogue = {
   "sounding.failed": "El archivo de aire superior respondió {status}.",
   "sounding.failedModel": "El modelo respondió {status}.",
   "sounding.hereLabel": "El centro del mapa",
+  "sounding.eyebrow": "Aire superior",
+  "sounding.title": "Sondeo",
+  "sounding.which": "Qué sondeo",
+  "sounding.observed": "Observado",
+  "sounding.forecast": "Pronosticado",
+  "sounding.isObserved": "Un globo que subió",
+  "sounding.isForecast": "La estimación de un modelo para una columna de aire",
+  "sounding.where": "{place}, {when}",
+  "sounding.loadingObserved": "Buscando el globo más cercano, {site}",
+  "sounding.loadingForecast": "Pidiendo esta columna al modelo",
+  "sounding.noneObserved":
+    "No hay ningún globo cerca en los últimos dos días. Los lanzamientos son dos veces al día en unos noventa sitios, así que un lugar lejos de uno no tiene nada que mostrar.",
+  "sounding.noneForecast": "El modelo no tiene una columna para aquí.",
+  "sounding.failedAny": "No se pudo leer el sondeo.",
+  "sounding.chartLabel": "Diagrama oblicuo T log-P de {place}",
+  "sounding.chartNote":
+    "Temperatura y punto de rocío frente a la presión. Las isotermas se inclinan a la derecha para que las dos curvas se separen; las líneas finas del fondo son adiabáticas secas, adiabáticas saturadas y razón de mezcla.",
+  "sounding.hodographLabel": "Hodógrafa del viento en la columna",
+  "sounding.hodographNote":
+    "El viento en los nueve kilómetros más bajos, dibujado según gira. Los anillos van de diez en diez nudos y el punto es el suelo.",
+  "sounding.cape": "CAPE",
+  "sounding.cin": "CIN",
+  "sounding.lcl": "Base de la nube (LCL)",
+  "sounding.lfc": "LFC",
+  "sounding.el": "Techo (EL)",
+  "sounding.shear6": "Cizalladura de 0 a 6 km",
+  "sounding.freezing": "Nivel de congelación",
+  "sounding.water": "Agua precipitable",
+  "sounding.none": "Ninguno",
+  "sounding.assumptions":
+    "Calculado aquí, no por la oficina: una parcela elevada desde la superficie, seca hasta su nivel de condensación y saturada por encima, sin corrección de temperatura virtual. Otro programa que use una parcela de capa mezclada o aplique esa corrección dará un número distinto para el mismo aire.",
+  "sounding.credit": "De {source}.",
+  "sounding.mixingNote":
+    "Líneas de razón de mezcla, en gramos por kilogramo: {values}.",
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
@@ -1291,6 +1325,9 @@ export const es: Catalogue = {
   "tides.note":
     "Predicciones de NOAA CO-OPS, en pies sobre la bajamar media inferior, en tu propia zona horaria. La marejada se suma a esto, así que una tormenta que llega en pleamar alcanza más lejos.",
   "panel.guidance": "Modelos",
+  "panel.sounding": "Sondeo",
+  "keywords.sounding":
+    "skew-t skewt hodografa radiosondeo globo aire superior cape cizalladura inversion",
   "panel.tides": "Mareas",
   "keywords.guidance": "modelos ensamble comparar gfs ecmwf",
   "keywords.tides": "marea pleamar bajamar costa agua",
