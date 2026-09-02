@@ -38,7 +38,7 @@ export function CatchUpCard({
         </small>
       </div>
       {summary.lines.length ? (
-        <ol className="catch-up__lines">
+        <ol role="list" className="catch-up__lines">
           {summary.lines.map((line) => (
             <li key={line.id} data-catch-up-line={line.id}>
               <span>{line.text}</span>

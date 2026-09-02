@@ -292,20 +292,35 @@ export function WorkspaceChrome({
         </div>
       ) : null}
 
-      {activeTool ? (
-        <div className="tool-hud" role="status" aria-live="polite">
-          <span>
-            <strong>{t(TOOL_LABELS[activeTool])}</strong>
-            {toolResult ? (
-              <span className="tool-hud__result">{toolResult()}</span>
-            ) : null}
-            <small>{t("chrome.toolKeyboard")}</small>
-          </span>
-          <button type="button" onClick={onClearTools}>
-            <Trash2 size={15} /> {t("chrome.toolClear")}
-          </button>
-        </div>
-      ) : null}
+      {/* Mounted whether or not a tool is chosen, and empty until one is.
+          A live region announces a change to itself; one that arrives with
+          its words already in it is often not read at all, so the first tool
+          somebody picked went unannounced. `LiveRegion` says as much about
+          every announcement in the app, and this was one of five places that
+          did not follow it. Hidden from sight when empty rather than
+          unmounted, because `hidden` would take it out of the tree the same
+          way. */}
+      <div
+        className="tool-hud"
+        role="status"
+        aria-live="polite"
+        data-empty={activeTool ? undefined : "1"}
+      >
+        {activeTool ? (
+          <>
+            <span>
+              <strong>{t(TOOL_LABELS[activeTool])}</strong>
+              {toolResult ? (
+                <span className="tool-hud__result">{toolResult()}</span>
+              ) : null}
+              <small>{t("chrome.toolKeyboard")}</small>
+            </span>
+            <button type="button" onClick={onClearTools}>
+              <Trash2 size={15} /> {t("chrome.toolClear")}
+            </button>
+          </>
+        ) : null}
+      </div>
 
       <RadarLegend
         open={productOpen}
@@ -356,7 +371,7 @@ export function WorkspaceChrome({
                 {t("chrome.flashes")}
                 <em>{gridAge(lightning.observed, clock)}</em>
               </strong>
-              <ol>
+              <ol role="list">
                 <li>
                   <i style={{ background: "#fef9c3" }} aria-hidden="true" />
                   {t("chrome.now")}
@@ -400,7 +415,7 @@ export function WorkspaceChrome({
               </strong>
               {/* Three names rather than a gradient. Heavy is not three times
                   light; an analyst put each polygon in one of three boxes. */}
-              <ol className="is-categorical">
+              <ol role="list" className="is-categorical">
                 {SMOKE_SCALE.map(([density, color]) => (
                   <li key={density}>
                     <i style={{ background: color }} aria-hidden="true" />
@@ -426,7 +441,7 @@ export function WorkspaceChrome({
               </strong>
               {/* The scale the picture was painted with, sent with it, and
                   each swatch as solid as its step is on the map. */}
-              <ol>
+              <ol role="list">
                 {forecastSmoke.ramp.map((stop) => (
                   <li key={stop.at}>
                     <i
@@ -461,7 +476,7 @@ export function WorkspaceChrome({
               {/* Every class the layer can draw, whether or not this volume
                   holds it: a legend that lists only what is on screen cannot
                   be read against what is not. */}
-              <ol className="is-categorical">
+              <ol role="list" className="is-categorical">
                 {classification.legend.map((style) => (
                   <li key={style.id}>
                     <i style={{ background: style.color }} aria-hidden="true" />
@@ -486,7 +501,10 @@ export function WorkspaceChrome({
               {/* A grid whose numbers are names is listed as names. A
                   gradient of category numbers would say that six is more than
                   three, and it is not: it is convection rather than snow. */}
-              <ol className={layer.categories ? "is-categorical" : undefined}>
+              <ol
+                role="list"
+                className={layer.categories ? "is-categorical" : undefined}
+              >
                 {(layer.categories ?? layer.stops).map((entry) => {
                   const [value, color] = entry;
                   const id = entry[2];

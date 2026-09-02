@@ -372,11 +372,13 @@ export function IncidentPackManager({
                   : t("packs.noRegion")}
               </span>
             </div>
-            {estimate && !estimate.fits ? (
-              <p className="incident-pack-error" role="alert">
-                {t("packs.wontFit")}
-              </p>
-            ) : null}
+            <p
+              className="incident-pack-error"
+              role="alert"
+              data-empty={estimate && !estimate.fits ? undefined : "1"}
+            >
+              {estimate && !estimate.fits ? t("packs.wontFit") : ""}
+            </p>
             <button
               type="button"
               className="secondary-button"
@@ -414,10 +416,10 @@ export function IncidentPackManager({
             </div>
           ) : null}
 
+          {library.packs.length === 0 ? (
+            <p className="empty-copy">{t("packs.empty")}</p>
+          ) : null}
           <div className="incident-pack-list" role="list">
-            {library.packs.length === 0 ? (
-              <p className="empty-copy">{t("packs.empty")}</p>
-            ) : null}
             {library.packs.map((pack) => {
               const progress = pack.tileCount
                 ? Math.round((pack.downloadedTiles / pack.tileCount) * 100)
@@ -542,16 +544,24 @@ export function IncidentPackManager({
         </>
       )}
 
-      {notice ? (
-        <p className="incident-pack-notice" role="status">
-          {notice}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="incident-pack-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {/* Both mounted before there is anything in them. A live region
+          announces a change to itself, and one that arrives already carrying
+          its words is often not read out at all: every pack notice and every
+          pack failure was arriving that way. */}
+      <p
+        className="incident-pack-notice"
+        role="status"
+        data-empty={notice ? undefined : "1"}
+      >
+        {notice ?? ""}
+      </p>
+      <p
+        className="incident-pack-error"
+        role="alert"
+        data-empty={error ? undefined : "1"}
+      >
+        {error ?? ""}
+      </p>
     </div>
   );
 }

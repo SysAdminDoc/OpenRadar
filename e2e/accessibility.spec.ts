@@ -505,3 +505,42 @@ test("lays out for the room it has rather than the room the screen has", async (
     page.getByRole("heading", { name: "Composite Radar" }),
   ).toBeVisible();
 });
+
+test("the warnings in view are a list, and the tool readout is always there", async ({
+  page,
+}) => {
+  // How many warnings are in view is the information, and a run of divs says
+  // none of it: no "list, four items" and no position within it. Same for
+  // the sources in Diagnostics, where the count is the whole point.
+  //
+  // And a live region announces a change to itself, so one that is mounted
+  // carrying its first words is often not read out at all. The tool readout
+  // arrived that way, which meant the first tool somebody picked went
+  // unannounced.
+  const hud = page.locator(".tool-hud");
+  await expect(hud).toHaveAttribute("role", "status");
+  await expect(hud).toHaveAttribute("data-empty", "1");
+  await expect(hud).toHaveText("");
+  // In the accessibility tree with nothing in it, which is the whole point:
+  // hidden or unmounted, the first thing it says is an arrival rather than a
+  // change and often goes unread. `hidden` would put it back exactly where
+  // it was, so it is asked for by role rather than by class.
+  const exposed = await hud.evaluate((node) => ({
+    hidden: (node as HTMLElement).hidden,
+    ariaHidden: node.getAttribute("aria-hidden"),
+    display: getComputedStyle(node).display,
+  }));
+  expect(exposed.hidden).toBe(false);
+  expect(exposed.ariaHidden).toBeNull();
+  expect(exposed.display).not.toBe("none");
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Alerts" })).toBeVisible();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+
+  const list = page.locator(".alert-list");
+  await expect(list).toHaveAttribute("role", "list");
+  const rows = list.getByRole("listitem");
+  expect(await rows.count()).toBeGreaterThan(0);
+  expect(await rows.count()).toBe(await list.locator(".alert-row").count());
+});

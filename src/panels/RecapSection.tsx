@@ -75,7 +75,7 @@ export function RecapSection({
 
       {recap ? (
         <>
-          <ul className="recap-lines">
+          <ul role="list" className="recap-lines">
             {lines.map((line) => (
               <li key={line}>{line}</li>
             ))}

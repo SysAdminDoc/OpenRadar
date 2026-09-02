@@ -127,17 +127,23 @@ test("disarms a tool on the way in, whose only control it hides", async ({
   // The tool readout holds the only Clear button, and the mode hides it. A
   // tool left armed could be drawn into the capture with nothing to undo it,
   // and the click that drew it opened a panel that appeared on the way out.
+  // The readout is a live region, so it is on the page whether or not a tool
+  // is armed: one that arrives already carrying its words is often not
+  // announced at all. Empty and one pixel wide is how it says nothing, and
+  // `data-empty` is how the rest of the app asks whether it is saying
+  // anything, so that is what these read rather than visibility.
+  const hud = page.locator(".tool-hud");
   await page.getByRole("button", { name: "Range", exact: true }).click();
-  await expect(page.locator(".tool-hud")).toBeVisible();
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
 
   await enterCapture(page);
   await expect(page.locator("[data-capture-bar]")).toBeVisible();
-  await expect(page.locator(".tool-hud")).toBeHidden();
+  await expect(hud).toHaveAttribute("data-empty", "1");
 
   await page.getByRole("button", { name: "Leave capture layout" }).click();
-  // Not merely hidden: put away, so nothing is armed behind a control that
-  // was not on screen.
-  await expect(page.locator(".tool-hud")).toBeHidden();
+  // Not merely out of sight: put away, so nothing is armed behind a control
+  // that was not on screen.
+  await expect(hud).toHaveAttribute("data-empty", "1");
 });
 
 test("puts the workspace back exactly as it was", async ({ page }) => {

@@ -136,6 +136,41 @@ export function CommandBar({
     if (advancedRef.current) advancedRef.current.scrollTop = 0;
   }, [activeSurface]);
 
+  /**
+   * Whether there is more of the rail above or below what is on screen.
+   *
+   * The region scrolls, its scrollbar is hidden, and at 1440 by 900 it ends
+   * partway through a button: a label cut in half was the only sign that
+   * anything was down there, and it reads as a layout fault rather than as
+   * "there is more". The two attributes drive a fade at whichever edge has
+   * something behind it.
+   */
+  useEffect(() => {
+    const region = advancedRef.current;
+    if (!region) return;
+    const mark = () => {
+      const top = region.scrollTop;
+      const more = region.scrollHeight - region.clientHeight;
+      region.toggleAttribute("data-more-above", top > 1);
+      // One pixel of slack: a fractional layout leaves a hair of scroll that
+      // nothing can reach, and a fade over a dead edge is a lie.
+      region.toggleAttribute("data-more-below", more - top > 1);
+    };
+    mark();
+    region.addEventListener("scroll", mark, { passive: true });
+    // Guarded the way `matchMedia` is elsewhere: a plain jsdom has no
+    // ResizeObserver, and a fade at the edge of a rail is not worth taking
+    // the whole workspace down over.
+    const watcher =
+      typeof ResizeObserver === "function" ? new ResizeObserver(mark) : null;
+    watcher?.observe(region);
+    if (watcher) for (const child of region.children) watcher.observe(child);
+    return () => {
+      region.removeEventListener("scroll", mark);
+      watcher?.disconnect();
+    };
+  }, []);
+
   return (
     <nav className="command-bar" aria-label={t("bar.label")}>
       <div className="command-group command-group--primary">

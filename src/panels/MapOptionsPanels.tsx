@@ -508,7 +508,7 @@ export function LayersPanel({
             <span>{t("layers.order")}</span>
             <small>{t("layers.orderDetail")}</small>
           </div>
-          <ol className="layer-order">
+          <ol role="list" className="layer-order">
             {[...arrangeable].reverse().map((overlayId, shown) => {
               const label = t(labelFor(overlayId));
               // Shown top first, which is how somebody thinks about what is
@@ -553,7 +553,7 @@ export function LayersPanel({
             <small>{t("layers.filesDetail")}</small>
           </div>
           {overlayFiles.length ? (
-            <ol className="overlay-files">
+            <ol role="list" className="overlay-files">
               {/* Top first, the way somebody thinks about what is over what,
                   while the list itself is held bottom first. */}
               {[...overlayFiles].reverse().map((file, shown) => {
@@ -787,7 +787,7 @@ export function LayersPanel({
               </button>
             ))}
           </div>
-          <ol className="surge-ramp">
+          <ol role="list" className="surge-ramp">
             {SURGE_RAMP.map(([color, feet, over]) => (
               <li key={color}>
                 <i style={{ background: color }} aria-hidden="true" />
@@ -1685,9 +1685,9 @@ export function SettingsPanel({
         {/* The places beside home. One point cannot be home, a school and the
             far end of tomorrow's drive, and a reader who wants all three
             should not have to pick. */}
-        <div className="watch-places">
+        <div className="watch-places" role="list">
           {settings.watchPlaces.map((place, index) => (
-            <div className="watch-place" key={place.id}>
+            <div className="watch-place" role="listitem" key={place.id}>
               <label className="watch-place__name">
                 <span className="visually-hidden">
                   {t("settings.placeName")}

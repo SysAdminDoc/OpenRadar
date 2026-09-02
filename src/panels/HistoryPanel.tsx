@@ -233,7 +233,7 @@ export function HistoryPanel({
             <span>{t("almanac.title")}</span>
             <small>{t("almanac.note")}</small>
           </div>
-          <ol>
+          <ol role="list">
             {today.map((entry) =>
               entry.kind === "note" ? (
                 <li key={entry.note.id} data-almanac-note={entry.note.id}>

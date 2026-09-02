@@ -216,14 +216,22 @@ export function ExportPanel({
         </div>
       ) : null}
 
-      {progress ? (
-        <p className="source-note" role="status">
-          {t("export.recording", {
-            done: progress.done,
-            total: progress.total,
-          })}
-        </p>
-      ) : null}
+      {/* Mounted before there is anything to say, for the same reason the
+          tool readout is: a live region that arrives carrying its first value
+          often does not announce it, and the first frame of a recording is
+          the one somebody is waiting to hear about. */}
+      <p
+        className="source-note"
+        role="status"
+        data-empty={progress ? undefined : "1"}
+      >
+        {progress
+          ? t("export.recording", {
+              done: progress.done,
+              total: progress.total,
+            })
+          : ""}
+      </p>
 
       <div className="feature-card">
         <Film size={24} />

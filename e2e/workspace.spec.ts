@@ -835,3 +835,44 @@ test("counts every press of the zoom button, not just the ones between eases", a
   }
   await expect.poll(zoomOf).toBeLessThanOrEqual(before + 0.5);
 });
+
+test("the scrubber has a handle big enough to grab", async ({ page }) => {
+  // The most dragged control in the app, and its handle was whatever the
+  // browser draws: about sixteen pixels, under the twenty-four WCAG asks of
+  // a pointer target. Every slider in Settings and Layers had the same one.
+  const scrubber = page.locator(".radar-timeline input[type='range']").first();
+  await expect(scrubber).toBeVisible();
+
+  // The input's own box, which is the hit area: a handle drawn at
+  // twenty-four pixels inside a four pixel input is still a four pixel
+  // target. The drawn size of the handle itself is held in `theme.test.ts`,
+  // because Chromium will not report a form control's internal pseudo
+  // element through `getComputedStyle` and answers with the input's own
+  // values instead, which made an assertion here pass at any size.
+  const box = await scrubber.evaluate(
+    (node) => node.getBoundingClientRect().height,
+  );
+  expect(box).toBeGreaterThanOrEqual(24);
+});
+
+test("the rail says when there is more of it than fits", async ({ page }) => {
+  // It scrolls with its scrollbar hidden, and at this size it ends partway
+  // through a button: half a label was the only sign the tools below it
+  // existed, and that reads as a layout fault rather than as "there is more".
+  const region = page.locator(".command-scroll-region");
+  await expect(region).toBeVisible();
+
+  const scrolls = await region.evaluate(
+    (node) => node.scrollHeight > node.clientHeight + 1,
+  );
+  test.skip(!scrolls, "the rail fits at this size");
+
+  await expect(region).toHaveAttribute("data-more-below", "");
+  await expect(region).not.toHaveAttribute("data-more-above", "");
+
+  await region.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect(region).toHaveAttribute("data-more-above", "");
+  await expect(region).not.toHaveAttribute("data-more-below", "");
+});

@@ -103,7 +103,7 @@ export function AlertsPanel({
           </div>
         </div>
       ) : visible.length ? (
-        <div className="alert-list">
+        <div className="alert-list" role="list">
           {visible.map(({ feature, bounds }, index) => {
             const severity = String(
               feature.properties.severity ?? "minor",
@@ -117,6 +117,7 @@ export function AlertsPanel({
             return (
               <div
                 className="alert-row"
+                role="listitem"
                 key={`${feature.properties.headline}-${index}`}
               >
                 <button type="button" onClick={() => onSelect(bounds)}>
