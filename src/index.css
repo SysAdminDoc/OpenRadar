@@ -3426,6 +3426,11 @@ input[type="range"] {
    The header, tool rail, panel rail, and playback band share edges so the UI
    reads as an instrument rather than a collection of floating cards. */
 :root {
+  /* What the browser draws its own parts in: a date picker's popup, a number
+     spinner, a select's dropdown list, a scrollbar. Nothing said it, so every
+     one of them came up in the light default inside a dark workspace, and the
+     quiet-hours time fields had a black clock face on white. */
+  color-scheme: dark;
   --chrome-top: 56px;
   --rail-width: 68px;
   --panel-width: 336px;
@@ -3469,6 +3474,7 @@ input[type="range"] {
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #e9eef4;
   --surface: rgba(248, 250, 252, 0.98);
   --surface-solid: #f8fafc;
@@ -4896,6 +4902,22 @@ input[type="range"] {
   color: var(--muted);
 }
 
+/* Every native control a panel leaves undressed.
+   Unpainted, each of these is a white box with black text and a grey border
+   sitting in a dark panel: the postcard's caption and its size select, the
+   two settings selects, the record's filter and note editor, the storm motion
+   numbers, the readout's place select, a storm's name box and the recap span
+   all shipped that way. The recipe is the one the watched places already had
+   to themselves, and `.select-row select` already had its own copy of it. */
+.settings-field input,
+.settings-field select,
+.journal-filter input,
+.journal-filter select,
+.journal-note-edit textarea,
+.nearby-place select,
+.cell-name,
+.select-row input,
+[data-recap] select,
 .watch-place__row input,
 .watch-place__row select {
   background: var(--surface);
@@ -4906,6 +4928,57 @@ input[type="range"] {
   font: inherit;
   font-size: 13px;
   min-width: 0;
+}
+
+/* The shape of a setting that takes a control rather than a switch. Mirrors
+   `.toggle-row` deliberately, because it sits directly under a run of them.
+   It had no rule of its own at all, so its title rendered inline at 16px
+   beside its detail at 13px in one run-on paragraph with a bare white select
+   underneath. It was the one part of Settings that looked unfinished. */
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.settings-field > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-field strong {
+  font-size: 12px;
+}
+
+.settings-field small {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/* The inner label is the control's own row: its name on the left and the
+   control on the right, the way every switch above it sits. */
+.settings-field label.settings-field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+}
+
+.settings-field label.settings-field > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.settings-field label.settings-field select {
+  flex: 0 0 auto;
+  max-width: 60%;
 }
 
 .watch-place__row .secondary-button {
