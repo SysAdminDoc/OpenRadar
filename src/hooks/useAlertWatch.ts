@@ -15,6 +15,7 @@ import {
 } from "../lib/watch";
 import { translate } from "../i18n";
 import { playAlertTone } from "../lib/sound";
+import { appendJournalRow } from "../lib/journal";
 
 /** Often enough to matter for a warning, rarely enough to be a good citizen. */
 const POLL_MS = 45_000;
@@ -267,10 +268,25 @@ export function useAlertWatch(
           }
           // Why it fired, beside the fact that it did, so the log can answer
           // the question somebody actually asks the next morning.
-          const named = (alert.places ?? [])
-            .filter((place) => place.named !== false)
-            .map((place) => place.name)
-            .join(", ");
+          const claimed = (alert.places ?? []).filter(
+            (place) => place.named !== false,
+          );
+          const named = claimed.map((place) => place.name).join(", ");
+          // And into the reader's own record, one row per named place. Only
+          // named ones: a coordinate somebody never called anything is not a
+          // place they have claimed, and nothing about how the app was used
+          // goes anywhere near this file.
+          for (const place of claimed) {
+            void appendJournalRow({
+              at: new Date().toISOString(),
+              place: place.name,
+              kind: "alert",
+              source: translate("journal.sourceNws"),
+              observed: new Date().toISOString(),
+              obtained: translate("journal.obtainedWatch"),
+              text: alert.headline,
+            });
+          }
           log.info(
             "watch",
             `Announced ${alert.headline}${named ? ` at ${named}` : ""}. ${watchReasonLines(

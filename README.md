@@ -181,6 +181,8 @@ None of it is sent anywhere. It goes to the clipboard, and you paste it, having 
 
 OpenRadar has no account, telemetry, crash reporting or sync. Settings and logs stay on this machine.
 
+**Your record** is the one file here that writes down where you live, so this says exactly what is in it. It is `journal.jsonl` in the app's data folder, one JSON object per line, and each line holds: the name you gave a place, whether the row is an observation or an event, who said it, when the thing was observed, how it was obtained, and one short line of what it was. Nothing about how you use the app ever goes into it. Nothing goes into it for a place you have not named. It is kept for 400 days or 4 MB, whichever runs out first, oldest first. It never leaves the machine, it is not in the diagnostics report, and Settings shows the whole of it, hands it over as itself, and deletes all of it in one press.
+
 Prepared incident packs stay in the app's data folder until you delete them. Workspace backups carry the pack name, bounds, size and hash so the reference survives, but they do not copy the map archive into the backup.
 
 Replay bundles carry the storm's frames, the warnings that were in force, and the view you were looking at when you saved one. The view is in there because the tiles it holds are the tiles that view covers, so a bundle cannot reproduce offline without it. Your workspace, which knows where home is and which places you watch, goes in only when you tick the box, and a bundle's workspace is applied only when you choose to. They are written to your downloads folder and read through the system's file picker, so a bundle never crosses into the page as bytes.

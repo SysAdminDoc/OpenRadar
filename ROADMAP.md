@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-007: Keep a bounded local log of observations and events at the reader's places
-      Why: Almost everything below wants a memory the app does not have. There is a disk cache for tiles and frames, which is about not refetching, and there is nothing that records that it hailed here on the fourteenth. This is the foundation item for the journal, the recap, and any local climate context, and it needs designing once, carefully, because it is a file of somebody's whereabouts.
-      Evidence: `src-tauri/src/cache.rs`; `src/lib/settings.ts`; `src/hooks/useAlertWatch.ts`; `src/lib/workspaceBackup.ts`; JOY-006
-      Touches: A local log store and its schema; a retention and size budget; write points in the alert and observation paths; export and deletion; documentation of what is written
-      Acceptance: The log records observation and event rows for named places only, each with source, observed time, and how it was obtained, and it never records anything about how the app was used; a stated retention period and a hard size ceiling both hold, with the oldest going first; the reader can see the whole file in plain form, export it, and delete all of it in one action; it never leaves the machine and never enters diagnostics output; corrupt or partial files are refused without losing the good rows; a documented note says exactly what is stored, because this is the one feature here that writes down where somebody lives.
-      Complexity: L
-
 - [ ] JOY-008: Add a storm journal that writes its own first draft
       Why: This is the item that earns a year of use. When a warning reaches a named place, when a cell passes within a few miles, or when the reader exports a picture, the app can open an entry with the time, the place, the hazard, and a thumbnail of the frame that was on screen, and leave room for a sentence in the reader's own words. Over a couple of seasons that becomes a personal weather history nothing else has, and it is the thing somebody would refuse to switch away from.
       Evidence: `src/hooks/useAlertWatch.ts`; `src/hooks/useExport.ts`; `src/lib/export.ts`; `src/hooks/useStormCells.ts`; JOY-007; AUD-083
