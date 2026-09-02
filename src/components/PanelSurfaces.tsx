@@ -106,6 +106,8 @@ interface PanelSurfacesProps {
   onProjection: (projection: ProjectionMode) => void;
   onRadar: (radar: RadarSettings) => void;
   onPlace: (place: PlaceResult) => void;
+  /** A storm chosen by name in the search, handed to Storm history. */
+  onSearchStorm: (id: string) => void;
   onAlertSelect: (bounds: OverlayBounds) => void;
   onFollowStorm: (point: GeoPoint, name: string) => void;
   onCommand: (action: CommandAction) => void;
@@ -149,7 +151,8 @@ interface PanelSurfacesProps {
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   onJournalSaved: (path: string | null) => void;
-  onJournalCleared: () => void;
+  onJournalCleared: (undo: () => void) => void;
+  onJournalRemoved: (undo: () => void) => void;
   /** Whether the almanac card is drawn: off by choice, or quiet during danger. */
   almanac: boolean;
   onFlyTo: (point: { lon: number; lat: number }) => void;
@@ -176,7 +179,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "search" ? (
-        <SearchPanel onClose={onClose} onSelect={props.onPlace} />
+        <SearchPanel
+          onClose={onClose}
+          onSelect={props.onPlace}
+          onSelectStorm={props.onSearchStorm}
+        />
       ) : null}
 
       {activeSurface === "map-type" ? (
@@ -291,6 +298,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           onJournalSaved={props.onJournalSaved}
           onJournalFailed={props.onJournalFailed}
           onJournalCleared={props.onJournalCleared}
+          onJournalRemoved={props.onJournalRemoved}
           clock={props.clock}
           onReset={props.onReset}
           onExportSettings={props.onExportSettings}

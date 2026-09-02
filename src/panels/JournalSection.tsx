@@ -13,10 +13,12 @@ import {
   journalThumbData,
   journalThumbFileName,
   removeJournalRow,
+  restoreJournalRows,
   setJournalNote,
   JOURNAL_FILTER,
   JOURNAL_MAX_MB,
   JOURNAL_RETENTION_DAYS,
+  JOURNAL_THUMBS_MAX_MB,
   type JournalFilter,
   type JournalRow,
 } from "../lib/journal";
@@ -56,11 +58,21 @@ export function JournalSection({
   onSaved,
   onFailed,
   onCleared,
+  onRemoved,
 }: {
   clock: number;
   onSaved: (path: string | null) => void;
   onFailed: (why: string) => void;
-  onCleared: () => void;
+  /**
+   * The record was deleted, and here is how to put it back.
+   *
+   * Deleting is one press with no dialog, which the project asks for, and
+   * that only works if the press is reversible. The rows are handed over
+   * rather than a flag, because putting them back is the whole undo.
+   */
+  onCleared: (undo: () => void) => void;
+  /** One row was deleted, and here is how to put that one back. */
+  onRemoved: (undo: () => void) => void;
 }) {
   const t = useT();
   const [rows, setRows] = useState<JournalRow[]>([]);
@@ -86,18 +98,32 @@ export function JournalSection({
     [rows, filter, clock],
   );
 
-  // One object URL per picture, made once and let go when the panel closes.
-  // A picture the budget has taken back simply does not appear; the row it
-  // belonged to is still the record and still reads.
+  // One object URL per picture, asked for once and let go when the panel
+  // closes. A picture the budget has taken back simply does not appear; the
+  // row it belonged to is still the record and still reads.
+  //
+  // The set of rows this runs over changes on every clock tick and on every
+  // keystroke in the search box, so "asked for once" has to mean once ever
+  // rather than once per pass. An earlier version marked a pending read with
+  // an empty string, which is falsy, so the guard let every pass ask again;
+  // it also cancelled the whole batch on each pass, and somebody typing
+  // faster than a round trip saw no pictures at all.
   const [pictures, setPictures] = useState<Record<string, string>>({});
   const heldRef = useRef<Record<string, string>>({});
+  const askedRef = useRef(new Set<string>());
+  const openRef = useRef(true);
+  useEffect(
+    () => () => {
+      openRef.current = false;
+    },
+    [],
+  );
   useEffect(() => {
-    let open = true;
     for (const row of shown) {
-      if (!row.thumb || heldRef.current[row.id]) continue;
-      heldRef.current[row.id] = "";
+      if (!row.thumb || askedRef.current.has(row.id)) continue;
+      askedRef.current.add(row.id);
       void journalThumbData(row.thumb).then((bytes) => {
-        if (!open || !bytes) return;
+        if (!openRef.current || !bytes) return;
         const url = URL.createObjectURL(
           new Blob([bytes as BlobPart], { type: "image/png" }),
         );
@@ -105,9 +131,6 @@ export function JournalSection({
         setPictures((held) => ({ ...held, [row.id]: url }));
       });
     }
-    return () => {
-      open = false;
-    };
   }, [shown]);
   useEffect(() => {
     const held = heldRef.current;
@@ -143,12 +166,23 @@ export function JournalSection({
     <div className="settings-section" data-journal>
       <div className="settings-section__title">
         <span>{t("journal.title")}</span>
-        <small>{t("journal.count", { count: rows.length })}</small>
+        <small>
+          {/* What is on screen when a filter is on, and the whole file when
+              it is not. A count of the file above a list of six rows is two
+              numbers that disagree in front of somebody. */}
+          {shown.length === rows.length
+            ? t("journal.count", { count: rows.length })
+            : t("journal.countShown", {
+                shown: shown.length,
+                count: rows.length,
+              })}
+        </small>
       </div>
       <p className="source-note">
         {t("journal.note", {
           days: JOURNAL_RETENTION_DAYS,
           size: JOURNAL_MAX_MB,
+          pictures: JOURNAL_THUMBS_MAX_MB,
         })}
       </p>
       {where ? <p className="source-note">{where}</p> : null}
@@ -280,7 +314,14 @@ export function JournalSection({
                         aria-label={t("journal.removeRow")}
                         onClick={() => {
                           void removeJournalRow(row.id)
-                            .then(reload)
+                            .then(() => {
+                              reload();
+                              onRemoved(() => {
+                                void restoreJournalRows([row])
+                                  .then(reload)
+                                  .catch(failed);
+                              });
+                            })
                             .catch(failed);
                         }}
                       >
@@ -346,10 +387,13 @@ export function JournalSection({
         onClick={() => {
           // No dialog, per the project's own rule, but an acknowledgement:
           // the most destructive control in the app said nothing at all.
+          const held = rows;
           void clearJournal()
             .then(() => {
               reload();
-              onCleared();
+              onCleared(() => {
+                void restoreJournalRows(held).then(reload).catch(failed);
+              });
             })
             .catch(failed);
         }}

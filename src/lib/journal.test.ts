@@ -9,6 +9,7 @@ import {
   JOURNAL_MAX_MB,
   JOURNAL_RETENTION_DAYS,
   JOURNAL_THUMB_MAX_BYTES,
+  JOURNAL_THUMBS_MAX_MB,
   type JournalRow,
 } from "./journal";
 import { diagnosticsBlock } from "./diagnostics";
@@ -65,9 +66,16 @@ describe("the bounds the panel promises", () => {
     );
     const days = /RETENTION_DAYS: i64 = (\d+)/.exec(rust)?.[1];
     const megabytes = /MAX_BYTES: u64 = (\d+) \* 1024 \* 1024/.exec(rust)?.[1];
-    const thumb = /MAX_THUMB_BYTES: usize = (\d+) \* 1024/.exec(rust)?.[1];
+    const thumb = /MAX_THUMB_BYTES: usize = (\d+) \* 1024;/.exec(rust)?.[1];
+    const thumbs = /MAX_THUMBS_BYTES: u64 = (\d+) \* 1024 \* 1024/.exec(
+      rust,
+    )?.[1];
     expect(Number(days)).toBe(JOURNAL_RETENTION_DAYS);
     expect(Number(megabytes)).toBe(JOURNAL_MAX_MB);
+    // The pictures sit beside the file with a budget of their own, and the
+    // panel note states it. A record promised as four megabytes with eight
+    // more in a neighbouring directory is a promise nobody kept.
+    expect(Number(thumbs)).toBe(JOURNAL_THUMBS_MAX_MB);
     // The picture budget is checked on both sides, and only one of them is
     // the one that counts. A thumbnail refused by Rust after passing here is
     // a picture the reader was told was kept.
@@ -134,6 +142,11 @@ describe("the record written for a person", () => {
     );
     expect(text).toContain("# What the weather did");
     expect(text).toContain("Casa: rain");
+    // A place name carrying the separator the heading used to be patched
+    // through ate the replacement and kept the wrong one.
+    expect(
+      journalMarkdown([row({ place: "Casa — the old one" })], "H"),
+    ).toContain("## Casa — the old one: rain");
     expect(text).toContain("- Observed: 2026-09-02T13:00:00.000Z");
     expect(text).toContain("- Source: KDAL");
     expect(text).toContain(

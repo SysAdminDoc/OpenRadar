@@ -183,6 +183,12 @@ test("stays away after a restart rather than an absence", async ({ page }) => {
     rows: [journalRow(1, "Casa", "Tornado Warning")],
     away: 10 * 60_000,
   });
+  // The positive control: the workspace really did open. Without it this
+  // passes just as well against a build that fails to render at all, which
+  // is the failure mode of every "nothing appeared" assertion.
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toBeVisible();
   await expect(page.locator(".catch-up")).toHaveCount(0);
 });
 
@@ -191,17 +197,27 @@ test("stays away when the reader has switched it off", async ({ page }) => {
     rows: [journalRow(6, "Casa", "Tornado Warning")],
     catchUp: false,
   });
+  await expect(
+    page.getByRole("button", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  // The same rows with the setting on do produce a card, which the first
+  // test in this file holds, so the difference here is the setting.
   await expect(page.locator(".catch-up")).toHaveCount(0);
 });
 
-test("does not know about a place the map only guessed", async ({ page }) => {
-  // Every row in the record is a place the reader named, so there is nothing
-  // to filter here: this holds that the card shows rows and only rows.
+test("names the place the reader named, and not its coordinates", async ({
+  page,
+}) => {
+  // Every row in the record is a place the reader named. The card says that
+  // word and never the numbers behind it, which is the difference between a
+  // record of the weather and a record of where somebody lives.
   await start(page, {
     rows: [journalRow(6, "Casa", "Tornado Warning")],
   });
-  await expect(page.locator(".catch-up")).toContainText("Casa");
-  await expect(page.locator(".catch-up")).not.toContainText(String(HOME[0]));
+  const card = page.locator(".catch-up");
+  await expect(card).toContainText("Casa");
+  await expect(card).not.toContainText(String(HOME[0]));
+  await expect(card).not.toContainText(String(HOME[1]));
 });
 
 test("stands down while a warning is in force where you watch", async ({

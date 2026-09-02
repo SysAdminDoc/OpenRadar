@@ -1889,6 +1889,27 @@ input[type="range"] {
   margin-top: 10px;
 }
 
+/* Storms answered by name, kept plainly apart from the places. Somebody
+   looking for the town of Katrina and somebody looking for the storm are
+   asking different questions, and one list cannot answer both. */
+.result-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.result-group__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .result-row,
 .link-row {
   display: flex;
@@ -4395,8 +4416,6 @@ input[type="range"] {
   color: var(--muted);
 }
 
-/* Narrowing the record. A search box and two selects on one line, wrapping to
-   two on the compact layout rather than shrinking to nothing. */
 /* What happened while the app was closed. A card over the map rather than a
    toast: several lines, each with its own time, is not something to read in
    the four seconds a toast lasts. */
@@ -4475,6 +4494,8 @@ input[type="range"] {
   gap: 6px;
 }
 
+/* Narrowing the record. A search box and two selects on one line, wrapping to
+   two on the compact layout rather than shrinking to nothing. */
 .journal-filter {
   display: flex;
   flex-wrap: wrap;

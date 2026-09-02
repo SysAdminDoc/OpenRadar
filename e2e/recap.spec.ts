@@ -101,8 +101,10 @@ test("keeps the place name off it until the reader puts it on", async ({
   ]);
   const recap = page.locator("[data-recap]");
   await recap.scrollIntoViewIfNeeded();
-  await expect(recap).not.toContainText("Casa");
+  // The positive assertion first. A negative matcher passes on its first
+  // poll, so checked before the panel has drawn it proves nothing at all.
   await expect(recap).toContainText("2 places");
+  await expect(recap).not.toContainText("Casa");
 
   await recap.getByRole("checkbox").check();
   await expect(recap).toContainText("Casa");

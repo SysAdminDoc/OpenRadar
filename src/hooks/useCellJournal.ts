@@ -27,6 +27,12 @@ export const JOURNAL_PASS_MILES = 10;
  * One row per storm per place. The algorithm's own identity for the cell is
  * what makes that possible: the same storm in the next volume is the same id,
  * so a storm sitting over somewhere for an hour is one row rather than twelve.
+ *
+ * What it can see is what the workspace is showing: the cells come from the
+ * single site the radar is tuned to, and only while that layer is switched on.
+ * A storm passing a watched place while the reader is looking somewhere else
+ * is not written down. That is a gap in the record rather than a wrong row,
+ * and the README says so where the three triggers are listed.
  */
 export function useCellJournal(options: {
   report: CellReport | null;
@@ -59,7 +65,11 @@ export function useCellJournal(options: {
           lat: cell.latitude,
         });
         if (miles > JOURNAL_PASS_MILES) continue;
-        const key = `${place.name}|${report.station}|${cell.id}`;
+        // The place and the storm, and deliberately not the station. Tuning
+        // to a neighbouring site is something the reader did, and keying on
+        // it wrote a second row about a storm already recorded, which is an
+        // entry created by a person rather than by the weather.
+        const key = `${place.name}|${cell.id}`;
         if (seen.current.has(key)) continue;
         seen.current.add(key);
         void appendJournalRow(

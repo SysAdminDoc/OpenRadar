@@ -209,6 +209,7 @@ pub fn run() {
             journal::journal_clear,
             journal::journal_path,
             journal::journal_note,
+            journal::journal_restore,
             journal::journal_remove,
             journal::journal_thumb,
             journal::journal_thumb_data,

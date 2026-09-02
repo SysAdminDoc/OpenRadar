@@ -67,6 +67,24 @@ describe("storm search", () => {
     ]);
   });
 
+  it("returns every storm that carried a reused name", () => {
+    // Names are reused every six years and retired only after a bad one, so
+    // most of them belong to several storms. Answering with the first is
+    // answering a different question, and the year on each row is what tells
+    // them apart.
+    const bonnies = [
+      storm({ id: "AL021998", name: "BONNIE", year: 1998 }),
+      storm({ id: "AL022004", name: "BONNIE", year: 2004 }),
+      storm({ id: "AL032016", name: "BONNIE", year: 2016 }),
+    ];
+    const found = searchStorms([...storms, ...bonnies], "bonnie");
+    expect(found.map((one) => one.year)).toEqual([1998, 2004, 2016]);
+    // And naming the year narrows it to the one somebody meant.
+    expect(searchStorms([...storms, ...bonnies], "bonnie 2004")).toHaveLength(
+      1,
+    );
+  });
+
   it("says nothing for a query too short to mean anything", () => {
     expect(searchStorms(storms, "i")).toEqual([]);
     expect(searchStorms(storms, " ")).toEqual([]);

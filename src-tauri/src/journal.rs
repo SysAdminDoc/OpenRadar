@@ -517,7 +517,12 @@ fn write_thumb(id: &str, bytes: &[u8]) -> Result<String, String> {
         let Some(row) = rows.iter_mut().find(|row| row.id == id) else {
             return Err(format!("no journal row is called {id}"));
         };
-        let name = format!("{}.png", derived_id(row));
+        // The row's own id, not a hash of its contents. Two rows that agree on
+        // every field are separated by `append_row` into `X` and `X-1`, and
+        // naming both pictures after the hash wrote one over the other: one
+        // warning reaching two places a reader had both called Home destroyed
+        // the first picture and left the first row showing the second's.
+        let name = format!("{}.png", row.id);
         let Some(name) = thumb_name(&name) else {
             return Err("that row cannot be given a picture".to_string());
         };
@@ -533,6 +538,49 @@ fn write_thumb(id: &str, bytes: &[u8]) -> Result<String, String> {
             String::new()
         })
     }
+}
+
+/// Puts rows back, for an undo.
+///
+/// Every destructive action in this app is one press with no dialog, which
+/// only works if the press is reversible. A row put back keeps its id, its
+/// time and the reader's own note; its picture does not come back, because
+/// deleting the row deleted the file, and a restored row that pointed at a
+/// picture which is gone would be worse than one that never had one.
+///
+/// Rows already there are left alone, so pressing undo twice puts nothing
+/// back twice.
+#[tauri::command]
+pub async fn journal_restore(rows: Vec<JournalRow>) -> Result<usize, String> {
+    tauri::async_runtime::spawn_blocking(move || restore_rows(rows))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn restore_rows(putting: Vec<JournalRow>) -> Result<usize, String> {
+    let Some(path) = path() else {
+        return Ok(0);
+    };
+    let _guard = WRITING.lock().unwrap_or_else(|held| held.into_inner());
+    let mut rows = read_rows();
+    for row in putting {
+        let mut row = tidy(&row);
+        row.thumb.clear();
+        if row.id.is_empty() {
+            row.id = derived_id(&row);
+        }
+        if !worth_keeping(&row) {
+            continue;
+        }
+        if rows.iter().any(|held| held.id == row.id) {
+            continue;
+        }
+        rows.push(row);
+    }
+    // Back into the order the file keeps, oldest first, or a restored row
+    // would sit at the end whatever its time says.
+    rows.sort_by(|left, right| left.at.cmp(&right.at));
+    commit(&path, rows)
 }
 
 /// One picture's bytes, for the panel to show.
@@ -885,6 +933,85 @@ mod tests {
         // journal that quietly keeps what somebody deleted.
         assert!(!thumbs_dir().expect("a directory").join(&name).exists());
         assert!(journal_thumb_data(name).is_err());
+    }
+
+    #[test]
+    fn two_rows_that_read_alike_keep_their_own_pictures() {
+        let dir = scratch("thumb-collision");
+        let _guard = journal_test(&dir);
+        let now = Utc::now().to_rfc3339();
+        // One warning reaching two places the reader called the same thing,
+        // in the same millisecond: every field agrees, so the two rows are
+        // told apart by their ids alone.
+        append_row(row(&now, "Home", "Tornado Warning")).expect("written");
+        append_row(row(&now, "Home", "Tornado Warning")).expect("written");
+        let rows = journal_rows();
+        let first = write_thumb(&rows[0].id, &png(1_000)).expect("written");
+        let second = write_thumb(&rows[1].id, &png(2_000)).expect("written");
+        assert_ne!(first, second, "one picture cannot serve two rows");
+
+        let held = thumbs_dir().expect("a directory");
+        assert_eq!(fs::metadata(held.join(&first)).expect("kept").len(), 1_000);
+        assert_eq!(fs::metadata(held.join(&second)).expect("kept").len(), 2_000);
+        let after = journal_rows();
+        assert_eq!(after[0].thumb, first);
+        assert_eq!(after[1].thumb, second);
+    }
+
+    #[test]
+    fn a_deleted_row_can_be_put_back() {
+        let dir = scratch("restore");
+        let _guard = journal_test(&dir);
+        let now = Utc::now();
+        for index in 0..3 {
+            let at = (now + Duration::seconds(index)).to_rfc3339();
+            append_row(row(&at, "Casa", &format!("row {index}"))).expect("written");
+        }
+        let taken = journal_rows()[1].clone();
+        set_note(&taken.id, "Loud").expect("noted");
+        let taken = journal_rows()[1].clone();
+        let name = write_thumb(&taken.id, &png(500)).expect("written");
+        remove_row(&taken.id).expect("removed");
+        assert_eq!(journal_rows().len(), 2);
+
+        restore_rows(vec![taken.clone()]).expect("restored");
+        let back = journal_rows();
+        assert_eq!(back.len(), 3);
+        // Its own place in the file, its own id, and the reader's own words.
+        assert_eq!(back[1].id, taken.id);
+        assert_eq!(back[1].text, "row 1");
+        assert_eq!(back[1].note, "Loud");
+        // The picture is not claimed back, because deleting the row deleted
+        // the file, and a row pointing at a picture that is gone is worse
+        // than one that never had a picture.
+        assert_eq!(back[1].thumb, "");
+        assert!(!thumbs_dir().expect("a directory").join(&name).exists());
+
+        // Twice puts nothing back twice.
+        restore_rows(vec![taken]).expect("restored");
+        assert_eq!(journal_rows().len(), 3);
+    }
+
+    #[test]
+    fn the_whole_record_can_be_put_back() {
+        let dir = scratch("restore-all");
+        let _guard = journal_test(&dir);
+        let now = Utc::now().to_rfc3339();
+        for text in ["first", "second", "third"] {
+            append_row(row(&now, "Casa", text)).expect("written");
+        }
+        let all = journal_rows();
+        journal_clear().expect("cleared");
+        assert!(journal_rows().is_empty());
+        restore_rows(all.clone()).expect("restored");
+        assert_eq!(journal_rows().len(), 3);
+        assert_eq!(
+            journal_rows()
+                .iter()
+                .map(|row| row.text.clone())
+                .collect::<Vec<_>>(),
+            vec!["first", "second", "third"]
+        );
     }
 
     #[test]

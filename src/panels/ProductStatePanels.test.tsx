@@ -39,7 +39,13 @@ describe("search result truthfulness", () => {
         },
       ])
       .mockRejectedValueOnce(new Error("service unavailable"));
-    render(<SearchPanel onClose={() => {}} onSelect={() => {}} />);
+    render(
+      <SearchPanel
+        onClose={() => {}}
+        onSelect={() => {}}
+        onSelectStorm={() => {}}
+      />,
+    );
     const input = screen.getByRole("textbox");
 
     fireEvent.change(input, { target: { value: "Dallas" } });

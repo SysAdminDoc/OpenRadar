@@ -107,6 +107,23 @@ describe("what the record says about a storm going past", () => {
     expect(appended).toHaveBeenCalledTimes(1);
   });
 
+  it("writes one row for a storm whichever radar site saw it", () => {
+    const { rerender } = renderHook(
+      (props: { station: string }) =>
+        useCellJournal({
+          report: { ...report([cell("A1", 3)]), station: props.station },
+          places: [place()],
+          enabled: true,
+        }),
+      { initialProps: { station: "KFWS" } },
+    );
+    // Tuning to a neighbouring site is something the reader did. The storm is
+    // the same storm, and a second row about it is an entry created by a
+    // person rather than by the weather.
+    rerender({ station: "KDYX" });
+    expect(appended).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps quiet about a place the reader never named", () => {
     renderHook(() =>
       useCellJournal({

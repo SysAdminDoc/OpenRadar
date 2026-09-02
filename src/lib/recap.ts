@@ -28,12 +28,17 @@ export interface Recap {
   /** The first row the record holds, or null when it holds none. */
   recordBegan: number | null;
   /**
-   * How many days of the window the record can speak for.
+   * How far back into the window the record reaches, in days.
    *
-   * The window, clipped to the day the record began. This is the figure that
-   * keeps a partial year from reading as a full one.
+   * The window, clipped to the moment the record begins. Deliberately not
+   * called coverage: a reader who ran the app in January and again in
+   * December has a record reaching back eleven months with nothing in the
+   * middle, and calling that eleven months of coverage would be the exact lie
+   * this figure exists to prevent. What is actually known is on the next line
+   * down, and the copy says the record cannot tell a quiet day from a day it
+   * was closed.
    */
-  daysCovered: number;
+  daysReachingBack: number;
   /** How many days the window is, so the two can be shown side by side. */
   daysInPeriod: number;
   /** Days that actually have a row on them, which is not the same thing. */
@@ -43,8 +48,15 @@ export interface Recap {
   /** How many rows of each kind, over the whole window. */
   alerts: number;
   observations: number;
-  /** The day with the most rows, or null when the record has none. */
-  busiest: { day: number; rows: number } | null;
+  /**
+   * The busiest day, held as a real observed time rather than a day number.
+   *
+   * A day number built as a UTC midnight and then formatted in the reader's
+   * own zone printed the day before for everybody west of Greenwich, which is
+   * most of this app's readers. Keeping an instant that actually falls on the
+   * day means the formatter cannot disagree with the grouping.
+   */
+  busiest: { at: number; rows: number } | null;
   /**
    * Everyone whose reading is counted here, named.
    *
@@ -63,10 +75,20 @@ export interface RecapPlace {
 
 const DAY_MS = 86_400_000;
 
-/** The local day a time falls on, as a number, so days can be counted. */
-function dayOf(at: number): number {
-  const date = new Date(at);
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+/**
+ * Which day a time falls on, in the reader's own words.
+ *
+ * The formatter's own answer, not a calculation beside it. Days here are
+ * counted and displayed by the same rule, so a reader whose clock is set to
+ * UTC and a reader in Chicago each get their own day boundaries and each get
+ * a date that matches the rows they can see.
+ */
+function dayOf(at: number): string {
+  return formatClock(at, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
 /**
@@ -92,7 +114,7 @@ export function recapFrom(
 
   const places: RecapPlace[] = [];
   const byName = new Map<string, RecapPlace>();
-  const days = new Map<number, number>();
+  const days = new Map<string, { at: number; rows: number }>();
   const sources = new Set<string>();
   let alerts = 0;
   let observations = 0;
@@ -113,23 +135,26 @@ export function recapFrom(
     }
     if (row.source) sources.add(row.source);
     const day = dayOf(at);
-    days.set(day, (days.get(day) ?? 0) + 1);
+    const held = days.get(day);
+    if (held) held.rows += 1;
+    else days.set(day, { at, rows: 1 });
   }
 
-  let busiest: { day: number; rows: number } | null = null;
-  for (const [day, rows] of days) {
-    if (!busiest || rows > busiest.rows) busiest = { day, rows };
+  let busiest: { at: number; rows: number } | null = null;
+  for (const day of days.values()) {
+    if (!busiest || day.rows > busiest.rows) busiest = day;
   }
 
-  // The window, clipped to the day the record began. A record that started in
-  // March cannot describe January, and this is the figure that says so.
-  const covered = Math.max(0, to - Math.max(from, recordBegan));
+  // The window, clipped to the moment the record begins. Rounded down, not to
+  // nearest: a record that began ten hours into the year rounded to a full
+  // three hundred and sixty-five days and then read as complete.
+  const reach = Math.max(0, to - Math.max(from, recordBegan));
 
   return {
     from,
     to,
     recordBegan,
-    daysCovered: Math.round(covered / DAY_MS),
+    daysReachingBack: Math.floor(reach / DAY_MS),
     daysInPeriod: Math.round((to - from) / DAY_MS),
     daysWithSomething: days.size,
     places,
@@ -145,9 +170,15 @@ export function recapCredits(recap: Recap): string {
   return translate("recap.credits", { sources: recap.sources.join(", ") });
 }
 
-/** Whether the record covers less of the window than the window is. */
+/**
+ * Whether the record begins after the window does.
+ *
+ * Compared as instants rather than as day counts. Rounding the two counts and
+ * comparing those called a record that began ten hours into the year a full
+ * year, which is exactly the reading this is here to prevent.
+ */
 export function partial(recap: Recap): boolean {
-  return recap.daysCovered < recap.daysInPeriod;
+  return recap.recordBegan !== null && recap.recordBegan > recap.from;
 }
 
 /**
@@ -162,14 +193,29 @@ export function recapLines(
   options: { places: boolean },
 ): string[] {
   const lines = [
+    // With the year on both ends. Without it a year-long window read "Sep 2
+    // to Sep 2", which says nothing about which year either end is in.
     translate("recap.period", {
-      from: formatClock(recap.from, { month: "short", day: "numeric" }),
-      to: formatClock(recap.to, { month: "short", day: "numeric" }),
+      from: formatClock(recap.from, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+      to: formatClock(recap.to, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
     }),
-    // The honesty line, first among the figures rather than in a footnote.
-    partial(recap)
-      ? translate("recap.covered", {
-          days: formatNumber(recap.daysCovered),
+    // The honesty lines, first among the figures rather than in a footnote.
+    partial(recap) && recap.recordBegan !== null
+      ? translate("recap.began", {
+          when: formatClock(recap.recordBegan, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }),
+          days: formatNumber(recap.daysReachingBack),
           period: formatNumber(recap.daysInPeriod),
         })
       : translate("recap.coveredWhole", {
@@ -179,6 +225,8 @@ export function recapLines(
       alerts: formatNumber(recap.alerts),
       observations: formatNumber(recap.observations),
     }),
+    // And what a day with nothing on it means, which is two different things
+    // the record genuinely cannot tell apart.
     translate("recap.days", {
       days: formatNumber(recap.daysWithSomething),
     }),
@@ -187,7 +235,7 @@ export function recapLines(
   if (recap.busiest) {
     lines.push(
       translate("recap.busiest", {
-        when: formatClock(recap.busiest.day, {
+        when: formatClock(recap.busiest.at, {
           month: "long",
           day: "numeric",
         }),
