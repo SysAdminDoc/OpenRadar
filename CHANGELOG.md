@@ -60,6 +60,8 @@
 
 - Three lists that could be empty said they were lists anyway. A reader with no watched places, no offline map packs or a record with nothing to summarise yet was handed a list containing nothing, which a screen reader reports as broken rather than as empty.
 
+- The readout and the sounding have a button each. Nearby is the panel that answers the map in words rather than in colour, so the reader who most needs it was the one least likely to guess that it opened by typing "nearby" into Commands. It sits beside Alerts now, and the sounding sits with the tools.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

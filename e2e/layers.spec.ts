@@ -629,12 +629,22 @@ test("hands a warning to the layer that explains it", async ({ page }) => {
   await page.goto("/?testMode=1&lon=-85.5&lat=26.5&zoom=7&bearing=0&pitch=0");
   await expect(pane).toHaveAttribute("data-layer-stack", /overlay-alerts-fill/);
   const box = await pane.boundingBox();
-  await page.mouse.click(
-    (box?.x ?? 0) + (box?.width ?? 0) / 2,
-    (box?.y ?? 0) + (box?.height ?? 0) / 2,
-  );
   const popup = page.locator(".map-popup");
-  await expect(popup).toBeVisible();
+  // MapLibre publishes a layer before a query against it will answer, and
+  // `data-layer-stack` says only that it was published. Under the full suite
+  // the click landed in that gap about one run in three: the popup never
+  // opened, the test failed on a stylesheet change that had nothing to do
+  // with it, and it passed every time the file was run alone. Clicking again
+  // is what waiting for the map to answer looks like from out here, and the
+  // test still fails deterministically when the layer is genuinely absent,
+  // because no number of clicks opens a popup over nothing.
+  await expect(async () => {
+    await page.mouse.click(
+      (box?.x ?? 0) + (box?.width ?? 0) / 2,
+      (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    );
+    await expect(popup).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
   await expect(popup).toContainText("Tornado Warning");
 
   // The app already holds the thing that explains this warning. The reader
