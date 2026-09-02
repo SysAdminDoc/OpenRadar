@@ -69,6 +69,33 @@ fn name_allowed(path: &Path) -> bool {
         .is_some_and(|name| ALLOWED_EXTENSIONS.contains(&name.as_str()))
 }
 
+/// Whether a length is one this will read at all.
+///
+/// Its own function because it is asked twice, of two different things, and
+/// the second time is the one that matters: the first answer comes from the
+/// directory entry, which is a claim about a moment ago.
+fn refuse_if_bigger(size: u64) -> Result<(), SoundError> {
+    if size > MAX_BYTES {
+        return Err(SoundError::TooLarge);
+    }
+    Ok(())
+}
+
+/// Reads at most the ceiling, whatever the entry claimed.
+///
+/// `claimed` only sizes the buffer. The bound is `take`, so a file being
+/// written to while this runs cannot get more than one byte past the ceiling
+/// into memory, and that byte is what proves it went over.
+fn read_at_most(source: impl Read, claimed: u64) -> Result<Vec<u8>, SoundError> {
+    let mut bytes = Vec::with_capacity(claimed.min(MAX_BYTES) as usize);
+    source
+        .take(MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| SoundError::Read(error.to_string()))?;
+    refuse_if_bigger(bytes.len() as u64)?;
+    Ok(bytes)
+}
+
 /// Reads the file, refusing before rather than after the damage.
 fn read_bounded(path: &Path) -> Result<Vec<u8>, SoundError> {
     if !name_allowed(path) {
@@ -80,20 +107,10 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, SoundError> {
         .metadata()
         .map_err(|error| SoundError::Read(error.to_string()))?
         .len();
-    if size > MAX_BYTES {
-        return Err(SoundError::TooLarge);
-    }
-
-    // Asked again while reading. The entry said how big it was a moment ago,
-    // and a file being written to is bigger now.
-    let mut bytes = Vec::with_capacity(size as usize);
-    file.take(MAX_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| SoundError::Read(error.to_string()))?;
-    if bytes.len() as u64 > MAX_BYTES {
-        return Err(SoundError::TooLarge);
-    }
-    Ok(bytes)
+    // Before a single byte is read. Deciding a four gigabyte file was too big
+    // after reading it is the check happening after the damage.
+    refuse_if_bigger(size)?;
+    read_at_most(file, size)
 }
 
 /// Hands the page the bytes of the reader's own alert sound.
@@ -145,6 +162,63 @@ mod tests {
         let path = scratch("payload.exe", b"MZ");
         let error = read_bounded(&path).expect_err("an exe is not an alert sound");
         assert_eq!(error.reason(), "name");
+    }
+
+    /// The entry's claim, asked before anything is opened for reading.
+    ///
+    /// Deleting this check left the suite green, because the bound on the
+    /// read caught the same file a moment later. The difference is whether
+    /// four gigabytes went through memory first.
+    #[test]
+    fn refuses_a_claimed_size_over_the_ceiling() {
+        assert!(refuse_if_bigger(MAX_BYTES).is_ok());
+        assert_eq!(
+            refuse_if_bigger(MAX_BYTES + 1)
+                .expect_err("over the ceiling")
+                .reason(),
+            "size"
+        );
+        assert!(refuse_if_bigger(u64::MAX).is_err());
+    }
+
+    /// The second ask, which is the one the entry cannot answer.
+    ///
+    /// A file being written to is bigger now than the directory said it was,
+    /// and this is that case without a race: the source yields more than it
+    /// claimed.
+    #[test]
+    fn refuses_a_file_that_grew_after_the_entry_was_read() {
+        let grown = vec![0u8; (MAX_BYTES + 1) as usize];
+        let error = read_at_most(grown.as_slice(), 16).expect_err("it grew");
+        assert_eq!(error.reason(), "size");
+    }
+
+    #[test]
+    fn reads_no_more_than_one_byte_past_the_ceiling() {
+        // The bound is `take`, so an endless source cannot fill memory. If
+        // this ever hangs or dies, the bound is gone.
+        let endless = std::io::repeat(0u8);
+        let error = read_at_most(endless, 0).expect_err("endless");
+        assert_eq!(error.reason(), "size");
+    }
+
+    /// The entry has to be asked before the file is read, not merely asked.
+    ///
+    /// Both checks refuse the same file, so deleting the first one leaves
+    /// every test here green while four gigabytes goes through memory on the
+    /// way to being refused. The difference is not in the answer, so it
+    /// cannot be asserted on the answer.
+    #[test]
+    fn the_entry_is_asked_before_anything_is_read() {
+        let body = include_str!("sound.rs")
+            .split_once("fn read_bounded(")
+            .expect("read_bounded is gone")
+            .1;
+        let asked = body
+            .find("refuse_if_bigger(size)")
+            .expect("the entry's claim is never checked");
+        let read = body.find("read_at_most(").expect("nothing is read at all");
+        assert!(asked < read, "the file is read before its size is checked");
     }
 
     #[test]

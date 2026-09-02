@@ -28,6 +28,77 @@ function panel(
   );
 }
 
+function withUrl(url: unknown): OverlayData {
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-97, 32],
+              [-96, 32],
+              [-96, 33],
+              [-97, 33],
+              [-97, 32],
+            ],
+          ],
+        },
+        properties: {
+          headline: "Tornado Warning",
+          severity: "severe",
+          issued: Date.now(),
+          expires: Date.now() + 60_000,
+          url,
+        },
+      },
+    ],
+  } as OverlayData;
+}
+
+describe("the link to the office's own page", () => {
+  /**
+   * The address comes out of the feed, which is remote input, and the panel
+   * puts it straight into an href. Every other feed-driven link in the app
+   * goes through the same check a map popup's does, and this one did not.
+   */
+  it("opens the office's page when the feed gives a real address", () => {
+    render(
+      panel(
+        withUrl("https://api.weather.gov/alerts/urn:oid:2.49.0.1"),
+        Date.now(),
+        null,
+      ),
+    );
+    const link = screen.getByRole("link", { name: en["alerts.openProduct"] });
+    expect(link.getAttribute("href")).toBe(
+      "https://api.weather.gov/alerts/urn:oid:2.49.0.1",
+    );
+  });
+
+  it("renders no link at all for an address it will not open", () => {
+    // Not https, so nothing in the app is willing to open it, and an anchor
+    // that does nothing when clicked is worse than no anchor.
+    for (const url of [
+      "javascript:alert(1)",
+      "http://api.weather.gov/alerts/1",
+      "data:text/html,<script>1</script>",
+      "https://user:pass@api.weather.gov/alerts/1",
+      "not a url at all",
+      "",
+    ]) {
+      cleanup();
+      render(panel(withUrl(url), Date.now(), null));
+      expect(
+        screen.queryByRole("link", { name: en["alerts.openProduct"] }),
+        url || "an empty address",
+      ).toBeNull();
+    }
+  });
+});
+
 describe("the alerts feed state", () => {
   it("does not call a pending or failed request an empty result", () => {
     const { rerender } = render(panel(EMPTY_OVERLAY, null, null));

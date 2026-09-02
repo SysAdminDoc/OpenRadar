@@ -263,6 +263,21 @@ export function keepSoundPath(reason: SoundRefusal): boolean {
   return reason === "noAudio";
 }
 
+/** Whatever shape the bridge handed back, as bytes, or nothing. */
+function asBytes(answer: unknown): ArrayBuffer | null {
+  if (answer instanceof ArrayBuffer) return answer;
+  if (ArrayBuffer.isView(answer)) {
+    return answer.buffer.slice(
+      answer.byteOffset,
+      answer.byteOffset + answer.byteLength,
+    ) as ArrayBuffer;
+  }
+  if (Array.isArray(answer) && answer.every((one) => typeof one === "number")) {
+    return new Uint8Array(answer).buffer;
+  }
+  return null;
+}
+
 /**
  * Gets the bytes of a file the reader picked.
  *
@@ -285,8 +300,14 @@ async function alertSoundBytes(
   if (isDesktopRuntime()) {
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      const answer = await invoke<ArrayBuffer>("alert_sound_bytes", { path });
-      return { ok: true, bytes: answer };
+      const answer = await invoke("alert_sound_bytes", { path });
+      const bytes = asBytes(answer);
+      // Not a formality. Tauri hands a raw body back as an ArrayBuffer over
+      // the custom protocol and as a list of numbers over the postMessage
+      // fallback, and assuming the first would have skipped the size check
+      // below and then failed in the decoder, blaming the file again.
+      if (!bytes) return { ok: false, reason: "decode" };
+      return { ok: true, bytes };
     } catch (failure) {
       // The native side says which of the panel's sentences to show, rather
       // than handing over an English message from the operating system.
