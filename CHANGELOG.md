@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.8.0
 
+- The tool rail is readable in the light theme. It stays dark whichever theme you are in, but everything drawn on it was following the theme: hovering a button put its near-white label on a near-white pill and the button disappeared under the pointer, the button you were on and the outline around a focused one both dropped under the contrast floor, and the rail lost its edge and its dividers entirely. The rail carries its own hover, line and accent now, turned down along with everything else in the calmer presentation.
+
 - The small window speaks your language. It was reading the settings through a door only the main window had a key to, so the read failed, the window fell back to its defaults, and it came up in English beside a French workspace. It has its own key now, for the settings and nothing else: not the file picker, not the updater, not notifications.
 
 - A sound of your own works. It never could: the file was fetched over an address this build does not serve, so every reader who chose one was told it could not be read as audio, the choice was thrown away, and the same wrong message came back on the next launch. The bytes come over the app's own side now, still refused above two megabytes and still only the six kinds the picker offers, and the file is checked twice on the way in because a file being written to is bigger than the folder said. A file that really has gone is now said once, and the setting stops naming it.
