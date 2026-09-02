@@ -98,3 +98,34 @@ describe("what the main window may ask for", () => {
     expect(main.has("opener:allow-open-path")).toBe(false);
   });
 });
+
+describe("what the glance window may ask for", () => {
+  const glance = granted("glance");
+
+  it("can read the settings, so it speaks the reader's language", () => {
+    // Tauri gates a plugin command per window. With only `main` named, the
+    // small window's `Store.load` was rejected, `loadSettings` caught it and
+    // answered with the defaults, and the window came up in English beside a
+    // French workspace. Nothing failed anywhere: the app's own commands are
+    // not gated, so `glance_read` kept working and the window looked fine.
+    expect(glance.has("store:allow-load")).toBe(true);
+    expect(glance.has("store:allow-get")).toBe(true);
+  });
+
+  it("is granted nothing it does not use", () => {
+    // Least privilege, and the reason this window has its own capability
+    // rather than being added to the default one: it would have inherited the
+    // dialog, the updater, restart and notifications along with the store.
+    for (const identifier of [
+      "dialog:allow-open",
+      "updater:default",
+      "process:allow-restart",
+      "notification:default",
+      "opener:allow-open-url",
+      "store:allow-set",
+      "store:allow-save",
+    ]) {
+      expect(glance.has(identifier), identifier).toBe(false);
+    }
+  });
+});
