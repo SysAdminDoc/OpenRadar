@@ -269,7 +269,8 @@ mod tests {
         // than through `serve`, because the point is that nothing bundled
         // answers rather than what the network would say, and a unit test
         // should not be reaching for a tile service to find that out.
-        let elsewhere = "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/ridge::USCOMP-N0Q-1/5/9/13.png";
+        let elsewhere =
+            "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/ridge::USCOMP-N0Q-1/5/9/13.png";
         assert!(
             crate::bundles::lookup(elsewhere).is_none(),
             "nothing bundled answers an address the file does not hold"

@@ -144,10 +144,3 @@ Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). 
       Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
       Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
       Complexity: M
-
-- [ ] AUD-123: P2. Bring the Rust tree back under the rustfmt that is installed
-      Why: `cargo fmt --check` fails on twelve pre-existing hunks across `bundles.rs`, `data_export.rs`, `geotiff.rs` and others, none of them touched recently. The committed code was formatted by an older rustfmt than the one on this machine, so the release script's own gate cannot pass and every Rust change now has to be hand-matched to a style nothing enforces.
-      Evidence: `cargo fmt --check --manifest-path src-tauri/Cargo.toml`; `scripts/release.mjs` (the `cargo fmt --check` step)
-      Touches: A whole-tree `cargo fmt` in its own commit; a note of the toolchain version it was formatted with
-      Acceptance: WHEN `cargo fmt --check` runs on a clean tree, it SHALL report no differences; the reformatting is its own commit with no behaviour change in it, and the rustfmt version that produced it is written down.
-      Complexity: S
