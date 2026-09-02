@@ -7,6 +7,15 @@ export interface ToastMessage {
   detail?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /**
+   * How long it stays, in milliseconds, when the usual few seconds is wrong.
+   *
+   * For the one case that matters: an undo. A message saying a thing happened
+   * can go when it has been read, but a message that is the only way back
+   * from deleting somebody's whole record has to outlast the moment they
+   * realise what they did.
+   */
+  lifetimeMs?: number;
 }
 
 interface ToastHostProps {

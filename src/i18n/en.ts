@@ -32,7 +32,7 @@ export const en = {
   "export.dataComposite": "MRMS composite",
   "export.dataWritten": "{label} written",
   "export.dataWrittenBody":
-    "{readings} readings, {size}, at {path}, with a provenance file beside it.",
+    "{readings, plural, one {{readings} reading} other {{readings} readings}}, {size}, at {path}, with a provenance file beside it.",
   "export.dataFailed": "The data export failed",
   "export.dataNoView": "The map has no view to cut the grid to yet.",
   "dataExport.bytes": "{count, plural, one {# byte} other {# bytes}}",
@@ -43,7 +43,7 @@ export const en = {
   "dataExport.error.noProduct": "There is no product called {0}.",
   "dataExport.error.nothingInView": "The view holds no part of that grid.",
   "dataExport.error.tooLarge":
-    "That would be {0} readings in one file. Zoom in so the export covers less.",
+    "That would be {0, plural, one {# reading} other {# readings}} in one file. Zoom in so the export covers less.",
   "dataExport.error.noFolder": "There is nowhere to write the export.",
   "dataExport.error.write": "The export could not be written: {0}",
   "dataExport.error.grid": "{0}",
@@ -55,6 +55,8 @@ export const en = {
   "search.label": "Search for a place",
   "search.unavailable": "Place search is unavailable. The map stays usable.",
   "search.storms": "Storms with that name",
+  "search.stormsMore":
+    "Show {count, plural, one {the other one} other {the other #}}",
   "search.stormsNote":
     "From the best track record that ships with the app. None of these is a storm happening now.",
   "search.none": "No matching places found.",
@@ -135,7 +137,8 @@ export const en = {
   "alerts.severity.minor": "Minor",
   "alerts.impactLine": "The office tagged this one {tag}.",
   "alerts.impactBadge": "{tag}",
-  "alerts.hailTo": "Hail to {size} inches.",
+  "alerts.hailTo":
+    "{size, plural, one {{size} inch} other {{size} inches}} of hail",
   "alerts.noneTitle": "No active alerts in view",
   "alerts.noneBody":
     "Pan the map or zoom out to check a wider area. Alerts refresh every minute.",
@@ -279,7 +282,8 @@ export const en = {
   "history.failedTitle": "The storm archive did not load",
   "history.failedBody": "The storm archive did not load.",
   "history.peak": "{category} · {knots} kt peak",
-  "history.ace": "ACE {ace} · {fixes} fixes · {start} to {end}",
+  "history.ace":
+    "ACE {ace} · {fixes, plural, one {# fix} other {# fixes}} · {from} to {to}",
   "history.liveRadar": "Live radar",
   "history.replayRadar": "Replay radar",
   "history.clear": "Clear",
@@ -318,7 +322,7 @@ export const en = {
     "{tiles, plural, one {# tile} other {# tiles}} and {warnings, plural, one {# warnings feed} other {# warnings feeds}} were not in the bundle.",
   "bundle.error.invalidRequest": "This replay cannot be bundled: {0}.",
   "bundle.error.tooManyTiles":
-    "The view covers {0} tiles across the replay. Zoom in, or out, so it covers fewer.",
+    "The view covers {0, plural, one {# tile} other {# tiles}} across the replay. Zoom in, or out, so it covers fewer.",
   "bundle.error.tooLarge": "The bundle would be larger than 256 MB.",
   "bundle.error.noFolder": "There is nowhere to write the bundle.",
   "bundle.error.write": "The bundle could not be written: {0}",
@@ -1099,7 +1103,8 @@ export const en = {
   "chrome.now": "now",
   "chrome.windowMinutes": "{count} min",
   "chrome.flashCount": "{count}{more} from {satellite}",
-  "chrome.filesRead": " · {read} of {expected} files",
+  "chrome.filesRead":
+    " · {read} of {expected, plural, one {# file} other {# files}}",
   "chrome.smokeAnalysed": "analysed {when}",
   "chrome.forecastSmoke": "Forecast smoke",
   "chrome.forecastSmokeValid": "Valid {time}.",
@@ -1168,7 +1173,8 @@ export const en = {
   "toast.replayStopped": "Replay stopped",
   "toast.bundleSaving": "Saving the replay bundle",
   "toast.bundleSaved": "Replay bundle saved",
-  "toast.bundleSavedBody": "{entries} files, {size} MB, at {path}.",
+  "toast.bundleSavedBody":
+    "{entries, plural, one {# file} other {# files}}, {size} MB, at {path}.",
   "toast.bundleMissing":
     "{count} of them could not be fetched and are listed in the bundle.",
   "toast.bundleFailed": "The replay bundle failed",
@@ -1230,7 +1236,8 @@ export const en = {
   "popup.depthUnknown": "Depth unknown",
   "popup.usgs": "Source: USGS",
   "popup.wildfire": "Wildfire",
-  "popup.acres": "{acres} acres, {contained}% contained",
+  "popup.acres":
+    "{acres, plural, one {{acres} acre} other {{acres} acres}}, {contained}% contained",
   "popup.sizeUnknown": "Size unknown",
   "popup.perimeterUpdated": "Perimeter updated {when}",
   "popup.perimeterUnknown": "Perimeter date unknown",
@@ -1321,15 +1328,16 @@ export const en = {
   "recap.note":
     "Built here, from your own record, and never from anything anybody collected about you.",
   "recap.period": "{from} to {to}",
-  "recap.coveredWhole": "Your record covers all {period} days.",
+  "recap.coveredWhole":
+    "Your record covers all {period, plural, one {# day} other {# days}}.",
   "recap.began":
-    "Your record begins on {when} and reaches back {days} of these {period} days. Before that there is no record, which is not the same as no weather.",
+    "The oldest thing your record still holds is from {when}, which reaches back {days, plural, one {# day} other {# days}} of these {period, plural, one {# day} other {# days}}. Before that there is nothing kept, which is not the same as nothing happening.",
   "recap.counted":
     "{alerts, plural, one {# warning} other {# warnings}} and {observations, plural, one {# observation} other {# observations}}.",
   "recap.days":
-    "Something was recorded on {days, plural, one {# of them} other {# of them}}. A day with nothing on it was a quiet day or a day the app was closed, and the record cannot tell those apart.",
+    "Something was recorded on {days, plural, one {# day} other {# days}}. A day with nothing on it was a quiet day or a day the app was closed, and the record cannot tell those apart.",
   "recap.busiest":
-    "The busiest was {when}, with {rows, plural, one {# of them} other {# of them}}.",
+    "The busiest was {when}, with {rows, plural, one {# record} other {# records}}.",
   "recap.place":
     "{place}: {alerts, plural, one {# warning} other {# warnings}}, {observations, plural, one {# observation} other {# observations}}.",
   "recap.placesHidden":
@@ -1344,6 +1352,14 @@ export const en = {
   "recap.spanYear": "The last year",
   "journal.countShown":
     "{shown} of {count, plural, one {# row} other {# rows}}",
+  "curiosity.title": "Somewhere worth knowing about",
+  "curiosity.dismiss": "Close",
+  "curiosity.setting": "Let the map hold things worth finding",
+  "curiosity.settingDetail":
+    "A small set of real places where the weather made history, each with the office that published the story. Nothing marks them and nothing is counted; you find one by going and looking at that part of the world.",
+  "curiosity.found": "Places you have found",
+  "curiosity.foundEmpty": "Nothing found yet.",
+  "curiosity.forget": "Forget them",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

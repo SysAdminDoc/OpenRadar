@@ -66,11 +66,45 @@ describe("counting things in the reader's own language", () => {
     expect(translate("journal.count", { count: 9 })).toBe("9 lignes");
   });
 
-  it("falls back rather than showing braces when the number is missing", () => {
-    // A caller that forgets the parameter should get a readable sentence, not
-    // the template. Every plural has an `other` arm for exactly this.
-    expect(translate("journal.count", {})).not.toContain("plural");
-    expect(translate("journal.count", {})).not.toContain("{");
+  it("counts in the pseudolocale too, which is a language like any other", async () => {
+    // The pseudolocale is selectable in Settings, so what it renders is what
+    // somebody sees. Accenting the machinery of a plural block stops it being
+    // one, and the whole of the ICU source lands on screen: twenty-five of
+    // these strings rendered as literal `{đáýš, ƥłúřáł, óñé {# đáý} ...}`.
+    await ensureLanguage("pseudo");
+    setLanguage("pseudo");
+    for (const count of [1, 7]) {
+      const said = translate("journal.count", { count });
+      expect(said).not.toContain("plural");
+      expect(said).not.toContain("{");
+      expect(said).toContain(String(count));
+    }
+    // Still longer and stranger than the English, which is the whole point of
+    // it: a label sized to its English text has to show up as clipped here.
+    const said = translate("journal.count", { count: 7 });
+    expect(said).toContain("⟦");
+    expect(said.length).toBeGreaterThan("7 rows".length * 1.3);
+    expect(said).not.toContain("rows");
+  });
+
+  it("prints the number it chose its words by", () => {
+    // The block reads 1.5 as a plural, and a number rounded to no decimals
+    // would have printed "2" beside the plural words. The sentence and its
+    // own number have to agree.
+    expect(translate("journal.count", { count: 1.5 })).toBe("1.5 rows");
+    expect(translate("journal.count", { count: 2 })).toBe("2 rows");
+  });
+
+  it("falls back to the plural, without a number, when the number is missing", () => {
+    // A caller that forgets the parameter, or hands over a string that was
+    // already formatted, has a bug. What it must not do is put the template
+    // on screen. What it does instead is stated exactly, because "does not
+    // contain a brace" is also true of the empty string.
+    expect(translate("journal.count", {})).toBe(" rows");
+    expect(translate("journal.count", { count: "1,024" })).toBe(" rows");
+    // Which is the shape of the mistake: the words are right and the number
+    // is simply gone. Pass the raw number.
+    expect(translate("journal.count", { count: 1024 })).toBe("1,024 rows");
   });
 
   it("gives every plural block an other arm, in every language", () => {

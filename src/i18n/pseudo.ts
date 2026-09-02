@@ -74,11 +74,26 @@ const LETTERS: Record<string, string> = {
 /** How much longer the generated text runs than the original. */
 export const PSEUDO_PADDING = 0.35;
 
+/**
+ * The parts of a template that must survive untouched.
+ *
+ * A placeholder, and the machinery of a plural block: the parameter name, the
+ * word `plural`, the names of the arms, and the braces holding them together.
+ * Accenting any of that stops the block being a block, and the whole of the
+ * ICU source ends up on screen: `{đáýš, ƥłúřáł, óñé {# đáý} ...}` was what
+ * twenty-five of these strings actually rendered as.
+ *
+ * The arms' own words are text, and are accented like any other text, which
+ * is the point of the exercise.
+ */
+const KEEP =
+  /(\{\w+\}|\{\w+,\s*plural,|\b(?:zero|one|two|few|many|other)\s*\{|\}|#)/;
+
 export function pseudoize(value: string): string {
-  const parts = value.split(/(\{\w+\})/);
+  const parts = value.split(KEEP);
   const accented = parts
     .map((part) =>
-      part.startsWith("{") && part.endsWith("}")
+      KEEP.test(part) && new RegExp(`^(?:${KEEP.source})$`).test(part)
         ? part
         : [...part]
             .map((character) => LETTERS[character] ?? character)

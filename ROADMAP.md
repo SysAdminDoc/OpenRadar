@@ -88,10 +88,3 @@ The record, the named places and the token boundary are all in place now, so the
 ## Research-Driven Additions
 
 Added 2026-08-31 from the second research pass of that day (see `RESEARCH.md`). IDs continue the existing schemes. Ordered by priority.
-
-- [ ] JOY-021: P3. Hide a small set of map curiosities worth finding
-      Why: Collectible secret locations are a proven loyalty mechanic in exactly one weather app, which built a business partly on people hunting them. OpenRadar's version is truthful rather than fictional: a curated set of places where the weather made history, each telling its story when found, with the bundled track archive already able to draw many of them.
-      Evidence: https://forums.macrumors.com/threads/carrot-weather-secret-locations.1862623/ ; https://developer.apple.com/news/?id=kf623ldf ; `src/lib/hurdat.ts`; `public/hurdat/`; JOY-009; JOY-014
-      Touches: A curated locations file with citations; discovery detection from the camera; the reveal card; a found-so-far list in the journal; translations
-      Acceptance: Each curiosity has a real, cited story and appears only when the reader explores to it; finding one is quiet (a card, never a toast or sound); the found list lives with the journal and carries no count toward anything; discovery detection costs nothing measurable during normal panning; the whole system honours the standing suppression rule during active warnings; the set ships with the app and works offline.
-      Complexity: M

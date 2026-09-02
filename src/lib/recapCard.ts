@@ -30,14 +30,32 @@ function wrapped(
   text: string,
   width: number,
 ): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
-  for (const word of words) {
-    const next = line ? `${line} ${word}` : word;
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    // A word wider than the whole line has to be broken inside itself, or it
+    // is emitted as one over-wide line and drawn off the edge of the canvas.
+    // A place somebody named after a German compound is all it takes.
+    let rest = word;
+    while (context.measureText(rest).width > width && rest.length > 1) {
+      let take = rest.length;
+      while (
+        take > 1 &&
+        context.measureText(rest.slice(0, take)).width > width
+      ) {
+        take -= 1;
+      }
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+      lines.push(rest.slice(0, take));
+      rest = rest.slice(take);
+    }
+    const next = line ? `${line} ${rest}` : rest;
     if (line && context.measureText(next).width > width) {
       lines.push(line);
-      line = word;
+      line = rest;
     } else {
       line = next;
     }
@@ -83,7 +101,9 @@ export async function drawRecapCard(options: {
       // A card that runs out of room drops what will not fit rather than
       // writing over its own credits. The panel has all of it either way.
       if (y > creditsTop - 42) break;
-      context.fillText(part, MARGIN, y);
+      // `maxWidth` as well as the wrapping, so a font that measures wider on
+      // one machine than another squeezes rather than overflows.
+      context.fillText(part, MARGIN, y, width);
       y += 34;
     }
     if (y > creditsTop - 42) break;
@@ -93,7 +113,7 @@ export async function drawRecapCard(options: {
   context.font = "18px 'Segoe UI', system-ui, sans-serif";
   context.fillStyle = "#8b97ab";
   credits.forEach((line, index) => {
-    context.fillText(line, MARGIN, creditsTop + index * 24);
+    context.fillText(line, MARGIN, creditsTop + index * 24, width);
   });
 
   const blob = await new Promise<Blob | null>((resolve) =>

@@ -113,7 +113,12 @@ describe("what happened while the app was closed", () => {
     // longer it waited, while the lines under it covered the real gap.
     const summary = catchUpFrom([row()], AWAY, NOW);
     expect(summary?.at).toBe(NOW);
-    expect(awayFor(summary!.since, summary!.at)).toBe(awayFor(AWAY, NOW));
+    // Three days, and still three days an hour later. Comparing the card's
+    // own figure against `awayFor(AWAY, NOW)` was comparing the summary's
+    // inputs with themselves: it held whatever `awayFor` did, including
+    // nothing at all.
+    expect(awayFor(summary!.since, summary!.at)).toContain("3");
+    expect(awayFor(summary!.since, summary!.at + 3_600_000)).toContain("3");
   });
 
   it("says how long it was away in hours, then in days", () => {

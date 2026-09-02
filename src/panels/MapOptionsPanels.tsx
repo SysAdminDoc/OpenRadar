@@ -83,6 +83,7 @@ import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
 import { RecapSection } from "./RecapSection";
+import { CuriositySection } from "./CuriositySection";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
@@ -972,6 +973,18 @@ export function SettingsPanel({
                     })
                   : t("settings.ambientQuiet")}
           </p>
+        ) : null}
+        <ToggleSetting
+          label={t("curiosity.setting")}
+          detail={t("curiosity.settingDetail")}
+          checked={settings.curiosities}
+          onChange={(curiosities) => onSettings({ ...settings, curiosities })}
+        />
+        {settings.curiosities ? (
+          <CuriositySection
+            found={settings.curiositiesFound}
+            onForget={() => onSettings({ ...settings, curiositiesFound: [] })}
+          />
         ) : null}
         <ToggleSetting
           label={t("catchUp.setting")}

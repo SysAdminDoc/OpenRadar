@@ -1,0 +1,98 @@
+[
+  {
+    "id": "mount-washington-1934",
+    "title": "Mount Washington",
+    "story": "The observatory on this summit measured a gust of 231 miles an hour on 12 April 1934. It stood as the fastest surface wind ever recorded anywhere for sixty-two years, and it is still the fastest measured outside a tropical cyclone.",
+    "source": "Mount Washington Observatory",
+    "url": "https://mountwashington.org/",
+    "place": { "lon": -71.3033, "lat": 44.2706 }
+  },
+  {
+    "id": "furnace-creek-1913",
+    "title": "Furnace Creek",
+    "story": "The weather station here reported 134 degrees Fahrenheit on 10 July 1913. It is the highest air temperature the World Meteorological Organization recognises anywhere on Earth, and it has been argued about ever since.",
+    "source": "NOAA National Centers for Environmental Information",
+    "url": "https://www.ncei.noaa.gov/",
+    "place": { "lon": -116.8656, "lat": 36.4636 }
+  },
+  {
+    "id": "vostok-1983",
+    "title": "Vostok Station",
+    "story": "Minus 89.2 degrees Celsius was measured here on 21 July 1983, the lowest air temperature ever recorded at the surface of the Earth. The station sits on more than three kilometres of ice.",
+    "source": "World Meteorological Organization",
+    "url": "https://public.wmo.int/",
+    "place": { "lon": 106.8372, "lat": -78.4645 }
+  },
+  {
+    "id": "murphysboro-1925",
+    "title": "Murphysboro",
+    "story": "The Tri-State Tornado passed through this town on 18 March 1925, part way along a track of some 219 miles across Missouri, Illinois and Indiana. It is the longest tornado path ever recorded.",
+    "source": "NWS Paducah",
+    "url": "https://www.weather.gov/pah/1925Tornado",
+    "place": { "lon": -89.3351, "lat": 37.7645 }
+  },
+  {
+    "id": "westhampton-1938",
+    "title": "Westhampton",
+    "story": "The hurricane of 21 September 1938 came ashore along this stretch of Long Island and carried on into New England, moving so fast that it reached Vermont the same evening.",
+    "source": "NWS Boston",
+    "url": "https://www.weather.gov/box/1938hurricane",
+    "place": { "lon": -72.6437, "lat": 40.8237 }
+  },
+  {
+    "id": "xenia-1974",
+    "title": "Xenia",
+    "story": "The Super Outbreak of 3 and 4 April 1974 produced 148 tornadoes across thirteen states in about eighteen hours. One of them crossed this town in the middle of the afternoon.",
+    "source": "NWS Wilmington, Ohio",
+    "url": "https://www.weather.gov/iln/19740403",
+    "place": { "lon": -83.9294, "lat": 39.6845 }
+  },
+  {
+    "id": "bridge-creek-1999",
+    "title": "Bridge Creek",
+    "story": "A mobile radar pointed at the tornado here on 3 May 1999 measured winds of about 301 miles an hour a few tens of metres above the ground. It is the highest wind speed ever measured on Earth.",
+    "source": "NWS Norman",
+    "url": "https://www.weather.gov/oun/events-19990503",
+    "place": { "lon": -97.7047, "lat": 35.2295 }
+  },
+  {
+    "id": "tuscaloosa-2011",
+    "title": "Tuscaloosa",
+    "story": "The tornado of 27 April 2011 was on the ground for eighty miles, through this city and on towards Birmingham, on the worst single day for tornadoes since records began.",
+    "source": "NWS Birmingham",
+    "url": "https://www.weather.gov/bmx/event_04272011",
+    "place": { "lon": -87.5692, "lat": 33.2098 }
+  },
+  {
+    "id": "galveston-1900",
+    "title": "Galveston",
+    "story": "The hurricane of 8 September 1900 came ashore over this island. The city afterwards raised its whole grade by several feet and built the seawall that still stands along the beach.",
+    "source": "NWS Houston and Galveston",
+    "url": "https://www.weather.gov/hgx/",
+    "place": { "lon": -94.7977, "lat": 29.3013 }
+  },
+  {
+    "id": "joplin-2011",
+    "title": "Joplin",
+    "story": "A tornado crossed this city on the evening of 22 May 2011, wrapped in rain and hard to see coming. It changed how warnings themselves are written: the wording used today for the worst of them came out of what happened here.",
+    "source": "NWS Springfield",
+    "url": "https://www.weather.gov/sgf/",
+    "place": { "lon": -94.5133, "lat": 37.0842 }
+  },
+  {
+    "id": "cape-disappointment",
+    "title": "Cape Disappointment",
+    "story": "The lighthouse station here is one of the foggiest places in the United States, with something like a hundred days of fog in an average year and more than two thousand hours of it.",
+    "source": "NWS Portland, Oregon",
+    "url": "https://www.weather.gov/pqr/",
+    "place": { "lon": -124.0526, "lat": 46.2758 }
+  },
+  {
+    "id": "cherrapunji",
+    "title": "Cherrapunji",
+    "story": "The hills here take the full force of the monsoon coming up off the Bay of Bengal. Something like eleven metres of rain falls in an average year, nearly all of it between June and September.",
+    "source": "India Meteorological Department",
+    "url": "https://mausam.imd.gov.in/",
+    "place": { "lon": 91.7, "lat": 25.27 }
+  }
+]

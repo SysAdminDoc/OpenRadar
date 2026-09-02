@@ -1,4 +1,4 @@
-import { formatNumber, translate } from "../i18n";
+import { translate } from "../i18n";
 import { formatClock } from "./units";
 import type { JournalRow } from "./journal";
 
@@ -25,7 +25,14 @@ export interface Recap {
   /** The window asked for, in milliseconds. */
   from: number;
   to: number;
-  /** The first row the record holds, or null when it holds none. */
+  /**
+   * The oldest thing the record still holds, or null when it holds none.
+   *
+   * Deliberately not called the day the record started. The file is bounded
+   * by bytes as well as by days, so on a busy record this is the point the
+   * trimming reached rather than the point somebody began keeping one, and
+   * the copy says the first of those rather than the second.
+   */
   recordBegan: number | null;
   /**
    * How far back into the window the record reaches, in days.
@@ -215,11 +222,11 @@ export function recapLines(
             month: "long",
             day: "numeric",
           }),
-          days: formatNumber(recap.daysReachingBack),
-          period: formatNumber(recap.daysInPeriod),
+          days: recap.daysReachingBack,
+          period: recap.daysInPeriod,
         })
       : translate("recap.coveredWhole", {
-          period: formatNumber(recap.daysInPeriod),
+          period: recap.daysInPeriod,
         }),
     // Raw numbers, not formatted ones: these sentences choose their words by
     // the count, and a plural block cannot read "1,024" as a number.

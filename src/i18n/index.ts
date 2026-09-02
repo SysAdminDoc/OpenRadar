@@ -280,8 +280,11 @@ function plural(template: string, params: Params, which: LanguageId): string {
         arms.get("other") ??
         "")
       : (arms.get("other") ?? "");
+    // Written with whatever decimals it actually has, not rounded to none.
+    // `PluralRules` reads 1.5 as a plural and a rounded `#` would have
+    // printed "2", so the sentence and its own number disagreed.
     out += arm.replace(/#/g, () =>
-      Number.isFinite(value) ? formatNumber(value, 0, which) : "",
+      Number.isFinite(value) ? formatMeasure(value, undefined, which) : "",
     );
     at = cursor + 1;
   }

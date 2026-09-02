@@ -4416,6 +4416,81 @@ input[type="range"] {
   color: var(--muted);
 }
 
+/* A place worth knowing about, found by going there. A card, once, in the
+   corner: no toast, no sound, nothing that interrupts what somebody was
+   actually doing with the map. */
+.curiosity {
+  position: absolute;
+  right: 16px;
+  /* Clear of the source attribution, which sits just above the command bar
+     and is a row of links: a card laid over it swallows the credits and its
+     own Close button becomes unclickable. */
+  bottom: calc(var(--command-height) + 34px);
+  z-index: 17;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+
+.curiosity__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.curiosity__title small {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.curiosity__title span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.curiosity p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* A list of what somebody found. No total, no progress bar, nothing that
+   turns a set of real places into a thing to complete. */
+.curiosity-found {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.curiosity-found ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.curiosity-found li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+}
+
+.curiosity-found small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* What happened while the app was closed. A card over the map rather than a
    toast: several lines, each with its own time, is not something to read in
    the four seconds a toast lasts. */

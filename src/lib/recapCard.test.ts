@@ -110,6 +110,30 @@ describe("a picture of the recap", () => {
     expect(figures.length).toBeLessThan(40);
   });
 
+  it("breaks a word too long for the line rather than drawing past it", async () => {
+    // One token with no space in it, longer than the line. Wrapping on
+    // spaces alone emits it as a single over-wide line, and `fillText`
+    // neither wraps nor clips: it is drawn off the edge of the canvas and
+    // the tail is simply gone.
+    const long = "Llanfairpwllgwyngyll".repeat(8);
+    const [promise, drawn] = withCanvas(10, () =>
+      drawRecapCard({
+        title: "Your year in weather",
+        lines: [`${long}: 2 warnings`],
+        credits: CREDITS,
+      }),
+    );
+    await promise;
+    const width = RECAP_WIDTH - 128;
+    const figures = drawn.filter((one) => one.font.startsWith("24px"));
+    expect(figures.length).toBeGreaterThan(1);
+    for (const line of figures) {
+      expect(line.text.length * 10).toBeLessThanOrEqual(width);
+    }
+    // And nothing of it is lost on the way.
+    expect(figures.map((one) => one.text).join("")).toContain(long);
+  });
+
   it("is drawn on a canvas, never on the page", () => {
     // The picture is composed rather than screenshotted, so nothing here
     // reads the workspace and nothing about the reader's window can leak

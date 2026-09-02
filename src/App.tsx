@@ -14,6 +14,9 @@ import { MapStage } from "./components/MapStage";
 import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
 import { CatchUpCard } from "./components/CatchUpCard";
+import { CuriosityCard } from "./components/CuriosityCard";
+import { useCuriosities } from "./hooks/useCuriosities";
+import type { Curiosity } from "./lib/curiosities";
 import { useAmbient } from "./hooks/useAmbient";
 import { appendJournalRow, journalRows, thumbnailFrom } from "./lib/journal";
 import { catchUpFrom, type CatchUp } from "./lib/catchUp";
@@ -32,7 +35,7 @@ import { useExport, type DataExportSource } from "./hooks/useExport";
 import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
-import { useToasts } from "./hooks/useToasts";
+import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
@@ -827,13 +830,42 @@ export default function App() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
+  // Where the camera came to rest, which is the only moment anything is
+  // looked for. Held apart from the settings camera, which is written on a
+  // debounce and is a record of where to open next time rather than a signal.
+  const [resting, setResting] = useState<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
+  const [curiosity, setCuriosity] = useState<Curiosity | null>(null);
+
   const handleCameraChange = useCallback(
     (camera: CameraState) => {
       updateCamera(camera);
       setViewport(mapRef.current?.bounds() ?? null);
+      setResting({ center: camera.center, zoom: camera.zoom });
     },
     [updateCamera],
   );
+
+  useCuriosities({
+    // Nothing discoverable reveals itself while a warning is in force at a
+    // watched place. The standing rule, and the reason this is safe to ship.
+    enabled:
+      hydrated && settings.curiosities && !overlays.alertActive && !replay,
+    camera: resting,
+    already: settings.curiositiesFound,
+    onFound: useCallback(
+      (found: Curiosity) => {
+        setCuriosity(found);
+        applySettings({
+          ...settingsRef.current,
+          curiositiesFound: [...settingsRef.current.curiositiesFound, found.id],
+        });
+      },
+      [applySettings, settingsRef],
+    ),
+  });
 
   const handleMapStatus = useCallback(
     (status: "loading" | "ready" | "error") => {
@@ -1561,6 +1593,9 @@ export default function App() {
       data-capture={capture ? "1" : undefined}
     >
       {revealing ? <FirstRunReveal onDone={markRevealSeen} /> : null}
+      {curiosity ? (
+        <CuriosityCard found={curiosity} onDismiss={() => setCuriosity(null)} />
+      ) : null}
       {catchUp && !catchUpGone && !overlays.alertActive ? (
         // Stood down while a warning is in force at a watched place, like
         // everything else discoverable here: a map with a warning on it is a
@@ -1809,6 +1844,9 @@ export default function App() {
                 detail: translate("journal.undoBody"),
                 actionLabel: translate("toast.undo"),
                 onAction: undo,
+                // The only way back from deleting a year of somebody's own
+                // weather, so it does not go after five seconds.
+                lifetimeMs: UNDO_LIFETIME_MS,
               })
             }
             onJournalRemoved={(undo) =>
@@ -1817,6 +1855,7 @@ export default function App() {
                 detail: translate("journal.undoBody"),
                 actionLabel: translate("toast.undo"),
                 onAction: undo,
+                lifetimeMs: UNDO_LIFETIME_MS,
               })
             }
             onExportSettings={actions.exportSettings}

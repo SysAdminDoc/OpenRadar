@@ -387,6 +387,22 @@ export interface AppSettings {
    */
   catchUp: boolean;
   /**
+   * Whether the map holds anything to find.
+   *
+   * On, because it costs one distance for each of a dozen entries when the
+   * camera comes to rest and nothing at all otherwise, and because a reader
+   * who never explores anywhere never meets one.
+   */
+  curiosities: boolean;
+  /**
+   * The ones already found, by id.
+   *
+   * A list of what somebody found, and nothing else. There is no total beside
+   * it and no progress through it, because a set of real places worth knowing
+   * about stops being that the moment it becomes a thing to complete.
+   */
+  curiositiesFound: string[];
+  /**
    * When the app was last running, in milliseconds.
    *
    * Written on the clock while the window is open rather than on the way out,
@@ -491,6 +507,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenWelcome: false,
   seenReveal: false,
   catchUp: true,
+  curiosities: true,
+  curiositiesFound: [],
   lastSeen: 0,
 };
 
@@ -1419,6 +1437,21 @@ export function normalizeSettings(value: unknown): AppSettings {
     presets,
     incidentPacks: normalizeIncidentPacks(raw.incidentPacks),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
+    curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),
+    // Bounded and cleaned, because this comes off a file somebody can edit
+    // and it is only ever a list of short identifiers.
+    curiositiesFound: Array.isArray(raw.curiositiesFound)
+      ? [
+          ...new Set(
+            raw.curiositiesFound
+              .filter(
+                (id: unknown): id is string =>
+                  typeof id === "string" && id.length > 0 && id.length <= 64,
+              )
+              .slice(0, 200),
+          ),
+        ]
+      : [],
     // A time from a file somebody can edit. Anything that is not a number, or
     // is in the future, is treated as no gap at all rather than as a gap of
     // fifty years: the summary is bounded by what the record holds anyway,
