@@ -196,6 +196,20 @@ test("the calmer look reaches the Live button too", async ({ page }) => {
 
   const button = page.locator(".timeline-live-button");
   await expect(button).toBeVisible();
+
+  // Off the newest frame first. The button is disabled while the timeline is
+  // already live, and a disabled one is drawn in a raised surface rather than
+  // in the accent, so measuring without this reads whichever state the load
+  // happened to be in: it passed alone every time and failed about one full
+  // suite in three, having compared two disabled buttons and found them the
+  // same colour. What the test is about is the accent, so the button has to
+  // be in the state that shows one.
+  const scrubber = page.getByLabel("Radar frame", { exact: true });
+  await expect
+    .poll(async () => Number(await scrubber.getAttribute("max")))
+    .toBeGreaterThan(0);
+  await scrubber.fill("0");
+  await expect(button).toBeEnabled();
   const loud = await button.evaluate(
     (node) => getComputedStyle(node).backgroundColor,
   );
@@ -205,6 +219,8 @@ test("the calmer look reaches the Live button too", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
   await page.getByRole("button", { name: "Close Settings" }).click();
 
+  await scrubber.fill("0");
+  await expect(button).toBeEnabled();
   const calm = await button.evaluate((node) => {
     const style = getComputedStyle(node);
     // Against `--accent-fill` rather than `--accent`: every filled accent in

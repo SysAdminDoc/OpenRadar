@@ -29,6 +29,7 @@ export const CACHED_HOSTS = [
   "tilecache.rainviewer.com",
   "api.rainviewer.com",
   "geo.weather.gc.ca",
+  "api.weather.gc.ca",
   "maps.dwd.de",
   "mesonet.agron.iastate.edu",
   "gibs.earthdata.nasa.gov",

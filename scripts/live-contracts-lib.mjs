@@ -104,6 +104,18 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "eccc-alerts",
+    label: "ECCC public weather alerts",
+    host: "api.weather.gc.ca",
+    kind: "browser",
+    files: ["src/lib/overlays/ecccAlerts.test.ts"],
+    liveBlock: "against the live service",
+    // Not required to pass: Canada is often quiet, and an empty answer on a
+    // clear day is the right answer. What the contract holds is the SHAPE of
+    // what comes back, which is the thing that moves without telling anybody.
+    required: false,
+  },
+  {
     id: "rivers",
     label: "NWPS river gauges",
     host: "api.water.noaa.gov",

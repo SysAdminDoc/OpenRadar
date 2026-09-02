@@ -39,6 +39,8 @@ const MACHINE_VALUES: Record<string, number> = {
   "lib/diagnostics.ts": 3,
   // Query parameters on a service request.
   "lib/guidance.ts": 2,
+  // The bounding box on a request to a service.
+  "lib/overlays/ecccAlerts.ts": 1,
   "lib/overlays/metar.ts": 1,
   "lib/overlays/registry.ts": 1,
   "lib/overlays/rivers.ts": 4,

@@ -36,6 +36,8 @@ const ALLOWED_HOSTS: &[&str] = &[
     "valhalla1.openstreetmap.de",
     "gibs.earthdata.nasa.gov",
     "geo.weather.gc.ca",
+    // The same office's public weather alerts.
+    "api.weather.gc.ca",
     "maps.dwd.de",
     "noaa-gfs-bdp-pds.s3.amazonaws.com",
     "noaa-hrrr-bdp-pds.s3.amazonaws.com",

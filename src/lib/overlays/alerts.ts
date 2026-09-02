@@ -10,6 +10,8 @@ import { translate } from "../../i18n";
 import { formatClock } from "../units";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { alertType, type AlertType } from "../alertTypes";
+import { ecccUrl, parseEcccAlerts, reachesCanada } from "./ecccAlerts";
+import { language } from "../../i18n";
 import { pairingFor } from "../alertPairings";
 import { highContrastRequested } from "../../hooks/useClock";
 
@@ -426,6 +428,30 @@ function timeLabel(value: unknown): string {
   });
 }
 
+/**
+ * The Canadian warnings, or none.
+ *
+ * A failure here is not a failure of the layer. The American polygons are
+ * already drawn by the time this is asked for, and taking the whole layer
+ * down because a second country's service had a bad minute would lose a
+ * tornado warning over Oklahoma to an outage in Ottawa.
+ */
+async function ecccFeatures(
+  bounds: OverlayBounds,
+  signal?: AbortSignal,
+): Promise<OverlayFeature[]> {
+  try {
+    const answer = await fetch(cachedUrl(ecccUrl(bounds)), {
+      signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!answer.ok) return [];
+    return parseEcccAlerts(await answer.json(), language().startsWith("fr"));
+  } catch {
+    return [];
+  }
+}
+
 export const alertsOverlay: OverlayAdapter = {
   id: "alerts",
   label: "Weather Alerts",
@@ -461,7 +487,23 @@ export const alertsOverlay: OverlayAdapter = {
     if (!response.ok) {
       throw new Error(`NWS alerts returned ${response.status}.`);
     }
-    return parseAlerts(await response.json(), tagged);
+    const drawn = parseAlerts(await response.json(), tagged);
+
+    // And Canada, when the view reaches it. The same layer rather than a
+    // switch of its own: the hazard filters, the watch, the readout and the
+    // popup then treat a Canadian warning exactly as they treat an American
+    // one, which is the whole point. A view over Kansas asks nobody.
+    if (reachesCanada(bounds)) {
+      drawn.features.push(...(await ecccFeatures(bounds, signal)));
+      drawn.features.sort(
+        (left, right) =>
+          Number(right.properties.severityRank) -
+            Number(left.properties.severityRank) ||
+          Number(right.properties.impactRank) -
+            Number(left.properties.impactRank),
+      );
+    }
+    return drawn;
   },
   layers: (sourceId) => [
     {
