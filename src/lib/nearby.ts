@@ -132,6 +132,12 @@ export interface NearbyWarning {
   id: string;
   /** One sentence: what it is, how bad the office tagged it, how long it runs. */
   sentence: string;
+  /** Where the office says it covers. */
+  area: string;
+  /** What the office says is happening. */
+  description: string;
+  /** What the office says to do. */
+  instruction: string;
 }
 
 /**
@@ -169,15 +175,20 @@ export function warningsOver(
         translate("nearby.warningUntil", { when: formatClock(expires) }),
       );
     }
-    // The office's own instruction, read out with the warning. This surface
-    // exists for a reader who cannot see the map, and what to do about a
-    // tornado warning is the part of it that matters most; it was the one
-    // place the app could only offer a link to.
-    const instruction = String(properties.instruction ?? "").trim();
-    if (instruction) parts.push(instruction);
+
     found.push({
       id: String(properties.capId ?? headline),
       sentence: parts.join(" "),
+      // The office's own words, carried beside the sentence rather than
+      // inside it. They belong on this surface: it exists for a reader who
+      // cannot see the map, and what to do about a tornado warning was the
+      // one thing the app could only offer a link to. They must not go into
+      // the sentence, because the sentence goes into an atomic live region
+      // that is re-announced whenever the nearest storm cell moves, which
+      // would read a whole warning product out again on every map pan.
+      area: String(properties.area ?? "").trim(),
+      description: String(properties.description ?? "").trim(),
+      instruction: String(properties.instruction ?? "").trim(),
     });
   }
   return found;

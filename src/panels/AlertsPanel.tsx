@@ -145,28 +145,6 @@ export function AlertsPanel({
                         expires: timeLabel(feature.properties.expires),
                       })}
                     </small>
-                    {/* What the office wrote about this warning, before
-                        anything this app has to say about it. It is the
-                        forecaster's own account of what is happening and
-                        where, and until now it was only ever a link out. */}
-                    {feature.properties.area ? (
-                      <small className="alert-area">
-                        {t("alerts.area", {
-                          places: String(feature.properties.area),
-                        })}
-                      </small>
-                    ) : null}
-                    {feature.properties.description ? (
-                      <small className="alert-office" data-office-text>
-                        {String(feature.properties.description)}
-                      </small>
-                    ) : null}
-                    {feature.properties.instruction ? (
-                      <small className="alert-office" data-office-instruction>
-                        <strong>{t("alerts.instruction")}</strong>{" "}
-                        {String(feature.properties.instruction)}
-                      </small>
-                    ) : null}
                     {calm && !feature.properties.instruction ? (
                       // The warning is unchanged: the same headline, the same
                       // severity, the same colour, at the same moment. This is
@@ -190,6 +168,37 @@ export function AlertsPanel({
                     ) : null}
                   </span>
                 </button>
+                {/* What the office wrote, OUTSIDE the button.
+
+                    A button's accessible name is its content, so putting the
+                    description and the instruction inside it made the name of
+                    a control whose whole job is "take me to this warning" up
+                    to two thousand characters long, read out in full with no
+                    way to skip it. It belongs beside the button, not in it. */}
+                {feature.properties.area ||
+                feature.properties.description ||
+                feature.properties.instruction ? (
+                  <div className="alert-office-block">
+                    {feature.properties.area ? (
+                      <small className="alert-area">
+                        {t("alerts.area", {
+                          places: String(feature.properties.area),
+                        })}
+                      </small>
+                    ) : null}
+                    {feature.properties.description ? (
+                      <small className="alert-office" data-office-text>
+                        {String(feature.properties.description)}
+                      </small>
+                    ) : null}
+                    {feature.properties.instruction ? (
+                      <small className="alert-office" data-office-instruction>
+                        <strong>{t("alerts.instruction")}</strong>{" "}
+                        {String(feature.properties.instruction)}
+                      </small>
+                    ) : null}
+                  </div>
+                ) : null}
                 {url ? (
                   <a
                     href={url}

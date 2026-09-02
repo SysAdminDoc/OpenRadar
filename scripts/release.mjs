@@ -140,15 +140,26 @@ function assertVersions(version, conf) {
  * packaged build work again.
  *
  * A release behind is ordinary: a build staged and not yet pushed. More than
- * one is a channel that has stopped, and the fix is not a code change. Nobody
- * here can publish: it is the owner's act, and the message says so.
+ * one is a channel that has stopped.
+ *
+ * It stops a STAGING run and never a publishing one. `--publish` is the only
+ * thing in this repository that can clear the gap, so refusing that too would
+ * have been a gate standing in front of its own remedy: the first version of
+ * this refused `npm run release -- --publish` with a message telling somebody
+ * to run `npm run release -- --publish`. Staging another build on top of a
+ * channel that has stopped is what is actually worth refusing.
  */
 async function assertPublishedIsCurrent(version) {
   const url =
     "https://github.com/SysAdminDoc/OpenRadar/releases/latest/download/latest.json";
   let published = null;
   try {
-    const answer = await fetch(url, { redirect: "follow" });
+    // Bounded, because a network that swallows the request rather than
+    // refusing it would otherwise hold the whole release open for ever.
+    const answer = await fetch(url, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(15_000),
+    });
     if (answer.ok) published = (await answer.json())?.version ?? null;
   } catch {
     // Unreadable is not the same as behind: a first release has no manifest
@@ -157,13 +168,16 @@ async function assertPublishedIsCurrent(version) {
   }
   const lag = publishedLag(published, version);
   console.log(publishedLagLine(lag));
-  if (lag.stalled) {
-    fail(
-      `The updater is offering ${lag.published} while this tree is ${lag.repo}. ` +
-        "Every installed copy is being told it is up to date. " +
-        "Publish the staged releases first: that is the owner's act, not this script's.",
-    );
+  if (!lag.stalled) return;
+  if (publish) {
+    console.log("Publishing anyway, which is the thing that closes the gap.\n");
+    return;
   }
+  fail(
+    `The updater is offering ${lag.published} while this tree is ${lag.repo}. ` +
+      "Every installed copy is being told it is up to date. " +
+      "Publish what is already built before staging another: npm run release -- --publish",
+  );
 }
 
 function installerPaths(version) {

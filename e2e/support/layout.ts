@@ -27,11 +27,41 @@ export async function unreachable(page: Page): Promise<string[]> {
           axis === "X"
             ? getComputedStyle(at).overflowX
             : getComputedStyle(at).overflowY;
-        if (overflow === "auto" || overflow === "scroll") return at;
+        // `hidden` counts. It cannot be scrolled at all, so a box squeezed to
+        // nothing by one is exactly as unreachable as a box outside a
+        // scroller's extent, and walking past it to the document read clean:
+        // the same failure this was written to catch, wearing a different
+        // overflow value.
+        if (
+          overflow === "auto" ||
+          overflow === "scroll" ||
+          overflow === "hidden"
+        ) {
+          return at;
+        }
         at = at.parentElement;
       }
       return document.documentElement;
     };
+
+    /**
+     * Where a box sits inside its scroller's own coordinates.
+     *
+     * The document element is the exception, and it is the one that bites: its
+     * bounding rect already moves with the scroll, so its top is minus the
+     * scroll offset and subtracting it has ALREADY converted to document
+     * coordinates. Adding `scrollTop` on top of that counts the scroll twice
+     * and reports everything below the fold as unreachable.
+     */
+    const within = (
+      near: number,
+      frame: number,
+      scroll: number,
+      scroller: HTMLElement,
+    ) =>
+      scroller === document.documentElement
+        ? near - frame
+        : near - frame + scroll;
     // A bounding box comes back in drawn pixels and scrollWidth in layout
     // pixels, and zoom is the difference between them. Comparing the two
     // without dividing makes everything look 30 percent too far right.
@@ -50,7 +80,12 @@ export async function unreachable(page: Page): Promise<string[]> {
 
       const across = scrollerOf(element, "X");
       const acrossFrame = across.getBoundingClientRect();
-      const left = (box.left - acrossFrame.left) / scale + across.scrollLeft;
+      const left = within(
+        box.left / scale,
+        acrossFrame.left / scale,
+        across.scrollLeft,
+        across,
+      );
       const right = left + box.width / scale;
       // Two pixels of rounding is not a layout fault.
       if (left < -2 || right > across.scrollWidth + 2) {
@@ -73,7 +108,12 @@ export async function unreachable(page: Page): Promise<string[]> {
         );
         continue;
       }
-      const top = (box.top - downFrame.top) / scale + down.scrollTop;
+      const top = within(
+        box.top / scale,
+        downFrame.top / scale,
+        down.scrollTop,
+        down,
+      );
       const bottom = top + box.height / scale;
       if (top < -2 || bottom > down.scrollHeight + 2) {
         out.push(

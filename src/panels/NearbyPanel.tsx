@@ -87,7 +87,31 @@ export function NearbyPanel({
             {warnings.map((warning) => (
               <li key={warning.id}>
                 <TriangleAlert size={14} aria-hidden="true" />
-                <span>{warning.sentence}</span>
+                {/* The sentence is this app's; everything under it is the
+                    office's own, unaltered, on the one surface that exists
+                    for a reader who cannot see the map. It is read here
+                    rather than folded into the sentence, because the
+                    sentence goes into a live region that is announced again
+                    whenever the nearest storm moves. */}
+                <span>
+                  {warning.sentence}
+                  {warning.area ? (
+                    <small className="nearby-office">
+                      {t("alerts.area", { places: warning.area })}
+                    </small>
+                  ) : null}
+                  {warning.description ? (
+                    <small className="nearby-office" data-office-text>
+                      {warning.description}
+                    </small>
+                  ) : null}
+                  {warning.instruction ? (
+                    <small className="nearby-office" data-office-instruction>
+                      <strong>{t("alerts.instruction")}</strong>{" "}
+                      {warning.instruction}
+                    </small>
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>

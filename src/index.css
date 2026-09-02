@@ -997,10 +997,18 @@ input[type="range"]:disabled {
 
 .map-popup {
   display: flex;
+  /* Bounded, and scrolling past that. A warning now carries the office's own
+     description and instruction, which for a flood watch is fifteen hundred
+     characters: unbounded, the popup grew past five hundred pixels and pushed
+     its own link and its layer button below the window on a short screen,
+     where nothing could reach them. */
+  max-height: min(52vh, 420px);
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
   color: #101722;
   font-size: 12px;
+  overscroll-behavior: contain;
 }
 
 .map-popup strong {
@@ -1010,6 +1018,10 @@ input[type="range"]:disabled {
 .map-popup small {
   color: #4e5b6e;
   font-size: 11px;
+  /* The office's line breaks are the office's. A warning lists three rivers
+     one per line, and running them together puts three severities in one
+     sentence. */
+  white-space: pre-line;
 }
 
 .map-popup a {
@@ -1053,8 +1065,32 @@ input[type="range"]:disabled {
 
 .alert-row {
   display: flex;
+  /* The office's own text sits below the button and the link rather than
+     inside the button, because a button's accessible name is its content and
+     a whole warning product read out as a control's name is unusable. It
+     wraps to its own full-width line. */
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 4px;
+}
+
+/* The office's own words on the readout, under the app's own sentence. Its
+   line breaks are kept for the same reason they are in the panel. */
+.nearby-office {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.alert-office-block {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 8px 6px 30px;
 }
 
 .alert-row > button {
@@ -1102,10 +1138,12 @@ input[type="range"]:disabled {
   font-size: 10.5px;
 }
 
-/* What the office wrote. Left in its own paragraphs and given the ordinary
-   reading colour rather than the muted one the times use: this is the text
-   the reader is here for, not a caption under it. */
-.alert-row .alert-office {
+/* What the office wrote. Left in its own lines and given the ordinary reading
+   colour rather than the muted one the times use: this is the text the reader
+   is here for, not a caption under it. `pre-line` because the line breaks are
+   the office's: a warning lists three rivers one per line and its details as a
+   bulleted list, and running those together changes what it says. */
+.alert-office-block .alert-office {
   margin-top: 4px;
   color: var(--text);
   font-size: 11px;
@@ -1113,7 +1151,7 @@ input[type="range"]:disabled {
   white-space: pre-line;
 }
 
-.alert-row .alert-area {
+.alert-office-block .alert-area {
   color: var(--muted);
   font-size: 10.5px;
 }
