@@ -55,6 +55,7 @@ describe("the weather on the chrome", () => {
         center: HOME,
         clock: NOW,
         reducedMotion: true,
+        pageVisible: true,
       }),
     );
     await waitFor(() => expect(result.current.seen?.condition).toBe("rain"));
@@ -71,6 +72,7 @@ describe("the weather on the chrome", () => {
         center: HOME,
         clock: NOW,
         reducedMotion: false,
+        pageVisible: true,
       }),
     );
     expect(fetched).not.toHaveBeenCalled();
@@ -94,6 +96,7 @@ describe("the weather on the chrome", () => {
         center: HOME,
         clock: NOW,
         reducedMotion: false,
+        pageVisible: true,
         sampleMs: 20,
       }),
     );
@@ -115,6 +118,7 @@ describe("the weather on the chrome", () => {
         center: HOME,
         clock: NOW,
         reducedMotion: true,
+        pageVisible: true,
         sampleMs: 20,
       }),
     );
@@ -136,6 +140,7 @@ describe("the weather on the chrome", () => {
         center: HOME,
         clock: NOW,
         reducedMotion: true,
+        pageVisible: true,
       }),
     );
     await waitFor(() => expect(result.current.seen).toBeNull());

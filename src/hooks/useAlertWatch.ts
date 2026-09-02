@@ -102,7 +102,11 @@ export function useAlertWatch(
 ): AlertWatchState {
   // What has been announced, and how bad it was when it was: an upgrade is
   // worth saying again, a downgrade is not.
-  const [alertActive, setAlertActive] = useState(false);
+  // Kept with the watch it was read for, so it cannot outlive it. A reader
+  // who stops watching a place, or moves one, is not still being told a
+  // warning stands there, and deriving that beats resetting it: a setState in
+  // the body of an effect is a cascading render.
+  const [standing, setStanding] = useState({ key: "", active: false });
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
     fallbackRef.current = onFallback;
@@ -183,9 +187,11 @@ export function useAlertWatch(
         const wanted = alertsOfKind(alerts, kindsRef.current);
         // What stands, not what is new: the same predicate with nothing yet
         // announced. This is one pass over a list already in memory.
-        setAlertActive(
-          alertsToAnnounceAcross(wanted, live, EMPTY, Date.now()).length > 0,
-        );
+        setStanding({
+          key,
+          active:
+            alertsToAnnounceAcross(wanted, live, EMPTY, Date.now()).length > 0,
+        });
         const found = alertsToAnnounceAcross(
           wanted,
           live,
@@ -261,9 +267,15 @@ export function useAlertWatch(
           }
           // Why it fired, beside the fact that it did, so the log can answer
           // the question somebody actually asks the next morning.
+          const named = (alert.places ?? [])
+            .filter((place) => place.named !== false)
+            .map((place) => place.name)
+            .join(", ");
           log.info(
             "watch",
-            `Announced ${alert.headline}. ${watchReasonLines(alert.reason).join(" ")}`,
+            `Announced ${alert.headline}${named ? ` at ${named}` : ""}. ${watchReasonLines(
+              alert.reason,
+            ).join(" ")}`,
           );
         }
       } catch (failure) {
@@ -320,5 +332,10 @@ export function useAlertWatch(
     return delivered;
   }, []);
 
-  return { sendTest, alertActive };
+  return {
+    sendTest,
+    // Only for the watch it was read for. Nothing being watched is nothing
+    // standing over a watched place, whatever the last poll found.
+    alertActive: standing.key === key && standing.active,
+  };
 }

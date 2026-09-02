@@ -47,8 +47,13 @@ export function useAppearance(
 ): Appearance {
   // The season is about where the reader is, so a place south of the equator
   // gets the pack six months along rather than the one for the wrong half of
-  // the year.
-  const latitude = settings.watch.center[1];
+  // the year. The watched place when there is one, and where the map is
+  // looking when there is not: the watch's default centre is a place in Texas
+  // nobody chose, and a reader in Canterbury would get the northern calendar
+  // for it.
+  const latitude = settings.watch.enabled
+    ? settings.watch.center[1]
+    : settings.camera.center[1];
   const occasion = useMemo(
     () => occasionOn(new Date(clock), latitude),
     [clock, latitude],
@@ -58,10 +63,15 @@ export function useAppearance(
     [clock, latitude, occasion],
   );
 
+  // The one year that matters, rather than the record holding it. Every
+  // settings read rebuilds that record, and a camera move is a settings read,
+  // so depending on the object rewrote the theme element twice a second
+  // through a pan.
+  const declined = occasion ? settings.occasions.declined[occasion] : undefined;
   const wanted = useMemo<WorkspaceTheme | null>(() => {
     if (settings.workspaceTheme) return settings.workspaceTheme;
     if (alertActive || !occasion || !settings.occasions.enabled) return null;
-    if (settings.occasions.declined[occasion] === year) return null;
+    if (declined === year) return null;
     return occasionTheme(
       occasion,
       settings.theme,
@@ -69,8 +79,8 @@ export function useAppearance(
     );
   }, [
     alertActive,
+    declined,
     occasion,
-    settings.occasions.declined,
     settings.occasions.enabled,
     settings.theme,
     settings.workspaceTheme,

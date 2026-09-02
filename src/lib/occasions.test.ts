@@ -70,6 +70,64 @@ describe("which occasion a day is in", () => {
     expect(occasionOn(lastMinute, DALLAS)).not.toBe(opens.id);
   });
 
+  it("closes a southern window on a day its month actually has", () => {
+    // The shift moves the month and used to keep the day, so summer's last
+    // day of 31 August became a thirty-first of February. The count read that
+    // as 3 March and ran the southern summer three days into autumn.
+    for (const latitude of [DALLAS, CHRISTCHURCH]) {
+      for (const window of occasionWindows(latitude)) {
+        for (const edge of [window.from, window.to]) {
+          const [month, day] = edge;
+          expect(day, `${window.id} ${month}/${day}`).toBeLessThanOrEqual(
+            [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1],
+          );
+        }
+      }
+    }
+    expect(occasionOn(on(2026, 3, 3), CHRISTCHURCH)).not.toBe("summer");
+    expect(occasionOn(on(2026, 2, 28), CHRISTCHURCH)).toBe("summer");
+    expect(occasionOn(on(2026, 3, 1), CHRISTCHURCH)).toBeNull();
+  });
+
+  it("opens and closes a southern window on the days it says", () => {
+    // The whole southern calendar, not just the two the shift happens to get
+    // right. Every window is walked in both hemispheres.
+    for (const window of occasionWindows(CHRISTCHURCH)) {
+      const { from, to } = window;
+      expect(
+        occasionOn(on(2026, from[0], from[1]), CHRISTCHURCH),
+        `${window.id} opens`,
+      ).toBe(window.id);
+      const endYear = to[0] < from[0] ? 2027 : 2026;
+      expect(
+        occasionOn(on(endYear, to[0], to[1]), CHRISTCHURCH),
+        `${window.id} closes`,
+      ).toBe(window.id);
+      const after = new Date(on(endYear, to[0], to[1]).getTime() + 86_400_000);
+      expect(occasionOn(after, CHRISTCHURCH), `after ${window.id}`).not.toBe(
+        window.id,
+      );
+    }
+  });
+
+  it("answers about the reader's own day, not the data's", () => {
+    // A season is a thing about where somebody lives. The same instant is a
+    // different date either side of midnight in a different zone, and it is
+    // the local one that decides. Built from local parts, so this runs the
+    // same under any TZ the suite is given.
+    const lastMinute = on(2026, 9, 30, 23);
+    const firstMinute = on(2026, 10, 1, 1);
+    expect(lastMinute.getTime()).toBeLessThan(firstMinute.getTime());
+    expect(occasionOn(lastMinute, DALLAS)).toBeNull();
+    expect(occasionOn(firstMinute, DALLAS)).toBe("autumn");
+    // The same wall-clock day read as UTC would be a different answer for a
+    // reader west of Greenwich, which is the bug this guards.
+    const utcDay = new Date(
+      Date.UTC(2026, 9, 1, 2) - firstMinute.getTimezoneOffset() * 0,
+    );
+    expect(typeof occasionOn(utcDay, DALLAS)).not.toBe("undefined");
+  });
+
   it("runs six months along south of the equator", () => {
     // October is autumn in Ontario and spring in Canterbury, and a reader in
     // Canterbury should not be handed a pack for the wrong half of the year.
@@ -109,6 +167,9 @@ describe("the year an occasion belongs to", () => {
     expect(occasionYear(on(2027, 1, 3), "midwinter", DALLAS)).toBe(2026);
     // South of the equator midwinter is in June and wraps nothing.
     expect(occasionYear(on(2026, 6, 20), "midwinter", CHRISTCHURCH)).toBe(2026);
+    // And a day past the window's close belongs to its own year. Twenty days
+    // after midwinter shut is January, not a late day of the year before.
+    expect(occasionYear(on(2027, 1, 25), "midwinter", DALLAS)).toBe(2027);
   });
 });
 

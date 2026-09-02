@@ -441,20 +441,23 @@ export function watchReasonLines(reason: WatchReason): string[] {
  * It goes through the same delivery as a real one, because the thing worth
  * testing is the permission, the sound and the notification, not the wording.
  */
-export function testWatchAlert(watch: WatchSettings): WatchAlert {
+export function testWatchAlert(place: WatchPlace): WatchAlert {
   return {
     id: `test-${Date.now()}`,
+    // Named the way a real one is, so a reader who has called home something
+    // sees that it works rather than a sentence with the place left out.
+    places: [{ id: place.id, name: place.name, named: place.named !== false }],
     rank: 0,
     headline: translate("watch.testHeadline"),
     impact: "",
-    severity: watch.minSeverity,
+    severity: place.minSeverity,
     expires: null,
     distanceMiles: 0,
     reason: {
       event: "test",
-      severity: watch.minSeverity,
-      minSeverity: watch.minSeverity,
-      radiusMiles: watch.radiusMiles,
+      severity: place.minSeverity,
+      minSeverity: place.minSeverity,
+      radiusMiles: place.radiusMiles,
       distanceMiles: 0,
       upgradedFrom: null,
     },

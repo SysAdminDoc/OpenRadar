@@ -559,7 +559,7 @@ export const fr: Catalogue = {
   "radar.stationHeld":
     "{station}, à {distance} de {home}, en train de publier.",
   "radar.stationQuiet":
-    "{station}, à {distance} de {home}. Rien de nouveau depuis {age}.",
+    "{station}, à {distance} de {home}. Rien de nouveau depuis {count} min.",
   "radar.opacityLabel": "Opacité du radar",
 
   "command.group.layer": "Couche",
@@ -944,7 +944,12 @@ export const fr: Catalogue = {
   "occasion.notThisYear": "Pas cette année",
   "settings.ambient": "La météo sur l'habillage",
   "settings.ambientDetail":
-    "Pluie, neige ou brouillard dessinés sur la barre du bas tant que la station la plus proche de l'endroit que vous surveillez le rapporte. Jamais par-dessus la carte, et cela s'arrête quand le rapport vieillit",
+    "Pluie, neige ou brouillard dessinés sur la barre de commandes tant que la station la plus proche de l'endroit que vous surveillez le rapporte. Jamais par-dessus la carte, et cela s'arrête quand le rapport vieillit",
+  "settings.ambientSeen": "Affiche ce que {station} a rapporté à {when}.",
+  "settings.ambientQuiet":
+    "Rien à dessiner : aucune station proche ne rapporte de temps.",
+  "settings.ambientDropped":
+    "Arrêté : cette fenêtre ne suivait pas, alors l'effet s'est retiré. Éteignez-le et rallumez-le pour réessayer.",
   "settings.occasions": "Apparence saisonnière",
   "settings.occasionsDetail":
     "Un changement d'accent pendant quelques semaines par année. Elle n'atteint jamais la carte, et elle se retire tant qu'une alerte est en vigueur là où vous surveillez",

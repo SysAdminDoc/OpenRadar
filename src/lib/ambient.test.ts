@@ -40,14 +40,70 @@ describe("what a station says is falling", () => {
     expect(
       conditionFromMetar("KXYZ 021253Z 24015G25KT 10SM BKN035 M02/M08 A3001"),
     ).toBeNull();
-    // A station whose identifier happens to spell a code is still an
-    // identifier, because the first group is skipped.
-    expect(conditionFromMetar("KRA 021253Z 10SM CLR 20/10 A3000")).toBeNull();
+    // A station whose identifier spells a code is still an identifier.
+    // Riverside is KRAL and John Wayne is KSNA, and both were reporting
+    // weather in clear air.
+    expect(
+      conditionFromMetar("KRAL 011953Z 27008KT 10SM CLR 28/12 A2992"),
+    ).toBeNull();
+    expect(
+      conditionFromMetar("KSNA 011953Z 27008KT 10SM CLR 28/12 A2992"),
+    ).toBeNull();
+    // A special carries the word in front of the identifier, which used to
+    // mean the word was dropped and the identifier read as weather.
+    expect(
+      conditionFromMetar("SPECI KRAL 011953Z 27008KT 10SM CLR 28/12 A2992"),
+    ).toBeNull();
+    expect(
+      conditionFromMetar("METAR KSNA 011953Z 27008KT 10SM CLR 28/12 A2992"),
+    ).toBeNull();
     // And the remarks are prose. RMK carries things like RAB35 for the minute
-    // rain began, which is history rather than the present.
+    // rain began, which is history rather than the present, and TSNO, which
+    // says the thunderstorm sensor is out of service.
     expect(
       conditionFromMetar("KXYZ 021253Z 10SM CLR 20/10 A3000 RMK RAB35E52"),
     ).toBeNull();
+    expect(
+      conditionFromMetar(
+        "KDEN 021253Z 10SM CLR 20/10 A3013\nRMK AO2 TSNO SLP123",
+      ),
+    ).toBeNull();
+  });
+
+  it("reads what is happening rather than what is about to", () => {
+    // Everything after a trend group is a forecast. Drawing it would be the
+    // chrome showing weather that has not arrived.
+    expect(
+      conditionFromMetar(
+        "EGLL 121150Z 24015KT 9999 FEW020 12/08 Q1018 TEMPO SHRA",
+      ),
+    ).toBeNull();
+    expect(
+      conditionFromMetar(
+        "EGLL 121150Z 24015KT 9999 FEW020 12/08 Q1018 BECMG SN",
+      ),
+    ).toBeNull();
+    // Recent weather is over: RERA means the rain ended within the hour.
+    expect(
+      conditionFromMetar("KOKC 011951Z 21016KT 10SM SCT070 24/18 A2992 RERA"),
+    ).toBeNull();
+    expect(
+      conditionFromMetar("KOKC 011951Z 21016KT 10SM SCT070 24/18 A2992 RESHRA"),
+    ).toBeNull();
+    // And weather in the vicinity is somewhere else. VCTS is a thunderstorm
+    // near the field rather than over it.
+    expect(
+      conditionFromMetar("KOKC 011951Z 21016KT 10SM VCTS SCT070 24/18 A2992"),
+    ).toBeNull();
+    expect(
+      conditionFromMetar("KOKC 011951Z 21016KT 10SM VCSH SCT070 24/18 A2992"),
+    ).toBeNull();
+    // What is happening at the station still reads.
+    expect(
+      conditionFromMetar(
+        "KOKC 011951Z 21016KT 4SM TSRA SCT070 24/18 A2992 RERA",
+      ),
+    ).toBe("thunder");
   });
 });
 

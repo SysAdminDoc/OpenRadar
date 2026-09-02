@@ -36,6 +36,7 @@ import {
   distanceSlider,
   distanceUnit,
   distanceValue,
+  formatClock,
   formatDistance,
   milesFromDistance,
   TEXT_SCALES,
@@ -79,6 +80,7 @@ function timeToMinute(value: string, fallback: number): number {
 }
 import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
 import { themeAccent, themeFromAccent } from "../lib/theme";
+import type { AmbientState } from "../hooks/useAmbient";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
@@ -792,6 +794,8 @@ interface SettingsPanelProps {
   bounds?: PackBounds | null;
   onSettings: (settings: AppSettings) => void;
   onSendWatchTest: () => void;
+  /** What the chrome is drawing, so the switch can name its source. */
+  ambient: AmbientState;
   onWatchHere: () => void;
   /** Adds the map centre as another watched place. */
   onAddWatchPlace: () => void;
@@ -848,6 +852,7 @@ export function SettingsPanel({
   settings,
   bounds = null,
   onSettings,
+  ambient,
   onSendWatchTest,
   onWatchHere,
   onAddWatchPlace,
@@ -932,8 +937,23 @@ export function SettingsPanel({
           label={t("settings.ambient")}
           detail={t("settings.ambientDetail")}
           checked={settings.ambient}
-          onChange={(ambient) => onSettings({ ...settings, ambient })}
+          onChange={(on) => onSettings({ ...settings, ambient: on })}
         />
+        {/* The source and the age, where the reader turned it on. An effect
+            driven by an observation nobody can name is decoration pretending
+            to be data. */}
+        {settings.ambient ? (
+          <p className="source-note">
+            {ambient.dropped
+              ? t("settings.ambientDropped")
+              : ambient.seen
+                ? t("settings.ambientSeen", {
+                    station: ambient.seen.station,
+                    when: formatClock(ambient.seen.observed),
+                  })
+                : t("settings.ambientQuiet")}
+          </p>
+        ) : null}
         <ToggleSetting
           label={t("settings.occasions")}
           detail={t("settings.occasionsDetail")}

@@ -551,7 +551,7 @@ export const es: Catalogue = {
   "radar.hold": "Fijar {station}",
   "radar.stationHeld": "{station}, a {distance} de {home}, publicando.",
   "radar.stationQuiet":
-    "{station}, a {distance} de {home}. Nada nuevo desde hace {age}.",
+    "{station}, a {distance} de {home}. Nada nuevo desde hace {count} min.",
   "radar.opacityLabel": "Opacidad del radar",
 
   "command.group.layer": "Capa",
@@ -933,7 +933,12 @@ export const es: Catalogue = {
   "occasion.notThisYear": "Este año no",
   "settings.ambient": "El tiempo en el entorno",
   "settings.ambientDetail":
-    "Lluvia, nieve o niebla dibujadas en la barra inferior mientras la estación más cercana al lugar que vigilas lo está informando. Nunca sobre el mapa, y se detiene cuando el informe caduca",
+    "Lluvia, nieve o niebla dibujadas en la barra de comandos mientras la estación más cercana al lugar que vigilas lo está informando. Nunca sobre el mapa, y se detiene cuando el informe caduca",
+  "settings.ambientSeen": "Dibujando lo que informó {station} a las {when}.",
+  "settings.ambientQuiet":
+    "Nada que dibujar: ninguna estación cercana informa tiempo.",
+  "settings.ambientDropped":
+    "Detenido: esta ventana no iba al día, así que el efecto se retiró solo. Apágalo y enciéndelo para volver a intentarlo.",
   "settings.occasions": "Aspecto de temporada",
   "settings.occasionsDetail":
     "Un cambio de acento durante unas semanas al año. Nunca llega al mapa, y se retira mientras hay un aviso en vigor donde vigilas",

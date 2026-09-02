@@ -545,7 +545,7 @@ export const en = {
   "radar.hold": "Hold {station}",
   "radar.stationHeld": "{station}, {distance} from {home}, publishing.",
   "radar.stationQuiet":
-    "{station}, {distance} from {home}. Nothing new for {age}.",
+    "{station}, {distance} from {home}. Nothing new for {count} min.",
   "radar.opacityLabel": "Radar opacity",
 
   "command.group.layer": "Layer",
@@ -921,7 +921,12 @@ export const en = {
   "occasion.notThisYear": "Not this year",
   "settings.ambient": "Weather on the chrome",
   "settings.ambientDetail":
-    "Rain, snow or fog drawn on the bar at the bottom while the station nearest the place you watch is reporting it. Never over the map, and it stops when the report goes stale",
+    "Rain, snow or fog drawn on the command bar while the station nearest the place you watch is reporting it. Never over the map, and it stops when the report goes stale",
+  "settings.ambientSeen": "Drawing what {station} reported at {when}.",
+  "settings.ambientQuiet":
+    "Nothing to draw: no station near you is reporting weather.",
+  "settings.ambientDropped":
+    "Stopped: this window was not keeping up, so the effect took itself off. Switch it off and on to try again.",
   "settings.occasions": "Seasonal look",
   "settings.occasionsDetail":
     "A change of accent for a few weeks of the year. It never reaches the map, and it stands down while a warning is in force where you watch",

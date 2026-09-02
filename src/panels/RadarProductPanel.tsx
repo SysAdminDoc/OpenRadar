@@ -467,10 +467,11 @@ export function RadarProductPanel({
                         })
                       : t("radar.zoomIn", { zoom: SINGLE_SITE_MIN_ZOOM })}
               </p>
-              {/* Only for a station the reader pinned. The site the map
-                  happens to be over is not theirs and does not need a badge
-                  saying how far away it is. */}
-              {sweep && radar.station ? (
+              {/* Only for a station the reader pinned, and only while it is
+                  showing live radar. The site the map happens to be over is
+                  not theirs, and a volume from 2011 is not a station that has
+                  gone quiet. */}
+              {sweep && radar.station && !singleSite.historical ? (
                 <p className="source-note" data-station-badge={sweep.station}>
                   {stationSummary(sweep, watch, clock)}
                 </p>

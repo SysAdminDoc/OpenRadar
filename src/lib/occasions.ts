@@ -112,19 +112,29 @@ const OCCASIONS: Occasion[] = [
 const MONTH_STARTS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
 function dayOfYear(month: number, day: number): number {
-  return MONTH_STARTS[month - 1] + day;
+  // Held to the month, because the count is not injective otherwise: a
+  // thirty-first of February and the third of March are the same number, and
+  // a window edge that aliased that way would open three days early with
+  // nothing saying so.
+  return MONTH_STARTS[month - 1] + Math.min(day, MONTH_LENGTHS[month - 1]);
 }
+
+/** Days in each month, ignoring leap years, which is what the windows count in. */
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 /**
  * The same window half a year along, for a reader south of the equator.
  *
  * Worked in whole months rather than days, so a window that starts on the
- * fifteenth still starts on the fifteenth. A month with fewer days than the
- * one it came from is not a problem here because no window starts after the
- * twenty-eighth.
+ * fifteenth still starts on the fifteenth. The day is held to the length of
+ * the month it lands in: summer ends on 31 August, and six months along that
+ * is 28 February rather than a thirty-first of February, which the day count
+ * below reads as 3 March and which ran the southern summer three days into
+ * autumn.
  */
 function shifted(edge: [number, number]): [number, number] {
-  return [((edge[0] + 5) % 12) + 1, edge[1]];
+  const month = ((edge[0] + 5) % 12) + 1;
+  return [month, Math.min(edge[1], MONTH_LENGTHS[month - 1])];
 }
 
 function within(
@@ -173,9 +183,14 @@ export function occasionYear(at: Date, id: OccasionId, latitude = 45): number {
   const from = latitude < 0 ? shifted(occasion.from) : occasion.from;
   const to = latitude < 0 ? shifted(occasion.to) : occasion.to;
   const wraps = dayOfYear(from[0], from[1]) > dayOfYear(to[0], to[1]);
-  const before =
-    dayOfYear(at.getMonth() + 1, at.getDate()) < dayOfYear(from[0], from[1]);
-  return wraps && before ? at.getFullYear() - 1 : at.getFullYear();
+  const month = at.getMonth() + 1;
+  const day = at.getDate();
+  // Only a date inside the window belongs to a window that began the year
+  // before. Twenty days after midwinter closed is January of its own year,
+  // not a late day of the one before it.
+  const inside = within(month, day, from, to);
+  const before = dayOfYear(month, day) < dayOfYear(from[0], from[1]);
+  return wraps && inside && before ? at.getFullYear() - 1 : at.getFullYear();
 }
 
 /**
@@ -200,11 +215,23 @@ export function occasionTheme(
   return parseTheme(text, name)?.theme ?? null;
 }
 
-/** Every occasion, for a test that has to cover each window's edges. */
-export function occasionWindows(): ReadonlyArray<{
+/**
+ * Every occasion's window, as the reader at this latitude sees it.
+ *
+ * The shift is applied here rather than left to the caller so a test walking
+ * the edges walks the ones the code will actually compare against, southern
+ * ones included. Reading the northern list and shifting it again in the test
+ * is how a bad shift went unnoticed.
+ */
+export function occasionWindows(latitude = 45): ReadonlyArray<{
   id: OccasionId;
   from: [number, number];
   to: [number, number];
 }> {
-  return OCCASIONS.map(({ id, from, to }) => ({ id, from, to }));
+  const south = latitude < 0;
+  return OCCASIONS.map(({ id, from, to }) => ({
+    id,
+    from: south ? shifted(from) : from,
+    to: south ? shifted(to) : to,
+  }));
 }
