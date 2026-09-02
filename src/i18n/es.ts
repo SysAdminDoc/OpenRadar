@@ -546,6 +546,9 @@ export const es: Catalogue = {
     "El radar de terminal de un aeropuerto publica solo reflectividad y velocidad, hasta 48 millas náuticas, con una reflectividad de largo alcance hasta 225. Los demás productos quedan sin disponibilidad mientras se mantiene.",
   "radar.followMap": "Seguir el mapa",
   "radar.hold": "Fijar {station}",
+  "radar.stationHeld": "{station}, a {distance} de {home}, publicando.",
+  "radar.stationQuiet":
+    "{station}, a {distance} de {home}. Nada nuevo desde hace {age}.",
   "radar.opacityLabel": "Opacidad del radar",
 
   "command.group.layer": "Capa",
@@ -555,6 +558,7 @@ export const es: Catalogue = {
   "command.group.tool": "Herramienta",
   "command.group.layout": "Disposición",
   "keywords.capture": "captura directo emisión limpio obs",
+  "keywords.home": "casa inicio volver lugar vigilado",
   "layer.probSevere": "Probabilidad de tiempo severo",
   "layers.probSevereDetail":
     "Lo que un modelo espera de cada tormenta en la próxima hora, que es orientación y no un aviso",
@@ -957,6 +961,7 @@ export const es: Catalogue = {
   "settings.radiusValue": "{distance}",
   "settings.radiusLabel": "Radio vigilado, en {unit}",
   "settings.watchCentre": "Vigilar el centro del mapa",
+  "settings.homeName": "Cómo llamas a tu casa",
   "settings.placeName": "Nombre del lugar",
   "settings.placeNumber": "Lugar {number}",
   "settings.placeRadius": "Radio alrededor de {place}, en {unit}",
@@ -1266,6 +1271,7 @@ export const es: Catalogue = {
   "watch.testHeadline": "Alerta de prueba",
   "watch.quiet": "Horas de silencio",
   "watch.home": "Casa",
+  "watch.goHome": "Ir a casa",
   "watch.atPlace": "En {place}.",
   "watch.atPlaces": "En {places}.",
   "watch.quietDetail":

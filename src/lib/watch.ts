@@ -68,6 +68,15 @@ export interface WatchSettings {
 export interface WatchPlace extends WatchSettings {
   id: string;
   name: string;
+  /**
+   * True when the name is the reader's rather than the built-in word.
+   *
+   * Only home can be unnamed, and only home's default is worth leaving out of
+   * an announcement: telling somebody who watches one place that a warning
+   * reached "Home" says nothing they did not know. A place they called Casa
+   * is worth saying, and so is home once they have called it something.
+   */
+  named?: boolean;
 }
 
 /**
@@ -134,7 +143,11 @@ export function alertsToAnnounceAcross(
       now,
     );
     for (const alert of forPlace) {
-      const named = { id: place.id, name: place.name };
+      const named = {
+        id: place.id,
+        name: place.name,
+        named: place.named !== false,
+      };
       const held = found.get(alert.id);
       if (!held) {
         found.set(alert.id, { ...alert, places: [named] });
@@ -234,7 +247,7 @@ export interface WatchAlert {
    * place that has already been told about this alert is not in the list, so
    * adding a fourth place does not repeat what the other three heard.
    */
-  places?: Array<{ id: string; name: string }>;
+  places?: Array<{ id: string; name: string; named?: boolean }>;
 }
 
 /** A box around the watched point, which is what the alert service is asked for. */
@@ -378,10 +391,11 @@ export function watchAlertBody(alert: WatchAlert): string {
   // Which places it reached, when there is more than one being watched. A
   // reader with four places needs to know which of them this is about, and
   // naming the single place somebody has would only repeat the obvious.
-  const places = (alert.places ?? []).map((place) => place.name);
+  const reached = alert.places ?? [];
+  const places = reached.map((place) => place.name);
   if (places.length > 1) {
     body = `${body} ${translate("watch.atPlaces", { places: places.join(", ") })}`;
-  } else if (places.length === 1 && places[0] !== translate("watch.home")) {
+  } else if (places.length === 1 && reached[0]?.named !== false) {
     body = `${body} ${translate("watch.atPlace", { place: places[0] })}`;
   }
   // The tag goes in the notification too. Somebody woken by this needs to know

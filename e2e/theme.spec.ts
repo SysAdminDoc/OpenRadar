@@ -12,13 +12,20 @@ import { routeWorkspace } from "./support/fixtures";
  */
 const ACCENT = "#ff8a3d";
 
-async function startWith(page: Page, theme: unknown) {
-  await page.addInitScript((value) => {
-    window.localStorage.setItem(
-      "openradar.settings",
-      JSON.stringify({ schemaVersion: 3, workspaceTheme: value }),
-    );
-  }, theme);
+async function startWith(page: Page, theme: unknown, look = "dark") {
+  await page.addInitScript(
+    (value) => {
+      window.localStorage.setItem(
+        "openradar.settings",
+        JSON.stringify({
+          schemaVersion: 3,
+          theme: (value as { look: string }).look,
+          workspaceTheme: (value as { theme: unknown }).theme,
+        }),
+      );
+    },
+    { theme, look },
+  );
   await routeWorkspace(page);
   await page.goto("/?testMode=1");
   await expect(page.getByRole("application")).toBeVisible();
@@ -108,3 +115,31 @@ test("a stored theme that was hand-edited only brings what the parser allows", a
     "--danger",
   );
 });
+
+// Both built-in looks, because a theme that applies in one and not the other
+// is the failure this ran into: the light look is a more specific selector
+// than a plain `:root`, so a theme written as one silently did nothing for
+// every reader who prefers light.
+for (const look of ["dark", "light"] as const) {
+  test(`a theme reaches the tokens in the ${look} look`, async ({ page }) => {
+    await startWith(page, null, look);
+    const plain = await token(page, "--accent");
+    const plainSurface = await token(page, "--surface");
+
+    await startWith(
+      page,
+      {
+        name: "Loud",
+        base: look,
+        tokens: { Accent: ACCENT, Surface: "rgba(255, 0, 0, 0.9)" },
+      },
+      look,
+    );
+    await expect.poll(() => token(page, "--accent")).toBe(ACCENT);
+    await expect
+      .poll(() => token(page, "--surface"))
+      .toBe("rgba(255, 0, 0, 0.9)");
+    expect(plain).not.toBe(ACCENT);
+    expect(plainSurface).not.toBe("rgba(255, 0, 0, 0.9)");
+  });
+}

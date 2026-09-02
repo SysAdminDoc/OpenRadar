@@ -14,8 +14,11 @@ import {
   sweepCorners,
   sweepErrorText,
   sweepSite,
+  stationSummary,
+  STATION_QUIET_AFTER_MINUTES,
   type SweepImage,
 } from "./level2";
+import { setUnits } from "./units";
 
 const sweep: SweepImage = {
   station: "KDMX",
@@ -226,5 +229,54 @@ describe("how old the live part of a sweep is", () => {
     expect(
       liveAgeSeconds({ ...sweep, live: true, collected: "soon" }, at),
     ).toBeNull();
+  });
+});
+
+describe("a station the reader is holding", () => {
+  const home = { center: [-96.8, 32.78] as [number, number] };
+  const collected = Date.parse(sweep.collected);
+
+  afterEach(() => {
+    setUnits("imperial");
+    setLanguage("en");
+  });
+
+  it("says its call sign, how far it is, and that it is still sending", () => {
+    const said = stationSummary(sweep, { ...home, name: "Casa" }, collected);
+    expect(said).toContain("KDMX");
+    expect(said).toContain("Casa");
+    // Des Moines to Dallas, which is a long way and has to read like one.
+    expect(said).toMatch(/\d+ mi/);
+    expect(said).toContain("publishing");
+  });
+
+  it("falls back to the built-in word when home has no name", () => {
+    expect(stationSummary(sweep, home, collected)).toContain("Home");
+  });
+
+  it("says how long it has been quiet once the site stops", () => {
+    const quiet = collected + STATION_QUIET_AFTER_MINUTES * 60_000;
+    const said = stationSummary(sweep, home, quiet);
+    expect(said).not.toContain("publishing");
+    expect(said).toContain(`${STATION_QUIET_AFTER_MINUTES} min`);
+    // A minute earlier it is a slow scan rather than an outage.
+    expect(stationSummary(sweep, home, quiet - 60_000)).toContain("publishing");
+  });
+
+  it("never calls an archive volume a site that is sending", () => {
+    // The archive answers instantly and the volume is years old; saying it is
+    // publishing would be a claim about a radar nobody asked about.
+    const archived: SweepImage = {
+      ...sweep,
+      source: { ...sweep.source, kind: "archive" },
+    };
+    expect(stationSummary(archived, home, collected)).not.toContain(
+      "publishing",
+    );
+  });
+
+  it("measures the distance in whatever the reader reads in", () => {
+    setUnits("metric");
+    expect(stationSummary(sweep, home, collected)).toMatch(/\d+ km/);
   });
 });

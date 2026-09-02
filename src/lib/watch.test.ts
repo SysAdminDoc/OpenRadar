@@ -13,6 +13,8 @@ import {
   type WatchPlace,
 } from "./watch";
 import type { OverlayData } from "./overlays";
+import { DEFAULT_SETTINGS, normalizeSettings, watchedPlaces } from "./settings";
+import { translate } from "../i18n";
 
 const watch = {
   enabled: true,
@@ -406,6 +408,9 @@ describe("watching more than one place", () => {
     over: Partial<WatchPlace> = {},
   ): WatchPlace => ({
     id,
+    // Home is the one place with a built-in label, so it is the one place
+    // that can be unnamed. `watchedPlaces` sets this the same way.
+    named: id !== "home",
     name,
     enabled: true,
     center,
@@ -556,5 +561,59 @@ describe("watching more than one place", () => {
       Date.now(),
     );
     expect(watchAlertBody(alert)).not.toContain("At Home");
+  });
+
+  it("says the name when the reader has given home one", () => {
+    // Told apart by whether the reader named it rather than by comparing the
+    // label to the word "Home", which stopped being true the moment home
+    // could be called something else, and was never true in Spanish.
+    const [alert] = alertsToAnnounceAcross(
+      collection([boxAt([-96.78, 32.79], "Tornado Warning")]),
+      [place("home", "Casa", [-96.8, 32.78], { named: true })],
+      new Map(),
+      Date.now(),
+    );
+    expect(watchAlertBody(alert)).toContain("At Casa");
+  });
+});
+
+describe("naming a place", () => {
+  it("changes what is said and nothing about what is asked for", () => {
+    // The whole point of the rule: a name is a label. Two workspaces that
+    // differ only by what home is called must ask the alert service for the
+    // same box, or naming a place would quietly change what is polled.
+    const plain = { ...DEFAULT_SETTINGS };
+    const named = {
+      ...DEFAULT_SETTINGS,
+      watch: { ...DEFAULT_SETTINGS.watch, name: "Casa" },
+    };
+    expect(watchesBounds(watchedPlaces(named))).toEqual(
+      watchesBounds(watchedPlaces(plain)),
+    );
+    const [home] = watchedPlaces(named);
+    expect(home.name).toBe("Casa");
+    expect(home.named).toBe(true);
+    expect(home.radiusMiles).toBe(plain.watch.radiusMiles);
+    expect(home.center).toEqual(plain.watch.center);
+
+    // And an unnamed home still says the built-in word, marked as the
+    // built-in word rather than as something the reader chose.
+    const [unnamed] = watchedPlaces(plain);
+    expect(unnamed.named).toBe(false);
+    expect(unnamed.name).toBe(translate("watch.home"));
+  });
+
+  it("keeps a name a person could have typed", () => {
+    const stored = normalizeSettings({
+      schemaVersion: 3,
+      watch: { ...DEFAULT_SETTINGS.watch, name: "   " },
+    });
+    // Whitespace is not a name, so home keeps its built-in word.
+    expect(stored.watch.name).toBeUndefined();
+    const long = normalizeSettings({
+      schemaVersion: 3,
+      watch: { ...DEFAULT_SETTINGS.watch, name: `  ${"z".repeat(90)}  ` },
+    });
+    expect(long.watch.name).toHaveLength(60);
   });
 });

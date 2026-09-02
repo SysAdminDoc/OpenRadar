@@ -205,4 +205,37 @@ describe("workspace backups", () => {
   ])("rejects a truncated or malformed envelope", (value) => {
     expect(() => restoreWorkspace(value)).toThrow("workspace.invalid");
   });
+
+  it("carries the names the reader gave their places", () => {
+    // A workspace without the names in it is a workspace that comes back on a
+    // new machine as a list of coordinate pairs.
+    const named = {
+      ...DEFAULT_SETTINGS,
+      watch: { ...DEFAULT_SETTINGS.watch, name: "  Casa  " },
+      watchPlaces: [
+        {
+          ...DEFAULT_SETTINGS.watch,
+          id: "school",
+          name: "The school",
+        },
+      ],
+    };
+    const backup = createWorkspaceBackup(named, []);
+    const back = restoreWorkspace(JSON.parse(JSON.stringify(backup)));
+    expect(back.settings.watch.name).toBe("Casa");
+    expect(back.settings.watchPlaces[0].name).toBe("The school");
+    expect(back.unread).toEqual([]);
+  });
+
+  it("keeps a name to a length a panel can draw", () => {
+    const backup = createWorkspaceBackup(
+      {
+        ...DEFAULT_SETTINGS,
+        watch: { ...DEFAULT_SETTINGS.watch, name: "x".repeat(200) },
+      },
+      [],
+    );
+    const back = restoreWorkspace(JSON.parse(JSON.stringify(backup)));
+    expect(back.settings.watch.name).toHaveLength(60);
+  });
 });

@@ -67,6 +67,16 @@ import { alertId, type WatchAlert } from "./lib/watch";
  * enough that the next one still finds them.
  */
 const FOLLOW_QUIET_MS = 20_000;
+
+/**
+ * How close going home gets, when the map was further out than that.
+ *
+ * A reader already looking at their own street stays there rather than being
+ * pulled back out to a county: the camera only comes in, never out. Seven is
+ * the zoom the storm archive flies to, which is a place and its weather in
+ * one view.
+ */
+const HOME_ZOOM = 7;
 import { dataExportAvailable, exportGridData } from "./lib/dataExport";
 import { domainFor } from "./lib/providers/mrms";
 import {
@@ -1189,6 +1199,18 @@ export default function App() {
           // handleTool clears the surface itself.
           handleTool(action.tool as ToolMode);
           return;
+        case "home":
+          // The camera only. Nothing about the watch, the layers or the
+          // projection changes: a reader on the globe comes home on the
+          // globe, and a reader who was looking at a storm keeps the storm's
+          // layers when they come back to it.
+          mapRef.current?.flyTo({
+            center: current.watch.center,
+            zoom: Math.max(current.camera.zoom, HOME_ZOOM),
+            bearing: 0,
+            pitch: 0,
+          });
+          break;
         case "capture":
           setCapture((on) => !on);
           // Nothing the mode hides may be left armed behind it. The layout

@@ -19,10 +19,10 @@ import {
   type RadarFrame,
 } from "../lib/radar";
 import { formatMeasure, useT } from "../i18n";
+import { utcHourLabel } from "../lib/units";
 
 function initLabel(initUtc: string): string {
-  const at = new Date(initUtc);
-  return `${String(at.getUTCHours()).padStart(2, "0")}Z`;
+  return utcHourLabel(new Date(initUtc).getTime());
 }
 
 interface RadarLegendProps {

@@ -311,7 +311,7 @@ function SoundingView({
                   y={plot(BOX, 0, pressure).y + 3}
                   textAnchor="end"
                 >
-                  {pressure}
+                  {formatNumber(pressure)}
                 </text>
               ))}
               {[-40, -20, 0, 20, 40].map((value) => (
@@ -322,7 +322,7 @@ function SoundingView({
                   y={BOX.height + 14}
                   textAnchor="middle"
                 >
-                  {value}
+                  {formatNumber(value)}
                 </text>
               ))}
             </svg>

@@ -2495,10 +2495,12 @@ input[type="range"] {
 /* Someone who has asked for more contrast gets firmer edges and brighter text
    rather than the softer palette the default look is built on. */
 @media (prefers-contrast: more) {
-  /* Doubled on purpose. A theme writes a plain `:root` rule from
-     `src/lib/theme.ts`, and a reader who has asked the system for more
-     contrast has to win that whatever order the two land in. */
-  :root:root {
+  /* Tripled on purpose. The two base blocks are `:root` and
+     `:root[data-theme="light"]`, and a theme has to beat both, so
+     `src/lib/theme.ts` writes `:root:root`. A reader who has asked the system
+     for more contrast has to beat the theme in turn, whatever order the rules
+     land in, which takes one more. */
+  :root:root:root {
     --border: rgba(200, 214, 235, 0.42);
     --border-strong: rgba(219, 230, 247, 0.66);
     --muted: #c3ccda;
@@ -2507,7 +2509,7 @@ input[type="range"] {
     --surface-raised: #0f141d;
   }
 
-  :root:root[data-theme="light"] {
+  :root:root:root[data-theme="light"] {
     --border: rgba(20, 32, 48, 0.42);
     --border-strong: rgba(12, 21, 33, 0.7);
     --muted: #2b3648;
@@ -4151,6 +4153,19 @@ input[type="range"] {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-raised);
+}
+
+/* Used inside a watch place and once on its own, for home. On its own it
+   needs the label above the field the way the other settings rows do. */
+.watch-place__name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.watch-place__name > span {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .watch-place__name input {
