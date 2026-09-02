@@ -231,6 +231,28 @@ export async function fetchGate(
   });
 }
 
+/**
+ * The recent volume times a site has published, oldest first.
+ *
+ * The times rather than the keys: the archive sweep is asked for by moment,
+ * and a moment is what the legend says. Milliseconds, because everything on
+ * the timeline is.
+ */
+export async function recentVolumeTimes(
+  station: string,
+  count: number,
+): Promise<number[]> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const said = await invoke<string[]>("level2_recent_times", {
+    station,
+    count,
+  });
+  return said
+    .map((at) => Date.parse(at))
+    .filter((at) => Number.isFinite(at))
+    .sort((left, right) => left - right);
+}
+
 export async function fetchArchiveSweep(
   station: string,
   at: string,

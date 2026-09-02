@@ -344,6 +344,14 @@ export default function App() {
     zoom: settings.camera.zoom,
     pageVisible,
     paletteGeneration,
+    // The moment the scrubber is on. A site's volumes are five minutes apart
+    // and the timeline runs on the mosaic's two-minute steps, so this is what
+    // says which of the site's volumes the step on screen belongs to: one
+    // scrubber, and the site picture follows it rather than a second one
+    // beside it. The newest step is still the live path, untouched.
+    showingTime: timeline.frames[timeline.frameIndex]?.time
+      ? timeline.frames[timeline.frameIndex].time * 1000
+      : null,
   });
 
   // Only that a warning was announced. Whether to fly to it, and where to,

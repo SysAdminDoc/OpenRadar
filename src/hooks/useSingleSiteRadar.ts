@@ -8,6 +8,7 @@ import {
   LIVE_REFRESH_MS,
   nearestSite,
   pickArchiveFile,
+  recentVolumeTimes,
   SWEEP_REFRESH_MS,
   sweepErrorText,
   type SweepImage,
@@ -17,6 +18,12 @@ import type { GeoPoint } from "../lib/geo";
 import { highContrastRequested, reducedMotionRequested } from "./useClock";
 import { log } from "../lib/log";
 import { isTdwrStation, supportedProduct } from "../lib/radarKinds";
+import {
+  DEFAULT_LOOP_VOLUMES,
+  loopKey,
+  trimHeld,
+  volumeForTime,
+} from "../lib/siteLoop";
 import {
   dataExportAvailable,
   exportSweepData,
@@ -93,6 +100,9 @@ function answersTheRequest(
   );
 }
 
+/** One shared empty list, so a site with no loop is a stable identity. */
+const EMPTY_TIMES: number[] = [];
+
 export function useSingleSiteRadar(options: {
   ready: boolean;
   radar: RadarSettings;
@@ -101,9 +111,30 @@ export function useSingleSiteRadar(options: {
   pageVisible: boolean;
   /** Bumped when a colour table is loaded, so the sweep is drawn again. */
   paletteGeneration: number;
+  /**
+   * The moment the timeline is showing, in milliseconds, or null while it has
+   * nothing to show.
+   *
+   * A site's own volumes are five minutes apart and the timeline runs on the
+   * mosaic's two-minute steps, so this is what says which volume belongs to
+   * the step on screen. Scrubbing back draws the volume that was true then
+   * rather than the newest one; the newest step keeps the live path exactly
+   * as it was.
+   *
+   * Optional, and null means no loop: a caller with no timeline of its own
+   * gets exactly the behaviour it had before the loop existed.
+   */
+  showingTime?: number | null;
 }): SingleSiteState {
-  const { ready, radar, center, zoom, pageVisible, paletteGeneration } =
-    options;
+  const {
+    ready,
+    radar,
+    center,
+    zoom,
+    pageVisible,
+    paletteGeneration,
+    showingTime = null,
+  } = options;
   // The site, and the coarse position it was resolved for. A site found for
   // somewhere else is not an answer to where the map is now, which is what
   // kept KDMX on screen over Bermuda.
@@ -112,6 +143,19 @@ export function useSingleSiteRadar(options: {
   );
   const [sweep, setSweep] = useState<SweepImage | null>(null);
   const [loading, setLoading] = useState(false);
+  // The site's recent volume times, oldest first, and the pictures already
+  // decoded for them. Held rather than refetched, because scrubbing back and
+  // forth over the same stretch of a storm is what a loop is for.
+  //
+  // The site they were listed for travels with them, the same way the
+  // resolved site above carries the position it was resolved for: a list of
+  // KDMX's volumes is not an answer about KTLX, and clearing it from inside
+  // an effect would be a state write on every render that changed the site.
+  const [listed, setListed] = useState<{ site: string; times: number[] }>({
+    site: "",
+    times: [],
+  });
+  const heldRef = useRef<Map<string, SweepImage>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [historicalSource, setHistoricalSource] =
     useState<HistoricalSource | null>(null);
@@ -147,6 +191,21 @@ export function useSingleSiteRadar(options: {
   // until somebody asks otherwise.
   const threshold = radar.thresholds[product] ?? null;
 
+  const volumeTimes =
+    station && listed.site === station ? listed.times : EMPTY_TIMES;
+
+  // The volume the step on screen belongs to, and whether the reader has
+  // scrubbed off the newest one. Everything about the live picture, including
+  // the volume in progress and its persistence, belongs to the newest step
+  // and is left exactly as it was.
+  const newestVolume = volumeTimes.at(-1) ?? null;
+  const shownVolume =
+    showingTime === null ? null : volumeForTime(volumeTimes, showingTime);
+  const scrubbedBack =
+    shownVolume !== null &&
+    newestVolume !== null &&
+    shownVolume !== newestVolume;
+
   useEffect(() => {
     if (!wanted || radar.station) return;
     let open = true;
@@ -171,6 +230,39 @@ export function useSingleSiteRadar(options: {
       open = false;
     };
   }, [near, radar.station, wanted]);
+
+  // The times themselves, asked for once per site and refreshed on the same
+  // cadence a finished volume lands on. A terminal radar has no archive to
+  // list, and neither has a historical view, which is its own moment.
+  useEffect(() => {
+    // A terminal radar publishes no Level II archive, so it has no loop to
+    // list; its picture is unaffected.
+    if (!wanted || !station || isTdwrStation(station)) return;
+    let open = true;
+    const site = station;
+    const ask = () => {
+      void recentVolumeTimes(site, DEFAULT_LOOP_VOLUMES)
+        .then((found) => {
+          if (open) setListed({ site, times: found });
+        })
+        .catch(() => {
+          // A site with no listing is a site with no loop, and the live
+          // picture is unaffected: this is the only thing that reads it.
+          if (open) setListed({ site, times: [] });
+        });
+    };
+    ask();
+    if (!pageVisible) {
+      return () => {
+        open = false;
+      };
+    }
+    const timer = window.setInterval(ask, SWEEP_REFRESH_MS);
+    return () => {
+      open = false;
+      window.clearInterval(timer);
+    };
+  }, [pageVisible, station, wanted]);
 
   // A reply that arrives after the view has moved on must not be drawn.
   const requestRef = useRef(0);
@@ -378,7 +470,10 @@ export function useSingleSiteRadar(options: {
   ]);
 
   useEffect(() => {
-    if (!wanted || !station) return;
+    // Not while the reader is looking at an older volume: this effect draws
+    // what the radar is doing now, on a timer, and it would overwrite the
+    // frame under the scrubber a few seconds after they moved it.
+    if (!wanted || !station || scrubbedBack) return;
     let open = true;
 
     const refresh = async () => {
@@ -455,6 +550,80 @@ export function useSingleSiteRadar(options: {
     threshold,
     radar.tilt,
     station,
+    wanted,
+    scrubbedBack,
+  ]);
+
+  // The volume under the scrubber, decoded once and kept.
+  useEffect(() => {
+    if (!wanted || !station || !scrubbedBack || shownVolume === null) return;
+    let open = true;
+    const motion: [number, number] | null =
+      motionSpeed !== null && motionFrom !== null
+        ? [motionSpeed, motionFrom]
+        : null;
+    const contrast = highContrastRequested();
+    const key = loopKey({
+      station,
+      at: shownVolume,
+      product,
+      tilt: radar.tilt,
+      dealias: radar.dealias,
+      motion,
+      threshold,
+      palette: paletteGeneration,
+      highContrast: contrast,
+    });
+
+    const already = heldRef.current.get(key);
+    if (already) {
+      setSweep(already);
+      setError(null);
+      return;
+    }
+
+    const request = ++requestRef.current;
+    setLoading(true);
+    void fetchArchiveSweep(
+      station,
+      new Date(shownVolume).toISOString(),
+      product,
+      radar.tilt,
+      radar.dealias,
+      motion,
+      threshold,
+      contrast,
+    )
+      .then((next) => {
+        if (!open || request !== requestRef.current) return;
+        heldRef.current.set(key, next);
+        heldRef.current = trimHeld(heldRef.current, DEFAULT_LOOP_VOLUMES * 2);
+        setSweep(next);
+        setError(null);
+      })
+      .catch((failure: unknown) => {
+        if (!open || request !== requestRef.current) return;
+        const message = sweepErrorText(failure);
+        log.warn("radar", `${station} loop: ${message}`);
+        setError(message);
+      })
+      .finally(() => {
+        if (open && request === requestRef.current) setLoading(false);
+      });
+    return () => {
+      open = false;
+    };
+  }, [
+    motionFrom,
+    motionSpeed,
+    paletteGeneration,
+    product,
+    radar.dealias,
+    radar.tilt,
+    scrubbedBack,
+    shownVolume,
+    station,
+    threshold,
     wanted,
   ]);
 
