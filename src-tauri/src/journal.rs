@@ -136,13 +136,13 @@ pub fn init(dir: &Path) {
         log::warn!("OpenRadar has nowhere to keep its journal: {error}");
         return;
     }
-    *state().lock().expect("journal state") = Some(State { path });
+    *state().lock().unwrap_or_else(|held| held.into_inner()) = Some(State { path });
 }
 
 fn path() -> Option<PathBuf> {
     state()
         .lock()
-        .expect("journal state")
+        .unwrap_or_else(|held| held.into_inner())
         .as_ref()
         .map(|held| held.path.clone())
 }
@@ -667,6 +667,58 @@ pub fn journal_path() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// No lock in what ships turns a poisoned mutex into a panic.
+    ///
+    /// Every other lock in this crate takes `unwrap_or_else(|held|
+    /// held.into_inner())`, because a poisoned mutex means some other thread
+    /// panicked while holding it, and the data behind these locks is a path
+    /// or an index that is still perfectly readable. `path()` here is reached
+    /// from all nine journal commands, so an `expect` there turned one
+    /// unrelated panic into every one of them failing for the rest of the
+    /// session.
+    ///
+    /// Test code is deliberately not covered: a poisoned lock in a test is
+    /// something the test should fail loudly on, which is what `expect` does.
+    #[test]
+    fn nothing_that_ships_panics_on_a_poisoned_lock() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut offenders = Vec::new();
+        for entry in std::fs::read_dir(&dir).expect("the source directory") {
+            let path = entry.expect("an entry").path();
+            if path.extension().and_then(|one| one.to_str()) != Some("rs") {
+                continue;
+            }
+            let source = std::fs::read_to_string(&path).expect("a source file");
+            // Everything before the test module is what ships.
+            let ships = match source.find("#[cfg(test)]\nmod tests {") {
+                Some(at) => &source[..at],
+                None => &source[..],
+            };
+            for (number, line) in ships.lines().enumerate() {
+                if line.contains("lock().expect") || line.contains(".expect(\"the index\")") {
+                    offenders.push(format!(
+                        "{}:{}",
+                        path.file_name().unwrap().to_string_lossy(),
+                        number + 1
+                    ));
+                }
+            }
+            // The multi-line spelling of the same thing.
+            if ships.contains(".lock()\n") {
+                for window in ships.split(".lock()") {
+                    let head: String = window.chars().take(40).collect();
+                    if head.trim_start().starts_with(".expect(") {
+                        offenders.push(format!(
+                            "{}: a multi-line lock().expect",
+                            path.file_name().unwrap().to_string_lossy()
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(offenders.is_empty(), "{offenders:?}");
+    }
     use std::sync::MutexGuard;
 
     /// One test at a time: the journal is one file behind a global.

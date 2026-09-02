@@ -239,3 +239,36 @@ describe("workspace backups", () => {
     expect(back.settings.watch.name).toHaveLength(60);
   });
 });
+
+describe("what a backup does not carry", () => {
+  it("leaves the chosen sound's path on the machine that chose it", () => {
+    // A backup is a file somebody hands to somebody else, and the path is an
+    // absolute one: C:\Users\<their name>\..., which says who they are and
+    // how their disk is laid out. It is useless at the other end anyway,
+    // because the file it names is not there.
+    const backup = createWorkspaceBackup(
+      {
+        ...DEFAULT_SETTINGS,
+        alertSoundPath: "C:/Users/somebody/Music/tornado.wav",
+      },
+      [],
+    );
+    expect(backup.settings.alertSoundPath).toBeNull();
+    expect(JSON.stringify(backup)).not.toContain("somebody");
+  });
+
+  it("ignores one that arrives in a backup anyway", () => {
+    // Written by an older build, or edited by hand. Either way it points at
+    // a path on a disk that is not this one.
+    const restored = restoreWorkspace({
+      type: "OpenRadarWorkspace",
+      backupVersion: 2,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        alertSoundPath: "C:/Users/somebody/Music/tornado.wav",
+      },
+      overlayFiles: [],
+    });
+    expect(restored.settings.alertSoundPath).toBeNull();
+  });
+});

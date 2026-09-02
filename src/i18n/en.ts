@@ -367,7 +367,7 @@ export const en = {
   "route.routerRefused": "The road router answered {status}.",
   "route.straightOffer": "Use a straight line instead",
   "route.straightNote":
-    "No road shape: this is the straight line between the two places, and the times along it assume a steady 55 mph. The weather is real.",
+    "No road shape: this is the straight line between the two places, and the times along it assume a steady {speed}. The weather is real.",
   "route.summary": "{from} to {to} · {miles} {unit} · {minutes} min",
   "route.miles": "{value} {unit}",
   "route.noValue": "—",

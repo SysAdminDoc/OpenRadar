@@ -143,7 +143,7 @@ pub fn init(base: &Path) {
         }
     }
 
-    let mut guard = state().lock().expect("the cache index is not poisoned");
+    let mut guard = state().lock().unwrap_or_else(|held| held.into_inner());
     *guard = Some(State { root, held });
     drop(guard);
     evict();

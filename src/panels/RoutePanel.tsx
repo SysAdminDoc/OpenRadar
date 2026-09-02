@@ -2,6 +2,7 @@ import { LoaderCircle, Route, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import {
+  ESTIMATED_MPH,
   fetchRoute,
   fetchRouteForecast,
   straightRoute,
@@ -15,7 +16,12 @@ import {
   type PlaceResult,
 } from "../lib/weather";
 import { translate, useT } from "../i18n";
-import { distanceUnit, distanceValue, formatClock } from "../lib/units";
+import {
+  distanceUnit,
+  distanceValue,
+  formatClock,
+  formatSpeedFromMph,
+} from "../lib/units";
 
 interface RoutePanelProps {
   onRoute: (route: Record<string, unknown> | null) => void;
@@ -202,7 +208,11 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       ) : null}
 
       {estimated ? (
-        <p className="source-note">{t("route.straightNote")}</p>
+        <p className="source-note">
+          {t("route.straightNote", {
+            speed: formatSpeedFromMph(ESTIMATED_MPH),
+          })}
+        </p>
       ) : null}
 
       {summary ? <p className="source-note">{summary}</p> : null}

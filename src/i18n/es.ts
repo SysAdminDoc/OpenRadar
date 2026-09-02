@@ -379,7 +379,7 @@ export const es: Catalogue = {
   "route.routerRefused": "El servicio de rutas respondió {status}.",
   "route.straightOffer": "Usar una línea recta",
   "route.straightNote":
-    "Sin trazado por carretera: esta es la línea recta entre los dos lugares, y las horas suponen una marcha constante de 55 mph. El tiempo sí es real.",
+    "Sin trazado por carretera: esta es la línea recta entre los dos lugares, y las horas suponen una marcha constante de {speed}. El tiempo sí es real.",
   "route.summary": "De {from} a {to} · {miles} {unit} · {minutes} min",
   "route.miles": "{value} {unit}",
   "route.noValue": "—",

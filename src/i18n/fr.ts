@@ -384,7 +384,7 @@ export const fr: Catalogue = {
   "route.routerRefused": "Le calculateur d'itinéraire a répondu {status}.",
   "route.straightOffer": "Utiliser plutôt une ligne droite",
   "route.straightNote":
-    "Sans tracé routier : voici la ligne droite entre les deux endroits, et les heures le long de celle-ci supposent une vitesse constante de 55 mi/h. La météo, elle, est réelle.",
+    "Sans tracé routier : voici la ligne droite entre les deux endroits, et les heures le long de celle-ci supposent une vitesse constante de {speed}. La météo, elle, est réelle.",
   "route.summary": "{from} à {to} · {miles} {unit} · {minutes} min",
   "route.miles": "{value} {unit}",
   "route.noValue": "—",

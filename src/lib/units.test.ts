@@ -6,6 +6,7 @@ import { ensureLanguage, setLanguage } from "../i18n";
 import {
   distanceSlider,
   formatAge,
+  formatSpeedFromMph,
   distanceUnit,
   milesFromDistance,
   distanceValue,
@@ -313,5 +314,19 @@ describe("how old something is", () => {
     expect(formatAge(30)).toBe("30 min");
     expect(formatAge(4908)).toBe("3 jours");
     setLanguage("en");
+  });
+});
+
+describe("a speed the app assumed rather than measured", () => {
+  it("is said in the units the reader asked for", () => {
+    // Every other distance and speed follows the units setting. This one was
+    // written into the sentence, in English and in Spanish, so a reader on
+    // metric was told a speed in a unit they had not chosen, and the French
+    // translator had to spell it a third way.
+    setUnits("imperial");
+    expect(formatSpeedFromMph(55)).toBe("55 mph");
+    setUnits("metric");
+    expect(formatSpeedFromMph(55)).toBe("89 km/h");
+    setUnits("imperial");
   });
 });
