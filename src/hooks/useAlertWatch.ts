@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../lib/log";
 import { alertsOfKind, alertsOverlay } from "../lib/overlays/alerts";
 import type { AlertType } from "../lib/alertTypes";
@@ -18,6 +18,9 @@ import { playAlertTone } from "../lib/sound";
 
 /** Often enough to matter for a warning, rarely enough to be a good citizen. */
 const POLL_MS = 45_000;
+
+/** Nothing announced, for asking what stands rather than what is new. */
+const EMPTY = new Map<string, ReadonlyMap<string, number>>();
 
 /**
  * What a place is, for the purpose of forgetting what it has been told.
@@ -59,6 +62,17 @@ async function announceOnDesktop(
  */
 export interface AlertWatchState {
   /**
+   * True while a warning the reader asked to hear about stands over a place
+   * they watch.
+   *
+   * Read off the same poll the announcements come from rather than a second
+   * request: the alerts are already in hand, and the only new thing is asking
+   * what is in force rather than what is new. It is what the workspace uses
+   * to stand its decorative parts down: a map with a warning on it is a
+   * serious instrument and nothing arrives on it uninvited.
+   */
+  alertActive: boolean;
+  /**
    * Raises one harmless alert through the real delivery path.
    *
    * A notification nobody has ever seen work is a notification nobody trusts,
@@ -88,6 +102,7 @@ export function useAlertWatch(
 ): AlertWatchState {
   // What has been announced, and how bad it was when it was: an upgrade is
   // worth saying again, a downgrade is not.
+  const [alertActive, setAlertActive] = useState(false);
   const fallbackRef = useRef(onFallback);
   useEffect(() => {
     fallbackRef.current = onFallback;
@@ -165,8 +180,14 @@ export function useAlertWatch(
         if (!bounds) return;
         const alerts = await alertsOverlay.fetchData(bounds, controller.signal);
         if (!mounted) return;
+        const wanted = alertsOfKind(alerts, kindsRef.current);
+        // What stands, not what is new: the same predicate with nothing yet
+        // announced. This is one pass over a list already in memory.
+        setAlertActive(
+          alertsToAnnounceAcross(wanted, live, EMPTY, Date.now()).length > 0,
+        );
         const found = alertsToAnnounceAcross(
-          alertsOfKind(alerts, kindsRef.current),
+          wanted,
           live,
           announced,
           Date.now(),
@@ -299,5 +320,5 @@ export function useAlertWatch(
     return delivered;
   }, []);
 
-  return { sendTest };
+  return { sendTest, alertActive };
 }

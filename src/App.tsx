@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
+import { useAppearance } from "./hooks/useAppearance";
 import type { MapViewportHandle } from "./components/MapViewport";
 import { CaptureBar } from "./components/CaptureBar";
 import { WorkspaceChrome } from "./components/WorkspaceChrome";
@@ -109,7 +110,7 @@ import {
   mergedOverlayShapes,
   type WorkspaceOverlayFile,
 } from "./lib/workspaceOverlays";
-import { formatNumber, translate, useT } from "./i18n";
+import { formatNumber, translate, useT, type StringKey } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 import {
@@ -279,6 +280,45 @@ export default function App() {
     replaying: replay !== null || singleSite.historical,
     onAnnounced: rememberFollow,
   });
+
+  // What the window looks like: the built-in look, a theme the reader
+  // loaded, and the season, in that order of who asked for what. A warning in
+  // force at a watched place stands the seasonal pack down for as long as it
+  // stands.
+  const appearance = useAppearance(settings, clock, overlays.alertActive);
+
+  // One line, once a year, the first time a pack is on screen. It carries the
+  // way to send that occasion away until next year; the switch that ends them
+  // for good is in Settings, because a toast is not where somebody makes a
+  // decision they will not revisit.
+  useEffect(() => {
+    const { occasion, year, showing } = appearance;
+    if (!showing || !occasion) return;
+    const current = settingsRef.current;
+    if (current.occasions.seen[occasion] === year) return;
+    applySettings({
+      ...current,
+      occasions: {
+        ...current.occasions,
+        seen: { ...current.occasions.seen, [occasion]: year },
+      },
+    });
+    pushToast({
+      title: translate(`occasion.${occasion}` as StringKey),
+      detail: translate("occasion.notice"),
+      actionLabel: translate("occasion.notThisYear"),
+      onAction: () => {
+        const now = settingsRef.current;
+        applySettings({
+          ...now,
+          occasions: {
+            ...now.occasions,
+            declined: { ...now.occasions.declined, [occasion]: year },
+          },
+        });
+      },
+    });
+  }, [appearance, applySettings, pushToast, settingsRef]);
 
   // Take the map to a warning as it arrives, when the reader asked for that.
   //

@@ -909,6 +909,16 @@ export const en = {
   "settings.dark": "Dark",
   "settings.light": "Light",
   "settings.accent": "Accent colour",
+  "occasion.spring": "Spring",
+  "occasion.summer": "Summer",
+  "occasion.autumn": "Autumn",
+  "occasion.midwinter": "Midwinter",
+  "occasion.notice":
+    "The workspace is wearing the season. Nothing on the map has changed.",
+  "occasion.notThisYear": "Not this year",
+  "settings.occasions": "Seasonal look",
+  "settings.occasionsDetail":
+    "A change of accent for a few weeks of the year. It never reaches the map, and it stands down while a warning is in force where you watch",
   "settings.accentDetail":
     "The colour on headings, switches and the focus ring. It never reaches a radar scale, a warning outline or a storm track.",
   "settings.themeInForce": "{name} is in force over the built-in look.",

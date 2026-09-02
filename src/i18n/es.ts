@@ -921,6 +921,16 @@ export const es: Catalogue = {
   "settings.dark": "Oscuro",
   "settings.light": "Claro",
   "settings.accent": "Color de acento",
+  "occasion.spring": "Primavera",
+  "occasion.summer": "Verano",
+  "occasion.autumn": "Otoño",
+  "occasion.midwinter": "Pleno invierno",
+  "occasion.notice":
+    "El espacio de trabajo lleva la estación. Nada del mapa ha cambiado.",
+  "occasion.notThisYear": "Este año no",
+  "settings.occasions": "Aspecto de temporada",
+  "settings.occasionsDetail":
+    "Un cambio de acento durante unas semanas al año. Nunca llega al mapa, y se retira mientras hay un aviso en vigor donde vigilas",
   "settings.accentDetail":
     "El color de los títulos, los interruptores y el anillo de foco. Nunca llega a una escala del radar, al contorno de un aviso ni a la traza de una tormenta.",
   "settings.themeInForce": "{name} está en vigor sobre el aspecto integrado.",

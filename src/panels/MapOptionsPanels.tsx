@@ -928,6 +928,17 @@ export function SettingsPanel({
             }
           />
         </label>
+        <ToggleSetting
+          label={t("settings.occasions")}
+          detail={t("settings.occasionsDetail")}
+          checked={settings.occasions.enabled}
+          onChange={(enabled) =>
+            onSettings({
+              ...settings,
+              occasions: { ...settings.occasions, enabled },
+            })
+          }
+        />
         {settings.workspaceTheme ? (
           <>
             <p className="source-note">

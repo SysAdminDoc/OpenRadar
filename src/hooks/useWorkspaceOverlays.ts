@@ -18,6 +18,8 @@ export interface WorkspaceOverlays {
   data: Partial<Record<OverlayId, OverlayData | null>>;
   /** Raises one harmless alert, so the reader can see the path works. */
   sendWatchTest: () => Promise<boolean>;
+  /** True while a warning stands over a place the reader watches. */
+  alertActive: boolean;
   /**
    * The last alert the watch announced, as one sentence for a live region,
    * with a count so that two identical sentences are still two announcements.
@@ -192,5 +194,11 @@ export function useWorkspaceOverlays(options: {
     [shown, states],
   );
 
-  return { states: states_, data, sendWatchTest: watch.sendTest, announcement };
+  return {
+    states: states_,
+    data,
+    sendWatchTest: watch.sendTest,
+    alertActive: watch.alertActive,
+    announcement,
+  };
 }
