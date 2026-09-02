@@ -2737,12 +2737,26 @@ input[type="range"] {
 :root:root[data-calm] {
   --accent: #7f9bb8;
   --accent-strong: #6f8aa6;
+  --accent-soft: rgba(127, 155, 184, 0.16);
 }
 
-[data-calm] .alert-tag,
-[data-calm] .alert-severity {
-  /* Still there and still readable, with the app's own emphasis taken off:
-     these are badges this app draws around the office's words. */
+/* The light look needs its own muted accent, not the dark one.
+ *
+ * The accent is text on white here, and #7f9bb8 on white is 2.9:1, which
+ * fails AA and would have shipped: this selector is more specific than the
+ * light palette, so it took the dark theme's colour into a light workspace
+ * and quietly broke the contrast in a mode meant to be kinder. */
+:root:root:root[data-theme="light"][data-calm] {
+  --accent: #4a6881;
+  --accent-strong: #3c5871;
+  --accent-soft: rgba(74, 104, 129, 0.14);
+}
+
+[data-calm] .alert-tag {
+  /* A badge this app draws around the office's words, with its own emphasis
+     taken off. The severity word beside it is deliberately not in here: it
+     is the office's own reading of how bad this is, and turning that down is
+     downgrading a warning, which is the one thing this mode may never do. */
   font-weight: 400;
   opacity: 0.85;
 }
@@ -2757,11 +2771,19 @@ input[type="range"] {
 [data-calm] *,
 [data-calm] *::before,
 [data-calm] *::after {
-  /* No pulsing, anywhere. This is the same thing `prefers-reduced-motion`
-     does, asked for by a reader rather than by their system, and it removes
-     the motion rather than the feature. */
-  animation: none !important;
-  transition-duration: 0.001ms !important;
+  /* No pulsing, anywhere: the same thing the reduced-motion block below does,
+     asked for by a reader rather than by their system.
+
+     Written the same way it is written there, and that matters. `animation:
+     none` never runs the animation at all, so anything with a `forwards` fill
+     never reaches its end state: the first-run reveal is a full-screen
+     overlay that fades out, and switched off rather than run instantly it
+     simply sat there. Running it in a hundredth of a millisecond lands on the
+     end state, which is what removing the motion and keeping the feature
+     actually means. */
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 @media (prefers-contrast: more) {

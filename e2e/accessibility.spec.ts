@@ -65,15 +65,46 @@ test("the workspace has no serious accessibility violations in the light theme",
   expect(describeViolations(violations)).toBe("");
 });
 
-test("stays clean in the calmer presentation", async ({ page }) => {
-  // A mode meant to be kinder must not be harder to read. It turns the
-  // accent down, and a muted accent is exactly where contrast goes wrong.
+/** Switches the calmer presentation on and closes the panel again. */
+async function goCalm(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("checkbox", { name: /A calmer way to read it/ }).check();
   await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
   await page.getByRole("button", { name: "Close Settings" }).click();
-  const violations = await scan(page);
-  expect(describeViolations(violations)).toBe("");
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+}
+
+test("stays clean in the calmer presentation", async ({ page }) => {
+  // A mode meant to be kinder must not be harder to read. It turns the
+  // accent down, and a muted accent is exactly where contrast goes wrong.
+  await goCalm(page);
+  expect(describeViolations(await scan(page))).toBe("");
+});
+
+test("stays clean in the calmer presentation in the light theme", async ({
+  page,
+}) => {
+  // The one that actually broke. The calm accent is a selector more specific
+  // than the light palette, so a dark-theme muted blue took over as text on
+  // white at 2.9:1, in a mode whose whole purpose is being easier to be with.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("checkbox", { name: /A calmer way to read it/ }).check();
+  await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(describeViolations(await scan(page))).toBe("");
+});
+
+test("keeps every panel clean in the calmer presentation", async ({ page }) => {
+  await goCalm(page);
+  for (const name of ["Layers", "Alerts", "Export", "Forecast"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(describeViolations(await scan(page)), name).toBe("");
+    await page.getByRole("button", { name: `Close ${name}` }).click();
+  }
 });
 
 test("every panel the command bar opens is clean too", async ({ page }) => {

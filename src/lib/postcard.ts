@@ -45,6 +45,9 @@ export const MAX_CAPTION = 140;
 
 const MARGIN = 48;
 
+/** The least picture worth calling a picture of the map. */
+const MIN_PICTURE = 120;
+
 function wrapped(
   context: CanvasRenderingContext2D,
   text: string,
@@ -103,6 +106,11 @@ export async function drawPostcard(options: {
 
   context.fillStyle = "#090b10";
   context.fillRect(0, 0, width, height);
+  // Set once, before anything is measured or drawn. Setting it inside the
+  // caption's own branch meant a card with no caption drew every fact line
+  // and the whole footer on the alphabetic baseline instead, about fourteen
+  // pixels higher than the arithmetic below expects.
+  context.textBaseline = "top";
 
   // Measured first, so the picture is given what is left rather than the
   // words being given what the picture did not want. A caption cannot
@@ -121,12 +129,13 @@ export async function drawPostcard(options: {
   context.font = "18px 'Segoe UI', system-ui, sans-serif";
   const factLines = facts.flatMap((line) => wrapped(context, line, inner));
 
-  const words = written.length * 40 + factLines.length * 26;
+  // The words, and the gap between them and the credits. The gap is not
+  // conditional: without a caption it used to be nothing at all, and the two
+  // blocks touched.
+  const words = written.length * 40 + factLines.length * 26 + 20;
   const pictureTop = MARGIN;
-  const pictureHeight = Math.max(
-    120,
-    height - footer - words - MARGIN * 2 - (written.length ? 20 : 0),
-  );
+  const wanted = height - footer - words - MARGIN * 2;
+  const pictureHeight = Math.max(MIN_PICTURE, wanted);
 
   // The map, cropped to the space rather than squashed into it: a stretched
   // radar picture is a picture of different weather.
@@ -148,12 +157,15 @@ export async function drawPostcard(options: {
     pictureHeight,
   );
 
+  // Where the footer starts, worked out once. Nothing above may cross it.
+  const footerTop = height - MARGIN - (credits.length + disclaimer.length) * 22;
+
   let y = pictureTop + pictureHeight + 24;
   if (written.length) {
     context.font = "600 30px 'Segoe UI', system-ui, sans-serif";
     context.fillStyle = "#e7edf7";
-    context.textBaseline = "top";
     for (const line of written) {
+      if (y + 40 > footerTop) break;
       context.fillText(line, MARGIN, y, inner);
       y += 40;
     }
@@ -163,6 +175,9 @@ export async function drawPostcard(options: {
   context.font = "18px 'Segoe UI', system-ui, sans-serif";
   context.fillStyle = "#c8d3e4";
   for (const line of factLines) {
+    // The caption cannot displace the credits, and neither can the facts.
+    // Whatever will not fit is dropped here rather than drawn over them.
+    if (y + 26 > footerTop) break;
     context.fillText(line, MARGIN, y, inner);
     y += 26;
   }
@@ -170,7 +185,7 @@ export async function drawPostcard(options: {
   // The footer, at the bottom, whatever happened above it.
   context.font = "16px 'Segoe UI', system-ui, sans-serif";
   context.fillStyle = "#8b97ab";
-  let bottom = height - MARGIN - (credits.length + disclaimer.length) * 22;
+  let bottom = footerTop;
   for (const line of [...credits, ...disclaimer]) {
     context.fillText(line, MARGIN, bottom, inner);
     bottom += 22;

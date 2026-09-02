@@ -51,9 +51,13 @@ const BUDGETS = [
   {
     name: "panels",
     match: /^PanelSurfaces-.*\.js$/,
-    // Every panel the command bar opens, fetched on the first one opened.
-    raw: 140,
-    gzip: 40,
+    // Every panel the command bar opens except the three in Settings' own
+    // module, fetched on the first one opened. Reclaimed after that split
+    // rather than left at the old number: a budget with fifty kilobytes of
+    // room in it is not a budget, and the point of moving the weight out was
+    // to keep it out.
+    raw: 105,
+    gzip: 29,
     // Which is to say: not before the map is interactive. It is behind a
     // `lazy` and a `Suspense` in App.tsx and nothing on the way to a first
     // frame touches it, so counting it in the first load was measuring
@@ -68,8 +72,8 @@ const BUDGETS = [
     // the watch, the themes, the record with its figures, the year card, the
     // sounds, the curiosities and the incident packs are all in here, and a
     // reader opening Alerts was fetching every one of them.
-    raw: 70,
-    gzip: 18,
+    raw: 62,
+    gzip: 15,
     firstLoad: false,
   },
   {

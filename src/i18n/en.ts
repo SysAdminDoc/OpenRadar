@@ -127,14 +127,17 @@ export const en = {
     "Unchecking one takes it off the map and out of this list",
   "alerts.volume": "How loud",
   "alerts.volumeValue": "{percent}%",
-  "alerts.previewNote": "Hear each of them before a warning does it for you.",
+  "alerts.previewNote":
+    "Hear what a warning will actually do before it does it. With a sound of your own chosen below, all four play that.",
   "alerts.soundFile": "Use a sound of your own",
   "alerts.soundFileDetail":
-    "Kept by where it is rather than copied, so a workspace backup does not swallow it. Under 2 MB, and one of wav, mp3, ogg, flac or m4a.",
+    "Kept by where it is rather than copied, so a workspace backup does not swallow it. Under 2 MB, one of wav, mp3, ogg, flac or m4a, and cut off after six seconds. It replaces all four sounds, so severity stops being audible.",
   "alerts.soundFileChoose": "Choose a file",
   "alerts.soundFileClear": "Back to the built-in sounds",
   "alerts.soundFileFailed": "That sound could not be used",
   "alerts.soundFile.name": "It has to be a wav, mp3, ogg, flac or m4a file.",
+  "alerts.soundFile.noAudio":
+    "This machine has no audio, so nothing can be played on it. The notification still arrives.",
   "alerts.soundFile.size": "It is larger than 2 MB.",
   "alerts.soundFile.decode":
     "It could not be read as audio. It may have moved, or it may not be a sound file.",
@@ -1412,7 +1415,17 @@ export const en = {
   "calm.advice.fire":
     "Be ready to leave. Keep your keys, your phone and your medicines together.",
   "calm.advice.general":
-    "Read what the office says and follow what your local officials tell you.",
+    "Read what the office says in the warning itself and follow what your local officials tell you.",
+  "calm.advice.tsunami":
+    "Get to high ground or as far inland as you can, on foot if the roads are busy. Do not go down and do not wait to see the water.",
+  "calm.advice.evacuate":
+    "Leave now, by the route your local officials have given. Take your keys, your phone and your medicines.",
+  "calm.advice.shelterInPlace":
+    "Go inside, close the windows and doors, and turn off anything drawing air in from outside. Stay there until you are told it is over.",
+  "calm.advice.civil":
+    "Follow exactly what your local officials are telling you to do, and do it now.",
+  "calm.advice.surf":
+    "Stay out of the water and off the rocks and jetties. Waves like this pull people in from dry ground.",
   "calm.what": "What to do",
   "postcard.notOfficial":
     "Made with OpenRadar. Not an official product, and not a source of warnings: the office that issues them is.",

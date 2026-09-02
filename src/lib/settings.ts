@@ -413,6 +413,15 @@ export interface AppSettings {
    * stop leaving open.
    */
   ambientIdleMinutes: number;
+  /**
+   * What the speculative layers were before the calmer presentation put them
+   * away, so turning it off gives them back.
+   *
+   * Empty when the mode is off. A mode that borrows a reader's settings has
+   * to return them: leaving one switched off for ever is the mode changing
+   * something it was only supposed to quieten.
+   */
+  calmBorrowed: Partial<Record<string, boolean>>;
   alertVolume: number;
   /**
    * A sound file of the reader's own, by path.
@@ -546,6 +555,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenReveal: false,
   calm: false,
   ambientIdleMinutes: 0,
+  calmBorrowed: {},
   alertVolume: 0.18,
   alertSoundPath: null,
   journal: true,
@@ -1490,6 +1500,17 @@ export function normalizeSettings(value: unknown): AppSettings {
         ? raw.alertSoundPath.slice(0, 1024)
         : null,
     calm: bool(raw.calm, DEFAULT_SETTINGS.calm),
+    calmBorrowed:
+      raw.calmBorrowed && typeof raw.calmBorrowed === "object"
+        ? Object.fromEntries(
+            Object.entries(raw.calmBorrowed as Record<string, unknown>)
+              .filter(
+                (entry): entry is [string, boolean] =>
+                  typeof entry[1] === "boolean",
+              )
+              .slice(0, 8),
+          )
+        : {},
     ambientIdleMinutes: [0, 5, 15, 30, 60].includes(
       Number(raw.ambientIdleMinutes),
     )

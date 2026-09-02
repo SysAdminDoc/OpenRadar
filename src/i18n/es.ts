@@ -129,15 +129,18 @@ export const es: Catalogue = {
   "alerts.kindsDetail": "Al desmarcar uno se quita del mapa y de esta lista",
   "alerts.volume": "Volumen",
   "alerts.volumeValue": "{percent}%",
-  "alerts.previewNote": "Escucha cada uno antes de que lo haga un aviso.",
+  "alerts.previewNote":
+    "Escucha lo que hará un aviso antes de que lo haga. Con un sonido propio elegido abajo, los cuatro reproducen ese.",
   "alerts.soundFile": "Usar un sonido propio",
   "alerts.soundFileDetail":
-    "Se guarda por dónde está, no copiado, así que una copia del espacio de trabajo no se lo traga. Menos de 2 MB, y en wav, mp3, ogg, flac o m4a.",
+    "Se guarda por dónde está, no copiado, así que una copia del espacio de trabajo no se lo traga. Menos de 2 MB, en wav, mp3, ogg, flac o m4a, y se corta a los seis segundos. Sustituye a los cuatro sonidos, así que la gravedad deja de oírse.",
   "alerts.soundFileChoose": "Elegir un archivo",
   "alerts.soundFileClear": "Volver a los sonidos incluidos",
   "alerts.soundFileFailed": "Ese sonido no se pudo usar",
   "alerts.soundFile.name":
     "Tiene que ser un archivo wav, mp3, ogg, flac o m4a.",
+  "alerts.soundFile.noAudio":
+    "Esta máquina no tiene audio, así que no se puede reproducir nada. La notificación sigue llegando.",
   "alerts.soundFile.size": "Pesa más de 2 MB.",
   "alerts.soundFile.decode":
     "No se pudo leer como audio. Puede que se haya movido o que no sea un archivo de sonido.",
@@ -1436,7 +1439,17 @@ export const es: Catalogue = {
   "calm.advice.fire":
     "Prepárate para salir. Ten juntas las llaves, el teléfono y las medicinas.",
   "calm.advice.general":
-    "Lee lo que dice la oficina y haz lo que te digan las autoridades locales.",
+    "Lee lo que dice la oficina en el propio aviso y haz lo que te digan las autoridades locales.",
+  "calm.advice.tsunami":
+    "Sube a un terreno alto o aléjate de la costa todo lo que puedas, a pie si las carreteras están llenas. No bajes ni esperes a ver el agua.",
+  "calm.advice.evacuate":
+    "Sal ya, por la ruta que hayan indicado las autoridades locales. Lleva las llaves, el teléfono y las medicinas.",
+  "calm.advice.shelterInPlace":
+    "Métete dentro, cierra ventanas y puertas y apaga lo que meta aire de fuera. Quédate ahí hasta que te digan que ha pasado.",
+  "calm.advice.civil":
+    "Haz exactamente lo que digan las autoridades locales, y hazlo ya.",
+  "calm.advice.surf":
+    "No te metas en el agua ni te subas a rocas o escolleras. Estas olas se llevan a la gente desde tierra seca.",
   "calm.what": "Qué hacer",
   "postcard.notOfficial":
     "Hecho con OpenRadar. No es un producto oficial ni una fuente de avisos: lo es la oficina que los emite.",

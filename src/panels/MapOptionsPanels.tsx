@@ -84,6 +84,7 @@ import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
 import { playAlertTone } from "../lib/sound";
+import { giveSpeculationBack, putSpeculationAway } from "../lib/calm";
 import { RecapSection } from "./RecapSection";
 import { CuriositySection } from "./CuriositySection";
 import {
@@ -1011,16 +1012,11 @@ export function SettingsPanel({
           detail={t("calm.settingDetail")}
           checked={settings.calm}
           onChange={(calm) =>
-            onSettings({
-              ...settings,
-              calm,
-              layers: calm
-                ? // Put away rather than deleted: a forecast probability is
-                  // the part that keeps somebody awake, and it is also the
-                  // part they may want to check. One press brings it back.
-                  { ...settings.layers, probSevere: false }
-                : settings.layers,
-            })
+            onSettings(
+              calm
+                ? putSpeculationAway(settings)
+                : giveSpeculationBack(settings),
+            )
           }
         />
         <ToggleSetting

@@ -125,6 +125,46 @@ describe("a postcard of the map", () => {
     }
   });
 
+  it("never draws a line over the credits, however many there are", async () => {
+    // The clamp that stops the picture going negative used to be the end of
+    // it: once it engaged, the fact lines — which carry the observed time —
+    // ran through the credits and off the bottom of the card, with the
+    // footer painted over them afterwards.
+    for (const size of POSTCARD_SIZES) {
+      const { drawn } = await draw({
+        size,
+        written: "Look at this ".repeat(12),
+        // Long enough that the words alone want more room than the card
+        // has, which is the case the clamp used to hand to the credits.
+        place: "the place we always called ".repeat(120),
+      });
+      const credits = drawn.filter((one) => one.font.startsWith("16px"));
+      const above = drawn.filter((one) => !one.font.startsWith("16px"));
+      const top = Math.min(...credits.map((one) => one.y));
+      for (const line of above) {
+        expect(line.y, `${size.id}: "${line.text}"`).toBeLessThan(top);
+      }
+      // And the credits are all still on the card.
+      for (const line of credits) {
+        expect(line.y + 22, size.id).toBeLessThanOrEqual(size.height);
+      }
+    }
+  });
+
+  it("leaves a gap under the words whether or not there are any", async () => {
+    // Without a caption the text block and the credits used to touch
+    // exactly, and only a second bug — a baseline set inside the caption's
+    // own branch — kept them from colliding on screen.
+    for (const size of POSTCARD_SIZES) {
+      const { drawn } = await draw({ size });
+      const credits = drawn.filter((one) => one.font.startsWith("16px"));
+      const facts = drawn.filter((one) => one.font.startsWith("18px"));
+      const top = Math.min(...credits.map((one) => one.y));
+      const lowest = Math.max(...facts.map((one) => one.y));
+      expect(top - lowest, size.id).toBeGreaterThan(20);
+    }
+  });
+
   it("says where only when the reader put it there", async () => {
     const without = await draw({ size: POSTCARD_SIZES[0] });
     expect(without.drawn.map((one) => one.text).join(" ")).not.toContain(

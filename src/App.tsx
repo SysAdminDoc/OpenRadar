@@ -359,7 +359,15 @@ export default function App() {
    * reported the same way as one that never worked.
    */
   const chooseAlertSound = useCallback(async () => {
-    if (!isDesktopRuntime()) return;
+    if (!isDesktopRuntime()) {
+      // Said rather than swallowed. A button that does nothing at all is the
+      // one thing worse than a button that fails.
+      pushToast({
+        title: translate("alerts.soundFileFailed"),
+        detail: translate("journal.desktopOnly"),
+      });
+      return;
+    }
     try {
       const { open } = await import("@tauri-apps/plugin-dialog");
       const chosen = await open({
@@ -386,14 +394,21 @@ export default function App() {
     const path = settings.alertSoundPath;
     setAlertSound(path);
     if (!path) return;
+    // Guarded, because choosing a second file while the first is still being
+    // read used to let the older answer land last: it cleared the sound that
+    // had just loaded and blamed a file the reader had already replaced.
+    let current = true;
     void loadAlertSound(path).then((answer) => {
-      if (answer.ok) return;
+      if (!current || answer.ok) return;
       setAlertSound(null);
       pushToast({
         title: translate("alerts.soundFileFailed"),
         detail: translate(`alerts.soundFile.${answer.reason}`),
       });
     });
+    return () => {
+      current = false;
+    };
   }, [settings.alertSoundPath, pushToast]);
 
   const journalFrame = useCallback(async () => {
