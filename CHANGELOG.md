@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.8.0
 
+- The page is allowed to reach two fewer places than it was. Both are fetched by the app itself and never by the page, so naming them widened what the window could do for nothing. Tiles served out of the local cache now carry two headers that stop a browser guessing at what they are.
+
 - A workspace file you hand to somebody no longer carries the path to your own alert sound, which named your user folder and was useless at the other end anyway. It stays on the machine that chose it.
 
 - The straight-line drive gives its assumed speed in your own units instead of always in miles an hour.

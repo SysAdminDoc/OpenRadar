@@ -89,6 +89,24 @@ describe("the packaged app's content security policy", () => {
     }
   });
 
+  it("lets the page reach only what the page itself fetches", () => {
+    // The other direction from the test below, and stricter. That one lets a
+    // host through if EITHER Rust or the page can reach it, so two S3 buckets
+    // that only ever get fetched natively sat in `connect-src` widening the
+    // page's allowance for nothing. What the page may reach is what the page
+    // routes through the cached scheme, plus the two it fetches directly.
+    const pageMay = new Set([...CACHED_HOSTS, ...DIRECT_HOSTS]);
+    const wildcards = ["*.rainviewer.com"];
+    const extra: string[] = [];
+    for (const token of csp["connect-src"].split(/\s+/).filter(Boolean)) {
+      if (!token.startsWith("https://")) continue;
+      const host = token.slice("https://".length);
+      if (wildcards.includes(host)) continue;
+      if (!pageMay.has(host)) extra.push(host);
+    }
+    expect(extra).toEqual([]);
+  });
+
   it("names no host the code cannot reach", () => {
     // The other direction, and the one that rots quietly: a host left in the
     // policy after the code that fetched it is gone widens the packaged app

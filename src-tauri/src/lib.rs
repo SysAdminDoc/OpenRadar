@@ -162,6 +162,15 @@ pub fn run() {
                         .header("Content-Type", served.content_type)
                         .header("Access-Control-Allow-Origin", "*")
                         .header("Cache-Control", "no-store")
+                        // The content type is whatever the upstream service
+                        // said, and this handler serves it back on an origin
+                        // the page can reach. Nothing navigates to that origin
+                        // today, so these two are insurance rather than a
+                        // hole being closed: the type is not guessed at, and
+                        // anything that did open one of these gets a document
+                        // that can do nothing at all.
+                        .header("X-Content-Type-Options", "nosniff")
+                        .header("Content-Security-Policy", "sandbox")
                         // Read by the page so it can say how old the picture
                         // is rather than passing stale tiles off as live.
                         .header("X-OpenRadar-Age", served.age.as_secs().to_string())
