@@ -1,5 +1,5 @@
 import { isDesktopRuntime } from "./settings";
-import { translate, type StringKey } from "../i18n";
+import { formatNumber, translate, type StringKey } from "../i18n";
 import { en } from "../i18n/en";
 
 /**
@@ -97,10 +97,10 @@ export function exportSize(bytes: number): string {
   if (bytes < 1024) return translate("dataExport.bytes", { count: bytes });
   if (bytes < 1024 * 1024) {
     return translate("dataExport.kilobytes", {
-      count: (bytes / 1024).toFixed(0),
+      count: formatNumber(bytes / 1024, 0),
     });
   }
   return translate("dataExport.megabytes", {
-    count: (bytes / 1_048_576).toFixed(1),
+    count: formatNumber(bytes / 1_048_576, 1),
   });
 }

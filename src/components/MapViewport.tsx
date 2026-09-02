@@ -50,7 +50,7 @@ import {
   surgeTileUrl,
   type SurgeCategory,
 } from "../lib/surge";
-import { translate, type StringKey } from "../i18n";
+import { formatNumber, translate, type StringKey } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
@@ -1623,16 +1623,16 @@ function MapViewportInner(
         onToolResult?.(() => {
           const lines = [
             translate("tool.inspectAt", {
-              lat: point.lat.toFixed(4),
-              lon: point.lon.toFixed(4),
-              zoom: zoom.toFixed(2),
+              lat: formatNumber(point.lat, 4),
+              lon: formatNumber(point.lon, 4),
+              zoom: formatNumber(zoom, 2),
             }),
           ];
           if (beam) {
             lines.push(
               translate("tool.beamHeight", {
                 height: formatHeight(beam.feet),
-                tilt: beam.tilt.toFixed(2),
+                tilt: formatNumber(beam.tilt, 2),
               }),
             );
           }

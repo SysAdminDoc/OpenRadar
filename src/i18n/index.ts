@@ -121,6 +121,43 @@ export function locale(which: LanguageId = current): string {
   return which === "fr" ? "fr-CA" : "en";
 }
 
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+/**
+ * A measured number, written the way the reader writes numbers.
+ *
+ * `toFixed` is English: it puts a point between the units and the tenths, and
+ * Spanish and French both put a comma there. A tilt of 0.5 degrees and a tide
+ * of 3.42 feet were coming out in English notation in every window, which is
+ * the sort of thing that reads as a translation nobody finished.
+ *
+ * The digit count is the caller's, because it is a statement about the
+ * instrument rather than about the language: a radar tilt is read to a
+ * hundredth of a degree whoever is looking at it. Grouping is the locale's,
+ * and no caller here has ever reached a thousand, so this changes nothing
+ * about what an English reader sees today.
+ *
+ * The formatters are kept because building one is the expensive part and the
+ * readouts call this on every mouse move.
+ */
+export function formatNumber(
+  value: number,
+  digits = 0,
+  which: LanguageId = current,
+): string {
+  const tag = locale(which);
+  const key = `${tag}:${digits}`;
+  let format = numberFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(tag, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+    numberFormats.set(key, format);
+  }
+  return format.format(value);
+}
+
 export type Params = Record<string, string | number>;
 
 /**

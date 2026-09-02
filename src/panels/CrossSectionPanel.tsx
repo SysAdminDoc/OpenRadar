@@ -10,7 +10,7 @@ import {
   type CrossSection,
 } from "../lib/crossSection";
 import { sweepErrorText } from "../lib/level2";
-import { useT } from "../i18n";
+import { formatNumber, useT } from "../i18n";
 import { formatClock, formatDistance, formatHeight } from "../lib/units";
 import { useMeasurements } from "../lib/units";
 
@@ -142,8 +142,8 @@ export function CrossSectionPanel({
             <li>
               {section.lowestCut !== null && section.highestCut !== null
                 ? t("section.cuts", {
-                    low: section.lowestCut.toFixed(2),
-                    high: section.highestCut.toFixed(2),
+                    low: formatNumber(section.lowestCut, 2),
+                    high: formatNumber(section.highestCut, 2),
                     count: section.tilts.length,
                   })
                 : t("section.noCuts")}

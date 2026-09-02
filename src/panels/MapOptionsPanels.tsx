@@ -77,7 +77,7 @@ function timeToMinute(value: string, fallback: number): number {
     ? minute
     : fallback;
 }
-import { LANGUAGES, useT, type StringKey } from "../i18n";
+import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
@@ -1031,7 +1031,7 @@ export function SettingsPanel({
         <label className="range-row">
           <span>
             <strong>{t("settings.animationSpeed")}</strong>
-            <output>{settings.radar.animationSpeed.toFixed(1)}</output>
+            <output>{formatNumber(settings.radar.animationSpeed, 1)}</output>
           </span>
           <input
             type="range"
@@ -1244,8 +1244,8 @@ export function SettingsPanel({
         <p className="source-note">{t("watch.sendTestDetail")}</p>
         <p className="source-note">
           {t("settings.watching", {
-            lat: settings.watch.center[1].toFixed(2),
-            lon: settings.watch.center[0].toFixed(2),
+            lat: formatNumber(settings.watch.center[1], 2),
+            lon: formatNumber(settings.watch.center[0], 2),
           })}
         </p>
 
@@ -1357,8 +1357,8 @@ export function SettingsPanel({
               </div>
               <p className="source-note">
                 {t("settings.watching", {
-                  lat: place.center[1].toFixed(2),
-                  lon: place.center[0].toFixed(2),
+                  lat: formatNumber(place.center[1], 2),
+                  lon: formatNumber(place.center[0], 2),
                 })}
               </p>
             </div>
@@ -1391,21 +1391,21 @@ export function SettingsPanel({
         <dl className="camera-grid">
           <div>
             <dt>{t("settings.zoom")}</dt>
-            <dd>{settings.camera.zoom.toFixed(2)}</dd>
+            <dd>{formatNumber(settings.camera.zoom, 2)}</dd>
           </div>
           <div>
             <dt>{t("settings.bearing")}</dt>
-            <dd>{settings.camera.bearing.toFixed(1)}°</dd>
+            <dd>{formatNumber(settings.camera.bearing, 1)}°</dd>
           </div>
           <div>
             <dt>{t("settings.pitch")}</dt>
-            <dd>{settings.camera.pitch.toFixed(1)}°</dd>
+            <dd>{formatNumber(settings.camera.pitch, 1)}°</dd>
           </div>
           <div>
             <dt>{t("settings.center")}</dt>
             <dd>
-              {settings.camera.center[1].toFixed(2)},{" "}
-              {settings.camera.center[0].toFixed(2)}
+              {formatNumber(settings.camera.center[1], 2)},{" "}
+              {formatNumber(settings.camera.center[0], 2)}
             </dd>
           </div>
         </dl>

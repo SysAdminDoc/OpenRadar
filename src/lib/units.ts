@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { locale, translate } from "../i18n";
+import { formatNumber, locale, translate } from "../i18n";
 
 /**
  * Which units the workspace shows, and which clock it reads.
@@ -132,13 +132,13 @@ export function formatReportMagnitude(value: number, unit: string): string {
   }
   if (named === "INCH" || named === "IN" || named === "INCHES") {
     return translate("reports.measured", {
-      value: (value * 2.54).toFixed(1),
+      value: formatNumber(value * 2.54, 1),
       unit: "cm",
     });
   }
   if (named === "F") {
     return translate("reports.measured", {
-      value: (((value - 32) * 5) / 9).toFixed(0),
+      value: formatNumber(((value - 32) * 5) / 9, 0),
       unit: "°C",
     });
   }
@@ -178,11 +178,11 @@ export function formatDistance(miles: number): string {
   if (units === "metric") {
     const km = miles * MILES_TO_KM;
     if (km < 1) return `${Math.round(km * 1000)} m`;
-    if (km < 10) return `${km.toFixed(1)} km`;
+    if (km < 10) return `${formatNumber(km, 1)} km`;
     return `${Math.round(km)} km`;
   }
   if (miles < 0.1) return `${Math.round(miles * 5280)} ft`;
-  if (miles < 10) return `${miles.toFixed(1)} mi`;
+  if (miles < 10) return `${formatNumber(miles, 1)} mi`;
   return `${Math.round(miles)} mi`;
 }
 
@@ -250,15 +250,17 @@ export function formatHeight(feet: number): string {
 export function formatDepth(feet: number): string {
   if (units === "metric") {
     const metres = feet * FEET_TO_METRES;
-    return metres < 10 ? `${metres.toFixed(1)} m` : `${Math.round(metres)} m`;
+    return metres < 10
+      ? `${formatNumber(metres, 1)} m`
+      : `${Math.round(metres).toLocaleString(locale())} m`;
   }
   return `${Math.round(feet)} ft`;
 }
 
 /** A tide, which NOAA publishes in feet and which is read to a tenth. */
 export function formatTideHeight(feet: number): string {
-  if (units === "metric") return `${(feet * FEET_TO_METRES).toFixed(2)} m`;
-  return `${feet.toFixed(2)} ft`;
+  if (units === "metric") return `${formatNumber(feet * FEET_TO_METRES, 2)} m`;
+  return `${formatNumber(feet, 2)} ft`;
 }
 
 /**

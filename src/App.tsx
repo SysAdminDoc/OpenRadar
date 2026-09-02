@@ -99,7 +99,7 @@ import {
   mergedOverlayShapes,
   type WorkspaceOverlayFile,
 } from "./lib/workspaceOverlays";
-import { translate, useT } from "./i18n";
+import { formatNumber, translate, useT } from "./i18n";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 import {
@@ -999,7 +999,7 @@ export default function App() {
         const notes = [
           translate("toast.bundleSavedBody", {
             entries: report.entries,
-            size: (report.bytes / 1_048_576).toFixed(1),
+            size: formatNumber(report.bytes / 1_048_576, 1),
             path: report.path,
           }),
         ];

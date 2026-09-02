@@ -1,3 +1,4 @@
+import { formatNumber } from "../i18n";
 import type { IncidentPackReference } from "./settings";
 import { isDesktopRuntime } from "./settings";
 
@@ -146,6 +147,6 @@ export function formatPackBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
   const megabytes = bytes / (1024 * 1024);
   if (megabytes < 1024)
-    return `${Math.max(0.1, megabytes).toFixed(megabytes < 10 ? 1 : 0)} MB`;
-  return `${(megabytes / 1024).toFixed(1)} GB`;
+    return `${formatNumber(Math.max(0.1, megabytes), megabytes < 10 ? 1 : 0)} MB`;
+  return `${formatNumber(megabytes / 1024, 1)} GB`;
 }

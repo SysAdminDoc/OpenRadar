@@ -19,7 +19,7 @@ import {
   weatherCodeLabel,
   type ForecastData,
 } from "../lib/weather";
-import { locale, useLanguage, useT } from "../i18n";
+import { formatNumber, locale, useLanguage, useT } from "../i18n";
 import { precipitationUnit, speedUnit } from "../lib/units";
 
 interface ForecastPanelProps {
@@ -145,7 +145,7 @@ export function ForecastPanel({ point, onClose }: ForecastPanelProps) {
             <span>
               <Droplets size={15} />{" "}
               {t("forecast.rainNow", {
-                value: forecast.precipitation.toFixed(2),
+                value: formatNumber(forecast.precipitation, 2),
                 unit: precipitationUnit(),
               })}
             </span>

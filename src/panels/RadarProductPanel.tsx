@@ -30,7 +30,7 @@ import {
   supportedProduct,
 } from "../lib/radarKinds";
 import { speedFromMetres, speedToMetres, speedUnit } from "../lib/units";
-import { translate, useT } from "../i18n";
+import { formatNumber, translate, useT } from "../i18n";
 
 /**
  * A storm motion in the reader's own units, since it is a wind like any other.
@@ -214,7 +214,7 @@ export function RadarProductPanel({
         <div>
           <Gauge size={17} />
           <span>
-            <strong>{radar.animationSpeed.toFixed(1)}</strong>
+            <strong>{formatNumber(radar.animationSpeed, 1)}</strong>
             <small>{t("radar.speed")}</small>
           </span>
         </div>
@@ -248,7 +248,7 @@ export function RadarProductPanel({
             {mosaicThreshold === null
               ? t("radar.thresholdOff")
               : t("radar.thresholdValue", {
-                  value: mosaicThreshold.toFixed(0),
+                  value: formatNumber(mosaicThreshold, 0),
                   unit: "dBZ",
                 })}
           </output>
@@ -428,14 +428,14 @@ export function RadarProductPanel({
                           station: sweep.station,
                           site: sweep.siteName,
                           product: sweep.product,
-                          tilt: sweep.elevationDegrees.toFixed(2),
+                          tilt: formatNumber(sweep.elevationDegrees, 2),
                           time: utcSweepLabel(sweep.collected),
                         })
                       : t("radar.sweepLine", {
                           station: sweep.station,
                           site: sweep.siteName,
                           product: sweep.product,
-                          tilt: sweep.elevationDegrees.toFixed(2),
+                          tilt: formatNumber(sweep.elevationDegrees, 2),
                           age: ageLabel(sweepAgeMinutes(sweep, clock)),
                         })
                     : singleSite.loading
@@ -489,7 +489,8 @@ export function RadarProductPanel({
                     {threshold === null
                       ? t("radar.thresholdOff")
                       : t("radar.thresholdValue", {
-                          value: toShown(threshold).toFixed(
+                          value: formatNumber(
+                            toShown(threshold),
                             shownRange.step < 1 ? 2 : 0,
                           ),
                           unit: thresholdUnit,
@@ -538,11 +539,11 @@ export function RadarProductPanel({
                   {tilts.length ? (
                     tilts.map((angle, index) => (
                       <option key={angle} value={index}>
-                        {angle.toFixed(2)}°
+                        {formatNumber(angle, 2)}°
                       </option>
                     ))
                   ) : (
-                    <option value={0}>0.50°</option>
+                    <option value={0}>{formatNumber(0.5, 2)}°</option>
                   )}
                 </select>
               </label>
