@@ -367,7 +367,10 @@ describe("what the layer asks for", () => {
           east: -93,
           north: 42.2,
         }),
-      ).rejects.toThrow(/503/);
+        // The service by name and what its answer means, not the protocol's
+        // number: 503 tells a reader nothing about whether to wait. The number
+        // itself goes to the log, where somebody debugging wants it.
+      ).rejects.toThrow(/National Water Prediction Service is busy/);
     } finally {
       globalThis.fetch = fetched;
     }

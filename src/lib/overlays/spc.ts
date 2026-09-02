@@ -1,4 +1,5 @@
 import { translate } from "../../i18n";
+import { serviceAnswer } from "../serviceAnswer";
 import { cachedUrl } from "../tileCache";
 import {
   boundsQuery,
@@ -70,7 +71,9 @@ async function query(
   });
   if (!response.ok) {
     throw new Error(
-      translate("spc.serviceStatus", { status: response.status }),
+      translate("spc.serviceStatus", {
+        answer: serviceAnswer(response.status),
+      }),
     );
   }
   return response.json();

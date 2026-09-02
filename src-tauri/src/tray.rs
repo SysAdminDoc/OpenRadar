@@ -72,7 +72,7 @@ impl Default for Copy {
     fn default() -> Self {
         Self {
             open: "Open OpenRadar".to_string(),
-            glance: "Glance".to_string(),
+            glance: "Small window".to_string(),
             quit: "Quit".to_string(),
             quiet: "OpenRadar".to_string(),
             warning: "OpenRadar: a warning stands where you watch".to_string(),
@@ -493,7 +493,7 @@ mod tests {
         *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
         let english = Copy {
             open: "Open OpenRadar".to_string(),
-            glance: "Glance".to_string(),
+            glance: "Small window".to_string(),
             quit: "Quit".to_string(),
             quiet: "OpenRadar".to_string(),
             warning: "OpenRadar: a warning stands where you watch".to_string(),

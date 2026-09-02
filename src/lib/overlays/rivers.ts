@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   type OverlayAdapter,
   type OverlayBounds,
@@ -276,7 +277,7 @@ export const riverGaugesOverlay: OverlayAdapter = {
     });
     if (!response.ok) {
       throw new Error(
-        translate("rivers.failed", { status: String(response.status) }),
+        translate("rivers.failed", { answer: serviceAnswer(response.status) }),
       );
     }
     return parseGauges(await response.json());

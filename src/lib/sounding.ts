@@ -1,4 +1,5 @@
 import sites from "./soundingSites.json";
+import { serviceAnswer } from "./serviceAnswer";
 import { cachedUrl } from "./tileCache";
 import { translate } from "../i18n";
 import type { SoundingLevel } from "./thermo";
@@ -234,7 +235,9 @@ export async function observedSounding(
     });
     if (!response.ok) {
       throw new Error(
-        translate("sounding.failed", { status: String(response.status) }),
+        translate("sounding.failed", {
+          answer: serviceAnswer(response.status),
+        }),
       );
     }
     const parsed = parseRaob(await response.json());
@@ -365,7 +368,9 @@ export async function forecastSounding(
   );
   if (!response.ok) {
     throw new Error(
-      translate("sounding.failedModel", { status: String(response.status) }),
+      translate("sounding.failedModel", {
+        answer: serviceAnswer(response.status),
+      }),
     );
   }
   return parseForecastSounding(await response.json(), at);

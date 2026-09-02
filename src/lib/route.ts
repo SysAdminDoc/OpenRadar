@@ -1,4 +1,5 @@
 import { haversineMiles, type GeoPoint } from "./geo";
+import { serviceAnswer } from "./serviceAnswer";
 import { translate } from "../i18n";
 import { forecastUnits } from "./units";
 
@@ -239,7 +240,9 @@ export async function fetchRoute(
   );
   if (!response.ok) {
     throw new Error(
-      translate("route.routerRefused", { status: response.status }),
+      translate("route.routerRefused", {
+        answer: serviceAnswer(response.status),
+      }),
     );
   }
   const route = parseRoute(await response.json());

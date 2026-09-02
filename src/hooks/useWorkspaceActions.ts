@@ -305,7 +305,10 @@ export function useWorkspaceActions(options: {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      pushToast({ title: translate("toast.linkFailed") });
+      pushToast({
+        title: translate("toast.linkFailed"),
+        detail: translate("toast.linkFailedBody"),
+      });
     }
   }, [mapRef, pushToast, settingsRef]);
 

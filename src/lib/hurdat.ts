@@ -1,4 +1,5 @@
 import type { RadarFrame } from "./radar";
+import { serviceAnswer } from "./serviceAnswer";
 import { translate } from "../i18n";
 
 const INDEX_URL = "hurdat/index.json";
@@ -98,7 +99,9 @@ export async function loadStorms(): Promise<StormSummary[]> {
     const response = await fetch(INDEX_URL);
     if (!response.ok) {
       throw new Error(
-        translate("history.archiveStatus", { status: response.status }),
+        translate("history.archiveStatus", {
+          answer: serviceAnswer(response.status),
+        }),
       );
     }
     const record = (await response.json()) as StoredIndex;
@@ -120,7 +123,9 @@ function loadDecade(decade: number): Promise<Record<string, TrackPoint[]>> {
       const response = await fetch(`${TRACKS_URL}/${decade}.json`);
       if (!response.ok) {
         throw new Error(
-          translate("history.archiveStatus", { status: response.status }),
+          translate("history.archiveStatus", {
+            answer: serviceAnswer(response.status),
+          }),
         );
       }
       return (await response.json()) as Record<string, TrackPoint[]>;

@@ -131,7 +131,9 @@ describe("the legend over a live sweep", () => {
         liveClock: Date.parse(COLLECTED) + 37_000,
       }),
     );
-    expect(screen.getByText(/LIVE, 37 S OLD/)).toBeTruthy();
+    // "SEC" rather than "S": a lone S beside a number is the code's
+    // abbreviation, not a word anybody reads.
+    expect(screen.getByText(/LIVE, 37 SEC OLD/)).toBeTruthy();
   });
 
   it("says nothing about being live when the sweep is not", () => {

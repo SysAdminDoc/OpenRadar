@@ -301,11 +301,12 @@ export const es: Catalogue = {
   "history.title": "Historial de tormentas",
   "history.placeholder": "Ian 2022",
   "history.searchLabel": "Buscar tormentas pasadas por nombre o año",
-  "history.archiveStatus": "El archivo de tormentas respondió {status}.",
+  "history.archiveStatus": "El archivo de tormentas {answer}.",
   "history.archiveDate": "{date} UTC",
   "history.unknownStorm": "Esa tormenta no está en el registro.",
   "history.failedTitle": "El archivo de tormentas no se cargó",
-  "history.failedBody": "El archivo de tormentas no se cargó.",
+  "history.failedBody":
+    "Inténtalo de nuevo en un momento. El mapa sigue en vivo.",
   "history.peak": "{category} · máximo de {knots} kt",
   "history.ace":
     "ACE {ace} · {fixes, plural, one {# posición} other {# posiciones}} · del {from} al {to}",
@@ -356,7 +357,7 @@ export const es: Catalogue = {
   "bundle.error.notABundle":
     "Ese archivo no es un paquete de repetición de OpenRadar.",
   "bundle.error.newer":
-    "Ese paquete lo hizo un OpenRadar más nuevo (formato {0}). Actualiza para abrirlo.",
+    "Ese paquete lo hizo un OpenRadar más nuevo. Actualiza para abrirlo.",
   "bundle.error.corrupt": "Ese paquete está dañado: {0}",
   "bundle.error.http": "{0}",
   "bundle.error.noView": "El mapa aún no tiene una vista que empaquetar.",
@@ -374,9 +375,14 @@ export const es: Catalogue = {
   "route.leaving": "Hora de salida",
   "route.plan": "Planear el viaje",
   "route.failedTitle": "No se pudo planear la ruta",
-  "route.failed": "No se pudo planear la ruta.",
+  "route.failed": "Revisa los dos lugares e inténtalo de nuevo.",
   "route.placeMissing": "No se encontró uno de esos lugares.",
-  "route.routerRefused": "El servicio de rutas respondió {status}.",
+  "service.busy": "está ocupado",
+  "service.notFound": "no lo encontró",
+  "service.tooMany": "ha recibido demasiadas consultas",
+  "service.refused": "lo rechazó",
+  "service.unexpected": "respondió de una forma que no se pudo leer",
+  "route.routerRefused": "El servicio de rutas {answer}.",
   "route.straightOffer": "Usar una línea recta",
   "route.straightNote":
     "Sin trazado por carretera: esta es la línea recta entre los dos lugares, y las horas suponen una marcha constante de {speed}. El tiempo sí es real.",
@@ -638,7 +644,7 @@ export const es: Catalogue = {
   "layers.stormReportsDetail":
     "Lo que la gente vio de verdad en el último día: granizo, daños por viento, tornados, inundaciones",
   "keywords.stormReports": "informe local tormenta observador",
-  "reports.serviceStatus": "El servicio de informes respondió {status}.",
+  "reports.serviceStatus": "El servicio de informes {answer}.",
   "reports.measured": "{value} {unit}",
   "reports.reported": "Informado {when}",
   "reports.reportedUnknown": "Hora del informe desconocida",
@@ -677,8 +683,7 @@ export const es: Catalogue = {
   "layer.spcDiscussions": "Discusiones a mesoescala",
   "layers.spcDiscussionsDetail":
     "Lo que los meteorólogos vigilan ahora mismo, una o dos horas antes de cualquier aviso",
-  "spc.serviceStatus":
-    "El servicio del Storm Prediction Center respondió {status}.",
+  "spc.serviceStatus": "El servicio del Storm Prediction Center {answer}.",
   "spc.outlookDay1": "Pronóstico convectivo del día 1",
   "spc.validBetween": "Válido de {from} a {to} UTC",
   "spc.guidanceNote":
@@ -890,12 +895,12 @@ export const es: Catalogue = {
   "rivers.flood.moderate": "moderada",
   "rivers.flood.minor": "menor",
   "rivers.flood.action": "de aviso",
-  "rivers.failed": "El National Water Prediction Service respondió {status}.",
+  "rivers.failed": "El National Water Prediction Service {answer}.",
   "rivers.zoom": "Acerca el mapa para ver las estaciones cerca de la tormenta.",
   "rivers.replay":
     "Los niveles de los ríos son actuales, así que se retienen mientras hay una repetición en el mapa.",
-  "sounding.failed": "El archivo de aire superior respondió {status}.",
-  "sounding.failedModel": "El modelo respondió {status}.",
+  "sounding.failed": "El archivo de aire superior {answer}.",
+  "sounding.failedModel": "El modelo {answer}.",
   "sounding.hereLabel": "El centro del mapa",
   "sounding.eyebrow": "Aire superior",
   "sounding.title": "Sondeo",
@@ -1036,7 +1041,7 @@ export const es: Catalogue = {
   "settings.placesFull":
     "{count, plural, one {Es ya # lugar} other {Son ya # lugares}}. Quita uno para vigilar otro sitio.",
   "settings.watching": "Vigilando {lat}, {lon} por avisos y cosas peores.",
-  "settings.camera": "Estado de la cámara",
+  "settings.camera": "Hacia dónde mira el mapa",
   "settings.zoom": "Acercamiento",
   "settings.bearing": "Rumbo",
   "settings.pitch": "Inclinación",
@@ -1078,7 +1083,7 @@ export const es: Catalogue = {
   "palette.on": " · encendido",
   "palette.off": " · apagado",
   "palette.none": "Nada de aquí coincide. Prueba con una palabra más corta.",
-  "legend.hidden": "PRODUCTO OCULTO",
+  "legend.hidden": "RADAR OCULTO",
   "legend.scale": "{product} de {min} a {max} {unit}",
   "timeline.label": "Animación del radar",
   "timeline.play": "Reproducir la animación del radar",
@@ -1088,7 +1093,7 @@ export const es: Catalogue = {
   "timeline.frames":
     "{index} de {total, plural, one {# fotograma de radar} other {# fotogramas de radar}}",
   "timeline.forecastAt": "Pronóstico de las {time}",
-  "timeline.hrrr": "HRRR iniciado {init}, +{lead} min",
+  "timeline.hrrr": "Corrida HRRR {init}, {lead} min por delante",
   "timeline.live": "en vivo",
   "timeline.historical": "volumen histórico",
   "timeline.goLive": "Ir en vivo",
@@ -1174,7 +1179,7 @@ export const es: Catalogue = {
   "stage.satelliteAge": " · de hace {age}",
   "stage.satellite": "GOES-East {product}",
   "stage.compare": "Comparar",
-  "stage.compareOffset": "Desfase de cuadros del panel secundario",
+  "stage.compareOffset": "Cuánto se atrasa el segundo mapa",
   "stage.compareUnavailable": "No hay suficientes cuadros anteriores",
   "stage.live": "En vivo",
   "stage.back": "{count} atrás",
@@ -1228,6 +1233,8 @@ export const es: Catalogue = {
   "toast.shared": "Vista del mapa compartida",
   "toast.linkCopied": "Enlace del mapa copiado",
   "toast.linkFailed": "No se pudo copiar el enlace del mapa",
+  "toast.linkFailedBody":
+    "El portapapeles lo rechazó. El mismo enlace está en la dirección que crea el botón de compartir.",
   "toast.show": "Mostrar",
   "toast.fileTooBig": "El archivo pesa más de 5 MB.",
   "toast.paletteEmpty": "Esa paleta no tiene colores que este mapa pueda usar.",
@@ -1235,7 +1242,7 @@ export const es: Catalogue = {
   "toast.paletteApplied": "{name} aplicada",
   "toast.themeApplied": "{name} es el aspecto ahora",
   "toast.themeBody":
-    "{count} elementos del entorno. No ha cambiado nada del radar, de los avisos ni de las escalas.",
+    "{count, plural, one {# color} other {# colores}} cambiados. No ha cambiado nada del radar, de los avisos ni de las escalas.",
   "toast.themeEmpty":
     "Ese archivo de tema no define nada que esta versión entienda.",
   "toast.remove": "Quitar",
@@ -1316,7 +1323,8 @@ export const es: Catalogue = {
   "popup.advisory": "Boletín {number}",
   "popup.tropicalSystem": "Sistema tropical",
 
-  "update.notInstalled": "La actualización no se instaló.",
+  "update.notInstalled":
+    "La versión que tienes sigue funcionando. Inténtalo de nuevo desde Diagnóstico.",
   "update.notInstalledTitle": "La actualización no se instaló",
   "update.upToDate": "OpenRadar está al día",
   "update.available": "OpenRadar {version} ya está disponible",
@@ -1330,6 +1338,8 @@ export const es: Catalogue = {
   "export.show": "Mostrar",
   "export.failed": "La exportación falló",
   "export.imageFailed": "No se pudo exportar la imagen",
+  "export.imageFailedBody":
+    "El mapa sigue en pantalla. Inténtalo de nuevo cuando haya terminado de dibujarse.",
   "export.loopFailed": "No se pudo exportar la animación",
   "export.nothingWritten": "No se escribió nada.",
   "export.noCanvas": "Esta pantalla no puede dibujar una exportación.",
@@ -1488,7 +1498,7 @@ export const es: Catalogue = {
     "El lugar que vigilas, si hay un aviso allí y una imagen fija del mapa. Muestra lo que el espacio de trabajo ya ha dibujado en vez de dibujarlo otra vez, así que dejarla abierta no cuesta casi nada. Se abre desde la bandeja.",
   "glance.onTop": "Mantener la ventana pequeña por encima de todo",
   "tray.menuOpen": "Abrir OpenRadar",
-  "tray.menuGlance": "Vistazo",
+  "tray.menuGlance": "Ventana pequeña",
   "tray.menuQuit": "Salir",
   "tray.quiet": "OpenRadar",
   "tray.warning": "OpenRadar: hay un aviso donde vigilas",
@@ -1588,9 +1598,9 @@ export const es: Catalogue = {
   "guidance.noModels": "Elige al menos un modelo.",
   "guidance.keepTwo":
     "Mantén al menos dos modelos seleccionados para poder compararlos.",
-  "guidance.failed": "El servicio de modelos respondió {status}.",
+  "guidance.failed": "El servicio de modelos {answer}.",
   "tides.stationsFailed": "No se pudo leer la lista de estaciones de marea.",
-  "tides.failed": "El servicio de mareas respondió {status}.",
+  "tides.failed": "El servicio de mareas {answer}.",
   "surge.category1": "Categoría 1",
   "surge.category2": "Categoría 2",
   "surge.category3": "Categoría 3",
@@ -1658,13 +1668,13 @@ export const es: Catalogue = {
   "radar.unavailable": "Radar no disponible por ahora",
   "radar.requestFailed": "La consulta al radar falló",
   "radar.waiting": "Esperando al radar",
-  "radar.budgetReached": "Se alcanzó el límite de consultas",
+  "radar.budgetReached": "Se consultó demasiado, esperando un momento",
   "radar.noFrames": "No se publicó ningún cuadro.",
-  "radar.noProvider": "No hay ninguna fuente de radar disponible.",
+  "radar.noProvider": "Ninguna fuente de radar respondió.",
   "radar.noTimes": "No se publicó ningún horario de radar.",
   "radar.rainviewerEmpty": "RainViewer no devolvió cuadros utilizables.",
   "radar.requestFailedShort": "La consulta falló.",
-  "radar.noRun": "El índice del pronóstico no nombró ninguna corrida.",
+  "radar.noRun": "El pronóstico aún no ha publicado una corrida nueva.",
   "radar.archive": "Archivo de radar de Iowa State",
   "replay.title": "Reproduciendo {name} {year}",
   "replay.atLandfall":
@@ -1689,10 +1699,10 @@ export const es: Catalogue = {
   "pairing.shownBody":
     "Activada para explicar el aviso. No ha cambiado nada más.",
   "map.label": "Mapa meteorológico interactivo",
-  "weather.incomplete": "El pronóstico llegó incompleto.",
+  "weather.incomplete": "El pronóstico llegó con partes faltantes.",
   "route.noRoad": "Ninguna carretera conecta esos dos lugares.",
-  "wind.noShader": "La capa de viento no pudo crear un sombreador.",
-  "wind.noProgram": "La capa de viento no pudo crear un programa.",
+  "wind.noDraw":
+    "La capa de viento no se pudo dibujar en esta tarjeta gráfica.",
   "tool.drawHint": "Toca el mapa para trazar un camino",
   "tool.startHint": "Elige el punto de inicio",
   "tool.endHint": "Elige el punto final",

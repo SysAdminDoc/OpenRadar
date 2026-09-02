@@ -248,7 +248,10 @@ export function useExport(options: {
             ? failure.message
             : translate("export.failed"),
         );
-        pushToast({ title: translate("export.imageFailed") });
+        pushToast({
+          title: translate("export.imageFailed"),
+          detail: translate("export.imageFailedBody"),
+        });
       } finally {
         setBusy(null);
       }
@@ -322,7 +325,10 @@ export function useExport(options: {
               ? failure.message
               : translate("export.failed"),
           );
-          pushToast({ title: translate("export.imageFailed") });
+          pushToast({
+            title: translate("export.imageFailed"),
+            detail: translate("export.imageFailedBody"),
+          });
         } finally {
           setBusy(null);
         }

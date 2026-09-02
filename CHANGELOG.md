@@ -46,6 +46,14 @@
 
 - Links out of the app work again. In the installed build every one of them was dead: the alert's own page at the weather office, the hurricane advisory, the map credits, the sources under a curiosity card. Clicking did nothing at all and nothing said why. The window had never been granted permission to open a link, so the click was caught and dropped on the floor. It is granted now, for https and nothing else, and the two links that arrive in a feed rather than being written by us go through the same check a link in a map popup does.
 
+- One word for one thing. The middle of the map was the map centre on one screen, "Map center" on another, and "centered" in the two messages that move you there. A warning was a warning on the panel and an alert on the watch screens beside it. The small window was called Glance on the menu that opens it and the small window in the setting that turns it on. A picture was a picture thirteen times and an image four. All of it now says the same thing in all three languages, and a check refuses the drift coming back.
+
+- Three messages said the same sentence twice, once in bold and once under it, and told you nothing the second time. The failed archive, the failed route and the update that is not installed now each say what to do next.
+
+- Messages that named a failure and stopped now say where to go from there. Where to grant location, which file kinds the drop zone takes, what to do when a loop is too big to save or a region will not fit in the space you allowed it. Roughly thirty of them had a title and nothing else.
+
+- The app stopped talking about itself. Shaders, tokens, providers, indexes, request budgets and layout numbers are the code's words for things, and they were reaching the screen: "could not create a shader", "Request budget reached", "{count} chrome tokens", "Forecast response was incomplete". Nine messages printed a bare number out of the web instead of saying what it meant, so a tide service having a bad hour read as "returned 503". A busy service now says it is busy, one that cannot find a place says so, and the number still goes to the log for a bug report.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

@@ -59,7 +59,9 @@ describe("what a click opens", () => {
 
   it("opens the model's reading when that is all there is", () => {
     const content = popupFrom([guess], ORDER);
-    expect(content?.title).toBe("Severe probability");
+    // Title case, like every other layer name: this one and the river gauges
+    // were the two that were not.
+    expect(content?.title).toBe("Severe Probability");
     expect(content?.lines.join(" ")).toContain("88");
   });
 

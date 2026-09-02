@@ -274,6 +274,7 @@ describe("the workspace is translated", () => {
     const FIXED = new Set([
       // Units and abbreviations, which do not inflect.
       "min",
+      "sec",
       "h",
       "kB",
       "MB",
@@ -447,5 +448,162 @@ describe("the workspace is translated", () => {
         !built.some((prefix) => key.startsWith(prefix)),
     );
     expect(unused).toEqual([]);
+  });
+});
+
+describe("what a toast says under its own headline", () => {
+  /**
+   * A body that repeats its title teaches the reader nothing.
+   *
+   * Three did, word for word apart from the full stop: the storm archive,
+   * the route and the update. Somebody reads the bold line, reads the plain
+   * line, and is no closer to knowing what to do.
+   */
+  /**
+   * A toast about something going wrong says what to do next.
+   *
+   * The catalogue already has the shape: "The clipboard refused. The same
+   * text is in the log folder." A title on its own names the failure and
+   * stops, which leaves the reader holding it.
+   *
+   * Read off the call sites rather than off the catalogue, because whether a
+   * toast has a body is decided where it is pushed: several keys the audit
+   * register listed as bare are in fact pushed with a detail beside them.
+   */
+  /**
+   * The code's words, which are not the reader's.
+   *
+   * Tokens, shaders, budgets, providers, indexes, layouts and HTTP codes are
+   * how the app talks about itself. Somebody trying to find out whether it is
+   * going to rain was being handed all of them: "{count} chrome tokens",
+   * "The wind layer could not create a shader.", "Request budget reached",
+   * "The forecast index named no model run.", "The tide service returned
+   * 503."
+   */
+  /**
+   * One word for one thing.
+   *
+   * The same thing was called different names on different screens: the map
+   * centre was also "Map center", "centered" and "the middle of the map"; a
+   * warning was also an "alert" on the watch screens and a warning on the
+   * panel beside them; the small window was "Glance" on the menu that opens
+   * it; a picture was an "image" in four export strings. A reader who learns
+   * a word on one screen should meet it again on the next.
+   */
+  it("calls one thing one thing", () => {
+    const said = Object.entries(en);
+    const anyOf = (pattern: RegExp) =>
+      said.filter(([, value]) => pattern.test(value)).map(([key]) => key);
+
+    // American spellings, in a catalogue that is otherwise British. The
+    // names of American institutions are their names, so they come out
+    // first: the National Hurricane Center is not a spelling mistake.
+    const NAMES =
+      /(National Hurricane|Storm Prediction|Aviation Weather|Weather Prediction|National Water Prediction)\s+Center/g;
+    const plain = said.filter(([, value]) =>
+      /\bcenter|\bcentered|\bgrayscale/i.test(value.replace(NAMES, " ")),
+    );
+    expect(plain.map(([key]) => key)).toEqual([]);
+    // The feed's word for the envelope, used as a synonym for the thing
+    // inside it. The warning is what the reader is being told about.
+    expect(anyOf(/\balerts? in view/i)).toEqual([]);
+    // The protocol's number, said at a reader.
+    expect(anyOf(/\{status\}/)).toEqual([]);
+    // Two names for one window, on the menu and in the setting.
+    expect(en["tray.menuGlance"].toLowerCase()).toContain("small window");
+
+    // Layer names are title case, and these two were the exceptions.
+    for (const key of ["layer.riverGauges", "probSevere.title"]) {
+      const value = (en as Record<string, string>)[key];
+      for (const word of value.split(" ")) {
+        expect(word[0], `${key}: ${value}`).toBe(word[0].toUpperCase());
+      }
+    }
+  });
+
+  it("says none of it in the code's own words", () => {
+    const BANNED = [
+      "token",
+      "shader",
+      "provider",
+      "buffer",
+      "callback",
+      "socket",
+      "parser",
+      "serialise",
+      "serialize",
+    ];
+    // The one place JSON is the reader's word too: the data export card names
+    // the file format the reader is choosing.
+    const ALLOWED = new Set([
+      "dataExport.formatJson",
+      "dataExport.formatJsonDetail",
+      "upload.geojson",
+    ]);
+    const offenders: string[] = [];
+    for (const [key, rendered] of Object.entries(en)) {
+      if (ALLOWED.has(key)) continue;
+      // Without the placeholders: `{index}` is a name in the source, not a
+      // word anybody reads, and `{total, plural, ...}` carries ICU syntax.
+      const value = rendered.replace(/\{[^{}]*\}/g, " ");
+      for (const word of BANNED) {
+        if (new RegExp(`\\b${word}`, "i").test(value)) {
+          offenders.push(`${key}: ${word}`);
+        }
+      }
+      // A bare status code reads as the protocol talking, whatever sentence
+      // it is in.
+      if (/\{status\}/.test(rendered)) offenders.push(`${key}: {status}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("gives every failure a next step", () => {
+    const offenders: string[] = [];
+    for (const path of sourceFiles(ROOT)) {
+      if (path.includes(`i18n${sep}`)) continue;
+      const source = readFileSync(path, "utf8");
+      for (const match of source.matchAll(/pushToast\(\s*\{/g)) {
+        let depth = 0;
+        let at = match.index + match[0].length - 1;
+        while (at < source.length) {
+          if (source[at] === "{") depth += 1;
+          else if (source[at] === "}") {
+            depth -= 1;
+            if (depth === 0) break;
+          }
+          at += 1;
+        }
+        const call = source.slice(match.index, at);
+        const title = /title:\s*t(?:ranslate)?\(\s*"([^"]+)"/.exec(call)?.[1];
+        if (!title) continue;
+        if (!/fail|error|refus|unavailable|cannot|could not/i.test(title)) {
+          continue;
+        }
+        if (call.includes("detail")) continue;
+        offenders.push(`${path.slice(ROOT.length + 1)}: ${title}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("never says the same thing twice", () => {
+    const said = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[.!?\s]+$/, "")
+        .trim();
+    const offenders: string[] = [];
+    for (const [key, value] of Object.entries(en)) {
+      if (!key.endsWith("Title")) continue;
+      const stem = key.slice(0, -"Title".length);
+      for (const other of [stem, `${stem}Body`]) {
+        const body = (en as Record<string, string>)[other];
+        if (body && said(body) === said(value)) {
+          offenders.push(`${key} and ${other}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });
