@@ -190,7 +190,11 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
           <strong>{t("route.failedTitle")}</strong>
           <span>{error}</span>
           {canEstimate ? (
-            <button type="button" onClick={() => void plan(true)}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void plan(true)}
+            >
               {t("route.straightOffer")}
             </button>
           ) : null}

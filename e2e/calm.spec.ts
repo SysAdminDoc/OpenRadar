@@ -126,3 +126,35 @@ test("leaves nothing behind when it is switched off", async ({ page }) => {
   await expect(page.locator("[data-calm-advice]")).toHaveCount(0);
   await expect(page.getByText("Tornado Warning").first()).toBeVisible();
 });
+
+test("the calmer look reaches the Live button too", async ({ page }) => {
+  // It was a fixed cyan, so the loudest control in the workspace stayed
+  // shouting in a mode whose whole point is turning the decoration down, and
+  // a reader's own accent and every seasonal pack stopped at its edge.
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(page.getByRole("application")).toBeVisible();
+
+  const button = page.locator(".timeline-live-button");
+  await expect(button).toBeVisible();
+  const loud = await button.evaluate(
+    (node) => getComputedStyle(node).backgroundColor,
+  );
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("checkbox", { name: /A calmer way to read it/ }).check();
+  await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+
+  const calm = await button.evaluate((node) => {
+    const style = getComputedStyle(node);
+    const probe = document.createElement("div");
+    probe.style.background = "var(--accent)";
+    document.body.append(probe);
+    const accent = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return { background: style.backgroundColor, accent };
+  });
+  expect(calm.background).not.toBe(loud);
+  expect(calm.background).toBe(calm.accent);
+});
