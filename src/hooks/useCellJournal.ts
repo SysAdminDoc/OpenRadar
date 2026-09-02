@@ -40,8 +40,16 @@ export function useCellJournal(options: {
   enabled: boolean;
   /** The frame that was on screen, if there is one to take a picture of. */
   capture?: () => Promise<Uint8Array | null>;
+  /**
+   * What the reader calls each storm, by the algorithm's identifier.
+   *
+   * A storm somebody named and then watched pass their house is the entry
+   * they will actually want to read next year, so the row carries the name
+   * they gave it as well as the identifier the radar gave it.
+   */
+  names?: ReadonlyMap<string, string>;
 }): void {
-  const { report, places, enabled, capture } = options;
+  const { report, places, enabled, capture, names } = options;
   // Held for the life of the session rather than saved. A restart writing one
   // more row about a storm that is still there is a much smaller fault than a
   // list of storm identities kept on disk beside the record.
@@ -82,14 +90,24 @@ export function useCellJournal(options: {
             // a row that says ten past four, whatever time the app read it.
             observed: report.observed,
             obtained: translate("journal.obtainedCells"),
-            text: translate("journal.cellPassed", {
-              id: cell.id,
-              distance: formatDistance(miles),
-            }),
+            text: translate(
+              names?.has(cell.id)
+                ? "journal.namedCellPassed"
+                : "journal.cellPassed",
+              {
+                id: cell.id,
+                name: names?.get(cell.id) ?? "",
+                distance: formatDistance(miles),
+              },
+            ),
           },
           captureRef.current,
         );
       }
     }
+    // `names` is read rather than depended on: a reader typing a name is not
+    // the weather doing something, and restarting this on every keystroke
+    // would write a row the moment they began typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, places, report]);
 }

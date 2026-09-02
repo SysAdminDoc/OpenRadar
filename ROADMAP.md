@@ -23,13 +23,6 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 - Nothing applies pressure. No streaks to break, no badges to chase, and no notification that is about the app rather than about the weather.
 - Playful surfaces stand down during danger. While a warning is active at a watched place, themes stay quiet, effects stop, and nothing discoverable reveals itself; the map is a serious instrument for as long as the warning stands. (Added 2026-08-31; the safety precedent and the backlash record are in `RESEARCH.md`.)
 
-- [ ] JOY-013: Let a reader name a storm cell and keep the name as it moves
-      Why: The tracking algorithm already decides which blobs are one storm across frames, and it labels them with identifiers that mean nothing to a person. Somebody watching a supercell for two hours will call it something. Letting the app carry that name across the loop, into the journal, and into an export is a very small change with a disproportionate hold on the person doing the watching.
-      Evidence: `src/lib/cells.ts`; `src/hooks/useStormCells.ts`; `src/components/MapViewport.tsx`; JOY-008
-      Touches: A name attached to a tracked cell identity; label rendering and collision; the journal handoff; expiry when the track ends
-      Acceptance: A name follows the cell the algorithm says is the same storm and disappears when that track ends rather than jumping to a different cell; the algorithm's own identifier stays visible somewhere, because the name is the reader's and the identity is the data's; names never overlap warning text or obscure a polygon; a named cell can be carried into a journal entry; names are local, bounded in number and length, and cleared with the session unless saved deliberately.
-      Complexity: M
-
 - [ ] JOY-015: Replace the single tone with a small sound kit
       Why: There is one synthesised note today, at one pitch, for every alert that reaches the watched place. A tornado warning and a special weather statement should not sound identical. A short set of tones by severity, still synthesised so nothing has to ship or be fetched, plus the option to point at your own audio file, is the difference between a sound somebody keeps on and a sound somebody switches off in the first week.
       Evidence: `src/lib/sound.ts`; `src/hooks/useAlertWatch.ts`; `src/lib/settings.ts`; AUD-075; 47 CFR 11.45

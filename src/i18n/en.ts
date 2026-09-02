@@ -1373,6 +1373,10 @@ export const en = {
   "settings.journalWriting": "Write down what the weather does at your places",
   "settings.journalWritingDetail":
     "Off stops new rows from this moment. It does not delete what is already there; the button below does that.",
+  "nearby.nameCell": "What you call storm {id}",
+  "nearby.nameCellPlaceholder": "Call it something",
+  "journal.namedCellPassed":
+    "{name}, the storm the radar was calling {id}, came within {distance}",
   "journal.title": "Your record",
   "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":

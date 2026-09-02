@@ -143,7 +143,9 @@ const COVERED_BY_ADAPTERS = new Set(
   OVERLAY_ADAPTERS.map((adapter) => adapter.id as string),
 );
 import { useStormCells } from "./hooks/useStormCells";
+import type { CellReport } from "./lib/cells";
 import { useCellJournal } from "./hooks/useCellJournal";
+import { cellKey, livingNames, withName } from "./lib/cellNames";
 import { useClassification } from "./hooks/useClassification";
 import { useForecastSmoke } from "./hooks/useForecastSmoke";
 import {
@@ -212,6 +214,15 @@ export default function App() {
   const [overlayFiles, setOverlayFiles] = useState<WorkspaceOverlayFile[]>([]);
   const [capture, setCapture] = useState(false);
   const [historyStorm, setHistoryStorm] = useState<Storm | null>(null);
+
+  // What the reader calls the storms the radar is tracking. Held for the
+  // session and written down nowhere: a name is worth something while the
+  // storm is on screen, and a list of storm names kept on disk beside the
+  // record would be a list of what somebody was watching and when.
+  const [cellNames, setCellNames] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
+
   const [replay, setReplay] = useState<ArchiveReplay | null>(null);
   const mapRef = useRef<MapViewportHandle>(null);
   const secondMapRef = useRef<MapViewportHandle>(null);
@@ -549,13 +560,55 @@ export default function App() {
     station: singleSite.station,
     pageVisible,
     clock,
+    names: cellNames,
+    // Names follow the identity the algorithm gives, so when it stops
+    // tracking a storm the name goes with it. Identifiers are reused: a name
+    // left behind would reappear on a different storm, which is worse than
+    // losing it. Done as the report lands rather than in an effect watching
+    // it, which would be a setState in an effect body.
+    onReport: useCallback(
+      (report: CellReport | null) =>
+        setCellNames((held) =>
+          held.size
+            ? livingNames(
+                held,
+                report?.station ?? null,
+                report?.cells.map((cell) => cell.id) ?? [],
+              )
+            : held,
+        ),
+      [],
+    ),
   });
+
+  const nameCell = useCallback(
+    (id: string, name: string) => {
+      const station = stormCells.report?.station;
+      if (!station) return;
+      setCellNames((held) => withName(held, cellKey(station, id), name));
+    },
+    [stormCells.report?.station],
+  );
+
+  // Keyed by the algorithm's identifier alone, for the surfaces that are
+  // already looking at one radar's report.
+  const namesHere = useMemo(() => {
+    const station = stormCells.report?.station;
+    if (!station) return new Map<string, string>();
+    const out = new Map<string, string>();
+    for (const cell of stormCells.report?.cells ?? []) {
+      const name = cellNames.get(cellKey(station, cell.id));
+      if (name) out.set(cell.id, name);
+    }
+    return out;
+  }, [cellNames, stormCells.report]);
 
   useCellJournal({
     report: stormCells.report,
     places: watchedForJournal,
     enabled: settings.watch.enabled,
     capture: journalFrame,
+    names: namesHere,
   });
   // The same site's own account of what is falling, read from Level III
   // beside the cells and tied to the site for the same reason.
@@ -1756,7 +1809,7 @@ export default function App() {
             sourceLabel={timeline.sourceLabel}
             singleSite={level2Available() ? singleSite : null}
             stormCells={stormCells}
-            nearby={nearby}
+            nearby={{ ...nearby, cellNames: namesHere, onNameCell: nameCell }}
             replaying={Boolean(replay)}
             nearbyPlaces={nearbyPlaces}
             nearbyPlaceId={nearbyPlaceId}

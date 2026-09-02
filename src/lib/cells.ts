@@ -242,9 +242,19 @@ export function unmatchedRotations(report: CellReport): Mesocyclone[] {
 export function cellFeatures(
   report: CellReport,
   rotating: Set<string>,
+  /**
+   * What the reader calls each storm, keyed by station and identifier.
+   *
+   * The label carries both: the name is the reader's and the identifier is
+   * the data's, so a picture of this can still be checked against the
+   * office's own products. Keyed by the station as well, because A1 on one
+   * radar is a different storm from A1 on the next.
+   */
+  names: ReadonlyMap<string, string> = new Map(),
 ): Record<string, unknown> {
   const features: Array<Record<string, unknown>> = [];
   for (const cell of report.cells) {
+    const named = names.get(`${report.station}|${cell.id}`);
     features.push({
       type: "Feature",
       geometry: {
@@ -254,6 +264,7 @@ export function cellFeatures(
       properties: {
         kind: "cell",
         id: cell.id,
+        label: named ? `${named} (${cell.id})` : cell.id,
         rotating: rotating.has(cell.id),
         speedMs: cell.speedMs,
         directionDegrees: cell.directionDegrees,

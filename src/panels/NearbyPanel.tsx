@@ -4,6 +4,7 @@ import type { NearbyCell, NearbyWarning } from "../lib/nearby";
 import { relativeTime } from "../lib/overlays";
 import { formatClock, useMeasurements } from "../lib/units";
 import { useT } from "../i18n";
+import { MAX_NAME } from "../lib/cellNames";
 
 export interface NearbyPlaceOption {
   id: string;
@@ -16,6 +17,10 @@ interface NearbyPanelProps {
   onPlace: (id: string) => void;
   warnings: NearbyWarning[];
   cells: NearbyCell[];
+  /** What the reader calls each of them, by the algorithm's identifier. */
+  cellNames: ReadonlyMap<string, string>;
+  /** Naming one, or clearing the name by handing over nothing. */
+  onNameCell: (id: string, name: string) => void;
   /** Why the storm list is empty, when it is empty for a reason. */
   cellsNote: "off" | "unavailable" | "loading" | null;
   /** The radar the tracker read, and when it ran, like every other surface. */
@@ -39,6 +44,8 @@ export function NearbyPanel({
   onPlace,
   warnings,
   cells,
+  cellNames,
+  onNameCell,
   cellsNote,
   station,
   observed,
@@ -105,7 +112,25 @@ export function NearbyPanel({
             {cells.map((cell) => (
               <li key={cell.id}>
                 <Wind size={14} aria-hidden="true" />
-                <span>{cell.sentence}</span>
+                <span>
+                  {cell.sentence}
+                  {/* A storm somebody is watching for two hours gets called
+                      something. The name goes on the map beside the
+                      algorithm's own identifier and follows the storm the
+                      algorithm says is the same one; it is held for the
+                      session and written down nowhere. */}
+                  <input
+                    type="text"
+                    className="cell-name"
+                    value={cellNames.get(cell.id) ?? ""}
+                    maxLength={MAX_NAME}
+                    aria-label={t("nearby.nameCell", { id: cell.id })}
+                    placeholder={t("nearby.nameCellPlaceholder")}
+                    onChange={(event) =>
+                      onNameCell(cell.id, event.target.value)
+                    }
+                  />
+                </span>
               </li>
             ))}
           </ul>
