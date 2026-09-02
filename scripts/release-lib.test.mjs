@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   assertReleaseAssetNames,
   cargoVersion,
+  supportedMinor,
   releaseAssetNames,
   sha256File,
   sourceVersion,
@@ -162,5 +163,39 @@ describe("release integrity", () => {
     expect(sha256File(file)).toBe(
       crypto.createHash("sha256").update("hello").digest("hex"),
     );
+  });
+});
+
+describe("the release line the security policy names", () => {
+  const root = path.join(import.meta.dirname, "..");
+
+  it("reads the line marked as getting fixes", () => {
+    const table = [
+      "| Version | Fixes |",
+      "| ------- | ----- |",
+      "| 0.7.x   | Yes   |",
+      "| 0.6.x and earlier | No |",
+    ].join("\n");
+    expect(supportedMinor(table)).toBe("0.7");
+  });
+
+  it("matches the version this repository actually ships", () => {
+    // The table said 0.6.x for the whole of 0.7.0, which read as the shipped
+    // release being unsupported. It had been fixed once already and missed on
+    // the next bump, because nothing checked it.
+    const security = fs.readFileSync(path.join(root, "SECURITY.md"), "utf8");
+    const conf = JSON.parse(
+      fs.readFileSync(
+        path.join(root, "src-tauri", "tauri.conf.json"),
+        "utf8",
+      ),
+    );
+    expect(supportedMinor(security)).toBe(
+      conf.version.split(".").slice(0, 2).join("."),
+    );
+  });
+
+  it("refuses a table that names nothing", () => {
+    expect(() => supportedMinor("# Security\n\nNo table here.\n")).toThrow();
   });
 });

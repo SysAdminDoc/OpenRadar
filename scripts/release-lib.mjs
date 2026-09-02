@@ -132,6 +132,23 @@ export function cargoVersion(cargoText) {
   return found;
 }
 
+/**
+ * The release line SECURITY.md says gets fixes.
+ *
+ * Its own function so the release can hold it to the version being built.
+ * The table said 0.6.x through the whole of 0.7.0, which read as the shipped
+ * release being unsupported, and the same table had already been fixed once
+ * for 0.6.0 and missed on the next bump. Nothing else in the parity check
+ * looked at this file.
+ */
+export function supportedMinor(securityText) {
+  const row = /^\|\s*(\d+)\.(\d+)\.x\s*\|\s*Yes\s*\|/m.exec(securityText);
+  if (!row) {
+    throw new Error("SECURITY.md names no supported release line.");
+  }
+  return `${row[1]}.${row[2]}`;
+}
+
 export function sourceVersion(settingsText) {
   const found = /APP_VERSION\s*=\s*"([^"]+)"/.exec(settingsText)?.[1];
   if (!found) throw new Error("settings.ts has no APP_VERSION.");
