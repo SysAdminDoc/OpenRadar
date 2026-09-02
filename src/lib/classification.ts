@@ -18,13 +18,6 @@ import type { StringKey } from "../i18n";
 export const CLASSIFICATION_PRODUCTS = ["N0H", "HHC"] as const;
 export type ClassificationProduct = (typeof CLASSIFICATION_PRODUCTS)[number];
 
-/**
- * The hybrid scan by default: the whole volume read into one field, which
- * answers "what is falling" rather than "what the lowest tilt saw", and is
- * the product the commercial apps ship.
- */
-export const DEFAULT_CLASSIFICATION_PRODUCT: ClassificationProduct = "HHC";
-
 export function isClassificationProduct(
   value: unknown,
 ): value is ClassificationProduct {

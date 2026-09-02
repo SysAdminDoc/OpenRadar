@@ -67,10 +67,6 @@ async function base(): Promise<string> {
   return tileBase;
 }
 
-export function resetTileBase() {
-  tileBase = null;
-}
-
 /**
  * The generation is part of the address rather than a header, because a tile
  * is fetched by the map and cached by the map. A new colour table means a new

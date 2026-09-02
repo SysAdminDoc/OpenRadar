@@ -200,24 +200,6 @@ export interface ParcelProfile {
   cin: number;
 }
 
-function interpolate(
-  levels: SoundingLevel[],
-  pressure: number,
-  read: (level: SoundingLevel) => number,
-): number {
-  for (let at = 1; at < levels.length; at += 1) {
-    const above = levels[at];
-    const below = levels[at - 1];
-    if (pressure <= below.pressure && pressure >= above.pressure) {
-      const span = below.pressure - above.pressure;
-      if (span <= 0) return read(below);
-      const share = (below.pressure - pressure) / span;
-      return read(below) + (read(above) - read(below)) * share;
-    }
-  }
-  return read(levels[levels.length - 1]);
-}
-
 /**
  * A parcel lifted through the sounding, with the areas that come out of it.
  *
@@ -392,12 +374,4 @@ export function precipitableWater(levels: SoundingLevel[]): number {
     total += (((wBelow + wAbove) / 2) * dp * 100) / 9.80665;
   }
   return total;
-}
-
-/** The temperature of the sounding at a pressure, for a caller drawing one. */
-export function temperatureAt(
-  levels: SoundingLevel[],
-  pressure: number,
-): number {
-  return interpolate(levels, pressure, (level) => level.temperature);
 }
