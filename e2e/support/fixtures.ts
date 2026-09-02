@@ -566,6 +566,16 @@ export async function routeWorkspace(page: Page) {
       body: collection(features),
     });
   });
+  // Canada, answered with nothing. Every spec whose view reaches the border
+  // asks this, and an unstubbed host goes to the real service: a test suite
+  // that quietly polls a public office is not a test suite. A spec about
+  // Canadian warnings routes it again with something in it.
+  await stub("https://api.weather.gc.ca/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: collection([]),
+    });
+  });
   await stub("https://api.weather.gov/alerts/**", async (route) => {
     await route.fulfill({
       contentType: "application/geo+json",

@@ -180,16 +180,18 @@ describe("reading what a runner did", () => {
 
   it("reads how many tests cargo actually ran, across targets", () => {
     expect(
-      cargoRanCount("test result: ok. 6 passed; 0 failed; 12 ignored; 0 measured"),
+      cargoRanCount(
+        "test result: ok. 6 passed; 0 failed; 12 ignored; 0 measured",
+      ),
     ).toBe(6);
     expect(
       cargoRanCount(
         "test result: ok. 6 passed; 0 failed; 12 ignored\ntest result: ok. 2 passed; 0 failed; 0 ignored",
       ),
     ).toBe(8);
-    expect(cargoRanCount("test result: ok. 0 passed; 0 failed; 18 ignored")).toBe(
-      0,
-    );
+    expect(
+      cargoRanCount("test result: ok. 0 passed; 0 failed; 18 ignored"),
+    ).toBe(0);
   });
 });
 

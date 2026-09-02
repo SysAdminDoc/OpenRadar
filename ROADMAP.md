@@ -76,13 +76,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P1
 
-- [ ] AUD-169 (P1): Canadian warnings from ECCC, drawn and watched like NWS ones
-  Why: The app draws ECCC radar and ships Canadian French, but a watched place in Canada never speaks; HookEcho added ECCC alerts on 2026-08-31 and Canadian public alerts are the one hazard layer the francophone lane exists for.
-  Evidence: Verified live 2026-09-02: `https://api.weather.gc.ca/collections/weather-alerts/items?f=json` (OGC API Features, CORS `*`, 214 features, `alert_type` warning|watch|statement|advisory, `alert_name_en/fr`, `alert_text_en/fr`, `risk_colour_en`, `expiration_datetime`, bbox and CQL2 filters); GeoMet WMS layer `Current-Alerts` (queryable, GetFeatureInfo JSON) on `geo.weather.gc.ca`, already allowed; licence forbids altering alert content or intent.
-  Touches: new `src/lib/overlays/eccc-alerts.ts` adapter, `src/lib/overlays/registry.ts`, `src/lib/alertTypes.ts` (a per-country mapping from ECCC alert codes onto the hazard buckets), `src/hooks/useAlertWatch.ts`, `src-tauri/src/http.rs` and `tauri.conf.json` CSP (add `api.weather.gc.ca`), `docs/asset-ledger.md`, `scripts/live-contracts-lib.mjs`, `src/i18n/*` (three catalogues), `src/lib/layerProvenance.ts`.
-  Acceptance: Over Canada the alerts layer shows ECCC polygons in the office's colour with the bilingual text in the popup and the office text unaltered; a watched place inside an ECCC warning announces through the same path, sound and quiet hours as an NWS one; the layer carries a provenance record and a required live contract; the fixture-driven e2e proves a Regina warning fires the watch and a Florida one is unaffected.
-  Complexity: M
-
 - [ ] AUD-170 (P1): Loop the single-site radar across recent volumes
   Why: Every competitor loops a site (RadarScope 30 frames at Tier 1 and 50 at Tier 2, RadarOmega 75 to 250 frames by tier, Supercell Wx with loop length, speed and delay, GR2Analyst); the app holds exactly one volume, so a reader watching a supercell cannot see it move at site resolution.
   Evidence: `src/hooks/useSingleSiteRadar.ts:113` (single `sweep` state, modes recent|archive|local); `src/hooks/useRadarTimeline.ts` has no reference to the sweep; the decoded-volume cache in `src-tauri/src/level2.rs` already makes a re-render of a held volume near free; competitor tiers in `RESEARCH.md`.
