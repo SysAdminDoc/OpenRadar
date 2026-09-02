@@ -14,10 +14,14 @@ use tauri::{AppHandle, Manager};
 
 const MAX_STEM: usize = 80;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
-/// Pictures, loops, and the workspace file. Anything else is refused, so a
-/// name from the page can only ever produce one of the four kinds of file
-/// this app writes.
-const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "gif", "json"];
+/// Pictures, loops, the workspace file, and the record.
+///
+/// Anything else is refused, so a name from the page can only ever produce one
+/// of the kinds of file this app writes. Adding a kind of export means adding
+/// it here as well, and `every_file_this_app_writes_can_be_written` is the
+/// test that says so out loud: the journal export shipped writing nothing at
+/// all for as long as `jsonl` was missing from this list.
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "gif", "json", "jsonl", "md"];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
@@ -27,7 +31,7 @@ const RESERVED_NAMES: &[&str] = &[
 static TEMPORARY_WRITES: AtomicU64 = AtomicU64::new(0);
 const TEMPORARY_ATTEMPTS: usize = 16;
 
-/// The allowed kinds as a reader would say them: "png, webm, gif and json".
+/// The allowed kinds as a reader would say them: "png, webm, gif and md".
 ///
 /// Joining the whole list with " and " read as "png and webm and json" the
 /// moment there were three of them, and this message goes to the screen.
@@ -182,11 +186,14 @@ pub fn save_export(
 mod tests {
     use super::*;
 
-    /// The four kinds of file this app actually writes.
+    /// Every kind of file this app actually offers to save.
     ///
     /// This exists because the settings export was impossible in a packaged
     /// build for as long as json was missing from the list, and nothing
-    /// noticed. It is the caller in useWorkspaceActions, spelled out.
+    /// noticed. It happened again with the record: the journal export asked
+    /// for `.jsonl` and `.md`, the first call threw, and the reader got an
+    /// error toast and no files whatever. Every caller that names a file is
+    /// spelled out here.
     #[test]
     fn every_file_this_app_writes_can_be_written() {
         for name in [
@@ -194,6 +201,10 @@ mod tests {
             "openradar-loop.webm",
             "openradar-loop.gif",
             "openradar-workspace.json",
+            "openradar-journal.jsonl",
+            "openradar-journal.md",
+            "openradar-journal-a1b2c3.png",
+            "openradar-year-2026-09-02.png",
         ] {
             assert!(
                 sanitize_file_name(name).is_ok(),
@@ -214,7 +225,10 @@ mod tests {
         // Joining the whole list with " and " gave a repeated conjunction as
         // soon as there were three of them, and this reaches the screen.
         let said = ExportError::BadExtension.to_string();
-        assert_eq!(said, "only png, webm, gif and json files can be exported");
+        assert_eq!(
+            said,
+            "only png, webm, gif, json, jsonl and md files can be exported"
+        );
     }
 
     #[test]

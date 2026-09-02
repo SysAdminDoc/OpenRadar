@@ -6,6 +6,7 @@ import {
   CATCH_UP_LINES,
 } from "./catchUp";
 import type { JournalRow } from "./journal";
+import { formatClock } from "./units";
 
 const NOW = Date.parse("2026-09-02T13:00:00.000Z");
 const AWAY = NOW - 3 * 86_400_000;
@@ -77,12 +78,42 @@ describe("what happened while the app was closed", () => {
     expect(summary?.lines).toHaveLength(0);
   });
 
-  it("gives every line its own time", () => {
-    const summary = catchUpFrom([row()], AWAY, NOW);
+  it("dates every line by when the weather happened", () => {
     // A warning that reached somewhere on Tuesday is not a warning now, and a
-    // line with no time on it reads like one.
-    expect(summary?.lines[0].when).toBeTruthy();
-    expect(summary?.lines[0].when).not.toBe("");
+    // line carrying the wrong time reads like one. Asserting the string is
+    // merely non-empty proves nothing: every row that reaches here has a
+    // readable date already, so that could not fail.
+    const observed = Date.parse("2026-08-31T15:20:00.000Z");
+    const summary = catchUpFrom(
+      [row({ observed: new Date(observed).toISOString() })],
+      AWAY,
+      NOW,
+    );
+    expect(summary?.lines[0].when).toBe(
+      formatClock(observed, {
+        weekday: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    );
+    // And it is the observed time, not the time the row was written down,
+    // which for a warning is the moment a poll came back.
+    expect(summary?.lines[0].when).not.toBe(
+      formatClock(Date.parse(row().at), {
+        weekday: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    );
+  });
+
+  it("measures the gap against when it was worked out", () => {
+    // The card can sit on screen for hours, and it is held back entirely
+    // while a warning stands. A figure read off the live clock grew the
+    // longer it waited, while the lines under it covered the real gap.
+    const summary = catchUpFrom([row()], AWAY, NOW);
+    expect(summary?.at).toBe(NOW);
+    expect(awayFor(summary!.since, summary!.at)).toBe(awayFor(AWAY, NOW));
   });
 
   it("says how long it was away in hours, then in days", () => {

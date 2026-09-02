@@ -55,6 +55,9 @@ export const es: Catalogue = {
   "search.label": "Buscar un lugar",
   "search.unavailable":
     "La búsqueda de lugares no está disponible. El mapa sigue funcionando.",
+  "search.storms": "Tormentas con ese nombre",
+  "search.stormsNote":
+    "Del registro de trayectorias que viene con la aplicación. Ninguna de estas es una tormenta actual.",
   "search.none": "No se encontró ningún lugar.",
   "search.note": "Búsqueda de lugares por Open-Meteo y GeoNames.",
 
@@ -1334,11 +1337,12 @@ export const es: Catalogue = {
   "recap.note":
     "Hecho aquí, a partir de tu propio registro, y nunca de nada que alguien haya recopilado sobre ti.",
   "recap.period": "Del {from} al {to}",
-  "recap.covered":
-    "Tu registro cubre {days} de estos {period} días. El resto falta, no está vacío.",
   "recap.coveredWhole": "Tu registro cubre los {period} días.",
+  "recap.began":
+    "Tu registro empieza el {when} y llega {days} de estos {period} días atrás. Antes de eso no hay registro, que no es lo mismo que no haber tiempo.",
   "recap.counted": "{alerts} avisos y {observations} observaciones.",
-  "recap.days": "Se registró algo en {days} días.",
+  "recap.days":
+    "Se registró algo en {days} de ellos. Un día sin nada fue un día tranquilo o un día con la aplicación cerrada, y el registro no distingue entre las dos cosas.",
   "recap.busiest": "El día con más fue el {when}, con {rows}.",
   "recap.place": "{place}: {alerts} avisos, {observations} observaciones.",
   "recap.placesHidden": "En {count} lugares, sin nombrarlos aquí.",
@@ -1350,16 +1354,19 @@ export const es: Catalogue = {
   "recap.span": "Cuánto tiempo",
   "recap.spanDays": "Los últimos {days} días",
   "recap.spanYear": "El último año",
+  "journal.countShown": "{shown} de {count} filas",
   "journal.title": "Tu registro",
   "journal.count": "{count} filas",
   "journal.note":
-    "Lo que hizo el tiempo en los lugares que nombraste. Solo lugares con nombre, solo observaciones y sucesos, y nunca nada sobre cómo usaste la aplicación. Se guarda {days} días o {size} MB, lo que se agote antes, y lo más viejo se va primero. Se queda en esta máquina y no aparece en el informe de diagnóstico.",
+    "Lo que hizo el tiempo en los lugares que nombraste. Solo lugares con nombre, solo observaciones y sucesos, y nunca nada sobre cómo usaste la aplicación. Se guarda {days} días o {size} MB, lo que se agote antes, y lo más viejo se va primero, con hasta {pictures} MB de imágenes al lado. Se queda en esta máquina y no aparece en el informe de diagnóstico.",
   "journal.empty": "Todavía no hay nada registrado.",
   "journal.desktopOnly": "El registro lo guarda la aplicación de escritorio.",
   "journal.row": "{source}, {when} · {obtained}",
   "journal.export": "Guardar el registro en un archivo",
   "journal.clear": "Borrarlo todo",
   "journal.undated": "una hora sin indicar",
+  "journal.rowRemoved": "Fila borrada",
+  "journal.undoBody": "Las imágenes no se recuperan, solo las filas.",
   "journal.cleared": "Registro borrado",
   "journal.failed": "El registro no se pudo escribir.",
   "journal.saved": "Registro guardado",

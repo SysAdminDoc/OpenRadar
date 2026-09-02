@@ -77,6 +77,17 @@ export const JOURNAL_MAX_MB = 4;
 export const JOURNAL_THUMB_WIDTH = 320;
 export const JOURNAL_THUMB_MAX_BYTES = 128 * 1024;
 
+/**
+ * The most all the kept pictures together may weigh.
+ *
+ * Beside the file rather than inside it, and stated beside it too: the record
+ * is bounded at {@link JOURNAL_MAX_MB}, and a reader told that number while
+ * twice as much sat in a neighbouring directory would have been told something
+ * untrue. The oldest pictures go first and their rows stay, because the row is
+ * the record and the picture is the illustration.
+ */
+export const JOURNAL_THUMBS_MAX_MB = 8;
+
 /** The journal is a file, so a browser preview has none. */
 export function journalAvailable(): boolean {
   return isDesktopRuntime();
@@ -136,6 +147,21 @@ export async function setJournalNote(id: string, note: string): Promise<void> {
   if (!journalAvailable()) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke("journal_note", { id, note });
+}
+
+/**
+ * Puts rows back, for an undo.
+ *
+ * Rows already there are left alone, so a second press puts nothing back
+ * twice, and a restored row comes back without its picture: deleting the row
+ * deleted the file.
+ */
+export async function restoreJournalRows(
+  rows: readonly JournalRow[],
+): Promise<void> {
+  if (!journalAvailable() || !rows.length) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("journal_restore", { rows });
 }
 
 /** Removes one row and the picture that belonged to it. */
@@ -250,7 +276,10 @@ export function journalMarkdown(
 ): string {
   const lines = [`# ${heading}`, ""];
   for (const row of [...rows].reverse()) {
-    lines.push(`## ${row.place} — ${row.text}`.replace(" — ", ": "));
+    // Built as the heading it is, rather than assembled with one separator
+    // and then patched to another: a place name that happened to
+    // contain the first separator ate the replacement and kept it.
+    lines.push(`## ${row.place}: ${row.text}`);
     lines.push("");
     lines.push(`- Observed: ${row.observed}`);
     lines.push(`- Written down: ${row.at}`);

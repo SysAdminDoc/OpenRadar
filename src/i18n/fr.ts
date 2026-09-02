@@ -62,6 +62,9 @@ export const fr: Catalogue = {
   "search.label": "Rechercher un endroit",
   "search.unavailable":
     "La recherche d'endroits est indisponible. La carte reste utilisable.",
+  "search.storms": "Tempêtes portant ce nom",
+  "search.stormsNote":
+    "Tiré du relevé de trajectoires fourni avec l'application. Aucune de ces tempêtes n'est en cours.",
   "search.none": "Aucun endroit correspondant.",
   "search.note": "Recherche d'endroits par Open-Meteo et GeoNames.",
 
@@ -1351,11 +1354,12 @@ export const fr: Catalogue = {
   "recap.note":
     "Fait ici, à partir de votre propre relevé, et jamais de quoi que ce soit recueilli à votre sujet.",
   "recap.period": "Du {from} au {to}",
-  "recap.covered":
-    "Votre relevé couvre {days} de ces {period} jours. Le reste manque, il n'est pas vide.",
   "recap.coveredWhole": "Votre relevé couvre les {period} jours.",
+  "recap.began":
+    "Votre relevé commence le {when} et remonte {days} de ces {period} jours. Avant cela il n'y a pas de relevé, ce qui ne veut pas dire qu'il n'y a pas eu de temps.",
   "recap.counted": "{alerts} alertes et {observations} observations.",
-  "recap.days": "Quelque chose a été noté sur {days} jours.",
+  "recap.days":
+    "Quelque chose a été noté sur {days} d'entre eux. Un jour sans rien était un jour calme ou un jour où l'application était fermée, et le relevé ne fait pas la différence.",
   "recap.busiest": "Le jour le plus chargé a été le {when}, avec {rows}.",
   "recap.place": "{place} : {alerts} alertes, {observations} observations.",
   "recap.placesHidden": "Sur {count} lieux, non nommés ici.",
@@ -1367,16 +1371,19 @@ export const fr: Catalogue = {
   "recap.span": "Sur combien de temps",
   "recap.spanDays": "Les {days} derniers jours",
   "recap.spanYear": "La dernière année",
+  "journal.countShown": "{shown} sur {count} lignes",
   "journal.title": "Votre registre",
   "journal.count": "{count} lignes",
   "journal.note":
-    "Ce que la météo a fait aux endroits que vous avez nommés. Seulement les endroits nommés, seulement des observations et des événements, et jamais rien sur votre façon d'utiliser l'application. Conservé {days} jours ou {size} Mo, selon ce qui arrive en premier, le plus ancien partant d'abord. Il reste sur cette machine et ne figure pas dans le rapport de diagnostic.",
+    "Ce que le temps a fait aux lieux que vous avez nommés. Uniquement des lieux nommés, uniquement des observations et des événements, et jamais rien sur votre usage de l'application. Conservé {days} jours ou {size} Mo, selon ce qui s'épuise en premier, le plus ancien partant d'abord, avec jusqu'à {pictures} Mo d'images à côté. Cela reste sur cette machine et ne figure pas dans le rapport de diagnostic.",
   "journal.empty": "Rien de consigné pour le moment.",
   "journal.desktopOnly": "Le registre est tenu par l'application de bureau.",
   "journal.row": "{source}, {when} · {obtained}",
   "journal.export": "Enregistrer le registre dans un fichier",
   "journal.clear": "Tout supprimer",
   "journal.undated": "une heure non précisée",
+  "journal.rowRemoved": "Ligne supprimée",
+  "journal.undoBody": "Les images ne reviennent pas, seulement les lignes.",
   "journal.cleared": "Registre supprimé",
   "journal.failed": "Le registre n'a pas pu être écrit.",
   "journal.saved": "Registre enregistré",

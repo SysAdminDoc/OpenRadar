@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { partial, recapFrom, recapLines } from "./recap";
 import type { JournalRow } from "./journal";
+import { formatClock } from "./units";
 
 const TO = Date.parse("2026-09-02T12:00:00.000Z");
 const YEAR = 365 * 86_400_000;
@@ -43,21 +46,53 @@ describe("a year built from the record on this disk", () => {
     expect(recap?.recordBegan).toBe(TO - 400 * 86_400_000);
   });
 
-  it("says how much of the period it can actually speak for", () => {
+  it("says how far back it can actually speak for", () => {
     // A record that started ninety days ago cannot describe last November,
     // and a recap that counts three months as a year is a lie told with true
     // numbers.
     const recap = recapFrom([at(90), at(2)], FROM, TO);
     expect(recap?.daysInPeriod).toBe(365);
-    expect(recap?.daysCovered).toBe(90);
+    expect(recap?.daysReachingBack).toBe(90);
     expect(partial(recap!)).toBe(true);
     expect(recapLines(recap!, { places: false }).join(" ")).toContain("90");
   });
 
+  it("does not round a record that began this morning up to a full year", () => {
+    // Ten hours into the window. Rounding the gap to the nearest day made
+    // this three hundred and sixty-five days, `partial` false, and the card
+    // read "your record covers all 365 days" for a record a few hours old.
+    const recap = recapFrom(
+      [row({ observed: new Date(FROM + 10 * 3_600_000).toISOString() })],
+      FROM,
+      TO,
+    );
+    expect(partial(recap!)).toBe(true);
+    expect(recap?.daysReachingBack).toBe(364);
+    const said = recapLines(recap!, { places: false }).join(" ");
+    expect(said).not.toContain("covers all");
+  });
+
   it("does not call a full period partial", () => {
     const recap = recapFrom([at(400), at(2)], FROM, TO);
-    expect(recap?.daysCovered).toBe(365);
+    expect(recap?.daysReachingBack).toBe(365);
     expect(partial(recap!)).toBe(false);
+    expect(recapLines(recap!, { places: false }).join(" ")).toContain(
+      "covers all",
+    );
+  });
+
+  it("does not call a gap in the middle covered", () => {
+    // January and December with nothing between them. The record reaches back
+    // eleven months; it knows about two days. Calling the first figure
+    // coverage is the lie this pair of lines exists to prevent.
+    const recap = recapFrom([at(330), at(2)], FROM, TO)!;
+    expect(recap.daysReachingBack).toBe(330);
+    expect(recap.daysWithSomething).toBe(2);
+    const said = recapLines(recap, { places: false }).join(" ");
+    expect(said).toContain("reaches back");
+    expect(said).not.toContain("covers 330");
+    // And it says what a day with nothing on it actually means.
+    expect(said).toContain("cannot tell those apart");
   });
 
   it("has nothing to show rather than a year of noughts", () => {
@@ -72,6 +107,22 @@ describe("a year built from the record on this disk", () => {
     const recap = recapFrom([at(3), at(3), at(3), at(9)], FROM, TO);
     expect(recap?.daysWithSomething).toBe(2);
     expect(recap?.busiest?.rows).toBe(3);
+  });
+
+  it("names the busiest day as the day the reader would call it", () => {
+    // A day number built as a UTC midnight and then formatted in the reader's
+    // own zone printed the day before for everybody west of Greenwich, which
+    // is most of the people this app is for. The busiest day is held as a
+    // real observed instant, so the formatter cannot disagree with it.
+    const observed = Date.parse("2026-06-15T20:00:00.000Z");
+    const recap = recapFrom(
+      [row({ observed: new Date(observed).toISOString() })],
+      observed - 10 * 86_400_000,
+      observed + 86_400_000,
+    )!;
+    expect(recap.busiest?.at).toBe(observed);
+    const shown = formatClock(observed, { month: "long", day: "numeric" });
+    expect(recapLines(recap, { places: false }).join(" ")).toContain(shown);
   });
 
   it("keeps a place's own figures, in the order they first appear", () => {
@@ -101,20 +152,33 @@ describe("a year built from the record on this disk", () => {
     expect(recapLines(recap, { places: true }).join(" ")).toContain("Casa");
   });
 
-  it("compares the record against nothing at all", () => {
-    const recap = recapFrom([at(5), at(3, { kind: "alert" })], FROM, TO)!;
-    const text = recapLines(recap, { places: true }).join(" ").toLowerCase();
-    // No other person's year is in here, and there is no target to beat.
-    for (const word of [
-      "rank",
-      "score",
-      "streak",
-      "average user",
-      "than last",
-      "top ",
-      "%",
+  it("is built where nothing can compare it against anything", () => {
+    // Asserting that the rendered sentences do not contain the word "streak"
+    // proves only that nobody typed it into the catalogue. What is worth
+    // holding is structural: the recap is a pure function of the rows and the
+    // window, it reaches nothing else, and the surface it is shown on cannot
+    // notify, so there is nowhere for a comparison or a nudge to come from.
+    const source = readFileSync(join(import.meta.dirname, "recap.ts"), "utf8");
+    for (const reach of [
+      "fetch(",
+      "invoke(",
+      "localStorage",
+      "Notification",
+      "pushToast",
     ]) {
-      expect(text).not.toContain(word);
+      expect(source, reach).not.toContain(reach);
     }
+    const panel = readFileSync(
+      join(import.meta.dirname, "..", "panels", "RecapSection.tsx"),
+      "utf8",
+    );
+    for (const reach of ["Notification", "pushToast", "sound", "badge"]) {
+      expect(panel, reach).not.toContain(reach);
+    }
+    // And the figures it does show are the ones counted off the rows.
+    const recap = recapFrom([at(5), at(3, { kind: "alert" })], FROM, TO)!;
+    const text = recapLines(recap, { places: true }).join(" ");
+    expect(text).toContain("1 warning");
+    expect(text).toContain("1 observation");
   });
 });

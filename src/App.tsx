@@ -155,6 +155,15 @@ const PanelSurfaces = lazy(async () => {
   return { default: module.PanelSurfaces };
 });
 
+/**
+ * How often the app writes down that it is still running.
+ *
+ * Read on the next launch to work out how long it was away, and compared
+ * against a four-hour threshold, so five minutes of slack costs nothing and
+ * saves fifty-five settings writes an hour.
+ */
+const LAST_SEEN_EVERY_MS = 5 * 60_000;
+
 export default function App() {
   const t = useT();
   const [activeSurface, setActiveSurface] = useState<SurfaceId>(null);
@@ -336,9 +345,18 @@ export default function App() {
   // summary that only survives a tidy exit is missing exactly when somebody
   // wants it. The clock ticks once a minute, so this costs one settings write
   // a minute, which is what the workspace already does.
+  const lastSeenRef = useRef(0);
   useEffect(() => {
     if (!hydrated) return;
-    applySettings({ ...settingsRef.current, lastSeen: Date.now() });
+    const now = Date.now();
+    // Every five minutes rather than every tick. A settings write replaces the
+    // settings object, which wakes every memo and effect in the workspace that
+    // is keyed on it, and doing that sixty times an hour for the life of the
+    // process is a lot of work to record a figure that is compared against a
+    // four-hour threshold.
+    if (now - lastSeenRef.current < LAST_SEEN_EVERY_MS) return;
+    lastSeenRef.current = now;
+    applySettings({ ...settingsRef.current, lastSeen: now });
     // `clock` is what makes this run again; nothing else here changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock, hydrated]);
@@ -500,7 +518,13 @@ export default function App() {
   // The third of the three things that open an entry in the record, after a
   // warning reaching a named place and the sky changing at one. All three are
   // the weather doing something; nothing the reader does writes a row.
-  const watchedForJournal = useMemo(() => watchedPlaces(settings), [settings]);
+  const watchedForJournal = useMemo(
+    () => watchedPlaces(settings),
+    // The watched places and nothing else. Keyed on the whole settings object
+    // this rebuilt on every write, which restarted the effect below with it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [settings.watch, settings.watchPlaces],
+  );
 
   // Tied to whichever site the single-site radar is reading, because the cells
   // are that radar's own account of that volume.
@@ -841,6 +865,34 @@ export default function App() {
     setReplay(null);
     if (storm) mapRef.current?.fitBounds(trackBounds(storm.track));
   }, []);
+
+  /**
+   * A storm chosen by name in the search.
+   *
+   * The track is loaded here and handed to the same place a Storm history
+   * result goes, so the track is drawn and the replay is offered exactly
+   * where the archive reaches. A name the record does not hold, or a decade
+   * file that will not load, leaves the workspace as it was and says so.
+   */
+  const showStormById = useCallback(
+    (id: string) => {
+      void loadStorm(id)
+        .then((storm) => {
+          showStorm(storm);
+          setActiveSurface("history");
+        })
+        .catch((failure: unknown) =>
+          pushToast({
+            title: translate("history.unknownStorm"),
+            detail:
+              failure instanceof Error
+                ? failure.message
+                : translate("history.unknownStorm"),
+          }),
+        );
+    },
+    [pushToast, showStorm],
+  );
 
   const replayStorm = useCallback(
     (storm: Storm) => {
@@ -1515,7 +1567,6 @@ export default function App() {
         // serious instrument and this is a card about last Tuesday.
         <CatchUpCard
           summary={catchUp}
-          now={clock}
           onDismiss={() => setCatchUpGone(true)}
           onOpenRecord={() => {
             setCatchUpGone(true);
@@ -1718,6 +1769,7 @@ export default function App() {
               applySettings({ ...settingsRef.current, satelliteProduct })
             }
             onHistoryStorm={showStorm}
+            onSearchStorm={showStormById}
             onReplayStorm={replayStorm}
             onStopReplay={stopReplay}
             onSaveReplayBundle={saveReplayBundle}
@@ -1751,8 +1803,21 @@ export default function App() {
             onJournalFailed={(why) =>
               pushToast({ title: translate("journal.failed"), detail: why })
             }
-            onJournalCleared={() =>
-              pushToast({ title: translate("journal.cleared") })
+            onJournalCleared={(undo) =>
+              pushToast({
+                title: translate("journal.cleared"),
+                detail: translate("journal.undoBody"),
+                actionLabel: translate("toast.undo"),
+                onAction: undo,
+              })
+            }
+            onJournalRemoved={(undo) =>
+              pushToast({
+                title: translate("journal.rowRemoved"),
+                detail: translate("journal.undoBody"),
+                actionLabel: translate("toast.undo"),
+                onAction: undo,
+              })
             }
             onExportSettings={actions.exportSettings}
           />

@@ -54,6 +54,9 @@ export const en = {
   "search.placeholder": "City, region, or postal code",
   "search.label": "Search for a place",
   "search.unavailable": "Place search is unavailable. The map stays usable.",
+  "search.storms": "Storms with that name",
+  "search.stormsNote":
+    "From the best track record that ships with the app. None of these is a storm happening now.",
   "search.none": "No matching places found.",
   "search.note": "Location search by Open-Meteo and GeoNames.",
 
@@ -1314,11 +1317,12 @@ export const en = {
   "recap.note":
     "Built here, from your own record, and never from anything anybody collected about you.",
   "recap.period": "{from} to {to}",
-  "recap.covered":
-    "Your record covers {days} of these {period} days. The rest is missing rather than empty.",
   "recap.coveredWhole": "Your record covers all {period} days.",
+  "recap.began":
+    "Your record begins on {when} and reaches back {days} of these {period} days. Before that there is no record, which is not the same as no weather.",
   "recap.counted": "{alerts} warnings and {observations} observations.",
-  "recap.days": "Something was recorded on {days} days.",
+  "recap.days":
+    "Something was recorded on {days} of them. A day with nothing on it was a quiet day or a day the app was closed, and the record cannot tell those apart.",
   "recap.busiest": "The busiest was {when}, with {rows} of them.",
   "recap.place": "{place}: {alerts} warnings, {observations} observations.",
   "recap.placesHidden": "Across {count} places, not named here.",
@@ -1330,16 +1334,19 @@ export const en = {
   "recap.span": "How long",
   "recap.spanDays": "The last {days} days",
   "recap.spanYear": "The last year",
+  "journal.countShown": "{shown} of {count} rows",
   "journal.title": "Your record",
   "journal.count": "{count} rows",
   "journal.note":
-    "What the weather did at the places you named. Only named places, only observations and events, and never anything about how you used the app. Kept for {days} days or {size} MB, whichever runs out first, oldest first. It stays on this machine and is not in the diagnostics report.",
+    "What the weather did at the places you named. Only named places, only observations and events, and never anything about how you used the app. Kept for {days} days or {size} MB, whichever runs out first, oldest first, with up to {pictures} MB of pictures beside it. It stays on this machine and is not in the diagnostics report.",
   "journal.empty": "Nothing recorded yet.",
   "journal.desktopOnly": "The record is kept by the desktop app.",
   "journal.row": "{source}, {when} · {obtained}",
   "journal.export": "Save the record to a file",
   "journal.clear": "Delete all of it",
   "journal.undated": "an unstated time",
+  "journal.rowRemoved": "Row deleted",
+  "journal.undoBody": "The pictures are not put back, only the rows.",
   "journal.cleared": "Record deleted",
   "journal.failed": "The record could not be written.",
   "journal.saved": "Record saved",

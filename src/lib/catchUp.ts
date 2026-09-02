@@ -28,6 +28,16 @@ export interface CatchUp {
   total: number;
   /** When the app was last running, which is what the gap is measured from. */
   since: number;
+  /**
+   * When this was worked out, which is the other end of the gap.
+   *
+   * Held rather than read from the clock when the card draws. The card can
+   * sit on screen for hours, and it can be held back for hours while a
+   * warning stands, so measuring against the current time turned a five-hour
+   * absence into an eight-hour one while the lines below it still covered
+   * five.
+   */
+  at: number;
 }
 
 export interface CatchUpLine {
@@ -90,7 +100,7 @@ export function catchUpFrom(
       kind: row.kind,
     }));
 
-  return { lines, total: during.length, since };
+  return { lines, total: during.length, since, at: now };
 }
 
 /** How long the app was away, in the reader's own words. */

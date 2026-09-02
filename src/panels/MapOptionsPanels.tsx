@@ -801,7 +801,8 @@ interface SettingsPanelProps {
   /** The record was written to a file, at this path when there is one. */
   onJournalSaved: (path: string | null) => void;
   onJournalFailed: (why: string) => void;
-  onJournalCleared: () => void;
+  onJournalCleared: (undo: () => void) => void;
+  onJournalRemoved: (undo: () => void) => void;
   /** Ticks once a minute, so the record on screen notices a row arriving. */
   clock: number;
   onWatchHere: () => void;
@@ -864,6 +865,7 @@ export function SettingsPanel({
   onJournalSaved,
   onJournalFailed,
   onJournalCleared,
+  onJournalRemoved,
   clock,
   onSendWatchTest,
   onWatchHere,
@@ -1019,6 +1021,7 @@ export function SettingsPanel({
         onSaved={(path) => onJournalSaved(path)}
         onFailed={(why) => onJournalFailed(why)}
         onCleared={onJournalCleared}
+        onRemoved={onJournalRemoved}
       />
 
       <RecapSection

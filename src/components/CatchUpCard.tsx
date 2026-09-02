@@ -15,12 +15,10 @@ import { awayFor, type CatchUp } from "../lib/catchUp";
  */
 export function CatchUpCard({
   summary,
-  now,
   onDismiss,
   onOpenRecord,
 }: {
   summary: CatchUp;
-  now: number;
   onDismiss: () => void;
   onOpenRecord: () => void;
 }) {
@@ -32,7 +30,11 @@ export function CatchUpCard({
       <div className="catch-up__title">
         <span>{t("catchUp.title")}</span>
         <small>
-          {t("catchUp.away", { away: awayFor(summary.since, now) })}
+          {/* Both ends of the gap come from the summary. Reading the live
+              clock here made the figure grow while the card was on screen,
+              and while it was held back by a warning, so the sentence and
+              the lines under it stopped agreeing. */}
+          {t("catchUp.away", { away: awayFor(summary.since, summary.at) })}
         </small>
       </div>
       {summary.lines.length ? (

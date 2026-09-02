@@ -14,6 +14,38 @@ import { translate } from "../i18n";
 export const RECAP_WIDTH = 1200;
 export const RECAP_HEIGHT = 630;
 
+/** The margin both sides, so a line has this much less than the full width. */
+const MARGIN = 64;
+
+/**
+ * One string as however many lines it needs at this width.
+ *
+ * Measured rather than guessed. A reader who watches several places has a
+ * dozen stations in the credits, and `fillText` neither wraps nor clips: it
+ * simply draws past the edge of the canvas and the tail is gone. The credits
+ * are the one line on this picture that is not optional.
+ */
+function wrapped(
+  context: CanvasRenderingContext2D,
+  text: string,
+  width: number,
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && context.measureText(next).width > width) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [""];
+}
+
 export async function drawRecapCard(options: {
   title: string;
   lines: readonly string[];
@@ -24,6 +56,7 @@ export async function drawRecapCard(options: {
   canvas.height = RECAP_HEIGHT;
   const context = canvas.getContext("2d");
   if (!context) throw new Error(translate("export.noCanvas"));
+  const width = RECAP_WIDTH - MARGIN * 2;
 
   context.fillStyle = "#090b10";
   context.fillRect(0, 0, RECAP_WIDTH, RECAP_HEIGHT);
@@ -34,22 +67,34 @@ export async function drawRecapCard(options: {
   context.fillStyle = "#e7edf7";
   context.font = "600 44px 'Segoe UI', system-ui, sans-serif";
   context.textBaseline = "top";
-  context.fillText(options.title, 64, 72);
+  context.fillText(options.title, MARGIN, 72, width);
+
+  // The credits are measured and placed first, so the figures above them have
+  // whatever room is left rather than the other way round.
+  context.font = "18px 'Segoe UI', system-ui, sans-serif";
+  const credits = wrapped(context, options.credits, width);
+  const creditsTop = RECAP_HEIGHT - 40 - credits.length * 24;
 
   context.font = "24px 'Segoe UI', system-ui, sans-serif";
+  context.fillStyle = "#c8d3e4";
   let y = 168;
   for (const line of options.lines) {
-    // A card that runs out of room drops the last lines rather than writing
-    // over its own credits. The panel has all of them either way.
-    if (y > RECAP_HEIGHT - 140) break;
-    context.fillStyle = "#c8d3e4";
-    context.fillText(line, 64, y);
-    y += 42;
+    for (const part of wrapped(context, line, width)) {
+      // A card that runs out of room drops what will not fit rather than
+      // writing over its own credits. The panel has all of it either way.
+      if (y > creditsTop - 42) break;
+      context.fillText(part, MARGIN, y);
+      y += 34;
+    }
+    if (y > creditsTop - 42) break;
+    y += 8;
   }
 
   context.font = "18px 'Segoe UI', system-ui, sans-serif";
   context.fillStyle = "#8b97ab";
-  context.fillText(options.credits, 64, RECAP_HEIGHT - 72);
+  credits.forEach((line, index) => {
+    context.fillText(line, MARGIN, creditsTop + index * 24);
+  });
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/png"),
