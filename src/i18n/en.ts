@@ -883,6 +883,13 @@ export const en = {
   "settings.theme": "Theme",
   "settings.dark": "Dark",
   "settings.light": "Light",
+  "settings.accent": "Accent colour",
+  "settings.accentDetail":
+    "The colour on headings, switches and the focus ring. It never reaches a radar scale, a warning outline or a storm track.",
+  "settings.themeInForce": "{name} is in force over the built-in look.",
+  "settings.themeClear": "Back to the built-in look",
+  "settings.themeNote":
+    "Drop a theme file on the Upload panel to change more than the colour. A theme reaches the workspace around the map and nothing on it.",
   "settings.radar": "Composite Radar",
   "settings.baseReflectivity": "Base reflectivity",
   "settings.opacity": "Opacity",
@@ -1104,6 +1111,10 @@ export const en = {
   "toast.paletteEmpty": "That palette has no colours this map can use.",
   "toast.overlayEmpty": "That GeoJSON file does not contain any features.",
   "toast.paletteApplied": "{name} applied",
+  "toast.themeApplied": "{name} is the look now",
+  "toast.themeBody":
+    "{count} chrome tokens. Nothing about the radar, the warnings or the scales has changed.",
+  "toast.themeEmpty": "That theme file sets nothing this build understands.",
   "toast.remove": "Remove",
   "toast.colours": "{count} colours",
   "toast.forUnits": "for {units}",

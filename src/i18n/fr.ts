@@ -912,6 +912,13 @@ export const fr: Catalogue = {
   "settings.theme": "Thème",
   "settings.dark": "Sombre",
   "settings.light": "Clair",
+  "settings.accent": "Couleur d'accent",
+  "settings.accentDetail":
+    "La couleur des titres, des interrupteurs et de l'anneau de focus. Elle n'atteint jamais une échelle du radar, le contour d'une alerte ni la trajectoire d'un orage.",
+  "settings.themeInForce": "{name} s'applique par-dessus l'apparence intégrée.",
+  "settings.themeClear": "Revenir à l'apparence intégrée",
+  "settings.themeNote":
+    "Déposez un fichier de thème sur le panneau Téléversement pour changer plus que la couleur. Un thème atteint l'espace de travail autour de la carte et rien de ce qui s'y trouve.",
   "settings.radar": "Radar composite",
   "settings.baseReflectivity": "Réflectivité de base",
   "settings.opacity": "Opacité",
@@ -1142,6 +1149,11 @@ export const fr: Catalogue = {
     "Cette palette n'a aucune couleur que cette carte peut utiliser.",
   "toast.overlayEmpty": "Ce fichier GeoJSON ne contient aucune entité.",
   "toast.paletteApplied": "{name} appliquée",
+  "toast.themeApplied": "{name} est l'apparence maintenant",
+  "toast.themeBody":
+    "{count} éléments de l'habillage. Rien du radar, des alertes ni des échelles n'a changé.",
+  "toast.themeEmpty":
+    "Ce fichier de thème ne définit rien que cette version comprend.",
   "toast.remove": "Retirer",
   "toast.colours": "{count} couleurs",
   "toast.forUnits": "pour {units}",

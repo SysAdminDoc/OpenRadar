@@ -13,6 +13,7 @@ import type { ToastMessage } from "../components/ToastHost";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "../lib/deepLink";
 import { log } from "../lib/log";
 import { looksLikePlacefile, parsePlacefile } from "../lib/placefile";
+import { looksLikeTheme, parseTheme } from "../lib/theme";
 import { MAX_PALETTES, looksLikePalette, parsePalette } from "../lib/palette";
 import {
   DEFAULT_SETTINGS,
@@ -377,6 +378,41 @@ export function useWorkspaceActions(options: {
             actionLabel: translate("toast.remove"),
             onAction: () =>
               applySettings(withoutPalette(settingsRef.current, palette.name)),
+          });
+          return;
+        }
+
+        // A theme is not an overlay either, and it is deliberately the one
+        // import that cannot touch the map: it reaches the chrome tokens in
+        // `theme.ts` and nothing else, so the toast can say so plainly.
+        if (looksLikeTheme(file.name, text)) {
+          const read = parseTheme(text, file.name);
+          if (!read) throw new Error(translate("toast.themeEmpty"));
+          const previous = settingsRef.current.workspaceTheme;
+          applySettings({
+            ...settingsRef.current,
+            workspaceTheme: read.theme,
+          });
+          setActiveSurface(null);
+          const notes = [
+            translate("toast.themeBody", {
+              count: Object.keys(read.theme.tokens).length,
+            }),
+          ];
+          if (read.skipped.length) {
+            notes.push(
+              translate("toast.leftOut", { names: inWords(read.skipped) }),
+            );
+          }
+          pushToast({
+            title: translate("toast.themeApplied", { name: read.theme.name }),
+            detail: notes.join(" "),
+            actionLabel: translate("toast.undo"),
+            onAction: () =>
+              applySettings({
+                ...settingsRef.current,
+                workspaceTheme: previous,
+              }),
           });
           return;
         }

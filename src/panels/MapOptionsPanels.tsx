@@ -78,6 +78,7 @@ function timeToMinute(value: string, fallback: number): number {
     : fallback;
 }
 import { formatNumber, LANGUAGES, useT, type StringKey } from "../i18n";
+import { themeAccent, themeFromAccent } from "../lib/theme";
 import {
   SURGE_CATEGORIES,
   SURGE_RAMP,
@@ -828,6 +829,18 @@ function ToggleSetting({
   );
 }
 
+/**
+ * What the colour control shows before anybody has chosen anything.
+ *
+ * The built-in accent per theme, copied from the stylesheet. A colour input
+ * has no "unset" state, so it has to open on something, and opening on the
+ * colour actually on screen is the only honest choice.
+ */
+const BUILT_IN_ACCENT: Record<AppSettings["theme"], string> = {
+  dark: "#6dd5fa",
+  light: "#0369a1",
+};
+
 export function SettingsPanel({
   settings,
   bounds = null,
@@ -840,6 +853,7 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
+  const accent = themeAccent(settings.workspaceTheme);
 
   // The watched radius is stored in miles, which is what the watch works in,
   // and read in whatever the reader reads in.
@@ -889,6 +903,46 @@ export function SettingsPanel({
             {t("settings.light")}
           </button>
         </div>
+        <label className="accent-row">
+          <span>
+            <strong>{t("settings.accent")}</strong>
+            <small>{t("settings.accentDetail")}</small>
+          </span>
+          <input
+            type="color"
+            value={accent ?? BUILT_IN_ACCENT[settings.theme]}
+            aria-label={t("settings.accent")}
+            onChange={(event) =>
+              onSettings({
+                ...settings,
+                workspaceTheme:
+                  themeFromAccent(
+                    event.target.value,
+                    settings.theme,
+                    t("settings.accent"),
+                  ) ?? settings.workspaceTheme,
+              })
+            }
+          />
+        </label>
+        {settings.workspaceTheme ? (
+          <>
+            <p className="source-note">
+              {t("settings.themeInForce", {
+                name: settings.workspaceTheme.name,
+              })}
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => onSettings({ ...settings, workspaceTheme: null })}
+            >
+              {t("settings.themeClear")}
+            </button>
+          </>
+        ) : (
+          <p className="source-note">{t("settings.themeNote")}</p>
+        )}
       </div>
 
       <IncidentPackManager

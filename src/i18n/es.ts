@@ -902,6 +902,13 @@ export const es: Catalogue = {
   "settings.theme": "Tema",
   "settings.dark": "Oscuro",
   "settings.light": "Claro",
+  "settings.accent": "Color de acento",
+  "settings.accentDetail":
+    "El color de los títulos, los interruptores y el anillo de foco. Nunca llega a una escala del radar, al contorno de un aviso ni a la traza de una tormenta.",
+  "settings.themeInForce": "{name} está en vigor sobre el aspecto integrado.",
+  "settings.themeClear": "Volver al aspecto integrado",
+  "settings.themeNote":
+    "Suelta un archivo de tema en el panel Subir para cambiar algo más que el color. Un tema llega al espacio de trabajo alrededor del mapa y a nada de lo que hay sobre él.",
   "settings.radar": "Radar compuesto",
   "settings.baseReflectivity": "Reflectividad base",
   "settings.opacity": "Opacidad",
@@ -1129,6 +1136,11 @@ export const es: Catalogue = {
   "toast.paletteEmpty": "Esa paleta no tiene colores que este mapa pueda usar.",
   "toast.overlayEmpty": "Ese archivo GeoJSON no contiene elementos.",
   "toast.paletteApplied": "{name} aplicada",
+  "toast.themeApplied": "{name} es el aspecto ahora",
+  "toast.themeBody":
+    "{count} elementos del entorno. No ha cambiado nada del radar, de los avisos ni de las escalas.",
+  "toast.themeEmpty":
+    "Ese archivo de tema no define nada que esta versión entienda.",
   "toast.remove": "Quitar",
   "toast.colours": "{count} colores",
   "toast.forUnits": "para {units}",

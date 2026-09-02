@@ -1,0 +1,110 @@
+import { expect, test, type Page } from "@playwright/test";
+import { routeWorkspace } from "./support/fixtures";
+
+/**
+ * A theme restyles the workspace around the map and nothing on it.
+ *
+ * The unit tests hold the boundary in the source: the token list, the parser,
+ * and the fact that no module drawing a reading reads a custom property. This
+ * holds it where a reader would notice, in a running window with a colour
+ * somebody picked: the accent moves, the reflectivity bar beside the map does
+ * not, and more contrast still wins.
+ */
+const ACCENT = "#ff8a3d";
+
+async function startWith(page: Page, theme: unknown) {
+  await page.addInitScript((value) => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({ schemaVersion: 3, workspaceTheme: value }),
+    );
+  }, theme);
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(page.getByRole("application")).toBeVisible();
+}
+
+function token(page: Page, name: string) {
+  return page.evaluate(
+    (property) =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue(property)
+        .trim(),
+    name,
+  );
+}
+
+/** What the reflectivity bar is actually painted with, resolved by the browser. */
+function rampPaint(page: Page) {
+  return page
+    .locator(".legend-ramp")
+    .first()
+    .evaluate((node) => getComputedStyle(node).backgroundImage);
+}
+
+test("a personal accent moves the chrome and leaves the scale alone", async ({
+  page,
+}) => {
+  await startWith(page, null);
+  const plainAccent = await token(page, "--accent");
+  const plainRamp = await rampPaint(page);
+  expect(plainAccent).not.toBe("");
+  expect(plainRamp).toContain("gradient");
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByLabel("Accent colour").fill(ACCENT);
+
+  await expect.poll(() => token(page, "--accent")).toBe(ACCENT);
+  // The bar the radar is read against is drawn from its own colours, so a
+  // colour somebody picked for the workspace cannot reach it.
+  expect(await rampPaint(page)).toBe(plainRamp);
+
+  // And one action puts it back.
+  await page.getByRole("button", { name: "Back to the built-in look" }).click();
+  await expect.poll(() => token(page, "--accent")).toBe(plainAccent);
+  await expect(page.locator("#workspace-theme")).toHaveCount(0);
+});
+
+test("more contrast outranks a theme", async ({ page }) => {
+  await startWith(page, {
+    name: "Loud",
+    base: "dark",
+    tokens: { Border: "rgba(255, 0, 0, 0.2)", Accent: ACCENT },
+  });
+  await expect.poll(() => token(page, "--border")).toBe("rgba(255, 0, 0, 0.2)");
+
+  // A reader who has asked the system for more contrast gets the border the
+  // stylesheet reserves for it, whatever a theme file said.
+  await page.emulateMedia({ contrast: "more" });
+  await expect
+    .poll(() => token(page, "--border"))
+    .toBe("rgba(200, 214, 235, 0.42)");
+  // The accent is not one of the tokens more contrast redefines, so the
+  // reader's own colour survives.
+  expect(await token(page, "--accent")).toBe(ACCENT);
+
+  await page.emulateMedia({ contrast: "no-preference" });
+  await expect.poll(() => token(page, "--border")).toBe("rgba(255, 0, 0, 0.2)");
+});
+
+test("a stored theme that was hand-edited only brings what the parser allows", async ({
+  page,
+}) => {
+  await startWith(page, {
+    name: "Edited",
+    base: "dark",
+    tokens: {
+      Accent: ACCENT,
+      // Neither of these is a token a theme can set, and the second one is
+      // trying to reach a hazard colour rather than a chrome one.
+      Danger: "#00ff00",
+      Text: "#00ff00",
+    },
+  });
+  await expect.poll(() => token(page, "--accent")).toBe(ACCENT);
+  expect(await token(page, "--danger")).not.toBe("#00ff00");
+  expect(await token(page, "--text")).not.toBe("#00ff00");
+  expect(await page.locator("#workspace-theme").textContent()).not.toContain(
+    "--danger",
+  );
+});
