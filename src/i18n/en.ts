@@ -256,6 +256,15 @@ export const en = {
   "tropical.noteLoading": "Loading NHC products.",
   "tropical.noteSource":
     "Official advisories at nhc.noaa.gov are the source of record.",
+  "almanac.title": "On this date",
+  "almanac.note": "From what is already on this machine",
+  "almanac.storm": "{name} was a {category}.",
+  "almanac.track": "NOAA HURDAT2 best track",
+  "almanac.show": "Show the track",
+  "almanac.flyTo": "Take me there",
+  "settings.almanac": "On this date",
+  "settings.almanacDetail":
+    "A card in Storm history saying what the weather did on this date in other years, from the record that ships with the app. It never appears while a warning is in force where you watch",
   "history.eyebrow": "HURDAT2 best track",
   "history.title": "Storm history",
   "history.placeholder": "Ian 2022",

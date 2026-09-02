@@ -14,6 +14,10 @@ import {
   type StormSummary,
 } from "../lib/hurdat";
 import { formatNumber, locale, translate, useT } from "../i18n";
+import { almanacFor, readNotes, type AlmanacNote } from "../lib/almanac";
+
+/** The curated notes, beside the track record, in the app's own bundle. */
+const ALMANAC_URL = "/almanac.json";
 
 interface HistoryPanelProps {
   selectedId: string | null;
@@ -26,6 +30,16 @@ interface HistoryPanelProps {
   onOpenBundle: () => void;
   /** False in a browser preview, where nothing can write or read a file. */
   bundlesAvailable: boolean;
+  /**
+   * Whether the almanac card is drawn at all.
+   *
+   * False when the reader has switched it off, and false while a warning is
+   * in force at a place they watch: nothing discoverable reveals itself while
+   * the map is a serious instrument.
+   */
+  almanac: boolean;
+  /** Takes the camera to a note's own place, without touching a live layer. */
+  onFlyTo: (point: { lon: number; lat: number }) => void;
   onClose: () => void;
 }
 
@@ -57,6 +71,8 @@ export function HistoryPanel({
   onSaveBundle,
   onOpenBundle,
   bundlesAvailable,
+  almanac,
+  onFlyTo,
   onClose,
 }: HistoryPanelProps) {
   // Off unless ticked, every time: the workspace knows where home is, and a
@@ -112,6 +128,36 @@ export function HistoryPanel({
         setError(failureMessage(failure));
       });
   };
+
+  // Read once from the file that ships with the app. `fetch` on a same-origin
+  // path is the bundle on disk, so this works with networking off, which is
+  // most of the point of an almanac built from what is already here.
+  const [notes, setNotes] = useState<AlmanacNote[]>([]);
+  useEffect(() => {
+    if (!almanac) return;
+    let open = true;
+    void fetch(ALMANAC_URL)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((value) => {
+        if (open) setNotes(readNotes(value));
+      })
+      // A card is not worth an error in front of somebody. Without the notes
+      // the track record still answers.
+      .catch(() => undefined);
+    return () => {
+      open = false;
+    };
+  }, [almanac]);
+
+  // The card is for a reader who has not asked about anything in particular.
+  // Somebody in the middle of a search has.
+  const today = useMemo(
+    () =>
+      almanac && !query.trim() && storms
+        ? almanacFor(new Date(), storms, notes)
+        : [],
+    [almanac, notes, query, storms],
+  );
 
   const results = useMemo(
     () => (storms ? searchStorms(storms, query) : []),
@@ -179,6 +225,64 @@ export function HistoryPanel({
             <span>{error}</span>
           </div>
         </div>
+      ) : null}
+
+      {today.length && !selected ? (
+        <section className="almanac-card" aria-label={t("almanac.title")}>
+          <div className="settings-section__title">
+            <span>{t("almanac.title")}</span>
+            <small>{t("almanac.note")}</small>
+          </div>
+          <ol>
+            {today.map((entry) =>
+              entry.kind === "note" ? (
+                <li key={entry.note.id} data-almanac-note={entry.note.id}>
+                  <strong>{entry.note.year}</strong>
+                  <span>{entry.note.title}</span>
+                  <small>
+                    {/* A note says who says so and where to read it. An
+                        uncited one never reaches here: `readNotes` drops it. */}
+                    <a
+                      href={entry.note.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      {entry.note.source}
+                    </a>
+                  </small>
+                  {entry.note.place ? (
+                    <button
+                      type="button"
+                      onClick={() => onFlyTo(entry.note.place!)}
+                    >
+                      {t("almanac.flyTo")}
+                    </button>
+                  ) : null}
+                </li>
+              ) : (
+                <li key={entry.storm.id} data-almanac-storm={entry.storm.id}>
+                  <strong>{entry.storm.year}</strong>
+                  <span>
+                    {t("almanac.storm", {
+                      name: entry.storm.name,
+                      category: categoryLabel(entry.storm.peakWindKt),
+                    })}
+                  </span>
+                  <small>{t("almanac.track")}</small>
+                  <button
+                    type="button"
+                    onClick={() => selectStorm(entry.storm.id)}
+                  >
+                    {/* Choosing it draws the track and offers the replay where
+                        the archive reaches, which is the same path a search
+                        result takes. Nothing here decides that on its own. */}
+                    {t("almanac.show")}
+                  </button>
+                </li>
+              ),
+            )}
+          </ol>
+        </section>
       ) : null}
 
       {selected ? (

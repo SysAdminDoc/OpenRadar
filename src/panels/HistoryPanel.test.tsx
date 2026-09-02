@@ -98,6 +98,8 @@ function renderPanel(
       onSaveBundle={onSaveBundle}
       onOpenBundle={() => {}}
       bundlesAvailable={bundlesAvailable}
+      almanac={false}
+      onFlyTo={() => {}}
       onClose={() => {}}
     />,
   );
@@ -161,6 +163,8 @@ describe("HistoryPanel selection", () => {
           onSaveBundle={() => {}}
           onOpenBundle={() => {}}
           bundlesAvailable={false}
+          almanac={false}
+          onFlyTo={() => {}}
           onClose={() => {}}
         />
       );
@@ -197,6 +201,8 @@ describe("HistoryPanel selection", () => {
           onSaveBundle={() => {}}
           onOpenBundle={() => {}}
           bundlesAvailable={false}
+          almanac={false}
+          onFlyTo={() => {}}
           onClose={() => {}}
         />
       );
@@ -240,6 +246,8 @@ describe("HistoryPanel replay bundles", () => {
         replayId={ALPHA.id}
         onSelect={() => {}}
         onReplay={() => {}}
+        almanac={false}
+        onFlyTo={() => {}}
         onStopReplay={() => {}}
         onSaveBundle={onSaveBundle}
         onOpenBundle={() => {}}

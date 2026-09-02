@@ -961,6 +961,12 @@ export function SettingsPanel({
           </p>
         ) : null}
         <ToggleSetting
+          label={t("settings.almanac")}
+          detail={t("settings.almanacDetail")}
+          checked={settings.almanac}
+          onChange={(almanac) => onSettings({ ...settings, almanac })}
+        />
+        <ToggleSetting
           label={t("settings.occasions")}
           detail={t("settings.occasionsDetail")}
           checked={settings.occasions.enabled}

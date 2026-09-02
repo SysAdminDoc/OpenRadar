@@ -262,6 +262,15 @@ export const es: Catalogue = {
   "tropical.noteLoading": "Cargando productos del NHC.",
   "tropical.noteSource":
     "Los boletines oficiales en nhc.noaa.gov son la fuente de referencia.",
+  "almanac.title": "En esta fecha",
+  "almanac.note": "De lo que ya está en esta máquina",
+  "almanac.storm": "{name} fue un {category}.",
+  "almanac.track": "Mejor trayectoria HURDAT2 de la NOAA",
+  "almanac.show": "Mostrar la trayectoria",
+  "almanac.flyTo": "Llévame allí",
+  "settings.almanac": "En esta fecha",
+  "settings.almanacDetail":
+    "Una tarjeta en Historial de tormentas que dice qué hizo el tiempo en esta fecha en otros años, del registro que viene con la aplicación. Nunca aparece mientras hay un aviso en vigor donde vigilas",
   "history.eyebrow": "Mejor trayectoria HURDAT2",
   "history.title": "Historial de tormentas",
   "history.placeholder": "Ian 2022",
