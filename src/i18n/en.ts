@@ -14,9 +14,9 @@ export const en = {
   "export.title": "Export",
   "export.image": "Export image",
   "export.loop": "Export loop",
-  "export.loopFrames": " ({count} frames)",
+  "export.loopFrames": " ({count, plural, one {# frame} other {# frames}})",
   "export.gif": "Export GIF",
-  "export.gifFrames": " (last {count} frames)",
+  "export.gifFrames": " (last {count, plural, one {# frame} other {# frames}})",
   "export.recording":
     "Recording frame {done} of {total}. Leave the window in front while it runs.",
   "export.cardTitle": "What lands in the file",
@@ -35,7 +35,7 @@ export const en = {
     "{readings} readings, {size}, at {path}, with a provenance file beside it.",
   "export.dataFailed": "The data export failed",
   "export.dataNoView": "The map has no view to cut the grid to yet.",
-  "dataExport.bytes": "{count} bytes",
+  "dataExport.bytes": "{count, plural, one {# byte} other {# bytes}}",
   "dataExport.kilobytes": "{count} kB",
   "dataExport.megabytes": "{count} MB",
   "dataExport.error.notDrawn":
@@ -105,7 +105,7 @@ export const en = {
     "Each one on its own switch, with the last in the list drawn on top",
   "layers.filesNone":
     "Nothing imported yet. Drop a placefile or a GeoJSON file on the Upload panel.",
-  "layers.fileShapes": "{count} shapes",
+  "layers.fileShapes": "{count, plural, one {# shape} other {# shapes}}",
   "layers.fileShown": "Show {name}",
   "layers.fileRemove": "Remove {name}",
   "capture.title": "Capture layout",
@@ -196,7 +196,7 @@ export const en = {
   "packs.minZoom": "Minimum zoom",
   "packs.maxZoom": "Maximum zoom",
   "packs.estimate":
-    "{count} tiles. About {final} when finished and up to {temporary} while it is built.",
+    "{count, plural, one {# tile} other {# tiles}}. About {final} when finished and up to {temporary} while it is built.",
   "packs.noRegion": "Move the map to the region you want to save.",
   "packs.wontFit": "This pack would cross the configured disk ceiling.",
   "packs.download": "Download current map region",
@@ -216,7 +216,8 @@ export const en = {
   "packs.status.ready": "Ready offline",
   "packs.status.failed": "Needs attention",
   "packs.packMeta": "Zoom {min} to {max} · {size}",
-  "packs.progress": "{done} of {total} tiles, {percent}%",
+  "packs.progress":
+    "{done} of {total, plural, one {# tile} other {# tiles}}, {percent}%",
   "packs.usePack": "Use offline",
   "packs.pause": "Pause",
   "packs.resume": "Resume",
@@ -291,7 +292,7 @@ export const en = {
   "history.result": "{basin} · {category} · ACE {ace}",
   "history.none": "Nothing matches that. Try a name, a year, or both.",
   "history.noteCount":
-    "{count} storms back to 1851, from the NOAA HURDAT2 best track.",
+    "{count, plural, one {# storm} other {# storms}} back to 1851, from the NOAA HURDAT2 best track.",
   "history.noteLoading": "Loading the best track archive.",
   "history.noteReplay":
     "A replay covers three hours either side of {moment} on {date}, from the Iowa State radar archive.",
@@ -309,11 +310,12 @@ export const en = {
   "bundle.replayLabel": "Replay bundle",
   "bundle.openTitle": "Open an OpenRadar replay bundle",
   "bundle.fileKind": "OpenRadar replay bundle",
-  "bundle.missingTiles": "{count} tiles were not in the bundle.",
+  "bundle.missingTiles":
+    "{count, plural, one {# tile was} other {# tiles were}} not in the bundle.",
   "bundle.missingWarnings":
-    "{count} warnings feeds were not in the bundle, so its warnings may be incomplete.",
+    "{count, plural, one {# warnings feed was} other {# warnings feeds were}} not in the bundle, so its warnings may be incomplete.",
   "bundle.missingBoth":
-    "{tiles} tiles and {warnings} warnings feeds were not in the bundle.",
+    "{tiles, plural, one {# tile} other {# tiles}} and {warnings, plural, one {# warnings feed} other {# warnings feeds}} were not in the bundle.",
   "bundle.error.invalidRequest": "This replay cannot be bundled: {0}.",
   "bundle.error.tooManyTiles":
     "The view covers {0} tiles across the replay. Zoom in, or out, so it covers fewer.",
@@ -376,14 +378,13 @@ export const en = {
   "time.justNow": "just now",
   "time.minutesAgo": "{count} min ago",
   "time.hoursAgo": "{count} h ago",
-  "time.daysAgo": "{count} days ago",
-
+  "time.daysAgo": "{count, plural, one {# day} other {# days}} ago",
   "upload.eyebrow": "Local data",
   "upload.title": "Upload",
   "upload.dropTitle": "Add an overlay or a colour table",
   "upload.dropBody":
     "Choose a local GeoJSON file, a GRLevelX placefile, or a .pal colour table. Nothing is sent to a server.",
-  "upload.colours": "{count} colours",
+  "upload.colours": "{count, plural, one {# colour} other {# colours}}",
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · reflectivity",
   "upload.skipped": "{names} left out",
@@ -407,7 +408,8 @@ export const en = {
   "diagnostics.live": "Live",
   "diagnostics.waiting": "Waiting for data",
   "diagnostics.failing": "{error} ({count} in a row)",
-  "diagnostics.frames": "{count} frames, {when}",
+  "diagnostics.frames":
+    "{count, plural, one {# frame} other {# frames}}, {when}",
   "diagnostics.answered": "Answered {when}",
   "diagnostics.standingBy": "Standing by",
   "diagnostics.neverContacted": "not contacted yet",
@@ -992,7 +994,7 @@ export const en = {
   "settings.removePlace": "Stop watching {place}",
   "settings.addPlace": "Add the map centre as a place",
   "settings.placesFull":
-    "That is all {count} places. Remove one to watch somewhere else.",
+    "That is all {count, plural, one {# place} other {# places}}. Remove one to watch somewhere else.",
   "settings.watching": "Watching {lat}, {lon} for warnings and worse.",
   "settings.camera": "Camera state",
   "settings.zoom": "Zoom",
@@ -1044,7 +1046,8 @@ export const en = {
   "timeline.pause": "Pause radar animation",
   "timeline.frame": "Radar frame",
   "timeline.connecting": "Connecting to radar",
-  "timeline.frames": "{index} of {total} radar frames",
+  "timeline.frames":
+    "{index} of {total, plural, one {# radar frame} other {# radar frames}}",
   "timeline.forecastAt": "{time} forecast",
   "timeline.hrrr": "HRRR init {init}, +{lead} min",
   "timeline.live": "live",
@@ -1171,7 +1174,7 @@ export const en = {
   "toast.bundleFailed": "The replay bundle failed",
   "toast.bundleOpened": "Replaying {label} from a bundle",
   "toast.bundleOpenedBody":
-    "{frames} frames, kept {made}. Nothing is fetched for them; the bundle answers.",
+    "{frames, plural, one {# frame} other {# frames}}, kept {made}. Nothing is fetched for them; the bundle answers.",
   "toast.bundleApplyWorkspace": "Apply its workspace",
   "toast.bundleWorkspaceApplied": "The bundle's workspace is in force",
   "toast.bundleWorkspacePartly": "The bundle's workspace is in force, in part",
@@ -1190,12 +1193,12 @@ export const en = {
     "{count} chrome tokens. Nothing about the radar, the warnings or the scales has changed.",
   "toast.themeEmpty": "That theme file sets nothing this build understands.",
   "toast.remove": "Remove",
-  "toast.colours": "{count} colours",
+  "toast.colours": "{count, plural, one {# colour} other {# colours}}",
   "toast.forUnits": "for {units}",
   "toast.leftOut": "{names} left out",
   "toast.overlayLocal": "The overlay stays on this device.",
   "toast.placefileEmpty": "That placefile has nothing this map can draw.",
-  "toast.shapes": "{count} shapes",
+  "toast.shapes": "{count, plural, one {# shape} other {# shapes}}",
   "toast.refreshEvery": "it asks to be refreshed every {minutes} min",
   "toast.truncated": "the file ended mid-shape",
   "toast.notGeoJson": "Choose a GeoJSON file or a GRLevelX placefile.",
@@ -1203,7 +1206,7 @@ export const en = {
   "toast.overlayAdded": "{name} added",
   "toast.overlayReplaced": "{name} replaced",
   "toast.overlaySetFull":
-    "You already have {count} files on the map. Remove one in Layers, then import this.",
+    "You already have {count, plural, one {# file} other {# files}} on the map. Remove one in Layers, then import this.",
   "toast.overlayFailed": "Overlay could not be added",
   "toast.unreadable": "The file could not be read.",
   "toast.watching": "Watching this point",
@@ -1301,10 +1304,11 @@ export const en = {
   "catchUp.title": "While you were away",
   "catchUp.away":
     "OpenRadar was closed for {away}. This is what the record has from that time, at the places you named.",
-  "catchUp.awayHours": "{hours} hours",
-  "catchUp.awayDays": "{days} days",
+  "catchUp.awayHours": "{hours, plural, one {# hour} other {# hours}}",
+  "catchUp.awayDays": "{days, plural, one {# day} other {# days}}",
   "catchUp.quiet": "Nothing happened at your places while you were away.",
-  "catchUp.more": "{count} more are in your record.",
+  "catchUp.more":
+    "{count, plural, one {# more is} other {# more are}} in your record.",
   "catchUp.line": "{place} · {when}",
   "catchUp.dismiss": "Thanks",
   "catchUp.open": "Open the record",
@@ -1320,25 +1324,30 @@ export const en = {
   "recap.coveredWhole": "Your record covers all {period} days.",
   "recap.began":
     "Your record begins on {when} and reaches back {days} of these {period} days. Before that there is no record, which is not the same as no weather.",
-  "recap.counted": "{alerts} warnings and {observations} observations.",
+  "recap.counted":
+    "{alerts, plural, one {# warning} other {# warnings}} and {observations, plural, one {# observation} other {# observations}}.",
   "recap.days":
-    "Something was recorded on {days} of them. A day with nothing on it was a quiet day or a day the app was closed, and the record cannot tell those apart.",
-  "recap.busiest": "The busiest was {when}, with {rows} of them.",
-  "recap.place": "{place}: {alerts} warnings, {observations} observations.",
-  "recap.placesHidden": "Across {count} places, not named here.",
+    "Something was recorded on {days, plural, one {# of them} other {# of them}}. A day with nothing on it was a quiet day or a day the app was closed, and the record cannot tell those apart.",
+  "recap.busiest":
+    "The busiest was {when}, with {rows, plural, one {# of them} other {# of them}}.",
+  "recap.place":
+    "{place}: {alerts, plural, one {# warning} other {# warnings}}, {observations, plural, one {# observation} other {# observations}}.",
+  "recap.placesHidden":
+    "Across {count, plural, one {# place} other {# places}}, not named here.",
   "recap.includePlaces": "Put the place names on the picture",
   "recap.includePlacesDetail":
     "Off by default. Where you live is not something a picture needs to say.",
   "recap.save": "Save it as a picture",
   "recap.empty": "There is nothing in your record from this period yet.",
   "recap.span": "How long",
-  "recap.spanDays": "The last {days} days",
+  "recap.spanDays": "The last {days, plural, one {day} other {# days}}",
   "recap.spanYear": "The last year",
-  "journal.countShown": "{shown} of {count} rows",
+  "journal.countShown":
+    "{shown} of {count, plural, one {# row} other {# rows}}",
   "journal.title": "Your record",
-  "journal.count": "{count} rows",
+  "journal.count": "{count, plural, one {# row} other {# rows}}",
   "journal.note":
-    "What the weather did at the places you named. Only named places, only observations and events, and never anything about how you used the app. Kept for {days} days or {size} MB, whichever runs out first, oldest first, with up to {pictures} MB of pictures beside it. It stays on this machine and is not in the diagnostics report.",
+    "What the weather did at the places you named. Only named places, only observations and events, and never anything about how you used the app. Kept for {days, plural, one {# day} other {# days}} or {size} MB, whichever runs out first, oldest first, with up to {pictures} MB of pictures beside it. It stays on this machine and is not in the diagnostics report.",
   "journal.empty": "Nothing recorded yet.",
   "journal.desktopOnly": "The record is kept by the desktop app.",
   "journal.row": "{source}, {when} · {obtained}",
@@ -1360,7 +1369,7 @@ export const en = {
   "journal.kindObservation": "Observations",
   "journal.since": "How far back",
   "journal.sinceAny": "Everything kept",
-  "journal.sinceDays": "The last {days} days",
+  "journal.sinceDays": "The last {days, plural, one {day} other {# days}}",
   "journal.noneMatch": "Nothing in the record matches that.",
   "journal.picture": "The map when {text} was recorded",
   "journal.noteLabel": "What you remember about it",
@@ -1512,7 +1521,7 @@ export const en = {
   "tool.gateFrom": "from the sweep of {when}",
   "tool.beamHeight": "beam {height} above the radar at {tilt}°",
   "tool.classified": "{class} by the radar's own classification",
-  "tool.pathPoints": "{count} points in path",
+  "tool.pathPoints": "{count, plural, one {# point} other {# points}} in path",
   "tool.rangeResult": "{distance}",
   "tool.inspectHint": "Click the map to inspect a point",
   "tool.sectionStartHint":

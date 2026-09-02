@@ -364,7 +364,8 @@ export function IncidentPackManager({
               <span>
                 {bounds && estimate
                   ? t("packs.estimate", {
-                      count: formatNumber(estimate.tileCount),
+                      // Raw: the sentence chooses its words by this number.
+                      count: estimate.tileCount,
                       final: formatPackBytes(estimate.estimatedBytes),
                       temporary: formatPackBytes(estimate.temporaryBytes),
                     })
@@ -453,7 +454,7 @@ export function IncidentPackManager({
                       <span>
                         {t("packs.progress", {
                           done: formatNumber(pack.downloadedTiles),
-                          total: formatNumber(pack.tileCount),
+                          total: pack.tileCount,
                           percent: progress,
                         })}
                       </span>

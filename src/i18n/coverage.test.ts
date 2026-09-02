@@ -224,11 +224,117 @@ describe("the workspace is translated", () => {
     // A translation that drops a placeholder does not fail to build and does
     // not throw: it simply never shows the number. One that invents a new one
     // renders the braces on screen.
-    const names = (value: string) =>
-      [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+    // Both kinds of blank: a plain placeholder, and the number a plural block
+    // is chosen by. A translation that keeps the words and loses the block
+    // shows the same sentence for one and for a thousand.
+    //
+    // The blocks are taken out before the plain placeholders are counted,
+    // because an arm's own words sit in braces too and "one {day}" is a word,
+    // not a blank to fill in.
+    const names = (value: string) => {
+      const found: string[] = [];
+      let rest = "";
+      let at = 0;
+      while (at < value.length) {
+        const start = value.indexOf("{", at);
+        if (start === -1) break;
+        const head = /^\{(\w+),\s*plural,/.exec(value.slice(start));
+        if (!head) {
+          rest += value.slice(at, start + 1);
+          at = start + 1;
+          continue;
+        }
+        found.push(head[1]);
+        rest += value.slice(at, start);
+        let depth = 0;
+        let cursor = start;
+        do {
+          if (value[cursor] === "{") depth += 1;
+          if (value[cursor] === "}") depth -= 1;
+          cursor += 1;
+        } while (cursor < value.length && depth > 0);
+        at = cursor;
+      }
+      rest += value.slice(at);
+      for (const match of rest.matchAll(/\{(\w+)\}/g)) found.push(match[1]);
+      return found.sort();
+    };
     for (const key of Object.keys(en) as Array<keyof typeof en>) {
       expect(names(copy[key]), key).toEqual(names(en[key]));
     }
+  });
+
+  it("counts nothing with a noun stuck on the end of it", () => {
+    /**
+     * Words that legitimately follow a number without inflecting: units and
+     * abbreviations. "5 min" and "1 min" are both right, and wrapping them in
+     * a plural block would be ceremony rather than correctness.
+     */
+    const FIXED = new Set([
+      "min",
+      "h",
+      "kB",
+      "MB",
+      "GB",
+      "kt",
+      "km",
+      "mi",
+      "in",
+      "mm",
+      "dBZ",
+      "UTC",
+      "back",
+      "tracked",
+      "more",
+      "of",
+      "and",
+      "from",
+      "at",
+      "to",
+      "in",
+      "on",
+    ]);
+
+    // A number written straight into a sentence, with the next word hard
+    // coded, reads wrong at one in some language or other. This finds the
+    // ones nobody has converted, in English, where the plural s is the tell.
+    const outsideBlocks = (value: string) => {
+      let rest = "";
+      let at = 0;
+      while (at < value.length) {
+        const start = value.indexOf("{", at);
+        if (start === -1) break;
+        if (!/^\{\w+,\s*plural,/.test(value.slice(start))) {
+          rest += value.slice(at, start + 1);
+          at = start + 1;
+          continue;
+        }
+        rest += value.slice(at, start);
+        let depth = 0;
+        let cursor = start;
+        do {
+          if (value[cursor] === "{") depth += 1;
+          if (value[cursor] === "}") depth -= 1;
+          cursor += 1;
+        } while (cursor < value.length && depth > 0);
+        at = cursor;
+      }
+      return rest + value.slice(at);
+    };
+
+    const wrong: string[] = [];
+    for (const [key, value] of Object.entries(en)) {
+      for (const match of outsideBlocks(value).matchAll(
+        /\{(count|days|hours|frames|rows|alerts|observations|total|tiles|shapes|colours|points|places)\}\s+([A-Za-z]+)/g,
+      )) {
+        const word = match[2];
+        if (FIXED.has(word) || !word.endsWith("s")) continue;
+        wrong.push(`${key}: "{${match[1]}} ${word}"`);
+      }
+    }
+    // All of them at once, because fixing these one failure at a time is how
+    // a conversion like this gets abandoned half done.
+    expect(wrong).toEqual([]);
   });
 
   it("makes the pseudolocale longer than the original", () => {

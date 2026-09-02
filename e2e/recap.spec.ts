@@ -89,7 +89,7 @@ test("says how much of the year the record can speak for", async ({ page }) => {
   await recap.scrollIntoViewIfNeeded();
   await expect(recap).toContainText("90");
   await expect(recap).toContainText("365");
-  await expect(recap).toContainText("1 warnings and 2 observations");
+  await expect(recap).toContainText("1 warning and 2 observations");
 });
 
 test("keeps the place name off it until the reader puts it on", async ({
