@@ -93,6 +93,10 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
+.command-bar button:focus-visible {
+  outline-color: var(--command-accent);
+}
+
 button:disabled,
 input:disabled {
   cursor: not-allowed;
@@ -243,11 +247,23 @@ a {
 }
 
 /* The bar stays dark in both themes, so its ink is fixed rather than themed.
-   Taking --text and --muted here would put dark text on a dark bar. */
+   Taking --text and --muted here would put dark text on a dark bar.
+
+   The same is true of everything else drawn on it, and for a version it was
+   not: hovering a button in the light theme painted --command-ink on the
+   light --surface-hover, which is near-white text on a near-white pill, and
+   the pressed state and the focus ring took the light accent onto the dark
+   bar at under 3:1. The edge and the dividers took the light theme's
+   dark-alpha border onto a dark bar and disappeared. So the bar carries its
+   own hover, line and accent, fixed the way its ink is. */
 .command-bar {
   --command-ink: #e7edf7;
   --command-ink-muted: #a8b3c4;
   --command-ink-faint: #7c8899;
+  --command-hover: #18232f;
+  --command-line: rgba(166, 184, 207, 0.28);
+  --command-accent: #4bc0ff;
+  --command-accent-soft: rgba(75, 192, 255, 0.14);
   position: absolute;
   z-index: 50;
   left: 0;
@@ -427,7 +443,7 @@ a {
   height: 32px;
   align-self: center;
   margin: 0 4px;
-  background: var(--border);
+  background: var(--command-line);
 }
 
 .command-button,
@@ -467,15 +483,15 @@ a {
 .command-button:hover,
 .preset-button:hover {
   color: var(--command-ink);
-  background: var(--surface-hover);
-  border-color: var(--border);
+  background: var(--command-hover);
+  border-color: var(--command-line);
   transform: translateY(-1px);
 }
 
 .command-button[aria-pressed="true"] {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--command-accent);
+  background: var(--command-accent-soft);
+  border-color: color-mix(in srgb, var(--command-accent) 35%, transparent);
 }
 
 .preset-button {
@@ -498,8 +514,8 @@ a {
 }
 
 .preset-button i.is-saved {
-  background: var(--accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--command-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--command-accent) 55%, transparent);
 }
 
 .compact-command-group {
@@ -2752,6 +2768,14 @@ input[type="range"] {
   --accent-soft: rgba(74, 104, 129, 0.14);
 }
 
+/* The bar is dark in every theme, so its accent is turned down towards the
+   light rather than towards the dark the workspace uses. #7f9bb8 is 6.6:1 on
+   the bar, where the workspace's calm light accent would be 2.9. */
+[data-calm] .command-bar {
+  --command-accent: #7f9bb8;
+  --command-accent-soft: rgba(127, 155, 184, 0.16);
+}
+
 [data-calm] .alert-tag {
   /* A badge this app draws around the office's words, with its own emphasis
      taken off. The severity word beside it is deliberately not in here: it
@@ -3579,7 +3603,7 @@ input[type="range"] {
   padding: 8px 6px;
   background: #0b1118;
   border-top: 0;
-  border-right: 1px solid var(--border-strong);
+  border-right: 1px solid var(--command-line);
   box-shadow: none;
   backdrop-filter: none;
   overflow: hidden;
@@ -3669,10 +3693,10 @@ input[type="range"] {
 }
 
 .command-button[aria-pressed="true"] {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--command-accent);
+  background: var(--command-accent-soft);
   border-color: transparent;
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--command-accent);
 }
 
 .preset-button {

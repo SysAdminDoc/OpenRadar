@@ -74,6 +74,69 @@ async function goCalm(page: import("@playwright/test").Page) {
   await page.waitForTimeout(PANEL_SETTLE_MS);
 }
 
+/** Switches to the light look and closes the panel again. */
+async function goLight(page: Page) {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+}
+
+/** WCAG relative luminance of an `rgb(...)` string. */
+function luminance(colour: string): number {
+  const parts = colour.match(/[\d.]+/g)?.map(Number) ?? [];
+  const [red, green, blue] = parts;
+  const channel = (value: number) => {
+    const ratio = value / 255;
+    return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4;
+  };
+  return (
+    0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+  );
+}
+
+function contrast(one: string, two: string): number {
+  const light = Math.max(luminance(one), luminance(two));
+  const dark = Math.min(luminance(one), luminance(two));
+  return (light + 0.05) / (dark + 0.05);
+}
+
+test("the command rail stays readable in the light theme", async ({ page }) => {
+  // The rail is a fixed dark surface in both themes and everything drawn on
+  // it used to be themed. In light that meant hovering a button painted the
+  // rail's near-white ink on the light theme's near-white hover, at 1.03:1,
+  // and the pressed state, the focus ring, the edge and the dividers all took
+  // light-theme colours onto a dark bar.
+  await goLight(page);
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+
+  const results = await new AxeBuilder({ page })
+    .include(".command-bar")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  const violations = results.violations.filter(
+    (violation) =>
+      violation.impact === "serious" || violation.impact === "critical",
+  );
+  expect(describeViolations(violations)).toBe("");
+
+  const search = page.getByRole("button", { name: "Search", exact: true });
+  await search.hover();
+  // The pill fades in over 130ms, and a colour read mid-transition is not the
+  // colour anybody sees.
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  const hovered = await search.evaluate((node) => {
+    const style = getComputedStyle(node);
+    return { ink: style.color, pill: style.backgroundColor };
+  });
+  expect(
+    contrast(hovered.ink, hovered.pill),
+    `${hovered.ink} on ${hovered.pill}`,
+  ).toBeGreaterThanOrEqual(4.5);
+});
+
 test("stays clean in the calmer presentation", async ({ page }) => {
   // A mode meant to be kinder must not be harder to read. It turns the
   // accent down, and a muted accent is exactly where contrast goes wrong.
