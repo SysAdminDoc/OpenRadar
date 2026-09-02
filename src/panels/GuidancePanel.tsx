@@ -15,7 +15,7 @@ import {
   type ModelRun,
 } from "../lib/guidance";
 import { FORECAST_DEBOUNCE_MS, shouldRefetchForecast } from "../lib/weather";
-import { translate, useT, type StringKey } from "../i18n";
+import { formatNumber, translate, useT, type StringKey } from "../i18n";
 import { formatClock } from "../lib/units";
 import { useMinuteClock } from "../hooks/useClock";
 
@@ -33,8 +33,8 @@ const VARIABLE_KEYS: Record<GuidanceVariable, StringKey> = {
 /** A reading rounded the way each variable is worth reading. */
 function show(variable: GuidanceVariable, value: number): string {
   return variable === "precipitation"
-    ? value.toFixed(1)
-    : String(Math.round(value));
+    ? formatNumber(value, 1)
+    : formatNumber(Math.round(value), 0);
 }
 
 export function GuidancePanel({ point, onClose }: GuidancePanelProps) {

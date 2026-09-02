@@ -13,7 +13,7 @@ import {
   type Storm,
   type StormSummary,
 } from "../lib/hurdat";
-import { locale, translate, useT } from "../i18n";
+import { formatNumber, locale, translate, useT } from "../i18n";
 
 interface HistoryPanelProps {
   selectedId: string | null;
@@ -199,7 +199,7 @@ export function HistoryPanel({
             </small>
             <small data-history-ace={selected.ace.toFixed(2)}>
               {t("history.ace", {
-                ace: selected.ace.toFixed(2),
+                ace: formatNumber(selected.ace, 2),
                 fixes: selected.track.length,
                 start: dateLabel(selected.start),
                 end: dateLabel(selected.end),
@@ -300,7 +300,7 @@ export function HistoryPanel({
                       ? t("history.basinAtlantic")
                       : t("history.basinPacific"),
                   category: categoryLabel(storm.peakWindKt),
-                  ace: storm.ace.toFixed(2),
+                  ace: formatNumber(storm.ace, 2),
                 })}
               </small>
             </span>

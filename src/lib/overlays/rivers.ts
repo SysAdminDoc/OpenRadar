@@ -5,7 +5,7 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
-import { translate } from "../../i18n";
+import { formatNumber, translate } from "../../i18n";
 import { formatClock } from "../units";
 
 /**
@@ -241,7 +241,7 @@ function clockOptions(at: number): Intl.DateTimeFormatOptions {
 function stageLine(value: unknown, unit: unknown): string {
   const number = Number(value);
   const suffix = typeof unit === "string" && unit ? ` ${unit}` : "";
-  return `${number.toFixed(2)}${suffix}`;
+  return `${formatNumber(number, 2)}${suffix}`;
 }
 
 export const riverGaugesOverlay: OverlayAdapter = {

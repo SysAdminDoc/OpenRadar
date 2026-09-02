@@ -5,7 +5,7 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
-import { translate } from "../../i18n";
+import { formatNumber, translate } from "../../i18n";
 
 const FEED =
   "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
@@ -110,7 +110,7 @@ export const earthquakesOverlay: OverlayAdapter = {
     const depth = Number(properties.depthKm);
     return {
       title: translate("popup.magnitude", {
-        value: Number(properties.magnitude).toFixed(1),
+        value: formatNumber(Number(properties.magnitude), 1),
         place: String(properties.place ?? ""),
       }).trim(),
       lines: [
@@ -118,7 +118,7 @@ export const earthquakesOverlay: OverlayAdapter = {
           ? translate("popup.recorded", { when: relativeTime(time) })
           : translate("popup.timeUnknown"),
         Number.isFinite(depth)
-          ? translate("popup.depth", { km: depth.toFixed(0) })
+          ? translate("popup.depth", { km: formatNumber(depth, 0) })
           : translate("popup.depthUnknown"),
         translate("popup.usgs"),
       ],

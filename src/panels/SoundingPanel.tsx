@@ -1,7 +1,7 @@
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
-import { useT } from "../i18n";
+import { formatNumber, useT } from "../i18n";
 import { formatClock, formatHeight, useMeasurements } from "../lib/units";
 import {
   DEFAULT_BOX,
@@ -386,7 +386,7 @@ function SoundingView({
             </div>
             <div>
               <dt>{t("sounding.water")}</dt>
-              <dd>{precipitableWater(sounding.levels).toFixed(1)} mm</dd>
+              <dd>{formatNumber(precipitableWater(sounding.levels), 1)} mm</dd>
             </div>
           </dl>
 

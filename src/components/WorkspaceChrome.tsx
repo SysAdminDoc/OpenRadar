@@ -27,7 +27,7 @@ import { formatRadarTime } from "../lib/radar";
 import type { RadarFrame } from "../lib/radar";
 import type { AppSettings } from "../lib/settings";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
-import { locale, translate, useT, type StringKey } from "../i18n";
+import { formatNumber, locale, translate, useT, type StringKey } from "../i18n";
 import { useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
@@ -281,7 +281,7 @@ export function WorkspaceChrome({
 
       {cursor ? (
         <div className="map-readout" aria-live="off">
-          {`${cursor.lat.toFixed(3)}°, ${cursor.lon.toFixed(3)}°`}
+          {`${formatNumber(cursor.lat, 3)}°, ${formatNumber(cursor.lon, 3)}°`}
         </div>
       ) : null}
 
@@ -593,7 +593,7 @@ function sweepEyebrow(sweep: SweepImage, clock: number): string {
 
 function tiltEyebrow(sweep: SweepImage, clock: number): string {
   const age = liveAgeSeconds(sweep, clock);
-  const degrees = sweep.elevationDegrees.toFixed(2);
+  const degrees = formatNumber(sweep.elevationDegrees, 2);
   if (sweep.source.kind !== "recent") {
     return translate("chrome.tiltHistorical", { degrees });
   }

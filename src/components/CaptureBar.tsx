@@ -1,5 +1,5 @@
 import { Radar, X } from "lucide-react";
-import { useT } from "../i18n";
+import { formatNumber, useT } from "../i18n";
 import { formatClock } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 import type { OverlayData } from "../lib/overlays";
@@ -42,7 +42,7 @@ export interface CaptureBarProps {
 /** Degrees as a person reads them off a map, rather than as a float. */
 function degrees(value: number, positive: string, negative: string): string {
   const hemisphere = value >= 0 ? positive : negative;
-  return `${Math.abs(value).toFixed(2)}°${hemisphere}`;
+  return `${formatNumber(Math.abs(value), 2)}°${hemisphere}`;
 }
 
 export function CaptureBar({
