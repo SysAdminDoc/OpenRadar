@@ -116,6 +116,7 @@ import {
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
 import { activePalettes, paletteUnit } from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
+import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 
@@ -404,7 +405,10 @@ export default function App() {
       const write = singleSite.exportValues;
       offers.push({
         id: "sweep",
-        label: singleSite.sweep?.product ?? translate("export.dataRadar"),
+        label: singleSite.sweep?.product ?? t("export.dataRadar"),
+        // Named for the sweep on screen, and the hook sends that sweep's own
+        // product rather than the setting, so a switch still in flight cannot
+        // label one product and write another.
         format: "csv",
         // A sweep is a fan around its site rather than a rectangle, so the
         // view has nothing to say about which gates are in it.
@@ -417,7 +421,7 @@ export default function App() {
     if (frame?.providerId === "mrms") {
       offers.push({
         id: "grid:composite",
-        label: translate("export.dataComposite"),
+        label: t("export.dataComposite"),
         format: "tif",
         run: (view) =>
           view
@@ -434,7 +438,7 @@ export default function App() {
                 east: view.east,
                 north: view.north,
               })
-            : Promise.reject(new Error(translate("export.dataNoView"))),
+            : Promise.reject(new Error(t("export.dataNoView"))),
       });
     }
     for (const layer of mrms.layers) {
@@ -454,16 +458,20 @@ export default function App() {
                 east: view.east,
                 north: view.north,
               })
-            : Promise.reject(new Error(translate("export.dataNoView"))),
+            : Promise.reject(new Error(t("export.dataNoView"))),
       });
     }
     return offers;
+    // Through `t` rather than the module's own translate, so the list is
+    // built again when the language changes: it is built once otherwise, and
+    // a switch mid-session left these labels in the language before it.
   }, [
     frameIndex,
     frames,
     mrms.layers,
     singleSite.exportValues,
     singleSite.sweep?.product,
+    t,
   ]);
 
   const exportState = useExport({
@@ -796,14 +804,26 @@ export default function App() {
 
   // Finding a storm in the archive takes a search and a choice, and stopping
   // the replay put the reader back at the start of both.
+  // An open bundle answers for its own addresses ahead of the network, so
+  // leaving its replay has to close it however the reader left: stopping,
+  // picking a storm, opening another bundle. Tied to the replay itself rather
+  // than to the one button that used to do it, because every other route out
+  // left up to 256 MB in memory answering for tiles nobody was replaying.
+  const openBundleRef = useRef<string | null>(null);
+  useEffect(() => {
+    const now = replay?.id.startsWith("bundle:") ? replay.id : null;
+    if (openBundleRef.current && openBundleRef.current !== now) {
+      void closeReplayBundle();
+    }
+    openBundleRef.current = now;
+  }, [replay]);
+
   const stopReplay = useCallback(() => {
     setReplay(null);
     if (!replay) return;
-    // A replay drawn from a bundle takes the bundle out of the way of the
-    // network with it, and cannot be put back from a toast: its bytes are in
-    // a file that would have to be opened again.
+    // A replay drawn from a bundle cannot be put back from a toast: its bytes
+    // are in a file that would have to be opened again.
     if (replay.id.startsWith("bundle:")) {
-      void closeReplayBundle();
       pushToast({
         title: translate("toast.replayStopped"),
         detail: translate("toast.replayStoppedBody"),
@@ -878,12 +898,41 @@ export default function App() {
   // on this and never on opening the bundle.
   const applyBundledWorkspace = useCallback(
     (value: unknown) => {
+      // Somebody else's home, watched places and saved views, out of a file
+      // that was sent to this reader. It gets exactly what a workspace file
+      // gets: a note when it is only a partial restore, and an undo.
+      const previous = settingsRef.current;
+      const previousOverlay = overlayFiles;
       try {
         const restored = restoreWorkspace(value);
         applySettings(restored.settings);
         setOverlayFiles(restored.overlayFiles);
         mapRef.current?.flyTo(restored.settings.camera);
-        pushToast({ title: translate("toast.bundleWorkspaceApplied") });
+        const notes: string[] = [];
+        if (restored.fromNewerBuild) {
+          notes.push(translate("toast.settingsFromNewer"));
+        }
+        if (restored.unread.length) {
+          notes.push(
+            translate("toast.settingsUnread", {
+              names: restored.unread.join(", "),
+            }),
+          );
+        }
+        pushToast({
+          title: translate(
+            notes.length
+              ? "toast.bundleWorkspacePartly"
+              : "toast.bundleWorkspaceApplied",
+          ),
+          detail: notes.length ? notes.join(" ") : undefined,
+          actionLabel: translate("toast.undo"),
+          onAction: () => {
+            applySettings(previous);
+            setOverlayFiles(previousOverlay);
+            mapRef.current?.flyTo(previous.camera);
+          },
+        });
       } catch {
         pushToast({
           title: translate("toast.workspaceInvalidTitle"),
@@ -891,7 +940,7 @@ export default function App() {
         });
       }
     },
-    [applySettings, pushToast],
+    [applySettings, overlayFiles, pushToast, settingsRef],
   );
 
   // A bundle is opened through the operating system's picker, so its bytes
@@ -904,10 +953,18 @@ export default function App() {
       const manifest = await openReplayBundle(path);
       const next = bundleReplay(manifest);
       if (!next) {
+        // Opening replaced whatever bundle was already answering, so the one
+        // before this is gone whether or not this one is usable. Say so and
+        // put the map back on live radar rather than leaving a replay whose
+        // frames now quietly come off the network.
         await closeReplayBundle();
+        const wasBundled = openBundleRef.current !== null;
+        if (wasBundled) setReplay(null);
         pushToast({
           title: translate("toast.bundleFailed"),
-          detail: translate("bundle.error.noFrames"),
+          detail: wasBundled
+            ? `${translate("bundle.error.noFrames")} ${translate("bundle.error.letGo")}`
+            : translate("bundle.error.noFrames"),
         });
         return;
       }
@@ -1212,6 +1269,12 @@ export default function App() {
                 settings.camera.zoom < METAR_MIN_ZOOM
                   ? translate("metar.zoom")
                   : overlays.states.metar.error,
+              // The other layer with a zoom of its own, and the same note:
+              // what to do about it rather than a fetch that never happened.
+              riverGauges:
+                settings.camera.zoom < GAUGE_MIN_ZOOM
+                  ? translate("rivers.zoom")
+                  : overlays.states.riverGauges.error,
               tropical: overlays.states.tropical.error,
               rotationTracks: mrms.error,
               hail: mrms.error,

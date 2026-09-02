@@ -10,13 +10,6 @@ Items numbered `AUD-` come from the audit register and are ordered P0 through P3
 
 ## P3
 
-- [ ] AUD-085: Add a focused NWPS stream and flood context layer
-      Why: Official stream forecasts and flood information can explain a hazard that radar alone cannot, especially for tropical and heavy-rain events. It should arrive as a focused incident layer, not a general hydrology workstation.
-      Evidence: `src/lib/overlays/`; `src/lib/surge.ts`; https://water.noaa.gov/about/api
-      Touches: NWPS adapter; station selection; map symbols; detail panel; provenance and stale state; traffic budget
-      Acceptance: The layer shows only relevant nearby flood or forecast points at a bounded zoom, names observation and forecast times, distinguishes measured from forecast values, exposes the official source link, respects API caching guidance, and fails with a visible layer note; parser fixtures cover missing and changed fields.
-      Complexity: L
-
 ## Character and personalization
 
 These came out of a different question than the audit did: what makes somebody keep a weather app open on a second monitor for a year rather than opening it twice during a storm and forgetting it. None of it outranks a correctness, security, or release item, which is why it sits after P3 instead of being folded into the priority ladder.

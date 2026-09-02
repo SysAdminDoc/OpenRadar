@@ -63,7 +63,7 @@ pub enum DataExportError {
     Sweep(#[from] Level2Error),
     #[error("{0}")]
     Grid(#[from] mrms::MrmsError),
-    #[error("that grid is not on screen, so there is nothing decoded to write")]
+    #[error("that grid could not be decoded, so there is nothing to write")]
     NotDrawn,
     #[error("there is no product called {0}")]
     NoProduct(String),
@@ -151,7 +151,9 @@ pub struct DataExportReport {
     pub bytes: u64,
     /// Rows for a CSV, cells for a raster.
     pub readings: usize,
-    /// Gates left out because they measured nothing, for a polar export.
+    /// Gates left out because they measured nothing, for a polar export. A
+    /// gate is never left out for any other reason: an export too big to
+    /// write is refused rather than truncated.
     pub omitted: usize,
     pub sha256: String,
 }
@@ -236,7 +238,10 @@ fn file_name(parts: &[&str], extension: &str) -> String {
 /// geometry is, so the full array can still be rebuilt from the indices. A
 /// range folded gate is written, with an empty value and its status, because
 /// "the velocity here is ambiguous" is a measurement and not an absence.
-fn polar_csv(values: &level2::SweepValues, written_at: DateTime<Utc>) -> (String, usize, usize) {
+fn polar_csv(
+    values: &level2::SweepValues,
+    written_at: DateTime<Utc>,
+) -> Result<(String, usize, usize), DataExportError> {
     let field = &values.field;
     let coordinates = RadarCoordinateSystem::new(&values.site);
     let azimuths = field.azimuths();
@@ -319,8 +324,10 @@ fn polar_csv(values: &level2::SweepValues, written_at: DateTime<Utc>) -> (String
                 }
             };
             if written >= MAX_ROWS {
-                omitted += 1;
-                continue;
+                // Refused rather than truncated: a file that quietly stops at
+                // four million rows is a file whose last row is a lie about
+                // where the storm ended.
+                return Err(DataExportError::TooLarge(written + 1));
             }
             let at = coordinates.gate_location(
                 *azimuth,
@@ -351,7 +358,7 @@ fn polar_csv(values: &level2::SweepValues, written_at: DateTime<Utc>) -> (String
         "azimuth_index,gate_index,azimuth_deg,range_km,latitude,longitude,height_m,value,status\n",
     );
     out.push_str(&rows);
-    (out, written, omitted)
+    Ok((out, written, omitted))
 }
 
 /// Writes a data file and its sidecar, and says what landed where.
@@ -374,8 +381,13 @@ fn write_pair(
     exports::write_atomically(&target, data)
         .map_err(|error| DataExportError::Write(error.to_string()))?;
     let beside = folder.join(&sidecar_name);
-    exports::write_atomically(&beside, &sidecar)
-        .map_err(|error| DataExportError::Write(error.to_string()))?;
+    if let Err(error) = exports::write_atomically(&beside, &sidecar) {
+        // Numbers with nothing beside them saying what they are is the one
+        // outcome this whole module exists to prevent, and the page has
+        // already been told the export failed. Take the data file back out.
+        let _ = std::fs::remove_file(&target);
+        return Err(DataExportError::Write(error.to_string()));
+    }
 
     Ok(DataExportReport {
         path: target.to_string_lossy().into_owned(),
@@ -398,18 +410,20 @@ pub async fn export_sweep_data(
 
     let (station, key, data, source) = match &request.path {
         Some(path) => {
-            let (station, key, data) = level2::local_volume_for_export(&PathBuf::from(path))?;
-            let name = Path::new(path)
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| path.clone());
+            // The label comes from the reader's own volume, which already
+            // reduces a path to a file name and falls back to a generic one.
+            // Reaching for the path here would put somebody's directory tree
+            // in a file they are about to share the moment `file_name` gave
+            // nothing back.
+            let (station, key, label, data) =
+                level2::local_volume_for_export(&PathBuf::from(path))?;
             (
                 station,
                 key,
                 data,
                 ProvenanceSource {
                     kind: "local",
-                    label: name,
+                    label,
                     url: None,
                 },
             )
@@ -454,12 +468,7 @@ pub async fn export_sweep_data(
     .await
     .map_err(|error| DataExportError::Write(error.to_string()))??;
 
-    let gates = values.field.azimuth_count() * values.field.gate_count();
-    if gates > MAX_ROWS * 4 {
-        return Err(DataExportError::TooLarge(gates));
-    }
-
-    let (csv, written, omitted) = polar_csv(&values, written_at);
+    let (csv, written, omitted) = polar_csv(&values, written_at)?;
     let name = file_name(
         &[
             &values.station,
@@ -472,8 +481,30 @@ pub async fn export_sweep_data(
         "csv",
     );
 
+    let provenance = polar_provenance(&values, written_at, source);
+
+    write_pair(
+        &folder,
+        name,
+        csv.as_bytes(),
+        provenance,
+        written,
+        omitted,
+    )
+}
+
+/// What the sidecar says about one sweep.
+///
+/// Its own function so a test can read it. A sidecar that quietly said the
+/// fetch time was the observed time, or named the wrong source, would pass
+/// every check that only looks at the numbers beside it.
+fn polar_provenance(
+    values: &level2::SweepValues,
+    written_at: DateTime<Utc>,
+    source: ProvenanceSource,
+) -> Provenance {
     let field = &values.field;
-    let provenance = Provenance {
+    Provenance {
         format: "openradar-data-provenance",
         format_version: 1,
         application: APP,
@@ -494,7 +525,13 @@ pub async fn export_sweep_data(
             "radar": values.radar,
             "siteLatitude": values.site.latitude(),
             "siteLongitude": values.site.longitude(),
-            "antennaHeightMeters": values.site.height_meters(),
+            // The height the beam model works from, which is the ground plus
+            // the tower. The CSV header says the same number under the same
+            // name: anyone recomputing a gate's height from the sidecar has to
+            // land on the height column beside it.
+            "antennaHeightMeters": RadarCoordinateSystem::new(&values.site)
+                .antenna_height_meters(),
+            "siteGroundHeightMeters": values.site.height_meters(),
             "elevationDegrees": field.elevation_degrees(),
             "azimuthCount": field.azimuth_count(),
             "gateCount": field.gate_count(),
@@ -519,16 +556,39 @@ pub async fn export_sweep_data(
         missing: "gates below the detection threshold and gates with no data are omitted; \
                   a range folded gate has an empty value and status rangeFolded"
             .to_string(),
-    };
+    }
+}
 
-    write_pair(
-        &folder,
-        name,
-        csv.as_bytes(),
-        provenance,
-        written,
-        omitted,
-    )
+/// Which grid a request names, and where to find it in the bucket.
+///
+/// Its own step because it is the whole of what an export can get wrong
+/// before it touches the network, and because a command taking an `AppHandle`
+/// cannot be called from a test.
+fn wanted_grid(
+    request: &GridDataRequest,
+) -> Result<(&'static mrms::MrmsProduct, String), DataExportError> {
+    let entry = mrms::product_by_id(&request.product)
+        .ok_or_else(|| DataExportError::NoProduct(request.product.clone()))?;
+    // A corner that is not a number makes every comparison below false, and
+    // the window would come back as one cell rather than as a refusal.
+    for corner in [request.west, request.south, request.east, request.north] {
+        if !corner.is_finite() {
+            return Err(DataExportError::NothingInView);
+        }
+    }
+    if request.west >= request.east || request.south >= request.north {
+        return Err(DataExportError::NothingInView);
+    }
+    // The bucket spells its regions in capitals and `is_domain` is an exact
+    // match, so a lower case one here refused every grid on the map by name.
+    let domain = request
+        .domain
+        .clone()
+        .unwrap_or_else(|| "CONUS".to_string())
+        .to_uppercase();
+    let key = mrms::key_for(&domain, entry, request.time)
+        .ok_or_else(|| DataExportError::NoProduct(request.product.clone()))?;
+    Ok((entry, key))
 }
 
 /// The part of one MRMS grid that is on screen, as a georeferenced raster.
@@ -538,27 +598,51 @@ pub async fn export_grid_data(
     request: GridDataRequest,
 ) -> Result<DataExportReport, DataExportError> {
     let folder = exports::export_folder(&app).map_err(|_| DataExportError::NoFolder)?;
-    let entry = mrms::product_by_id(&request.product)
-        .ok_or_else(|| DataExportError::NoProduct(request.product.clone()))?;
-    let domain = request.domain.clone().unwrap_or_else(|| "conus".to_string());
-    let key = mrms::key_for(&domain, entry, request.time)
-        .ok_or_else(|| DataExportError::NoProduct(request.product.clone()))?;
+    let (entry, key) = wanted_grid(&request)?;
     mrms::grid_for(&key).await?;
 
     let written_at = Utc::now();
-    let cut = mrms::grid_window(
-        &key,
-        request.west,
-        request.south,
-        request.east,
-        request.north,
-        MAX_CELLS,
-    )
-    .map_err(|why| match why {
-        mrms::WindowError::NotCached => DataExportError::NotDrawn,
-        mrms::WindowError::Outside => DataExportError::NothingInView,
-        mrms::WindowError::TooLarge(cells) => DataExportError::TooLarge(cells),
-    })?;
+    // Copying four million cells out from under a global lock, encoding them
+    // and hashing sixteen megabytes is CPU work, and it must not sit on the
+    // async runtime while every other grid consumer waits behind the cache.
+    let label = entry.label.to_string();
+    let unit = entry.unit.to_string();
+    let (cut, raster) = {
+        let key = key.clone();
+        let request = request.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let cut = mrms::grid_window(
+                &key,
+                request.west,
+                request.south,
+                request.east,
+                request.north,
+                MAX_CELLS,
+            )
+            .map_err(|why| match why {
+                mrms::WindowError::NotCached => DataExportError::NotDrawn,
+                mrms::WindowError::Outside => DataExportError::NothingInView,
+                mrms::WindowError::TooLarge(cells) => DataExportError::TooLarge(cells),
+            })?;
+            let raster = geotiff::write(
+                cut.columns,
+                cut.rows,
+                &cut.values,
+                &geotiff::Georeference {
+                    west: cut.west,
+                    north: cut.north,
+                    d_lon: cut.d_lon,
+                    d_lat: cut.d_lat,
+                    description: label,
+                    unit,
+                },
+                APP,
+            );
+            Ok::<_, DataExportError>((cut, raster))
+        })
+        .await
+        .map_err(|error| DataExportError::Write(error.to_string()))??
+    };
 
     let name = file_name(
         &[
@@ -568,20 +652,6 @@ pub async fn export_grid_data(
                 .unwrap_or_else(|| "unknown".to_string()),
         ],
         "tif",
-    );
-    let raster = geotiff::write(
-        cut.columns,
-        cut.rows,
-        &cut.values,
-        &geotiff::Georeference {
-            west: cut.west,
-            north: cut.north,
-            d_lon: cut.d_lon,
-            d_lat: cut.d_lat,
-            description: entry.label.to_string(),
-            unit: entry.unit.to_string(),
-        },
-        APP,
     );
 
     let provenance = Provenance {
@@ -617,7 +687,14 @@ pub async fn export_grid_data(
         // The floor is a drawing rule, so it is not applied here: what is in
         // the file is what the grid holds.
         derivation: Vec::new(),
-        missing: "a cell outside the grid is NaN, which the GDAL_NODATA tag names;                   inside it the values are as decoded, including the codes MRMS reserves                   for missing and for outside radar coverage"
+        // The raster is clipped to the grid rather than padded out to the
+        // view, so a NaN cell does not arise today. The tag is there because a
+        // reader has to be told what an empty cell would mean, and because the
+        // writer emits one the moment anything does pad.
+        missing: "the raster is clipped to the grid's own extent rather than padded to \
+                  the view; inside it the values are as decoded, including the codes \
+                  MRMS reserves for missing (-999) and for outside radar coverage \
+                  (-99), and an empty cell would be NaN, which the GDAL_NODATA tag names"
             .to_string(),
     };
 
@@ -686,7 +763,7 @@ mod tests {
     #[test]
     fn a_polar_csv_holds_the_readings_and_where_they_are() {
         let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
-        let (csv, written, omitted) = polar_csv(&values(), at);
+        let (csv, written, omitted) = polar_csv(&values(), at).expect("a csv");
 
         assert_eq!(written, 4);
         // Three azimuths of four gates, less the four written.
@@ -739,7 +816,7 @@ mod tests {
             manual: false,
         });
         let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
-        let (csv, _, _) = polar_csv(&values, at);
+        let (csv, _, _) = polar_csv(&values, at).expect("a csv");
         let derivation = header_of(&csv, "derivation");
         assert!(derivation.contains("unfolded"), "{derivation}");
         assert!(derivation.contains("12.0 m/s from 240 degrees"), "{derivation}");
@@ -759,7 +836,7 @@ mod tests {
             3,
         );
         let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
-        let (csv, written, omitted) = polar_csv(&values, at);
+        let (csv, written, omitted) = polar_csv(&values, at).expect("a csv");
         assert_eq!(written, 0);
         assert_eq!(omitted, 6);
         assert_eq!(header_of(&csv, "gates_written"), "0 of 6");
@@ -769,6 +846,176 @@ mod tests {
         assert!(rows_of(&csv).is_empty());
     }
 
+
+    fn grid_request(over: fn(&mut GridDataRequest)) -> GridDataRequest {
+        let mut request = GridDataRequest {
+            product: "rotation".to_string(),
+            time: 1_756_747_800,
+            domain: None,
+            west: -94.5,
+            south: 41.0,
+            east: -93.0,
+            north: 42.2,
+        };
+        over(&mut request);
+        request
+    }
+
+    #[test]
+    fn a_grid_request_finds_its_key_however_the_region_is_spelled() {
+        // The bucket spells its regions in capitals, and `is_domain` is an
+        // exact match. A lower case default here refused every gridded product
+        // on the map by name, with an error saying the product did not exist.
+        let (entry, key) = wanted_grid(&grid_request(|_| {})).expect("a key");
+        assert_eq!(entry.id, "rotation");
+        assert!(key.starts_with("CONUS/"), "{key}");
+        assert!(key.ends_with(".grib2.gz"), "{key}");
+
+        let named = wanted_grid(&grid_request(|request| {
+            request.domain = Some("conus".to_string());
+        }))
+        .expect("a key")
+        .1;
+        assert_eq!(named, key, "the region is not case sensitive");
+
+        let other = wanted_grid(&grid_request(|request| {
+            request.domain = Some("alaska".to_string());
+        }))
+        .expect("a key")
+        .1;
+        assert!(other.starts_with("ALASKA/"), "{other}");
+
+        // And a region the bucket does not have is refused rather than
+        // reaching for a folder that is not there.
+        assert!(matches!(
+            wanted_grid(&grid_request(|request| {
+                request.domain = Some("atlantis".to_string());
+            })),
+            Err(DataExportError::NoProduct(_))
+        ));
+    }
+
+    #[test]
+    fn a_grid_request_with_no_box_is_refused_before_anything_is_built() {
+        // Every comparison against a NaN is false, so without this the window
+        // came back as a single cell rather than as a refusal.
+        for corner in 0..4 {
+            let request = grid_request(|_| {});
+            let mut request = request;
+            match corner {
+                0 => request.west = f64::NAN,
+                1 => request.south = f64::INFINITY,
+                2 => request.east = f64::NAN,
+                _ => request.north = f64::NEG_INFINITY,
+            }
+            assert!(matches!(
+                wanted_grid(&request),
+                Err(DataExportError::NothingInView)
+            ));
+        }
+        // A box with no width or no height is not a view either.
+        assert!(matches!(
+            wanted_grid(&grid_request(|request| { request.east = request.west })),
+            Err(DataExportError::NothingInView)
+        ));
+        assert!(matches!(
+            wanted_grid(&grid_request(|request| {
+                request.north = request.south - 1.0
+            })),
+            Err(DataExportError::NothingInView)
+        ));
+    }
+
+    /// The sidecar is the whole difference between numbers and data. What it
+    /// says has to be what the file beside it says, and what the app actually
+    /// did rather than what it usually does.
+    #[test]
+    fn the_sidecar_says_what_the_readings_are() {
+        let values = values();
+        let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
+        let (csv, _, _) = polar_csv(&values, at).expect("a csv");
+        let provenance = polar_provenance(
+            &values,
+            at,
+            ProvenanceSource {
+                kind: "archive",
+                label: "NOAA NEXRAD Level II archive".to_string(),
+                url: Some("https://registry.opendata.aws/noaa-nexrad/".to_string()),
+            },
+        );
+        let json = serde_json::to_value(&provenance).expect("it serialises");
+
+        assert_eq!(json["format"], "openradar-data-provenance");
+        assert_eq!(json["kind"], "polar");
+        assert_eq!(json["product"]["id"], "reflectivity");
+        assert_eq!(json["product"]["unit"], "dBZ");
+        assert_eq!(json["coordinateReference"], "EPSG:4326");
+        // The observed time is when the radar collected the volume, not when
+        // the file was written. Confusing the two is the mistake that makes an
+        // export useless as evidence.
+        assert_eq!(json["observed"], "2025-09-01T17:32:11Z");
+        assert_eq!(json["writtenAt"], "2025-09-01T18:06:40Z");
+        assert_ne!(json["observed"], json["writtenAt"]);
+        assert_eq!(json["source"]["kind"], "archive");
+        assert_eq!(json["source"]["label"], "NOAA NEXRAD Level II archive");
+        // Nothing was done to these readings, and the file says so rather than
+        // leaving a reader to assume.
+        assert_eq!(json["derivation"].as_array().expect("a list").len(), 0);
+        assert!(json["missing"].as_str().expect("words").contains("omitted"));
+
+        // The geometry has to be the geometry the CSV was written from: a
+        // reader recomputing a gate's height from the sidecar has to land on
+        // the height column beside it.
+        let geometry = &json["geometry"];
+        assert_eq!(geometry["station"], "KTLX");
+        assert_eq!(geometry["gateCount"], 4);
+        assert_eq!(geometry["firstGateRangeKm"], 2.125);
+        assert_eq!(geometry["beamModel"], "4/3 effective earth radius");
+        let sidecar_height = geometry["antennaHeightMeters"]
+            .as_f64()
+            .expect("an antenna height");
+        let csv_height: f64 = csv
+            .lines()
+            .find_map(|line| line.strip_prefix("# antenna_height_m: "))
+            .expect("the header says one")
+            .parse()
+            .expect("a number");
+        assert!(
+            (sidecar_height - csv_height).abs() < 0.05,
+            "the sidecar says {sidecar_height} and the csv says {csv_height}"
+        );
+        // Ground and tower, not ground alone: the beam model works from the
+        // top of the tower and so does the height column.
+        assert_eq!(geometry["siteGroundHeightMeters"], 370);
+        assert!(sidecar_height > 370.0);
+    }
+
+    #[test]
+    fn the_sidecar_records_what_was_done_to_the_readings() {
+        let mut values = values();
+        values.dealiased = true;
+        values.storm_motion = Some(crate::level2::StormMotion {
+            speed_ms: 12.0,
+            from_degrees: 240.0,
+            manual: false,
+        });
+        let at = DateTime::from_timestamp(1_756_750_000, 0).expect("a time");
+        let json = serde_json::to_value(polar_provenance(
+            &values,
+            at,
+            ProvenanceSource {
+                kind: "live",
+                label: "NOAA NEXRAD Level II".to_string(),
+                url: None,
+            },
+        ))
+        .expect("it serialises");
+        let derivation = json["derivation"].as_array().expect("a list");
+        assert_eq!(derivation.len(), 2);
+        let said = format!("{derivation:?}");
+        assert!(said.contains("unfolded"), "{said}");
+        assert!(said.contains("12.0 m/s from 240 degrees"), "{said}");
+    }
 
     #[test]
     fn a_file_name_is_the_same_shape_every_time() {

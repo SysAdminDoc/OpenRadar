@@ -158,7 +158,7 @@ export function useSingleSiteRadar(options: {
     (source: HistoricalSource) =>
       JSON.stringify([
         source,
-        radar.product,
+        product,
         radar.tilt,
         radar.dealias,
         motionSpeed,
@@ -171,8 +171,8 @@ export function useSingleSiteRadar(options: {
       motionFrom,
       motionSpeed,
       paletteGeneration,
+      product,
       radar.dealias,
-      radar.product,
       radar.tilt,
       threshold,
     ],
@@ -185,7 +185,7 @@ export function useSingleSiteRadar(options: {
           ? [motionSpeed, motionFrom]
           : null;
       const common = [
-        radar.product,
+        product,
         radar.tilt,
         radar.dealias,
         motion,
@@ -196,14 +196,7 @@ export function useSingleSiteRadar(options: {
         ? fetchArchiveSweep(source.station, source.at, ...common)
         : fetchLocalSweep(source.path, ...common);
     },
-    [
-      motionFrom,
-      motionSpeed,
-      radar.dealias,
-      radar.product,
-      radar.tilt,
-      threshold,
-    ],
+    [motionFrom, motionSpeed, product, radar.dealias, radar.tilt, threshold],
   );
 
   const activateHistorical = useCallback(
@@ -270,7 +263,7 @@ export function useSingleSiteRadar(options: {
         source,
         from,
         to,
-        radar.product,
+        product,
         radar.dealias,
         threshold,
         // Read now rather than held, the same way a sweep reads it: the slice
@@ -278,17 +271,22 @@ export function useSingleSiteRadar(options: {
         highContrastRequested(),
       );
     },
-    [historicalSource, radar.dealias, radar.product, station, threshold],
+    [historicalSource, product, radar.dealias, station, threshold],
   );
 
   // The same volume the picture came from, as readings. The product, tilt and
   // derivation are the ones on screen; the display threshold is not sent,
   // because an export of what the radar measured is not a drawing.
+  //
+  // The product is the sweep's own rather than the setting's. They differ
+  // while a switch is in flight, and on a radar that does not have what the
+  // setting asks for, and writing a file for a product the reader is not
+  // looking at is the kind of mismatch an export exists to rule out.
   const writeValues = useCallback(() => {
     const from = historicalSource;
     return exportSweepData({
       station: from?.kind === "archive" ? from.station : (station ?? ""),
-      product: radar.product,
+      product: sweep?.productId ?? product,
       tilt: radar.tilt,
       dealias: radar.dealias,
       motion:
@@ -302,10 +300,11 @@ export function useSingleSiteRadar(options: {
     historicalSource,
     motionFrom,
     motionSpeed,
+    product,
     radar.dealias,
-    radar.product,
     radar.tilt,
     station,
+    sweep?.productId,
   ]);
 
   const resumeRecent = useCallback(() => {

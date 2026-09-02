@@ -110,6 +110,7 @@ export interface LayerSettings {
   forecastSmoke: boolean;
   /** Surface observations, drawn as the conventional station plots. */
   metar: boolean;
+  riverGauges: boolean;
   tropical: boolean;
   satellite: boolean;
   customOverlay: boolean;
@@ -325,6 +326,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     smoke: false,
     forecastSmoke: false,
     metar: false,
+    riverGauges: false,
     tropical: true,
     satellite: false,
     customOverlay: false,
@@ -1135,6 +1137,10 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_SETTINGS.layers.forecastSmoke,
       ),
       metar: bool(layers.metar, DEFAULT_SETTINGS.layers.metar),
+      riverGauges: bool(
+        layers.riverGauges,
+        DEFAULT_SETTINGS.layers.riverGauges,
+      ),
       tropical: bool(layers.tropical, DEFAULT_SETTINGS.layers.tropical),
       satellite: bool(layers.satellite, DEFAULT_SETTINGS.layers.satellite),
       customOverlay: bool(

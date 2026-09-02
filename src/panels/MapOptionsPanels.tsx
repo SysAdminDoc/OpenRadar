@@ -191,6 +191,11 @@ const OVERLAY_LAYERS: Array<{
   { key: "wildfires", overlayId: "wildfires", labelKey: "layer.wildfires" },
   { key: "smoke", overlayId: "smoke", labelKey: "layer.smoke" },
   { key: "metar", overlayId: "metar", labelKey: "layer.metar" },
+  {
+    key: "riverGauges",
+    overlayId: "riverGauges",
+    labelKey: "layer.riverGauges",
+  },
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
@@ -300,6 +305,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.metar",
     detailKey: "layers.metarDetail",
     icon: Thermometer,
+  },
+  {
+    key: "riverGauges",
+    labelKey: "layer.riverGauges",
+    detailKey: "layers.riverGaugesDetail",
+    icon: Waves,
   },
   {
     key: "tropical",

@@ -10,7 +10,8 @@ export type OverlayId =
   | "tropical"
   | "spcOutlooks"
   | "spcDiscussions"
-  | "stormReports";
+  | "stormReports"
+  | "riverGauges";
 
 export interface OverlayBounds {
   west: number;

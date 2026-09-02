@@ -104,6 +104,18 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "rivers",
+    label: "NWPS river gauges",
+    host: "api.water.noaa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/rivers.test.ts"],
+    liveBlock: "against the live service",
+    // The query needs a coordinate reference the service does not assume, and
+    // getting that wrong returns an empty list rather than an error. A quiet
+    // day and a broken query look identical without this.
+    required: false,
+  },
+  {
     id: "guidance",
     label: "Open-Meteo model guidance",
     host: "api.open-meteo.com",

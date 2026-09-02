@@ -1471,11 +1471,15 @@ pub(crate) async fn volume_for_export(
 }
 
 /// The same for a volume the reader opened off their own disk.
+///
+/// The label comes back with it because the path must not: it is the file's
+/// own name with a generic fallback, worked out where the file is read and
+/// nowhere else.
 pub(crate) fn local_volume_for_export(
     path: &Path,
-) -> Result<(String, String, Vec<u8>), Level2Error> {
+) -> Result<(String, String, String, Vec<u8>), Level2Error> {
     let local = read_local_volume(path)?;
-    Ok((local.station, local.key, local.data))
+    Ok((local.station, local.key, local.label, local.data))
 }
 
 /// A sweep request built the way the picture's is, for an export that has to

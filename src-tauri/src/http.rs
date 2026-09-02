@@ -30,6 +30,7 @@ const ALLOWED_HOSTS: &[&str] = &[
     "tiles.openfreemap.org",
     "api.open-meteo.com",
     "api.tidesandcurrents.noaa.gov",
+    "api.water.noaa.gov",
     "geocoding-api.open-meteo.com",
     "previous-runs-api.open-meteo.com",
     "valhalla1.openstreetmap.de",

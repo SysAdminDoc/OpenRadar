@@ -105,6 +105,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["metar", "station", "airport", "dewpoint", "wind barb"],
   },
   {
+    layer: "riverGauges",
+    key: "layer.riverGauges",
+    extra: "keywords.riverGauges",
+    keywords: ["river", "flood", "gauge", "stage", "crest", "water"],
+  },
+  {
     layer: "tropical",
     key: "layer.tropical",
     extra: "keywords.tropical",
