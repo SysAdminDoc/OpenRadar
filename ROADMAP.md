@@ -86,13 +86,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-172 (P2): German warnings from the DWD, drawn and watched
-  Why: The DWD composite is on the map and nothing says a Gewitterwarnung stands over it; the warning polygons are keyless, CORS-open and on a host already allowed.
-  Evidence: Verified live 2026-09-02: `https://maps.dwd.de/geoserver/dwd/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=dwd:Warnungen_Gemeinden&outputFormat=application/json` (CORS `*`, CAP-style properties `EVENT, SEVERITY Minor|Moderate|Severe|Extreme, ONSET, EXPIRES, HEADLINE, DESCRIPTION, INSTRUCTION, EC_AREA_COLOR`); also `dwd:Warnungen_Landkreise`, `_Kueste`, `_Binnenseen`; CC BY 4.0 with "Datenbasis: Deutscher Wetterdienst" and the BKG geometry credit carried in `EC_LICENSE`.
-  Touches: new `src/lib/overlays/dwd-warnings.ts`, `registry.ts`, `alertTypes.ts` (DWD `EC_GROUP`/`EVENT` onto hazard buckets), `useAlertWatch.ts`, `docs/asset-ledger.md`, live contract, three catalogues.
-  Acceptance: Over Germany the alerts layer shows DWD polygons in `EC_AREA_COLOR` with headline, description and instruction in the popup; a watched place inside one announces; both credits are in the popup and the ledger; a fixture e2e covers a Hamburg warning.
-  Complexity: M
-
 - [ ] AUD-173 (P2): Read radar site status from the NWS rather than inferring it from archive freshness
   Why: The site picker passes over a "down" site by watching whether new archive objects appear, which lags a real outage by minutes and cannot say why; the NWS publishes every RDA's status, operability, alarms and the time Level II was last received.
   Evidence: Verified live 2026-09-02: `https://api.weather.gov/radar/stations` (208 features: 159 WSR-88D, 45 TDWR; `properties.rda.properties.status` Operate|Start-Up, `operabilityStatus`, `alarmSummary`, `mode`, `buildNumber`, `latency.levelTwoLastReceivedTime`; CORS `*`, `max-age=120`; KGLD in Start-Up since 2026-08-24); `src-tauri/src/level2.rs:320-323` `LIVENESS` from archive freshness.

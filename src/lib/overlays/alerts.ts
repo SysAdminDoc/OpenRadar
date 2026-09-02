@@ -11,6 +11,7 @@ import { formatClock } from "../units";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { alertType, type AlertType } from "../alertTypes";
 import { ecccUrl, parseEcccAlerts, reachesCanada } from "./ecccAlerts";
+import { dwdUrl, parseDwdWarnings, reachesGermany } from "./dwdWarnings";
 import { language } from "../../i18n";
 import { pairingFor } from "../alertPairings";
 import { highContrastRequested } from "../../hooks/useClock";
@@ -444,6 +445,29 @@ async function ecccFeatures(
   }
 }
 
+/**
+ * The German warnings, or none.
+ *
+ * Same terms as the Canadian ones: a second country's service having a bad
+ * minute must not take the layer down, because the American polygons are
+ * already drawn by the time this is asked for.
+ */
+async function dwdFeatures(
+  bounds: OverlayBounds,
+  signal?: AbortSignal,
+): Promise<OverlayFeature[]> {
+  try {
+    const answer = await fetch(cachedUrl(dwdUrl(bounds)), {
+      signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!answer.ok) return [];
+    return parseDwdWarnings(await answer.json());
+  } catch {
+    return [];
+  }
+}
+
 export const alertsOverlay: OverlayAdapter = {
   id: "alerts",
   label: "Weather Alerts",
@@ -487,6 +511,14 @@ export const alertsOverlay: OverlayAdapter = {
     // one, which is the whole point. A view over Kansas asks nobody.
     if (reachesCanada(bounds)) {
       drawn.features.push(...(await ecccFeatures(bounds, signal)));
+    }
+    // And Germany, on the same terms. The DWD composite has been on the map
+    // since the app learned to look at Europe, and nothing said a
+    // Gewitterwarnung stood over it.
+    if (reachesGermany(bounds)) {
+      drawn.features.push(...(await dwdFeatures(bounds, signal)));
+    }
+    if (reachesCanada(bounds) || reachesGermany(bounds)) {
       drawn.features.sort(
         (left, right) =>
           Number(right.properties.severityRank) -

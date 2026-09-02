@@ -571,6 +571,13 @@ export async function routeWorkspace(page: Page) {
       body: collection(features),
     });
   });
+  // Germany, answered with nothing, for the same reason as Canada below.
+  await stub("https://maps.dwd.de/geoserver/**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: collection([]),
+    });
+  });
   // Canada, answered with nothing. Every spec whose view reaches the border
   // asks this, and an unstubbed host goes to the real service: a test suite
   // that quietly polls a public office is not a test suite. A spec about

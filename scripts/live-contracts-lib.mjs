@@ -104,6 +104,17 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "dwd-warnings",
+    label: "DWD public weather warnings",
+    host: "maps.dwd.de",
+    kind: "browser",
+    files: ["src/lib/overlays/dwdWarnings.test.ts"],
+    liveBlock: "against the live service",
+    // Germany is often quiet and an empty answer on a calm day is the right
+    // answer, so what the contract holds is the shape rather than the weather.
+    required: false,
+  },
+  {
     id: "eccc-alerts",
     label: "ECCC public weather alerts",
     host: "api.weather.gc.ca",
@@ -237,7 +248,6 @@ export const UNCONTRACTED_HOSTS = {
     "The fallback behind the RIDGE mosaic. Reached only when the first choice is already failing, so a contract that exercised it would be asking a spare to work while the main one still does.",
   "geo.weather.gc.ca":
     "Canadian radar, which answers only over Canada. Worth a contract once one exists that can say where it is asking about.",
-  "maps.dwd.de": "German radar, for the same reason.",
   "api.rainviewer.com":
     "The worldwide fallback, whose terms are the tightest of the set. Polling it on a schedule to prove it works is the opposite of what those terms ask for.",
   "tilecache.rainviewer.com": "The tiles behind that fallback.",
