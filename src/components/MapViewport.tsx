@@ -374,7 +374,11 @@ function MapViewportInner(
     // Recorded first, the press erased its own target and the next press
     // counted from the frame the map was on again.
     map.easeTo({ zoom: target });
-    zoomTargetRef.current = target;
+    // Unless the map is already there. With reduced motion an ease runs for
+    // no time at all and finishes inside the call above, so there is nothing
+    // pending to remember and holding a target would mean the ref is never
+    // null again.
+    zoomTargetRef.current = map.getZoom() === target ? null : target;
   };
   const radarFrameRef = useRef<RadarFrame | undefined>(radarFrame);
   const radarVisibleRef = useRef(radarVisible);

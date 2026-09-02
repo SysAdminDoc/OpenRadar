@@ -53,6 +53,39 @@ export function wallpaperDue(
   return now - lastAt >= gap;
 }
 
+/**
+ * Writes one if it is time, and answers when the next gap starts counting.
+ *
+ * The whole rule in one place, because the half that was wrong lived as a
+ * single line in the workspace where nothing could reach it. The gap counts
+ * from a picture that went up, not from an attempt: a launch fires this
+ * before the map has come up and before the first frames land, and counting
+ * that as a write spent the slot and left the desktop untouched for the whole
+ * of the reader's chosen gap. On three hours, that is three hours of nothing
+ * after every launch.
+ *
+ * A failure does spend the slot. A machine that refused once refuses every
+ * time, and a reader told about it every fifteen minutes is a reader who
+ * switches the app off rather than the feature.
+ */
+export async function writeWallpaperIfDue(options: {
+  everyMinutes: number;
+  lastAt: number;
+  now: number;
+  /** Answers true when a picture actually went up. */
+  write: () => Promise<boolean>;
+  onFailure: (failure: unknown) => void;
+}): Promise<number> {
+  const { everyMinutes, lastAt, now } = options;
+  if (!wallpaperDue(everyMinutes, lastAt, now)) return lastAt;
+  try {
+    return (await options.write()) ? now : lastAt;
+  } catch (failure) {
+    options.onFailure(failure);
+    return now;
+  }
+}
+
 /** Writes the picture and puts it on the desktop. Throws with why it failed. */
 export async function setWallpaper(bytes: Uint8Array): Promise<void> {
   const { invoke } = await import("@tauri-apps/api/core");

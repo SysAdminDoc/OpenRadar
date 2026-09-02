@@ -100,8 +100,18 @@ let quietAgain = 0;
  */
 const QUEUE_CEILING_SECONDS = 8;
 
-/** Whether another sound can be added to the queue, or should be dropped. */
-function roomToSound(now: number): boolean {
+/**
+ * Whether another sound can be added to the queue, or should be dropped.
+ *
+ * Only a preview is ever dropped. A warning is why the app exists, and
+ * "silent" is a far worse answer than "a few seconds late": two presses of a
+ * preview with a reader's own six second file reach the ceiling, and a
+ * warning arriving in that window would have made no sound at all. Real
+ * alerts cannot starve the queue on their own, because a batch of them
+ * already collapses to one tone.
+ */
+function roomToSound(now: number, preview: boolean): boolean {
+  if (!preview) return true;
   return quietAgain - now < QUEUE_CEILING_SECONDS;
 }
 
@@ -122,6 +132,7 @@ export function setAlertVolume(next: number): void {
  */
 export async function playAlertTone(
   severity: AlertSeverity = "severe",
+  options: { preview?: boolean } = {},
 ): Promise<boolean> {
   const tone = TONES[severity] ?? TONES.severe;
   // Checked here rather than trusted from the table, so a tone edited into
@@ -137,7 +148,9 @@ export async function playAlertTone(
     // was refused leaves this null, and the kit answers instead, so the
     // warning still makes a noise.
     if (ownPath && own) {
-      if (!roomToSound(context.currentTime)) return false;
+      if (!roomToSound(context.currentTime, options.preview === true)) {
+        return false;
+      }
       const source = context.createBufferSource();
       const gain = context.createGain();
       const from = Math.max(context.currentTime, quietAgain);
@@ -158,7 +171,9 @@ export async function playAlertTone(
       return true;
     }
 
-    if (!roomToSound(context.currentTime)) return false;
+    if (!roomToSound(context.currentTime, options.preview === true)) {
+      return false;
+    }
     // After whatever is still sounding, so two of these never overlap.
     const start = Math.max(context.currentTime, quietAgain);
     quietAgain = start + tone.notes.length * tone.each;

@@ -73,6 +73,14 @@ impl Default for Copy {
 
 static COPY: Mutex<Option<Copy>> = Mutex::new(None);
 
+/// What the icon is currently saying.
+///
+/// Held because rebuilding the icon builds a quiet one, and the workspace
+/// only speaks when the alert state changes. A reader who changed language
+/// while a warning stood got a blue dot saying nothing was happening until
+/// the warning ended, which is the opposite of the icon's one job.
+static HAZARD: Mutex<Hazard> = Mutex::new(Hazard::Quiet);
+
 fn copy() -> Copy {
     COPY.lock()
         .unwrap_or_else(|held| held.into_inner())
@@ -97,12 +105,7 @@ pub fn tray_copy(
         quiet,
         warning,
     };
-    let changed = {
-        let mut held = COPY.lock().unwrap_or_else(|held| held.into_inner());
-        let changed = held.as_ref() != Some(&next);
-        *held = Some(next);
-        changed
-    };
+    let changed = take_copy(next);
     // A menu cannot be relabelled in place, so the icon is rebuilt. Only when
     // the words actually changed: rebuilding on every settings write would
     // make the icon flicker out and back on a machine that is doing nothing.
@@ -158,14 +161,18 @@ fn icon(hazard: Hazard) -> Image<'static> {
 /// Builds the tray icon and its menu. Called once, at startup.
 pub fn init(app: &AppHandle) -> tauri::Result<()> {
     let words = copy();
+    // Whatever it was saying before, not "quiet". A rebuild happens while the
+    // app is running, and a warning that stands through one has to still be
+    // on the icon afterwards.
+    let hazard = *HAZARD.lock().unwrap_or_else(|held| held.into_inner());
     let show = MenuItem::with_id(app, "show", &words.open, true, None::<&str>)?;
     let glance = MenuItem::with_id(app, "glance", &words.glance, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", &words.quit, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &glance, &quit])?;
 
     let tray = TrayIconBuilder::with_id(TRAY_ID)
-        .icon(icon(Hazard::Quiet))
-        .tooltip(tooltip(Hazard::Quiet))
+        .icon(icon(hazard))
+        .tooltip(tooltip(hazard))
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -239,6 +246,7 @@ fn open_glance(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window("glance") {
         let _ = window.show();
         let _ = window.set_focus();
+        told_it_opened(app);
         return Ok(());
     }
     // Its own page rather than the workspace in a small window. A second live
@@ -252,17 +260,61 @@ fn open_glance(app: &AppHandle) -> tauri::Result<()> {
         .always_on_top(*GLANCE_ON_TOP.lock().unwrap_or_else(|held| held.into_inner()))
         .skip_taskbar(false)
         .build()?;
+    told_it_opened(app);
     Ok(())
 }
 
-/// Says what the tray should be showing. Called from the workspace.
-#[tauri::command]
-pub fn tray_hazard(warning: bool) -> Result<(), String> {
+/// Tells the workspace the small window is up.
+///
+/// The workspace stops composing a still when nothing is looking at it, and
+/// it found out by asking once a minute. Opened from the tray menu, which the
+/// workspace never hears about, that meant up to a minute of a small window
+/// with words and no map. Said rather than waited for.
+fn told_it_opened(app: &AppHandle) {
+    use tauri::Emitter;
+    if let Err(error) = app.emit("glance-opened", ()) {
+        log::warn!("OpenRadar could not say the glance window opened: {error}");
+    }
+}
+
+/// Takes the new words and answers whether the icon has to be rebuilt.
+///
+/// Compared against the words the icon was actually built with, which before
+/// anybody has said anything are the English defaults. Against "nothing said
+/// yet" the first call was always a change, so every launch by an English
+/// reader tore the icon down and built it again: on Windows that is the icon
+/// vanishing from the tray and reappearing, which is what the guard exists to
+/// prevent. Separate from the command so a test can drive it; the command
+/// needs an `AppHandle` and the tray types pull in a library the test harness
+/// does not load.
+fn take_copy(next: Copy) -> bool {
+    let mut held = COPY.lock().unwrap_or_else(|held| held.into_inner());
+    let changed = held.clone().unwrap_or_default() != next;
+    *held = Some(next);
+    changed
+}
+
+/// Writes down what the tray should be showing, and answers with it.
+///
+/// Separate from the command because it is the half that has to survive a
+/// rebuild, and because a test cannot call the command itself: the tray types
+/// pull in a library the test harness does not load.
+fn remember_hazard(warning: bool) -> Hazard {
     let hazard = if warning {
         Hazard::Warning
     } else {
         Hazard::Quiet
     };
+    // Remembered whether or not there is an icon to put it on, so one built
+    // later starts out telling the truth.
+    *HAZARD.lock().unwrap_or_else(|held| held.into_inner()) = hazard;
+    hazard
+}
+
+/// Says what the tray should be showing. Called from the workspace.
+#[tauri::command]
+pub fn tray_hazard(warning: bool) -> Result<(), String> {
+    let hazard = remember_hazard(warning);
     let held = TRAY.lock().unwrap_or_else(|held| held.into_inner());
     let Some(tray) = held.as_ref() else {
         return Ok(());
@@ -397,6 +449,60 @@ mod tests {
         assert_eq!(copy().quit, "Quitter");
         *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
         assert_eq!(copy().quit, "Quit");
+    }
+
+    #[test]
+    fn saying_the_same_words_does_not_rebuild_the_icon() {
+        // An English reader's workspace hands over exactly what the icon was
+        // built with. Compared against "nothing said yet" that read as a
+        // change, so every launch made the icon vanish from the tray and come
+        // back, which is what this guard exists to prevent.
+        *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
+        let english = Copy {
+            open: "Open OpenRadar".to_string(),
+            glance: "Glance".to_string(),
+            quit: "Quit".to_string(),
+            quiet: "OpenRadar".to_string(),
+            warning: "OpenRadar: a warning stands where you watch".to_string(),
+        };
+        // The catalogue and the fallback have to agree, or the words differ
+        // and the guard cannot help.
+        assert_eq!(Copy::default(), english);
+        assert!(!take_copy(english.clone()), "the same words are not a change");
+        assert!(!take_copy(english.clone()), "and still are not");
+
+        let french = Copy {
+            open: "Ouvrir OpenRadar".to_string(),
+            ..english.clone()
+        };
+        assert!(take_copy(french.clone()), "different words are a change");
+        assert!(!take_copy(french), "said twice, they are not");
+        *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
+    }
+
+    #[test]
+    fn a_warning_survives_the_icon_being_rebuilt() {
+        // Changing language rebuilds the icon, and a rebuild builds one from
+        // whatever it was last told. The workspace only speaks when the alert
+        // state changes, so without this a warning standing through a
+        // language change left a blue dot saying nothing was happening, which
+        // is the opposite of the icon's one job.
+        assert_eq!(remember_hazard(true), Hazard::Warning);
+        assert_eq!(
+            *HAZARD.lock().unwrap_or_else(|held| held.into_inner()),
+            Hazard::Warning
+        );
+        // And what a rebuild would draw with.
+        assert_eq!(
+            icon(*HAZARD.lock().unwrap_or_else(|held| held.into_inner())).rgba(),
+            icon(Hazard::Warning).rgba()
+        );
+
+        assert_eq!(remember_hazard(false), Hazard::Quiet);
+        assert_eq!(
+            *HAZARD.lock().unwrap_or_else(|held| held.into_inner()),
+            Hazard::Quiet
+        );
     }
 
     #[test]

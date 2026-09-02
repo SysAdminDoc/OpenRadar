@@ -54,14 +54,17 @@ import {
   setGlanceOnTop,
   setTrayEnabled,
   glanceIsShowing,
+  observedMsFrom,
   setTrayCopy,
   setTrayHazard,
+  whenGlanceOpens,
   writeGlance,
 } from "./lib/tray";
 import {
   restoreWallpaper,
   wallpaperAvailable,
   wallpaperDue,
+  writeWallpaperIfDue,
 } from "./lib/wallpaper";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
@@ -487,6 +490,22 @@ export default function App() {
       alive = false;
     };
   }, [clock, settings.tray]);
+  // The poll is once a minute, which is fine for noticing the window has gone
+  // and far too slow for noticing it arrived: opened from the tray menu, the
+  // reader watched a small window with words and no map. The window says so
+  // itself now, and the write below runs on the same render.
+  useEffect(() => {
+    let stop: (() => void) | null = null;
+    let alive = true;
+    void whenGlanceOpens(() => setGlanceOpen(true)).then((unlisten) => {
+      if (alive) stop = unlisten;
+      else unlisten();
+    });
+    return () => {
+      alive = false;
+      stop?.();
+    };
+  }, []);
   // With no tray there is no way to have opened it, whatever the last answer
   // was. Derived rather than written back, so the answer arriving late cannot
   // undo the switch.
@@ -515,13 +534,7 @@ export default function App() {
         warning: overlays.alertActive,
         headline: overlays.announcement.text,
         picture: picture ? pictureDataUrl(picture) : "",
-        // Milliseconds, which is what the small window subtracts from
-        // `Date.now()`. A frame's own time is in seconds, and handing that
-        // over unmultiplied had the window reporting a five minute old
-        // picture as twenty-nine million minutes old.
-        observedMs: timeline.newestObserved
-          ? timeline.newestObserved.time * 1000
-          : null,
+        observedMs: observedMsFrom(timeline.newestObserved),
         source: timeline.sourceLabel ?? "",
         at: Date.now(),
       });
@@ -1057,6 +1070,7 @@ export default function App() {
       alive = false;
     };
   }, []);
+  const { writeWallpaper } = exportState;
   useEffect(() => {
     if (!wallpaperOk || wallpaperBusy.current) return;
     if (!wallpaperDue(settings.wallpaperMinutes, wallpaperAt.current, clock)) {
@@ -1065,26 +1079,28 @@ export default function App() {
     wallpaperBusy.current = true;
     void (async () => {
       try {
-        // The gap is counted from a picture that went up, not from an attempt
-        // that found nothing to draw. Counted from the attempt, a cold start
-        // with no frames yet burned the first slot and left the desktop
-        // untouched for the whole of the reader's chosen gap.
-        if (await exportState.writeWallpaper()) wallpaperAt.current = clock;
-      } catch (failure) {
-        // Said out loud rather than leaving a stale picture up and saying
-        // nothing. The log gets the reason, which comes from the operating
-        // system and is in English; the reader gets their own words.
-        log.warn(
-          "wallpaper",
-          failure instanceof Error ? failure.message : "It was not written.",
-        );
-        pushToast({
-          title: translate("wallpaper.failed"),
-          detail: translate("wallpaper.failedDetail"),
+        wallpaperAt.current = await writeWallpaperIfDue({
+          everyMinutes: settings.wallpaperMinutes,
+          lastAt: wallpaperAt.current,
+          now: clock,
+          write: writeWallpaper,
+          onFailure: (failure) => {
+            // Said out loud rather than leaving a stale picture up and saying
+            // nothing. The log gets the reason, which comes from the
+            // operating system and is in English; the reader gets their own
+            // words.
+            log.warn(
+              "wallpaper",
+              failure instanceof Error
+                ? failure.message
+                : "It was not written.",
+            );
+            pushToast({
+              title: translate("wallpaper.failed"),
+              detail: translate("wallpaper.failedDetail"),
+            });
+          },
         });
-        // A machine that refused once refuses every fifteen minutes, so the
-        // slot is spent on a failure and the reader is told once per gap.
-        wallpaperAt.current = clock;
       } finally {
         wallpaperBusy.current = false;
       }
@@ -1093,13 +1109,15 @@ export default function App() {
     // second one matters on a cold start: the clock ticks once a minute, and
     // without it a launch that had nothing to draw waited a whole minute
     // after the first frames landed before trying again.
+    // `exportState` is a fresh object every render, so the callback is
+    // depended on rather than the whole of it.
   }, [
     clock,
-    exportState,
     frames.length,
     pushToast,
     settings.wallpaperMinutes,
     wallpaperOk,
+    writeWallpaper,
   ]);
 
   // Switched off puts the reader's own wallpaper back, which is the whole

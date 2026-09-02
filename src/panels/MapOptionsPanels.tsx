@@ -1452,7 +1452,9 @@ export function SettingsPanel({
                       type="button"
                       className="secondary-button"
                       data-sound-preview={severity}
-                      onClick={() => void playAlertTone(severity)}
+                      onClick={() =>
+                        void playAlertTone(severity, { preview: true })
+                      }
                     >
                       <Volume2 size={14} /> {t(`alerts.severity.${severity}`)}
                     </button>
