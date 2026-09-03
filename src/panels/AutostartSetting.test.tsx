@@ -99,14 +99,30 @@ describe("with the tray icon off", () => {
   });
 
   it("still shows an entry that is registered, rather than denying it", () => {
-    // An entry left over from before the icon was switched off. It is real:
-    // the app will start with the machine and put its window on screen,
-    // because there is no icon for it to open to. Drawing it as off would be
-    // the panel telling a reader nothing is going to happen when something
-    // is, and it cannot be turned off from a switch that says off already.
+    // The workspace takes the entry away when the icon goes, so this state is
+    // momentary. While it lasts the switch says what is true: the app will
+    // start with the machine. Drawing it as off would be the panel denying
+    // something that is about to happen, from a control that cannot be moved.
     render(panel(trayOff, true).ui);
     expect(box().checked).toBe(true);
     expect(box().disabled).toBe(true);
     expect(screen.getByText(en["autostart.needsTray"])).toBeTruthy();
+  });
+});
+
+describe("the entry and the icon", () => {
+  it("is disabled in every state where the icon is off", () => {
+    // The trap this guards: with the icon off the switch cannot be moved, so
+    // an entry that outlived the icon could not be cleared from here. The
+    // workspace clears it instead (see App.tsx), and this holds the half the
+    // panel owns: whatever the machine says, the control stays put and names
+    // the reason.
+    const trayOff: AppSettings = { ...DEFAULT_SETTINGS, tray: false };
+    for (const state of [true, false, null]) {
+      render(panel(trayOff, state).ui);
+      expect(box().disabled, `autostart ${state}`).toBe(true);
+      expect(screen.getByText(en["autostart.needsTray"])).toBeTruthy();
+      cleanup();
+    }
   });
 });

@@ -71,20 +71,30 @@ describe("the startup entry", () => {
     expect(await setStartWithMachine(true)).toBe(false);
   });
 
-  it("says off when the write worked but the read back failed", async () => {
+  it("says it does not know when the read back failed", async () => {
     // The entry may well be there. Nothing here can prove it, and a switch
-    // that guesses in the reader's favour is the failure this whole read-back
-    // exists to avoid.
+    // that guesses either way is the failure this whole read-back exists to
+    // avoid: reported as off it draws as a working control that does nothing,
+    // and the copy written for exactly this case is never shown.
     isEnabled.mockRejectedValue(new Error("the registry could not be read"));
-    expect(await setStartWithMachine(true)).toBe(false);
-    expect(await startsWithMachine()).toBe(false);
+    expect(await setStartWithMachine(true)).toBeNull();
+    expect(await startsWithMachine()).toBeNull();
   });
 
-  it("says off in a browser preview without asking the plugin", async () => {
+  it("says it does not know in a browser preview, without asking the plugin", async () => {
     desktop.mockReturnValue(false);
-    expect(await startsWithMachine()).toBe(false);
-    expect(await setStartWithMachine(true)).toBe(false);
+    expect(await startsWithMachine()).toBeNull();
+    expect(await setStartWithMachine(true)).toBeNull();
     expect(isEnabled).not.toHaveBeenCalled();
     expect(enable).not.toHaveBeenCalled();
+  });
+
+  it("tells a missing entry apart from a machine that would not say", async () => {
+    // The whole reason for three answers. False is a fact about the registry;
+    // null is a fact about this build, and only one of them means the switch
+    // can be moved.
+    expect(await startsWithMachine()).toBe(false);
+    desktop.mockReturnValue(false);
+    expect(await startsWithMachine()).toBeNull();
   });
 });

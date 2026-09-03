@@ -174,7 +174,11 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     freshForMs: null,
   },
   rotationTracks: {
-    sourceId: "rotation",
+    // The family, not one of its five windows. A record naming the
+    // sixty-minute grid while the reader is drawing the day is a correct
+    // observation time bolted to the wrong picture, which is worse for
+    // somebody reproducing it than either mistake alone.
+    sourceId: "rotation-track",
     label: "Rotation tracks",
     attribution: MRMS,
     kind: "derived",
@@ -182,7 +186,8 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     freshForMs: MRMS_REFRESH,
   },
   azShear: {
-    sourceId: "az-shear-low",
+    // The family, not the low slab. Same reason.
+    sourceId: "az-shear",
     label: "Azimuthal shear",
     attribution: MRMS,
     kind: "derived",

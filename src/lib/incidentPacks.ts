@@ -97,7 +97,14 @@ export function cancelIncidentPack(id: string): Promise<void> {
   return native("incident_pack_cancel", { id });
 }
 
-export function deleteIncidentPack(id: string): Promise<void> {
+/**
+ * Deletes a pack, and answers whether it was held for an undo.
+ *
+ * The answer comes from the native side rather than from the listing on
+ * screen, which can be a second old: a pack that finished in that second is
+ * held on disk while the page still thinks it was downloading.
+ */
+export function deleteIncidentPack(id: string): Promise<boolean> {
   return native("incident_pack_delete", { id });
 }
 
@@ -106,15 +113,15 @@ export function deleteIncidentPack(id: string): Promise<void> {
  *
  * A finished pack is moved aside rather than removed, so this is a rename on
  * the native side and not another download. It refuses once the undo window
- * has closed, which is what `reapIncidentPacks` does.
+ *  has closed, which is what `reapIncidentPack` does.
  */
 export function restoreIncidentPack(id: string): Promise<IncidentPack> {
   return native("incident_pack_restore", { id });
 }
 
-/** Closes the undo window, throwing away whatever was being held for it. */
-export function reapIncidentPacks(): Promise<void> {
-  return native("incident_pack_reap");
+/** Closes one pack’s undo window, throwing away what was held for it. */
+export function reapIncidentPack(id: string): Promise<void> {
+  return native("incident_pack_reap", { id });
 }
 
 export function asIncidentPackReference(

@@ -415,7 +415,7 @@ fn held_dir(root: &Path, id: &str) -> Result<PathBuf, IncidentPackError> {
 /// than refusing a download for bytes that are already deleted. A held pack is
 /// somebody's undo, not their data: taking it away costs them the undo and
 /// nothing else.
-fn reap_held(root: &Path, except: Option<&str>) -> Result<usize, IncidentPackError> {
+fn reap_held(root: &Path) -> Result<usize, IncidentPackError> {
     let held = held_root(root);
     if !held.is_dir() {
         return Ok(0);
@@ -423,10 +423,6 @@ fn reap_held(root: &Path, except: Option<&str>) -> Result<usize, IncidentPackErr
     let mut reaped = 0;
     for entry in fs::read_dir(&held)? {
         let entry = entry?;
-        let name = entry.file_name().to_string_lossy().to_string();
-        if except == Some(name.as_str()) {
-            continue;
-        }
         forget_verified_archive(&entry.path().join(ARCHIVE_FILE));
         if entry.file_type()?.is_dir() {
             fs::remove_dir_all(entry.path())?;
@@ -925,7 +921,7 @@ fn quota_allows(
     // A held pack is bytes the reader already deleted. Refusing their next
     // download over it, or counting it in the ceiling they set, would make an
     // undo window into a disk charge; reap and ask again instead.
-    if reap_held(root, None)? == 0 {
+    if reap_held(root)? == 0 {
         return Ok(false);
     }
     quota_peak_fits(root, downloaded_bytes, incoming_bytes)
@@ -1332,7 +1328,7 @@ fn recover_store(root: &Path) -> Result<(), IncidentPackError> {
         // held was deleted last session, so it goes now, and it says so:
         // several megabytes leaving the store is worth a line in the log.
         if name == HELD_FOLDER {
-            reap_held(root, None)?;
+            reap_held(root)?;
             let _ = fs::remove_dir(entry.path());
             continue;
         }
@@ -1443,7 +1439,7 @@ pub async fn incident_pack_create(
     // A new pack takes the undo away from any deleted one, because the bytes
     // it is about to write are the reader's answer to what they want the disk
     // for. Held first so the ceiling is measured against what is left.
-    let _ = reap_held(root, None)?;
+    let _ = reap_held(root)?;
     if used_bytes(root)?.saturating_add(estimate.saturating_mul(2)) > disk_limit_bytes(root)? {
         return Err(IncidentPackError::DiskCeiling);
     }
@@ -1556,7 +1552,7 @@ fn hold_pack_files(root: &Path, id: &str) -> Result<(), IncidentPackError> {
     if !pack_dir.is_dir() {
         return Err(IncidentPackError::NotFound);
     }
-    let _ = reap_held(root, None)?;
+    let _ = reap_held(root)?;
     let held = held_dir(root, id)?;
     fs::create_dir_all(held_root(root))?;
     if held.exists() {
@@ -1610,8 +1606,15 @@ pub async fn incident_pack_cancel(id: String) -> Result<(), IncidentPackError> {
     remove_pack(&id).await
 }
 
+/// Deletes a pack, and says whether it was held for an undo.
+///
+/// The answer is what the page offers the reader, and it has to come from
+/// here: the page decides from a listing up to a second old, so a pack that
+/// finished between the poll and the press looks unfinished on screen and is
+/// held on disk. Believing the page there left a pack in the held folder that
+/// nothing on screen knew about and no timer would ever reap.
 #[tauri::command]
-pub async fn incident_pack_delete(id: String) -> Result<(), IncidentPackError> {
+pub async fn incident_pack_delete(id: String) -> Result<bool, IncidentPackError> {
     let root = root()?;
     // Only a finished pack is worth holding. One that never finished has no
     // archive to hand back, and putting a half-downloaded directory in the
@@ -1621,9 +1624,14 @@ pub async fn incident_pack_delete(id: String) -> Result<(), IncidentPackError> {
         .and_then(|dir| read_manifest(&dir).ok())
         .is_some_and(|manifest| manifest.status == PackStatus::Ready);
     if !ready {
-        return remove_pack(&id).await;
+        remove_pack(&id).await?;
+        return Ok(false);
     }
-    hold_pack(&id).await
+    hold_pack(&id).await?;
+    // Held only if the rename actually worked. It falls through to an outright
+    // removal when something has the directory open, and the reader is told
+    // there is no way back rather than offered one that fails.
+    Ok(held_dir(root, &id).is_ok_and(|held| held.is_dir()))
 }
 
 /// Puts a held pack back where it was deleted from.
@@ -1634,12 +1642,30 @@ pub async fn incident_pack_restore(id: String) -> Result<PackSummary, IncidentPa
     Ok(PackSummary::from(&restore_pack_files(root, &id)?))
 }
 
-/// Ends the undo window, called when the toast that carried it goes.
+/// Ends one pack's undo window, called when the toast that carried it goes.
+///
+/// By id, not the whole held folder. Delete two packs half a minute apart and
+/// the first one's timer would otherwise reap the second, cutting its offer
+/// short while its toast was still on screen promising it.
 #[tauri::command]
-pub async fn incident_pack_reap() -> Result<(), IncidentPackError> {
+pub async fn incident_pack_reap(id: String) -> Result<(), IncidentPackError> {
     let root = root()?;
     let _write = store_write().lock().await;
-    reap_held(root, None)?;
+    reap_one_held(root, &id)
+}
+
+fn reap_one_held(root: &Path, id: &str) -> Result<(), IncidentPackError> {
+    validate_id(id)?;
+    let held = held_dir(root, id)?;
+    // Nothing held under that id is the ordinary case, not a failure: the
+    // page arms a timer per delete and only one pack is ever held, so a timer
+    // that outlives its own pack has nothing to do.
+    if !held.is_dir() {
+        return Ok(());
+    }
+    forget_verified_archive(&held.join(ARCHIVE_FILE));
+    fs::remove_dir_all(&held)?;
+    log::info!("OpenRadar reaped a deleted incident pack held for undo");
     Ok(())
 }
 
@@ -2292,15 +2318,45 @@ mod tests {
         ready_pack(&root, id, "Reaped");
         hold_pack_files(&root, id).unwrap();
 
-        assert_eq!(reap_held(&root, None).unwrap(), 1);
+        assert_eq!(reap_held(&root).unwrap(), 1);
         assert!(restore_pack_files(&root, id).is_err());
         assert!(!root.join(id).exists());
         assert_eq!(used_bytes(&root).unwrap(), 0);
         assert_eq!(
-            reap_held(&root, None).unwrap(),
+            reap_held(&root).unwrap(),
             0,
             "reaping an empty held folder says so"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Reaping one pack's window cannot end another's.
+    ///
+    /// Only one pack is ever held, so the two ids the page is timing are the
+    /// same directory or one of them is already gone. Named by id anyway,
+    /// because the page arms a timer per delete: a reap that took the whole
+    /// folder would let the first pack's timer throw away the second while its
+    /// own toast was still on screen offering it back.
+    #[test]
+    fn reaping_by_id_leaves_a_pack_that_is_not_the_one_named() {
+        let root = temporary("hold-reap-by-id");
+        let held = "1111aaaa2222bbbb3333cccc";
+        let other = "2222aaaa3333bbbb4444cccc";
+        ready_pack(&root, held, "Held");
+        hold_pack_files(&root, held).unwrap();
+
+        // Naming a pack nothing is holding does nothing at all, rather than
+        // taking away whatever is there. It is not an error either: a timer
+        // outliving its own pack is the ordinary case.
+        reap_one_held(&root, other).unwrap();
+        assert!(held_root(&root).join(held).is_dir());
+        assert!(restore_pack_files(&root, held).is_ok());
+
+        // And naming the one that is held does take it.
+        hold_pack_files(&root, held).unwrap();
+        reap_one_held(&root, held).unwrap();
+        assert!(!held_root(&root).join(held).exists());
+        assert!(restore_pack_files(&root, held).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 

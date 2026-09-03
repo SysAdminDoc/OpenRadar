@@ -27,14 +27,22 @@ async function plugin() {
   }
 }
 
-/** Whether the app is registered to start with the machine. */
-export async function startsWithMachine(): Promise<boolean> {
+/**
+ * Whether the app is registered to start with the machine, or `null` when
+ * nobody can say.
+ *
+ * Three answers rather than two. A browser preview and a machine that would
+ * not answer are not the same as an entry that is not there: reported as off,
+ * the switch draws itself as a working control that does nothing, and the copy
+ * written for exactly that case is never shown.
+ */
+export async function startsWithMachine(): Promise<boolean | null> {
   const api = await plugin();
-  if (!api) return false;
+  if (!api) return null;
   try {
     return await api.isEnabled();
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -46,9 +54,11 @@ export async function startsWithMachine(): Promise<boolean> {
  * rather than what happened is a switch that says a reader is watched when
  * they are not.
  */
-export async function setStartWithMachine(on: boolean): Promise<boolean> {
+export async function setStartWithMachine(
+  on: boolean,
+): Promise<boolean | null> {
   const api = await plugin();
-  if (!api) return false;
+  if (!api) return null;
   try {
     if (on) await api.enable();
     else await api.disable();
@@ -59,6 +69,6 @@ export async function setStartWithMachine(on: boolean): Promise<boolean> {
   try {
     return await api.isEnabled();
   } catch {
-    return false;
+    return null;
   }
 }

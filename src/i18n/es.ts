@@ -1007,13 +1007,12 @@ export const es: Catalogue = {
   "layers.tropicalDetail":
     "Conos, trayectorias y perspectivas de desarrollo del NHC",
   "layers.satelliteDetail": "GeoColor de GOES-East debajo del radar",
-  "layers.rotationDetail": "Cizalladura azimutal del MRMS de la última hora",
+  "layers.rotationDetail":
+    "Cizalladura azimutal de MRMS acumulada durante el periodo que elijas",
   "layers.rotationPeriod": "Hasta dónde llega hacia atrás la traza",
   "layers.azShearDetail":
     "Cizalladura azimutal combinada de MRMS tal como está, sin acumular",
   "layers.azShearLevel": "Qué capa de la tormenta se mide",
-  "layers.azShearNote":
-    "Por encima de 10 entre 3 y 6 km hay un mesociclón profundo, según la lectura del WDTD.",
   "rotationPeriod.30m": "30 min",
   "rotationPeriod.1h": "1 hora",
   "rotationPeriod.2h": "2 horas",
@@ -1021,6 +1020,10 @@ export const es: Catalogue = {
   "rotationPeriod.24h": "1 día",
   "azShearLevel.low": "0 a 2 km",
   "azShearLevel.mid": "3 a 6 km",
+  "azShearLevel.midNote":
+    "Por encima de 10 aquí hay un mesociclón profundo, según la lectura del WDTD.",
+  "azShearLevel.lowNote":
+    "La capa con la que se argumenta un aviso de tornado, donde el par llega al suelo.",
   "layers.hailDetail": "Tamaño máximo de granizo estimado por el MRMS",
   "layers.vilDensityDetail":
     "Líquido dividido por el espesor del eco, que distingue una tormenta húmeda de una de granizo",

@@ -988,13 +988,12 @@ export const en = {
   "sounding.mixingNote": "Mixing ratio lines, in grams per kilogram: {values}.",
   "layers.tropicalDetail": "NHC cones, tracks, and development outlooks",
   "layers.satelliteDetail": "GOES-East GeoColor under the radar",
-  "layers.rotationDetail": "MRMS azimuthal shear over the past hour",
+  "layers.rotationDetail":
+    "MRMS azimuthal shear accumulated over the window you choose",
   "layers.rotationPeriod": "How far back the track reaches",
   "layers.azShearDetail":
     "MRMS merged azimuthal shear as it stands, not accumulated",
   "layers.azShearLevel": "Which slab of the storm is measured",
-  "layers.azShearNote":
-    "Above 10 through 3 to 6 km is a deep mesocyclone, by the WDTD reading.",
   "rotationPeriod.30m": "30 min",
   "rotationPeriod.1h": "1 hour",
   "rotationPeriod.2h": "2 hours",
@@ -1002,6 +1001,10 @@ export const en = {
   "rotationPeriod.24h": "1 day",
   "azShearLevel.low": "0 to 2 km",
   "azShearLevel.mid": "3 to 6 km",
+  "azShearLevel.midNote":
+    "Above 10 through here is a deep mesocyclone, by the WDTD reading.",
+  "azShearLevel.lowNote":
+    "The slab a tornado warning is argued from, where a couplet reaches the ground.",
   "layers.hailDetail": "MRMS maximum estimated hail size",
   "layers.vilDensityDetail":
     "Liquid divided by the depth of the echo, which tells a wet storm from a hail storm",
