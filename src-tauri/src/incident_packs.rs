@@ -16,7 +16,9 @@ use bytes::Bytes;
 use chrono::Utc;
 use futures_util::stream::{self, StreamExt as _};
 use image::{GenericImageView as _, ImageFormat};
-use pmtiles::{AsyncBackend, AsyncPmTilesReader, PmTilesWriter, TileCoord, TileId, TileType};
+use pmtiles::{
+    AsyncBackend, AsyncPmTilesReader, BackendResponse, PmTilesWriter, TileCoord, TileId, TileType,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use tokio::sync::Mutex as AsyncMutex;
@@ -308,12 +310,16 @@ struct PackFileBackend {
 }
 
 impl AsyncBackend for PackFileBackend {
-    async fn read(&self, offset: usize, length: usize) -> pmtiles::PmtResult<Bytes> {
+    async fn read(&self, offset: usize, length: usize) -> pmtiles::PmtResult<BackendResponse> {
         let mut file = File::open(&self.path)?;
         file.seek(SeekFrom::Start(offset as u64))?;
         let mut body = Vec::with_capacity(length);
         file.take(length as u64).read_to_end(&mut body)?;
-        Ok(Bytes::from(body))
+        // No version string. That field is for a backend that can tell one
+        // published copy of an archive from another, such as an HTTP ETag;
+        // this reads a file the app wrote itself, and its identity is already
+        // checked against the recorded size and hash before it is opened.
+        Ok(BackendResponse::new(Bytes::from(body)))
     }
 }
 
@@ -891,17 +897,20 @@ fn build_archive(
         "format": "png"
     })
     .to_string();
-    let center_lon = ((manifest.bounds.west + manifest.bounds.east) / 2.0) as f32;
-    let center_lat = ((manifest.bounds.south + manifest.bounds.north) / 2.0) as f32;
+    let center_lon = (manifest.bounds.west + manifest.bounds.east) / 2.0;
+    let center_lat = (manifest.bounds.south + manifest.bounds.north) / 2.0;
     let file = File::create(&part)?;
     let mut writer = PmTilesWriter::new(TileType::Png)
         .min_zoom(manifest.min_zoom)
         .max_zoom(manifest.max_zoom)
+        // Full precision. These were narrowed to f32 because the writer
+        // took f32, which cost about a metre at the equator on every corner
+        // of a pack's own footprint.
         .bounds(
-            manifest.bounds.west as f32,
-            manifest.bounds.south as f32,
-            manifest.bounds.east as f32,
-            manifest.bounds.north as f32,
+            manifest.bounds.west,
+            manifest.bounds.south,
+            manifest.bounds.east,
+            manifest.bounds.north,
         )
         .center(center_lon, center_lat)
         .center_zoom(manifest.min_zoom.saturating_add(1).min(manifest.max_zoom))

@@ -68,7 +68,7 @@ interface MapStageProps {
   onSection: (from: GeoPoint, to: GeoPoint) => void;
   /** The one action a popup offered about what it describes. */
   onOverlayAction: (id: string) => void;
-  onMapStatus: (status: "loading" | "ready" | "error") => void;
+  onMapStatus: (status: "loading" | "ready" | "error" | "nogpu") => void;
 }
 
 export function MapStage({

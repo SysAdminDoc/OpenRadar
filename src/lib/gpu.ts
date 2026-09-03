@@ -33,7 +33,11 @@ export function gpuSupport(): GpuSupport {
 function probe(): GpuSupport {
   try {
     const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl2");
+    // The same attributes the map asks for. A plain context can succeed where
+    // the map's request fails, and this probe is the gate in front of the
+    // whole app: asking an easier question than the one that has to be
+    // answered lets a machine through to a screen it cannot draw.
+    const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
     if (!gl) return { webgl2: false, renderer: null };
 
     // Both spellings: the unmasked name is the useful one and needs an

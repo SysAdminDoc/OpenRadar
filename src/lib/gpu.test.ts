@@ -44,6 +44,21 @@ describe("what the machine can draw with", () => {
     expect(lose).toHaveBeenCalled();
   });
 
+  it("asks for the context the map will ask for", () => {
+    // The gate in front of the whole app. A plain WebGL2 context can succeed
+    // on a driver that then refuses the map's own request, and asking an
+    // easier question than the one that has to be answered lets a machine
+    // through to a screen it cannot draw. The map wants the drawing buffer
+    // kept, because that is what a saved picture is read out of.
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(null);
+    gpuSupport();
+    expect(getContext).toHaveBeenCalledWith("webgl2", {
+      preserveDrawingBuffer: true,
+    });
+  });
+
   it("asks once and remembers", () => {
     // The answer cannot change without a reload, and each ask allocates a
     // context.

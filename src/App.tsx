@@ -192,6 +192,7 @@ import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
+import { NoGpu } from "./components/NoGpu";
 
 const PanelSurfaces = lazy(async () => {
   const module = await import("./components/PanelSurfaces");
@@ -215,9 +216,9 @@ export default function App() {
   const [dualPane, setDualPane] = useState(false);
   const [compareOffset, setCompareOffset] = useState(0);
   const [pageVisible, setPageVisible] = useState(() => !document.hidden);
-  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
+  const [mapStatus, setMapStatus] = useState<
+    "loading" | "ready" | "error" | "nogpu"
+  >("loading");
   const [viewport, setViewport] = useState<OverlayBounds | null>(null);
   const [cursor, setCursor] = useState<GeoPoint | null>(null);
   // The readout is held as a way of writing itself. A measurement taken in
@@ -1321,7 +1322,7 @@ export default function App() {
   });
 
   const handleMapStatus = useCallback(
-    (status: "loading" | "ready" | "error") => {
+    (status: "loading" | "ready" | "error" | "nogpu") => {
       setMapStatus(status);
       if (status === "ready") setViewport(mapRef.current?.bounds() ?? null);
     },
@@ -2026,6 +2027,12 @@ export default function App() {
       : activeSurface
         ? "right"
         : "none";
+
+  // A machine that passed the WebGL2 probe at start-up and could not make
+  // the map's own context after all. It reaches here rather than through the
+  // error boundary, which would show a generic fatal screen; this one names
+  // the setting that turns hardware acceleration back on.
+  if (mapStatus === "nogpu") return <NoGpu />;
 
   if (!hydrated) {
     return (

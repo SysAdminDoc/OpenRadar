@@ -33,11 +33,11 @@ tauri-plugin-store = "2"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-deep-link = "2.4.10"
 tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
 thiserror = "2.0.20"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "http2", "charset"] }
-tauri-plugin-notification = "2.3.3"
+tauri-plugin-notification = "2.4.0"
 # The aws feature is on for the chunk types and the volume assembler, not for
 # its networking: every request in this app goes through src/http.rs so there
 # is one allowlist and one User-Agent. reqwest is already in the tree.
@@ -69,7 +69,7 @@ png = "0.18.1"
 base64 = "0.23.1"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 flate2 = "1.1.10"
-tauri-plugin-updater = "2.10.1"
+tauri-plugin-updater = "2.11.0"
 tauri-plugin-process = "2.3.1"
 netcdf-reader = { version = "0.9.1", default-features = false, features = ["netcdf4"] }
 tokio = { version = "1.53.1", features = ["macros", "sync", "time"] }
@@ -78,7 +78,7 @@ tauri-plugin-dialog = "2.7.3"
 bytes = "1.10.1"
 futures-util = "0.3.31"
 image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png"] }
-pmtiles = { version = "=0.16.0", default-features = false, features = ["mmap-async-tokio", "write"] }
+pmtiles = { version = "=0.24.0", default-features = false, features = ["mmap-async-tokio", "write"] }
 sha2 = "0.10.9"
 # The digital Level III products (the hydrometeor classification and its
 # hybrid) carry a bzip2 symbology block, where the graphic products this
