@@ -46,6 +46,18 @@ export interface SingleSiteState {
    */
   loop: { index: number; count: number } | null;
   /**
+   * The volume the sweep ON SCREEN was fetched for, as opposed to the one the
+   * scrubber is asking for.
+   *
+   * The two differ for as long as a fetch takes, which for a ten megabyte
+   * archive object is seconds. Anything that has to act on the picture rather
+   * than on the request has to wait for this to catch up: a saved loop that
+   * captured each frame as soon as the map went idle wrote the previous
+   * volume's pixels under the next volume's caption and its record, silently,
+   * for every frame of the file.
+   */
+  drawnVolume: number | null;
+  /**
    * The site's recent volume times, oldest first, or empty when it has no
    * loop. The export walks these rather than the mosaic's steps, so a saved
    * loop of a held site is that site's volumes.
@@ -167,6 +179,9 @@ export function useSingleSiteRadar(options: {
     times: [],
   });
   const heldRef = useRef<Map<string, SweepImage>>(new Map());
+  // Which volume the picture on screen answers. Null over a live sweep that
+  // belongs to no listed volume, and over the mosaic.
+  const [drawnVolume, setDrawnVolume] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [historicalSource, setHistoricalSource] =
     useState<HistoricalSource | null>(null);
@@ -211,6 +226,11 @@ export function useSingleSiteRadar(options: {
   // the volume in progress and its persistence, belongs to the newest step
   // and is left exactly as it was.
   const newestVolume = volumeTimes.at(-1) ?? null;
+  // Held in a ref so the live effect can read it without depending on it.
+  const newestVolumeRef = useRef<number | null>(null);
+  useEffect(() => {
+    newestVolumeRef.current = newestVolume;
+  }, [newestVolume]);
   const shownVolume =
     showingTime === null ? null : volumeForTime(volumeTimes, showingTime);
   const scrubbedBack =
@@ -512,6 +532,11 @@ export function useSingleSiteRadar(options: {
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
+        // Read from a ref rather than a dependency: this effect refetches on
+        // every value it depends on, and the listing refreshes on its own
+        // timer, so depending on the newest volume would pull a fresh sweep
+        // every time the archive published one.
+        setDrawnVolume(newestVolumeRef.current);
         setError(null);
       } catch (failure: unknown) {
         if (!open || request !== requestRef.current) return;
@@ -595,6 +620,7 @@ export function useSingleSiteRadar(options: {
       // seen kept a spinner that never stopped.
       requestRef.current += 1;
       setSweep(already);
+      setDrawnVolume(shownVolume);
       setError(null);
       setLoading(false);
       return;
@@ -621,6 +647,7 @@ export function useSingleSiteRadar(options: {
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         if (!open || request !== requestRef.current) return;
         setSweep(next);
+        setDrawnVolume(shownVolume);
         setError(null);
       })
       .catch((failure: unknown) => {
@@ -664,8 +691,15 @@ export function useSingleSiteRadar(options: {
       loading: Boolean(available && loading),
       error: available ? error : null,
       active: Boolean(current),
+      // Never in historical mode, for the same reason the series below is
+      // not: a chosen file or a chosen moment is one volume the reader picked
+      // and not a step of any loop. Without this guard, scrubbing back and
+      // then opening an archive volume left a loop position set, which told
+      // the chrome the view had not left the present: the legend read
+      // "VOLUME 2 OF 3" over a volume from 2011, the archive credit vanished,
+      // and the scrubber was re-enabled over a picture it does not drive.
       loop:
-        showing && scrubbedBack && shownVolume !== null
+        showing && !historicalWanted && scrubbedBack && shownVolume !== null
           ? {
               index: volumeTimes.indexOf(shownVolume) + 1,
               count: volumeTimes.length,
@@ -676,6 +710,9 @@ export function useSingleSiteRadar(options: {
       // loop is not a series it belongs to.
       volumes: showing && !historicalWanted ? volumeTimes : EMPTY_TIMES,
       historical: historicalWanted,
+      // The same guard: a hand-picked volume is not one of the loop's, so
+      // nothing may wait on it as though it were.
+      drawnVolume: showing && !historicalWanted ? drawnVolume : null,
       mode: historicalSource?.kind ?? "recent",
       openLocal,
       openArchive,
@@ -713,6 +750,7 @@ export function useSingleSiteRadar(options: {
     openLocal,
     product,
     radar.tilt,
+    drawnVolume,
     resumeRecent,
     scrubbedBack,
     shownVolume,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { log } from "../lib/log";
 import {
   radarStatus,
@@ -30,11 +30,20 @@ export function useRadarStatus(options: {
 }): SiteStatus[] {
   const { enabled, pageVisible } = options;
   const [said, setSaid] = useState<SiteStatus[]>(NOTHING);
+  // When the office was last asked, whatever caused the asking.
+  //
+  // The switch above flaps: it follows whether a site is resolved, and a pan
+  // across a coarse position leaves it briefly null while the next site is
+  // being found. Each flap tore the interval down and asked again, so a
+  // reader dragging the map sent one request per tenth of a degree.
+  const askedRef = useRef(0);
 
   useEffect(() => {
     if (!enabled || !radarStatusAvailable()) return;
     let open = true;
     const ask = () => {
+      if (Date.now() - askedRef.current < REFRESH_MS) return;
+      askedRef.current = Date.now();
       void radarStatus()
         .then((found) => {
           if (open) setSaid(found);

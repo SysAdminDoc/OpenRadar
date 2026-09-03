@@ -275,3 +275,17 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Touches: `src-tauri/src/level2.rs` (a command that answers the sites in reach with their distances rather than only the nearest), `src/lib/level2.ts`, `src/panels/RadarProductPanel.tsx` (an optgroup of sites in reach, each with its distance and, when the office says so, its fault), `src/hooks/useSingleSiteRadar.ts` if the list should follow the view.
   Acceptance: The picker lists every site whose coverage reaches the view, nearest first, with its distance; a site the office reports as restarting or silent is greyed with that reason; choosing one holds it; the list is asked for at most once per coarse position, the way the nearest-site search already is.
   Complexity: M
+
+- [ ] AUD-204 (P2): The loop export walks a list that can move underneath it
+  Why: `exportLoopAs` takes the site's volume times once, at the click, and the listing behind them refreshes on its own timer while the walk runs. `recentVolumeTimes` answers the LAST N, so a volume landing mid-export pushes the oldest one out of the list; `volumeForTime` then answers null for the earliest steps, the loop stands down, and the live path draws the newest sweep while the caption still names the volume that was dropped. A thirty volume walk with a fetch per frame easily outlives one refresh.
+  Evidence: `src/App.tsx` builds `siteLoop` from `singleSite.volumes` at render; `src/hooks/useSingleSiteRadar.ts` re-lists every `SWEEP_REFRESH_MS`; `src/hooks/useExport.ts` `exportLoopAs` captures `walk` before the first frame. The settle wait added alongside this item bounds the damage to one wrong frame plus a log line rather than silence, but does not prevent it.
+  Touches: `src/hooks/useSingleSiteRadar.ts` (hold the listing still while an export is running, or answer from a snapshot the export owns), `src/hooks/useExport.ts`.
+  Acceptance: A test drives a loop export while the listing refreshes underneath it and every frame still carries the volume its caption names; the newest volumes arriving during a walk do not change what that walk saves.
+  Complexity: S
+
+- [ ] AUD-205 (P3): The loop length bound is written down twice with nothing to keep it honest
+  Why: `MAX_LOOP_VOLUMES` is 30 in `src/lib/siteLoop.ts` and the native side independently refuses a count above 30 in `level2.rs`. Nothing fails when they drift, and the repo has precedent for exactly this kind of gate.
+  Evidence: `src/lib/siteLoop.ts` `MAX_LOOP_VOLUMES`; `src-tauri/src/level2.rs` `level2_recent_times` clamp; `CLAUDE.md` records the colour-ramp drift gate as the pattern.
+  Touches: a test that reads both files and compares, in the shape of the existing ramp gate.
+  Acceptance: Changing either number without the other fails a test that names both files.
+  Complexity: S

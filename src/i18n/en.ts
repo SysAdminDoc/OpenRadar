@@ -1319,6 +1319,8 @@ export const en = {
   "update.checkFailed": "The update check failed.",
   "update.notOffered": "The update is no longer being offered.",
   "export.radar": "Radar",
+  "export.volumeLate":
+    "The volume for one frame did not arrive in time; the frame before it was saved.",
   "export.hrrr": "HRRR, {minutes} min out",
   "export.saved": "{name} saved",
   "export.downloads": "Check your downloads folder.",

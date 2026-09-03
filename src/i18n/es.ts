@@ -1344,6 +1344,8 @@ export const es: Catalogue = {
   "update.checkFailed": "La búsqueda de actualizaciones falló.",
   "update.notOffered": "La actualización ya no se está ofreciendo.",
   "export.radar": "Radar",
+  "export.volumeLate":
+    "El volumen de un fotograma no llegó a tiempo; se guardó el fotograma anterior.",
   "export.hrrr": "HRRR, a {minutes} min",
   "export.saved": "{name} guardado",
   "export.downloads": "Mira en tu carpeta de descargas.",

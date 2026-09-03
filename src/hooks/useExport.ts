@@ -39,6 +39,14 @@ import { APP_VERSION } from "../lib/settings";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { translate } from "../i18n";
 
+/**
+ * How long a frame waits for its volume to arrive before the walk moves on.
+ *
+ * A ten megabyte archive object over a slow connection, plus the decode.
+ * Longer than a fetch and shorter than a reader's patience with a button.
+ */
+const SETTLE_TIMEOUT_MS = 20_000;
+
 /** One dataset on screen whose readings can be written out. */
 export interface DataExportSource {
   id: string;
@@ -114,7 +122,21 @@ export function useExport(options: {
    * Null whenever the mosaic is the picture, which is what every export did
    * before this existed.
    */
-  siteLoop: { sweep: SweepImage; volumes: number[] } | null;
+  siteLoop: {
+    sweep: SweepImage;
+    volumes: number[];
+    /**
+     * Which volume the picture on screen answers, read when it is asked
+     * rather than captured.
+     *
+     * The walk moves the timeline and the map goes idle within a few hundred
+     * milliseconds, because the mosaic under the site redraws; the site's own
+     * volume is a ten megabyte object still being fetched and decoded. With
+     * nothing to wait on, every frame of a saved loop held the previous
+     * volume's pixels under the next volume's caption and record.
+     */
+    drawnVolume: () => number | null;
+  } | null;
   pushToast: (message: Omit<ToastMessage, "id">) => void;
 }): ExportState {
   const {
@@ -143,8 +165,54 @@ export function useExport(options: {
   // record of what was drawn.
   const drawnRef = useRef(new Map<number, Provenance>());
 
+  /**
+   * The caption for one volume of a held site.
+   *
+   * Written from the volume's own record for the same reason the mosaic's is
+   * written from the frame's: the words burned into the corner and the record
+   * saved beside the file have to be the same statement. The station and
+   * product come from the sweep because every volume in this walk is the same
+   * site and the same product; only the time moves.
+   */
+  const sweepCaptionFor = useCallback(
+    (sweep: SweepImage, at: number, index: number): ExportCaption => {
+      const record = sweepProvenance({
+        sweep,
+        at,
+        // The walk draws each volume as it captions it, either fetching it or
+        // re-reading one the loop already holds, so this is when the machine
+        // had those bytes to within the length of the walk.
+        fetchedAt: Date.now(),
+      });
+      drawnRef.current.set(index, record);
+      return {
+        lines: [
+          formatRadarTime(at / 1000),
+          translate("chrome.sweepProduct", {
+            station: sweep.station,
+            product: sweep.product,
+          }),
+        ],
+        attribution: provenanceCredit(basemapCredit, record),
+      };
+    },
+    [basemapCredit],
+  );
+
   const captionFor = useCallback(
     (index: number): ExportCaption => {
+      // A held site's sweep is on the canvas, so the picture is that radar's
+      // and not the mosaic's. Captioning it from the timeline frame credited a
+      // service that did not make it and stamped it with a moment it was not
+      // collected at, which is the same mistake the loop walk was changed to
+      // stop making, on the file a reader is most likely to send somebody.
+      if (siteLoop) {
+        return sweepCaptionFor(
+          siteLoop.sweep,
+          Date.parse(siteLoop.sweep.collected),
+          index,
+        );
+      }
       const frame = frames[index];
       // The caption is written from the frame's provenance rather than from
       // the frame, so the words burned into a picture and the record the app
@@ -189,44 +257,33 @@ export function useExport(options: {
     [
       basemapCredit,
       frames,
+      siteLoop,
       source,
+      sweepCaptionFor,
       timeline.cachedAgeSeconds,
       timeline.fetchedAt,
     ],
   );
 
   /**
-   * The caption for one volume of a held site.
+   * Waits for the map to be showing the volume the caption is about.
    *
-   * Written from the volume's own record for the same reason the mosaic's is
-   * written from the frame's: the words burned into the corner and the record
-   * saved beside the file have to be the same statement. The station and
-   * product come from the sweep because every volume in this walk is the same
-   * site and the same product; only the time moves.
+   * Bounded, and it gives up rather than refusing to export: a volume that
+   * never arrives leaves the frame before it on screen, which is one wrong
+   * frame instead of no file at all. It says so in the log either way.
    */
-  const sweepCaptionFor = useCallback(
-    (sweep: SweepImage, at: number, index: number): ExportCaption => {
-      const record = sweepProvenance({
-        sweep,
-        at,
-        // The walk draws each volume as it captions it, either fetching it or
-        // re-reading one the loop already holds, so this is when the machine
-        // had those bytes to within the length of the walk.
-        fetchedAt: Date.now(),
-      });
-      drawnRef.current.set(index, record);
-      return {
-        lines: [
-          formatRadarTime(at / 1000),
-          translate("chrome.sweepProduct", {
-            station: sweep.station,
-            product: sweep.product,
-          }),
-        ],
-        attribution: provenanceCredit(basemapCredit, record),
-      };
+  const settleOn = useCallback(
+    async (drawnVolume: () => number | null, at: number) => {
+      const until = Date.now() + SETTLE_TIMEOUT_MS;
+      while (drawnVolume() !== at && Date.now() < until) {
+        await new Promise((resolve) => window.setTimeout(resolve, 60));
+      }
+      if (drawnVolume() !== at)
+        log.warn("export", translate("export.volumeLate"));
+      // The picture arrived; the map still has to draw it.
+      await mapRef.current?.onceIdle();
     },
-    [basemapCredit],
+    [mapRef],
   );
 
   const finish = useCallback(
@@ -393,10 +450,15 @@ export function useExport(options: {
         // A held site's own volumes when there are any, the mosaic's steps
         // otherwise. Two of whichever it is, because a loop of one frame is
         // a still.
-        const walk =
+        // A site's own volumes when there are enough of them to be a loop,
+        // and the mosaic's steps otherwise. A view where every step maps to
+        // one volume used to make the button do nothing at all: no file, no
+        // toast, no log line.
+        const found =
           siteLoop && siteLoop.volumes.length > 1
             ? stepsForVolumes(frames, siteLoop.volumes)
             : null;
+        const walk = found && found.length > 1 ? found : null;
         const count = walk ? walk.length : frames.length;
         if (!canvas || count < 2) return;
         drawnRef.current.clear();
@@ -411,6 +473,9 @@ export function useExport(options: {
             showFrame: async (index) => {
               timeline.selectFrame(walk ? walk[index].index : index);
               await mapRef.current?.onceIdle();
+              if (walk && siteLoop) {
+                await settleOn(siteLoop.drawnVolume, walk[index].at);
+              }
             },
             captionFor:
               walk && siteLoop
@@ -460,6 +525,7 @@ export function useExport(options: {
       frames,
       mapRef,
       pushToast,
+      settleOn,
       siteLoop,
       sweepCaptionFor,
       timeline,

@@ -1787,6 +1787,22 @@ function MapViewportInner(
     });
     map.on("error", (event) => {
       if (!event.error) return;
+      // The other half of the same failure. MapLibre throws this from the
+      // constructor and FIRES it here when it cannot make the context again
+      // after the machine takes it away: a laptop that suspends, or a driver
+      // that resets. Left in the log with everything else, that showed a
+      // frozen map and one warning nobody reads, which is the exact case the
+      // screen naming the acceleration setting exists for.
+      if (event.error instanceof maplibregl.GPUInitializationError) {
+        log.warn(
+          "map",
+          event.error.statusMessage
+            ? `${event.error.message} (${event.error.statusMessage})`
+            : event.error.message,
+        );
+        onMapStatus?.("nogpu");
+        return;
+      }
       const message = event.error.message || String(event.error);
       // One line per distinct failure keeps a broken tile source from filling
       // the log during playback.
