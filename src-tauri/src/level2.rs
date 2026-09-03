@@ -4591,8 +4591,28 @@ mod tests {
         assert_eq!(nearest.station, "KTLX");
         assert!(!nearest.city.is_empty());
         assert_eq!(nearest.state.len(), 2);
-        // Twenty-five kilometres from the middle of the city to its radar.
-        assert!(nearest.distance_km < 40.0, "{}", nearest.distance_km);
+        // The figures themselves, because the ordering comes from
+        // `sites_in_reach` and would hold with every distance reported as
+        // zero, or with the latitude and longitude handed over the wrong way
+        // round: that swap reports Vance at 71 km when it is 152, and the
+        // picker would tell somebody a radar is half as far away as it is.
+        let miles_from_the_city = |station: &str| {
+            over_oklahoma_city
+                .iter()
+                .find(|site| site.station == station)
+                .map(|site| site.distance_km)
+                .unwrap_or_else(|| panic!("{station} is not in reach"))
+        };
+        assert!(
+            (miles_from_the_city("KTLX") - 25.9).abs() < 2.0,
+            "KTLX is {} km away",
+            miles_from_the_city("KTLX")
+        );
+        assert!(
+            (miles_from_the_city("KVNX") - 152.0).abs() < 5.0,
+            "KVNX is {} km away",
+            miles_from_the_city("KVNX")
+        );
 
         // And nothing at all where no radar reaches, rather than the least
         // distant one, which would put Alaska's radar over the mid-Atlantic.

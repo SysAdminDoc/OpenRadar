@@ -76,12 +76,16 @@ describe("the site picker and what the office says", () => {
     exportValues: null,
   } as unknown as SingleSiteState;
 
-  function picker(siteStatus: SiteStatus[], station: string | null = null) {
+  function picker(
+    siteStatus: SiteStatus[],
+    station: string | null = null,
+    sweep: unknown = null,
+  ) {
     render(
       <RadarProductPanel
         radar={{ ...DEFAULT_SETTINGS.radar, singleSite: true, station }}
         clock={Date.parse("2026-09-03T02:06:00Z")}
-        singleSite={singleSite}
+        singleSite={{ ...singleSite, sweep } as SingleSiteState}
         siteStatus={siteStatus}
         stormCells={CELLS}
         watch={DEFAULT_SETTINGS.watch}
@@ -144,8 +148,59 @@ describe("the site picker and what the office says", () => {
     expect(listed[0]).toContain("KTLX");
     expect(listed[0]).toContain("Oklahoma City, OK");
     expect(listed[1]).toContain("KFDR");
-    // And how far, in the reader's own units.
-    expect(listed[0]).toMatch(/\d+\s*mi/);
+    // And how far, converted. 25.3 km is 15.7 miles; reported without the
+    // conversion it reads as 25 miles, which is the same shape of string and
+    // sixty per cent wrong.
+    expect(listed[0]).toContain("16 mi");
+    expect(listed[1]).toContain("89 mi");
+  });
+
+  it("offers a held radar once, not twice", () => {
+    // The sweep on screen is also a radar in reach. Two rows with the same
+    // value bind a controlled select to the first, so the row somebody
+    // clicked was never the row that ended up ticked, and the two disagreed
+    // about whether the radar was worth choosing: the list greyed it with a
+    // reason and the hold row offered it plainly.
+    picker(
+      [
+        {
+          station: "KTLX",
+          status: "Start-Up",
+          levelTwoAt: "2026-09-03T02:05:00+00:00",
+          fault: "notOperating",
+        },
+      ],
+      null,
+      { station: "KTLX", radar: "WSR-88D" },
+    );
+    const values = screen
+      .getAllByRole("option")
+      .map((one) => one.getAttribute("value"));
+    expect(values.filter((value) => value === "KTLX")).toHaveLength(1);
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  it("never greys a radar in reach that the reader is holding", () => {
+    // A select whose selected option is disabled draws an empty box, so this
+    // would take the name of what they are looking at off the screen. The
+    // sibling test covers the airport group; this one covers the list, where
+    // the guard was written and never exercised.
+    picker(
+      [
+        {
+          station: "KTLX",
+          status: "Start-Up",
+          levelTwoAt: "2026-09-03T02:05:00+00:00",
+          fault: "notOperating",
+        },
+      ],
+      "KTLX",
+    );
+    const held = screen
+      .getAllByRole("option")
+      .find((one) => /^KTLX/.test(one.textContent ?? ""));
+    expect(held?.hasAttribute("disabled")).toBe(false);
+    expect(held?.textContent).toContain("Start-Up");
   });
 
   it("greys one the office says is not running, and says which", () => {

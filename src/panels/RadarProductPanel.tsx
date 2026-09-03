@@ -750,7 +750,14 @@ export function RadarProductPanel({
                   }}
                 >
                   <option value="">{t("radar.followMap")}</option>
-                  {sweep && sweep.radar !== "TDWR" ? (
+                  {/* Only when the list does not already carry it. Two rows
+                      with the same value bind a controlled select to the
+                      first, so the row somebody clicked was never the row
+                      that ended up ticked, and the two could disagree about
+                      whether the radar was worth choosing. */}
+                  {sweep &&
+                  sweep.radar !== "TDWR" &&
+                  !inReach.some((site) => site.station === sweep.station) ? (
                     <option value={sweep.station}>
                       {siteLabel(
                         t("radar.hold", { station: sweep.station }),

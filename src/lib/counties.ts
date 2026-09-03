@@ -25,6 +25,16 @@ export interface CountyOutlines {
   }>;
 }
 
+/**
+ * When these outlines were drawn.
+ *
+ * The Census publishes a vintage a year and the lines do not move between
+ * them, so this is what the layer's record says it observed rather than the
+ * moment somebody asked for a report. Kept beside the loader so it moves when
+ * `scripts/build-counties.mjs` is pointed at a new vintage.
+ */
+export const COUNTY_VINTAGE = Date.UTC(2024, 0, 1);
+
 let loading: Promise<CountyOutlines> | null = null;
 
 /** The bundled outlines, read once and kept. */

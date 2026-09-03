@@ -272,9 +272,15 @@ export function useSingleSiteRadar(options: {
     shownVolume !== newestVolume;
 
   // The list for the picker. Asked for whether or not a site is pinned,
-  // because the picker is how somebody unpins one.
+  // because the picker is how somebody unpins one, and on the same coarse
+  // position the nearest-site search uses.
+  //
+  // Only where a site would actually draw. Zoomed out, nothing resolves a
+  // station, so nothing polls the office either: the list would have been
+  // offered with no fault reasons on any of it, and a radar the office is
+  // reporting as restarting would have looked like every other choice.
   useEffect(() => {
-    if (!available) return;
+    if (!available || !isSingleSiteViewport(zoom)) return;
     let open = true;
     const [lon, lat] = near.split(",").map(Number);
     void sitesInReach(lon, lat)
@@ -295,7 +301,7 @@ export function useSingleSiteRadar(options: {
     return () => {
       open = false;
     };
-  }, [available, near]);
+  }, [available, near, zoom]);
 
   useEffect(() => {
     if (!wanted || radar.station) return;
