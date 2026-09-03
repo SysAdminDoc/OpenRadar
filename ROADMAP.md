@@ -2,7 +2,7 @@
 
 Only unfinished work appears here. This backlog was reconciled against the repository, tracker, external research, and completed 2026-08-30 audit register on 2026-08-31. Historical completed items, including `AUD-001`, `AUD-002`, and `AUD-011` through `AUD-066`, are omitted. External blockers remain documented in `Roadmap_Blocked.md`.
 
-Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section. Nothing in that section outranks a correctness, security, or release item. `AUD-093` onward and `JOY-021` were added by the 2026-08-31 evening research pass and sit under Research-Driven Additions at the end, each carrying its own priority.
+Items numbered `AUD-` come from the audit register and are ordered P0 through P3. Items numbered `JOY-` come from a separate 2026-08-31 intake about character and personalization, and they live in their own section. Nothing in that section outranks a correctness, security, or release item. `AUD-093` onward and `JOY-021` were added by the 2026-08-31 evening research pass and sit under Research-Driven Additions at the end, each carrying its own priority. `AUD-206` through `AUD-232` were added by the 2026-09-03 research pass in their own section at the end.
 
 ## P1
 
@@ -64,7 +64,7 @@ These could not be observed in this pass, which ran headless browser automation 
       Category: perf
       Where: `src/hooks/useRadarTimeline.ts`, `src-tauri/src/cache.rs`, the map's tile sources
       Problem: The product is meant to be left open on a second monitor for days. Nothing in this pass ran longer than a few minutes; whether the webview's memory stays flat over a day of loops, palette changes and panel opens is unmeasured.
-      Evidence: No soak test exists in `e2e/` or `scripts/`.
+      Evidence: No soak test exists in `e2e/` or `scripts/`. (2026-09-03: a 17-point Hacker News thread on the Windows 11 Weather app using 1.2 GB of RAM, https://news.ycombinator.com/item?id=49290078, says a native app should fit in 100 MB; the measured number belongs in the README once this runs. Measure the `msedgewebview2` children, not the Rust process alone.)
       Fix: A soak script that opens the workspace, runs the loop at the slowed ambient cadence for eight hours with a stubbed radar host, and samples `performance.memory` and the Rust process RSS every ten minutes.
       Acceptance: A recorded run with flat memory, or a leak logged here with the sampler's trace.
       Confidence: Needs-repro
@@ -80,7 +80,7 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 - [ ] AUD-175 (P2): MRMS rotation and hail families: merged azimuthal shear, rotation-track durations, VIL density, SHI, POSH, VII
   Why: The app ships one rotation track (60 minutes) and MESH; RadarScope sells shear and hail contours at Tier 2 and WeatherFront at Advanced; the missing grids are on the same bucket.
-  Evidence: Verified live 2026-09-02: `MergedAzShear_0-2kmAGL_00.50` and `_3-6kmAGL_` (2-min, 0.005°, 14000x7000, 8-bit), `RotationTrackML{30,120,240,1440}min` and non-ML variants, `VIL_Density_00.50`, `SHI_00.50`, `POSH_00.50`, `VII_00.50`, all template 5.41; `mrms.rs:431` holds only `RotationTrack60min_00.50`; WDTD says mid-level AzShear above 0.01 s⁻¹ is a deep mesocyclone signal.
+  Evidence: Verified live 2026-09-02: `MergedAzShear_0-2kmAGL_00.50` and `_3-6kmAGL_` (2-min, 0.005°, 14000x7000, 8-bit), `RotationTrackML{30,120,240,1440}min` and non-ML variants, `VIL_Density_00.50`, `SHI_00.50`, `POSH_00.50`, `VII_00.50`, all template 5.41; `mrms.rs:431` holds only `RotationTrack60min_00.50`; WDTD says mid-level AzShear above 0.01 s⁻¹ is a deep mesocyclone signal. (2026-09-03: the same listing also carries `MESH_Max_30/60/120/240/360min`, `VIL_Max_120/1440min`, `EchoTop_30/50/60` and `RotationTrack360min`; WDTD's MESH Tracks page documents the running-max semantics, https://vlab.noaa.gov/web/wdtd/-/mesh-tracks. Commit `9fcfc11` already folds a 0.005° grid by two, so the 0.005° path exists and AzShear rides it.)
   Touches: `src-tauri/src/mrms.rs` (a 0.005° grid path beside the 0.01° one, product table), `mrms.ts`, `RadarProductPanel.tsx` (a duration switch for rotation tracks), legends, ramps, catalogues, live test.
   Acceptance: Low- and mid-level AzShear draw at full 0.005° resolution with a legend in 0.001 s⁻¹ and a note on the WDTD thresholds; rotation tracks offer 30/60/120/240/1440 minutes; SHI, POSH, VII and VIL density draw with measured ramps; tile timing for a 14000x7000 grid stays under the current composite's budget in the live test.
   Complexity: M
@@ -129,14 +129,14 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 - [ ] AUD-182 (P2): Placefile icons, images, time ranges and thresholds
   Why: `Icon`, `IconFile`, `Image`, `TimeRange` and `Threshold` are what METAR, Spotter Network and lightning placefiles are made of; the parser skips or ignores them, so most published placefiles load as a few lines and text.
-  Evidence: `src/lib/placefile.ts:175-185` steps over `Object`, `Icon`, `IconFile`, `Font` and drops `Triangles`, `Image`, `Threshold`, `TimeRange` on the default branch; HookEcho's roadmap lists placefile `Image:` as its next item; the GRLevelX placefile ecosystem is the documented switching lever.
+  Evidence: `src/lib/placefile.ts:175-185` steps over `Object`, `Icon`, `IconFile`, `Font` and drops `Triangles`, `Image`, `Threshold`, `TimeRange` on the default branch; HookEcho's roadmap lists placefile `Image:` as its next item; the GRLevelX placefile ecosystem is the documented switching lever. (2026-09-03: HookEcho PR #276 ships `Image:` with `Object:` nesting and relative URLs; Spotter Network's `gr-all.txt` needs `IconFile`, rotated `Icon`, `Object` and multi-line hover text, and PlacefileNation's 54 free feeds and the saratoga-weather generators all use `TimeRange`; the full statement list is in Supercell Wx's placefile specification.)
   Touches: `src/lib/placefile.ts`, `src/lib/mapLayers/vector.ts` (symbol layers from sprite sheets built from `IconFile`), `src/lib/workspaceOverlays.ts` (`Threshold` by zoom, `TimeRange` by frame time), fixtures under `src/lib/` tests, catalogues.
   Acceptance: A placefile using `IconFile`/`Icon` draws its icons from the referenced sheet (fetched only if the host is on the allowlist, else skipped with a named reason), `Threshold` hides features beyond its zoom, `TimeRange` hides features off the current frame time, `Image` draws a georeferenced picture; the loader reports what it skipped as it does today.
   Complexity: M
 
 - [ ] AUD-183 (P2): MP4 (H.264) export beside WebM
   Why: A WebM will not play in iMessage, most email clients or a phone gallery; RadarScope 5.6.1 (2026-09-02) moved its saved video to MP4 for that reason, and WebView2 Evergreen carries an H.264 WebCodecs encoder.
-  Evidence: `src/lib/export.ts:117-119` and `src/lib/webm.ts` (VP9/VP8 Matroska writer of our own); WebView2 runtime notes and codec surveys report `avc1` encode available; MP4 needs an ISO BMFF muxer the way WebM needed Matroska.
+  Evidence: `src/lib/export.ts:117-119` and `src/lib/webm.ts` (VP9/VP8 Matroska writer of our own); WebView2 runtime notes and codec surveys report `avc1` encode available; MP4 needs an ISO BMFF muxer the way WebM needed Matroska. (2026-09-03: the owner's `C:\repos\StormviewRadar\src\animation-export.js:51-52` already probes `avc1.42E01E` and `avc1.424028` with a runtime fallback, so the codec detection can be lifted from there.)
   Touches: new `src/lib/mp4.ts` (ftyp/moov/mdat or fragmented boxes, avcC from the encoder's description), `src/lib/export.ts` (format choice, fall back to WebM when `avc1` is unsupported), `src/panels/ExportPanel.tsx`, `src-tauri/src/exports.rs` (`.mp4` in the allowlist and its test), provenance sidecar naming, catalogues.
   Acceptance: An MP4 export plays in Windows Media Player and passes `ffprobe` (h264, the frame count and duration of the loop); the caption band survives the encode as the WebM test checks; when the encoder is missing the panel says so and offers WebM; `every_file_this_app_writes_can_be_written` lists `.mp4`.
   Complexity: M
@@ -267,4 +267,203 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Evidence: `src/lib/siteLoop.ts` `MAX_LOOP_VOLUMES`; `src-tauri/src/level2.rs` `level2_recent_times` clamp; `CLAUDE.md` records the colour-ramp drift gate as the pattern.
   Touches: a test that reads both files and compares, in the shape of the existing ramp gate.
   Acceptance: Changing either number without the other fails a test that names both files.
+  Complexity: S
+
+## Research-Driven Additions, 2026-09-03
+
+Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries the evidence). Numbered `AUD-206` onward. Every host named below is either already in `ALLOWED_HOSTS` or is named in the item, and any new one needs the ledger row, the CSP entry and a `check:live` contract like the rest. Nothing here outranks an open audit item of the same priority.
+
+### P1
+
+- [ ] AUD-206 (P1): Dual pane compares against the mosaic while a held site loops
+  Why: `AUD-201` taught the legend, the export and the sidecar to resolve a timeline step to the site's volume, and the compare pane was left out, so with a held site looping the two panes show two cadences and the offset means nothing.
+  Evidence: `src/App.tsx:955-957` (`compareFrame = frames[frameIndex - compareOffset]`, mosaic series); `src/lib/siteLoop.ts` `stepsForVolumes`; commit `7fc0c11` did the same for export.
+  Touches: `src/App.tsx` (compare frame resolved through the site loop when a site is held), `src/hooks/useSingleSiteRadar.ts` (expose the time-to-volume resolver the export uses), `src/components/WorkspaceChrome.tsx` (the second pane's legend names its volume), `e2e/level2.spec.ts`.
+  Acceptance: With a held site looping and dual pane on, the second pane draws the volume at or before the frame time minus the offset and its legend names that volume and its collected time; a fixture e2e with three planted volumes asserts the panes show different volumes at offset one and the same volume when the offset is smaller than the volume spacing.
+  Complexity: M
+
+- [ ] AUD-207 (P1): The `spc` live contract names a host the app never reaches
+  Why: The gate that promises "every live provider still answers" tests `www.spc.noaa.gov`, which is in neither the native allowlist nor the CSP; the SPC adapter reads `mapservices.weather.noaa.gov`, so the contract can pass while the real query breaks, and the repo's own rule is that a gate must be able to fail.
+  Evidence: `scripts/live-contracts-lib.mjs:177` (`host: "www.spc.noaa.gov"`); `src/lib/overlays/spc.ts:13-20` (`mapservices.weather.noaa.gov`); `www.spc.noaa.gov` appears elsewhere only as attribution links; `src-tauri/src/http.rs:16-49` and `src-tauri/tauri.conf.json:27-33`.
+  Touches: `scripts/live-contracts-lib.mjs` (host and the query the adapter actually makes), `src/lib/overlays/spc.test.ts`, a new test that reads every contract's host against `ALLOWED_HOSTS` and the CSP and fails on a host neither carries.
+  Acceptance: `npm run check:live -- --only=spc` exercises the outlook and discussion queries against `mapservices.weather.noaa.gov`; the contract-host test fails when a contract names a host the app cannot reach (proved by planting one); the `UNCONTRACTED_HOSTS` list still explains every excused host.
+  Complexity: S
+
+- [ ] AUD-208 (P1): A native crash leaves no file behind
+  Why: `Roadmap_Blocked.md` documents a 202-byte file that ends the process with an access violation and no message, and the panic hook only logs panics; a reader whose window vanished has nothing to send and the app has nothing to say on the next launch.
+  Evidence: `src-tauri/src/lib.rs:79-81` (`set_hook` logs only); `src-tauri/fuzz/reproducers/netcdf-flashes-access-violation.bin` and `lightning::tests::a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams`; Embark `crash-handler` and `minidumper` write local minidumps with no upload (https://github.com/embarkstudios/crash-handling); WebView2 keeps its own dumps under `EBWebView\Crashpad\reports` (https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/diagnostics/crash.md).
+  Touches: `src-tauri/Cargo.toml` (`crash-handler`, `minidumper`, the child-process helper), `src-tauri/src/lib.rs` (install at setup, dump directory in app data bounded to the newest five), `src/lib/diagnostics.ts` and `src/panels/UtilityPanels.tsx` (a "last run ended abnormally at {time}" line with the dump's path and size, and the WebView2 report folder when it holds anything), `README.md` privacy section (dumps stay on the machine), `src-tauri/src/http.rs` allowlist test (unchanged, proving nothing is sent).
+  Acceptance: Running the committed reproducer through the lightning decoder in a packaged build leaves a `.dmp` in app data; the next launch names it in Diagnostics with the path; the dump directory never holds more than five; the allowlist and CSP are unchanged; the child-process test for the reproducer still passes and now also asserts the dump exists.
+  Complexity: M
+
+### P2
+
+- [ ] AUD-209 (P2): Start with Windows, opening to the tray
+  Why: The product is meant to sit on a second monitor for a year and the warning watch only runs while the app does, yet after every reboot nothing starts it; a reader who set up ten watched places and quiet hours is unwatched until they remember. The tray and close-to-tray already exist, so this is the missing third switch.
+  Evidence: `src-tauri/Cargo.toml:30-77` (no autostart plugin); `src/lib/settings.ts:441-460` (`tray`, `closeToTray`); `tauri-plugin-autostart` 2.5.1 (crates.io, 2025-10-27; docs https://v2.tauri.app/plugin/autostart/ with `enable`/`disable`/`isEnabled` and launch arguments).
+  Touches: `src-tauri/Cargo.toml` and `package.json` (the plugin), `src-tauri/capabilities/` (`autostart:allow-enable`, `allow-disable`, `allow-is-enabled`), `src-tauri/src/lib.rs` (init with a `--hidden` argument; when present and close-to-tray is on, the window is created hidden and only the tray shows), `src/panels/MapOptionsPanels.tsx` tray settings (a "Start with Windows" switch disabled with a reason unless the tray icon is on), `src/lib/settings.ts` schema, `src/i18n/*`, `e2e/` with the plugin command stubbed, diagnostics line.
+  Acceptance: The switch on registers the current-user Run entry through the plugin and off removes it (round trip through `isEnabled` in a test with a fake); a launch with `--hidden` shows no window and a tray icon; with the tray off the switch is disabled and says why; the diagnostics report names the state; the pseudolocale clipping test covers the new copy.
+  Complexity: S
+
+- [ ] AUD-210 (P2): Windows contrast themes
+  Why: A reader on a Windows contrast theme gets `forced-colors: active`, which repaints every background, border and text in system colours; the stylesheet answers `prefers-contrast: more` only, so buttons and panel borders can vanish while the map canvas keeps its own colours and legend swatches lose theirs. Data is never decoration, so ramps and warning outlines must opt out of the repaint while the chrome accepts it.
+  Evidence: `src/index.css:2961` (the only contrast media query); no `forced-colors` anywhere in `src/`; Microsoft's deprecation of `-ms-high-contrast` in favour of `forced-colors` (https://blogs.windows.com/msedgedev/2024/04/29/deprecating-ms-high-contrast/); `src/lib/theme.ts` token boundary.
+  Touches: `src/index.css` (`@media (forced-colors: active)` using `Canvas`, `CanvasText`, `ButtonFace`, `Highlight` and friends for the chrome; `forced-color-adjust: none` on legend ramps, palette swatches, alert polygons' inline styles and the map popups' colour chips), `src/lib/theme.ts` (a note that a theme yields to the system under forced colours), `e2e/accessibility.spec.ts` (Playwright `forcedColors: "active"` runs over the same surfaces as the dark scan), `src/lib/theme.test.ts`.
+  Acceptance: Under `forcedColors: "active"` every control that is visible in dark is visible (axe plus a pinned screenshot of the rail and a panel); focus rings render in `Highlight`; the legend ramp and warning outlines keep their own colours; the appearance settings say the system theme is in force and the theme picker is disabled with that reason.
+  Complexity: S
+
+- [ ] AUD-211 (P2): Clear the disk cache and the offline last view from Settings
+  Why: The cache grows to 768 MiB and the only way a reader can empty it is to find the directory by hand; a corrupt or stale last view has no remedy inside the app, and nothing shows how big it is outside Diagnostics.
+  Evidence: `src-tauri/src/cache.rs` (budget, eviction, no clear entry point); no cache command in `src-tauri/src/lib.rs` or `src/lib/commands.ts`; `src/lib/diagnostics.ts` reports cache state read-only.
+  Touches: `src-tauri/src/cache.rs` (`clear` that removes the format directory's entries and reports bytes freed, plus a size query, both async), `src-tauri/src/lib.rs` commands, `src/lib/commands.ts`, `src/panels/MapOptionsPanels.tsx` (a Storage row with the size and a Clear button, no confirmation, a toast with the freed size), `src/i18n/*`, `e2e/offline.spec.ts`.
+  Acceptance: Clear removes every cached entry and the toast states the bytes freed; incident packs and replay bundles are untouched (a test plants both beside the cache); the map redraws from the network afterwards; the Storage row shows the size before and after; the cache's own budget tests still pass.
+  Complexity: S
+
+- [ ] AUD-212 (P2): Import a backup beside Export
+  Why: Export has a button; restoring a backup only works by knowing to drop the JSON on the Upload panel, which nothing near the Export button says.
+  Evidence: `src/panels/MapOptionsPanels.tsx:1289` (Export); `src/panels/UtilityPanels.tsx:63` (accept list) and `src/hooks/useWorkspaceActions.ts:341,434` (`restoreWorkspace` reached only from the upload path); `src/App.tsx:1784-1810` (partial-restore note and undo).
+  Touches: `src/panels/MapOptionsPanels.tsx` (an Import button using the dialog plugin's open picker filtered to `.json`, handing the file to `restoreWorkspace`), `src/i18n/*`, `e2e/bundles.spec.ts` or a new spec with the dialog stubbed.
+  Acceptance: Import restores a backup with the same partial-restore note and undo the Upload path gives; a file that is not a backup is refused with the reason and nothing changes; the Export and Import buttons sit together and the settings copy names both.
+  Complexity: S
+
+- [ ] AUD-213 (P2): Undo for the removals that have none
+  Why: Deleting an incident pack throws away a verified multi-megabyte download on one press with only a toast; removing a palette, an overlay file, a custom sound or a theme is the same; place removal, journal clear and settings reset already offer undo, so the product's own standard is not met everywhere.
+  Evidence: `src/panels/IncidentPackManager.tsx:228-236` (delete, toast only); palette, overlay file, sound and theme removal in `src/hooks/useWorkspaceActions.ts`; the held-toast undo pattern at `src/App.tsx:1641-1658`; `CLAUDE.md` 2026-09-02 note that a toast is the wrong home for undo unless it is held.
+  Touches: `src-tauri/src/incident_packs.rs` (delete moves the pack to a held directory for the undo window and reaps it afterwards or on the next start), `src/panels/IncidentPackManager.tsx`, `src/hooks/useWorkspaceActions.ts` (palette, overlay, sound, theme removals through the held-toast undo), `src/components/ToastHost.tsx` if the held pattern needs a second slot, `src/i18n/*`, tests for a second use and a refusal.
+  Acceptance: Each removal offers Undo for the same window as place removal and restores exactly what was removed (a pack's archive is rehashed after restore and served again); using Undo twice and refusing it are both tested; a held pack that outlives the window or a restart is reaped and the reaping is logged.
+  Complexity: M
+
+- [ ] AUD-214 (P2): An error boundary that helps
+  Why: When the workspace throws, the reader sees one Reload button and the tracker gets nothing; the diagnostics report exists and is redacted already, but the crash screen cannot reach it.
+  Evidence: `src/components/ErrorBoundary.tsx:34` (reload only); `src/lib/diagnostics.ts:45-96` (redaction); `.github/ISSUE_TEMPLATE/bug_report.yml`.
+  Touches: `src/components/ErrorBoundary.tsx` (the error message, a Copy diagnostics button that appends the error and component stack to the redacted report, Reload, and a separate Reset layout that clears only layout state), `src/lib/diagnostics.ts` (accept an error section), `src/i18n/*`, a test that throws in a child and reads the clipboard text.
+  Acceptance: The crash screen shows the error's message, Copy diagnostics, Reload and Reset layout; the copied text carries the stack and no watched place's name when one is set; Reset layout restores the default rail and panels without touching watched places, palettes or packs.
+  Complexity: S
+
+- [ ] AUD-215 (P2): SPC probabilistic outlooks and conditional intensity
+  Why: The app draws the Day 1 categorical outlook only; the same service carries tornado, hail and wind probabilities with the hatched significant area for Days 1 and 2, a Day 3 probability and Days 4 to 8, which is what a reader planning a week wants and what RadarScope 5.6 (2026-08-12) and MyRadar 7.124 both added this year.
+  Evidence: Verified 2026-09-03 from `https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer?f=pjson`: layers 3/5/7 (Day 1 tornado, hail, wind probability), 2/4/6 (conditional intensity), 11/13/15 and 10/12/14 (Day 2), 19 and 18 (Day 3), 21-25 (Days 4-8); `src/lib/overlays/spc.ts:15` reads layer 1 only; RadarScope and MyRadar release notes in `RESEARCH.md`.
+  Touches: `src/lib/overlays/spc.ts` (a day and hazard choice; probability polygons with the hatched conditional-intensity overlay), `src/panels/MapOptionsPanels.tsx` (day and hazard selector), legends (SPC's own percentages and colours), `src/lib/layerProvenance.ts` (`kind: forecast` with issue and valid), `src/i18n/*`, `src/lib/overlays/spc.test.ts` fixtures, the `spc` live contract (after `AUD-207`).
+  Acceptance: A reader can choose Day 1 tornado, hail or wind probability, Day 2 the same, Day 3 probability or any of Days 4-8, and see percentage bands in SPC's colours with the significant area hatched; the popup names issue and valid times; the Day 1 categorical stays the default; a fixture e2e switches hazard and asserts the legend changes.
+  Complexity: M
+
+- [ ] AUD-216 (P2): Outlooks and storm reports at the replayed time
+  Why: Replay draws archived warnings and radar for a past event, but the SPC layer and storm reports stay in the present, so a reader replaying 2011-04-27 sees today's outlook over that day's radar; WeatherWise made 1990s archive free on 2026-09-03 and Anvil keys outlooks and reports to the replayed window, so this is where the free field is moving.
+  Evidence: Verified 2026-09-03 from `https://mesonet.agron.iastate.edu/api/1/openapi.json`: `/nws/spc_outlook.{fmt}` (`day`, `valid`, `cycle`, `outlook_type`), `/nws/lsrs_by_point.{fmt}` (`begints`, `endts`, radius), `/spc_watch_outline.geojson` (`valid`); `src/lib/archiveWarnings.ts:33` already reads this host; `src/lib/overlays/spc.ts` and `reports.ts` are present-only; https://stormtrack.org/threads/weatherwise-adds-free-archived-radar.33509/; https://github.com/jhammon88219/Anvil.
+  Touches: `src/lib/overlays/spc.ts` and `reports.ts` (a replay-time branch keyed on the timeline's parked time, following `useArchiveWarnings.ts`), `src/lib/replayBundle.ts` (carry the outlook and the reports so a bundle replays offline), legends ("as issued {cycle}Z {date}"), `src/i18n/*`, two live contracts on the allowed host, fixture e2e.
+  Acceptance: With the timeline parked in the past, the SPC layer draws the outlook valid then with its cycle in the legend, and reports draws the LSRs inside the replayed window; back in the present the live adapters resume without a stale frame; a bundle exported in replay carries both and replays them offline; the IEM host is asked at most once per parked time per layer.
+  Complexity: M
+
+- [ ] AUD-217 (P2): The lightning grids on the MRMS bucket
+  Why: The app decodes one lightning grid (five-minute NLDN density) and GLM flashes; the same bucket carries the 30- and 60-minute lightning probability, the lightning jump grid, reflectivity at −10 °C and −20 °C (the initiation signal forecasters read) and NLDN at 1, 15 and 30 minutes, all in the packing the decoder already reads; the HWT 2026 experiment ran a "Lightning Stoplight" on exactly these.
+  Evidence: Verified 2026-09-03 from the CONUS prefix listing: `LightningProbabilityNext30minGrid_scale_1`, `LightningProbabilityNext60minGrid_scale_1`, `LtgJumpGrid_scale_1`, `LtgJumpGrid_Max_005min_scale_1`, `Reflectivity_-10C_00.50`, `Reflectivity_-20C_00.50`, `NLDN_CG_001min`/`015min`/`030min_AvgDensity`; `src-tauri/src/mrms.rs:533-725` holds `NLDN_CG_005min` only; https://inside.nssl.noaa.gov/ewp/; https://github.com/cwmac/mrms-viewer.
+  Touches: `src-tauri/src/mrms.rs` (table rows, ramps for percent and sigma), `src/lib/providers/mrms.ts`, `src/panels/RadarProductPanel.tsx` (a lightning group: density window, probability window, jump, isothermal reflectivity), legends, `src/lib/layerProvenance.ts` (probability is `forecast`), `src/i18n/*`, `mrms::tests::every_product_decodes`.
+  Acceptance: Each product draws with a measured ramp and its unit; the probability layers say they are a 30- or 60-minute forecast; the −10 °C reflectivity legend says what it signals; the jump grid draws in sigma with the WDTD threshold noted; `every_product_decodes` covers all nine; cache slots count one per switch group.
+  Complexity: M
+
+- [ ] AUD-218 (P2): MRMS reflectivity, correlation and differential reflectivity at a chosen height
+  Why: The composite is the column's maximum; a reader who wants the picture at 3 km or the ZDR column at 6 km has nothing, and the bucket carries the merged 3D cube at 33 heights for reflectivity, RhoHV and ZDR in the packing already decoded; HookEcho draws CAPPIs from single volumes, and a national one at 1 km would be the first in the field.
+  Evidence: Verified 2026-09-03 from the CONUS prefix listing: `MergedReflectivityQC_00.50` … `_19.00`, `MergedRhoHV_00.50` … `_19.00`, `MergedZdr_00.50` … `_19.00` (33 levels each); the fold and table machinery in `src-tauri/src/mrms.rs:1055-1218`; https://github.com/d4vid87/hookecho (CAPPI).
+  Touches: `src-tauri/src/mrms.rs` (a level parameter on a product family rather than 99 table rows; the cache slot rule counts one per family), `src/lib/providers/mrms.ts`, `src/panels/RadarProductPanel.tsx` (a height slider in the reader's units), legends (height named), `src/i18n/*`, `every_product_decodes` sampling three levels per family.
+  Acceptance: A national reflectivity picture at any of the 33 heights draws under the same ramp, with RhoHV and ZDR selectable at the same height; the slider names the height in the reader's units; the cache counts one slot for the family; the live test decodes 0.5, 3.0 and 10.0 km for each field.
+  Complexity: M
+
+### P3
+
+- [ ] AUD-219 (P3): Split `level2.rs` before the derived products land
+  Why: The file is 6,467 lines and four open items (`AUD-189`, `AUD-190`, `AUD-191`, `AUD-192`) all land in it; a split into listing, decode, render, loop and status modules costs nothing now and a great deal after.
+  Evidence: `wc -l src-tauri/src/level2.rs` (6,467 on 2026-09-03, up from 6,328 on 2026-09-02); the 2026-09-02 research assessment said the split should precede the derived products and no item carried it.
+  Touches: `src-tauri/src/level2/{mod,listing,decode,render,loop,status}.rs`, `src-tauri/src/lib.rs` paths, tests move with their code, `CLAUDE.md` architecture line, `docs/architecture.md`.
+  Acceptance: No file under `level2/` exceeds 2,000 lines; `cargo test` passes the same count; clippy is clean; the four derived-product items name their target module.
+  Complexity: M
+
+- [ ] AUD-220 (P3): Tests for the twelve panels that have none
+  Why: Coverage floors are 63/56/57/64 and the panels are most of what is missing; twelve panels have no sibling test, so their empty, loading and error states are held only by e2e specs that stub the world.
+  Evidence: `src/panels/` listing against `*.test.tsx` on 2026-09-03: CuriositySection, ExportPanel, GuidancePanel, IncidentPackManager, JournalSection, MapOptionsPanels, RecapSection, RoutePanel, SearchPanel, SoundingPanel, TidesPanel, UtilityPanels; `vitest.config.ts:34-47`.
+  Touches: one `*.test.tsx` per panel, `vitest.config.ts` floors.
+  Acceptance: Each panel has a sibling test covering its empty, loading and error states with the catalogue's copy; every floor rises by at least two points and none falls.
+  Complexity: M
+
+- [ ] AUD-221 (P3): Record the WebView2 runtime version in diagnostics
+  Why: Chromium 152 (2026-09-01) fixed a critical WebGL use-after-free and WebView2 152.0.4191.62 carries it; the diagnostics report names the renderer but not the runtime, so a report about a GPU crash cannot say which Chromium drew it.
+  Evidence: `grep -ri webview2 src-tauri/src` finds nothing; `src/lib/diagnostics.ts` renderer line; `tauri::webview_version()`; https://learn.microsoft.com/en-us/deployedge/microsoft-edge-relnotes-security.
+  Touches: `src-tauri/src/lib.rs` (a command returning `webview_version()`), `src/lib/diagnostics.ts`, `src/panels/UtilityPanels.tsx`, tests with the command stubbed.
+  Acceptance: The diagnostics report names the WebView2 runtime version beside the renderer; in the browser preview it says the runtime is absent; the redaction test still passes.
+  Complexity: S
+
+- [ ] AUD-222 (P3): Save the volume on screen as the file it came from
+  Why: A reader who found the sweep that matters can export a picture, a CSV or a GeoTIFF but not the Archive II object itself, so the case study cannot be reopened in the app or handed to another tool; Supercell Wx has a pull request for the same ask.
+  Evidence: `src-tauri/src/exports.rs:24` (`png`, `webm`, `gif`, `json`, `jsonl`, `md` only); the app opens local Archive II files already (`src-tauri/src/level2.rs` local mode); https://github.com/dpaulat/supercell-wx/pull/688.
+  Touches: `src-tauri/src/exports.rs` (allow the bucket object's own name and extension; bytes are the fetched object unmodified), `src-tauri/src/level2.rs` (hold or refetch the raw bytes of the drawn volume by key), `src/panels/ExportPanel.tsx`, provenance sidecar (the object's SHA-256), `src/i18n/*`, `every_file_this_app_writes_can_be_written`.
+  Acceptance: The saved file's SHA-256 equals the bucket object's; reopening it through the Upload panel draws the same sweep; a terminal radar's Level III product saves the same way; the write allowlist test lists the extension.
+  Complexity: S
+
+- [ ] AUD-223 (P3): Hail and rotation thresholds per watched place
+  Why: The watch answers warnings; a reader who wants "tell me when the radar estimates hail over an inch within ten miles of the ballfield" has MESH and rotation tracks on screen and no rule to set on them. MyRadar 7.122 added hail alerts and Watch Duty's flood alerts are personal gauge thresholds; the arrival (`AUD-178`) and lightning (`AUD-179`) rules give this its shape.
+  Evidence: `src/lib/watch.ts` (warning rules only); `src-tauri/src/mrms.rs` (`MESH_00.50`, `RotationTrack60min_00.50` decoded); https://apps.apple.com/us/app/myradar-accurate-weather-radar/id322439990; https://support.watchduty.org/hc/en-us/articles/46400067603341-Flooding-Notifications-FAQs.
+  Touches: `src/lib/watch.ts` (rules: MESH at or above a size within a radius, rotation track within a radius), `src/hooks/useAlertWatch.ts` (sample the decoded grid at the place, not a new fetch), `src/panels/MapOptionsPanels.tsx` watch settings, the `appendJournalRow` writers gate, `src/i18n/*`, e2e with planted grids.
+  Acceptance: A place with a hail rule announces once when MESH within its radius first meets the size, labelled as a radar estimate, silent by default, standing down under quiet hours, and again only after the grid has been quiet for thirty minutes; the journal gate still lists exactly its documented writers.
+  Complexity: M
+
+- [ ] AUD-224 (P3): A lightning jump on each tracked cell
+  Why: A sudden rise in a cell's flash rate precedes severe weather by minutes and the app has both halves, cells and GLM flashes, with nothing joining them; HookEcho ships a lightning proximity alarm and no open-source app ships the jump.
+  Evidence: `src/lib/cells.ts` (cells with motion); `src-tauri/src/lightning.rs` (flash centroids with quality flags); Erdmann et al. 2023 (sigma level and minimum rate dominate skill on GLM) https://journals.ametsoc.org/view/journals/apme/62/11/JAMC-D-22-0144.1.xml; Tian et al. 2025 https://doi.org/10.1155/adme/4280862.
+  Touches: new `src/lib/lightningJump.ts` (two-minute flash-rate series per cell within the cell's radius, rate of change against two sigma of the prior ten minutes, a minimum rate), the cell popup and a badge in `src/panels/RadarProductPanel.tsx`, `src/i18n/*`, tests with planted series.
+  Acceptance: A planted flash series that doubles over two bins produces a jump badge on the cell with the time; a steady series does not; the badge says it is a signal, not a warning; the GLM "not a strike report" note is carried.
+  Complexity: M
+
+- [ ] AUD-225 (P3): The melting layer from the volume's own top tilt
+  Why: The hail size item (`AUD-190`) needs the freezing level and takes it from a sounding that may be hours old and far away; the volume's own high tilt carries the bright band, and a published method finds it without model data to about 250 m.
+  Evidence: Giangrande-style automated detection, AMT 14:2873 (2021): normalised Z, ZDR and (1 − ρhv) product on the tilt at or above 9°, threshold 0.08, second-derivative weight 0.75 (https://amt.copernicus.org/articles/14/2873/2021/); `src-tauri/src/level2.rs` has no melting-layer product; `MRMS BrightBandTopHeight` exists on the bucket but is 17.9 MB per file.
+  Touches: `src-tauri/src/level2.rs` (or the `derive` module after `AUD-219`): azimuth-average the top cut, normalise, threshold, expose top and bottom heights; a line in `src/panels/RadarProductPanel.tsx`; a ring on the sweep at the melting height; `AUD-190` consumes the height when it lands; `src/i18n/*`.
+  Acceptance: A fixture volume with a planted bright band at 3 km yields 3.0 ± 0.25 km; the sweep legend names the height and its source; when no cut at or above 9° exists the product says why; the CSV export is unchanged.
+  Complexity: M
+
+- [ ] AUD-226 (P3): Keyless European radar from MET Norway and the OPERA composite
+  Why: Outside NOAA, ECCC and DWD coverage the timeline falls to RainViewer, which now calls itself personal-use only and caps zoom at 7; MET Norway serves its radar with no usage restrictions and EUMETNET's OPERA composites are on MeteoGate with an anonymous tier under CC BY 4.0, which changes the `Roadmap_Blocked.md` verdict that European radar needs keys.
+  Evidence: https://api.met.no/weatherapi/radar/2.0/documentation and https://api.met.no/doc/TermsOfService (User-Agent required, 20 requests a second, CC BY 4.0); https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/ (three composites as ODIM HDF5 and cloud-optimised GeoTIFF, anonymous tier with low rate limits, key optional); https://www.rainviewer.com/api/transition-faq.html. Needs live validation: the anonymous rate limit is undocumented as a number.
+  Touches: `src/lib/providers/` (a MET Norway PNG provider by area; a MeteoGate GeoTIFF lane through `src-tauri/src/geotiff.rs`), `src-tauri/src/http.rs` and the CSP (`api.met.no`, `api.meteogate.eu`), `docs/asset-ledger.md`, `src/lib/providers/coverage.ts` (Norway, then OPERA members), two live contracts that measure the anonymous limit, `src/i18n/*`.
+  Acceptance: Over Norway the timeline draws MET Norway radar with the CC BY credit; over OPERA members the composite draws with the EUMETNET credit and its cadence in the legend; the live contract records the anonymous limit and the provider budget stays under it; RainViewer remains only where neither reaches.
+  Complexity: L
+
+- [ ] AUD-227 (P3): MeteoAlarm warnings for the rest of Europe
+  Why: Canadian and German warnings proved the adapter shape and MeteoAlarm publishes every other European service's warnings under CC BY 4.0 with no registration; HookEcho reads it, and a reader in France or Italy with the DWD composite on has no warnings at all.
+  Evidence: https://feeds.meteoalarm.org/ (CC BY 4.0, attribution to EUMETNET members, Atom only since 2026-01-14); `src/lib/overlays/dwdWarnings.ts` and `ecccAlerts.ts`; the 2026-09-02 lesson that every ECCC alert shared one identity because the watch keyed on `url`.
+  Touches: new `src/lib/overlays/meteoalarm.ts` (Atom per country, CAP links, awareness type and level mapped in `src/lib/alertTypes.ts`), `src-tauri/src/http.rs` and the CSP, ledger, `src/lib/watch.ts` (identity per CAP identifier), `src/i18n/*`, live contract, fixture e2e.
+  Acceptance: Warnings for MeteoAlarm members draw on the alerts layer with the EUMETNET credit and the issuing service named; the watch announces one at a watched place in Europe; German warnings defer to the DWD adapter so nothing draws twice; a fixture with two countries asserts distinct identities.
+  Complexity: L
+
+- [ ] AUD-228 (P3): Import a PMTiles basemap of your own
+  Why: Basemap dependence broke two open-source radar tools this fortnight when Carto began requiring a key; the app's incident packs already store verified PMTiles, but only USGS sets the app fetches itself, so a reader with a licensed regional archive cannot use it.
+  Evidence: `src-tauri/src/incident_packs.rs` (fetch-only USGS sets); https://github.com/jpettitt/weather-radar-card/issues/253 and https://github.com/JoshuaKimsey/LibreWXR/issues (Carto breakage, 2026-08-26 to 08-29); https://github.com/jhammon88219/Anvil (offline PMTiles with editable style); `C:\repos\StormDeck` importer with validation and licence text.
+  Touches: `src-tauri/src/incident_packs.rs` (accept a user file: header, tile type, bounds and size checks; copy into the store under the same hashing; an attribution string stored beside), `src/panels/IncidentPackManager.tsx`, `src/panels/UtilityPanels.tsx` accept list, `docs/asset-ledger.md`, `src/i18n/*`, tests with a small fixture archive.
+  Acceptance: A valid PMTiles v3 raster or vector archive imports and is selectable as the offline basemap with its own attribution shown; a malformed or oversize file is refused with the reason; the quota and journaling tests cover an imported pack.
+  Complexity: M
+
+- [ ] AUD-229 (P3): A keyboard cursor that reads the sweep aloud
+  Why: The Nearby panel gives a screen-reader user the summary; the map itself is a canvas they cannot enter, so "what is the radar showing ten miles north of me" has no answer; the arrow-key virtual cursor is the pattern the accessible-maps field settled on.
+  Evidence: `src/components/MapViewport.tsx` (keyboard handling for the map, no cursor), `src/components/LiveRegion.tsx`; Esri's "Pressing the Up Arrow" pattern https://www.esri.com/about/newsroom/arcnews/pressing-the-up-arrow-big-step-forward-in-accessibility; Audiom, the only WCAG-conformant map viewer https://gaad.foundation/what-we-do/gaadys/winners/audiom.
+  Touches: `src/components/MapViewport.tsx` (arrow keys step a cursor in map space by a reader-chosen distance when the map has focus; the readout sampling already used by the pointer), `src/components/LiveRegion.tsx`, `src/i18n/*`, `e2e/accessibility.spec.ts`.
+  Acceptance: With the map focused, arrow keys move a visible cursor and the live region announces the reflectivity, the velocity and the nearest place with bearing and distance; Escape returns focus to the rail; the pseudolocale clipping test covers the announcement; the cursor is off the export.
+  Complexity: M
+
+- [ ] AUD-230 (P3): Day and night on the map
+  Why: A globe with no terminator gives no sense of where it is dark, which matters to a reader watching an overnight line of storms; the shading needs no network and no data source, and the owner's StormScope already ships it below every data layer.
+  Evidence: no terminator or solar code in `src/` (`grep -ri terminator src` matches only unrelated Rust); `C:\repos\StormScope\README.md` "Day/Night Orientation".
+  Touches: new `src/lib/terminator.ts` (NOAA solar position equations), a vector layer under the overlays in `src/lib/layerStack.ts`, `src/panels/MapOptionsPanels.tsx` switch, `src/i18n/*`, the layer-stack and provenance tests.
+  Acceptance: Day/night shading draws with no request, updates each minute, sits below every data layer, is off by default, and is listed in the provenance table as computed locally.
+  Complexity: S
+
+- [ ] AUD-231 (P3): Provider failure history in diagnostics
+  Why: Diagnostics says how many times a source failed in a row and nothing about when or why, so an outage that ended an hour ago leaves no trace and a report cannot say which service was down.
+  Evidence: `src/lib/diagnostics.ts:199-200` (`consecutiveFailures` only); `src/lib/providers/health.ts`; `C:\repos\StormDeck` keeps 200 redacted provider incidents for 30 days.
+  Touches: `src/lib/providers/health.ts` (a bounded ring of the last fifty transitions with times and typed reasons), `src/lib/diagnostics.ts`, `src/panels/UtilityPanels.tsx`, the store, tests.
+  Acceptance: The diagnostics report lists each source's last transitions with times and reasons; the ring is bounded, survives a restart and can be cleared; nothing in it names a place or a URL with a place in it.
+  Complexity: S
+
+- [ ] AUD-232 (P3): One offline line for the whole workspace
+  Why: Only the timeline knows the machine is offline; every overlay keeps polling and failing, the watch's health line does not say it is blind, and the chrome's "showing the last view" is the sole hint.
+  Evidence: `src/lib/online.ts` consumed only by `src/hooks/useRadarTimeline.ts:8,204`; `src/i18n/en.ts:1188-1189`; no offline handling in `src/hooks/useOverlays.ts`.
+  Touches: a `useOnline` hook consumed by `src/components/WorkspaceChrome.tsx` (one line "Offline since {time} · showing what was kept"), `src/hooks/useOverlays.ts` (pause polling and resume on the first success), `src/hooks/useAlertWatch.ts` (health line), `src/i18n/*`, `e2e/offline.spec.ts`.
+  Acceptance: With the network stubbed away every overlay stops polling, the chrome says since when, the watch's health line says it cannot see, and the first successful fetch clears all three; the reduced-motion and calm modes keep the line.
   Complexity: S
