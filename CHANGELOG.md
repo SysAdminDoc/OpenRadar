@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- The rotation track layer draws again. The weather service moved that grid to twice the resolution, four times the cells, and the app refused every one of them: switching the layer on gave you an empty map and a line in a log nobody reads. It now takes the finer grid and folds it down to the resolution it draws at, keeping the strongest reading in each block, so a rotation track that only covers a couple of cells is not the one thrown away. Memory is unchanged.
+
 - Saving a long loop of a held radar no longer trips over the radar publishing a new volume while it works. The list of what to save is left alone until the file is written.
 
 - A saved loop of a held radar waits for each volume to arrive before it captures the frame. It was grabbing the picture as soon as the map settled, which happens in a fraction of a second because the national mosaic underneath redraws, while the site's own volume is a ten megabyte file still downloading. Every frame of the file held the previous volume's picture under the next volume's time and credit, and nothing on screen said so.
