@@ -1222,6 +1222,11 @@ export const es: Catalogue = {
   "fatal.eyebrow": "OpenRadar recuperó la ventana",
   "fatal.title": "La interfaz no pudo terminar de dibujarse.",
   "fatal.reload": "Recargar OpenRadar",
+  "fatal.resetLayoutNote":
+    "Restablecer la disposición devuelve el mapa, el tamaño del texto y el orden de las capas a como se abren. Tus lugares vigilados, tus paletas y tus paquetes sin conexión no se tocan.",
+  "fatal.resetLayout": "Restablecer la disposición",
+  "fatal.copied": "Copiado",
+  "fatal.copy": "Copiar diagnóstico",
   "stage.secondary": "Mapa meteorológico interactivo secundario",
   "stage.satelliteAge": " · de hace {age}",
   "stage.satellite": "GOES-East {product}",

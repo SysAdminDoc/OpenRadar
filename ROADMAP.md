@@ -305,13 +305,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: Each removal offers Undo for the same window as place removal and restores exactly what was removed (a pack's archive is rehashed after restore and served again); using Undo twice and refusing it are both tested; a held pack that outlives the window or a restart is reaped and the reaping is logged.
   Complexity: M
 
-- [ ] AUD-214 (P2): An error boundary that helps
-  Why: When the workspace throws, the reader sees one Reload button and the tracker gets nothing; the diagnostics report exists and is redacted already, but the crash screen cannot reach it.
-  Evidence: `src/components/ErrorBoundary.tsx:34` (reload only); `src/lib/diagnostics.ts:45-96` (redaction); `.github/ISSUE_TEMPLATE/bug_report.yml`.
-  Touches: `src/components/ErrorBoundary.tsx` (the error message, a Copy diagnostics button that appends the error and component stack to the redacted report, Reload, and a separate Reset layout that clears only layout state), `src/lib/diagnostics.ts` (accept an error section), `src/i18n/*`, a test that throws in a child and reads the clipboard text.
-  Acceptance: The crash screen shows the error's message, Copy diagnostics, Reload and Reset layout; the copied text carries the stack and no watched place's name when one is set; Reset layout restores the default rail and panels without touching watched places, palettes or packs.
-  Complexity: S
-
 - [ ] AUD-215 (P2): SPC probabilistic outlooks and conditional intensity
   Why: The app draws the Day 1 categorical outlook only; the same service carries tornado, hail and wind probabilities with the hatched significant area for Days 1 and 2, a Day 3 probability and Days 4 to 8, which is what a reader planning a week wants and what RadarScope 5.6 (2026-08-12) and MyRadar 7.124 both added this year.
   Evidence: Verified 2026-09-03 from `https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer?f=pjson`: layers 3/5/7 (Day 1 tornado, hail, wind probability), 2/4/6 (conditional intensity), 11/13/15 and 10/12/14 (Day 2), 19 and 18 (Day 3), 21-25 (Days 4-8); `src/lib/overlays/spc.ts:15` reads layer 1 only; RadarScope and MyRadar release notes in `RESEARCH.md`.

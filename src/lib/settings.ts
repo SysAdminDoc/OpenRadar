@@ -1695,6 +1695,33 @@ export function looksLikeSettings(text: string): boolean {
   }
 }
 
+/**
+ * The workspace put back the way it opens, and nothing else touched.
+ *
+ * For a reader whose window will not draw. What can wedge it is the
+ * arrangement: a camera somewhere the projection cannot show, a text scale
+ * nothing fits at, a colour a theme was given by hand, an overlay order left
+ * over from a file that is no longer loaded. What must survive is everything
+ * they would have to set up again: the places they watch, the colour tables
+ * they loaded, the offline packs they downloaded, the layers they chose.
+ *
+ * Named fields rather than a spread of the defaults, so a setting added later
+ * is kept by default. Losing somebody's watched place because a new field was
+ * not thought about is the failure this is guarding against.
+ */
+export function resetLayout(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    camera: DEFAULT_SETTINGS.camera,
+    projection: DEFAULT_SETTINGS.projection,
+    mapStyle: DEFAULT_SETTINGS.mapStyle,
+    textScale: DEFAULT_SETTINGS.textScale,
+    workspaceTheme: DEFAULT_SETTINGS.workspaceTheme,
+    overlayOrder: DEFAULT_SETTINGS.overlayOrder,
+    overlayOpacity: DEFAULT_SETTINGS.overlayOpacity,
+  };
+}
+
 export async function loadSettings(): Promise<AppSettings> {
   try {
     if (isDesktopRuntime()) {
