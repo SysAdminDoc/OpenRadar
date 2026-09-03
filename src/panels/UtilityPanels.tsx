@@ -60,7 +60,7 @@ export function UploadPanel({
         <span>{t("upload.dropBody")}</span>
         <input
           type="file"
-          accept=".geojson,.json,.txt,.php,.pal,application/geo+json,application/json,text/plain"
+          accept=".geojson,.json,.txt,.php,.pal,.kml,.kmz,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,text/plain"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) onFile(file);

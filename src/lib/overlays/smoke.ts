@@ -7,6 +7,7 @@ import {
 import { cachedUrl } from "../tileCache";
 import { translate } from "../../i18n";
 import { formatClock } from "../units";
+import { geometriesIn } from "../kml";
 
 /**
  * NOAA's Hazard Mapping System smoke analysis.
@@ -64,36 +65,6 @@ function densityOf(placemark: Element): SmokeDensity | null {
 }
 
 /**
- * A KML ring as a GeoJSON one.
- *
- * The coordinates are whitespace separated `lon,lat,alt` triples, which is
- * the format's own layout rather than anything this file invented. A ring
- * that does not close is closed here, because KML allows an implicit close
- * and GeoJSON does not.
- */
-function ring(text: string): Array<[number, number]> {
-  const points: Array<[number, number]> = [];
-  for (const token of text.trim().split(/\s+/)) {
-    const [lon, lat] = token.split(",").map(Number);
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
-    points.push([lon, lat]);
-  }
-  // Fewer than three distinct corners is not an area. Counted as distinct
-  // rather than as positions, because a ring that already closes itself
-  // carries its first corner twice and three positions would then be a line
-  // written as a polygon. A file with one of these in it is otherwise fine,
-  // so the ring is dropped rather than the day.
-  const corners = new Set(points.map(([lon, lat]) => `${lon},${lat}`));
-  if (corners.size < 3) return [];
-  const [firstLon, firstLat] = points[0];
-  const [lastLon, lastLat] = points[points.length - 1];
-  if (firstLon !== lastLon || firstLat !== lastLat) {
-    points.push([firstLon, firstLat]);
-  }
-  return points;
-}
-
-/**
  * The analysis time the file stamps on itself.
  *
  * `HMS Smoke Mapping-20260901` in the document name. Read from the document
@@ -146,24 +117,22 @@ export function parseSmoke(xml: string): OverlayData {
   const analysed = analysedOn(document);
   const features: OverlayFeature[] = [];
 
+  // The shared reader does the geometry; this file's own job is the density,
+  // which is in the style name and is the one thing about this document that
+  // is not general KML. Sharing it is the point: a fix to the ring closing or
+  // the coordinate parsing is a fix here and in an imported file at once.
   for (const placemark of Array.from(
     document.getElementsByTagName("Placemark"),
   )) {
     const density = densityOf(placemark);
     if (!density) continue;
-    const rings: Array<Array<[number, number]>> = [];
-    for (const outer of Array.from(
-      placemark.getElementsByTagName("outerBoundaryIs"),
-    )) {
-      const text =
-        outer.getElementsByTagName("coordinates")[0]?.textContent ?? "";
-      const points = ring(text);
-      if (points.length) rings.push(points);
-    }
-    for (const points of rings) {
+    for (const geometry of geometriesIn(placemark)) {
+      // An area, because that is what a smoke analysis is. A stray point or
+      // line in this document is not smoke and is not drawn as any.
+      if (geometry.type !== "Polygon") continue;
       features.push({
         type: "Feature",
-        geometry: { type: "Polygon", coordinates: [points] },
+        geometry,
         properties: { density, analysed },
       });
     }

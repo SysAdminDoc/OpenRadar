@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-181 (P2): KML and KMZ import in the Upload panel
-  Why: Supercell Wx #655 asks for it, NHC and NWS publish shapefiles and KML, and the app already parses HMS placemarks from KML for the smoke layer, so the parser is half built and unshared.
-  Evidence: `src/lib/workspaceOverlays.ts:46` and `src/panels/UtilityPanels.tsx:63` accept GeoJSON, placefile and `.pal`; `src/lib/overlays/smoke.ts` parses KML placemarks inline.
-  Touches: new `src/lib/kml.ts` (Placemark, Point, LineString, Polygon, MultiGeometry, Style colours, KMZ via a bounded zip read), `smoke.ts` (use it), `workspaceOverlays.ts`, `UtilityPanels.tsx`, `src-tauri/src/exports.rs` if a KML export follows, catalogues.
-  Acceptance: Dropping a `.kml` or `.kmz` on the window adds it to the imported set with its own name, switch, opacity and colours, bounded by the same size and shape limits as GeoJSON; the smoke layer's parser is the shared one; a malformed file is refused with the reason and nothing on the map changes.
-  Complexity: M
-
 - [ ] AUD-182 (P2): Placefile icons, images, time ranges and thresholds
   Why: `Icon`, `IconFile`, `Image`, `TimeRange` and `Threshold` are what METAR, Spotter Network and lightning placefiles are made of; the parser skips or ignores them, so most published placefiles load as a few lines and text.
   Evidence: `src/lib/placefile.ts:175-185` steps over `Object`, `Icon`, `IconFile`, `Font` and drops `Triangles`, `Image`, `Threshold`, `TimeRange` on the default branch; HookEcho's roadmap lists placefile `Image:` as its next item; the GRLevelX placefile ecosystem is the documented switching lever. (2026-09-03: HookEcho PR #276 ships `Image:` with `Object:` nesting and relative URLs; Spotter Network's `gr-all.txt` needs `IconFile`, rotated `Icon`, `Object` and multi-line hover text, and PlacefileNation's 54 free feeds and the saratoga-weather generators all use `TimeRange`; the full statement list is in Supercell Wx's placefile specification.)

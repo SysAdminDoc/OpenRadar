@@ -4,7 +4,7 @@
 
 **A desktop weather radar that reads the raw data itself.**
 
-[![Version](https://img.shields.io/badge/version-0.8.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
+[![Version](https://img.shields.io/badge/version-0.9.0-68d7ff)](https://github.com/SysAdminDoc/OpenRadar/releases)
 [![License](https://img.shields.io/badge/license-MIT-8bd5ca)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-89b4fa)](https://github.com/SysAdminDoc/OpenRadar/releases)
 [![Built with](https://img.shields.io/badge/built%20with-Tauri%202%20%C2%B7%20Rust%20%C2%B7%20React-cba6f7)](#how-it-is-put-together)
@@ -55,6 +55,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Hydrometeor classification** from the held site's own dual-polarisation algorithm: rain, heavy rain, big drops, ice crystals, dry and wet snow, graupel, and three sizes of hail, read from the lowest tilt or the hybrid scan. The legend names every class and says plainly that it's the radar's reading, not a report from the ground. The inspector names the class under the click.
 - **Severe probability** from the National Severe Storms Laboratory model: how likely each storm is to turn severe in the next hour, and separately for hail, wind and a tornado. It is guidance, it draws under the warnings, and it says so.
 - Storm reports, SPC convective outlooks and mesoscale discussions.
+- Drop your own GeoJSON, placefile, KML or KMZ on the window: points, lines and areas with the colours the file carries, each with its own switch, opacity and place in the stack.
 - The Weather Prediction Center excessive rainfall outlook out to five days, and its winter storm severity index out to three, both in the categories and colours WPC publishes and both labelled as outlooks rather than warnings.
 - Lightning within a radius of a watched place, counted from the satellite flashes already on the map, saying when it starts and when it has been quiet for half an hour. It says plainly that these are satellite-detected flashes rather than ground strike reports.
 - Every watched place says which storm is heading for it and how many minutes it has, worked out from the radar's own tracker. Ask to be told when one comes inside a window you choose and it will: off by default, silent unless you ask for a sound, quiet during your quiet hours, and worded as a radar track rather than a warning.
@@ -138,7 +139,7 @@ Download `OpenRadar_<version>_x64-setup.exe` from the [releases page](https://gi
 Windows will show a SmartScreen warning the first time. The installer is not Authenticode-signed yet, and SmartScreen warns about anything it has not seen before. Choose **More info**, then **Run anyway**. Every release ships a `SHA256SUMS` file if you would rather check the download first:
 
 ```powershell
-Get-FileHash OpenRadar_0.8.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash OpenRadar_0.9.0_x64-setup.exe -Algorithm SHA256
 ```
 
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
@@ -162,8 +163,8 @@ That is a promise, not a description: `npm run release` refuses to publish a set
 The installer is NSIS and installs for the current user, so it needs no elevation. `/S` runs it silently and `/D=` sets the directory, which has to come last and unquoted:
 
 ```powershell
-.\OpenRadar_0.8.0_x64-setup.exe /S
-.\OpenRadar_0.8.0_x64-setup.exe /S /D=C:\Tools\OpenRadar
+.\OpenRadar_0.9.0_x64-setup.exe /S
+.\OpenRadar_0.9.0_x64-setup.exe /S /D=C:\Tools\OpenRadar
 ```
 
 Uninstalling is the same shape. `uninstall.exe` is written beside the app, in `%LOCALAPPDATA%\OpenRadar` by default, and takes `/S` too.
@@ -350,7 +351,7 @@ It is plain JSON with a `format` of `openradar-provenance` and a `formatVersion`
 {
   "format": "openradar-provenance",
   "formatVersion": 1,
-  "application": "OpenRadar 0.8.0",
+  "application": "OpenRadar 0.9.0",
   "writtenAt": "2026-08-31T18:04:12.318Z",
   "picture": "openradar-loop-2026-08-31T18-04-11.webm",
   "basemap": "OpenStreetMap",
@@ -392,7 +393,7 @@ Two files land each time: the data, and a `.provenance.json` beside it with the 
 {
   "format": "openradar-data-provenance",
   "formatVersion": 1,
-  "application": "OpenRadar 0.8.0",
+  "application": "OpenRadar 0.9.0",
   "writtenAt": "2026-09-02T18:44:03Z",
   "dataFile": "openradar-kdmx-reflectivity-20260901-173211.csv",
   "sha256": "9f2c…",

@@ -1480,6 +1480,7 @@ export const es: Catalogue = {
   "toast.overlayLocal": "La capa se queda en este dispositivo.",
   "toast.placefileEmpty":
     "Ese placefile no tiene nada que este mapa pueda dibujar.",
+  "toast.kmlEmpty": "Ese KML no tiene formas.",
   "toast.shapes": "{count, plural, one {# forma} other {# formas}}",
   "toast.refreshEvery": "pide actualizarse cada {minutes} min",
   "toast.truncated": "el archivo terminó a media forma",

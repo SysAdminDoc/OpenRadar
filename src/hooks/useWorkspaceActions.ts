@@ -13,6 +13,8 @@ import type { ToastMessage } from "../components/ToastHost";
 import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "../lib/deepLink";
 import { log } from "../lib/log";
 import { looksLikePlacefile, parsePlacefile } from "../lib/placefile";
+import { looksLikeKml, parseKml } from "../lib/kml";
+import { readKmz } from "../lib/kmz";
 import { looksLikeTheme, parseTheme } from "../lib/theme";
 import { MAX_PALETTES, looksLikePalette, parsePalette } from "../lib/palette";
 import {
@@ -365,7 +367,13 @@ export function useWorkspaceActions(options: {
         if (file.size > MAX_UPLOAD_BYTES) {
           throw new Error(translate("toast.fileTooBig"));
         }
-        const text = await file.text();
+        // A KMZ is a zip and is read as bytes; everything else is text. The
+        // check is on the name because a zip read as text is mojibake and
+        // every sniff below would fail on it in a confusing way.
+        const isArchive = /.kmz$/i.test(file.name);
+        const text = isArchive
+          ? await readKmz(await file.arrayBuffer())
+          : await file.text();
 
         if (
           backupOnly &&
@@ -529,7 +537,23 @@ export function useWorkspaceActions(options: {
         let payload: Record<string, unknown>;
         let detail = translate("toast.overlayLocal");
 
-        if (looksLikePlacefile(text)) {
+        if (isArchive || looksLikeKml(file.name, text)) {
+          // The same parser the smoke analysis reads its own KML with, which
+          // is the point of it being shared: a file a reader drops on the
+          // window and a file the app fetches for itself go through one
+          // reader, so a fix to one is a fix to both.
+          const read = parseKml(text);
+          if (!read.features.length) {
+            throw new Error(translate("toast.kmlEmpty"));
+          }
+          payload = {
+            type: "FeatureCollection",
+            features: read.features,
+          } as unknown as Record<string, unknown>;
+          detail = `${translate("toast.shapes", {
+            count: read.features.length,
+          })}.`;
+        } else if (looksLikePlacefile(text)) {
           const placefile = parsePlacefile(text);
           if (!placefile.data.features.length) {
             throw new Error(translate("toast.placefileEmpty"));

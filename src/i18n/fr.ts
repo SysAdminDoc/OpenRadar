@@ -1499,6 +1499,7 @@ export const fr: Catalogue = {
   "toast.overlayLocal": "La couche reste sur cet appareil.",
   "toast.placefileEmpty":
     "Ce placefile ne contient rien que cette carte peut dessiner.",
+  "toast.kmlEmpty": "Ce KML ne contient aucune forme.",
   "toast.shapes": "{count, plural, one {# forme} other {# formes}}",
   "toast.refreshEvery": "il demande à être rafraîchi toutes les {minutes} min",
   "toast.truncated": "le fichier s'est terminé au milieu d'une forme",
