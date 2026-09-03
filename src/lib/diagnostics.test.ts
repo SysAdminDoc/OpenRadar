@@ -6,6 +6,54 @@ import {
   redact,
 } from "./diagnostics";
 
+/** The smallest report the block will write, for cases about one field. */
+function base() {
+  return {
+    renderer: "test",
+    mapReady: true,
+    radarReady: true,
+    activeSource: "MRMS",
+    health: [],
+    log: [],
+  };
+}
+
+describe("what a run that ended abnormally leaves in the report", () => {
+  it("names the file, redacted, ahead of everything else", () => {
+    // The one thing a reader whose window vanished can actually hand over. A
+    // decoder walking off the end of a buffer takes the process down with no
+    // panic, no line in the log and no window.
+    const block = diagnosticsBlock({
+      ...base(),
+      lastCrash: {
+        path: String.raw`C:\Users\imogen\AppData\Roaming\OpenRadar\crashes\openradar-20260903-041500.dmp`,
+        bytes: 2_215_936,
+        at: "2026-09-03T04:15:00+00:00",
+      },
+    });
+    expect(block).toContain("A previous run ended abnormally");
+    expect(block).toContain("openradar-20260903-041500.dmp");
+    expect(block).toContain("2215936 bytes");
+    // The path holds the reader's own user folder and goes through the same
+    // redaction every other line does.
+    expect(block).not.toContain("imogen");
+    // Ahead of the source list, because it is the thing that happened.
+    expect(block.indexOf("ended abnormally")).toBeLessThan(
+      block.indexOf("Sources:"),
+    );
+  });
+
+  it("says nothing at all when the last run ended the way it should", () => {
+    // The ordinary state. A line saying "no crash" on every report is noise
+    // in the one place a reader is asked to read carefully.
+    for (const lastCrash of [null, undefined]) {
+      const block = diagnosticsBlock({ ...base(), lastCrash });
+      expect(block).not.toContain("abnormally");
+      expect(block).not.toContain(".dmp");
+    }
+  });
+});
+
 describe("the diagnostics block somebody pastes into a bug report", () => {
   it("does not say where the reader is", () => {
     // The workspace logs positions to four decimals, which is about ten

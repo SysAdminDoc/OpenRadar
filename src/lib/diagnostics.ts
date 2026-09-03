@@ -137,6 +137,14 @@ export interface DiagnosticsInput {
    * the switch is off until somebody turns it on.
    */
   place?: { label: string; latitude: number; longitude: number } | null;
+  /**
+   * What the last run left behind, when it ended abnormally.
+   *
+   * The one thing a reader whose window vanished can actually hand over. Left
+   * out entirely when there is nothing, because "no crash" is the ordinary
+   * state and a line saying so on every report is noise.
+   */
+  lastCrash?: { path: string; bytes: number; at: string } | null;
 }
 
 /** What is on disk, as the workspace can see it without asking the disk. */
@@ -191,9 +199,19 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
     `Renderer: ${input.renderer ?? "unknown"}`,
     `Map ready: ${input.mapReady} · Radar ready: ${input.radarReady}`,
     `Source: ${input.activeSource ?? "none"}`,
-    "",
-    "Sources:",
   ];
+  if (input.lastCrash) {
+    // Ahead of everything else, because it is the thing that happened.
+    lines.push(
+      "",
+      "A previous run ended abnormally:",
+      // The path goes through the same redaction every other line does: it
+      // holds the reader's own user folder.
+      `  ${redact(input.lastCrash.path)}`,
+      `  written ${input.lastCrash.at}, ${input.lastCrash.bytes} bytes`,
+    );
+  }
+  lines.push("", "Sources:");
   for (const entry of input.health) {
     const failing =
       entry.consecutiveFailures > 0

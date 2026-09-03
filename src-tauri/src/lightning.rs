@@ -345,6 +345,8 @@ mod tests {
     /// produced and the file this checks cannot drift apart.
     /// Set on the child this test spawns, and on nothing else.
     const DEEP_CHILD: &str = "OPENRADAR_NETCDF_DEEP_CHILD";
+    /// Where the child should send a crash, when the parent is listening.
+    const DEEP_SOCKET: &str = "OPENRADAR_NETCDF_DEEP_SOCKET";
 
     /// The fuzzer's other find on this path, which nothing here can contain.
     ///
@@ -366,8 +368,40 @@ mod tests {
         if std::env::var(DEEP_CHILD).is_ok() {
             // The child. Reaching the line after this is the interesting
             // outcome, and the parent reads it from the exit status.
+            //
+            // It attaches to the monitor the parent is running first, so the
+            // fault leaves a file behind rather than only an exit code. The
+            // handler is forgotten rather than dropped: dropping it takes it
+            // back off before the crash it was installed for.
+            if let Ok(socket) = std::env::var(DEEP_SOCKET) {
+                if let Some(handler) = crate::crash::attach_to(std::path::Path::new(&socket)) {
+                    std::mem::forget(handler);
+                }
+            }
             let _ = decode_flashes(&bytes, 1_756_600_000);
             return;
+        }
+
+        // The monitor, on a thread here rather than in a process of its own:
+        // the same arrangement the app uses with the parts swapped round, and
+        // the test binary cannot be started as one because its entry point is
+        // the harness rather than ours.
+        let room = std::env::temp_dir().join(format!("openradar-crash-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&room);
+        std::fs::create_dir_all(&room).expect("a directory");
+        let socket = room.join("crash.sock");
+        let dumps = room.join("dumps");
+        let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let monitor = {
+            let (socket, dumps, shutdown) = (socket.clone(), dumps.clone(), shutdown.clone());
+            std::thread::spawn(move || crate::crash::serve(&socket, &dumps, &shutdown))
+        };
+        // The client cannot connect until the listener is up.
+        for _ in 0..100 {
+            if socket.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
         }
 
         let status = std::process::Command::new(
@@ -379,6 +413,7 @@ mod tests {
             "--test-threads=1",
         ])
         .env(DEEP_CHILD, "1")
+        .env(DEEP_SOCKET, &socket)
         .output()
         .expect("the child runs");
 
@@ -388,6 +423,31 @@ mod tests {
              has fixed the recursion: turn this into an ordinary test that \
              asserts an error, and take the entry out of Roadmap_Blocked.md.",
         );
+
+        // And it left something behind. Before this, a reader whose window
+        // vanished had an exit code nobody sees and nothing to send.
+        let mut wrote = None;
+        for _ in 0..250 {
+            if let Some(record) = crate::crash::latest(&dumps) {
+                if record.bytes > 0 {
+                    wrote = Some(record);
+                    break;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        shutdown.store(true, std::sync::atomic::Ordering::SeqCst);
+        let _ = monitor.join();
+
+        let record = wrote.expect("the crash left a dump behind");
+        assert!(record.path.ends_with(".dmp"), "{}", record.path);
+        // A minidump has a header before anything else; a file that exists
+        // and holds nothing is the failure this is watching for.
+        let written = std::fs::read(&record.path).expect("the dump");
+        assert!(written.len() > 1024, "{} bytes", written.len());
+        assert_eq!(&written[..4], b"MDMP", "not a minidump");
+
+        let _ = std::fs::remove_dir_all(&room);
     }
 
     #[test]

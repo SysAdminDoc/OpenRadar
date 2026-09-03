@@ -70,6 +70,11 @@ import {
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { mrmsTimeFor, useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { COUNTY_VINTAGE, loadCounties } from "./lib/counties";
+import {
+  crashReportAvailable,
+  lastCrash as lastCrashDump,
+  type CrashRecord,
+} from "./lib/crashReport";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
 import { useWind } from "./hooks/useWind";
@@ -385,6 +390,26 @@ export default function App() {
         : null,
     listingHeld,
   });
+
+  // What the last run left behind, when it ended abnormally. Asked once, at
+  // start-up: the answer cannot change while this process is alive, because
+  // the only thing that writes one is this process dying.
+  const [lastCrash, setLastCrash] = useState<CrashRecord | null>(null);
+  useEffect(() => {
+    if (!crashReportAvailable()) return;
+    let open = true;
+    void lastCrashDump()
+      .then((found) => {
+        if (open) setLastCrash(found);
+      })
+      .catch(() => {
+        // Nothing to say is the ordinary state, and a report that cannot be
+        // read is not itself worth a line in the log.
+      });
+    return () => {
+      open = false;
+    };
+  }, []);
 
   // Whether the county outlines are on the map, as opposed to switched on.
   // The file is a megabyte read on demand and it can fail; a report listing a
@@ -1609,6 +1634,7 @@ export default function App() {
       }
       const packs = settingsRef.current.incidentPacks;
       const block = diagnosticsBlock({
+        lastCrash,
         renderer: gpuSupport().renderer,
         mapReady: mapStatus === "ready",
         radarReady: timeline.frames.length > 0,
@@ -1659,6 +1685,7 @@ export default function App() {
       classification.report,
       countiesDrawn,
       drawnForecastSmoke,
+      lastCrash,
       forecastSmoke.field,
       health,
       lightning.window,
