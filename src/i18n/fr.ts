@@ -1235,6 +1235,11 @@ export const fr: Catalogue = {
   "fatal.eyebrow": "OpenRadar a récupéré la fenêtre",
   "fatal.title": "L'interface n'a pas pu finir de se dessiner.",
   "fatal.reload": "Recharger OpenRadar",
+  "fatal.resetLayoutNote":
+    "Réinitialiser la disposition remet la carte, la taille du texte et l'ordre des couches comme à l'ouverture. Vos lieux surveillés, vos palettes et vos paquets hors ligne ne sont pas touchés.",
+  "fatal.resetLayout": "Réinitialiser la disposition",
+  "fatal.copied": "Copié",
+  "fatal.copy": "Copier le diagnostic",
   "stage.secondary": "Deuxième carte météo interactive",
   "stage.satelliteAge": " · {age}",
   "stage.satellite": "GOES-East {product}",

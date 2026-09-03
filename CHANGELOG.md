@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- The crash screen gives you something to do. It said the workspace had stopped and offered one Reload button, which usually put you back into the same crash. It now copies the whole diagnostics report, error message and stacks and all, redacted the same way the report always was and carrying nothing about where you watch. Beside it is Reset layout, for the case a reload cannot fix: the map, the text size, the theme and the layer order go back to how they open, and your watched places, colour tables, offline packs and saved presets are left alone.
+
 - A crash leaves something behind. Until now a fault in a decoder took the window with it and left nothing at all: no message, no line in the log, and nothing on the next launch to say it had happened, so there was nothing to send anybody. A small second process now watches the app and writes a crash file beside its own data when that happens, the newest five are kept, and the next launch names the file at the top of the diagnostics report. The file stays on your machine. Nothing uploads it and there is nowhere for it to go.
 
 - Comparing a held radar against itself works. With two panes open the second one was showing the first one's picture, so the offset above it changed the label and nothing else. It now draws that radar's own volume for the moment it is set to, and says which volume that is rather than naming the timeline step, which can be four minutes either side of it.

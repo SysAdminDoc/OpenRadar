@@ -1202,6 +1202,11 @@ export const en = {
   "fatal.eyebrow": "OpenRadar recovered the window",
   "fatal.title": "The interface could not finish drawing.",
   "fatal.reload": "Reload OpenRadar",
+  "fatal.resetLayoutNote":
+    "Resetting the layout puts the map, the text size and the layer order back the way they open. Your watched places, colour tables and offline packs are left alone.",
+  "fatal.resetLayout": "Reset layout",
+  "fatal.copied": "Copied",
+  "fatal.copy": "Copy diagnostics",
   "stage.secondary": "Secondary interactive weather map",
   "stage.satelliteAge": " · {age} old",
   "stage.satellite": "GOES-East {product}",

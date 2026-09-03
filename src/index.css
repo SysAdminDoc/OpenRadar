@@ -2679,6 +2679,35 @@ input[type="range"]:disabled {
   cursor: pointer;
 }
 
+.fatal-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Reloading is the one worth reaching for first, so the other two are
+   quieter. Three accent-filled buttons in a row read as a choice a reader has
+   to make, and they are already having a bad enough minute. */
+.fatal-error button.fatal-error__quiet {
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+}
+
+.fatal-error button.fatal-error__quiet:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.fatal-error .fatal-error__note {
+  max-width: 460px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }

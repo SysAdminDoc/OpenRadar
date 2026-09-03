@@ -145,6 +145,19 @@ export interface DiagnosticsInput {
    * state and a line saying so on every report is noise.
    */
   lastCrash?: { path: string; bytes: number; at: string } | null;
+  /**
+   * The render failure this report is about, when it is about one.
+   *
+   * The crash screen has no app left to ask, so it fills in what it can and
+   * hands over the one thing a tracker actually needs: the message and the
+   * stacks. It never passes `place`, so a reader's watched place cannot reach
+   * a report written from a crash.
+   */
+  failure?: {
+    message: string;
+    stack: string | null;
+    componentStack: string | null;
+  } | null;
 }
 
 /** What is on disk, as the workspace can see it without asking the disk. */
@@ -200,6 +213,22 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
     `Map ready: ${input.mapReady} · Radar ready: ${input.radarReady}`,
     `Source: ${input.activeSource ?? "none"}`,
   ];
+  if (input.failure) {
+    // First, because it is the thing that happened. The stacks carry build
+    // paths rather than this machine's, and go through the same redaction as
+    // everything else regardless.
+    lines.push(
+      "",
+      "The workspace stopped drawing:",
+      `  ${input.failure.message}`,
+    );
+    for (const stack of [input.failure.stack, input.failure.componentStack]) {
+      if (!stack) continue;
+      for (const line of stack.split("\n")) {
+        if (line.trim()) lines.push(`  ${redact(line.trimEnd())}`);
+      }
+    }
+  }
   if (input.lastCrash) {
     // Ahead of everything else, because it is the thing that happened.
     lines.push(
