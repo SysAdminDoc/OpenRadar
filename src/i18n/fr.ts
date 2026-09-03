@@ -1214,6 +1214,31 @@ export const fr: Catalogue = {
   "approach.row": "{id} atteint {place} dans environ {count} min",
   "approach.rowSoon": "{id} atteint {place} maintenant",
   "approach.note": "Le radar qui suit ces orages, pas une alerte.",
+  "lightningWatch.title": "Éclairs près de {place}",
+  "lightningWatch.titleHome": "Éclairs près de vous",
+  "lightningWatch.body":
+    "{count, plural, one {# éclair} other {# éclairs}} dans un rayon de {miles, plural, one {# mille} other {# milles}}. Le satellite voit la lumière au-dessus du nuage, ce n'est donc pas un relevé de ce qui a touché le sol.",
+  "lightningWatch.quietTitle": "{place} est calme depuis une demi-heure",
+  "lightningWatch.quietTitleHome": "Calme depuis une demi-heure",
+  "lightningWatch.quietBody":
+    "Aucun éclair dans le rayon depuis trente minutes.",
+  "lightningWatch.setting": "Prévenez-moi des éclairs près d'un lieu surveillé",
+  "lightningWatch.settingDetail":
+    "Compte les éclairs vus par satellite dans un rayon que vous choisissez, et prévient au début et après une demi-heure de calme.",
+  "lightningWatch.needsLayer":
+    "Nécessite la couche Éclairs, qui est ce qui les lit.",
+  "lightningWatch.needsPlace":
+    "Il faut un lieu surveillé, puisque c'est autour de lui que porte le rayon.",
+  "lightningWatch.radius": "À quelle distance de chaque lieu",
+  "lightningWatch.radiusMiles": "{count} mi",
+  "lightningWatch.count": "Combien d'éclairs méritent un mot",
+  "lightningWatch.countFlashes":
+    "{count, plural, one {# éclair} other {# éclairs}}",
+  "lightningWatch.sound": "Avec un son",
+  "lightningWatch.soundDetail":
+    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
+  "lightningWatch.note":
+    "Éclairs détectés par satellite, pas des relevés d'impacts au sol.",
   "approach.none": "Rien de ce que le radar suit ne va vers vos lieux.",
   "cells.arrivingSoon":
     "{id} atteint l'endroit que vous surveillez d'ici une minute",

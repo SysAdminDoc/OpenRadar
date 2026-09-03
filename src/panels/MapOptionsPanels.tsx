@@ -128,6 +128,7 @@ import {
 } from "../lib/watch";
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { APPROACH_MINUTES } from "../lib/approach";
+import { LIGHTNING_COUNTS, LIGHTNING_RADII } from "../lib/lightningWatch";
 import { ERO_DAYS, WSSI_DAYS } from "../lib/overlays";
 
 interface MapTypePanelProps {
@@ -1256,6 +1257,8 @@ export function SettingsPanel({
   // Both halves of the notice: somewhere for a storm to be heading, and the
   // tracker that finds one.
   const approachPossible = watchedPlaceCount > 0 && settings.layers.stormCells;
+  const lightningPossible =
+    watchedPlaceCount > 0 && settings.layers.lightningFlashes;
   // Whether the system has taken the colours over, which is not a preference
   // this app can honour halfway.
   const forcedColours = useForcedColours();
@@ -2067,6 +2070,115 @@ export function SettingsPanel({
                 onSettings({
                   ...settings,
                   approach: { ...settings.approach, sound },
+                })
+              }
+            />
+          </>
+        ) : null}
+        {/* The same shape as the approach notice above, and the same two
+            halves: somewhere for lightning to fall near, and the layer that
+            reads it. */}
+        <div className="settings-field" data-lightning-watch>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("lightningWatch.setting")}</strong>
+              <small>
+                {watchedPlaceCount === 0
+                  ? t("lightningWatch.needsPlace")
+                  : settings.layers.lightningFlashes
+                    ? t("lightningWatch.settingDetail")
+                    : t("lightningWatch.needsLayer")}
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.lightningWatch.enabled && lightningPossible}
+              disabled={!lightningPossible}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  lightningWatch: {
+                    ...settings.lightningWatch,
+                    enabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+        </div>
+        {settings.lightningWatch.enabled && lightningPossible ? (
+          <>
+            <div className="settings-field" data-lightning-radius>
+              <span>
+                <strong>{t("lightningWatch.radius")}</strong>
+              </span>
+              <div
+                className="segmented-control segmented-control--full"
+                aria-label={t("lightningWatch.radius")}
+              >
+                {LIGHTNING_RADII.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    className={
+                      settings.lightningWatch.radiusMiles === count
+                        ? "is-active"
+                        : ""
+                    }
+                    aria-pressed={settings.lightningWatch.radiusMiles === count}
+                    onClick={() =>
+                      onSettings({
+                        ...settings,
+                        lightningWatch: {
+                          ...settings.lightningWatch,
+                          radiusMiles: count,
+                        },
+                      })
+                    }
+                  >
+                    {t("lightningWatch.radiusMiles", { count })}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="settings-field" data-lightning-count>
+              <span>
+                <strong>{t("lightningWatch.count")}</strong>
+                <small>{t("lightningWatch.note")}</small>
+              </span>
+              <div
+                className="segmented-control segmented-control--full"
+                aria-label={t("lightningWatch.count")}
+              >
+                {LIGHTNING_COUNTS.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    className={
+                      settings.lightningWatch.count === count ? "is-active" : ""
+                    }
+                    aria-pressed={settings.lightningWatch.count === count}
+                    onClick={() =>
+                      onSettings({
+                        ...settings,
+                        lightningWatch: { ...settings.lightningWatch, count },
+                      })
+                    }
+                  >
+                    {t("lightningWatch.countFlashes", { count })}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ToggleSetting
+              label={t("lightningWatch.sound")}
+              detail={t("lightningWatch.soundDetail")}
+              checked={settings.lightningWatch.sound}
+              onChange={(sound) =>
+                onSettings({
+                  ...settings,
+                  lightningWatch: { ...settings.lightningWatch, sound },
                 })
               }
             />

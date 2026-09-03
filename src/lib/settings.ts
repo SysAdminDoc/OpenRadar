@@ -25,6 +25,12 @@ import {
   type ApproachSettings,
 } from "./approach";
 import {
+  DEFAULT_LIGHTNING_RULE,
+  LIGHTNING_COUNTS,
+  LIGHTNING_RADII,
+  type LightningRule,
+} from "./lightningWatch";
+import {
   isAzShearLevel,
   isRotationPeriod,
   type AzShearLevel,
@@ -395,6 +401,14 @@ export interface AppSettings {
    * on a centroid and a motion vector. Off until asked for.
    */
   approach: ApproachSettings;
+  /**
+   * When to say that lightning is falling near a watched place.
+   *
+   * The same shape as the approach notice and for the same reason: an
+   * instrument counting flashes is not a forecaster judging a hazard, so it
+   * is off until asked for and says what it is.
+   */
+  lightningWatch: LightningRule;
   /** Which window the gauge-corrected accumulation covers. */
   gaugeQpePeriod: GaugeQpePeriod;
   /** Which window the rotation track covers. */
@@ -651,6 +665,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   followNewWarnings: false,
   satelliteBand: "geocolor",
   approach: DEFAULT_APPROACH,
+  lightningWatch: DEFAULT_LIGHTNING_RULE,
   wpcDay: 1,
   wssiDay: 1,
   gaugeQpePeriod: "24h",
@@ -1653,6 +1668,33 @@ export function normalizeSettings(value: unknown): AppSettings {
       sound: bool(
         (raw.approach as Partial<ApproachSettings> | undefined)?.sound,
         DEFAULT_APPROACH.sound,
+      ),
+    },
+    lightningWatch: {
+      enabled: bool(
+        (raw.lightningWatch as Partial<LightningRule> | undefined)?.enabled,
+        DEFAULT_LIGHTNING_RULE.enabled,
+      ),
+      radiusMiles: Math.round(
+        finiteInRange(
+          (raw.lightningWatch as Partial<LightningRule> | undefined)
+            ?.radiusMiles,
+          DEFAULT_LIGHTNING_RULE.radiusMiles,
+          LIGHTNING_RADII[0],
+          LIGHTNING_RADII[LIGHTNING_RADII.length - 1],
+        ),
+      ),
+      count: Math.round(
+        finiteInRange(
+          (raw.lightningWatch as Partial<LightningRule> | undefined)?.count,
+          DEFAULT_LIGHTNING_RULE.count,
+          LIGHTNING_COUNTS[0],
+          LIGHTNING_COUNTS[LIGHTNING_COUNTS.length - 1],
+        ),
+      ),
+      sound: bool(
+        (raw.lightningWatch as Partial<LightningRule> | undefined)?.sound,
+        DEFAULT_LIGHTNING_RULE.sound,
       ),
     },
     wpcDay: Math.round(
