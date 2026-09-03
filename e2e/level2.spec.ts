@@ -375,6 +375,7 @@ async function fakeNativeSide(page: Page) {
                 .reverse(),
             );
           }
+          if (command === "crash_last_dump") return Promise.resolve(null);
           if (command === "radar_status") {
             // Whatever a spec planted, and nobody down otherwise. The picker
             // greys a site the office is not hearing from, and a spec about

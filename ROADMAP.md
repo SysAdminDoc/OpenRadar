@@ -275,13 +275,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P1
 
-- [ ] AUD-208 (P1): A native crash leaves no file behind
-  Why: `Roadmap_Blocked.md` documents a 202-byte file that ends the process with an access violation and no message, and the panic hook only logs panics; a reader whose window vanished has nothing to send and the app has nothing to say on the next launch.
-  Evidence: `src-tauri/src/lib.rs:79-81` (`set_hook` logs only); `src-tauri/fuzz/reproducers/netcdf-flashes-access-violation.bin` and `lightning::tests::a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams`; Embark `crash-handler` and `minidumper` write local minidumps with no upload (https://github.com/embarkstudios/crash-handling); WebView2 keeps its own dumps under `EBWebView\Crashpad\reports` (https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/diagnostics/crash.md).
-  Touches: `src-tauri/Cargo.toml` (`crash-handler`, `minidumper`, the child-process helper), `src-tauri/src/lib.rs` (install at setup, dump directory in app data bounded to the newest five), `src/lib/diagnostics.ts` and `src/panels/UtilityPanels.tsx` (a "last run ended abnormally at {time}" line with the dump's path and size, and the WebView2 report folder when it holds anything), `README.md` privacy section (dumps stay on the machine), `src-tauri/src/http.rs` allowlist test (unchanged, proving nothing is sent).
-  Acceptance: Running the committed reproducer through the lightning decoder in a packaged build leaves a `.dmp` in app data; the next launch names it in Diagnostics with the path; the dump directory never holds more than five; the allowlist and CSP are unchanged; the child-process test for the reproducer still passes and now also asserts the dump exists.
-  Complexity: M
-
 ### P2
 
 - [ ] AUD-209 (P2): Start with Windows, opening to the tray
@@ -452,4 +445,11 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Evidence: `src/lib/online.ts` consumed only by `src/hooks/useRadarTimeline.ts:8,204`; `src/i18n/en.ts:1188-1189`; no offline handling in `src/hooks/useOverlays.ts`.
   Touches: a `useOnline` hook consumed by `src/components/WorkspaceChrome.tsx` (one line "Offline since {time} · showing what was kept"), `src/hooks/useOverlays.ts` (pause polling and resume on the first success), `src/hooks/useAlertWatch.ts` (health line), `src/i18n/*`, `e2e/offline.spec.ts`.
   Acceptance: With the network stubbed away every overlay stops polling, the chrome says since when, the watch's health line says it cannot see, and the first successful fetch clears all three; the reduced-motion and calm modes keep the line.
+  Complexity: S
+
+- [ ] AUD-234 (P3): Name the WebView2 crash reports beside our own
+  Why: `AUD-208` records what the native side leaves behind. The window itself is WebView2, which keeps its own Crashpad reports under `EBWebView\Crashpad\reports` in the app's data directory, and a renderer crash leaves nothing in ours. A reader whose window went white rather than vanishing has a file and no way to know it exists.
+  Evidence: `src-tauri/src/crash.rs` covers the host process only; the WebView2 documentation describes the report folder and its retention (https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/diagnostics/crash.md).
+  Touches: `src-tauri/src/crash.rs` (look in that folder as well and report the newest), `src/lib/diagnostics.ts`.
+  Acceptance: WHEN the WebView2 report folder holds anything, the diagnostics block SHALL name the newest file and its size beside the app's own; a test plants a file in a stand-in folder and asserts both are named, and neither is uploaded.
   Complexity: S

@@ -85,6 +85,8 @@ sha2 = "0.10.9"
 # decoder already read are small and plain. Already in the graph as a
 # transitive dependency of nexrad-data, and pinned to the version it pulls.
 bzip2 = "0.6.0"
+crash-handler = "0.8"
+minidumper = "0.11"
 
 [dev-dependencies]
 # Shapes bytes into typed values for the property test over complex packing,

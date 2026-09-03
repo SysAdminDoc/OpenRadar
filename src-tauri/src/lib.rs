@@ -8,6 +8,7 @@ mod chunks;
 /// for it: what ships is the ramps it vouches for, not the arithmetic.
 #[cfg(test)]
 mod contrast;
+mod crash;
 mod cross_section;
 mod data_export;
 mod dealias;
@@ -76,6 +77,14 @@ const LOG_ROTATED_FILE_COUNT: usize = 3;
 #[cfg(not(feature = "fuzzing"))]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before anything else. A launch carrying the monitor flag is the small
+    // process that watches this build for a crash: it must not build a
+    // window, and it must not reach the single-instance plugin, which would
+    // hand its arguments to the app and stop it.
+    if crash::ran_as_monitor() {
+        return;
+    }
+
     std::panic::set_hook(Box::new(|panic_info| {
         log::error!("OpenRadar panic: {panic_info}");
     }));
@@ -233,6 +242,7 @@ pub fn run() {
             level2::level2_cross_section,
             level3::level3_cells,
             level3::level3_classification,
+            crash::crash_last_dump,
             probsevere::probsevere_reading,
             radar_status::radar_status,
             mrms::mrms_frames,
@@ -284,6 +294,17 @@ pub fn run() {
                     // overwritten each time rather than a growing folder of
                     // yesterdays somewhere the reader has to find.
                     wallpaper::init(&dir);
+                    // A crash takes the process down without a panic and
+                    // without a line in the log. The handler is kept for the
+                    // life of the process on purpose: dropping it takes the
+                    // handler back off and the next fault goes unrecorded.
+                    match crash::install(&dir) {
+                        Some(handler) => std::mem::forget(handler),
+                        None => log::warn!(
+                            "OpenRadar could not start its crash monitor; a \
+                             crash will leave nothing behind"
+                        ),
+                    }
                 }
                 Err(error) => {
                     log::warn!("OpenRadar has nowhere to keep incident packs: {error}");
