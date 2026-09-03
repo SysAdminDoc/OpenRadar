@@ -262,13 +262,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: Changing either number without the other fails a test that names both files.
   Complexity: S
 
-- [ ] AUD-233 (P2): The grid cache reserves a slot per layer and has run out of room to grow
-  Why: `CACHE_CAPACITY` is one slot per drawable layer plus one, and each slot is a 49 MB national grid, so the ceiling rises every time a product is added. It stands at 768 MiB for sixteen slots and `slots_wanted()` is exactly sixteen, so the compile-time assertion added with the flash flood grids now fails on the next product that does not share a switch. `AUD-175` alone adds nine grids; even with the rotation durations and the two shear levels each behind one switch, that is twenty slots, which is a gigabyte of ceiling for a desktop app. The invariant is over-strict: it is written for a screen with every layer on at once, which nobody has, and it is what makes each new product cost fifty megabytes of headroom whether or not anybody draws it.
-  Evidence: `src-tauri/src/mrms.rs` `CACHE_BUDGET_BYTES` (raised from 512 MiB at eleven products and 640 at fourteen), `slots_wanted()`, and `const _: () = assert!(CACHE_CAPACITY >= slots_wanted())`; seventeen products today with two sharing a switch.
-  Touches: `src-tauri/src/mrms.rs` cache, its eviction test, and whatever replaces the invariant.
-  Acceptance: WHEN a product is added, the ceiling SHALL NOT have to rise for the build to pass; the cache still refuses to grow past its byte budget, a screen drawing a handful of layers still never evicts a grid it is about to want, and a test states what the new guarantee is rather than describing it in a comment.
-  Complexity: M
-
 ## Research-Driven Additions, 2026-09-03
 
 Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries the evidence). Numbered `AUD-206` onward. Every host named below is either already in `ALLOWED_HOSTS` or is named in the item, and any new one needs the ledger row, the CSP entry and a `check:live` contract like the rest. Nothing here outranks an open audit item of the same priority.

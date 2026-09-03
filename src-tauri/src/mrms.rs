@@ -44,47 +44,31 @@ const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
 const CACHE_BUDGET_BYTES: usize = 768 * 1024 * 1024;
 /// As many grids as the budget holds, which is sixteen.
 const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
-/// Products a reader can only ever have one of drawn at once, because they
-/// sit behind one switch with a period beside it.
-///
-/// They need one slot between them rather than one each. Counting them
-/// separately would reserve six hundred megabytes for grids that cannot be
-/// resident together, which is the sort of ceiling that gets raised once too
-/// often and then quietly becomes the memory the app uses.
-const EXCLUSIVE_GROUPS: &[&[&str]] = &[&["gauge-qpe-hour", "gauge-qpe-day", "gauge-qpe-three-day"]];
 
-/// How many grids can be wanted at once: one per switch, plus the next frame
-/// of the composite loop.
-const fn slots_wanted() -> usize {
-    let mut wanted = PRODUCTS.len() + 1;
-    let mut group = 0;
-    while group < EXCLUSIVE_GROUPS.len() {
-        wanted -= EXCLUSIVE_GROUPS[group].len() - 1;
-        group += 1;
-    }
-    wanted
-}
-
-/// Every product on the map keeps one grid live at a time, and the composite
-/// loop wants the next frame as well. Fewer slots than that means a tile can
-/// evict the grid the next tile needs and one screen re-downloads the
-/// country, so the cache holds one per drawable layer where the memory
-/// allows it.
+/// How many grids one screen can be drawing at once, generously.
 ///
-/// Past that the budget wins: somebody who turns on every layer at once pays
-/// for it in downloads rather than in an unbounded pile of resident grids.
-const CACHE_CAPACITY: usize = if slots_wanted() < MAX_CACHE_SLOTS {
-    slots_wanted()
-} else {
-    MAX_CACHE_SLOTS
-};
+/// The guarantee the cache owes a reader: a screen with this many layers on
+/// never evicts a grid it is about to want, so panning does not re-download
+/// the country once per layer. Well past what anybody runs, and far short of
+/// one slot for every product in the table.
+const LAYERS_AT_ONCE: usize = 8;
+/// As many grids as the budget holds.
+///
+/// Not one per product. A product nobody has switched on holds no grid, so a
+/// slot reserved for each of them reserved memory nothing could ever use, and
+/// made every new grid a reason to raise the ceiling: it had been raised at
+/// eleven products and again at fourteen, and at seventeen it was at the
+/// limit. What the cache actually owes is that a busy screen never evicts a
+/// grid it is about to want, and that is `LAYERS_AT_ONCE` rather than the
+/// size of the table.
+///
+/// Past the budget the oldest goes: somebody who turns on every layer at once
+/// pays for it in downloads rather than in an unbounded pile of grids.
+const CACHE_CAPACITY: usize = MAX_CACHE_SLOTS;
 const _: () = assert!(CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES);
-const _: () = assert!(CACHE_CAPACITY >= 2);
-// The guarantee itself, rather than a description of it. Adding a product
-// without raising the budget silently drops the cache below one slot per
-// drawable layer, which costs a download of the country per screen and shows
-// up as nothing at all.
-const _: () = assert!(CACHE_CAPACITY >= slots_wanted());
+// The guarantee itself rather than a description of it, with the composite
+// loop's next frame on top of the layers being drawn.
+const _: () = assert!(CACHE_CAPACITY >= LAYERS_AT_ONCE + 1);
 /// A drawn tile is a few kilobytes, so thousands of them cost less than one
 /// grid. This is what makes a loop replay cheap: the second pass over a frame
 /// never decodes anything.
@@ -2434,23 +2418,26 @@ mod tests {
     }
 
     #[test]
-    fn products_that_share_a_switch_share_a_cache_slot() {
-        // Every name in a group has to be a product, or the group silently
-        // stops shrinking the count it was written to shrink.
-        for group in EXCLUSIVE_GROUPS {
-            assert!(group.len() > 1, "a group of one is not a group");
-            for id in *group {
-                assert!(product_by_id(id).is_some(), "{id} is not a product");
-            }
-        }
-        // And the slots asked for are one per switch rather than one per
-        // product: three periods of the same accumulation cannot be on the
-        // map together, so reserving three slots for them reserves a hundred
-        // and fifty megabytes that nothing can ever use.
-        assert_eq!(slots_wanted(), PRODUCTS.len() + 1 - 2);
+    fn the_cache_does_not_grow_with_the_product_table() {
+        // What replaced one slot per product. That rule made every new grid
+        // cost fifty megabytes of ceiling whether or not anybody drew it, and
+        // the ceiling had already been raised twice to keep up; at seventeen
+        // products it sat exactly at the limit and the next one would have
+        // failed the build.
+        assert_eq!(CACHE_CAPACITY, MAX_CACHE_SLOTS);
+        assert!(
+            CACHE_CAPACITY >= LAYERS_AT_ONCE + 1,
+            "a busy screen would evict a grid it is about to want"
+        );
         assert!(
             CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES,
             "the capacity is past the budget"
+        );
+        // The property the change was made for: the table is already longer
+        // than a busy screen, and the capacity does not follow it.
+        assert!(
+            PRODUCTS.len() > LAYERS_AT_ONCE,
+            "the table is smaller than a busy screen, so this proves nothing"
         );
     }
 
@@ -3448,23 +3435,17 @@ mod tests {
             decimal: 1,
             samples: vec![10_500],
         };
-        // One grid per product a reader can have on at once, put in the way
-        // the app puts them in, so the eviction this is about actually runs.
-        // A product that shares a switch with others is represented by one of
-        // them, because that is all that can ever be drawn.
-        let drawable: Vec<&str> = PRODUCTS
-            .iter()
-            .map(|entry| entry.id)
-            .filter(|id| {
-                EXCLUSIVE_GROUPS
-                    .iter()
-                    .all(|group| !group.contains(id) || group[0] == *id)
-            })
+        // A busy screen: every layer somebody actually has on at once, and
+        // the composite loop's next frame beside them. None of these may be
+        // evicted before the screen is drawn, which is the whole of what the
+        // cache promises.
+        let busy: Vec<String> = (0..=LAYERS_AT_ONCE)
+            .map(|at| format!("layer {at}"))
             .collect();
-        for id in &drawable {
+        for id in &busy {
             remember_grid(id, grid());
         }
-        for id in &drawable {
+        for id in &busy {
             assert!(
                 is_cached(id),
                 "{id}'s grid was evicted before the screen was drawn"
@@ -3476,7 +3457,7 @@ mod tests {
             remember_grid(&format!("extra {extra}"), grid());
         }
         assert!(
-            !is_cached(drawable[0]),
+            !is_cached(&busy[0]),
             "the cache grew past its budget instead of evicting"
         );
         assert!(is_cached(&format!("extra {CACHE_CAPACITY}")));
