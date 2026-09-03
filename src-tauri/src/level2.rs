@@ -192,6 +192,11 @@ pub struct SweepImage {
     /// True when the high-contrast ramps drew this, so the legend beside it
     /// can be the bar the picture was actually painted with.
     pub high_contrast: bool,
+    /// True when this picture was drawn by reading between the gates, so the
+    /// legend can say so. It follows the picture rather than the setting: a
+    /// reader who has just switched smoothing on is still looking at the
+    /// sweep they had.
+    pub smoothed: bool,
     /// True when the velocity in this sweep has been unfolded, so the legend
     /// can say the picture is no longer the radar's raw reading.
     pub dealiased: bool,
@@ -1323,6 +1328,12 @@ pub fn render_sweep(
     product: Product,
     unit: &str,
     shading: Shading,
+    // Read between neighbouring gates rather than taking the nearest one. A
+    // separate argument rather than a field on `Shading` because it is not
+    // shading: it changes which reading a pixel is drawn from, and the
+    // inspector, the export and the cross section all deliberately keep
+    // taking the nearest gate whatever this says.
+    smooth: bool,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
@@ -1357,8 +1368,12 @@ pub fn render_sweep(
                 },
                 elevation,
             );
-            let Some((value, status)) = field.value_at_polar(polar.azimuth_degrees, polar.range_km)
-            else {
+            let sample = if smooth {
+                smoothed_gate(field, product, polar.azimuth_degrees, polar.range_km)
+            } else {
+                field.value_at_polar(polar.azimuth_degrees, polar.range_km)
+            };
+            let Some((value, status)) = sample else {
                 continue;
             };
 
@@ -1377,6 +1392,115 @@ pub fn render_sweep(
     }
 
     (pixels, [west, south, east, north])
+}
+
+/// The two radials either side of an angle, and how far between them it is.
+///
+/// The radials of a sweep are not evenly spaced: the antenna turns at whatever
+/// speed the pattern asks for and the angles come back as they were measured,
+/// so the gap is taken from the two angles themselves rather than assumed.
+/// Ascending and wrapping, so the pair either side of due north is the last
+/// radial and the first.
+fn bracketing_radials(azimuths: &[f32], angle: f32) -> Option<(usize, usize, f32)> {
+    let count = azimuths.len();
+    if count == 0 {
+        return None;
+    }
+    if count == 1 {
+        return Some((0, 0, 0.0));
+    }
+    let after = azimuths.partition_point(|&each| each <= angle);
+    let upper = after % count;
+    let lower = (after + count - 1) % count;
+    let wrapped = |from: f32, to: f32| {
+        let gap = to - from;
+        if gap < 0.0 {
+            gap + 360.0
+        } else {
+            gap
+        }
+    };
+    let span = wrapped(azimuths[lower], azimuths[upper]);
+    if span <= 0.0 {
+        return Some((lower, upper, 0.0));
+    }
+    let into = wrapped(azimuths[lower], angle) / span;
+    Some((lower, upper, into.clamp(0.0, 1.0)))
+}
+
+/// A reading taken between the gates around it rather than from the nearest.
+///
+/// Bilinear in the radar's own space, which is the only place it is honest: a
+/// gate is a wedge that grows with range, and averaging in the picture's
+/// square pixels would blur a distant gate's whole wedge and barely touch a
+/// near one. Two rules keep it from saying anything the radar did not.
+///
+/// Nothing is drawn where the nearest gate is not a reading. A gate below the
+/// threshold, a gate with no data and a range-folded gate all answer exactly
+/// what they answer unsmoothed, so no colour appears where the radar was
+/// silent and a folded gate keeps its own colour rather than being averaged
+/// into the weather beside it.
+///
+/// And on velocity, a neighbourhood that crosses zero is left alone. The sign
+/// boundary in a couplet is the signal; interpolating across it paints a band
+/// of calm air down the middle of a rotation.
+fn smoothed_gate(
+    field: &SweepField,
+    product: Product,
+    azimuth_degrees: f32,
+    range_km: f64,
+) -> Option<(f32, GateStatus)> {
+    let nearest = field.value_at_polar(azimuth_degrees, range_km)?;
+    if nearest.1 != GateStatus::Valid {
+        return Some(nearest);
+    }
+
+    let interval = field.gate_interval_km();
+    if interval <= 0.0 {
+        return Some(nearest);
+    }
+    // Gate centres sit half an interval past the edge the index counts from.
+    let along = (range_km - field.first_gate_range_km()) / interval - 0.5;
+    let first = along.floor();
+    let into_gate = (along - first) as f32;
+    let gates = field.gate_count();
+    let (lower_radial, upper_radial, into_radial) =
+        bracketing_radials(field.azimuths(), azimuth_degrees)?;
+
+    let mut total = 0.0f32;
+    let mut weight = 0.0f32;
+    let mut crosses_zero = false;
+    for (radial, radial_weight) in [
+        (lower_radial, 1.0 - into_radial),
+        (upper_radial, into_radial),
+    ] {
+        for (step, gate_weight) in [(0.0, 1.0 - into_gate), (1.0, into_gate)] {
+            let share = radial_weight * gate_weight;
+            if share <= 0.0 {
+                continue;
+            }
+            let index = first + step;
+            if index < 0.0 || index >= gates as f64 {
+                continue;
+            }
+            let (value, status) = field.get(radial, index as usize);
+            // A gate the radar did not read is not a zero to average in; it
+            // simply is not there, and the readings that are share it out.
+            if status != GateStatus::Valid {
+                continue;
+            }
+            if matches!(product, Product::Velocity) && value * nearest.0 < 0.0 {
+                crosses_zero = true;
+            }
+            total += value * share;
+            weight += share;
+        }
+    }
+
+    if crosses_zero || weight <= 0.0 {
+        return Some(nearest);
+    }
+    Some((total / weight, GateStatus::Valid))
 }
 
 /// The colour and opacity one gate is drawn in, or None to leave it clear so
@@ -1519,6 +1643,10 @@ pub struct SweepRequest<'a> {
     /// keeps the faded composite and drops the bright edge that moves with
     /// the beam.
     pub reduced_motion: bool,
+    /// Draw the sweep by reading between its gates rather than by taking the
+    /// nearest one. The picture only; the numbers a reader inspects and the
+    /// numbers an export writes are the gates themselves either way.
+    pub smooth: bool,
 }
 
 pub fn sweep_from_volume(
@@ -1687,6 +1815,7 @@ fn prepare_sweep(
         high_contrast: _,
         persistence: _,
         reduced_motion: _,
+        smooth: _,
     } = asked;
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -1790,6 +1919,7 @@ fn draw_sweep(
             threshold,
             high_contrast: asked.high_contrast,
         },
+        asked.smooth,
     );
 
     let mut beneath_collected = None;
@@ -1806,6 +1936,7 @@ fn draw_sweep(
                 threshold,
                 high_contrast: asked.high_contrast,
             },
+            asked.smooth,
         );
         // The older cut's own time, which is what the legend says the oldest
         // thing on screen is. Without it a composite reports only the age of
@@ -1859,6 +1990,7 @@ fn draw_sweep(
         product_id: asked.product_name.to_string(),
         palette_applied: palette::for_unit(unit).is_some(),
         high_contrast: asked.high_contrast,
+        smoothed: asked.smooth,
         site_name: entry
             .map(|site| format!("{}, {}", site.city, site.state))
             .unwrap_or_else(|| station.to_string()),
@@ -2416,17 +2548,19 @@ pub async fn level2_gate(
     .map_err(|error| Level2Error::Decode(error.to_string()))?
 }
 
-/// The three answers to "how should this be drawn" that are not about what is
-/// in the volume.
+/// The answers to "how should this be drawn" that are not about what is in
+/// the volume.
 ///
-/// Grouped for the same reason `Shading` is: three bare booleans at a call
-/// site say nothing about which is which, and `false, false, false` reads as
+/// Grouped for the same reason `Shading` is: four bare booleans at a call site
+/// say nothing about which is which, and `false, false, false, false` reads as
 /// nothing at all.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Look {
     pub high_contrast: bool,
     pub persistence: bool,
     pub reduced_motion: bool,
+    /// Read between the gates rather than taking the nearest one.
+    pub smooth: bool,
 }
 
 fn requested_sweep<'a>(
@@ -2455,6 +2589,7 @@ fn requested_sweep<'a>(
         high_contrast: look.high_contrast,
         persistence: look.persistence,
         reduced_motion: look.reduced_motion,
+        smooth: look.smooth,
     }
 }
 
@@ -2490,6 +2625,10 @@ pub async fn level2_sweep(
     // view of the media query. It keeps the faded composite and drops the
     // bright edge that moves with the beam.
     reduced_motion: bool,
+    // Read between the gates rather than taking the nearest one. The picture
+    // only: the number the inspector answers with and the numbers an export
+    // writes are the gates themselves either way.
+    smooth: bool,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     // An airport's own radar is read from its Level III products; nothing
@@ -2529,6 +2668,7 @@ pub async fn level2_sweep(
                 high_contrast,
                 persistence,
                 reduced_motion,
+                smooth,
             },
         );
         match live {
@@ -3223,6 +3363,328 @@ mod tests {
         (field, coordinates)
     }
 
+    /// The smoothed picture of the stepped fixture, pinned.
+    const SMOOTHED_SWEEP_DIGEST: &str =
+        "d7d772a92d793e564dd8a68add8f711da7b55fdc408cf6db09251d73e613d3fe";
+
+    /// A sweep whose gates rise in steps, so smoothing has something to do.
+    ///
+    /// Four hundred gates, a value that changes every fifty of them, and one
+    /// degree between radials, which is the geometry of a real cut.
+    fn stepped_field(product: Product) -> (SweepField, RadarCoordinateSystem) {
+        let azimuths: Vec<f32> = (0..360).map(|at| at as f32).collect();
+        let gates = 400;
+        let mut field = SweepField::new_empty(
+            if matches!(product, Product::Velocity) {
+                "Velocity"
+            } else {
+                "Reflectivity"
+            },
+            if matches!(product, Product::Velocity) {
+                "m/s"
+            } else {
+                "dBZ"
+            },
+            0.5,
+            azimuths.clone(),
+            1.0,
+            2.125,
+            0.25,
+            gates,
+        );
+        for azimuth in 0..azimuths.len() {
+            for gate in 0..gates {
+                let step = (gate / 50) as f32;
+                // Every step is above the ramp's own floor, so which
+                // pixels are painted is decided by the radar having read
+                // something and by nothing else.
+                let value = if matches!(product, Product::Velocity) {
+                    step * 5.0 - 20.0
+                } else {
+                    step * 8.0 + 20.0
+                };
+                field.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        let site = registry::site_by_id("KDMX").expect("KDMX").to_site();
+        let coordinates = RadarCoordinateSystem::new(&site);
+        (field, coordinates)
+    }
+
+    /// The range of the centre of a gate, which is what a reading belongs to.
+    fn gate_centre_km(field: &SweepField, gate: usize) -> f64 {
+        field.first_gate_range_km() + (gate as f64 + 0.5) * field.gate_interval_km()
+    }
+
+    #[test]
+    fn smoothing_reads_between_the_gates_rather_than_from_the_nearest() {
+        let (field, _) = stepped_field(Product::Reflectivity);
+        // Exactly halfway between the last gate of one step and the first of
+        // the next, where the two readings are eight apart.
+        let between = (gate_centre_km(&field, 49) + gate_centre_km(&field, 50)) / 2.0;
+        let nearest = field
+            .value_at_polar(10.0, between)
+            .expect("a gate is there");
+        let smoothed =
+            smoothed_gate(&field, Product::Reflectivity, 10.0, between).expect("a gate is there");
+
+        // Unsmoothed the picture steps: it is one gate's reading or the next.
+        assert!(nearest.0 == 20.0 || nearest.0 == 28.0, "{}", nearest.0);
+        // Smoothed it is between them, and strictly between.
+        assert!(
+            smoothed.0 > 20.0 && smoothed.0 < 28.0,
+            "expected a reading between the two gates, got {}",
+            smoothed.0
+        );
+        assert_eq!(smoothed.1, GateStatus::Valid);
+    }
+
+    #[test]
+    fn smoothing_reads_between_the_radials_too() {
+        // A cut whose readings change with the angle rather than the range,
+        // which is the half of the interpolation the range test cannot see.
+        let azimuths: Vec<f32> = (0..360).map(|at| at as f32).collect();
+        let mut field = SweepField::new_empty(
+            "Reflectivity",
+            "dBZ",
+            0.5,
+            azimuths.clone(),
+            1.0,
+            2.125,
+            0.25,
+            40,
+        );
+        for azimuth in 0..azimuths.len() {
+            for gate in 0..40 {
+                let value = if azimuth < 10 { 0.0 } else { 40.0 };
+                field.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        let range = gate_centre_km(&field, 20);
+        // Halfway between the last quiet radial and the first loud one.
+        let smoothed =
+            smoothed_gate(&field, Product::Reflectivity, 9.5, range).expect("a gate is there");
+        assert!(
+            smoothed.0 > 0.0 && smoothed.0 < 40.0,
+            "expected a reading between the two radials, got {}",
+            smoothed.0
+        );
+    }
+
+    #[test]
+    fn smoothing_never_paints_where_the_radar_read_nothing() {
+        let (mut field, coordinates) = stepped_field(Product::Reflectivity);
+        // A hole the radar left, of the kind a beam blockage leaves.
+        for azimuth in 0..field.azimuth_count() {
+            for gate in 100..140 {
+                field.set(azimuth, gate, 0.0, GateStatus::NoData);
+            }
+        }
+        for gate in [100, 120, 139] {
+            assert_eq!(
+                smoothed_gate(
+                    &field,
+                    Product::Reflectivity,
+                    10.0,
+                    gate_centre_km(&field, gate)
+                )
+                .expect("inside the sweep")
+                .1,
+                GateStatus::NoData,
+                "gate {gate} was read as something"
+            );
+        }
+
+        // And nothing beside the hole borrowed a value from inside it: the
+        // last gate before it reads exactly what its own neighbours average
+        // to, with the missing side left out rather than counted as zero.
+        let edge = smoothed_gate(
+            &field,
+            Product::Reflectivity,
+            10.0,
+            gate_centre_km(&field, 99),
+        )
+        .expect("inside the sweep");
+        assert_eq!(edge.0, field.get(10, 99).0);
+
+        // Which is what matters at the picture: the same pixels are painted
+        // either way, so a hole stays a hole.
+        let painted = |smooth: bool| {
+            let (pixels, _) = render_sweep(
+                &field,
+                &coordinates,
+                Product::Reflectivity,
+                "dBZ",
+                Shading {
+                    unfolded: false,
+                    threshold: None,
+                    high_contrast: false,
+                },
+                smooth,
+            );
+            pixels
+                .chunks_exact(4)
+                .map(|pixel| pixel[3] > 0)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(painted(true), painted(false));
+    }
+
+    #[test]
+    fn a_range_folded_gate_is_not_averaged_into_the_weather_beside_it() {
+        let (mut field, _) = stepped_field(Product::Velocity);
+        for azimuth in 0..field.azimuth_count() {
+            field.set(azimuth, 200, 0.0, GateStatus::RangeFolded);
+        }
+        let folded = smoothed_gate(&field, Product::Velocity, 10.0, gate_centre_km(&field, 200))
+            .expect("inside the sweep");
+        // It has no reading on the scale, so it keeps its own colour rather
+        // than taking one from the gates either side.
+        assert_eq!(folded.1, GateStatus::RangeFolded);
+    }
+
+    #[test]
+    fn velocity_keeps_the_sign_boundary_a_couplet_is_read_from() {
+        // Inbound one side of a line, outbound the other, which is what a
+        // rotation looks like to the radar.
+        let azimuths: Vec<f32> = (0..360).map(|at| at as f32).collect();
+        let mut field = SweepField::new_empty(
+            "Velocity",
+            "m/s",
+            0.5,
+            azimuths.clone(),
+            1.0,
+            2.125,
+            0.25,
+            40,
+        );
+        for azimuth in 0..azimuths.len() {
+            for gate in 0..40 {
+                let value = if azimuth < 90 { -25.0 } else { 25.0 };
+                field.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        let range = gate_centre_km(&field, 20);
+        for angle in [89.2f32, 89.5, 89.8, 90.2] {
+            let smoothed =
+                smoothed_gate(&field, Product::Velocity, angle, range).expect("inside the sweep");
+            // Never a band of calm air down the middle of the couplet.
+            assert!(
+                smoothed.0.abs() == 25.0,
+                "at {angle} degrees the boundary was smoothed to {}",
+                smoothed.0
+            );
+        }
+        // Reflectivity has no such boundary and is interpolated as usual.
+        let mut reflectivity = field.clone();
+        for azimuth in 0..azimuths.len() {
+            for gate in 0..40 {
+                let value = if azimuth < 90 { 0.0 } else { 40.0 };
+                reflectivity.set(azimuth, gate, value, GateStatus::Valid);
+            }
+        }
+        let across = smoothed_gate(&reflectivity, Product::Reflectivity, 89.5, range)
+            .expect("inside the sweep");
+        assert!(across.0 > 0.0 && across.0 < 40.0);
+    }
+
+    #[test]
+    fn the_smoothed_picture_is_the_one_that_was_pinned() {
+        // A golden image, held as the digest of its pixels. It fails on any
+        // change to the interpolation, to the ramp it is drawn through, or to
+        // the geometry underneath both.
+        let (field, coordinates) = stepped_field(Product::Reflectivity);
+        let (smoothed, _) = render_sweep(
+            &field,
+            &coordinates,
+            Product::Reflectivity,
+            "dBZ",
+            Shading {
+                unfolded: false,
+                threshold: None,
+                high_contrast: false,
+            },
+            true,
+        );
+        let (plain, _) = render_sweep(
+            &field,
+            &coordinates,
+            Product::Reflectivity,
+            "dBZ",
+            Shading {
+                unfolded: false,
+                threshold: None,
+                high_contrast: false,
+            },
+            false,
+        );
+        // It is a different picture from the unsmoothed one, or the switch
+        // does nothing.
+        assert_ne!(smoothed, plain);
+        // And it has more colours in it than the stepped one, which is what
+        // smoothing means.
+        let colours = |pixels: &[u8]| {
+            pixels
+                .chunks_exact(4)
+                .filter(|pixel| pixel[3] > 0)
+                .map(|pixel| [pixel[0], pixel[1], pixel[2]])
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+        };
+        assert!(
+            colours(&smoothed) > colours(&plain),
+            "smoothed {} colours against {}",
+            colours(&smoothed),
+            colours(&plain)
+        );
+
+        let digest = <sha2::Sha256 as sha2::Digest>::digest(&smoothed);
+        assert_eq!(
+            format!("{digest:x}"),
+            SMOOTHED_SWEEP_DIGEST,
+            "the smoothed sweep changed"
+        );
+    }
+
+    #[test]
+    fn the_readings_an_export_writes_do_not_change_when_the_picture_is_smoothed() {
+        // Smoothing is a way of drawing, not a reading. The CSV and the
+        // GeoTIFF are written from the field itself, and this holds that the
+        // field is untouched by the switch.
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let at = Utc
+            .with_ymd_and_hms(2026, 5, 1, 20, 0, 0)
+            .single()
+            .expect("a UTC time");
+        let volume = volume_bytes(b"KTLX", at);
+        let read = |smooth: bool| {
+            sweep_values(
+                "KTLX",
+                &format!("smooth:{smooth}"),
+                volume.clone(),
+                SweepRequest {
+                    smooth,
+                    ..ask(0, "reflectivity")
+                },
+            )
+            .expect("a sweep")
+            .field
+        };
+        let plain = read(false);
+        let smoothed = read(true);
+        assert_eq!(plain.azimuth_count(), smoothed.azimuth_count());
+        assert_eq!(plain.gate_count(), smoothed.gate_count());
+        for azimuth in 0..plain.azimuth_count() {
+            assert_eq!(
+                plain.radial_values(azimuth),
+                smoothed.radial_values(azimuth),
+                "radial {azimuth} was changed by the smoothing switch"
+            );
+        }
+        clear_cache();
+    }
+
     #[test]
     fn the_threshold_reaches_the_picture_that_is_drawn() {
         // gate_color is tested on its own, but nothing proved the value the
@@ -3240,6 +3702,7 @@ mod tests {
                     threshold: floor,
                     high_contrast: false,
                 },
+                false,
             );
             pixels.chunks_exact(4).filter(|p| p[3] > 0).count()
         };
@@ -4851,6 +5314,7 @@ mod tests {
                 threshold: None,
                 high_contrast: false,
             },
+            false,
         );
         let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         let total = IMAGE_SIZE * IMAGE_SIZE;
@@ -6265,6 +6729,7 @@ mod tests {
             high_contrast: false,
             persistence: false,
             reduced_motion: false,
+            smooth: false,
         }
     }
 

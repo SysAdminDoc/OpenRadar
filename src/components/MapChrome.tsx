@@ -38,6 +38,12 @@ interface RadarLegendProps {
   paletteScale?: LegendScale | null;
   /** Whether the picture beside this bar was drawn on the contrast ramps. */
   highContrast?: boolean;
+  /**
+   * Whether the picture beside this bar was drawn by reading between the
+   * gates. Said out loud, so nobody reads an interpolated edge as a measured
+   * one.
+   */
+  smoothed?: boolean;
   onToggle: () => void;
 }
 
@@ -49,6 +55,7 @@ export function RadarLegend({
   scale,
   paletteScale = null,
   highContrast = false,
+  smoothed = false,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
@@ -65,6 +72,9 @@ export function RadarLegend({
       <span>
         <small>{radarEnabled ? eyebrow : t("legend.hidden")}</small>
         <strong>{productLabel}</strong>
+        {radarEnabled && smoothed ? (
+          <small className="legend-smoothed">{t("legend.smoothed")}</small>
+        ) : null}
       </span>
       <ChevronDown size={16} />
       {reading ? (

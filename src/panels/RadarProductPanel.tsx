@@ -383,6 +383,24 @@ export function RadarProductPanel({
             <i className="toggle-track" aria-hidden="true" />
           </label>
 
+          {/* The picture only. What the inspector answers with and what an
+              export writes are the gates themselves either way. */}
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("radar.smooth")}</strong>
+              <small>{t("radar.smoothDetail")}</small>
+            </span>
+            <input
+              type="checkbox"
+              checked={radar.smoothSweep}
+              disabled={!radar.singleSite}
+              onChange={(event) =>
+                onRadar({ ...radar, smoothSweep: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+
           <section className="archive-browser" aria-labelledby="archive-title">
             <div className="archive-browser__title">
               <History size={17} aria-hidden="true" />

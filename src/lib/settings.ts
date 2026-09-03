@@ -119,6 +119,16 @@ export interface RadarSettings {
    * able to tell.
    */
   persistence: boolean;
+  /**
+   * Draw the sweep by reading between its gates rather than by taking the
+   * nearest one.
+   *
+   * The picture only. The number the inspector answers with and the numbers
+   * an export writes are the gates themselves either way, and the legend says
+   * the picture has been smoothed so nobody reads an interpolated edge as a
+   * measured one.
+   */
+  smoothSweep: boolean;
   /** A motion the viewer gave, rather than one read off the sweep. */
   stormMotion: { speedMs: number; fromDegrees: number } | null;
   /** The site to hold, or null to follow whichever one the view is over. */
@@ -597,6 +607,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     dealias: true,
     live: false,
     persistence: false,
+    smoothSweep: false,
     stormMotion: null,
     station: null,
     product: "reflectivity",
@@ -1509,6 +1520,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ),
       live: bool(radar.live, DEFAULT_SETTINGS.radar.live),
       persistence: bool(radar.persistence, DEFAULT_SETTINGS.radar.persistence),
+      smoothSweep: bool(radar.smoothSweep, DEFAULT_SETTINGS.radar.smoothSweep),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
       stormMotion: normalizeStormMotion(radar.stormMotion),
       station:

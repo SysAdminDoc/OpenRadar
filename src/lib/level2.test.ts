@@ -26,6 +26,7 @@ const sweep: SweepImage = {
   productId: "reflectivity",
   paletteApplied: false,
   highContrast: false,
+  smoothed: false,
   dealiased: false,
   live: false,
   liveTilts: 0,

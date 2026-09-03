@@ -74,6 +74,7 @@ function sweepFor(
     productId: product,
     paletteApplied: false,
     highContrast: false,
+    smoothed: false,
     dealiased: false,
     live: false,
     liveTilts: 0,

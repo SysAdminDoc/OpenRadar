@@ -83,6 +83,14 @@ export interface SweepImage {
    * just turned contrast on is still looking at the sweep they had.
    */
   highContrast: boolean;
+  /**
+   * True when this picture was drawn by reading between the gates.
+   *
+   * Follows the picture for the same reason the contrast flag does: a reader
+   * who has just switched smoothing on is still looking at the sweep they had,
+   * and the legend has to describe that one.
+   */
+  smoothed: boolean;
   /** True when the velocity drawn here has been unfolded. */
   dealiased: boolean;
   /** What was taken out to make a storm relative sweep, when one was. */
@@ -198,6 +206,10 @@ export async function fetchSweep(
   // beam. Sent from here for the same reason the contrast preference is: the
   // native side has no view of a media query.
   reducedMotion: boolean,
+  // Read between the gates rather than taking the nearest one. The picture
+  // only: the number the inspector answers with and the numbers an export
+  // writes are the gates themselves either way.
+  smooth: boolean,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -211,6 +223,7 @@ export async function fetchSweep(
     highContrast,
     persistence,
     reducedMotion,
+    smooth,
   });
 }
 

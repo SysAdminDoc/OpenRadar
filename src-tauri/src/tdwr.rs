@@ -419,6 +419,9 @@ pub async fn sweep(
             product: asked.label.to_string(),
             palette_applied: palette::for_unit(asked.unit).is_some(),
             high_contrast,
+            // An airport radar's products arrive as a picture already, so
+            // there are no gates here to read between.
+            smoothed: false,
             dealiased: false,
             storm_motion: None,
             unit: asked.unit.to_string(),
