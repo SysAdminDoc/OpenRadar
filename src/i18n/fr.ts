@@ -740,12 +740,30 @@ export const fr: Catalogue = {
   "chrome.precipTypeNote":
     "La classification du réseau lui-même, à partir du radar et de la température du modèle ensemble, et non un rapport venu du sol",
   "layer.spcOutlooks": "Perspective de temps violent",
+  "layer.wpcExcessiveRain": "Pluies excessives",
+  "layer.wpcWinterSeverity": "Sévérité hivernale",
   "layers.spcOutlooksDetail":
     "Le risque d'orages violents aujourd'hui selon le Storm Prediction Center, dans ses propres couleurs",
+  "layers.wpcExcessiveRainDetail":
+    "Prévision du WPC de pluies assez fortes pour provoquer des crues soudaines",
+  "layers.wpcWinterSeverityDetail":
+    "Indice du WPC sur ce qu'une tempête hivernale fait à un lieu, pas sur ce qui tombe",
+  "layers.wpcDay": "Pour quel jour la prévision vaut",
+  "layers.wssiDay": "Pour quel jour l'indice vaut",
+  "layers.outlookDay": "Jour {day}",
   "layer.spcDiscussions": "Discussions à méso-échelle",
   "layers.spcDiscussionsDetail":
     "Ce que les prévisionnistes surveillent en ce moment, une heure ou deux avant toute alerte",
   "spc.serviceStatus": "Le service du Storm Prediction Center {answer}.",
+  "wpc.serviceStatus": "Le Weather Prediction Center {answer}",
+  "wpc.eroTitle": "Prévision de pluies excessives",
+  "wpc.wssiTitle": "Indice de sévérité des tempêtes hivernales",
+  "wpc.validWindow": "Valable {window}",
+  "wpc.issued": "Émis {when}",
+  "wpc.wssiNote":
+    "L'impact plutôt que la quantité : ce que cet hiver-là fait à ce lieu-là.",
+  "wpc.outlookNote":
+    "Une prévision, pas une alerte. Elle dit ce que la journée pourrait apporter, pas ce qui se passe.",
   "spc.outlookDay1": "Perspective convective du jour 1",
   "spc.validBetween": "Valide de {from} à {to} UTC",
   "spc.guidanceNote":
@@ -879,6 +897,8 @@ export const fr: Catalogue = {
   "keywords.ffgThreeHour": "seuil crue trois heures rapport",
   "keywords.ffgHour": "seuil crue heure rapport",
   "keywords.spcOutlooks": "perspective convective catégorique jour un",
+  "keywords.wpcExcessiveRain": "crue soudaine pluie wpc ero",
+  "keywords.wpcWinterSeverity": "wssi neige impact tempete",
   "keywords.spcDiscussions": "discussion méso-échelle court terme",
   "keywords.weatherAlerts": "alerte veille avis tornade violent polygone",
   "keywords.stormCells": "cellule orage trajectoire deplacement arrivee",

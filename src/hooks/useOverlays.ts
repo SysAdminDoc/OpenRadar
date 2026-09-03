@@ -9,6 +9,7 @@ import {
   padBounds,
   type OverlayAdapter,
   type OverlayBounds,
+  type OverlayChoices,
   type OverlayData,
   type OverlayId,
 } from "../lib/overlays";
@@ -37,6 +38,8 @@ const BOUNDS_PADDING = 0.5;
 interface Coverage {
   bounds: OverlayBounds;
   at: number;
+  /** Which of several things the snapshot is of, for a layer that offers a choice. */
+  variant: string;
 }
 
 export function shouldRefetch(
@@ -44,12 +47,25 @@ export function shouldRefetch(
   coverage: Coverage | undefined,
   viewport: OverlayBounds,
   now: number,
+  choices: OverlayChoices,
 ): boolean {
   if (!coverage) return true;
+  // Before freshness and before coverage: a snapshot of Day 1 is not a stale
+  // Day 3, it is the wrong picture, and it would sit on the map until its
+  // refresh came round.
+  if (coverage.variant !== variantOf(adapter, choices)) return true;
   if (now - coverage.at >= adapter.refreshMs) return true;
   // A worldwide feed already holds every feature, so panning changes nothing.
   if (adapter.global) return false;
   return !boundsContain(coverage.bounds, viewport);
+}
+
+/** What the adapter is drawing, or the empty string when it has no choice. */
+export function variantOf(
+  adapter: OverlayAdapter,
+  choices: OverlayChoices,
+): string {
+  return adapter.variant?.(choices) ?? "";
 }
 
 /** A snapshot from somewhere else must not be drawn over the current view. */
@@ -72,6 +88,7 @@ function boundsKey(bounds: OverlayBounds | null): string {
 export function useOverlays(
   enabled: Record<OverlayId, boolean>,
   viewport: OverlayBounds | null,
+  choices: OverlayChoices,
 ): OverlayStates {
   const [states, setStates] = useState<OverlayStates>(() => ({
     alerts: IDLE_OVERLAY,
@@ -84,6 +101,8 @@ export function useOverlays(
     spcOutlooks: IDLE_OVERLAY,
     spcDiscussions: IDLE_OVERLAY,
     stormReports: IDLE_OVERLAY,
+    wpcExcessiveRain: IDLE_OVERLAY,
+    wpcWinterSeverity: IDLE_OVERLAY,
   }));
   const coverageRef = useRef<Partial<Record<OverlayId, Coverage>>>({});
   const requestsRef = useRef(
@@ -97,6 +116,12 @@ export function useOverlays(
     enabled[adapter.id] ? adapter.id : "",
   ).join(",");
   const viewportKey = boundsKey(viewport);
+  // A change here is a different picture rather than a stale one, so it goes
+  // in the effect keys: waiting for the poll would leave the day the reader
+  // just left on the map for up to half a minute.
+  const variantKey = OVERLAY_ADAPTERS.map((adapter) =>
+    variantOf(adapter, choices),
+  ).join(",");
 
   useEffect(() => {
     const requests = requestsRef.current;
@@ -136,7 +161,13 @@ export function useOverlays(
         if (!enabled[adapter.id]) continue;
         if (requests.has(adapter.id)) continue;
         if (
-          !shouldRefetch(adapter, coverage[adapter.id], viewport, Date.now())
+          !shouldRefetch(
+            adapter,
+            coverage[adapter.id],
+            viewport,
+            Date.now(),
+            choices,
+          )
         ) {
           continue;
         }
@@ -145,7 +176,7 @@ export function useOverlays(
         const box = boxFor(adapter);
         requests.set(adapter.id, { controller, bounds: box });
         void adapter
-          .fetchData(box, controller.signal)
+          .fetchData(box, controller.signal, choices)
           .then((data) => {
             if (controller.signal.aborted) return;
             // Something came back, which is the only thing that proves the
@@ -154,7 +185,11 @@ export function useOverlays(
             // and clearing the line on it put a reader straight back into
             // polling and failing having just been told all was well.
             noteReached();
-            coverage[adapter.id] = { bounds: box, at: Date.now() };
+            coverage[adapter.id] = {
+              bounds: box,
+              at: Date.now(),
+              variant: variantOf(adapter, choices),
+            };
             setStates((current) => ({
               ...current,
               [adapter.id]: {
@@ -196,7 +231,7 @@ export function useOverlays(
     };
     // The keys stand in for `enabled` and `viewport`, which are read inside.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabledKey, viewportKey]);
+  }, [enabledKey, variantKey, viewportKey]);
 
   useEffect(() => {
     const requests = requestsRef.current;

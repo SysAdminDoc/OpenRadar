@@ -8,21 +8,26 @@ import { OVERLAY_ADAPTERS, type OverlayId } from "./overlays";
  */
 export const OVERLAY_DEPTH: Record<OverlayId, number> = {
   spcOutlooks: 0,
-  spcDiscussions: 1,
-  stormReports: 2,
-  tropical: 3,
+  // The two Weather Prediction Center outlooks sit with the SPC one: they are
+  // the same kind of statement about the same day, and a reader with two of
+  // them on is comparing them rather than stacking them.
+  wpcExcessiveRain: 1,
+  wpcWinterSeverity: 2,
+  spcDiscussions: 3,
+  stormReports: 4,
+  tropical: 5,
   // Under the fire it came from, because a perimeter is where something is
   // burning and the plume is where the smoke went.
-  smoke: 4,
-  wildfires: 5,
-  earthquakes: 6,
+  smoke: 6,
+  wildfires: 7,
+  earthquakes: 8,
   // Over the areas, because a station plot is a handful of marks and anything
   // filled underneath would swallow it.
-  metar: 7,
+  metar: 9,
   // Over the plots for the same reason they are over the areas: a gauge is a
   // single dot and the thing a reader is looking for when they turned it on.
-  riverGauges: 8,
-  alerts: 9,
+  riverGauges: 10,
+  alerts: 11,
 };
 
 /**

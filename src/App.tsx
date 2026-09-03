@@ -2509,6 +2509,12 @@ export default function App() {
             onAzShearLevel={(azShearLevel) =>
               applySettings({ ...settingsRef.current, azShearLevel })
             }
+            onWpcDay={(wpcDay) =>
+              applySettings({ ...settingsRef.current, wpcDay })
+            }
+            onWssiDay={(wssiDay) =>
+              applySettings({ ...settingsRef.current, wssiDay })
+            }
             onSatelliteProduct={(satelliteProduct) =>
               applySettings({ ...settingsRef.current, satelliteProduct })
             }

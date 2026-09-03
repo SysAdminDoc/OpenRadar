@@ -3,6 +3,7 @@ import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import { alertsOfKind, alertsOverlay } from "../lib/overlays/alerts";
+import { DEFAULT_OVERLAY_CHOICES } from "../lib/overlays/registry";
 import type { AlertType } from "../lib/alertTypes";
 import { isDesktopRuntime } from "../lib/settings";
 import {
@@ -226,7 +227,11 @@ export function useAlertWatch(
         const live = placesRef.current.filter((place) => place.enabled);
         const bounds = watchesBounds(live);
         if (!bounds) return;
-        const alerts = await alertsOverlay.fetchData(bounds, controller.signal);
+        const alerts = await alertsOverlay.fetchData(
+          bounds,
+          controller.signal,
+          DEFAULT_OVERLAY_CHOICES,
+        );
         if (!mounted) return;
         recordPoll(true);
         const wanted = alertsOfKind(alerts, kindsRef.current);

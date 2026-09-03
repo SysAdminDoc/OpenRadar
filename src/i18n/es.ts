@@ -731,12 +731,30 @@ export const es: Catalogue = {
   "chrome.precipTypeNote":
     "La clasificación de la propia red, a partir del radar y de la temperatura del modelo, no un parte desde el suelo",
   "layer.spcOutlooks": "Riesgo de tormentas",
+  "layer.wpcExcessiveRain": "Lluvia excesiva",
+  "layer.wpcWinterSeverity": "Severidad invernal",
   "layers.spcOutlooksDetail":
     "El riesgo de tormentas severas hoy según el Storm Prediction Center, en sus propios colores",
+  "layers.wpcExcessiveRainDetail":
+    "Pronóstico del WPC de lluvia suficiente para causar inundaciones repentinas",
+  "layers.wpcWinterSeverityDetail":
+    "Índice del WPC sobre lo que una tormenta invernal le hace a un lugar, no cuánto cae",
+  "layers.wpcDay": "Para qué día es el pronóstico",
+  "layers.wssiDay": "Para qué día es el índice",
+  "layers.outlookDay": "Día {day}",
   "layer.spcDiscussions": "Discusiones a mesoescala",
   "layers.spcDiscussionsDetail":
     "Lo que los meteorólogos vigilan ahora mismo, una o dos horas antes de cualquier aviso",
   "spc.serviceStatus": "El servicio del Storm Prediction Center {answer}.",
+  "wpc.serviceStatus": "El Weather Prediction Center {answer}",
+  "wpc.eroTitle": "Pronóstico de lluvia excesiva",
+  "wpc.wssiTitle": "Índice de severidad de tormenta invernal",
+  "wpc.validWindow": "Vigente {window}",
+  "wpc.issued": "Emitido {when}",
+  "wpc.wssiNote":
+    "Impacto y no cantidad: lo que este invierno le hace a este lugar.",
+  "wpc.outlookNote":
+    "Un pronóstico, no un aviso. Dice lo que el día podría traer, no lo que está pasando.",
   "spc.outlookDay1": "Pronóstico convectivo del día 1",
   "spc.validBetween": "Válido de {from} a {to} UTC",
   "spc.guidanceNote":
@@ -869,6 +887,8 @@ export const es: Catalogue = {
   "keywords.ffgThreeHour": "inundacion repentina tres horas proporcion",
   "keywords.ffgHour": "inundacion repentina hora proporcion",
   "keywords.spcOutlooks": "pronostico convectivo riesgo categorico",
+  "keywords.wpcExcessiveRain": "inundacion repentina lluvia wpc ero",
+  "keywords.wpcWinterSeverity": "severidad invernal wssi nieve impacto",
   "keywords.spcDiscussions": "discusion mesoescala aviso corto",
   "keywords.weatherAlerts": "aviso vigilancia tornado severo poligono",
   "keywords.stormCells": "celula tormenta trayectoria movimiento llegada",

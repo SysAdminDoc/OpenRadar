@@ -719,12 +719,30 @@ export const en = {
   "chrome.precipTypeNote":
     "The network's own classification, from radar and model temperature together, not a report from the ground",
   "layer.spcOutlooks": "Severe Outlook",
+  "layer.wpcExcessiveRain": "Excessive Rainfall",
+  "layer.wpcWinterSeverity": "Winter Storm Severity",
   "layers.spcOutlooksDetail":
     "The Storm Prediction Center's risk of severe storms today, in its own colours",
+  "layers.wpcExcessiveRainDetail":
+    "WPC outlook for rainfall heavy enough to cause flash flooding",
+  "layers.wpcWinterSeverityDetail":
+    "WPC index for what a winter storm will do to a place, not how much falls",
+  "layers.wpcDay": "Which day the outlook is for",
+  "layers.wssiDay": "Which day the index is for",
+  "layers.outlookDay": "Day {day}",
   "layer.spcDiscussions": "Mesoscale Discussions",
   "layers.spcDiscussionsDetail":
     "What forecasters are watching right now, an hour or two ahead of any warning",
   "spc.serviceStatus": "The Storm Prediction Center service {answer}.",
+  "wpc.serviceStatus": "The Weather Prediction Center {answer}",
+  "wpc.eroTitle": "Excessive rainfall outlook",
+  "wpc.wssiTitle": "Winter storm severity index",
+  "wpc.validWindow": "Valid {window}",
+  "wpc.issued": "Issued {when}",
+  "wpc.wssiNote":
+    "Impact rather than amount: what this much winter weather does to this place.",
+  "wpc.outlookNote":
+    "An outlook, not a warning. It says what the day may bring, not what is happening.",
   "spc.outlookDay1": "Day 1 convective outlook",
   "spc.validBetween": "Valid {from} to {to} UTC",
   "spc.guidanceNote": "This is guidance about what may happen, not a warning.",
@@ -855,6 +873,8 @@ export const en = {
   "keywords.ffgThreeHour": "flash flood guidance three hours ratio",
   "keywords.ffgHour": "flash flood guidance hour ratio",
   "keywords.spcOutlooks": "convective outlook categorical day one",
+  "keywords.wpcExcessiveRain": "flash flood rainfall outlook wpc ero",
+  "keywords.wpcWinterSeverity": "winter storm severity index wssi snow impact",
   "keywords.spcDiscussions": "mesoscale discussion short fuse",
   "keywords.weatherAlerts": "",
   "keywords.stormCells": "",

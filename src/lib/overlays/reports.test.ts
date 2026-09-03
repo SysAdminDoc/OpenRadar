@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import { REPORT_HOURS, parseReports, stormReportsOverlay } from "./reports";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
@@ -91,12 +92,16 @@ describe("what people on the ground saw", () => {
 
 describe.runIf(LIVE)("against the live feed", () => {
   it("reads the last day of reports", async () => {
-    const data = await stormReportsOverlay.fetchData({
-      west: -125,
-      south: 24,
-      east: -66,
-      north: 50,
-    });
+    const data = await stormReportsOverlay.fetchData(
+      {
+        west: -125,
+        south: 24,
+        east: -66,
+        north: 50,
+      },
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     // The country sees reports every day; an empty answer means the query
     // shape is wrong rather than the weather being quiet.
     expect(data.features.length).toBeGreaterThan(0);

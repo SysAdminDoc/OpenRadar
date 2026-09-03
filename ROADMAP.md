@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-176 (P2): WPC hazard outlooks: excessive rainfall and the winter storm severity index
-  Why: The Excessive Rainfall Outlook is what forecasters point at before a flood day and RadarScope paywalls it at Tier 2; the WSSI is the winter counterpart; both live on a host already allowed with a CORS policy the page can use.
-  Evidence: Verified live 2026-09-02: `https://mapservices.weather.noaa.gov/vector/rest/services/hazards/wpc_precip_hazards/MapServer` layers 0-4 (Day 1-5, `outlook`, `valid_time`, `f=geojson` works); `outlooks/wpc_wssi/MapServer` (overall impact layers 1-4, components for snow amount, load, ice, blowing snow) and time-enabled `outlooks/wpc_wssi_p`; ACAO echoes the request origin. PNS26-57 proposes a five-tier ERO; PNS26-64 retires PWPF for NBM-based PPP on 2026-10-01, so no PWPF adapter.
-  Touches: new `src/lib/overlays/wpc.ts` adapter (two layer families), `registry.ts`, `src/panels/MapOptionsPanels.tsx` (a day selector), legends, provenance (`kind: forecast` with issue and valid times), catalogues, live contract.
-  Acceptance: ERO Day 1-5 and WSSI overall impact Day 1-3 draw under warnings with WPC's own category names and colours, each frame carrying issue and valid time in the popup and legend; both say plainly they are outlooks; a fixture e2e switches days and asserts the valid time changes.
-  Complexity: M
-
 - [ ] AUD-177 (P2): GOES-West and Himawari on the satellite layer, with more bands
   Why: The satellite layer serves two GOES-East products, so a reader in Seattle or Honolulu looks at an oblique picture from 75°W; GOES-West and Himawari sit on the same endpoint under the same terms.
   Evidence: Verified 2026-09-02 from GIBS WMTS capabilities (`epsg3857/best`): `GOES-West_ABI_GeoColor`, `GOES-West_ABI_Band13_Clean_Infrared`, `GOES-West_ABI_Air_Mass`, `GOES-West_ABI_Band2_Red_Visible_1km`, `GOES-West_ABI_Dust`, `GOES-West_ABI_FireTemp`, the same six for East, `Himawari_AHI_Air_Mass`, `Himawari_AHI_Band13_Clean_Infrared`, `Himawari_AHI_Band3_Red_Visible_1km`; PT10M with gaps and 50 to 90 minutes behind real time; `src/lib/providers/satellite.ts:56-74` lists two layers.

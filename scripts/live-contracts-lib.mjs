@@ -186,6 +186,18 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "wpc",
+    label: "WPC rainfall and winter outlooks",
+    // The same service the SPC outlook comes from, and the same reason for
+    // naming it rather than wpc.ncep.noaa.gov: this is the host the app
+    // actually contacts.
+    host: "mapservices.weather.noaa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/wpc.test.ts"],
+    liveBlock: "against the live services",
+    required: false,
+  },
+  {
     id: "archive-warnings",
     label: "Archived storm-based warnings",
     host: "mesonet.agron.iastate.edu",

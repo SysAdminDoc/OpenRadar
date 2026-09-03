@@ -3,6 +3,7 @@ import { isOnline } from "../lib/online";
 import { translate } from "../i18n";
 import type { ToastMessage } from "../components/ToastHost";
 import { metarOverlay } from "../lib/overlays/metar";
+import { DEFAULT_OVERLAY_CHOICES } from "../lib/overlays/registry";
 import { haversineMiles } from "../lib/geo";
 import { openingLine } from "../lib/opening";
 import { log } from "../lib/log";
@@ -114,6 +115,7 @@ export function useWelcomeHint(options: {
             north: lat + BOX_DEGREES,
           },
           controller.signal,
+          DEFAULT_OVERLAY_CHOICES,
         );
         if (!live) return null;
         let best: (typeof data.features)[number] | null = null;

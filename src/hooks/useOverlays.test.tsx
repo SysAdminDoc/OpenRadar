@@ -2,6 +2,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOverlays } from "./useOverlays";
 import {
+  DEFAULT_OVERLAY_CHOICES,
   OVERLAY_ADAPTERS,
   overlayAdapter,
   type OverlayId,
@@ -59,7 +60,9 @@ describe("useOverlays", () => {
   it("fetches an enabled overlay for a padded viewport", async () => {
     fetchData.mockResolvedValue(collection("Tornado Warning"));
 
-    const { result } = renderHook(() => useOverlays(only("alerts"), viewport));
+    const { result } = renderHook(() =>
+      useOverlays(only("alerts"), viewport, DEFAULT_OVERLAY_CHOICES),
+    );
 
     await waitFor(() =>
       expect(result.current.alerts.data.features).toHaveLength(1),
@@ -77,7 +80,8 @@ describe("useOverlays", () => {
     fetchData.mockResolvedValueOnce(collection("Flood Warning"));
 
     const { result, rerender } = renderHook(
-      ({ bounds }) => useOverlays(only("alerts"), bounds),
+      ({ bounds }) =>
+        useOverlays(only("alerts"), bounds, DEFAULT_OVERLAY_CHOICES),
       { initialProps: { bounds: viewport } },
     );
 
@@ -100,7 +104,9 @@ describe("useOverlays", () => {
   it("reports nothing for a disabled overlay and asks for no data", async () => {
     fetchData.mockResolvedValue(collection("Heat Advisory"));
 
-    const { result } = renderHook(() => useOverlays(only(), viewport));
+    const { result } = renderHook(() =>
+      useOverlays(only(), viewport, DEFAULT_OVERLAY_CHOICES),
+    );
 
     await act(async () => {
       await Promise.resolve();
@@ -113,7 +119,8 @@ describe("useOverlays", () => {
     fetchData.mockResolvedValue(collection("Flood Watch"));
 
     const { result, rerender } = renderHook(
-      ({ bounds }) => useOverlays(only("alerts"), bounds),
+      ({ bounds }) =>
+        useOverlays(only("alerts"), bounds, DEFAULT_OVERLAY_CHOICES),
       { initialProps: { bounds: viewport } },
     );
 
@@ -134,7 +141,8 @@ describe("snapshot scoping", () => {
     fetchData.mockResolvedValue(collection("Flood Warning"));
 
     const { result, rerender } = renderHook(
-      ({ bounds }) => useOverlays(only("alerts"), bounds),
+      ({ bounds }) =>
+        useOverlays(only("alerts"), bounds, DEFAULT_OVERLAY_CHOICES),
       { initialProps: { bounds: viewport } },
     );
 
@@ -156,7 +164,8 @@ describe("snapshot scoping", () => {
       .mockResolvedValue(collection("M 5.8 Somewhere"));
 
     const { result, rerender } = renderHook(
-      ({ bounds }) => useOverlays(only("earthquakes"), bounds),
+      ({ bounds }) =>
+        useOverlays(only("earthquakes"), bounds, DEFAULT_OVERLAY_CHOICES),
       { initialProps: { bounds: viewport } },
     );
 

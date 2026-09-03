@@ -171,6 +171,8 @@ interface PanelSurfacesProps {
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   onRotationPeriod: (period: RotationPeriod) => void;
   onAzShearLevel: (level: AzShearLevel) => void;
+  onWpcDay: (day: number) => void;
+  onWssiDay: (day: number) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -268,6 +270,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onRotationPeriod={props.onRotationPeriod}
             azShearLevel={settings.azShearLevel}
             onAzShearLevel={props.onAzShearLevel}
+            wpcDay={settings.wpcDay}
+            onWpcDay={props.onWpcDay}
+            wssiDay={settings.wssiDay}
+            onWssiDay={props.onWssiDay}
             onSatelliteProduct={props.onSatelliteProduct}
             onClose={onClose}
           />

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   alertSeverity,
   alertWidths,
@@ -99,12 +100,16 @@ describe("alert parsing", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await alertsOverlay.fetchData({
-      west: -100,
-      south: 30,
-      east: -90,
-      north: 40,
-    });
+    await alertsOverlay.fetchData(
+      {
+        west: -100,
+        south: 30,
+        east: -90,
+        north: 40,
+      },
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
 
     // Two requests go out: the polygons for this view, and the national tag
     // feed which has no geometry of its own. The one that carries the
@@ -179,12 +184,16 @@ describe("alert parsing", () => {
       ),
     );
 
-    const first = await alertsOverlay.fetchData({
-      west: -100,
-      south: 30,
-      east: -90,
-      north: 40,
-    });
+    const first = await alertsOverlay.fetchData(
+      {
+        west: -100,
+        south: 30,
+        east: -90,
+        north: 40,
+      },
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     expect(first.features).toHaveLength(1);
     expect(first.features[0].properties.impact).toBe("catastrophic");
   });
@@ -239,8 +248,16 @@ describe("alert parsing", () => {
     const bounds = { west: -2, south: -2, east: 2, north: 2 };
     const firstController = new AbortController();
     const secondController = new AbortController();
-    const first = alertsOverlay.fetchData(bounds, firstController.signal);
-    const second = alertsOverlay.fetchData(bounds, secondController.signal);
+    const first = alertsOverlay.fetchData(
+      bounds,
+      firstController.signal,
+      DEFAULT_OVERLAY_CHOICES,
+    );
+    const second = alertsOverlay.fetchData(
+      bounds,
+      secondController.signal,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     await Promise.resolve();
     firstController.abort();
     await expect(first).rejects.toMatchObject({ name: "AbortError" });
@@ -321,7 +338,11 @@ describe("alert parsing", () => {
     const now = Date.now();
 
     for (let pass = 0; pass < 2; pass += 1) {
-      const data = await alertsOverlay.fetchData(bounds);
+      const data = await alertsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
       for (const alert of alertsToAnnounce(data, watch, announced, now)) {
         heard.push(alert.impact);
         announced.set(alert.id, alert.rank);
@@ -358,17 +379,19 @@ describe("alert parsing", () => {
     const bounds = { west: -100, south: 30, east: -90, north: 40 };
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      await alertsOverlay.fetchData(bounds);
+      await alertsOverlay.fetchData(bounds, undefined, DEFAULT_OVERLAY_CHOICES);
       expect(tagReads).toBe(1);
 
       // Past the minute the tags are held for, so the next read starts one.
       await vi.advanceTimersByTimeAsync(61_000);
 
       let settled = false;
-      const second = alertsOverlay.fetchData(bounds).then((data) => {
-        settled = true;
-        return data;
-      });
+      const second = alertsOverlay
+        .fetchData(bounds, undefined, DEFAULT_OVERLAY_CHOICES)
+        .then((data) => {
+          settled = true;
+          return data;
+        });
       await vi.advanceTimersByTimeAsync(10);
       expect(
         settled,
@@ -393,7 +416,11 @@ describe("alert parsing", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     for (const west of [-100, -99, -98, -97]) {
-      await alertsOverlay.fetchData({ west, south: 30, east: -90, north: 40 });
+      await alertsOverlay.fetchData(
+        { west, south: 30, east: -90, north: 40 },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
     }
 
     const asked = fetchMock.mock.calls.map((call) =>
@@ -411,7 +438,11 @@ describe("alert parsing", () => {
       vi.fn(async () => new Response("", { status: 500 })),
     );
     await expect(
-      alertsOverlay.fetchData({ west: -1, south: -1, east: 1, north: 1 }),
+      alertsOverlay.fetchData(
+        { west: -1, south: -1, east: 1, north: 1 },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      ),
     ).rejects.toThrow(/500/);
   });
 });
@@ -850,7 +881,11 @@ describe.runIf(LIVE)("against the live warnings service", () => {
   const bounds = { west: -125, south: 24, east: -66, north: 50 };
 
   it("answers with alerts shaped the way the map reads them", async () => {
-    const data = await alertsOverlay.fetchData(bounds);
+    const data = await alertsOverlay.fetchData(
+      bounds,
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     expect(data.type).toBe("FeatureCollection");
     // An empty answer over the whole United States means the query shape is
     // wrong rather than the weather being quiet.
@@ -874,7 +909,11 @@ describe.runIf(LIVE)("against the live warnings service", () => {
   }, 30_000);
 
   it("gives every alert a time that can be compared", async () => {
-    const data = await alertsOverlay.fetchData(bounds);
+    const data = await alertsOverlay.fetchData(
+      bounds,
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     for (const feature of data.features.slice(0, 40)) {
       const expires = feature.properties.expires;
       // Null is allowed; a string is not, because the watch compares it as a

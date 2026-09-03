@@ -55,6 +55,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Hydrometeor classification** from the held site's own dual-polarisation algorithm: rain, heavy rain, big drops, ice crystals, dry and wet snow, graupel, and three sizes of hail, read from the lowest tilt or the hybrid scan. The legend names every class and says plainly that it's the radar's reading, not a report from the ground. The inspector names the class under the click.
 - **Severe probability** from the National Severe Storms Laboratory model: how likely each storm is to turn severe in the next hour, and separately for hail, wind and a tornado. It is guidance, it draws under the warnings, and it says so.
 - Storm reports, SPC convective outlooks and mesoscale discussions.
+- The Weather Prediction Center excessive rainfall outlook out to five days, and its winter storm severity index out to three, both in the categories and colours WPC publishes and both labelled as outlooks rather than warnings.
 - Up to ten watched places that speak up when a warning reaches them, wherever the map is pointed, each with its own radius, severity floor, tone and quiet hours. One warning covering several of them is announced once and names them all.
 
 ### Beyond the United States
