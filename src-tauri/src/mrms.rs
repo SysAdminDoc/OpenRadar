@@ -24,6 +24,16 @@ const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
 /// published CONUS domain.
 const GRID_BYTES: usize = 7000 * 3500 * 2;
 const MAX_GRID_POINTS: usize = GRID_BYTES / std::mem::size_of::<u16>();
+/// How much finer than the app's own grid the network may publish before the
+/// decoder gives up.
+///
+/// MRMS moved the rotation tracks to 0.005 degrees, which is 14000 by 7000
+/// points: four times the cells, and the decoder refused every one of them, so
+/// a shipped layer drew nothing at all with only a log line to say why. Four
+/// times the cells is also four times the resident memory, and the cache holds
+/// one grid per product, so the grid is reduced to the resolution the app
+/// draws at on the way in rather than the budget being raised to hold it.
+const MAX_SOURCE_REDUCTION: usize = 2;
 const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
 // Raised from 512 MiB when the eleventh product arrived: the point of the
 // budget is a ceiling, and the point of the capacity is one slot per
@@ -758,7 +768,11 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
                 let points = columns
                     .checked_mul(rows)
                     .ok_or_else(|| MrmsError::Decode("the grid dimensions overflowed".into()))?;
-                if columns == 0 || rows == 0 || points > MAX_GRID_POINTS {
+                // A grid finer than the one this app draws at is reduced on
+                // the way in rather than refused; anything that no allowed
+                // reduction can fit is still refused here, before a byte of
+                // it is read.
+                if reduction_for(columns, rows, points, MAX_GRID_POINTS).is_none() {
                     return Err(MrmsError::Decode(format!(
                         "the grid claims {columns} by {rows} points"
                     )));
@@ -818,7 +832,8 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
     let payload = payload.ok_or_else(|| MrmsError::Unsupported("no data section".into()))?;
     let points = columns
         .checked_mul(rows)
-        .filter(|points| *points <= MAX_GRID_POINTS)
+        .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
+    let reduce = reduction_for(columns, rows, points, MAX_GRID_POINTS)
         .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
     let binary_scale = 2f32.powi(binary as i32);
     let decimal_scale = 10f32.powi(decimal as i32);
@@ -831,11 +846,12 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
         return Err(MrmsError::Decode("the packing scale is not finite".into()));
     }
 
-    let samples = decode_png_samples(payload, points)?;
+    let samples = decode_png_samples(payload, points, columns, reduce)?;
 
+    let (north, west, d_lat, d_lon) = reduced_geometry(north, west, d_lat, d_lon, reduce);
     Ok(Grid {
-        columns,
-        rows,
+        columns: columns / reduce,
+        rows: rows / reduce,
         north,
         west,
         d_lat,
@@ -845,6 +861,49 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
         decimal,
         samples,
     })
+}
+
+/// How much to shrink a grid by so it fits what this app draws at, or None
+/// when nothing allowed would make it fit.
+///
+/// One means it already fits. Anything above that has to divide both axes
+/// exactly: a reduction that dropped a partial row or column would move every
+/// point below it, which is worse than refusing the grid.
+fn reduction_for(columns: usize, rows: usize, points: usize, ceiling: usize) -> Option<usize> {
+    if columns == 0 || rows == 0 {
+        return None;
+    }
+    for reduce in 1..=MAX_SOURCE_REDUCTION {
+        if columns % reduce != 0 || rows % reduce != 0 {
+            continue;
+        }
+        if points / (reduce * reduce) <= ceiling {
+            return Some(reduce);
+        }
+    }
+    None
+}
+
+/// Where a reduced grid's first point sits and how far apart its points are.
+///
+/// The reduced grid covers the same ground, so its first point stands at the
+/// centre of the block it was folded from rather than at that block's corner.
+/// Anchored at the corner the whole field slides half a source cell north and
+/// west, which on the finer grids is a few hundred metres of storm.
+fn reduced_geometry(
+    north: f64,
+    west: f64,
+    d_lat: f64,
+    d_lon: f64,
+    reduce: usize,
+) -> (f64, f64, f64, f64) {
+    let offset = (reduce - 1) as f64 / 2.0;
+    (
+        north - offset * d_lat,
+        west + offset * d_lon,
+        d_lat * reduce as f64,
+        d_lon * reduce as f64,
+    )
 }
 
 /// GRIB writes a signed integer as a sign bit plus magnitude, not two's
@@ -857,8 +916,30 @@ fn signed_grib(raw: i16) -> i16 {
     }
 }
 
-fn decode_png_samples(payload: &[u8], expected: usize) -> Result<Vec<u16>, MrmsError> {
-    let limits = png::Limits { bytes: GRID_BYTES };
+/// Reads the packed image, shrinking it by `reduce` in each axis as it goes.
+///
+/// Row by row, so a grid four times the size of the one this app draws never
+/// exists in memory whole: the cost is the reduced grid plus the decoder's own
+/// row buffer. The reduction keeps the LARGEST value in each block, which is
+/// the only safe choice here. These grids are maxima over a window, and the
+/// alternative, taking one point of the four, drops three quarters of a
+/// rotation track or a hail swath on the floor. Sampling is on the packed
+/// values rather than the scaled ones, which is the same answer: the scale is
+/// a positive multiplier and a positive offset, so it cannot change which of
+/// two samples is larger, and the smallest sample is what "no data" packs to.
+fn decode_png_samples(
+    payload: &[u8],
+    expected: usize,
+    columns: usize,
+    reduce: usize,
+) -> Result<Vec<u16>, MrmsError> {
+    // The ceiling is on the SOURCE image, which is up to a reduction squared
+    // larger than what is kept. It is a limit rather than an allocation.
+    let limits = png::Limits {
+        bytes: GRID_BYTES
+            .saturating_mul(MAX_SOURCE_REDUCTION)
+            .saturating_mul(MAX_SOURCE_REDUCTION),
+    };
     let decoder = png::Decoder::new_with_limits(Cursor::new(payload), limits);
     let mut reader = decoder
         .read_info()
@@ -868,7 +949,7 @@ fn decode_png_samples(payload: &[u8], expected: usize) -> Result<Vec<u16>, MrmsE
     let image_points = (info.width as usize)
         .checked_mul(info.height as usize)
         .ok_or_else(|| MrmsError::Decode("the image dimensions overflowed".into()))?;
-    if image_points != expected || image_points > MAX_GRID_POINTS {
+    if image_points != expected || image_points / (reduce * reduce) > MAX_GRID_POINTS {
         return Err(MrmsError::Decode(format!(
             "the image holds {image_points} values, the grid wants {expected}"
         )));
@@ -877,26 +958,57 @@ fn decode_png_samples(payload: &[u8], expected: usize) -> Result<Vec<u16>, MrmsE
         return Err(MrmsError::Unsupported(format!("a {color_type:?} image")));
     }
 
-    let mut samples = Vec::with_capacity(expected);
+    let kept_columns = columns / reduce;
+    let mut samples = Vec::with_capacity(expected / (reduce * reduce));
+    // The row being built, held across the `reduce` source rows that fold into
+    // it. Empty between them, which is what says a new one has to be started.
+    let mut folded: Vec<u16> = Vec::new();
+    let mut source_row = 0usize;
+    let mut line_values: Vec<u16> = Vec::new();
     while let Some(line) = reader
         .next_row()
         .map_err(|error| MrmsError::Decode(error.to_string()))?
     {
         let bytes = line.data();
+        line_values.clear();
         match bit_depth {
             png::BitDepth::Sixteen => {
                 for pair in bytes.chunks_exact(2) {
-                    samples.push(u16::from_be_bytes([pair[0], pair[1]]));
+                    line_values.push(u16::from_be_bytes([pair[0], pair[1]]));
                 }
             }
-            png::BitDepth::Eight => samples.extend(bytes.iter().map(|value| *value as u16)),
+            png::BitDepth::Eight => {
+                line_values.extend(bytes.iter().map(|value| *value as u16));
+            }
             depth => return Err(MrmsError::Unsupported(format!("{depth:?} bit samples"))),
+        }
+        if line_values.len() != columns {
+            return Err(MrmsError::Decode(format!(
+                "a row holds {} values, the grid wants {columns}",
+                line_values.len()
+            )));
+        }
+
+        if source_row % reduce == 0 {
+            folded.clear();
+            folded.resize(kept_columns, u16::MIN);
+        }
+        for (at, value) in line_values.iter().enumerate() {
+            let into = at / reduce;
+            if into < kept_columns {
+                folded[into] = folded[into].max(*value);
+            }
+        }
+        source_row += 1;
+        if source_row % reduce == 0 {
+            samples.extend_from_slice(&folded);
         }
     }
 
-    if samples.len() != expected {
+    let wanted = expected / (reduce * reduce);
+    if source_row != expected / columns || samples.len() != wanted {
         return Err(MrmsError::Decode(format!(
-            "the image holds {} values, the grid wants {expected}",
+            "the image holds {} values, the grid wants {wanted}",
             samples.len()
         )));
     }
@@ -2040,6 +2152,76 @@ mod tests {
 
         out.extend_from_slice(b"7777");
         out
+    }
+
+    #[test]
+    fn a_grid_finer_than_the_one_this_app_draws_is_reduced_rather_than_refused() {
+        // MRMS moved the rotation tracks to 0.005 degrees, four times the
+        // cells, and every one of them was refused: a shipped layer drew
+        // nothing at all with a log line for an explanation. Four times the
+        // cells is also four times the resident memory in a cache that holds
+        // one grid per product, so the grid is reduced on the way in.
+        assert_eq!(reduction_for(7000, 3500, 7000 * 3500, 24_500_000), Some(1));
+        assert_eq!(
+            reduction_for(14000, 7000, 14000 * 7000, 24_500_000),
+            Some(2)
+        );
+        // Odd axes cannot be folded in half, and a reduction that dropped a
+        // partial row would move every point below it.
+        assert_eq!(reduction_for(14001, 7000, 14001 * 7000, 24_500_000), None);
+        // Still too big after the most this will do.
+        assert_eq!(reduction_for(28000, 14000, 28000 * 14000, 24_500_000), None);
+        assert_eq!(reduction_for(0, 10, 0, 24_500_000), None);
+    }
+
+    #[test]
+    fn a_reduced_grid_covers_the_same_ground_as_the_one_it_came_from() {
+        // Anchored at the block's corner instead of its centre, the whole
+        // field slides half a source cell north and west.
+        let (north, west, d_lat, d_lon) = reduced_geometry(55.0, -130.0, 0.005, 0.005, 2);
+        assert!((north - 54.9975).abs() < 1e-9, "north is {north}");
+        assert!((west + 129.9975).abs() < 1e-9, "west is {west}");
+        assert!((d_lat - 0.01).abs() < 1e-9);
+        assert!((d_lon - 0.01).abs() < 1e-9);
+        // A grid that already fits is left exactly alone.
+        assert_eq!(
+            reduced_geometry(55.0, -130.0, 0.01, 0.01, 1),
+            (55.0, -130.0, 0.01, 0.01)
+        );
+    }
+
+    #[test]
+    fn folding_a_grid_keeps_the_largest_value_in_each_block() {
+        // These are maxima over a window: a rotation track is the strongest
+        // rotation that passed over each square in an hour, and a hail swath
+        // the largest stone. Taking one point of the four throws three
+        // quarters of that on the floor, and the one it throws away is the
+        // one somebody is looking for.
+        let mut png_bytes = Vec::new();
+        {
+            let mut encoder = png::Encoder::new(&mut png_bytes, 4, 4);
+            encoder.set_color(png::ColorType::Grayscale);
+            encoder.set_depth(png::BitDepth::Sixteen);
+            let mut writer = encoder.write_header().expect("a header");
+            // Four blocks of four. The largest of each is 60, 8, 200, 12, and
+            // in every block it sits in a different corner.
+            let samples: [u16; 16] = [
+                60, 1, 2, 3, //
+                4, 5, 6, 8, //
+                7, 9, 10, 11, //
+                200, 13, 12, 5,
+            ];
+            let raw: Vec<u8> = samples.iter().flat_map(|s| s.to_be_bytes()).collect();
+            writer.write_image_data(&raw).expect("image data");
+        }
+        let folded = decode_png_samples(&png_bytes, 16, 4, 2).expect("a folded grid");
+        assert_eq!(folded, vec![60, 8, 200, 12]);
+
+        // And a grid that needs no folding comes back exactly as it was.
+        let whole = decode_png_samples(&png_bytes, 16, 4, 1).expect("a whole grid");
+        assert_eq!(whole.len(), 16);
+        assert_eq!(whole[0], 60);
+        assert_eq!(whole[12], 200);
     }
 
     #[test]
