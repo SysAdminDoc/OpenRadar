@@ -162,13 +162,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: For a held site the panel shows barbs by height for the last volumes the loop holds (or the one volume today), marks bins that failed the RMS or symmetry checks as ND, offers a hodograph, and says which volume each column came from; a fixture volume produces a known profile in a test.
   Complexity: M
 
-- [ ] AUD-186 (P2): Dependency refresh: MapLibre 6.7, the Tauri plugins, and pmtiles 0.24
-  Why: MapLibre 6.7.0 throws a catchable `GPUInitializationError` and adds `{validate:false}` for batch layer work; the updater, notification, log, opener and deep-link plugins are behind; `pmtiles` is eight releases and five breaking changes behind and the incident-pack tests are the only thing that will catch a regression.
-  Evidence: `npm outdated` 2026-09-02 (maplibre-gl 6.6.0 → 6.7.0, plugin-updater 2.10.1 → 2.11.0, plugin-notification 2.3.3 → 2.4.0, lucide-react, typescript-eslint); MapLibre CHANGELOG 6.3 to 6.7 (no breaking changes); pmtiles-rs CHANGELOG (0.18 precision, 0.19 features, 0.20 `TileId::new` returns `Result`, 0.23 version validation, 0.24 TLS-root features removed).
-  Touches: `package.json`, `src-tauri/Cargo.toml`, `src/lib/gpu.ts` (catch the new error), `src-tauri/src/incident_packs.rs` and `tiles.rs` for the pmtiles API changes, `scripts/bundle-budget.mjs` if sizes move.
-  Acceptance: `npm run check`, `npx playwright test` and `cargo test` green on the new versions; the incident-pack round trip test (write, read back, hash) passes on pmtiles 0.24; TypeScript stays at 5.8 by decision, recorded in the working notes.
-  Complexity: M
-
 ### P3
 
 - [ ] AUD-187 (P3): Scan the staged installer with Defender in the release gate

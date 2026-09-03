@@ -242,7 +242,7 @@ interface MapViewportProps {
    * means; the workspace owns the settings it changes.
    */
   onOverlayAction?: (id: string) => void;
-  onMapStatus?: (status: "loading" | "ready" | "error") => void;
+  onMapStatus?: (status: "loading" | "ready" | "error" | "nogpu") => void;
 }
 
 /**
@@ -1518,21 +1518,44 @@ function MapViewportInner(
   useEffect(() => {
     if (!containerRef.current) return;
     onMapStatus?.("loading");
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: mapStyleDefinition(mapStyle, incidentPack),
-      center: camera.center,
-      zoom: camera.zoom,
-      bearing: camera.bearing,
-      pitch: camera.pitch,
-      minZoom: 2.5,
-      maxZoom: 15,
-      attributionControl: false,
-      canvasContextAttributes: { preserveDrawingBuffer: true },
-      // Guarded first, so a request the budget refuses is never fetched at
-      // all, and then routed through the cache so it survives going offline.
-      transformRequest: (url) => ({ url: cachedUrl(guardRadarRequest(url)) }),
-    });
+    const buildMap = (container: HTMLDivElement) =>
+      new maplibregl.Map({
+        container,
+        style: mapStyleDefinition(mapStyle, incidentPack),
+        center: camera.center,
+        zoom: camera.zoom,
+        bearing: camera.bearing,
+        pitch: camera.pitch,
+        minZoom: 2.5,
+        maxZoom: 15,
+        attributionControl: false,
+        canvasContextAttributes: { preserveDrawingBuffer: true },
+        // Guarded first, so a request the budget refuses is never fetched at
+        // all, and then routed through the cache so it survives going offline.
+        transformRequest: (url) => ({ url: cachedUrl(guardRadarRequest(url)) }),
+      });
+    let map: maplibregl.Map;
+    try {
+      map = buildMap(containerRef.current);
+    } catch (failure: unknown) {
+      // MapLibre 6.7 throws this rather than an anonymous error, and carries
+      // the driver's own reason with it. Before, the constructor threw out of
+      // the effect into the error boundary, which showed a generic fatal
+      // screen and lost the one line that says why. A machine can pass the
+      // WebGL2 probe and still fail here: a context that has been lost since
+      // start-up, or a driver that refuses the attributes the map asks for.
+      if (failure instanceof maplibregl.GPUInitializationError) {
+        log.warn(
+          "map",
+          failure.statusMessage
+            ? `${failure.message} (${failure.statusMessage})`
+            : failure.message,
+        );
+        onMapStatus?.("nogpu");
+        return;
+      }
+      throw failure;
+    }
     mapRef.current = map;
     map.setMissingStyleImageResolver((id) => {
       if (map.hasImage(id)) return;

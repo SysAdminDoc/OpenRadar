@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- Everything the app is built on is up to date, apart from the TypeScript compiler, which is a jump worth making on its own. A machine that cannot give the map the drawing surface it needs now says so on the screen that names the setting to change, instead of showing a blank fatal error and throwing away the driver's own explanation. The check that runs before the app starts also asks for exactly what the map will ask for, rather than something easier that a struggling driver can still answer.
+
 - The app asks the weather service whether a radar is actually running, instead of guessing from whether new files have shown up. It used to wait for an upload to fail to arrive, which is minutes after a radar stops and says nothing about why. Now a site that is restarting after a power cut, or that nothing has been heard from for a day, is passed over when the map picks the nearest radar, and greyed in the site list with the reason beside its name. The afternoon this was written that was five radars, one of them silent since 13 August.
 
 - A radar you are holding that goes quiet says so. The picture stays, because the last volume is still the last thing anybody knows, but the legend says how long it has been since the office heard anything, so a still map cannot pass for a calm sky.
