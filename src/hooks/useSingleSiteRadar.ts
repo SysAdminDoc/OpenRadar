@@ -45,6 +45,12 @@ export interface SingleSiteState {
    * and leave the reader to guess how far back they are.
    */
   loop: { index: number; count: number } | null;
+  /**
+   * The site's recent volume times, oldest first, or empty when it has no
+   * loop. The export walks these rather than the mosaic's steps, so a saved
+   * loop of a held site is that site's volumes.
+   */
+  volumes: number[];
   /** Historical data is deliberately isolated from current context layers. */
   historical: boolean;
   mode: "recent" | "archive" | "local";
@@ -665,6 +671,10 @@ export function useSingleSiteRadar(options: {
               count: volumeTimes.length,
             }
           : null,
+      // Never in historical mode: a chosen file or a chosen archive moment
+      // is one volume the reader picked, and the recent listing behind the
+      // loop is not a series it belongs to.
+      volumes: showing && !historicalWanted ? volumeTimes : EMPTY_TIMES,
       historical: historicalWanted,
       mode: historicalSource?.kind ?? "recent",
       openLocal,

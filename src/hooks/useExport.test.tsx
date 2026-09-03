@@ -78,6 +78,7 @@ describe("loop export workspace restoration", () => {
         timeline,
         basemapCredit: "OpenStreetMap",
         dataSources: [],
+        siteLoop: null,
         pushToast,
       }),
     );
@@ -126,6 +127,7 @@ describe("the record written beside the picture", () => {
         timeline,
         basemapCredit: "OpenStreetMap",
         dataSources: [],
+        siteLoop: null,
         pushToast: vi.fn(),
         ...over,
       }),
@@ -244,6 +246,63 @@ describe("the record written beside the picture", () => {
     expect(written.frames.map((frame) => frame.index)).toEqual([1, 2]);
   });
 
+  it("walks a held site's own volumes and records each one", async () => {
+    // The mosaic steps every two minutes and a radar publishes a volume every
+    // four to six, so walking the steps saved the same volume two and three
+    // times over, each frame captioned with a mosaic time and credited to a
+    // service that did not make the picture.
+    const volumes = [4000, 2000, 0].map((back) => FETCHED_AT - back);
+    const stepped: number[] = [];
+    exportLoop.mockImplementation(
+      async (options: {
+        frameCount: number;
+        showFrame: (index: number) => Promise<void>;
+        captionFor: (index: number) => { lines: string[] };
+      }) => {
+        for (let index = 0; index < options.frameCount; index += 1) {
+          await options.showFrame(index);
+          options.captionFor(index);
+          stepped.push(index);
+        }
+        return new Blob(["webm"]);
+      },
+    );
+    const { result } = renderExport({
+      // Five steps a second apart, which is the fixture timeline's cadence.
+      frames: [4, 3, 2, 1, 0].map((back) => ({
+        ...frames[0],
+        time: (FETCHED_AT - back * 1000) / 1000,
+      })),
+      siteLoop: {
+        sweep: {
+          station: "KDMX",
+          product: "Reflectivity",
+          collected: new Date(FETCHED_AT).toISOString(),
+          source: {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        },
+        volumes,
+      } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
+    });
+    act(() => result.current.exportLoopVideo());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    // Three volumes, not five steps.
+    expect(stepped).toEqual([0, 1, 2]);
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{ observed: string | null; sourceId: string }>;
+    };
+    expect(written.frames.map((frame) => frame.observed)).toEqual(
+      volumes.map((at) => new Date(at).toISOString()),
+    );
+    expect(new Set(written.frames.map((frame) => frame.sourceId))).toEqual(
+      new Set(["level2:KDMX"]),
+    );
+  });
+
   it("keeps the picture when the record cannot be written", async () => {
     saveFile.mockReset();
     saveFile
@@ -294,6 +353,7 @@ describe("the picture that goes on the desktop", () => {
         timeline,
         basemapCredit: "OpenStreetMap",
         dataSources: [],
+        siteLoop: null,
         pushToast: vi.fn(),
         ...over,
       }),

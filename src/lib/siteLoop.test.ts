@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loopKey, trimHeld, volumeForTime } from "./siteLoop";
+import { loopKey, stepsForVolumes, trimHeld, volumeForTime } from "./siteLoop";
 
 /** Five volumes about five minutes apart, oldest first. */
 const times = [
@@ -30,6 +30,46 @@ describe("which volume a moment is showing", () => {
   it("has nothing to show for a moment older than anything held", () => {
     expect(volumeForTime(times, Date.UTC(2026, 7, 30, 20, 59))).toBe(null);
     expect(volumeForTime([], Date.now())).toBe(null);
+  });
+});
+
+describe("which step to stand on to see each volume", () => {
+  /** Seven mosaic steps two minutes apart, ending with the newest volume. */
+  const steps = [12, 10, 8, 6, 4, 2, 0].map((back) => ({
+    time: (times[4] - back * 60_000) / 1000,
+  }));
+
+  it("gives one step per volume, oldest first", () => {
+    // Saving a loop by walking the steps wrote the same volume into two and
+    // three frames, each captioned with a different mosaic time. Walking the
+    // volumes writes each of them once.
+    const walk = stepsForVolumes(steps, [times[2], times[3], times[4]]);
+    expect(walk.map((one) => one.at)).toEqual([times[2], times[3], times[4]]);
+    expect(walk.map((one) => one.index)).toEqual([1, 4, 6]);
+  });
+
+  it("leaves out a volume no step lands on", () => {
+    // 21:13 is superseded by 21:14 before the next step comes round, so no
+    // step ever shows it. A frame count that included it would leave the walk
+    // drawing 21:14 twice under two different stamps.
+    const walk = stepsForVolumes(steps, [
+      times[4] - 7 * 60_000,
+      times[4] - 6 * 60_000,
+      times[4],
+    ]);
+    expect(walk.map((one) => one.at)).toEqual([
+      times[4] - 6 * 60_000,
+      times[4],
+    ]);
+    expect(walk.map((one) => one.index)).toEqual([3, 6]);
+  });
+
+  it("has nothing to walk when no step reaches any volume", () => {
+    expect(stepsForVolumes(steps, [])).toEqual([]);
+    expect(stepsForVolumes([], [times[0]])).toEqual([]);
+    // Every step older than the oldest volume: the mosaic has caught up with
+    // nothing the site has published yet.
+    expect(stepsForVolumes(steps, [times[4] + 60 * 60_000])).toEqual([]);
   });
 });
 

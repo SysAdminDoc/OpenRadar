@@ -1,5 +1,6 @@
 import type { RadarFrame, RadarProvider } from "./providers/types";
 import type { OverlayAdapter } from "./overlays/registry";
+import type { SweepImage } from "./level2";
 
 /**
  * One record saying where a layer came from and what it is claiming.
@@ -245,6 +246,46 @@ export function radarProvenance(options: {
     modelRun: forecast
       ? { initUtc: forecast.initUtc, leadMinutes: forecast.leadMinutes }
       : undefined,
+  };
+}
+
+/**
+ * The record for one volume of a single site's own radar.
+ *
+ * A held site's picture is not the mosaic's. Saving a loop of one captioned
+ * every frame with the mosaic provider's name and the mosaic step's time: a
+ * Level II sweep from one radar credited to a service that did not make it,
+ * stamped with a moment it was not collected at. The source strings come from
+ * the sweep, which is where the native side puts them; the time is the
+ * volume's own, so a loop of ten volumes carries ten records rather than ten
+ * copies of one.
+ */
+export function sweepProvenance(options: {
+  sweep: SweepImage;
+  /** The volume this record is about. Defaults to the one on screen. */
+  at?: number;
+  fetchedAt: number;
+}): Provenance {
+  const { sweep, fetchedAt } = options;
+  const at = options.at ?? Date.parse(sweep.collected);
+  return {
+    // The site is part of the identity. Two records from two radars of the
+    // same storm are two sources, and a reader comparing them has to be able
+    // to tell which instrument each came from.
+    sourceId: `level2:${sweep.station}`,
+    label: sweep.source.label,
+    attribution: sweep.source.label,
+    attributionUrl: sweep.source.url ?? undefined,
+    kind: "observation",
+    observedAt: at,
+    validAt: at,
+    fetchedAt,
+    // A radar's cadence is whichever volume coverage pattern it is running,
+    // which changes with the weather: about five minutes in a storm and ten
+    // in clear air. The sweep does not carry which one it was scanned under,
+    // and a number here would be a freshness claim nothing checked.
+    freshForMs: null,
+    cachedAgeSeconds: null,
   };
 }
 

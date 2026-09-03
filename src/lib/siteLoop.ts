@@ -49,6 +49,34 @@ export function volumeForTime(
   return found;
 }
 
+/**
+ * Which timeline step to stand on to see each of a site's volumes.
+ *
+ * The map is driven by the timeline, and the timeline steps on the mosaic's
+ * two-minute cadence while a radar publishes a volume every four to six
+ * minutes. Walking the steps to save a loop of a held site therefore wrote
+ * the same volume into two or three frames, each captioned with a different
+ * time. Walking the volumes instead, one step apiece, writes each volume
+ * once under its own time.
+ *
+ * `frames` is the timeline's own, oldest first, in seconds. A volume no step
+ * lands on is not here: the timeline cannot be moved to it, so it cannot be
+ * drawn, and a frame count that included it would stall the walk.
+ */
+export function stepsForVolumes(
+  frames: readonly { time: number }[],
+  volumes: readonly number[],
+): Array<{ index: number; at: number }> {
+  const first = new Map<number, number>();
+  frames.forEach((frame, index) => {
+    const volume = volumeForTime(volumes, frame.time * 1000);
+    if (volume !== null && !first.has(volume)) first.set(volume, index);
+  });
+  return [...first.entries()]
+    .map(([at, index]) => ({ at, index }))
+    .sort((left, right) => left.at - right.at);
+}
+
 /** The key one rendered volume is held under. */
 export function loopKey(parts: {
   station: string;
