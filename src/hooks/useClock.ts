@@ -148,6 +148,41 @@ function subscribeContrast(listener: () => void): () => void {
   return () => query.removeEventListener("change", listener);
 }
 
+const FORCED_COLOURS = "(forced-colors: active)";
+
+/**
+ * Whether the system has taken the colours over.
+ *
+ * A Windows contrast theme is not the same request as "more contrast": the
+ * system repaints every background, border and text in its own small palette
+ * and there is nothing to negotiate. The workspace's own light and dark are
+ * not drawn while it is on, so offering the choice would be offering a button
+ * that does nothing.
+ */
+function forcedColoursActive(): boolean {
+  // The same guard as the contrast query above, and for the same reason: a
+  // plain jsdom has no `matchMedia`, and a question about colour must never
+  // be able to take a panel down.
+  if (typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(FORCED_COLOURS).matches;
+}
+
+function subscribeForcedColours(listener: () => void): () => void {
+  if (typeof window.matchMedia !== "function") return () => {};
+  const query = window.matchMedia(FORCED_COLOURS);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+/** The same answer as a value a render can follow. */
+export function useForcedColours(): boolean {
+  return useSyncExternalStore(
+    subscribeForcedColours,
+    forcedColoursActive,
+    () => false,
+  );
+}
+
 /**
  * The same preference as a value a render can follow.
  *

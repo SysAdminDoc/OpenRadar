@@ -1024,6 +1024,8 @@ export const es: Catalogue = {
   "settings.title": "Ajustes",
   "settings.appearance": "Apariencia",
   "settings.appliesNow": "Se aplica al instante",
+  "settings.systemColours":
+    "Tu sistema usa un tema de contraste, así que él elige los colores. Claro y oscuro dependen de él mientras esté activado.",
   "settings.theme": "Tema",
   "settings.dark": "Oscuro",
   "settings.light": "Claro",

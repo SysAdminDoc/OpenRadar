@@ -243,13 +243,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: The switch on registers the current-user Run entry through the plugin and off removes it (round trip through `isEnabled` in a test with a fake); a launch with `--hidden` shows no window and a tray icon; with the tray off the switch is disabled and says why; the diagnostics report names the state; the pseudolocale clipping test covers the new copy.
   Complexity: S
 
-- [ ] AUD-210 (P2): Windows contrast themes
-  Why: A reader on a Windows contrast theme gets `forced-colors: active`, which repaints every background, border and text in system colours; the stylesheet answers `prefers-contrast: more` only, so buttons and panel borders can vanish while the map canvas keeps its own colours and legend swatches lose theirs. Data is never decoration, so ramps and warning outlines must opt out of the repaint while the chrome accepts it.
-  Evidence: `src/index.css:2961` (the only contrast media query); no `forced-colors` anywhere in `src/`; Microsoft's deprecation of `-ms-high-contrast` in favour of `forced-colors` (https://blogs.windows.com/msedgedev/2024/04/29/deprecating-ms-high-contrast/); `src/lib/theme.ts` token boundary.
-  Touches: `src/index.css` (`@media (forced-colors: active)` using `Canvas`, `CanvasText`, `ButtonFace`, `Highlight` and friends for the chrome; `forced-color-adjust: none` on legend ramps, palette swatches, alert polygons' inline styles and the map popups' colour chips), `src/lib/theme.ts` (a note that a theme yields to the system under forced colours), `e2e/accessibility.spec.ts` (Playwright `forcedColors: "active"` runs over the same surfaces as the dark scan), `src/lib/theme.test.ts`.
-  Acceptance: Under `forcedColors: "active"` every control that is visible in dark is visible (axe plus a pinned screenshot of the rail and a panel); focus rings render in `Highlight`; the legend ramp and warning outlines keep their own colours; the appearance settings say the system theme is in force and the theme picker is disabled with that reason.
-  Complexity: S
-
 - [ ] AUD-213 (P2): Undo for the removals that have none
   Why: Deleting an incident pack throws away a verified multi-megabyte download on one press with only a toast; removing a palette, an overlay file, a custom sound or a theme is the same; place removal, journal clear and settings reset already offer undo, so the product's own standard is not met everywhere.
   Evidence: `src/panels/IncidentPackManager.tsx:228-236` (delete, toast only); palette, overlay file, sound and theme removal in `src/hooks/useWorkspaceActions.ts`; the held-toast undo pattern at `src/App.tsx:1641-1658`; the 2026-09-02 working note that a toast is the wrong home for undo unless it is held.

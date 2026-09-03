@@ -870,3 +870,130 @@ for (const theme of ["dark", "light"] as const) {
     expect(describeViolations(await scan(page))).toBe("");
   });
 }
+
+/**
+ * A Windows contrast theme, which is not the same request as more contrast.
+ *
+ * The system repaints every background, border and text in its own small
+ * palette and there is nothing to negotiate with it. `prefers-contrast: more`
+ * does not fire for it, so the workspace kept its own colours under a repaint
+ * that had already replaced half of them.
+ */
+test.describe("under a system contrast theme", () => {
+  // `emulateMedia` rather than `test.use({ forcedColors })`: the latter is
+  // silently ignored under this project's own `use` block, and a test that
+  // believes it is running under a contrast theme while the query answers
+  // false passes for the wrong reason. Checked here rather than assumed.
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ forcedColors: "active" });
+    expect(
+      await page.evaluate(
+        () => window.matchMedia("(forced-colors: active)").matches,
+      ),
+      "the contrast theme is not actually being emulated",
+    ).toBe(true);
+  });
+
+  test("every surface is still clean", async ({ page }) => {
+    for (const id of [
+      "layers",
+      "alerts",
+      "settings",
+      "more",
+    ] as OpenSurface[]) {
+      await openSurface(page, id);
+      expect(`${id}: ${describeViolations(await scan(page))}`).toBe(`${id}: `);
+      await page.reload();
+      await page.emulateMedia({ forcedColors: "active" });
+      await expect(
+        page.getByRole("application", { name: "Interactive weather map" }),
+      ).toBeVisible();
+    }
+  });
+
+  test("the rail is drawn in the system's colours, not its own", async ({
+    page,
+  }) => {
+    // The bar is a fixed dark surface in both themes, which is a decision the
+    // system has just overruled. Left as it was, its own near-white ink sat
+    // on whatever the system painted underneath.
+    const painted = await page
+      .locator(".command-bar")
+      .evaluate((node) => getComputedStyle(node).backgroundColor);
+    // Canvas resolves to the system's own colour, which under Playwright's
+    // emulation is pure black or pure white rather than the app's #070b10.
+    expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(painted);
+  });
+
+  test("every control that is drawn in dark is still drawn", async ({
+    page,
+  }) => {
+    // What a pinned screenshot would be standing in for, said as a property
+    // that can actually fail.
+    //
+    // The way a control really disappears under a contrast theme is by
+    // opting out of the repaint and then having no ink: `color: transparent`
+    // on its own cannot do it, because the system paints over it. So this
+    // catches exactly the mistake the `forced-color-adjust: none` list above
+    // makes possible, which is the one worth catching.
+    await openSurface(page, "layers");
+    const invisible = await page.evaluate(() => {
+      const parse = (colour: string) =>
+        (colour.match(/[\d.]+/g) ?? []).map(Number);
+      const opaque = (colour: string) => {
+        const parts = parse(colour);
+        return parts.length < 4 || parts[3] > 0.05;
+      };
+      const gone: string[] = [];
+      const controls = document.querySelectorAll<HTMLElement>(
+        ".command-bar button, .surface-panel button, .surface-panel input",
+      );
+      for (const node of controls) {
+        const box = node.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        const style = getComputedStyle(node);
+        if (!opaque(style.color)) {
+          gone.push(
+            `${node.getAttribute("aria-label") ?? node.textContent?.trim() ?? "?"}: ink ${style.color}`,
+          );
+          continue;
+        }
+        // A border or a background is what tells one control from the next
+        // once every colour is the system's.
+        const bordered =
+          Number.parseFloat(style.borderTopWidth) > 0 ||
+          Number.parseFloat(style.outlineWidth) > 0;
+        if (!bordered && !opaque(style.backgroundColor)) continue;
+      }
+      return gone;
+    });
+    expect(invisible).toEqual([]);
+  });
+
+  test("a reading keeps its own colours", async ({ page }) => {
+    // The rule the whole block turns on: a button is decoration and belongs
+    // to the system's look, a reflectivity ramp is a reading and does not.
+    // Repainted in ButtonText every band of it says the same thing, which is
+    // nothing at all.
+    const ramp = page.locator(".legend-ramp");
+    await expect(ramp).toBeVisible();
+    expect(
+      await ramp.evaluate((node) => getComputedStyle(node).forcedColorAdjust),
+    ).toBe("none");
+  });
+
+  test("says the system is choosing, rather than offering a dead button", async ({
+    page,
+  }) => {
+    await openSurface(page, "settings");
+    const note = page.locator("[data-forced-colours]");
+    await expect(note).toBeVisible();
+    await expect(note).toContainText("contrast theme");
+    await expect(
+      page.getByRole("button", { name: "Light", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Dark", exact: true }),
+    ).toBeDisabled();
+  });
+});

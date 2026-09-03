@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- Windows contrast themes are honoured properly. Turning one on repaints every background, border and text in the system's own colours, and the workspace was still trying to draw its own underneath: the active button on the rail came out at 2.4 to 1 on white. The chrome now takes the system's colours and the readings keep theirs, which is the line that matters. A reflectivity ramp, a warning outline, a colour chip in a popup and a storm's track swatch all mean something by being that colour, and repainted they would all mean the same thing. Settings says the system is choosing while it is on, instead of offering light and dark buttons that do nothing.
+
 - Restore a saved workspace from Settings, beside the button that saved it. Putting one back already worked, and only if you knew to drop the file on the Upload panel, which nothing next to Save said. It reads the file the same way either way, so a backup from a newer build still tells you what it could not restore and Undo is still there. Anything that is not a saved workspace is refused and says so: the Upload panel takes a map file or a colour table and puts it on the map, and this button does not pretend to be that one.
 
 - Settings says how much the app is keeping on disk, and empties it when you ask. It keeps what it has drawn so a launch with no network opens on the last view you saw, and it evicts as it fills, but until now the number was buried in Diagnostics and the only way to empty it was to find the folder yourself. Your offline packs and saved replays are separate and are left alone. The toast says how much came back, and if you are offline it says what that cost you: the last view goes with it.

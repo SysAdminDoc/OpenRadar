@@ -23,6 +23,14 @@
  *   Surface: rgba(14, 20, 30, 0.94)
  *   Shadow: 0 18px 45px rgba(0, 0, 0, 0.4)
  *   HeadingWeight: 700
+ *
+ * A theme yields to the system. Under a Windows contrast theme the browser
+ * repaints every background, border and text in its own small palette, and
+ * `@media (forced-colors: active)` in `index.css` sets these same tokens to
+ * the system's colours after any theme has written them: nothing here is
+ * drawn while that is on. The settings panel says so and disables the light
+ * and dark buttons rather than offering two that do nothing. The readings,
+ * which were never these tokens' business, opt out of the repaint instead.
  */
 import type { ThemeMode } from "./settings";
 
