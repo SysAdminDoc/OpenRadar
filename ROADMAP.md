@@ -78,13 +78,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-173 (P2): Read radar site status from the NWS rather than inferring it from archive freshness
-  Why: The site picker passes over a "down" site by watching whether new archive objects appear, which lags a real outage by minutes and cannot say why; the NWS publishes every RDA's status, operability, alarms and the time Level II was last received.
-  Evidence: Verified live 2026-09-02: `https://api.weather.gov/radar/stations` (208 features: 159 WSR-88D, 45 TDWR; `properties.rda.properties.status` Operate|Start-Up, `operabilityStatus`, `alarmSummary`, `mode`, `buildNumber`, `latency.levelTwoLastReceivedTime`; CORS `*`, `max-age=120`; KGLD in Start-Up since 2026-08-24); `src-tauri/src/level2.rs:320-323` `LIVENESS` from archive freshness.
-  Touches: `src-tauri/src/level2.rs` (`sites_in_reach` consults status), new `src/lib/radarStatus.ts`, `src/panels/RadarProductPanel.tsx` (site list marks down sites and says since when), `src/lib/diagnostics.ts`, live contract for the endpoint (host already allowed).
-  Acceptance: A site whose RDA is not `Operate` or whose Level II is older than fifteen minutes is greyed in the picker with the reason and skipped by the nearest-site choice; the legend for a held site says when Level II was last received when that exceeds ten minutes; the status is refreshed at most every two minutes and only while a site view is open.
-  Complexity: S
-
 - [ ] AUD-174 (P2): MRMS flash-flood family: QPE-to-FFG ratio, unit streamflow and gauge-corrected QPE
   Why: Flood is the deadliest US hazard and the app's flood story is river gauges and a 1-hour radar-only QPE; the FLASH products say where rain is beating the flash-flood guidance right now, on the same bucket and packing the decoder already reads.
   Evidence: Verified live 2026-09-02 (bucket listing plus section-5 template of the newest files): `FLASH_QPE_FFG01H_00.00` (2-min, 24-bit, also FFG03H/06H/MAX), `FLASH_QPE_ARI01H_00.00`, `FLASH_HP_MAXUNITSTREAMFLOW_00.00` (10-min), `MultiSensor_QPE_01H_Pass2_00.00` and `_24H_`/`_72H_` (hourly), all discipline 209, template 3.0, packing 5.41; units and missing values in the NSSL table (FFG ratio non-dimensional, missing -999; unit streamflow m³/s/km², missing -9999; QPE mm, missing -1).
@@ -282,3 +275,10 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Touches: `src/hooks/useSingleSiteRadar.ts` (hold the moment beside the picture and expose it with the series), `src/hooks/useExport.ts`, `src/lib/provenance.ts` if the sweep builder should take both.
   Acceptance: An exported loop of a held site says per volume when that volume reached this machine; a volume drawn from the loop's own held pictures carries how long it had been held rather than a null.
   Complexity: S
+
+- [ ] AUD-203 (P2): A picker that lists the sites in reach, not only the airports
+  Why: `AUD-173` greys a radar the office is not hearing from and says why, but the site picker only ever offers "Follow the map", "Hold <the one on screen>" and the forty-five terminal radars. There is no list of the WSR-88D sites covering the view, so the reason a nearby radar is unavailable is only ever seen if the reader happens to be held on it, and choosing the second-nearest site during an outage is impossible without pinning a call sign by hand.
+  Evidence: `src/panels/RadarProductPanel.tsx` site `select` (the `radar.site` row) holds exactly those three groups; `src-tauri/src/level2.rs` `sites_in_reach` already computes the covering sites nearest-first and hands out only the winner through `level2_nearest_site`.
+  Touches: `src-tauri/src/level2.rs` (a command that answers the sites in reach with their distances rather than only the nearest), `src/lib/level2.ts`, `src/panels/RadarProductPanel.tsx` (an optgroup of sites in reach, each with its distance and, when the office says so, its fault), `src/hooks/useSingleSiteRadar.ts` if the list should follow the view.
+  Acceptance: The picker lists every site whose coverage reaches the view, nearest first, with its distance; a site the office reports as restarting or silent is greyed with that reason; choosing one holds it; the list is asked for at most once per coarse position, the way the nearest-site search already is.
+  Complexity: M

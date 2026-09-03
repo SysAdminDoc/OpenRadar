@@ -25,6 +25,7 @@ import {
   type ClassificationProduct,
 } from "../lib/classification";
 import { soonestArrival } from "../lib/cells";
+import { faultReason, statusFor, type SiteStatus } from "../lib/radarStatus";
 import { rangeFill } from "../lib/rangeFill";
 import {
   TDWR_SITES,
@@ -78,6 +79,15 @@ interface RadarProductPanelProps {
   stormCells: StormCellState;
   /** The place the reader asked to be told about. */
   watch: WatchState;
+  /**
+   * What the office says about every radar, or empty where nobody asked.
+   *
+   * The picker offers sites the reader can hold, and a radar that is
+   * restarting or has sent nothing for a day is a choice that draws nothing.
+   * Saying so beside the name is the difference between a picker that looks
+   * broken and one that explains itself.
+   */
+  siteStatus: readonly SiteStatus[];
   onRadar: (radar: RadarSettings) => void;
   onClose: () => void;
 }
@@ -108,6 +118,7 @@ export function RadarProductPanel({
   singleSite,
   stormCells,
   watch,
+  siteStatus,
   onRadar,
   onClose,
 }: RadarProductPanelProps) {
@@ -117,6 +128,15 @@ export function RadarProductPanel({
   );
   const [archiveAt, setArchiveAt] = useState(() => utcInputValue(clock));
   const sweep = singleSite?.sweep ?? null;
+  // Why a site is not worth holding, in the reader's own language, and the
+  // name with that reason after it. Both here rather than in the markup
+  // because the picker asks the same two questions of every option in it.
+  const faultOf = (station: string) =>
+    faultReason(statusFor(siteStatus, station), clock);
+  const siteLabel = (name: string, station: string) => {
+    const why = faultOf(station);
+    return why ? t("radar.siteWithFault", { site: name, reason: why }) : name;
+  };
   const productUnit =
     LEVEL2_PRODUCTS.find((product) => product.id === radar.product)?.unit ?? "";
   const threshold = radar.thresholds[radar.product] ?? null;
@@ -729,15 +749,31 @@ export function RadarProductPanel({
                   <option value="">{t("radar.followMap")}</option>
                   {sweep && sweep.radar !== "TDWR" ? (
                     <option value={sweep.station}>
-                      {t("radar.hold", { station: sweep.station })}
+                      {siteLabel(
+                        t("radar.hold", { station: sweep.station }),
+                        sweep.station,
+                      )}
                     </option>
                   ) : null}
                   {/* The airports' own radars, which the nearest-site search
                       never hands over: a reader names one to hold it. */}
                   <optgroup label={t("radar.terminalRadars")}>
                     {TDWR_SITES.map((site) => (
-                      <option key={site.id} value={site.id}>
-                        {site.id} · {site.name}, {site.state}
+                      <option
+                        key={site.id}
+                        value={site.id}
+                        // Never the one already chosen. A select whose
+                        // selected option is disabled shows an empty box, so
+                        // greying a site the reader is holding would take the
+                        // name of what they are looking at off the screen.
+                        disabled={
+                          site.id !== radar.station && Boolean(faultOf(site.id))
+                        }
+                      >
+                        {siteLabel(
+                          `${site.id} · ${site.name}, ${site.state}`,
+                          site.id,
+                        )}
                       </option>
                     ))}
                   </optgroup>

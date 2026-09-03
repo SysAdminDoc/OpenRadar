@@ -354,6 +354,15 @@ async function fakeNativeSide(page: Page) {
                 .reverse(),
             );
           }
+          if (command === "radar_status") {
+            // Whatever a spec planted, and nobody down otherwise. The picker
+            // greys a site the office is not hearing from, and a spec about
+            // tilts or products must not have its options disappear.
+            return Promise.resolve(
+              (window as unknown as { __radarStatus?: unknown[] })
+                .__radarStatus ?? [],
+            );
+          }
           if (command === "mrms_frames") {
             // Only for a spec that plants one. The rest of this file lets the
             // chain fall through to the mosaics it already stubs over the

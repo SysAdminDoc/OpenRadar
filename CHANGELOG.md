@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.9.0
 
+- The app asks the weather service whether a radar is actually running, instead of guessing from whether new files have shown up. It used to wait for an upload to fail to arrive, which is minutes after a radar stops and says nothing about why. Now a site that is restarting after a power cut, or that nothing has been heard from for a day, is passed over when the map picks the nearest radar, and greyed in the site list with the reason beside its name. The afternoon this was written that was five radars, one of them silent since 13 August.
+
+- A radar you are holding that goes quiet says so. The picture stays, because the last volume is still the last thing anybody knows, but the legend says how long it has been since the office heard anything, so a still map cannot pass for a calm sky.
+
 - The legend says which of a site's volumes you are looking at. Scrub back over a held radar and it reads the volume's position in the loop and the time that volume was collected, instead of the one word "historical", which is what the app says when you have opened a file from the archive yourself and left the present behind. Scrubbing has not left the present, and a radar's volumes are five minutes apart against the timeline's two, so the step above the map and the picture under it were saying different things.
 
 - How far back a held site's loop reaches is yours to set, from one volume to thirty. It was fixed at ten with no way to change it.

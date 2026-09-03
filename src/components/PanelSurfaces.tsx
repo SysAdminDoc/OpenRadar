@@ -69,6 +69,7 @@ import { GuidancePanel } from "../panels/GuidancePanel";
 import { TidesPanel } from "../panels/TidesPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
 import { RadarProductPanel } from "../panels/RadarProductPanel";
+import type { SiteStatus } from "../lib/radarStatus";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { TropicalPanel } from "../panels/TropicalPanel";
@@ -106,6 +107,8 @@ interface PanelSurfacesProps {
   /** The readings behind the picture, one entry per dataset drawn. */
   dataExports: DataExportOffer[];
   singleSite: SingleSiteState | null;
+  /** What the office says about every radar, for the site picker. */
+  siteStatus: readonly SiteStatus[];
   /**
    * What a switched-on layer has to say for itself when it is not drawing.
    *
@@ -434,6 +437,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           singleSite={props.singleSite}
           stormCells={props.stormCells}
           watch={settings.watch}
+          siteStatus={props.siteStatus}
           clock={props.clock}
           onRadar={props.onRadar}
           onClose={props.onCloseProduct}

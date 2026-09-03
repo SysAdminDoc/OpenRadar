@@ -26,6 +26,7 @@ mod lightning;
 mod mrms;
 mod palette;
 mod probsevere;
+mod radar_status;
 mod sound;
 mod tdwr;
 mod tiles;
@@ -232,6 +233,7 @@ pub fn run() {
             level3::level3_cells,
             level3::level3_classification,
             probsevere::probsevere_reading,
+            radar_status::radar_status,
             mrms::mrms_frames,
             mrms::mrms_products,
             lightning::lightning_flashes,

@@ -96,6 +96,17 @@ export const LIVE_CONTRACTS = [
     required: true,
   },
   {
+    id: "radar-status",
+    label: "NWS radar station status",
+    host: "api.weather.gov",
+    kind: "native",
+    filter: "radar_status::tests",
+    // Not required to pass. The status feed going quiet costs the picker its
+    // reasons and the nearest-site choice its head start; it does not stop a
+    // radar being drawn, because the archive walk behind it still works.
+    required: false,
+  },
+  {
     id: "tiles",
     label: "The cached tile scheme, end to end",
     host: "opengeo.ncep.noaa.gov",
@@ -255,8 +266,6 @@ export const UNCONTRACTED_HOSTS = {
     "Not weather. A quiet day genuinely returns nothing, so there is no answer a contract could insist on.",
   "services3.arcgis.com":
     "Wildfire perimeters, which are seasonal and regional: an empty answer in February is correct.",
-  "api.weather.gov":
-    "Reached only to open one alert the reader clicked, so it has no standing query to check.",
   "geocoding-api.open-meteo.com":
     "Place search, which needs a query somebody typed. A fixed one would prove the service answers for that word and nothing else.",
   "valhalla1.openstreetmap.de":

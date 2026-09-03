@@ -2,8 +2,18 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import { RadarProductPanel } from "./RadarProductPanel";
+import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
+import type { SiteStatus } from "../lib/radarStatus";
 
 afterEach(cleanup);
+
+const CELLS = {
+  report: null,
+  features: null,
+  rotating: new Set<string>(),
+  loading: false,
+  error: null,
+};
 
 describe("radar product mode", () => {
   it("shows the mosaic choice truthfully and leaves single-site mode", () => {
@@ -18,6 +28,7 @@ describe("radar product mode", () => {
         radar={radar}
         clock={Date.now()}
         singleSite={null}
+        siteStatus={[]}
         stormCells={{
           report: null,
           features: null,
@@ -39,5 +50,95 @@ describe("radar product mode", () => {
     expect(onRadar).toHaveBeenCalledWith(
       expect.objectContaining({ enabled: true, singleSite: false }),
     );
+  });
+});
+
+describe("the site picker and what the office says", () => {
+  /** Enough of the hook's answer for the picker to draw itself. */
+  const singleSite = {
+    sweep: null,
+    station: "KDMX",
+    loading: false,
+    error: null,
+    active: false,
+    loop: null,
+    volumes: [],
+    historical: false,
+    mode: "recent",
+    openLocal: async () => false,
+    openArchive: async () => false,
+    resumeRecent: () => {},
+    crossSection: null,
+    exportValues: null,
+  } as unknown as SingleSiteState;
+
+  function picker(siteStatus: SiteStatus[], station: string | null = null) {
+    render(
+      <RadarProductPanel
+        radar={{ ...DEFAULT_SETTINGS.radar, singleSite: true, station }}
+        clock={Date.parse("2026-09-03T02:06:00Z")}
+        singleSite={singleSite}
+        siteStatus={siteStatus}
+        stormCells={CELLS}
+        watch={DEFAULT_SETTINGS.watch}
+        onRadar={vi.fn()}
+        onClose={() => {}}
+      />,
+    );
+    return screen.getByRole("combobox", { name: /radar site/i });
+  }
+
+  function option(name: RegExp) {
+    return screen
+      .getAllByRole("option")
+      .find((one) => name.test(one.textContent ?? ""));
+  }
+
+  it("leaves every site choosable when nobody has said otherwise", () => {
+    // An empty answer is a feed that has not arrived, not a network with
+    // nothing wrong, and it must never grey anything out.
+    picker([]);
+    expect(option(/^TBWI/)?.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("greys a radar the office is not hearing from, and says why", () => {
+    // TSDF had sent nothing for twenty days the afternoon this was written.
+    // Offered plainly, it is a choice that draws an empty map with no
+    // explanation anywhere on screen.
+    picker([
+      {
+        station: "TSDF",
+        status: "Operate",
+        operability: "RDA - On-line",
+        levelTwoAt: "2026-08-13T13:58:38+00:00",
+        fault: "noRecentData",
+      },
+    ]);
+    const down = option(/^TSDF/);
+    expect(down?.hasAttribute("disabled")).toBe(true);
+    expect(down?.textContent).toContain("nothing received for");
+    // Its neighbours are untouched.
+    expect(option(/^TBWI/)?.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("never greys the site the reader is already holding", () => {
+    // A select whose selected option is disabled draws an empty box, so
+    // greying the site on screen would take the name of what they are looking
+    // at off the screen. The reason still shows.
+    const held = option.bind(null, /^TSDF/);
+    picker(
+      [
+        {
+          station: "TSDF",
+          status: "Start-Up",
+          operability: "RDA - On-line",
+          levelTwoAt: "2026-09-03T02:05:00+00:00",
+          fault: "notOperating",
+        },
+      ],
+      "TSDF",
+    );
+    expect(held()?.hasAttribute("disabled")).toBe(false);
+    expect(held()?.textContent).toContain("Start-Up");
   });
 });
