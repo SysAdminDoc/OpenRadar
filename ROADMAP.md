@@ -113,13 +113,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: A place with a lightning rule announces once when flashes within its radius exceed the count in the window and once when the window has been quiet for thirty minutes; the notice says the flashes are satellite-detected, not ground strike reports; the watch's health line covers this poll; a fixture e2e plants flashes inside and outside the radius.
   Complexity: M
 
-- [ ] AUD-180 (P2): County boundaries as a switchable layer, bundled
-  Why: Supercell Wx #14 (three reactions) and every GRLevelX and RadarScope map draw counties, because warnings and storm reports are read by county; none of the eight map styles here has them.
-  Evidence: `src/lib/mapStyles.ts:16-59` and the OpenFreeMap styles carry no US county lines; US Census `cb_2024_us_county_20m.zip` is 879 KB (2025-04-10) and public domain; the app already bundles HURDAT and tide stations the same way.
-  Touches: `scripts/build-counties.mjs` (shapefile to simplified GeoJSON or PMTiles under `public/`), `src/lib/mapLayers/vector.ts`, `src/lib/layerStack.ts` (under overlays, over the basemap), `src/panels/MapOptionsPanels.tsx`, `docs/asset-ledger.md` (bundled row), `scripts/bundle-budget.mjs` if it lands in a chunk.
-  Acceptance: A Counties switch draws state and county lines that follow the theme's line token and thicken under high contrast, off by default, at or below one megabyte on disk, with the Census credit in the ledger; the layer is in the provenance table and the layer-stack test.
-  Complexity: S
-
 - [ ] AUD-181 (P2): KML and KMZ import in the Upload panel
   Why: Supercell Wx #655 asks for it, NHC and NWS publish shapefiles and KML, and the app already parses HMS placemarks from KML for the smoke layer, so the parser is half built and unshared.
   Evidence: `src/lib/workspaceOverlays.ts:46` and `src/panels/UtilityPanels.tsx:63` accept GeoJSON, placefile and `.pal`; `src/lib/overlays/smoke.ts` parses KML placemarks inline.

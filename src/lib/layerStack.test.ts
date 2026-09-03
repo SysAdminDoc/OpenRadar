@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  CELL_LAYER_IDS,
+  COUNTY_LAYER_ID,
   CUSTOM_LAYER_IDS,
   layerStackOrder,
+  MRMS_LAYER_IDS,
   RADAR_LANE_LAYER_IDS,
+  SATELLITE_LAYER_ID,
   stackHeight,
+  SWEEP_LAYER_ID,
+  TOOL_LAYER_IDS,
   topmost,
 } from "./layerStack";
 import { OVERLAY_ADAPTERS } from "./overlays/index";
@@ -105,6 +111,42 @@ describe("guidance never sits in front of a decision", () => {
           stackHeight(order, guess),
         );
       }
+    }
+  });
+});
+
+describe("reference geography is not weather", () => {
+  it("draws county lines over every picture of the sky", () => {
+    // The whole point of them: reading which county a storm is in. Under the
+    // radar they are invisible wherever it matters.
+    const order = layerStackOrder([]);
+    for (const under of [
+      SATELLITE_LAYER_ID,
+      SWEEP_LAYER_ID,
+      ...RADAR_LANE_LAYER_IDS,
+      ...MRMS_LAYER_IDS,
+    ]) {
+      expect(
+        stackHeight(order, COUNTY_LAYER_ID),
+        `counties over ${under}`,
+      ).toBeGreaterThan(stackHeight(order, under));
+    }
+  });
+
+  it("keeps them under anything a person drew or a service published", () => {
+    // A boundary that hid a warning polygon would be the one arrangement the
+    // panel refuses to let anybody make by hand.
+    const order = layerStackOrder(["openradar-overlay-alerts"]);
+    for (const over of [
+      "openradar-overlay-alerts",
+      ...CUSTOM_LAYER_IDS,
+      ...CELL_LAYER_IDS,
+      ...TOOL_LAYER_IDS,
+    ]) {
+      expect(
+        stackHeight(order, COUNTY_LAYER_ID),
+        `counties under ${over}`,
+      ).toBeLessThan(stackHeight(order, over));
     }
   });
 });

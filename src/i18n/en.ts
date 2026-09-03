@@ -660,11 +660,15 @@ export const en = {
   "layer.qpeHour": "Rain, Past Hour",
   "layers.qpeHourDetail": "How much has fallen in the last hour",
   "layer.qpeDay": "Rain, Past Day",
+  "layer.counties": "Counties",
   "layer.gaugeQpe": "Rain, gauge corrected",
   "layer.unitStreamflow": "Modelled runoff",
   "layer.ffgThreeHour": "Flash flood guidance, 3 h",
   "layer.ffgHour": "Flash flood guidance, 1 h",
   "layers.qpeDayDetail": "How much has fallen since this time yesterday",
+  "counties.failed": "The county outlines could not be read.",
+  "layers.countiesDetail":
+    "County and state lines, which is how warnings and storm reports are worded.",
   "layers.gaugeQpePeriod": "How far back",
   "layers.gaugeQpeDetail":
     "Radar rainfall pulled back towards what the reporting rain gauges actually caught. Closer to the truth than radar alone, and still an estimate everywhere a gauge is not.",
@@ -808,6 +812,7 @@ export const en = {
   "keywords.precipRate": "rain rate intensity",
   "keywords.qpeHour": "accumulation hour rainfall",
   "keywords.qpeDay": "accumulation day rainfall",
+  "keywords.counties": "county borders boundaries state lines",
   "keywords.gaugeQpe": "gauge corrected accumulation multisensor",
   "keywords.unitStreamflow": "runoff streamflow flood water",
   "keywords.ffgThreeHour": "flash flood guidance three hours ratio",

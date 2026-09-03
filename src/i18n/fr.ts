@@ -678,11 +678,15 @@ export const fr: Catalogue = {
   "layer.qpeHour": "Pluie, dernière heure",
   "layers.qpeHourDetail": "Ce qui est tombé depuis une heure",
   "layer.qpeDay": "Pluie, dernier jour",
+  "layer.counties": "Comtés",
   "layer.gaugeQpe": "Pluie, corrigée par les pluviomètres",
   "layer.unitStreamflow": "Ruissellement modélisé",
   "layer.ffgThreeHour": "Seuil de crue soudaine, 3 h",
   "layer.ffgHour": "Seuil de crue soudaine, 1 h",
   "layers.qpeDayDetail": "Ce qui est tombé depuis hier à la même heure",
+  "counties.failed": "Les limites de comtés n'ont pas pu être lues.",
+  "layers.countiesDetail":
+    "Limites de comtés et d'États, la façon dont les alertes et les signalements sont formulés.",
   "layers.gaugeQpePeriod": "Sur quelle durée",
   "layers.gaugeQpeDetail":
     "La pluie vue par le radar, ramenée vers ce que les pluviomètres ont réellement recueilli. Plus proche du réel que le radar seul, et toujours une estimation partout où il n'y a pas de pluviomètre.",
@@ -829,6 +833,7 @@ export const fr: Catalogue = {
   "keywords.precipRate": "taux pluie intensité",
   "keywords.qpeHour": "accumulation heure précipitation",
   "keywords.qpeDay": "accumulation jour précipitation",
+  "keywords.counties": "limites frontieres etats departements",
   "keywords.gaugeQpe": "cumul multisensor pluie mesuree",
   "keywords.unitStreamflow": "ruissellement debit crue eau",
   "keywords.ffgThreeHour": "seuil crue trois heures rapport",

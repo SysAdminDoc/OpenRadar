@@ -161,6 +161,8 @@ export interface LayerSettings {
   qpeHour: boolean;
   qpeDay: boolean;
   /** Rain against the guidance for flash flooding, over one hour and three. */
+  /** County and state lines, which is how warnings are read. */
+  counties: boolean;
   /** Rain measured by radar and corrected against the rain gauges. */
   gaugeQpe: boolean;
   ffgHour: boolean;
@@ -570,6 +572,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     precipRate: false,
     qpeHour: false,
     qpeDay: false,
+    counties: false,
     gaugeQpe: false,
     ffgHour: false,
     ffgThreeHour: false,
@@ -1515,6 +1518,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       precipRate: bool(layers.precipRate, DEFAULT_SETTINGS.layers.precipRate),
       qpeHour: bool(layers.qpeHour, DEFAULT_SETTINGS.layers.qpeHour),
       qpeDay: bool(layers.qpeDay, DEFAULT_SETTINGS.layers.qpeDay),
+      counties: bool(layers.counties, DEFAULT_SETTINGS.layers.counties),
       gaugeQpe: bool(layers.gaugeQpe, DEFAULT_SETTINGS.layers.gaugeQpe),
       ffgHour: bool(layers.ffgHour, DEFAULT_SETTINGS.layers.ffgHour),
       ffgThreeHour: bool(

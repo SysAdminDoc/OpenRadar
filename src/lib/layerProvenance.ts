@@ -236,6 +236,19 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "estimated rain accumulated over twenty-four hours",
     freshForMs: MRMS_REFRESH,
   },
+  counties: {
+    sourceId: "census-counties",
+    label: "US Census cartographic boundaries",
+    attribution: "US Census Bureau",
+    // Neither observed nor forecast: it is where the lines are. Reported as
+    // derived because the outlines are the Census's own generalisation of the
+    // survey boundaries rather than the boundaries themselves, and the record
+    // says which vintage.
+    kind: "derived",
+    derivedFrom: "cartographic boundary outlines, 1:20,000,000, 2024 vintage",
+    // Nothing about a county line goes stale between vintages.
+    freshForMs: null,
+  },
   gaugeQpe: {
     sourceId: "gauge-qpe",
     label: "Rain, gauge corrected",

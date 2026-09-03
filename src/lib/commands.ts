@@ -181,6 +181,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["qpe", "accumulation", "day", "24", "how much"],
   },
   {
+    layer: "counties",
+    key: "layer.counties",
+    extra: "keywords.counties",
+    keywords: ["county", "counties", "state", "borders", "boundaries"],
+  },
+  {
     layer: "gaugeQpe",
     key: "layer.gaugeQpe",
     extra: "keywords.gaugeQpe",
