@@ -196,6 +196,7 @@ describe("settings normalization", () => {
       "ffgHour",
       "ffgThreeHour",
       "forecastSmoke",
+      "gaugeQpe",
       "hail",
       "hailSwath",
       "lightningDensity",

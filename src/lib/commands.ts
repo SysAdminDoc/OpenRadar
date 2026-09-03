@@ -181,6 +181,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["qpe", "accumulation", "day", "24", "how much"],
   },
   {
+    layer: "gaugeQpe",
+    key: "layer.gaugeQpe",
+    extra: "keywords.gaugeQpe",
+    keywords: ["qpe", "gauge", "corrected", "accumulation", "how much"],
+  },
+  {
     layer: "ffgHour",
     key: "layer.ffgHour",
     extra: "keywords.ffgHour",

@@ -36,6 +36,7 @@ import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
 import { rangeFill } from "../lib/rangeFill";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
+import { GAUGE_QPE_PERIODS, type GaugeQpePeriod } from "../lib/gaugeQpe";
 import {
   distanceSlider,
   distanceUnit,
@@ -252,6 +253,8 @@ interface LayersPanelProps {
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
   onSatelliteProduct: (product: SatelliteProductId) => void;
+  gaugeQpePeriod: GaugeQpePeriod;
+  onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   onClose: () => void;
 }
 
@@ -400,6 +403,12 @@ const LAYER_OPTIONS: Array<{
     icon: Umbrella,
   },
   {
+    key: "gaugeQpe",
+    labelKey: "layer.gaugeQpe",
+    detailKey: "layers.gaugeQpeDetail",
+    icon: Umbrella,
+  },
+  {
     key: "ffgHour",
     labelKey: "layer.ffgHour",
     detailKey: "layers.ffgHourDetail",
@@ -470,6 +479,8 @@ export function LayersPanel({
   onAlertTypes,
   onSurgeCategory,
   satelliteProduct,
+  gaugeQpePeriod,
+  onGaugeQpePeriod,
   onSatelliteProduct,
   onClose,
 }: LayersPanelProps) {
@@ -781,6 +792,34 @@ export function LayersPanel({
                 onClick={() => onSatelliteProduct(product.id)}
               >
                 {t(product.key)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.gaugeQpe ? (
+        <div
+          className="settings-section"
+          data-gauge-qpe-period={gaugeQpePeriod}
+        >
+          <div className="settings-section__title">
+            <span>{t("layers.gaugeQpePeriod")}</span>
+            <small>{t("layers.gaugeQpeDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.gaugeQpePeriod")}
+          >
+            {GAUGE_QPE_PERIODS.map((period) => (
+              <button
+                key={period}
+                type="button"
+                className={gaugeQpePeriod === period ? "is-active" : ""}
+                aria-pressed={gaugeQpePeriod === period}
+                onClick={() => onGaugeQpePeriod(period)}
+              >
+                {t(`gaugeQpe.${period}`)}
               </button>
             ))}
           </div>

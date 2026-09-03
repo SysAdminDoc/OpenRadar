@@ -78,13 +78,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-174 (P2): MRMS flash-flood family: QPE-to-FFG ratio, unit streamflow and gauge-corrected QPE
-  Why: Flood is the deadliest US hazard and the app's flood story is river gauges and a 1-hour radar-only QPE; the FLASH products say where rain is beating the flash-flood guidance right now, on the same bucket and packing the decoder already reads.
-  Evidence: Verified live 2026-09-02 (bucket listing plus section-5 template of the newest files): `FLASH_QPE_FFG01H_00.00` (2-min, 24-bit, also FFG03H/06H/MAX), `FLASH_QPE_ARI01H_00.00`, `FLASH_HP_MAXUNITSTREAMFLOW_00.00` (10-min), `MultiSensor_QPE_01H_Pass2_00.00` and `_24H_`/`_72H_` (hourly), all discipline 209, template 3.0, packing 5.41; units and missing values in the NSSL table (FFG ratio non-dimensional, missing -999; unit streamflow m³/s/km², missing -9999; QPE mm, missing -1).
-  Touches: `src-tauri/src/mrms.rs` `PRODUCTS` (:418-540), `src/lib/providers/mrms.ts` `MRMS_PRODUCT_IDS`, ramps with the colour-vision measurement test, `src/lib/legend.ts`, `src/lib/mosaicLegend.ts`, `src/hooks/useMrmsOverlays.ts`, three catalogues, `every_product_decodes` live test.
-  Acceptance: Four new products (FFG ratio 1h and 3h, unit streamflow, gauge-corrected QPE 1h/24h/72h as one product with a period switch) draw with legends that read a ratio of 1.0 as "rain equals guidance"; each passes the colour-vision floor; provenance says `observation` with the product's own cadence; the live test prints values against each ramp.
-  Complexity: M
-
 - [ ] AUD-175 (P2): MRMS rotation and hail families: merged azimuthal shear, rotation-track durations, VIL density, SHI, POSH, VII
   Why: The app ships one rotation track (60 minutes) and MESH; RadarScope sells shear and hail contours at Tier 2 and WeatherFront at Advanced; the missing grids are on the same bucket.
   Evidence: Verified live 2026-09-02: `MergedAzShear_0-2kmAGL_00.50` and `_3-6kmAGL_` (2-min, 0.005°, 14000x7000, 8-bit), `RotationTrackML{30,120,240,1440}min` and non-ML variants, `VIL_Density_00.50`, `SHI_00.50`, `POSH_00.50`, `VII_00.50`, all template 5.41; `mrms.rs:431` holds only `RotationTrack60min_00.50`; WDTD says mid-level AzShear above 0.01 s⁻¹ is a deep mesocyclone signal.

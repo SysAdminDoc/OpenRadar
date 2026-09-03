@@ -21,6 +21,7 @@ import {
   SATELLITE_PRODUCTS,
   type SatelliteProductId,
 } from "./providers/satellite";
+import { isGaugeQpePeriod, type GaugeQpePeriod } from "./gaugeQpe";
 import {
   parseTheme,
   themeText,
@@ -160,6 +161,8 @@ export interface LayerSettings {
   qpeHour: boolean;
   qpeDay: boolean;
   /** Rain against the guidance for flash flooding, over one hour and three. */
+  /** Rain measured by radar and corrected against the rain gauges. */
+  gaugeQpe: boolean;
   ffgHour: boolean;
   ffgThreeHour: boolean;
   /** What the flash flood model has running off each square kilometre. */
@@ -351,6 +354,8 @@ export interface AppSettings {
    * about a storm top.
    */
   satelliteProduct: SatelliteProductId;
+  /** Which window the gauge-corrected accumulation covers. */
+  gaugeQpePeriod: GaugeQpePeriod;
   /**
    * Places beside home, up to nine of them, so home plus these is ten. Kept
    * as its own key rather than folded into `watch`, which every build since
@@ -565,6 +570,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     precipRate: false,
     qpeHour: false,
     qpeDay: false,
+    gaugeQpe: false,
     ffgHour: false,
     ffgThreeHour: false,
     unitStreamflow: false,
@@ -591,6 +597,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   followNewWarnings: false,
   satelliteProduct: "geocolor",
+  gaugeQpePeriod: "24h",
   presets: [null, null, null, null],
   incidentPacks: {
     diskLimitMb: 4096,
@@ -1508,6 +1515,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       precipRate: bool(layers.precipRate, DEFAULT_SETTINGS.layers.precipRate),
       qpeHour: bool(layers.qpeHour, DEFAULT_SETTINGS.layers.qpeHour),
       qpeDay: bool(layers.qpeDay, DEFAULT_SETTINGS.layers.qpeDay),
+      gaugeQpe: bool(layers.gaugeQpe, DEFAULT_SETTINGS.layers.gaugeQpe),
       ffgHour: bool(layers.ffgHour, DEFAULT_SETTINGS.layers.ffgHour),
       ffgThreeHour: bool(
         layers.ffgThreeHour,
@@ -1547,6 +1555,9 @@ export function normalizeSettings(value: unknown): AppSettings {
     )
       ? (raw.satelliteProduct as SatelliteProductId)
       : DEFAULT_SETTINGS.satelliteProduct,
+    gaugeQpePeriod: isGaugeQpePeriod(raw.gaugeQpePeriod)
+      ? raw.gaugeQpePeriod
+      : DEFAULT_SETTINGS.gaugeQpePeriod,
     watchPlaces: normalizeWatchPlaces(raw.watchPlaces),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
     overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),

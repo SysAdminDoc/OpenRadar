@@ -915,6 +915,7 @@ export default function App() {
     layers: settings.layers,
     pageVisible,
     paletteGeneration,
+    gaugeQpePeriod: settings.gaugeQpePeriod,
   });
   const lightning = useLightning({
     ready: hydrated,
@@ -2317,6 +2318,9 @@ export default function App() {
             }
             onSurgeCategory={(surgeCategory) =>
               applySettings({ ...settingsRef.current, surgeCategory })
+            }
+            onGaugeQpePeriod={(gaugeQpePeriod) =>
+              applySettings({ ...settingsRef.current, gaugeQpePeriod })
             }
             onSatelliteProduct={(satelliteProduct) =>
               applySettings({ ...settingsRef.current, satelliteProduct })

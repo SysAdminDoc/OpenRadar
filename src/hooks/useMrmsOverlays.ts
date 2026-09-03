@@ -6,9 +6,11 @@ import {
   mrmsProducts,
   tileRoot,
   tileUrl,
+  GAUGE_QPE_PRODUCTS,
   type MrmsProductId,
   type MrmsProductInfo,
 } from "../lib/providers/mrms";
+import type { GaugeQpePeriod } from "../lib/gaugeQpe";
 import type { LayerSettings } from "../lib/settings";
 import type { StringKey } from "../i18n";
 import { useHighContrast } from "./useClock";
@@ -30,6 +32,10 @@ export const MRMS_LAYERS: Array<{
   { layer: "precipRate", product: "precip-rate" },
   { layer: "qpeHour", product: "qpe-hour" },
   { layer: "qpeDay", product: "qpe-day" },
+  // The product behind this one is whichever period the reader has chosen;
+  // the entry names the default so the table stays a plain map, and the hook
+  // below swaps it. See `GAUGE_QPE_PRODUCTS`.
+  { layer: "gaugeQpe", product: "gauge-qpe-day" },
   { layer: "ffgHour", product: "ffg-hour" },
   { layer: "ffgThreeHour", product: "ffg-three-hour" },
   { layer: "unitStreamflow", product: "unit-streamflow" },
@@ -57,11 +63,32 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
   "precip-rate": "mrms.precipRate",
   "qpe-hour": "mrms.qpeHour",
   "qpe-day": "mrms.qpeDay",
+  "gauge-qpe-hour": "mrms.gaugeQpeHour",
+  "gauge-qpe-day": "mrms.gaugeQpeDay",
+  "gauge-qpe-three-day": "mrms.gaugeQpeThreeDay",
   "ffg-hour": "mrms.ffgHour",
   "ffg-three-hour": "mrms.ffgThreeHour",
   "unit-streamflow": "mrms.unitStreamflow",
   "precip-type": "mrms.precipType",
 };
+
+/**
+ * The grid behind a switch.
+ *
+ * The table above is a plain map from switch to grid, which every layer needs
+ * and one cannot have: the gauge-corrected accumulation is one switch over
+ * three windows, and which grid it means is whichever window the reader
+ * picked. Named and exported so that choice is checkable on its own; getting
+ * it wrong draws the right layer over the wrong number of hours, which looks
+ * entirely normal.
+ */
+export function productFor(
+  layer: keyof LayerSettings,
+  product: MrmsProductId,
+  gaugeQpePeriod: GaugeQpePeriod,
+): MrmsProductId {
+  return layer === "gaugeQpe" ? GAUGE_QPE_PRODUCTS[gaugeQpePeriod] : product;
+}
 
 export interface MrmsLayer {
   product: MrmsProductId;
@@ -101,8 +128,11 @@ export function useMrmsOverlays(options: {
   pageVisible: boolean;
   /** Bumped when a colour table is loaded, so the tiles are drawn again. */
   paletteGeneration: number;
+  /** Which window the gauge-corrected accumulation switch is pointing at. */
+  gaugeQpePeriod: GaugeQpePeriod;
 }): MrmsOverlayState {
-  const { ready, layers, pageVisible, paletteGeneration } = options;
+  const { ready, layers, pageVisible, paletteGeneration, gaugeQpePeriod } =
+    options;
   const [catalog, setCatalog] = useState<MrmsProductInfo[]>([]);
   const [times, setTimes] = useState<Partial<Record<MrmsProductId, number>>>(
     {},
@@ -117,7 +147,7 @@ export function useMrmsOverlays(options: {
   // A stable key for the set of switches that are on, so panning does not
   // restart the polling.
   const wanted = MRMS_LAYERS.filter(({ layer }) => layers[layer])
-    .map(({ product }) => product)
+    .map(({ layer, product }) => productFor(layer, product, gaugeQpePeriod))
     .join(",");
 
   useEffect(() => {

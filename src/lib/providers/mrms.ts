@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "../settings";
+import type { GaugeQpePeriod } from "../gaugeQpe";
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
 
 /**
@@ -26,6 +27,9 @@ export const MRMS_PRODUCT_IDS = [
   "precip-rate",
   "qpe-hour",
   "qpe-day",
+  "gauge-qpe-hour",
+  "gauge-qpe-day",
+  "gauge-qpe-three-day",
   "ffg-hour",
   "ffg-three-hour",
   "unit-streamflow",
@@ -34,6 +38,13 @@ export const MRMS_PRODUCT_IDS = [
 ] as const;
 
 export type MrmsProductId = (typeof MRMS_PRODUCT_IDS)[number];
+
+/** Which grid the period switch is pointing at. */
+export const GAUGE_QPE_PRODUCTS: Record<GaugeQpePeriod, MrmsProductId> = {
+  "1h": "gauge-qpe-hour",
+  "24h": "gauge-qpe-day",
+  "72h": "gauge-qpe-three-day",
+};
 
 export interface MrmsProductInfo {
   id: MrmsProductId;

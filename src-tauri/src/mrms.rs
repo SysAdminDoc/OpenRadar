@@ -44,15 +44,37 @@ const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
 const CACHE_BUDGET_BYTES: usize = 768 * 1024 * 1024;
 /// As many grids as the budget holds, which is sixteen.
 const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
+/// Products a reader can only ever have one of drawn at once, because they
+/// sit behind one switch with a period beside it.
+///
+/// They need one slot between them rather than one each. Counting them
+/// separately would reserve six hundred megabytes for grids that cannot be
+/// resident together, which is the sort of ceiling that gets raised once too
+/// often and then quietly becomes the memory the app uses.
+const EXCLUSIVE_GROUPS: &[&[&str]] = &[&["gauge-qpe-hour", "gauge-qpe-day", "gauge-qpe-three-day"]];
+
+/// How many grids can be wanted at once: one per switch, plus the next frame
+/// of the composite loop.
+const fn slots_wanted() -> usize {
+    let mut wanted = PRODUCTS.len() + 1;
+    let mut group = 0;
+    while group < EXCLUSIVE_GROUPS.len() {
+        wanted -= EXCLUSIVE_GROUPS[group].len() - 1;
+        group += 1;
+    }
+    wanted
+}
+
 /// Every product on the map keeps one grid live at a time, and the composite
-/// loop wants the next frame as well. Fewer slots than products means a tile
-/// can evict the grid the next tile needs and one screen re-downloads the
-/// country, so the cache holds one per product where the memory allows it.
+/// loop wants the next frame as well. Fewer slots than that means a tile can
+/// evict the grid the next tile needs and one screen re-downloads the
+/// country, so the cache holds one per drawable layer where the memory
+/// allows it.
 ///
 /// Past that the budget wins: somebody who turns on every layer at once pays
 /// for it in downloads rather than in an unbounded pile of resident grids.
-const CACHE_CAPACITY: usize = if PRODUCTS.len() + 1 < MAX_CACHE_SLOTS {
-    PRODUCTS.len() + 1
+const CACHE_CAPACITY: usize = if slots_wanted() < MAX_CACHE_SLOTS {
+    slots_wanted()
 } else {
     MAX_CACHE_SLOTS
 };
@@ -402,6 +424,27 @@ const HIGH_CONTRAST_QPE_HOUR_RAMP: &[(f32, [u8; 3])] = &[
     (60.0, HIGH_CONTRAST_STEPS[5]),
 ];
 
+/// Three days of rain, in millimetres. The bands are the day's, moved up:
+/// three hundred over three days is the sort of total that puts a river out
+/// rather than a street under.
+const QPE_THREE_DAY_RAMP: &[(f32, [u8; 3])] = &[
+    (5.0, [0x38, 0xbd, 0xf8]),
+    (25.0, [0x4a, 0xde, 0x80]),
+    (50.0, [0xfa, 0xcc, 0x15]),
+    (100.0, [0xfb, 0x92, 0x3c]),
+    (200.0, [0xf4, 0x3f, 0x5e]),
+    (400.0, [0xc0, 0x26, 0xd3]),
+];
+
+const HIGH_CONTRAST_QPE_THREE_DAY_RAMP: &[(f32, [u8; 3])] = &[
+    (5.0, HIGH_CONTRAST_STEPS[0]),
+    (25.0, HIGH_CONTRAST_STEPS[1]),
+    (50.0, HIGH_CONTRAST_STEPS[2]),
+    (100.0, HIGH_CONTRAST_STEPS[3]),
+    (200.0, HIGH_CONTRAST_STEPS[4]),
+    (400.0, HIGH_CONTRAST_STEPS[5]),
+];
+
 const HIGH_CONTRAST_QPE_DAY_RAMP: &[(f32, [u8; 3])] = &[
     (2.0, HIGH_CONTRAST_STEPS[0]),
     (10.0, HIGH_CONTRAST_STEPS[1]),
@@ -568,6 +611,39 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         ramp: QPE_DAY_RAMP,
         high_contrast_ramp: HIGH_CONTRAST_QPE_DAY_RAMP,
         floor: 2.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "gauge-qpe-hour",
+        folder: "MultiSensor_QPE_01H_Pass2_00.00",
+        label: "Rain in the past hour, gauge corrected",
+        unit: "mm",
+        ramp: QPE_HOUR_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_QPE_HOUR_RAMP,
+        floor: 0.5,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "gauge-qpe-day",
+        folder: "MultiSensor_QPE_24H_Pass2_00.00",
+        label: "Rain in the past day, gauge corrected",
+        unit: "mm",
+        ramp: QPE_DAY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_QPE_DAY_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "gauge-qpe-three-day",
+        folder: "MultiSensor_QPE_72H_Pass2_00.00",
+        label: "Rain in the past three days, gauge corrected",
+        unit: "mm",
+        ramp: QPE_THREE_DAY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_QPE_THREE_DAY_RAMP,
+        floor: 5.0,
         sampling: Sampling::Nearest,
         categories: None,
     },
@@ -2282,6 +2358,27 @@ mod tests {
     }
 
     #[test]
+    fn products_that_share_a_switch_share_a_cache_slot() {
+        // Every name in a group has to be a product, or the group silently
+        // stops shrinking the count it was written to shrink.
+        for group in EXCLUSIVE_GROUPS {
+            assert!(group.len() > 1, "a group of one is not a group");
+            for id in *group {
+                assert!(product_by_id(id).is_some(), "{id} is not a product");
+            }
+        }
+        // And the slots asked for are one per switch rather than one per
+        // product: three periods of the same accumulation cannot be on the
+        // map together, so reserving three slots for them reserves a hundred
+        // and fifty megabytes that nothing can ever use.
+        assert_eq!(slots_wanted(), PRODUCTS.len() + 1 - 2);
+        assert!(
+            CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES,
+            "the capacity is past the budget"
+        );
+    }
+
+    #[test]
     fn a_grid_finer_than_the_one_this_app_draws_is_reduced_rather_than_refused() {
         // MRMS moved the rotation tracks to 0.005 degrees, four times the
         // cells, and every one of them was refused: a shipped layer drew
@@ -3181,16 +3278,26 @@ mod tests {
             decimal: 1,
             samples: vec![10_500],
         };
-        // One grid per product, put in the way the app puts them in, so the
-        // eviction this is about actually runs.
-        for entry in PRODUCTS {
-            remember_grid(entry.id, grid());
+        // One grid per product a reader can have on at once, put in the way
+        // the app puts them in, so the eviction this is about actually runs.
+        // A product that shares a switch with others is represented by one of
+        // them, because that is all that can ever be drawn.
+        let drawable: Vec<&str> = PRODUCTS
+            .iter()
+            .map(|entry| entry.id)
+            .filter(|id| {
+                EXCLUSIVE_GROUPS
+                    .iter()
+                    .all(|group| !group.contains(id) || group[0] == *id)
+            })
+            .collect();
+        for id in &drawable {
+            remember_grid(id, grid());
         }
-        for entry in PRODUCTS {
+        for id in &drawable {
             assert!(
-                is_cached(entry.id),
-                "{}'s grid was evicted before the screen was drawn",
-                entry.id
+                is_cached(id),
+                "{id}'s grid was evicted before the screen was drawn"
             );
         }
 
@@ -3199,7 +3306,7 @@ mod tests {
             remember_grid(&format!("extra {extra}"), grid());
         }
         assert!(
-            !is_cached(PRODUCTS[0].id),
+            !is_cached(drawable[0]),
             "the cache grew past its budget instead of evicting"
         );
         assert!(is_cached(&format!("extra {CACHE_CAPACITY}")));
@@ -3221,6 +3328,9 @@ mod tests {
             ("precip-rate", Sampling::Nearest),
             ("qpe-hour", Sampling::Nearest),
             ("qpe-day", Sampling::Nearest),
+            ("gauge-qpe-hour", Sampling::Nearest),
+            ("gauge-qpe-day", Sampling::Nearest),
+            ("gauge-qpe-three-day", Sampling::Nearest),
             // The flash flood grids cover whole basins rather than single
             // cells, so they are sampled per pixel like the rain they are
             // made from.
