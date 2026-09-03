@@ -1,4 +1,5 @@
 import { CloudRain, Radar, Trash2 } from "lucide-react";
+import { useOfflineSince } from "../hooks/useOffline";
 import { CommandBar, type SurfaceId, type ToolMode } from "./CommandBar";
 import { RadarLegend, RadarTimeline, ZoomControls } from "./MapChrome";
 import { ToastHost, type ToastMessage } from "./ToastHost";
@@ -187,6 +188,7 @@ export function WorkspaceChrome({
   // Redraws when the units or the clock change, since this is on screen the
   // whole time and would otherwise keep showing the old ones.
   useMeasurements();
+  const offlineSince = useOfflineSince();
   const stale =
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
       ? t("chrome.stale", { age: formatAge(radarAgeMinutes) })
@@ -199,6 +201,20 @@ export function WorkspaceChrome({
       ? t("chrome.cached")
       : t("chrome.cachedAge", { age: formatAge(radarAgeMinutes) })
     : null;
+  /**
+   * The workspace's own line, which is not the radar's.
+   *
+   * "Showing the last view" is about the radar loop and stays about the radar
+   * loop: the warnings, the outlooks, the tide station and everything else
+   * drawn over it are just as old and it says nothing about them. This says
+   * the machine cannot reach anything, once, for all of it.
+   */
+  const offline =
+    offlineSince === null
+      ? null
+      : t("chrome.offline", {
+          age: formatAge((liveClock - offlineSince) / 60_000),
+        });
   // Not every mosaic is reflectivity in dBZ, and not every reflectivity
   // mosaic is painted with the same ramp, so the source says which bar
   // describes it.
@@ -277,6 +293,14 @@ export function WorkspaceChrome({
           <strong>{t("chrome.radarWorkspace")}</strong>
           <span className="top-status__divider" aria-hidden="true" />
           <span>{freshness}</span>
+          {offline ? (
+            <>
+              <span className="top-status__divider" aria-hidden="true" />
+              <span className="top-status__offline" data-offline>
+                {offline}
+              </span>
+            </>
+          ) : null}
         </div>
         <div className="top-status__health">
           <span

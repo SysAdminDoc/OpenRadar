@@ -3979,6 +3979,15 @@ input[type="range"]:disabled {
   background: var(--border-strong);
 }
 
+/* The machine having no network is not a warning about the weather, so it is
+   not painted like one. It is a statement about what the whole workspace can
+   and cannot see, and it reads as one. */
+.top-status__offline {
+  color: var(--amber);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .top-status__health {
   display: flex;
   align-items: center;

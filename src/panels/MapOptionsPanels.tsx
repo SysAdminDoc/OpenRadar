@@ -61,6 +61,7 @@ import {
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
 import { useForcedColours } from "../hooks/useClock";
+import { useOfflineSince } from "../hooks/useOffline";
 import { IncidentPackManager } from "./IncidentPackManager";
 import { StorageSection } from "./StorageSection";
 
@@ -979,6 +980,9 @@ export function SettingsPanel({
   // Whether the system has taken the colours over, which is not a preference
   // this app can honour halfway.
   const forcedColours = useForcedColours();
+  // Whether the machine can reach anything at all, which is a different
+  // answer from whether a service is answering.
+  const offlineSince = useOfflineSince();
 
   // Asked once: whether this machine can have its wallpaper set cannot change
   // while the app is running. Null until the answer comes back, so the
@@ -1818,8 +1822,18 @@ export function SettingsPanel({
             })}
           </p>
         ) : null}
-        {watchHealth.failing >= WATCH_FAILURES_BEFORE_SAYING &&
-        watchHealth.failingSince !== null ? (
+        {/* Why it is not reaching anything, when the answer is the machine
+            rather than the service. "Not reaching the service for an hour"
+            reads as a service that is down, and sends a reader looking in
+            the wrong place. */}
+        {offlineSince !== null ? (
+          <p className="watch-not-reaching" data-watch-offline>
+            {t("watch.cannotSee", {
+              age: formatAge((clock - offlineSince) / 60_000),
+            })}
+          </p>
+        ) : watchHealth.failing >= WATCH_FAILURES_BEFORE_SAYING &&
+          watchHealth.failingSince !== null ? (
           <p className="watch-not-reaching" data-watch-failing>
             {t("watch.notReaching", {
               age: formatAge((clock - watchHealth.failingSince) / 60_000),

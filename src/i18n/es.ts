@@ -1230,6 +1230,9 @@ export const es: Catalogue = {
   "wind.unknownHour": "desconocida",
 
   "chrome.stale": "El radar está viejo · de hace {age}",
+  "watch.cannotSee":
+    "Esta máquina lleva {age} sin red, así que no se está vigilando nada. Los lugares y los ajustes se conservan.",
+  "chrome.offline": "Sin conexión desde hace {age} · mostrando lo guardado",
   "chrome.cached": "Mostrando la última vista",
   "chrome.cachedAge": "Mostrando la última vista · de hace {age}",
 

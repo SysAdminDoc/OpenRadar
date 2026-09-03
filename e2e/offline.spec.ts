@@ -137,3 +137,92 @@ test("says so when the native side answers from its own cache", async ({
     timeout: 15_000,
   });
 });
+
+/**
+ * One answer for the whole workspace, rather than the radar's alone.
+ *
+ * Before this only the timeline knew. Every overlay went on polling and
+ * failing into the log, the watch's health line said its sources were not
+ * answering rather than that the machine could not see, and the only hint on
+ * screen was "showing the last view" on the radar, which says nothing about
+ * the warnings drawn over it.
+ */
+test.describe("with no network at all", () => {
+  test("says so once, for everything", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "onLine", {
+        configurable: true,
+        get: () => false,
+      });
+    });
+    await page.goto("/?testMode=1");
+    await expect(
+      page.getByRole("application", { name: "Interactive weather map" }),
+    ).toBeVisible();
+
+    // The chrome says the machine has no network, beside the radar's own
+    // freshness rather than instead of it: "showing the last view" is about
+    // the radar loop, and the warnings and outlooks drawn over it are just as
+    // old with nothing saying so.
+    await expect(page.locator("[data-offline]")).toContainText("Offline for");
+
+    // And the watch says why it is not watching, in the place a reader goes
+    // to check on it. "Not reaching the service" reads as a service that is
+    // down and sends them looking in the wrong place.
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    const line = page.locator("[data-watch-offline]");
+    await line.scrollIntoViewIfNeeded();
+    await expect(line).toContainText("no network");
+    await expect(page.locator("[data-watch-failing]")).toHaveCount(0);
+  });
+
+  test("stops asking, and asks again the moment it can", async ({ page }) => {
+    // Every switched-on overlay had its own thirty-second timer, and each one
+    // went on failing into the log for as long as the machine was off the
+    // network.
+    const asked: string[] = [];
+    // Both spellings. With the native side faked, the app sends everything
+    // through its own `cached` scheme, so a route on the real host alone
+    // records nothing and the test passes for the wrong reason.
+    const empty = JSON.stringify({ type: "FeatureCollection", features: [] });
+    for (const pattern of [
+      "https://api.weather.gov/**",
+      "http://cached.localhost/**",
+    ]) {
+      await page.route(pattern, async (route) => {
+        const url = route.request().url();
+        if (url.includes("api.weather.gov")) asked.push(url);
+        await route.fulfill({
+          contentType: "application/geo+json",
+          body: empty,
+        });
+      });
+    }
+    await page.addInitScript(() => {
+      let online = false;
+      Object.defineProperty(navigator, "onLine", {
+        configurable: true,
+        get: () => online,
+      });
+      (window as unknown as { __goOnline: () => void }).__goOnline = () => {
+        online = true;
+        window.dispatchEvent(new Event("online"));
+      };
+    });
+    await page.goto("/?testMode=1");
+    await expect(
+      page.getByRole("application", { name: "Interactive weather map" }),
+    ).toBeVisible();
+    await page.waitForTimeout(1500);
+    expect(asked, "asked for an overlay with no network").toEqual([]);
+
+    // And the first thing that happens when the network comes back is an
+    // ask, rather than up to thirty seconds of a map nobody has told.
+    await page.evaluate(() =>
+      (window as unknown as { __goOnline: () => void }).__goOnline(),
+    );
+    await expect.poll(() => asked.length).toBeGreaterThan(0);
+    await expect(page.locator("[data-offline]")).toHaveCount(0);
+  });
+});

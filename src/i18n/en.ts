@@ -1211,6 +1211,9 @@ export const en = {
   "wind.unknownHour": "unknown",
 
   "chrome.stale": "Radar is stale · {age} old",
+  "watch.cannotSee":
+    "This machine has had no network for {age}, so nothing is being watched. The places and the settings are kept.",
+  "chrome.offline": "Offline for {age} · showing what was kept",
   "chrome.cached": "Showing the last view",
   "chrome.cachedAge": "Showing the last view · {age} old",
 
