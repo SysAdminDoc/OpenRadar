@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- Three flash flood layers. Two compare the rain that has fallen, over an hour and over three, against the guidance the weather service publishes for how much the ground where you are can take before it floods; at 100 percent the rain has met it. The third is what their model has running off each square kilometre, which is a model of the ground rather than a reading of the sky, and the panel says so. Flooding is the deadliest weather hazard in the United States and until now the app could only show you the rain.
+
 - The rotation track layer draws again. The weather service moved that grid to twice the resolution, four times the cells, and the app refused every one of them: switching the layer on gave you an empty map and a line in a log nobody reads. It now takes the finer grid and folds it down to the resolution it draws at, keeping the strongest reading in each block, so a rotation track that only covers a couple of cells is not the one thrown away. Memory is unchanged.
 
 - Saving a long loop of a held radar no longer trips over the radar publishing a new volume while it works. The list of what to save is left alone until the file is written.

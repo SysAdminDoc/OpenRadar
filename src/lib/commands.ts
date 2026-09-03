@@ -181,6 +181,24 @@ const LAYER_COMMANDS: Array<{
     keywords: ["qpe", "accumulation", "day", "24", "how much"],
   },
   {
+    layer: "ffgHour",
+    key: "layer.ffgHour",
+    extra: "keywords.ffgHour",
+    keywords: ["flash", "flood", "guidance", "ffg", "hour", "ratio"],
+  },
+  {
+    layer: "ffgThreeHour",
+    key: "layer.ffgThreeHour",
+    extra: "keywords.ffgThreeHour",
+    keywords: ["flash", "flood", "guidance", "ffg", "three", "ratio"],
+  },
+  {
+    layer: "unitStreamflow",
+    key: "layer.unitStreamflow",
+    extra: "keywords.unitStreamflow",
+    keywords: ["flood", "runoff", "streamflow", "flash", "water"],
+  },
+  {
     layer: "precipType",
     key: "layer.precipType",
     extra: "keywords.precipType",
