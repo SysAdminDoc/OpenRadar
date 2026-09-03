@@ -3,16 +3,33 @@ import { translate } from "../i18n";
 import { diagnosticsBlock } from "../lib/diagnostics";
 import { gpuSupport } from "../lib/gpu";
 import { recentLog } from "../lib/log";
-import { loadSettings, resetLayout, saveSettings } from "../lib/settings";
+import {
+  isDesktopRuntime,
+  readSettings,
+  resetLayout,
+  saveSettings,
+} from "../lib/settings";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
 }
 
 interface ErrorBoundaryState {
-  error: Error | null;
+  error: unknown;
   componentStack: string | null;
-  copied: boolean;
+  copied: "no" | "yes" | "refused";
+}
+
+/** The message off whatever was thrown, which is not always an `Error`. */
+function messageOf(thrown: unknown): string {
+  if (thrown instanceof Error) return thrown.message;
+  if (typeof thrown === "string") return thrown;
+  return String(thrown);
+}
+
+/** Its stack, when there is one. `throw "boom"` has none. */
+function stackOf(thrown: unknown): string | null {
+  return thrown instanceof Error ? (thrown.stack ?? null) : null;
 }
 
 /**
@@ -36,10 +53,10 @@ export class ErrorBoundary extends Component<
   state: ErrorBoundaryState = {
     error: null,
     componentStack: null,
-    copied: false,
+    copied: "no",
   };
 
-  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+  static getDerivedStateFromError(error: unknown): Partial<ErrorBoundaryState> {
     return { error };
   }
 
@@ -60,10 +77,10 @@ export class ErrorBoundary extends Component<
       log: recentLog(),
       failure: error
         ? {
-            message: error.message,
+            message: messageOf(error),
             // The stack is what a tracker actually needs, and it holds file
             // paths from the build rather than from this machine.
-            stack: error.stack ?? null,
+            stack: stackOf(error),
             componentStack,
           }
         : null,
@@ -71,21 +88,47 @@ export class ErrorBoundary extends Component<
   }
 
   private copy = () => {
-    void navigator.clipboard
-      .writeText(this.report())
-      .then(() => this.setState({ copied: true }))
-      .catch(() => {
-        // A refused clipboard is not worth a second failure screen.
-      });
+    // Not `void navigator.clipboard.writeText(...).catch(...)`. Reading the
+    // property throws on a webview that has no clipboard at all, before any
+    // promise exists for a catch to attach to, and React does not catch what
+    // an event handler throws: the button on the one screen whose whole job
+    // is producing this text did nothing and said nothing.
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(this.report());
+        this.setState({ copied: "yes" });
+      } catch {
+        // A clipboard can be refused: no permission, no focus, none at all.
+        // There are no toasts left on this screen, so the button says it.
+        this.setState({ copied: "refused" });
+      }
+    })();
   };
 
   private resetLayout = () => {
-    void loadSettings()
-      .then((settings) => saveSettings(resetLayout(settings)))
-      .catch(() => {
-        // Nothing to put back. Reloading is still worth trying.
-      })
-      .finally(() => window.location.reload());
+    void (async () => {
+      try {
+        // `readSettings`, not `loadSettings`. The latter answers with the
+        // defaults when it cannot read, and writing that back would replace
+        // the watched places, colour tables, packs and presets this button
+        // promises to leave alone.
+        const settings = await readSettings();
+        await saveSettings(resetLayout(settings));
+      } catch {
+        // Nothing read means nothing written. The reload is still worth
+        // trying, and so is the window below.
+      }
+      if (isDesktopRuntime()) {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("window_reset_geometry");
+        } catch {
+          // An older build with no such command, or a window that will not
+          // move. The reload is the part that matters.
+        }
+      }
+      window.location.reload();
+    })();
   };
 
   render(): ReactNode {
@@ -95,16 +138,20 @@ export class ErrorBoundary extends Component<
         <div className="fatal-error__mark">!</div>
         <p className="eyebrow">{translate("fatal.eyebrow")}</p>
         <h1>{translate("fatal.title")}</h1>
-        <p>{this.state.error.message}</p>
+        <p>{messageOf(this.state.error)}</p>
         <div className="fatal-error__actions">
           <button
             type="button"
             className="fatal-error__quiet"
             onClick={this.copy}
           >
-            {this.state.copied
-              ? translate("fatal.copied")
-              : translate("fatal.copy")}
+            {translate(
+              this.state.copied === "yes"
+                ? "fatal.copied"
+                : this.state.copied === "refused"
+                  ? "fatal.copyRefused"
+                  : "fatal.copy",
+            )}
           </button>
           <button type="button" onClick={() => window.location.reload()}>
             {translate("fatal.reload")}

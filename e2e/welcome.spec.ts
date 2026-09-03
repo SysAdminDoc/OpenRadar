@@ -58,6 +58,10 @@ test("opens with what a station is actually reporting", async ({ page }) => {
   // And the signpost is still there underneath, because somebody who has just
   // installed this still needs to know where everything is.
   await expect(page.getByText("Commands searches every product")).toBeVisible();
+  // The first thing anybody sees, and a state that is gone for good after
+  // the first click. Scanned here rather than beside the reveal disc, which
+  // is an empty aria-hidden div and gives axe nothing to look at.
+  await expectClean(page, "the first-run greeting");
 });
 
 test("says plainly when there is nothing to report", async ({ page }) => {
@@ -82,9 +86,6 @@ test("draws the disc once, and stops the moment anybody does anything", async ({
   await expect(disc).toBeVisible();
   // The map is usable straight through it: it takes no pointer events at all.
   await expect(disc).toHaveCSS("pointer-events", "none");
-  // The first thing anybody sees, and the one state that is gone forever
-  // after the first click.
-  await expectClean(page, "first-run reveal");
 
   await page
     .getByRole("application")

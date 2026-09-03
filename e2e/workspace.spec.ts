@@ -876,3 +876,99 @@ test("the rail says when there is more of it than fits", async ({ page }) => {
   await expect(region).toHaveAttribute("data-more-above", "");
   await expect(region).not.toHaveAttribute("data-more-below", "");
 });
+
+test("puts the arrangement back without touching what the reader set up", async ({
+  page,
+}) => {
+  // Reset layout on the crash screen. The pure function has unit tests; what
+  // this covers is the wiring around it, which nothing exercised: a read that
+  // never happens, a write of the wrong object, or a reload that beats the
+  // write are all green without it.
+  //
+  // Written straight into the page rather than through an init script: the
+  // beforeEach above has already navigated, so an init script added here
+  // would not run until the reload below and would fight the file the
+  // workspace has by then written for itself.
+  await page.evaluate(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        seenWelcome: true,
+        seenReveal: true,
+        textScale: 130,
+        projection: "globe",
+        overlayOrder: ["something", "left", "over"],
+        camera: { center: [12.3, 45.6], zoom: 14, bearing: 90, pitch: 60 },
+        watch: {
+          enabled: true,
+          sound: false,
+          name: "Casa",
+          center: [-96.8, 32.78],
+          radiusMiles: 30,
+          minSeverity: "severe",
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  const stored = async () => {
+    try {
+      const raw = await page.evaluate(() =>
+        window.localStorage.getItem("openradar.settings"),
+      );
+      return JSON.parse(raw ?? "{}") as Record<string, unknown>;
+    } catch {
+      // A reload is in flight. Poll again.
+      return {};
+    }
+  };
+
+  // What the workspace is actually holding, read after it has started rather
+  // than assumed from the seed: it normalises and rewrites the file on the
+  // way up, and a test that asserted against the seed would be asserting
+  // against something the app had already replaced.
+  await expect.poll(async () => (await stored()).textScale).toBe(130);
+  const before = await stored();
+  expect((before.watch as { name?: string }).name).toBe("Casa");
+
+  // Now break it. The workspace reads `matchMedia` while it renders, so a
+  // getter that throws lands in the boundary the same way a decoder throwing
+  // mid-draw does.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      get() {
+        throw new Error("the sweep could not be drawn");
+      },
+    });
+  });
+  await page.reload();
+  await expect(page.locator(".fatal-error")).toBeVisible();
+
+  await page.getByRole("button", { name: "Reset layout" }).click();
+
+  await expect
+    .poll(async () => (await stored()).textScale, { timeout: 10_000 })
+    .toBe(100);
+
+  const after = await stored();
+  expect(after.projection).toBe("mercator");
+  expect(after.overlayOrder).toEqual([]);
+  expect((after.camera as { zoom: number }).zoom).not.toBe(14);
+
+  // And nothing the reader set up. Compared against what the workspace was
+  // holding a moment before the crash, field by field, so a reset that
+  // quietly replaced any of it fails here.
+  expect(after.watch).toEqual(before.watch);
+  expect(after.watchPlaces).toEqual(before.watchPlaces);
+  expect(after.radar).toEqual(before.radar);
+  expect(after.layers).toEqual(before.layers);
+  expect(after.palettes).toEqual(before.palettes);
+  expect(after.incidentPacks).toEqual(before.incidentPacks);
+  expect(after.presets).toEqual(before.presets);
+});

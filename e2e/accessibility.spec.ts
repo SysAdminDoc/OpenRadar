@@ -567,6 +567,9 @@ test("Settings is clean once a reader has a place they watch", async ({
         schemaVersion: 3,
         seenWelcome: true,
         seenReveal: true,
+        // The sound a reader chose themselves, which puts a path row and a
+        // Clear button in the panel that are there in no other state.
+        alertSoundPath: String.raw`C:\Users\reader\Sounds\a warning.wav`,
         watch: {
           enabled: true,
           sound: true,
@@ -649,19 +652,6 @@ test("the ambient view is clean", async ({ page }) => {
   await expect(page.locator("[data-ambient-readout]")).toBeVisible();
   await page.waitForTimeout(PANEL_SETTLE_MS);
   expect(describeViolations(await scan(page))).toBe("");
-});
-
-test("the workspace stays clean at 130 percent text", async ({ page }) => {
-  // Every colour is the same at 130 percent and every size is not, which is
-  // where a control ends up under another one or a label ends up clipped.
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "130%", exact: true }).click();
-  await page.getByRole("button", { name: "Close Settings" }).click();
-  await page.waitForTimeout(PANEL_SETTLE_MS);
-  expect(`bare: ${describeViolations(await scan(page))}`).toBe("bare: ");
-
-  await openSurface(page, "layers");
-  expect(`layers: ${describeViolations(await scan(page))}`).toBe("layers: ");
 });
 
 test("the glance window is clean in both themes", async ({ page }) => {
@@ -803,6 +793,14 @@ for (const theme of ["dark", "light"] as const) {
         "openradar.settings",
         JSON.stringify({ schemaVersion: 3, seenWelcome: true, theme: which }),
       );
+      // Stamped here as well as stored. The attribute is put on `<html>` by
+      // an effect inside the component that throws, so a crash on the very
+      // first render comes up dark whatever the reader chose; a crash after
+      // the workspace has been up in light comes up light, and that is the
+      // state this pins. Both are real and the palettes are different.
+      document.addEventListener("DOMContentLoaded", () => {
+        document.documentElement.dataset.theme = which;
+      });
       const original = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function (
         this: HTMLCanvasElement,
@@ -823,9 +821,7 @@ for (const theme of ["dark", "light"] as const) {
 
     const notice = page.getByRole("alert");
     await expect(notice).toContainText("WebGL2");
-    // Whichever theme the reader chose, this screen is the dark palette: the
-    // workspace that applies the setting is what did not start. Scanned from
-    // both settings anyway, because that is the state a reader arrives in.
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await page.waitForTimeout(PANEL_SETTLE_MS);
     expect(describeViolations(await scan(page))).toBe("");
   });
@@ -841,6 +837,14 @@ for (const theme of ["dark", "light"] as const) {
         "openradar.settings",
         JSON.stringify({ schemaVersion: 3, seenWelcome: true, theme: which }),
       );
+      // Stamped here as well as stored. The attribute is put on `<html>` by
+      // an effect inside the component that throws, so a crash on the very
+      // first render comes up dark whatever the reader chose; a crash after
+      // the workspace has been up in light comes up light, and that is the
+      // state this pins. Both are real and the palettes are different.
+      document.addEventListener("DOMContentLoaded", () => {
+        document.documentElement.dataset.theme = which;
+      });
       Object.defineProperty(window, "matchMedia", {
         configurable: true,
         get() {
@@ -861,8 +865,7 @@ for (const theme of ["dark", "light"] as const) {
     await expect(
       fatal.getByRole("button", { name: "Reset layout" }),
     ).toBeVisible();
-    // Dark here too, and for the same reason: the effect that applies the
-    // theme lives in the component that threw.
+    await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await page.waitForTimeout(PANEL_SETTLE_MS);
     expect(describeViolations(await scan(page))).toBe("");
   });

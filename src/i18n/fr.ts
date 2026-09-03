@@ -1236,9 +1236,10 @@ export const fr: Catalogue = {
   "fatal.title": "L'interface n'a pas pu finir de se dessiner.",
   "fatal.reload": "Recharger OpenRadar",
   "fatal.resetLayoutNote":
-    "Réinitialiser la disposition remet la carte, la taille du texte et l'ordre des couches comme à l'ouverture. Vos lieux surveillés, vos palettes et vos paquets hors ligne ne sont pas touchés.",
+    "Réinitialiser la disposition remet la carte, le fond de carte, la taille du texte, la couleur d'accentuation, l'ordre des couches et la fenêtre comme à l'ouverture. Vos lieux surveillés, vos palettes, vos paquets hors ligne et vos réglages enregistrés ne sont pas touchés.",
   "fatal.resetLayout": "Réinitialiser la disposition",
   "fatal.copied": "Copié",
+  "fatal.copyRefused": "Le presse-papiers a refusé",
   "fatal.copy": "Copier le diagnostic",
   "stage.secondary": "Deuxième carte météo interactive",
   "stage.satelliteAge": " · {age}",

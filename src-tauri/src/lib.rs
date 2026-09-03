@@ -34,6 +34,7 @@ mod tiles;
 mod tray;
 mod vad;
 mod wallpaper;
+mod window_geometry;
 
 /// The decoder entry points, for the fuzz targets and nothing else.
 ///
@@ -267,6 +268,7 @@ pub fn run() {
             wallpaper::wallpaper_available,
             wallpaper::wallpaper_set,
             wallpaper::wallpaper_restore,
+            window_geometry::window_reset_geometry,
             sound::alert_sound_bytes,
             tray::tray_enabled
         ])
