@@ -244,6 +244,8 @@ pub fn run() {
             level2::level2_cross_section,
             level3::level3_cells,
             level3::level3_classification,
+            cache::cache_size,
+            cache::cache_clear,
             crash::crash_last_dump,
             probsevere::probsevere_reading,
             radar_status::radar_status,

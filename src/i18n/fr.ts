@@ -214,6 +214,19 @@ export const fr: Catalogue = {
   "settings.textSizeDetail": "Tout l'espace de travail, dessiné plus grand",
   "settings.language": "Langue",
   "settings.languageNote": "S'applique immédiatement",
+  "storage.title": "Conservé sur le disque",
+  "storage.format": "Données de carte et de météo",
+  "storage.detail":
+    "L'application conserve ce qu'elle a dessiné pour qu'un démarrage sans réseau ouvre sur la dernière vue que vous avez vue. Elle se vide au fur et à mesure, et ceci la vide maintenant. Vos paquets hors ligne et vos rediffusions enregistrées sont à part et ne sont pas touchés.",
+  "storage.desktopOnly":
+    "Rien n'est conservé sur le disque dans un navigateur.",
+  "storage.held": "Conservé maintenant",
+  "storage.unknown": "Illisible",
+  "storage.clear": "Vider",
+  "storage.cleared": "Vidé",
+  "storage.clearedBody":
+    "{freed} récupérés. La carte redemandera ce dont elle a besoin.",
+  "storage.clearFailed": "Impossible de vider",
   "packs.title": "Trousses hors ligne",
   "packs.format": "PMTiles",
   "packs.detail":

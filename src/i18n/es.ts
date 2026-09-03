@@ -208,6 +208,18 @@ export const es: Catalogue = {
   "settings.textSizeDetail": "Todo el espacio de trabajo, dibujado más grande",
   "settings.language": "Idioma",
   "settings.languageNote": "Se aplica al instante",
+  "storage.title": "Guardado en el disco",
+  "storage.format": "Datos del mapa y del tiempo",
+  "storage.detail":
+    "La aplicación guarda lo que ha dibujado para que un inicio sin red abra la última vista que viste. Se vacía sola a medida que se llena, y esto la vacía ahora. Tus paquetes sin conexión y tus repeticiones guardadas van aparte y no se tocan.",
+  "storage.desktopOnly": "En el navegador no se guarda nada en el disco.",
+  "storage.held": "Guardado ahora",
+  "storage.unknown": "No se puede leer",
+  "storage.clear": "Vaciar",
+  "storage.cleared": "Vaciado",
+  "storage.clearedBody":
+    "Se recuperaron {freed}. El mapa volverá a pedir lo que necesite.",
+  "storage.clearFailed": "No se pudo vaciar",
   "packs.title": "Paquetes de incidentes sin conexión",
   "packs.format": "PMTiles",
   "packs.detail":

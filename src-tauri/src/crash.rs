@@ -76,7 +76,10 @@ pub fn dumps_dir(app_data: &Path) -> PathBuf {
 /// Tauri's `app_data_dir` is `AppData\Roaming`. Pointed at the roaming one
 /// this found nothing on any real machine, forever, while its test passed.
 pub fn webview_reports_dir(local_data: &Path) -> PathBuf {
-    local_data.join("EBWebView").join("Crashpad").join("reports")
+    local_data
+        .join("EBWebView")
+        .join("Crashpad")
+        .join("reports")
 }
 
 /// Runs the monitor loop when this process was started as one.
@@ -496,7 +499,9 @@ mod tests {
 
         let found = latest_webview(&reports).expect("a report");
         assert!(
-            found.path.ends_with("8a1b2c3d-4f89-11d3-9a0c-0305e82c3302.dmp"),
+            found
+                .path
+                .ends_with("8a1b2c3d-4f89-11d3-9a0c-0305e82c3302.dmp"),
             "{}",
             found.path
         );

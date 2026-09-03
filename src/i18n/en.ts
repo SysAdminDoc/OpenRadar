@@ -203,6 +203,18 @@ export const en = {
   "settings.textSizeDetail": "Everything in the workspace, drawn larger",
   "settings.language": "Language",
   "settings.languageNote": "Applies immediately",
+  "storage.title": "Kept on disk",
+  "storage.format": "Map and weather data",
+  "storage.detail":
+    "The app keeps what it has drawn so a launch with no network opens on the last view you saw. It empties itself as it fills, and this empties it now. Your offline packs and saved replays are separate and are left alone.",
+  "storage.desktopOnly": "Nothing is kept on disk in a browser.",
+  "storage.held": "Held now",
+  "storage.unknown": "Not readable",
+  "storage.clear": "Clear",
+  "storage.cleared": "Cleared",
+  "storage.clearedBody":
+    "{freed} came back. The map will fetch what it needs again.",
+  "storage.clearFailed": "The cache could not be cleared",
   "packs.title": "Offline incident packs",
   "packs.format": "PMTiles",
   "packs.detail":

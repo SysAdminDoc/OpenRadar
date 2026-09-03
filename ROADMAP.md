@@ -250,13 +250,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: Under `forcedColors: "active"` every control that is visible in dark is visible (axe plus a pinned screenshot of the rail and a panel); focus rings render in `Highlight`; the legend ramp and warning outlines keep their own colours; the appearance settings say the system theme is in force and the theme picker is disabled with that reason.
   Complexity: S
 
-- [ ] AUD-211 (P2): Clear the disk cache and the offline last view from Settings
-  Why: The cache grows to 768 MiB and the only way a reader can empty it is to find the directory by hand; a corrupt or stale last view has no remedy inside the app, and nothing shows how big it is outside Diagnostics.
-  Evidence: `src-tauri/src/cache.rs` (budget, eviction, no clear entry point); no cache command in `src-tauri/src/lib.rs` or `src/lib/commands.ts`; `src/lib/diagnostics.ts` reports cache state read-only.
-  Touches: `src-tauri/src/cache.rs` (`clear` that removes the format directory's entries and reports bytes freed, plus a size query, both async), `src-tauri/src/lib.rs` commands, `src/lib/commands.ts`, `src/panels/MapOptionsPanels.tsx` (a Storage row with the size and a Clear button, no confirmation, a toast with the freed size), `src/i18n/*`, `e2e/offline.spec.ts`.
-  Acceptance: Clear removes every cached entry and the toast states the bytes freed; incident packs and replay bundles are untouched (a test plants both beside the cache); the map redraws from the network afterwards; the Storage row shows the size before and after; the cache's own budget tests still pass.
-  Complexity: S
-
 - [ ] AUD-212 (P2): Import a backup beside Export
   Why: Export has a button; restoring a backup only works by knowing to drop the JSON on the Upload panel, which nothing near the Export button says.
   Evidence: `src/panels/MapOptionsPanels.tsx:1289` (Export); `src/panels/UtilityPanels.tsx:63` (accept list) and `src/hooks/useWorkspaceActions.ts:341,434` (`restoreWorkspace` reached only from the upload path); `src/App.tsx:1784-1810` (partial-restore note and undo).

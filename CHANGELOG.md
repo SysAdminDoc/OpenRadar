@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- Settings says how much the app is keeping on disk, and empties it when you ask. It keeps what it has drawn so a launch with no network opens on the last view you saw, and it evicts as it fills, but until now the number was buried in Diagnostics and the only way to empty it was to find the folder yourself. Your offline packs and saved replays are separate and are left alone. The toast says how much came back, and the row reads the size again afterwards rather than assuming.
+
 - The diagnostics report says which browser drew the picture, and names the crash report the window itself left behind. The window is WebView2 and its runtime updates on Microsoft's schedule rather than with the app, so two reports of the same graphics crash from the same build can be two different browsers. It also keeps its own crash files in a folder of its own: if the window went white rather than disappearing, that is where the file is, and until now there was no way to know it existed. Neither file leaves your machine.
 
 - The record beside a saved loop of one radar says when the app took delivery of each volume, and for the ones it was already holding, how long it had been holding them. Every frame used to carry the moment its caption was written instead, which for a held volume can be minutes out. A volume that arrives while the file is being written says so rather than claiming a cache served it.
