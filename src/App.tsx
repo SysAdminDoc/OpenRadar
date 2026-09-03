@@ -340,6 +340,11 @@ export default function App() {
     // setting a floor on the tilt must not quietly re-floor the mosaic.
     mosaicThreshold: settings.radar.thresholds.mosaic ?? null,
   });
+  // True while a loop is being written out. Read by the site hook, which is
+  // built before the export that sets it, so it travels as a ref.
+  const writingLoopRef = useRef(false);
+  const listingHeld = useCallback(() => writingLoopRef.current, []);
+
   const singleSite = useSingleSiteRadar({
     ready: hydrated,
     radar: settings.radar,
@@ -363,6 +368,7 @@ export default function App() {
       !timeline.playing && timeline.frames[timeline.frameIndex]?.time
         ? timeline.frames[timeline.frameIndex].time * 1000
         : null,
+    listingHeld,
   });
 
   // Which volume the map is actually showing, for anything that has to act
@@ -1334,6 +1340,14 @@ export default function App() {
       [applySettings, settingsRef],
     ),
   });
+
+  // A walk of thirty volumes outlives the listing's own refresh, and a
+  // refresh drops the oldest volume to make room for the newest. Held still,
+  // the walk finishes against the list it started with.
+  useEffect(() => {
+    writingLoopRef.current =
+      exportState.busy === "loop" || exportState.busy === "gif";
+  }, [exportState.busy]);
 
   const handleMapStatus = useCallback(
     (status: "loading" | "ready" | "error" | "nogpu") => {

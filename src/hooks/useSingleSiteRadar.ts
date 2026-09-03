@@ -148,6 +148,19 @@ export function useSingleSiteRadar(options: {
    * gets exactly the behaviour it had before the loop existed.
    */
   showingTime?: number | null;
+  /**
+   * Whether the site's listing should be left exactly as it is.
+   *
+   * A refresh answers with the last N volumes, so a volume landing during a
+   * long walk pushes the oldest one out of the list. Anything holding a
+   * position in that list then loses it: a saved loop of thirty volumes runs
+   * longer than the refresh interval, and the frames it had left to write
+   * were volumes the hook had just stopped knowing about.
+   *
+   * A function rather than a flag, because the caller that knows this is
+   * built after this hook is.
+   */
+  listingHeld?: () => boolean;
 }): SingleSiteState {
   const {
     ready,
@@ -157,6 +170,7 @@ export function useSingleSiteRadar(options: {
     pageVisible,
     paletteGeneration,
     showingTime = null,
+    listingHeld,
   } = options;
   // The site, and the coarse position it was resolved for. A site found for
   // somewhere else is not an answer to where the map is now, which is what
@@ -289,12 +303,16 @@ export function useSingleSiteRadar(options: {
         open = false;
       };
     }
-    const timer = window.setInterval(ask, SWEEP_REFRESH_MS);
+    // The first ask always happens; only the refreshes are held. A site with
+    // no listing at all has no loop, which is worse than a slightly old one.
+    const timer = window.setInterval(() => {
+      if (!listingHeld?.()) ask();
+    }, SWEEP_REFRESH_MS);
     return () => {
       open = false;
       window.clearInterval(timer);
     };
-  }, [loopVolumes, pageVisible, station, wanted]);
+  }, [listingHeld, loopVolumes, pageVisible, station, wanted]);
 
   // A reply that arrives after the view has moved on must not be drawn.
   const requestRef = useRef(0);
