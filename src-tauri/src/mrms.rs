@@ -35,21 +35,22 @@ const MAX_GRID_POINTS: usize = GRID_BYTES / std::mem::size_of::<u16>();
 /// draws at on the way in rather than the budget being raised to hold it.
 const MAX_SOURCE_REDUCTION: usize = 2;
 const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
-// Raised from 512 MiB when the eleventh product arrived: the point of the
-// budget is a ceiling, and the point of the capacity is one slot per
-// product, so a screen with every layer on does not download the country
-// once per layer. Ten slots stopped being enough at eleven products.
-const CACHE_BUDGET_BYTES: usize = 640 * 1024 * 1024;
-/// As many grids as half a gigabyte holds, which is ten.
+// Raised from 512 MiB at eleven products and again at fourteen, when the
+// flash flood grids arrived: the point of the budget is a ceiling, and the
+// point of the capacity is one slot per product, so a screen with every layer
+// on does not download the country once per layer. It is a ceiling rather
+// than a reservation; nothing is allocated until a grid is actually decoded,
+// and nobody has fourteen layers on.
+const CACHE_BUDGET_BYTES: usize = 768 * 1024 * 1024;
+/// As many grids as the budget holds, which is sixteen.
 const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
 /// Every product on the map keeps one grid live at a time, and the composite
 /// loop wants the next frame as well. Fewer slots than products means a tile
 /// can evict the grid the next tile needs and one screen re-downloads the
 /// country, so the cache holds one per product where the memory allows it.
 ///
-/// Past that the budget wins. There are more products than slots now, and
-/// somebody who turns on every layer at once will pay for it in downloads
-/// rather than in half a gigabyte of resident grids; nobody has all ten on.
+/// Past that the budget wins: somebody who turns on every layer at once pays
+/// for it in downloads rather than in an unbounded pile of resident grids.
 const CACHE_CAPACITY: usize = if PRODUCTS.len() + 1 < MAX_CACHE_SLOTS {
     PRODUCTS.len() + 1
 } else {
@@ -273,6 +274,62 @@ const QPE_DAY_RAMP: &[(f32, [u8; 3])] = &[
 /// the way the high-contrast reflectivity ramp is. Lightness rises from one end
 /// to the other, and what hue remains swings along the blue-yellow axis both
 /// red-green deficiencies keep.
+/// How the rain that has fallen compares with the guidance for flash
+/// flooding, as a percentage of it.
+///
+/// A hundred is the number that matters: the rain has met what the office
+/// says the ground can take before it floods. Below it the bands are wide,
+/// because the difference between a quarter and a half of guidance is not a
+/// decision; above it they are tight, because that is where one is being
+/// made.
+///
+/// Percent rather than the plain ratio the product's own table implies. The
+/// grids say so: on 2026-09-02 the peak was 137.64 against a radar QPE
+/// peaking at 71 mm the same hour, which is guidance of about 51 mm, and a
+/// plain ratio would have meant half a millimetre.
+const FFG_RATIO_RAMP: &[(f32, [u8; 3])] = &[
+    (25.0, [0x38, 0xbd, 0xf8]),
+    (50.0, [0x4a, 0xde, 0x80]),
+    (75.0, [0xfa, 0xcc, 0x15]),
+    (100.0, [0xfb, 0x92, 0x3c]),
+    (150.0, [0xf4, 0x3f, 0x5e]),
+    (200.0, [0xc0, 0x26, 0xd3]),
+];
+
+const HIGH_CONTRAST_FFG_RATIO_RAMP: &[(f32, [u8; 3])] = &[
+    (25.0, HIGH_CONTRAST_STEPS[0]),
+    (50.0, HIGH_CONTRAST_STEPS[1]),
+    (75.0, HIGH_CONTRAST_STEPS[2]),
+    (100.0, HIGH_CONTRAST_STEPS[3]),
+    (150.0, HIGH_CONTRAST_STEPS[4]),
+    (200.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+/// How much water the model has running off each square kilometre, in cubic
+/// metres a second.
+///
+/// A model of the ground rather than a measurement of the sky, which is why
+/// it is labelled as one. The bands are the ones the FLASH product's own
+/// documentation groups by, and the top of the ramp is where a small stream
+/// is out of its banks.
+const UNIT_STREAMFLOW_RAMP: &[(f32, [u8; 3])] = &[
+    (0.05, [0x38, 0xbd, 0xf8]),
+    (0.2, [0x4a, 0xde, 0x80]),
+    (0.5, [0xfa, 0xcc, 0x15]),
+    (1.0, [0xfb, 0x92, 0x3c]),
+    (2.0, [0xf4, 0x3f, 0x5e]),
+    (5.0, [0xc0, 0x26, 0xd3]),
+];
+
+const HIGH_CONTRAST_UNIT_STREAMFLOW_RAMP: &[(f32, [u8; 3])] = &[
+    (0.05, HIGH_CONTRAST_STEPS[0]),
+    (0.2, HIGH_CONTRAST_STEPS[1]),
+    (0.5, HIGH_CONTRAST_STEPS[2]),
+    (1.0, HIGH_CONTRAST_STEPS[3]),
+    (2.0, HIGH_CONTRAST_STEPS[4]),
+    (5.0, HIGH_CONTRAST_STEPS[5]),
+];
+
 const HIGH_CONTRAST_STEPS: [[u8; 3]; 6] = [
     [0x00, 0x25, 0x6c],
     [0x00, 0x44, 0x7e],
@@ -511,6 +568,41 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         ramp: QPE_DAY_RAMP,
         high_contrast_ramp: HIGH_CONTRAST_QPE_DAY_RAMP,
         floor: 2.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "ffg-hour",
+        folder: "FLASH_QPE_FFG01H_00.00",
+        label: "Rain against flash flood guidance, past hour",
+        unit: "%",
+        ramp: FFG_RATIO_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_FFG_RATIO_RAMP,
+        // A quarter of guidance is the lowest number worth painting; below it
+        // the map would be covered wherever it had rained at all.
+        floor: 25.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "ffg-three-hour",
+        folder: "FLASH_QPE_FFG03H_00.00",
+        label: "Rain against flash flood guidance, past three hours",
+        unit: "%",
+        ramp: FFG_RATIO_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_FFG_RATIO_RAMP,
+        floor: 25.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "unit-streamflow",
+        folder: "FLASH_HP_MAXUNITSTREAMFLOW_00.00",
+        label: "Modelled runoff",
+        unit: "m3/s/km2",
+        ramp: UNIT_STREAMFLOW_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_UNIT_STREAMFLOW_RAMP,
+        floor: 0.05,
         sampling: Sampling::Nearest,
         categories: None,
     },
@@ -846,7 +938,13 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
         return Err(MrmsError::Decode("the packing scale is not finite".into()));
     }
 
-    let samples = decode_png_samples(payload, points, columns, reduce)?;
+    // A grid packed wider than sixteen bits comes back shifted down to
+    // sixteen, and the binary exponent is moved by the same amount so the
+    // values it produces are unchanged. See `decode_png_samples`.
+    let (samples, shift) = decode_png_samples(payload, points, columns, reduce)?;
+    let binary = binary
+        .checked_add(shift)
+        .ok_or_else(|| MrmsError::Decode("the packing scale is out of range".into()))?;
 
     let (north, west, d_lat, d_lon) = reduced_geometry(north, west, d_lat, d_lon, reduce);
     Ok(Grid {
@@ -932,7 +1030,7 @@ fn decode_png_samples(
     expected: usize,
     columns: usize,
     reduce: usize,
-) -> Result<Vec<u16>, MrmsError> {
+) -> Result<(Vec<u16>, i16), MrmsError> {
     // The ceiling is on the SOURCE image, which is up to a reduction squared
     // larger than what is kept. It is a limit rather than an allocation.
     let limits = png::Limits {
@@ -954,9 +1052,24 @@ fn decode_png_samples(
             "the image holds {image_points} values, the grid wants {expected}"
         )));
     }
-    if color_type != png::ColorType::Grayscale {
-        return Err(MrmsError::Unsupported(format!("a {color_type:?} image")));
-    }
+    // Grayscale carries eight or sixteen bits a point. The flash flood grids
+    // want twenty-four, and the packing spreads those across an RGB pixel,
+    // most significant byte first. Nothing else is a picture in any sense.
+    let shift: i16 = match (color_type, bit_depth) {
+        (png::ColorType::Grayscale, png::BitDepth::Eight | png::BitDepth::Sixteen) => 0,
+        // Kept as sixteen bits, which is what every grid in the cache is: a
+        // wider sample would double the memory of every product to give the
+        // flash flood ratios a precision of one part in sixteen million, on a
+        // scale whose bands are a quarter apart. The bottom eight bits go and
+        // the binary exponent moves up by eight to match, so the values this
+        // produces are the ones the file describes.
+        (png::ColorType::Rgb, png::BitDepth::Eight) => 8,
+        _ => {
+            return Err(MrmsError::Unsupported(format!(
+                "a {color_type:?} {bit_depth:?} bit image"
+            )))
+        }
+    };
 
     let kept_columns = columns / reduce;
     let mut samples = Vec::with_capacity(expected / (reduce * reduce));
@@ -971,16 +1084,30 @@ fn decode_png_samples(
     {
         let bytes = line.data();
         line_values.clear();
-        match bit_depth {
-            png::BitDepth::Sixteen => {
+        match (color_type, bit_depth) {
+            (png::ColorType::Grayscale, png::BitDepth::Sixteen) => {
                 for pair in bytes.chunks_exact(2) {
                     line_values.push(u16::from_be_bytes([pair[0], pair[1]]));
                 }
             }
-            png::BitDepth::Eight => {
+            (png::ColorType::Grayscale, png::BitDepth::Eight) => {
                 line_values.extend(bytes.iter().map(|value| *value as u16));
             }
-            depth => return Err(MrmsError::Unsupported(format!("{depth:?} bit samples"))),
+            (png::ColorType::Rgb, png::BitDepth::Eight) => {
+                for pixel in bytes.chunks_exact(3) {
+                    let raw = (u32::from(pixel[0]) << 16)
+                        | (u32::from(pixel[1]) << 8)
+                        | u32::from(pixel[2]);
+                    // Shifted rather than truncated: the top sixteen bits are
+                    // the ones that carry the reading.
+                    line_values.push((raw >> 8) as u16);
+                }
+            }
+            _ => {
+                return Err(MrmsError::Unsupported(format!(
+                    "a {color_type:?} {bit_depth:?} bit image"
+                )))
+            }
         }
         if line_values.len() != columns {
             return Err(MrmsError::Decode(format!(
@@ -1012,7 +1139,7 @@ fn decode_png_samples(
             samples.len()
         )));
     }
-    Ok(samples)
+    Ok((samples, shift))
 }
 
 fn gunzip(bytes: &[u8]) -> Result<Vec<u8>, MrmsError> {
@@ -2214,11 +2341,12 @@ mod tests {
             let raw: Vec<u8> = samples.iter().flat_map(|s| s.to_be_bytes()).collect();
             writer.write_image_data(&raw).expect("image data");
         }
-        let folded = decode_png_samples(&png_bytes, 16, 4, 2).expect("a folded grid");
+        let (folded, shift) = decode_png_samples(&png_bytes, 16, 4, 2).expect("a folded grid");
         assert_eq!(folded, vec![60, 8, 200, 12]);
+        assert_eq!(shift, 0);
 
         // And a grid that needs no folding comes back exactly as it was.
-        let whole = decode_png_samples(&png_bytes, 16, 4, 1).expect("a whole grid");
+        let (whole, _) = decode_png_samples(&png_bytes, 16, 4, 1).expect("a whole grid");
         assert_eq!(whole.len(), 16);
         assert_eq!(whole[0], 60);
         assert_eq!(whole[12], 200);
@@ -3093,6 +3221,12 @@ mod tests {
             ("precip-rate", Sampling::Nearest),
             ("qpe-hour", Sampling::Nearest),
             ("qpe-day", Sampling::Nearest),
+            // The flash flood grids cover whole basins rather than single
+            // cells, so they are sampled per pixel like the rain they are
+            // made from.
+            ("ffg-hour", Sampling::Nearest),
+            ("ffg-three-hour", Sampling::Nearest),
+            ("unit-streamflow", Sampling::Nearest),
             ("hail-swath", Sampling::Cells),
             ("lightning", Sampling::Cells),
             ("precip-type", Sampling::Nearest),

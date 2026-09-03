@@ -236,6 +236,38 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "estimated rain accumulated over twenty-four hours",
     freshForMs: MRMS_REFRESH,
   },
+  ffgHour: {
+    sourceId: "ffg-hour",
+    label: "Rain against flash flood guidance, past hour",
+    attribution: MRMS,
+    // Derived, not observed, and the distinction is the whole point of this
+    // table. One half is rain estimated from reflectivity; the other is a
+    // depth a forecaster set for how much the ground there can take. Neither
+    // was measured, and their ratio least of all.
+    kind: "derived",
+    derivedFrom:
+      "estimated hourly rain against the office's flash flood guidance",
+    freshForMs: MRMS_REFRESH,
+  },
+  ffgThreeHour: {
+    sourceId: "ffg-three-hour",
+    label: "Rain against flash flood guidance, past three hours",
+    attribution: MRMS,
+    kind: "derived",
+    derivedFrom:
+      "estimated three-hour rain against the office's flash flood guidance",
+    freshForMs: MRMS_REFRESH,
+  },
+  unitStreamflow: {
+    sourceId: "unit-streamflow",
+    label: "Modelled runoff",
+    attribution: MRMS,
+    // A model of the ground rather than a reading of the sky.
+    kind: "derived",
+    derivedFrom:
+      "estimated rain run through the FLASH hydrological model as runoff per square kilometre",
+    freshForMs: MRMS_REFRESH,
+  },
   precipType: {
     sourceId: "precip-type",
     label: "Precipitation type",

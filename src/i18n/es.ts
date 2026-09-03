@@ -669,7 +669,16 @@ export const es: Catalogue = {
   "layer.qpeHour": "Lluvia, última hora",
   "layers.qpeHourDetail": "Cuánta ha caído en la última hora",
   "layer.qpeDay": "Lluvia, último día",
+  "layer.unitStreamflow": "Escorrentía modelada",
+  "layer.ffgThreeHour": "Guía de crecidas, 3 h",
+  "layer.ffgHour": "Guía de crecidas, 1 h",
   "layers.qpeDayDetail": "Cuánta ha caído desde ayer a esta hora",
+  "layers.unitStreamflowDetail":
+    "Lo que el modelo de crecidas hace correr por cada kilómetro cuadrado. Es un modelo del terreno, no una medida del cielo.",
+  "layers.ffgThreeHourDetail":
+    "Lo mismo en tres horas, que es la ventana en la que se forma una crecida más lenta.",
+  "layers.ffgHourDetail":
+    "Compara la lluvia de la última hora con lo que la oficina calcula que el terreno admite. El 100% significa que la lluvia ya lo ha alcanzado.",
   "layer.precipType": "Lluvia o nieve",
   "layers.precipTypeDetail":
     "Qué está cayendo según la red, más que con cuánta fuerza",
@@ -806,6 +815,9 @@ export const es: Catalogue = {
   "keywords.precipRate": "intensidad lluvia",
   "keywords.qpeHour": "acumulacion hora lluvia",
   "keywords.qpeDay": "acumulacion lluvia",
+  "keywords.unitStreamflow": "caudal agua inundacion",
+  "keywords.ffgThreeHour": "inundacion repentina tres horas proporcion",
+  "keywords.ffgHour": "inundacion repentina hora proporcion",
   "keywords.spcOutlooks": "pronostico convectivo riesgo categorico",
   "keywords.spcDiscussions": "discusion mesoescala aviso corto",
   "keywords.weatherAlerts": "aviso vigilancia tornado severo poligono",
@@ -961,6 +973,10 @@ export const es: Catalogue = {
   "mrms.precipRate": "Intensidad de lluvia",
   "mrms.qpeHour": "Lluvia de la última hora",
   "mrms.qpeDay": "Lluvia del último día",
+  "mrms.unitStreamflow": "Escorrentía modelada",
+  "mrms.ffgThreeHour":
+    "Lluvia frente a la guía de crecidas, últimas tres horas",
+  "mrms.ffgHour": "Lluvia frente a la guía de crecidas, última hora",
   "mrms.hailSwath": "Granizo más grande del último día",
   "mrms.lightning": "Rayos nube-tierra, 5 min",
   "mrms.precipType": "Tipo de precipitación",

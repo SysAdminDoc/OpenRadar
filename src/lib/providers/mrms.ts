@@ -26,6 +26,9 @@ export const MRMS_PRODUCT_IDS = [
   "precip-rate",
   "qpe-hour",
   "qpe-day",
+  "ffg-hour",
+  "ffg-three-hour",
+  "unit-streamflow",
   "hail-swath",
   "precip-type",
 ] as const;

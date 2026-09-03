@@ -658,7 +658,16 @@ export const en = {
   "layer.qpeHour": "Rain, Past Hour",
   "layers.qpeHourDetail": "How much has fallen in the last hour",
   "layer.qpeDay": "Rain, Past Day",
+  "layer.unitStreamflow": "Modelled runoff",
+  "layer.ffgThreeHour": "Flash flood guidance, 3 h",
+  "layer.ffgHour": "Flash flood guidance, 1 h",
   "layers.qpeDayDetail": "How much has fallen since this time yesterday",
+  "layers.unitStreamflowDetail":
+    "What the flash flood model has running off each square kilometre. A model of the ground, not a reading of the sky.",
+  "layers.ffgThreeHourDetail":
+    "The same over three hours, which is the window a slower flood builds in.",
+  "layers.ffgHourDetail":
+    "How the past hour of rain compares with what the office says the ground there can take. 100% means the rain has met it.",
   "layer.precipType": "Rain or Snow",
   "layers.precipTypeDetail":
     "What the network says is actually falling, rather than how hard",
@@ -793,6 +802,9 @@ export const en = {
   "keywords.precipRate": "rain rate intensity",
   "keywords.qpeHour": "accumulation hour rainfall",
   "keywords.qpeDay": "accumulation day rainfall",
+  "keywords.unitStreamflow": "runoff streamflow flood water",
+  "keywords.ffgThreeHour": "flash flood guidance three hours ratio",
+  "keywords.ffgHour": "flash flood guidance hour ratio",
   "keywords.spcOutlooks": "convective outlook categorical day one",
   "keywords.spcDiscussions": "mesoscale discussion short fuse",
   "keywords.weatherAlerts": "",
@@ -946,6 +958,9 @@ export const en = {
   "mrms.precipRate": "Rain rate",
   "mrms.qpeHour": "Rain in the past hour",
   "mrms.qpeDay": "Rain in the past day",
+  "mrms.unitStreamflow": "Modelled runoff",
+  "mrms.ffgThreeHour": "Rain against flash flood guidance, past three hours",
+  "mrms.ffgHour": "Rain against flash flood guidance, past hour",
   "mrms.hailSwath": "Largest hail in the past day",
   "mrms.lightning": "Cloud-to-ground lightning, 5 min",
   "mrms.precipType": "Precipitation type",

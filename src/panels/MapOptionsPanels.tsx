@@ -400,6 +400,24 @@ const LAYER_OPTIONS: Array<{
     icon: Umbrella,
   },
   {
+    key: "ffgHour",
+    labelKey: "layer.ffgHour",
+    detailKey: "layers.ffgHourDetail",
+    icon: Droplets,
+  },
+  {
+    key: "ffgThreeHour",
+    labelKey: "layer.ffgThreeHour",
+    detailKey: "layers.ffgThreeHourDetail",
+    icon: Droplets,
+  },
+  {
+    key: "unitStreamflow",
+    labelKey: "layer.unitStreamflow",
+    detailKey: "layers.unitStreamflowDetail",
+    icon: Waves,
+  },
+  {
     key: "precipType",
     labelKey: "layer.precipType",
     detailKey: "layers.precipTypeDetail",

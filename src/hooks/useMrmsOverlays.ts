@@ -30,6 +30,9 @@ export const MRMS_LAYERS: Array<{
   { layer: "precipRate", product: "precip-rate" },
   { layer: "qpeHour", product: "qpe-hour" },
   { layer: "qpeDay", product: "qpe-day" },
+  { layer: "ffgHour", product: "ffg-hour" },
+  { layer: "ffgThreeHour", product: "ffg-three-hour" },
+  { layer: "unitStreamflow", product: "unit-streamflow" },
   { layer: "precipType", product: "precip-type" },
 ];
 
@@ -54,6 +57,9 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
   "precip-rate": "mrms.precipRate",
   "qpe-hour": "mrms.qpeHour",
   "qpe-day": "mrms.qpeDay",
+  "ffg-hour": "mrms.ffgHour",
+  "ffg-three-hour": "mrms.ffgThreeHour",
+  "unit-streamflow": "mrms.unitStreamflow",
   "precip-type": "mrms.precipType",
 };
 

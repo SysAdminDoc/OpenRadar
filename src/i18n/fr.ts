@@ -676,7 +676,16 @@ export const fr: Catalogue = {
   "layer.qpeHour": "Pluie, dernière heure",
   "layers.qpeHourDetail": "Ce qui est tombé depuis une heure",
   "layer.qpeDay": "Pluie, dernier jour",
+  "layer.unitStreamflow": "Ruissellement modélisé",
+  "layer.ffgThreeHour": "Seuil de crue soudaine, 3 h",
+  "layer.ffgHour": "Seuil de crue soudaine, 1 h",
   "layers.qpeDayDetail": "Ce qui est tombé depuis hier à la même heure",
+  "layers.unitStreamflowDetail":
+    "Ce que le modèle de crue fait ruisseler par kilomètre carré. Un modèle du sol, pas une mesure du ciel.",
+  "layers.ffgThreeHourDetail":
+    "La même chose sur trois heures, la fenêtre dans laquelle une crue plus lente se forme.",
+  "layers.ffgHourDetail":
+    "Compare la pluie de la dernière heure à ce que le service estime que le sol peut absorber. 100 % veut dire que la pluie l'a atteint.",
   "layer.precipType": "Pluie ou neige",
   "layers.precipTypeDetail":
     "Ce que le réseau dit qui tombe vraiment, plutôt qu'avec quelle force",
@@ -814,6 +823,9 @@ export const fr: Catalogue = {
   "keywords.precipRate": "taux pluie intensité",
   "keywords.qpeHour": "accumulation heure précipitation",
   "keywords.qpeDay": "accumulation jour précipitation",
+  "keywords.unitStreamflow": "ruissellement debit crue eau",
+  "keywords.ffgThreeHour": "seuil crue trois heures rapport",
+  "keywords.ffgHour": "seuil crue heure rapport",
   "keywords.spcOutlooks": "perspective convective catégorique jour un",
   "keywords.spcDiscussions": "discussion méso-échelle court terme",
   "keywords.weatherAlerts": "alerte veille avis tornade violent polygone",
@@ -970,6 +982,10 @@ export const fr: Catalogue = {
   "mrms.precipRate": "Taux de pluie",
   "mrms.qpeHour": "Pluie de la dernière heure",
   "mrms.qpeDay": "Pluie du dernier jour",
+  "mrms.unitStreamflow": "Ruissellement modélisé",
+  "mrms.ffgThreeHour":
+    "Pluie face au seuil de crue soudaine, trois dernières heures",
+  "mrms.ffgHour": "Pluie face au seuil de crue soudaine, dernière heure",
   "mrms.hailSwath": "Plus grosse grêle du dernier jour",
   "mrms.lightning": "Foudre nuage-sol, 5 min",
   "mrms.precipType": "Type de précipitation",

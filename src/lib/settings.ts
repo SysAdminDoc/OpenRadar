@@ -159,6 +159,11 @@ export interface LayerSettings {
   precipRate: boolean;
   qpeHour: boolean;
   qpeDay: boolean;
+  /** Rain against the guidance for flash flooding, over one hour and three. */
+  ffgHour: boolean;
+  ffgThreeHour: boolean;
+  /** What the flash flood model has running off each square kilometre. */
+  unitStreamflow: boolean;
   /** MRMS cloud-to-ground flash density over the past five minutes. */
   /** What kind of precipitation the network says is falling. */
   precipType: boolean;
@@ -560,6 +565,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     precipRate: false,
     qpeHour: false,
     qpeDay: false,
+    ffgHour: false,
+    ffgThreeHour: false,
+    unitStreamflow: false,
     precipType: false,
     lightningDensity: false,
     lightningFlashes: false,
@@ -1500,6 +1508,15 @@ export function normalizeSettings(value: unknown): AppSettings {
       precipRate: bool(layers.precipRate, DEFAULT_SETTINGS.layers.precipRate),
       qpeHour: bool(layers.qpeHour, DEFAULT_SETTINGS.layers.qpeHour),
       qpeDay: bool(layers.qpeDay, DEFAULT_SETTINGS.layers.qpeDay),
+      ffgHour: bool(layers.ffgHour, DEFAULT_SETTINGS.layers.ffgHour),
+      ffgThreeHour: bool(
+        layers.ffgThreeHour,
+        DEFAULT_SETTINGS.layers.ffgThreeHour,
+      ),
+      unitStreamflow: bool(
+        layers.unitStreamflow,
+        DEFAULT_SETTINGS.layers.unitStreamflow,
+      ),
       precipType: bool(layers.precipType, DEFAULT_SETTINGS.layers.precipType),
       lightningDensity: bool(
         layers.lightningDensity,
