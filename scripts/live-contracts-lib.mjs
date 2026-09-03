@@ -174,7 +174,12 @@ export const LIVE_CONTRACTS = [
   {
     id: "spc",
     label: "SPC outlooks and discussions",
-    host: "www.spc.noaa.gov",
+    // The service the adapter reads, not the site the outlooks are published
+    // on. It named `www.spc.noaa.gov`, which is in neither the native
+    // allowlist nor the page's policy: the gate could pass while the query it
+    // is supposed to be watching was broken, and the report named a host the
+    // app has never contacted.
+    host: "mapservices.weather.noaa.gov",
     kind: "browser",
     files: ["src/lib/overlays/spc.test.ts"],
     liveBlock: "against the live service",

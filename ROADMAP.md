@@ -275,13 +275,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P1
 
-- [ ] AUD-207 (P1): The `spc` live contract names a host the app never reaches
-  Why: The gate that promises "every live provider still answers" tests `www.spc.noaa.gov`, which is in neither the native allowlist nor the CSP; the SPC adapter reads `mapservices.weather.noaa.gov`, so the contract can pass while the real query breaks, and the repo's own rule is that a gate must be able to fail.
-  Evidence: `scripts/live-contracts-lib.mjs:177` (`host: "www.spc.noaa.gov"`); `src/lib/overlays/spc.ts:13-20` (`mapservices.weather.noaa.gov`); `www.spc.noaa.gov` appears elsewhere only as attribution links; `src-tauri/src/http.rs:16-49` and `src-tauri/tauri.conf.json:27-33`.
-  Touches: `scripts/live-contracts-lib.mjs` (host and the query the adapter actually makes), `src/lib/overlays/spc.test.ts`, a new test that reads every contract's host against `ALLOWED_HOSTS` and the CSP and fails on a host neither carries.
-  Acceptance: `npm run check:live -- --only=spc` exercises the outlook and discussion queries against `mapservices.weather.noaa.gov`; the contract-host test fails when a contract names a host the app cannot reach (proved by planting one); the `UNCONTRACTED_HOSTS` list still explains every excused host.
-  Complexity: S
-
 - [ ] AUD-208 (P1): A native crash leaves no file behind
   Why: `Roadmap_Blocked.md` documents a 202-byte file that ends the process with an access violation and no message, and the panic hook only logs panics; a reader whose window vanished has nothing to send and the app has nothing to say on the next launch.
   Evidence: `src-tauri/src/lib.rs:79-81` (`set_hook` logs only); `src-tauri/fuzz/reproducers/netcdf-flashes-access-violation.bin` and `lightning::tests::a_file_that_nests_too_deep_takes_the_reader_down_and_is_upstreams`; Embark `crash-handler` and `minidumper` write local minidumps with no upload (https://github.com/embarkstudios/crash-handling); WebView2 keeps its own dumps under `EBWebView\Crashpad\reports` (https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/diagnostics/crash.md).
