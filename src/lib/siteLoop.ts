@@ -36,32 +36,6 @@ export function volumeForTime(
   return found;
 }
 
-/**
- * The volumes worth having in hand for a moment, nearest need first.
- *
- * Every volume is ten megabytes fetched and decoded, so they are asked for as
- * the reader reaches them rather than all at once: entering a site view used
- * to cost one volume and making it cost ten would be a tenfold bill for a
- * loop nobody has asked to play yet. The one on screen comes first, then the
- * one after it, because playing forwards is what the button does.
- */
-export function loopPrefetch(
-  times: readonly number[],
-  at: number,
-  ahead = 2,
-): number[] {
-  const current = volumeForTime(times, at);
-  if (current === null) return [];
-  const index = times.indexOf(current);
-  const wanted: number[] = [current];
-  for (let step = 1; step <= ahead; step += 1) {
-    const next = times[index + step];
-    if (next === undefined) break;
-    wanted.push(next);
-  }
-  return wanted;
-}
-
 /** The key one rendered volume is held under. */
 export function loopKey(parts: {
   station: string;

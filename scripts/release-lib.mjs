@@ -188,8 +188,14 @@ export function publishedLag(published, repo) {
   // that matters: 0.9.0 published against 1.0.0 here is the first release
   // after a major bump, which is one release, not a thousand. The first
   // version of this said a thousand and refused the 1.0.0 release.
-  const behind =
-    major === ourMajor
+  // Ahead is asked first and asked properly. Reading it off a negative count
+  // worked within a major and not across one, where the count is an
+  // unsigned "too far to say": a tree at 0.9.0 against a published 1.0.0 was
+  // called a major version BEHIND and the staging run refused.
+  const ahead = major > ourMajor || (major === ourMajor && minor > ourMinor);
+  const behind = ahead
+    ? 0
+    : major === ourMajor
       ? ourMinor - minor
       : ourMajor - major === 1 && ourMinor === 0
         ? 1
@@ -201,7 +207,7 @@ export function publishedLag(published, repo) {
     behind,
     // A published version AHEAD of this tree is not a lag, and it is worth
     // saying rather than reading as zero: somebody published from elsewhere.
-    ahead: behind < 0,
+    ahead,
     stalled: behind > 1,
   };
 }

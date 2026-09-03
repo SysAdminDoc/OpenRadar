@@ -577,8 +577,14 @@ export function useSingleSiteRadar(options: {
 
     const already = heldRef.current.get(key);
     if (already) {
+      // Including the spinner. A fetch left in flight by the previous frame
+      // has already had its `open` flag cleared, so its `finally` will not
+      // clear this, and a reader scrubbing over volumes they have already
+      // seen kept a spinner that never stopped.
+      requestRef.current += 1;
       setSweep(already);
       setError(null);
+      setLoading(false);
       return;
     }
 
@@ -595,9 +601,13 @@ export function useSingleSiteRadar(options: {
       contrast,
     )
       .then((next) => {
-        if (!open || request !== requestRef.current) return;
+        // Kept whether or not it is still the frame on screen. Decoding is
+        // the expensive half and the answer is true about that volume
+        // whatever the scrubber has moved on to; discarding it because the
+        // reader moved first meant almost nothing was ever cached.
         heldRef.current.set(key, next);
         heldRef.current = trimHeld(heldRef.current, DEFAULT_LOOP_VOLUMES * 2);
+        if (!open || request !== requestRef.current) return;
         setSweep(next);
         setError(null);
       })

@@ -80,6 +80,14 @@
 
 - Germany gets warnings too. The DWD composite of seventeen radars has been on the map for as long as the app has looked at Europe, and nothing said a thunderstorm warning stood over it. They are on the same layer as the American and Canadian ones, in the office's own German, because a warning is the words the office issued and an English paraphrase of a Sturmbö would be this app inventing one nobody wrote. A view that does not reach Germany asks nobody.
 
+- A Canadian warning the office has already called off is no longer drawn as if it stood. Sixty-five of three hundred alerts in the feed were ended ones, still carrying an expiry hours away, and one of them was a tornado warning: it would have been drawn in red and announced at a watched place inside it.
+
+- Every Canadian warning is now told apart from the others. The office publishes one warnings page for the whole country, and the app was using that address as each warning's identity, so they were all the same warning as far as the watch was concerned: the first one spoke and none of the rest ever did, including a tornado warning arriving after a heat warning.
+
+- A Canadian severe thunderstorm warning ranks with its American twin rather than above it. The office paints one red, and reading that colour as severity put it at the top of the scale, where it took the loudest tone and came through quiet hours whatever you had set.
+
+- The site loop no longer runs while the loop is playing. Left as it was, a window playing on a second monitor would have asked a public archive for a ten megabyte volume about once a second for as long as it was open. Stopping the scrubber on an older step is what draws that step's volume, which is also when anybody is looking at it.
+
 ## OpenRadar v0.7.0
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.

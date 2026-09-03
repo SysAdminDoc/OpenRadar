@@ -1,6 +1,6 @@
 import type { OverlayBounds, OverlayFeature } from "./registry";
 import { alertType } from "../alertTypes";
-import { SEVERITY_RANK, type AlertSeverity } from "./alerts";
+import { alertSeverity, SEVERITY_RANK, type AlertSeverity } from "./alerts";
 
 /**
  * Public weather alerts for Canada, from Environment and Climate Change
@@ -55,19 +55,26 @@ export function ecccUrl(bounds: OverlayBounds): string {
 /**
  * How serious ECCC says it is.
  *
- * The service publishes both a type and a colour, and they say different
- * things: the type is what stage the hazard is at, and the colour is how bad
- * the office expects it to be. A red warning is worse than a yellow one, and
- * a warning is more than a watch, so the two are read together rather than
- * either alone. It is deliberately not a translation of the American
- * severities into Canadian ones: it is the office's own two fields, mapped
- * onto the four words this app already draws in four colours.
+ * The stage the hazard is at, and then the same promotion the American side
+ * applies to its own product names: `alertSeverity` is what puts a tornado
+ * warning above a thunderstorm warning, and running the Canadian name
+ * through it is what makes a Canadian warning and its American twin rank the
+ * same.
+ *
+ * The office's colour is deliberately NOT read. An earlier version took red
+ * as extreme before looking at anything else, and ECCC paints a severe
+ * thunderstorm warning red: it outranked the identical American product,
+ * took the top fill and the extreme tone, and pierced quiet hours at every
+ * override setting. Colour is how the office draws a warning, not how bad it
+ * is.
  */
-export function ecccSeverity(type: string, colour: string): AlertSeverity {
+export function ecccSeverity(type: string, english: string): AlertSeverity {
   const stage = type.toLowerCase();
-  const risk = colour.toLowerCase();
-  if (risk === "red") return "extreme";
-  if (stage === "warning") return "severe";
+  if (stage === "warning") {
+    // The same ladder the American products climb, so "tornado warning" is
+    // extreme in Regina exactly as it is in Kansas.
+    return alertSeverity(english, "W");
+  }
   if (stage === "watch") return "moderate";
   // An advisory or a special weather statement is the office saying keep an
   // eye on this, which is the bottom of the scale here as it is in the south.
@@ -110,17 +117,27 @@ export function parseEcccAlerts(
     };
     if (!feature.geometry || typeof feature.geometry !== "object") continue;
     const properties = feature.properties ?? {};
+    // The feature's own identifier, which is the only unique one here.
+    // `feature_id` is the REGION the alert covers: it is reused by every
+    // alert over that region and empty for a good many of them, so fourteen
+    // warnings shared the empty string on the day this was written.
+    const id = text((feature as { id?: unknown }).id);
 
     // The office's own name for the product. The English one is what the
     // hazard grouping reads, because that grouping is written in English
     // words; the reader sees whichever language they are in.
     const english = text(properties.alert_name_en);
     if (!english) continue;
+
+    // An alert the office has ended is not a warning. ECCC keeps ended
+    // alerts in the same collection with an expiry still hours away, so
+    // nothing downstream drops them: sixty-five of three hundred were ended
+    // on the day this was written, among them a tornado warning that would
+    // have been drawn in red and announced at a watched place.
+    if (text(properties.status_en).toLowerCase() === "ended") continue;
+
     const shown = french ? text(properties.alert_name_fr) || english : english;
-    const severity = ecccSeverity(
-      text(properties.alert_type),
-      text(properties.risk_colour_en),
-    );
+    const severity = ecccSeverity(text(properties.alert_type), english);
 
     parsed.push({
       type: "Feature",
@@ -131,7 +148,7 @@ export function parseEcccAlerts(
         headline: french ? sentence(shown) : titled(shown),
         severity,
         severityRank: SEVERITY_RANK[severity],
-        capId: text(properties.feature_id),
+        capId: id || text(properties.feature_id),
         kind: alertType(english),
         // ECCC publishes no damage threat and no hail size. An empty tag is
         // what an ordinary warning carries on the American side too.

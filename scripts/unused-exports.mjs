@@ -98,13 +98,19 @@ if (declared.length < 100) {
  * export in `useAppearance.ts` and also the English for a settings heading,
  * `Flash` is a type and also half of "Flash Flood Warning", and `Told` is a
  * type and also a word somebody used in a sentence. Each was permanently
- * unreportable. Stripping comments is enough for those, and the catalogues
- * are dropped whole.
+ * unreportable. Stripping line comments is enough for those, and the
+ * catalogues are dropped whole.
+ *
+ * Block comments are deliberately NOT stripped. A route glob such as
+ * `"http://cached.localhost/**"` opens what looks like one and it runs to the
+ * next real `*\/`: doing it took thirty-two thousand characters of live code
+ * out of the scan, sixteen thousand of them from one spec, and any export
+ * whose only mention fell inside a swallowed span would have been reported as
+ * dead. A symbol named only in a block comment is a false negative; a symbol
+ * hidden by one is a false positive that fails the build.
  */
 function code(source) {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+  return source.replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
 const said = new Map(

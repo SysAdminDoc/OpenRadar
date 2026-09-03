@@ -344,14 +344,22 @@ export default function App() {
     zoom: settings.camera.zoom,
     pageVisible,
     paletteGeneration,
-    // The moment the scrubber is on. A site's volumes are five minutes apart
-    // and the timeline runs on the mosaic's two-minute steps, so this is what
-    // says which of the site's volumes the step on screen belongs to: one
-    // scrubber, and the site picture follows it rather than a second one
-    // beside it. The newest step is still the live path, untouched.
-    showingTime: timeline.frames[timeline.frameIndex]?.time
-      ? timeline.frames[timeline.frameIndex].time * 1000
-      : null,
+    // The moment the scrubber is stopped on, and nothing while it is running.
+    //
+    // A site's volumes are five minutes apart and the timeline runs on the
+    // mosaic's steps, so this says which of the site's volumes the step on
+    // screen belongs to: one scrubber, and the site picture follows it.
+    //
+    // Only while the loop is paused. The mosaic plays by default and steps
+    // about once a second, and every step that crossed into a different
+    // volume asked the archive for a ten megabyte object: a loop left running
+    // on a second monitor would have pulled a volume a second from a public
+    // bucket for as long as the window was open. A reader who wants to look
+    // at an older volume stops on it, which is also when they are looking.
+    showingTime:
+      !timeline.playing && timeline.frames[timeline.frameIndex]?.time
+        ? timeline.frames[timeline.frameIndex].time * 1000
+        : null,
   });
 
   // Only that a warning was announced. Whether to fly to it, and where to,
