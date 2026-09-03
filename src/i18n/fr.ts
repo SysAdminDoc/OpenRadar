@@ -19,7 +19,8 @@ export const fr: Catalogue = {
   "export.eyebrow": "Emportez-la",
   "export.title": "Exporter",
   "export.image": "Exporter l'image",
-  "export.loop": "Exporter la boucle",
+  "export.loop": "Exporter la boucle (WebM)",
+  "export.mp4": "Exporter la boucle (MP4)",
   "export.loopFrames": " ({count, plural, one {# image} other {# images}})",
   "export.gif": "Exporter en GIF",
   "export.gifFrames":
@@ -1596,6 +1597,12 @@ export const fr: Catalogue = {
   "export.noCanvas": "Cet affichage ne peut pas produire une exportation.",
   "export.notEncoded": "L'image n'a pas pu être encodée.",
   "export.noVideo": "Cette version ne peut pas enregistrer de vidéo.",
+  "export.noMp4":
+    "Cette version n'a pas d'encodeur H.264, elle ne peut donc pas écrire de MP4.",
+  "export.mp4Reordered":
+    "L'encodeur H.264 de cette machine réordonne les images, que cette version ne peut pas empaqueter. L'export WebM fonctionne toujours.",
+  "export.mp4Missing":
+    "Pas d'encodeur H.264 ici. Le WebM ci-dessus fonctionne toujours.",
   "export.noFrames": "Il n'y a aucune image à enregistrer.",
   "export.tooLarge": "L'enregistrement dépasse 20 Mo.",
   "export.empty": "L'enregistrement est ressorti vide.",

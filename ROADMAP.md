@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-183 (P2): MP4 (H.264) export beside WebM
-  Why: A WebM will not play in iMessage, most email clients or a phone gallery; RadarScope 5.6.1 (2026-09-02) moved its saved video to MP4 for that reason, and WebView2 Evergreen carries an H.264 WebCodecs encoder.
-  Evidence: `src/lib/export.ts:117-119` and `src/lib/webm.ts` (VP9/VP8 Matroska writer of our own); WebView2 runtime notes and codec surveys report `avc1` encode available; MP4 needs an ISO BMFF muxer the way WebM needed Matroska. (2026-09-03: the owner's `C:\repos\StormviewRadar\src\animation-export.js:51-52` already probes `avc1.42E01E` and `avc1.424028` with a runtime fallback, so the codec detection can be lifted from there.)
-  Touches: new `src/lib/mp4.ts` (ftyp/moov/mdat or fragmented boxes, avcC from the encoder's description), `src/lib/export.ts` (format choice, fall back to WebM when `avc1` is unsupported), `src/panels/ExportPanel.tsx`, `src-tauri/src/exports.rs` (`.mp4` in the allowlist and its test), provenance sidecar naming, catalogues.
-  Acceptance: An MP4 export plays in Windows Media Player and passes `ffprobe` (h264, the frame count and duration of the loop); the caption band survives the encode as the WebM test checks; when the encoder is missing the panel says so and offers WebM; `every_file_this_app_writes_can_be_written` lists `.mp4`.
-  Complexity: M
-
 - [ ] AUD-184 (P2): A smoothing option for the single-site sweep, in polar space and never across missing gates
   Why: GR2Analyst, GRLevel3, Supercell Wx and WeatherWise all offer it and readers expect the choice; the sweep here is drawn as hard gates.
   Evidence: `src-tauri/src/level2.rs:4222` interpolates only the colour ramp; Mike Gibson's description of GR's range-dependent weighted average keyed to bin aspect ratio (Stormtrack); WeatherWise's "smoothed radar toggle".

@@ -11,7 +11,8 @@ export const es: Catalogue = {
   "export.eyebrow": "Llévatelo",
   "export.title": "Exportar",
   "export.image": "Exportar imagen",
-  "export.loop": "Exportar animación",
+  "export.loop": "Exportar animación (WebM)",
+  "export.mp4": "Exportar animación (MP4)",
   "export.gif": "Exportar GIF",
   "export.gifFrames":
     " (últimos {count, plural, one {# fotograma} other {# fotogramas}})",
@@ -1576,6 +1577,12 @@ export const es: Catalogue = {
   "export.noCanvas": "Esta pantalla no puede dibujar una exportación.",
   "export.notEncoded": "No se pudo codificar la imagen.",
   "export.noVideo": "Esta versión no puede grabar video.",
+  "export.noMp4":
+    "Esta versión no tiene codificador H.264, así que no puede escribir un MP4.",
+  "export.mp4Reordered":
+    "El codificador H.264 de este equipo reordena los fotogramas y esta versión no puede empaquetarlos. La exportación WebM sigue funcionando.",
+  "export.mp4Missing":
+    "Aquí no hay codificador H.264. El WebM de arriba sigue funcionando.",
   "export.noFrames": "No hay cuadros que grabar.",
   "export.tooLarge": "La grabación salió de más de 20 MB.",
   "export.empty": "La grabación salió vacía.",
