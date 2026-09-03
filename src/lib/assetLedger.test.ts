@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { allowedHosts } from "../test/nativeHosts";
+import { allowedHosts, policyHosts } from "../test/nativeHosts";
 import { CACHED_HOSTS } from "./tileCache";
 import {
   LIVE_CONTRACTS,
@@ -152,6 +152,21 @@ describe("the ledger and the live contracts", () => {
       contracted.has(host),
     );
     expect(both).toEqual([]);
+  });
+
+  // A contract's host is what the report names and what a reader would go
+  // looking at when it fails. Naming one the app cannot reach means the gate
+  // can pass while the query it watches is broken, which is the one thing a
+  // gate must not be able to do.
+  it("names only hosts the app can actually reach", () => {
+    const reachable = new Set([...allowedHosts(), ...policyHosts()]);
+    const unreachable = LIVE_CONTRACTS.filter(
+      (contract) => !reachable.has(contract.host),
+    ).map((contract) => `${contract.id}: ${contract.host}`);
+    expect(
+      unreachable,
+      `these contracts name hosts the app cannot reach: ${unreachable.join(", ")}`,
+    ).toEqual([]);
   });
 
   it("treats the warnings service as a required contract", () => {

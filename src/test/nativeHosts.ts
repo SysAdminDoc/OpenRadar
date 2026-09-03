@@ -10,6 +10,32 @@ import { join } from "node:path";
  * because a second hand-maintained copy of a list is the thing that goes
  * stale without anybody noticing.
  */
+/**
+ * Every host the PAGE may fetch, read from the content security policy.
+ *
+ * The native allowlist and the policy are two different boundaries: a browser
+ * adapter's requests go through the policy and never touch the Rust list.
+ * Anything that has to ask "can the app reach this at all" has to ask both.
+ */
+export function policyHosts(): string[] {
+  const source = readFileSync(
+    join(process.cwd(), "src-tauri", "tauri.conf.json"),
+    "utf8",
+  );
+  const config = JSON.parse(source) as {
+    app?: { security?: { csp?: string | Record<string, unknown> } };
+  };
+  const csp = config.app?.security?.csp;
+  const text = typeof csp === "string" ? csp : JSON.stringify(csp ?? "");
+  return [
+    ...new Set(
+      [...text.matchAll(/https:\/\/([a-z0-9.-]+\.[a-z]{2,})/g)].map(
+        (match) => match[1],
+      ),
+    ),
+  ];
+}
+
 export function allowedHosts(): string[] {
   const source = readFileSync(
     join(process.cwd(), "src-tauri", "src", "http.rs"),
