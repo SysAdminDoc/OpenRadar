@@ -912,9 +912,17 @@ export function LayersPanel({
           <div className="settings-section__title">
             <span>{t("layers.azShearLevel")}</span>
             {/* What the number on the map means, rather than only what it is.
-                The threshold is the forecaster's own and it belongs beside the
-                switch that draws the field, not only in the legend. */}
-            <small>{t("layers.azShearNote")}</small>
+                Per slab, because the threshold is not the same one: it was
+                written for the mid-level and was being shown unchanged while
+                the low one was drawn. */}
+            {/* Both keys written out rather than built from the level, so
+                the catalogue coverage gate can see them: a key assembled on a
+                prefix is one nothing proves is still used. */}
+            <small>
+              {azShearLevel === "mid"
+                ? t("azShearLevel.midNote")
+                : t("azShearLevel.lowNote")}
+            </small>
           </div>
           <div
             className="segmented-control segmented-control--full"
@@ -2162,17 +2170,19 @@ export function SettingsPanel({
                       // stands now, and not at all if it is already there.
                       undo: () => {
                         const now = settingsRef.current;
+                        // By its own id, which is what a place is. Matching on
+                        // the name and the point instead meant two places
+                        // called the same thing at the same point could not
+                        // both come back.
                         if (
-                          now.watchPlaces.some(
-                            (held) =>
-                              held.name === place.name &&
-                              held.center[0] === place.center[0] &&
-                              held.center[1] === place.center[1],
-                          )
+                          now.watchPlaces.some((held) => held.id === place.id)
                         ) {
                           return;
                         }
-                        if (now.watchPlaces.length >= MAX_WATCH_PLACES) return;
+                        // Home is the tenth, so the list itself holds nine.
+                        if (now.watchPlaces.length >= MAX_WATCH_PLACES - 1) {
+                          return;
+                        }
                         const back = [...now.watchPlaces];
                         back.splice(Math.min(index, back.length), 0, place);
                         onSettings({ ...now, watchPlaces: back });

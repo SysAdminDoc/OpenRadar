@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { setStartWithMachine, startsWithMachine } from "../lib/autostart";
 
 export interface AutostartState {
   /**
    * Whether the app is registered to start with the machine.
    *
-   * `null` until the answer is back, and on a browser preview for good: the
-   * switch is drawn as off and disabled there rather than pretending to know.
+   * `null` until the answer is back, and for good where nobody can say: a
+   * browser preview, or a machine that would not answer. The switch is drawn
+   * off and disabled there, with copy saying why, rather than pretending to
+   * know.
    */
   on: boolean | null;
   /** Registers or removes the entry, and settles on what is actually true. */
@@ -25,15 +27,20 @@ export interface AutostartState {
  */
 export function useAutostart(): AutostartState {
   const [on, setOn] = useState<boolean | null>(null);
+  // The workspace going away must not leave a registry answer landing on a
+  // component nobody is looking at.
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    let open = true;
     void startsWithMachine().then((answer) => {
-      if (open) setOn(answer);
+      if (open.current) setOn(answer);
     });
-    return () => {
-      open = false;
-    };
   }, []);
 
   const set = useCallback((next: boolean) => {
@@ -41,7 +48,9 @@ export function useAutostart(): AutostartState {
     // fast but not instant, and a switch that does not move under the finger
     // reads as broken.
     setOn(next);
-    void setStartWithMachine(next).then(setOn);
+    void setStartWithMachine(next).then((answer) => {
+      if (open.current) setOn(answer);
+    });
   }, []);
 
   return { on, set };

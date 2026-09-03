@@ -16,7 +16,7 @@ import {
   cancelIncidentPack,
   createIncidentPack,
   deleteIncidentPack,
-  reapIncidentPacks,
+  reapIncidentPack,
   restoreIncidentPack,
   estimateIncidentPack,
   formatPackBytes,
@@ -236,20 +236,32 @@ export function IncidentPackManager({
     const wasSelected =
       settingsRef.current.incidentPacks.selectedId === pack.id;
     removeReference(pack.id);
+    // A cancelled download has nothing to give back: its tiles were never an
+    // archive. Whether a delete was held is the native side's answer, not
+    // this listing's: it can be a second old, and a pack that finished in
+    // that second is held on disk while this still shows it downloading.
     void act(
       pack.id,
-      () =>
-        cancel ? cancelIncidentPack(pack.id) : deleteIncidentPack(pack.id),
+      async () => {
+        if (cancel) {
+          await cancelIncidentPack(pack.id);
+          return;
+        }
+        if (await deleteIncidentPack(pack.id)) offerUndo(pack, wasSelected);
+      },
       cancel ? t("packs.cancelled") : t("packs.deleted"),
     );
-    // A cancelled download has nothing to give back: its tiles were never an
-    // archive. Only a finished pack is held, and only for as long as the
-    // toast that carries the way back to it.
-    if (cancel || pack.status !== "ready") return;
+  };
+
+  /** The way back to a pack that is being held, for as long as it is held. */
+  const offerUndo = (pack: IncidentPack, wasSelected: boolean) => {
     let taken = false;
+    // By id. Delete two packs half a minute apart and a reap that took the
+    // whole held folder would end the second one's offer while its toast was
+    // still on screen making it.
     const closing = window.setTimeout(() => {
       if (taken) return;
-      void reapIncidentPacks().catch(() => {});
+      void reapIncidentPack(pack.id).catch(() => {});
     }, UNDO_LIFETIME_MS);
     onRemoved({
       title: t("packs.deletedUndo", { name: pack.name }),
@@ -268,9 +280,13 @@ export function IncidentPackManager({
               ...current,
               incidentPacks: {
                 ...current.incidentPacks,
-                selectedId: wasSelected
-                  ? reference.id
-                  : current.incidentPacks.selectedId,
+                // Only when nothing else has been chosen since. Putting the
+                // pack back is not a reason to take away the basemap the
+                // reader picked after deleting it.
+                selectedId:
+                  wasSelected && current.incidentPacks.selectedId === null
+                    ? reference.id
+                    : current.incidentPacks.selectedId,
                 references: [
                   ...current.incidentPacks.references.filter(
                     (entry) => entry.id !== reference.id,

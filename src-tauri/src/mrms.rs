@@ -3167,15 +3167,22 @@ mod tests {
                 .grid;
 
             // What the grid actually holds, against what the ramp expects.
+            //
+            // Every cell, not a stride: the sparse products are a few hundred
+            // live cells in twenty-four million, so a stride can walk a whole
+            // hail grid and touch none of them, and "nothing above the floor"
+            // then says nothing at all.
             let mut above_floor = 0usize;
-            let mut peak = f32::MIN;
-            for row in (0..grid.rows).step_by(7) {
-                for column in (0..grid.columns).step_by(7) {
+            let mut finite = 0usize;
+            let mut peak: Option<f32> = None;
+            for row in 0..grid.rows {
+                for column in 0..grid.columns {
                     let value = grid.value(row, column);
                     if !value.is_finite() {
                         continue;
                     }
-                    peak = peak.max(value);
+                    finite += 1;
+                    peak = Some(peak.map_or(value, |held: f32| held.max(value)));
                     if value >= product.floor {
                         above_floor += 1;
                     }
@@ -3183,22 +3190,56 @@ mod tests {
             }
             let top = product.ramp[product.ramp.len() - 1].0;
             println!(
-                "{}: {above_floor} sampled cells over the {} floor, peak {peak:.2} {}, ramp ends at {top}",
-                product.id, product.floor, product.unit
+                "{}: {above_floor} of {finite} cells over the {} floor, peak {} {}, ramp ends at {top}",
+                product.id,
+                product.floor,
+                peak.map_or("none".into(), |value| format!("{value:.2}")),
+                product.unit
+            );
+
+            // Started as `f32::MIN`, which is a finite number, so the check
+            // that a grid decoded to something readable could never fail: a
+            // field of nothing but missing values passed it. An option says
+            // what the maximum of an empty set actually is.
+            let peak = peak.unwrap_or_else(|| panic!("{} decoded to nothing readable", product.id));
+            // Not "has data": a cell outside radar coverage decodes to a
+            // large negative number rather than to NaN, so almost every cell
+            // in the domain counts here. It catches a decode that came back
+            // with a grid a fraction of the size it should be.
+            assert!(
+                finite > 1_000_000,
+                "{}: only {finite} cells in the whole grid decoded",
+                product.id
             );
 
             // The ramp has to be in the same world as the data. An order of
             // magnitude either way and the map is one flat colour or nothing.
             assert!(
-                peak.is_finite(),
-                "{} decoded to nothing readable",
-                product.id
-            );
-            assert!(
                 peak < top * 10.0,
                 "{}: peak {peak} is far past the {top} the ramp ends at",
                 product.id
             );
+            // And the other way, which nothing checked: a grid published in a
+            // unit a thousand times smaller than the ramp assumes draws an
+            // empty layer and passes every upper bound there is. A field that
+            // covers the country always has something above its own floor;
+            // the scattered ones are reported rather than asserted, because
+            // "no hail anywhere in the United States" is a fact about the
+            // afternoon rather than about this code.
+            if product.sampling == Sampling::Nearest {
+                assert!(
+                    above_floor > 0,
+                    "{}: nothing in the country reached the {} floor, so either \
+                     the floor is too high or the unit has moved",
+                    product.id,
+                    product.floor
+                );
+                assert!(
+                    peak > top / 1000.0,
+                    "{}: peak {peak} is far below the {top} the ramp ends at",
+                    product.id
+                );
+            }
             drop(cache);
         }
     }

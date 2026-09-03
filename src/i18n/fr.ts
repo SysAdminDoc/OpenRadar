@@ -1018,13 +1018,12 @@ export const fr: Catalogue = {
   "layers.tropicalDetail":
     "Cônes, trajectoires et perspectives de développement du NHC",
   "layers.satelliteDetail": "GOES-East GeoColor sous le radar",
-  "layers.rotationDetail": "Cisaillement azimutal MRMS de la dernière heure",
+  "layers.rotationDetail":
+    "Cisaillement azimutal de MRMS cumulé sur la période que vous choisissez",
   "layers.rotationPeriod": "Jusqu'où la trace remonte",
   "layers.azShearDetail":
     "Cisaillement azimutal combiné de MRMS tel quel, sans cumul",
   "layers.azShearLevel": "Quelle tranche de l'orage est mesurée",
-  "layers.azShearNote":
-    "Au-dessus de 10 entre 3 et 6 km, le mésocyclone est profond, selon la lecture du WDTD.",
   "rotationPeriod.30m": "30 min",
   "rotationPeriod.1h": "1 heure",
   "rotationPeriod.2h": "2 heures",
@@ -1032,6 +1031,10 @@ export const fr: Catalogue = {
   "rotationPeriod.24h": "1 jour",
   "azShearLevel.low": "0 à 2 km",
   "azShearLevel.mid": "3 à 6 km",
+  "azShearLevel.midNote":
+    "Au-dessus de 10 ici, le mésocyclone est profond, selon la lecture du WDTD.",
+  "azShearLevel.lowNote":
+    "La tranche sur laquelle s'appuie une alerte de tornade, là où le couple atteint le sol.",
   "layers.hailDetail": "Taille maximale estimée de la grêle, MRMS",
   "layers.vilDensityDetail":
     "Le liquide divisé par l'épaisseur de l'écho, ce qui distingue un orage humide d'un orage de grêle",

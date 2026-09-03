@@ -631,6 +631,18 @@ export default function App() {
     void setCloseToTray(settings.tray && settings.closeToTray);
   }, [settings.closeToTray, settings.tray]);
 
+  // The startup entry cannot outlive the icon it opens to.
+  //
+  // A reader who ticks "Start with Windows" and later removes the tray icon
+  // would otherwise get the map across their screen at every sign-in, with the
+  // one switch that could stop it greyed out because it needs the icon. So
+  // taking the icon away takes the entry with it, which is what the disabled
+  // switch has been saying all along.
+  useEffect(() => {
+    if (settings.tray || autostart.on !== true) return;
+    autostart.set(false);
+  }, [autostart, settings.tray]);
+
   useEffect(() => {
     void setGlanceOnTop(settings.glanceOnTop);
   }, [settings.glanceOnTop]);

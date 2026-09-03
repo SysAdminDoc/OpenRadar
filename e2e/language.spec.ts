@@ -196,17 +196,34 @@ test.describe("the Start with Windows row in a long language", () => {
     await row.scrollIntoViewIfNeeded();
 
     const measured = await row.evaluate((element) => {
-      const label = element.querySelector("strong");
-      const detail = element.querySelector("small");
+      // Both directions. Sideways is what a squeezed control does; downwards
+      // is what long copy does, and a row whose text wraps has no sideways
+      // overflow to find however badly it spills, so a check that only looked
+      // at the width could not fail on the thing most likely to go wrong.
+      const box = (found: Element | null) =>
+        found
+          ? {
+              width: found.getBoundingClientRect().width,
+              clipped:
+                found.scrollWidth - found.clientWidth > 1 ||
+                found.scrollHeight - found.clientHeight > 1,
+            }
+          : { width: 0, clipped: true };
       return {
-        label: label?.getBoundingClientRect().width ?? 0,
-        detail: detail?.getBoundingClientRect().width ?? 0,
-        overflow: element.scrollWidth - element.clientWidth,
+        label: box(element.querySelector("strong")),
+        detail: box(element.querySelector("small")),
+        row: {
+          sideways: element.scrollWidth - element.clientWidth,
+          down: element.scrollHeight - element.clientHeight,
+        },
       };
     });
-    expect(measured.label).toBeGreaterThan(20);
-    expect(measured.detail).toBeGreaterThan(20);
-    expect(measured.overflow).toBeLessThanOrEqual(1);
+    expect(measured.label.width).toBeGreaterThan(20);
+    expect(measured.detail.width).toBeGreaterThan(20);
+    expect(measured.label.clipped, "the label is cut off").toBe(false);
+    expect(measured.detail.clipped, "the reason is cut off").toBe(false);
+    expect(measured.row.sideways).toBeLessThanOrEqual(1);
+    expect(measured.row.down).toBeLessThanOrEqual(1);
 
     // And with the icon off it says why rather than going quiet.
     await page
