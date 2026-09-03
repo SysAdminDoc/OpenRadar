@@ -185,7 +185,7 @@ None of it is sent anywhere. It goes to the clipboard, and you paste it, having 
 
 OpenRadar has no account, telemetry or sync. Settings and logs stay on this machine.
 
-It does write a crash file when it goes down unexpectedly, so that a fault in a decoder leaves something to look at rather than an empty screen and no explanation. The file is written beside the app's own data, the newest five are kept, and the next launch tells you where it is. It is never sent anywhere. There is no uploader in the app and no address it could be sent to.
+It does write a crash file when it goes down unexpectedly, so that a fault in a decoder leaves something to look at rather than an empty screen and no explanation. The file is written beside the app's own data and the newest five are kept. Diagnostics, under Settings, names the most recent one and where to find it. It is never sent anywhere: there is no uploader in the app and no address it could be sent to.
 
 A dozen places where the weather made history are hidden on the map. Nothing marks them; you come across one by looking closely at that part of the world, and it tells you what happened there with the office that published the story linked beside it. The set ships with the app and works offline. Nothing about it is counted or scored, and it stays quiet while a warning is in force where you watch.
 

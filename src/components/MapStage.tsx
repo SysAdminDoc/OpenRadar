@@ -196,7 +196,13 @@ export function MapStage({
           onSection={onSection}
           onOverlayAction={onOverlayAction}
           {...shared}
-          sweep={compareSweep ?? shared.sweep}
+          // Never the first pane's. Falling back to it drew that pane's
+          // volume under this pane's timestamp, which is the whole defect
+          // this compare path was built to fix, and it happened on every
+          // change of offset while the volume was being fetched and for good
+          // whenever the fetch failed. The mosaic underneath is the honest
+          // answer while there is no volume to draw.
+          sweep={compareSweep}
         />
       ) : null}
 
@@ -254,7 +260,7 @@ export function MapStage({
                 four minutes either side of it is a precise label on a
                 different moment, which is the mistake this chip already
                 existed to avoid. */}
-            {compareSweep
+            {compareSweep && Number.isFinite(Date.parse(compareSweep.collected))
               ? formatRadarTime(Date.parse(compareSweep.collected) / 1000)
               : compareFrame
                 ? formatFrameTime(compareFrame)

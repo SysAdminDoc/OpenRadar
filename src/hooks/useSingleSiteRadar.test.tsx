@@ -661,9 +661,13 @@ describe("the pane that compares", () => {
         useSingleSiteRadar(props),
       {
         initialProps: options({
-          // Newest step on the first pane, two volumes back on the second.
+          // Newest step on the first pane, and a moment on the second that
+          // is nearer the volume AFTER it: four minutes past the oldest and
+          // one minute short of the middle one. At-or-before takes the
+          // oldest, nearest would take the middle, and a moment a minute
+          // past a volume cannot tell the two rules apart.
           showingTime: VOLUMES[2],
-          compareTime: VOLUMES[0] + 60_000,
+          compareTime: VOLUMES[0] + 4 * 60_000,
         }),
       },
     );

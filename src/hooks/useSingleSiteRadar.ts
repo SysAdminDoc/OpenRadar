@@ -229,6 +229,10 @@ export function useSingleSiteRadar(options: {
     times: [],
   });
   const heldRef = useRef<Map<string, SweepImage>>(new Map());
+  // The volumes being fetched right now. Both panes resolve their own moment
+  // and the two often land on one volume, and without this they each asked
+  // the archive for the same ten megabyte object at the same time.
+  const fetchingRef = useRef<Set<string>>(new Set());
   // Which volume the picture on screen answers. Null over a live sweep that
   // belongs to no listed volume, and over the mosaic.
   const [drawnVolume, setDrawnVolume] = useState<number | null>(null);
@@ -337,6 +341,8 @@ export function useSingleSiteRadar(options: {
         ? [motionSpeed, motionFrom]
         : null;
     const held = heldRef.current.get(compareKey);
+    if (!held && fetchingRef.current.has(compareKey)) return;
+    if (!held) fetchingRef.current.add(compareKey);
     void (
       held
         ? Promise.resolve(held)
@@ -353,6 +359,7 @@ export function useSingleSiteRadar(options: {
     )
       .then((next) => {
         if (!held) {
+          fetchingRef.current.delete(compareKey);
           heldRef.current.set(compareKey, next);
           heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         }
@@ -361,6 +368,7 @@ export function useSingleSiteRadar(options: {
       .catch((failure: unknown) => {
         // The pane draws the mosaic rather than the wrong volume, and says so
         // in the log; the first pane is untouched either way.
+        fetchingRef.current.delete(compareKey);
         if (open) {
           log.warn("radar", `${station} compare: ${sweepErrorText(failure)}`);
         }
