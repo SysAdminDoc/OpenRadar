@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace } from "./support/fixtures";
 
 /** Three models over the same six hours, shaped the way Open-Meteo answers. */
@@ -209,6 +210,9 @@ test("names the nearest tide station and what the water does next", async ({
   const rows = page.locator(".route-row");
   await expect(rows.first()).toContainText(/High|Low/);
   await expect(rows.first()).toContainText("ft");
+  // Tides with a station and its turns in it, rather than the "no station
+  // near this view" line the gate scans.
+  await expectClean(page, "the tides panel with a station in it");
 });
 
 test("draws the surge picture for the hurricane you pick", async ({ page }) => {

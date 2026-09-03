@@ -68,7 +68,7 @@ const CACHE_CAPACITY: usize = MAX_CACHE_SLOTS;
 const _: () = assert!(CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES);
 // The guarantee itself rather than a description of it, with the composite
 // loop's next frame on top of the layers being drawn.
-const _: () = assert!(CACHE_CAPACITY >= LAYERS_AT_ONCE + 1);
+const _: () = assert!(CACHE_CAPACITY > LAYERS_AT_ONCE);
 /// A drawn tile is a few kilobytes, so thousands of them cost less than one
 /// grid. This is what makes a loop replay cheap: the second pass over a frame
 /// never decodes anything.
@@ -2410,7 +2410,7 @@ mod tests {
         let mut section7 = Vec::new();
         section7.extend_from_slice(&((png_bytes.len() + 5) as u32).to_be_bytes());
         section7.push(7);
-        section7.extend_from_slice(&png_bytes);
+        section7.extend_from_slice(png_bytes);
         out.extend_from_slice(&section7);
 
         out.extend_from_slice(b"7777");
@@ -2424,21 +2424,28 @@ mod tests {
         // the ceiling had already been raised twice to keep up; at seventeen
         // products it sat exactly at the limit and the next one would have
         // failed the build.
-        assert_eq!(CACHE_CAPACITY, MAX_CACHE_SLOTS);
-        assert!(
-            CACHE_CAPACITY >= LAYERS_AT_ONCE + 1,
-            "a busy screen would evict a grid it is about to want"
-        );
-        assert!(
-            CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES,
-            "the capacity is past the budget"
-        );
-        // The property the change was made for: the table is already longer
-        // than a busy screen, and the capacity does not follow it.
-        assert!(
-            PRODUCTS.len() > LAYERS_AT_ONCE,
-            "the table is smaller than a busy screen, so this proves nothing"
-        );
+        //
+        // In `const` blocks because every operand is a constant: the same
+        // words, checked when the crate is compiled rather than when the
+        // suite is run, which is the stronger of the two and the form clippy
+        // asks for.
+        const {
+            assert!(CACHE_CAPACITY == MAX_CACHE_SLOTS);
+            assert!(
+                CACHE_CAPACITY > LAYERS_AT_ONCE,
+                "a busy screen would evict a grid it is about to want"
+            );
+            assert!(
+                CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES,
+                "the capacity is past the budget"
+            );
+            // The property the change was made for: the table is already
+            // longer than a busy screen, and the capacity does not follow it.
+            assert!(
+                PRODUCTS.len() > LAYERS_AT_ONCE,
+                "the table is smaller than a busy screen, so this proves nothing"
+            );
+        }
     }
 
     #[test]

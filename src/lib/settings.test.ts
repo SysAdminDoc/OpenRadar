@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_SETTINGS,
+  loadSettings,
+  readSettings,
   cameraFromSearch,
   cameraKey,
   looksLikeSettings,
@@ -729,5 +731,33 @@ describe("the places a reader watches", () => {
   it("has no places at all until somebody adds one", () => {
     expect(normalizeSettings({}).watchPlaces).toEqual([]);
     expect(DEFAULT_SETTINGS.watchPlaces).toEqual([]);
+  });
+});
+
+describe("reading the settings when the store will not answer", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is the difference between something to draw and something to write", async () => {
+    // Two callers want opposite things from a failed read. A workspace
+    // starting up wants something to draw, which is what `loadSettings`
+    // answers with. A caller about to write back what it read wants to know
+    // it failed: the crash screen's Reset layout reads, resets the
+    // arrangement and saves, and a read failure paired with a working write
+    // would have replaced the reader's watched places, colour tables, packs
+    // and presets with the defaults. That is the inverse of what the button
+    // promises, and it is silent.
+    // On the prototype: assigning to `window.localStorage.getItem` leaves the
+    // storage object's own lookup untouched in jsdom, so the throw never
+    // happened and the test passed for the wrong reason.
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("no storage in this window");
+    });
+
+    await expect(readSettings()).rejects.toThrow("no storage");
+    await expect(loadSettings()).resolves.toEqual(
+      expect.objectContaining({ textScale: DEFAULT_SETTINGS.textScale }),
+    );
   });
 });

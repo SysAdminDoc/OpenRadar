@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace } from "./support/fixtures";
 
 /**
@@ -37,6 +38,9 @@ test("answers a storm name out of the bundled record", async ({ page }) => {
   await expect(storms).toContainText(/Category|kt peak/);
   // And nothing here reads as a storm that is happening now.
   await expect(storms).toContainText("None of these is a storm happening now");
+  // Search with results in it. The accessibility gate opens the panel but
+  // types nothing into it, so all it scans is an empty field.
+  await expectClean(page, "search with results in it");
 });
 
 test("still answers with the place when the name is also a place", async ({

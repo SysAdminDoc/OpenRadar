@@ -1203,9 +1203,10 @@ export const en = {
   "fatal.title": "The interface could not finish drawing.",
   "fatal.reload": "Reload OpenRadar",
   "fatal.resetLayoutNote":
-    "Resetting the layout puts the map, the text size and the layer order back the way they open. Your watched places, colour tables and offline packs are left alone.",
+    "Resetting the layout puts the map, the basemap, the text size, the accent colour, the layer order and the window back the way they open. Your watched places, colour tables, offline packs and saved presets are left alone.",
   "fatal.resetLayout": "Reset layout",
   "fatal.copied": "Copied",
+  "fatal.copyRefused": "The clipboard refused",
   "fatal.copy": "Copy diagnostics",
   "stage.secondary": "Secondary interactive weather map",
   "stage.satelliteAge": " · {age} old",

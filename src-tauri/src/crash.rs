@@ -239,7 +239,7 @@ pub fn prune(dumps: &Path, keep: usize) {
     if found.len() <= keep {
         return;
     }
-    found.sort_by(|left, right| left.0.cmp(&right.0));
+    found.sort_by_key(|entry| entry.0);
     for (_, path) in found.iter().take(found.len() - keep) {
         let _ = fs::remove_file(path);
     }

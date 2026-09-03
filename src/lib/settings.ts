@@ -1724,15 +1724,29 @@ export function resetLayout(settings: AppSettings): AppSettings {
 
 export async function loadSettings(): Promise<AppSettings> {
   try {
-    if (isDesktopRuntime()) {
-      const value = await (await getStore()).get<unknown>("settings");
-      return normalizeSettings(value);
-    }
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return normalizeSettings(raw ? JSON.parse(raw) : undefined);
+    return await readSettings();
   } catch {
     return normalizeSettings(undefined);
   }
+}
+
+/**
+ * The settings as stored, with a read failure raised rather than swallowed.
+ *
+ * `loadSettings` answers with the defaults when it cannot read, which is what
+ * a starting workspace wants: something to draw. A caller that is about to
+ * WRITE what it read wants the opposite. The crash screen's Reset layout does
+ * exactly that, and a read failure paired with a working write would have
+ * replaced the reader's watched places, colour tables, packs and presets with
+ * the defaults, which is the inverse of what the button promises.
+ */
+export async function readSettings(): Promise<AppSettings> {
+  if (isDesktopRuntime()) {
+    const value = await (await getStore()).get<unknown>("settings");
+    return normalizeSettings(value);
+  }
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  return normalizeSettings(raw ? JSON.parse(raw) : undefined);
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {

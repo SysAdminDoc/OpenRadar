@@ -214,13 +214,16 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
     `Source: ${input.activeSource ?? "none"}`,
   ];
   if (input.failure) {
-    // First, because it is the thing that happened. The stacks carry build
-    // paths rather than this machine's, and go through the same redaction as
-    // everything else regardless.
+    // First, because it is the thing that happened. The message goes through
+    // `redact` like the stacks and like every other error string in this
+    // block: a fetch failure names the URL it failed on, and a request for a
+    // forecast carries the reader's latitude and longitude to four decimals,
+    // which is about ten metres. It was the one error-shaped string here that
+    // went in raw.
     lines.push(
       "",
       "The workspace stopped drawing:",
-      `  ${input.failure.message}`,
+      `  ${redact(input.failure.message)}`,
     );
     for (const stack of [input.failure.stack, input.failure.componentStack]) {
       if (!stack) continue;

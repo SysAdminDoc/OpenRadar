@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace } from "./support/fixtures";
 
 test.beforeEach(async ({ page }) => {
@@ -33,6 +34,9 @@ test("draws a searched storm's track in its intensity colours", async ({
     "data-history-ace",
     "17.47",
   );
+  // Storm history with a storm in it: the track summary, the intensity
+  // colours and the numbers beside them.
+  await expectClean(page, "storm history with a track in it");
   await expect(page.getByText(/Category 5 · 140 kt peak/)).toBeVisible();
 
   // The category five fix is drawn in its own colour rather than one flat

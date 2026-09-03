@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace } from "./support/fixtures";
 import { clipped } from "./support/layout";
 import { pseudoize } from "../src/i18n/pseudo";
@@ -138,6 +139,10 @@ test("draws the nearest balloon and what can be read off it", async ({
   await expect(chart.locator(".skewt-temperature")).toHaveCount(1);
   await expect(chart.locator(".skewt-dewpoint")).toHaveCount(1);
   await expect(chart.locator(".skewt-parcel")).toHaveCount(1);
+  // The panel with a sounding in it. The accessibility gate can open
+  // Sounding but not stub a balloon, so all it ever scanned was the "nothing
+  // near here" line.
+  await expectClean(page, "the sounding panel with a balloon in it");
   // The background is a coordinate system rather than data, and there is a
   // lot of it: isotherms, both families of adiabat, and mixing ratio.
   await expect(chart.locator(".skewt-dry").first()).toBeVisible();

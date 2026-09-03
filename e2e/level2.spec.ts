@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import {
   routeWorkspace,
   smokeKml,
@@ -1578,6 +1579,10 @@ test("cuts the volume between two points and labels what it drew", async ({
   await expect(
     panel.locator(".cross-section__axis span").first(),
   ).toBeVisible();
+  // The slice actually drawn. The accessibility gate can put the line down
+  // but has no volume to cut, so all it ever scanned was the panel's "zoom
+  // in over a site" line.
+  await expectClean(page, "the cross-section with a slice in it");
 
   const asked = await page.evaluate(() =>
     (
