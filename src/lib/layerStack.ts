@@ -53,6 +53,18 @@ export const TRACK_POINT_LAYER_ID = "openradar-track-points";
 export const CUSTOM_FILL_LAYER_ID = "openradar-custom-fill";
 export const CUSTOM_LINE_LAYER_ID = "openradar-custom-line";
 export const CUSTOM_POINT_LAYER_ID = "openradar-custom-points";
+export const CUSTOM_ICON_LAYER_ID = "openradar-custom-icons";
+/**
+ * A placefile's own georeferenced pictures, each its own image source.
+ *
+ * Named rather than numbered from the data, because the arrangement is a
+ * static list and a layer it has never heard of counts as being above
+ * everything. Four of them, which is the ceiling the reader's pictures are
+ * held to.
+ */
+export const CUSTOM_IMAGE_LAYER_IDS = [0, 1, 2, 3].map(
+  (at) => `openradar-custom-image-${at}`,
+);
 /**
  * What the radar's own algorithm says is falling, as areas.
  *
@@ -100,9 +112,13 @@ export const MRMS_LAYER_IDS = [
 export const TRACK_LAYER_IDS = [TRACK_LINE_LAYER_ID, TRACK_POINT_LAYER_ID];
 
 export const CUSTOM_LAYER_IDS = [
+  // A picture the reader's file georeferenced is the ground their own shapes
+  // were drawn over, so it goes under them.
+  ...CUSTOM_IMAGE_LAYER_IDS,
   CUSTOM_FILL_LAYER_ID,
   CUSTOM_LINE_LAYER_ID,
   CUSTOM_POINT_LAYER_ID,
+  CUSTOM_ICON_LAYER_ID,
 ];
 
 export const TOOL_LAYER_IDS = [TOOL_LINE_LAYER_ID, TOOL_POINT_LAYER_ID];

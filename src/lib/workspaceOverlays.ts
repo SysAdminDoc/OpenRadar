@@ -122,6 +122,61 @@ export function moveOverlayFile(
   return next;
 }
 
+/**
+ * What the imported set needs to be told about the view to draw itself.
+ *
+ * A placefile can say a shape is only worth showing inside a range and only
+ * between two times, and both are properties on the shape rather than on the
+ * file. Working out whether any file carries either is cheap and is done once
+ * per change to the set, so the collection is only rebuilt when the zoom or
+ * the frame time actually decides something.
+ */
+export interface OverlayGates {
+  zoomed: boolean;
+  timed: boolean;
+}
+
+export function overlayGates(files: WorkspaceOverlayFile[]): OverlayGates {
+  const gates: OverlayGates = { zoomed: false, timed: false };
+  for (const file of files) {
+    for (const feature of featuresOf(file.shapes)) {
+      const properties = (feature as { properties?: Record<string, unknown> })
+        .properties;
+      if (!properties) continue;
+      if (typeof properties.minZoom === "number") gates.zoomed = true;
+      if (typeof properties.from === "number") gates.timed = true;
+      if (gates.zoomed && gates.timed) return gates;
+    }
+  }
+  return gates;
+}
+
+function featuresOf(shapes: Record<string, unknown>): unknown[] {
+  if (shapes.type === "Feature") return [shapes];
+  return Array.isArray(shapes.features) ? (shapes.features as unknown[]) : [];
+}
+
+/**
+ * Whether a shape wants to be drawn at this zoom and at this moment.
+ *
+ * A shape with neither property answers yes to both, which is every shape in
+ * a GeoJSON file and most of the shapes in a placefile.
+ */
+function visible(feature: unknown, zoom: number, at: number | null): boolean {
+  const properties = (feature as { properties?: Record<string, unknown> })
+    .properties;
+  if (!properties) return true;
+  if (typeof properties.minZoom === "number" && zoom < properties.minZoom) {
+    return false;
+  }
+  if (at !== null && typeof properties.from === "number") {
+    // The format's own rule: the start is inclusive and the end is not.
+    if (at < properties.from) return false;
+    if (typeof properties.to === "number" && at >= properties.to) return false;
+  }
+  return true;
+}
+
 function withOpacity(feature: unknown, opacity: number): unknown {
   if (opacity >= 1) return feature;
   const record = feature as Record<string, unknown>;
@@ -146,19 +201,18 @@ function withOpacity(feature: unknown, opacity: number): unknown {
  */
 export function mergedOverlayShapes(
   files: WorkspaceOverlayFile[],
+  /** The zoom the map is at, for shapes that named a range to appear inside. */
+  zoom = Number.POSITIVE_INFINITY,
+  /** The moment being drawn, for shapes that named a time range. */
+  at: number | null = null,
 ): Record<string, unknown> | null {
   const features: unknown[] = [];
   for (const file of files) {
     if (!file.enabled) continue;
-    const shapes = file.shapes;
-    const own =
-      shapes.type === "Feature"
-        ? [shapes]
-        : Array.isArray(shapes.features)
-          ? (shapes.features as unknown[])
-          : [];
-    for (const feature of own)
+    for (const feature of featuresOf(file.shapes)) {
+      if (!visible(feature, zoom, at)) continue;
       features.push(withOpacity(feature, file.opacity));
+    }
   }
   return features.length ? { type: "FeatureCollection", features } : null;
 }

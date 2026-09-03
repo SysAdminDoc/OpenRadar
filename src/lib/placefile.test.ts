@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { looksLikePlacefile, parsePlacefile } from "./placefile";
+import {
+  imageCorners,
+  looksLikePlacefile,
+  parseIconId,
+  parsePlacefile,
+  thresholdZoom,
+  timeWindow,
+} from "./placefile";
+
+/** A host the app is allowed to fetch, so the icon path can be exercised. */
+const ALLOWED = "https://mesonet.agron.iastate.edu/pf/icons.png";
 
 const SAMPLE = `; a comment
 Title: Storm Reports
@@ -35,7 +45,9 @@ describe("placefile parsing", () => {
     const kinds = placefile.data.features.map(
       (feature) => feature.properties.kind,
     );
-    expect(kinds).toEqual(["line", "polygon", "place", "place"]);
+    // The last is the sample's `Icon`, drawn as a point because its sheet is
+    // on a host the app may not fetch.
+    expect(kinds).toEqual(["line", "polygon", "place", "place", "place"]);
 
     const [line, polygon, place] = placefile.data.features;
     expect(line.properties.color).toBe("#ffc800");
@@ -56,8 +68,10 @@ describe("placefile parsing", () => {
     expect(place.geometry.coordinates).toEqual([-97.5, 35.5]);
   });
 
-  it("says which directives it could not draw instead of dropping them", () => {
-    expect(placefile.skipped.sort()).toEqual(["Icon"]);
+  it("names the host it was not allowed to ask for the icon sheet", () => {
+    // "Nothing appeared" and "we may not ask that server" are different
+    // problems, and only one of them is the reader's file.
+    expect(placefile.skipped).toEqual(["Icon images from example.test"]);
   });
 
   it("recognises a placefile without being handed a file name", () => {
@@ -90,7 +104,7 @@ describe("blocks that are not plain coordinates", () => {
     expect(parsed.data.features[0].properties.color).toBe("#502814");
   });
 
-  it("steps over an object block instead of drawing its pixel offsets", () => {
+  it("steps over a shape inside an object instead of drawing its offsets", () => {
     const parsed = parsePlacefile(
       [
         "Object: 35.0,-97.0",
@@ -104,7 +118,7 @@ describe("blocks that are not plain coordinates", () => {
         'Place: 30.0, -90.0, "after"',
       ].join("\n"),
     );
-    expect(parsed.skipped).toEqual(["Object"]);
+    expect(parsed.skipped).toEqual(["Object shapes"]);
     // Only the place after the block, never the block's own offsets.
     expect(parsed.data.features).toHaveLength(1);
     expect(parsed.data.features[0].properties.label).toBe("after");
@@ -116,5 +130,197 @@ describe("blocks that are not plain coordinates", () => {
     );
     expect(parsed.truncated).toBe(true);
     expect(parsed.data.features).toHaveLength(1);
+  });
+});
+
+describe("a view threshold", () => {
+  it("becomes the zoom the shape first appears at", () => {
+    // The format states visibility as the range the view is within; a map
+    // states it as a zoom, and the format's own "always" has to stay always.
+    expect(thresholdZoom(999)).toBe(0);
+    expect(thresholdZoom(0)).toBe(0);
+    expect(thresholdZoom(500)).toBeCloseTo(5.44, 1);
+    expect(thresholdZoom(50)).toBeCloseTo(8.76, 1);
+    // Closer ranges have to sort above wider ones or the whole thing is
+    // backwards and every shape appears when it should be hidden.
+    expect(thresholdZoom(10)).toBeGreaterThan(thresholdZoom(100));
+  });
+
+  it("rides on the shapes written after it and not the ones before", () => {
+    const parsed = parsePlacefile(
+      [
+        'Place: 35.0, -97.0, "wide"',
+        "Threshold: 50",
+        'Place: 36.0, -97.0, "close"',
+        "Threshold: 999",
+        'Place: 37.0, -97.0, "wide again"',
+      ].join("\n"),
+    );
+    const zooms = parsed.data.features.map(
+      (feature) => feature.properties.minZoom,
+    );
+    expect(zooms[0]).toBeUndefined();
+    expect(zooms[1]).toBeCloseTo(8.76, 1);
+    expect(zooms[2]).toBeUndefined();
+  });
+});
+
+describe("a time range", () => {
+  it("is read as the UTC the format means", () => {
+    // Written with no zone. A browser calls that local time, which would hide
+    // a file five hours early in Iowa.
+    const window = timeWindow("2026-04-27T20:00:00 2026-04-27T21:00:00");
+    expect(window?.from).toBe(Date.UTC(2026, 3, 27, 20));
+    expect(window?.to).toBe(Date.UTC(2026, 3, 27, 21));
+  });
+
+  it("refuses a pair that is not two times in order", () => {
+    expect(timeWindow("2026-04-27T21:00:00 2026-04-27T20:00:00")).toBeNull();
+    expect(timeWindow("2026-04-27T20:00:00")).toBeNull();
+    expect(timeWindow("whenever forever")).toBeNull();
+  });
+
+  it("applies to every shape after it until it is changed", () => {
+    const parsed = parsePlacefile(
+      [
+        "TimeRange: 2026-04-27T20:00:00 2026-04-27T21:00:00",
+        'Place: 35.0, -97.0, "during"',
+        'Place: 36.0, -97.0, "also during"',
+      ].join("\n"),
+    );
+    for (const feature of parsed.data.features) {
+      expect(feature.properties.from).toBe(Date.UTC(2026, 3, 27, 20));
+      expect(feature.properties.to).toBe(Date.UTC(2026, 3, 27, 21));
+    }
+  });
+});
+
+describe("icons", () => {
+  it("draws one from a sheet the app is allowed to fetch", () => {
+    const parsed = parsePlacefile(
+      [
+        `IconFile: 1, 15, 25, 7, 24, "${ALLOWED}"`,
+        'Icon: 35.0, -97.0, 90, 1, 3, "Chaser"',
+      ].join("\n"),
+    );
+    expect(parsed.skipped).toEqual([]);
+    const [icon] = parsed.data.features;
+    expect(icon.properties.kind).toBe("icon");
+    expect(icon.properties.angle).toBe(90);
+    expect(icon.properties.label).toBe("Chaser");
+    expect(icon.geometry.coordinates).toEqual([-97, 35]);
+    // The whole description travels on the feature, because the feature is
+    // the only part that survives being stored and merged with other files.
+    expect(parseIconId(icon.properties.icon as string)).toEqual({
+      url: ALLOWED,
+      iconWidth: 15,
+      iconHeight: 25,
+      hotX: 7,
+      hotY: 24,
+      index: 3,
+    });
+  });
+
+  it("refuses to read back anything it did not write", () => {
+    expect(parseIconId("icon|https://x.test/a.png|15|25|7|24")).toBeNull();
+    expect(parseIconId("icon|https://x.test/a.png|0|25|7|24|1")).toBeNull();
+    expect(parseIconId("icon|https://x.test/a.png|15|25|7|24|0")).toBeNull();
+    expect(parseIconId("something else")).toBeNull();
+  });
+
+  it("takes the position of one it cannot fetch rather than losing it", () => {
+    // A spotter network file is two hundred people and their reports. Losing
+    // all of them because an image server is not on the allowlist would be
+    // the wrong trade.
+    const parsed = parsePlacefile(
+      [
+        'IconFile: 1, 15, 25, 7, 24, "https://spotters.example/icons.png"',
+        "Object: 35.0,-97.0",
+        'Icon: 0, 0, 0, 1, 3, "Chaser"',
+        "End:",
+      ].join("\n"),
+    );
+    expect(parsed.skipped).toEqual(["Icon images from spotters.example"]);
+    const [icon] = parsed.data.features;
+    expect(icon.properties.kind).toBe("place");
+    expect(icon.properties.label).toBe("Chaser");
+    // The offsets inside an object are screen pixels from its anchor, so the
+    // anchor is where this belongs.
+    expect(icon.geometry.coordinates).toEqual([-97, 35]);
+  });
+
+  it("says so when the sheet is a file that came with the placefile", () => {
+    const parsed = parsePlacefile('IconFile: 1, 15, 25, 7, 24, "spotter.png"');
+    expect(parsed.skipped).toEqual(["Icon images beside the file"]);
+  });
+});
+
+describe("a georeferenced picture", () => {
+  const block = (url: string) =>
+    [
+      `Image: "${url}"`,
+      " 41.0, -95.0, 0.0, 0.0",
+      " 41.0, -93.0, 1.0, 0.0",
+      " 40.0, -93.0, 1.0, 1.0",
+      " 41.0, -95.0, 0.0, 0.0",
+      " 40.0, -93.0, 1.0, 1.0",
+      " 40.0, -95.0, 0.0, 1.0",
+      "End:",
+    ].join("\n");
+
+  it("takes its four corners out of the triangle mesh", () => {
+    const parsed = parsePlacefile(block(ALLOWED));
+    expect(parsed.skipped).toEqual([]);
+    const [picture] = parsed.data.features;
+    expect(picture.properties.kind).toBe("image");
+    expect(picture.properties.image).toBe(ALLOWED);
+    // Top left, top right, bottom right, bottom left, and back again.
+    expect(picture.geometry.coordinates).toEqual([
+      [
+        [-95, 41],
+        [-93, 41],
+        [-93, 40],
+        [-95, 40],
+        [-95, 41],
+      ],
+    ]);
+  });
+
+  it("refuses a mesh that is not a rectangle rather than drawing one", () => {
+    const parsed = parsePlacefile(
+      [
+        `Image: "${ALLOWED}"`,
+        " 41.0, -95.0, 0.0, 0.0",
+        " 41.0, -93.0, 1.0, 0.0",
+        " 40.0, -94.0, 0.5, 1.0",
+        "End:",
+      ].join("\n"),
+    );
+    expect(parsed.skipped).toEqual(["Image"]);
+    expect(parsed.data.features).toEqual([]);
+  });
+
+  it("names a host it may not ask and steps over the block", () => {
+    const parsed = parsePlacefile(
+      `${block("https://pictures.example/radar.png")}\nPlace: 30,-90,"after"`,
+    );
+    expect(parsed.skipped).toEqual(["Pictures from pictures.example"]);
+    expect(parsed.data.features).toHaveLength(1);
+    expect(parsed.data.features[0].properties.label).toBe("after");
+  });
+
+  it("finds the corners regardless of the order they were listed in", () => {
+    const corners = imageCorners([
+      [-93, 40, 1, 1],
+      [-95, 41, 0, 0],
+      [-95, 40, 0, 1],
+      [-93, 41, 1, 0],
+    ]);
+    expect(corners).toEqual([
+      [-95, 41],
+      [-93, 41],
+      [-93, 40],
+      [-95, 40],
+    ]);
   });
 });
