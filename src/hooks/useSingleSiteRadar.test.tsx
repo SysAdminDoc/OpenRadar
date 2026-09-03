@@ -569,6 +569,53 @@ describe("the loop, and what is not part of it", () => {
     await waitFor(() => expect(result.current.drawnVolume).toBe(VOLUMES[0]));
   });
 
+  it("stops re-listing while a loop is being written out", async () => {
+    // A refresh answers with the LAST N volumes, so one landing mid-walk
+    // pushes the oldest out of the list. A saved loop of thirty volumes runs
+    // longer than the refresh interval, and the frames it had left to write
+    // were volumes the hook had just stopped knowing about: the loop stood
+    // down, the live sweep was drawn, and the caption still named the volume
+    // that had gone.
+    vi.useFakeTimers();
+    try {
+      let held = false;
+      const { result } = renderHook(
+        (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+          useSingleSiteRadar(props),
+        {
+          initialProps: {
+            ...options({ showingTime: VOLUMES[0] + 60_000 }),
+            listingHeld: () => held,
+          },
+        },
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.volumes).toEqual(VOLUMES);
+
+      // The archive publishes another volume, and the oldest falls off.
+      const moved = [...VOLUMES.slice(1), VOLUMES[2] + 5 * 60_000];
+      recentVolumeTimes.mockResolvedValue(moved);
+
+      held = true;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(SWEEP_REFRESH_MS * 2);
+      });
+      expect(result.current.volumes).toEqual(VOLUMES);
+      expect(result.current.loop).toEqual({ index: 1, count: 3 });
+
+      // Let go and the next tick takes the new list.
+      held = false;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(SWEEP_REFRESH_MS);
+      });
+      expect(result.current.volumes).toEqual(moved);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("has no loop position once the reader opens a volume by hand", async () => {
     // Scrubbing has not left the present; opening a file or a moment has.
     // With the loop position still set, the chrome read the view as current:

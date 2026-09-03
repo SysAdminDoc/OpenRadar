@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- Saving a long loop of a held radar no longer trips over the radar publishing a new volume while it works. The list of what to save is left alone until the file is written.
+
 - A saved loop of a held radar waits for each volume to arrive before it captures the frame. It was grabbing the picture as soon as the map settled, which happens in a fraction of a second because the national mosaic underneath redraws, while the site's own volume is a ten megabyte file still downloading. Every frame of the file held the previous volume's picture under the next volume's time and credit, and nothing on screen said so.
 
 - A still or a postcard of a held radar credits that radar. It was being labelled with the national mosaic's name and timestamp, which is a picture from one instrument credited to a service that did not make it.
