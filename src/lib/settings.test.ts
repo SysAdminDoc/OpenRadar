@@ -53,6 +53,28 @@ describe("settings normalization", () => {
     expect(settings.layers.earthquakes).toBe(false);
   });
 
+  it("keeps the site loop length a whole number of volumes, one to thirty", () => {
+    // A listing is asked for a count of objects, so a stored 7.5 would go to
+    // the native side as a request for seven and a half volumes; and a stored
+    // 0 would list nothing, which is a site with no loop and no way back to
+    // one from the slider.
+    expect(normalizeSettings(undefined).radar.loopVolumes).toBe(10);
+    expect(
+      normalizeSettings({ radar: { loopVolumes: 7.5 } }).radar.loopVolumes,
+    ).toBe(8);
+    expect(
+      normalizeSettings({ radar: { loopVolumes: 0 } }).radar.loopVolumes,
+    ).toBe(1);
+    expect(
+      normalizeSettings({ radar: { loopVolumes: 900 } }).radar.loopVolumes,
+    ).toBe(30);
+    for (const bad of ["10", null, undefined, Number.NaN]) {
+      expect(
+        normalizeSettings({ radar: { loopVolumes: bad } }).radar.loopVolumes,
+      ).toBe(10);
+    }
+  });
+
   it("keeps only bounded, path-free incident pack references", () => {
     const settings = normalizeSettings({
       incidentPacks: {
@@ -145,6 +167,7 @@ describe("settings normalization", () => {
       "futureRadar",
       "live",
       "loopMinutes",
+      "loopVolumes",
       "opacity",
       "persistence",
       "product",

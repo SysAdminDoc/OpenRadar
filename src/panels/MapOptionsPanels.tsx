@@ -35,6 +35,7 @@ import { useEffect, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
 import { rangeFill } from "../lib/rangeFill";
+import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
 import {
   distanceSlider,
   distanceUnit,
@@ -1376,6 +1377,30 @@ export function SettingsPanel({
             value={settings.radar.loopMinutes}
             onChange={(event) =>
               updateRadar({ loopMinutes: Number(event.target.value) })
+            }
+          />
+        </label>
+        <label className="range-row">
+          <span>
+            <strong>{t("settings.siteLoopLength")}</strong>
+            <output>
+              {t("settings.volumes", { count: settings.radar.loopVolumes })}
+            </output>
+          </span>
+          <input
+            type="range"
+            min={MIN_LOOP_VOLUMES}
+            max={MAX_LOOP_VOLUMES}
+            step="1"
+            style={rangeFill(
+              settings.radar.loopVolumes,
+              MIN_LOOP_VOLUMES,
+              MAX_LOOP_VOLUMES,
+            )}
+            aria-label={t("settings.siteLoopLengthLabel")}
+            value={settings.radar.loopVolumes}
+            onChange={(event) =>
+              updateRadar({ loopVolumes: Number(event.target.value) })
             }
           />
         </label>

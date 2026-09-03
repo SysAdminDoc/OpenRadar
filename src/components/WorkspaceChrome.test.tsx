@@ -68,7 +68,11 @@ function sweepOf(live: boolean): SweepImage {
 
 function chrome(
   distanceMiles: number,
-  overrides: { sweep?: SweepImage | null; liveClock?: number } = {},
+  overrides: {
+    sweep?: SweepImage | null;
+    liveClock?: number;
+    sweepLoop?: { index: number; count: number } | null;
+  } = {},
 ) {
   return (
     <WorkspaceChrome
@@ -76,6 +80,7 @@ function chrome(
       timeline={timeline}
       frames={[]}
       sweep={overrides.sweep ?? null}
+      sweepLoop={overrides.sweepLoop ?? null}
       mrmsLayers={[]}
       lightning={null}
       smoke={null}
@@ -145,6 +150,28 @@ describe("the legend over a live sweep", () => {
     );
     expect(screen.queryByText(/LIVE/)).toBeNull();
     expect(screen.getByText(/0\.48° TILT/)).toBeTruthy();
+  });
+});
+
+describe("the legend over a volume the loop reached back for", () => {
+  it("says where in the loop it is and when that volume was collected", () => {
+    // The volume arrives from the archive, the same door a reader's own
+    // chosen file comes through, so before this it read HISTORICAL: a word
+    // the app uses for a view that has left the present, in a view that has
+    // not. What a scrubbing reader needs is how far back they are and the
+    // time of the picture they are looking at, and that time is the volume's
+    // own, five minutes from its neighbour, not the two-minute step above it.
+    render(
+      chrome(113, {
+        sweep: {
+          ...sweepOf(false),
+          source: { ...sweepOf(false).source, kind: "archive" },
+        },
+        sweepLoop: { index: 2, count: 3 },
+      }),
+    );
+    expect(screen.getByText(/VOLUME 2 OF 3/)).toBeTruthy();
+    expect(screen.queryByText(/HISTORICAL/)).toBeNull();
   });
 });
 

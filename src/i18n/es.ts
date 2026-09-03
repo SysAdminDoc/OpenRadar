@@ -1004,8 +1004,11 @@ export const es: Catalogue = {
   "settings.animationSpeed": "Velocidad de animación",
   "settings.animationSpeedLabel": "Velocidad de la animación del radar",
   "settings.loopLength": "Duración de la animación",
+  "settings.siteLoopLength": "Duración del bucle del sitio",
   "settings.loopLengthLabel": "Duración de la animación en minutos",
+  "settings.siteLoopLengthLabel": "Duración del bucle del sitio en volúmenes",
   "settings.minutes": "{count} min",
+  "settings.volumes": "{count, plural, one {# volumen} other {# volúmenes}}",
   "settings.futureRadar": "Radar del futuro",
   "settings.futureRadarDetail":
     "Alarga la animación con la reflectividad pronosticada por el HRRR sobre los cuarenta y ocho estados continentales",
@@ -1128,6 +1131,8 @@ export const es: Catalogue = {
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "ELEVACIÓN {degrees}°",
   "chrome.tiltHistorical": "ELEVACIÓN {degrees}°, HISTÓRICA",
+  "chrome.tiltLoop":
+    "ELEVACIÓN {degrees}° · VOLUMEN {index} DE {count}, {time}",
   "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
   "chrome.tiltLive": "ELEVACIÓN {degrees}° · EN VIVO, HACE {seconds} S",
   "chrome.tiltLiveDealiased":

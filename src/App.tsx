@@ -2350,6 +2350,7 @@ export default function App() {
         timeline={timeline}
         frames={frames}
         sweep={singleSite.sweep}
+        sweepLoop={singleSite.loop}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
         smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}

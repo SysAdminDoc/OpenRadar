@@ -989,8 +989,11 @@ export const en = {
   "settings.animationSpeed": "Animation speed",
   "settings.animationSpeedLabel": "Radar animation speed",
   "settings.loopLength": "Loop length",
+  "settings.siteLoopLength": "Site loop length",
   "settings.loopLengthLabel": "Loop length in minutes",
+  "settings.siteLoopLengthLabel": "Site loop length in volumes",
   "settings.minutes": "{count} min",
+  "settings.volumes": "{count, plural, one {# volume} other {# volumes}}",
   "settings.futureRadar": "Future radar",
   "settings.futureRadarDetail":
     "Extend the loop with HRRR forecast reflectivity over the lower forty-eight",
@@ -1112,6 +1115,7 @@ export const en = {
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "{degrees}° TILT",
   "chrome.tiltHistorical": "{degrees}° TILT, HISTORICAL",
+  "chrome.tiltLoop": "{degrees}° TILT · VOLUME {index} OF {count}, {time}",
   "chrome.tiltDealiased": "{degrees}° TILT · UNFOLDED",
   "chrome.tiltLive": "{degrees}° TILT · LIVE, {seconds} SEC OLD",
   "chrome.tiltLiveDealiased":

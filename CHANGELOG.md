@@ -1,5 +1,11 @@
 # Changelog
 
+## OpenRadar v0.9.0
+
+- The legend says which of a site's volumes you are looking at. Scrub back over a held radar and it reads the volume's position in the loop and the time that volume was collected, instead of the one word "historical", which is what the app says when you have opened a file from the archive yourself and left the present behind. Scrubbing has not left the present, and a radar's volumes are five minutes apart against the timeline's two, so the step above the map and the picture under it were saying different things.
+
+- How far back a held site's loop reaches is yours to set, from one volume to thirty. It was fixed at ten with no way to change it.
+
 ## OpenRadar v0.8.0
 
 - The scrubber under the map has a handle you can actually grab. It was whatever the browser drew, about two thirds of the size a pointer target is meant to be, and so was every slider in Settings and Layers.

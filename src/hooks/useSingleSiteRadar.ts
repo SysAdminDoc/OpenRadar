@@ -18,12 +18,7 @@ import type { GeoPoint } from "../lib/geo";
 import { highContrastRequested, reducedMotionRequested } from "./useClock";
 import { log } from "../lib/log";
 import { isTdwrStation, supportedProduct } from "../lib/radarKinds";
-import {
-  DEFAULT_LOOP_VOLUMES,
-  loopKey,
-  trimHeld,
-  volumeForTime,
-} from "../lib/siteLoop";
+import { loopKey, trimHeld, volumeForTime } from "../lib/siteLoop";
 import {
   dataExportAvailable,
   exportSweepData,
@@ -40,6 +35,16 @@ export interface SingleSiteState {
   error: string | null;
   /** True while a single site is what the map should be showing. */
   active: boolean;
+  /**
+   * Where the volume on screen sits in the site's loop, or null when it is
+   * the newest one and the legend's own live wording covers it.
+   *
+   * Only ever set while the reader has scrubbed back, which is exactly the
+   * state nothing else on screen announces: the map keeps its context layers,
+   * the panel keeps its site, and without this the legend would say a tilt
+   * and leave the reader to guess how far back they are.
+   */
+  loop: { index: number; count: number } | null;
   /** Historical data is deliberately isolated from current context layers. */
   historical: boolean;
   mode: "recent" | "archive" | "local";
@@ -181,6 +186,7 @@ export function useSingleSiteRadar(options: {
 
   // Pulled out of the settings object so the effect below can depend on the
   // values instead of the identity of the object carrying them.
+  const loopVolumes = radar.loopVolumes;
   const motionSpeed = radar.stormMotion?.speedMs ?? null;
   const motionFrom = radar.stormMotion?.fromDegrees ?? null;
   // A product this radar does not have is asked for as reflectivity, which
@@ -241,7 +247,7 @@ export function useSingleSiteRadar(options: {
     let open = true;
     const site = station;
     const ask = () => {
-      void recentVolumeTimes(site, DEFAULT_LOOP_VOLUMES)
+      void recentVolumeTimes(site, loopVolumes)
         .then((found) => {
           if (open) setListed({ site, times: found });
         })
@@ -262,7 +268,7 @@ export function useSingleSiteRadar(options: {
       open = false;
       window.clearInterval(timer);
     };
-  }, [pageVisible, station, wanted]);
+  }, [loopVolumes, pageVisible, station, wanted]);
 
   // A reply that arrives after the view has moved on must not be drawn.
   const requestRef = useRef(0);
@@ -606,7 +612,7 @@ export function useSingleSiteRadar(options: {
         // whatever the scrubber has moved on to; discarding it because the
         // reader moved first meant almost nothing was ever cached.
         heldRef.current.set(key, next);
-        heldRef.current = trimHeld(heldRef.current, DEFAULT_LOOP_VOLUMES * 2);
+        heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         if (!open || request !== requestRef.current) return;
         setSweep(next);
         setError(null);
@@ -630,6 +636,7 @@ export function useSingleSiteRadar(options: {
     product,
     radar.dealias,
     radar.tilt,
+    loopVolumes,
     scrubbedBack,
     shownVolume,
     station,
@@ -651,6 +658,13 @@ export function useSingleSiteRadar(options: {
       loading: Boolean(available && loading),
       error: available ? error : null,
       active: Boolean(current),
+      loop:
+        showing && scrubbedBack && shownVolume !== null
+          ? {
+              index: volumeTimes.indexOf(shownVolume) + 1,
+              count: volumeTimes.length,
+            }
+          : null,
       historical: historicalWanted,
       mode: historicalSource?.kind ?? "recent",
       openLocal,
@@ -690,9 +704,12 @@ export function useSingleSiteRadar(options: {
     product,
     radar.tilt,
     resumeRecent,
+    scrubbedBack,
+    shownVolume,
     station,
     sweep,
     takeCrossSection,
+    volumeTimes,
     wanted,
     writeValues,
   ]);

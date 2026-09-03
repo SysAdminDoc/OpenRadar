@@ -18,6 +18,19 @@
 /** What a reader gets without asking, in volumes. */
 export const DEFAULT_LOOP_VOLUMES = 10;
 
+/** The shortest loop worth the name: the volume on screen and nothing else. */
+export const MIN_LOOP_VOLUMES = 1;
+
+/**
+ * The longest.
+ *
+ * Thirty volumes is a couple of hours of a site's scanning, which is as far
+ * back as anybody scrubs while a storm is on. The listing behind it is one
+ * request whatever the number; what costs is decoding, and that is bounded
+ * separately by how many rendered volumes are kept.
+ */
+export const MAX_LOOP_VOLUMES = 30;
+
 /**
  * The volume a moment is showing, or null when the moment is older than
  * anything held.
