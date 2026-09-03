@@ -1178,6 +1178,31 @@ export const en = {
   "approach.row": "{id} reaches {place} in about {count} min",
   "approach.rowSoon": "{id} is reaching {place} now",
   "approach.note": "The radar tracking these storms, not a warning.",
+  "lightningWatch.title": "Lightning near {place}",
+  "lightningWatch.titleHome": "Lightning near you",
+  "lightningWatch.body":
+    "{count, plural, one {# flash} other {# flashes}} within {miles, plural, one {# mile} other {# miles}}. The satellite sees light above the cloud, so this is not a report of what reached the ground.",
+  "lightningWatch.quietTitle": "{place} has been quiet for half an hour",
+  "lightningWatch.quietTitleHome": "Quiet for half an hour",
+  "lightningWatch.quietBody":
+    "No flashes within the radius for thirty minutes.",
+  "lightningWatch.setting": "Tell me about lightning near a watched place",
+  "lightningWatch.settingDetail":
+    "Counts the satellite flashes within a radius you set, and says when it starts and when it has been quiet for half an hour.",
+  "lightningWatch.needsLayer":
+    "Needs the Lightning Flashes layer, which is what reads them.",
+  "lightningWatch.needsPlace":
+    "Needs a place to watch, since that is what the radius is around.",
+  "lightningWatch.radius": "How far around each place",
+  "lightningWatch.radiusMiles": "{count} mi",
+  "lightningWatch.count": "How many flashes are worth saying",
+  "lightningWatch.countFlashes":
+    "{count, plural, one {# flash} other {# flashes}}",
+  "lightningWatch.sound": "Make a sound for it",
+  "lightningWatch.soundDetail":
+    "Off, because a warning already makes one and this is not a warning.",
+  "lightningWatch.note":
+    "Satellite-detected flashes, not ground strike reports.",
   "approach.none": "Nothing the radar is tracking is heading for your places.",
   "cells.arrivingSoon": "{id} reaches the place you watch within a minute",
   "cells.nothingComing": "Nothing the radar is tracking is heading that way",

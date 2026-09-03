@@ -52,6 +52,11 @@ import {
 } from "./hooks/useApproachWatch";
 import { approachesFor, type Approach } from "./lib/approach";
 import {
+  useLightningWatch,
+  lightningBody,
+  lightningTitle,
+} from "./hooks/useLightningWatch";
+import {
   loadAlertSound,
   keepSoundPath,
   setAlertSound,
@@ -1090,6 +1095,21 @@ export default function App() {
     pageVisible,
     clock,
   });
+  // Lightning near a watched place, from the window the map already holds.
+  // Two notices per storm: come in, and half an hour after the last flash it
+  // is over. Nothing here is a warning and every line of it says so.
+  useLightningWatch({
+    window: lightning.window,
+    places: watchedForJournal,
+    rule: settings.lightningWatch,
+    clock,
+    onFallback: (notice) =>
+      pushToast({
+        title: lightningTitle(notice),
+        detail: lightningBody(notice),
+      }),
+  });
+
   // Animated particles are motion for its own sake, so a viewer who has asked
   // for less of it does not get them at all.
   const wind = useWind({

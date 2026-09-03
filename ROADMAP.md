@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-179 (P2): Lightning within a radius of a watched place
-  Why: Supercell Wx #581 asks for it, RadarScope sells it at Tier 1, and the app already decodes GLM flashes and the NLDN density grid; a reader at a ballfield wants "flashes within 10 miles in the last 5 minutes", not a national picture.
-  Evidence: `src/hooks/useLightning.ts` has no watch path; `src-tauri/src/lightning.rs` decodes flash centroids with quality flags; the GLM legend already carries the not-a-strike-report note.
-  Touches: `src/lib/watch.ts` (a lightning rule per place: radius, count, window), `src/hooks/useLightning.ts` (a place-bounded query while a rule is on), `src/panels/MapOptionsPanels.tsx` watch settings, `useAlertWatch.ts`, catalogues.
-  Acceptance: A place with a lightning rule announces once when flashes within its radius exceed the count in the window and once when the window has been quiet for thirty minutes; the notice says the flashes are satellite-detected, not ground strike reports; the watch's health line covers this poll; a fixture e2e plants flashes inside and outside the radius.
-  Complexity: M
-
 - [ ] AUD-181 (P2): KML and KMZ import in the Upload panel
   Why: Supercell Wx #655 asks for it, NHC and NWS publish shapefiles and KML, and the app already parses HMS placemarks from KML for the smoke layer, so the parser is half built and unshared.
   Evidence: `src/lib/workspaceOverlays.ts:46` and `src/panels/UtilityPanels.tsx:63` accept GeoJSON, placefile and `.pal`; `src/lib/overlays/smoke.ts` parses KML placemarks inline.

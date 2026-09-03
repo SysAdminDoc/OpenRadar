@@ -1199,6 +1199,31 @@ export const es: Catalogue = {
   "approach.row": "{id} llega a {place} en unos {count} min",
   "approach.rowSoon": "{id} está llegando a {place} ahora",
   "approach.note": "El radar siguiendo estas tormentas, no un aviso.",
+  "lightningWatch.title": "Rayos cerca de {place}",
+  "lightningWatch.titleHome": "Rayos cerca de ti",
+  "lightningWatch.body":
+    "{count, plural, one {# destello} other {# destellos}} en {miles, plural, one {# milla} other {# millas}}. El satélite ve la luz sobre la nube, así que esto no es un informe de lo que llegó al suelo.",
+  "lightningWatch.quietTitle": "{place} lleva media hora en calma",
+  "lightningWatch.quietTitleHome": "Media hora en calma",
+  "lightningWatch.quietBody":
+    "Sin destellos dentro del radio durante treinta minutos.",
+  "lightningWatch.setting": "Avísame de rayos cerca de un lugar vigilado",
+  "lightningWatch.settingDetail":
+    "Cuenta los destellos que ve el satélite dentro de un radio que eliges, y avisa cuando empieza y cuando lleva media hora en calma.",
+  "lightningWatch.needsLayer":
+    "Necesita la capa de Destellos de rayo, que es la que los lee.",
+  "lightningWatch.needsPlace":
+    "Necesita un lugar que vigilar, que es alrededor de lo que va el radio.",
+  "lightningWatch.radius": "A qué distancia de cada lugar",
+  "lightningWatch.radiusMiles": "{count} mi",
+  "lightningWatch.count": "Cuántos destellos merecen aviso",
+  "lightningWatch.countFlashes":
+    "{count, plural, one {# destello} other {# destellos}}",
+  "lightningWatch.sound": "Que suene",
+  "lightningWatch.soundDetail":
+    "Apagado, porque un aviso ya suena y esto no es un aviso.",
+  "lightningWatch.note":
+    "Destellos detectados por satélite, no informes de impactos en tierra.",
   "approach.none": "Nada de lo que el radar sigue va hacia tus lugares.",
   "cells.arrivingSoon": "{id} llega al punto vigilado en menos de un minuto",
   "cells.nothingComing": "Nada de lo que sigue el radar va hacia allí",
