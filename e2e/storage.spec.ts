@@ -37,7 +37,10 @@ async function fakeCache(page: Page, bytes: number, residue = 0) {
           const freed = state.bytes - left;
           state.bytes = left;
           state.cleared += 1;
-          return [{ entries: 412, bytes: freed }];
+          // `removed` and `freed`, not `entries` and `bytes`: what came back
+          // is a different thing from what was held, and the native side
+          // says so with a type of its own.
+          return [{ removed: 412, freed }];
         }
         return undefined;
       };
@@ -66,6 +69,29 @@ test("says how much is kept and gives it back", async ({ page }) => {
   const row = await openSettings(page);
   // The number before, in the same words the pack ceiling uses.
   await expect(row.locator("[data-storage-size]")).toHaveText("148 MB");
+  // And ON SCREEN, which `toHaveText` cannot see: it reads `textContent`,
+  // which is there whatever the geometry. The button is `.secondary-button`,
+  // which is `width: 100%`, and at equal specificity that won the cascade:
+  // the button took the whole row and the number was painted at zero width
+  // underneath it, with three tests looking straight at it and none able to
+  // tell.
+  const drawn = async (selector: string) => {
+    const box = await row.locator(selector).boundingBox();
+    return {
+      width: Math.round(box?.width ?? 0),
+      height: Math.round(box?.height ?? 0),
+    };
+  };
+  expect((await drawn("[data-storage-size]")).width).toBeGreaterThan(20);
+  expect((await drawn("strong")).width).toBeGreaterThan(20);
+  const clear = await drawn(".storage-row__clear");
+  const whole = await drawn(":scope");
+  expect(clear.width).toBeLessThan(whole.width * 0.75);
+  // And the row does not overflow itself, which is the other way a squeezed
+  // column shows up.
+  expect(
+    await row.evaluate((node) => node.scrollWidth - node.clientWidth),
+  ).toBeLessThanOrEqual(1);
 
   await row.getByRole("button", { name: "Clear" }).click();
 
@@ -108,6 +134,74 @@ test("is clean in both themes with a size in it", async ({ page }) => {
   await page.getByRole("button", { name: "Light", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expectClean(page, "storage in light");
+});
+
+test("says what clearing costs when there is no network", async ({ page }) => {
+  // The last view IS this cache. Offline, emptying it is the difference
+  // between opening on what you saw and opening on nothing, and the ordinary
+  // line — "the map will fetch what it needs again" — is not true there.
+  await fakeCache(page, 148 * 1024 * 1024);
+  await fakeDesktop(page);
+  await routeWorkspace(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+  });
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  const row = await openSettings(page);
+  await row.getByRole("button", { name: "Clear" }).click();
+
+  const toast = page.locator(".toast-host");
+  await expect(toast).toContainText("offline");
+  await expect(toast).toContainText("last view has gone");
+  await expect(toast).not.toContainText("will fetch what it needs again");
+});
+
+test("does not offer a size it has not read yet", async ({ page }) => {
+  // "Not readable" and "not read yet" are different things, and folding them
+  // together said the first for the fraction of a second before every read
+  // while leaving Clear pressable over a number nobody had.
+  await page.addInitScript(() => {
+    const state = { release: () => {} };
+    (window as unknown as { __cacheGate: typeof state }).__cacheGate = state;
+    const waited = new Promise<void>((done) => {
+      state.release = done;
+    });
+    (
+      window as unknown as {
+        __answer: (command: string) => [unknown] | undefined;
+      }
+    ).__answer = (command: string) => {
+      if (command === "cache_size") {
+        return [waited.then(() => ({ entries: 1, bytes: 1024 * 1024 }))];
+      }
+      return undefined;
+    };
+  });
+  await fakeDesktop(page);
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  const row = await openSettings(page);
+  await expect(row.locator("[data-storage-size]")).toHaveText("Reading");
+  await expect(row.getByRole("button", { name: "Clear" })).toBeDisabled();
+
+  await page.evaluate(() =>
+    (
+      window as unknown as { __cacheGate: { release: () => void } }
+    ).__cacheGate.release(),
+  );
+  await expect(row.locator("[data-storage-size]")).toHaveText("1.0 MB");
+  await expect(row.getByRole("button", { name: "Clear" })).toBeEnabled();
 });
 
 test("says there is nothing on disk in a browser", async ({ page }) => {

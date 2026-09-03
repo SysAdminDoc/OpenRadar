@@ -192,6 +192,9 @@ export const fr: Catalogue = {
   "toast.settingsFromNewer":
     "Ce fichier a été écrit par une version plus récente; ce qu'elle connaît et que celle-ci ignore a donc été laissé de côté.",
   "toast.settingsUnread": "Non lus dans le fichier : {names}.",
+  "toast.notABackup": "Ce n'est pas un espace de travail enregistré",
+  "toast.notABackupBody":
+    "Restaurer depuis un fichier accepte un espace de travail que vous avez enregistré avec le bouton d'à côté. Rien n'a changé. Pour mettre un fichier de carte ou une palette sur la carte, utilisez le panneau Téléversement.",
   "toast.settingsBroken": "Ce fichier de réglages n'a pas pu être lu",
   "toast.settingsBrokenBody":
     "Le fichier n'est pas du JSON valide, alors rien n'a été modifié. Il a peut-être été modifié à la main ou écrit à moitié.",
@@ -223,6 +226,9 @@ export const fr: Catalogue = {
     "Rien n'est conservé sur le disque dans un navigateur.",
   "storage.held": "Conservé maintenant",
   "storage.unknown": "Illisible",
+  "storage.reading": "Lecture",
+  "storage.clearedOffline":
+    "{freed} récupérés. Vous êtes hors ligne, donc la dernière vue est partie avec : la carte restera vide jusqu'à ce qu'un service soit de nouveau joignable.",
   "storage.clear": "Vider",
   "storage.cleared": "Vidé",
   "storage.clearedBody":

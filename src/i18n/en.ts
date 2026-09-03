@@ -181,6 +181,9 @@ export const en = {
   "toast.settingsFromNewer":
     "This file was written by a newer version, so anything it knows that this one does not has been left out.",
   "toast.settingsUnread": "Not read from the file: {names}.",
+  "toast.notABackup": "That is not a saved workspace",
+  "toast.notABackupBody":
+    "Restore from a file takes a workspace you saved with the button beside it. Nothing changed. To put a map file or a colour table on the map, use the Upload panel.",
   "toast.settingsBroken": "That settings file could not be read",
   "toast.settingsBrokenBody":
     "The file could not be read as a settings file, so nothing has been changed. It may have been edited, or only partly written.",
@@ -211,6 +214,9 @@ export const en = {
   "storage.desktopOnly": "Nothing is kept on disk in a browser.",
   "storage.held": "Held now",
   "storage.unknown": "Not readable",
+  "storage.reading": "Reading",
+  "storage.clearedOffline":
+    "{freed} came back. You are offline, so the last view has gone with it: the map will be empty until it can reach a service again.",
   "storage.clear": "Clear",
   "storage.cleared": "Cleared",
   "storage.clearedBody":

@@ -1964,7 +1964,12 @@ input[type="range"]:disabled {
   font-family: Consolas, monospace;
 }
 
-.storage-row__clear {
+/* Two class names deep on purpose. `.secondary-button` is `width: 100%` and
+   is declared later in this file, so at equal specificity it won it: the
+   button took the whole row, the text column was squeezed to zero, and the
+   number this whole row exists to show was painted at zero width underneath
+   it. Every test looking at the row read `textContent` and saw nothing wrong. */
+.storage-row .storage-row__clear {
   width: auto;
   flex: 0 0 auto;
   padding: 0 12px;

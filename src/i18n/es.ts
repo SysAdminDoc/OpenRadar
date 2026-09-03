@@ -184,6 +184,9 @@ export const es: Catalogue = {
   "toast.settingsFromNewer":
     "Este archivo lo escribió una versión más reciente, así que se ha dejado fuera lo que esta no conoce.",
   "toast.settingsUnread": "No se leyó del archivo: {names}.",
+  "toast.notABackup": "Eso no es un espacio de trabajo guardado",
+  "toast.notABackupBody":
+    "Restaurar desde un archivo admite un espacio de trabajo que guardaste con el botón de al lado. No cambió nada. Para poner un archivo de mapa o una paleta en el mapa, usa el panel de Carga.",
   "toast.settingsBroken": "No se pudo leer ese archivo de ajustes",
   "toast.settingsBrokenBody":
     "El archivo no es JSON válido, así que no se ha cambiado nada. Puede que se haya editado o que se escribiera a medias.",
@@ -215,6 +218,9 @@ export const es: Catalogue = {
   "storage.desktopOnly": "En el navegador no se guarda nada en el disco.",
   "storage.held": "Guardado ahora",
   "storage.unknown": "No se puede leer",
+  "storage.reading": "Leyendo",
+  "storage.clearedOffline":
+    "Se recuperaron {freed}. Estás sin conexión, así que la última vista se fue con ellos: el mapa estará vacío hasta que vuelva a alcanzar un servicio.",
   "storage.clear": "Vaciar",
   "storage.cleared": "Vaciado",
   "storage.clearedBody":
