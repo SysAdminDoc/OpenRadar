@@ -962,61 +962,113 @@ test("lets the reader say which overlay sits on top, but not over a warning", as
   expect(after.join(" ")).not.toBe(before.join(" "));
 });
 
-/**
- * Which satellite is over a place, and which band it actually draws there.
- *
- * The view goes in through the share link the app already reads, because that
- * is the one way a test can put the camera somewhere without pretending to be
- * a person dragging it.
- */
-async function satelliteOver(
-  page: Parameters<typeof routeWorkspace>[0],
-  lon: number,
-  lat: number,
-): Promise<{ id: string; name: string; substituted: boolean }> {
-  await page.goto(
-    `/?testMode=1&lon=${lon}&lat=${lat}&zoom=5&bearing=0&pitch=0`,
-  );
-  await expect(
-    page.getByRole("application", { name: "Interactive weather map" }),
-  ).toBeVisible();
+test("switches the day the WPC outlook is for", async ({ page }) => {
+  // A day selector that redraws the same day whichever button is pressed looks
+  // entirely correct on screen, so this reads the layer the app actually asked
+  // the service for. The excessive rainfall days are layers 0 to 4, one behind
+  // the day, which is the arithmetic most likely to be wrong.
+  const asked: number[] = [];
+  await page.route("**/wpc_precip_hazards/**", async (route) => {
+    const layer = /MapServer\/(\d+)\/query/.exec(route.request().url())?.[1];
+    if (layer !== undefined) asked.push(Number(layer));
+    await route.fallback();
+  });
+
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
   await page.getByRole("button", { name: "Layers", exact: true }).click();
   const toggle = page
     .locator(".setting-list")
-    .getByRole("checkbox", { name: /Satellite/ });
-  if (!(await toggle.isChecked())) await toggle.check();
-  const chip = page.locator(".satellite-chip");
-  await expect(chip).toBeVisible();
-  return {
-    id: (await chip.getAttribute("data-satellite")) ?? "",
-    name: (await chip.locator("strong").textContent()) ?? "",
-    substituted:
-      (await page.locator("[data-satellite-substitute]").count()) > 0,
-  };
-}
+    .getByRole("checkbox", { name: /Excessive Rainfall/ });
+  await toggle.check();
 
-test("draws the satellite that is actually over the view", async ({ page }) => {
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-overlay-wpcExcessiveRain-fill/,
+  );
+  const chooser = page.locator("[data-wpc-day]");
+  await expect(chooser).toHaveAttribute("data-wpc-day", "1");
+  await expect.poll(() => asked).toContain(0);
+
+  await page.getByRole("button", { name: "Day 3", exact: true }).click();
+  await expect(chooser).toHaveAttribute("data-wpc-day", "3");
+  // At once, rather than after the poll: a different day is a different
+  // picture, not a stale one.
+  await expect.poll(() => asked, { timeout: 5000 }).toContain(2);
+  expect(asked).not.toContain(3);
+
+  await page.getByRole("button", { name: "Day 5", exact: true }).click();
+  await expect.poll(() => asked, { timeout: 5000 }).toContain(4);
+
+  await toggle.uncheck();
+  await expect(pane).not.toHaveAttribute(
+    "data-layer-stack",
+    /openradar-overlay-wpcExcessiveRain-fill/,
+  );
+});
+
+test("draws the satellite that is actually over the view, while panning", async ({
+  page,
+}) => {
   // The whole reason there are three. A reader in Seattle watching the
   // Pacific through GOES-East is looking at the edge of a disk photographed
   // from over Brazil, and nothing on screen said so.
+  //
+  // One page, dragged, rather than a reload per place: every piece of state
+  // this feature has, the missing-slot counter and the band substitution,
+  // lives across a camera move, and a test that remounts between readings
+  // cannot see any of it.
   await page.route("https://gibs.earthdata.nasa.gov/**", async (route) => {
     await route.fulfill({ contentType: "image/png", body: transparentPng });
   });
+  await page.goto("/?testMode=1&lon=-80.2&lat=25.8&zoom=2&bearing=0&pitch=0");
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toBeVisible();
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Satellite/ })
+    .check();
 
-  const miami = await satelliteOver(page, -80.2, 25.8);
-  expect(miami.id).toMatch(/^east:/);
-  expect(miami.name).toContain("GOES-East");
-  expect(miami.substituted).toBe(false);
+  const chip = page.locator(".satellite-chip");
+  await expect(chip).toHaveAttribute("data-satellite", /^east:/);
+  await expect(chip.locator("strong")).toContainText("GOES-East");
 
-  const seattle = await satelliteOver(page, -122.3, 47.6);
-  expect(seattle.id).toMatch(/^west:/);
-  expect(seattle.name).toContain("GOES-West");
+  /** Drags the map west, which is what a reader following weather does. */
+  const dragWest = async () => {
+    const box = await pane.boundingBox();
+    if (!box) throw new Error("the map has no layout box");
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width * 0.75, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.2, y, { steps: 14 });
+    await page.mouse.up();
+  };
+
+  // Westward until the satellite hands over, which it does at 106 west.
+  for (let pull = 0; pull < 6; pull += 1) {
+    if ((await chip.getAttribute("data-satellite"))?.startsWith("west:")) break;
+    await dragWest();
+  }
+  await expect(chip).toHaveAttribute("data-satellite", /^west:/);
+  await expect(chip.locator("strong")).toContainText("GOES-West");
 
   // And on across the date line, where the only picture is Japan's. Himawari
-  // carries no GeoColor here, so the band substitutes and the panel says
-  // which one is on screen rather than leaving it to be discovered.
-  const tokyo = await satelliteOver(page, 139.7, 35.7);
-  expect(tokyo.id).toBe("himawari:clean-ir");
-  expect(tokyo.name).toContain("Himawari");
-  expect(tokyo.substituted).toBe(true);
+  // carries no GeoColor on this service, so the band substitutes and the
+  // panel says which one is on screen rather than leaving it to be found.
+  for (let pull = 0; pull < 8; pull += 1) {
+    const now = await chip.getAttribute("data-satellite");
+    if (now?.startsWith("himawari:")) break;
+    await dragWest();
+  }
+  await expect(chip).toHaveAttribute("data-satellite", "himawari:clean-ir");
+  await expect(chip.locator("strong")).toContainText("Himawari");
+  const substitute = page.locator("[data-satellite-substitute]");
+  await expect(substitute).toBeVisible();
+  // Naming the band that was asked for, not the one it fell back to. It read
+  // "Himawari has no Clean infrared here, so this is clean infrared."
+  await expect(substitute).toContainText("GeoColor");
 });

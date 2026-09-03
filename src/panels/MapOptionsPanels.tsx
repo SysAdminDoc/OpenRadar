@@ -61,6 +61,7 @@ import type {
   WatchState,
 } from "../lib/settings";
 import type { PackBounds } from "../lib/incidentPacks";
+import { watchedPlaces } from "../lib/settings";
 import {
   moveOverlayFile,
   overlayShapeCount,
@@ -904,7 +905,7 @@ export function LayersPanel({
             <small>{t(chosenBand.detailKey)}</small>
           </div>
           <div
-            className="segmented-control segmented-control--wrap"
+            className="segmented-control"
             aria-label={t("satellite.product")}
           >
             {satelliteBands().map((band) => (
@@ -931,9 +932,12 @@ export function LayersPanel({
           </p>
           {drawnBand === satelliteBand ? null : (
             <p className="source-note" data-satellite-substitute>
+              {/* The band that was asked for, not the one it fell back to.
+                  Named from the drawn band it read "Himawari has no Clean
+                  infrared here, so this is clean infrared". */}
               {t("satellite.notThere", {
                 satellite: t(SATELLITE_NAMES[spacecraft]),
-                band: t(chosenBand.key),
+                band: t(satelliteBandInfo(satelliteBand).key),
               })}
             </p>
           )}
@@ -1243,10 +1247,15 @@ export function SettingsPanel({
     settingsRef.current = settings;
   }, [settings]);
   // Home counts, and only places actually switched on: a storm heading for a
-  // place nobody is watching is not news.
-  const watchedPlaceCount =
-    (settings.watch.enabled ? 1 : 0) +
-    settings.watchPlaces.filter((place) => place.enabled).length;
+  // place nobody is watching is not news. Counted through `watchedPlaces`,
+  // which applies the cap, because with ten saved places the tenth is never
+  // watched and counting it here would say otherwise.
+  const watchedPlaceCount = watchedPlaces(settings).filter(
+    (place) => place.enabled,
+  ).length;
+  // Both halves of the notice: somewhere for a storm to be heading, and the
+  // tracker that finds one.
+  const approachPossible = watchedPlaceCount > 0 && settings.layers.stormCells;
   // Whether the system has taken the colours over, which is not a preference
   // this app can honour halfway.
   const forcedColours = useForcedColours();
@@ -1994,13 +2003,19 @@ export function SettingsPanel({
               <small>
                 {watchedPlaceCount === 0
                   ? t("approach.needsPlace")
-                  : t("approach.settingDetail")}
+                  : settings.layers.stormCells
+                    ? t("approach.settingDetail")
+                    : t("approach.needsCells")}
               </small>
             </span>
             <input
               type="checkbox"
-              checked={settings.approach.enabled && watchedPlaceCount > 0}
-              disabled={watchedPlaceCount === 0}
+              // Both, because the notice is made of two things: somewhere
+              // for a storm to be heading, and the tracker that finds one.
+              // Switched on with the tracker off it would simply never fire,
+              // which is worse than saying why.
+              checked={settings.approach.enabled && approachPossible}
+              disabled={!approachPossible}
               onChange={(event) =>
                 onSettings({
                   ...settings,
@@ -2014,7 +2029,7 @@ export function SettingsPanel({
             <i className="toggle-track" aria-hidden="true" />
           </label>
         </div>
-        {settings.approach.enabled && watchedPlaceCount > 0 ? (
+        {settings.approach.enabled && approachPossible ? (
           <>
             <div className="settings-field" data-approach-window>
               <span>

@@ -289,6 +289,14 @@ export function MapStage({
               with a scale. A picture of cloud tops that does not say which it
               is invites somebody to read a temperature off a colour that has
               none. */}
+          {/* Said when it is true and not otherwise: a reader looking at an
+              hour-old picture because the service skipped four slots cannot
+              tell that from a service that is simply behind. */}
+          {missedSlots > 0 ? (
+            <small className="satellite-chip__legend" data-satellite-stepped>
+              {t("satellite.stepped")}
+            </small>
+          ) : null}
           <small className="satellite-chip__legend">
             {t(chosenBand.legendKey)}
           </small>

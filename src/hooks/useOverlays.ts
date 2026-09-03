@@ -108,7 +108,7 @@ export function useOverlays(
   const requestsRef = useRef(
     new Map<
       OverlayId,
-      { controller: AbortController; bounds: OverlayBounds }
+      { controller: AbortController; bounds: OverlayBounds; variant: string }
     >(),
   );
 
@@ -140,10 +140,20 @@ export function useOverlays(
       padBounds(viewport, adapter.boundsPadding ?? BOUNDS_PADDING);
 
     // A request issued for an area the user has left would stamp coverage with
-    // the wrong box and leave the map showing somewhere else.
+    // the wrong box and leave the map showing somewhere else. So would one
+    // issued for a day they have since switched away from: the slot below is
+    // skipped while a request is in flight, so a variant that changed
+    // mid-request would have painted the old day under the new day's heading
+    // and left it there until the next poll.
     for (const [id, request] of requests) {
       const adapter = OVERLAY_ADAPTERS.find((candidate) => candidate.id === id);
-      if (!adapter || adapter.global) continue;
+      if (!adapter) continue;
+      if (request.variant !== variantOf(adapter, choices)) {
+        request.controller.abort();
+        requests.delete(id);
+        continue;
+      }
+      if (adapter.global) continue;
       if (boundsContain(request.bounds, viewport)) continue;
       request.controller.abort();
       requests.delete(id);
@@ -174,7 +184,11 @@ export function useOverlays(
 
         const controller = new AbortController();
         const box = boxFor(adapter);
-        requests.set(adapter.id, { controller, bounds: box });
+        requests.set(adapter.id, {
+          controller,
+          bounds: box,
+          variant: variantOf(adapter, choices),
+        });
         void adapter
           .fetchData(box, controller.signal, choices)
           .then((data) => {

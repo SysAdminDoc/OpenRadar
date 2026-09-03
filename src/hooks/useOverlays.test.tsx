@@ -182,3 +182,77 @@ describe("snapshot scoping", () => {
     expect(usgsFetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("a layer that draws one of several things", () => {
+  const ero = overlayAdapter("wpcExcessiveRain");
+
+  it("asks again at once when the reader picks another day", async () => {
+    // A snapshot of Day 1 is not a stale Day 3, it is the wrong picture, and
+    // waiting out the thirty-second poll would leave the day the reader just
+    // left on the map with the new day's heading above it.
+    const eroFetch = vi.spyOn(ero, "fetchData");
+    eroFetch.mockImplementation((_bounds, _signal, choices) =>
+      Promise.resolve(collection(`day ${choices.wpcDay}`)),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ choices }) => useOverlays(only("wpcExcessiveRain"), viewport, choices),
+      { initialProps: { choices: { ...DEFAULT_OVERLAY_CHOICES, wpcDay: 1 } } },
+    );
+    await waitFor(() =>
+      expect(
+        result.current.wpcExcessiveRain.data.features[0]?.properties?.headline,
+      ).toBe("day 1"),
+    );
+
+    rerender({ choices: { ...DEFAULT_OVERLAY_CHOICES, wpcDay: 3 } });
+    await waitFor(() =>
+      expect(
+        result.current.wpcExcessiveRain.data.features[0]?.properties?.headline,
+      ).toBe("day 3"),
+    );
+    expect(eroFetch.mock.calls.map((call) => call[2].wpcDay)).toEqual([1, 3]);
+  });
+
+  it("does not paint the old day when its request lands late", async () => {
+    // The slot is skipped while a request is in flight, so a variant that
+    // changed mid-request used to be ignored and the earlier answer painted
+    // under the new day's heading until the next poll.
+    const eroFetch = vi.spyOn(ero, "fetchData");
+    let settleDayOne: ((value: ReturnType<typeof collection>) => void) | null =
+      null;
+    eroFetch.mockImplementation((_bounds, signal, choices) => {
+      if (choices.wpcDay === 1) {
+        return new Promise((resolve, reject) => {
+          settleDayOne = resolve;
+          signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        });
+      }
+      return Promise.resolve(collection(`day ${choices.wpcDay}`));
+    });
+
+    const { result, rerender } = renderHook(
+      ({ choices }) => useOverlays(only("wpcExcessiveRain"), viewport, choices),
+      { initialProps: { choices: { ...DEFAULT_OVERLAY_CHOICES, wpcDay: 1 } } },
+    );
+    await waitFor(() => expect(eroFetch).toHaveBeenCalledTimes(1));
+
+    rerender({ choices: { ...DEFAULT_OVERLAY_CHOICES, wpcDay: 3 } });
+    await waitFor(() =>
+      expect(
+        result.current.wpcExcessiveRain.data.features[0]?.properties?.headline,
+      ).toBe("day 3"),
+    );
+
+    // Day 1 comes back now, long after the reader moved on.
+    await act(async () => {
+      settleDayOne?.(collection("day 1"));
+      await Promise.resolve();
+    });
+    expect(
+      result.current.wpcExcessiveRain.data.features[0]?.properties?.headline,
+    ).toBe("day 3");
+  });
+});

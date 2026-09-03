@@ -433,6 +433,10 @@ function MapViewportInner(
   // which can be many renders earlier.
   const onOverlayActionRef = useRef(onOverlayAction);
   const satelliteTimeRef = useRef(satelliteTime);
+  const satelliteMissingRef = useRef(onSatelliteMissing);
+  useEffect(() => {
+    satelliteMissingRef.current = onSatelliteMissing;
+  }, [onSatelliteMissing]);
   const satelliteProductRef = useRef(satelliteProductId);
   // What is on the map now, which is not the same thing while a switch is
   // still to be applied.
@@ -1946,7 +1950,11 @@ function MapViewportInner(
         failed.sourceId === SATELLITE_SOURCE_ID &&
         failed.error?.status === 404
       ) {
-        onSatelliteMissing?.(satelliteTimeRef.current ?? 0);
+        // Through a ref. The map is built once and this handler is
+        // registered with it, so the prop it closed over on the first render
+        // is the one it would keep for ever: the satellite layer is off then,
+        // and the callback it captured belongs to a slot nobody is looking at.
+        satelliteMissingRef.current?.(satelliteTimeRef.current ?? 0);
       }
       const message = event.error.message || String(event.error);
       // One line per distinct failure keeps a broken tile source from filling

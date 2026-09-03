@@ -113,6 +113,12 @@ export function approachesToAnnounce(
   const byId = new Map(places.map((place) => [place.id, place]));
   return approaches.filter((approach) => {
     if (approach.minutes > settings.minutes) return false;
+    // Nothing at zero. The estimate is clamped at zero rather than going
+    // negative, so a storm that passed while the volume was being read comes
+    // out as "now" and would be announced as arriving in about a minute. The
+    // panel can say a storm is on top of a place; a notice about one that has
+    // already been and gone is worse than silence.
+    if (approach.minutes <= 0) return false;
     if (told.has(approachKey(approach))) return false;
     const place = byId.get(approach.placeId);
     // A place's own quiet hours, because the reader set them per place and a

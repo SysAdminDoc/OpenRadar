@@ -130,7 +130,20 @@ export function NearbyPanel({
           exists to save them. */}
       <section className="nearby-block" data-approaching>
         <h3>{t("approach.heading")}</h3>
-        {approaching.length ? (
+        {/* The same three reasons the storm list below gives, because this
+            section is made of the same data: with the tracker off, or not
+            answering, or not read yet, "nothing is heading for your places"
+            is a claim nobody checked. */}
+        {cellsNote === "loading" ? (
+          <p className="panel-loading">
+            <LoaderCircle className="spin" size={16} aria-hidden="true" />
+            <span>{t("nearby.cellsLoading")}</span>
+          </p>
+        ) : cellsNote === "off" ? (
+          <p className="nearby-empty">{t("approach.needsCells")}</p>
+        ) : cellsNote === "unavailable" ? (
+          <p className="nearby-empty">{t("nearby.cellsUnavailable")}</p>
+        ) : approaching.length ? (
           <>
             <ul role="list" className="nearby-list">
               {approaching.map((coming) => (

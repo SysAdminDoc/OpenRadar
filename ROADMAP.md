@@ -245,6 +245,13 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: With a reader zoomed past the point the fold is visible, the shear grids draw unfolded, and a screen with eight layers on still never evicts a grid it is about to want; the budget is measured in bytes and the const assertions still hold.
   Complexity: M
 
+- [ ] AUD-234 (P3): A legend for the overlay layers
+  Why: `AUD-176` asked for the excessive rainfall outlook to carry its issue and valid time "in the popup and legend". The popup does. There is no legend to put it in: the two legend surfaces in the app are the radar ramp (`MapChrome.tsx`) and the satellite chip (`MapStage.tsx`), and neither knows an overlay exists. Every overlay with bands the reader has to interpret has the same gap, the SPC outlook and the storm surge ramp included, and a reader with three of them on has three sets of colours and nothing naming any of them.
+  Evidence: `grep -rn "legend" src/components` finds `radar-legend` and `satellite-chip__legend` only; `src/lib/legend.ts` is the radar ramp; the WPC popup lines are `wpc.validWindow` and `wpc.issued` in `src/lib/overlays/wpc.ts`.
+  Touches: a legend surface fed from the overlay adapters (each already knows its own bands and colours), `src/lib/overlays/registry.ts` for what an adapter says about its own key, `src/components/MapChrome.tsx` or a surface of its own, `src/i18n/*`, the layer-stack and clipping tests.
+  Acceptance: With an overlay on that has bands, the map carries a key naming them in the reader’s language and in the service’s own colours, with the issue and valid time for the ones that are forecasts; it is off the export unless the reader asked for it; the pseudolocale clipping test covers it.
+  Complexity: M
+
 - [ ] AUD-219 (P3): Split `level2.rs` before the derived products land
   Why: The file is 6,467 lines and four open items (`AUD-189`, `AUD-190`, `AUD-191`, `AUD-192`) all land in it; a split into listing, decode, render, loop and status modules costs nothing now and a great deal after.
   Evidence: `wc -l src-tauri/src/level2.rs` (6,467 on 2026-09-03, up from 6,328 on 2026-09-02); the 2026-09-02 research assessment said the split should precede the derived products and no item carried it.
