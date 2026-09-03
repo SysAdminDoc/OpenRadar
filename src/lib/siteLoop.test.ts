@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { loopKey, stepsForVolumes, trimHeld, volumeForTime } from "./siteLoop";
+import {
+  loopKey,
+  stepNow,
+  stepsForVolumes,
+  trimHeld,
+  volumeForTime,
+} from "./siteLoop";
 
 /** Five volumes about five minutes apart, oldest first. */
 const times = [
@@ -70,6 +76,45 @@ describe("which step to stand on to see each volume", () => {
     // Every step older than the oldest volume: the mosaic has caught up with
     // nothing the site has published yet.
     expect(stepsForVolumes(steps, [times[4] + 60 * 60_000])).toEqual([]);
+  });
+});
+
+describe("a step that moves while the walk is running", () => {
+  const steps = [12, 10, 8, 6, 4, 2, 0].map((back) => ({
+    time: (times[4] - back * 60_000) / 1000,
+  }));
+
+  it("is found again by its own time when the frames shift", () => {
+    // Saving a loop of thirty volumes outlives the timeline's own refresh,
+    // and a refresh that drops the oldest frame shifts every position down by
+    // one. Each of these positions is the FIRST step of its volume, so one
+    // shift lands the walk on the LAST step of the previous volume: the frame
+    // waits out its whole timeout and is then written with the wrong
+    // picture under the right caption.
+    const walk = stepsForVolumes(steps, [times[2], times[3], times[4]]);
+    expect(walk.map((one) => one.index)).toEqual([1, 4, 6]);
+
+    const shifted = steps.slice(1);
+    expect(walk.map((one) => stepNow(shifted, one))).toEqual([0, 3, 5]);
+    // And each of those really is the step that was chosen.
+    for (const step of walk) {
+      expect(shifted[stepNow(shifted, step)].time).toBe(step.frameTime);
+    }
+  });
+
+  it("stays where it was when its frame has gone entirely", () => {
+    // Nothing better to do than carry on: the alternative is jumping to
+    // whatever now sits at that position, which is a different moment.
+    const walk = stepsForVolumes(steps, [times[2], times[3], times[4]]);
+    const gone = steps.slice(3);
+    expect(stepNow(gone, walk[0])).toBe(walk[0].index);
+  });
+
+  it("costs nothing when nothing has moved", () => {
+    const walk = stepsForVolumes(steps, [times[2], times[3], times[4]]);
+    for (const step of walk) {
+      expect(stepNow(steps, step)).toBe(step.index);
+    }
   });
 });
 

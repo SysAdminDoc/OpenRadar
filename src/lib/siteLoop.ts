@@ -62,19 +62,45 @@ export function volumeForTime(
  * `frames` is the timeline's own, oldest first, in seconds. A volume no step
  * lands on is not here: the timeline cannot be moved to it, so it cannot be
  * drawn, and a frame count that included it would stall the walk.
+ *
+ * Each step carries the frame's own time as well as its position. A walk
+ * outlives the timeline's own refresh, and a refresh that drops the oldest
+ * frame shifts every position down by one; each of these positions is the
+ * FIRST step of its volume, so one shift lands the walk on the last step of
+ * the previous volume instead. The time is what survives that.
  */
 export function stepsForVolumes(
   frames: readonly { time: number }[],
   volumes: readonly number[],
-): Array<{ index: number; at: number }> {
-  const first = new Map<number, number>();
+): Array<{ index: number; at: number; frameTime: number }> {
+  const first = new Map<number, { index: number; frameTime: number }>();
   frames.forEach((frame, index) => {
     const volume = volumeForTime(volumes, frame.time * 1000);
-    if (volume !== null && !first.has(volume)) first.set(volume, index);
+    if (volume !== null && !first.has(volume)) {
+      first.set(volume, { index, frameTime: frame.time });
+    }
   });
   return [...first.entries()]
-    .map(([at, index]) => ({ at, index }))
+    .map(([at, step]) => ({ at, ...step }))
     .sort((left, right) => left.at - right.at);
+}
+
+/**
+ * Where a step has moved to, given the frames as they stand now.
+ *
+ * The position it was found at when the walk was planned, unless the frames
+ * have shifted underneath, in which case whichever one carries the same time.
+ * A frame that has fallen off the start of the loop entirely has no answer,
+ * and the caller keeps the position it had rather than jumping to a moment
+ * nobody asked for.
+ */
+export function stepNow(
+  frames: readonly { time: number }[],
+  step: { index: number; frameTime: number },
+): number {
+  if (frames[step.index]?.time === step.frameTime) return step.index;
+  const moved = frames.findIndex((frame) => frame.time === step.frameTime);
+  return moved >= 0 ? moved : step.index;
 }
 
 /** The key one rendered volume is held under. */

@@ -80,6 +80,11 @@ const CACHE_CAPACITY: usize = if slots_wanted() < MAX_CACHE_SLOTS {
 };
 const _: () = assert!(CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES);
 const _: () = assert!(CACHE_CAPACITY >= 2);
+// The guarantee itself, rather than a description of it. Adding a product
+// without raising the budget silently drops the cache below one slot per
+// drawable layer, which costs a download of the country per screen and shows
+// up as nothing at all.
+const _: () = assert!(CACHE_CAPACITY >= slots_wanted());
 /// A drawn tile is a few kilobytes, so thousands of them cost less than one
 /// grid. This is what makes a loop replay cheap: the second pass over a frame
 /// never decodes anything.
@@ -1003,6 +1008,18 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
         .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
     let reduce = reduction_for(columns, rows, points, MAX_GRID_POINTS)
         .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
+    // A grid packed wider than sixteen bits comes back shifted down to
+    // sixteen, and the binary exponent is moved by the same amount so the
+    // values it produces are unchanged. See `decode_png_samples`.
+    let (samples, shift) = decode_png_samples(payload, points, columns, reduce)?;
+    let binary = binary
+        .checked_add(shift)
+        .ok_or_else(|| MrmsError::Decode("the packing scale is out of range".into()))?;
+
+    // Checked on the exponent that will actually be used to read the values,
+    // not the one the file declared. A wide grid declaring an exponent just
+    // inside the finite range passed this and then evaluated to infinity in
+    // every cell once the shift moved it past 2^127.
     let binary_scale = 2f32.powi(binary as i32);
     let decimal_scale = 10f32.powi(decimal as i32);
     if !reference.is_finite()
@@ -1013,14 +1030,6 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
     {
         return Err(MrmsError::Decode("the packing scale is not finite".into()));
     }
-
-    // A grid packed wider than sixteen bits comes back shifted down to
-    // sixteen, and the binary exponent is moved by the same amount so the
-    // values it produces are unchanged. See `decode_png_samples`.
-    let (samples, shift) = decode_png_samples(payload, points, columns, reduce)?;
-    let binary = binary
-        .checked_add(shift)
-        .ok_or_else(|| MrmsError::Decode("the packing scale is out of range".into()))?;
 
     let (north, west, d_lat, d_lon) = reduced_geometry(north, west, d_lat, d_lon, reduce);
     Ok(Grid {
@@ -1131,15 +1140,15 @@ fn decode_png_samples(
     // Grayscale carries eight or sixteen bits a point. The flash flood grids
     // want twenty-four, and the packing spreads those across an RGB pixel,
     // most significant byte first. Nothing else is a picture in any sense.
-    let shift: i16 = match (color_type, bit_depth) {
-        (png::ColorType::Grayscale, png::BitDepth::Eight | png::BitDepth::Sixteen) => 0,
-        // Kept as sixteen bits, which is what every grid in the cache is: a
-        // wider sample would double the memory of every product to give the
-        // flash flood ratios a precision of one part in sixteen million, on a
-        // scale whose bands are a quarter apart. The bottom eight bits go and
-        // the binary exponent moves up by eight to match, so the values this
-        // produces are the ones the file describes.
-        (png::ColorType::Rgb, png::BitDepth::Eight) => 8,
+    let wide: bool = match (color_type, bit_depth) {
+        (png::ColorType::Grayscale, png::BitDepth::Eight | png::BitDepth::Sixteen) => false,
+        // Kept as sixteen bits, which is what every grid in the cache
+        // is; a wider sample would double the memory of every product. How
+        // much has to go is worked out from the grid rather than assumed:
+        // most twenty-four bit grids do not use the range, and the flash
+        // flood ratios published on 2026-09-02 fit in sixteen bits exactly,
+        // so nothing is lost at all. See `fold_to_sixteen_bits`.
+        (png::ColorType::Rgb, png::BitDepth::Eight) => true,
         _ => {
             return Err(MrmsError::Unsupported(format!(
                 "a {color_type:?} {bit_depth:?} bit image"
@@ -1148,12 +1157,14 @@ fn decode_png_samples(
     };
 
     let kept_columns = columns / reduce;
-    let mut samples = Vec::with_capacity(expected / (reduce * reduce));
+    // Held wide enough for the widest sample this reads, and narrowed once at
+    // the end by however much the grid actually turns out to need.
+    let mut samples: Vec<u32> = Vec::with_capacity(expected / (reduce * reduce));
     // The row being built, held across the `reduce` source rows that fold into
     // it. Empty between them, which is what says a new one has to be started.
-    let mut folded: Vec<u16> = Vec::new();
+    let mut folded: Vec<u32> = Vec::new();
     let mut source_row = 0usize;
-    let mut line_values: Vec<u16> = Vec::new();
+    let mut line_values: Vec<u32> = Vec::new();
     while let Some(line) = reader
         .next_row()
         .map_err(|error| MrmsError::Decode(error.to_string()))?
@@ -1163,20 +1174,21 @@ fn decode_png_samples(
         match (color_type, bit_depth) {
             (png::ColorType::Grayscale, png::BitDepth::Sixteen) => {
                 for pair in bytes.chunks_exact(2) {
-                    line_values.push(u16::from_be_bytes([pair[0], pair[1]]));
+                    line_values.push(u32::from(u16::from_be_bytes([pair[0], pair[1]])));
                 }
             }
             (png::ColorType::Grayscale, png::BitDepth::Eight) => {
-                line_values.extend(bytes.iter().map(|value| *value as u16));
+                line_values.extend(bytes.iter().map(|value| u32::from(*value)));
             }
             (png::ColorType::Rgb, png::BitDepth::Eight) => {
+                // Most significant byte first, which is how the packing
+                // spreads a sample wider than one channel.
                 for pixel in bytes.chunks_exact(3) {
-                    let raw = (u32::from(pixel[0]) << 16)
-                        | (u32::from(pixel[1]) << 8)
-                        | u32::from(pixel[2]);
-                    // Shifted rather than truncated: the top sixteen bits are
-                    // the ones that carry the reading.
-                    line_values.push((raw >> 8) as u16);
+                    line_values.push(
+                        (u32::from(pixel[0]) << 16)
+                            | (u32::from(pixel[1]) << 8)
+                            | u32::from(pixel[2]),
+                    );
                 }
             }
             _ => {
@@ -1194,7 +1206,7 @@ fn decode_png_samples(
 
         if source_row % reduce == 0 {
             folded.clear();
-            folded.resize(kept_columns, u16::MIN);
+            folded.resize(kept_columns, u32::MIN);
         }
         for (at, value) in line_values.iter().enumerate() {
             let into = at / reduce;
@@ -1215,7 +1227,39 @@ fn decode_png_samples(
             samples.len()
         )));
     }
-    Ok((samples, shift))
+    Ok(fold_to_sixteen_bits(samples, wide))
+}
+
+/// Narrows samples to the sixteen bits every grid in the cache holds, by as
+/// little as the grid turns out to need.
+///
+/// A sample wider than sixteen bits has to lose something, and how much is
+/// worth working out rather than assuming: a fixed shift of eight would have
+/// quantised the flash flood ratios to two and a half percentage points,
+/// across the hundred percent line the whole product is read against. Their
+/// grids do not use the range they are packed in, so in practice nothing is
+/// lost at all.
+///
+/// The shift comes back with the samples and the caller moves the binary
+/// exponent by the same amount, which is what keeps the values the file
+/// describes.
+fn fold_to_sixteen_bits(samples: Vec<u32>, wide: bool) -> (Vec<u16>, i16) {
+    if !wide {
+        // Nothing above sixteen bits can be in here at all.
+        return (samples.into_iter().map(|value| value as u16).collect(), 0);
+    }
+    let peak = samples.iter().copied().max().unwrap_or(0);
+    let mut shift: i16 = 0;
+    while (peak >> shift) > u32::from(u16::MAX) {
+        shift += 1;
+    }
+    (
+        samples
+            .into_iter()
+            .map(|value| (value >> shift) as u16)
+            .collect(),
+        shift,
+    )
 }
 
 fn gunzip(bytes: &[u8]) -> Result<Vec<u8>, MrmsError> {
@@ -2317,6 +2361,38 @@ mod tests {
             writer.write_image_data(&raw).expect("image data");
         }
 
+        wrap_grib(
+            grid_template,
+            drt_template,
+            scan_mode,
+            columns,
+            rows,
+            &png_bytes,
+        )
+    }
+
+    /// The same file with a twenty-four bit RGB data section, and a binary
+    /// exponent one lower so the readings match the grayscale build's.
+    fn synthetic_grib_rgb(columns: u32, rows: u32, samples: &[u32]) -> Vec<u8> {
+        let png_bytes = rgb_png(columns, rows, samples);
+        let mut out = wrap_grib(0, 41, 0, columns, rows, &png_bytes);
+        // Section 5's binary exponent sits at a fixed offset, since
+        // `wrap_grib` writes the sections before it at fixed sizes. GRIB
+        // writes a signed integer as a sign bit plus magnitude, so minus one
+        // is 0x8001 rather than two's complement.
+        let at = 16 + 72 + 15;
+        out[at..at + 2].copy_from_slice(&0x8001u16.to_be_bytes());
+        out
+    }
+
+    fn wrap_grib(
+        grid_template: u16,
+        drt_template: u16,
+        scan_mode: u8,
+        columns: u32,
+        rows: u32,
+        png_bytes: &[u8],
+    ) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(b"GRIB");
         out.extend_from_slice(&[0, 0, 209, 2]);
@@ -2412,6 +2488,100 @@ mod tests {
             reduced_geometry(55.0, -130.0, 0.01, 0.01, 1),
             (55.0, -130.0, 0.01, 0.01)
         );
+    }
+
+    /// A 24-bit sample spread across an RGB pixel, most significant byte
+    /// first, which is how the flash flood grids are packed.
+    fn rgb_png(width: u32, height: u32, samples: &[u32]) -> Vec<u8> {
+        let mut png_bytes = Vec::new();
+        let mut encoder = png::Encoder::new(&mut png_bytes, width, height);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().expect("a header");
+        let raw: Vec<u8> = samples
+            .iter()
+            .flat_map(|value| {
+                [
+                    ((value >> 16) & 0xff) as u8,
+                    ((value >> 8) & 0xff) as u8,
+                    (value & 0xff) as u8,
+                ]
+            })
+            .collect();
+        writer.write_image_data(&raw).expect("image data");
+        drop(writer);
+        png_bytes
+    }
+
+    #[test]
+    fn a_sample_spread_across_three_channels_is_read_back_whole() {
+        // The flash flood grids are packed twenty-four bits wide, across an
+        // RGB pixel rather than a grey one. Nothing offline covered this path
+        // at all: reversing the channel order left every test in the crate
+        // passing, and a grid read blue-first is a picture of nothing.
+        // The low byte, the middle byte, the packed reading behind the
+        // 137.64 percent this family peaked at on 2026-09-02, and the widest
+        // sample sixteen bits still holds.
+        let png_bytes = rgb_png(4, 1, &[0x00_00_01, 0x00_01_00, 0x00_35_C4, 0x00_FF_FF]);
+        let (samples, shift) = decode_png_samples(&png_bytes, 4, 4, 1).expect("a wide grid");
+        assert_eq!(shift, 0, "nothing here needs narrowing");
+        assert_eq!(samples, vec![1, 256, 13_764, 65_535]);
+    }
+
+    #[test]
+    fn a_wide_grid_is_narrowed_by_as_little_as_it_needs() {
+        // Sixteen bits is what every grid in the cache holds, and a fixed
+        // shift of eight would have quantised the flash flood ratios to two
+        // and a half percentage points, straddling the hundred percent line
+        // the product is read against. Their samples fit in sixteen bits, so
+        // nothing is lost; a grid that genuinely uses the range loses only
+        // what it has to.
+        //
+        // 13764 is the packed reading behind the 137.64 percent this grid
+        // family peaked at on 2026-09-02.
+        let narrow = rgb_png(2, 1, &[13_764, 65_535]);
+        let (samples, shift) = decode_png_samples(&narrow, 2, 2, 1).expect("a wide grid");
+        assert_eq!(shift, 0);
+        assert_eq!(samples, vec![13_764, 65_535]);
+
+        // One bit past what sixteen holds costs exactly one bit.
+        let wide = rgb_png(2, 1, &[13_764, 65_536]);
+        let (samples, shift) = decode_png_samples(&wide, 2, 2, 1).expect("a wide grid");
+        assert_eq!(shift, 1);
+        assert_eq!(samples, vec![13_764 / 2, 32_768]);
+
+        // And a genuinely twenty-four bit grid costs eight.
+        let widest = rgb_png(2, 1, &[0x00_00_10, 0xFF_FF_FF]);
+        let (samples, shift) = decode_png_samples(&widest, 2, 2, 1).expect("a wide grid");
+        assert_eq!(shift, 8);
+        assert_eq!(samples, vec![0, 0xFF_FF]);
+    }
+
+    #[test]
+    fn a_wide_grid_reads_the_values_the_file_describes() {
+        // End to end, because the shift is only half of it: the exponent has
+        // to move by the same amount or every reading is out by a factor of
+        // two hundred and fifty six. Setting the shift to zero and leaving
+        // the fold in place left the whole crate passing.
+        let samples = [0u16, 20_000, 40_000, 65_535];
+        let grayscale = synthetic_grib(0, 41, 0, 2, 2, (2, 2), &samples);
+        let from_grey = decode_grib(&grayscale).expect("a grayscale grid");
+
+        // The same readings, packed one bit wider so the fold has to move.
+        let wide_samples: Vec<u32> = samples.iter().map(|s| u32::from(*s) * 2).collect();
+        let wide = synthetic_grib_rgb(2, 2, &wide_samples);
+        let from_wide = decode_grib(&wide).expect("a wide grid");
+
+        for row in 0..2 {
+            for column in 0..2 {
+                let grey = from_grey.value(row, column);
+                let widened = from_wide.value(row, column);
+                assert!(
+                    (grey - widened).abs() < 0.001,
+                    "grayscale {grey} against wide {widened}"
+                );
+            }
+        }
     }
 
     #[test]

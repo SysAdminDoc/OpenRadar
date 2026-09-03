@@ -68,7 +68,7 @@ import {
   writeWallpaperIfDue,
 } from "./lib/wallpaper";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
-import { useMrmsOverlays } from "./hooks/useMrmsOverlays";
+import { mrmsTimeFor, useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
 import { useWind } from "./hooks/useWind";
@@ -1499,9 +1499,7 @@ export default function App() {
       // when it was valid and a lightning window knows when it was observed;
       // where nothing is known the record says it was fetched now, which is true
       // and claims nothing more.
-      const mrmsTimes = new Map(
-        mrms.layers.map((layer) => [layer.product, layer.time * 1000]),
-      );
+
       for (const [key, on] of Object.entries(settings.layers)) {
         const layer = key as keyof typeof settings.layers;
         if (!on) continue;
@@ -1519,7 +1517,7 @@ export default function App() {
         // that one layer be reported twice under both.
         if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
         const observedAt =
-          mrmsTimes.get(source.sourceId as never) ??
+          mrmsTimeFor(mrms.layers, layer, settings.gaugeQpePeriod) ??
           (layer === "lightningFlashes"
             ? // The flash window carries seconds, like the radar frames and
               // unlike everything in a record. Passed straight through it dated

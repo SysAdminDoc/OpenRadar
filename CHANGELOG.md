@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- The diagnostics report no longer says a rain total was measured this instant when it was published hours ago. The gauge-corrected layer covers three windows behind one switch, and the lookup that finds a grid's time was asking under the name of the family rather than the window on screen.
+
 - Rain totals corrected against the gauges that actually caught it, over an hour, a day or three days, on one switch with the window beside it. Radar alone estimates rainfall from what it can see aloft; pulling that back towards the reporting gauges is closer to the truth, and still an estimate everywhere a gauge is not, which the panel says.
 
 - Three flash flood layers. Two compare the rain that has fallen, over an hour and over three, against the guidance the weather service publishes for how much the ground where you are can take before it floods; at 100 percent the rain has met it. The third is what their model has running off each square kilometre, which is a model of the ground rather than a reading of the sky, and the panel says so. Flooding is the deadliest weather hazard in the United States and until now the app could only show you the rain.

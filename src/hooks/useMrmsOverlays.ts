@@ -90,6 +90,30 @@ export function productFor(
   return layer === "gaugeQpe" ? GAUGE_QPE_PRODUCTS[gaugeQpePeriod] : product;
 }
 
+/**
+ * When the grid behind a switch was published, in milliseconds, or undefined
+ * where that switch is drawing nothing.
+ *
+ * Here rather than at the one call site because the failure is silent: the
+ * diagnostics report looked the time up by the record's source id, which
+ * names the family for the one switch that covers three windows and matches
+ * no grid at all. A missing time is reported as "observed just now", so a
+ * product published hours behind was described as current.
+ */
+export function mrmsTimeFor(
+  drawn: readonly MrmsLayer[],
+  layer: keyof LayerSettings,
+  gaugeQpePeriod: GaugeQpePeriod,
+): number | undefined {
+  const entry = MRMS_LAYERS.find((known) => known.layer === layer);
+  if (!entry) return undefined;
+  const product = productFor(entry.layer, entry.product, gaugeQpePeriod);
+  const found = drawn.find((one) => one.product === product);
+  // Seconds on the way in, because that is what the grids publish, and
+  // milliseconds on the way out, because that is what a record holds.
+  return found ? found.time * 1000 : undefined;
+}
+
 export interface MrmsLayer {
   product: MrmsProductId;
   /**
