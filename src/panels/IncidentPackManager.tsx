@@ -16,6 +16,8 @@ import {
   cancelIncidentPack,
   createIncidentPack,
   deleteIncidentPack,
+  reapIncidentPacks,
+  restoreIncidentPack,
   estimateIncidentPack,
   formatPackBytes,
   incidentPacksAvailable,
@@ -30,6 +32,8 @@ import {
   type PackBounds,
 } from "../lib/incidentPacks";
 import type { AppSettings } from "../lib/settings";
+import type { UndoableRemoval } from "../components/ToastHost";
+import { UNDO_LIFETIME_MS } from "../hooks/useToasts";
 import { rangeFill } from "../lib/rangeFill";
 
 const EMPTY_LIBRARY: IncidentPackLibrary = {
@@ -51,6 +55,8 @@ interface IncidentPackManagerProps {
   settings: AppSettings;
   bounds: PackBounds | null;
   onSettings: (settings: AppSettings) => void;
+  /** A pack the reader deleted, and the way back to its bytes. */
+  onRemoved: (removal: UndoableRemoval) => void;
 }
 
 /** Keeps ready pack references in settings without ever copying PMTiles data. */
@@ -83,6 +89,7 @@ export function IncidentPackManager({
   settings,
   bounds,
   onSettings,
+  onRemoved,
 }: IncidentPackManagerProps) {
   const t = useT();
   const available = incidentPacksAvailable();
@@ -226,6 +233,8 @@ export function IncidentPackManager({
   };
 
   const discard = (pack: IncidentPack, cancel: boolean) => {
+    const wasSelected =
+      settingsRef.current.incidentPacks.selectedId === pack.id;
     removeReference(pack.id);
     void act(
       pack.id,
@@ -233,6 +242,48 @@ export function IncidentPackManager({
         cancel ? cancelIncidentPack(pack.id) : deleteIncidentPack(pack.id),
       cancel ? t("packs.cancelled") : t("packs.deleted"),
     );
+    // A cancelled download has nothing to give back: its tiles were never an
+    // archive. Only a finished pack is held, and only for as long as the
+    // toast that carries the way back to it.
+    if (cancel || pack.status !== "ready") return;
+    let taken = false;
+    const closing = window.setTimeout(() => {
+      if (taken) return;
+      void reapIncidentPacks().catch(() => {});
+    }, UNDO_LIFETIME_MS);
+    onRemoved({
+      title: t("packs.deletedUndo", { name: pack.name }),
+      detail: t("packs.deletedUndoBody"),
+      undo: () => {
+        taken = true;
+        window.clearTimeout(closing);
+        void act(
+          pack.id,
+          async () => {
+            const back = await restoreIncidentPack(pack.id);
+            const reference = asIncidentPackReference(back);
+            if (!reference) return;
+            const current = settingsRef.current;
+            onSettings({
+              ...current,
+              incidentPacks: {
+                ...current.incidentPacks,
+                selectedId: wasSelected
+                  ? reference.id
+                  : current.incidentPacks.selectedId,
+                references: [
+                  ...current.incidentPacks.references.filter(
+                    (entry) => entry.id !== reference.id,
+                  ),
+                  reference,
+                ],
+              },
+            });
+          },
+          t("packs.restored"),
+        );
+      },
+    });
   };
 
   const select = (pack: IncidentPack) => {

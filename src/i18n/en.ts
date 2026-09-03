@@ -112,6 +112,8 @@ export const en = {
   "layers.fileShapes": "{count, plural, one {# shape} other {# shapes}}",
   "layers.fileShown": "Show {name}",
   "layers.fileRemove": "Remove {name}",
+  "layers.fileRemoved": "{name} taken off the map",
+  "layers.fileRemovedBody": "Undo puts it back at the height it was drawn at.",
   "capture.title": "Capture layout",
   "capture.noAlerts": "No active warnings in view",
   "replay.warningsUnavailable":
@@ -136,6 +138,8 @@ export const en = {
     "Kept by where it is rather than copied, so a workspace backup does not swallow it. Under 2 MB, one of wav, mp3, ogg, flac or m4a, and cut off after six seconds. It replaces all four sounds, so severity stops being audible.",
   "alerts.soundFileChoose": "Choose a file",
   "alerts.soundFileClear": "Back to the built-in sounds",
+  "alerts.soundFileRemoved": "Back to the built-in sounds",
+  "alerts.soundFileRemovedBody": "Undo goes back to the sound file you chose.",
   "alerts.soundFileFailed": "That sound could not be used",
   "alerts.soundFile.name": "It has to be a wav, mp3, ogg, flac or m4a file.",
   "alerts.soundFile.noAudio":
@@ -243,6 +247,10 @@ export const en = {
   "packs.started": "Incident pack download started",
   "packs.cancelled": "Incident pack cancelled and its files removed",
   "packs.deleted": "Incident pack deleted",
+  "packs.deletedUndo": "{name} deleted",
+  "packs.deletedUndoBody":
+    "Undo puts the download back. After that it would have to be fetched again.",
+  "packs.restored": "Incident pack restored",
   "packs.paused": "Incident pack paused",
   "packs.resumed": "Incident pack download resumed",
   "packs.selected": "Using {name} as the offline basemap",
@@ -1038,6 +1046,8 @@ export const en = {
     "The colour on headings, switches and the focus ring. It never reaches a radar scale, a warning outline or a storm track.",
   "settings.themeInForce": "{name} is in force over the built-in look.",
   "settings.themeClear": "Back to the built-in look",
+  "settings.themeRemoved": "{name} removed",
+  "settings.themeRemovedBody": "The workspace is back to the built-in look.",
   "settings.themeNote":
     "Drop a theme file on the Upload panel to change more than the colour. A theme reaches the workspace around the map and nothing on it.",
   "settings.radar": "Composite Radar",
@@ -1083,6 +1093,9 @@ export const en = {
   "settings.placeSeverityFor":
     "The least severe warning worth hearing about at {place}",
   "settings.removePlace": "Stop watching {place}",
+  "settings.placeRemoved": "No longer watching {place}",
+  "settings.placeRemovedBody":
+    "Undo puts the place back with the settings it had.",
   "settings.addPlace": "Add the map centre as a place",
   "settings.placesFull":
     "That is all {count, plural, one {# place} other {# places}}. Remove one to watch somewhere else.",

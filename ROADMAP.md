@@ -243,13 +243,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: The switch on registers the current-user Run entry through the plugin and off removes it (round trip through `isEnabled` in a test with a fake); a launch with `--hidden` shows no window and a tray icon; with the tray off the switch is disabled and says why; the diagnostics report names the state; the pseudolocale clipping test covers the new copy.
   Complexity: S
 
-- [ ] AUD-213 (P2): Undo for the removals that have none
-  Why: Deleting an incident pack throws away a verified multi-megabyte download on one press with only a toast; removing a palette, an overlay file, a custom sound or a theme is the same; place removal, journal clear and settings reset already offer undo, so the product's own standard is not met everywhere.
-  Evidence: `src/panels/IncidentPackManager.tsx:228-236` (delete, toast only); palette, overlay file, sound and theme removal in `src/hooks/useWorkspaceActions.ts`; the held-toast undo pattern at `src/App.tsx:1641-1658`; the 2026-09-02 working note that a toast is the wrong home for undo unless it is held.
-  Touches: `src-tauri/src/incident_packs.rs` (delete moves the pack to a held directory for the undo window and reaps it afterwards or on the next start), `src/panels/IncidentPackManager.tsx`, `src/hooks/useWorkspaceActions.ts` (palette, overlay, sound, theme removals through the held-toast undo), `src/components/ToastHost.tsx` if the held pattern needs a second slot, `src/i18n/*`, tests for a second use and a refusal.
-  Acceptance: Each removal offers Undo for the same window as place removal and restores exactly what was removed (a pack's archive is rehashed after restore and served again); using Undo twice and refusing it are both tested; a held pack that outlives the window or a restart is reaped and the reaping is logged.
-  Complexity: M
-
 - [ ] AUD-215 (P2): SPC probabilistic outlooks and conditional intensity
   Why: The app draws the Day 1 categorical outlook only; the same service carries tornado, hail and wind probabilities with the hatched significant area for Days 1 and 2, a Day 3 probability and Days 4 to 8, which is what a reader planning a week wants and what RadarScope 5.6 (2026-08-12) and MyRadar 7.124 both added this year.
   Evidence: Verified 2026-09-03 from `https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer?f=pjson`: layers 3/5/7 (Day 1 tornado, hail, wind probability), 2/4/6 (conditional intensity), 11/13/15 and 10/12/14 (Day 2), 19 and 18 (Day 3), 21-25 (Days 4-8); `src/lib/overlays/spc.ts:15` reads layer 1 only; RadarScope and MyRadar release notes in `RESEARCH.md`.

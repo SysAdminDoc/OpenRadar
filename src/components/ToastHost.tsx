@@ -18,6 +18,21 @@ export interface ToastMessage {
   lifetimeMs?: number;
 }
 
+/**
+ * A removal a panel wants to offer a way back from.
+ *
+ * The panel knows what went and what to say about it; only the workspace has
+ * the toasts. Handed up as one shape rather than a prop per removal, because
+ * the five presses that need it, an incident pack, a workspace theme, an alert
+ * sound, an overlay file and a watched place, differ in nothing but their
+ * words.
+ */
+export interface UndoableRemoval {
+  title: string;
+  detail?: string;
+  undo: () => void;
+}
+
 interface ToastHostProps {
   messages: ToastMessage[];
   onDismiss: (id: number) => void;

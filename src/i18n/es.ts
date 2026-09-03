@@ -115,6 +115,9 @@ export const es: Catalogue = {
   "layers.fileShapes": "{count, plural, one {# forma} other {# formas}}",
   "layers.fileShown": "Mostrar {name}",
   "layers.fileRemove": "Quitar {name}",
+  "layers.fileRemoved": "Se quitó {name} del mapa",
+  "layers.fileRemovedBody":
+    "Deshacer lo devuelve a la altura en que se dibujaba.",
   "capture.title": "Diseño para captura",
   "capture.noAlerts": "No hay avisos activos a la vista",
   "replay.warningsUnavailable":
@@ -138,6 +141,9 @@ export const es: Catalogue = {
     "Se guarda por dónde está, no copiado, así que una copia del espacio de trabajo no se lo traga. Menos de 2 MB, en wav, mp3, ogg, flac o m4a, y se corta a los seis segundos. Sustituye a los cuatro sonidos, así que la gravedad deja de oírse.",
   "alerts.soundFileChoose": "Elegir un archivo",
   "alerts.soundFileClear": "Volver a los sonidos incluidos",
+  "alerts.soundFileRemoved": "Volver a los sonidos incluidos",
+  "alerts.soundFileRemovedBody":
+    "Deshacer recupera el archivo de sonido que elegiste.",
   "alerts.soundFileFailed": "Ese sonido no se pudo usar",
   "alerts.soundFile.name":
     "Tiene que ser un archivo wav, mp3, ogg, flac o m4a.",
@@ -249,6 +255,10 @@ export const es: Catalogue = {
   "packs.cancelled":
     "Se canceló el paquete de incidente y se eliminaron sus archivos",
   "packs.deleted": "Se eliminó el paquete de incidente",
+  "packs.deletedUndo": "Se eliminó {name}",
+  "packs.deletedUndoBody":
+    "Deshacer recupera la descarga. Después habría que volver a descargarla.",
+  "packs.restored": "Se restauró el paquete de incidente",
   "packs.paused": "Se pausó el paquete de incidente",
   "packs.resumed": "Se reanudó la descarga del paquete de incidente",
   "packs.selected": "Se usa {name} como mapa base sin conexión",
@@ -1054,6 +1064,9 @@ export const es: Catalogue = {
     "El color de los títulos, los interruptores y el anillo de foco. Nunca llega a una escala del radar, al contorno de un aviso ni a la traza de una tormenta.",
   "settings.themeInForce": "{name} está en vigor sobre el aspecto integrado.",
   "settings.themeClear": "Volver al aspecto integrado",
+  "settings.themeRemoved": "Se quitó {name}",
+  "settings.themeRemovedBody":
+    "El espacio de trabajo volvió al aspecto integrado.",
   "settings.themeNote":
     "Suelta un archivo de tema en el panel Subir para cambiar algo más que el color. Un tema llega al espacio de trabajo alrededor del mapa y a nada de lo que hay sobre él.",
   "settings.radar": "Radar compuesto",
@@ -1101,6 +1114,9 @@ export const es: Catalogue = {
   "settings.placeSeverityFor":
     "El aviso menos grave que merece la pena en {place}",
   "settings.removePlace": "Dejar de vigilar {place}",
+  "settings.placeRemoved": "Ya no se vigila {place}",
+  "settings.placeRemovedBody":
+    "Deshacer devuelve el lugar con los ajustes que tenía.",
   "settings.addPlace": "Añadir el centro del mapa como lugar",
   "settings.placesFull":
     "{count, plural, one {Es ya # lugar} other {Son ya # lugares}}. Quita uno para vigilar otro sitio.",

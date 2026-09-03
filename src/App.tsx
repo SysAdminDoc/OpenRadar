@@ -43,6 +43,7 @@ import { useWorkspaceOverlays } from "./hooks/useWorkspaceOverlays";
 import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
+import type { UndoableRemoval } from "./components/ToastHost";
 import {
   loadAlertSound,
   keepSoundPath,
@@ -1802,6 +1803,26 @@ export default function App() {
     [applySettings, pushToast, settingsRef],
   );
 
+  /**
+   * The way back from a removal a panel made, as a held toast.
+   *
+   * The panel knows what went and what to call it; the window is the same one
+   * a cleared record gets, because the presses this covers all throw away
+   * something the reader made or downloaded rather than a preference.
+   */
+  const offerUndo = useCallback(
+    (removal: UndoableRemoval) => {
+      pushToast({
+        title: removal.title,
+        detail: removal.detail,
+        actionLabel: translate("toast.undo"),
+        onAction: removal.undo,
+        lifetimeMs: UNDO_LIFETIME_MS,
+      });
+    },
+    [pushToast],
+  );
+
   const assignPalette = useCallback(
     (unit: string, name: string | null) => {
       applySettings(withPaletteAssigned(settingsRef.current, unit, name));
@@ -2523,6 +2544,7 @@ export default function App() {
                 lifetimeMs: UNDO_LIFETIME_MS,
               })
             }
+            onRemoved={offerUndo}
             onExportSettings={actions.exportSettings}
             onChooseSound={chooseAlertSound}
           />

@@ -225,6 +225,8 @@ pub fn run() {
             incident_packs::incident_pack_resume,
             incident_packs::incident_pack_cancel,
             incident_packs::incident_pack_delete,
+            incident_packs::incident_pack_restore,
+            incident_packs::incident_pack_reap,
             level2::level2_archive_sweep,
             level2::level2_local_sweep,
             level2::level2_recent_times,

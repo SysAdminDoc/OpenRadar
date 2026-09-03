@@ -21,6 +21,7 @@ import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
 import type { WatchHealth } from "../lib/watch";
+import type { UndoableRemoval } from "./ToastHost";
 import { CrossSectionPanel } from "../panels/CrossSectionPanel";
 /**
  * The sounding is its own chunk.
@@ -186,6 +187,8 @@ interface PanelSurfacesProps {
   onJournalSaved: (path: string | null) => void;
   onJournalCleared: (undo: () => void) => void;
   onJournalRemoved: (undo: () => void) => void;
+  /** Something removed in a panel, offered back as a held toast. */
+  onRemoved: (removal: UndoableRemoval) => void;
   /** Whether the almanac card is drawn: off by choice, or quiet during danger. */
   almanac: boolean;
   onFlyTo: (point: { lon: number; lat: number }) => void;
@@ -246,6 +249,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onOverlayOrder={props.onOverlayOrder}
             overlayFiles={props.overlayFiles}
             onOverlayFiles={props.onOverlayFiles}
+            onRemoved={props.onRemoved}
             alertTypes={settings.alertTypes}
             surgeCategory={settings.surgeCategory}
             onLayers={props.onLayers}
@@ -350,6 +354,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onStorageFailed={props.onStorageFailed}
             onJournalCleared={props.onJournalCleared}
             onJournalRemoved={props.onJournalRemoved}
+            onRemoved={props.onRemoved}
             clock={props.clock}
             onReset={props.onReset}
             onExportSettings={props.onExportSettings}
