@@ -25,6 +25,8 @@ import {
 } from "../lib/overlays";
 import { cachedUrl } from "../lib/tileCache";
 import { log } from "../lib/log";
+import { parseIconId, placefilePictures, type IconRef } from "../lib/placefile";
+import { hasAlpha, iconsWanted, sliceIcon } from "../lib/placefileIcons";
 import { guardRadarRequest, type SatelliteProductId } from "../lib/providers";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import {
@@ -91,6 +93,8 @@ import {
   FORECAST_SMOKE_LAYER_ID,
   FORECAST_SMOKE_SOURCE_ID,
   CUSTOM_FILL_LAYER_ID,
+  CUSTOM_ICON_LAYER_ID,
+  CUSTOM_IMAGE_LAYER_IDS,
   CUSTOM_LINE_LAYER_ID,
   CUSTOM_POINT_LAYER_ID,
   FLASH_LAYER_ID,
@@ -1402,7 +1406,13 @@ function MapViewportInner(
         id: CUSTOM_FILL_LAYER_ID,
         type: "fill",
         source: CUSTOM_SOURCE_ID,
-        filter: ["==", ["geometry-type"], "Polygon"],
+        // A picture's own outline is a polygon holding its four corners, and
+        // it is there to say where the picture goes, not to be drawn.
+        filter: [
+          "all",
+          ["==", ["geometry-type"], "Polygon"],
+          ["!=", ["get", "kind"], "image"],
+        ],
         // A placefile carries its own colours; plain GeoJSON does not.
         paint: {
           "fill-color": ["coalesce", ["get", "color"], "#60a5fa"],
@@ -1416,9 +1426,9 @@ function MapViewportInner(
         type: "line",
         source: CUSTOM_SOURCE_ID,
         filter: [
-          "in",
-          ["geometry-type"],
-          ["literal", ["LineString", "Polygon"]],
+          "all",
+          ["in", ["geometry-type"], ["literal", ["LineString", "Polygon"]]],
+          ["!=", ["get", "kind"], "image"],
         ],
         paint: {
           "line-color": ["coalesce", ["get", "color"], "#93c5fd"],
@@ -1430,7 +1440,13 @@ function MapViewportInner(
         id: CUSTOM_POINT_LAYER_ID,
         type: "circle",
         source: CUSTOM_SOURCE_ID,
-        filter: ["==", ["geometry-type"], "Point"],
+        // Everything but an icon, which draws its own picture and would have
+        // a blue dot under it otherwise.
+        filter: [
+          "all",
+          ["==", ["geometry-type"], "Point"],
+          ["!=", ["get", "kind"], "icon"],
+        ],
         paint: {
           "circle-radius": 6,
           "circle-color": ["coalesce", ["get", "color"], "#60a5fa"],
@@ -1440,12 +1456,132 @@ function MapViewportInner(
           "circle-stroke-opacity": ["coalesce", ["get", "fileOpacity"], 1],
         },
       },
+      {
+        id: CUSTOM_ICON_LAYER_ID,
+        type: "symbol",
+        source: CUSTOM_SOURCE_ID,
+        filter: ["==", ["get", "kind"], "icon"],
+        layout: {
+          "icon-image": ["get", "icon"],
+          // The cell was padded so its hotspot is the middle of it, which is
+          // what makes an arbitrary hotspot exact under a keyword anchor.
+          "icon-anchor": "center",
+          "icon-rotate": ["coalesce", ["get", "angle"], 0],
+          "icon-rotation-alignment": "map",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+        paint: { "icon-opacity": ["coalesce", ["get", "fileOpacity"], 1] },
+      },
     ],
+  };
+
+  /**
+   * The sheets already asked for, so a redraw does not ask again.
+   *
+   * Keyed by the icon's own description rather than by the sheet, because the
+   * description is what the map knows an image by, and a sheet that failed
+   * stays in here: a file pointing at a server that is not answering should
+   * cost one request, not one per redraw for as long as it is on the map.
+   */
+  const iconsAskedRef = useRef(new Set<string>());
+
+  const loadPlacefileIcons = async (data: unknown) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const wanted = iconsWanted(data).filter(
+      (id) => !iconsAskedRef.current.has(id),
+    );
+    if (!wanted.length) return;
+    for (const id of wanted) iconsAskedRef.current.add(id);
+
+    // One request per sheet however many icons come out of it.
+    const bySheet = new Map<string, Array<{ id: string; ref: IconRef }>>();
+    for (const id of wanted) {
+      const ref = parseIconId(id);
+      if (!ref) continue;
+      const held = bySheet.get(ref.url);
+      if (held) held.push({ id, ref });
+      else bySheet.set(ref.url, [{ id, ref }]);
+    }
+
+    for (const [url, refs] of bySheet) {
+      try {
+        const response = await fetch(cachedUrl(url));
+        if (!response.ok) throw new Error(`${response.status}`);
+        const bitmap = await createImageBitmap(await response.blob());
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("no 2d context");
+        context.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const sheet = context.getImageData(0, 0, canvas.width, canvas.height);
+        // The format's own rule: a sheet with no transparency of its own
+        // draws black as transparent.
+        const blackIsTransparent = !hasAlpha(sheet);
+        for (const { id, ref } of refs) {
+          const icon = sliceIcon(sheet, ref, blackIsTransparent);
+          if (!icon || map.hasImage(id)) continue;
+          map.addImage(id, icon);
+        }
+      } catch (error) {
+        log.warn(
+          "placefile",
+          `icon sheet ${new URL(url).hostname} refused: ${String(error)}`,
+        );
+      }
+    }
+  };
+
+  /** What each picture slot is currently drawing, so nothing is rebuilt. */
+  const customPicturesRef = useRef<Array<string | null>>(
+    CUSTOM_IMAGE_LAYER_IDS.map(() => null),
+  );
+
+  const syncCustomPictures = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    const wanted = placefilePictures(customOverlayRef.current);
+    let changed = false;
+    CUSTOM_IMAGE_LAYER_IDS.forEach((id, at) => {
+      const picture = wanted[at];
+      const key = picture
+        ? `${picture.url}|${picture.opacity}|${picture.corners.flat().join()}`
+        : null;
+      if (key === customPicturesRef.current[at]) return;
+      if (map.getLayer(id)) map.removeLayer(id);
+      if (map.getSource(id)) map.removeSource(id);
+      customPicturesRef.current[at] = key;
+      changed = true;
+      if (!picture) return;
+      map.addSource(id, {
+        type: "image",
+        url: cachedUrl(picture.url),
+        coordinates: picture.corners,
+      } as never);
+      map.addLayer(
+        {
+          id,
+          type: "raster",
+          source: id,
+          paint: {
+            "raster-opacity": picture.opacity,
+            "raster-fade-duration": 0,
+          },
+        } as never,
+        under(id),
+      );
+    });
+    if (changed) publishLayers();
   };
 
   const syncCustomOverlay = () => {
     const map = mapRef.current;
     if (!map || !styleReadyRef.current) return;
+    void loadPlacefileIcons(customOverlayRef.current);
+    syncCustomPictures();
     if (syncVectorLane(map, CUSTOM_LANE, customOverlayRef.current, under)) {
       publishLayers();
     }
@@ -2006,6 +2142,12 @@ function MapViewportInner(
     mapStyleRef.current = styleIdentity;
     styleReadyRef.current = false;
     radarSourceKeysRef.current = { observed: null, forecast: null };
+    // A new style keeps no images and no sources, so what the placefile lane
+    // has already fetched and already drawn has to be asked for again. Kept
+    // beside the radar keys because it is the same class of mistake: a cache
+    // of what is on a map that has just been emptied.
+    iconsAskedRef.current = new Set();
+    customPicturesRef.current = CUSTOM_IMAGE_LAYER_IDS.map(() => null);
     map.setStyle(mapStyleDefinition(mapStyle, incidentPack));
   }, [incidentPack, mapStyle, styleIdentity]);
 

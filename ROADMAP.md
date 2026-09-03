@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-182 (P2): Placefile icons, images, time ranges and thresholds
-  Why: `Icon`, `IconFile`, `Image`, `TimeRange` and `Threshold` are what METAR, Spotter Network and lightning placefiles are made of; the parser skips or ignores them, so most published placefiles load as a few lines and text.
-  Evidence: `src/lib/placefile.ts:175-185` steps over `Object`, `Icon`, `IconFile`, `Font` and drops `Triangles`, `Image`, `Threshold`, `TimeRange` on the default branch; HookEcho's roadmap lists placefile `Image:` as its next item; the GRLevelX placefile ecosystem is the documented switching lever. (2026-09-03: HookEcho PR #276 ships `Image:` with `Object:` nesting and relative URLs; Spotter Network's `gr-all.txt` needs `IconFile`, rotated `Icon`, `Object` and multi-line hover text, and PlacefileNation's 54 free feeds and the saratoga-weather generators all use `TimeRange`; the full statement list is in Supercell Wx's placefile specification.)
-  Touches: `src/lib/placefile.ts`, `src/lib/mapLayers/vector.ts` (symbol layers from sprite sheets built from `IconFile`), `src/lib/workspaceOverlays.ts` (`Threshold` by zoom, `TimeRange` by frame time), fixtures under `src/lib/` tests, catalogues.
-  Acceptance: A placefile using `IconFile`/`Icon` draws its icons from the referenced sheet (fetched only if the host is on the allowlist, else skipped with a named reason), `Threshold` hides features beyond its zoom, `TimeRange` hides features off the current frame time, `Image` draws a georeferenced picture; the loader reports what it skipped as it does today.
-  Complexity: M
-
 - [ ] AUD-183 (P2): MP4 (H.264) export beside WebM
   Why: A WebM will not play in iMessage, most email clients or a phone gallery; RadarScope 5.6.1 (2026-09-02) moved its saved video to MP4 for that reason, and WebView2 Evergreen carries an H.264 WebCodecs encoder.
   Evidence: `src/lib/export.ts:117-119` and `src/lib/webm.ts` (VP9/VP8 Matroska writer of our own); WebView2 runtime notes and codec surveys report `avc1` encode available; MP4 needs an ISO BMFF muxer the way WebM needed Matroska. (2026-09-03: the owner's `C:\repos\StormviewRadar\src\animation-export.js:51-52` already probes `avc1.42E01E` and `avc1.424028` with a runtime fallback, so the codec detection can be lifted from there.)

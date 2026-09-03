@@ -176,6 +176,7 @@ import {
 } from "./lib/settings";
 import {
   mergedOverlayShapes,
+  overlayGates,
   type WorkspaceOverlayFile,
 } from "./lib/workspaceOverlays";
 import { formatNumber, translate, useT, type StringKey } from "./i18n";
@@ -1187,9 +1188,23 @@ export default function App() {
   // What the map actually draws: the enabled files, in order, as one
   // collection. Derived rather than kept beside the set, so a switch or a
   // slider cannot leave the two disagreeing.
+  // A placefile can say a shape belongs inside a range and between two times.
+  // Whether any imported file says either is worked out once per change to the
+  // set, so a file that says neither is not rebuilt every time the map moves
+  // or the loop steps, which is the common case and most of them.
+  const gates = useMemo(() => overlayGates(overlayFiles), [overlayFiles]);
+  const gateZoom = gates.zoomed ? Math.floor(settings.camera.zoom) : null;
+  const gateMinute = gates.timed
+    ? Math.floor((activeFrame?.time ?? clock / 1000) / 60)
+    : null;
   const overlayShapes = useMemo(
-    () => mergedOverlayShapes(overlayFiles),
-    [overlayFiles],
+    () =>
+      mergedOverlayShapes(
+        overlayFiles,
+        gateZoom ?? Number.POSITIVE_INFINITY,
+        gateMinute === null ? null : gateMinute * 60_000,
+      ),
+    [overlayFiles, gateZoom, gateMinute],
   );
 
   // What is drawn right now that has numbers behind it: the sweep, and every

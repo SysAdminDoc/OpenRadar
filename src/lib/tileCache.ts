@@ -98,7 +98,7 @@ export function resetTileCache() {
   priming = null;
 }
 
-function isCachedHost(url: string): boolean {
+export function isCachedHost(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return false;

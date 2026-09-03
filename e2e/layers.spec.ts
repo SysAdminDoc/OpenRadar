@@ -263,7 +263,11 @@ test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
 
   await expect(page.getByText(/reports.txt added/)).toBeVisible();
   await expect(page.getByText(/refreshed every 5 min/)).toBeVisible();
-  await expect(page.getByText(/Icon left out/)).toBeVisible();
+  // Named, not just counted: "nothing appeared" and "we may not ask that
+  // server for the pictures" are different problems for a reader to act on.
+  await expect(
+    page.getByText(/Icon images from example.test left out/),
+  ).toBeVisible();
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-line/);
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
 
@@ -295,6 +299,40 @@ test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
       }),
     )
     .toBeGreaterThan(600);
+});
+
+test("holds a placefile shape back until the map is close enough", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "gated.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      [
+        "Title: Close in only",
+        // 750 nautical miles of view, which the workspace opens wider than.
+        "Threshold: 750",
+        "Color: 255 0 255",
+        'Line: 12, 0, "Only close in"',
+        " 25.0, -86.0",
+        " 26.0, -85.0",
+        "End:",
+      ].join(String.fromCharCode(10)),
+    ),
+  });
+
+  await expect(page.getByText(/gated.txt added/)).toBeVisible();
+  // The file is in the set and the shape is not on the map, which is the
+  // whole of what a threshold is for.
+  await expect(pane).not.toHaveAttribute("data-layer-stack", /custom-line/);
+
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-line/);
 });
 
 test("keeps warnings above the context layers", async ({ page }) => {

@@ -7,6 +7,7 @@ import {
   mergedOverlayShapes,
   moveOverlayFile,
   overlayFileId,
+  overlayGates,
   overlayShapeCount,
   type WorkspaceOverlayFile,
 } from "./workspaceOverlays";
@@ -246,5 +247,78 @@ describe("one ceiling, not one per format", () => {
     };
     expect(overlayShapeCount(bare)).toBe(1);
     expect(isWorkspaceOverlay(bare)).toBe(true);
+  });
+});
+
+describe("what a placefile asked to be shown at", () => {
+  const gated = (
+    properties: Record<string, unknown>,
+  ): WorkspaceOverlayFile => ({
+    id: "gated",
+    name: "gated.txt",
+    enabled: true,
+    opacity: 1,
+    shapes: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-96.8, 32.78] },
+          properties,
+        },
+      ],
+    },
+  });
+
+  const drawn = (
+    file: WorkspaceOverlayFile,
+    zoom?: number,
+    at?: number | null,
+  ) => {
+    const merged = mergedOverlayShapes([file], zoom, at) as {
+      features: unknown[];
+    } | null;
+    return merged?.features.length ?? 0;
+  };
+
+  it("hides a shape until the map is close enough for it", () => {
+    const file = gated({ label: "close", minZoom: 8.76 });
+    expect(drawn(file, 7)).toBe(0);
+    expect(drawn(file, 9)).toBe(1);
+  });
+
+  it("shows a shape that named no range at any zoom", () => {
+    const file = gated({ label: "anywhere" });
+    expect(drawn(file, 0)).toBe(1);
+    // And with nothing said about the view at all, which is every GeoJSON
+    // file and most of the shapes in a placefile.
+    expect(drawn(file)).toBe(1);
+  });
+
+  it("keeps the format's own rule about which end is included", () => {
+    const from = Date.UTC(2026, 3, 27, 20);
+    const to = Date.UTC(2026, 3, 27, 21);
+    const file = gated({ label: "during", from, to });
+    expect(drawn(file, 10, from - 1)).toBe(0);
+    expect(drawn(file, 10, from)).toBe(1);
+    expect(drawn(file, 10, to - 1)).toBe(1);
+    // The end is exclusive, so the shape is gone the moment it arrives.
+    expect(drawn(file, 10, to)).toBe(0);
+    // And with no time being drawn, a time range decides nothing.
+    expect(drawn(file, 10, null)).toBe(1);
+  });
+
+  it("says whether anything in the set is gated at all", () => {
+    expect(overlayGates([gated({ label: "plain" })])).toEqual({
+      zoomed: false,
+      timed: false,
+    });
+    expect(overlayGates([gated({ label: "close", minZoom: 9 })])).toEqual({
+      zoomed: true,
+      timed: false,
+    });
+    expect(
+      overlayGates([gated({ label: "during", from: 1, to: 2, minZoom: 9 })]),
+    ).toEqual({ zoomed: true, timed: true });
   });
 });
