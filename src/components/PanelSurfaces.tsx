@@ -189,6 +189,9 @@ interface PanelSurfacesProps {
   onJournalRemoved: (undo: () => void) => void;
   /** Something removed in a panel, offered back as a held toast. */
   onRemoved: (removal: UndoableRemoval) => void;
+  /** Whether the app starts with the machine, as the machine reports it. */
+  autostart: boolean | null;
+  onAutostart: (on: boolean) => void;
   /** Whether the almanac card is drawn: off by choice, or quiet during danger. */
   almanac: boolean;
   onFlyTo: (point: { lon: number; lat: number }) => void;
@@ -355,6 +358,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onJournalCleared={props.onJournalCleared}
             onJournalRemoved={props.onJournalRemoved}
             onRemoved={props.onRemoved}
+            autostart={props.autostart}
+            onAutostart={props.onAutostart}
             clock={props.clock}
             onReset={props.onReset}
             onExportSettings={props.onExportSettings}

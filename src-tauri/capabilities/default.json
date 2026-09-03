@@ -27,6 +27,9 @@
     "notification:default",
     "updater:default",
     "process:allow-restart",
-    "window-state:default"
+    "window-state:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }

@@ -236,13 +236,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-209 (P2): Start with Windows, opening to the tray
-  Why: The product is meant to sit on a second monitor for a year and the warning watch only runs while the app does, yet after every reboot nothing starts it; a reader who set up ten watched places and quiet hours is unwatched until they remember. The tray and close-to-tray already exist, so this is the missing third switch.
-  Evidence: `src-tauri/Cargo.toml:30-77` (no autostart plugin); `src/lib/settings.ts:441-460` (`tray`, `closeToTray`); `tauri-plugin-autostart` 2.5.1 (crates.io, 2025-10-27; docs https://v2.tauri.app/plugin/autostart/ with `enable`/`disable`/`isEnabled` and launch arguments).
-  Touches: `src-tauri/Cargo.toml` and `package.json` (the plugin), `src-tauri/capabilities/` (`autostart:allow-enable`, `allow-disable`, `allow-is-enabled`), `src-tauri/src/lib.rs` (init with a `--hidden` argument; when present and close-to-tray is on, the window is created hidden and only the tray shows), `src/panels/MapOptionsPanels.tsx` tray settings (a "Start with Windows" switch disabled with a reason unless the tray icon is on), `src/lib/settings.ts` schema, `src/i18n/*`, `e2e/` with the plugin command stubbed, diagnostics line.
-  Acceptance: The switch on registers the current-user Run entry through the plugin and off removes it (round trip through `isEnabled` in a test with a fake); a launch with `--hidden` shows no window and a tray icon; with the tray off the switch is disabled and says why; the diagnostics report names the state; the pseudolocale clipping test covers the new copy.
-  Complexity: S
-
 - [ ] AUD-215 (P2): SPC probabilistic outlooks and conditional intensity
   Why: The app draws the Day 1 categorical outlook only; the same service carries tornado, hail and wind probabilities with the hatched significant area for Days 1 and 2, a Day 3 probability and Days 4 to 8, which is what a reader planning a week wants and what RadarScope 5.6 (2026-08-12) and MyRadar 7.124 both added this year.
   Evidence: Verified 2026-09-03 from `https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer?f=pjson`: layers 3/5/7 (Day 1 tornado, hail, wind probability), 2/4/6 (conditional intensity), 11/13/15 and 10/12/14 (Day 2), 19 and 18 (Day 3), 21-25 (Days 4-8); `src/lib/overlays/spc.ts:15` reads layer 1 only; RadarScope and MyRadar release notes in `RESEARCH.md`.

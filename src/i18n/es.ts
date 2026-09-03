@@ -1597,6 +1597,13 @@ export const es: Catalogue = {
   "tray.quiet": "OpenRadar",
   "tray.warning": "OpenRadar: hay un aviso donde vigilas",
   "tray.unreachable": "OpenRadar: la vigilancia no llega al servicio",
+  "autostart.setting": "Iniciar con Windows",
+  "autostart.settingDetail":
+    "Se abre en la bandeja al iniciar sesión, así los lugares que vigilas quedan vigilados desde que la máquina está encendida.",
+  "autostart.needsTray":
+    "Necesita el icono de la bandeja, porque es donde se abre.",
+  "autostart.unavailable":
+    "Esta versión no puede consultar a Windows sobre el inicio automático.",
   "tray.setting": "Poner un icono en la bandeja",
   "tray.settingDetail":
     "El icono dice una cosa: si hay un aviso en un lugar que nombraste. Desactivarlo lo quita, no lo esconde.",

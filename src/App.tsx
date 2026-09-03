@@ -44,6 +44,7 @@ import { useRadarTimeline } from "./hooks/useRadarTimeline";
 import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import type { UndoableRemoval } from "./components/ToastHost";
+import { useAutostart } from "./hooks/useAutostart";
 import {
   loadAlertSound,
   keepSoundPath,
@@ -289,6 +290,9 @@ export default function App() {
   const logEntries = useSyncExternalStore(subscribeLog, recentLog);
   const toasts = useToasts();
   const pushToast = toasts.push;
+  // Read from the machine rather than from settings: the Run entry is what
+  // decides whether the watch is running after a reboot.
+  const autostart = useAutostart();
 
   const onPersistError = useCallback(
     () =>
@@ -1706,6 +1710,7 @@ export default function App() {
           selectedPack: packs.selectedId !== null,
           packLimitMb: packs.diskLimitMb,
         },
+        startsWithMachine: autostart.on,
         // Only when the reader ticked the box beside the button, and only when
         // there is a watched place at all.
         place:
@@ -1735,6 +1740,7 @@ export default function App() {
       })();
     },
     [
+      autostart.on,
       classification.report,
       countiesDrawn,
       drawnForecastSmoke,
@@ -2545,6 +2551,8 @@ export default function App() {
               })
             }
             onRemoved={offerUndo}
+            autostart={autostart.on}
+            onAutostart={autostart.set}
             onExportSettings={actions.exportSettings}
             onChooseSound={chooseAlertSound}
           />

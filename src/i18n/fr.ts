@@ -1615,6 +1615,13 @@ export const fr: Catalogue = {
   "tray.quiet": "OpenRadar",
   "tray.warning": "OpenRadar : une alerte est en cours la ou vous surveillez",
   "tray.unreachable": "OpenRadar : la surveillance n'atteint pas le service",
+  "autostart.setting": "Démarrer avec Windows",
+  "autostart.settingDetail":
+    "S'ouvre dans la zone de notification à l'ouverture de session, pour que les lieux surveillés le soient dès que la machine est allumée.",
+  "autostart.needsTray":
+    "Nécessite l'icône de la zone de notification, puisque c'est là que ça s'ouvre.",
+  "autostart.unavailable":
+    "Cette version ne peut pas interroger Windows sur le démarrage automatique.",
   "tray.setting": "Mettre une icône dans la zone de notification",
   "tray.settingDetail":
     "L'icône dit une chose : s'il y a une alerte à un lieu que vous avez nommé. La désactiver la retire, elle ne la cache pas.",

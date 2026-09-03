@@ -35,6 +35,8 @@ function Harness({
       settings={settings}
       onSettings={setSettings}
       onRemoved={onRemoved}
+      autostart={false}
+      onAutostart={vi.fn()}
       onWatchHere={vi.fn()}
       onAddWatchPlace={vi.fn()}
       onSendWatchTest={vi.fn()}

@@ -63,6 +63,25 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 const LOG_MAX_FILE_SIZE_BYTES: u128 = 2_000_000;
 const LOG_ROTATED_FILE_COUNT: usize = 3;
 
+/// What the machine's own launch of this app carries.
+///
+/// Written into the Run entry by the autostart plugin, and read back here. A
+/// reader who starts the app themselves wants to look at it; a reader whose
+/// machine started it at boot wants their watched places watched, not a map
+/// across the screen they have to close every morning.
+const HIDDEN_LAUNCH_FLAG: &str = "--hidden";
+
+fn hidden_launch<I: IntoIterator<Item = String>>(arguments: I) -> bool {
+    arguments
+        .into_iter()
+        .any(|argument| argument == HIDDEN_LAUNCH_FLAG)
+}
+
+/// Whether this launch was the machine's rather than a person's.
+fn launched_hidden() -> bool {
+    hidden_launch(std::env::args())
+}
+
 /// Starts the application.
 ///
 /// Left out of a fuzz build, which is the one place this feature is ever on.
@@ -138,6 +157,15 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Starting with Windows, for a reader whose watched places are only
+        // watched while the app is running. The argument is what the entry the
+        // plugin writes carries, so a launch the machine made is told apart
+        // from one a person made and can open to the tray instead of taking
+        // the screen on every boot.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![HIDDEN_LAUNCH_FLAG]),
+        ))
         // MRMS grids are decoded here and handed to the map as ordinary tiles,
         // so the timeline, scrubbing, and export all work on them unchanged.
         .register_asynchronous_uri_scheme_protocol("mrms", |_app, request, responder| {
@@ -329,8 +357,35 @@ pub fn run() {
             // The tray is built here and nowhere else. Declaring one in the
             // config as well gives two icons, one of which nothing is
             // listening to.
-            if let Err(error) = tray::init(_app.handle()) {
-                log::warn!("OpenRadar could not put an icon in the tray: {error}");
+            let tray_ready = match tray::init(_app.handle()) {
+                Ok(()) => true,
+                Err(error) => {
+                    log::warn!("OpenRadar could not put an icon in the tray: {error}");
+                    false
+                }
+            };
+
+            // The window is declared invisible and shown here, which is the
+            // only way a launch the machine made can open to the tray without
+            // the map flashing across the screen first.
+            //
+            // It is shown unless there is an icon to open it from. An app with
+            // no window and no tray icon is a process nobody can reach, so a
+            // tray that failed to build takes the hidden launch with it.
+            if let Some(window) = _app.get_webview_window("main") {
+                if launched_hidden() && tray_ready {
+                    log::info!("OpenRadar started with Windows and opened to the tray");
+                } else {
+                    if launched_hidden() {
+                        log::warn!(
+                            "OpenRadar was started hidden with no tray icon to open it \
+                             from, so the window is on screen instead"
+                        );
+                    }
+                    if let Err(error) = window.show() {
+                        log::error!("OpenRadar could not show its window: {error}");
+                    }
+                }
             }
 
             // Development builds are not installed, so the scheme has to be
@@ -368,4 +423,57 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("OpenRadar could not start");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn arguments(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|part| (*part).to_string()).collect()
+    }
+
+    /// The flag is a contract with something outside this build.
+    ///
+    /// The autostart plugin writes it into a Run entry under the current user,
+    /// and that entry outlives the version that wrote it: a reader who turned
+    /// the switch on once has the old string in their registry after every
+    /// update. Renaming it here without a migration would leave every one of
+    /// them starting to a window across the screen at every boot, which is
+    /// exactly what the flag exists to stop. So the literal is pinned rather
+    /// than round-tripped through the code that produces it.
+    #[test]
+    fn the_hidden_launch_flag_is_the_one_the_run_entry_carries() {
+        assert_eq!(HIDDEN_LAUNCH_FLAG, "--hidden");
+    }
+
+    #[test]
+    fn a_launch_is_the_machines_only_when_it_carries_the_whole_flag() {
+        assert!(hidden_launch(arguments(&[
+            r"C:\Program Files\OpenRadar\OpenRadar.exe",
+            "--hidden"
+        ])));
+        // Anywhere in the list, because nothing here decides the order the
+        // shell hands them over in.
+        assert!(hidden_launch(arguments(&[
+            "OpenRadar.exe",
+            "--hidden",
+            "openradar://view?lat=41.6"
+        ])));
+        assert!(!hidden_launch(arguments(&["OpenRadar.exe"])));
+        // A whole argument, not a substring. A deep link naming a place with
+        // "hidden" in it, or a path under a hidden folder, is an ordinary
+        // launch and has to open a window.
+        assert!(!hidden_launch(arguments(&[
+            "OpenRadar.exe",
+            "--hidden-something"
+        ])));
+        assert!(!hidden_launch(arguments(&[
+            r"C:\Users\somebody\hidden\OpenRadar.exe"
+        ])));
+        assert!(!hidden_launch(arguments(&[
+            "OpenRadar.exe",
+            "openradar://view?place=hidden%20valley"
+        ])));
+    }
 }

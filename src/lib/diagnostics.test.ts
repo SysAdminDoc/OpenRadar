@@ -512,3 +512,26 @@ describe("what a report is allowed to carry", () => {
     expect(block).toContain("WebView2 140.0.7339.16");
   });
 });
+
+describe("whether anything starts the app after a reboot", () => {
+  it("says so, in the three answers there are", () => {
+    // The watch only runs while the app does, so "I never heard about last
+    // night's warning" is often answered by nothing having started it. A
+    // report that cannot say is not the same as one that says no.
+    expect(diagnosticsBlock({ ...base(), startsWithMachine: true })).toContain(
+      "Starts with the machine: yes",
+    );
+    expect(diagnosticsBlock({ ...base(), startsWithMachine: false })).toContain(
+      "Starts with the machine: no",
+    );
+    expect(diagnosticsBlock({ ...base(), startsWithMachine: null })).toContain(
+      "Starts with the machine: unknown",
+    );
+  });
+
+  it("leaves the line out when nobody asked", () => {
+    // The crash screen builds a report with no app left to ask. A line
+    // claiming the answer is no would be a statement it cannot make.
+    expect(diagnosticsBlock(base())).not.toContain("Starts with the machine");
+  });
+});
