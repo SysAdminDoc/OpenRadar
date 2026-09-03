@@ -73,6 +73,8 @@ import { COUNTY_VINTAGE, loadCounties } from "./lib/counties";
 import {
   crashReportAvailable,
   lastCrash as lastCrashDump,
+  lastWebviewReport,
+  webviewVersion,
   type CrashRecord,
 } from "./lib/crashReport";
 import { useLightning } from "./hooks/useLightning";
@@ -395,9 +397,35 @@ export default function App() {
   // start-up: the answer cannot change while this process is alive, because
   // the only thing that writes one is this process dying.
   const [lastCrash, setLastCrash] = useState<CrashRecord | null>(null);
+  /**
+   * The newest report the WINDOW left, and which Chromium is drawing.
+   *
+   * Read once beside the crash dump and on the same terms: neither can change
+   * while this process is alive, and neither leaves the machine.
+   */
+  const [lastWebviewCrash, setLastWebviewCrash] = useState<CrashRecord | null>(
+    null,
+  );
+  const [webviewRuntime, setWebviewRuntime] = useState<string | null>(null);
   useEffect(() => {
     if (!crashReportAvailable()) return;
     let open = true;
+    void lastWebviewReport()
+      .then((found) => {
+        if (open) setLastWebviewCrash(found);
+      })
+      .catch(() => {
+        // No folder is the ordinary state: it exists once the runtime has had
+        // something to report.
+      });
+    void webviewVersion()
+      .then((version) => {
+        if (open) setWebviewRuntime(version);
+      })
+      .catch(() => {
+        // A runtime that will not say its version is reported as unknown
+        // rather than as a failure a reader has to act on.
+      });
     void lastCrashDump()
       .then((found) => {
         if (open) setLastCrash(found);
@@ -1636,6 +1664,8 @@ export default function App() {
       const packs = settingsRef.current.incidentPacks;
       const block = diagnosticsBlock({
         lastCrash,
+        lastWebviewCrash,
+        webviewRuntime,
         renderer: gpuSupport().renderer,
         mapReady: mapStatus === "ready",
         radarReady: timeline.frames.length > 0,
@@ -1687,6 +1717,8 @@ export default function App() {
       countiesDrawn,
       drawnForecastSmoke,
       lastCrash,
+      lastWebviewCrash,
+      webviewRuntime,
       forecastSmoke.field,
       health,
       lightning.window,

@@ -314,13 +314,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: Each panel has a sibling test covering its empty, loading and error states with the catalogue's copy; every floor rises by at least two points and none falls.
   Complexity: M
 
-- [ ] AUD-221 (P3): Record the WebView2 runtime version in diagnostics
-  Why: Chromium 152 (2026-09-01) fixed a critical WebGL use-after-free and WebView2 152.0.4191.62 carries it; the diagnostics report names the renderer but not the runtime, so a report about a GPU crash cannot say which Chromium drew it.
-  Evidence: `grep -ri webview2 src-tauri/src` finds nothing; `src/lib/diagnostics.ts` renderer line; `tauri::webview_version()`; https://learn.microsoft.com/en-us/deployedge/microsoft-edge-relnotes-security.
-  Touches: `src-tauri/src/lib.rs` (a command returning `webview_version()`), `src/lib/diagnostics.ts`, `src/panels/UtilityPanels.tsx`, tests with the command stubbed.
-  Acceptance: The diagnostics report names the WebView2 runtime version beside the renderer; in the browser preview it says the runtime is absent; the redaction test still passes.
-  Complexity: S
-
 - [ ] AUD-222 (P3): Save the volume on screen as the file it came from
   Why: A reader who found the sweep that matters can export a picture, a CSV or a GeoTIFF but not the Archive II object itself, so the case study cannot be reopened in the app or handed to another tool; Supercell Wx has a pull request for the same ask.
   Evidence: `src-tauri/src/exports.rs:24` (`png`, `webm`, `gif`, `json`, `jsonl`, `md` only); the app opens local Archive II files already (`src-tauri/src/level2.rs` local mode); https://github.com/dpaulat/supercell-wx/pull/688.
@@ -398,9 +391,3 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: With the network stubbed away every overlay stops polling, the chrome says since when, the watch's health line says it cannot see, and the first successful fetch clears all three; the reduced-motion and calm modes keep the line.
   Complexity: S
 
-- [ ] AUD-234 (P3): Name the WebView2 crash reports beside our own
-  Why: `AUD-208` records what the native side leaves behind. The window itself is WebView2, which keeps its own Crashpad reports under `EBWebView\Crashpad\reports` in the app's data directory, and a renderer crash leaves nothing in ours. A reader whose window went white rather than vanishing has a file and no way to know it exists.
-  Evidence: `src-tauri/src/crash.rs` covers the host process only; the WebView2 documentation describes the report folder and its retention (https://github.com/MicrosoftEdge/WebView2Feedback/blob/main/diagnostics/crash.md).
-  Touches: `src-tauri/src/crash.rs` (look in that folder as well and report the newest), `src/lib/diagnostics.ts`.
-  Acceptance: WHEN the WebView2 report folder holds anything, the diagnostics block SHALL name the newest file and its size beside the app's own; a test plants a file in a stand-in folder and asserts both are named, and neither is uploaded.
-  Complexity: S

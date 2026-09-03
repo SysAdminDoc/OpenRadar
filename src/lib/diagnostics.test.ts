@@ -52,6 +52,65 @@ describe("what a run that ended abnormally leaves in the report", () => {
       expect(block).not.toContain(".dmp");
     }
   });
+
+  it("names the window's own report as well as ours", () => {
+    // Two different processes. A decoder taking the host down leaves one of
+    // ours and no window; the renderer falling over leaves one of these and a
+    // window that is still there, white, with nothing in our folder to say so.
+    const block = diagnosticsBlock({
+      ...base(),
+      lastWebviewCrash: {
+        path: String.raw`C:\Users\imogen\AppData\Roaming\OpenRadar\EBWebView\Crashpad\reports\3f2504e0-4f89-11d3-9a0c-0305e82c3301.dmp`,
+        bytes: 148_480,
+        at: "2026-09-03T04:20:00+00:00",
+      },
+    });
+    expect(block).toContain("The window's own runtime left a report");
+    expect(block).toContain("3f2504e0-4f89-11d3-9a0c-0305e82c3301.dmp");
+    expect(block).toContain("148480 bytes");
+    // The path holds the reader's own user folder and comes out cut back to
+    // the part that names the file. Every line of the head goes through
+    // `blurUserPaths`, so this is checking the line reached that pass rather
+    // than that it redacts itself.
+    expect(block).not.toContain("imogen");
+    expect(block).toContain("<home>");
+    // And it is named beside ours rather than instead of it.
+    expect(block.indexOf("The window's own runtime")).toBeLessThan(
+      block.indexOf("Sources:"),
+    );
+  });
+
+  it("says nothing about the window's runtime when it left nothing", () => {
+    for (const lastWebviewCrash of [null, undefined]) {
+      const block = diagnosticsBlock({ ...base(), lastWebviewCrash });
+      expect(block).not.toContain("The window's own runtime");
+    }
+  });
+});
+
+describe("which browser drew the picture", () => {
+  it("names the WebView2 runtime beside the renderer", () => {
+    // The user agent says which Chromium the page believes it is in. This
+    // says which runtime Microsoft installed, and it updates on their
+    // schedule rather than with the app: two reports of one GPU crash from
+    // one build can be two different browsers.
+    const block = diagnosticsBlock({
+      ...base(),
+      webviewRuntime: "152.0.4191.62",
+    });
+    expect(block).toContain("WebView2 runtime: 152.0.4191.62");
+    expect(block.indexOf("WebView2 runtime")).toBeLessThan(
+      block.indexOf("Renderer:"),
+    );
+  });
+
+  it("says plainly that there is no runtime in a browser preview", () => {
+    // Rather than "unknown", which reads as something having gone wrong.
+    for (const webviewRuntime of [null, undefined]) {
+      const block = diagnosticsBlock({ ...base(), webviewRuntime });
+      expect(block).toContain("WebView2 runtime: not a native window");
+    }
+  });
 });
 
 describe("the diagnostics block somebody pastes into a bug report", () => {
