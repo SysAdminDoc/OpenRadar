@@ -4,6 +4,8 @@ import { overlayProvenance, provenanceProblems } from "./provenance";
 import { DEFAULT_SETTINGS } from "./settings";
 import { OVERLAY_ADAPTERS } from "./overlays";
 import { MRMS_PRODUCT_IDS } from "./providers/mrms";
+import { MRMS_LAYERS, mrmsTimeFor, productFor } from "../hooks/useMrmsOverlays";
+import { GAUGE_QPE_PERIODS } from "./gaugeQpe";
 
 const FETCHED_AT = Date.parse("2026-08-31T12:01:00Z");
 const OBSERVED_AT = Date.parse("2026-08-31T12:00:00Z");
@@ -162,21 +164,46 @@ describe("the MRMS layers and the grids that feed them", () => {
   // fall back to reporting a fabricated observation time. This holds the two
   // id spaces together instead.
   it("names a real MRMS product for every MRMS-backed layer", () => {
+    // Read from the layer table rather than written out here. The hand
+    // written list stopped at ten layers and four more arrived; the one check
+    // that would have caught a fabricated observation time was blind to every
+    // one of them.
     const products = new Set<string>(MRMS_PRODUCT_IDS);
-    const mrmsLayers = [
-      "rotationTracks",
-      "hail",
-      "hailSwath",
-      "echoTops",
-      "vil",
-      "precipRate",
-      "qpeHour",
-      "qpeDay",
-      "precipType",
-      "lightningDensity",
-    ] as const;
-    for (const layer of mrmsLayers) {
-      expect(products, layer).toContain(LAYER_SOURCES[layer].sourceId);
+    expect(MRMS_LAYERS.length).toBeGreaterThan(10);
+    for (const { layer, product } of MRMS_LAYERS) {
+      for (const period of GAUGE_QPE_PERIODS) {
+        expect(products, layer).toContain(productFor(layer, product, period));
+      }
+    }
+  });
+
+  it("finds the grid's own time for every switch, whatever the period", () => {
+    // The defect this replaces: the report looked the time up by the record's
+    // source id, which for the one switch covering three windows names the
+    // family and matches no grid. A missing time is reported as "observed
+    // just now", so a grid published hours behind read as current.
+    const observed = 1_756_000_000;
+    for (const { layer, product } of MRMS_LAYERS) {
+      for (const period of GAUGE_QPE_PERIODS) {
+        const drawn = [
+          {
+            product: productFor(layer, product, period),
+            time: observed,
+          },
+        ] as unknown as Parameters<typeof mrmsTimeFor>[0];
+        expect(mrmsTimeFor(drawn, layer, period), `${layer} ${period}`).toBe(
+          observed * 1000,
+        );
+      }
+    }
+  });
+
+  it("has a record to write for every MRMS-backed layer", () => {
+    for (const { layer } of MRMS_LAYERS) {
+      // The composite is the radar timeline rather than a switch of its own,
+      // and has no layer record; everything else must have one, or the
+      // diagnostics list drops the layer without saying so.
+      expect(LAYER_SOURCES[layer], layer).toBeTruthy();
     }
   });
 });

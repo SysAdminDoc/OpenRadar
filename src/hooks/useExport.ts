@@ -26,7 +26,7 @@ import {
   timelineProvenance,
   type Provenance,
 } from "../lib/provenance";
-import { stepsForVolumes } from "../lib/siteLoop";
+import { stepNow, stepsForVolumes } from "../lib/siteLoop";
 import type { SweepImage } from "../lib/level2";
 import {
   frameAgeMinutes,
@@ -471,7 +471,9 @@ export function useExport(options: {
             source: canvas,
             frameCount: count,
             showFrame: async (index) => {
-              timeline.selectFrame(walk ? walk[index].index : index);
+              timeline.selectFrame(
+                walk ? stepNow(timeline.frames, walk[index]) : index,
+              );
               await mapRef.current?.onceIdle();
               if (walk && siteLoop) {
                 await settleOn(siteLoop.drawnVolume, walk[index].at);

@@ -297,7 +297,11 @@ export function useSingleSiteRadar(options: {
           if (open) setListed({ site, times: [] });
         });
     };
-    ask();
+    // Held means held, including the ask this effect makes on its way in.
+    // Its other dependencies move on their own — the window being hidden and
+    // shown again is enough — and a refresh during a walk drops the oldest
+    // volume out of the list the walk is standing on.
+    if (!listingHeld?.() || listed.site !== station) ask();
     if (!pageVisible) {
       return () => {
         open = false;
@@ -312,6 +316,9 @@ export function useSingleSiteRadar(options: {
       open = false;
       window.clearInterval(timer);
     };
+    // `listed` is deliberately not a dependency: this effect writes it, and
+    // depending on it would restart the timer every time an answer arrived.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingHeld, loopVolumes, pageVisible, station, wanted]);
 
   // A reply that arrives after the view has moved on must not be drawn.
