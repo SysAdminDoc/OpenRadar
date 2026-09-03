@@ -21,7 +21,7 @@ const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// it here as well, and `every_file_this_app_writes_can_be_written` is the
 /// test that says so out loud: the journal export shipped writing nothing at
 /// all for as long as `jsonl` was missing from this list.
-const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "gif", "json", "jsonl", "md"];
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "mp4", "gif", "json", "jsonl", "md"];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
@@ -31,7 +31,7 @@ const RESERVED_NAMES: &[&str] = &[
 static TEMPORARY_WRITES: AtomicU64 = AtomicU64::new(0);
 const TEMPORARY_ATTEMPTS: usize = 16;
 
-/// The allowed kinds as a reader would say them: "png, webm, gif and md".
+/// The allowed kinds as a reader would say them: "png, webm, mp4 and md".
 ///
 /// Joining the whole list with " and " read as "png and webm and json" the
 /// moment there were three of them, and this message goes to the screen.
@@ -259,6 +259,7 @@ mod tests {
         for name in [
             "openradar-2026-08-30.png",
             "openradar-loop.webm",
+            "openradar-loop.mp4",
             "openradar-loop.gif",
             "openradar-workspace.json",
             "openradar-journal.jsonl",
@@ -287,7 +288,7 @@ mod tests {
         let said = ExportError::BadExtension.to_string();
         assert_eq!(
             said,
-            "only png, webm, gif, json, jsonl and md files can be exported"
+            "only png, webm, mp4, gif, json, jsonl and md files can be exported"
         );
     }
 

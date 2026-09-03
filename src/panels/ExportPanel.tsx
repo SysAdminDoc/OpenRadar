@@ -40,6 +40,13 @@ interface ExportPanelProps {
   /** The reader's own word for where they live, when they have one. */
   placeName: string;
   onExportLoop: () => void;
+  onExportMp4: () => void;
+  /**
+   * Whether this build can write an MP4 at all, or null while it is being
+   * asked. Null draws the button as it will be, so it does not appear a
+   * moment after the panel does.
+   */
+  mp4Ready: boolean | null;
   onExportGif: () => void;
   /** The readings behind the picture, one entry per dataset drawn. */
   dataExports: DataExportOffer[];
@@ -54,6 +61,8 @@ export function ExportPanel({
   onExportPostcard,
   placeName,
   onExportLoop,
+  onExportMp4,
+  mp4Ready,
   onExportGif,
   dataExports,
   onClose,
@@ -98,6 +107,24 @@ export function ExportPanel({
         {t("export.loop")}
         {frameCount > 1 ? t("export.loopFrames", { count: frameCount }) : ""}
       </button>
+
+      <button
+        type="button"
+        className="secondary-button"
+        disabled={Boolean(busy) || frameCount < 2 || mp4Ready === false}
+        onClick={onExportMp4}
+      >
+        {busy === "mp4" ? (
+          <LoaderCircle className="spin" size={16} />
+        ) : (
+          <Film size={16} />
+        )}
+        {t("export.mp4")}
+        {frameCount > 1 ? t("export.loopFrames", { count: frameCount }) : ""}
+      </button>
+      {mp4Ready === false ? (
+        <p className="source-note">{t("export.mp4Missing")}</p>
+      ) : null}
 
       <button
         type="button"

@@ -1,6 +1,7 @@
 import { translate } from "../i18n";
 import { encodeGifOffThread } from "./gifWorker";
 import { log } from "./log";
+import { framesInOrder, writeMp4 } from "./mp4";
 import { writeWebm, type WebmFrame } from "./webm";
 
 export interface ExportCaption {
@@ -136,14 +137,31 @@ const CODECS: Array<{ codec: string; codecId: string }> = [
   { codec: "vp8", codecId: "V_VP8" },
 ];
 
+/**
+ * The H.264 profiles to try for an MP4, best first.
+ *
+ * Baseline leads, and not for compatibility: baseline has no bidirectional
+ * frames, so the encoder cannot hand back a stream whose frames are stored
+ * out of the order they are shown in, and the writer needs no composition
+ * offsets to describe it. Main and high are here for a build whose hardware
+ * encoder refuses baseline outright.
+ */
+const H264_CODECS: Array<{ codec: string; codecId: string }> = [
+  { codec: "avc1.42E028", codecId: "avc1" },
+  { codec: "avc1.42E01F", codecId: "avc1" },
+  { codec: "avc1.4D0028", codecId: "avc1" },
+  { codec: "avc1.640028", codecId: "avc1" },
+];
+
 /** The first codec this machine will actually encode, or null for none. */
 async function pickEncoder(
   width: number,
   height: number,
   framerate: number,
+  candidates: Array<{ codec: string; codecId: string }> = CODECS,
 ): Promise<{ codec: string; codecId: string } | null> {
   if (typeof VideoEncoder === "undefined") return null;
-  for (const candidate of CODECS) {
+  for (const candidate of candidates) {
     try {
       const support = await VideoEncoder.isConfigSupported({
         codec: candidate.codec,
@@ -174,6 +192,7 @@ async function exportLoopEncoded(
   options: LoopExportOptions,
   chosen: { codec: string; codecId: string },
   canvas: HTMLCanvasElement,
+  container: "webm" | "mp4" = "webm",
 ): Promise<Blob> {
   const {
     source,
@@ -188,10 +207,27 @@ async function exportLoopEncoded(
   // The encoder reports a failure through its own callback rather than by
   // throwing where it was called, so it is held here and raised at the next
   // point the walk can stop.
-  const state: { failure: Error | null } = { failure: null };
+  const state: { failure: Error | null; description: Uint8Array | null } = {
+    failure: null,
+    description: null,
+  };
 
   const encoder = new VideoEncoder({
-    output: (chunk) => {
+    output: (chunk, metadata) => {
+      // The parameter sets an H.264 decoder needs arrive once, beside the
+      // first chunk. Nothing but the encoder knows them, and an MP4 without
+      // them is a file no player will open.
+      const description = metadata?.decoderConfig?.description;
+      if (description && !state.description) {
+        state.description = new Uint8Array(
+          description instanceof ArrayBuffer
+            ? description.slice(0)
+            : description.buffer.slice(
+                description.byteOffset,
+                description.byteOffset + description.byteLength,
+              ),
+        );
+      }
       const data = new Uint8Array(chunk.byteLength);
       chunk.copyTo(data);
       written.push({
@@ -237,17 +273,40 @@ async function exportLoopEncoded(
   }
   if (state.failure) throw state.failure;
 
-  const blob = new Blob(
-    [
-      writeWebm(written, {
-        width: canvas.width,
-        height: canvas.height,
-        codecId: chosen.codecId,
-        lastFrameMs: frameDurationMs,
-      }),
-    ],
-    { type: "video/webm" },
-  );
+  if (container === "mp4") {
+    // Both of these are the encoder answering with something this build
+    // cannot package, so they are said as that rather than passed on as the
+    // writer's own contract message.
+    if (!state.description) throw new Error(translate("export.noMp4"));
+    if (!framesInOrder(written)) {
+      throw new Error(translate("export.mp4Reordered"));
+    }
+  }
+
+  const blob =
+    container === "mp4"
+      ? new Blob(
+          [
+            writeMp4(written, {
+              width: canvas.width,
+              height: canvas.height,
+              description: state.description ?? new Uint8Array(),
+              lastFrameMs: frameDurationMs,
+            }),
+          ],
+          { type: "video/mp4" },
+        )
+      : new Blob(
+          [
+            writeWebm(written, {
+              width: canvas.width,
+              height: canvas.height,
+              codecId: chosen.codecId,
+              lastFrameMs: frameDurationMs,
+            }),
+          ],
+          { type: "video/webm" },
+        );
   if (blob.size > MAX_LOOP_BYTES) {
     throw new Error(translate("export.tooLarge"));
   }
@@ -266,6 +325,41 @@ async function exportLoopEncoded(
  *
  * Nothing leaves the machine on either path.
  */
+/**
+ * Whether this build can write an MP4 at all.
+ *
+ * Asked at a nominal 720p rather than at the map's own size, because the panel
+ * has to say whether the button is worth offering before anybody has decided
+ * what to export. A build without an H.264 encoder answers false and the panel
+ * says so; there is no recording path for MP4 the way there is for WebM,
+ * because a MediaRecorder writes WebM whatever it is asked for.
+ */
+export async function mp4Available(): Promise<boolean> {
+  return (await pickEncoder(1280, 720, 2.5, H264_CODECS)) !== null;
+}
+
+/**
+ * The loop as an MP4, which is the one that plays where people send loops.
+ *
+ * No fallback: a machine with no H.264 encoder cannot produce this file, and
+ * spending the loop's own duration recording a WebM under an `.mp4` name would
+ * be worse than saying so.
+ */
+export async function exportLoopMp4(options: LoopExportOptions): Promise<Blob> {
+  const { source, frameCount, frameDurationMs = 400 } = options;
+  if (frameCount < 1) throw new Error(translate("export.noFrames"));
+
+  const canvas = exportCanvas(source, MAX_WIDTH, true);
+  const chosen = await pickEncoder(
+    canvas.width,
+    canvas.height,
+    1000 / frameDurationMs,
+    H264_CODECS,
+  );
+  if (!chosen) throw new Error(translate("export.noMp4"));
+  return exportLoopEncoded(options, chosen, canvas, "mp4");
+}
+
 export async function exportLoop(options: LoopExportOptions): Promise<Blob> {
   const {
     source,

@@ -1,10 +1,19 @@
-import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { ToastMessage } from "../components/ToastHost";
 import {
   exportFileName,
   exportLoop,
   exportLoopGif,
+  exportLoopMp4,
+  mp4Available,
   exportStill,
   provenanceFileName,
   type ExportCaption,
@@ -87,6 +96,10 @@ export interface ExportState {
     place: string;
   }) => void;
   exportLoopVideo: () => void;
+  /** The same loop as an MP4, which is what plays where people send loops. */
+  exportLoopMp4File: () => void;
+  /** Whether this build has an H.264 encoder, or null while it is asked. */
+  mp4Ready: boolean | null;
   /** The same loop as a GIF, which pastes into places a WebM does not. */
   exportLoopGifFile: () => void;
   /** The readings behind the picture, wrapped so the panel only clicks. */
@@ -182,6 +195,20 @@ export function useExport(options: {
     done: number;
     total: number;
   } | null>(null);
+
+  // Whether an MP4 can be written here at all. Asked once, because the answer
+  // is a property of the build and not of the picture, and held as null until
+  // it comes back so the panel does not offer a button and then take it away.
+  const [mp4Ready, setMp4Ready] = useState<boolean | null>(null);
+  useEffect(() => {
+    let live = true;
+    void mp4Available().then((ready) => {
+      if (live) setMp4Ready(ready);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // What the encoder actually put in the file, by frame index.
   //
@@ -616,6 +643,10 @@ export function useExport(options: {
     () => exportLoopAs("webm", exportLoop, "loop"),
     [exportLoopAs],
   );
+  const exportLoopMp4File = useCallback(
+    () => exportLoopAs("mp4", exportLoopMp4, "mp4"),
+    [exportLoopAs],
+  );
   const exportLoopGifFile = useCallback(
     () => exportLoopAs("gif", exportLoopGif, "gif"),
     [exportLoopAs],
@@ -667,6 +698,8 @@ export function useExport(options: {
     exportPostcard,
     writeWallpaper,
     exportLoopVideo,
+    exportLoopMp4File,
+    mp4Ready,
     exportLoopGifFile,
     dataExports,
   };
