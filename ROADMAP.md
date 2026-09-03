@@ -371,10 +371,4 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: The diagnostics report lists each source's last transitions with times and reasons; the ring is bounded, survives a restart and can be cleared; nothing in it names a place or a URL with a place in it.
   Complexity: S
 
-- [ ] AUD-232 (P3): One offline line for the whole workspace
-  Why: Only the timeline knows the machine is offline; every overlay keeps polling and failing, the watch's health line does not say it is blind, and the chrome's "showing the last view" is the sole hint.
-  Evidence: `src/lib/online.ts` consumed only by `src/hooks/useRadarTimeline.ts:8,204`; `src/i18n/en.ts:1188-1189`; no offline handling in `src/hooks/useOverlays.ts`.
-  Touches: a `useOnline` hook consumed by `src/components/WorkspaceChrome.tsx` (one line "Offline since {time} · showing what was kept"), `src/hooks/useOverlays.ts` (pause polling and resume on the first success), `src/hooks/useAlertWatch.ts` (health line), `src/i18n/*`, `e2e/offline.spec.ts`.
-  Acceptance: With the network stubbed away every overlay stops polling, the chrome says since when, the watch's health line says it cannot see, and the first successful fetch clears all three; the reduced-motion and calm modes keep the line.
-  Complexity: S
 

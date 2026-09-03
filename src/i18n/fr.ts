@@ -1245,6 +1245,10 @@ export const fr: Catalogue = {
   "wind.unknownHour": "inconnue",
 
   "chrome.stale": "Le radar est périmé · {age}",
+  "watch.cannotSee":
+    "Cette machine est sans réseau depuis {age}, donc rien n'est surveillé. Les lieux et les réglages sont conservés.",
+  "chrome.offline":
+    "Hors ligne depuis {age} · affichage de ce qui a été conservé",
   "chrome.cached": "Affichage de la dernière vue",
   "chrome.cachedAge": "Affichage de la dernière vue · {age}",
 
