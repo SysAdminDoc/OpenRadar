@@ -58,7 +58,15 @@ export interface WorkspaceActions {
   goToPlace: (place: PlaceResult) => void;
   usePreset: (index: number) => void;
   share: () => Promise<void>;
-  uploadOverlay: (file: File) => Promise<void>;
+  /**
+   * Read a file the reader chose.
+   *
+   * `backupOnly` is what Restore from a file passes: the same reading, and a
+   * refusal for anything that is not a saved workspace, because that control
+   * promises one thing where the Upload panel promises to work out what it
+   * has been given.
+   */
+  uploadOverlay: (file: File, backupOnly?: boolean) => Promise<void>;
   watchHere: () => void;
   /** Adds the map centre as another watched place, beside home. */
   addWatchPlace: () => void;
@@ -339,12 +347,37 @@ export function useWorkspaceActions(options: {
   }, [overlayFiles, pushToast, settingsRef]);
 
   const uploadOverlay = useCallback(
-    async (file: File) => {
+    async (
+      file: File,
+      /**
+       * Refuse anything that is not a saved workspace.
+       *
+       * The Upload panel takes whatever a reader drops on it and works out
+       * what it is. Restore from a file is a different promise: it says it
+       * puts a backup back, and handing it a GeoJSON quietly added a map
+       * overlay and closed the panel instead. The reading is shared so the
+       * partial-restore note and the undo cannot drift; only the answer to
+       * "is this the kind of file I was asked for" differs.
+       */
+      backupOnly = false,
+    ) => {
       try {
         if (file.size > MAX_UPLOAD_BYTES) {
           throw new Error(translate("toast.fileTooBig"));
         }
         const text = await file.text();
+
+        if (
+          backupOnly &&
+          !looksLikeWorkspaceBackup(text) &&
+          !looksLikeSettings(text)
+        ) {
+          pushToast({
+            title: translate("toast.notABackup"),
+            detail: translate("toast.notABackupBody"),
+          });
+          return;
+        }
 
         // A colour table is not an overlay: it changes how the radar already
         // on screen is drawn, so it goes to the settings rather than the map.

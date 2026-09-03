@@ -179,7 +179,18 @@ pub fn get(url: &str) -> Option<Entry> {
         held.root.join(format!("{name}.bin"))
     };
 
-    let raw = fs::read(&path).ok()?;
+    let raw = match fs::read(&path) {
+        Ok(raw) => raw,
+        Err(_) => {
+            // The file is gone from under the index: removed by hand, by a
+            // scanner, or lost to a disk error. Left in the index it went on
+            // counting towards the size the settings panel shows and towards
+            // the bytes a Clear claims to have freed, both of which are then
+            // about space nothing is using.
+            forget(&name);
+            return None;
+        }
+    };
     let (stored_url, content_type, stored_at, body) = decode(&raw)?;
     // The address is checked rather than trusted, so a name collision is a
     // miss rather than the wrong tile.
@@ -191,6 +202,21 @@ pub fn get(url: &str) -> Option<Entry> {
         content_type,
         age: Duration::from_secs(now_secs().saturating_sub(stored_at)),
     })
+}
+
+/// Drops an entry from the index without touching the disk.
+///
+/// For a file that is already not there. The index is what the budget, the
+/// reported size and the reported freed bytes are all computed from, so an
+/// entry that outlives its file is a number about nothing.
+fn forget(name: &str) {
+    let mut guard = match state().lock() {
+        Ok(guard) => guard,
+        Err(held) => held.into_inner(),
+    };
+    if let Some(held) = guard.as_mut() {
+        held.held.remove(name);
+    }
 }
 
 /// Reads without tying up an async runtime worker on filesystem I/O.
@@ -329,37 +355,62 @@ pub fn size() -> (usize, u64) {
 /// Empties the cache and says how much came back.
 ///
 /// Only the cache's own version directory. Incident packs and replay bundles
-/// live beside it under the same data directory and are a reader's own
-/// downloads: a button called Clear cache that took those away would be a
-/// button nobody could risk pressing.
+/// live elsewhere and are a reader's own downloads: a button called Clear
+/// cache that took those away would be one nobody could risk pressing.
 ///
-/// Entries are removed from the index as their files go, so a failure part of
-/// the way through leaves the index describing what is actually still there
-/// rather than claiming an empty cache over a full directory.
+/// The lock is held long enough to take the index and let go, not for the
+/// sweep. Two thousand `remove_file` calls under the lock is two thousand
+/// files' worth of waiting for every tile the map asks for in the meantime,
+/// on the one path that has to stay quick.
+///
+/// A `put` that lands during the sweep can have its file deleted and then
+/// insert an index entry for a file that is no longer there. That is not
+/// lost data, and it does not stay wrong: `get` drops an entry whose file it
+/// cannot read, so the first read of it corrects the index.
 pub fn clear() -> (usize, u64) {
-    let mut guard = match state().lock() {
-        Ok(guard) => guard,
-        Err(held) => held.into_inner(),
+    let (root, taken) = {
+        let mut guard = match state().lock() {
+            Ok(guard) => guard,
+            Err(held) => held.into_inner(),
+        };
+        let Some(held) = guard.as_mut() else {
+            return (0, 0);
+        };
+        (held.root.clone(), std::mem::take(&mut held.held))
     };
-    let Some(held) = guard.as_mut() else {
-        return (0, 0);
-    };
+
     let mut removed = 0usize;
     let mut freed = 0u64;
-    for (name, entry) in std::mem::take(&mut held.held) {
-        match fs::remove_file(held.root.join(format!("{name}.bin"))) {
+    let mut kept: Vec<(String, Held)> = Vec::new();
+    for (name, entry) in taken {
+        match fs::remove_file(root.join(format!("{name}.bin"))) {
             Ok(()) => {
                 removed += 1;
                 freed += entry.bytes;
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                // Gone already, which is the same outcome from here.
+                // Gone already. Out of the index, because it should never
+                // have been in it, but NOT counted towards what came back:
+                // those bytes were not on the disk to give.
                 removed += 1;
-                freed += entry.bytes;
             }
             Err(error) => {
                 log::warn!("OpenRadar could not remove a cached entry: {error}");
-                held.held.insert(name, entry);
+                kept.push((name, entry));
+            }
+        }
+    }
+
+    if !kept.is_empty() {
+        let mut guard = match state().lock() {
+            Ok(guard) => guard,
+            Err(held) => held.into_inner(),
+        };
+        if let Some(held) = guard.as_mut() {
+            for (name, entry) in kept {
+                // Never over the top of something written while the sweep
+                // ran: that entry is newer and its file is really there.
+                held.held.entry(name).or_insert(entry);
             }
         }
     }
@@ -372,6 +423,19 @@ pub fn clear() -> (usize, u64) {
 pub struct CacheSize {
     pub entries: usize,
     pub bytes: u64,
+}
+
+/// What emptying it gave back, which is a different thing from what it held.
+///
+/// A type of its own so the two cannot be handed around interchangeably: an
+/// entry whose file had already gone is removed but frees nothing, so the
+/// counts genuinely differ and a shared shape invites reporting one as the
+/// other.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CacheCleared {
+    pub removed: usize,
+    pub freed: u64,
 }
 
 #[tauri::command]
@@ -392,16 +456,17 @@ pub async fn cache_size() -> CacheSize {
 }
 
 #[tauri::command]
-pub async fn cache_clear() -> CacheSize {
-    // What was removed, not what is left: the panel says how much came back.
+pub async fn cache_clear() -> CacheCleared {
+    // What came back, not what is left: the panel reads the size again
+    // afterwards for that.
     tauri::async_runtime::spawn_blocking(|| {
-        let (entries, bytes) = clear();
-        CacheSize { entries, bytes }
+        let (removed, freed) = clear();
+        CacheCleared { removed, freed }
     })
     .await
-    .unwrap_or(CacheSize {
-        entries: 0,
-        bytes: 0,
+    .unwrap_or(CacheCleared {
+        removed: 0,
+        freed: 0,
     })
 }
 
@@ -492,16 +557,22 @@ mod tests {
         let dir = scratch("clear");
         init(&dir);
 
-        // A reader's own downloads, beside the cache under the same data
-        // directory. A Clear cache button that took these away would be one
+        // A reader's own download, beside the cache under the same data
+        // directory. A Clear cache button that took this away would be one
         // nobody could risk pressing: a pack is a deliberate download for a
-        // place with no network, and a bundle is a replay somebody saved.
+        // place with no network.
+        //
+        // `incident-packs-v1` is the folder `incident_packs`'s own store
+        // really uses, under this same base. Replay bundles are deliberately
+        // not planted here: they are written wherever the reader pointed a
+        // save dialog, nowhere near this directory, so an assertion about
+        // them could only fail if `clear` had deleted half the disk.
         let packs = dir.join("incident-packs-v1");
-        let bundles = dir.join("bundles");
         fs::create_dir_all(&packs).expect("a pack directory");
-        fs::create_dir_all(&bundles).expect("a bundle directory");
         fs::write(packs.join("a-pack.pmtiles"), vec![b'P'; 4096]).expect("a pack");
-        fs::write(bundles.join("a-replay.zip"), vec![b'B'; 2048]).expect("a bundle");
+        // And the settings file, which sits directly beside the cache
+        // directory and is what a wrong `remove_dir_all` would reach first.
+        fs::write(dir.join("settings.json"), b"{}").expect("a settings file");
 
         put(
             "https://example.test/one.png",
@@ -535,11 +606,15 @@ mod tests {
             4096
         );
         assert_eq!(
-            fs::read(bundles.join("a-replay.zip"))
-                .expect("the bundle")
-                .len(),
-            2048
+            fs::read(dir.join("settings.json")).expect("the settings"),
+            b"{}"
         );
+
+        // Nothing is served from the cache afterwards, which is the whole of
+        // what "the map fetches from the network again" means down here: the
+        // tile scheme tries the network first and falls back to this, so a
+        // miss is the guarantee that what it serves next came off the wire.
+        assert!(get("https://example.test/one.png").is_none());
 
         // And the cache works afterwards rather than needing a restart.
         put(
@@ -553,6 +628,55 @@ mod tests {
                 .body,
             b"a tile after"
         );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_entry_whose_file_is_gone_stops_counting() {
+        // A file removed from under the index: by hand, by a scanner, by a
+        // disk error. Left in the index it went on counting towards the size
+        // the settings panel shows and towards the bytes a Clear says came
+        // back, and both of those are then numbers about space nothing is
+        // using. A reader who cleared a hundred megabytes and got none of it
+        // back has been told something untrue.
+        let _turn = turn();
+        let dir = scratch("phantom");
+        init(&dir);
+        put(
+            "https://example.test/one.png",
+            "image/png",
+            &vec![b'A'; 100_000],
+        );
+        put(
+            "https://example.test/two.png",
+            "image/png",
+            &vec![b'B'; 50_000],
+        );
+        let (entries, bytes) = size();
+        assert_eq!(entries, 2);
+
+        // One of them goes without the cache being told.
+        let root = dir.join("cache").join(VERSION);
+        let name = key("https://example.test/one.png");
+        fs::remove_file(root.join(format!("{name}.bin"))).expect("the file");
+
+        // A read is when the cache finds out, and it stops claiming it.
+        assert!(get("https://example.test/one.png").is_none());
+        let (after_entries, after_bytes) = size();
+        assert_eq!(after_entries, 1, "the index still claims a missing file");
+        assert!(
+            after_bytes < bytes,
+            "the size still counts bytes nothing is using"
+        );
+
+        // And a clear over an entry nobody read first reports only what it
+        // actually gave back.
+        let name = key("https://example.test/two.png");
+        fs::remove_file(root.join(format!("{name}.bin"))).expect("the file");
+        let (removed, freed) = clear();
+        assert_eq!(removed, 1, "the index entry goes either way");
+        assert_eq!(freed, 0, "no bytes came back, so none are reported");
 
         let _ = fs::remove_dir_all(&dir);
     }

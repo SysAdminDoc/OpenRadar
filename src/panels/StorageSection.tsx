@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useT } from "../i18n";
 import { formatPackBytes } from "../lib/incidentPacks";
+import { isOnline } from "../lib/online";
 import {
   clearDiskCache,
   diskCacheAvailable,
@@ -26,12 +27,20 @@ export function StorageSection({
   onCleared,
   onFailed,
 }: {
-  onCleared: (freed: string) => void;
+  /** The whole line to say, because what it says depends on the network. */
+  onCleared: (detail: string) => void;
   onFailed: (why: string) => void;
 }) {
   const t = useT();
   const available = diskCacheAvailable();
-  const [bytes, setBytes] = useState<number | null>(null);
+  /**
+   * Undefined until the first answer, null when there was no answer.
+   *
+   * Not the same thing, and folding them together said "Not readable" for
+   * the fraction of a second before every first read and left Clear pressable
+   * over a size nobody had yet.
+   */
+  const [bytes, setBytes] = useState<number | null | undefined>(undefined);
   const [working, setWorking] = useState(false);
 
   const read = useCallback(() => {
@@ -40,7 +49,7 @@ export function StorageSection({
       .then((size) => setBytes(size.bytes))
       .catch(() => {
         // A size that cannot be read is not worth a failure of its own: the
-        // row says nothing rather than a number nobody can trust.
+        // row says so rather than showing a number nobody can trust.
         setBytes(null);
       });
   }, [available]);
@@ -50,10 +59,22 @@ export function StorageSection({
   const clear = () => {
     setWorking(true);
     void clearDiskCache()
-      .then((freed) => {
-        onCleared(formatPackBytes(freed.bytes));
-        // Read back rather than assumed to be zero: a write that failed left
-        // its entry behind, and the row should say so.
+      .then((cleared) => {
+        // What came back, and what a reader loses by it. The last view IS
+        // this cache: with no network, clearing it is the difference between
+        // opening on what they saw and opening on nothing, and a line that
+        // says the map will fetch what it needs again is not true there.
+        onCleared(
+          isOnline()
+            ? t("storage.clearedBody", {
+                freed: formatPackBytes(cleared.freed),
+              })
+            : t("storage.clearedOffline", {
+                freed: formatPackBytes(cleared.freed),
+              }),
+        );
+        // Read back rather than assumed to be zero: an entry whose file would
+        // not go is still there, and the row should say so.
         read();
       })
       .catch((failure: unknown) => {
@@ -77,14 +98,20 @@ export function StorageSection({
           <span>
             <strong>{t("storage.held")}</strong>
             <small data-storage-size>
-              {bytes === null ? t("storage.unknown") : formatPackBytes(bytes)}
+              {bytes === undefined
+                ? t("storage.reading")
+                : bytes === null
+                  ? t("storage.unknown")
+                  : formatPackBytes(bytes)}
             </small>
           </span>
           <button
             type="button"
             className="secondary-button storage-row__clear"
             onClick={clear}
-            disabled={working || bytes === 0}
+            // Nothing to press over a size that is not there yet and none
+            // over a cache that is already empty.
+            disabled={working || bytes === 0 || bytes === undefined}
           >
             <Trash2 size={15} />
             {t("storage.clear")}

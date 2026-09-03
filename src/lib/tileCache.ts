@@ -160,10 +160,22 @@ export function cachedUrl(url: string): string {
   return `${base}?u=${encodeURIComponent(url)}`;
 }
 
-/** What the cache is holding, or what came back from emptying it. */
+/** What the cache is holding. */
 export interface CacheSize {
   entries: number;
   bytes: number;
+}
+
+/**
+ * What emptying it gave back, which is a different thing from what it held.
+ *
+ * An entry whose file had already gone is removed and frees nothing, so the
+ * two counts genuinely differ. Separate names so one cannot be reported as
+ * the other by accident.
+ */
+export interface CacheCleared {
+  removed: number;
+  freed: number;
 }
 
 /** Nothing is kept on disk in a browser preview, so there is nothing to show. */
@@ -190,8 +202,8 @@ export async function diskCacheSize(): Promise<CacheSize> {
  * downloads and live beside it untouched, which is what makes this a button
  * somebody can press without thinking about it.
  */
-export async function clearDiskCache(): Promise<CacheSize> {
-  if (!isDesktopRuntime()) return { entries: 0, bytes: 0 };
+export async function clearDiskCache(): Promise<CacheCleared> {
+  if (!isDesktopRuntime()) return { removed: 0, freed: 0 };
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<CacheSize>("cache_clear");
+  return invoke<CacheCleared>("cache_clear");
 }

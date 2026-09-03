@@ -13,7 +13,10 @@ import { routeWorkspace } from "./support/fixtures";
 const IMPORT = '.settings-import input[type="file"]';
 
 async function openBackupSettings(page: Page) {
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // The rail button toggles, so opening an already-open panel closes it.
+  if ((await page.getByRole("heading", { name: "Settings" }).count()) === 0) {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+  }
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   const control = page.locator(".settings-import");
   await control.scrollIntoViewIfNeeded();
@@ -123,6 +126,102 @@ test("refuses a file that is not a backup, and changes nothing", async ({
   expect(after.textScale).toBe(100);
   expect(after.projection).toBe("mercator");
   expect((after.watch as { name?: string }).name).toBeUndefined();
+});
+
+test("refuses every file that is not a backup, whatever else it is", async ({
+  page,
+}) => {
+  // The control says Restore from a file. Wired straight to the panel that
+  // works out what it has been given, a GeoJSON inside its own `.json`
+  // filter quietly added a map overlay, turned the custom overlay layer on
+  // and closed Settings — with a toast that read like a success, because it
+  // was one, for a thing nobody asked for.
+  const stored = async () =>
+    JSON.parse(
+      (await page.evaluate(() =>
+        window.localStorage.getItem("openradar.settings"),
+      )) ?? "{}",
+    ) as Record<string, unknown>;
+  await expect.poll(async () => (await stored()).textScale).toBe(100);
+
+  const files = [
+    {
+      name: "shapes.json",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { name: "a shape" },
+            geometry: { type: "Point", coordinates: [-93.6, 41.6] },
+          },
+        ],
+      }),
+    },
+    {
+      name: "outline.geojson",
+      body: JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-94, 41],
+                [-93, 42],
+              ],
+            },
+          },
+        ],
+      }),
+    },
+    {
+      name: "a-placefile.txt",
+      body: [
+        "Title: A placefile",
+        "RefreshSeconds: 60",
+        "Color: 255 255 255",
+        "Line: 2, 0",
+        " -93.6, 41.6",
+        " -93.5, 41.7",
+        "End:",
+      ].join("\n"),
+    },
+    {
+      name: "colours.pal",
+      body: ["Product: BR", "Color: 5 0 0 0", "Color: 75 255 255 255"].join(
+        "\n",
+      ),
+    },
+  ];
+
+  for (const file of files) {
+    await openBackupSettings(page);
+    await page.setInputFiles(IMPORT, {
+      name: file.name,
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from(file.body),
+    });
+
+    const toast = page.locator(".toast-host");
+    await expect(toast, file.name).toContainText("not a saved workspace");
+    // And the panel is still open, which is the visible half of "nothing
+    // changed": every path that accepted a file closed it.
+    await expect(
+      page.getByRole("heading", { name: "Settings" }),
+      file.name,
+    ).toBeVisible();
+  }
+
+  // Nothing a file could have changed did.
+  const after = await stored();
+  expect(after.textScale).toBe(100);
+  expect((after.layers as { customOverlay?: boolean }).customOverlay).toBe(
+    false,
+  );
+  expect(after.palettes).toEqual([]);
 });
 
 test("the picker is reachable from the keyboard", async ({ page }) => {
