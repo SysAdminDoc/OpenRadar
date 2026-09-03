@@ -1008,6 +1008,8 @@ export const en = {
   "settings.title": "Settings",
   "settings.appearance": "Appearance",
   "settings.appliesNow": "Applies immediately",
+  "settings.systemColours":
+    "Your system is using a contrast theme, so it is choosing the colours. Light and dark are up to it while that is on.",
   "settings.theme": "Theme",
   "settings.dark": "Dark",
   "settings.light": "Light",

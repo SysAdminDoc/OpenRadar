@@ -60,6 +60,7 @@ import {
   overlayShapeCount,
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
+import { useForcedColours } from "../hooks/useClock";
 import { IncidentPackManager } from "./IncidentPackManager";
 import { StorageSection } from "./StorageSection";
 
@@ -975,6 +976,9 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
+  // Whether the system has taken the colours over, which is not a preference
+  // this app can honour halfway.
+  const forcedColours = useForcedColours();
 
   // Asked once: whether this machine can have its wallpaper set cannot change
   // while the app is running. Null until the answer comes back, so the
@@ -1027,6 +1031,7 @@ export function SettingsPanel({
             type="button"
             className={settings.theme === "dark" ? "is-active" : ""}
             aria-pressed={settings.theme === "dark"}
+            disabled={forcedColours}
             onClick={() => onSettings({ ...settings, theme: "dark" })}
           >
             {t("settings.dark")}
@@ -1035,11 +1040,20 @@ export function SettingsPanel({
             type="button"
             className={settings.theme === "light" ? "is-active" : ""}
             aria-pressed={settings.theme === "light"}
+            disabled={forcedColours}
             onClick={() => onSettings({ ...settings, theme: "light" })}
           >
             {t("settings.light")}
           </button>
         </div>
+        {/* A contrast theme repaints everything in the system's own colours,
+            so neither of those buttons would draw anything. Said out loud
+            rather than left as two buttons that quietly do nothing. */}
+        {forcedColours ? (
+          <p className="source-note" data-forced-colours>
+            {t("settings.systemColours")}
+          </p>
+        ) : null}
         <label className="accent-row">
           <span>
             <strong>{t("settings.accent")}</strong>

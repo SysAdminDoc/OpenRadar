@@ -3095,6 +3095,107 @@ input[type="range"]:disabled {
   }
 }
 
+/* A Windows contrast theme, which is a different thing from asking for more
+   contrast. The system repaints every background, border and text in its own
+   four or five colours and there is no negotiating with it: a palette this
+   app chose is simply not drawn. `prefers-contrast: more` above does not
+   fire for it, so until now the chrome kept OpenRadar's colours under a
+   repaint that had already replaced half of them, and controls could
+   disappear into their own background.
+
+   The rule that decides everything here: the chrome accepts the repaint and
+   the data refuses it. A button is decoration and belongs to the system's
+   look. A reflectivity ramp, a warning outline and a colour chip are
+   readings, and a reading painted in ButtonText is not the same reading. */
+@media (forced-colors: active) {
+  :root:root:root,
+  :root:root:root[data-theme="light"] {
+    --bg: Canvas;
+    --surface: Canvas;
+    --surface-solid: Canvas;
+    --surface-raised: ButtonFace;
+    --surface-hover: ButtonFace;
+    --surface-sunken: Canvas;
+    --border: CanvasText;
+    --border-strong: CanvasText;
+    --text: CanvasText;
+    --muted: GrayText;
+    --subtle: GrayText;
+    --warning: CanvasText;
+    --accent: LinkText;
+    --accent-strong: LinkText;
+    --accent-soft: Canvas;
+    --accent-ink: HighlightText;
+    --accent-fill: Highlight;
+    --accent-on-tint: CanvasText;
+    --green: CanvasText;
+    --green-strong: CanvasText;
+    --amber: CanvasText;
+    --danger: CanvasText;
+    --delta-up: CanvasText;
+    --delta-down: CanvasText;
+    --shadow: none;
+  }
+
+  /* The bar is a fixed dark surface in both themes, which is a decision the
+     system has just overruled. */
+  .command-bar {
+    --command-ink: CanvasText;
+    --command-ink-muted: CanvasText;
+    --command-ink-faint: GrayText;
+    /* The bar lightens the app's accent to sit on its own dark surface, in
+       `oklch` from `--accent`. That surface is gone, and the lightened
+       accent was still being painted: the active button's label came out at
+       2.4:1 on the system's white. The system has a colour for "this one is
+       chosen" and it is the one to use. */
+    --command-accent: Highlight;
+    --command-accent-soft: Canvas;
+
+    background: Canvas;
+  }
+
+  /* Which one is active has to survive a repaint that flattens colour, so it
+     is said with a border as well. */
+  .command-button[aria-pressed="true"] {
+    border-color: Highlight;
+    outline: 1px solid Highlight;
+  }
+
+  /* Nothing translucent survives a repaint legibly. */
+  .surface-panel,
+  .radar-timeline,
+  .radar-legend,
+  .zoom-controls,
+  .command-bar,
+  .toast {
+    backdrop-filter: none;
+  }
+
+  /* The focus ring in the system's own colour, which is the one thing a
+     reader on a contrast theme is guaranteed to be able to see. */
+  *:focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px;
+  }
+
+  /* Data, kept. Every one of these is a reading rather than a decoration:
+     a ramp says what a colour on the map means, a swatch says which storm a
+     row is about, a chip in a popup says what was measured. Repainted in
+     ButtonText they all say the same thing, which is nothing. */
+  .legend-ramp,
+  .legend-ramp *,
+  .palette-swatch,
+  .track-swatch,
+  .map-popup [style*="background"],
+  .alert-severity,
+  .maplibregl-canvas-container,
+  .maplibregl-canvas,
+  [data-legend-swatch],
+  [data-palette-preview] {
+    forced-color-adjust: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

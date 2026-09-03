@@ -1036,6 +1036,8 @@ export const fr: Catalogue = {
   "settings.title": "Réglages",
   "settings.appearance": "Apparence",
   "settings.appliesNow": "S'applique immédiatement",
+  "settings.systemColours":
+    "Votre système utilise un thème de contraste, c'est donc lui qui choisit les couleurs. Clair et sombre lui appartiennent tant qu'il est actif.",
   "settings.theme": "Thème",
   "settings.dark": "Sombre",
   "settings.light": "Clair",
