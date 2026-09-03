@@ -564,6 +564,13 @@ a {
   font-size: 12px;
 }
 
+/* Said under the product name rather than in the accent the eyebrow uses:
+   it is a note about how the picture was drawn, not a second heading. */
+.legend-smoothed {
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
 /* The National Weather Service reflectivity ramp, five to seventy-five dBZ,
    which is what the NOAA mosaics are drawn with. */
 .legend-ramp {

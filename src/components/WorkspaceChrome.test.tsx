@@ -40,6 +40,7 @@ function sweepOf(live: boolean): SweepImage {
     productId: "reflectivity",
     paletteApplied: false,
     highContrast: false,
+    smoothed: false,
     dealiased: false,
     live,
     liveTilts: live ? 3 : 0,

@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-184 (P2): A smoothing option for the single-site sweep, in polar space and never across missing gates
-  Why: GR2Analyst, GRLevel3, Supercell Wx and WeatherWise all offer it and readers expect the choice; the sweep here is drawn as hard gates.
-  Evidence: `src-tauri/src/level2.rs:4222` interpolates only the colour ramp; Mike Gibson's description of GR's range-dependent weighted average keyed to bin aspect ratio (Stormtrack); WeatherWise's "smoothed radar toggle".
-  Touches: `src-tauri/src/level2.rs` renderer (bilinear in range and azimuth with missing and range-folded gates as zero-weight, nearest-neighbour kept for velocity sign boundaries), `src/lib/level2.ts` and `RadarProductPanel.tsx` (the switch, off by default), settings schema, `data_export.rs` (never applied to exported readings), catalogues.
-  Acceptance: With smoothing on, a reflectivity sweep interpolates between neighbouring gates in polar space; no colour appears where the radar had no data; velocity keeps the sign boundary; the legend says the picture is smoothed; the CSV export is unchanged bit for bit; the golden test pins one smoothed image.
-  Complexity: M
-
 - [ ] AUD-185 (P2): A VAD wind profile panel from the wind the app already fits
   Why: Supercell Wx #383 asks for a VWP, GR2Analyst ships one, and `vad.rs` already computes the wind per ring to make storm-relative velocity and shows nobody.
   Evidence: `src-tauri/src/vad.rs` (`fit_ring`, `median_wind`), no `vad`/`VWP` reference in `src/panels`; NWS VWP conventions (height against time, barbs coloured by RMS error, up to 30 altitudes) and the RPG reference guide (RMS threshold 9.7 kt, symmetry 13.6 kt, at least 25 points).

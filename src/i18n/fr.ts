@@ -555,6 +555,9 @@ export const fr: Catalogue = {
   "radar.live": "Volume en cours",
   "radar.liveDetail":
     "Dessiner le balayage que le radar fait en ce moment par-dessus le dernier qu'il a terminé. L'image terminée a de quatre à six minutes au moment d'être publiée; celle-ci a quelques secondes sur le secteur que le radar a atteint, et ne change rien ailleurs.",
+  "radar.smooth": "Lisser le balayage",
+  "radar.smoothDetail":
+    "Interpole entre les portes au lieu de prendre la plus proche. L'image seulement : les valeurs consultées et les nombres exportés restent les portes elles-mêmes.",
   "radar.persistence": "Rémanence du phosphore",
   "radar.persistenceDetail":
     "Estompe le balayage terminé derrière celui que le radar est en train de faire, comme le fait un écran au phosphore. Rien des mesures ne change; la légende donne l'âge de la moitié la plus ancienne autant que de la plus récente, parce qu'une image estompée est plus vieille qu'une image qui ne l'est pas.",
@@ -1319,6 +1322,7 @@ export const fr: Catalogue = {
   "palette.off": " · éteint",
   "palette.none": "Rien ici ne correspond. Essayez un mot plus court.",
   "legend.hidden": "RADAR MASQUÉ",
+  "legend.smoothed": "Lissé entre les portes",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",
   "timeline.play": "Lancer l'animation du radar",

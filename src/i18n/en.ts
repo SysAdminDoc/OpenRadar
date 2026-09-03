@@ -537,6 +537,9 @@ export const en = {
   "radar.live": "Volume in progress",
   "radar.liveDetail":
     "Draw the sweep the radar is making now over the last one it finished. The finished picture is four to six minutes old by the time it is published; this one is seconds old over the sector the radar has reached, and unchanged everywhere else.",
+  "radar.smooth": "Smooth the sweep",
+  "radar.smoothDetail":
+    "Read between the gates rather than taking the nearest one. The picture only: inspected readings and exported numbers are the gates themselves.",
   "radar.persistence": "Phosphor persistence",
   "radar.persistenceDetail":
     "Fade the finished sweep behind the one the radar is making, the way a phosphor screen does. Nothing about the readings changes; the legend says the age of the older half as well as the newer, because a decayed picture is older than an undecayed one.",
@@ -1280,6 +1283,7 @@ export const en = {
   "palette.off": " · off",
   "palette.none": "Nothing here matches that. Try a shorter word.",
   "legend.hidden": "RADAR HIDDEN",
+  "legend.smoothed": "Smoothed between gates",
   "legend.scale": "{product} from {min} to {max} {unit}",
   "timeline.label": "Radar animation",
   "timeline.play": "Play radar animation",

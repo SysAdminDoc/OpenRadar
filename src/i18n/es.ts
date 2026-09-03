@@ -547,6 +547,9 @@ export const es: Catalogue = {
   "radar.live": "Volumen en curso",
   "radar.liveDetail":
     "Dibuja el barrido que el radar está haciendo ahora sobre el último que terminó. La imagen terminada ya tiene de cuatro a seis minutos cuando se publica; esta tiene segundos en el sector que el radar ha alcanzado, y no cambia en el resto.",
+  "radar.smooth": "Suavizar el barrido",
+  "radar.smoothDetail":
+    "Interpola entre las compuertas en vez de tomar la más cercana. Solo la imagen: las lecturas consultadas y los números exportados siguen siendo las compuertas.",
   "radar.persistence": "Persistencia de fósforo",
   "radar.persistenceDetail":
     "Atenúa el barrido terminado que hay detrás del que el radar está haciendo, como lo hace una pantalla de fósforo. Nada de las mediciones cambia; la leyenda dice la antigüedad de la mitad más vieja además de la más nueva, porque una imagen atenuada es más vieja que una que no lo está.",
@@ -1301,6 +1304,7 @@ export const es: Catalogue = {
   "palette.off": " · apagado",
   "palette.none": "Nada de aquí coincide. Prueba con una palabra más corta.",
   "legend.hidden": "RADAR OCULTO",
+  "legend.smoothed": "Suavizado entre compuertas",
   "legend.scale": "{product} de {min} a {max} {unit}",
   "timeline.label": "Animación del radar",
   "timeline.play": "Reproducir la animación del radar",

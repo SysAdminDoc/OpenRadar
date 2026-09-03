@@ -834,6 +834,7 @@ export function useSingleSiteRadar(options: {
           // it to fade and no beam position to mark.
           radar.live && radar.persistence,
           reducedMotionRequested(),
+          radar.smoothSweep,
         );
         if (!open || request !== requestRef.current) return;
         setSweep(next);
@@ -888,6 +889,7 @@ export function useSingleSiteRadar(options: {
     radar.dealias,
     radar.live,
     radar.persistence,
+    radar.smoothSweep,
     product,
     // The two numbers rather than the object holding them. A settings object is
     // rebuilt whenever anything in it changes, including the map centre, so
