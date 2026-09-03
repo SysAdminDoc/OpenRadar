@@ -122,6 +122,17 @@ export function useExport(options: {
    * Null whenever the mosaic is the picture, which is what every export did
    * before this existed.
    */
+  /**
+   * The single-site sweep on the map, whatever put it there.
+   *
+   * Separate from `siteLoop` on purpose. A volume the reader opened by hand
+   * has no loop, and neither does a terminal radar, but a still of either is
+   * still a picture of one radar: captioned from the timeline frame it was
+   * stamped with today's mosaic time and credited to the mosaic, which is the
+   * defect the loop walk was changed to stop making, on the file somebody is
+   * most likely to send to another person.
+   */
+  sweep: SweepImage | null;
   siteLoop: {
     sweep: SweepImage;
     volumes: number[];
@@ -147,6 +158,7 @@ export function useExport(options: {
     timeline,
     basemapCredit,
     dataSources,
+    sweep,
     siteLoop,
     pushToast,
   } = options;
@@ -201,17 +213,10 @@ export function useExport(options: {
 
   const captionFor = useCallback(
     (index: number): ExportCaption => {
-      // A held site's sweep is on the canvas, so the picture is that radar's
-      // and not the mosaic's. Captioning it from the timeline frame credited a
-      // service that did not make it and stamped it with a moment it was not
-      // collected at, which is the same mistake the loop walk was changed to
-      // stop making, on the file a reader is most likely to send somebody.
-      if (siteLoop) {
-        return sweepCaptionFor(
-          siteLoop.sweep,
-          Date.parse(siteLoop.sweep.collected),
-          index,
-        );
+      // Whatever sweep is on the canvas, from wherever it came. The picture
+      // is that radar's and not the mosaic's.
+      if (sweep) {
+        return sweepCaptionFor(sweep, Date.parse(sweep.collected), index);
       }
       const frame = frames[index];
       // The caption is written from the frame's provenance rather than from
@@ -257,8 +262,8 @@ export function useExport(options: {
     [
       basemapCredit,
       frames,
-      siteLoop,
       source,
+      sweep,
       sweepCaptionFor,
       timeline.cachedAgeSeconds,
       timeline.fetchedAt,
