@@ -669,10 +669,14 @@ export const es: Catalogue = {
   "layer.qpeHour": "Lluvia, última hora",
   "layers.qpeHourDetail": "Cuánta ha caído en la última hora",
   "layer.qpeDay": "Lluvia, último día",
+  "layer.gaugeQpe": "Lluvia, corregida con pluviómetros",
   "layer.unitStreamflow": "Escorrentía modelada",
   "layer.ffgThreeHour": "Guía de crecidas, 3 h",
   "layer.ffgHour": "Guía de crecidas, 1 h",
   "layers.qpeDayDetail": "Cuánta ha caído desde ayer a esta hora",
+  "layers.gaugeQpePeriod": "Hasta dónde atrás",
+  "layers.gaugeQpeDetail":
+    "La lluvia del radar ajustada a lo que recogieron los pluviómetros. Se acerca más a la realidad que el radar solo, y sigue siendo una estimación donde no hay pluviómetro.",
   "layers.unitStreamflowDetail":
     "Lo que el modelo de crecidas hace correr por cada kilómetro cuadrado. Es un modelo del terreno, no una medida del cielo.",
   "layers.ffgThreeHourDetail":
@@ -815,6 +819,7 @@ export const es: Catalogue = {
   "keywords.precipRate": "intensidad lluvia",
   "keywords.qpeHour": "acumulacion hora lluvia",
   "keywords.qpeDay": "acumulacion lluvia",
+  "keywords.gaugeQpe": "acumulacion multisensor lluvia medida",
   "keywords.unitStreamflow": "caudal agua inundacion",
   "keywords.ffgThreeHour": "inundacion repentina tres horas proporcion",
   "keywords.ffgHour": "inundacion repentina hora proporcion",
@@ -973,6 +978,13 @@ export const es: Catalogue = {
   "mrms.precipRate": "Intensidad de lluvia",
   "mrms.qpeHour": "Lluvia de la última hora",
   "mrms.qpeDay": "Lluvia del último día",
+  "gaugeQpe.72h": "3 días",
+  "gaugeQpe.24h": "1 día",
+  "gaugeQpe.1h": "1 hora",
+  "mrms.gaugeQpeThreeDay":
+    "Lluvia de los últimos tres días, corregida con pluviómetros",
+  "mrms.gaugeQpeDay": "Lluvia del último día, corregida con pluviómetros",
+  "mrms.gaugeQpeHour": "Lluvia de la última hora, corregida con pluviómetros",
   "mrms.unitStreamflow": "Escorrentía modelada",
   "mrms.ffgThreeHour":
     "Lluvia frente a la guía de crecidas, últimas tres horas",

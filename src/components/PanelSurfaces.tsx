@@ -70,6 +70,7 @@ import { TidesPanel } from "../panels/TidesPanel";
 import { HistoryPanel } from "../panels/HistoryPanel";
 import { RadarProductPanel } from "../panels/RadarProductPanel";
 import type { SiteStatus } from "../lib/radarStatus";
+import type { GaugeQpePeriod } from "../lib/gaugeQpe";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { TropicalPanel } from "../panels/TropicalPanel";
@@ -165,6 +166,7 @@ interface PanelSurfacesProps {
   /** The moment a sounding is asked for, which is the timeline's own. */
   soundingAt: number;
   onSatelliteProduct: (product: SatelliteProductId) => void;
+  onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -247,6 +249,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onAlertTypes={props.onAlertTypes}
             onSurgeCategory={props.onSurgeCategory}
             satelliteProduct={settings.satelliteProduct}
+            gaugeQpePeriod={settings.gaugeQpePeriod}
+            onGaugeQpePeriod={props.onGaugeQpePeriod}
             onSatelliteProduct={props.onSatelliteProduct}
             onClose={onClose}
           />

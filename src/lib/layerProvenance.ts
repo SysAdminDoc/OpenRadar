@@ -236,6 +236,19 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "estimated rain accumulated over twenty-four hours",
     freshForMs: MRMS_REFRESH,
   },
+  gaugeQpe: {
+    sourceId: "gauge-qpe",
+    label: "Rain, gauge corrected",
+    attribution: MRMS,
+    // Still derived. Correcting a radar estimate against the gauges that did
+    // measure the rain makes it a better estimate, not a measurement: the
+    // number over any given square is what the correction implies there, and
+    // no gauge stood in most of them.
+    kind: "derived",
+    derivedFrom:
+      "estimated rain corrected against reporting gauges, accumulated over the chosen window",
+    freshForMs: MRMS_REFRESH,
+  },
   ffgHour: {
     sourceId: "ffg-hour",
     label: "Rain against flash flood guidance, past hour",
