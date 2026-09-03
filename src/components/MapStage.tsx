@@ -13,6 +13,7 @@ import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
 import { useT } from "../i18n";
 import { resolvedMapStyle } from "../lib/mapStyles";
+import { formatRadarTime } from "../lib/radar";
 import { formatAge, formatClock, useMeasurements } from "../lib/units";
 
 /** How many frames back the compare pane can be held. */
@@ -24,6 +25,14 @@ interface MapStageProps {
   secondMapRef: RefObject<MapViewportHandle | null>;
   activeFrame: RadarFrame | undefined;
   compareFrame: RadarFrame | undefined;
+  /**
+   * The held site's volume for the compare moment, when there is one.
+   *
+   * The second pane used to be handed the first pane's sweep along with
+   * everything else in `shared`, so with a site held the two panes drew one
+   * volume between them and the offset meant nothing.
+   */
+  compareSweep: SweepImage | null;
   satelliteTime: number | null;
   compareSatelliteTime: number | null;
   /** Minutes between the satellite image and now, for its readout. */
@@ -77,6 +86,7 @@ export function MapStage({
   secondMapRef,
   activeFrame,
   compareFrame,
+  compareSweep,
   satelliteTime,
   compareSatelliteTime,
   satelliteAgeMinutes,
@@ -186,6 +196,7 @@ export function MapStage({
           onSection={onSection}
           onOverlayAction={onOverlayAction}
           {...shared}
+          sweep={compareSweep ?? shared.sweep}
         />
       ) : null}
 
@@ -238,9 +249,16 @@ export function MapStage({
             ))}
           </div>
           <small>
-            {compareFrame
-              ? formatFrameTime(compareFrame)
-              : t("stage.compareUnavailable")}
+            {/* The volume on that pane when a site is held, and the mosaic's
+                step otherwise. Naming the step while drawing a volume from
+                four minutes either side of it is a precise label on a
+                different moment, which is the mistake this chip already
+                existed to avoid. */}
+            {compareSweep
+              ? formatRadarTime(Date.parse(compareSweep.collected) / 1000)
+              : compareFrame
+                ? formatFrameTime(compareFrame)
+                : t("stage.compareUnavailable")}
           </small>
         </div>
       ) : null}

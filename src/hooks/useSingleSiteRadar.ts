@@ -60,6 +60,16 @@ export interface SingleSiteState {
    */
   drawnVolume: number | null;
   /**
+   * The volume the compare pane is showing, and which one it is.
+   *
+   * The second pane draws the same moment minus an offset, and it was handed
+   * the same sweep as the first: with a held site the two panes showed one
+   * volume between them and the offset meant nothing at all. Null whenever
+   * there is nothing to compare, which is every view but a held site with the
+   * scrubber stopped and the pane open.
+   */
+  compare: { sweep: SweepImage | null; at: number | null };
+  /**
    * Every radar whose coverage reaches the view, nearest first.
    *
    * Asked for on the same coarse position the nearest-site search uses, so
@@ -161,6 +171,12 @@ export function useSingleSiteRadar(options: {
    */
   showingTime?: number | null;
   /**
+   * The moment the compare pane is showing, in milliseconds, or null when it
+   * is closed. Resolved to one of the site's volumes the same way the first
+   * pane's moment is.
+   */
+  compareTime?: number | null;
+  /**
    * Whether the site's listing should be left exactly as it is.
    *
    * A refresh answers with the last N volumes, so a volume landing during a
@@ -182,6 +198,7 @@ export function useSingleSiteRadar(options: {
     pageVisible,
     paletteGeneration,
     showingTime = null,
+    compareTime = null,
     listingHeld,
   } = options;
   // The site, and the coarse position it was resolved for. A site found for
@@ -215,6 +232,13 @@ export function useSingleSiteRadar(options: {
   // Which volume the picture on screen answers. Null over a live sweep that
   // belongs to no listed volume, and over the mosaic.
   const [drawnVolume, setDrawnVolume] = useState<number | null>(null);
+  // The compare pane's picture, once one has been fetched for it. Held under
+  // the key it was fetched for, so a stale one cannot be shown for a volume
+  // it is not.
+  const [fetchedCompare, setFetchedCompare] = useState<{
+    sweep: SweepImage;
+    key: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [historicalSource, setHistoricalSource] =
     useState<HistoricalSource | null>(null);
@@ -270,6 +294,92 @@ export function useSingleSiteRadar(options: {
     shownVolume !== null &&
     newestVolume !== null &&
     shownVolume !== newestVolume;
+
+  const compareVolume =
+    compareTime === null ? null : volumeForTime(volumeTimes, compareTime);
+  // What that volume would be held under, which is also what says whether
+  // there is anything to fetch. Derived rather than stored: writing it from
+  // inside an effect would be a state change on every step of the scrubber.
+  const compareKey =
+    !wanted || !station || compareVolume === null
+      ? null
+      : loopKey({
+          station,
+          at: compareVolume,
+          product,
+          tilt: radar.tilt,
+          dealias: radar.dealias,
+          motion:
+            motionSpeed !== null && motionFrom !== null
+              ? [motionSpeed, motionFrom]
+              : null,
+          threshold,
+          palette: paletteGeneration,
+          highContrast: highContrastRequested(),
+        });
+  // Whatever has been settled for the key being asked about now. A reply for
+  // a key the pane has moved off is not an answer to the question it is
+  // asking, and showing one is how a pane ends up a volume behind itself.
+  const compareSweep =
+    compareKey !== null && fetchedCompare?.key === compareKey
+      ? fetchedCompare.sweep
+      : null;
+
+  // The compare pane's volume. Taken from the loop's own cache of decoded
+  // volumes where it is there, which is the ordinary case at a small offset,
+  // and fetched where it is not. Both go through the same resolved promise so
+  // the answer always arrives after the render rather than during the effect.
+  useEffect(() => {
+    if (compareKey === null || compareVolume === null || !station) return;
+    let open = true;
+    const motion: [number, number] | null =
+      motionSpeed !== null && motionFrom !== null
+        ? [motionSpeed, motionFrom]
+        : null;
+    const held = heldRef.current.get(compareKey);
+    void (
+      held
+        ? Promise.resolve(held)
+        : fetchArchiveSweep(
+            station,
+            new Date(compareVolume).toISOString(),
+            product,
+            radar.tilt,
+            radar.dealias,
+            motion,
+            threshold,
+            highContrastRequested(),
+          )
+    )
+      .then((next) => {
+        if (!held) {
+          heldRef.current.set(compareKey, next);
+          heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
+        }
+        if (open) setFetchedCompare({ sweep: next, key: compareKey });
+      })
+      .catch((failure: unknown) => {
+        // The pane draws the mosaic rather than the wrong volume, and says so
+        // in the log; the first pane is untouched either way.
+        if (open) {
+          log.warn("radar", `${station} compare: ${sweepErrorText(failure)}`);
+        }
+      });
+    return () => {
+      open = false;
+    };
+  }, [
+    compareKey,
+    compareVolume,
+    loopVolumes,
+    motionFrom,
+    motionSpeed,
+    product,
+    radar.dealias,
+    radar.tilt,
+    station,
+    threshold,
+  ]);
 
   // The list for the picker. Asked for whether or not a site is pinned,
   // because the picker is how somebody unpins one, and on the same coarse
@@ -790,6 +900,12 @@ export function useSingleSiteRadar(options: {
       // The same guard: a hand-picked volume is not one of the loop's, so
       // nothing may wait on it as though it were.
       drawnVolume: showing && !historicalWanted ? drawnVolume : null,
+      // Never in historical mode, for the same reason the series is not: a
+      // hand-picked volume is one moment the reader chose and has no offset.
+      compare:
+        showing && !historicalWanted
+          ? { sweep: compareSweep, at: compareSweep ? compareVolume : null }
+          : { sweep: null, at: null },
       mode: historicalSource?.kind ?? "recent",
       openLocal,
       openArchive,
@@ -819,6 +935,8 @@ export function useSingleSiteRadar(options: {
     };
   }, [
     available,
+    compareSweep,
+    compareVolume,
     error,
     historicalSource?.kind,
     historicalWanted,

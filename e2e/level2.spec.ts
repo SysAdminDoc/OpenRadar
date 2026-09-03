@@ -700,6 +700,87 @@ test("draws the volume each step belongs to when the timeline is scrubbed", asyn
   await expect(eyebrow).not.toContainText("VOLUME");
 });
 
+test("compares a held site against its own earlier volume", async ({
+  page,
+}) => {
+  // The second pane was handed the first pane's sweep along with everything
+  // else it shares, so with a site held the two panes drew one volume between
+  // them and the offset above them meant nothing at all.
+  const anchor = Math.floor(Date.now() / 120_000) * 120_000;
+  await page.addInitScript(
+    ({ frames, volumes }: { frames: unknown; volumes: unknown }) => {
+      (window as unknown as { __mrmsFrames: unknown }).__mrmsFrames = frames;
+      (window as unknown as { __siteVolumes: unknown }).__siteVolumes = volumes;
+    },
+    {
+      frames: [12, 10, 8, 6, 4, 2, 0].map((back) => ({
+        time: Math.round((anchor - back * 60_000) / 1000),
+        key: `plant/${back}`,
+      })),
+      volumes: [10, 5, 0].map((back) =>
+        new Date(anchor - back * 60_000).toISOString(),
+      ),
+    },
+  );
+
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+
+  const scrubber = page.getByLabel("Radar frame");
+  // The newest step, which is the newest volume.
+  await scrubber.fill("6");
+
+  await page.getByRole("button", { name: "Dual Pane", exact: true }).click();
+  const compare = page.locator(".pane-compare");
+  await expect(compare).toBeVisible();
+
+  const stamp = compare.locator("small");
+  // No offset at all is inside one volume by definition: both panes show the
+  // volume that was true then, and the chip names it rather than the step.
+  await compare.getByRole("button", { name: "Live", exact: true }).click();
+  await expect(stamp).not.toHaveText("");
+  const inside = (await stamp.textContent()) ?? "";
+
+  // Three steps back is six minutes, which crosses into the volume before:
+  // the volumes here are five minutes apart.
+  await compare.getByRole("button", { name: "3 back", exact: true }).click();
+  await expect(stamp).not.toHaveText(inside);
+
+  // The volume's own time and not the step's. Both change when the offset
+  // does, so "it changed" proves nothing: the step three back is six minutes
+  // ago and the volume it belongs to is ten, and naming the step while
+  // drawing the volume is a precise label on a different moment.
+  const clock = (ms: number) =>
+    new Date(ms).toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  await expect(stamp).toContainText(clock(anchor - 10 * 60_000));
+  await expect(stamp).not.toContainText(clock(anchor - 6 * 60_000));
+
+  // And the archive was asked for the earlier volume, which is the whole
+  // point: the pane draws that volume rather than the one beside it.
+  const asked = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __sweepCalls: Array<{
+            command: string;
+            args: Record<string, unknown>;
+          }>;
+        }
+      ).__sweepCalls,
+  );
+  const moments = new Set(
+    asked
+      .filter((call) => call.command === "level2_archive_sweep")
+      .map((call) => String(call.args.at)),
+  );
+  expect(moments.size).toBeGreaterThan(1);
+});
+
 test("writes the gates of the sweep on screen as numbers", async ({ page }) => {
   await open(page, 9);
   await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
