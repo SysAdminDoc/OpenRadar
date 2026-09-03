@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- Comparing a held radar against itself works. With two panes open the second one was showing the first one's picture, so the offset above it changed the label and nothing else. It now draws that radar's own volume for the moment it is set to, and says which volume that is rather than naming the timeline step, which can be four minutes either side of it.
+
 - County and state lines, switchable, bundled with the app so they are there with the network gone. Warnings and storm reports are worded by county, and a map with no county lines on it cannot answer the one question they raise. They sit over every picture of the sky and under anything a person drew or a service published, so a boundary can never hide a warning.
 
 - The site picker lists every radar that can see where you are looking, nearest first, with how far away each one is. It used to offer three things and none of them was a radar near you: follow the map, hold whatever was already on screen, or name one of the airport radars. When the nearest radar is down there was no way to pick the next one along short of knowing its four-letter call sign and typing it. A radar the weather service reports as restarting or silent is greyed out in that list with the reason beside its name.

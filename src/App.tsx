@@ -346,6 +346,13 @@ export default function App() {
   const writingLoopRef = useRef(false);
   const listingHeld = useCallback(() => writingLoopRef.current, []);
 
+  // The moment the compare pane is on. Worked out here rather than from
+  // `compareFrame` below, which is built after the site hook that needs it.
+  const compareFrameTime =
+    timeline.frameIndex >= compareOffset
+      ? (timeline.frames[timeline.frameIndex - compareOffset]?.time ?? null)
+      : null;
+
   const singleSite = useSingleSiteRadar({
     ready: hydrated,
     radar: settings.radar,
@@ -368,6 +375,13 @@ export default function App() {
     showingTime:
       !timeline.playing && timeline.frames[timeline.frameIndex]?.time
         ? timeline.frames[timeline.frameIndex].time * 1000
+        : null,
+    // The moment the second pane is on, under the same rule as the first: a
+    // held site's own volume for that step rather than the mosaic's picture
+    // of it. Only while the scrubber is stopped and the pane is open.
+    compareTime:
+      dualPane && !timeline.playing && compareFrameTime !== null
+        ? compareFrameTime * 1000
         : null,
     listingHeld,
   });
@@ -2165,6 +2179,7 @@ export default function App() {
         secondMapRef={secondMapRef}
         activeFrame={activeFrame}
         compareFrame={compareFrame}
+        compareSweep={singleSite.compare.sweep}
         satelliteTime={satelliteTime}
         compareSatelliteTime={satelliteFor(compareFrame)}
         satelliteAgeMinutes={

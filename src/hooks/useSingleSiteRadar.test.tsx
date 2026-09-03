@@ -111,6 +111,7 @@ function options(overrides: {
   center?: [number, number];
   radar?: Partial<RadarSettings>;
   showingTime?: number | null;
+  compareTime?: number | null;
 }) {
   return {
     ready: true,
@@ -120,6 +121,7 @@ function options(overrides: {
     pageVisible: true,
     paletteGeneration: 0,
     showingTime: overrides.showingTime ?? null,
+    compareTime: overrides.compareTime ?? null,
   };
 }
 
@@ -637,5 +639,69 @@ describe("the loop, and what is not part of it", () => {
     expect(result.current.loop).toBeNull();
     expect(result.current.drawnVolume).toBeNull();
     expect(result.current.volumes).toEqual([]);
+  });
+});
+
+describe("the pane that compares", () => {
+  /** Three volumes five minutes apart, oldest first. */
+  const VOLUMES = [10, 5, 0].map(
+    (back) => Date.UTC(2026, 8, 3, 2, 0) - back * 60_000,
+  );
+
+  beforeEach(() => {
+    recentVolumeTimes.mockResolvedValue(VOLUMES);
+  });
+
+  it("draws the volume the compare moment belongs to, not the one on the first pane", async () => {
+    // The second pane was handed the first pane's sweep along with everything
+    // else, so with a site held the two panes drew one volume between them
+    // and the offset meant nothing at all.
+    const { result } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      {
+        initialProps: options({
+          // Newest step on the first pane, two volumes back on the second.
+          showingTime: VOLUMES[2],
+          compareTime: VOLUMES[0] + 60_000,
+        }),
+      },
+    );
+
+    await waitFor(() => expect(result.current.compare.sweep).not.toBeNull());
+    expect(result.current.compare.at).toBe(VOLUMES[0]);
+    // At or before, the same rule the first pane follows: a minute past the
+    // oldest volume is still that volume.
+    const asked = fetchArchiveSweep.mock.calls.map(([, at]) => at);
+    expect(asked).toContain(new Date(VOLUMES[0]).toISOString());
+  });
+
+  it("shows the same volume as the first pane when the offset is inside one", async () => {
+    // Two mosaic steps apart is less than one volume apart, and the honest
+    // answer is that there is nothing to compare: both panes show the volume
+    // that was true then.
+    const { result } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      {
+        initialProps: options({
+          showingTime: VOLUMES[1] + 4 * 60_000,
+          compareTime: VOLUMES[1] + 60_000,
+        }),
+      },
+    );
+    await waitFor(() => expect(result.current.compare.sweep).not.toBeNull());
+    expect(result.current.compare.at).toBe(VOLUMES[1]);
+    expect(result.current.loop).not.toBeNull();
+  });
+
+  it("has nothing to compare with the pane closed", async () => {
+    const { result } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      { initialProps: options({ showingTime: VOLUMES[2] }) },
+    );
+    await waitFor(() => expect(result.current.volumes).toHaveLength(3));
+    expect(result.current.compare).toEqual({ sweep: null, at: null });
   });
 });
