@@ -189,8 +189,9 @@ export const en = {
     "That workspace backup is incomplete or invalid, so nothing has been changed.",
   "settings.backup": "Backup",
   "settings.backupDetail":
-    "Save everything to a file, or drop one on the Upload panel to put it back",
+    "Save everything to a file, and put it back from one",
   "settings.export": "Save settings to a file",
+  "settings.import": "Restore from a file",
   "settings.units": "Units",
   "settings.unitsImperial": "Feet and Fahrenheit",
   "settings.unitsMetric": "Metres and Celsius",

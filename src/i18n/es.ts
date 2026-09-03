@@ -193,8 +193,8 @@ export const es: Catalogue = {
   "toast.settingsRestoredBody":
     "Todo lo del archivo está en su sitio: vistas, capas, el punto vigilado y la tabla de colores.",
   "settings.backup": "Copia de seguridad",
-  "settings.backupDetail":
-    "Guarda todo en un archivo, o suelta uno en el panel de Carga para restaurarlo",
+  "settings.backupDetail": "Guarda todo en un archivo, y restaura desde uno",
+  "settings.import": "Restaurar desde un archivo",
   "settings.export": "Guardar los ajustes en un archivo",
   "settings.units": "Unidades",
   "settings.unitsImperial": "Pies y Fahrenheit",

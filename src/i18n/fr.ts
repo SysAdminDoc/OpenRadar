@@ -200,7 +200,8 @@ export const fr: Catalogue = {
     "Cette copie de l'espace de travail est incomplète ou invalide, alors rien n'a été modifié.",
   "settings.backup": "Copie de sauvegarde",
   "settings.backupDetail":
-    "Enregistrez tout dans un fichier, ou déposez-en un sur le panneau Téléversement pour le remettre en place",
+    "Enregistrez tout dans un fichier, et restaurez depuis un fichier",
+  "settings.import": "Restaurer depuis un fichier",
   "settings.export": "Enregistrer les réglages dans un fichier",
   "settings.units": "Unités",
   "settings.unitsImperial": "Pieds et Fahrenheit",
