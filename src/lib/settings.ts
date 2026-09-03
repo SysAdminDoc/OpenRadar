@@ -17,10 +17,7 @@ import {
   MAX_LOOP_VOLUMES,
   MIN_LOOP_VOLUMES,
 } from "./siteLoop";
-import {
-  SATELLITE_PRODUCTS,
-  type SatelliteProductId,
-} from "./providers/satellite";
+import { isSatelliteBand, type SatelliteBandId } from "./providers/satellite";
 import { isGaugeQpePeriod, type GaugeQpePeriod } from "./gaugeQpe";
 import {
   isAzShearLevel,
@@ -373,7 +370,14 @@ export interface AppSettings {
    * band is the one to switch to after dark, when GeoColor has nothing to say
    * about a storm top.
    */
-  satelliteProduct: SatelliteProductId;
+  /**
+   * Which band of the satellite picture the reader wants.
+   *
+   * Which satellite it comes from is not a setting: it is whichever one is
+   * looking down at the middle of the view. A reader chooses what to look at,
+   * not which spacecraft to look through.
+   */
+  satelliteBand: SatelliteBandId;
   /** Which day of the excessive rainfall outlook, 1 through 5. */
   wpcDay: number;
   /** Which day of the winter storm severity index, 1 through 3. */
@@ -632,7 +636,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     quietHours: DEFAULT_QUIET_HOURS,
   },
   followNewWarnings: false,
-  satelliteProduct: "geocolor",
+  satelliteBand: "geocolor",
   wpcDay: 1,
   wssiDay: 1,
   gaugeQpePeriod: "24h",
@@ -1604,11 +1608,14 @@ export function normalizeSettings(value: unknown): AppSettings {
       raw.followNewWarnings,
       DEFAULT_SETTINGS.followNewWarnings,
     ),
-    satelliteProduct: SATELLITE_PRODUCTS.some(
-      (product) => product.id === raw.satelliteProduct,
-    )
-      ? (raw.satelliteProduct as SatelliteProductId)
-      : DEFAULT_SETTINGS.satelliteProduct,
+    // Read from the old key too, which held the same two band names before
+    // the satellite stopped being part of the choice. A file written by any
+    // build before 2026-09-03 keeps the view its reader picked.
+    satelliteBand: isSatelliteBand(raw.satelliteBand)
+      ? raw.satelliteBand
+      : isSatelliteBand((raw as Record<string, unknown>).satelliteProduct)
+        ? ((raw as Record<string, unknown>).satelliteProduct as SatelliteBandId)
+        : DEFAULT_SETTINGS.satelliteBand,
     gaugeQpePeriod: isGaugeQpePeriod(raw.gaugeQpePeriod)
       ? raw.gaugeQpePeriod
       : DEFAULT_SETTINGS.gaugeQpePeriod,

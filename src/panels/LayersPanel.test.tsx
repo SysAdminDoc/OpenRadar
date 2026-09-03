@@ -39,7 +39,8 @@ function panel(overrides: {
     <LayersPanel
       layers={{ ...DEFAULT_SETTINGS.layers, ...overrides.layers }}
       layerNotes={overrides.layerNotes}
-      satelliteProduct={DEFAULT_SETTINGS.satelliteProduct}
+      satelliteBand={DEFAULT_SETTINGS.satelliteBand}
+      spacecraft={"east"}
       gaugeQpePeriod={
         overrides.gaugeQpePeriod ?? DEFAULT_SETTINGS.gaugeQpePeriod
       }
@@ -54,7 +55,7 @@ function panel(overrides: {
       onWpcDay={overrides.onWpcDay ?? vi.fn()}
       wssiDay={overrides.wssiDay ?? DEFAULT_SETTINGS.wssiDay}
       onWssiDay={overrides.onWssiDay ?? vi.fn()}
-      onSatelliteProduct={vi.fn()}
+      onSatelliteBand={vi.fn()}
       overlayOpacity={DEFAULT_SETTINGS.overlayOpacity}
       onOverlayOpacity={vi.fn()}
       overlayOrder={DEFAULT_SETTINGS.overlayOrder}

@@ -7,6 +7,15 @@ import {
 import { syncRasterLane, type MapLike, type RasterLane } from "./raster";
 
 /**
+ * The one source this lane ever uses.
+ *
+ * Named because the workspace has to recognise a tile failure as this lane's:
+ * GIBS answers 404 for a slot a layer did not publish, and the layers have
+ * gaps that are not the same gaps.
+ */
+export const SATELLITE_SOURCE_ID = "openradar-satellite-source";
+
+/**
  * The satellite lane, for whichever GOES-East view is chosen.
  *
  * A lane per product rather than one lane with a switch inside it, because
@@ -19,7 +28,7 @@ export function satelliteLane(
 ): RasterLane<number> {
   const product = satelliteProduct(id);
   return {
-    sourceId: "openradar-satellite-source",
+    sourceId: SATELLITE_SOURCE_ID,
     layerId,
     attribution: SATELLITE_ATTRIBUTION,
     opacity: 0.85,

@@ -788,6 +788,32 @@ export const fr: Catalogue = {
     "Bande 13, 10,3 µm. La température de tout ce dont le satellite voit le sommet, qui se lit pareil à minuit et à midi.",
   "satellite.cleanIrLegend":
     "Température de brillance, de −92 à +57 °C, colorée par NASA GIBS",
+  "satellite.redVisible": "Visible rouge",
+  "satellite.redVisibleDetail":
+    "La bande visible à un demi-kilomètre : la vue diurne la plus nette d'un sommet de nuage, et noire la nuit",
+  "satellite.redVisibleLegend":
+    "Lumière solaire réfléchie, donc éteinte la nuit",
+  "satellite.airMass": "Masse d'air",
+  "satellite.airMassDetail":
+    "Vapeur d'eau et ozone ensemble, là où se voient un courant-jet et une intrusion sèche",
+  "satellite.airMassLegend":
+    "Un mélange en fausses couleurs, pas une température",
+  "satellite.dust": "Poussière",
+  "satellite.dustDetail":
+    "Poussière et cendres en suspension, distinguées du nuage par leur absorption de l'infrarouge",
+  "satellite.dustLegend":
+    "Un mélange en fausses couleurs, pas une concentration",
+  "satellite.fireTemp": "Température de feu",
+  "satellite.fireTempDetail":
+    "Les bandes infrarouges à ondes courtes, où un front de feu chaud ressort à travers la fumée",
+  "satellite.fireTempLegend":
+    "Plus ça brûle chaud, plus c'est clair ; ce n'est pas un périmètre d'incendie",
+  "satellite.east": "GOES-Est",
+  "satellite.west": "GOES-Ouest",
+  "satellite.himawari": "Himawari",
+  "satellite.showing": "Affiche {satellite}, qui est au-dessus de cette vue.",
+  "satellite.notThere":
+    "{satellite} n’a pas de {band} ici, donc voici l’infrarouge propre.",
   "satellite.product": "Vue satellite",
   "layer.rotationTracks": "Traces de rotation",
   "layer.azShear": "Cisaillement azimutal",
@@ -1349,7 +1375,7 @@ export const fr: Catalogue = {
   "fatal.copy": "Copier le diagnostic",
   "stage.secondary": "Deuxième carte météo interactive",
   "stage.satelliteAge": " · {age}",
-  "stage.satellite": "GOES-East {product}",
+  "stage.satellite": "{satellite} {product}",
   "stage.compare": "Comparer",
   "stage.compareOffset": "De combien le deuxième plan est en retard",
   "stage.compareUnavailable": "Pas assez d'images antérieures",

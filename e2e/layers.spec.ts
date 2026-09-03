@@ -961,3 +961,62 @@ test("lets the reader say which overlay sits on top, but not over a warning", as
   // And the order of the two that moved actually changed.
   expect(after.join(" ")).not.toBe(before.join(" "));
 });
+
+/**
+ * Which satellite is over a place, and which band it actually draws there.
+ *
+ * The view goes in through the share link the app already reads, because that
+ * is the one way a test can put the camera somewhere without pretending to be
+ * a person dragging it.
+ */
+async function satelliteOver(
+  page: Parameters<typeof routeWorkspace>[0],
+  lon: number,
+  lat: number,
+): Promise<{ id: string; name: string; substituted: boolean }> {
+  await page.goto(
+    `/?testMode=1&lon=${lon}&lat=${lat}&zoom=5&bearing=0&pitch=0`,
+  );
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const toggle = page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Satellite/ });
+  if (!(await toggle.isChecked())) await toggle.check();
+  const chip = page.locator(".satellite-chip");
+  await expect(chip).toBeVisible();
+  return {
+    id: (await chip.getAttribute("data-satellite")) ?? "",
+    name: (await chip.locator("strong").textContent()) ?? "",
+    substituted:
+      (await page.locator("[data-satellite-substitute]").count()) > 0,
+  };
+}
+
+test("draws the satellite that is actually over the view", async ({ page }) => {
+  // The whole reason there are three. A reader in Seattle watching the
+  // Pacific through GOES-East is looking at the edge of a disk photographed
+  // from over Brazil, and nothing on screen said so.
+  await page.route("https://gibs.earthdata.nasa.gov/**", async (route) => {
+    await route.fulfill({ contentType: "image/png", body: transparentPng });
+  });
+
+  const miami = await satelliteOver(page, -80.2, 25.8);
+  expect(miami.id).toMatch(/^east:/);
+  expect(miami.name).toContain("GOES-East");
+  expect(miami.substituted).toBe(false);
+
+  const seattle = await satelliteOver(page, -122.3, 47.6);
+  expect(seattle.id).toMatch(/^west:/);
+  expect(seattle.name).toContain("GOES-West");
+
+  // And on across the date line, where the only picture is Japan's. Himawari
+  // carries no GeoColor here, so the band substitutes and the panel says
+  // which one is on screen rather than leaving it to be discovered.
+  const tokyo = await satelliteOver(page, 139.7, 35.7);
+  expect(tokyo.id).toBe("himawari:clean-ir");
+  expect(tokyo.name).toContain("Himawari");
+  expect(tokyo.substituted).toBe(true);
+});

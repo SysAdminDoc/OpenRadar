@@ -66,7 +66,10 @@ import { casingFor } from "../lib/lineOnMap";
 import { isLightBasemap } from "../lib/mapStyles";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
-import { syncSatelliteLane } from "../lib/mapLayers/satellite";
+import {
+  SATELLITE_SOURCE_ID,
+  syncSatelliteLane,
+} from "../lib/mapLayers/satellite";
 import { syncVectorLane, type VectorLane } from "../lib/mapLayers/vector";
 import { syncRadarLane } from "../lib/mapLayers/radar";
 import {
@@ -218,6 +221,11 @@ interface MapViewportProps {
   satelliteTime?: number | null;
   /** Which GOES-East view the satellite layer draws. */
   satelliteProductId?: SatelliteProductId;
+  /**
+   * A slot this satellite layer does not publish, so the caller can step back
+   * to one that exists. GIBS leaves gaps and they differ per band.
+   */
+  onSatelliteMissing?: (time: number) => void;
   /** The hurricane category the surge picture is for, or null for no picture. */
   surgeCategory?: SurgeCategory | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
@@ -335,7 +343,8 @@ function MapViewportInner(
     flashClock,
     wind = null,
     satelliteTime = null,
-    satelliteProductId = "geocolor",
+    satelliteProductId = "east:geocolor",
+    onSatelliteMissing,
     surgeCategory = null,
     overlays = {},
     route = null,
@@ -1922,6 +1931,22 @@ function MapViewportInner(
         );
         onMapStatus?.("nogpu");
         return;
+      }
+      // A satellite tile that is not there. GIBS publishes these layers with
+      // gaps, and the gaps are not the same gaps: on 2026-09-03 GOES-West air
+      // mass had no 17:30 slot while every other band did. Reported up so the
+      // workspace can step the whole lane back to a slot that exists, rather
+      // than leaving a reader looking at nothing with the clock saying the
+      // picture is four minutes old.
+      const failed = event as unknown as {
+        sourceId?: string;
+        error?: { status?: number };
+      };
+      if (
+        failed.sourceId === SATELLITE_SOURCE_ID &&
+        failed.error?.status === 404
+      ) {
+        onSatelliteMissing?.(satelliteTimeRef.current ?? 0);
       }
       const message = event.error.message || String(event.error);
       // One line per distinct failure keeps a broken tile source from filling
