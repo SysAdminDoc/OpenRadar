@@ -137,12 +137,9 @@ export function loopKey(parts: {
  * length is enough to cover a reader scrubbing back and forth over the same
  * stretch without holding every product and tilt they have ever looked at.
  */
-export function trimHeld<T>(
-  held: Map<string, T>,
-  keep: number,
-): Map<string, T> {
+export function trimHeld<K, V>(held: Map<K, V>, keep: number): Map<K, V> {
   if (held.size <= keep) return held;
-  const kept = new Map<string, T>();
+  const kept = new Map<K, V>();
   const entries = [...held.entries()];
   for (const [key, value] of entries.slice(entries.length - keep)) {
     kept.set(key, value);

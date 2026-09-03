@@ -324,6 +324,83 @@ describe("the record written beside the picture", () => {
     );
   });
 
+  it("says when each volume reached this machine, not when it was captioned", async () => {
+    // A loop holds its volumes, and the second time one is drawn it is not
+    // arriving, it is being read back. Every frame used to be stamped with
+    // the moment its caption was written, which for a volume the loop had
+    // been holding for minutes is simply wrong, and to carry no cache age,
+    // which this record's own type documents as meaning the bytes came off
+    // the network.
+    const volumes = [4000, 2000, 0].map((back) => FETCHED_AT - back);
+    // The oldest arrived ten minutes ago, the next five, and the newest has
+    // only just landed.
+    const arrivals = new Map([
+      [volumes[0], FETCHED_AT - 600_000],
+      [volumes[1], FETCHED_AT - 300_000],
+      [volumes[2], FETCHED_AT],
+    ]);
+    const asked: number[] = [];
+    const selectFrame = vi.fn((index: number) => {
+      const at = [volumes[0], null, volumes[1], null, volumes[2]][index];
+      if (typeof at === "number") asked.push(at);
+    });
+    exportLoop.mockImplementation(
+      async (options: {
+        frameCount: number;
+        showFrame: (index: number) => Promise<void>;
+        captionFor: (index: number) => { lines: string[] };
+      }) => {
+        for (let index = 0; index < options.frameCount; index += 1) {
+          await options.showFrame(index);
+          options.captionFor(index);
+        }
+        return new Blob(["webm"]);
+      },
+    );
+    const stepFrames = [4, 3, 2, 1, 0].map((back) => ({
+      ...frames[0],
+      time: (FETCHED_AT - back * 1000) / 1000,
+    }));
+    const { result } = renderExport({
+      frames: stepFrames,
+      timeline: { ...timeline, frames: stepFrames, selectFrame },
+      arrivedAt: (volume: number) => arrivals.get(volume) ?? null,
+      siteLoop: {
+        sweep: {
+          station: "KDMX",
+          product: "Reflectivity",
+          collected: new Date(FETCHED_AT).toISOString(),
+          source: {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        },
+        volumes,
+        drawnVolume: () => asked.at(-1) ?? null,
+      } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
+    });
+    act(() => result.current.exportLoopVideo());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{ fetched: string; cachedAgeSeconds: number | null }>;
+    };
+    expect(written.frames.map((frame) => frame.fetched)).toEqual(
+      volumes.map((at) => new Date(arrivals.get(at)!).toISOString()),
+    );
+    // How long each had been held when the file was written. The wall clock
+    // runs during the walk, so the ages are asserted by their spacing rather
+    // than by an absolute number: five minutes between each, oldest first,
+    // and none of them negative. A record that ignored the arrivals would
+    // give three equal ages, and one that ignored the volume would give three
+    // nulls.
+    const ages = written.frames.map((frame) => frame.cachedAgeSeconds!);
+    expect(ages[0] - ages[1]).toBe(300);
+    expect(ages[1] - ages[2]).toBe(300);
+    expect(ages[2]).toBeGreaterThanOrEqual(0);
+  });
+
   it("waits for the volume it is about to caption", async () => {
     // The walk moves the timeline and the map goes idle within a few hundred
     // milliseconds, because the mosaic under the site redraws. The site's own

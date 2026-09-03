@@ -1171,6 +1171,7 @@ export default function App() {
     // are what the timeline runs on, and they are two minutes apart against
     // a radar's four to six, so walking them wrote the same volume two and
     // three times over under mosaic timestamps.
+    arrivedAt: singleSite.arrivedAt,
     siteLoop:
       singleSite.sweep && singleSite.volumes.length > 1
         ? {
