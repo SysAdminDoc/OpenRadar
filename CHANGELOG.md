@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- The site picker lists every radar that can see where you are looking, nearest first, with how far away each one is. It used to offer three things and none of them was a radar near you: follow the map, hold whatever was already on screen, or name one of the airport radars. When the nearest radar is down there was no way to pick the next one along short of knowing its four-letter call sign and typing it. A radar the weather service reports as restarting or silent is greyed out in that list with the reason beside its name.
+
 - A saved picture of any single radar is credited to that radar, including a volume you opened from the archive yourself and an airport terminal radar. Both were being stamped with the national mosaic time and credited to a service that did not make them.
 
 - The diagnostics report no longer says a rain total was measured this instant when it was published hours ago. The gauge-corrected layer covers three windows behind one switch, and the lookup that finds a grid's time was asking under the name of the family rather than the window on screen.

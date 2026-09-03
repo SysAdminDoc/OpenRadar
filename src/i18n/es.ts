@@ -589,6 +589,8 @@ export const es: Catalogue = {
   "radar.site": "Radar",
   "radar.siteLabel": "Estación de radar",
   "radar.terminalRadars": "Radares de terminal (TDWR)",
+  "radar.siteInReach": "{station} · {city}, {state} · {distance}",
+  "radar.sitesInReach": "Radares que alcanzan esta vista",
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "sin datos desde hace {age}",
   "radar.faultOffline": "sin transmitir",

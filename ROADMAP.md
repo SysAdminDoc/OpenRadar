@@ -262,13 +262,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: An exported loop of a held site says per volume when that volume reached this machine; a volume drawn from the loop's own held pictures carries how long it had been held rather than a null.
   Complexity: S
 
-- [ ] AUD-203 (P2): A picker that lists the sites in reach, not only the airports
-  Why: `AUD-173` greys a radar the office is not hearing from and says why, but the site picker only ever offers "Follow the map", "Hold <the one on screen>" and the forty-five terminal radars. There is no list of the WSR-88D sites covering the view, so the reason a nearby radar is unavailable is only ever seen if the reader happens to be held on it, and choosing the second-nearest site during an outage is impossible without pinning a call sign by hand.
-  Evidence: `src/panels/RadarProductPanel.tsx` site `select` (the `radar.site` row) holds exactly those three groups; `src-tauri/src/level2.rs` `sites_in_reach` already computes the covering sites nearest-first and hands out only the winner through `level2_nearest_site`.
-  Touches: `src-tauri/src/level2.rs` (a command that answers the sites in reach with their distances rather than only the nearest), `src/lib/level2.ts`, `src/panels/RadarProductPanel.tsx` (an optgroup of sites in reach, each with its distance and, when the office says so, its fault), `src/hooks/useSingleSiteRadar.ts` if the list should follow the view.
-  Acceptance: The picker lists every site whose coverage reaches the view, nearest first, with its distance; a site the office reports as restarting or silent is greyed with that reason; choosing one holds it; the list is asked for at most once per coarse position, the way the nearest-site search already is.
-  Complexity: M
-
 - [ ] AUD-205 (P3): The loop length bound is written down twice with nothing to keep it honest
   Why: `MAX_LOOP_VOLUMES` is 30 in `src/lib/siteLoop.ts` and the native side independently refuses a count above 30 in `level2.rs`. Nothing fails when they drift, and the repo has precedent for exactly this kind of gate.
   Evidence: `src/lib/siteLoop.ts` `MAX_LOOP_VOLUMES`; `src-tauri/src/level2.rs` `level2_recent_times` clamp; `CLAUDE.md` records the colour-ramp drift gate as the pattern.

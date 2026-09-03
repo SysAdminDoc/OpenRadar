@@ -9,8 +9,10 @@ import {
   nearestSite,
   pickArchiveFile,
   recentVolumeTimes,
+  sitesInReach,
   SWEEP_REFRESH_MS,
   sweepErrorText,
+  type SiteInReach,
   type SweepImage,
 } from "../lib/level2";
 import { fetchCrossSection, type CrossSection } from "../lib/crossSection";
@@ -57,6 +59,13 @@ export interface SingleSiteState {
    * for every frame of the file.
    */
   drawnVolume: number | null;
+  /**
+   * Every radar whose coverage reaches the view, nearest first.
+   *
+   * Asked for on the same coarse position the nearest-site search uses, so
+   * panning within one site's coverage does not ask again.
+   */
+  inReach: SiteInReach[];
   /**
    * The site's recent volume times, oldest first, or empty when it has no
    * loop. The export walks these rather than the mosaic's steps, so a saved
@@ -126,6 +135,9 @@ function answersTheRequest(
 /** One shared empty list, so a site with no loop is a stable identity. */
 const EMPTY_TIMES: number[] = [];
 
+/** The same, for a view no radar reaches. */
+const EMPTY_SITES: SiteInReach[] = [];
+
 export function useSingleSiteRadar(options: {
   ready: boolean;
   radar: RadarSettings;
@@ -178,6 +190,13 @@ export function useSingleSiteRadar(options: {
   const [nearby, setNearby] = useState<{ site: string; near: string } | null>(
     null,
   );
+  // The sites the view can see, and the coarse position they were listed for.
+  // Travels with its position for the same reason the resolved site does: a
+  // list for somewhere else is not an answer about where the map is now.
+  const [reach, setReach] = useState<{ near: string; sites: SiteInReach[] }>({
+    near: "",
+    sites: [],
+  });
   const [sweep, setSweep] = useState<SweepImage | null>(null);
   const [loading, setLoading] = useState(false);
   // The site's recent volume times, oldest first, and the pictures already
@@ -251,6 +270,32 @@ export function useSingleSiteRadar(options: {
     shownVolume !== null &&
     newestVolume !== null &&
     shownVolume !== newestVolume;
+
+  // The list for the picker. Asked for whether or not a site is pinned,
+  // because the picker is how somebody unpins one.
+  useEffect(() => {
+    if (!available) return;
+    let open = true;
+    const [lon, lat] = near.split(",").map(Number);
+    void sitesInReach(lon, lat)
+      .then((found) => {
+        if (open) setReach({ near, sites: found });
+      })
+      .catch((failure: unknown) => {
+        // No list is the picker as it was before this existed: follow the
+        // map, hold what is on screen, or name an airport.
+        if (!open) return;
+        log.warn(
+          "radar",
+          failure instanceof Error
+            ? failure.message
+            : "The radars in reach could not be listed.",
+        );
+      });
+    return () => {
+      open = false;
+    };
+  }, [available, near]);
 
   useEffect(() => {
     if (!wanted || radar.station) return;
@@ -734,6 +779,7 @@ export function useSingleSiteRadar(options: {
       // is one volume the reader picked, and the recent listing behind the
       // loop is not a series it belongs to.
       volumes: showing && !historicalWanted ? volumeTimes : EMPTY_TIMES,
+      inReach: reach.near === near ? reach.sites : EMPTY_SITES,
       historical: historicalWanted,
       // The same guard: a hand-picked volume is not one of the loop's, so
       // nothing may wait on it as though it were.
@@ -771,7 +817,9 @@ export function useSingleSiteRadar(options: {
     historicalSource?.kind,
     historicalWanted,
     loading,
+    near,
     openArchive,
+    reach,
     openLocal,
     product,
     radar.tilt,

@@ -92,6 +92,27 @@ async function fakeNativeSide(page: Page) {
               sha256: "ab".repeat(32),
             });
           }
+          if (command === "level2_sites_in_reach") {
+            const longitude = Number(args.longitude);
+            return Promise.resolve(
+              longitude < -70
+                ? [
+                    {
+                      station: "KDMX",
+                      city: "Des Moines",
+                      state: "IA",
+                      distanceKm: 3.1,
+                    },
+                    {
+                      station: "KDVN",
+                      city: "Davenport",
+                      state: "IA",
+                      distanceKm: 231.4,
+                    },
+                  ]
+                : [],
+            );
+          }
           if (command === "level2_nearest_site") {
             // The real command answers nothing for a point no site can see,
             // which is what the frontend has to cope with.

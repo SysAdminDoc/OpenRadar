@@ -63,6 +63,10 @@ describe("the site picker and what the office says", () => {
     active: false,
     loop: null,
     volumes: [],
+    inReach: [
+      { station: "KTLX", city: "Oklahoma City", state: "OK", distanceKm: 25.3 },
+      { station: "KFDR", city: "Frederick", state: "OK", distanceKm: 142.8 },
+    ],
     historical: false,
     mode: "recent",
     openLocal: async () => false,
@@ -122,6 +126,46 @@ describe("the site picker and what the office says", () => {
     expect(down?.textContent).toContain("Start-Up");
     // Its neighbours are untouched.
     expect(option(/^TBWI/)?.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("lists them nearest first, with how far away each one is", () => {
+    // The picker offered three things and none of them was a radar near you:
+    // follow the map, hold what is on screen, or name an airport. During an
+    // outage there was no way to choose the second-nearest site short of
+    // knowing its call sign and typing it.
+    picker([]);
+    const listed = screen
+      .getAllByRole("option")
+      .map((one) => one.textContent ?? "")
+      .filter((text) => /^K(TLX|FDR)/.test(text));
+    expect(listed).toHaveLength(2);
+    // Nearest first: the nearest radar sees lowest into a storm, so the order
+    // is the recommendation.
+    expect(listed[0]).toContain("KTLX");
+    expect(listed[0]).toContain("Oklahoma City, OK");
+    expect(listed[1]).toContain("KFDR");
+    // And how far, in the reader's own units.
+    expect(listed[0]).toMatch(/\d+\s*mi/);
+  });
+
+  it("greys one the office says is not running, and says which", () => {
+    // The whole point of listing them: during an outage this is where
+    // somebody picks the next radar along, and a site that will draw nothing
+    // should say so rather than look like any other choice.
+    picker([
+      {
+        station: "KTLX",
+        status: "Start-Up",
+        levelTwoAt: "2026-09-03T02:05:00+00:00",
+        fault: "notOperating",
+      },
+    ]);
+    const options = screen.getAllByRole("option");
+    const down = options.find((one) => /^KTLX/.test(one.textContent ?? ""));
+    const up = options.find((one) => /^KFDR/.test(one.textContent ?? ""));
+    expect(down?.hasAttribute("disabled")).toBe(true);
+    expect(down?.textContent).toContain("Start-Up");
+    expect(up?.hasAttribute("disabled")).toBe(false);
   });
 
   it("never greys the site the reader is already holding", () => {

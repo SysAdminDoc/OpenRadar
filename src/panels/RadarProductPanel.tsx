@@ -34,6 +34,8 @@ import {
 } from "../lib/radarKinds";
 import {
   formatAge,
+  formatDistance,
+  MILES_TO_KM,
   speedFromMetres,
   speedToMetres,
   speedUnit,
@@ -128,6 +130,7 @@ export function RadarProductPanel({
   );
   const [archiveAt, setArchiveAt] = useState(() => utcInputValue(clock));
   const sweep = singleSite?.sweep ?? null;
+  const inReach = singleSite?.inReach ?? [];
   // Why a site is not worth holding, in the reader's own language, and the
   // name with that reason after it. Both here rather than in the markup
   // because the picker asks the same two questions of every option in it.
@@ -754,6 +757,37 @@ export function RadarProductPanel({
                         sweep.station,
                       )}
                     </option>
+                  ) : null}
+                  {/* Every radar that can see the view, nearest first. The
+                      nearest one sees lowest into a storm, so the order is
+                      the recommendation; a reader picking a further one is
+                      trading that away on purpose, usually because the near
+                      one is down. */}
+                  {inReach.length ? (
+                    <optgroup label={t("radar.sitesInReach")}>
+                      {inReach.map((site) => (
+                        <option
+                          key={site.station}
+                          value={site.station}
+                          disabled={
+                            site.station !== radar.station &&
+                            Boolean(faultOf(site.station))
+                          }
+                        >
+                          {siteLabel(
+                            t("radar.siteInReach", {
+                              station: site.station,
+                              city: site.city,
+                              state: site.state,
+                              distance: formatDistance(
+                                site.distanceKm / MILES_TO_KM,
+                              ),
+                            }),
+                            site.station,
+                          )}
+                        </option>
+                      ))}
+                    </optgroup>
                   ) : null}
                   {/* The airports' own radars, which the nearest-site search
                       never hands over: a reader names one to hold it. */}

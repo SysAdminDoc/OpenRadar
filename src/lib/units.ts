@@ -70,7 +70,7 @@ export function setClockZone(next: ClockZone) {
   moved();
 }
 
-const MILES_TO_KM = 1.609344;
+export const MILES_TO_KM = 1.609344;
 const FEET_TO_METRES = 0.3048;
 
 /**

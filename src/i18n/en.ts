@@ -579,6 +579,8 @@ export const en = {
   "radar.site": "Site",
   "radar.siteLabel": "Radar site",
   "radar.terminalRadars": "Terminal radars (TDWR)",
+  "radar.siteInReach": "{station} · {city}, {state} · {distance}",
+  "radar.sitesInReach": "Radars that can see this view",
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "nothing received for {age}",
   "radar.faultOffline": "not sending",
