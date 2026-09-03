@@ -427,6 +427,16 @@ pub fn tray_enabled(app: AppHandle, on: bool) -> Result<(), String> {
         }
         return init(&app).map_err(|error| error.to_string());
     }
+    // The icon is the only way back to a window that is not on screen, so it
+    // cannot be the last thing taken away. A launch the machine made opens to
+    // the tray, and switching the icon off from the small window's settings
+    // would otherwise leave a process nobody can reach.
+    if let Some(window) = app.get_webview_window("main") {
+        if !window.is_visible().unwrap_or(true) {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
     // Switched off leaves nothing behind, which on Windows means removing it
     // rather than hiding it.
     drop_tray(&app);

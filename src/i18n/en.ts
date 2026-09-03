@@ -1566,6 +1566,12 @@ export const en = {
   "tray.quiet": "OpenRadar",
   "tray.warning": "OpenRadar: a warning stands where you watch",
   "tray.unreachable": "OpenRadar: the watch is not reaching the service",
+  "autostart.setting": "Start with Windows",
+  "autostart.settingDetail":
+    "Opens to the tray at sign-in, so the places you watch are watched from the moment the machine is on.",
+  "autostart.needsTray":
+    "Needs the tray icon, because that is what it opens to.",
+  "autostart.unavailable": "This build cannot ask Windows about startup items.",
   "tray.setting": "Put an icon in the tray",
   "tray.settingDetail":
     "The icon says one thing: whether a warning stands at a place you named. Switching it off removes it rather than hiding it.",

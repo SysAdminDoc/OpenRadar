@@ -929,6 +929,15 @@ interface SettingsPanelProps {
   onJournalRemoved: (undo: () => void) => void;
   /** Something the reader removed here, and the way back to it. */
   onRemoved: (removal: UndoableRemoval) => void;
+  /**
+   * Whether the app is registered to start with the machine, or `null` when
+   * nobody can say: a browser preview, or a machine that refused to answer.
+   *
+   * Not a setting. The registry entry is what decides what happens at the
+   * next boot, so it is read from the machine rather than stored.
+   */
+  autostart: boolean | null;
+  onAutostart: (on: boolean) => void;
   /** Ticks once a minute, so the record on screen notices a row arriving. */
   clock: number;
   onWatchHere: () => void;
@@ -998,6 +1007,8 @@ export function SettingsPanel({
   onJournalCleared,
   onJournalRemoved,
   onRemoved,
+  autostart,
+  onAutostart,
   clock,
   onSendWatchTest,
   watchHealth = WATCH_HEALTHY,
@@ -1178,6 +1189,36 @@ export function SettingsPanel({
           checked={settings.tray}
           onChange={(tray) => onSettings({ ...settings, tray })}
         />
+        {/* Only with the icon on. The entry opens the app to the tray, and
+            with no icon there is nothing for it to open to: the switch says so
+            rather than registering something that would start a window across
+            the reader's screen at every boot. */}
+        <div className="settings-field" data-autostart-setting>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("autostart.setting")}</strong>
+              <small>
+                {!settings.tray
+                  ? t("autostart.needsTray")
+                  : autostart === null
+                    ? t("autostart.unavailable")
+                    : t("autostart.settingDetail")}
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              // The entry, not the reader's intent. With the icon off the
+              // switch cannot be moved, and drawing a registered entry as off
+              // would say the app will not start with the machine when it
+              // will: it starts, and shows its window, because there is no
+              // icon for it to open to.
+              checked={autostart === true}
+              disabled={!settings.tray || autostart === null}
+              onChange={(event) => onAutostart(event.target.checked)}
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+        </div>
         {settings.tray ? (
           <>
             <ToggleSetting

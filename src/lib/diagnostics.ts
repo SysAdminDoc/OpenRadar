@@ -144,6 +144,14 @@ export interface DiagnosticsInput {
    */
   cache?: CacheState;
   /**
+   * Whether the app is registered to start with the machine.
+   *
+   * The watch only runs while the app does, so "why did I not hear about last
+   * night's warning" is often answered by nothing having started it. Absent
+   * means nobody asked, which is what the crash screen can say.
+   */
+  startsWithMachine?: boolean | null;
+  /**
    * The reader's watched place, and only when they have asked for it to be
    * included.
    *
@@ -334,6 +342,19 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
               selectedPack ? "one in use" : "none in use"
             }`
           : ""),
+    );
+  }
+
+  if (input.startsWithMachine !== undefined) {
+    lines.push(
+      "",
+      `Starts with the machine: ${
+        input.startsWithMachine === null
+          ? "unknown"
+          : input.startsWithMachine
+            ? "yes"
+            : "no"
+      }`,
     );
   }
 

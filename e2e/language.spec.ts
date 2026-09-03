@@ -173,3 +173,48 @@ test.describe("a workspace in another language", () => {
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 });
+
+test.describe("the Start with Windows row in a long language", () => {
+  test.use({ viewport: { width: 1024, height: 720 } });
+
+  test("keeps its label and its reason readable at their full width", async ({
+    page,
+  }) => {
+    // The clipping sweep above cannot see this row: it skips everything inside
+    // a scroller and the settings panel scrolls. A row whose whole job is to
+    // explain why a switch cannot be moved is worth measuring directly, so
+    // this reads the boxes rather than the text.
+    await startIn(page, "pseudo");
+    await page
+      .locator(
+        `.command-bar button[aria-label="${pseudoize(en["panel.settings"])}"]`,
+      )
+      .first()
+      .click();
+    const row = page.locator("[data-autostart-setting]");
+    await expect(row).toBeVisible();
+    await row.scrollIntoViewIfNeeded();
+
+    const measured = await row.evaluate((element) => {
+      const label = element.querySelector("strong");
+      const detail = element.querySelector("small");
+      return {
+        label: label?.getBoundingClientRect().width ?? 0,
+        detail: detail?.getBoundingClientRect().width ?? 0,
+        overflow: element.scrollWidth - element.clientWidth,
+      };
+    });
+    expect(measured.label).toBeGreaterThan(20);
+    expect(measured.detail).toBeGreaterThan(20);
+    expect(measured.overflow).toBeLessThanOrEqual(1);
+
+    // And with the icon off it says why rather than going quiet.
+    await page
+      .getByRole("checkbox", { name: pseudoize(en["tray.setting"]) })
+      .setChecked(false);
+    await expect(row.locator("small")).toHaveText(
+      pseudoize(en["autostart.needsTray"]),
+    );
+    await expect(row.locator("input[type=checkbox]")).toBeDisabled();
+  });
+});

@@ -26,6 +26,8 @@ function panel(
         settings={settings}
         onSettings={onSettings}
         onRemoved={vi.fn()}
+        autostart={false}
+        onAutostart={vi.fn()}
         onWatchHere={vi.fn()}
         onAddWatchPlace={vi.fn()}
         onSendWatchTest={onSendWatchTest}
