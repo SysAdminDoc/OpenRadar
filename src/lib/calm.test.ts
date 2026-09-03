@@ -25,6 +25,21 @@ import { DEFAULT_SETTINGS } from "./settings";
 const CSS = readFileSync(join(import.meta.dirname, "..", "index.css"), "utf8");
 
 /**
+ * The same stylesheet with its comments taken out.
+ *
+ * The scan below decides a block is the calm mode's by finding the attribute
+ * on a line, which a COMMENT mentioning the attribute satisfies just as well.
+ * It did: a note in an unrelated block explaining why it deliberately does
+ * not name that attribute pulled the whole block in, and the gate reported
+ * the calm mode repainting a warning colour it has never touched. A comment
+ * is not a selector.
+ *
+ * Braces inside comments go with them, so the depth counting below is left
+ * counting only real ones.
+ */
+const RULES = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
+
+/**
  * Every rule the mode adds, selectors and declarations both.
  *
  * Reading only the lines that mention `[data-calm]` reads the selectors and
@@ -33,7 +48,7 @@ const CSS = readFileSync(join(import.meta.dirname, "..", "index.css"), "utf8");
  * `--severity: #888` added to the block it was guarding.
  */
 function calmRules(): string {
-  const lines = CSS.split("\n");
+  const lines = RULES.split("\n");
   const out: string[] = [];
   let depth = 0;
   let inside = false;

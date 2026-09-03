@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { isOnline } from "../lib/online";
 import { translate } from "../i18n";
 import type { ToastMessage } from "../components/ToastHost";
 import { metarOverlay } from "../lib/overlays/metar";
@@ -99,6 +100,11 @@ export function useWelcomeHint(options: {
     // station answers. A greeting that waits on a service is a greeting
     // nobody sees.
     const nearest = async () => {
+      // A greeting is the least important thing in the app to ask a service
+      // for, and with no network it is one more request failing into the log
+      // in front of somebody on their very first launch. The hint itself is
+      // already on screen; this is only the weather to add to it.
+      if (!isOnline()) return null;
       try {
         const data = await metarOverlay.fetchData(
           {

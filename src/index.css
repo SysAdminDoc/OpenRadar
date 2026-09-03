@@ -3108,8 +3108,16 @@ input[type="range"]:disabled {
    look. A reflectivity ramp, a warning outline and a colour chip are
    readings, and a reading painted in ButtonText is not the same reading. */
 @media (forced-colors: active) {
-  :root:root:root,
-  :root:root:root[data-theme="light"] {
+  /* Five deep and nothing else. A reader on a contrast theme has to beat
+     every look the app can be wearing, and the most specific of those is the
+     calm light block at `:root:root:root[data-theme="light"][data-calm]`,
+     which is also (0,5,0); this block is later in the file, so it wins the
+     tie. Naming `[data-calm]` here would have been the obvious way to say it
+     and the wrong one: `calm.test.ts` reads every rule whose selector
+     mentions that attribute as part of what the calm mode restyles, and a
+     mode that is supposed to leave readings alone would have looked like it
+     was repainting `--warning`. */
+  :root:root:root:root:root {
     --bg: Canvas;
     --surface: Canvas;
     --surface-solid: Canvas;
@@ -3180,19 +3188,37 @@ input[type="range"]:disabled {
 
   /* Data, kept. Every one of these is a reading rather than a decoration:
      a ramp says what a colour on the map means, a swatch says which storm a
-     row is about, a chip in a popup says what was measured. Repainted in
-     ButtonText they all say the same thing, which is nothing. */
+     row is about, a chip beside a warning says how severe it is. Repainted
+     they all say the same thing, which is nothing.
+
+     The chips are matched by their shape rather than by a class, because
+     they have no class: every one of them is an `<i aria-hidden>` carrying
+     an inline background, in the alerts list, the lightning and smoke and
+     hydrometeor legends, the precipitation-type legend and the surge ramp.
+     Naming them one by one was how four of the first six selectors here came
+     to match nothing at all.
+
+     The map canvas is deliberately NOT in this list. Forced colours never
+     touch what is painted inside a canvas, with or without the declaration:
+     naming it read as the thing that kept the warning outlines their own
+     colours, and it did nothing whatsoever. What keeps them is the browser
+     not being able to reach them. */
   .legend-ramp,
   .legend-ramp *,
-  .palette-swatch,
   .track-swatch,
-  .map-popup [style*="background"],
-  .alert-severity,
-  .maplibregl-canvas-container,
-  .maplibregl-canvas,
-  [data-legend-swatch],
-  [data-palette-preview] {
+  i[aria-hidden="true"][style*="background"] {
     forced-color-adjust: none;
+  }
+
+  /* The ring somebody actually sees on a toggle. The input is `opacity: 0`
+     and the visible ring is drawn on its sibling, so the blanket rule above
+     was painting Highlight onto a fully transparent element while the ring
+     in front of the reader stayed the app's own accent. Toggle rows are most
+     of what is in Layers and Settings. */
+  .toggle-row input:focus-visible + .toggle-track,
+  .toggle-row input:focus-visible + span + .toggle-track {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
   }
 }
 

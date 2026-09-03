@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import {
   fetchArchiveSweep,
   fetchLocalSweep,
@@ -518,7 +520,7 @@ export function useSingleSiteRadar(options: {
     // Its other dependencies move on their own — the window being hidden and
     // shown again is enough — and a refresh during a walk drops the oldest
     // volume out of the list the walk is standing on.
-    if (!listingHeld?.() || listed.site !== station) ask();
+    if (isOnline() && (!listingHeld?.() || listed.site !== station)) ask();
     if (!pageVisible) {
       return () => {
         open = false;
@@ -526,12 +528,18 @@ export function useSingleSiteRadar(options: {
     }
     // The first ask always happens; only the refreshes are held. A site with
     // no listing at all has no loop, which is worse than a slightly old one.
-    const timer = window.setInterval(() => {
-      if (!listingHeld?.()) ask();
-    }, SWEEP_REFRESH_MS);
+    const stop = pollWhileOnline(
+      () => {
+        if (!listingHeld?.()) ask();
+      },
+      SWEEP_REFRESH_MS,
+      // The line above already made this mount's ask, under a condition of
+      // its own.
+      false,
+    );
     return () => {
       open = false;
-      window.clearInterval(timer);
+      stop();
     };
     // `listed` is deliberately not a dependency: this effect writes it, and
     // depending on it would restart the timer every time an answer arrived.
@@ -851,7 +859,10 @@ export function useSingleSiteRadar(options: {
       }
     };
 
-    void refresh();
+    // The first ask, before the visibility check, so a hidden window still
+    // reads once. Not with no network, where it is one more failure in the
+    // log and nothing on screen.
+    if (isOnline()) void refresh();
     // A hidden window keeps whatever it has rather than polling behind itself.
     if (!pageVisible) {
       return () => {
@@ -860,13 +871,15 @@ export function useSingleSiteRadar(options: {
     }
     // A volume in progress grows every eleven or twelve seconds, so waiting
     // two minutes for the next ask would leave most of what arrives unseen.
-    const timer = window.setInterval(
+    const stop = pollWhileOnline(
       () => void refresh(),
       radar.live ? LIVE_REFRESH_MS : SWEEP_REFRESH_MS,
+      // The line above already made this mount's ask.
+      false,
     );
     return () => {
       open = false;
-      window.clearInterval(timer);
+      stop();
     };
     // A new colour table redraws the sweep, which is drawn natively.
   }, [

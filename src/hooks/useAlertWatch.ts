@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import { alertsOfKind, alertsOverlay } from "../lib/overlays/alerts";
 import type { AlertType } from "../lib/alertTypes";
@@ -365,12 +367,16 @@ export function useAlertWatch(
       }
     };
 
-    void check();
-    const timer = window.setInterval(() => void check(), POLL_MS);
+    // The first ask, in the place it has always been: before the
+    // visibility check below, so a hidden window still reads once.
+    // Not with no network, where it is one more failure in the log.
+    if (isOnline()) void check();
+
+    const stop = pollWhileOnline(() => void check(), POLL_MS, false);
     return () => {
       mounted = false;
       controller.abort();
-      window.clearInterval(timer);
+      stop();
     };
     // The key stands in for the places, which are read through a ref inside so
     // that renaming one does not restart the watch and re-announce everything.

@@ -895,34 +895,65 @@ test.describe("under a system contrast theme", () => {
   });
 
   test("every surface is still clean", async ({ page }) => {
-    for (const id of [
-      "layers",
-      "alerts",
-      "settings",
-      "more",
-    ] as OpenSurface[]) {
+    // Eighteen surfaces, each opened, scanned and reloaded.
+    test.setTimeout(180_000);
+    // All of them, from the same list the dark scan walks. Four names
+    // written out here meant a surface added later joined the dark scan
+    // automatically and was silently left out of this one.
+    for (const id of Object.keys(SURFACES) as OpenSurface[]) {
       await openSurface(page, id);
       expect(`${id}: ${describeViolations(await scan(page))}`).toBe(`${id}: `);
       await page.reload();
+      // The emulation goes with the page, so it has to be asked for again,
+      // and the rail has to be back before the next surface is opened.
       await page.emulateMedia({ forcedColors: "active" });
       await expect(
         page.getByRole("application", { name: "Interactive weather map" }),
       ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Commands", exact: true }),
+      ).toBeVisible();
     }
   });
 
-  test("the rail is drawn in the system's colours, not its own", async ({
-    page,
-  }) => {
-    // The bar is a fixed dark surface in both themes, which is a decision the
-    // system has just overruled. Left as it was, its own near-white ink sat
-    // on whatever the system painted underneath.
-    const painted = await page
-      .locator(".command-bar")
-      .evaluate((node) => getComputedStyle(node).backgroundColor);
-    // Canvas resolves to the system's own colour, which under Playwright's
-    // emulation is pure black or pure white rather than the app's #070b10.
-    expect(["rgb(0, 0, 0)", "rgb(255, 255, 255)"]).toContain(painted);
+  test("a colour chip still carries its own colour", async ({ page }) => {
+    // The chips are the readings axe cannot see: every one is an
+    // `<i aria-hidden>` with an inline background, in the alerts list, the
+    // lightning and smoke and hydrometeor legends, and the surge ramp. They
+    // are the whole content of what they say. Repainted, every severity in
+    // the list becomes the same block and the list says nothing.
+    //
+    // Matched by shape rather than by class because they have no class, and
+    // naming them one by one is how four of the first six selectors in that
+    // block came to match nothing at all.
+    await openSurface(page, "alerts");
+    const chip = page.locator('.alert-list i[aria-hidden="true"]').first();
+    await expect(chip).toBeVisible();
+
+    const answer = await page.evaluate(() => {
+      const node = document.querySelector<HTMLElement>(
+        '.alert-list i[aria-hidden="true"]',
+      )!;
+      const asked = node.style.background;
+      // The same colour on an element that has NOT opted out, so the test
+      // proves the repaint is really happening rather than passing because
+      // the browser was doing nothing either way.
+      const probe = document.createElement("span");
+      probe.style.background = asked;
+      document.body.append(probe);
+      const repainted = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return { drawn: getComputedStyle(node).backgroundColor, repainted };
+    });
+
+    // The repaint is on: an ordinary element asking for that colour does not
+    // get it.
+    expect(
+      answer.repainted,
+      "forced colours are not repainting anything, so this proves nothing",
+    ).not.toBe(answer.drawn);
+    // And the chip got it anyway.
+    expect(answer.drawn).toBe("rgb(244, 63, 94)");
   });
 
   test("every control that is drawn in dark is still drawn", async ({
@@ -932,10 +963,15 @@ test.describe("under a system contrast theme", () => {
     // that can actually fail.
     //
     // The way a control really disappears under a contrast theme is by
-    // opting out of the repaint and then having no ink: `color: transparent`
+    // opting out of the repaint and then having nothing: `color: transparent`
     // on its own cannot do it, because the system paints over it. So this
     // catches exactly the mistake the `forced-color-adjust: none` list above
     // makes possible, which is the one worth catching.
+    //
+    // Two shapes of it. A control with words is told from the page by its
+    // ink. One without — an icon-only button on the rail — is told by an
+    // edge or a fill, and the second half of this used to `continue` without
+    // recording anything, so it checked nothing at all.
     await openSurface(page, "layers");
     const invisible = await page.evaluate(() => {
       const parse = (colour: string) =>
@@ -958,12 +994,21 @@ test.describe("under a system contrast theme", () => {
           );
           continue;
         }
-        // A border or a background is what tells one control from the next
-        // once every colour is the system's.
-        const bordered =
+        // A control with text is told from the page by its ink, which the
+        // check above covers. One with no text at all — an icon-only button
+        // on the rail — is told by an edge or a fill, and if it has opted
+        // out of the repaint and has neither, it is a rectangle of nothing.
+        const labelled = (node.textContent ?? "").trim().length > 0;
+        if (labelled) continue;
+        const edged =
           Number.parseFloat(style.borderTopWidth) > 0 ||
-          Number.parseFloat(style.outlineWidth) > 0;
-        if (!bordered && !opaque(style.backgroundColor)) continue;
+          Number.parseFloat(style.outlineWidth) > 0 ||
+          opaque(style.backgroundColor);
+        if (style.forcedColorAdjust === "none" && !edged) {
+          gone.push(
+            `${node.getAttribute("aria-label") ?? "?"}: no ink, no edge, no fill`,
+          );
+        }
       }
       return gone;
     });

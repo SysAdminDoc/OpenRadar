@@ -29,49 +29,76 @@ export function subscribeOnline(listener: Listener): () => void {
 }
 
 /**
- * When the machine went offline, or null while it is on.
+ * When the workspace last failed to reach anything, or null while it can.
  *
- * The event says the state changed and nothing else, so the moment is
- * recorded the first time it is seen. Held in the module rather than in a
- * component because more than one surface says it and they have to agree: a
- * chrome line reading one time and a health line another is worse than
- * neither.
+ * Two different questions, and this is the second one.
  *
- * A workspace that starts with no network has no event to hear, so the moment
- * is the moment it started looking. "Since you opened this" is honest and
- * "since never" is not.
+ * `isOnline` above answers whether the machine believes it has a network,
+ * which is the right question for "should anything bother asking". This
+ * answers whether anything has actually come back, which is the right
+ * question for "tell the reader what they are looking at". A laptop on a
+ * captive portal answers yes to the first and no to the second, and the file
+ * header has said so since it was written: clearing the line on the browser's
+ * `online` event put the workspace straight back into polling and failing
+ * with a reader who had just been told everything was fine.
+ *
+ * So: the moment is recorded when the machine says the network went, or when
+ * a workspace opens with none. It is cleared by a fetch coming back, and by
+ * nothing else.
+ *
+ * Held in the module rather than in a component because more than one surface
+ * says it and they have to agree: a chrome line reading one time and a health
+ * line another is worse than neither.
  */
 let wentOffline: number | null = null;
 const changed = new Set<Listener>();
 
-function noteChange() {
-  const now = isOnline();
-  wentOffline = now ? null : (wentOffline ?? Date.now());
+function announce() {
   for (const listener of changed) listener();
 }
 
-function watchOnce() {
-  if (typeof window === "undefined") return;
-  if (started) return;
-  started = true;
+function noteChange() {
+  // Going offline is a fact the machine is sure of. Coming back is only a
+  // claim, and it is settled by `noteReached` when something answers.
+  if (isOnline()) return;
+  if (wentOffline !== null) return;
+  wentOffline = Date.now();
+  announce();
+}
+
+/**
+ * Something came back. Called from wherever a fetch succeeds.
+ *
+ * This is the one thing that clears the line, because it is the one thing
+ * that proves the workspace can see. Cheap enough to call on every success:
+ * it does nothing at all unless there is something to clear.
+ */
+export function noteReached(): void {
+  if (wentOffline === null) return;
+  wentOffline = null;
+  announce();
+}
+
+// Watched from the moment the module loads rather than lazily from the
+// getter. `useSyncExternalStore` calls the getter while rendering, and a
+// getter that registers window listeners and writes module state is a side
+// effect in a render.
+if (typeof window !== "undefined") {
   wentOffline = isOnline() ? null : Date.now();
   window.addEventListener("online", noteChange);
   window.addEventListener("offline", noteChange);
 }
-let started = false;
 
-/** Subscribes to the state AND to the moment, which change together. */
+/** Subscribes to the moment, which is the thing surfaces read. */
 export function subscribeOffline(listener: Listener): () => void {
-  watchOnce();
   changed.add(listener);
   return () => {
     changed.delete(listener);
   };
 }
 
-/** The moment, as a value a render can follow. Null while the network is on. */
+/** The moment, as a value a render can follow. Null while it can see. */
 export function offlineSince(): number | null {
-  watchOnce();
   return wentOffline;
 }
 
@@ -83,15 +110,10 @@ export function offlineSinceOnServer(): number | null {
 /**
  * For tests, which cannot make a real network come and go.
  *
- * The module remembers a moment across a whole session on purpose, which is
- * exactly what makes it awkward to test twice in one process.
+ * The module remembers a moment for the life of a session on purpose, which
+ * is exactly what makes it awkward to exercise twice in one process.
  */
 export function forgetOfflineForTests(): void {
-  started = false;
-  wentOffline = null;
+  wentOffline = isOnline() ? null : Date.now();
   changed.clear();
-  if (typeof window !== "undefined") {
-    window.removeEventListener("online", noteChange);
-    window.removeEventListener("offline", noteChange);
-  }
 }

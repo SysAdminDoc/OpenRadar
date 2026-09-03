@@ -236,3 +236,23 @@ test("the calmer look reaches the Live button too", async ({ page }) => {
   expect(calm.background).not.toBe(loud);
   expect(calm.background).toBe(calm.fill);
 });
+
+test("still says the workspace cannot see anything", async ({ page }) => {
+  // Calm takes the accent down and reduced motion takes the movement away.
+  // Neither is a reason to stop saying what the workspace cannot reach, and
+  // a line that quietly goes missing in a quieter mode is exactly the kind
+  // this one would have been.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+  });
+  await start(page, true);
+  await expect(page.locator("html")).toHaveAttribute("data-calm", "1");
+
+  const line = page.locator("[data-offline]");
+  await expect(line).toBeVisible();
+  await expect(line).toContainText("Offline for");
+});

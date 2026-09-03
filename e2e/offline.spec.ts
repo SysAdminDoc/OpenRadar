@@ -177,6 +177,102 @@ test.describe("with no network at all", () => {
     await expect(page.locator("[data-watch-failing]")).toHaveCount(0);
   });
 
+  test("asks for nothing at all, from any of its timers", async ({ page }) => {
+    // Not "the overlays stop", which was the first attempt: the workspace has
+    // a dozen timers of its own — the radar loop, the warnings, the
+    // lightning, the wind, the storm cells, the national grids, the site
+    // listing, the watch, the ambient readout, ProbSevere, hydrometeor
+    // classification, the station status — and gating one of them left the
+    // other eleven asking and failing every thirty to a hundred and twenty
+    // seconds. This is the assertion that catches the next one somebody
+    // writes without thinking about it.
+    // The workspace this file's `beforeEach` opened is still running and
+    // still fetching, online. Stopped before anything is recorded, or its
+    // requests land in the count and the test fails for a page that is not
+    // the one under test.
+    await page.goto("about:blank");
+
+    const outbound: string[] = [];
+    await page.route("**/*", async (route) => {
+      const url = route.request().url();
+      const host = new URL(url).hostname;
+      if (host === "127.0.0.1" || host === "localhost") {
+        await route.continue();
+        return;
+      }
+      // Map tiles are not one of these. They go through the `cached` scheme,
+      // which on the desktop IS the local cache: asking for one with no
+      // network is how the last view gets drawn at all, and stopping them
+      // would take away the feature this whole area exists for. Every other
+      // ask is a timer that should have been holding off.
+      // The address is wrapped in the cache scheme's `u=` parameter, so the
+      // real one has to come back out before it can be read.
+      const asked = new URL(url).searchParams.get("u") ?? url;
+      if (!asked.includes("request=GetMap")) outbound.push(asked);
+      await route.abort("connectionfailed");
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "onLine", {
+        configurable: true,
+        get: () => false,
+      });
+    });
+    await page.goto("/?testMode=1");
+    await expect(
+      page.getByRole("application", { name: "Interactive weather map" }),
+    ).toBeVisible();
+    // Long enough for the fastest timer in the app to have come round twice.
+    await page.waitForTimeout(3000);
+
+    expect(
+      outbound,
+      `asked for ${outbound.length} things with no network`,
+    ).toEqual([]);
+  });
+
+  test("keeps saying so on a captive portal, where the browser lies", async ({
+    page,
+  }) => {
+    // The hotel wifi case. `navigator.onLine` is true, every request fails,
+    // and clearing the line on that event told a reader everything was fine
+    // while putting the workspace straight back into polling and failing.
+    // Only something coming back clears it.
+    await page.goto("about:blank");
+    await page.route("**/*", async (route) => {
+      const host = new URL(route.request().url()).hostname;
+      if (host === "127.0.0.1" || host === "localhost") {
+        await route.continue();
+        return;
+      }
+      await route.abort("connectionfailed");
+    });
+    await page.addInitScript(() => {
+      let online = false;
+      Object.defineProperty(navigator, "onLine", {
+        configurable: true,
+        get: () => online,
+      });
+      (window as unknown as { __portal: () => void }).__portal = () => {
+        online = true;
+        window.dispatchEvent(new Event("online"));
+      };
+    });
+    await page.goto("/?testMode=1");
+    await expect(
+      page.getByRole("application", { name: "Interactive weather map" }),
+    ).toBeVisible();
+    await expect(page.locator("[data-offline]")).toContainText("Offline for");
+
+    // The browser now says there is a network. Nothing can be reached.
+    await page.evaluate(() =>
+      (window as unknown as { __portal: () => void }).__portal(),
+    );
+    await page.waitForTimeout(1500);
+
+    // Still saying it, because nothing has come back.
+    await expect(page.locator("[data-offline]")).toContainText("Offline for");
+  });
+
   test("stops asking, and asks again the moment it can", async ({ page }) => {
     // Every switched-on overlay had its own thirty-second timer, and each one
     // went on failing into the log for as long as the machine was off the
