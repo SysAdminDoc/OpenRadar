@@ -17,6 +17,7 @@ import {
   type Classification,
 } from "../lib/classification";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
+import { levelTwoLate, type SiteStatus } from "../lib/radarStatus";
 import {
   FORECAST_SMOKE_UNIT,
   forecastSmokeLabel,
@@ -78,6 +79,11 @@ interface WorkspaceChromeProps {
    * off the newest volume. Null the rest of the time.
    */
   sweepLoop: { index: number; count: number } | null;
+  /**
+   * What the office says about the radar drawing that sweep, when it says
+   * anything. Null over the mosaic and in a browser preview.
+   */
+  sweepStatus: SiteStatus | null;
   /** MRMS products drawn over the radar, each with its own scale. */
   mrmsLayers: MrmsLayer[];
   /** The GOES flash window on the map, when that layer is on. */
@@ -136,6 +142,7 @@ export function WorkspaceChrome({
   frames,
   sweep,
   sweepLoop,
+  sweepStatus,
   mrmsLayers,
   lightning,
   smoke,
@@ -203,7 +210,7 @@ export function WorkspaceChrome({
       })
     : t(mosaic.labelKey);
   const productEyebrow = sweep
-    ? sweepEyebrow(sweep, liveClock, sweepLoop)
+    ? sweepEyebrow(sweep, liveClock, sweepLoop, sweepStatus)
     : t("chrome.liveProduct");
   const sourceHealthy = historicalSweep
     ? true
@@ -622,8 +629,13 @@ function sweepEyebrow(
   sweep: SweepImage,
   clock: number,
   loop: { index: number; count: number } | null,
+  status: SiteStatus | null,
 ): string {
-  const tilt = withOldest(tiltEyebrow(sweep, clock, loop), sweep, clock);
+  const tilt = withSilence(
+    withOldest(tiltEyebrow(sweep, clock, loop), sweep, clock),
+    status,
+    clock,
+  );
   // A terminal radar is named as such, with its reach: the picture is
   // another instrument's, drawn to another distance, and the legend has to
   // say so where the tilt is said.
@@ -631,6 +643,24 @@ function sweepEyebrow(
   return `${tilt} · ${translate("chrome.terminalRadar", {
     range: Math.round(sweep.rangeKm),
   })}`;
+}
+
+/**
+ * How long the office has gone without hearing from this radar.
+ *
+ * A held site keeps being drawn when it stops sending, because the reader
+ * chose it and the last volume is still the last thing anybody knows. What it
+ * must not do is go on looking current: the picture's own age says how old
+ * this sweep is, and this says the radar has not been heard from since, which
+ * is the difference between a quiet sky and a transmitter that is off.
+ */
+function withSilence(
+  line: string,
+  status: SiteStatus | null,
+  clock: number,
+): string {
+  const late = levelTwoLate(status, clock);
+  return late ? `${line} · ${late}` : line;
 }
 
 /**

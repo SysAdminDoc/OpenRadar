@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceChrome } from "./WorkspaceChrome";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import type { SweepImage } from "../lib/level2";
+import type { SiteStatus } from "../lib/radarStatus";
 import { formatDistance, setUnits } from "../lib/units";
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 
@@ -72,6 +73,7 @@ function chrome(
     sweep?: SweepImage | null;
     liveClock?: number;
     sweepLoop?: { index: number; count: number } | null;
+    sweepStatus?: SiteStatus | null;
   } = {},
 ) {
   return (
@@ -81,6 +83,7 @@ function chrome(
       frames={[]}
       sweep={overrides.sweep ?? null}
       sweepLoop={overrides.sweepLoop ?? null}
+      sweepStatus={overrides.sweepStatus ?? null}
       mrmsLayers={[]}
       lightning={null}
       smoke={null}
@@ -176,6 +179,47 @@ describe("the legend over a volume the loop reached back for", () => {
     // credit line under the map and whether the scrubber was usable at all,
     // so one step back disabled the control that took it.
     expect(screen.queryByText("NOAA NEXRAD Level II")).toBeNull();
+  });
+});
+
+describe("the legend over a radar that has gone quiet", () => {
+  it("says how long since anything was heard from it", () => {
+    // A held site keeps being drawn when it stops sending, because the reader
+    // chose it and the last volume is still the last thing anybody knows.
+    // What it must not do is go on looking current: the sweep's own age is
+    // how old this picture is, and this is how long the radar has been off.
+    render(
+      chrome(113, {
+        sweep: sweepOf(false),
+        liveClock: Date.parse(COLLECTED) + 37_000,
+        sweepStatus: {
+          station: "KDMX",
+          status: "Operate",
+          operability: "RDA - On-line",
+          levelTwoAt: new Date(
+            Date.parse(COLLECTED) - 40 * 60_000,
+          ).toISOString(),
+          fault: "noRecentData",
+        },
+      }),
+    );
+    expect(screen.getByText(/NOT HEARD FROM FOR/)).toBeTruthy();
+  });
+
+  it("says nothing while the radar is being heard from", () => {
+    render(
+      chrome(113, {
+        sweep: sweepOf(false),
+        sweepStatus: {
+          station: "KDMX",
+          status: "Operate",
+          operability: "RDA - On-line",
+          levelTwoAt: COLLECTED,
+          fault: null,
+        },
+      }),
+    );
+    expect(screen.queryByText(/NOT HEARD FROM/)).toBeNull();
   });
 });
 

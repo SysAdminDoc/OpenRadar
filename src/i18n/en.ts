@@ -579,6 +579,10 @@ export const en = {
   "radar.site": "Site",
   "radar.siteLabel": "Radar site",
   "radar.terminalRadars": "Terminal radars (TDWR)",
+  "radar.siteWithFault": "{site} ({reason})",
+  "radar.faultNoRecentData": "nothing received for {age}",
+  "radar.faultOffline": "not sending",
+  "radar.faultNotOperating": "{state}",
   "radar.terminalLine":
     "Terminal Doppler weather radar, {range} km reach · {source}",
   "radar.terminalProducts":
@@ -1116,6 +1120,7 @@ export const en = {
   "chrome.tilt": "{degrees}° TILT",
   "chrome.tiltHistorical": "{degrees}° TILT, HISTORICAL",
   "chrome.tiltLoop": "{degrees}° TILT · VOLUME {index} OF {count}, {time}",
+  "chrome.levelTwoLate": "NOT HEARD FROM FOR {age}",
   "chrome.tiltDealiased": "{degrees}° TILT · UNFOLDED",
   "chrome.tiltLive": "{degrees}° TILT · LIVE, {seconds} SEC OLD",
   "chrome.tiltLiveDealiased":

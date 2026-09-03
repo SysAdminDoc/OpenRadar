@@ -73,6 +73,8 @@ import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
 import { useWind } from "./hooks/useWind";
 import { useSingleSiteRadar } from "./hooks/useSingleSiteRadar";
+import { useRadarStatus } from "./hooks/useRadarStatus";
+import { statusFor } from "./lib/radarStatus";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { CommandAction } from "./lib/commands";
@@ -360,6 +362,14 @@ export default function App() {
       !timeline.playing && timeline.frames[timeline.frameIndex]?.time
         ? timeline.frames[timeline.frameIndex].time * 1000
         : null,
+  });
+
+  // What the office says about every radar, while a site is on the map. One
+  // request for the whole country, so there is nothing to narrow, and a
+  // reader watching the national mosaic has no use for it.
+  const siteStatus = useRadarStatus({
+    enabled: singleSite.station !== null,
+    pageVisible,
   });
 
   // Only that a warning was announced. Whether to fly to it, and where to,
@@ -2215,6 +2225,7 @@ export default function App() {
             frameCount={frames.length}
             sourceLabel={timeline.sourceLabel}
             singleSite={level2Available() ? singleSite : null}
+            siteStatus={siteStatus}
             stormCells={stormCells}
             nearby={{ ...nearby, cellNames: namesHere, onNameCell: nameCell }}
             replaying={Boolean(replay)}
@@ -2359,6 +2370,7 @@ export default function App() {
         frames={frames}
         sweep={singleSite.sweep}
         sweepLoop={singleSite.loop}
+        sweepStatus={statusFor(siteStatus, singleSite.station)}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
         smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}

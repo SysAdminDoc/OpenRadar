@@ -589,6 +589,10 @@ export const es: Catalogue = {
   "radar.site": "Radar",
   "radar.siteLabel": "Estación de radar",
   "radar.terminalRadars": "Radares de terminal (TDWR)",
+  "radar.siteWithFault": "{site} ({reason})",
+  "radar.faultNoRecentData": "sin datos desde hace {age}",
+  "radar.faultOffline": "sin transmitir",
+  "radar.faultNotOperating": "{state}",
   "radar.terminalLine":
     "Radar Doppler de terminal, {range} km de alcance · {source}",
   "radar.terminalProducts":
@@ -1133,6 +1137,7 @@ export const es: Catalogue = {
   "chrome.tiltHistorical": "ELEVACIÓN {degrees}°, HISTÓRICA",
   "chrome.tiltLoop":
     "ELEVACIÓN {degrees}° · VOLUMEN {index} DE {count}, {time}",
+  "chrome.levelTwoLate": "SIN NOTICIAS DESDE HACE {age}",
   "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
   "chrome.tiltLive": "ELEVACIÓN {degrees}° · EN VIVO, HACE {seconds} S",
   "chrome.tiltLiveDealiased":

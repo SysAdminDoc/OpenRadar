@@ -595,6 +595,10 @@ export const fr: Catalogue = {
   "radar.site": "Site",
   "radar.siteLabel": "Site radar",
   "radar.terminalRadars": "Radars terminaux (TDWR)",
+  "radar.siteWithFault": "{site} ({reason})",
+  "radar.faultNoRecentData": "aucune donnée depuis {age}",
+  "radar.faultOffline": "n'émet plus",
+  "radar.faultNotOperating": "{state}",
   "radar.terminalLine":
     "Radar météorologique Doppler terminal, portée de {range} km · {source}",
   "radar.terminalProducts":
@@ -1145,6 +1149,7 @@ export const fr: Catalogue = {
   "chrome.tilt": "ANGLE {degrees}°",
   "chrome.tiltHistorical": "ANGLE {degrees}°, ARCHIVE",
   "chrome.tiltLoop": "ANGLE {degrees}° · VOLUME {index} SUR {count}, {time}",
+  "chrome.levelTwoLate": "SANS NOUVELLES DEPUIS {age}",
   "chrome.tiltDealiased": "ANGLE {degrees}° · DÉPLIÉ",
   "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, IL Y A {seconds} S",
   "chrome.tiltLiveDealiased":

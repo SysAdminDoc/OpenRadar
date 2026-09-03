@@ -491,6 +491,10 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
           // accident for every command in the app.
           if (command === "mrms_products") return [];
           if (command === "mrms_frames") return [];
+          // The office's word on every radar. Nobody down, which is what a
+          // spec about anything else wants: a site greyed out for a reason it
+          // never set up would fail somewhere far from the cause.
+          if (command === "radar_status") return [];
           if (command === "set_palettes") return 0;
           if (command === "set_palette") return 0;
 
