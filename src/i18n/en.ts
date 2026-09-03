@@ -1451,6 +1451,7 @@ export const en = {
   "toast.leftOut": "{names} left out",
   "toast.overlayLocal": "The overlay stays on this device.",
   "toast.placefileEmpty": "That placefile has nothing this map can draw.",
+  "toast.kmlEmpty": "That KML has no shapes in it.",
   "toast.shapes": "{count, plural, one {# shape} other {# shapes}}",
   "toast.refreshEvery": "it asks to be refreshed every {minutes} min",
   "toast.truncated": "the file ended mid-shape",
