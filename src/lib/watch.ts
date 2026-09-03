@@ -306,6 +306,14 @@ export function alertId(
   properties: Record<string, unknown>,
   bounds: OverlayBounds,
 ): string {
+  // The alert's own identifier first. The American feed puts a per-alert
+  // address in `url` and that served as the identity for a long time, but an
+  // office that publishes one warnings page for the whole country puts the
+  // SAME address on every warning: every Canadian alert then shared one
+  // identity, so a poll collapsed them all into one announcement and the
+  // second one at a place was never spoken again.
+  const capId = String(properties.capId ?? "");
+  if (capId) return capId;
   const url = String(properties.url ?? "");
   if (url) return url;
   const where = [bounds.west, bounds.south, bounds.east, bounds.north]

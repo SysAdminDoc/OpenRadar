@@ -20,6 +20,11 @@ import type { Page } from "@playwright/test";
  */
 export async function unreachable(page: Page): Promise<string[]> {
   return page.evaluate(() => {
+    // Where a box would have to be scrolled to. Only a box that CAN scroll
+    // counts here: a clipped one keeps the whole overflowing extent in its
+    // `scrollHeight`, so stopping the walk at it made the extent check
+    // unfalsifiable. The app shell is `overflow: hidden`, so treating that as
+    // the scroller quietly excused every element in the app.
     const scrollerOf = (element: HTMLElement, axis: "X" | "Y"): HTMLElement => {
       let at = element.parentElement;
       while (at && at !== document.documentElement) {
@@ -27,21 +32,32 @@ export async function unreachable(page: Page): Promise<string[]> {
           axis === "X"
             ? getComputedStyle(at).overflowX
             : getComputedStyle(at).overflowY;
-        // `hidden` counts. It cannot be scrolled at all, so a box squeezed to
-        // nothing by one is exactly as unreachable as a box outside a
-        // scroller's extent, and walking past it to the document read clean:
-        // the same failure this was written to catch, wearing a different
-        // overflow value.
-        if (
-          overflow === "auto" ||
-          overflow === "scroll" ||
-          overflow === "hidden"
-        ) {
-          return at;
-        }
+        if (overflow === "auto" || overflow === "scroll") return at;
         at = at.parentElement;
       }
       return document.documentElement;
+    };
+
+    /**
+     * An ancestor with no room to show anything, scrollable or not.
+     *
+     * A separate question from the one above. A box squeezed to nothing by a
+     * clipped ancestor is unreachable however the ancestor is written, and a
+     * fixed group above a scrolling one did exactly that to twenty controls;
+     * but the extent question can only be asked of something that scrolls.
+     */
+    const squeezedBy = (element: HTMLElement): HTMLElement | null => {
+      let at = element.parentElement;
+      while (at && at !== document.documentElement) {
+        const style = getComputedStyle(at);
+        const clipped =
+          style.overflowY === "auto" ||
+          style.overflowY === "scroll" ||
+          style.overflowY === "hidden";
+        if (clipped && at.clientHeight === 0 && at.scrollHeight > 0) return at;
+        at = at.parentElement;
+      }
+      return null;
     };
 
     /**
@@ -100,14 +116,15 @@ export async function unreachable(page: Page): Promise<string[]> {
       // nothing: at 1024 by 720 with the text at 130 percent, twenty
       // controls sat inside a region with a client height of zero. Every
       // horizontal check passed, because horizontally they were fine.
-      const down = scrollerOf(element, "Y");
-      const downFrame = down.getBoundingClientRect();
-      if (down !== document.documentElement && down.clientHeight === 0) {
+      const squeezed = squeezedBy(element);
+      if (squeezed) {
         out.push(
-          `${element.className || element.tagName} is inside ${down.className || down.tagName}, which has no height to show it in`,
+          `${element.className || element.tagName} is inside ${squeezed.className || squeezed.tagName}, which has no height to show it in`,
         );
         continue;
       }
+      const down = scrollerOf(element, "Y");
+      const downFrame = down.getBoundingClientRect();
       const top = within(
         box.top / scale,
         downFrame.top / scale,

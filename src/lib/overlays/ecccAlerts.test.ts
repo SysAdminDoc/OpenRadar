@@ -19,9 +19,11 @@ const feed = {
   features: [
     {
       type: "Feature",
+      id: "1549337151571786398202609020503_fea1-0011",
       geometry: { type: "MultiPolygon", coordinates: [] },
       properties: {
         alert_code: "TRW",
+        status_en: "actual",
         alert_type: "warning",
         alert_name_en: "tornado warning",
         alert_name_fr: "alerte de tornade",
@@ -39,9 +41,11 @@ const feed = {
     },
     {
       type: "Feature",
+      id: "1549337151571786398202609020504_fea1-0003",
       geometry: { type: "MultiPolygon", coordinates: [] },
       properties: {
         alert_code: "STV",
+        status_en: "actual",
         alert_type: "watch",
         alert_name_en: "severe thunderstorm watch",
         alert_name_fr: "veille d'orages violents",
@@ -60,6 +64,22 @@ const feed = {
       type: "Feature",
       geometry: { type: "MultiPolygon", coordinates: [] },
       properties: { alert_type: "statement" },
+    },
+    {
+      // Ended, and still carrying an expiry hours away.
+      type: "Feature",
+      id: "1549337151571786398202609020505_fea1-0044",
+      geometry: { type: "MultiPolygon", coordinates: [] },
+      properties: {
+        alert_type: "warning",
+        alert_name_en: "tornado warning",
+        alert_name_fr: "alerte de tornade",
+        status_en: "ended",
+        risk_colour_en: "red",
+        feature_id: "fea1-0044",
+        expiration_datetime: "2026-09-03T06:01:00Z",
+        alert_text_en: "The tornado warning has ended.",
+      },
     },
   ],
 };
@@ -89,18 +109,26 @@ describe("Canadian warnings", () => {
     expect(bbox).toBe("-141.100,41.600,-52.500,83.200");
   });
 
-  it("reads the office's stage and its colour together", () => {
-    // Two fields saying different things: the stage the hazard is at, and how
-    // bad the office expects it to be. A red warning is the top of the scale;
-    // a yellow watch is not.
-    expect(ecccSeverity("warning", "red")).toBe("extreme");
-    expect(ecccSeverity("warning", "yellow")).toBe("severe");
-    expect(ecccSeverity("watch", "yellow")).toBe("moderate");
-    expect(ecccSeverity("advisory", "yellow")).toBe("minor");
-    expect(ecccSeverity("statement", "")).toBe("minor");
-    // A colour the service has not published before must not silently become
-    // the worst thing on the map.
-    expect(ecccSeverity("warning", "chartreuse")).toBe("severe");
+  it("reads the office's stage, and the product name after it", () => {
+    // The colour is deliberately not read. It is how the office DRAWS a
+    // warning, not how bad it is, and ECCC paints a severe thunderstorm
+    // warning red; taking red as extreme put it above the identical American
+    // product. The stage says warning or watch, and the name climbs the same
+    // ladder an American product name climbs.
+    expect(ecccSeverity("warning", "tornado warning")).toBe("extreme");
+    expect(ecccSeverity("warning", "severe thunderstorm warning")).toBe(
+      "severe",
+    );
+    expect(ecccSeverity("warning", "rainfall warning")).toBe("severe");
+    expect(ecccSeverity("watch", "tornado watch")).toBe("moderate");
+    expect(ecccSeverity("advisory", "frost advisory")).toBe("minor");
+    expect(ecccSeverity("statement", "special weather statement")).toBe(
+      "minor",
+    );
+    // A stage the office has not published before is the bottom of the
+    // scale, never the top: a warning drawn louder than it was issued is the
+    // direction that costs a reader's trust.
+    expect(ecccSeverity("bulletin", "something new")).toBe("minor");
   });
 
   it("hands the map a warning shaped like every other one", () => {
@@ -131,6 +159,60 @@ describe("Canadian warnings", () => {
     // The grouping still reads the English name, because it is written in
     // English words: a French reader must not lose the tornado switch.
     expect(tornado.properties.kind).toBe("tornado");
+  });
+
+  it("does not draw an alert the office has ended", () => {
+    // ECCC keeps ended alerts in the same collection with an expiry still
+    // hours away, so nothing downstream drops them: sixty-five of three
+    // hundred were ended on the day this was written, among them a tornado
+    // warning. Drawn, it would have been red, ranked extreme, and announced
+    // at a watched place for something already called off.
+    const drawn = parseEcccAlerts(feed);
+    expect(drawn.map((one) => one.properties.headline)).not.toContain(
+      "Tornado Warning Ended",
+    );
+    expect(drawn).toHaveLength(2);
+    for (const one of drawn) {
+      expect(String(one.properties.description)).not.toContain("has ended");
+    }
+  });
+
+  it("gives every warning an identity of its own", () => {
+    // The watch reads one identifier per warning, and an office that
+    // publishes a single warnings page for the whole country puts the same
+    // address on all of them: every Canadian alert shared one identity, a
+    // poll collapsed them into one announcement, and the second warning at a
+    // place was never spoken again. `feature_id` is no better, being the
+    // REGION: fourteen warnings shared the empty string on the day this was
+    // written.
+    const drawn = parseEcccAlerts(feed);
+    const ids = drawn.map((one) => String(one.properties.capId));
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) expect(id).not.toBe("");
+  });
+
+  it("ranks a warning the way its American twin is ranked", () => {
+    // The office paints a severe thunderstorm warning red. Read as severity,
+    // that put it above the identical American product: top fill, extreme
+    // tone, and through quiet hours at every override setting.
+    const red = parseEcccAlerts({
+      features: [
+        {
+          type: "Feature",
+          id: "red-1",
+          geometry: { type: "MultiPolygon", coordinates: [] },
+          properties: {
+            alert_type: "warning",
+            alert_name_en: "severe thunderstorm warning",
+            status_en: "actual",
+            risk_colour_en: "red",
+          },
+        },
+      ],
+    });
+    expect(red[0].properties.severity).toBe("severe");
+    // And a tornado warning still climbs, because the name does it.
+    expect(parseEcccAlerts(feed)[0].properties.severity).toBe("extreme");
   });
 
   it("drops a feature with nothing to say", () => {
@@ -167,8 +249,12 @@ describe.runIf(LIVE)("against the live service", () => {
       expect(["warning", "watch", "advisory", "statement"]).toContain(
         String(said.alert_type),
       );
-      expect(typeof said.risk_colour_en).toBe("string");
+      // Not the colour: it is null on a special weather statement, which is
+      // a fifth of the feed, and the parser does not read it at all.
       expect(typeof said.alert_text_en).toBe("string");
+      // The field that says whether the alert still stands. Without it an
+      // ended tornado warning is drawn in red and announced.
+      expect(typeof said.status_en).toBe("string");
     }
 
     // And the whole way through, so a change in the geometry or the naming

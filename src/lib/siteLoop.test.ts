@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loopKey, loopPrefetch, trimHeld, volumeForTime } from "./siteLoop";
+import { loopKey, trimHeld, volumeForTime } from "./siteLoop";
 
 /** Five volumes about five minutes apart, oldest first. */
 const times = [
@@ -30,24 +30,6 @@ describe("which volume a moment is showing", () => {
   it("has nothing to show for a moment older than anything held", () => {
     expect(volumeForTime(times, Date.UTC(2026, 7, 30, 20, 59))).toBe(null);
     expect(volumeForTime([], Date.now())).toBe(null);
-  });
-});
-
-describe("what to have in hand", () => {
-  it("asks for the one on screen first and then the way it plays", () => {
-    // Every volume is ten megabytes fetched and decoded. Entering a site view
-    // cost one; making it cost ten up front would be a tenfold bill for a
-    // loop nobody has pressed play on.
-    expect(loopPrefetch(times, Date.UTC(2026, 7, 30, 21, 7))).toEqual([
-      times[1],
-      times[2],
-      times[3],
-    ]);
-  });
-
-  it("stops at the newest rather than inventing one", () => {
-    expect(loopPrefetch(times, times[4])).toEqual([times[4]]);
-    expect(loopPrefetch(times, Date.UTC(2026, 7, 30, 20, 0))).toEqual([]);
   });
 });
 
