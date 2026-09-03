@@ -1,5 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { routeWorkspace, transparentPng } from "./support/fixtures";
+import { expectClean } from "./support/axe";
 
 /** Every switch in the Layers panel and the map layer it is meant to control. */
 const LAYERS: Array<{ label: RegExp; layerId: string; onByDefault: boolean }> =
@@ -485,6 +486,10 @@ test("watches a point and says when a warning reaches it", async ({ page }) => {
   // unscoped match resolves to both.
   const toast = page.locator(".toast-host");
   await expect(toast.getByText("Tornado Warning").first()).toBeVisible();
+  // A warning toast is the app's loudest moment and the accessibility gate
+  // could never reach it: it needs a watched place and a warning over it,
+  // which is exactly the fixture this test already builds.
+  await expectClean(page, "warning toast");
   await expect(
     toast.getByText(/miles from the point you watch|where you are watching/),
   ).toBeVisible();
@@ -656,6 +661,9 @@ test("hands a warning to the layer that explains it", async ({ page }) => {
   await expect(popup).toContainText("confirmed tornado was located");
   await expect(popup).toContainText("TAKE COVER NOW!");
   await expect(popup).toContainText("Collier, FL");
+  // A popup over the map is markup the gate had no way to open: it takes a
+  // click that lands inside a warning polygon.
+  await expectClean(page, "warning popup");
 
   // The app already holds the thing that explains this warning. The reader
   // should not have to know where it is.

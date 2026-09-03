@@ -2,40 +2,11 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { routeWorkspace } from "./support/fixtures";
 import { obscuredWhenFocused, unreachable } from "./support/layout";
-
-/**
- * The map canvas is a WebGL surface with no accessible content of its own, and
- * MapLibre's own attribution control is outside our markup.
- */
-const EXCLUDED = [".maplibregl-canvas-container", ".maplibregl-ctrl-attrib"];
-
-/** Panels animate in, and axe reads a mid-animation colour as a failure. */
-const PANEL_SETTLE_MS = 300;
-
-async function scan(page: Page) {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .exclude(EXCLUDED)
-    .analyze();
-
-  return results.violations.filter(
-    (violation) =>
-      violation.impact === "serious" || violation.impact === "critical",
-  );
-}
-
-function describeViolations(
-  violations: Awaited<ReturnType<typeof scan>>,
-): string {
-  return violations
-    .map(
-      (violation) =>
-        `${violation.id} (${violation.impact}): ${violation.nodes
-          .map((node) => node.target.join(" "))
-          .join(", ")}`,
-    )
-    .join("\n");
-}
+import { SURFACES, declaredSurfaces, openSurface } from "./support/surfaces";
+import type { OpenSurface } from "./support/surfaces";
+import { PANEL_SETTLE_MS, describeViolations, scan } from "./support/axe";
+import { fr } from "../src/i18n/fr";
+import { pseudo } from "../src/i18n/pseudo";
 
 test.beforeEach(async ({ page }) => {
   await routeWorkspace(page);
@@ -192,28 +163,48 @@ test("keeps every panel clean in the calmer presentation", async ({ page }) => {
   }
 });
 
-test("every panel the command bar opens is clean too", async ({ page }) => {
-  for (const name of [
-    "Layers",
-    "Map Type",
-    "Alerts",
-    "Tropical",
-    "Route",
-    "Search",
-    "Export",
-    "Forecast",
-    "Settings",
-    "Upload",
-    "Diagnostics",
-  ]) {
-    await page.getByRole("button", { name, exact: true }).click();
-    await expect(page.getByRole("heading", { name })).toBeVisible();
-    await page.waitForTimeout(PANEL_SETTLE_MS);
-    const violations = await scan(page);
-    expect(`${name}: ${describeViolations(violations)}`).toBe(`${name}: `);
-    await page.getByRole("button", { name: `Close ${name}` }).click();
-  }
+test("the gate scans every surface the app has", async () => {
+  // The list it loops over used to be eleven names written by hand, and the
+  // app had eighteen surfaces: Commands, Storm history, Guidance, Sounding,
+  // Tides, Nearby weather and Cross-section had never been scanned in any
+  // theme, and nothing anywhere said so. Read out of the source so a surface
+  // added later fails here rather than quietly going unscanned.
+  const declared = await declaredSurfaces();
+  expect(declared.length).toBeGreaterThan(11);
+  expect(Object.keys(SURFACES).sort()).toEqual([...declared].sort());
 });
+
+for (const id of Object.keys(SURFACES) as OpenSurface[]) {
+  test(`${id} is clean in dark, in light and with more contrast`, async ({
+    page,
+  }) => {
+    await openSurface(page, id);
+    expect(`${id} dark: ${describeViolations(await scan(page))}`).toBe(
+      `${id} dark: `,
+    );
+
+    // The light palette is a second set of colours over the same markup, and
+    // every light-theme finding this repo has had sat in a panel the gate
+    // had never opened.
+    await page.reload();
+    await expect(
+      page.getByRole("application", { name: "Interactive weather map" }),
+    ).toBeVisible();
+    await goLight(page);
+    await openSurface(page, id);
+    expect(`${id} light: ${describeViolations(await scan(page))}`).toBe(
+      `${id} light: `,
+    );
+
+    // And light with the system asking for more contrast, which swaps borders
+    // and ramps rather than only darkening the ink.
+    await page.emulateMedia({ contrast: "more" });
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(
+      `${id} light + contrast: ${describeViolations(await scan(page))}`,
+    ).toBe(`${id} light + contrast: `);
+  });
+}
 
 /**
  * The readout has a button of its own on the rail now.
@@ -562,3 +553,317 @@ test("the warnings in view are a list, and the tool readout is always there", as
   expect(await rows.count()).toBeGreaterThan(0);
   expect(await rows.count()).toBe(await list.locator(".alert-row").count());
 });
+
+test("Settings is clean once a reader has a place they watch", async ({
+  page,
+}) => {
+  // Empty, Settings is a column of switches. With a place set it grows the
+  // watch card, a named radius, a severity choice and a sound row, which is
+  // the state a reader who has finished setting the app up actually sees.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        seenWelcome: true,
+        seenReveal: true,
+        watch: {
+          enabled: true,
+          sound: true,
+          name: "Casa",
+          center: [-96.8, 32.78],
+          radiusMiles: 30,
+          minSeverity: "severe",
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await openSurface(page, "settings");
+  // The watch card is only in the panel once there is a place, so this is
+  // what says the scan below ran over the fuller Settings rather than the
+  // empty one.
+  await expect(
+    page.getByRole("textbox", { name: "What you call home" }),
+  ).toHaveValue("Casa");
+  expect(`dark: ${describeViolations(await scan(page))}`).toBe("dark: ");
+
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(`light: ${describeViolations(await scan(page))}`).toBe("light: ");
+});
+
+test("the capture layout is clean in both themes", async ({ page }) => {
+  // The layout somebody records the screen in. It strips the chrome down to
+  // a bar, which is exactly the kind of change that leaves a control with
+  // nothing but an icon and no name.
+  const enter = async () => {
+    await page.getByRole("button", { name: "Commands", exact: true }).click();
+    await page.locator('[data-command="capture"]').click();
+    await expect(page.locator("[data-capture-bar]")).toBeVisible();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+  };
+
+  await enter();
+  expect(`dark: ${describeViolations(await scan(page))}`).toBe("dark: ");
+
+  await page.getByRole("button", { name: "Leave capture layout" }).click();
+  await goLight(page);
+  await enter();
+  expect(`light: ${describeViolations(await scan(page))}`).toBe("light: ");
+});
+
+test("the ambient view is clean", async ({ page }) => {
+  // Meant to be left running on a second monitor, so it is the surface a
+  // reader looks at longest and the one nobody clicks through.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        seenWelcome: true,
+        seenReveal: true,
+        watch: {
+          enabled: true,
+          sound: false,
+          name: "Casa",
+          center: [-96.8, 32.78],
+          radiusMiles: 30,
+          minSeverity: "severe",
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page.locator('[data-command="ambient-screen"]').click();
+  await expect(page.locator("[data-ambient-readout]")).toBeVisible();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(describeViolations(await scan(page))).toBe("");
+});
+
+test("the workspace stays clean at 130 percent text", async ({ page }) => {
+  // Every colour is the same at 130 percent and every size is not, which is
+  // where a control ends up under another one or a label ends up clipped.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "130%", exact: true }).click();
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(`bare: ${describeViolations(await scan(page))}`).toBe("bare: ");
+
+  await openSurface(page, "layers");
+  expect(`layers: ${describeViolations(await scan(page))}`).toBe("layers: ");
+});
+
+test("the glance window is clean in both themes", async ({ page }) => {
+  // Its own page and its own stylesheet, scanned by nothing until now.
+  const open = async (theme: "dark" | "light") => {
+    await page.addInitScript((value: string) => {
+      (
+        window as unknown as { __TAURI_INTERNALS__: Record<string, unknown> }
+      ).__TAURI_INTERNALS__ = {
+        convertFileSrc: (path: string) => path,
+        transformCallback: (callback: unknown) => callback,
+        invoke: async (command: string) => {
+          if (command === "glance_read")
+            return {
+              place: "Casa",
+              warning: true,
+              headline: "Tornado Warning",
+              picture: "",
+              observedMs: Date.now() - 4 * 60_000,
+              source: "MRMS",
+              at: Date.now(),
+            };
+          if (command === "plugin:store|load") return 1;
+          if (command === "plugin:store|get")
+            return [{ schemaVersion: 3, theme: value }, true];
+          throw new Error(`the glance window invoked ${command}`);
+        },
+      };
+    }, theme);
+    await page.goto("/glance.html");
+    await expect(page.locator(".glance")).toBeVisible();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+  };
+
+  await open("dark");
+  expect(`dark: ${describeViolations(await scan(page))}`).toBe("dark: ");
+
+  await open("light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  expect(`light: ${describeViolations(await scan(page))}`).toBe("light: ");
+});
+
+test("the radar product sheet is clean in both themes", async ({ page }) => {
+  // Not a surface in the union: it is its own sheet, opened from the palette
+  // and from a product command, and the gate had never opened it.
+  const open = async () => {
+    await page.getByRole("button", { name: "Commands", exact: true }).click();
+    await page.locator('[data-command="surface:radar-product"]').click();
+    await expect(
+      page.getByRole("heading", { name: "Composite Radar" }),
+    ).toBeVisible();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+  };
+
+  await open();
+  expect(`dark: ${describeViolations(await scan(page))}`).toBe("dark: ");
+
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+  await goLight(page);
+  await open();
+  expect(`light: ${describeViolations(await scan(page))}`).toBe("light: ");
+});
+
+test("two panes are clean in both themes", async ({ page }) => {
+  // Half the room each, a second set of chrome, and a divider between them.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Dual Pane", exact: true }).click();
+  await expect(pane).toHaveCount(2);
+  await page.waitForTimeout(PANEL_SETTLE_MS);
+  expect(`dark: ${describeViolations(await scan(page))}`).toBe("dark: ");
+
+  await goLight(page);
+  await expect(pane).toHaveCount(2);
+  expect(`light: ${describeViolations(await scan(page))}`).toBe("light: ");
+});
+
+for (const language of ["fr", "pseudo"] as const) {
+  test(`the workspace is clean in ${language}`, async ({ page }) => {
+    // Longer words in French and a third longer again in the pseudolocale,
+    // which is where a label overruns its button or gets clipped out of the
+    // accessible name. The button names come from the app's own catalogue
+    // rather than being written out here, so a retranslation cannot leave
+    // this test looking for a label nobody renders.
+    const words = language === "fr" ? fr : pseudo;
+    await page.addInitScript((id: string) => {
+      window.localStorage.setItem(
+        "openradar.settings",
+        JSON.stringify({ schemaVersion: 3, seenWelcome: true, language: id }),
+      );
+    }, language);
+    await page.reload();
+    await expect(page.getByRole("application", { name: /.+/ })).toBeVisible();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(`bare: ${describeViolations(await scan(page))}`).toBe("bare: ");
+
+    // And with a panel over the map, which is the widest the chrome gets.
+    await page
+      .getByRole("button", { name: words["bar.commands"], exact: true })
+      .click();
+    await page.locator('[data-command="surface:layers"]').click();
+    await expect(
+      page.getByRole("dialog", { name: words["panel.layers"] }),
+    ).toBeVisible();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(`layers: ${describeViolations(await scan(page))}`).toBe("layers: ");
+  });
+}
+
+for (const scale of ["115%", "130%"] as const) {
+  test(`the workspace is clean at ${scale} text`, async ({ page }) => {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: scale, exact: true }).click();
+    await page.getByRole("button", { name: "Close Settings" }).click();
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(`bare: ${describeViolations(await scan(page))}`).toBe("bare: ");
+
+    await openSurface(page, "layers");
+    expect(`layers: ${describeViolations(await scan(page))}`).toBe("layers: ");
+  });
+}
+
+/**
+ * The two screens that replace the whole workspace when it cannot draw.
+ *
+ * Neither had ever been scanned, and both are the one thing on the display:
+ * a reader who lands on one has nothing else to read.
+ */
+for (const theme of ["dark", "light"] as const) {
+  test(`the no-WebGL2 screen is clean for a reader on ${theme}`, async ({
+    page,
+  }) => {
+    await page.addInitScript((which: string) => {
+      window.localStorage.setItem(
+        "openradar.settings",
+        JSON.stringify({ schemaVersion: 3, seenWelcome: true, theme: which }),
+      );
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (
+        this: HTMLCanvasElement,
+        kind: string,
+        ...rest: unknown[]
+      ) {
+        if (kind === "webgl2") return null;
+        return (
+          original as unknown as (
+            this: HTMLCanvasElement,
+            kind: string,
+            ...rest: unknown[]
+          ) => unknown
+        ).call(this, kind, ...rest);
+      } as typeof HTMLCanvasElement.prototype.getContext;
+    }, theme);
+    await page.reload();
+
+    const notice = page.getByRole("alert");
+    await expect(notice).toContainText("WebGL2");
+    // Whichever theme the reader chose, this screen is the dark palette: the
+    // workspace that applies the setting is what did not start. Scanned from
+    // both settings anyway, because that is the state a reader arrives in.
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(describeViolations(await scan(page))).toBe("");
+  });
+
+  test(`the render-failure screen is clean for a reader on ${theme}`, async ({
+    page,
+  }) => {
+    // Reached with a fault rather than with a hook in the product: the
+    // workspace reads `matchMedia` while it renders, and a getter that throws
+    // is the same shape of failure as a decoder throwing mid-draw.
+    await page.addInitScript((which: string) => {
+      window.localStorage.setItem(
+        "openradar.settings",
+        JSON.stringify({ schemaVersion: 3, seenWelcome: true, theme: which }),
+      );
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        get() {
+          throw new Error("the sweep could not be drawn");
+        },
+      });
+    }, theme);
+    await page.reload();
+
+    const fatal = page.locator(".fatal-error");
+    await expect(fatal).toBeVisible();
+    await expect(fatal).toContainText("the sweep could not be drawn");
+    // All three ways out, which is what the screen is for.
+    await expect(
+      fatal.getByRole("button", { name: "Copy diagnostics" }),
+    ).toBeVisible();
+    await expect(fatal.getByRole("button", { name: "Reload" })).toBeVisible();
+    await expect(
+      fatal.getByRole("button", { name: "Reset layout" }),
+    ).toBeVisible();
+    // Dark here too, and for the same reason: the effect that applies the
+    // theme lives in the component that threw.
+    await page.waitForTimeout(PANEL_SETTLE_MS);
+    expect(describeViolations(await scan(page))).toBe("");
+  });
+}

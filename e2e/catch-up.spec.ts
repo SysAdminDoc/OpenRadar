@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { fakeDesktop, routeWorkspace, stubHost } from "./support/fixtures";
 
 /**
@@ -147,6 +148,9 @@ test("says what the record holds from the time the app was closed", async ({
   // Tuesday is not a warning now, and a line with no time reads like one.
   await expect(lines.first().locator("small")).not.toBeEmpty();
   await expect(lines.first().locator("small")).toContainText("Casa");
+  // The card with rows in it. The accessibility gate has no way to build a
+  // journal, so it is scanned here where one exists.
+  await expectClean(page, "catch-up card");
 
   await card.getByRole("button", { name: /thanks|gracias|merci/i }).click();
   await expect(card).toBeHidden();

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace } from "./support/fixtures";
 
 const transparentPng = Buffer.from(
@@ -164,6 +165,9 @@ test("prepares, resumes, renders, and removes a checked offline pack", async ({
   await expect(page.getByText("Ready offline", { exact: true })).toBeVisible({
     timeout: 3000,
   });
+  // A pack downloaded and sitting in Settings, with its size, its state and
+  // its buttons: markup that only exists once a download has finished.
+  await expectClean(page, "a downloaded incident pack");
   await page.getByRole("button", { name: "Use offline" }).click();
   await expect(
     page.locator(

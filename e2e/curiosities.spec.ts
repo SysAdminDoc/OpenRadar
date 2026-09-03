@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace, stubHost } from "./support/fixtures";
 
 /**
@@ -139,6 +140,7 @@ test("finds one by going there, once", async ({ page }) => {
   await expect(card).toContainText("Mount Washington");
   // Who says so, and where to read it.
   await expect(card.locator("a")).toHaveAttribute("href", /mountwashington/);
+  await expectClean(page, "curiosity card");
   // A card, and nothing else: nothing was announced beside it.
   await expect(page.locator("[data-toast]")).toHaveCount(0);
 

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { routeWorkspace, stubHost } from "./support/fixtures";
 
 /**
@@ -81,6 +82,9 @@ test("draws the disc once, and stops the moment anybody does anything", async ({
   await expect(disc).toBeVisible();
   // The map is usable straight through it: it takes no pointer events at all.
   await expect(disc).toHaveCSS("pointer-events", "none");
+  // The first thing anybody sees, and the one state that is gone forever
+  // after the first click.
+  await expectClean(page, "first-run reveal");
 
   await page
     .getByRole("application")
