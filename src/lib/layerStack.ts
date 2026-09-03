@@ -34,7 +34,18 @@ export const ROUTE_LAYER_ID = "openradar-route-line";
  * because a boundary must never hide a warning.
  */
 export const COUNTY_SOURCE_ID = "openradar-county-source";
+/**
+ * A wider stroke of the opposite lightness under the line itself.
+ *
+ * The line follows the theme's line token, which says nothing about the
+ * basemap: that is chosen separately, and asking the system for more contrast
+ * switches the palette and not the map. A near-white line over the light
+ * basemap composites to about one to one, so the reader turns the
+ * accessibility preference on and the lines disappear.
+ */
+export const COUNTY_CASING_LAYER_ID = "openradar-county-casing";
 export const COUNTY_LAYER_ID = "openradar-county-line";
+export const COUNTY_LAYER_IDS = [COUNTY_CASING_LAYER_ID, COUNTY_LAYER_ID];
 export const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 export const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 export const TRACK_LINE_LAYER_ID = "openradar-track-line";
@@ -133,7 +144,7 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // Reference geography, over every picture of the sky and under everything
     // anybody drew or published: a county line that hid a warning polygon
     // would be the one arrangement the panel refuses to let anybody make.
-    COUNTY_LAYER_ID,
+    ...COUNTY_LAYER_IDS,
     // Shapes the reader imported sit under everything a service published,
     // warnings included. They used to sit above the whole overlay band, which
     // meant a placefile could cover a tornado warning: the one arrangement the

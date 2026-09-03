@@ -62,6 +62,8 @@ import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { loadCounties } from "../lib/counties";
+import { casingFor } from "../lib/lineOnMap";
+import { isLightBasemap } from "../lib/mapStyles";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import { syncSatelliteLane } from "../lib/mapLayers/satellite";
@@ -95,7 +97,9 @@ import {
   PROBSEVERE_FILL_LAYER_ID,
   PROBSEVERE_LINE_LAYER_ID,
   RADAR_LAYER_ID,
+  COUNTY_CASING_LAYER_ID,
   COUNTY_LAYER_ID,
+  COUNTY_LAYER_IDS,
   COUNTY_SOURCE_ID,
   ROUTE_LAYER_ID,
   SATELLITE_LAYER_ID,
@@ -430,6 +434,7 @@ function MapViewportInner(
   // The bundled outlines, once they have been read, or null while the switch
   // is off and for as long as the read takes.
   const countiesRef = useRef<Record<string, unknown> | null>(null);
+  const countiesRequestRef = useRef(0);
   const projectionRef = useRef(projection);
   const styleIdentity = `${mapStyle}:${incidentPack?.id ?? ""}:${incidentPack?.sha256 ?? ""}`;
   const mapStyleRef = useRef(styleIdentity);
@@ -813,39 +818,69 @@ function MapViewportInner(
   /**
    * County and state lines.
    *
-   * A thin, low-contrast stroke: this is reference geography and it is on the
-   * map the whole time it is switched on, so it has to be readable without
-   * competing with the weather over it. Under high contrast it thickens and
-   * brightens, because at that setting a hairline is not a line at all.
+   * Reference geography, on the map the whole time it is switched on, so it
+   * has to be readable without competing with the weather over it.
+   *
+   * The colour is chosen from the basemap rather than from the app's line
+   * token. The two are set separately: somebody can run the dark workspace
+   * over the light map, and asking the system for more contrast switches the
+   * palette without switching the ground. A near-white line over the light
+   * basemap composites to about one to one, so the reader turns the
+   * accessibility preference ON and the lines disappear.
+   *
+   * Under it goes a wider stroke of the opposite lightness, which is what
+   * makes it read over aerial imagery and over anything else nobody picked
+   * with these lines in mind.
    */
   const COUNTY_LANE: VectorLane = {
     sourceId: COUNTY_SOURCE_ID,
-    layers: () => [
-      {
-        id: COUNTY_LAYER_ID,
-        type: "line",
-        source: COUNTY_SOURCE_ID,
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": highContrastRef.current ? "#f8fafc" : "#94a3b8",
-          "line-opacity": highContrastRef.current ? 0.95 : 0.55,
-          // Thinner where the whole country is in view and heavier as the map
-          // comes in, or a national view is a grey wash of three thousand
-          // outlines.
-          "line-width": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            3,
-            highContrastRef.current ? 0.6 : 0.4,
-            7,
-            highContrastRef.current ? 1.4 : 0.9,
-            10,
-            highContrastRef.current ? 2.2 : 1.4,
-          ],
+    layers: () => {
+      const heavier = highContrastRef.current ? 1.6 : 1;
+      const overLight = isLightBasemap(mapStyle);
+      const line = highContrastRef.current
+        ? overLight
+          ? "#0b1220"
+          : "#ffffff"
+        : overLight
+          ? "#475569"
+          : "#cbd5e1";
+      const width = (at: number) => at * heavier;
+      const ramp = (scale: number) => [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        3,
+        width(0.5) * scale,
+        7,
+        width(1.1) * scale,
+        10,
+        width(1.7) * scale,
+      ];
+      return [
+        {
+          id: COUNTY_CASING_LAYER_ID,
+          type: "line",
+          source: COUNTY_SOURCE_ID,
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": casingFor(line),
+            "line-opacity": highContrastRef.current ? 0.8 : 0.5,
+            "line-width": ramp(2.6),
+          },
         },
-      },
-    ],
+        {
+          id: COUNTY_LAYER_ID,
+          type: "line",
+          source: COUNTY_SOURCE_ID,
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": line,
+            "line-opacity": highContrastRef.current ? 1 : 0.85,
+            "line-width": ramp(1),
+          },
+        },
+      ];
+    },
   };
 
   const syncCounties = () => {
@@ -1438,6 +1473,12 @@ function MapViewportInner(
   // megabyte of outlines and most readers never turn it on. Kept afterwards,
   // so switching it off and on again costs nothing.
   useMapSync(counties, (next) => {
+    // Which switch flip this read belongs to. A megabyte takes long enough to
+    // read that somebody can turn the switch off inside it, and a reply that
+    // arrived afterwards put the lines back on a map whose switch says off,
+    // with no record of them in the report and no way to clear them but to
+    // cycle the switch twice.
+    const asked = (countiesRequestRef.current += 1);
     if (!next) {
       countiesRef.current = null;
       syncCounties();
@@ -1445,10 +1486,12 @@ function MapViewportInner(
     }
     void loadCounties()
       .then((outlines) => {
+        if (asked !== countiesRequestRef.current) return;
         countiesRef.current = outlines as unknown as Record<string, unknown>;
         syncCounties();
       })
       .catch((failure: unknown) => {
+        if (asked !== countiesRequestRef.current) return;
         log.warn(
           "map",
           failure instanceof Error ? failure.message : "counties.json",
@@ -2007,6 +2050,12 @@ function MapViewportInner(
       if (map.getLayer(id)) map.removeLayer(id);
     }
     if (map.getSource(CELL_SOURCE_ID)) map.removeSource(CELL_SOURCE_ID);
+    // The county lines bake the theme's line token and the contrast-scaled
+    // widths in when they are built, so they are dropped and put back too.
+    for (const id of COUNTY_LAYER_IDS) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    if (map.getSource(COUNTY_SOURCE_ID)) map.removeSource(COUNTY_SOURCE_ID);
     for (const adapter of OVERLAY_ADAPTERS) {
       const sourceId = `${OVERLAY_SOURCE_PREFIX}${adapter.id}`;
       if (!map.getSource(sourceId)) continue;
@@ -2017,6 +2066,7 @@ function MapViewportInner(
     }
     syncCells();
     syncOverlays();
+    syncCounties();
   });
 
   useEffect(() => {

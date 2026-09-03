@@ -156,6 +156,32 @@ function rasterStyle(
  * Choosing Light in Settings used to leave the dark basemap under white
  * panels, because the theme only ever set an attribute on the document.
  */
+/**
+ * Whether a style draws the ground light.
+ *
+ * Anything drawn over the basemap has to be legible against it, and the
+ * basemap is chosen separately from the app's own look: somebody can run the
+ * dark workspace over the aerial imagery. The reading here is about the
+ * ground, not about the panels, which is why it lives with the styles rather
+ * than with the theme.
+ *
+ * Aerial imagery is called dark. It is neither, but photographs of land are
+ * mid-toned and a light line reads on them where a dark one disappears into
+ * shadow.
+ */
+export function isLightBasemap(id: MapStyleId): boolean {
+  switch (id) {
+    case "grayscale":
+    case "pro-light":
+    case "roads":
+    case "daylight":
+    case "topography":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function resolvedMapStyle(id: MapStyleId, theme: ThemeMode): MapStyleId {
   if (id !== "auto") return id;
   return theme === "light" ? "pro-light" : "pro-dark";

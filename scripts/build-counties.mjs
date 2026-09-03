@@ -187,13 +187,17 @@ const collection = {
 };
 
 const body = JSON.stringify(collection);
-const path = join(process.cwd(), "public", "counties.json");
-writeFileSync(path, body);
-if (body.length > MAX_BYTES) {
+// Measured in bytes rather than characters, and refused before anything is
+// written: a script that writes the file and then complains has still left an
+// over-budget asset on disk for somebody to commit.
+const bytes = Buffer.byteLength(body);
+if (bytes > MAX_BYTES) {
   throw new Error(
-    `counties.json is ${(body.length / 1024).toFixed(0)} kB, past the ${MAX_BYTES / 1024} kB it is allowed`,
+    `counties.json would be ${(bytes / 1024).toFixed(0)} kB, past the ${MAX_BYTES / 1024} kB it is allowed. Raise TOLERANCE and run it again.`,
   );
 }
+const path = join(process.cwd(), "public", "counties.json");
+writeFileSync(path, body);
 console.log(
-  `${outlines.length} outlines, ${points} points, ${(body.length / 1024).toFixed(0)} kB`,
+  `${outlines.length} outlines, ${points} points, ${(bytes / 1024).toFixed(0)} kB`,
 );

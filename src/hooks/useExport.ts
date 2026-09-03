@@ -29,7 +29,6 @@ import {
 import { stepNow, stepsForVolumes } from "../lib/siteLoop";
 import type { SweepImage } from "../lib/level2";
 import {
-  frameAgeMinutes,
   formatFrameTime,
   formatRadarTime,
   type RadarFrame,
@@ -379,17 +378,27 @@ export function useExport(options: {
   const wallpaperCaption = useCallback(
     (index: number): ExportCaption => {
       const caption = captionFor(index);
-      const frame = frames[index];
-      if (!frame) return caption;
+      // The age of whatever is in the picture. Read off the mosaic frame it
+      // said "2 minutes old" under a volume from 2011: the caption above it
+      // named the radar and the moment, and the line under it named a
+      // different moment entirely.
+      const at = sweep
+        ? Date.parse(sweep.collected)
+        : frames[index]
+          ? frames[index].time * 1000
+          : null;
+      if (at === null || !Number.isFinite(at)) return caption;
       return {
         ...caption,
         lines: [
           ...caption.lines,
-          translate("wallpaper.age", { minutes: frameAgeMinutes(frame) }),
+          translate("wallpaper.age", {
+            minutes: Math.max(0, Math.floor((Date.now() - at) / 60_000)),
+          }),
         ],
       };
     },
-    [captionFor, frames],
+    [captionFor, frames, sweep],
   );
 
   const writeWallpaper = useCallback(async () => {

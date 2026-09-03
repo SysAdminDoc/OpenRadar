@@ -69,6 +69,7 @@ import {
 } from "./lib/wallpaper";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { mrmsTimeFor, useMrmsOverlays } from "./hooks/useMrmsOverlays";
+import { COUNTY_VINTAGE, loadCounties } from "./lib/counties";
 import { useLightning } from "./hooks/useLightning";
 import { usePalette } from "./hooks/usePalette";
 import { useWind } from "./hooks/useWind";
@@ -370,6 +371,29 @@ export default function App() {
         : null,
     listingHeld,
   });
+
+  // Whether the county outlines are on the map, as opposed to switched on.
+  // The file is a megabyte read on demand and it can fail; a report listing a
+  // layer that drew nothing describes a picture the reader cannot see, which
+  // is what the guards above it are for.
+  const [countiesLoaded, setCountiesLoaded] = useState(false);
+  useEffect(() => {
+    if (!settings.layers.counties) return;
+    let open = true;
+    void loadCounties()
+      .then(() => {
+        if (open) setCountiesLoaded(true);
+      })
+      .catch(() => {
+        if (open) setCountiesLoaded(false);
+      });
+    return () => {
+      open = false;
+    };
+  }, [settings.layers.counties]);
+  // Derived rather than written from inside the effect, which would be a
+  // state change on every render that turned the switch off.
+  const countiesDrawn = settings.layers.counties && countiesLoaded;
 
   // Which volume the map is actually showing, for anything that has to act
   // on the picture rather than on the request. A ref because the export walk
@@ -1519,7 +1543,13 @@ export default function App() {
         // that draws it is `weatherAlerts`. Comparing the names would have let
         // that one layer be reported twice under both.
         if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
+        // Reference geography with a vintage rather than a moment. Left to
+        // fall through it reported the Census boundaries as observed this
+        // instant, which is a freshness claim about something that has not
+        // moved since 2024.
+        if (layer === "counties" && !countiesDrawn) continue;
         const observedAt =
+          (layer === "counties" ? COUNTY_VINTAGE : undefined) ??
           mrmsTimeFor(mrms.layers, layer, settings.gaugeQpePeriod) ??
           (layer === "lightningFlashes"
             ? // The flash window carries seconds, like the radar frames and
@@ -1613,6 +1643,7 @@ export default function App() {
     },
     [
       classification.report,
+      countiesDrawn,
       drawnForecastSmoke,
       forecastSmoke.field,
       health,
