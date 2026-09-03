@@ -140,6 +140,33 @@ export function isSingleSiteViewport(zoom: number): boolean {
   return zoom >= SINGLE_SITE_MIN_ZOOM;
 }
 
+/** One radar the view can see, as the picker lists it. */
+export interface SiteInReach {
+  station: string;
+  city: string;
+  state: string;
+  distanceKm: number;
+}
+
+/**
+ * Every radar whose coverage reaches a point, nearest first.
+ *
+ * The picker offered three things and none of them was a radar near you: it
+ * followed the map, held whatever was already on screen, or listed the
+ * airports. During an outage there was no way to choose the second-nearest
+ * site without knowing its call sign.
+ */
+export async function sitesInReach(
+  lon: number,
+  lat: number,
+): Promise<SiteInReach[]> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<SiteInReach[]>("level2_sites_in_reach", {
+    latitude: lat,
+    longitude: lon,
+  });
+}
+
 export async function nearestSite(
   lon: number,
   lat: number,

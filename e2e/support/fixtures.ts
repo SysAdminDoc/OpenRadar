@@ -495,6 +495,10 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
           // spec about anything else wants: a site greyed out for a reason it
           // never set up would fail somewhere far from the cause.
           if (command === "radar_status") return [];
+          // The radars that can see the view. Empty is the picker as it was
+          // before the list existed, which is what a spec about anything
+          // else wants.
+          if (command === "level2_sites_in_reach") return [];
           if (command === "set_palettes") return 0;
           if (command === "set_palette") return 0;
 

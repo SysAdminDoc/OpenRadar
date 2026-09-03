@@ -2251,6 +2251,47 @@ fn sites_worth_asking<'a>(
     running.into_iter().chain(quiet).collect()
 }
 
+/// One radar the view can see, for the picker.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SiteInReach {
+    pub station: String,
+    /// The town it is named after, and the state, as the registry has them.
+    pub city: String,
+    pub state: String,
+    /// How far the view's centre is from it, in kilometres.
+    pub distance_km: f64,
+}
+
+/// Every radar whose coverage reaches a point, nearest first.
+///
+/// The picker used to offer three things: follow the map, hold whatever is on
+/// screen, and the forty-five airport radars. There was no way to choose the
+/// second-nearest site when the nearest one is down, short of knowing its call
+/// sign and typing it, and no place to show what the office says about any of
+/// them. This is the list that was missing.
+///
+/// Distance rather than a bare list, because the order is the point: the
+/// nearest radar sees lowest into the storm, and the reader picking a further
+/// one is trading that away deliberately.
+#[tauri::command]
+pub fn level2_sites_in_reach(latitude: f32, longitude: f32) -> Vec<SiteInReach> {
+    sites_in_reach(latitude, longitude)
+        .into_iter()
+        .map(|site| SiteInReach {
+            station: site.id.to_string(),
+            city: site.city.to_string(),
+            state: site.state.to_string(),
+            distance_km: great_circle_km(
+                latitude as f64,
+                longitude as f64,
+                site.latitude as f64,
+                site.longitude as f64,
+            ),
+        })
+        .collect()
+}
+
 /// The nearest site to a point that is actually publishing volumes, so the
 /// frontend never has to ship its own table. A point no site can see gets no
 /// answer rather than the least distant one, which would otherwise draw
@@ -4527,6 +4568,35 @@ mod tests {
         for pair in distances.windows(2) {
             assert!(pair[0] <= pair[1], "{distances:?} is not sorted");
         }
+    }
+
+    #[test]
+    fn the_sites_in_reach_come_back_nearest_first_with_their_distances() {
+        // The picker had no list of these at all, so during an outage there
+        // was no way to choose the second-nearest radar without knowing its
+        // call sign. The order is the point: the nearest one sees lowest into
+        // the storm, and picking a further one is a trade somebody makes on
+        // purpose.
+        let over_oklahoma_city = level2_sites_in_reach(35.4676, -97.5164);
+        assert!(over_oklahoma_city.len() > 1);
+        for pair in over_oklahoma_city.windows(2) {
+            assert!(
+                pair[0].distance_km <= pair[1].distance_km,
+                "{} then {} is not nearest first",
+                pair[0].distance_km,
+                pair[1].distance_km
+            );
+        }
+        let nearest = &over_oklahoma_city[0];
+        assert_eq!(nearest.station, "KTLX");
+        assert!(!nearest.city.is_empty());
+        assert_eq!(nearest.state.len(), 2);
+        // Twenty-five kilometres from the middle of the city to its radar.
+        assert!(nearest.distance_km < 40.0, "{}", nearest.distance_km);
+
+        // And nothing at all where no radar reaches, rather than the least
+        // distant one, which would put Alaska's radar over the mid-Atlantic.
+        assert!(level2_sites_in_reach(30.0, -40.0).is_empty());
     }
 
     #[test]
