@@ -328,7 +328,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 - [ ] AUD-213 (P2): Undo for the removals that have none
   Why: Deleting an incident pack throws away a verified multi-megabyte download on one press with only a toast; removing a palette, an overlay file, a custom sound or a theme is the same; place removal, journal clear and settings reset already offer undo, so the product's own standard is not met everywhere.
-  Evidence: `src/panels/IncidentPackManager.tsx:228-236` (delete, toast only); palette, overlay file, sound and theme removal in `src/hooks/useWorkspaceActions.ts`; the held-toast undo pattern at `src/App.tsx:1641-1658`; `CLAUDE.md` 2026-09-02 note that a toast is the wrong home for undo unless it is held.
+  Evidence: `src/panels/IncidentPackManager.tsx:228-236` (delete, toast only); palette, overlay file, sound and theme removal in `src/hooks/useWorkspaceActions.ts`; the held-toast undo pattern at `src/App.tsx:1641-1658`; the 2026-09-02 working note that a toast is the wrong home for undo unless it is held.
   Touches: `src-tauri/src/incident_packs.rs` (delete moves the pack to a held directory for the undo window and reaps it afterwards or on the next start), `src/panels/IncidentPackManager.tsx`, `src/hooks/useWorkspaceActions.ts` (palette, overlay, sound, theme removals through the held-toast undo), `src/components/ToastHost.tsx` if the held pattern needs a second slot, `src/i18n/*`, tests for a second use and a refusal.
   Acceptance: Each removal offers Undo for the same window as place removal and restores exactly what was removed (a pack's archive is rehashed after restore and served again); using Undo twice and refusing it are both tested; a held pack that outlives the window or a restart is reaped and the reaping is logged.
   Complexity: M
@@ -373,7 +373,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 - [ ] AUD-219 (P3): Split `level2.rs` before the derived products land
   Why: The file is 6,467 lines and four open items (`AUD-189`, `AUD-190`, `AUD-191`, `AUD-192`) all land in it; a split into listing, decode, render, loop and status modules costs nothing now and a great deal after.
   Evidence: `wc -l src-tauri/src/level2.rs` (6,467 on 2026-09-03, up from 6,328 on 2026-09-02); the 2026-09-02 research assessment said the split should precede the derived products and no item carried it.
-  Touches: `src-tauri/src/level2/{mod,listing,decode,render,loop,status}.rs`, `src-tauri/src/lib.rs` paths, tests move with their code, `CLAUDE.md` architecture line, `docs/architecture.md`.
+  Touches: `src-tauri/src/level2/{mod,listing,decode,render,loop,status}.rs`, `src-tauri/src/lib.rs` paths, tests move with their code, the working notes' architecture line, `docs/architecture.md`.
   Acceptance: No file under `level2/` exceeds 2,000 lines; `cargo test` passes the same count; clippy is clean; the four derived-product items name their target module.
   Complexity: M
 
