@@ -280,13 +280,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P3
 
-- [ ] AUD-235 (P3): The Forecast panel is only ever scanned saying it is unavailable
-  Why: Every other surface the accessibility gate opens is now scanned with real content in it, either in the gate itself or in the spec that builds the state. Forecast is the exception: nothing in `e2e/` stubs a forecast, so the panel under every scan reads "Forecast is unavailable. The radar and map are still live." The rows, the day headings, the temperature ranges, the precipitation bars and the model note have never been through axe in any theme.
-  Evidence: Verified 2026-09-03 by opening each surface through `e2e/support/surfaces.ts` and dumping the dialog's text: `forecast` is 77 characters and is the unavailable line. `grep -rn 'name: "Forecast"' e2e/*.spec.ts` finds one hit, in `sounding.spec.ts`, which uses the button to switch the sounding source rather than to read a forecast.
-  Touches: a forecast fixture in `e2e/support/fixtures.ts` (the panel reads the NWS gridpoint forecast, so a stub belongs beside the other host stubs), and an `expectClean` in the spec that uses it, the way `sounding`, `guidance`, `history`, `level2` and `storm-search` now do.
-  Acceptance: A spec renders the Forecast panel with rows in it and scans it clean in dark and in light; planting a contrast fault scoped to a forecast row turns that scan red and leaves the other surfaces green.
-  Complexity: S
-
 - [ ] AUD-219 (P3): Split `level2.rs` before the derived products land
   Why: The file is 6,467 lines and four open items (`AUD-189`, `AUD-190`, `AUD-191`, `AUD-192`) all land in it; a split into listing, decode, render, loop and status modules costs nothing now and a great deal after.
   Evidence: `wc -l src-tauri/src/level2.rs` (6,467 on 2026-09-03, up from 6,328 on 2026-09-02); the 2026-09-02 research assessment said the split should precede the derived products and no item carried it.
