@@ -208,3 +208,33 @@ describe("which of them is worth saying", () => {
     ]);
   });
 });
+
+describe("a storm that has already passed", () => {
+  it("is not announced, however the estimate was clamped", () => {
+    // The arrival is clamped at zero rather than going negative, so a storm
+    // that went over while the volume was being read comes out as "now" and
+    // was rounded up into "reaches you in about 1 min". A notice about a
+    // storm that has been and gone is worse than no notice.
+    const school = place("school", "School", -93.0, 41.6);
+    const on = { ...DEFAULT_APPROACH, enabled: true, minutes: 20 };
+    const gone: Approach = {
+      placeId: "school",
+      placeName: "School",
+      named: true,
+      cellId: "A1",
+      minutes: 0,
+    };
+    expect(approachesToAnnounce([gone], on, [school], new Set(), NOW)).toEqual(
+      [],
+    );
+    expect(
+      approachesToAnnounce(
+        [{ ...gone, minutes: 0.5 }],
+        on,
+        [school],
+        new Set(),
+        NOW,
+      ),
+    ).toHaveLength(1);
+  });
+});

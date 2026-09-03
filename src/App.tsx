@@ -50,7 +50,7 @@ import {
   approachBody,
   approachTitle,
 } from "./hooks/useApproachWatch";
-import { approachesFor } from "./lib/approach";
+import { approachesFor, type Approach } from "./lib/approach";
 import {
   loadAlertSound,
   keepSoundPath,
@@ -1077,7 +1077,7 @@ export default function App() {
     // The toast is the announcement on the browser path and the fallback on
     // the desktop one, and it sits in a polite live region either way. The
     // desktop notification is what a screen reader hears when it lands.
-    onFallback: (coming) =>
+    onFallback: (coming: Approach) =>
       pushToast({
         title: approachTitle(coming),
         detail: approachBody(coming),

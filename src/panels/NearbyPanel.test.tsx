@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NearbyPanel } from "./NearbyPanel";
 import { cellKey, withName } from "../lib/cellNames";
+import type { Approach } from "../lib/approach";
 
 /**
  * Where a reader gives a storm a name.
@@ -82,5 +83,79 @@ describe("naming a storm in the nearby list", () => {
   it("shows the name it was given", () => {
     const { field } = panel(new Map([["A1", "Big one"]]));
     expect(field().value).toBe("Big one");
+  });
+});
+
+/** The panel with only the parts this section is about handed in. */
+function approachPanel(
+  overrides: {
+    approaching?: Approach[];
+    cellsNote?: "off" | "unavailable" | "loading" | null;
+  } = {},
+) {
+  return (
+    <NearbyPanel
+      places={[{ id: "home", name: "Casa" }]}
+      placeId="home"
+      onPlace={() => undefined}
+      warnings={[]}
+      approaching={overrides.approaching ?? []}
+      cells={[]}
+      cellNames={new Map()}
+      onNameCell={() => undefined}
+      cellsNote={overrides.cellsNote ?? null}
+      station="KFWS"
+      observed={Date.now()}
+      alertsFetchedAt={Date.now()}
+      onClose={() => undefined}
+    />
+  );
+}
+
+describe("what the panel says is heading for a watched place", () => {
+  it("lists each place with the storm and the minutes", () => {
+    render(
+      approachPanel({
+        approaching: [
+          {
+            placeId: "school",
+            placeName: "School",
+            named: true,
+            cellId: "A1",
+            minutes: 12.4,
+          },
+          {
+            placeId: "cabin",
+            placeName: "Cabin",
+            named: true,
+            cellId: "B2",
+            minutes: 0.2,
+          },
+        ],
+      }),
+    );
+    const section = document.querySelector("[data-approaching]");
+    expect(section?.textContent).toContain("A1 reaches School in about 12 min");
+    // Under a minute is not "in about 0 min".
+    expect(section?.textContent).toContain("B2 is reaching Cabin now");
+    // And it says once, under the list, what all of it is.
+    expect(section?.textContent).toContain("not a warning");
+  });
+
+  it("does not claim nothing is coming when nothing is tracking", () => {
+    // The failure this replaces: with the Storm Cells layer off, or in a
+    // browser preview where the tracker cannot run at all, the section said
+    // "Nothing the radar is tracking is heading for your places", which is a
+    // claim nobody had checked.
+    render(approachPanel({ approaching: [], cellsNote: "off" }));
+    const section = document.querySelector("[data-approaching]");
+    expect(section?.textContent).toContain("Needs the Storm Cells layer");
+    expect(section?.textContent).not.toContain("Nothing the radar is tracking");
+  });
+
+  it("says nothing is coming only when the tracker is running", () => {
+    render(approachPanel({ approaching: [], cellsNote: null }));
+    const section = document.querySelector("[data-approaching]");
+    expect(section?.textContent).toContain("Nothing the radar is tracking");
   });
 });

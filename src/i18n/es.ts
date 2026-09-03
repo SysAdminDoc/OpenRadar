@@ -801,6 +801,8 @@ export const es: Catalogue = {
   "satellite.west": "GOES-Oeste",
   "satellite.himawari": "Himawari",
   "satellite.showing": "Mostrando {satellite}, que está sobre esta vista.",
+  "satellite.stepped":
+    "El intervalo más reciente no se publicó, así que este es uno anterior.",
   "satellite.notThere":
     "{satellite} no tiene {band} aquí, así que esto es infrarrojo limpio.",
   "satellite.product": "Vista del satélite",
@@ -1191,6 +1193,8 @@ export const es: Catalogue = {
     "Apagado, porque un aviso ya suena y esto no es un aviso.",
   "approach.needsPlace":
     "Necesita un lugar que vigilar, que es hacia donde iría la tormenta.",
+  "approach.needsCells":
+    "Necesita la capa de Celdas de tormenta, que es la que las sigue.",
   "approach.heading": "En camino",
   "approach.row": "{id} llega a {place} en unos {count} min",
   "approach.rowSoon": "{id} está llegando a {place} ahora",

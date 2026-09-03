@@ -812,6 +812,8 @@ export const fr: Catalogue = {
   "satellite.west": "GOES-Ouest",
   "satellite.himawari": "Himawari",
   "satellite.showing": "Affiche {satellite}, qui est au-dessus de cette vue.",
+  "satellite.stepped":
+    "Le créneau le plus récent n’a pas été publié, voici donc un plus ancien.",
   "satellite.notThere":
     "{satellite} n’a pas de {band} ici, donc voici l’infrarouge propre.",
   "satellite.product": "Vue satellite",
@@ -1206,6 +1208,8 @@ export const fr: Catalogue = {
     "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
   "approach.needsPlace":
     "Il faut un lieu surveillé, puisque c'est là que l'orage irait.",
+  "approach.needsCells":
+    "Nécessite la couche Cellules orageuses, qui est ce qui les suit.",
   "approach.heading": "En route",
   "approach.row": "{id} atteint {place} dans environ {count} min",
   "approach.rowSoon": "{id} atteint {place} maintenant",

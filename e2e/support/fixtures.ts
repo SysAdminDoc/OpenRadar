@@ -265,6 +265,48 @@ export const tropicalFeature = {
  * A stand-in for the bundled HURDAT2 record. The real one is 2.5 MB, and a
  * test that loads it is measuring the network rather than the panel.
  */
+/**
+ * A WPC excessive rainfall area, for whichever day the layer asked for.
+ *
+ * The day is written into the valid window and the category, because that is
+ * what a test switching days has to be able to see: a day selector that draws
+ * the same polygon whichever day is chosen looks entirely correct.
+ */
+export function wpcFeature(day: number) {
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-100, 30],
+          [-90, 30],
+          [-90, 40],
+          [-100, 40],
+          [-100, 30],
+        ],
+      ],
+    },
+    properties: {
+      outlook: "Slight (At Least 15%)",
+      valid_time: `12Z 09/0${day}/26 - 12Z 09/0${day + 1}/26`,
+      issue_time: `2026-09-0${day} 09:0${day}:00`,
+    },
+  };
+}
+
+/** A winter storm severity area, likewise carrying the day it is for. */
+export function wssiFeature(day: number) {
+  return {
+    ...wpcFeature(day),
+    properties: {
+      impact: "MODERATE",
+      valid_time: `12Z 09/0${day}/26 - 12Z 09/0${day + 1}/26`,
+      issue_time: `2026-09-0${day} 09:0${day}:00`,
+    },
+  };
+}
+
 /** A Day 1 categorical risk area, in the shape and colours the service uses. */
 export const outlookFeature = {
   type: "Feature",
@@ -577,6 +619,13 @@ export async function routeWorkspace(page: Page) {
       features = [outlookFeature];
     } else if (url.includes("spc_mesoscale_discussion")) {
       features = [discussionFeature];
+    } else if (url.includes("wpc_precip_hazards")) {
+      // The layer number is the day, one behind: layer 0 is Day 1.
+      const layer = Number(/MapServer\/(\d+)\/query/.exec(url)?.[1] ?? 0);
+      features = [wpcFeature(layer + 1)];
+    } else if (url.includes("wpc_wssi")) {
+      const layer = Number(/MapServer\/(\d+)\/query/.exec(url)?.[1] ?? 1);
+      features = [wssiFeature(layer)];
     }
     await route.fulfill({
       contentType: "application/json",

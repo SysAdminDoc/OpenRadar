@@ -787,6 +787,8 @@ export const en = {
   "satellite.west": "GOES-West",
   "satellite.himawari": "Himawari",
   "satellite.showing": "Showing {satellite}, which is over this view.",
+  "satellite.stepped":
+    "The newest slot was not published, so this is an earlier one.",
   "satellite.notThere":
     "{satellite} has no {band} here, so this is clean infrared.",
   "satellite.product": "Satellite view",
@@ -1170,6 +1172,8 @@ export const en = {
     "Off, because a warning already makes one and this is not a warning.",
   "approach.needsPlace":
     "Needs a place to watch, since that is what a storm would be heading for.",
+  "approach.needsCells":
+    "Needs the Storm Cells layer, which is what tracks them.",
   "approach.heading": "On the way",
   "approach.row": "{id} reaches {place} in about {count} min",
   "approach.rowSoon": "{id} is reaching {place} now",

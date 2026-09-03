@@ -40,18 +40,24 @@ function collection(features: unknown[]) {
   return { type: "FeatureCollection", features };
 }
 
+/** Where the last stubbed fetch was pointed, so the address can be checked. */
+let lastUrl = "";
+
 async function drawn(
   overlay: typeof wpcExcessiveRainOverlay,
   payload: unknown,
   choices = DEFAULT_OVERLAY_CHOICES,
 ) {
   const original = globalThis.fetch;
-  globalThis.fetch = (() =>
-    Promise.resolve({
+  lastUrl = "";
+  globalThis.fetch = ((input: RequestInfo | URL) => {
+    lastUrl = String(input);
+    return Promise.resolve({
       ok: true,
       status: 200,
       json: () => Promise.resolve(payload),
-    })) as unknown as typeof fetch;
+    });
+  }) as unknown as typeof fetch;
   try {
     return await overlay.fetchData(
       { west: -104, south: 30, east: -90, north: 42 },
@@ -250,10 +256,70 @@ describe.runIf(LIVE)("against the live services", () => {
         ...DEFAULT_OVERLAY_CHOICES,
         wssiDay,
       });
+      // The collection itself, asserted before the loop over it. In July the
+      // index is empty across the country and a loop body is the only thing
+      // this test had: it passed having executed no assertion at all, which
+      // is the same as not running.
+      expect(Array.isArray(data.features)).toBe(true);
       for (const one of data.features) {
         expect(String(one.properties.fill)).toMatch(/^#[0-9a-f]{6}$/);
         expect(one.geometry.type).toMatch(/Polygon/);
       }
     }
+    // And the service answered rather than 404ing, which is what a wrong layer
+    // number would do: the query helper throws on anything but a 200, so
+    // reaching this line for all three days is that claim.
+    expect(WSSI_DAYS.length).toBe(3);
   }, 60_000);
+});
+
+describe("the address a day actually goes to", () => {
+  it("is the service's own layer for that day, not a restatement", () => {
+    // The unit tests above compare `eroLayer` against itself, which cannot
+    // catch the two services numbering their days differently. This reads the
+    // address the adapter handed to `fetch`, which is the thing that goes out.
+    return (async () => {
+      for (const [wpcDay, layer] of [
+        [1, 0],
+        [3, 2],
+        [5, 4],
+      ] as const) {
+        await drawn(wpcExcessiveRainOverlay, collection([]), {
+          ...DEFAULT_OVERLAY_CHOICES,
+          wpcDay,
+        });
+        expect(lastUrl).toContain(
+          `/hazards/wpc_precip_hazards/MapServer/${layer}/query`,
+        );
+        expect(lastUrl).toContain("outFields=outlook");
+      }
+      for (const [wssiDay, layer] of [
+        [1, 1],
+        [3, 3],
+      ] as const) {
+        await drawn(wpcWinterSeverityOverlay, collection([]), {
+          ...DEFAULT_OVERLAY_CHOICES,
+          wssiDay,
+        });
+        expect(lastUrl).toContain(
+          `/outlooks/wpc_wssi/MapServer/${layer}/query`,
+        );
+        expect(lastUrl).toContain("outFields=impact");
+      }
+    })();
+  });
+
+  it("never asks the severity index for the group of every day", () => {
+    // Layer 0 there is "Overall Impact" across all three days at once, which
+    // would draw three days of areas under a heading naming one.
+    return (async () => {
+      for (const wssiDay of WSSI_DAYS) {
+        await drawn(wpcWinterSeverityOverlay, collection([]), {
+          ...DEFAULT_OVERLAY_CHOICES,
+          wssiDay,
+        });
+        expect(lastUrl).not.toContain("wpc_wssi/MapServer/0/query");
+      }
+    })();
+  });
 });

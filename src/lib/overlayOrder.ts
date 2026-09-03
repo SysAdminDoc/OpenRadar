@@ -45,11 +45,31 @@ export function overlayBandOrder(chosen: string[]): OverlayId[] {
     .filter((id) => !PINNED_OVERLAYS.includes(id))
     .sort((left, right) => OVERLAY_DEPTH[left] - OVERLAY_DEPTH[right]);
 
-  // What the reader arranged, then anything they have never touched, in the
-  // order it was designed to sit in.
-  const arranged = chosen.filter((id): id is OverlayId =>
+  // What the reader arranged, with anything they have never touched put back
+  // at the depth it was designed for rather than on top of everything.
+  //
+  // Appended, a layer added in a later build landed above every layer the
+  // reader had ever moved: a reader who had arranged their overlays once got
+  // the next release's thirty-per-cent fill painted over their station plots
+  // and gauge dots. A new id has no place in the reader's arrangement, and the
+  // honest answer to where it goes is where the table says.
+  //
+  // Deduplicated on the way in, because a stored arrangement is a settings
+  // file: one that named a layer twice added that layer's source and its
+  // layers twice, under the same ids.
+  const arranged = [...new Set(chosen)].filter((id): id is OverlayId =>
     movable.includes(id as OverlayId),
   );
   const rest = movable.filter((id) => !arranged.includes(id));
-  return [...arranged, ...rest, ...PINNED_OVERLAYS];
+  const placed = [...arranged];
+  for (const id of rest) {
+    // In front of the first layer that was designed to sit above it, or on
+    // the end when nothing was.
+    const at = placed.findIndex(
+      (held) => OVERLAY_DEPTH[held] > OVERLAY_DEPTH[id],
+    );
+    if (at < 0) placed.push(id);
+    else placed.splice(at, 0, id);
+  }
+  return [...placed, ...PINNED_OVERLAYS];
 }
