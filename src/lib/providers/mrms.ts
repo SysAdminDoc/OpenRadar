@@ -1,5 +1,6 @@
 import { isDesktopRuntime } from "../settings";
 import type { GaugeQpePeriod } from "../gaugeQpe";
+import type { AzShearLevel, RotationPeriod } from "../rotationTrack";
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
 
 /**
@@ -20,7 +21,17 @@ export const MRMS_HOST = "mrms.localhost";
 export const MRMS_PRODUCT_IDS = [
   "composite",
   "rotation",
+  "rotation-30",
+  "rotation-120",
+  "rotation-240",
+  "rotation-1440",
+  "az-shear-low",
+  "az-shear-mid",
   "mesh",
+  "vil-density",
+  "shi",
+  "posh",
+  "vii",
   "lightning",
   "echo-tops",
   "vil",
@@ -44,6 +55,21 @@ export const GAUGE_QPE_PRODUCTS: Record<GaugeQpePeriod, MrmsProductId> = {
   "1h": "gauge-qpe-hour",
   "24h": "gauge-qpe-day",
   "72h": "gauge-qpe-three-day",
+};
+
+/** Which track the window beside the rotation switch is pointing at. */
+export const ROTATION_PRODUCTS: Record<RotationPeriod, MrmsProductId> = {
+  "30m": "rotation-30",
+  "1h": "rotation",
+  "2h": "rotation-120",
+  "4h": "rotation-240",
+  "24h": "rotation-1440",
+};
+
+/** Which slab the height beside the shear switch is pointing at. */
+export const AZ_SHEAR_PRODUCTS: Record<AzShearLevel, MrmsProductId> = {
+  low: "az-shear-low",
+  mid: "az-shear-mid",
 };
 
 export interface MrmsProductInfo {

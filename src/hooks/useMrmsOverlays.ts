@@ -9,10 +9,13 @@ import {
   tileRoot,
   tileUrl,
   GAUGE_QPE_PRODUCTS,
+  ROTATION_PRODUCTS,
+  AZ_SHEAR_PRODUCTS,
   type MrmsProductId,
   type MrmsProductInfo,
 } from "../lib/providers/mrms";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
+import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
 import type { LayerSettings } from "../lib/settings";
 import type { StringKey } from "../i18n";
 import { useHighContrast } from "./useClock";
@@ -20,14 +23,36 @@ import { useHighContrast } from "./useClock";
 /** The grids land every two minutes, so this is the useful refresh. */
 const REFRESH_MS = 2 * 60_000;
 
+/**
+ * The three switches that stand for more than one grid, and which one each is
+ * pointing at.
+ *
+ * One shape rather than three arguments, because every caller that resolves a
+ * switch to a grid needs all three and a caller that forgot one would silently
+ * draw the default window.
+ */
+export interface MrmsChoices {
+  gaugeQpePeriod: GaugeQpePeriod;
+  rotationPeriod: RotationPeriod;
+  azShearLevel: AzShearLevel;
+}
+
 /** Which layer switch drives which MRMS product. */
 export const MRMS_LAYERS: Array<{
   layer: keyof LayerSettings;
   product: MrmsProductId;
 }> = [
+  // Like the gauge-corrected accumulation below, these two name their default
+  // so the table stays a plain map; the hook swaps in whichever window or
+  // height the reader chose. See `ROTATION_PRODUCTS` and `AZ_SHEAR_PRODUCTS`.
   { layer: "rotationTracks", product: "rotation" },
+  { layer: "azShear", product: "az-shear-low" },
   { layer: "hail", product: "mesh" },
   { layer: "hailSwath", product: "hail-swath" },
+  { layer: "vilDensity", product: "vil-density" },
+  { layer: "shi", product: "shi" },
+  { layer: "posh", product: "posh" },
+  { layer: "vii", product: "vii" },
   { layer: "lightningDensity", product: "lightning" },
   { layer: "echoTops", product: "echo-tops" },
   { layer: "vil", product: "vil" },
@@ -57,7 +82,17 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
   // legend, so it never reaches this, but the map has to be complete.
   composite: "chrome.composite",
   rotation: "mrms.rotation",
+  "rotation-30": "mrms.rotation30",
+  "rotation-120": "mrms.rotation120",
+  "rotation-240": "mrms.rotation240",
+  "rotation-1440": "mrms.rotation1440",
+  "az-shear-low": "mrms.azShearLow",
+  "az-shear-mid": "mrms.azShearMid",
   mesh: "mrms.mesh",
+  "vil-density": "mrms.vilDensity",
+  shi: "mrms.shi",
+  posh: "mrms.posh",
+  vii: "mrms.vii",
   "hail-swath": "mrms.hailSwath",
   lightning: "mrms.lightning",
   "echo-tops": "mrms.echoTops",
@@ -78,18 +113,24 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
  * The grid behind a switch.
  *
  * The table above is a plain map from switch to grid, which every layer needs
- * and one cannot have: the gauge-corrected accumulation is one switch over
- * three windows, and which grid it means is whichever window the reader
- * picked. Named and exported so that choice is checkable on its own; getting
- * it wrong draws the right layer over the wrong number of hours, which looks
- * entirely normal.
+ * and three cannot have: the gauge-corrected accumulation is one switch over
+ * three windows, the rotation track one switch over five, and the merged shear
+ * one switch over two heights, and which grid each means is whichever the
+ * reader picked. Named and exported so those choices are checkable on their
+ * own; getting one wrong draws the right layer over the wrong number of hours
+ * or the wrong slab of the storm, which looks entirely normal.
  */
 export function productFor(
   layer: keyof LayerSettings,
   product: MrmsProductId,
-  gaugeQpePeriod: GaugeQpePeriod,
+  choices: MrmsChoices,
 ): MrmsProductId {
-  return layer === "gaugeQpe" ? GAUGE_QPE_PRODUCTS[gaugeQpePeriod] : product;
+  if (layer === "gaugeQpe") return GAUGE_QPE_PRODUCTS[choices.gaugeQpePeriod];
+  if (layer === "rotationTracks") {
+    return ROTATION_PRODUCTS[choices.rotationPeriod];
+  }
+  if (layer === "azShear") return AZ_SHEAR_PRODUCTS[choices.azShearLevel];
+  return product;
 }
 
 /**
@@ -105,11 +146,11 @@ export function productFor(
 export function mrmsTimeFor(
   drawn: readonly MrmsLayer[],
   layer: keyof LayerSettings,
-  gaugeQpePeriod: GaugeQpePeriod,
+  choices: MrmsChoices,
 ): number | undefined {
   const entry = MRMS_LAYERS.find((known) => known.layer === layer);
   if (!entry) return undefined;
-  const product = productFor(entry.layer, entry.product, gaugeQpePeriod);
+  const product = productFor(entry.layer, entry.product, choices);
   const found = drawn.find((one) => one.product === product);
   // Seconds on the way in, because that is what the grids publish, and
   // milliseconds on the way out, because that is what a record holds.
@@ -154,11 +195,10 @@ export function useMrmsOverlays(options: {
   pageVisible: boolean;
   /** Bumped when a colour table is loaded, so the tiles are drawn again. */
   paletteGeneration: number;
-  /** Which window the gauge-corrected accumulation switch is pointing at. */
-  gaugeQpePeriod: GaugeQpePeriod;
+  /** Which grid each of the switches that stands for several is pointing at. */
+  choices: MrmsChoices;
 }): MrmsOverlayState {
-  const { ready, layers, pageVisible, paletteGeneration, gaugeQpePeriod } =
-    options;
+  const { ready, layers, pageVisible, paletteGeneration, choices } = options;
   const [catalog, setCatalog] = useState<MrmsProductInfo[]>([]);
   const [times, setTimes] = useState<Partial<Record<MrmsProductId, number>>>(
     {},
@@ -173,7 +213,7 @@ export function useMrmsOverlays(options: {
   // A stable key for the set of switches that are on, so panning does not
   // restart the polling.
   const wanted = MRMS_LAYERS.filter(({ layer }) => layers[layer])
-    .map(({ layer, product }) => productFor(layer, product, gaugeQpePeriod))
+    .map(({ layer, product }) => productFor(layer, product, choices))
     .join(",");
 
   useEffect(() => {

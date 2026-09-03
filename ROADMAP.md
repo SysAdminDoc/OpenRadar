@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-175 (P2): MRMS rotation and hail families: merged azimuthal shear, rotation-track durations, VIL density, SHI, POSH, VII
-  Why: The app ships one rotation track (60 minutes) and MESH; RadarScope sells shear and hail contours at Tier 2 and WeatherFront at Advanced; the missing grids are on the same bucket.
-  Evidence: Verified live 2026-09-02: `MergedAzShear_0-2kmAGL_00.50` and `_3-6kmAGL_` (2-min, 0.005°, 14000x7000, 8-bit), `RotationTrackML{30,120,240,1440}min` and non-ML variants, `VIL_Density_00.50`, `SHI_00.50`, `POSH_00.50`, `VII_00.50`, all template 5.41; `mrms.rs:431` holds only `RotationTrack60min_00.50`; WDTD says mid-level AzShear above 0.01 s⁻¹ is a deep mesocyclone signal. (2026-09-03: the same listing also carries `MESH_Max_30/60/120/240/360min`, `VIL_Max_120/1440min`, `EchoTop_30/50/60` and `RotationTrack360min`; WDTD's MESH Tracks page documents the running-max semantics, https://vlab.noaa.gov/web/wdtd/-/mesh-tracks. Commit `9fcfc11` already folds a 0.005° grid by two, so the 0.005° path exists and AzShear rides it.)
-  Touches: `src-tauri/src/mrms.rs` (a 0.005° grid path beside the 0.01° one, product table), `mrms.ts`, `RadarProductPanel.tsx` (a duration switch for rotation tracks), legends, ramps, catalogues, live test.
-  Acceptance: Low- and mid-level AzShear draw at full 0.005° resolution with a legend in 0.001 s⁻¹ and a note on the WDTD thresholds; rotation tracks offer 30/60/120/240/1440 minutes; SHI, POSH, VII and VIL density draw with measured ramps; tile timing for a 14000x7000 grid stays under the current composite's budget in the live test.
-  Complexity: M
-
 - [ ] AUD-176 (P2): WPC hazard outlooks: excessive rainfall and the winter storm severity index
   Why: The Excessive Rainfall Outlook is what forecasters point at before a flood day and RadarScope paywalls it at Tier 2; the WSSI is the winter counterpart; both live on a host already allowed with a CORS policy the page can use.
   Evidence: Verified live 2026-09-02: `https://mapservices.weather.noaa.gov/vector/rest/services/hazards/wpc_precip_hazards/MapServer` layers 0-4 (Day 1-5, `outlook`, `valid_time`, `f=geojson` works); `outlooks/wpc_wssi/MapServer` (overall impact layers 1-4, components for snow amount, load, ice, blowing snow) and time-enabled `outlooks/wpc_wssi_p`; ACAO echoes the request origin. PNS26-57 proposes a five-tier ERO; PNS26-64 retires PWPF for NBM-based PPP on 2026-10-01, so no PWPF adapter.
@@ -265,6 +258,13 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Complexity: M
 
 ### P3
+
+- [ ] AUD-233 (P3): The finer MRMS grids at their own resolution, on demand
+  Why: `AUD-175` shipped merged azimuthal shear, which MRMS publishes at 0.005 degrees, and it draws folded by two to the 0.01 degree grid the rest of the app uses. That is a deliberate memory decision from commit `9fcfc11` and not an oversight: one unfolded grid is 196 MB against 49, the cache budget is 768 MB, and `CACHE_CAPACITY > LAYERS_AT_ONCE` stops holding. It also means the item's own acceptance line, "at full 0.005 degree resolution", was not met, and the detail is real: a shear couplet is a few hundred metres across.
+  Evidence: `src-tauri/src/mrms.rs` `MAX_SOURCE_REDUCTION`, `GRID_BYTES`, `CACHE_BUDGET_BYTES` and the two const assertions beneath them; `mrms::tests::a_finer_grid_is_folded_and_costs_what_a_coarse_one_does` measures the fold and its cost (330 ms to decode, 3.9 ms a tile on 2026-09-03).
+  Touches: `src-tauri/src/mrms.rs` (a per-product reduction rather than one for the table, and a cache that budgets by bytes held rather than by slots of a fixed size), the cache tests.
+  Acceptance: With a reader zoomed past the point the fold is visible, the shear grids draw unfolded, and a screen with eight layers on still never evicts a grid it is about to want; the budget is measured in bytes and the const assertions still hold.
+  Complexity: M
 
 - [ ] AUD-219 (P3): Split `level2.rs` before the derived products land
   Why: The file is 6,467 lines and four open items (`AUD-189`, `AUD-190`, `AUD-191`, `AUD-192`) all land in it; a split into listing, decode, render, loop and status modules costs nothing now and a great deal after.

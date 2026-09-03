@@ -194,6 +194,81 @@ const ROTATION_RAMP: &[(f32, [u8; 3])] = &[
     (14.0, [0xc0, 0x26, 0xd3]),
 ];
 
+/// Azimuthal shear as the merged grids publish it, in thousandths of a
+/// reciprocal second.
+///
+/// The same unit as a rotation track, and a different measurement: a track is
+/// the largest shear a cell has held over a window, this is what the shear is
+/// now. So the stops are lower. WDTD reads mid-level shear at or above 0.01
+/// per second as a deep mesocyclone, which is ten here, and that is the stop
+/// the legend names rather than the top of the ramp.
+const AZ_SHEAR_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, [0x38, 0xbd, 0xf8]),
+    (4.0, [0x4a, 0xde, 0x80]),
+    (6.0, [0xfa, 0xcc, 0x15]),
+    (8.0, [0xfb, 0x92, 0x3c]),
+    (10.0, [0xf4, 0x3f, 0x5e]),
+    (14.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// How much water is packed into each metre of the column, in grams per cubic
+/// metre: liquid divided by the depth of the echo.
+///
+/// The number that tells a tall wet storm from a hail storm. Above about three
+/// and a half the column is holding more than rain can account for, which is
+/// where the ramp turns.
+const VIL_DENSITY_RAMP: &[(f32, [u8; 3])] = &[
+    (0.5, [0x38, 0xbd, 0xf8]),
+    (1.5, [0x4a, 0xde, 0x80]),
+    (2.5, [0xfa, 0xcc, 0x15]),
+    (3.5, [0xfb, 0x92, 0x3c]),
+    (4.5, [0xf4, 0x3f, 0x5e]),
+    (6.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// The severe hail index, in joules per metre per second.
+///
+/// Witt's kinetic energy flux weighted between the freezing level and minus
+/// twenty, and the number the probability and the size are both worked out
+/// from. It has no natural ceiling; a serious hail storm runs into the
+/// hundreds.
+const SHI_RAMP: &[(f32, [u8; 3])] = &[
+    (10.0, [0x38, 0xbd, 0xf8]),
+    (50.0, [0x4a, 0xde, 0x80]),
+    (100.0, [0xfa, 0xcc, 0x15]),
+    (200.0, [0xfb, 0x92, 0x3c]),
+    (350.0, [0xf4, 0x3f, 0x5e]),
+    (600.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// The probability of severe hail, as a percentage.
+///
+/// Witt's own curve off the severe hail index. Fifty is where the algorithm
+/// was tuned to be right about half the time, so that is the middle of the
+/// ramp rather than an arbitrary step.
+const POSH_RAMP: &[(f32, [u8; 3])] = &[
+    (10.0, [0x38, 0xbd, 0xf8]),
+    (30.0, [0x4a, 0xde, 0x80]),
+    (50.0, [0xfa, 0xcc, 0x15]),
+    (70.0, [0xfb, 0x92, 0x3c]),
+    (85.0, [0xf4, 0x3f, 0x5e]),
+    (100.0, [0xc0, 0x26, 0xd3]),
+];
+
+/// Vertically integrated ice, in kilograms per square metre.
+///
+/// The frozen half of what a column is holding, worked out between the
+/// freezing level and minus forty. Deep hail-bearing updraughts run high here
+/// while a warm rain column stays near nothing.
+const VII_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, [0x38, 0xbd, 0xf8]),
+    (8.0, [0x4a, 0xde, 0x80]),
+    (16.0, [0xfa, 0xcc, 0x15]),
+    (25.0, [0xfb, 0x92, 0x3c]),
+    (35.0, [0xf4, 0x3f, 0x5e]),
+    (50.0, [0xc0, 0x26, 0xd3]),
+];
+
 /// Maximum estimated hail size in millimetres, banded the way warnings are:
 /// quarter, golf ball, baseball.
 const MESH_RAMP: &[(f32, [u8; 3])] = &[
@@ -357,6 +432,51 @@ const HIGH_CONTRAST_ROTATION_RAMP: &[(f32, [u8; 3])] = &[
     (8.0, HIGH_CONTRAST_STEPS[3]),
     (10.0, HIGH_CONTRAST_STEPS[4]),
     (14.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_AZ_SHEAR_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, HIGH_CONTRAST_STEPS[0]),
+    (4.0, HIGH_CONTRAST_STEPS[1]),
+    (6.0, HIGH_CONTRAST_STEPS[2]),
+    (8.0, HIGH_CONTRAST_STEPS[3]),
+    (10.0, HIGH_CONTRAST_STEPS[4]),
+    (14.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_VIL_DENSITY_RAMP: &[(f32, [u8; 3])] = &[
+    (0.5, HIGH_CONTRAST_STEPS[0]),
+    (1.5, HIGH_CONTRAST_STEPS[1]),
+    (2.5, HIGH_CONTRAST_STEPS[2]),
+    (3.5, HIGH_CONTRAST_STEPS[3]),
+    (4.5, HIGH_CONTRAST_STEPS[4]),
+    (6.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_SHI_RAMP: &[(f32, [u8; 3])] = &[
+    (10.0, HIGH_CONTRAST_STEPS[0]),
+    (50.0, HIGH_CONTRAST_STEPS[1]),
+    (100.0, HIGH_CONTRAST_STEPS[2]),
+    (200.0, HIGH_CONTRAST_STEPS[3]),
+    (350.0, HIGH_CONTRAST_STEPS[4]),
+    (600.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_POSH_RAMP: &[(f32, [u8; 3])] = &[
+    (10.0, HIGH_CONTRAST_STEPS[0]),
+    (30.0, HIGH_CONTRAST_STEPS[1]),
+    (50.0, HIGH_CONTRAST_STEPS[2]),
+    (70.0, HIGH_CONTRAST_STEPS[3]),
+    (85.0, HIGH_CONTRAST_STEPS[4]),
+    (100.0, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_VII_RAMP: &[(f32, [u8; 3])] = &[
+    (2.0, HIGH_CONTRAST_STEPS[0]),
+    (8.0, HIGH_CONTRAST_STEPS[1]),
+    (16.0, HIGH_CONTRAST_STEPS[2]),
+    (25.0, HIGH_CONTRAST_STEPS[3]),
+    (35.0, HIGH_CONTRAST_STEPS[4]),
+    (50.0, HIGH_CONTRAST_STEPS[5]),
 ];
 
 const HIGH_CONTRAST_MESH_RAMP: &[(f32, [u8; 3])] = &[
@@ -537,6 +657,78 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         sampling: Sampling::Cells,
         categories: None,
     },
+    // The other windows the same track is published over. One switch with a
+    // duration beside it rather than five switches: they are the same
+    // measurement over five windows and only one can be drawn at once.
+    MrmsProduct {
+        id: "rotation-30",
+        folder: "RotationTrack30min_00.50",
+        label: "Rotation tracks, past 30 min",
+        unit: "0.001/s",
+        ramp: ROTATION_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ROTATION_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "rotation-120",
+        folder: "RotationTrack120min_00.50",
+        label: "Rotation tracks, past 2 hours",
+        unit: "0.001/s",
+        ramp: ROTATION_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ROTATION_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "rotation-240",
+        folder: "RotationTrack240min_00.50",
+        label: "Rotation tracks, past 4 hours",
+        unit: "0.001/s",
+        ramp: ROTATION_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ROTATION_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "rotation-1440",
+        folder: "RotationTrack1440min_00.50",
+        label: "Rotation tracks, past day",
+        unit: "0.001/s",
+        ramp: ROTATION_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ROTATION_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    // Shear as it stands rather than the largest a cell has held. Published on
+    // the finer 0.005 degree grid, which the decoder folds by two on the way
+    // in like every other grid that arrives finer than the app draws.
+    MrmsProduct {
+        id: "az-shear-low",
+        folder: "MergedAzShear_0-2kmAGL_00.50",
+        label: "Azimuthal shear, 0 to 2 km",
+        unit: "0.001/s",
+        ramp: AZ_SHEAR_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_AZ_SHEAR_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "az-shear-mid",
+        folder: "MergedAzShear_3-6kmAGL_00.50",
+        label: "Azimuthal shear, 3 to 6 km",
+        unit: "0.001/s",
+        ramp: AZ_SHEAR_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_AZ_SHEAR_RAMP,
+        floor: 2.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
     MrmsProduct {
         id: "mesh",
         folder: "MESH_00.50",
@@ -567,6 +759,50 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         ramp: VIL_RAMP,
         high_contrast_ramp: HIGH_CONTRAST_VIL_RAMP,
         floor: 1.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "vil-density",
+        folder: "VIL_Density_00.50",
+        label: "Liquid per metre of column",
+        unit: "g/m3",
+        ramp: VIL_DENSITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_VIL_DENSITY_RAMP,
+        floor: 0.5,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "shi",
+        folder: "SHI_00.50",
+        label: "Severe hail index",
+        unit: "J/m/s",
+        ramp: SHI_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_SHI_RAMP,
+        floor: 10.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "posh",
+        folder: "POSH_00.50",
+        label: "Probability of severe hail",
+        unit: "%",
+        ramp: POSH_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_POSH_RAMP,
+        floor: 10.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "vii",
+        folder: "VII_00.50",
+        label: "Vertically integrated ice",
+        unit: "kg/m2",
+        ramp: VII_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_VII_RAMP,
+        floor: 2.0,
         sampling: Sampling::Nearest,
         categories: None,
     },
@@ -2271,6 +2507,125 @@ mod tests {
         );
     }
 
+    /// The finer grids cost what the coarse ones do, because they are folded.
+    ///
+    /// Azimuthal shear is published at 0.005 degrees, which is 14000 by 7000
+    /// points: four times the cells of everything else in the table. It has to
+    /// arrive as the same 0.01 degree grid the rest of the app draws, and it
+    /// has to arrive inside the budget the composite is held to, or the finest
+    /// product in the table is the one that makes the map stutter.
+    #[test]
+    #[ignore = "fetches a live grid from the MRMS archive"]
+    fn a_finer_grid_is_folded_and_costs_what_a_coarse_one_does() {
+        let _turn = live_test();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        for id in ["az-shear-low", "az-shear-mid"] {
+            clear_caches();
+            let entry = product_by_id(id).expect("the product is in the table");
+            let frames = runtime
+                .block_on(mrms_frames(id.into(), 3, None))
+                .unwrap_or_else(|error| panic!("{id} publishes nothing: {error}"));
+            let newest = frames.last().unwrap_or_else(|| panic!("{id} has no grid"));
+
+            // What the bucket actually published, read out of the object's own
+            // grid definition section rather than inferred from what came out
+            // of the decoder. The decoder's answer is post-fold, so on its own
+            // it cannot tell a folded fine grid from a coarse one, and the
+            // whole claim here is that this product is the fine one.
+            let raw = runtime
+                .block_on(http::get_bytes(&format!("{BUCKET}/{}", newest.key)))
+                .unwrap_or_else(|error| panic!("{id} would not fetch: {error}"));
+            let plain = gunzip(&raw).expect("the object is gzip");
+            let (source_columns, source_rows, source_step) = {
+                let mut at = 16usize;
+                let mut found = None;
+                while at + 5 <= plain.len() && &plain[at..at + 4] != b"7777" {
+                    let length = u32::from_be_bytes(plain[at..at + 4].try_into().unwrap()) as usize;
+                    assert!(length >= 5 && at + length <= plain.len());
+                    let section = &plain[at..at + length];
+                    if section[4] == 3 {
+                        found = Some((
+                            u32::from_be_bytes(section[30..34].try_into().unwrap()) as usize,
+                            u32::from_be_bytes(section[34..38].try_into().unwrap()) as usize,
+                            u32::from_be_bytes(section[67..71].try_into().unwrap()) as f64 / 1e6,
+                        ));
+                        break;
+                    }
+                    at += length;
+                }
+                found.expect("the object carries a grid definition")
+            };
+            assert_eq!(
+                (source_columns, source_rows),
+                (14000, 7000),
+                "{id} is no longer published on the fine grid"
+            );
+            assert!(
+                (source_step - 0.005).abs() < 1e-9,
+                "{id} is published at {source_step} degrees"
+            );
+
+            let started = std::time::Instant::now();
+            runtime
+                .block_on(grid_for(&newest.key))
+                .unwrap_or_else(|error| panic!("{id} did not decode: {error}"));
+            let decoded = started.elapsed();
+
+            {
+                let cache = CACHE.lock().expect("the cache");
+                let held = cache
+                    .iter()
+                    .find(|held| held.key == newest.key)
+                    .expect("the grid is cached");
+                assert_eq!(
+                    (held.grid.columns, held.grid.rows),
+                    (7000, 3500),
+                    "{id} was not folded to the grid the app draws"
+                );
+                assert!(
+                    (held.grid.d_lat - 0.01).abs() < 1e-9,
+                    "{id} came out at {} degrees",
+                    held.grid.d_lat
+                );
+                // Folding anchors the first point at the centre of the block
+                // it came from, so the field does not slide half a source cell
+                // north and west. That lands it on the coarse grid's own
+                // origin, which is what lets a reader compare shear against a
+                // rotation track cell for cell.
+                assert!(
+                    (held.grid.north - 54.995).abs() < 1e-6,
+                    "{id} starts at {}",
+                    held.grid.north
+                );
+                assert!(
+                    (held.grid.west + 129.995).abs() < 1e-6,
+                    "{id} starts at {}",
+                    held.grid.west
+                );
+            }
+
+            let drawing = std::time::Instant::now();
+            let _ = tile_from_cache(&newest.key, entry, 4, 3, 5, None, false);
+            let drawn = drawing.elapsed();
+            println!("{id}: decode {decoded:?}, tile {drawn:?}");
+
+            // The same budget the composite is held to, not a looser one.
+            assert!(
+                decoded < std::time::Duration::from_secs(3),
+                "{id} took {decoded:?} to decode"
+            );
+            assert!(
+                drawn < std::time::Duration::from_millis(200),
+                "{id} took {drawn:?} for one tile"
+            );
+        }
+        clear_caches();
+    }
+
     /// The whole native path exactly as the webview drives it: a URL in, PNG
     /// bytes out. Ignored with the other live tests.
     #[test]
@@ -3476,7 +3831,23 @@ mod tests {
         let expected = [
             ("composite", Sampling::Nearest),
             ("rotation", Sampling::Cells),
+            ("rotation-30", Sampling::Cells),
+            ("rotation-120", Sampling::Cells),
+            ("rotation-240", Sampling::Cells),
+            ("rotation-1440", Sampling::Cells),
+            // Shear as it stands is scattered even more thinly than a track
+            // over the same window, and it arrives on a grid four times as
+            // fine, so it is walked rather than sampled per pixel.
+            ("az-shear-low", Sampling::Cells),
+            ("az-shear-mid", Sampling::Cells),
             ("mesh", Sampling::Cells),
+            // Density is a ratio of two fields that cover the map, so it
+            // covers the map too; the two hail indices and the probability
+            // are cores.
+            ("vil-density", Sampling::Nearest),
+            ("shi", Sampling::Cells),
+            ("posh", Sampling::Cells),
+            ("vii", Sampling::Nearest),
             // The fields that cover the map are sampled per pixel; the ones
             // that are scattered single cells are walked, because a per-pixel
             // pass over a few hundred live cells in twenty-four million draws
