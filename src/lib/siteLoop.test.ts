@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  MAX_LOOP_VOLUMES,
+  MIN_LOOP_VOLUMES,
   loopKey,
   stepNow,
   stepsForVolumes,
@@ -155,5 +159,43 @@ describe("how many rendered volumes to keep", () => {
     expect([...trimHeld(held, 2).keys()]).toEqual(["b", "c"]);
     expect(trimHeld(held, 5)).toBe(held);
     expect([...trimHeld(held, 0).keys()]).toEqual([]);
+  });
+});
+
+describe("the bound on a loop's length is written down once", () => {
+  // It is written down twice: here, where the panel offers the numbers, and
+  // in `level2.rs`, which clamps whatever it is asked for before it goes to
+  // the bucket. Nothing failed when they drifted. The one that matters is
+  // the native clamp, because a reader who is offered 40 in a dropdown and
+  // silently given 30 has a loop that stops where nothing said it would.
+  const native = readFileSync(
+    join(import.meta.dirname, "..", "..", "src-tauri", "src", "level2.rs"),
+    "utf8",
+  );
+
+  it("agrees with the clamp in level2.rs", () => {
+    const declared = native.match(/pub const MAX_LOOP_VOLUMES: usize = (\d+);/);
+    expect(
+      declared,
+      "level2.rs no longer declares MAX_LOOP_VOLUMES, so this gate is reading nothing",
+    ).not.toBeNull();
+    expect(
+      Number(declared![1]),
+      "src/lib/siteLoop.ts and src-tauri/src/level2.rs disagree about the longest loop",
+    ).toBe(MAX_LOOP_VOLUMES);
+  });
+
+  it("agrees with the floor the clamp applies", () => {
+    // The clamp's low end is a literal rather than a constant, so it is read
+    // out of the call itself.
+    const clamp = native.match(/count\.clamp\((\d+), MAX_LOOP_VOLUMES\)/);
+    expect(
+      clamp,
+      "level2_recent_times no longer clamps against MAX_LOOP_VOLUMES",
+    ).not.toBeNull();
+    expect(
+      Number(clamp![1]),
+      "src/lib/siteLoop.ts and src-tauri/src/level2.rs disagree about the shortest loop",
+    ).toBe(MIN_LOOP_VOLUMES);
   });
 });

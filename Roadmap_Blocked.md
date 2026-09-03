@@ -89,8 +89,22 @@ Four audit items ask for evidence that cannot be produced from a terminal on thi
 - `AUD-004`, exercising the real native desktop workflows: deep links, single-instance reuse, Windows notifications, native save dialogs, log file creation, and file reveal. Every one of these is covered by unit and headless tests, and every one of them ends in a window somebody has to look at. This machine reserves GUI validation for an isolated monitor or a virtual session, so it cannot be done here without taking over the screen in front of the user.
 - `AUD-005`, Authenticode-signing the installer. This is a purchase before it is an implementation. Azure Trusted Signing at about ten dollars a month remains the cheapest route found, and until somebody signs up for it, SmartScreen warns on first run and the README says so.
 - `AUD-006`, the clean Windows install and uninstall validation. It needs a throwaway Windows image that no session has touched, plus a display to watch the first run on. The virtual machine on the network is not clean and installing into it would stop it being a useful control.
+- `AUD-165`, watching the tray icon, the glance window, the desktop wallpaper, the updater and an incident pack behave in an installed build. Its own acceptance line asks for a checklist run on a virtual desktop or a second session, which is the blocker the other four share. Everything it names is covered by unit and headless tests and none of it has been observed on a machine: whether the icon really disappears on switch-off, whether the wallpaper restore holds across a reboot, whether the passive updater relaunches cleanly, whether a pack survives a pause and a restart.
 
-What would unblock all four in one go is an isolated desktop session, either a second physical display this machine may drive or a virtual machine with its own console, plus a certificate for the signing half of `AUD-005`.
+What would unblock all five in one go is an isolated desktop session, either a second physical display this machine may drive or a virtual machine with its own console, plus a certificate for the signing half of `AUD-005`.
+
+`AUD-165` kept whole so it can go back to `ROADMAP.md` unchanged:
+
+    - [ ] AUD-165: Installed-build behaviour of the tray icon, the glance window, the desktop wallpaper, the updater and incident packs
+          Category: testing
+          Where: `src-tauri/src/tray.rs`, `glance.rs`, `wallpaper.rs`, `src/lib/updates.ts`, `src-tauri/src/incident_packs.rs`
+          Problem: None of these run in the browser suite. The three P1/P2 ACL findings above were found by reading the capability file; whether the icon really disappears on switch-off, whether the wallpaper restore holds across a reboot, whether the passive-mode updater relaunches cleanly and whether a pack survives a pause and a restart have never been observed on a machine, only reasoned about.
+          Evidence: `e2e/` stubs `__TAURI_INTERNALS__` in every desktop-flavoured spec; the audit rules forbid driving the reader's screen.
+          Fix: A checklist run on a virtual desktop or a second session, recorded in the working notes: tray on/off/on, glance from the tray in French, wallpaper on then off then reboot, an update from 0.6.0 to 0.7.0, a pack paused mid-download and resumed after a restart.
+          Acceptance: Each step observed and noted, with any defect logged here.
+          Confidence: Needs-repro
+          Effort: M
+
 
 ## Rich alert toasts, and proving a toast is attributed at all
 
