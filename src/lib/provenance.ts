@@ -265,6 +265,14 @@ export function sweepProvenance(options: {
   /** The volume this record is about. Defaults to the one on screen. */
   at?: number;
   fetchedAt: number;
+  /**
+   * How long the volume had been held when this record was written.
+   *
+   * Null for a volume that has just come off the network, which is what the
+   * field means everywhere else. A loop reads its own volumes back, and the
+   * second reading is not an arrival.
+   */
+  cachedAgeSeconds?: number | null;
 }): Provenance {
   const { sweep, fetchedAt } = options;
   const at = options.at ?? Date.parse(sweep.collected);
@@ -285,7 +293,7 @@ export function sweepProvenance(options: {
     // in clear air. The sweep does not carry which one it was scanned under,
     // and a number here would be a freshness claim nothing checked.
     freshForMs: null,
-    cachedAgeSeconds: null,
+    cachedAgeSeconds: options.cachedAgeSeconds ?? null,
   };
 }
 

@@ -272,6 +272,30 @@ describe("a record for one volume of one radar", () => {
     expect(record.validAt).toBe(earlier);
     expect(provenanceProblems(record)).toEqual([]);
   });
+
+  it("says how long a volume had been held rather than nothing at all", () => {
+    // A loop reads its own volumes back, and the second reading is not an
+    // arrival. Every frame of a saved loop used to be stamped with the moment
+    // its caption was written, which for a held volume can be minutes early,
+    // and to report no cache age, which this record's own type documents as
+    // meaning the bytes came off the network.
+    const record = sweepProvenance({
+      sweep,
+      at: OBSERVED_AT,
+      fetchedAt: FETCHED_AT - 8 * 60_000,
+      cachedAgeSeconds: 8 * 60,
+    });
+    expect(record.fetchedAt).toBe(FETCHED_AT - 8 * 60_000);
+    expect(record.cachedAgeSeconds).toBe(8 * 60);
+    expect(provenanceProblems(record)).toEqual([]);
+    expect(provenanceLines(record).join("\n")).toContain("cache 480s old");
+  });
+
+  it("still says live for a volume that has just arrived", () => {
+    const record = sweepProvenance({ sweep, fetchedAt: FETCHED_AT });
+    expect(record.cachedAgeSeconds).toBeNull();
+    expect(provenanceLines(record).join("\n")).toContain("cache live");
+  });
 });
 
 describe("writing a record down", () => {

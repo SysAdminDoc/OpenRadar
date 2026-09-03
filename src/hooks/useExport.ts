@@ -132,6 +132,13 @@ export function useExport(options: {
    * most likely to send to another person.
    */
   sweep: SweepImage | null;
+  /**
+   * When a volume's bytes reached this machine, by volume time.
+   *
+   * Asked per frame rather than captured once, because the walk fetches as it
+   * goes: a volume can arrive while the file is being written.
+   */
+  arrivedAt?: (volume: number) => number | null;
   siteLoop: {
     sweep: SweepImage;
     volumes: number[];
@@ -158,6 +165,7 @@ export function useExport(options: {
     basemapCredit,
     dataSources,
     sweep,
+    arrivedAt,
     siteLoop,
     pushToast,
   } = options;
@@ -187,13 +195,21 @@ export function useExport(options: {
    */
   const sweepCaptionFor = useCallback(
     (sweep: SweepImage, at: number, index: number): ExportCaption => {
+      const now = Date.now();
+      // When that volume's bytes actually reached this machine, which for one
+      // the loop was already holding can be a good deal earlier than now.
+      // Stamping every frame with the moment its caption was written made a
+      // held volume look like it had just arrived, and reporting no cache age
+      // said the same thing again in the field that exists to say it.
+      const arrived = arrivedAt?.(at) ?? null;
       const record = sweepProvenance({
         sweep,
         at,
-        // The walk draws each volume as it captions it, either fetching it or
-        // re-reading one the loop already holds, so this is when the machine
-        // had those bytes to within the length of the walk.
-        fetchedAt: Date.now(),
+        fetchedAt: arrived ?? now,
+        cachedAgeSeconds:
+          arrived === null
+            ? null
+            : Math.max(0, Math.round((now - arrived) / 1000)),
       });
       drawnRef.current.set(index, record);
       return {
@@ -207,7 +223,7 @@ export function useExport(options: {
         attribution: provenanceCredit(basemapCredit, record),
       };
     },
-    [basemapCredit],
+    [arrivedAt, basemapCredit],
   );
 
   const captionFor = useCallback(

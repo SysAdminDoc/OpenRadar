@@ -699,6 +699,34 @@ describe("the pane that compares", () => {
     expect(result.current.loop).not.toBeNull();
   });
 
+  it("remembers when a volume's bytes arrived, and only for the ones it read", async () => {
+    // What a saved loop needs to tell a picture that just came off the
+    // network from one the loop has been holding for ten minutes. Nothing
+    // recorded it: an export stamped every frame with the moment its caption
+    // was written and reported no cache age, which the record's own type
+    // documents as meaning the bytes came off the network.
+    const before = Date.now();
+    const { result } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      {
+        initialProps: options({
+          showingTime: VOLUMES[0],
+          compareTime: VOLUMES[2],
+        }),
+      },
+    );
+
+    await waitFor(() => expect(result.current.compare.sweep).not.toBeNull());
+    const first = result.current.arrivedAt(VOLUMES[0]);
+    expect(first).not.toBeNull();
+    expect(first).toBeGreaterThanOrEqual(before);
+    expect(result.current.arrivedAt(VOLUMES[2])).not.toBeNull();
+    // A volume neither pane asked for was never fetched, and saying when it
+    // arrived would be an invention.
+    expect(result.current.arrivedAt(VOLUMES[1])).toBeNull();
+  });
+
   it("has nothing to compare with the pane closed", async () => {
     const { result } = renderHook(
       (props: Parameters<typeof useSingleSiteRadar>[0]) =>

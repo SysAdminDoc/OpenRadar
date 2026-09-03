@@ -70,6 +70,16 @@ export interface SingleSiteState {
    */
   compare: { sweep: SweepImage | null; at: number | null };
   /**
+   * When a volume's bytes reached this machine, or null for one never fetched.
+   *
+   * Asked rather than captured, for the same reason `drawnVolume` is: an
+   * export walks the loop and each volume arrives while the walk is running.
+   * What it answers is the difference between a picture that came off the
+   * network a moment ago and one the loop has been holding for ten minutes,
+   * which is the whole of what a record's cache age is for.
+   */
+  arrivedAt: (volume: number) => number | null;
+  /**
    * Every radar whose coverage reaches the view, nearest first.
    *
    * Asked for on the same coarse position the nearest-site search uses, so
@@ -229,6 +239,22 @@ export function useSingleSiteRadar(options: {
     times: [],
   });
   const heldRef = useRef<Map<string, SweepImage>>(new Map());
+  /**
+   * When each volume's bytes reached this machine, by volume time.
+   *
+   * A loop holds its volumes, and the second time one is drawn it is not
+   * arriving, it is being read back. Nothing recorded the difference: an
+   * exported loop stamped every frame with the moment its caption was
+   * written, which for a held volume can be minutes early, and reported a
+   * null cache age, which the record's own type says means the bytes came off
+   * the network.
+   *
+   * Keyed by the volume rather than by the fetch key, because the volume is
+   * what a caller has: the export walks volume times. A change of tilt or
+   * palette re-fetches and overwrites the entry, which is right, since those
+   * really are new bytes.
+   */
+  const arrivedRef = useRef<Map<number, number>>(new Map());
   // The volumes being fetched right now. Both panes resolve their own moment
   // and the two often land on one volume, and without this they each asked
   // the archive for the same ten megabyte object at the same time.
@@ -362,6 +388,8 @@ export function useSingleSiteRadar(options: {
           fetchingRef.current.delete(compareKey);
           heldRef.current.set(compareKey, next);
           heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
+          arrivedRef.current.set(compareVolume, Date.now());
+          arrivedRef.current = trimHeld(arrivedRef.current, loopVolumes * 2);
         }
         if (open) setFetchedCompare({ sweep: next, key: compareKey });
       })
@@ -586,6 +614,17 @@ export function useSingleSiteRadar(options: {
         at,
       }),
     [activateHistorical],
+  );
+
+  /**
+   * When a volume's bytes reached this machine, read from the ref.
+   *
+   * Stable, so a caller can hold it across the walk of a loop and still get
+   * the answer for a volume that arrived after the walk started.
+   */
+  const arrivedAt = useCallback(
+    (volume: number) => arrivedRef.current.get(volume) ?? null,
+    [],
   );
 
   const takeCrossSection = useCallback(
@@ -839,6 +878,8 @@ export function useSingleSiteRadar(options: {
         // reader moved first meant almost nothing was ever cached.
         heldRef.current.set(key, next);
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
+        arrivedRef.current.set(shownVolume, Date.now());
+        arrivedRef.current = trimHeld(arrivedRef.current, loopVolumes * 2);
         if (!open || request !== requestRef.current) return;
         setSweep(next);
         setDrawnVolume(shownVolume);
@@ -914,6 +955,7 @@ export function useSingleSiteRadar(options: {
         showing && !historicalWanted
           ? { sweep: compareSweep, at: compareSweep ? compareVolume : null }
           : { sweep: null, at: null },
+      arrivedAt,
       mode: historicalSource?.kind ?? "recent",
       openLocal,
       openArchive,
@@ -942,6 +984,7 @@ export function useSingleSiteRadar(options: {
           : null,
     };
   }, [
+    arrivedAt,
     available,
     compareSweep,
     compareVolume,

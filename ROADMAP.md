@@ -228,21 +228,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: A fresh 1487x1058 capture of the dark workspace with Alerts open, taken headless per `screenshots.md`, replaces the file in the same commit as the next visual change; the alt text names the state.
   Complexity: S
 
-- [ ] AUD-202 (P3): A held volume does not record when it was decoded
-  Why: The record beside an exported loop of a held site is stamped with the moment its caption was written, because nothing anywhere records when a volume's bytes actually reached this machine. For a volume the loop already holds that can be minutes early, and `cachedAgeSeconds` stays null, which the type documents as meaning the bytes came off the network.
-  Evidence: `src/hooks/useExport.ts` `sweepCaptionFor` passes `Date.now()`; `src/hooks/useSingleSiteRadar.ts` holds the decoded picture in `heldRef` and not the moment it arrived; `src/lib/provenance.ts` calls `cachedAgeSeconds` what separates a picture that is current from one that survived an outage.
-  Touches: `src/hooks/useSingleSiteRadar.ts` (hold the moment beside the picture and expose it with the series), `src/hooks/useExport.ts`, `src/lib/provenance.ts` if the sweep builder should take both.
-  Acceptance: An exported loop of a held site says per volume when that volume reached this machine; a volume drawn from the loop's own held pictures carries how long it had been held rather than a null.
-  Complexity: S
-
-## Research-Driven Additions, 2026-09-03
-
-Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries the evidence). Numbered `AUD-206` onward. Every host named below is either already in `ALLOWED_HOSTS` or is named in the item, and any new one needs the ledger row, the CSP entry and a `check:live` contract like the rest. Nothing here outranks an open audit item of the same priority.
-
-### P1
-
-### P2
-
 - [ ] AUD-209 (P2): Start with Windows, opening to the tray
   Why: The product is meant to sit on a second monitor for a year and the warning watch only runs while the app does, yet after every reboot nothing starts it; a reader who set up ten watched places and quiet hours is unwatched until they remember. The tray and close-to-tray already exist, so this is the missing third switch.
   Evidence: `src-tauri/Cargo.toml:30-77` (no autostart plugin); `src/lib/settings.ts:441-460` (`tray`, `closeToTray`); `tauri-plugin-autostart` 2.5.1 (crates.io, 2025-10-27; docs https://v2.tauri.app/plugin/autostart/ with `enable`/`disable`/`isEnabled` and launch arguments).
