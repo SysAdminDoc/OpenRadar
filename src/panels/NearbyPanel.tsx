@@ -1,6 +1,7 @@
 import { Keyboard, LoaderCircle, TriangleAlert, Wind } from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import type { NearbyCell, NearbyWarning } from "../lib/nearby";
+import type { Approach } from "../lib/approach";
 import { relativeTime } from "../lib/overlays";
 import { formatClock, useMeasurements } from "../lib/units";
 import { useT } from "../i18n";
@@ -17,6 +18,8 @@ interface NearbyPanelProps {
   onPlace: (id: string) => void;
   warnings: NearbyWarning[];
   cells: NearbyCell[];
+  /** The soonest storm heading for each watched place, soonest first. */
+  approaching: Approach[];
   /** What the reader calls each of them, by the algorithm's identifier. */
   cellNames: ReadonlyMap<string, string>;
   /** Naming one, or clearing the name by handing over nothing. */
@@ -44,6 +47,7 @@ export function NearbyPanel({
   onPlace,
   warnings,
   cells,
+  approaching,
   cellNames,
   onNameCell,
   cellsNote,
@@ -117,6 +121,43 @@ export function NearbyPanel({
           </ul>
         ) : (
           <p className="nearby-empty">{t("nearby.noWarnings")}</p>
+        )}
+      </section>
+
+      {/* Every watched place, not only the one chosen above: a reader with
+          a school and a cabin wants to know which of them a storm is heading
+          for, and picking each in turn to find out is the thing this panel
+          exists to save them. */}
+      <section className="nearby-block" data-approaching>
+        <h3>{t("approach.heading")}</h3>
+        {approaching.length ? (
+          <>
+            <ul role="list" className="nearby-list">
+              {approaching.map((coming) => (
+                <li key={`${coming.placeId}:${coming.cellId}`}>
+                  <Wind size={15} aria-hidden="true" />
+                  <span>
+                    {coming.minutes < 1
+                      ? t("approach.rowSoon", {
+                          id: coming.cellId,
+                          place: coming.placeName,
+                        })
+                      : t("approach.row", {
+                          id: coming.cellId,
+                          place: coming.placeName,
+                          count: Math.round(coming.minutes),
+                        })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {/* Said under the list rather than in each row: it is true of all
+                of them and repeating it four times is how somebody stops
+                reading it. */}
+            <p className="nearby-empty">{t("approach.note")}</p>
+          </>
+        ) : (
+          <p className="nearby-empty">{t("approach.none")}</p>
         )}
       </section>
 

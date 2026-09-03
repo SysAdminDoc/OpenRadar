@@ -46,6 +46,12 @@ import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import type { UndoableRemoval } from "./components/ToastHost";
 import { useAutostart } from "./hooks/useAutostart";
 import {
+  useApproachWatch,
+  approachBody,
+  approachTitle,
+} from "./hooks/useApproachWatch";
+import { approachesFor } from "./lib/approach";
+import {
   loadAlertSound,
   keepSoundPath,
   setAlertSound,
@@ -1056,6 +1062,28 @@ export default function App() {
     paletteGeneration,
     choices: mrmsChoices,
   });
+  // What the radar’s own tracker says is heading for each watched place.
+  // Not a warning, and never worded as one: the panel lists it, the notice
+  // says it is a track, and both are off until asked for.
+  const approaching = useMemo(
+    () => approachesFor(stormCells.report, watchedForJournal, clock),
+    [clock, stormCells.report, watchedForJournal],
+  );
+  useApproachWatch({
+    report: stormCells.report,
+    places: watchedForJournal,
+    settings: settings.approach,
+    clock,
+    // The toast is the announcement on the browser path and the fallback on
+    // the desktop one, and it sits in a polite live region either way. The
+    // desktop notification is what a screen reader hears when it lands.
+    onFallback: (coming) =>
+      pushToast({
+        title: approachTitle(coming),
+        detail: approachBody(coming),
+      }),
+  });
+
   const lightning = useLightning({
     ready: hydrated,
     enabled: settings.layers.lightningFlashes,
@@ -2448,6 +2476,7 @@ export default function App() {
             replaying={Boolean(replay)}
             nearbyPlaces={nearbyPlaces}
             nearbyPlaceId={nearbyPlaceId}
+            approaching={approaching}
             onNearbyPlace={setNearbyPlaceId}
             clock={clock}
             update={updates.state}

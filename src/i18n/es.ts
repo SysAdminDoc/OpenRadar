@@ -1177,6 +1177,25 @@ export const es: Catalogue = {
     "Deja ver el mapa base cuando el radar está oculto",
   "cells.eyebrow": "Células de tormenta",
   "cells.arriving": "{id} llega al punto vigilado en {count} min",
+  "approach.title": "Tormenta en camino a {place}",
+  "approach.titleHome": "Tormenta viniendo hacia ti",
+  "approach.body":
+    "El radar sigue a {id} y calcula que llega en unos {count} min. Es un seguimiento, no un aviso.",
+  "approach.setting": "Avísame cuando una tormenta venga hacia aquí",
+  "approach.settingDetail":
+    "El radar sigue cada tormenta y calcula cuándo llega a un lugar que vigilas. Es aritmética sobre una mancha en movimiento, no un aviso de nadie.",
+  "approach.window": "Cuánto aviso quieres",
+  "approach.windowMinutes": "{count} min",
+  "approach.sound": "Que suene",
+  "approach.soundDetail":
+    "Apagado, porque un aviso ya suena y esto no es un aviso.",
+  "approach.needsPlace":
+    "Necesita un lugar que vigilar, que es hacia donde iría la tormenta.",
+  "approach.heading": "En camino",
+  "approach.row": "{id} llega a {place} en unos {count} min",
+  "approach.rowSoon": "{id} está llegando a {place} ahora",
+  "approach.note": "El radar siguiendo estas tormentas, no un aviso.",
+  "approach.none": "Nada de lo que el radar sigue va hacia tus lugares.",
   "cells.arrivingSoon": "{id} llega al punto vigilado en menos de un minuto",
   "cells.nothingComing": "Nada de lo que sigue el radar va hacia allí",
   "cells.needsWatch":

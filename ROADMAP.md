@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-178 (P2): Arrival estimate for every watched place, and a notice when a tracked cell will reach one
-  Why: The app already says "A1 reaches the place you watch in 12 min", but only for home and only inside the Radar Products panel; the patent caution that held this back is over, and Storm Radar sells the same line at $19.99 a year.
-  Evidence: `src/lib/cells.ts:122,160` (`minutesUntilArrival`, `soonestArrival`), `src/panels/RadarProductPanel.tsx:129` (home only); US 6,125,328, 6,278,947, 6,401,039 and 6,252,539 all show Expired on Google Patents (2018); RadarScope Tier 2 and WeatherFront Advanced sell storm ETAs.
-  Touches: `src/lib/cells.ts` (per-place arrivals), `src/lib/watch.ts` (an `approach` event distinct from a warning, with its own opt-in and no default sound), `src/hooks/useAlertWatch.ts`, `src/panels/NearbyPanel.tsx` and `AlertsPanel.tsx`, `src/lib/journal.ts` writers list (already records a cell within ten miles; keep the gate test honest), catalogues.
-  Acceptance: Each watched place shows the soonest cell arrival in the Nearby list; an opt-in notice fires once per cell per place when the estimate first drops under a reader-chosen threshold, labelled as the radar's tracking rather than a warning, silent by default, and standing down under quiet hours; the `appendJournalRow` caller gate still lists exactly its documented writers.
-  Complexity: M
-
 - [ ] AUD-179 (P2): Lightning within a radius of a watched place
   Why: Supercell Wx #581 asks for it, RadarScope sells it at Tier 1, and the app already decodes GLM flashes and the NLDN density grid; a reader at a ballfield wants "flashes within 10 miles in the last 5 minutes", not a national picture.
   Evidence: `src/hooks/useLightning.ts` has no watch path; `src-tauri/src/lightning.rs` decodes flash centroids with quality flags; the GLM legend already carries the not-a-strike-report note.

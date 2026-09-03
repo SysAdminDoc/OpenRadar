@@ -73,13 +73,15 @@ const BUDGETS = [
     // sounds, the curiosities and the incident packs are all in here, and a
     // reader opening Alerts was fetching every one of them.
     //
-    // Raised from 62 on 2026-09-03 for seven more layer switches and four
-    // more segmented controls: the rotation and hail families, and the two
-    // Weather Prediction Center outlooks with a day beside each. Raised on the
-    // measurement rather than on a guess, and the compressed figure did not
-    // move, which is what actually reaches a reader.
-    raw: 66,
-    gzip: 15,
+    // Raised from 62 and 15 on 2026-09-03 for seven more layer switches and
+    // six more segmented controls: the rotation and hail families, the two
+    // Weather Prediction Center outlooks with a day beside each, the satellite
+    // bands, and the approach notice with its window. Raised on the
+    // measurement rather than on a guess. Copy is most of what was added; if
+    // this ever reaches the panel chunk's own budget, the settings panel has
+    // stopped being one panel.
+    raw: 70,
+    gzip: 17,
     firstLoad: false,
   },
   {

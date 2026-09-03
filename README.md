@@ -56,6 +56,7 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - **Severe probability** from the National Severe Storms Laboratory model: how likely each storm is to turn severe in the next hour, and separately for hail, wind and a tornado. It is guidance, it draws under the warnings, and it says so.
 - Storm reports, SPC convective outlooks and mesoscale discussions.
 - The Weather Prediction Center excessive rainfall outlook out to five days, and its winter storm severity index out to three, both in the categories and colours WPC publishes and both labelled as outlooks rather than warnings.
+- Every watched place says which storm is heading for it and how many minutes it has, worked out from the radar's own tracker. Ask to be told when one comes inside a window you choose and it will: off by default, silent unless you ask for a sound, quiet during your quiet hours, and worded as a radar track rather than a warning.
 - Up to ten watched places that speak up when a warning reaches them, wherever the map is pointed, each with its own radius, severity floor, tone and quiet hours. One warning covering several of them is announced once and names them all.
 
 ### Satellite

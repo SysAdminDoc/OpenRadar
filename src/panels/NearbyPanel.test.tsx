@@ -19,6 +19,7 @@ function markup(names: ReadonlyMap<string, string>, onName: () => void) {
       placeId="home"
       onPlace={() => undefined}
       warnings={[]}
+      approaching={[]}
       cells={[
         { id: "A1", miles: 4, bearing: 180, sentence: "Storm A1, 4 mi south" },
       ]}
