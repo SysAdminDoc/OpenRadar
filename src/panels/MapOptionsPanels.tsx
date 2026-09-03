@@ -112,8 +112,11 @@ import {
   type SurgeCategory,
 } from "../lib/surge";
 import {
-  SATELLITE_PRODUCTS,
-  type SatelliteProductId,
+  bandFor,
+  satelliteBand as satelliteBandInfo,
+  satelliteBands,
+  type SatelliteBandId,
+  type Spacecraft,
 } from "../lib/providers/satellite";
 import { ALERT_TYPES, type AlertType } from "../lib/alertTypes";
 import {
@@ -245,6 +248,12 @@ const OVERLAY_LAYERS: Array<{
   { key: "tropical", overlayId: "tropical", labelKey: "layer.tropical" },
 ];
 
+const SATELLITE_NAMES: Record<Spacecraft, StringKey> = {
+  east: "satellite.east",
+  west: "satellite.west",
+  himawari: "satellite.himawari",
+};
+
 interface LayersPanelProps {
   layers: LayerSettings;
   /**
@@ -271,11 +280,13 @@ interface LayersPanelProps {
   /** Which hurricane the surge picture is about. */
   surgeCategory: SurgeCategory;
   /** Which GOES-East view the satellite layer draws. */
-  satelliteProduct: SatelliteProductId;
+  satelliteBand: SatelliteBandId;
+  /** Which satellite is over the middle of the view, worked out by the stage. */
+  spacecraft: Spacecraft;
   onLayers: (layers: LayerSettings) => void;
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onSurgeCategory: (category: SurgeCategory) => void;
-  onSatelliteProduct: (product: SatelliteProductId) => void;
+  onSatelliteBand: (band: SatelliteBandId) => void;
   gaugeQpePeriod: GaugeQpePeriod;
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   /** How far back the rotation track reaches. */
@@ -561,7 +572,8 @@ export function LayersPanel({
   onLayers,
   onAlertTypes,
   onSurgeCategory,
-  satelliteProduct,
+  satelliteBand,
+  spacecraft,
   gaugeQpePeriod,
   onGaugeQpePeriod,
   rotationPeriod,
@@ -572,10 +584,14 @@ export function LayersPanel({
   onWpcDay,
   wssiDay,
   onWssiDay,
-  onSatelliteProduct,
+  onSatelliteBand,
   onClose,
 }: LayersPanelProps) {
   const t = useT();
+  // What the satellite over the view will actually draw, which is not always
+  // what the reader picked: Himawari carries three of the six bands.
+  const drawnBand = bandFor(spacecraft, satelliteBand);
+  const chosenBand = satelliteBandInfo(drawnBand);
   // What the list holds now, for an undo pressed after the reader has already
   // moved on. The closure that offers it was made when the file went.
   const filesRef = useRef(overlayFiles);
@@ -881,36 +897,45 @@ export function LayersPanel({
       ) : null}
 
       {layers.satellite ? (
-        <div
-          className="settings-section"
-          data-satellite-product={satelliteProduct}
-        >
+        <div className="settings-section" data-satellite-band={satelliteBand}>
           <div className="settings-section__title">
             <span>{t("satellite.product")}</span>
-            <small>
-              {t(
-                SATELLITE_PRODUCTS.find(
-                  (product) => product.id === satelliteProduct,
-                )?.detailKey ?? "satellite.geocolorDetail",
-              )}
-            </small>
+            <small>{t(chosenBand.detailKey)}</small>
           </div>
           <div
-            className="segmented-control segmented-control--full"
+            className="segmented-control segmented-control--wrap"
             aria-label={t("satellite.product")}
           >
-            {SATELLITE_PRODUCTS.map((product) => (
+            {satelliteBands().map((band) => (
               <button
-                key={product.id}
+                key={band.id}
                 type="button"
-                className={satelliteProduct === product.id ? "is-active" : ""}
-                aria-pressed={satelliteProduct === product.id}
-                onClick={() => onSatelliteProduct(product.id)}
+                className={satelliteBand === band.id ? "is-active" : ""}
+                aria-pressed={satelliteBand === band.id}
+                onClick={() => onSatelliteBand(band.id)}
               >
-                {t(product.key)}
+                {t(band.key)}
               </button>
             ))}
           </div>
+          {/* Which satellite is looking at what is on screen, and what it
+              does with a band it does not carry. The reader chose a band, not
+              a spacecraft, so the panel is where the substitution is
+              explained rather than leaving the map quietly showing something
+              else. */}
+          <p className="source-note">
+            {t("satellite.showing", {
+              satellite: t(SATELLITE_NAMES[spacecraft]),
+            })}
+          </p>
+          {drawnBand === satelliteBand ? null : (
+            <p className="source-note" data-satellite-substitute>
+              {t("satellite.notThere", {
+                satellite: t(SATELLITE_NAMES[spacecraft]),
+                band: t(chosenBand.key),
+              })}
+            </p>
+          )}
         </div>
       ) : null}
 

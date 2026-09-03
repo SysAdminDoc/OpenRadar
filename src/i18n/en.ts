@@ -766,6 +766,29 @@ export const en = {
     "Band 13, 10.3 µm. The temperature of whatever the satellite can see the top of, which reads the same at midnight as at noon.",
   "satellite.cleanIrLegend":
     "Brightness temperature, −92 to +57 °C, coloured by NASA GIBS",
+  "satellite.redVisible": "Red visible",
+  "satellite.redVisibleDetail":
+    "The half-kilometre visible band: the sharpest daytime look at a cloud top there is, and dark at night",
+  "satellite.redVisibleLegend": "Reflected sunlight, so it goes dark at night",
+  "satellite.airMass": "Air mass",
+  "satellite.airMassDetail":
+    "Water vapour and ozone together, which is where a jet stream and a dry intrusion show",
+  "satellite.airMassLegend": "A false-colour blend, not a temperature",
+  "satellite.dust": "Dust",
+  "satellite.dustDetail":
+    "Blowing dust and ash told apart from cloud by the way they absorb infrared",
+  "satellite.dustLegend": "A false-colour blend, not a concentration",
+  "satellite.fireTemp": "Fire temperature",
+  "satellite.fireTempDetail":
+    "The shortwave infrared bands, where a hot fire front stands out through smoke",
+  "satellite.fireTempLegend":
+    "Hotter burns read brighter; it is not a fire perimeter",
+  "satellite.east": "GOES-East",
+  "satellite.west": "GOES-West",
+  "satellite.himawari": "Himawari",
+  "satellite.showing": "Showing {satellite}, which is over this view.",
+  "satellite.notThere":
+    "{satellite} has no {band} here, so this is clean infrared.",
   "satellite.product": "Satellite view",
   "layer.rotationTracks": "Rotation Tracks",
   "layer.azShear": "Azimuthal Shear",
@@ -1311,7 +1334,7 @@ export const en = {
   "fatal.copy": "Copy diagnostics",
   "stage.secondary": "Secondary interactive weather map",
   "stage.satelliteAge": " · {age} old",
-  "stage.satellite": "GOES-East {product}",
+  "stage.satellite": "{satellite} {product}",
   "stage.compare": "Compare",
   "stage.compareOffset": "How far behind the second map runs",
   "stage.compareUnavailable": "Not enough earlier frames",

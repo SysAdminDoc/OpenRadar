@@ -79,7 +79,10 @@ import { TropicalPanel } from "../panels/TropicalPanel";
 import { NearbyPanel, type NearbyPlaceOption } from "../panels/NearbyPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
 import type { SurgeCategory } from "../lib/surge";
-import type { SatelliteProductId } from "../lib/providers/satellite";
+import {
+  spacecraftFor,
+  type SatelliteBandId,
+} from "../lib/providers/satellite";
 import type { StormCellState } from "../hooks/useStormCells";
 import type { NearbyCell, NearbyWarning } from "../lib/nearby";
 import { cellsAvailable } from "../lib/cells";
@@ -167,7 +170,7 @@ interface PanelSurfacesProps {
   onSurgeCategory: (category: SurgeCategory) => void;
   /** The moment a sounding is asked for, which is the timeline's own. */
   soundingAt: number;
-  onSatelliteProduct: (product: SatelliteProductId) => void;
+  onSatelliteBand: (band: SatelliteBandId) => void;
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   onRotationPeriod: (period: RotationPeriod) => void;
   onAzShearLevel: (level: AzShearLevel) => void;
@@ -263,7 +266,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onLayers={props.onLayers}
             onAlertTypes={props.onAlertTypes}
             onSurgeCategory={props.onSurgeCategory}
-            satelliteProduct={settings.satelliteProduct}
+            satelliteBand={settings.satelliteBand}
+            spacecraft={spacecraftFor(settings.camera.center[0])}
             gaugeQpePeriod={settings.gaugeQpePeriod}
             onGaugeQpePeriod={props.onGaugeQpePeriod}
             rotationPeriod={settings.rotationPeriod}
@@ -274,7 +278,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onWpcDay={props.onWpcDay}
             wssiDay={settings.wssiDay}
             onWssiDay={props.onWssiDay}
-            onSatelliteProduct={props.onSatelliteProduct}
+            onSatelliteBand={props.onSatelliteBand}
             onClose={onClose}
           />
         </Suspense>

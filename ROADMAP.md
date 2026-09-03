@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-177 (P2): GOES-West and Himawari on the satellite layer, with more bands
-  Why: The satellite layer serves two GOES-East products, so a reader in Seattle or Honolulu looks at an oblique picture from 75°W; GOES-West and Himawari sit on the same endpoint under the same terms.
-  Evidence: Verified 2026-09-02 from GIBS WMTS capabilities (`epsg3857/best`): `GOES-West_ABI_GeoColor`, `GOES-West_ABI_Band13_Clean_Infrared`, `GOES-West_ABI_Air_Mass`, `GOES-West_ABI_Band2_Red_Visible_1km`, `GOES-West_ABI_Dust`, `GOES-West_ABI_FireTemp`, the same six for East, `Himawari_AHI_Air_Mass`, `Himawari_AHI_Band13_Clean_Infrared`, `Himawari_AHI_Band3_Red_Visible_1km`; PT10M with gaps and 50 to 90 minutes behind real time; `src/lib/providers/satellite.ts:56-74` lists two layers.
-  Touches: `src/lib/providers/satellite.ts` (satellite chosen by view longitude, band chosen by the reader; read the `<Dimension>` values rather than assuming a continuous series), `src/panels/MapOptionsPanels.tsx`, `src/lib/layerProvenance.ts`, catalogues, the GIBS live contract.
-  Acceptance: West of 106°W the layer draws GOES-West and over the Pacific Himawari, with the satellite named in the legend; Air Mass, Red Visible, Dust and Fire Temperature are selectable; a missing time slot falls back to the nearest published one and the legend says so; a fixture e2e pans from Miami to Seattle and asserts the source id changes.
-  Complexity: M
-
 - [ ] AUD-178 (P2): Arrival estimate for every watched place, and a notice when a tracked cell will reach one
   Why: The app already says "A1 reaches the place you watch in 12 min", but only for home and only inside the Radar Products panel; the patent caution that held this back is over, and Storm Radar sells the same line at $19.99 a year.
   Evidence: `src/lib/cells.ts:122,160` (`minutesUntilArrival`, `soonestArrival`), `src/panels/RadarProductPanel.tsx:129` (home only); US 6,125,328, 6,278,947, 6,401,039 and 6,252,539 all show Expired on Google Patents (2018); RadarScope Tier 2 and WeatherFront Advanced sell storm ETAs.

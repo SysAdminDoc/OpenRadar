@@ -58,6 +58,10 @@ Because the decoding happens here, the picture is not a screenshot of somebody's
 - The Weather Prediction Center excessive rainfall outlook out to five days, and its winter storm severity index out to three, both in the categories and colours WPC publishes and both labelled as outlooks rather than warnings.
 - Up to ten watched places that speak up when a warning reaches them, wherever the map is pointed, each with its own radius, severity floor, tone and quiet hours. One warning covering several of them is announced once and names them all.
 
+### Satellite
+
+- GOES-East, GOES-West and Himawari, chosen by where the map is pointed rather than by a setting, so the picture always comes from the satellite nearest overhead. GeoColor, clean infrared, the visible band, air mass, dust and fire temperature, with the legend saying which of them is a measurement and which is a rendering.
+
 ### Beyond the United States
 
 - **Canada** from Environment and Climate Change Canada, on its own rain-rate scale.

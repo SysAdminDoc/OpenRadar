@@ -2515,8 +2515,8 @@ export default function App() {
             onWssiDay={(wssiDay) =>
               applySettings({ ...settingsRef.current, wssiDay })
             }
-            onSatelliteProduct={(satelliteProduct) =>
-              applySettings({ ...settingsRef.current, satelliteProduct })
+            onSatelliteBand={(satelliteBand) =>
+              applySettings({ ...settingsRef.current, satelliteBand })
             }
             onHistoryStorm={showStorm}
             onSearchStorm={showStormById}

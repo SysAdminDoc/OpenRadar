@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from "react";
+import { useCallback, useMemo, useState, type RefObject } from "react";
 import { MapViewport, type MapViewportHandle } from "./MapViewport";
 import type { ToolMode } from "./CommandBar";
 import type { GeoPoint } from "../lib/geo";
@@ -6,12 +6,19 @@ import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import type { SweepImage } from "../lib/level2";
 import type { ClassStyle } from "../lib/classification";
 import type { PinnedImage } from "../lib/mapLayers/image";
-import { satelliteProduct } from "../lib/providers/satellite";
+import {
+  SATELLITE_STEP_SECONDS,
+  satelliteBand,
+  satelliteProduct,
+  satelliteProductId,
+  spacecraftFor,
+  type Spacecraft,
+} from "../lib/providers/satellite";
 import type { WindField } from "../lib/wind";
 import type { OverlayData, OverlayId } from "../lib/overlays";
 import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
-import { useT } from "../i18n";
+import { useT, type StringKey } from "../i18n";
 import { resolvedMapStyle } from "../lib/mapStyles";
 import { formatRadarTime } from "../lib/radar";
 import { formatAge, formatClock, useMeasurements } from "../lib/units";
@@ -80,6 +87,15 @@ interface MapStageProps {
   onMapStatus: (status: "loading" | "ready" | "error" | "nogpu") => void;
 }
 
+/** How far back a missing slot may walk the lane: one hour. */
+const MAX_MISSED_SLOTS = 6;
+
+const SATELLITE_NAME: Record<Spacecraft, StringKey> = {
+  east: "satellite.east",
+  west: "satellite.west",
+  himawari: "satellite.himawari",
+};
+
 export function MapStage({
   settings,
   mapRef,
@@ -135,10 +151,49 @@ export function MapStage({
     () => (forecastSmoke ? { ...overlays, smoke: null } : overlays),
     [forecastSmoke, overlays],
   );
-  const chosenSatellite = satelliteProduct(settings.satelliteProduct);
+  // Which satellite is looking down at the middle of the view, and which of
+  // its bands the reader asked for. The satellite is not a setting: it comes
+  // from where the map is pointed, because a picture of the Pacific taken
+  // from over Brazil is a picture of the edge of a disk.
+  const satelliteId = satelliteProductId(
+    spacecraftFor(settings.camera.center[0]),
+    settings.satelliteBand,
+  );
+  const chosenSatellite = satelliteProduct(satelliteId);
+
+  // GIBS leaves gaps in these series, and not the same gaps in each band: on
+  // 2026-09-03 GOES-West air mass had no 17:30 slot while every other band
+  // did. A slot that is not there answers 404 for every tile, which paints
+  // nothing and leaves the clock claiming a picture four minutes old. So the
+  // lane steps back a slot at a time until one answers, and the chip’s own
+  // age line says how far back that is.
+  // Counted against the picture it belongs to, so a change of band or of
+  // slot starts again at the newest one rather than staying an hour behind
+  // for ever. Held as one value rather than reset from an effect, which is a
+  // second render for something the first one already knows.
+  const satelliteSlot = `${satelliteId}@${satelliteTime ?? 0}`;
+  const [missed, setMissed] = useState({ slot: satelliteSlot, steps: 0 });
+  const missedSlots = missed.slot === satelliteSlot ? missed.steps : 0;
+  const shownSatelliteTime =
+    satelliteTime === null
+      ? null
+      : satelliteTime - missedSlots * SATELLITE_STEP_SECONDS;
+  const noteMissingSatellite = useCallback(() => {
+    setMissed((held) => {
+      const steps = held.slot === satelliteSlot ? held.steps : 0;
+      // Bounded: an hour back is well past any gap GIBS has published, and
+      // without a bound a layer that is down entirely would walk the lane
+      // into last week one 404 at a time.
+      return {
+        slot: satelliteSlot,
+        steps: Math.min(MAX_MISSED_SLOTS, steps + 1),
+      };
+    });
+  }, [satelliteSlot]);
+  const chosenBand = satelliteBand(chosenSatellite.band);
   const shared = {
     projection: settings.projection,
-    satelliteProductId: settings.satelliteProduct,
+    satelliteProductId: satelliteId,
     // Auto is resolved here rather than in the viewport, so everything that
     // reads the drawn style, the compare pane included, agrees on one answer.
     mapStyle: resolvedMapStyle(settings.mapStyle, settings.theme),
@@ -171,7 +226,8 @@ export function MapStage({
         ref={mapRef}
         camera={settings.camera}
         radarFrame={activeFrame}
-        satelliteTime={satelliteTime}
+        satelliteTime={shownSatelliteTime}
+        onSatelliteMissing={noteMissingSatellite}
         forecastSmoke={forecastSmoke}
         onCameraChange={onCameraChange}
         onCameraMove={onPrimaryMove}
@@ -206,20 +262,27 @@ export function MapStage({
         />
       ) : null}
 
-      {satelliteTime !== null ? (
-        <div
-          className="satellite-chip"
-          data-satellite={settings.satelliteProduct}
-        >
+      {shownSatelliteTime !== null ? (
+        <div className="satellite-chip" data-satellite={satelliteId}>
           <strong>
-            {t("stage.satellite", { product: t(chosenSatellite.key) })}
+            {t("stage.satellite", {
+              product: t(chosenBand.key),
+              satellite: t(SATELLITE_NAME[chosenSatellite.spacecraft]),
+            })}
           </strong>
           <small>
-            {formatClock(new Date(satelliteTime * 1000))}
+            {formatClock(new Date(shownSatelliteTime * 1000))}
             {satelliteAgeMinutes === null
               ? ""
               : t("stage.satelliteAge", {
-                  age: formatAge(satelliteAgeMinutes),
+                  // The clock and the age are the slot on screen, not the one
+                  // that was asked for: a gap in the series steps the lane
+                  // back, and saying otherwise would put a five-minute label
+                  // on an hour-old picture.
+                  age: formatAge(
+                    satelliteAgeMinutes +
+                      (missedSlots * SATELLITE_STEP_SECONDS) / 60,
+                  ),
                 })}
           </small>
           {/* GeoColor is a rendering and the infrared band is a measurement
@@ -227,7 +290,7 @@ export function MapStage({
               is invites somebody to read a temperature off a colour that has
               none. */}
           <small className="satellite-chip__legend">
-            {t(chosenSatellite.legendKey)}
+            {t(chosenBand.legendKey)}
           </small>
         </div>
       ) : null}

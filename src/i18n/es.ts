@@ -779,6 +779,30 @@ export const es: Catalogue = {
     "Banda 13, 10,3 µm. La temperatura de aquello cuyo tope ve el satélite, que se lee igual a medianoche que a mediodía.",
   "satellite.cleanIrLegend":
     "Temperatura de brillo, de −92 a +57 °C, coloreada por NASA GIBS",
+  "satellite.redVisible": "Visible rojo",
+  "satellite.redVisibleDetail":
+    "La banda visible de medio kilómetro: la vista diurna más nítida de una cima de nube, y oscura de noche",
+  "satellite.redVisibleLegend":
+    "Luz solar reflejada, así que se apaga de noche",
+  "satellite.airMass": "Masa de aire",
+  "satellite.airMassDetail":
+    "Vapor de agua y ozono juntos, donde se ven la corriente en chorro y una intrusión seca",
+  "satellite.airMassLegend": "Una mezcla en falso color, no una temperatura",
+  "satellite.dust": "Polvo",
+  "satellite.dustDetail":
+    "Polvo y ceniza en suspensión, distinguidos de la nube por cómo absorben el infrarrojo",
+  "satellite.dustLegend": "Una mezcla en falso color, no una concentración",
+  "satellite.fireTemp": "Temperatura de fuego",
+  "satellite.fireTempDetail":
+    "Las bandas de infrarrojo de onda corta, donde un frente de fuego caliente se ve a través del humo",
+  "satellite.fireTempLegend":
+    "Cuanto más caliente arde, más brilla; no es un perímetro de incendio",
+  "satellite.east": "GOES-Este",
+  "satellite.west": "GOES-Oeste",
+  "satellite.himawari": "Himawari",
+  "satellite.showing": "Mostrando {satellite}, que está sobre esta vista.",
+  "satellite.notThere":
+    "{satellite} no tiene {band} aquí, así que esto es infrarrojo limpio.",
   "satellite.product": "Vista del satélite",
   "layer.rotationTracks": "Huellas de rotación",
   "layer.azShear": "Cizalladura azimutal",
@@ -1333,7 +1357,7 @@ export const es: Catalogue = {
   "fatal.copy": "Copiar diagnóstico",
   "stage.secondary": "Mapa meteorológico interactivo secundario",
   "stage.satelliteAge": " · de hace {age}",
-  "stage.satellite": "GOES-East {product}",
+  "stage.satellite": "{satellite} {product}",
   "stage.compare": "Comparar",
   "stage.compareOffset": "Cuánto se atrasa el segundo mapa",
   "stage.compareUnavailable": "No hay suficientes cuadros anteriores",
