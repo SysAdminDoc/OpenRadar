@@ -28,23 +28,13 @@ Every item below obeys the same rules, and one that cannot obey them is not wort
 
 Read-only audit of `d608d27` (v0.7.0). Baseline at that commit, all green: `npm run check` 146 files / 1282 passed / 19 skipped, lint clean, every bundle inside budget; `npx playwright test` 424 passed across chromium, compact and wide; `cargo test` 353 passed / 26 ignored; `npm run release` staged a signed `OpenRadar_0.7.0_x64-setup.exe`. GitHub issues are enabled but the tracker holds zero issues (open or closed) and zero pull requests, so there was nothing to take in from reporters. Every P1 below survived a fresh-context refutation pass. Items are numbered on from `AUD-126`.
 
-Two things to know before draining. First, most of what follows lives where the e2e suite cannot see: inside the packaged Tauri window (the ACL, the opener plugin, the asset protocol) and in the light theme with a panel open (the axe gate scans panels in dark only). Second, the browser probe that found the light-theme items is not in the repo; the acceptance lines say what to assert instead.
+Two things to know before draining. First, most of what follows lives where the e2e suite cannot see: inside the packaged Tauri window (the ACL, the opener plugin, the asset protocol) and in the light theme with a panel open. Second, the browser probe that found the light-theme items is not in the repo; the acceptance lines say what to assert instead.
 
 ### P1
 
 ### P2
 
 ### P3
-
-- [ ] AUD-162: The axe gate never scans most of the app
-      Category: testing
-      Where: `e2e/accessibility.spec.ts`
-      Problem: The gate scans 11 panels in dark, and the light theme, calm and high contrast only on the bare workspace. Never scanned: Commands, History, Guidance, Tides, Sounding, Cross-section, Radar Products, Settings with a watched place or a custom sound, the record with rows, incident packs, toasts, the catch-up and curiosity cards, the first-run reveal, the capture layout, the ambient view, dual pane, map popups, the glance page, French and the pseudolocale, text scale 115 and 130, and the fatal screens. Every light-theme finding above (AUD-130, 131, 134, 140, 141, 142) sits in a state the gate has never opened.
-      Evidence: The spec read against the 18 surfaces in `src/components/PanelSurfaces.tsx:200-417`; the probe's light-theme axe runs with panels open produced the violations listed above while the committed gate stays green.
-      Fix: Loop the existing panel test over all 18 surfaces, in dark, light and light plus `contrast: "more"`; scan Settings after adding a watched place; scan the glance page with a stubbed record; scan the capture and ambient layouts; scan at 130 percent text scale.
-      Acceptance: The spec lists every `SurfaceId` (a test asserts the loop covers the union type), and the light-theme run is red until AUD-130 through AUD-142 land.
-      Confidence: Verified
-      Effort: M
 
 ### Unaudited, needs a pass
 

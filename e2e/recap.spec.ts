@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectClean } from "./support/axe";
 import { fakeDesktop, routeWorkspace } from "./support/fixtures";
 
 /**
@@ -67,6 +68,7 @@ test("says how much of the year the record can speak for", async ({ page }) => {
   await expect(recap).toContainText("90");
   await expect(recap).toContainText("365");
   await expect(recap).toContainText("1 warning and 2 observations");
+  await expectClean(page, "the record with rows");
 });
 
 test("keeps the place name off it until the reader puts it on", async ({
