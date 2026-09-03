@@ -32,6 +32,8 @@ function panel(
         ambient={{ seen: null, dropped: false }}
         onJournalSaved={vi.fn()}
         onJournalFailed={vi.fn()}
+        onStorageCleared={vi.fn()}
+        onStorageFailed={vi.fn()}
         onJournalCleared={vi.fn()}
         onJournalRemoved={vi.fn()}
         onChooseSound={vi.fn()}

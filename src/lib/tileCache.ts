@@ -159,3 +159,39 @@ export function cachedUrl(url: string): string {
   if (!base || !isCachedHost(url)) return url;
   return `${base}?u=${encodeURIComponent(url)}`;
 }
+
+/** What the cache is holding, or what came back from emptying it. */
+export interface CacheSize {
+  entries: number;
+  bytes: number;
+}
+
+/** Nothing is kept on disk in a browser preview, so there is nothing to show. */
+export function diskCacheAvailable(): boolean {
+  return isDesktopRuntime();
+}
+
+/**
+ * How much the cache is holding.
+ *
+ * The number came from the cache's own index rather than a walk of the
+ * directory, so it is the same number the budget is enforced against.
+ */
+export async function diskCacheSize(): Promise<CacheSize> {
+  if (!isDesktopRuntime()) return { entries: 0, bytes: 0 };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<CacheSize>("cache_size");
+}
+
+/**
+ * Empties it, and answers with what came back.
+ *
+ * Only the cache. Incident packs and replay bundles are a reader's own
+ * downloads and live beside it untouched, which is what makes this a button
+ * somebody can press without thinking about it.
+ */
+export async function clearDiskCache(): Promise<CacheSize> {
+  if (!isDesktopRuntime()) return { entries: 0, bytes: 0 };
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<CacheSize>("cache_clear");
+}

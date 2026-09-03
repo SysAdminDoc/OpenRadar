@@ -501,6 +501,8 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
           if (command === "level2_sites_in_reach") return [];
           // What the last run left behind, which for a spec is nothing.
           if (command === "crash_last_dump") return null;
+          if (command === "crash_last_webview_report") return null;
+          if (command === "host_webview_version") return "152.0.4191.62";
           if (command === "set_palettes") return 0;
           if (command === "set_palette") return 0;
 

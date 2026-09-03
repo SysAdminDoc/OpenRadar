@@ -190,6 +190,8 @@ interface PanelSurfacesProps {
   almanac: boolean;
   onFlyTo: (point: { lon: number; lat: number }) => void;
   onJournalFailed: (why: string) => void;
+  onStorageCleared: (freed: string) => void;
+  onStorageFailed: (why: string) => void;
   onOpenLogFolder: () => void;
   onCopyDiagnostics: (withPlace: boolean) => void;
   hasWatchedPlace: boolean;
@@ -342,6 +344,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             ambient={props.ambient}
             onJournalSaved={props.onJournalSaved}
             onJournalFailed={props.onJournalFailed}
+            onStorageCleared={props.onStorageCleared}
+            onStorageFailed={props.onStorageFailed}
             onJournalCleared={props.onJournalCleared}
             onJournalRemoved={props.onJournalRemoved}
             clock={props.clock}

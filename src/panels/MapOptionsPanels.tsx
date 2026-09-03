@@ -61,6 +61,7 @@ import {
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
 import { IncidentPackManager } from "./IncidentPackManager";
+import { StorageSection } from "./StorageSection";
 
 /**
  * Minutes past midnight as a time field reads them, and back again.
@@ -888,6 +889,9 @@ interface SettingsPanelProps {
   /** The record was written to a file, at this path when there is one. */
   onJournalSaved: (path: string | null) => void;
   onJournalFailed: (why: string) => void;
+  /** How much came back from emptying the cache, already in words. */
+  onStorageCleared: (freed: string) => void;
+  onStorageFailed: (why: string) => void;
   onJournalCleared: (undo: () => void) => void;
   onJournalRemoved: (undo: () => void) => void;
   /** Ticks once a minute, so the record on screen notices a row arriving. */
@@ -953,6 +957,8 @@ export function SettingsPanel({
   ambient,
   onJournalSaved,
   onJournalFailed,
+  onStorageCleared,
+  onStorageFailed,
   onJournalCleared,
   onJournalRemoved,
   clock,
@@ -1259,6 +1265,11 @@ export function SettingsPanel({
         settings={settings}
         bounds={bounds}
         onSettings={onSettings}
+      />
+
+      <StorageSection
+        onCleared={(freed) => onStorageCleared(freed)}
+        onFailed={(why) => onStorageFailed(why)}
       />
 
       <div className="settings-section">

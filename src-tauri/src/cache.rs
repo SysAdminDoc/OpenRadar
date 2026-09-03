@@ -307,6 +307,104 @@ fn evict() {
     }
 }
 
+/// How much the cache is holding, in entries and bytes.
+///
+/// Read from the index rather than by walking the directory: the index is
+/// what eviction works from, and a number taken from somewhere else could
+/// disagree with the one the budget is enforced against.
+pub fn size() -> (usize, u64) {
+    let guard = match state().lock() {
+        Ok(guard) => guard,
+        Err(held) => held.into_inner(),
+    };
+    match guard.as_ref() {
+        Some(held) => (
+            held.held.len(),
+            held.held.values().map(|entry| entry.bytes).sum(),
+        ),
+        None => (0, 0),
+    }
+}
+
+/// Empties the cache and says how much came back.
+///
+/// Only the cache's own version directory. Incident packs and replay bundles
+/// live beside it under the same data directory and are a reader's own
+/// downloads: a button called Clear cache that took those away would be a
+/// button nobody could risk pressing.
+///
+/// Entries are removed from the index as their files go, so a failure part of
+/// the way through leaves the index describing what is actually still there
+/// rather than claiming an empty cache over a full directory.
+pub fn clear() -> (usize, u64) {
+    let mut guard = match state().lock() {
+        Ok(guard) => guard,
+        Err(held) => held.into_inner(),
+    };
+    let Some(held) = guard.as_mut() else {
+        return (0, 0);
+    };
+    let mut removed = 0usize;
+    let mut freed = 0u64;
+    for (name, entry) in std::mem::take(&mut held.held) {
+        match fs::remove_file(held.root.join(format!("{name}.bin"))) {
+            Ok(()) => {
+                removed += 1;
+                freed += entry.bytes;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                // Gone already, which is the same outcome from here.
+                removed += 1;
+                freed += entry.bytes;
+            }
+            Err(error) => {
+                log::warn!("OpenRadar could not remove a cached entry: {error}");
+                held.held.insert(name, entry);
+            }
+        }
+    }
+    (removed, freed)
+}
+
+/// What the cache is holding, for the panel that offers to empty it.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CacheSize {
+    pub entries: usize,
+    pub bytes: u64,
+}
+
+#[tauri::command]
+pub async fn cache_size() -> CacheSize {
+    // Off the interface thread, like every other command that touches the
+    // disk. Reading the index is fast, but the lock it takes is held by
+    // whichever tile is being written, and a settings panel that stutters
+    // while the map loads is a settings panel nobody trusts.
+    tauri::async_runtime::spawn_blocking(|| {
+        let (entries, bytes) = size();
+        CacheSize { entries, bytes }
+    })
+    .await
+    .unwrap_or(CacheSize {
+        entries: 0,
+        bytes: 0,
+    })
+}
+
+#[tauri::command]
+pub async fn cache_clear() -> CacheSize {
+    // What was removed, not what is left: the panel says how much came back.
+    tauri::async_runtime::spawn_blocking(|| {
+        let (entries, bytes) = clear();
+        CacheSize { entries, bytes }
+    })
+    .await
+    .unwrap_or(CacheSize {
+        entries: 0,
+        bytes: 0,
+    })
+}
+
 fn encode(url: &str, content_type: &str, stored_at: u64, body: &[u8]) -> Vec<u8> {
     let header = serde_json::json!({
         "url": url,
@@ -385,6 +483,77 @@ mod tests {
         assert!(held.age < Duration::from_secs(60));
 
         assert!(get("https://example.test/other.png").is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn clearing_empties_the_cache_and_leaves_the_reader_s_own_downloads() {
+        let _turn = turn();
+        let dir = scratch("clear");
+        init(&dir);
+
+        // A reader's own downloads, beside the cache under the same data
+        // directory. A Clear cache button that took these away would be one
+        // nobody could risk pressing: a pack is a deliberate download for a
+        // place with no network, and a bundle is a replay somebody saved.
+        let packs = dir.join("incident-packs-v1");
+        let bundles = dir.join("bundles");
+        fs::create_dir_all(&packs).expect("a pack directory");
+        fs::create_dir_all(&bundles).expect("a bundle directory");
+        fs::write(packs.join("a-pack.pmtiles"), vec![b'P'; 4096]).expect("a pack");
+        fs::write(bundles.join("a-replay.zip"), vec![b'B'; 2048]).expect("a bundle");
+
+        put(
+            "https://example.test/one.png",
+            "image/png",
+            b"the first tile",
+        );
+        put(
+            "https://example.test/two.png",
+            "image/png",
+            &vec![b'T'; 1000],
+        );
+        let (entries, bytes) = size();
+        assert_eq!(entries, 2);
+        assert!(bytes > 1000, "{bytes}");
+
+        let (removed, freed) = clear();
+        assert_eq!(removed, 2);
+        assert_eq!(freed, bytes, "the bytes reported back are the bytes held");
+        assert_eq!(size(), (0, 0));
+        assert!(get("https://example.test/one.png").is_none());
+        assert!(get("https://example.test/two.png").is_none());
+        // The directory itself stays, so the next tile has somewhere to go.
+        let root = dir.join("cache").join(VERSION);
+        assert_eq!(fs::read_dir(&root).expect("the cache directory").count(), 0);
+
+        // Untouched, both of them.
+        assert_eq!(
+            fs::read(packs.join("a-pack.pmtiles"))
+                .expect("the pack")
+                .len(),
+            4096
+        );
+        assert_eq!(
+            fs::read(bundles.join("a-replay.zip"))
+                .expect("the bundle")
+                .len(),
+            2048
+        );
+
+        // And the cache works afterwards rather than needing a restart.
+        put(
+            "https://example.test/three.png",
+            "image/png",
+            b"a tile after",
+        );
+        assert_eq!(
+            get("https://example.test/three.png")
+                .expect("the entry after clearing")
+                .body,
+            b"a tile after"
+        );
+
         let _ = fs::remove_dir_all(&dir);
     }
 

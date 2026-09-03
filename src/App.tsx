@@ -2493,6 +2493,18 @@ export default function App() {
             onJournalFailed={(why) =>
               pushToast({ title: translate("journal.failed"), detail: why })
             }
+            onStorageCleared={(freed) =>
+              pushToast({
+                title: translate("storage.cleared"),
+                detail: translate("storage.clearedBody", { freed }),
+              })
+            }
+            onStorageFailed={(why) =>
+              pushToast({
+                title: translate("storage.clearFailed"),
+                detail: why,
+              })
+            }
             onJournalCleared={(undo) =>
               pushToast({
                 title: translate("journal.cleared"),
