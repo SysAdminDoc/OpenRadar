@@ -887,6 +887,8 @@ interface SettingsPanelProps {
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   /** The record was written to a file, at this path when there is one. */
+  /** A backup chosen from the picker, read by the same reader Upload uses. */
+  onImportSettings: (file: File) => void;
   onJournalSaved: (path: string | null) => void;
   onJournalFailed: (why: string) => void;
   /** How much came back from emptying the cache, already in words. */
@@ -955,6 +957,7 @@ export function SettingsPanel({
   bounds = null,
   onSettings,
   ambient,
+  onImportSettings,
   onJournalSaved,
   onJournalFailed,
   onStorageCleared,
@@ -1307,6 +1310,23 @@ export function SettingsPanel({
         >
           {t("settings.export")}
         </button>
+        {/* Beside Export, because the pair is the point. Restoring one worked
+            already, by knowing to drop the file on the Upload panel, which
+            nothing here said. The file goes through the very same reader, so
+            a partial restore says so and the undo is the same undo. */}
+        <label className="secondary-button settings-import">
+          <span>{t("settings.import")}</span>
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onImportSettings(file);
+              // Cleared so choosing the same file twice is two imports.
+              event.target.value = "";
+            }}
+          />
+        </label>
         {/* Somebody who wants the greeting back can have it. Shown once is a
             rule about not repeating myself, not a rule about never again. */}
         <button

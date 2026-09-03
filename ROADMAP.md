@@ -250,13 +250,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: Under `forcedColors: "active"` every control that is visible in dark is visible (axe plus a pinned screenshot of the rail and a panel); focus rings render in `Highlight`; the legend ramp and warning outlines keep their own colours; the appearance settings say the system theme is in force and the theme picker is disabled with that reason.
   Complexity: S
 
-- [ ] AUD-212 (P2): Import a backup beside Export
-  Why: Export has a button; restoring a backup only works by knowing to drop the JSON on the Upload panel, which nothing near the Export button says.
-  Evidence: `src/panels/MapOptionsPanels.tsx:1289` (Export); `src/panels/UtilityPanels.tsx:63` (accept list) and `src/hooks/useWorkspaceActions.ts:341,434` (`restoreWorkspace` reached only from the upload path); `src/App.tsx:1784-1810` (partial-restore note and undo).
-  Touches: `src/panels/MapOptionsPanels.tsx` (an Import button using the dialog plugin's open picker filtered to `.json`, handing the file to `restoreWorkspace`), `src/i18n/*`, `e2e/bundles.spec.ts` or a new spec with the dialog stubbed.
-  Acceptance: Import restores a backup with the same partial-restore note and undo the Upload path gives; a file that is not a backup is refused with the reason and nothing changes; the Export and Import buttons sit together and the settings copy names both.
-  Complexity: S
-
 - [ ] AUD-213 (P2): Undo for the removals that have none
   Why: Deleting an incident pack throws away a verified multi-megabyte download on one press with only a toast; removing a palette, an overlay file, a custom sound or a theme is the same; place removal, journal clear and settings reset already offer undo, so the product's own standard is not met everywhere.
   Evidence: `src/panels/IncidentPackManager.tsx:228-236` (delete, toast only); palette, overlay file, sound and theme removal in `src/hooks/useWorkspaceActions.ts`; the held-toast undo pattern at `src/App.tsx:1641-1658`; the 2026-09-02 working note that a toast is the wrong home for undo unless it is held.

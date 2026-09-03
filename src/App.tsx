@@ -2493,6 +2493,7 @@ export default function App() {
             onJournalFailed={(why) =>
               pushToast({ title: translate("journal.failed"), detail: why })
             }
+            onImportSettings={(file) => void actions.uploadOverlay(file)}
             onStorageCleared={(freed) =>
               pushToast({
                 title: translate("storage.cleared"),
