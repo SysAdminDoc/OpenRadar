@@ -13,7 +13,6 @@ function station(overrides: Partial<SiteStatus> = {}): SiteStatus {
   return {
     station: "KDMX",
     status: "Operate",
-    operability: "RDA - On-line",
     levelTwoAt: "2026-09-03T02:05:01+00:00",
     fault: null,
     ...overrides,

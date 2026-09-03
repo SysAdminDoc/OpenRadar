@@ -19,8 +19,6 @@ export interface SiteStatus {
   station: string;
   /** The RDA's own word, or null where the feed carries no report at all. */
   status: string | null;
-  /** The maintenance line beside it, when there is one. */
-  operability: string | null;
   /** When Level II was last received, as RFC 3339, or null. */
   levelTwoAt: string | null;
   fault: SiteFault | null;
@@ -67,9 +65,9 @@ export function faultReason(
 ): string | null {
   if (!status?.fault) return null;
   if (status.fault === "notOperating") {
-    // The maintenance line is the useful half when there is one: "restarting"
-    // says more than "not operating", and it comes from the office rather
-    // than from a guess here.
+    // The RDA's own word, which is the useful half: "Start-Up" says a radar
+    // will be back and "Maintenance" says it will not be back this afternoon,
+    // and both come from the office rather than from a guess here.
     return status.status
       ? translate("radar.faultNotOperating", { state: status.status })
       : translate("radar.faultOffline");

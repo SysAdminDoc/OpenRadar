@@ -253,6 +253,13 @@ describe("the record written beside the picture", () => {
     // service that did not make the picture.
     const volumes = [4000, 2000, 0].map((back) => FETCHED_AT - back);
     const stepped: number[] = [];
+    // Which volume the walk asked to be shown, in order, so the steps it
+    // chose can be checked against them.
+    const asked: number[] = [];
+    const selectFrame = vi.fn((index: number) => {
+      const at = [volumes[0], null, volumes[1], null, volumes[2]][index];
+      if (typeof at === "number") asked.push(at);
+    });
     exportLoop.mockImplementation(
       async (options: {
         frameCount: number;
@@ -267,12 +274,14 @@ describe("the record written beside the picture", () => {
         return new Blob(["webm"]);
       },
     );
+    const stepFrames = [4, 3, 2, 1, 0].map((back) => ({
+      ...frames[0],
+      time: (FETCHED_AT - back * 1000) / 1000,
+    }));
     const { result } = renderExport({
       // Five steps a second apart, which is the fixture timeline's cadence.
-      frames: [4, 3, 2, 1, 0].map((back) => ({
-        ...frames[0],
-        time: (FETCHED_AT - back * 1000) / 1000,
-      })),
+      frames: stepFrames,
+      timeline: { ...timeline, frames: stepFrames, selectFrame },
       siteLoop: {
         sweep: {
           station: "KDMX",
@@ -285,6 +294,9 @@ describe("the record written beside the picture", () => {
           },
         },
         volumes,
+        // Already showing whatever is asked for, so the walk does not wait.
+        // The waiting itself is checked below.
+        drawnVolume: () => asked.at(-1) ?? null,
       } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
     });
     act(() => result.current.exportLoopVideo());
@@ -292,6 +304,13 @@ describe("the record written beside the picture", () => {
 
     // Three volumes, not five steps.
     expect(stepped).toEqual([0, 1, 2]);
+    // And the steps it stood on are the ones those volumes are visible at.
+    // Without this the walk could pass its own index straight through to the
+    // timeline, which is the off-by-one this whole path exists to prevent,
+    // and every assertion below would still hold.
+    expect(selectFrame.mock.calls.map(([index]) => index)).toEqual([
+      0, 2, 4, 1,
+    ]);
     const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
       frames: Array<{ observed: string | null; sourceId: string }>;
     };
@@ -301,6 +320,95 @@ describe("the record written beside the picture", () => {
     expect(new Set(written.frames.map((frame) => frame.sourceId))).toEqual(
       new Set(["level2:KDMX"]),
     );
+  });
+
+  it("waits for the volume it is about to caption", async () => {
+    // The walk moves the timeline and the map goes idle within a few hundred
+    // milliseconds, because the mosaic under the site redraws. The site's own
+    // volume is a ten megabyte object still being fetched. Captured on idle,
+    // every frame of the file held the previous volume under the next
+    // volume's caption and record, with nothing on screen to say so.
+    const volumes = [4000, 2000, 0].map((back) => FETCHED_AT - back);
+    let drawn: number | null = null;
+    const seen: Array<number | null> = [];
+    const selectFrame = vi.fn((index: number) => {
+      const at = [volumes[0], null, volumes[1], null, volumes[2]][index];
+      // The picture lands a little after the step, the way a fetch does.
+      if (typeof at === "number") window.setTimeout(() => (drawn = at), 30);
+    });
+    exportLoop.mockImplementation(
+      async (options: {
+        frameCount: number;
+        showFrame: (index: number) => Promise<void>;
+        captionFor: (index: number) => { lines: string[] };
+      }) => {
+        for (let index = 0; index < options.frameCount; index += 1) {
+          await options.showFrame(index);
+          seen.push(drawn);
+          options.captionFor(index);
+        }
+        return new Blob(["webm"]);
+      },
+    );
+    const stepFrames = [4, 3, 2, 1, 0].map((back) => ({
+      ...frames[0],
+      time: (FETCHED_AT - back * 1000) / 1000,
+    }));
+    const { result } = renderExport({
+      frames: stepFrames,
+      timeline: { ...timeline, frames: stepFrames, selectFrame },
+      siteLoop: {
+        sweep: {
+          station: "KDMX",
+          product: "Reflectivity",
+          collected: new Date(FETCHED_AT).toISOString(),
+          source: {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        },
+        volumes,
+        drawnVolume: () => drawn,
+      } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
+    });
+    act(() => result.current.exportLoopVideo());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2), {
+      timeout: 5000,
+    });
+
+    // Every caption was written with its own volume on screen.
+    expect(seen).toEqual(volumes);
+  });
+
+  it("credits the radar on a still of a held site, not the mosaic", async () => {
+    // The loop walk was changed to stop crediting a service that did not make
+    // the picture. A still is the file somebody is most likely to send, and it
+    // was still being captioned from the timeline frame underneath.
+    const { result } = renderExport({
+      siteLoop: {
+        sweep: {
+          station: "KDMX",
+          product: "Reflectivity",
+          collected: "2026-08-31T18:00:00.000Z",
+          source: {
+            kind: "recent",
+            label: "NOAA NEXRAD Level II",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        },
+        volumes: [],
+        drawnVolume: () => null,
+      } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
+    });
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{ sourceId: string; observed: string | null }>;
+    };
+    expect(written.frames[0].sourceId).toBe("level2:KDMX");
+    expect(written.frames[0].observed).toBe("2026-08-31T18:00:00.000Z");
   });
 
   it("keeps the picture when the record cannot be written", async () => {

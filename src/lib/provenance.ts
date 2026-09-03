@@ -445,7 +445,12 @@ export interface ProvenanceDocument {
   /** Credit for the map under the weather. */
   basemap: string;
   /**
-   * One entry per frame that reached the file, by its index on the timeline.
+   * One entry per frame that reached the file, in the order it was written.
+   *
+   * The index is the frame's position in the file rather than on the
+   * timeline. For a loop of the national mosaic the two are the same; for a
+   * loop of one radar's own volumes they are not, because the walk stands on
+   * one timeline step per volume and the steps between are not saved.
    *
    * A loop is not one source. Its observed frames and its forecast tail come
    * from different services, and a GIF holds only the last of them, so a

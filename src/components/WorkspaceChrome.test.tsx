@@ -195,7 +195,6 @@ describe("the legend over a radar that has gone quiet", () => {
         sweepStatus: {
           station: "KDMX",
           status: "Operate",
-          operability: "RDA - On-line",
           levelTwoAt: new Date(
             Date.parse(COLLECTED) - 40 * 60_000,
           ).toISOString(),
@@ -213,7 +212,6 @@ describe("the legend over a radar that has gone quiet", () => {
         sweepStatus: {
           station: "KDMX",
           status: "Operate",
-          operability: "RDA - On-line",
           levelTwoAt: COLLECTED,
           fault: null,
         },

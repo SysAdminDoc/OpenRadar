@@ -2,6 +2,18 @@
 
 ## OpenRadar v0.9.0
 
+- A saved loop of a held radar waits for each volume to arrive before it captures the frame. It was grabbing the picture as soon as the map settled, which happens in a fraction of a second because the national mosaic underneath redraws, while the site's own volume is a ten megabyte file still downloading. Every frame of the file held the previous volume's picture under the next volume's time and credit, and nothing on screen said so.
+
+- A still or a postcard of a held radar credits that radar. It was being labelled with the national mosaic's name and timestamp, which is a picture from one instrument credited to a service that did not make it.
+
+- Opening an archive volume by hand while the scrubber is parked in the past no longer leaves the app behaving as though you were still watching live weather.
+
+- An airport's terminal radar is no longer marked as down for going quiet on a feed it does not publish to. The weather service lists a Level II time beside every radar including the airport ones, which publish a different product entirely; two of them were being greyed out while their actual pictures kept arriving every minute.
+
+- A radar the weather service reports as down is now tried last rather than skipped. That feed is a second opinion about somebody else's equipment, and a site wrongly marked down should not become one this app refuses to draw while its files are landing every five minutes.
+
+- Choosing the nearest radar no longer waits on the status service. On a machine that could reach the radar archive but not that service, every pan of the map sat through a thirty second timeout before it started looking.
+
 - Everything the app is built on is up to date, apart from the TypeScript compiler, which is a jump worth making on its own. A machine that cannot give the map the drawing surface it needs now says so on the screen that names the setting to change, instead of showing a blank fatal error and throwing away the driver's own explanation. The check that runs before the app starts also asks for exactly what the map will ask for, rather than something easier that a struggling driver can still answer.
 
 - The app asks the weather service whether a radar is actually running, instead of guessing from whether new files have shown up. It used to wait for an upload to fail to arrive, which is minutes after a radar stops and says nothing about why. Now a site that is restarting after a power cut, or that nothing has been heard from for a day, is passed over when the map picks the nearest radar, and greyed in the site list with the reason beside its name. The afternoon this was written that was five radars, one of them silent since 13 August.

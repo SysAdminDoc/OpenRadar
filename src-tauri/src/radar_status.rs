@@ -41,12 +41,6 @@ const STATUS_TTL_SECONDS: i64 = 120;
 /// which stopped an hour ago is never offered as the nearest one.
 const STALE_AFTER_MINUTES: i64 = 15;
 
-/// How far ahead of this machine's clock a published time may be stamped.
-///
-/// A reading from the future is a clock disagreement rather than a fault, and
-/// treating it as staleness would condemn a working radar.
-const AHEAD_MINUTES: i64 = 5;
-
 #[derive(Debug, thiserror::Error)]
 pub enum RadarStatusError {
     #[error("the radar station list could not be read")]
@@ -84,9 +78,6 @@ pub struct SiteStatus {
     /// Absent for the wind profilers and for the odd site whose RDA block the
     /// feed omits. Absent is not a fault: it means the office did not say.
     pub status: Option<String>,
-    /// The maintenance line beside it, which is what turns "not operating"
-    /// into something a reader can act on.
-    pub operability: Option<String>,
     /// When Level II was last received, as RFC 3339.
     pub level_two_at: Option<String>,
     /// Why this site is not worth drawing, or nothing when it is fine.
@@ -98,12 +89,44 @@ pub struct SiteStatus {
 struct StationRecord {
     station: String,
     status: Option<String>,
-    operability: Option<String>,
+    /// What kind of radar it is, as the feed says.
+    ///
+    /// Only a WSR-88D publishes Level II. The airports' terminal radars sit in
+    /// the same list with a Level II time beside them, and this app draws them
+    /// from Level III products instead, so judging one by a feed it does not
+    /// read is judging it by the wrong thing entirely.
+    kind: Option<String>,
     level_two_at: Option<DateTime<Utc>>,
 }
 
-/// The last answer and when it was given.
+impl StationRecord {
+    fn publishes_level_two(&self) -> bool {
+        // Missing means the feed did not say. The only other kinds it carries
+        // are the terminal radars and the wind profilers, and this app reads
+        // Level II from neither.
+        self.kind.as_deref() == Some("WSR-88D")
+    }
+}
+
+/// The last answer and when it was given. An empty list is a failed ask,
+/// remembered so a run of them cannot become a run of thirty-second waits.
 static STATIONS: Mutex<Option<(DateTime<Utc>, Vec<StationRecord>)>> = Mutex::new(None);
+
+/// How long a failed ask stands before it is worth trying again.
+///
+/// Short, because the usual cause is a minute of no network. Long enough that
+/// panning across a region cannot queue one blocked request per site.
+const FAILURE_TTL_SECONDS: i64 = 30;
+
+/// Whether an answer this old is still worth standing on.
+fn still_fresh(asked: DateTime<Utc>, records: &[StationRecord], now: DateTime<Utc>) -> bool {
+    let ttl = if records.is_empty() {
+        FAILURE_TTL_SECONDS
+    } else {
+        STATUS_TTL_SECONDS
+    };
+    now.signed_duration_since(asked) < Duration::seconds(ttl)
+}
 
 /// Whether a site is worth drawing, and why not when it is not.
 ///
@@ -117,10 +140,20 @@ fn fault_of(record: &StationRecord, now: DateTime<Utc>) -> Option<SiteFault> {
             return Some(SiteFault::NotOperating);
         }
     }
+    // Only for a radar this app reads Level II from. TSDF had been quiet for
+    // twenty days on the afternoon this was written while its Level III
+    // products kept arriving every minute; calling it down would have taken a
+    // working picture off the map for a feed the app never asks that site for.
+    if !record.publishes_level_two() {
+        return None;
+    }
     if let Some(at) = record.level_two_at {
-        let age = now.signed_duration_since(at);
-        if age > Duration::minutes(STALE_AFTER_MINUTES) && age >= Duration::minutes(-AHEAD_MINUTES)
-        {
+        // A time from the future is a clock disagreement rather than a dead
+        // radar, and it falls out of this on its own: a negative age is not
+        // greater than fifteen minutes. The machine at risk is the one whose
+        // clock runs AHEAD of the office's, and nothing on this side can tell
+        // that apart from a radar that has genuinely stopped.
+        if now.signed_duration_since(at) > Duration::minutes(STALE_AFTER_MINUTES) {
             return Some(SiteFault::NoRecentData);
         }
     }
@@ -162,7 +195,7 @@ fn read_stations(body: &[u8]) -> Result<Vec<StationRecord>, RadarStatusError> {
         found.push(StationRecord {
             station: station.to_string(),
             status: text(rda, "status"),
-            operability: text(rda, "operabilityStatus"),
+            kind: text(Some(properties), "stationType"),
             // The feed stamps these with an offset rather than a Z, which is
             // why this parses rather than trusting the shape of the string.
             level_two_at: text(properties.get("latency"), "levelTwoLastReceivedTime")
@@ -182,7 +215,10 @@ async fn stations() -> Result<Vec<StationRecord>, RadarStatusError> {
     let now = Utc::now();
     if let Ok(held) = STATIONS.lock() {
         if let Some((asked, records)) = held.as_ref() {
-            if now.signed_duration_since(*asked) < Duration::seconds(STATUS_TTL_SECONDS) {
+            if still_fresh(*asked, records, now) {
+                if records.is_empty() {
+                    return Err(RadarStatusError::BadFeed);
+                }
                 return Ok(records.clone());
             }
         }
@@ -191,29 +227,44 @@ async fn stations() -> Result<Vec<StationRecord>, RadarStatusError> {
     // Uncached deliberately. Every other native fetch may be served from disk
     // during an outage, which is right for a picture and wrong for a statement
     // about whether a radar is running now.
-    let body = http::get_bytes_uncached(STATIONS_URL).await?;
-    let records = read_stations(&body)?;
-    if let Ok(mut held) = STATIONS.lock() {
-        *held = Some((now, records.clone()));
+    let asked = async {
+        let body = http::get_bytes_uncached(STATIONS_URL).await?;
+        read_stations(&body)
     }
-    Ok(records)
+    .await;
+    if let Ok(mut held) = STATIONS.lock() {
+        // A failure is remembered too, as an empty list. Without that, a
+        // machine that cannot reach the service asked again on every call and
+        // waited out the thirty second timeout every time.
+        *held = Some((now, asked.as_ref().cloned().unwrap_or_default()));
+    }
+    asked
 }
 
-/// Every site the office is currently reporting as not worth drawing.
+/// The faulty sites from the last answer, without asking for a new one.
 ///
-/// `None` when the feed could not be read, which is not the same as nobody
-/// being down: the caller carries on with whatever it did before this existed
-/// rather than passing over the whole country.
-pub async fn faulty_stations() -> Option<BTreeSet<String>> {
-    let records = stations().await.ok()?;
+/// For callers on a path somebody is waiting on. Site resolution runs on every
+/// tenth of a degree the map moves, and putting a network fetch in front of it
+/// meant a machine that could reach the radar archive but not this service
+/// waited out a thirty second timeout before every lookup. The panel's own
+/// poll is what keeps this warm; a cold one simply knows nothing yet, which is
+/// exactly how the picker behaved before the feed existed.
+pub fn faulty_stations_known() -> BTreeSet<String> {
     let now = Utc::now();
-    Some(
-        records
-            .iter()
-            .filter(|record| fault_of(record, now).is_some())
-            .map(|record| record.station.clone())
-            .collect(),
-    )
+    let Ok(held) = STATIONS.lock() else {
+        return BTreeSet::new();
+    };
+    let Some((asked, records)) = held.as_ref() else {
+        return BTreeSet::new();
+    };
+    if !still_fresh(*asked, records, now) {
+        return BTreeSet::new();
+    }
+    records
+        .iter()
+        .filter(|record| fault_of(record, now).is_some())
+        .map(|record| record.station.clone())
+        .collect()
 }
 
 /// What the office says about every radar, for the picker and the legend.
@@ -226,7 +277,6 @@ pub async fn radar_status() -> Result<Vec<SiteStatus>, RadarStatusError> {
         .map(|record| SiteStatus {
             station: record.station.clone(),
             status: record.status.clone(),
-            operability: record.operability.clone(),
             level_two_at: record.level_two_at.map(|at| at.to_rfc3339()),
             fault: fault_of(record, now),
         })
@@ -237,9 +287,10 @@ pub async fn radar_status() -> Result<Vec<SiteStatus>, RadarStatusError> {
 mod tests {
     use super::*;
 
-    /// Four stations, shaped the way the live feed shapes them: one running,
-    /// one restarting, one that says it is operating and has sent nothing for
-    /// a day, and one with no RDA block at all.
+    /// Five stations, shaped the way the live feed shapes them: one running,
+    /// one restarting, one WSR-88D that says it is operating and has sent
+    /// nothing for days, one terminal radar equally quiet on a feed this app
+    /// never reads it from, and one with no RDA block at all.
     const FEED: &str = r#"{
       "type": "FeatureCollection",
       "features": [
@@ -263,6 +314,14 @@ mod tests {
               "status": "Start-Up",
               "operabilityStatus": "RDA - On-line"
             } }
+          }
+        },
+        {
+          "properties": {
+            "id": "KCYS",
+            "stationType": "WSR-88D",
+            "latency": { "levelTwoLastReceivedTime": "2026-08-31T13:26:37-04:00" },
+            "rda": { "properties": { "status": "Operate", "operabilityStatus": "RDA - On-line" } }
           }
         },
         {
@@ -300,13 +359,10 @@ mod tests {
     #[test]
     fn reads_the_four_things_this_app_asks_of_the_feed() {
         let stations = read_stations(FEED.as_bytes()).expect("the feed reads");
-        assert_eq!(stations.len(), 4);
+        assert_eq!(stations.len(), 5);
         let dmx = record("KDMX");
         assert_eq!(dmx.status.as_deref(), Some("Operate"));
-        assert_eq!(
-            dmx.operability.as_deref(),
-            Some("RDA - Maintenance Action Mandatory")
-        );
+        assert_eq!(dmx.kind.as_deref(), Some("WSR-88D"));
         // The feed stamps an offset rather than a Z, and reading it as UTC
         // without converting would put every site four hours in the future.
         assert_eq!(
@@ -328,18 +384,51 @@ mod tests {
     #[test]
     fn a_restarting_radar_and_a_silent_one_are_both_passed_over() {
         // Either half alone would let a site through with nothing to show: a
-        // radar can report itself operating while nothing has arrived for a
-        // day, which is TSDF, and one restarting can have a fresh Level II
+        // radar can report itself operating while nothing has arrived for
+        // days, which is KCYS, and one restarting can have a fresh Level II
         // time, which is what KTLH looked like the day this was written.
         assert_eq!(
             fault_of(&record("KGLD"), now()),
             Some(SiteFault::NotOperating)
         );
         assert_eq!(
-            fault_of(&record("TSDF"), now()),
+            fault_of(&record("KCYS"), now()),
             Some(SiteFault::NoRecentData)
         );
         assert_eq!(fault_of(&record("KDMX"), now()), None);
+    }
+
+    #[test]
+    fn a_terminal_radar_is_not_judged_by_a_feed_it_does_not_publish_to() {
+        // TSDF's Level II time in this fixture is twenty days old, which is
+        // what the live feed said the afternoon this was written, while its
+        // Level III products were arriving every minute. This app draws the
+        // airports' radars from those products and never from Level II, so
+        // reading that gap as an outage greys out a working picture.
+        let tsdf = record("TSDF");
+        assert!(!tsdf.publishes_level_two());
+        assert_eq!(fault_of(&tsdf, now()), None);
+
+        // The RDA's own word still counts for one, because a terminal radar
+        // that is not operating has nothing to publish either.
+        let mut restarting = tsdf.clone();
+        restarting.status = Some("Start-Up".to_string());
+        assert_eq!(fault_of(&restarting, now()), Some(SiteFault::NotOperating));
+    }
+
+    #[test]
+    fn a_failed_ask_is_remembered_so_it_is_not_asked_again_at_once() {
+        // Site resolution runs on every tenth of a degree the map moves. With
+        // no memory of a failure, a machine that cannot reach this service
+        // waited out the thirty second request timeout before every single
+        // lookup, which is slower than not having the feature at all.
+        let now = now();
+        assert!(still_fresh(now - Duration::seconds(10), &[], now));
+        assert!(!still_fresh(now - Duration::seconds(40), &[], now));
+        // A real answer stands for longer than a failed one.
+        let good = vec![record("KDMX")];
+        assert!(still_fresh(now - Duration::seconds(40), &good, now));
+        assert!(!still_fresh(now - Duration::seconds(130), &good, now));
     }
 
     #[test]
@@ -372,6 +461,15 @@ mod tests {
         // terminal radars plus a handful of profilers; a feed that has lost
         // most of it is a feed that changed shape.
         assert!(said.len() > 150, "{} stations", said.len());
+        // And the terminal radars are never judged by Level II, which they do
+        // not publish. This is the assertion that would have caught greying
+        // out a working airport radar.
+        assert!(
+            said.iter()
+                .filter(|one| one.station.starts_with('T') && one.station.len() == 4)
+                .all(|one| one.fault != Some(SiteFault::NoRecentData)),
+            "a terminal radar was judged by Level II"
+        );
         let faulty: Vec<&SiteStatus> = said.iter().filter(|one| one.fault.is_some()).collect();
         println!(
             "{} stations, {} not worth drawing",

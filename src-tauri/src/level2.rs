@@ -2226,32 +2226,29 @@ async fn newest_volume_time(station: &str) -> Option<DateTime<Utc>> {
     newest
 }
 
-/// The sites worth spending a listing on, given what the office says.
+/// The sites to spend a listing on, nearest first, with the ones the office
+/// says are running ahead of the ones it says are not.
 ///
-/// A radar that is restarting, or that has sent nothing for a day, still has a
-/// registry entry and a bucket prefix, so the archive walk below would list it
-/// and then find it quiet. Skipping it first is one request for the whole
-/// country instead of a listing per site, and it is minutes earlier: a bucket
-/// can only report an upload that failed to arrive, which is well after the
-/// radar stopped.
+/// A preference and not a filter. A radar that is restarting, or that has sent
+/// nothing for a day, still has a registry entry and a bucket prefix, so the
+/// archive walk would list it and then find it quiet; putting it last saves
+/// that round trip and is minutes earlier than the bucket could be, because a
+/// listing can only report an upload that failed to arrive.
 ///
-/// All of them faulty still answers with all of them. A viewport where every
-/// radar is down is not a viewport out of coverage, and the panel should say
-/// what is wrong with the nearest one rather than show nothing at all.
+/// Dropping them outright was worse than the problem. The status feed is a
+/// second opinion about somebody else's equipment, and a site wrongly marked
+/// down would have been unreachable while the archive was serving its volumes
+/// perfectly well. Ordering can only ever cost a listing; excluding can cost
+/// the picture.
 fn sites_worth_asking<'a>(
     sites: &[&'a registry::SiteEntry],
     faulty: &BTreeSet<String>,
 ) -> Vec<&'a registry::SiteEntry> {
-    let running: Vec<&'a registry::SiteEntry> = sites
+    let (running, quiet): (Vec<_>, Vec<_>) = sites
         .iter()
-        .filter(|site| !faulty.contains(site.id))
         .copied()
-        .collect();
-    if running.is_empty() {
-        sites.to_vec()
-    } else {
-        running
-    }
+        .partition(|site| !faulty.contains(site.id));
+    running.into_iter().chain(quiet).collect()
 }
 
 /// The nearest site to a point that is actually publishing volumes, so the
@@ -2265,10 +2262,11 @@ pub async fn level2_nearest_site(latitude: f32, longitude: f32) -> Option<String
         return None;
     }
 
-    // An unreadable status feed is not a report that everybody is fine, but it
-    // is a reason to carry on exactly as this did before the feed existed.
-    let faulty = radar_status::faulty_stations().await.unwrap_or_default();
-    let sites = sites_worth_asking(&sites, &faulty);
+    // Whatever the office last said, without waiting for it to say anything
+    // new: this runs on every tenth of a degree the map moves, and a fetch in
+    // front of it made a machine that could reach the archive but not the
+    // status service wait out a thirty second timeout before every lookup.
+    let sites = sites_worth_asking(&sites, &radar_status::faulty_stations_known());
 
     // Only the closest few are worth asking about. Past that the beam is high
     // enough over the viewport that a nearer site being down is the smaller
@@ -4532,7 +4530,7 @@ mod tests {
     }
 
     #[test]
-    fn a_site_the_office_says_is_down_is_never_listed_for() {
+    fn a_site_the_office_says_is_down_is_asked_last_and_never_dropped() {
         // The archive can only report an upload that failed to arrive, which
         // is minutes after the radar stopped and says nothing about why. The
         // office says so directly, and one request for the whole country is
@@ -4541,20 +4539,31 @@ mod tests {
         let nearest = sites[0].id.to_string();
         let faulty = BTreeSet::from([nearest.clone()]);
         let asking = sites_worth_asking(&sites, &faulty);
-        assert!(!asking.iter().any(|site| site.id == nearest));
-        assert_eq!(asking.len(), sites.len() - 1);
+        assert_eq!(asking.last().map(|site| site.id), Some(nearest.as_str()));
 
-        // Nobody down changes nothing.
+        // Every site is still reachable. The feed is a second opinion about
+        // somebody else's equipment: a site wrongly marked down must not
+        // become one this app refuses to draw while its volumes are landing
+        // in the bucket every five minutes.
+        assert_eq!(asking.len(), sites.len());
+
+        // Nobody down changes nothing, including the order.
+        let untouched = sites_worth_asking(&sites, &BTreeSet::new());
         assert_eq!(
-            sites_worth_asking(&sites, &BTreeSet::new()).len(),
-            sites.len()
+            untouched.iter().map(|site| site.id).collect::<Vec<_>>(),
+            sites.iter().map(|site| site.id).collect::<Vec<_>>()
         );
 
-        // Every one of them down is still an answer about this viewport. The
-        // panel reports what is wrong with the nearest radar; dropping them
-        // all would make central Oklahoma read as out of coverage.
+        // Every one of them down is still an answer about this viewport, in
+        // the order distance gave.
         let all: BTreeSet<String> = sites.iter().map(|site| site.id.to_string()).collect();
-        assert_eq!(sites_worth_asking(&sites, &all).len(), sites.len());
+        assert_eq!(
+            sites_worth_asking(&sites, &all)
+                .iter()
+                .map(|site| site.id)
+                .collect::<Vec<_>>(),
+            sites.iter().map(|site| site.id).collect::<Vec<_>>()
+        );
     }
 
     #[test]

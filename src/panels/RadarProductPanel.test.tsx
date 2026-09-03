@@ -101,22 +101,25 @@ describe("the site picker and what the office says", () => {
     expect(option(/^TBWI/)?.hasAttribute("disabled")).toBe(false);
   });
 
-  it("greys a radar the office is not hearing from, and says why", () => {
-    // TSDF had sent nothing for twenty days the afternoon this was written.
-    // Offered plainly, it is a choice that draws an empty map with no
-    // explanation anywhere on screen.
+  it("greys a radar the office says is not running, and says why", () => {
+    // Offered plainly, a radar that is restarting is a choice that draws an
+    // empty map with no explanation anywhere on screen.
+    //
+    // The fault here is the RDA's own word rather than Level II silence,
+    // because every site this picker lists is a terminal radar and the app
+    // draws those from Level III. A TDWR is never judged by a feed it does
+    // not publish to; `radar_status.rs` holds that end of it.
     picker([
       {
         station: "TSDF",
-        status: "Operate",
-        operability: "RDA - On-line",
-        levelTwoAt: "2026-08-13T13:58:38+00:00",
-        fault: "noRecentData",
+        status: "Start-Up",
+        levelTwoAt: "2026-09-03T02:05:00+00:00",
+        fault: "notOperating",
       },
     ]);
     const down = option(/^TSDF/);
     expect(down?.hasAttribute("disabled")).toBe(true);
-    expect(down?.textContent).toContain("nothing received for");
+    expect(down?.textContent).toContain("Start-Up");
     // Its neighbours are untouched.
     expect(option(/^TBWI/)?.hasAttribute("disabled")).toBe(false);
   });
@@ -131,7 +134,6 @@ describe("the site picker and what the office says", () => {
         {
           station: "TSDF",
           status: "Start-Up",
-          operability: "RDA - On-line",
           levelTwoAt: "2026-09-03T02:05:00+00:00",
           fault: "notOperating",
         },

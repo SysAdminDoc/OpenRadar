@@ -365,6 +365,14 @@ export default function App() {
         : null,
   });
 
+  // Which volume the map is actually showing, for anything that has to act
+  // on the picture rather than on the request. A ref because the export walk
+  // reads it from inside a loop that started renders ago.
+  const drawnVolumeRef = useRef<number | null>(null);
+  useEffect(() => {
+    drawnVolumeRef.current = singleSite.drawnVolume;
+  }, [singleSite.drawnVolume]);
+
   // What the office says about every radar, while a site is on the map. One
   // request for the whole country, so there is nothing to narrow, and a
   // reader watching the national mosaic has no use for it.
@@ -1092,7 +1100,13 @@ export default function App() {
     // three times over under mosaic timestamps.
     siteLoop:
       singleSite.sweep && singleSite.volumes.length > 1
-        ? { sweep: singleSite.sweep, volumes: singleSite.volumes }
+        ? {
+            sweep: singleSite.sweep,
+            volumes: singleSite.volumes,
+            // Read when the walk asks, not when the button was pressed. The
+            // whole point is to notice a volume arriving after the click.
+            drawnVolume: () => drawnVolumeRef.current,
+          }
         : null,
     pushToast,
   });
@@ -2377,7 +2391,15 @@ export default function App() {
         frames={frames}
         sweep={singleSite.sweep}
         sweepLoop={singleSite.loop}
-        sweepStatus={statusFor(siteStatus, singleSite.station)}
+        // Never over a volume the reader opened by hand. How long ago the
+        // office last heard from KDMX is a statement about the radar now, and
+        // beside a picture from 2011 it is an answer to a question nobody
+        // asked.
+        sweepStatus={
+          singleSite.historical
+            ? null
+            : statusFor(siteStatus, singleSite.station)
+        }
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
         smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}

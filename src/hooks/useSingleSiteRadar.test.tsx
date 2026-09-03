@@ -34,6 +34,8 @@ const fetchLocalSweep =
     ) => Promise<SweepImage>
   >();
 const pickArchiveFile = vi.fn<() => Promise<string | null>>();
+const recentVolumeTimes =
+  vi.fn<(station: string, count: number) => Promise<number[]>>();
 
 vi.mock("../lib/level2", async () => {
   const actual =
@@ -56,6 +58,8 @@ vi.mock("../lib/level2", async () => {
     fetchLocalSweep: (...args: Parameters<typeof actual.fetchLocalSweep>) =>
       fetchLocalSweep(args[0], args[1], args[2]),
     pickArchiveFile: () => pickArchiveFile(),
+    recentVolumeTimes: (station: string, count: number) =>
+      recentVolumeTimes(station, count),
   };
 });
 
@@ -106,6 +110,7 @@ const radar: RadarSettings = {
 function options(overrides: {
   center?: [number, number];
   radar?: Partial<RadarSettings>;
+  showingTime?: number | null;
 }) {
   return {
     ready: true,
@@ -114,6 +119,7 @@ function options(overrides: {
     zoom: 9,
     pageVisible: true,
     paletteGeneration: 0,
+    showingTime: overrides.showingTime ?? null,
   };
 }
 
@@ -123,6 +129,8 @@ beforeEach(() => {
   fetchArchiveSweep.mockReset();
   fetchLocalSweep.mockReset();
   pickArchiveFile.mockReset();
+  recentVolumeTimes.mockReset();
+  recentVolumeTimes.mockResolvedValue([]);
   nearestSite.mockResolvedValue("KDMX");
   fetchSweep.mockImplementation(async (station, product, tilt, live) => ({
     ...sweepFor(station, product, tilt),
@@ -507,5 +515,80 @@ describe("drawing the volume in progress", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("the loop, and what is not part of it", () => {
+  /** Three volumes five minutes apart, oldest first. */
+  const VOLUMES = [10, 5, 0].map(
+    (back) => Date.UTC(2026, 8, 3, 2, 0) - back * 60_000,
+  );
+
+  beforeEach(() => {
+    recentVolumeTimes.mockResolvedValue(VOLUMES);
+  });
+
+  it("says which volume the picture on screen is, not which one was asked for", async () => {
+    // The two differ for as long as a fetch takes, which for a ten megabyte
+    // archive object is seconds. A saved loop that captured each frame as
+    // soon as the map went idle wrote the previous volume's pixels under the
+    // next volume's caption, silently, for every frame of the file.
+    let settle: (() => void) | null = null;
+    fetchArchiveSweep.mockImplementationOnce(
+      async (station, _at, product, tilt) => {
+        await new Promise<void>((resolve) => {
+          settle = resolve;
+        });
+        return {
+          ...sweepFor(station, product, tilt),
+          collected: "2021-12-10T03:15:00.000Z",
+          source: {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        };
+      },
+    );
+
+    const { result } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      { initialProps: options({ showingTime: VOLUMES[0] + 60_000 }) },
+    );
+
+    await waitFor(() => expect(result.current.loop).not.toBeNull());
+    expect(result.current.loop).toEqual({ index: 1, count: 3 });
+    // Asked for, not yet drawn.
+    expect(result.current.drawnVolume).toBeNull();
+
+    await act(async () => {
+      settle?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.drawnVolume).toBe(VOLUMES[0]));
+  });
+
+  it("has no loop position once the reader opens a volume by hand", async () => {
+    // Scrubbing has not left the present; opening a file or a moment has.
+    // With the loop position still set, the chrome read the view as current:
+    // the legend said VOLUME 2 OF 3 over a volume from 2021, the archive
+    // credit under the map disappeared, and the scrubber came back to life
+    // over a picture it does not drive.
+    const { result } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      { initialProps: options({ showingTime: VOLUMES[0] + 60_000 }) },
+    );
+    await waitFor(() => expect(result.current.loop).not.toBeNull());
+
+    await act(async () => {
+      await result.current.openArchive("KDMX", "2021-12-10T03:15:00.000Z");
+    });
+
+    expect(result.current.historical).toBe(true);
+    expect(result.current.loop).toBeNull();
+    expect(result.current.drawnVolume).toBeNull();
+    expect(result.current.volumes).toEqual([]);
   });
 });

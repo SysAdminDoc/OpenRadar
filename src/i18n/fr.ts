@@ -1358,6 +1358,8 @@ export const fr: Catalogue = {
   "update.checkFailed": "La recherche de mise à jour a échoué.",
   "update.notOffered": "La mise à jour n'est plus offerte.",
   "export.radar": "Radar",
+  "export.volumeLate":
+    "Le volume d'une image n'est pas arrivé à temps ; l'image précédente a été enregistrée.",
   "export.hrrr": "HRRR, à {minutes} min",
   "export.saved": "{name} enregistré",
   "export.downloads": "Regardez dans votre dossier de téléchargements.",
