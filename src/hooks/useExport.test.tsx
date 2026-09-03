@@ -490,6 +490,105 @@ describe("the record written beside the picture", () => {
     expect(written.frames[0].observed).toBe("2026-08-31T18:00:00.000Z");
   });
 
+  it("looks a still's arrival up by the volume, not by the cut's own time", async () => {
+    // `collected` is the CUT's start time. Under MESO-SAILS the lowest tilt
+    // is cut four times across one volume, so it is not the volume's time and
+    // an arrival looked up by it silently found nothing on every still.
+    const volume = Date.parse("2026-08-31T17:55:00.000Z");
+    const arrived = FETCHED_AT - 9 * 60_000;
+    const { result } = renderExport({
+      sweep: {
+        station: "KDMX",
+        product: "Reflectivity",
+        // Eleven seconds into the volume, which is where a re-cut lands.
+        collected: "2026-08-31T17:55:11.000Z",
+        source: {
+          kind: "archive",
+          label: "NOAA NEXRAD Level II archive",
+          url: "https://registry.opendata.aws/noaa-nexrad/",
+        },
+      } as unknown as Parameters<typeof useExport>[0]["sweep"],
+      siteLoop: null,
+      drawnVolume: () => volume,
+      arrivedAt: (asked: number) => (asked === volume ? arrived : null),
+    });
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{ fetched: string; cachedAgeSeconds: number | null }>;
+    };
+    expect(written.frames[0].fetched).toBe(new Date(arrived).toISOString());
+    // Held long before this export began, so the age is real.
+    expect(written.frames[0].cachedAgeSeconds).toBeGreaterThan(0);
+  });
+
+  it("says a volume fetched during the walk came off the network", async () => {
+    // `cachedAgeSeconds` means the disk cache served the bytes and they were
+    // this old. Writing an age for a volume the walk had just fetched said
+    // the cache served it when nothing had; the honest answer for those is
+    // the null the field already has a meaning for.
+    const volumes = [4000, 2000, 0].map((back) => FETCHED_AT - back);
+    const asked: number[] = [];
+    const selectFrame = vi.fn((index: number) => {
+      const at = [volumes[0], null, volumes[1], null, volumes[2]][index];
+      if (typeof at === "number") asked.push(at);
+    });
+    exportLoop.mockImplementation(
+      async (options: {
+        frameCount: number;
+        showFrame: (index: number) => Promise<void>;
+        captionFor: (index: number) => { lines: string[] };
+      }) => {
+        for (let index = 0; index < options.frameCount; index += 1) {
+          await options.showFrame(index);
+          options.captionFor(index);
+        }
+        return new Blob(["webm"]);
+      },
+    );
+    const stepFrames = [4, 3, 2, 1, 0].map((back) => ({
+      ...frames[0],
+      time: (FETCHED_AT - back * 1000) / 1000,
+    }));
+    // The first was already held when the button was pressed. The other two
+    // arrive while the file is being written, which is what a walk does.
+    const held = Date.now() - 120_000;
+    const { result } = renderExport({
+      frames: stepFrames,
+      timeline: { ...timeline, frames: stepFrames, selectFrame },
+      arrivedAt: (volume: number) =>
+        volume === volumes[0] ? held : Date.now(),
+      siteLoop: {
+        sweep: {
+          station: "KDMX",
+          product: "Reflectivity",
+          collected: new Date(FETCHED_AT).toISOString(),
+          source: {
+            kind: "archive",
+            label: "NOAA NEXRAD Level II archive",
+            url: "https://registry.opendata.aws/noaa-nexrad/",
+          },
+        },
+        volumes,
+        drawnVolume: () => asked.at(-1) ?? null,
+      } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
+    });
+    act(() => result.current.exportLoopVideo());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      frames: Array<{ fetched: string; cachedAgeSeconds: number | null }>;
+    };
+    const ages = written.frames.map((frame) => frame.cachedAgeSeconds);
+    expect(ages[0]).toBeGreaterThanOrEqual(120);
+    expect(ages[1]).toBeNull();
+    expect(ages[2]).toBeNull();
+    // The arrival is still recorded for all three: when the bytes turned up
+    // is true whether or not a cache served them.
+    expect(written.frames[0].fetched).toBe(new Date(held).toISOString());
+  });
+
   it("keeps the picture when the record cannot be written", async () => {
     saveFile.mockReset();
     saveFile

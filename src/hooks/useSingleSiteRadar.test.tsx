@@ -727,6 +727,60 @@ describe("the pane that compares", () => {
     expect(result.current.arrivedAt(VOLUMES[1])).toBeNull();
   });
 
+  it("keeps each picture's own arrival, not the newest fetch's", async () => {
+    // The arrival used to be filed under the volume alone while the pictures
+    // were filed under the whole fetch key. Switching product overwrote the
+    // time, and the earlier product's picture was still held and still
+    // exportable: an export of it wrote a time ten minutes too late, with
+    // nothing on screen to say so.
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useSingleSiteRadar>[0]) =>
+        useSingleSiteRadar(props),
+      {
+        initialProps: options({
+          showingTime: VOLUMES[0],
+          radar: { product: "reflectivity" },
+        }),
+      },
+    );
+    await waitFor(() => expect(result.current.sweep).not.toBeNull());
+    const first = result.current.arrivedAt(VOLUMES[0]);
+    expect(first).not.toBeNull();
+
+    // Long enough that a wrong answer cannot be mistaken for a right one.
+    await new Promise((done) => setTimeout(done, 25));
+    rerender(
+      options({ showingTime: VOLUMES[0], radar: { product: "velocity" } }),
+    );
+    await waitFor(() => expect(fetchArchiveSweep).toHaveBeenCalledTimes(2));
+    const second = result.current.arrivedAt(VOLUMES[0]);
+    expect(second).not.toBeNull();
+    expect(second).toBeGreaterThan(first!);
+
+    // Back to the first product. Nothing is fetched: the picture is the one
+    // already held, and its arrival is the one it came with.
+    rerender(
+      options({ showingTime: VOLUMES[0], radar: { product: "reflectivity" } }),
+    );
+    await waitFor(() =>
+      expect(result.current.arrivedAt(VOLUMES[0])).toBe(first),
+    );
+    expect(fetchArchiveSweep).toHaveBeenCalledTimes(2);
+  });
+
+  it("records the newest volume arriving, which nothing scrubs back to", async () => {
+    // The newest volume is drawn by the live path rather than the scrubbed
+    // one, and only the scrubbed one recorded anything. The last frame of
+    // every saved loop was the one frame with no arrival.
+    const before = Date.now();
+    const { result } = renderHook(() => useSingleSiteRadar(options({})));
+    await waitFor(() => expect(result.current.sweep).not.toBeNull());
+    await waitFor(() =>
+      expect(result.current.arrivedAt(VOLUMES[2])).not.toBeNull(),
+    );
+    expect(result.current.arrivedAt(VOLUMES[2])).toBeGreaterThanOrEqual(before);
+  });
+
   it("has nothing to compare with the pane closed", async () => {
     const { result } = renderHook(
       (props: Parameters<typeof useSingleSiteRadar>[0]) =>

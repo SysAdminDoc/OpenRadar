@@ -139,6 +139,13 @@ export function useExport(options: {
    * goes: a volume can arrive while the file is being written.
    */
   arrivedAt?: (volume: number) => number | null;
+  /**
+   * Which listed volume the picture on screen is, for a still.
+   *
+   * The sweep's own `collected` is the cut's start time rather than the
+   * volume's, so it cannot be used to look an arrival up.
+   */
+  drawnVolume?: () => number | null;
   siteLoop: {
     sweep: SweepImage;
     volumes: number[];
@@ -166,6 +173,7 @@ export function useExport(options: {
     dataSources,
     sweep,
     arrivedAt,
+    drawnVolume,
     siteLoop,
     pushToast,
   } = options;
@@ -183,6 +191,14 @@ export function useExport(options: {
   // for a caption exactly once per frame it draws, so the captions are the
   // record of what was drawn.
   const drawnRef = useRef(new Map<number, Provenance>());
+  /**
+   * When the export the records are being written for began.
+   *
+   * What separates a picture the loop was already holding from one fetched
+   * while the file was being written. The first is what a cache age is about;
+   * the second came off the network and has none.
+   */
+  const startedRef = useRef(0);
 
   /**
    * The caption for one volume of a held site.
@@ -194,20 +210,38 @@ export function useExport(options: {
    * site and the same product; only the time moves.
    */
   const sweepCaptionFor = useCallback(
-    (sweep: SweepImage, at: number, index: number): ExportCaption => {
+    (
+      sweep: SweepImage,
+      at: number,
+      index: number,
+      /**
+       * Which listed volume this picture is, or null when it is not one.
+       *
+       * Not the same number as `at` on a still: `at` comes from the sweep's
+       * own `collected`, which is the CUT's start time, and under MESO-SAILS
+       * the lowest tilt is cut four times across one volume. Looking the
+       * arrival up by that silently found nothing on every still.
+       */
+      volume: number | null,
+    ): ExportCaption => {
       const now = Date.now();
-      // When that volume's bytes actually reached this machine, which for one
-      // the loop was already holding can be a good deal earlier than now.
-      // Stamping every frame with the moment its caption was written made a
-      // held volume look like it had just arrived, and reporting no cache age
-      // said the same thing again in the field that exists to say it.
-      const arrived = arrivedAt?.(at) ?? null;
+      // When this app took delivery of that volume, which for one the loop
+      // was already holding is a good deal earlier than now. Every frame used
+      // to be stamped with the moment its caption was written.
+      const arrived = volume === null ? null : (arrivedAt?.(volume) ?? null);
       const record = sweepProvenance({
         sweep,
         at,
-        fetchedAt: arrived ?? now,
+        // Never later than now, whatever the clock has done. A machine whose
+        // clock stepped backwards would otherwise write a record fetched in
+        // the future, which nothing downstream rejects.
+        fetchedAt: arrived === null ? now : Math.min(arrived, now),
+        // Only for a picture this export found already held. A volume fetched
+        // while the file is being written came off the network, and this
+        // field says "the disk cache served it, and it was this old"; writing
+        // a zero for a fresh fetch says the cache served it when it did not.
         cachedAgeSeconds:
-          arrived === null
+          arrived === null || arrived >= startedRef.current
             ? null
             : Math.max(0, Math.round((now - arrived) / 1000)),
       });
@@ -231,7 +265,12 @@ export function useExport(options: {
       // Whatever sweep is on the canvas, from wherever it came. The picture
       // is that radar's and not the mosaic's.
       if (sweep) {
-        return sweepCaptionFor(sweep, Date.parse(sweep.collected), index);
+        return sweepCaptionFor(
+          sweep,
+          Date.parse(sweep.collected),
+          index,
+          drawnVolume?.() ?? null,
+        );
       }
       const frame = frames[index];
       // The caption is written from the frame's provenance rather than from
@@ -276,6 +315,7 @@ export function useExport(options: {
     },
     [
       basemapCredit,
+      drawnVolume,
       frames,
       source,
       sweep,
@@ -361,6 +401,7 @@ export function useExport(options: {
       const canvas = mapRef.current?.canvas();
       if (!canvas) return;
       drawnRef.current.clear();
+      startedRef.current = Date.now();
       setBusy("image");
       try {
         const blob = await exportStill(canvas, captionFor(frameIndex));
@@ -436,6 +477,7 @@ export function useExport(options: {
         const canvas = mapRef.current?.canvas();
         if (!canvas) return;
         drawnRef.current.clear();
+        startedRef.current = Date.now();
         setBusy("image");
         try {
           const blob = await drawPostcard({
@@ -492,6 +534,7 @@ export function useExport(options: {
         const count = walk ? walk.length : frames.length;
         if (!canvas || count < 2) return;
         drawnRef.current.clear();
+        startedRef.current = Date.now();
         const originalFrame = frameIndex;
         const wasPlaying = timeline.playing;
         setBusy(busyAs);
@@ -512,7 +555,12 @@ export function useExport(options: {
             captionFor:
               walk && siteLoop
                 ? (index) =>
-                    sweepCaptionFor(siteLoop.sweep, walk[index].at, index)
+                    sweepCaptionFor(
+                      siteLoop.sweep,
+                      walk[index].at,
+                      index,
+                      walk[index].at,
+                    )
                 : captionFor,
             onProgress: (done, total) => setProgress({ done, total }),
             // Only the video path can fall back, and it says so because the

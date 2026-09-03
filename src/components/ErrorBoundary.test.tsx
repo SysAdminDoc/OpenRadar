@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { rememberWebviewVersion } from "../lib/crashReport";
 import { diagnosticsBlock } from "../lib/diagnostics";
 import { DEFAULT_SETTINGS, resetLayout } from "../lib/settings";
 import { en } from "../i18n/en";
@@ -146,6 +147,26 @@ describe("what a reader can do when the workspace will not draw", () => {
 
     fireEvent.click(screen.getByRole("button", { name: en["fatal.copy"] }));
     return screen.findByRole("button", { name: en["fatal.copyRefused"] });
+  });
+
+  it("never claims this is not a native window", () => {
+    // The crash screen has no app left to run an effect, so it built its
+    // report with nothing for the runtime and the report wrote that as "not a
+    // native window" — a false statement, in the one report a reader sends
+    // after a graphics crash. It now uses whatever the workspace read before
+    // it stopped, and says unknown when nobody got that far.
+    const written = clipboardInto();
+    const noise = vi.spyOn(console, "error").mockImplementation(() => {});
+    rememberWebviewVersion("152.0.4191.62");
+    render(
+      <ErrorBoundary>
+        <Throws />
+      </ErrorBoundary>,
+    );
+    noise.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: en["fatal.copy"] }));
+    expect(written[0]).toContain("Webview runtime: 152.0.4191.62");
+    expect(written[0]).not.toContain("not a native window");
   });
 
   it("survives something thrown that is not an Error", () => {

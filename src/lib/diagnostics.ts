@@ -108,11 +108,18 @@ export interface DiagnosticsInput {
   platform?: string | null;
   webview?: string | null;
   /**
-   * The WebView2 runtime's version, when this is a native window.
+   * The webview runtime's version, when this is a native window.
    *
-   * The user agent above says which Chromium the page believes it is in; this
-   * says which runtime Microsoft installed, and a GPU crash report that names
-   * neither cannot be matched against a Chromium release.
+   * The user agent above says which browser the page believes it is in; this
+   * says which runtime the platform installed, and a GPU crash report that
+   * names neither cannot be matched against a browser release.
+   *
+   * Three answers, not two. A version is a version. `null` means there is no
+   * native runtime, which is the browser preview. Absent means nobody has
+   * asked, or the runtime would not say, and the report says so rather than
+   * claiming this is not a native window: the crash screen builds its report
+   * with no app left to ask, and it was making exactly that false statement
+   * in the one report a reader sends after a graphics crash.
    */
   webviewRuntime?: string | null;
   /**
@@ -221,12 +228,17 @@ export function errorSummary(log: LogEntry[]): string[] {
     });
 }
 
+function webviewRuntimeLine(version: string | null | undefined): string {
+  if (typeof version === "string") return version;
+  return version === null ? "not a native window" : "unknown";
+}
+
 export function diagnosticsBlock(input: DiagnosticsInput): string {
   const lines: string[] = [
     `OpenRadar ${APP_VERSION}`,
     `Platform: ${input.platform ?? navigator.platform ?? "unknown"}`,
     `Webview: ${input.webview ?? navigator.userAgent}`,
-    `WebView2 runtime: ${input.webviewRuntime ?? "not a native window"}`,
+    `Webview runtime: ${webviewRuntimeLine(input.webviewRuntime)}`,
     `Renderer: ${input.renderer ?? "unknown"}`,
     `Map ready: ${input.mapReady} · Radar ready: ${input.radarReady}`,
     `Source: ${input.activeSource ?? "none"}`,
