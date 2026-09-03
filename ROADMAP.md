@@ -40,16 +40,6 @@ Two things to know before draining. First, most of what follows lives where the 
 
 These could not be observed in this pass, which ran headless browser automation and read the packaged binary's configuration but did not drive the installed app on a screen. Each is a place where the e2e suite also cannot see.
 
-- [ ] AUD-165: Installed-build behaviour of the tray icon, the glance window, the desktop wallpaper, the updater and incident packs
-      Category: testing
-      Where: `src-tauri/src/tray.rs`, `glance.rs`, `wallpaper.rs`, `src/lib/updates.ts`, `src-tauri/src/incident_packs.rs`
-      Problem: None of these run in the browser suite. The three P1/P2 ACL findings above were found by reading the capability file; whether the icon really disappears on switch-off, whether the wallpaper restore holds across a reboot, whether the passive-mode updater relaunches cleanly and whether a pack survives a pause and a restart have never been observed on a machine, only reasoned about.
-      Evidence: `e2e/` stubs `__TAURI_INTERNALS__` in every desktop-flavoured spec; the audit rules forbid driving the reader's screen.
-      Fix: A checklist run on a virtual desktop or a second session, recorded in the working notes: tray on/off/on, glance from the tray in French, wallpaper on then off then reboot, an update from 0.6.0 to 0.7.0, a pack paused mid-download and resumed after a restart.
-      Acceptance: Each step observed and noted, with any defect logged here.
-      Confidence: Needs-repro
-      Effort: M
-
 - [ ] AUD-166: Long-session memory and the two-day-old cached view
       Category: perf
       Where: `src/hooks/useRadarTimeline.ts`, `src-tauri/src/cache.rs`, the map's tile sources
@@ -243,13 +233,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Evidence: `src/hooks/useExport.ts` `sweepCaptionFor` passes `Date.now()`; `src/hooks/useSingleSiteRadar.ts` holds the decoded picture in `heldRef` and not the moment it arrived; `src/lib/provenance.ts` calls `cachedAgeSeconds` what separates a picture that is current from one that survived an outage.
   Touches: `src/hooks/useSingleSiteRadar.ts` (hold the moment beside the picture and expose it with the series), `src/hooks/useExport.ts`, `src/lib/provenance.ts` if the sweep builder should take both.
   Acceptance: An exported loop of a held site says per volume when that volume reached this machine; a volume drawn from the loop's own held pictures carries how long it had been held rather than a null.
-  Complexity: S
-
-- [ ] AUD-205 (P3): The loop length bound is written down twice with nothing to keep it honest
-  Why: `MAX_LOOP_VOLUMES` is 30 in `src/lib/siteLoop.ts` and the native side independently refuses a count above 30 in `level2.rs`. Nothing fails when they drift, and the repo has precedent for exactly this kind of gate.
-  Evidence: `src/lib/siteLoop.ts` `MAX_LOOP_VOLUMES`; `src-tauri/src/level2.rs` `level2_recent_times` clamp; `CLAUDE.md` records the colour-ramp drift gate as the pattern.
-  Touches: a test that reads both files and compares, in the shape of the existing ramp gate.
-  Acceptance: Changing either number without the other fails a test that names both files.
   Complexity: S
 
 ## Research-Driven Additions, 2026-09-03
