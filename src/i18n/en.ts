@@ -750,7 +750,12 @@ export const en = {
     "Brightness temperature, −92 to +57 °C, coloured by NASA GIBS",
   "satellite.product": "Satellite view",
   "layer.rotationTracks": "Rotation Tracks",
+  "layer.azShear": "Azimuthal Shear",
   "layer.hail": "Hail Size",
+  "layer.vilDensity": "Liquid Density",
+  "layer.shi": "Severe Hail Index",
+  "layer.posh": "Hail Probability",
+  "layer.vii": "Integrated Ice",
   "layer.lightningDensity": "Lightning Density",
   "layer.lightningFlashes": "Lightning Flashes",
   "layer.customOverlay": "Custom Overlay",
@@ -834,6 +839,11 @@ export const en = {
   "section.unfolded": "Velocity was unfolded before slicing.",
   "section.palette": "Drawn with the loaded colour table.",
   "keywords.hailSwath": "hail swath track past day",
+  "keywords.azShear": "azimuthal shear mesocyclone couplet rotation",
+  "keywords.posh": "probability of severe hail chance",
+  "keywords.shi": "severe hail index kinetic energy",
+  "keywords.vilDensity": "vil density liquid per metre hail",
+  "keywords.vii": "vertically integrated ice frozen hail",
   "keywords.echoTops": "echo tops height updraft",
   "keywords.vil": "vertically integrated liquid water",
   "keywords.precipRate": "rain rate intensity",
@@ -979,7 +989,28 @@ export const en = {
   "layers.tropicalDetail": "NHC cones, tracks, and development outlooks",
   "layers.satelliteDetail": "GOES-East GeoColor under the radar",
   "layers.rotationDetail": "MRMS azimuthal shear over the past hour",
+  "layers.rotationPeriod": "How far back the track reaches",
+  "layers.azShearDetail":
+    "MRMS merged azimuthal shear as it stands, not accumulated",
+  "layers.azShearLevel": "Which slab of the storm is measured",
+  "layers.azShearNote":
+    "Above 10 through 3 to 6 km is a deep mesocyclone, by the WDTD reading.",
+  "rotationPeriod.30m": "30 min",
+  "rotationPeriod.1h": "1 hour",
+  "rotationPeriod.2h": "2 hours",
+  "rotationPeriod.4h": "4 hours",
+  "rotationPeriod.24h": "1 day",
+  "azShearLevel.low": "0 to 2 km",
+  "azShearLevel.mid": "3 to 6 km",
   "layers.hailDetail": "MRMS maximum estimated hail size",
+  "layers.vilDensityDetail":
+    "Liquid divided by the depth of the echo, which tells a wet storm from a hail storm",
+  "layers.shiDetail":
+    "The hail kinetic energy the probability and the size are both worked out from",
+  "layers.poshDetail":
+    "MRMS probability that the hail reaching the ground is severe",
+  "layers.viiDetail":
+    "How much ice the column is holding above the freezing level",
   "layers.lightningDensityDetail":
     "MRMS cloud-to-ground flashes over the past five minutes",
   "layers.lightningFlashesDetail":
@@ -991,6 +1022,16 @@ export const en = {
   // native side names its own products in English; these are the same
   // names in the language the reader chose.
   "mrms.rotation": "Rotation tracks, past hour",
+  "mrms.rotation30": "Rotation tracks, past 30 min",
+  "mrms.rotation120": "Rotation tracks, past 2 hours",
+  "mrms.rotation240": "Rotation tracks, past 4 hours",
+  "mrms.rotation1440": "Rotation tracks, past day",
+  "mrms.azShearLow": "Azimuthal shear, 0 to 2 km",
+  "mrms.azShearMid": "Azimuthal shear, 3 to 6 km",
+  "mrms.vilDensity": "Liquid per metre of column",
+  "mrms.shi": "Severe hail index",
+  "mrms.posh": "Probability of severe hail",
+  "mrms.vii": "Vertically integrated ice",
   "mrms.mesh": "Maximum estimated hail size",
   "mrms.echoTops": "Echo tops",
   "mrms.vil": "Vertically integrated liquid",

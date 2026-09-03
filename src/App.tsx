@@ -1024,12 +1024,25 @@ export default function App() {
   // ticking starts only while a live sweep is drawn.
   const liveClock = useSecondClock(singleSite.sweep?.live === true);
 
+  // Which grid each of the three switches that stands for several is pointing
+  // at. Held together because the hook and the provenance records both need
+  // all three, and a caller that passed two would silently report the default
+  // window as the one on screen.
+  const mrmsChoices = useMemo(
+    () => ({
+      gaugeQpePeriod: settings.gaugeQpePeriod,
+      rotationPeriod: settings.rotationPeriod,
+      azShearLevel: settings.azShearLevel,
+    }),
+    [settings.azShearLevel, settings.gaugeQpePeriod, settings.rotationPeriod],
+  );
+
   const mrms = useMrmsOverlays({
     ready: hydrated,
     layers: settings.layers,
     pageVisible,
     paletteGeneration,
-    gaugeQpePeriod: settings.gaugeQpePeriod,
+    choices: mrmsChoices,
   });
   const lightning = useLightning({
     ready: hydrated,
@@ -1644,7 +1657,7 @@ export default function App() {
         if (layer === "counties" && !countiesDrawn) continue;
         const observedAt =
           (layer === "counties" ? COUNTY_VINTAGE : undefined) ??
-          mrmsTimeFor(mrms.layers, layer, settings.gaugeQpePeriod) ??
+          mrmsTimeFor(mrms.layers, layer, mrmsChoices) ??
           (layer === "lightningFlashes"
             ? // The flash window carries seconds, like the radar frames and
               // unlike everything in a record. Passed straight through it dated
@@ -1753,6 +1766,7 @@ export default function App() {
       wind.field,
       logEntries,
       mrms.layers,
+      mrmsChoices,
       settings,
       settingsRef,
       mapStatus,
@@ -2476,6 +2490,12 @@ export default function App() {
             }
             onGaugeQpePeriod={(gaugeQpePeriod) =>
               applySettings({ ...settingsRef.current, gaugeQpePeriod })
+            }
+            onRotationPeriod={(rotationPeriod) =>
+              applySettings({ ...settingsRef.current, rotationPeriod })
+            }
+            onAzShearLevel={(azShearLevel) =>
+              applySettings({ ...settingsRef.current, azShearLevel })
             }
             onSatelliteProduct={(satelliteProduct) =>
               applySettings({ ...settingsRef.current, satelliteProduct })

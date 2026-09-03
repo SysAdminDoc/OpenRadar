@@ -23,6 +23,12 @@ import {
 } from "./providers/satellite";
 import { isGaugeQpePeriod, type GaugeQpePeriod } from "./gaugeQpe";
 import {
+  isAzShearLevel,
+  isRotationPeriod,
+  type AzShearLevel,
+  type RotationPeriod,
+} from "./rotationTrack";
+import {
   parseTheme,
   themeText,
   THEME_TOKENS,
@@ -150,11 +156,19 @@ export interface LayerSettings {
   tropical: boolean;
   satellite: boolean;
   customOverlay: boolean;
-  /** MRMS azimuthal shear over the past hour. */
+  /** MRMS azimuthal shear accumulated over the window the reader chose. */
   rotationTracks: boolean;
+  /** MRMS merged azimuthal shear as it stands, at the height chosen. */
+  azShear: boolean;
   /** MRMS maximum estimated hail size. */
   hail: boolean;
   hailSwath: boolean;
+  /** How much water each metre of the column is holding. */
+  vilDensity: boolean;
+  /** The severe hail index, and the probability and ice worked out beside it. */
+  shi: boolean;
+  posh: boolean;
+  vii: boolean;
   echoTops: boolean;
   vil: boolean;
   precipRate: boolean;
@@ -358,6 +372,10 @@ export interface AppSettings {
   satelliteProduct: SatelliteProductId;
   /** Which window the gauge-corrected accumulation covers. */
   gaugeQpePeriod: GaugeQpePeriod;
+  /** Which window the rotation track covers. */
+  rotationPeriod: RotationPeriod;
+  /** Which slab the merged shear is measured through. */
+  azShearLevel: AzShearLevel;
   /**
    * Places beside home, up to nine of them, so home plus these is ten. Kept
    * as its own key rather than folded into `watch`, which every build since
@@ -565,8 +583,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
     satellite: false,
     customOverlay: false,
     rotationTracks: false,
+    azShear: false,
     hail: false,
     hailSwath: false,
+    vilDensity: false,
+    shi: false,
+    posh: false,
+    vii: false,
     echoTops: false,
     vil: false,
     precipRate: false,
@@ -601,6 +624,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   followNewWarnings: false,
   satelliteProduct: "geocolor",
   gaugeQpePeriod: "24h",
+  rotationPeriod: "1h",
+  azShearLevel: "low",
   presets: [null, null, null, null],
   incidentPacks: {
     diskLimitMb: 4096,
@@ -1511,8 +1536,13 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.rotationTracks,
         DEFAULT_SETTINGS.layers.rotationTracks,
       ),
+      azShear: bool(layers.azShear, DEFAULT_SETTINGS.layers.azShear),
       hail: bool(layers.hail, DEFAULT_SETTINGS.layers.hail),
       hailSwath: bool(layers.hailSwath, DEFAULT_SETTINGS.layers.hailSwath),
+      vilDensity: bool(layers.vilDensity, DEFAULT_SETTINGS.layers.vilDensity),
+      shi: bool(layers.shi, DEFAULT_SETTINGS.layers.shi),
+      posh: bool(layers.posh, DEFAULT_SETTINGS.layers.posh),
+      vii: bool(layers.vii, DEFAULT_SETTINGS.layers.vii),
       echoTops: bool(layers.echoTops, DEFAULT_SETTINGS.layers.echoTops),
       vil: bool(layers.vil, DEFAULT_SETTINGS.layers.vil),
       precipRate: bool(layers.precipRate, DEFAULT_SETTINGS.layers.precipRate),
@@ -1562,6 +1592,12 @@ export function normalizeSettings(value: unknown): AppSettings {
     gaugeQpePeriod: isGaugeQpePeriod(raw.gaugeQpePeriod)
       ? raw.gaugeQpePeriod
       : DEFAULT_SETTINGS.gaugeQpePeriod,
+    rotationPeriod: isRotationPeriod(raw.rotationPeriod)
+      ? raw.rotationPeriod
+      : DEFAULT_SETTINGS.rotationPeriod,
+    azShearLevel: isAzShearLevel(raw.azShearLevel)
+      ? raw.azShearLevel
+      : DEFAULT_SETTINGS.azShearLevel,
     watchPlaces: normalizeWatchPlaces(raw.watchPlaces),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
     overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),

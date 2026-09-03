@@ -139,10 +139,40 @@ const LAYER_COMMANDS: Array<{
     ],
   },
   {
+    layer: "azShear",
+    key: "layer.azShear",
+    extra: "keywords.azShear",
+    keywords: ["azshear", "shear", "meso", "rotation", "couplet", "llsd"],
+  },
+  {
     layer: "hail",
     key: "layer.hail",
     extra: "keywords.hail",
     keywords: ["mesh", "hail", "stones", "size", "severe"],
+  },
+  {
+    layer: "posh",
+    key: "layer.posh",
+    extra: "keywords.posh",
+    keywords: ["posh", "hail", "probability", "chance", "severe"],
+  },
+  {
+    layer: "shi",
+    key: "layer.shi",
+    extra: "keywords.shi",
+    keywords: ["shi", "hail", "index", "energy", "witt"],
+  },
+  {
+    layer: "vilDensity",
+    key: "layer.vilDensity",
+    extra: "keywords.vilDensity",
+    keywords: ["vild", "density", "vil", "liquid", "hail"],
+  },
+  {
+    layer: "vii",
+    key: "layer.vii",
+    extra: "keywords.vii",
+    keywords: ["vii", "ice", "integrated", "frozen", "hail"],
   },
   {
     layer: "hailSwath",

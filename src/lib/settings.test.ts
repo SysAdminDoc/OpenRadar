@@ -191,6 +191,7 @@ describe("settings normalization", () => {
     expect(settings.radar.product).toBe("reflectivity");
     expect(settings.radar.tilt).toBe(0);
     expect(Object.keys(settings.layers).sort()).toEqual([
+      "azShear",
       "classification",
       "counties",
       "customOverlay",
@@ -205,6 +206,7 @@ describe("settings normalization", () => {
       "lightningDensity",
       "lightningFlashes",
       "metar",
+      "posh",
       "precipRate",
       "precipType",
       "probSevere",
@@ -213,6 +215,7 @@ describe("settings normalization", () => {
       "riverGauges",
       "rotationTracks",
       "satellite",
+      "shi",
       "smoke",
       "spcDiscussions",
       "spcOutlooks",
@@ -221,7 +224,9 @@ describe("settings normalization", () => {
       "surge",
       "tropical",
       "unitStreamflow",
+      "vii",
       "vil",
+      "vilDensity",
       "weatherAlerts",
       "wildfires",
       "wind",

@@ -72,6 +72,7 @@ import { HistoryPanel } from "../panels/HistoryPanel";
 import { RadarProductPanel } from "../panels/RadarProductPanel";
 import type { SiteStatus } from "../lib/radarStatus";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
+import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { TropicalPanel } from "../panels/TropicalPanel";
@@ -168,6 +169,8 @@ interface PanelSurfacesProps {
   soundingAt: number;
   onSatelliteProduct: (product: SatelliteProductId) => void;
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
+  onRotationPeriod: (period: RotationPeriod) => void;
+  onAzShearLevel: (level: AzShearLevel) => void;
   onHistoryStorm: (storm: Storm | null) => void;
   onReplayStorm: (storm: Storm) => void;
   onStopReplay: () => void;
@@ -261,6 +264,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             satelliteProduct={settings.satelliteProduct}
             gaugeQpePeriod={settings.gaugeQpePeriod}
             onGaugeQpePeriod={props.onGaugeQpePeriod}
+            rotationPeriod={settings.rotationPeriod}
+            onRotationPeriod={props.onRotationPeriod}
+            azShearLevel={settings.azShearLevel}
+            onAzShearLevel={props.onAzShearLevel}
             onSatelliteProduct={props.onSatelliteProduct}
             onClose={onClose}
           />

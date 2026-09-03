@@ -13,6 +13,7 @@ import { DEFAULT_SETTINGS } from "../lib/settings";
 import { en } from "../i18n/en";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
+import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
 import type { UndoableRemoval } from "../components/ToastHost";
 
 afterEach(cleanup);
@@ -25,6 +26,10 @@ function panel(overrides: {
   onRemoved?: (removal: UndoableRemoval) => void;
   gaugeQpePeriod?: GaugeQpePeriod;
   onGaugeQpePeriod?: (period: GaugeQpePeriod) => void;
+  rotationPeriod?: RotationPeriod;
+  onRotationPeriod?: (period: RotationPeriod) => void;
+  azShearLevel?: AzShearLevel;
+  onAzShearLevel?: (level: AzShearLevel) => void;
 }) {
   return (
     <LayersPanel
@@ -35,6 +40,12 @@ function panel(overrides: {
         overrides.gaugeQpePeriod ?? DEFAULT_SETTINGS.gaugeQpePeriod
       }
       onGaugeQpePeriod={overrides.onGaugeQpePeriod ?? vi.fn()}
+      rotationPeriod={
+        overrides.rotationPeriod ?? DEFAULT_SETTINGS.rotationPeriod
+      }
+      onRotationPeriod={overrides.onRotationPeriod ?? vi.fn()}
+      azShearLevel={overrides.azShearLevel ?? DEFAULT_SETTINGS.azShearLevel}
+      onAzShearLevel={overrides.onAzShearLevel ?? vi.fn()}
       onSatelliteProduct={vi.fn()}
       overlayOpacity={DEFAULT_SETTINGS.overlayOpacity}
       onOverlayOpacity={vi.fn()}

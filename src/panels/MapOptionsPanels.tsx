@@ -38,6 +38,12 @@ import { rangeFill } from "../lib/rangeFill";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
 import { GAUGE_QPE_PERIODS, type GaugeQpePeriod } from "../lib/gaugeQpe";
 import {
+  AZ_SHEAR_LEVELS,
+  ROTATION_PERIODS,
+  type AzShearLevel,
+  type RotationPeriod,
+} from "../lib/rotationTrack";
+import {
   distanceSlider,
   distanceUnit,
   distanceValue,
@@ -261,6 +267,12 @@ interface LayersPanelProps {
   onSatelliteProduct: (product: SatelliteProductId) => void;
   gaugeQpePeriod: GaugeQpePeriod;
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
+  /** How far back the rotation track reaches. */
+  rotationPeriod: RotationPeriod;
+  onRotationPeriod: (period: RotationPeriod) => void;
+  /** Which slab the merged shear is measured through. */
+  azShearLevel: AzShearLevel;
+  onAzShearLevel: (level: AzShearLevel) => void;
   onClose: () => void;
 }
 
@@ -367,6 +379,12 @@ const LAYER_OPTIONS: Array<{
     icon: Tornado,
   },
   {
+    key: "azShear",
+    labelKey: "layer.azShear",
+    detailKey: "layers.azShearDetail",
+    icon: Tornado,
+  },
+  {
     key: "hail",
     labelKey: "layer.hail",
     detailKey: "layers.hailDetail",
@@ -377,6 +395,30 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.hailSwath",
     detailKey: "layers.hailSwathDetail",
     icon: CloudHail,
+  },
+  {
+    key: "posh",
+    labelKey: "layer.posh",
+    detailKey: "layers.poshDetail",
+    icon: CloudHail,
+  },
+  {
+    key: "shi",
+    labelKey: "layer.shi",
+    detailKey: "layers.shiDetail",
+    icon: CloudHail,
+  },
+  {
+    key: "vilDensity",
+    labelKey: "layer.vilDensity",
+    detailKey: "layers.vilDensityDetail",
+    icon: Droplets,
+  },
+  {
+    key: "vii",
+    labelKey: "layer.vii",
+    detailKey: "layers.viiDetail",
+    icon: Snowflake,
   },
   {
     key: "echoTops",
@@ -494,6 +536,10 @@ export function LayersPanel({
   satelliteProduct,
   gaugeQpePeriod,
   onGaugeQpePeriod,
+  rotationPeriod,
+  onRotationPeriod,
+  azShearLevel,
+  onAzShearLevel,
   onSatelliteProduct,
   onClose,
 }: LayersPanelProps) {
@@ -830,6 +876,59 @@ export function LayersPanel({
                 onClick={() => onSatelliteProduct(product.id)}
               >
                 {t(product.key)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.rotationTracks ? (
+        <div className="settings-section" data-rotation-period={rotationPeriod}>
+          <div className="settings-section__title">
+            <span>{t("layers.rotationPeriod")}</span>
+            <small>{t("layers.rotationDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.rotationPeriod")}
+          >
+            {ROTATION_PERIODS.map((period) => (
+              <button
+                key={period}
+                type="button"
+                className={rotationPeriod === period ? "is-active" : ""}
+                aria-pressed={rotationPeriod === period}
+                onClick={() => onRotationPeriod(period)}
+              >
+                {t(`rotationPeriod.${period}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.azShear ? (
+        <div className="settings-section" data-az-shear-level={azShearLevel}>
+          <div className="settings-section__title">
+            <span>{t("layers.azShearLevel")}</span>
+            {/* What the number on the map means, rather than only what it is.
+                The threshold is the forecaster's own and it belongs beside the
+                switch that draws the field, not only in the legend. */}
+            <small>{t("layers.azShearNote")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.azShearLevel")}
+          >
+            {AZ_SHEAR_LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                className={azShearLevel === level ? "is-active" : ""}
+                aria-pressed={azShearLevel === level}
+                onClick={() => onAzShearLevel(level)}
+              >
+                {t(`azShearLevel.${level}`)}
               </button>
             ))}
           </div>
