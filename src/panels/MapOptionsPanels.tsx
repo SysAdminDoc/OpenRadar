@@ -123,6 +123,7 @@ import {
   type WatchHealth,
 } from "../lib/watch";
 import { overlayBandOrder } from "../lib/overlayOrder";
+import { ERO_DAYS, WSSI_DAYS } from "../lib/overlays";
 
 interface MapTypePanelProps {
   mapStyle: MapStyleId;
@@ -209,6 +210,16 @@ const OVERLAY_LAYERS: Array<{
     labelKey: "layer.spcOutlooks",
   },
   {
+    key: "wpcExcessiveRain",
+    overlayId: "wpcExcessiveRain",
+    labelKey: "layer.wpcExcessiveRain",
+  },
+  {
+    key: "wpcWinterSeverity",
+    overlayId: "wpcWinterSeverity",
+    labelKey: "layer.wpcWinterSeverity",
+  },
+  {
     key: "spcDiscussions",
     overlayId: "spcDiscussions",
     labelKey: "layer.spcDiscussions",
@@ -273,6 +284,11 @@ interface LayersPanelProps {
   /** Which slab the merged shear is measured through. */
   azShearLevel: AzShearLevel;
   onAzShearLevel: (level: AzShearLevel) => void;
+  /** Which day of each of the two Weather Prediction Center outlooks. */
+  wpcDay: number;
+  onWpcDay: (day: number) => void;
+  wssiDay: number;
+  onWssiDay: (day: number) => void;
   onClose: () => void;
 }
 
@@ -293,6 +309,18 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.spcOutlooks",
     detailKey: "layers.spcOutlooksDetail",
     icon: ShieldAlert,
+  },
+  {
+    key: "wpcExcessiveRain",
+    labelKey: "layer.wpcExcessiveRain",
+    detailKey: "layers.wpcExcessiveRainDetail",
+    icon: CloudRain,
+  },
+  {
+    key: "wpcWinterSeverity",
+    labelKey: "layer.wpcWinterSeverity",
+    detailKey: "layers.wpcWinterSeverityDetail",
+    icon: Snowflake,
   },
   {
     key: "spcDiscussions",
@@ -540,6 +568,10 @@ export function LayersPanel({
   onRotationPeriod,
   azShearLevel,
   onAzShearLevel,
+  wpcDay,
+  onWpcDay,
+  wssiDay,
+  onWssiDay,
   onSatelliteProduct,
   onClose,
 }: LayersPanelProps) {
@@ -876,6 +908,56 @@ export function LayersPanel({
                 onClick={() => onSatelliteProduct(product.id)}
               >
                 {t(product.key)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.wpcExcessiveRain ? (
+        <div className="settings-section" data-wpc-day={wpcDay}>
+          <div className="settings-section__title">
+            <span>{t("layers.wpcDay")}</span>
+            <small>{t("layers.wpcExcessiveRainDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.wpcDay")}
+          >
+            {ERO_DAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                className={wpcDay === day ? "is-active" : ""}
+                aria-pressed={wpcDay === day}
+                onClick={() => onWpcDay(day)}
+              >
+                {t("layers.outlookDay", { day })}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.wpcWinterSeverity ? (
+        <div className="settings-section" data-wssi-day={wssiDay}>
+          <div className="settings-section__title">
+            <span>{t("layers.wssiDay")}</span>
+            <small>{t("wpc.wssiNote")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.wssiDay")}
+          >
+            {WSSI_DAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                className={wssiDay === day ? "is-active" : ""}
+                aria-pressed={wssiDay === day}
+                onClick={() => onWssiDay(day)}
+              >
+                {t("layers.outlookDay", { day })}
               </button>
             ))}
           </div>

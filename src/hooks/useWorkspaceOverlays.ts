@@ -76,6 +76,8 @@ export function useWorkspaceOverlays(options: {
   } = settings.layers;
   const zoom = settings.camera.zoom;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
+  const { wpcExcessiveRain, wpcWinterSeverity } = settings.layers;
+  const { wpcDay, wssiDay } = settings;
 
   const toggles = useMemo(
     () => ({
@@ -104,6 +106,10 @@ export function useWorkspaceOverlays(options: {
       spcOutlooks: spcOutlooks && !replaying,
       spcDiscussions: spcDiscussions && !replaying,
       stormReports: stormReports && !replaying,
+      // Both are forecasts about today, so both are held back over a replay
+      // for the reason the outlook above is.
+      wpcExcessiveRain: wpcExcessiveRain && !replaying,
+      wpcWinterSeverity: wpcWinterSeverity && !replaying,
     }),
     [
       earthquakes,
@@ -118,10 +124,15 @@ export function useWorkspaceOverlays(options: {
       tropical,
       weatherAlerts,
       wildfires,
+      wpcExcessiveRain,
+      wpcWinterSeverity,
     ],
   );
 
-  const states = useOverlays(toggles, viewport);
+  // Which day each of the two outlooks that offer a choice is drawing.
+  const choices = useMemo(() => ({ wpcDay, wssiDay }), [wpcDay, wssiDay]);
+
+  const states = useOverlays(toggles, viewport, choices);
 
   // The kinds the reader switched off are switched off everywhere. The panel
   // lists what the map draws, and the notification's own action opens that
@@ -201,6 +212,12 @@ export function useWorkspaceOverlays(options: {
       riverGauges: toggles.riverGauges ? states.riverGauges.data : null,
       tropical: toggles.tropical ? states.tropical.data : null,
       spcOutlooks: toggles.spcOutlooks ? states.spcOutlooks.data : null,
+      wpcExcessiveRain: toggles.wpcExcessiveRain
+        ? states.wpcExcessiveRain.data
+        : null,
+      wpcWinterSeverity: toggles.wpcWinterSeverity
+        ? states.wpcWinterSeverity.data
+        : null,
       spcDiscussions: toggles.spcDiscussions
         ? states.spcDiscussions.data
         : null,

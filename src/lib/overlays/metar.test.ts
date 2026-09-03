@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   METAR_MIN_ZOOM,
   METAR_SPACING,
@@ -260,12 +261,16 @@ describe("what the layer asks the service for", () => {
         json: async () => [station()],
       } as unknown as Response;
     });
-    await metarOverlay.fetchData({
-      west: -100,
-      south: 34,
-      east: -96,
-      north: 38,
-    });
+    await metarOverlay.fetchData(
+      {
+        west: -100,
+        south: 34,
+        east: -96,
+        north: 38,
+      },
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     const bbox = new URL(asked[0]).searchParams.get("bbox");
     expect(bbox).toBe("34.000,-100.000,38.000,-96.000");
     expect(metarOverlay.boundsPadding).toBe(0);
@@ -288,12 +293,16 @@ describe("what the layer asks the service for", () => {
 
 describe.runIf(LIVE)("against the live service", () => {
   it("still answers a bounding box with the fields the plot needs", async () => {
-    const data = await metarOverlay.fetchData({
-      west: -101,
-      south: 33,
-      east: -94,
-      north: 38,
-    });
+    const data = await metarOverlay.fetchData(
+      {
+        west: -101,
+        south: 33,
+        east: -94,
+        north: 38,
+      },
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     // Airports report all day, every day, so an empty answer over this much
     // of the country means the query shape is wrong rather than the weather
     // being quiet.

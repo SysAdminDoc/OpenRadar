@@ -30,6 +30,10 @@ function panel(overrides: {
   onRotationPeriod?: (period: RotationPeriod) => void;
   azShearLevel?: AzShearLevel;
   onAzShearLevel?: (level: AzShearLevel) => void;
+  wpcDay?: number;
+  onWpcDay?: (day: number) => void;
+  wssiDay?: number;
+  onWssiDay?: (day: number) => void;
 }) {
   return (
     <LayersPanel
@@ -46,6 +50,10 @@ function panel(overrides: {
       onRotationPeriod={overrides.onRotationPeriod ?? vi.fn()}
       azShearLevel={overrides.azShearLevel ?? DEFAULT_SETTINGS.azShearLevel}
       onAzShearLevel={overrides.onAzShearLevel ?? vi.fn()}
+      wpcDay={overrides.wpcDay ?? DEFAULT_SETTINGS.wpcDay}
+      onWpcDay={overrides.onWpcDay ?? vi.fn()}
+      wssiDay={overrides.wssiDay ?? DEFAULT_SETTINGS.wssiDay}
+      onWssiDay={overrides.onWssiDay ?? vi.fn()}
       onSatelliteProduct={vi.fn()}
       overlayOpacity={DEFAULT_SETTINGS.overlayOpacity}
       onOverlayOpacity={vi.fn()}

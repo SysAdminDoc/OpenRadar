@@ -56,6 +56,20 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "forecast",
     freshForMs: 900_000,
   },
+  wpcExcessiveRain: {
+    sourceId: "wpcExcessiveRain",
+    label: "Excessive rainfall outlook",
+    attribution: "NOAA Weather Prediction Center",
+    kind: "forecast",
+    freshForMs: 15 * 60_000,
+  },
+  wpcWinterSeverity: {
+    sourceId: "wpcWinterSeverity",
+    label: "Winter storm severity index",
+    attribution: "NOAA Weather Prediction Center",
+    kind: "forecast",
+    freshForMs: 20 * 60_000,
+  },
   spcDiscussions: {
     sourceId: "spcDiscussions",
     label: "SPC mesoscale discussions",

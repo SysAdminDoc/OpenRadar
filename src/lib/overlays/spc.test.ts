@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   outlookTime,
   parseDiscussions,
@@ -146,7 +147,11 @@ describe.runIf(LIVE)("against the live service", () => {
   const bounds = { west: -104, south: 30, east: -90, north: 42 };
 
   it("reads today's outlook", async () => {
-    const data = await spcOutlooksOverlay.fetchData(bounds);
+    const data = await spcOutlooksOverlay.fetchData(
+      bounds,
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     // There is a Day 1 outlook every day, even if it is only a thunderstorm
     // area somewhere, so an empty answer over the middle of the country means
     // the query shape is wrong rather than the weather being quiet.
@@ -159,7 +164,11 @@ describe.runIf(LIVE)("against the live service", () => {
   }, 30_000);
 
   it("reads the discussions without the placeholder", async () => {
-    const data = await spcDiscussionsOverlay.fetchData(bounds);
+    const data = await spcDiscussionsOverlay.fetchData(
+      bounds,
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     // The shape, because the weather decides the rest: there is no mesoscale
     // discussion at all on a quiet afternoon, and a contract that demanded
     // one would fail on the days when nothing is happening. What the service

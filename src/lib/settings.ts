@@ -136,6 +136,10 @@ export interface RadarSettings {
 export interface LayerSettings {
   weatherAlerts: boolean;
   spcOutlooks: boolean;
+  /** The WPC excessive rainfall outlook, for the day chosen. */
+  wpcExcessiveRain: boolean;
+  /** The winter storm severity index, for the day chosen. */
+  wpcWinterSeverity: boolean;
   spcDiscussions: boolean;
   stormReports: boolean;
   /** Storm cells and their tracks, from the radar's own algorithm. */
@@ -370,6 +374,10 @@ export interface AppSettings {
    * about a storm top.
    */
   satelliteProduct: SatelliteProductId;
+  /** Which day of the excessive rainfall outlook, 1 through 5. */
+  wpcDay: number;
+  /** Which day of the winter storm severity index, 1 through 3. */
+  wssiDay: number;
   /** Which window the gauge-corrected accumulation covers. */
   gaugeQpePeriod: GaugeQpePeriod;
   /** Which window the rotation track covers. */
@@ -568,6 +576,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   layers: {
     weatherAlerts: true,
     spcOutlooks: false,
+    wpcExcessiveRain: false,
+    wpcWinterSeverity: false,
     spcDiscussions: false,
     stormReports: false,
     stormCells: false,
@@ -623,6 +633,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   followNewWarnings: false,
   satelliteProduct: "geocolor",
+  wpcDay: 1,
+  wssiDay: 1,
   gaugeQpePeriod: "24h",
   rotationPeriod: "1h",
   azShearLevel: "low",
@@ -1497,6 +1509,14 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.spcOutlooks,
         DEFAULT_SETTINGS.layers.spcOutlooks,
       ),
+      wpcExcessiveRain: bool(
+        layers.wpcExcessiveRain,
+        DEFAULT_SETTINGS.layers.wpcExcessiveRain,
+      ),
+      wpcWinterSeverity: bool(
+        layers.wpcWinterSeverity,
+        DEFAULT_SETTINGS.layers.wpcWinterSeverity,
+      ),
       spcDiscussions: bool(
         layers.spcDiscussions,
         DEFAULT_SETTINGS.layers.spcDiscussions,
@@ -1592,6 +1612,14 @@ export function normalizeSettings(value: unknown): AppSettings {
     gaugeQpePeriod: isGaugeQpePeriod(raw.gaugeQpePeriod)
       ? raw.gaugeQpePeriod
       : DEFAULT_SETTINGS.gaugeQpePeriod,
+    // Rounded as well as clamped: the layer is a service path, and a day of
+    // 1.5 would ask for a layer that is not there.
+    wpcDay: Math.round(
+      finiteInRange(raw.wpcDay, DEFAULT_SETTINGS.wpcDay, 1, 5),
+    ),
+    wssiDay: Math.round(
+      finiteInRange(raw.wssiDay, DEFAULT_SETTINGS.wssiDay, 1, 3),
+    ),
     rotationPeriod: isRotationPeriod(raw.rotationPeriod)
       ? raw.rotationPeriod
       : DEFAULT_SETTINGS.rotationPeriod,

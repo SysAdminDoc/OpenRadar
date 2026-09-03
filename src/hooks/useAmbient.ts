@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { pollWhileOnline } from "../lib/poll";
 import { metarOverlay } from "../lib/overlays/metar";
+import { DEFAULT_OVERLAY_CHOICES } from "../lib/overlays/registry";
 import { haversineMiles } from "../lib/geo";
 import { log } from "../lib/log";
 import { ambientObservation, type AmbientObservation } from "../lib/ambient";
@@ -113,6 +114,7 @@ export function useAmbient(options: {
             north: lat + BOX_DEGREES,
           },
           controller.signal,
+          DEFAULT_OVERLAY_CHOICES,
         );
         if (!live) return;
         let best: (typeof data.features)[number] | null = null;

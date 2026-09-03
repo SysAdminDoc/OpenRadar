@@ -139,6 +139,18 @@ const LAYER_COMMANDS: Array<{
     ],
   },
   {
+    layer: "wpcExcessiveRain",
+    key: "layer.wpcExcessiveRain",
+    extra: "keywords.wpcExcessiveRain",
+    keywords: ["ero", "flash flood", "rainfall", "excessive", "wpc"],
+  },
+  {
+    layer: "wpcWinterSeverity",
+    key: "layer.wpcWinterSeverity",
+    extra: "keywords.wpcWinterSeverity",
+    keywords: ["wssi", "winter", "severity", "impact", "wpc"],
+  },
+  {
     layer: "azShear",
     key: "layer.azShear",
     extra: "keywords.azShear",

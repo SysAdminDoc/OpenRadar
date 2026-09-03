@@ -10,6 +10,7 @@ import { alertsOverlay, resetAlertTags } from "./overlays/alerts";
 import { earthquakesOverlay } from "./overlays/earthquakes";
 import { tropicalOverlay } from "./overlays/tropical";
 import { wildfiresOverlay } from "./overlays/wildfires";
+import { DEFAULT_OVERLAY_CHOICES } from "./overlays/registry";
 import { fetchRadarTimeline } from "./providers";
 import { providerHealth, resetHealth } from "./providers/health";
 
@@ -99,20 +100,24 @@ const CALLS: Array<{
   },
   {
     name: "alerts overlay",
-    call: (signal) => alertsOverlay.fetchData(bounds, signal),
+    call: (signal) =>
+      alertsOverlay.fetchData(bounds, signal, DEFAULT_OVERLAY_CHOICES),
     allowsSharedFetch: true,
   },
   {
     name: "earthquakes overlay",
-    call: (signal) => earthquakesOverlay.fetchData(bounds, signal),
+    call: (signal) =>
+      earthquakesOverlay.fetchData(bounds, signal, DEFAULT_OVERLAY_CHOICES),
   },
   {
     name: "tropical overlay",
-    call: (signal) => tropicalOverlay.fetchData(bounds, signal),
+    call: (signal) =>
+      tropicalOverlay.fetchData(bounds, signal, DEFAULT_OVERLAY_CHOICES),
   },
   {
     name: "wildfires overlay",
-    call: (signal) => wildfiresOverlay.fetchData(bounds, signal),
+    call: (signal) =>
+      wildfiresOverlay.fetchData(bounds, signal, DEFAULT_OVERLAY_CHOICES),
   },
 ];
 
@@ -195,7 +200,11 @@ describe("a request nobody is waiting for is cancelled", () => {
       .mockImplementation(wait);
     vi.stubGlobal("fetch", stub);
     const controller = new AbortController();
-    const pending = alertsOverlay.fetchData(bounds, controller.signal);
+    const pending = alertsOverlay.fetchData(
+      bounds,
+      controller.signal,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     await flush(12);
 
     expect(stub).toHaveBeenCalledTimes(2);

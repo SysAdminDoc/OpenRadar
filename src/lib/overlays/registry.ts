@@ -12,7 +12,35 @@ export type OverlayId =
   | "spcOutlooks"
   | "spcDiscussions"
   | "stormReports"
-  | "riverGauges";
+  | "riverGauges"
+  | "wpcExcessiveRain"
+  | "wpcWinterSeverity";
+
+/**
+ * What the reader has chosen, for the layers that draw one of several things.
+ *
+ * Handed to the adapter rather than read from a module-level value, so there
+ * is one place the choice lives and the hook that decides when to ask again
+ * is reading the same thing the fetch is.
+ */
+export interface OverlayChoices {
+  /** Which day of the excessive rainfall outlook, 1 through 5. */
+  wpcDay: number;
+  /** Which day of the winter storm severity index, 1 through 3. */
+  wssiDay: number;
+}
+
+/**
+ * What a caller that has no reader to ask passes.
+ *
+ * The watch, the ambient readout and the welcome hint all fetch the alerts
+ * layer directly, and alerts draw one thing whatever anybody chose. Named so
+ * those call sites say that rather than inventing a day.
+ */
+export const DEFAULT_OVERLAY_CHOICES: OverlayChoices = {
+  wpcDay: 1,
+  wssiDay: 1,
+};
 
 export interface OverlayBounds {
   west: number;
@@ -86,9 +114,19 @@ export interface OverlayAdapter {
     height: number;
     data: Uint8Array;
   }>;
+  /**
+   * A stable name for what the reader has chosen, when this layer draws one
+   * of several things.
+   *
+   * Compared against the snapshot on the map: a different answer means the
+   * snapshot is of something else and has to be asked for again, however
+   * fresh it is and however well it covers the screen.
+   */
+  variant?: (choices: OverlayChoices) => string;
   fetchData: (
     bounds: OverlayBounds,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
+    choices: OverlayChoices,
   ) => Promise<OverlayData>;
   layers: (sourceId: string) => LayerSpecification[];
   describe: (properties: Record<string, unknown>) => OverlayDescription;

@@ -7,6 +7,7 @@ import { wildfiresOverlay } from "./wildfires";
 import { smokeOverlay } from "./smoke";
 import { metarOverlay } from "./metar";
 import { riverGaugesOverlay } from "./rivers";
+import { wpcExcessiveRainOverlay, wpcWinterSeverityOverlay } from "./wpc";
 import type { OverlayAdapter, OverlayId } from "./registry";
 
 export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
@@ -20,6 +21,8 @@ export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
   metarOverlay,
   riverGaugesOverlay,
   tropicalOverlay,
+  wpcExcessiveRainOverlay,
+  wpcWinterSeverityOverlay,
 ];
 
 export function overlayAdapter(id: OverlayId): OverlayAdapter {
@@ -47,7 +50,9 @@ export {
   METAR_SPACING,
   METAR_MIN_ZOOM,
 } from "./metar";
+export { ERO_DAYS, WSSI_DAYS, band, wpcTime } from "./wpc";
 export {
+  DEFAULT_OVERLAY_CHOICES,
   EMPTY_OVERLAY,
   boundsContain,
   boundsOverlap,
@@ -56,6 +61,7 @@ export {
   relativeTime,
   type OverlayAdapter,
   type OverlayBounds,
+  type OverlayChoices,
   type OverlayData,
   type OverlayDescription,
   type OverlayFeature,

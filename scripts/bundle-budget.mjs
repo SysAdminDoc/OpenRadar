@@ -72,7 +72,13 @@ const BUDGETS = [
     // the watch, the themes, the record with its figures, the year card, the
     // sounds, the curiosities and the incident packs are all in here, and a
     // reader opening Alerts was fetching every one of them.
-    raw: 62,
+    //
+    // Raised from 62 on 2026-09-03 for seven more layer switches and four
+    // more segmented controls: the rotation and hail families, and the two
+    // Weather Prediction Center outlooks with a day beside each. Raised on the
+    // measurement rather than on a guess, and the compressed figure did not
+    // move, which is what actually reaches a reader.
+    raw: 66,
     gzip: 15,
     firstLoad: false,
   },

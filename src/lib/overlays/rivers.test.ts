@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   FLOOD_CATEGORIES,
   GAUGE_MIN_ZOOM,
@@ -334,12 +335,16 @@ describe("what the layer asks for", () => {
       } as unknown as Response;
     }) as typeof globalThis.fetch;
     try {
-      const data = await riverGaugesOverlay.fetchData({
-        west: -94.5,
-        south: 41,
-        east: -93,
-        north: 42.2,
-      });
+      const data = await riverGaugesOverlay.fetchData(
+        {
+          west: -94.5,
+          south: 41,
+          east: -93,
+          north: 42.2,
+        },
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
       expect(data.features).toHaveLength(1);
     } finally {
       globalThis.fetch = fetched;
@@ -361,12 +366,16 @@ describe("what the layer asks for", () => {
       }) as unknown as Response) as typeof globalThis.fetch;
     try {
       await expect(
-        riverGaugesOverlay.fetchData({
-          west: -94.5,
-          south: 41,
-          east: -93,
-          north: 42.2,
-        }),
+        riverGaugesOverlay.fetchData(
+          {
+            west: -94.5,
+            south: 41,
+            east: -93,
+            north: 42.2,
+          },
+          undefined,
+          DEFAULT_OVERLAY_CHOICES,
+        ),
         // The service by name and what its answer means, not the protocol's
         // number: 503 tells a reader nothing about whether to wait. The number
         // itself goes to the log, where somebody debugging wants it.
@@ -379,12 +388,16 @@ describe("what the layer asks for", () => {
 
 describe.runIf(LIVE)("against the live service", () => {
   it("answers a box over Iowa with gauges that have a place and a reading", async () => {
-    const data = await riverGaugesOverlay.fetchData({
-      west: -94.5,
-      south: 41,
-      east: -93,
-      north: 42.2,
-    });
+    const data = await riverGaugesOverlay.fetchData(
+      {
+        west: -94.5,
+        south: 41,
+        east: -93,
+        north: 42.2,
+      },
+      undefined,
+      DEFAULT_OVERLAY_CHOICES,
+    );
     // The Des Moines and Raccoon rivers run through this box and are gauged
     // heavily, so an empty answer means the query shape has moved rather than
     // the rivers having gone.

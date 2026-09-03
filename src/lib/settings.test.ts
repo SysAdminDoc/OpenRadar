@@ -230,6 +230,8 @@ describe("settings normalization", () => {
       "weatherAlerts",
       "wildfires",
       "wind",
+      "wpcExcessiveRain",
+      "wpcWinterSeverity",
     ]);
     // The schema 1 file predates both MRMS switches, so they come back off.
     expect(settings.layers.rotationTracks).toBe(false);
