@@ -78,6 +78,7 @@ describe("loop export workspace restoration", () => {
         timeline,
         basemapCredit: "OpenStreetMap",
         dataSources: [],
+        sweep: null,
         siteLoop: null,
         pushToast,
       }),
@@ -127,6 +128,7 @@ describe("the record written beside the picture", () => {
         timeline,
         basemapCredit: "OpenStreetMap",
         dataSources: [],
+        sweep: null,
         siteLoop: null,
         pushToast: vi.fn(),
         ...over,
@@ -381,25 +383,25 @@ describe("the record written beside the picture", () => {
     expect(seen).toEqual(volumes);
   });
 
-  it("credits the radar on a still of a held site, not the mosaic", async () => {
-    // The loop walk was changed to stop crediting a service that did not make
-    // the picture. A still is the file somebody is most likely to send, and it
-    // was still being captioned from the timeline frame underneath.
+  it("credits the radar on a still of any site sweep, not the mosaic", async () => {
+    // A still is the file somebody is most likely to send to another person,
+    // and it was captioned from the timeline frame underneath the sweep.
+    //
+    // No loop here on purpose: this is the shape a hand-picked archive volume
+    // and a terminal radar arrive in. Both have a sweep on the canvas and no
+    // series of their own, and the first fix keyed the caption off the series.
     const { result } = renderExport({
-      siteLoop: {
-        sweep: {
-          station: "KDMX",
-          product: "Reflectivity",
-          collected: "2026-08-31T18:00:00.000Z",
-          source: {
-            kind: "recent",
-            label: "NOAA NEXRAD Level II",
-            url: "https://registry.opendata.aws/noaa-nexrad/",
-          },
+      sweep: {
+        station: "KDMX",
+        product: "Reflectivity",
+        collected: "2026-08-31T18:00:00.000Z",
+        source: {
+          kind: "archive",
+          label: "NOAA NEXRAD Level II archive",
+          url: "https://registry.opendata.aws/noaa-nexrad/",
         },
-        volumes: [],
-        drawnVolume: () => null,
-      } as unknown as Parameters<typeof useExport>[0]["siteLoop"],
+      } as unknown as Parameters<typeof useExport>[0]["sweep"],
+      siteLoop: null,
     });
     act(() => result.current.exportImage());
     await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
@@ -461,6 +463,7 @@ describe("the picture that goes on the desktop", () => {
         timeline,
         basemapCredit: "OpenStreetMap",
         dataSources: [],
+        sweep: null,
         siteLoop: null,
         pushToast: vi.fn(),
         ...over,

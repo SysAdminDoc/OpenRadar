@@ -1101,6 +1101,9 @@ export default function App() {
       ) ?? null,
     ),
     dataSources,
+    // The picture on the canvas, so a still of any single-site sweep is
+    // credited to that radar rather than to the mosaic underneath it.
+    sweep: singleSite.sweep,
     // A saved loop of a held site is that site's volumes. The mosaic's steps
     // are what the timeline runs on, and they are two minutes apart against
     // a radar's four to six, so walking them wrote the same volume two and
