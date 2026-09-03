@@ -17,6 +17,7 @@ mod exports;
 mod fixture;
 mod geotiff;
 mod gfs;
+mod host;
 mod glance;
 mod hrrr;
 mod incident_packs;
@@ -268,6 +269,8 @@ pub fn run() {
             wallpaper::wallpaper_available,
             wallpaper::wallpaper_set,
             wallpaper::wallpaper_restore,
+            host::host_webview_version,
+            crash::crash_last_webview_report,
             window_geometry::window_reset_geometry,
             sound::alert_sound_bytes,
             tray::tray_enabled

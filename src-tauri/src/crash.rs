@@ -63,6 +63,16 @@ pub fn dumps_dir(app_data: &Path) -> PathBuf {
     app_data.join("crashes")
 }
 
+/// Where the window's own crashes land, which is not where ours do.
+///
+/// The window is WebView2 and it keeps its own Crashpad reports under
+/// `EBWebView/Crashpad/reports` in the same data directory. A renderer crash
+/// leaves nothing in ours: the reader sees a white window rather than no
+/// window, and there is a file with no way to know it exists.
+pub fn webview_reports_dir(app_data: &Path) -> PathBuf {
+    app_data.join("EBWebView").join("Crashpad").join("reports")
+}
+
 /// Runs the monitor loop when this process was started as one.
 ///
 /// Returns true when it did, and the caller must return without building
@@ -247,6 +257,23 @@ pub fn prune(dumps: &Path, keep: usize) {
 
 /// The newest dump, or nothing when the last run ended the way it should.
 pub fn latest(dumps: &Path) -> Option<CrashRecord> {
+    newest_dump(dumps, true)
+}
+
+/// The newest report the window itself left, in Crashpad's own folder.
+///
+/// Crashpad writes `.dmp` files here too, so the same rules apply; it also
+/// leaves `.lock` and metadata files beside them, which the extension check
+/// already refuses. Nothing here uploads anything: this says the file exists
+/// and where it is, and stops.
+pub fn latest_webview(reports: &Path) -> Option<CrashRecord> {
+    // Without the size floor. Crashpad's own reports can be small and a
+    // reader who has one still wants to be told, whereas an undersized file
+    // in our own folder is a write of ours that failed.
+    newest_dump(reports, false)
+}
+
+fn newest_dump(dumps: &Path, floor: bool) -> Option<CrashRecord> {
     let entries = fs::read_dir(dumps).ok()?;
     let mut newest: Option<(SystemTime, PathBuf, u64)> = None;
     for entry in entries.filter_map(|entry| entry.ok()) {
@@ -257,7 +284,11 @@ pub fn latest(dumps: &Path) -> Option<CrashRecord> {
         let Ok(meta) = entry.metadata() else { continue };
         // A file too small to be a dump is a write that failed, and reporting
         // it hands a reader an empty file to send.
-        if meta.len() < SMALLEST_DUMP {
+        if floor && meta.len() < SMALLEST_DUMP {
+            continue;
+        }
+        // Empty is empty either way.
+        if meta.len() == 0 {
             continue;
         }
         let Ok(at) = meta.modified() else { continue };
@@ -279,6 +310,14 @@ pub fn crash_last_dump(app: tauri::AppHandle) -> Option<CrashRecord> {
     use tauri::Manager;
     let dir = app.path().app_data_dir().ok()?;
     latest(&dumps_dir(&dir))
+}
+
+/// The newest report the WINDOW left, which is a different process entirely.
+#[tauri::command]
+pub fn crash_last_webview_report(app: tauri::AppHandle) -> Option<CrashRecord> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().ok()?;
+    latest_webview(&webview_reports_dir(&dir))
 }
 
 /// Connects to a monitor already listening and catches this process's crashes.
@@ -408,6 +447,75 @@ mod tests {
         assert!(newest.at.starts_with("2026-"), "{}", newest.at);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_window_s_own_reports_are_found_where_the_runtime_keeps_them() {
+        // A renderer crash leaves nothing in our folder: the window goes
+        // white rather than away, and the file is in one WebView2 owns. A
+        // reader had a report and no way to know it existed.
+        let root = std::env::temp_dir().join(format!("openradar-ebweb-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let reports = webview_reports_dir(&root);
+        fs::create_dir_all(&reports).expect("a directory");
+
+        // Named the way Crashpad names them, beside the metadata files it
+        // leaves alongside.
+        let base = SystemTime::UNIX_EPOCH + Duration::from_secs(1_780_000_000);
+        touch(&reports, "3f2504e0-4f89-11d3-9a0c-0305e82c3301.dmp", base);
+        touch(
+            &reports,
+            "8a1b2c3d-4f89-11d3-9a0c-0305e82c3302.dmp",
+            base + Duration::from_secs(60),
+        );
+        fs::write(reports.join("settings.dat"), b"not a dump").expect("a file");
+        fs::write(reports.join("pending.lock"), b"").expect("a file");
+
+        let found = latest_webview(&reports).expect("a report");
+        assert!(
+            found.path.ends_with("8a1b2c3d-4f89-11d3-9a0c-0305e82c3302.dmp"),
+            "{}",
+            found.path
+        );
+        assert_eq!(found.bytes, 4096);
+
+        // Our own folder is a different place and still answers for itself.
+        assert_eq!(latest(&dumps_dir(&root)), None);
+        // And the ordinary machine has never had one.
+        assert_eq!(
+            latest_webview(&webview_reports_dir(&root.join("elsewhere"))),
+            None
+        );
+
+        // Small is still a report here. Crashpad writes what it writes, and
+        // the size floor exists to hide OUR failed writes, not the runtime's
+        // small ones.
+        let small = reports.join("small.dmp");
+        fs::write(&small, vec![b'M'; 16]).expect("a file");
+        File::options()
+            .write(true)
+            .open(&small)
+            .expect("the file")
+            .set_modified(base + Duration::from_secs(120))
+            .expect("a time");
+        let found = latest_webview(&reports).expect("a report");
+        assert!(found.path.ends_with("small.dmp"), "{}", found.path);
+        assert_eq!(found.bytes, 16);
+
+        // Empty is empty either way: a reader sent an empty file gets nothing
+        // out of it and neither does anybody reading the report.
+        let empty = reports.join("empty.dmp");
+        fs::write(&empty, b"").expect("a file");
+        File::options()
+            .write(true)
+            .open(&empty)
+            .expect("the file")
+            .set_modified(base + Duration::from_secs(180))
+            .expect("a time");
+        let found = latest_webview(&reports).expect("a report");
+        assert!(found.path.ends_with("small.dmp"), "{}", found.path);
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

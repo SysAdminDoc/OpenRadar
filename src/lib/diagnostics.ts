@@ -108,6 +108,14 @@ export interface DiagnosticsInput {
   platform?: string | null;
   webview?: string | null;
   /**
+   * The WebView2 runtime's version, when this is a native window.
+   *
+   * The user agent above says which Chromium the page believes it is in; this
+   * says which runtime Microsoft installed, and a GPU crash report that names
+   * neither cannot be matched against a Chromium release.
+   */
+  webviewRuntime?: string | null;
+  /**
    * Where each drawn layer came from and what it claims.
    *
    * A report saying a source is answering does not say what it answered with,
@@ -145,6 +153,15 @@ export interface DiagnosticsInput {
    * state and a line saying so on every report is noise.
    */
   lastCrash?: { path: string; bytes: number; at: string } | null;
+  /**
+   * The newest report the window itself left, which is a different process.
+   *
+   * A decoder taking the host down leaves one of ours and no window; the
+   * renderer falling over leaves one of these and a window that is still
+   * there, white. From where a reader sits both are the app not working, so
+   * both are named.
+   */
+  lastWebviewCrash?: { path: string; bytes: number; at: string } | null;
   /**
    * The render failure this report is about, when it is about one.
    *
@@ -209,6 +226,7 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
     `OpenRadar ${APP_VERSION}`,
     `Platform: ${input.platform ?? navigator.platform ?? "unknown"}`,
     `Webview: ${input.webview ?? navigator.userAgent}`,
+    `WebView2 runtime: ${input.webviewRuntime ?? "not a native window"}`,
     `Renderer: ${input.renderer ?? "unknown"}`,
     `Map ready: ${input.mapReady} · Radar ready: ${input.radarReady}`,
     `Source: ${input.activeSource ?? "none"}`,
@@ -241,6 +259,14 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
       // holds the reader's own user folder.
       `  ${redact(input.lastCrash.path)}`,
       `  written ${input.lastCrash.at}, ${input.lastCrash.bytes} bytes`,
+    );
+  }
+  if (input.lastWebviewCrash) {
+    lines.push(
+      "",
+      "The window's own runtime left a report:",
+      `  ${redact(input.lastWebviewCrash.path)}`,
+      `  written ${input.lastWebviewCrash.at}, ${input.lastWebviewCrash.bytes} bytes`,
     );
   }
   lines.push("", "Sources:");

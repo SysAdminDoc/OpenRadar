@@ -29,3 +29,31 @@ export async function lastCrash(): Promise<CrashRecord | null> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<CrashRecord | null>("crash_last_dump");
 }
+
+/**
+ * The newest report the WINDOW left, which is a different process entirely.
+ *
+ * A decoder taking the host process down leaves a dump of ours and no window.
+ * The renderer falling over leaves a white window that is still there, and a
+ * Crashpad report in a folder WebView2 owns, and nothing in ours. The two are
+ * reported side by side because from where a reader sits they are the same
+ * event: the app stopped working.
+ *
+ * Read on the same terms as ours: the file never leaves the machine.
+ */
+export async function lastWebviewReport(): Promise<CrashRecord | null> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<CrashRecord | null>("crash_last_webview_report");
+}
+
+/**
+ * Which Chromium is drawing, or null in a browser preview.
+ *
+ * The runtime updates on Microsoft's schedule rather than with the app, so
+ * two reports of one GPU crash from one build can be two different browsers.
+ */
+export async function webviewVersion(): Promise<string | null> {
+  if (!isDesktopRuntime()) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string | null>("host_webview_version");
+}

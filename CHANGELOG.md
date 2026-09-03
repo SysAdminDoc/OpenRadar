@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- The diagnostics report now says which browser drew the picture, and names the report the window itself left behind. The window is WebView2 and its runtime updates on Microsoft's schedule rather than with the app, so two reports of the same graphics crash from the same build can be two different browsers. It also keeps its own crash files in a folder of its own: if the window went white rather than disappearing, that is where the file is, and until now there was no way to know it existed. Neither file leaves your machine.
+
 - The record beside a saved loop of one radar now says when each volume actually reached your machine, and how long it had been sitting here. Every frame used to be stamped with the moment its caption was written, which for a volume the loop was already holding can be minutes out, and to report nothing at all in the field that separates a picture that is current from one that survived an outage.
 
 - The crash screen gives you something to do. It said the workspace had stopped and offered one Reload button, which usually put you back into the same crash. It now copies the whole diagnostics report, error message and stacks and all, with the same redaction the report has always had and nothing in it about where you watch. If the clipboard refuses, the button says so instead of doing nothing. Beside it is Reset layout, for the case a reload cannot fix: the map, the basemap, the text size, the accent colour, the layer order and the window's own size and position go back to how they open, and your watched places, colour tables, offline packs and saved presets are left alone.
