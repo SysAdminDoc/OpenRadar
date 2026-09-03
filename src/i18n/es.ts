@@ -671,11 +671,15 @@ export const es: Catalogue = {
   "layer.qpeHour": "Lluvia, última hora",
   "layers.qpeHourDetail": "Cuánta ha caído en la última hora",
   "layer.qpeDay": "Lluvia, último día",
+  "layer.counties": "Condados",
   "layer.gaugeQpe": "Lluvia, corregida con pluviómetros",
   "layer.unitStreamflow": "Escorrentía modelada",
   "layer.ffgThreeHour": "Guía de crecidas, 3 h",
   "layer.ffgHour": "Guía de crecidas, 1 h",
   "layers.qpeDayDetail": "Cuánta ha caído desde ayer a esta hora",
+  "counties.failed": "No se pudieron leer los límites de los condados.",
+  "layers.countiesDetail":
+    "Límites de condados y estados, que es como se redactan los avisos y los reportes.",
   "layers.gaugeQpePeriod": "Hasta dónde atrás",
   "layers.gaugeQpeDetail":
     "La lluvia del radar ajustada a lo que recogieron los pluviómetros. Se acerca más a la realidad que el radar solo, y sigue siendo una estimación donde no hay pluviómetro.",
@@ -821,6 +825,7 @@ export const es: Catalogue = {
   "keywords.precipRate": "intensidad lluvia",
   "keywords.qpeHour": "acumulacion hora lluvia",
   "keywords.qpeDay": "acumulacion lluvia",
+  "keywords.counties": "condados limites fronteras estados",
   "keywords.gaugeQpe": "acumulacion multisensor lluvia medida",
   "keywords.unitStreamflow": "caudal agua inundacion",
   "keywords.ffgThreeHour": "inundacion repentina tres horas proporcion",

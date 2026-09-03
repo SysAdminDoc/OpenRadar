@@ -26,6 +26,15 @@ export const PROBSEVERE_LINE_LAYER_ID = "openradar-probsevere-line";
 export const SWEEP_LAYER_ID = "openradar-sweep-layer";
 export const RADAR_LAYER_ID = "openradar-radar-layer";
 export const ROUTE_LAYER_ID = "openradar-route-line";
+/**
+ * County and state lines, which are reference geography rather than weather.
+ *
+ * Over every picture of the sky, because the whole point is reading which
+ * county a storm is in; under anything a person drew or a service published,
+ * because a boundary must never hide a warning.
+ */
+export const COUNTY_SOURCE_ID = "openradar-county-source";
+export const COUNTY_LAYER_ID = "openradar-county-line";
 export const TOOL_LINE_LAYER_ID = "openradar-tool-line";
 export const TOOL_POINT_LAYER_ID = "openradar-tool-points";
 export const TRACK_LINE_LAYER_ID = "openradar-track-line";
@@ -121,6 +130,10 @@ export function layerStackOrder(overlays: readonly string[]): string[] {
     // under the warnings a person issued, because guidance belongs under a
     // decision somebody has taken responsibility for.
     ...PROBSEVERE_LAYER_IDS,
+    // Reference geography, over every picture of the sky and under everything
+    // anybody drew or published: a county line that hid a warning polygon
+    // would be the one arrangement the panel refuses to let anybody make.
+    COUNTY_LAYER_ID,
     // Shapes the reader imported sit under everything a service published,
     // warnings included. They used to sit above the whole overlay band, which
     // meant a placefile could cover a tornado warning: the one arrangement the

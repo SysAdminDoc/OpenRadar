@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.9.0
 
+- County and state lines, switchable, bundled with the app so they are there with the network gone. Warnings and storm reports are worded by county, and a map with no county lines on it cannot answer the one question they raise. They sit over every picture of the sky and under anything a person drew or a service published, so a boundary can never hide a warning.
+
 - The site picker lists every radar that can see where you are looking, nearest first, with how far away each one is. It used to offer three things and none of them was a radar near you: follow the map, hold whatever was already on screen, or name one of the airport radars. When the nearest radar is down there was no way to pick the next one along short of knowing its four-letter call sign and typing it. A radar the weather service reports as restarting or silent is greyed out in that list with the reason beside its name.
 
 - A saved picture of any single radar is credited to that radar, including a volume you opened from the archive yourself and an airport terminal radar. Both were being stamped with the national mosaic time and credited to a service that did not make them.

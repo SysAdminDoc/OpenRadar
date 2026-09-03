@@ -61,6 +61,7 @@ import {
 import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
+import { loadCounties } from "../lib/counties";
 import { useMapSync } from "../hooks/useMapSync";
 import { syncRasterLane, type RasterLane } from "../lib/mapLayers/raster";
 import { syncSatelliteLane } from "../lib/mapLayers/satellite";
@@ -94,6 +95,8 @@ import {
   PROBSEVERE_FILL_LAYER_ID,
   PROBSEVERE_LINE_LAYER_ID,
   RADAR_LAYER_ID,
+  COUNTY_LAYER_ID,
+  COUNTY_SOURCE_ID,
   ROUTE_LAYER_ID,
   SATELLITE_LAYER_ID,
   SURGE_LAYER_ID,
@@ -215,6 +218,8 @@ interface MapViewportProps {
   surgeCategory?: SurgeCategory | null;
   overlays?: Partial<Record<OverlayId, OverlayData | null>>;
   route?: Record<string, unknown> | null;
+  /** Whether county and state lines are drawn. */
+  counties?: boolean;
   customOverlay?: Record<string, unknown> | null;
   /** A past storm's best track, drawn while one is picked in Storm history. */
   stormTrack?: Record<string, unknown> | null;
@@ -330,6 +335,7 @@ function MapViewportInner(
     surgeCategory = null,
     overlays = {},
     route = null,
+    counties = false,
     customOverlay = null,
     stormTrack = null,
     toolMode = null,
@@ -421,6 +427,9 @@ function MapViewportInner(
   const surgeCategoryRef = useRef(surgeCategory);
   const overlaysRef = useRef(overlays);
   const routeRef = useRef(route);
+  // The bundled outlines, once they have been read, or null while the switch
+  // is off and for as long as the read takes.
+  const countiesRef = useRef<Record<string, unknown> | null>(null);
   const projectionRef = useRef(projection);
   const styleIdentity = `${mapStyle}:${incidentPack?.id ?? ""}:${incidentPack?.sha256 ?? ""}`;
   const mapStyleRef = useRef(styleIdentity);
@@ -799,6 +808,52 @@ function MapViewportInner(
     const content = popupFrom(hits, layerStackOrder(overlayLayerOrder()));
     if (!content) return;
     openPopup(map, event.lngLat, content);
+  };
+
+  /**
+   * County and state lines.
+   *
+   * A thin, low-contrast stroke: this is reference geography and it is on the
+   * map the whole time it is switched on, so it has to be readable without
+   * competing with the weather over it. Under high contrast it thickens and
+   * brightens, because at that setting a hairline is not a line at all.
+   */
+  const COUNTY_LANE: VectorLane = {
+    sourceId: COUNTY_SOURCE_ID,
+    layers: () => [
+      {
+        id: COUNTY_LAYER_ID,
+        type: "line",
+        source: COUNTY_SOURCE_ID,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": highContrastRef.current ? "#f8fafc" : "#94a3b8",
+          "line-opacity": highContrastRef.current ? 0.95 : 0.55,
+          // Thinner where the whole country is in view and heavier as the map
+          // comes in, or a national view is a grey wash of three thousand
+          // outlines.
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3,
+            highContrastRef.current ? 0.6 : 0.4,
+            7,
+            highContrastRef.current ? 1.4 : 0.9,
+            10,
+            highContrastRef.current ? 2.2 : 1.4,
+          ],
+        },
+      },
+    ],
+  };
+
+  const syncCounties = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (syncVectorLane(map, COUNTY_LANE, countiesRef.current, under)) {
+      publishLayers();
+    }
   };
 
   const ROUTE_LANE: VectorLane = {
@@ -1379,6 +1434,27 @@ function MapViewportInner(
     routeRef.current = next;
     syncRoute();
   });
+  // Read when the switch first goes on rather than at start-up: it is a
+  // megabyte of outlines and most readers never turn it on. Kept afterwards,
+  // so switching it off and on again costs nothing.
+  useMapSync(counties, (next) => {
+    if (!next) {
+      countiesRef.current = null;
+      syncCounties();
+      return;
+    }
+    void loadCounties()
+      .then((outlines) => {
+        countiesRef.current = outlines as unknown as Record<string, unknown>;
+        syncCounties();
+      })
+      .catch((failure: unknown) => {
+        log.warn(
+          "map",
+          failure instanceof Error ? failure.message : "counties.json",
+        );
+      });
+  });
   useMapSync(customOverlay, (next) => {
     customOverlayRef.current = next;
     syncCustomOverlay();
@@ -1590,6 +1666,7 @@ function MapViewportInner(
       renderTools();
       syncOverlays();
       syncRoute();
+      syncCounties();
       syncStormTrack();
       syncCustomOverlay();
       onMapStatus?.("ready");

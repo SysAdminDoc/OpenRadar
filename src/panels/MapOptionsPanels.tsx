@@ -403,6 +403,12 @@ const LAYER_OPTIONS: Array<{
     icon: Umbrella,
   },
   {
+    key: "counties",
+    labelKey: "layer.counties",
+    detailKey: "layers.countiesDetail",
+    icon: Map,
+  },
+  {
     key: "gaugeQpe",
     labelKey: "layer.gaugeQpe",
     detailKey: "layers.gaugeQpeDetail",

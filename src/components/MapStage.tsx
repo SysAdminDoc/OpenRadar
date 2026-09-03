@@ -137,6 +137,7 @@ export function MapStage({
     radarOpacity: settings.radar.opacity,
     overlays,
     route,
+    counties: settings.layers.counties,
     customOverlay: settings.layers.customOverlay ? customOverlay : null,
     stormTrack,
     sweep,
