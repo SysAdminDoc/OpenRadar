@@ -1013,8 +1013,11 @@ export const fr: Catalogue = {
   "settings.animationSpeed": "Vitesse d'animation",
   "settings.animationSpeedLabel": "Vitesse d'animation du radar",
   "settings.loopLength": "Durée de la boucle",
+  "settings.siteLoopLength": "Durée de la boucle du site",
   "settings.loopLengthLabel": "Durée de la boucle en minutes",
+  "settings.siteLoopLengthLabel": "Durée de la boucle du site en volumes",
   "settings.minutes": "{count} min",
+  "settings.volumes": "{count, plural, one {# volume} other {# volumes}}",
   "settings.futureRadar": "Radar à venir",
   "settings.futureRadarDetail":
     "Prolonger la boucle avec la réflectivité prévue du modèle HRRR sur les quarante-huit États contigus",
@@ -1141,6 +1144,7 @@ export const fr: Catalogue = {
   "chrome.sweepProduct": "{station} {product}",
   "chrome.tilt": "ANGLE {degrees}°",
   "chrome.tiltHistorical": "ANGLE {degrees}°, ARCHIVE",
+  "chrome.tiltLoop": "ANGLE {degrees}° · VOLUME {index} SUR {count}, {time}",
   "chrome.tiltDealiased": "ANGLE {degrees}° · DÉPLIÉ",
   "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, IL Y A {seconds} S",
   "chrome.tiltLiveDealiased":

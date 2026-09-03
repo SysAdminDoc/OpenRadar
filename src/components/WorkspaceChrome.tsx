@@ -73,6 +73,11 @@ interface WorkspaceChromeProps {
   frames: RadarFrame[];
   /** The single-site sweep on the map, which the legend names. */
   sweep: SweepImage | null;
+  /**
+   * Where that sweep sits in the site's loop, when the reader has scrubbed
+   * off the newest volume. Null the rest of the time.
+   */
+  sweepLoop: { index: number; count: number } | null;
   /** MRMS products drawn over the radar, each with its own scale. */
   mrmsLayers: MrmsLayer[];
   /** The GOES flash window on the map, when that layer is on. */
@@ -130,6 +135,7 @@ export function WorkspaceChrome({
   timeline,
   frames,
   sweep,
+  sweepLoop,
   mrmsLayers,
   lightning,
   smoke,
@@ -192,7 +198,7 @@ export function WorkspaceChrome({
       })
     : t(mosaic.labelKey);
   const productEyebrow = sweep
-    ? sweepEyebrow(sweep, liveClock)
+    ? sweepEyebrow(sweep, liveClock, sweepLoop)
     : t("chrome.liveProduct");
   const sourceHealthy = historicalSweep
     ? true
@@ -607,8 +613,12 @@ export function WorkspaceChrome({
  * than minutes. The age is the cut's own collection time against the clock,
  * so a slow fetch shows as what it is.
  */
-function sweepEyebrow(sweep: SweepImage, clock: number): string {
-  const tilt = withOldest(tiltEyebrow(sweep, clock), sweep, clock);
+function sweepEyebrow(
+  sweep: SweepImage,
+  clock: number,
+  loop: { index: number; count: number } | null,
+): string {
+  const tilt = withOldest(tiltEyebrow(sweep, clock, loop), sweep, clock);
   // A terminal radar is named as such, with its reach: the picture is
   // another instrument's, drawn to another distance, and the legend has to
   // say so where the tilt is said.
@@ -634,9 +644,27 @@ function withOldest(line: string, sweep: SweepImage, clock: number): string {
   return `${line} · ${translate("chrome.behind", { count: minutes })}`;
 }
 
-function tiltEyebrow(sweep: SweepImage, clock: number): string {
+function tiltEyebrow(
+  sweep: SweepImage,
+  clock: number,
+  loop: { index: number; count: number } | null,
+): string {
   const age = liveAgeSeconds(sweep, clock);
   const degrees = formatNumber(sweep.elevationDegrees, 2);
+  // A volume the loop reached back for arrives from the archive, so without
+  // this it read as HISTORICAL: the same word the app uses for a volume the
+  // reader chose by hand, in a view that has not left the present. What is
+  // true is where in the loop they are and when that volume was collected,
+  // and the time has to be the picture's own rather than the step's, because
+  // a site scans every four to six minutes and the timeline steps every two.
+  if (loop) {
+    return translate("chrome.tiltLoop", {
+      degrees,
+      index: loop.index,
+      count: loop.count,
+      time: formatRadarTime(Date.parse(sweep.collected) / 1000),
+    });
+  }
   if (sweep.source.kind !== "recent") {
     return translate("chrome.tiltHistorical", { degrees });
   }

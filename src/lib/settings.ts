@@ -13,6 +13,11 @@ import {
 import { isLanguage, translate, type LanguageId } from "../i18n";
 import { isSurgeCategory, type SurgeCategory } from "./surge";
 import {
+  DEFAULT_LOOP_VOLUMES,
+  MAX_LOOP_VOLUMES,
+  MIN_LOOP_VOLUMES,
+} from "./siteLoop";
+import {
   SATELLITE_PRODUCTS,
   type SatelliteProductId,
 } from "./providers/satellite";
@@ -68,6 +73,15 @@ export interface RadarSettings {
   futureRadar: boolean;
   /** Hand a close-in view over to the nearest site's own radar. */
   singleSite: boolean;
+  /**
+   * How many of a held site's recent volumes the loop can reach back over.
+   *
+   * Separate from `loopMinutes`, which is the national mosaic's window. A
+   * site publishes a volume every four to six minutes and the two numbers
+   * would not agree about anything; this one is counted in volumes because
+   * that is what the site's own listing answers in.
+   */
+  loopVolumes: number;
   /** Unfold velocity past the radar's folding limit before drawing it. */
   dealias: boolean;
   /**
@@ -510,6 +524,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     loopMinutes: 120,
     futureRadar: false,
     singleSite: true,
+    loopVolumes: DEFAULT_LOOP_VOLUMES,
     dealias: true,
     live: false,
     persistence: false,
@@ -1394,6 +1409,16 @@ export function normalizeSettings(value: unknown): AppSettings {
         0.5,
       ),
       singleSite: bool(radar.singleSite, DEFAULT_SETTINGS.radar.singleSite),
+      // Rounded as well as clamped: this counts volumes, and a stored 7.5
+      // would be asked of a listing that answers in whole objects.
+      loopVolumes: Math.round(
+        finiteInRange(
+          radar.loopVolumes,
+          DEFAULT_SETTINGS.radar.loopVolumes,
+          MIN_LOOP_VOLUMES,
+          MAX_LOOP_VOLUMES,
+        ),
+      ),
       live: bool(radar.live, DEFAULT_SETTINGS.radar.live),
       persistence: bool(radar.persistence, DEFAULT_SETTINGS.radar.persistence),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
