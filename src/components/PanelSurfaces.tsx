@@ -85,6 +85,7 @@ import {
 } from "../lib/providers/satellite";
 import type { StormCellState } from "../hooks/useStormCells";
 import type { NearbyCell, NearbyWarning } from "../lib/nearby";
+import type { Approach } from "../lib/approach";
 import { cellsAvailable } from "../lib/cells";
 import type { AlertType } from "../lib/alertTypes";
 
@@ -167,6 +168,8 @@ interface PanelSurfacesProps {
   nearbyPlaces: NearbyPlaceOption[];
   nearbyPlaceId: string;
   onNearbyPlace: (id: string) => void;
+  /** The soonest storm heading for each watched place, soonest first. */
+  approaching: Approach[];
   onSurgeCategory: (category: SurgeCategory) => void;
   /** The moment a sounding is asked for, which is the timeline's own. */
   soundingAt: number;
@@ -301,6 +304,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
 
       {activeSurface === "nearby" ? (
         <NearbyPanel
+          approaching={props.approaching}
           places={props.nearbyPlaces}
           placeId={props.nearbyPlaceId}
           onPlace={props.onNearbyPlace}

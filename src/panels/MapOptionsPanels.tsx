@@ -126,6 +126,7 @@ import {
   type WatchHealth,
 } from "../lib/watch";
 import { overlayBandOrder } from "../lib/overlayOrder";
+import { APPROACH_MINUTES } from "../lib/approach";
 import { ERO_DAYS, WSSI_DAYS } from "../lib/overlays";
 
 interface MapTypePanelProps {
@@ -1241,6 +1242,11 @@ export function SettingsPanel({
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+  // Home counts, and only places actually switched on: a storm heading for a
+  // place nobody is watching is not news.
+  const watchedPlaceCount =
+    (settings.watch.enabled ? 1 : 0) +
+    settings.watchPlaces.filter((place) => place.enabled).length;
   // Whether the system has taken the colours over, which is not a preference
   // this app can honour halfway.
   const forcedColours = useForcedColours();
@@ -1976,6 +1982,79 @@ export function SettingsPanel({
                 ) : null}
               </div>
             </div>
+          </>
+        ) : null}
+        {/* A different kind of statement from everything above it, and said
+            so: the watch repeats a forecaster and this is arithmetic on a
+            moving blob. Off until asked for, and silent even then. */}
+        <div className="settings-field" data-approach-setting>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("approach.setting")}</strong>
+              <small>
+                {watchedPlaceCount === 0
+                  ? t("approach.needsPlace")
+                  : t("approach.settingDetail")}
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              checked={settings.approach.enabled && watchedPlaceCount > 0}
+              disabled={watchedPlaceCount === 0}
+              onChange={(event) =>
+                onSettings({
+                  ...settings,
+                  approach: {
+                    ...settings.approach,
+                    enabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
+          </label>
+        </div>
+        {settings.approach.enabled && watchedPlaceCount > 0 ? (
+          <>
+            <div className="settings-field" data-approach-window>
+              <span>
+                <strong>{t("approach.window")}</strong>
+              </span>
+              <div
+                className="segmented-control segmented-control--full"
+                aria-label={t("approach.window")}
+              >
+                {APPROACH_MINUTES.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    className={
+                      settings.approach.minutes === count ? "is-active" : ""
+                    }
+                    aria-pressed={settings.approach.minutes === count}
+                    onClick={() =>
+                      onSettings({
+                        ...settings,
+                        approach: { ...settings.approach, minutes: count },
+                      })
+                    }
+                  >
+                    {t("approach.windowMinutes", { count })}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ToggleSetting
+              label={t("approach.sound")}
+              detail={t("approach.soundDetail")}
+              checked={settings.approach.sound}
+              onChange={(sound) =>
+                onSettings({
+                  ...settings,
+                  approach: { ...settings.approach, sound },
+                })
+              }
+            />
           </>
         ) : null}
         <ToggleSetting

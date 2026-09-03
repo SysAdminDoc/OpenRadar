@@ -1156,6 +1156,25 @@ export const en = {
   "settings.showRadarDetail": "Keep the basemap visible when radar is hidden",
   "cells.eyebrow": "Storm cells",
   "cells.arriving": "{id} reaches the place you watch in {count} min",
+  "approach.title": "Storm heading for {place}",
+  "approach.titleHome": "Storm heading your way",
+  "approach.body":
+    "The radar is tracking {id} to reach you in about {count} min. It is a track, not a warning.",
+  "approach.setting": "Tell me when a storm is heading here",
+  "approach.settingDetail":
+    "The radar tracks each storm and works out when it reaches a place you watch. It is arithmetic on a moving blob, not a warning from anybody.",
+  "approach.window": "How much notice you want",
+  "approach.windowMinutes": "{count} min",
+  "approach.sound": "Make a sound for it",
+  "approach.soundDetail":
+    "Off, because a warning already makes one and this is not a warning.",
+  "approach.needsPlace":
+    "Needs a place to watch, since that is what a storm would be heading for.",
+  "approach.heading": "On the way",
+  "approach.row": "{id} reaches {place} in about {count} min",
+  "approach.rowSoon": "{id} is reaching {place} now",
+  "approach.note": "The radar tracking these storms, not a warning.",
+  "approach.none": "Nothing the radar is tracking is heading for your places.",
   "cells.arrivingSoon": "{id} reaches the place you watch within a minute",
   "cells.nothingComing": "Nothing the radar is tracking is heading that way",
   "cells.needsWatch": "Set a watched place to be told when a storm reaches it",

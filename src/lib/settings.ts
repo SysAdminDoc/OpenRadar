@@ -20,6 +20,11 @@ import {
 import { isSatelliteBand, type SatelliteBandId } from "./providers/satellite";
 import { isGaugeQpePeriod, type GaugeQpePeriod } from "./gaugeQpe";
 import {
+  APPROACH_MINUTES,
+  DEFAULT_APPROACH,
+  type ApproachSettings,
+} from "./approach";
+import {
   isAzShearLevel,
   isRotationPeriod,
   type AzShearLevel,
@@ -382,6 +387,14 @@ export interface AppSettings {
   wpcDay: number;
   /** Which day of the winter storm severity index, 1 through 3. */
   wssiDay: number;
+  /**
+   * When to say that the radar has a storm heading for a watched place.
+   *
+   * Its own setting rather than part of the watch, because it is a different
+   * kind of statement: the watch repeats a forecaster, and this is arithmetic
+   * on a centroid and a motion vector. Off until asked for.
+   */
+  approach: ApproachSettings;
   /** Which window the gauge-corrected accumulation covers. */
   gaugeQpePeriod: GaugeQpePeriod;
   /** Which window the rotation track covers. */
@@ -637,6 +650,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   followNewWarnings: false,
   satelliteBand: "geocolor",
+  approach: DEFAULT_APPROACH,
   wpcDay: 1,
   wssiDay: 1,
   gaugeQpePeriod: "24h",
@@ -1621,6 +1635,26 @@ export function normalizeSettings(value: unknown): AppSettings {
       : DEFAULT_SETTINGS.gaugeQpePeriod,
     // Rounded as well as clamped: the layer is a service path, and a day of
     // 1.5 would ask for a layer that is not there.
+    approach: {
+      enabled: bool(
+        (raw.approach as Partial<ApproachSettings> | undefined)?.enabled,
+        DEFAULT_APPROACH.enabled,
+      ),
+      // Clamped to the windows the panel offers, and rounded: this is a
+      // number a reader picks from a list, not a free field.
+      minutes: Math.round(
+        finiteInRange(
+          (raw.approach as Partial<ApproachSettings> | undefined)?.minutes,
+          DEFAULT_APPROACH.minutes,
+          APPROACH_MINUTES[0],
+          APPROACH_MINUTES[APPROACH_MINUTES.length - 1],
+        ),
+      ),
+      sound: bool(
+        (raw.approach as Partial<ApproachSettings> | undefined)?.sound,
+        DEFAULT_APPROACH.sound,
+      ),
+    },
     wpcDay: Math.round(
       finiteInRange(raw.wpcDay, DEFAULT_SETTINGS.wpcDay, 1, 5),
     ),

@@ -1192,6 +1192,25 @@ export const fr: Catalogue = {
   "cells.eyebrow": "Cellules orageuses",
   "cells.arriving":
     "{id} atteint l'endroit que vous surveillez dans {count} min",
+  "approach.title": "Orage en route vers {place}",
+  "approach.titleHome": "Orage qui vient vers vous",
+  "approach.body":
+    "Le radar suit {id} et calcule qu'il arrive dans environ {count} min. C'est un suivi, pas une alerte.",
+  "approach.setting": "Prévenez-moi quand un orage vient par ici",
+  "approach.settingDetail":
+    "Le radar suit chaque orage et calcule quand il atteint un lieu que vous surveillez. C'est de l'arithmétique sur une tache en mouvement, pas une alerte de qui que ce soit.",
+  "approach.window": "Combien de préavis vous voulez",
+  "approach.windowMinutes": "{count} min",
+  "approach.sound": "Avec un son",
+  "approach.soundDetail":
+    "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
+  "approach.needsPlace":
+    "Il faut un lieu surveillé, puisque c'est là que l'orage irait.",
+  "approach.heading": "En route",
+  "approach.row": "{id} atteint {place} dans environ {count} min",
+  "approach.rowSoon": "{id} atteint {place} maintenant",
+  "approach.note": "Le radar qui suit ces orages, pas une alerte.",
+  "approach.none": "Rien de ce que le radar suit ne va vers vos lieux.",
   "cells.arrivingSoon":
     "{id} atteint l'endroit que vous surveillez d'ici une minute",
   "cells.nothingComing": "Rien de ce que le radar suit ne se dirige par là",
