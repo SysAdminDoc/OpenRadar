@@ -298,13 +298,19 @@ pub fn run() {
                     // without a line in the log. The handler is kept for the
                     // life of the process on purpose: dropping it takes the
                     // handler back off and the next fault goes unrecorded.
-                    match crash::install(&dir) {
+                    // On a thread of its own. It starts a process and
+                    // waits for it to listen, and on a machine where that
+                    // cannot work at all the wait is the whole two seconds:
+                    // in the setup hook that is two seconds of nothing on
+                    // screen before the window appears.
+                    let dumps_for = dir.clone();
+                    std::thread::spawn(move || match crash::install(&dumps_for) {
                         Some(handler) => std::mem::forget(handler),
                         None => log::warn!(
                             "OpenRadar could not start its crash monitor; a \
                              crash will leave nothing behind"
                         ),
-                    }
+                    });
                 }
                 Err(error) => {
                     log::warn!("OpenRadar has nowhere to keep incident packs: {error}");

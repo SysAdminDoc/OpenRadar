@@ -160,8 +160,15 @@ describe.runIf(LIVE)("against the live service", () => {
 
   it("reads the discussions without the placeholder", async () => {
     const data = await spcDiscussionsOverlay.fetchData(bounds);
+    // The shape, because the weather decides the rest: there is no mesoscale
+    // discussion at all on a quiet afternoon, and a contract that demanded
+    // one would fail on the days when nothing is happening. What the service
+    // moving would break is the collection itself.
+    expect(data.type).toBe("FeatureCollection");
+    expect(Array.isArray(data.features)).toBe(true);
     for (const feature of data.features) {
       expect(String(feature.properties.name).toLowerCase()).not.toBe("noarea");
+      expect(feature.geometry.type).toMatch(/Polygon/);
     }
   }, 30_000);
 });
