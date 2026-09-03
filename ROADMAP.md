@@ -228,6 +228,14 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: A fresh 1487x1058 capture of the dark workspace with Alerts open, taken headless per `screenshots.md`, replaces the file in the same commit as the next visual change; the alt text names the state.
   Complexity: S
 
+## Research-Driven Additions, 2026-09-03
+
+Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries the evidence). Numbered `AUD-206` onward. Every host named below is either already in `ALLOWED_HOSTS` or is named in the item, and any new one needs the ledger row, the CSP entry and a `check:live` contract like the rest. Nothing here outranks an open audit item of the same priority.
+
+### P1
+
+### P2
+
 - [ ] AUD-209 (P2): Start with Windows, opening to the tray
   Why: The product is meant to sit on a second monitor for a year and the warning watch only runs while the app does, yet after every reboot nothing starts it; a reader who set up ten watched places and quiet hours is unwatched until they remember. The tray and close-to-tray already exist, so this is the missing third switch.
   Evidence: `src-tauri/Cargo.toml:30-77` (no autostart plugin); `src/lib/settings.ts:441-460` (`tray`, `closeToTray`); `tauri-plugin-autostart` 2.5.1 (crates.io, 2025-10-27; docs https://v2.tauri.app/plugin/autostart/ with `enable`/`disable`/`isEnabled` and launch arguments).

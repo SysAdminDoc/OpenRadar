@@ -121,6 +121,17 @@ export interface SingleSiteState {
   exportValues: (() => Promise<DataExportReport>) | null;
 }
 
+/** A decoded volume, and when this app took delivery of it. */
+interface Held {
+  /**
+   * The picture, or null for a volume known to have arrived whose picture is
+   * not kept. A live composite is not a finished volume and must never be
+   * served back to a reader who scrubbed onto that volume.
+   */
+  image: SweepImage | null;
+  arrivedAt: number;
+}
+
 type HistoricalSource =
   | { kind: "archive"; station: string; at: string }
   | { kind: "local"; path: string };
@@ -238,23 +249,22 @@ export function useSingleSiteRadar(options: {
     site: "",
     times: [],
   });
-  const heldRef = useRef<Map<string, SweepImage>>(new Map());
   /**
-   * When each volume's bytes reached this machine, by volume time.
+   * A volume the loop has decoded, and when this app took delivery of it.
    *
-   * A loop holds its volumes, and the second time one is drawn it is not
-   * arriving, it is being read back. Nothing recorded the difference: an
-   * exported loop stamped every frame with the moment its caption was
-   * written, which for a held volume can be minutes early, and reported a
-   * null cache age, which the record's own type says means the bytes came off
-   * the network.
+   * One entry rather than a picture here and a time somewhere else. The two
+   * were kept apart at first, the pictures under the full fetch key and the
+   * times under the volume alone, and they disagreed in both directions: a
+   * product switch overwrote the time while the earlier product's picture was
+   * still held and still exportable, and the two maps evicted on different
+   * orders, so a held picture could be served with no time at all. Together
+   * they cannot drift, because there is nothing to drift.
    *
-   * Keyed by the volume rather than by the fetch key, because the volume is
-   * what a caller has: the export walks volume times. A change of tilt or
-   * palette re-fetches and overwrites the entry, which is right, since those
-   * really are new bytes.
+   * `image` is null for a volume known to have arrived whose picture is not
+   * kept: the live path takes delivery of the newest volume every refresh and
+   * what it draws is not always a finished volume.
    */
-  const arrivedRef = useRef<Map<number, number>>(new Map());
+  const heldRef = useRef<Map<string, Held>>(new Map());
   // The volumes being fetched right now. Both panes resolve their own moment
   // and the two often land on one volume, and without this they each asked
   // the archive for the same ten megabyte object at the same time.
@@ -295,6 +305,15 @@ export function useSingleSiteRadar(options: {
   // Pulled out of the settings object so the effect below can depend on the
   // values instead of the identity of the object carrying them.
   const loopVolumes = radar.loopVolumes;
+  /**
+   * How many decoded volumes to keep, read where a dependency would cost a
+   * refetch. The live effect pulls a whole volume when anything it depends on
+   * changes, and the loop length is a slider.
+   */
+  const heldBoundRef = useRef(loopVolumes * 2);
+  useEffect(() => {
+    heldBoundRef.current = loopVolumes * 2;
+  }, [loopVolumes]);
   const motionSpeed = radar.stormMotion?.speedMs ?? null;
   const motionFrom = radar.stormMotion?.fromDegrees ?? null;
   // A product this radar does not have is asked for as reflectivity, which
@@ -366,7 +385,7 @@ export function useSingleSiteRadar(options: {
       motionSpeed !== null && motionFrom !== null
         ? [motionSpeed, motionFrom]
         : null;
-    const held = heldRef.current.get(compareKey);
+    const held = heldRef.current.get(compareKey)?.image ?? null;
     if (!held && fetchingRef.current.has(compareKey)) return;
     if (!held) fetchingRef.current.add(compareKey);
     void (
@@ -386,10 +405,11 @@ export function useSingleSiteRadar(options: {
       .then((next) => {
         if (!held) {
           fetchingRef.current.delete(compareKey);
-          heldRef.current.set(compareKey, next);
+          heldRef.current.set(compareKey, {
+            image: next,
+            arrivedAt: Date.now(),
+          });
           heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
-          arrivedRef.current.set(compareVolume, Date.now());
-          arrivedRef.current = trimHeld(arrivedRef.current, loopVolumes * 2);
         }
         if (open) setFetchedCompare({ sweep: next, key: compareKey });
       })
@@ -617,14 +637,58 @@ export function useSingleSiteRadar(options: {
   );
 
   /**
-   * When a volume's bytes reached this machine, read from the ref.
+   * What a volume would be held under, right now.
    *
-   * Stable, so a caller can hold it across the walk of a loop and still get
-   * the answer for a volume that arrived after the walk started.
+   * The same key both effects build, in one place, because `arrivedAt` has to
+   * ask the same question they answer: a picture decoded under one product is
+   * a different entry from the same volume under another, and reading the
+   * arrival by volume alone reported the newer fetch's time for the older
+   * picture that was still on screen.
+   */
+  const keyFor = useCallback(
+    (volume: number) =>
+      station === null
+        ? null
+        : loopKey({
+            station,
+            at: volume,
+            product,
+            tilt: radar.tilt,
+            dealias: radar.dealias,
+            motion:
+              motionSpeed !== null && motionFrom !== null
+                ? [motionSpeed, motionFrom]
+                : null,
+            threshold,
+            palette: paletteGeneration,
+            highContrast: highContrastRequested(),
+          }),
+    [
+      motionFrom,
+      motionSpeed,
+      paletteGeneration,
+      product,
+      radar.dealias,
+      radar.tilt,
+      station,
+      threshold,
+    ],
+  );
+
+  /**
+   * When this app took delivery of a volume, as it is drawn now.
+   *
+   * Read from the same entry the picture is in, so an eviction takes both and
+   * a picture served from the hold can never come back without a time.
    */
   const arrivedAt = useCallback(
-    (volume: number) => arrivedRef.current.get(volume) ?? null,
-    [],
+    (volume: number) => {
+      const key = keyFor(volume);
+      return key === null
+        ? null
+        : (heldRef.current.get(key)?.arrivedAt ?? null);
+    },
+    [keyFor],
   );
 
   const takeCrossSection = useCallback(
@@ -824,6 +888,31 @@ export function useSingleSiteRadar(options: {
     scrubbedBack,
   ]);
 
+  /**
+   * Delivery of the volume the live path drew, once it is known which one.
+   *
+   * That path is the only one that draws the newest volume, and it recorded
+   * nothing, so the last frame of every saved loop was the one frame with no
+   * arrival time. It cannot record it itself: it reads the newest volume from
+   * a ref on purpose, so its first fetch runs before the listing has landed
+   * and would file the delivery under nothing. Watched from the listing's
+   * side instead, where a sweep drawn with the scrubber at the front is the
+   * newest volume by definition.
+   *
+   * No picture is kept. What that path draws over a live composite is a
+   * volume still being written, and serving it back to a reader who scrubbed
+   * onto that volume would be a partial picture under a finished volume's
+   * label. An entry already there is left alone: the volume arrived when it
+   * first arrived.
+   */
+  useEffect(() => {
+    if (scrubbedBack || newestVolume === null || sweep === null) return;
+    const key = keyFor(newestVolume);
+    if (key === null || heldRef.current.has(key)) return;
+    heldRef.current.set(key, { image: null, arrivedAt: Date.now() });
+    heldRef.current = trimHeld(heldRef.current, heldBoundRef.current);
+  }, [keyFor, newestVolume, scrubbedBack, sweep]);
+
   // The volume under the scrubber, decoded once and kept.
   useEffect(() => {
     if (!wanted || !station || !scrubbedBack || shownVolume === null) return;
@@ -845,7 +934,7 @@ export function useSingleSiteRadar(options: {
       highContrast: contrast,
     });
 
-    const already = heldRef.current.get(key);
+    const already = heldRef.current.get(key)?.image;
     if (already) {
       // Including the spinner. A fetch left in flight by the previous frame
       // has already had its `open` flag cleared, so its `finally` will not
@@ -876,10 +965,8 @@ export function useSingleSiteRadar(options: {
         // the expensive half and the answer is true about that volume
         // whatever the scrubber has moved on to; discarding it because the
         // reader moved first meant almost nothing was ever cached.
-        heldRef.current.set(key, next);
+        heldRef.current.set(key, { image: next, arrivedAt: Date.now() });
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
-        arrivedRef.current.set(shownVolume, Date.now());
-        arrivedRef.current = trimHeld(arrivedRef.current, loopVolumes * 2);
         if (!open || request !== requestRef.current) return;
         setSweep(next);
         setDrawnVolume(shownVolume);

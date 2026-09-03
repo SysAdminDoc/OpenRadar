@@ -42,18 +42,46 @@ export async function lastCrash(): Promise<CrashRecord | null> {
  * Read on the same terms as ours: the file never leaves the machine.
  */
 export async function lastWebviewReport(): Promise<CrashRecord | null> {
+  if (!isDesktopRuntime()) return null;
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<CrashRecord | null>("crash_last_webview_report");
 }
 
 /**
- * Which Chromium is drawing, or null in a browser preview.
+ * Which browser is drawing, or null in a browser preview.
  *
- * The runtime updates on Microsoft's schedule rather than with the app, so
+ * The runtime updates on the platform's schedule rather than with the app, so
  * two reports of one GPU crash from one build can be two different browsers.
+ *
+ * Null means one thing only: this is not a native window. A native window
+ * that will not say its version REJECTS, so a caller can tell "there is no
+ * runtime" from "the runtime did not answer" and the report does not have to
+ * claim the first when it means the second.
  */
 export async function webviewVersion(): Promise<string | null> {
   if (!isDesktopRuntime()) return null;
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<string | null>("host_webview_version");
+  const version = await invoke<string | null>("host_webview_version");
+  if (version === null) throw new Error("the runtime would not say");
+  return version;
+}
+
+/**
+ * The version last read, for a caller with no chance to ask.
+ *
+ * The crash screen has no app left to run an effect: it renders once, out of
+ * whatever is reachable from a module. Without this its report said "not a
+ * native window" on a native window, in the one report a reader sends after a
+ * graphics crash. Undefined until somebody has asked, which reads as unknown
+ * rather than as an answer.
+ */
+export function knownWebviewVersion(): string | null | undefined {
+  return known;
+}
+
+let known: string | null | undefined;
+
+/** Remembers an answer so the crash screen can use it. */
+export function rememberWebviewVersion(version: string | null): void {
+  known = version;
 }

@@ -89,27 +89,33 @@ describe("what a run that ended abnormally leaves in the report", () => {
 });
 
 describe("which browser drew the picture", () => {
-  it("names the WebView2 runtime beside the renderer", () => {
-    // The user agent says which Chromium the page believes it is in. This
-    // says which runtime Microsoft installed, and it updates on their
+  it("names the runtime beside the renderer", () => {
+    // The user agent says which browser the page believes it is in. This says
+    // which runtime the platform installed, and it updates on the platform's
     // schedule rather than with the app: two reports of one GPU crash from
     // one build can be two different browsers.
     const block = diagnosticsBlock({
       ...base(),
       webviewRuntime: "152.0.4191.62",
     });
-    expect(block).toContain("WebView2 runtime: 152.0.4191.62");
-    expect(block.indexOf("WebView2 runtime")).toBeLessThan(
+    expect(block).toContain("Webview runtime: 152.0.4191.62");
+    expect(block.indexOf("Webview runtime")).toBeLessThan(
       block.indexOf("Renderer:"),
     );
   });
 
-  it("says plainly that there is no runtime in a browser preview", () => {
-    // Rather than "unknown", which reads as something having gone wrong.
-    for (const webviewRuntime of [null, undefined]) {
-      const block = diagnosticsBlock({ ...base(), webviewRuntime });
-      expect(block).toContain("WebView2 runtime: not a native window");
-    }
+  it("tells no runtime apart from no answer", () => {
+    // Three states, not two. The crash screen builds its own report with no
+    // app left to ask, so it passes nothing, and folding that in with the
+    // browser preview made the report say "not a native window" on a native
+    // window, in the one report a reader sends after a graphics crash.
+    expect(diagnosticsBlock({ ...base(), webviewRuntime: null })).toContain(
+      "Webview runtime: not a native window",
+    );
+    expect(
+      diagnosticsBlock({ ...base(), webviewRuntime: undefined }),
+    ).toContain("Webview runtime: unknown");
+    expect(diagnosticsBlock(base())).toContain("Webview runtime: unknown");
   });
 });
 

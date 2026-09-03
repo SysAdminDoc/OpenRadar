@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { translate } from "../i18n";
 import { diagnosticsBlock } from "../lib/diagnostics";
 import { gpuSupport } from "../lib/gpu";
+import { knownWebviewVersion } from "../lib/crashReport";
 import { recentLog } from "../lib/log";
 import {
   isDesktopRuntime,
@@ -69,6 +70,10 @@ export class ErrorBoundary extends Component<
     const { error, componentStack } = this.state;
     return diagnosticsBlock({
       renderer: gpuSupport().renderer,
+      // Whatever the workspace had read before it stopped. Undefined until
+      // somebody has asked, which the report writes as unknown; passing
+      // nothing at all made it say "not a native window" on a native window.
+      webviewRuntime: knownWebviewVersion(),
       // Neither of them, which is why this screen is on.
       mapReady: false,
       radarReady: false,

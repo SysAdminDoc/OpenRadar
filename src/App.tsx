@@ -74,6 +74,7 @@ import {
   crashReportAvailable,
   lastCrash as lastCrashDump,
   lastWebviewReport,
+  rememberWebviewVersion,
   webviewVersion,
   type CrashRecord,
 } from "./lib/crashReport";
@@ -406,7 +407,32 @@ export default function App() {
   const [lastWebviewCrash, setLastWebviewCrash] = useState<CrashRecord | null>(
     null,
   );
-  const [webviewRuntime, setWebviewRuntime] = useState<string | null>(null);
+  /**
+   * Undefined until it has been asked, which the report writes as unknown.
+   * Null means there is no native runtime, which is the browser preview, and
+   * a native window that will not say its version rejects rather than
+   * answering null: the two are different things and the report says which.
+   */
+  const [webviewRuntime, setWebviewRuntime] = useState<
+    string | null | undefined
+  >(undefined);
+  // Asked in every runtime, unlike the two crash lookups: the browser preview
+  // has an answer here and it is "there is no native runtime".
+  useEffect(() => {
+    let open = true;
+    void webviewVersion()
+      .then((version) => {
+        rememberWebviewVersion(version);
+        if (open) setWebviewRuntime(version);
+      })
+      .catch(() => {
+        // The runtime would not say. Left undefined, which the report writes
+        // as unknown rather than as a failure a reader has to act on.
+      });
+    return () => {
+      open = false;
+    };
+  }, []);
   useEffect(() => {
     if (!crashReportAvailable()) return;
     let open = true;
@@ -417,14 +443,6 @@ export default function App() {
       .catch(() => {
         // No folder is the ordinary state: it exists once the runtime has had
         // something to report.
-      });
-    void webviewVersion()
-      .then((version) => {
-        if (open) setWebviewRuntime(version);
-      })
-      .catch(() => {
-        // A runtime that will not say its version is reported as unknown
-        // rather than as a failure a reader has to act on.
       });
     void lastCrashDump()
       .then((found) => {
@@ -1200,6 +1218,9 @@ export default function App() {
     // a radar's four to six, so walking them wrote the same volume two and
     // three times over under mosaic timestamps.
     arrivedAt: singleSite.arrivedAt,
+    // Read when it is asked, like the loop's own: a volume can arrive
+    // between the button and the file.
+    drawnVolume: () => drawnVolumeRef.current,
     siteLoop:
       singleSite.sweep && singleSite.volumes.length > 1
         ? {

@@ -66,11 +66,17 @@ pub fn dumps_dir(app_data: &Path) -> PathBuf {
 /// Where the window's own crashes land, which is not where ours do.
 ///
 /// The window is WebView2 and it keeps its own Crashpad reports under
-/// `EBWebView/Crashpad/reports` in the same data directory. A renderer crash
-/// leaves nothing in ours: the reader sees a white window rather than no
-/// window, and there is a file with no way to know it exists.
-pub fn webview_reports_dir(app_data: &Path) -> PathBuf {
-    app_data.join("EBWebView").join("Crashpad").join("reports")
+/// `EBWebView/Crashpad/reports`. A renderer crash leaves nothing in ours: the
+/// reader sees a white window rather than no window, and there is a file with
+/// no way to know it exists.
+///
+/// The argument is the LOCAL data directory, not the one the settings live
+/// in. Nothing in this build hands WebView2 a user data folder, so it picks
+/// its own default, and on Windows that is under `AppData\Local` while
+/// Tauri's `app_data_dir` is `AppData\Roaming`. Pointed at the roaming one
+/// this found nothing on any real machine, forever, while its test passed.
+pub fn webview_reports_dir(local_data: &Path) -> PathBuf {
+    local_data.join("EBWebView").join("Crashpad").join("reports")
 }
 
 /// Runs the monitor loop when this process was started as one.
@@ -316,7 +322,8 @@ pub fn crash_last_dump(app: tauri::AppHandle) -> Option<CrashRecord> {
 #[tauri::command]
 pub fn crash_last_webview_report(app: tauri::AppHandle) -> Option<CrashRecord> {
     use tauri::Manager;
-    let dir = app.path().app_data_dir().ok()?;
+    // Local, not roaming: see `webview_reports_dir`.
+    let dir = app.path().app_local_data_dir().ok()?;
     latest_webview(&webview_reports_dir(&dir))
 }
 
@@ -447,6 +454,22 @@ mod tests {
         assert!(newest.at.starts_with("2026-"), "{}", newest.at);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_runtime_s_folder_is_named_the_way_the_runtime_names_it() {
+        // The path is somebody else's contract and there is nothing on this
+        // machine to check it against, so the segments are pinned here. The
+        // test below builds its stand-in from the same function, which means
+        // it passes just as well with the whole path replaced by nonsense:
+        // it did, and the feature found nothing on any real machine.
+        let dir = webview_reports_dir(Path::new("ROOT"));
+        let tail: Vec<String> = dir
+            .components()
+            .skip(1)
+            .map(|part| part.as_os_str().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(tail, ["EBWebView", "Crashpad", "reports"]);
     }
 
     #[test]

@@ -89,9 +89,22 @@ export const SURFACES: Record<OpenSurface, Surface> = {
 export async function openSurface(page: Page, id: OpenSurface) {
   const surface = SURFACES[id];
   await surface.open(page);
-  await expect(
-    page.getByRole("dialog", { name: surface.dialog }),
-  ).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: surface.dialog });
+  await expect(dialog).toBeVisible();
+  // The panel's own animations, waited on rather than slept through. A fixed
+  // three hundred milliseconds is a guess about how busy the machine is, and
+  // under the full suite it was occasionally wrong: axe read a colour part of
+  // the way through a fade and called it a contrast failure, in a test that
+  // passed every time it ran alone.
+  await dialog.evaluate(async (node) => {
+    await Promise.all(
+      node
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+  // A floor for anything that moves without the animation API knowing, and
+  // for the frame the browser needs to paint what it just settled.
   await page.waitForTimeout(PANEL_SETTLE_MS);
 }
 
