@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { isOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import {
   WIND_REFRESH_MS,
@@ -59,16 +61,20 @@ export function useWind(options: {
       }
     };
 
-    void refresh();
+    // The first ask, in the place it has always been: before the
+    // visibility check below, so a hidden window still reads once.
+    // Not with no network, where it is one more failure in the log.
+    if (isOnline()) void refresh();
+
     if (!pageVisible) {
       return () => {
         open = false;
       };
     }
-    const timer = window.setInterval(() => void refresh(), WIND_REFRESH_MS);
+    const stop = pollWhileOnline(() => void refresh(), WIND_REFRESH_MS, false);
     return () => {
       open = false;
-      window.clearInterval(timer);
+      stop();
     };
   }, [pageVisible, wanted]);
 

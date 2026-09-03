@@ -5,7 +5,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { isOnline, isOnlineOnServer, subscribeOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
+import {
+  isOnline,
+  isOnlineOnServer,
+  noteReached,
+  subscribeOnline,
+} from "../lib/online";
 import {
   coverageKey,
   fetchHrrrRun,
@@ -298,6 +304,11 @@ export function useRadarTimeline(options: {
           selected: kept,
         };
         setSource(timeline.provider);
+        // A loop came back, so the workspace can see. The one thing that
+        // clears the offline line, because it is the one thing that proves
+        // it: the browser's `online` event does not, and a machine on a
+        // captive portal answers it while reaching nothing.
+        noteReached();
         setError(null);
         setLastRefreshFailed(false);
         setCachedAgeSeconds(timeline.cachedAgeSeconds);
@@ -338,7 +349,9 @@ export function useRadarTimeline(options: {
       }
     };
 
-    void refresh();
+    // Not while the machine says it has no network. The reconnection path
+    // below asks again the moment it does.
+    if (isOnline()) void refresh();
     // Held so a reconnection can ask for a fresh loop straight away rather
     // than waiting out the rest of the interval. Five minutes of stale radar
     // labelled as live is exactly what the label exists to prevent.
@@ -353,7 +366,7 @@ export function useRadarTimeline(options: {
     // slower than the ceiling, and the loop keeps playing either way: this
     // is only how often it asks for a newer one.
     let asked = Date.now();
-    const timer = window.setInterval(() => {
+    const stop = pollWhileOnline(() => {
       const wanted = ambientRefreshMs(REFRESH_MS, idleRef.current);
       if (Date.now() - asked < wanted) return;
       asked = Date.now();
@@ -364,7 +377,7 @@ export function useRadarTimeline(options: {
       requestGeneration += 1;
       refreshRef.current = null;
       controller.abort();
-      window.clearInterval(timer);
+      stop();
     };
     // A new colour table, a new threshold, or a new ramp means the locally
     // drawn tiles have to be asked for again under their new address.
@@ -409,12 +422,11 @@ export function useRadarTimeline(options: {
       }
     };
 
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), REFRESH_MS);
+    const stop = pollWhileOnline(() => void refresh(), REFRESH_MS);
     return () => {
       mounted = false;
       controller.abort();
-      window.clearInterval(timer);
+      stop();
     };
   }, [futureRadar, inModelDomain, ready]);
 

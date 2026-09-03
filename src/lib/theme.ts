@@ -29,8 +29,14 @@
  * `@media (forced-colors: active)` in `index.css` sets these same tokens to
  * the system's colours after any theme has written them: nothing here is
  * drawn while that is on. The settings panel says so and disables the light
- * and dark buttons rather than offering two that do nothing. The readings,
- * which were never these tokens' business, opt out of the repaint instead.
+ * and dark buttons rather than offering two that do nothing.
+ *
+ * The readings are a different matter and were never these tokens' business.
+ * The ones in the page — the legend ramp, a track swatch, the colour chip
+ * beside a warning — opt out of the repaint with `forced-color-adjust`. The
+ * ones on the map are not opted out of anything: forced colours never reach
+ * inside a canvas, so a warning outline keeps its own colour because the
+ * browser cannot touch it, not because anything here asked.
  */
 import type { ThemeMode } from "./settings";
 

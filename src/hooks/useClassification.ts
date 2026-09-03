@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { isOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import {
   CLASSIFICATION_REFRESH_MS,
   CLASSIFICATION_STALE_MINUTES,
@@ -81,19 +83,23 @@ export function useClassification(options: {
       }
     };
 
-    void refresh();
+    // The first ask, in the place it has always been: before the
+    // visibility check below, so a hidden window still reads once.
+    // Not with no network, where it is one more failure in the log.
+    if (isOnline()) void refresh();
+
     if (!pageVisible) {
       return () => {
         open = false;
       };
     }
-    const timer = window.setInterval(
+    const stop = pollWhileOnline(
       () => void refresh(),
       CLASSIFICATION_REFRESH_MS,
     );
     return () => {
       open = false;
-      window.clearInterval(timer);
+      stop();
     };
   }, [pageVisible, product, station, wanted]);
 

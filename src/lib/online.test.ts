@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   forgetOfflineForTests,
   isOnline,
+  noteReached,
   offlineSince,
   subscribeOffline,
 } from "./online";
@@ -50,17 +51,34 @@ describe("when the machine lost its network", () => {
     stop();
   });
 
-  it("forgets the moment the network comes back", () => {
+  it("is not cleared by the browser saying the network is back", () => {
+    // The event is a claim, not a fact. This file's own header has said so
+    // since it was written: a laptop joined to a captive portal reads as
+    // online and can reach nothing. Clearing on it told a reader everything
+    // was fine and put the workspace straight back into polling and failing.
+    forgetOfflineForTests();
+    network("offline");
+    const stop = subscribeOffline(() => {});
+    const went = offlineSince();
+    expect(went).not.toBeNull();
+
+    network("online");
+    expect(isOnline()).toBe(true);
+    expect(offlineSince()).toBe(went);
+    stop();
+  });
+
+  it("is cleared by something actually coming back", () => {
+    // The one thing that proves the workspace can see.
     forgetOfflineForTests();
     network("offline");
     const stop = subscribeOffline(() => {});
     expect(offlineSince()).not.toBeNull();
 
-    network("online");
+    noteReached();
     expect(offlineSince()).toBeNull();
-    expect(isOnline()).toBe(true);
 
-    // And a second outage is its own moment rather than the first one again.
+    // And a later outage is its own moment rather than the first one again.
     network("offline");
     expect(offlineSince()).not.toBeNull();
     stop();

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
 
@@ -185,18 +187,22 @@ export function useLightning(options: {
       }
     };
 
-    void refresh();
+    // The first ask, in the place it has always been: before the
+    // visibility check below, so a hidden window still reads once.
+    // Not with no network, where it is one more failure in the log.
+    if (isOnline()) void refresh();
+
     if (!pageVisible) {
       return () => {
         open = false;
         requestGeneration += 1;
       };
     }
-    const timer = globalThis.setInterval(() => void refresh(), REFRESH_MS);
+    const stop = pollWhileOnline(() => void refresh(), REFRESH_MS, false);
     return () => {
       open = false;
       requestGeneration += 1;
-      globalThis.clearInterval(timer);
+      stop();
     };
   }, [pageVisible, wanted]);
 

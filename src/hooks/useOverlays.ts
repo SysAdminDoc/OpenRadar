@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { isOnline } from "../lib/online";
+import { isOnline, noteReached } from "../lib/online";
 import { log } from "../lib/log";
 import {
   EMPTY_OVERLAY,
@@ -148,6 +148,12 @@ export function useOverlays(
           .fetchData(box, controller.signal)
           .then((data) => {
             if (controller.signal.aborted) return;
+            // Something came back, which is the only thing that proves the
+            // workspace can see. The browser's `online` event does not: a
+            // laptop on a captive portal reports online and reaches nothing,
+            // and clearing the line on it put a reader straight back into
+            // polling and failing having just been told all was well.
+            noteReached();
             coverage[adapter.id] = { bounds: box, at: Date.now() };
             setStates((current) => ({
               ...current,

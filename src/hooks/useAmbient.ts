@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { pollWhileOnline } from "../lib/poll";
 import { metarOverlay } from "../lib/overlays/metar";
 import { haversineMiles } from "../lib/geo";
 import { log } from "../lib/log";
@@ -155,12 +156,11 @@ export function useAmbient(options: {
       }
     };
 
-    void read();
-    const timer = window.setInterval(() => void read(), POLL_MS);
+    const stop = pollWhileOnline(() => void read(), POLL_MS);
     return () => {
       live = false;
       controller.abort();
-      window.clearInterval(timer);
+      stop();
     };
   }, [enabled, lat, lon, pageVisible]);
 

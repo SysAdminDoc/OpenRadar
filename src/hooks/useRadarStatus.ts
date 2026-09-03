@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { isOnline } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import {
   radarStatus,
@@ -62,16 +64,20 @@ export function useRadarStatus(options: {
           );
         });
     };
-    ask();
+    // The first ask, in the place it has always been: before the
+    // visibility check below, so a hidden window still reads once.
+    // Not with no network, where it is one more failure in the log.
+    if (isOnline()) ask();
+
     if (!pageVisible) {
       return () => {
         open = false;
       };
     }
-    const timer = window.setInterval(ask, REFRESH_MS);
+    const stop = pollWhileOnline(ask, REFRESH_MS, false);
     return () => {
       open = false;
-      window.clearInterval(timer);
+      stop();
     };
   }, [enabled, pageVisible]);
 
