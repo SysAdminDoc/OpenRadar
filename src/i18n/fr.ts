@@ -121,6 +121,9 @@ export const fr: Catalogue = {
   "layers.fileShapes": "{count, plural, one {# forme} other {# formes}}",
   "layers.fileShown": "Afficher {name}",
   "layers.fileRemove": "Retirer {name}",
+  "layers.fileRemoved": "{name} retiré de la carte",
+  "layers.fileRemovedBody":
+    "Annuler le remet à la hauteur où il était dessiné.",
   "capture.title": "Disposition de capture",
   "capture.noAlerts": "Aucune alerte en cours dans la vue",
   "replay.warningsUnavailable":
@@ -145,6 +148,9 @@ export const fr: Catalogue = {
     "Gardé par son emplacement plutôt que copié, pour qu'une sauvegarde de l'espace de travail ne l'avale pas. Moins de 2 Mo, en wav, mp3, ogg, flac ou m4a, et coupé au bout de six secondes. Il remplace les quatre sons, la gravité cesse donc de s'entendre.",
   "alerts.soundFileChoose": "Choisir un fichier",
   "alerts.soundFileClear": "Revenir aux sons fournis",
+  "alerts.soundFileRemoved": "Retour aux sons fournis",
+  "alerts.soundFileRemovedBody":
+    "Annuler récupère le fichier son que vous avez choisi.",
   "alerts.soundFileFailed": "Ce son n'a pas pu être utilisé",
   "alerts.soundFile.name":
     "Ce doit être un fichier wav, mp3, ogg, flac ou m4a.",
@@ -257,6 +263,10 @@ export const fr: Catalogue = {
   "packs.started": "Téléchargement de la trousse démarré",
   "packs.cancelled": "Trousse annulée et ses fichiers supprimés",
   "packs.deleted": "Trousse supprimée",
+  "packs.deletedUndo": "{name} supprimée",
+  "packs.deletedUndoBody":
+    "Annuler récupère le téléchargement. Ensuite, il faudrait le refaire.",
+  "packs.restored": "Trousse restaurée",
   "packs.paused": "Trousse suspendue",
   "packs.resumed": "Téléchargement de la trousse repris",
   "packs.selected": "{name} sert de fond de carte hors ligne",
@@ -1066,6 +1076,9 @@ export const fr: Catalogue = {
     "La couleur des titres, des interrupteurs et de l'anneau de focus. Elle n'atteint jamais une échelle du radar, le contour d'une alerte ni la trajectoire d'un orage.",
   "settings.themeInForce": "{name} s'applique par-dessus l'apparence intégrée.",
   "settings.themeClear": "Revenir à l'apparence intégrée",
+  "settings.themeRemoved": "{name} retiré",
+  "settings.themeRemovedBody":
+    "L'espace de travail est revenu à l'apparence intégrée.",
   "settings.themeNote":
     "Déposez un fichier de thème sur le panneau Téléversement pour changer plus que la couleur. Un thème atteint l'espace de travail autour de la carte et rien de ce qui s'y trouve.",
   "settings.radar": "Radar composite",
@@ -1115,6 +1128,9 @@ export const fr: Catalogue = {
   "settings.placeSeverityFor":
     "L'alerte la moins grave qui vaille un avertissement à {place}",
   "settings.removePlace": "Cesser de surveiller {place}",
+  "settings.placeRemoved": "{place} n'est plus surveillé",
+  "settings.placeRemovedBody":
+    "Annuler remet le lieu avec les réglages qu'il avait.",
   "settings.addPlace": "Ajouter le centre de la carte comme endroit",
   "settings.placesFull":
     "Cela fait déjà {count, plural, one {# lieu} other {# lieux}}. Retirez-en un pour en surveiller un autre.",

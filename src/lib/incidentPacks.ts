@@ -101,6 +101,22 @@ export function deleteIncidentPack(id: string): Promise<void> {
   return native("incident_pack_delete", { id });
 }
 
+/**
+ * Puts back a pack that was deleted, bytes and all.
+ *
+ * A finished pack is moved aside rather than removed, so this is a rename on
+ * the native side and not another download. It refuses once the undo window
+ * has closed, which is what `reapIncidentPacks` does.
+ */
+export function restoreIncidentPack(id: string): Promise<IncidentPack> {
+  return native("incident_pack_restore", { id });
+}
+
+/** Closes the undo window, throwing away whatever was being held for it. */
+export function reapIncidentPacks(): Promise<void> {
+  return native("incident_pack_reap");
+}
+
 export function asIncidentPackReference(
   pack: IncidentPack,
 ): IncidentPackReference | null {

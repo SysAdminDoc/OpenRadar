@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -6,11 +7,13 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { LayersPanel } from "./MapOptionsPanels";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import { en } from "../i18n/en";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
+import type { UndoableRemoval } from "../components/ToastHost";
 
 afterEach(cleanup);
 
@@ -19,6 +22,7 @@ function panel(overrides: {
   layerNotes?: Record<string, string | null>;
   overlayFiles?: WorkspaceOverlayFile[];
   onOverlayFiles?: (files: WorkspaceOverlayFile[]) => void;
+  onRemoved?: (removal: UndoableRemoval) => void;
   gaugeQpePeriod?: GaugeQpePeriod;
   onGaugeQpePeriod?: (period: GaugeQpePeriod) => void;
 }) {
@@ -38,6 +42,7 @@ function panel(overrides: {
       onOverlayOrder={vi.fn()}
       overlayFiles={overrides.overlayFiles ?? []}
       onOverlayFiles={overrides.onOverlayFiles ?? vi.fn()}
+      onRemoved={overrides.onRemoved ?? vi.fn()}
       alertTypes={DEFAULT_SETTINGS.alertTypes}
       surgeCategory={DEFAULT_SETTINGS.surgeCategory}
       onLayers={vi.fn()}
@@ -114,5 +119,97 @@ describe("one accumulation over three windows", () => {
       within(control).getByRole("button", { name: en["gaugeQpe.72h"] }),
     );
     expect(onGaugeQpePeriod).toHaveBeenCalledWith("72h");
+  });
+});
+
+describe("taking an imported file off the map", () => {
+  function file(id: string, name: string): WorkspaceOverlayFile {
+    return {
+      id,
+      name,
+      enabled: true,
+      opacity: 1,
+      shapes: { type: "FeatureCollection", features: [] },
+    };
+  }
+
+  /**
+   * The panel with a parent that actually applies what it is told.
+   *
+   * An undo is only worth anything against the list as it stands after the
+   * removal, so a test that hands the panel a fixed array and a spy cannot
+   * see whether the file comes back in the right place, or whether pressing
+   * undo twice puts it in twice.
+   */
+  function Harness({
+    start,
+    onRemoved,
+  }: {
+    start: WorkspaceOverlayFile[];
+    onRemoved: (removal: UndoableRemoval) => void;
+  }) {
+    const [files, setFiles] = useState(start);
+    return panel({
+      layers: { customOverlay: true },
+      overlayFiles: files,
+      onOverlayFiles: setFiles,
+      onRemoved,
+    });
+  }
+
+  function shown(): string[] {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>("[data-overlay-file]"),
+    ).map((row) => row.dataset.overlayFile ?? "");
+  }
+
+  it("offers an undo that puts it back at the height it was drawn at", () => {
+    // A file dropped on the window is somebody's own data, and the removal was
+    // one press with no toast and no way back. Putting it on the end of the
+    // list would be a different picture: it would draw over whatever used to
+    // be above it.
+    let removal: UndoableRemoval | null = null;
+    render(
+      <Harness
+        start={[file("a", "Counties"), file("b", "Route"), file("c", "Pins")]}
+        onRemoved={(next) => {
+          removal = next;
+        }}
+      />,
+    );
+    // The list is drawn top first over a bottom-first array.
+    expect(shown()).toEqual(["c", "b", "a"]);
+
+    fireEvent.click(
+      screen.getByLabelText(en["layers.fileRemove"].replace("{name}", "Route")),
+    );
+    expect(shown()).toEqual(["c", "a"]);
+    if (!removal) throw new Error("no undo was offered");
+    expect((removal as UndoableRemoval).title).toContain("Route");
+
+    act(() => (removal as UndoableRemoval).undo());
+    expect(shown()).toEqual(["c", "b", "a"]);
+  });
+
+  it("does nothing when the undo is used a second time", () => {
+    // The file is already back after the first press. A second one must not
+    // put a second copy of it in the list.
+    let removal: UndoableRemoval | null = null;
+    render(
+      <Harness
+        start={[file("a", "Counties"), file("b", "Route")]}
+        onRemoved={(next) => {
+          removal = next;
+        }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByLabelText(en["layers.fileRemove"].replace("{name}", "Route")),
+    );
+    if (!removal) throw new Error("no undo was offered");
+    act(() => (removal as UndoableRemoval).undo());
+    expect(shown()).toEqual(["b", "a"]);
+    act(() => (removal as UndoableRemoval).undo());
+    expect(shown()).toEqual(["b", "a"]);
   });
 });

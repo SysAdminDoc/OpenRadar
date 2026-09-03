@@ -34,6 +34,7 @@ function panel() {
     <SettingsPanel
       settings={DEFAULT_SETTINGS}
       onSettings={vi.fn()}
+      onRemoved={vi.fn()}
       onWatchHere={vi.fn()}
       onAddWatchPlace={vi.fn()}
       onSendWatchTest={vi.fn()}

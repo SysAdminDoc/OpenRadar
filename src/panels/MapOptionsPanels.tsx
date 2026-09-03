@@ -31,7 +31,7 @@ import {
   Zap,
   Volume2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
 import { rangeFill } from "../lib/rangeFill";
@@ -64,6 +64,7 @@ import { useForcedColours } from "../hooks/useClock";
 import { useOfflineSince } from "../hooks/useOffline";
 import { IncidentPackManager } from "./IncidentPackManager";
 import { StorageSection } from "./StorageSection";
+import type { UndoableRemoval } from "../components/ToastHost";
 
 /**
  * Minutes past midnight as a time field reads them, and back again.
@@ -246,6 +247,8 @@ interface LayersPanelProps {
   /** The local files on the map, bottom first. */
   overlayFiles: WorkspaceOverlayFile[];
   onOverlayFiles: (files: WorkspaceOverlayFile[]) => void;
+  /** A file taken off the map, and the way back to it. */
+  onRemoved: (removal: UndoableRemoval) => void;
   /** Which kinds of alert to draw, by the switches below the alert layer. */
   alertTypes: Partial<Record<AlertType, boolean>>;
   /** Which hurricane the surge picture is about. */
@@ -482,6 +485,7 @@ export function LayersPanel({
   onOverlayOrder,
   overlayFiles,
   onOverlayFiles,
+  onRemoved,
   alertTypes,
   surgeCategory,
   onLayers,
@@ -494,6 +498,12 @@ export function LayersPanel({
   onClose,
 }: LayersPanelProps) {
   const t = useT();
+  // What the list holds now, for an undo pressed after the reader has already
+  // moved on. The closure that offers it was made when the file went.
+  const filesRef = useRef(overlayFiles);
+  useEffect(() => {
+    filesRef.current = overlayFiles;
+  }, [overlayFiles]);
   // The overlays that are switched on and can be moved, bottom first.
   // Warnings are not among them: nothing should be able to put a wildfire
   // perimeter over somebody telling you to take cover.
@@ -658,11 +668,30 @@ export function LayersPanel({
                         aria-label={t("layers.fileRemove", {
                           name: file.name,
                         })}
-                        onClick={() =>
+                        onClick={() => {
                           onOverlayFiles(
                             overlayFiles.filter((each) => each.id !== file.id),
-                          )
-                        }
+                          );
+                          onRemoved({
+                            title: t("layers.fileRemoved", {
+                              name: file.name,
+                            }),
+                            detail: t("layers.fileRemovedBody"),
+                            // This one file, back at the height it was drawn
+                            // at, into the list as it stands when the undo is
+                            // pressed. Restoring the list as it was would take
+                            // back whatever the reader did in between: remove
+                            // A, reorder B, undo A, and B moves too.
+                            undo: () => {
+                              const back = [...filesRef.current];
+                              if (back.some((each) => each.id === file.id)) {
+                                return;
+                              }
+                              back.splice(Math.min(at, back.length), 0, file);
+                              onOverlayFiles(back);
+                            },
+                          });
+                        }}
                       >
                         <X size={15} />
                       </button>
@@ -898,6 +927,8 @@ interface SettingsPanelProps {
   onStorageFailed: (why: string) => void;
   onJournalCleared: (undo: () => void) => void;
   onJournalRemoved: (undo: () => void) => void;
+  /** Something the reader removed here, and the way back to it. */
+  onRemoved: (removal: UndoableRemoval) => void;
   /** Ticks once a minute, so the record on screen notices a row arriving. */
   clock: number;
   onWatchHere: () => void;
@@ -966,6 +997,7 @@ export function SettingsPanel({
   onStorageFailed,
   onJournalCleared,
   onJournalRemoved,
+  onRemoved,
   clock,
   onSendWatchTest,
   watchHealth = WATCH_HEALTHY,
@@ -977,6 +1009,13 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
+  // The settings as they stand, for an undo pressed after the reader has
+  // changed something else. The closure offering it was made when the thing
+  // went, so reading `settings` there would put its whole snapshot back.
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
   // Whether the system has taken the colours over, which is not a preference
   // this app can honour halfway.
   const forcedColours = useForcedColours();
@@ -1249,7 +1288,22 @@ export function SettingsPanel({
             <button
               type="button"
               className="secondary-button"
-              onClick={() => onSettings({ ...settings, workspaceTheme: null })}
+              onClick={() => {
+                const removed = settings.workspaceTheme;
+                onSettings({ ...settings, workspaceTheme: null });
+                if (!removed) return;
+                onRemoved({
+                  title: t("settings.themeRemoved", { name: removed.name }),
+                  detail: t("settings.themeRemovedBody"),
+                  // Only the theme, put back over whatever else the reader
+                  // changed while the toast was up.
+                  undo: () =>
+                    onSettings({
+                      ...settingsRef.current,
+                      workspaceTheme: removed,
+                    }),
+                });
+              }}
             >
               {t("settings.themeClear")}
             </button>
@@ -1286,6 +1340,7 @@ export function SettingsPanel({
         settings={settings}
         bounds={bounds}
         onSettings={onSettings}
+        onRemoved={onRemoved}
       />
 
       <StorageSection
@@ -1646,9 +1701,20 @@ export function SettingsPanel({
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() =>
-                      onSettings({ ...settings, alertSoundPath: null })
-                    }
+                    onClick={() => {
+                      const removed = settings.alertSoundPath;
+                      onSettings({ ...settings, alertSoundPath: null });
+                      if (!removed) return;
+                      onRemoved({
+                        title: t("alerts.soundFileRemoved"),
+                        detail: t("alerts.soundFileRemovedBody"),
+                        undo: () =>
+                          onSettings({
+                            ...settingsRef.current,
+                            alertSoundPath: removed,
+                          }),
+                      });
+                    }}
                   >
                     {t("alerts.soundFileClear")}
                   </button>
@@ -1942,14 +2008,37 @@ export function SettingsPanel({
                   type="button"
                   className="secondary-button"
                   aria-label={t("settings.removePlace", { place: place.name })}
-                  onClick={() =>
+                  onClick={() => {
                     onSettings({
                       ...settings,
                       watchPlaces: settings.watchPlaces.filter(
                         (_, at) => at !== index,
                       ),
-                    })
-                  }
+                    });
+                    onRemoved({
+                      title: t("settings.placeRemoved", { place: place.name }),
+                      detail: t("settings.placeRemovedBody"),
+                      // Back where it was in the list, into the list as it
+                      // stands now, and not at all if it is already there.
+                      undo: () => {
+                        const now = settingsRef.current;
+                        if (
+                          now.watchPlaces.some(
+                            (held) =>
+                              held.name === place.name &&
+                              held.center[0] === place.center[0] &&
+                              held.center[1] === place.center[1],
+                          )
+                        ) {
+                          return;
+                        }
+                        if (now.watchPlaces.length >= MAX_WATCH_PLACES) return;
+                        const back = [...now.watchPlaces];
+                        back.splice(Math.min(index, back.length), 0, place);
+                        onSettings({ ...now, watchPlaces: back });
+                      },
+                    });
+                  }}
                 >
                   <X size={14} />
                 </button>

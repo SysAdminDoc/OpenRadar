@@ -32,6 +32,15 @@ const TILE_FOLDER: &str = "tiles";
 const ARCHIVE_FILE: &str = "basemap.pmtiles";
 const ARCHIVE_PART: &str = "basemap.pmtiles.part";
 const CONFIG_FILE: &str = "config.json";
+/// Where a deleted pack waits out its undo window.
+///
+/// A pack is a verified multi-megabyte download, and deleting one used to be a
+/// single press with nothing behind it. The directory is moved here instead of
+/// removed, so putting it back is a rename rather than another download. The
+/// name is not a valid pack id, which is what keeps the listing from seeing a
+/// held pack and what makes `recover_store` reap whatever is still here at the
+/// next start.
+const HELD_FOLDER: &str = "held";
 const STORE_SCHEMA: u8 = 1;
 const DEFAULT_LIMIT_MB: u64 = 4096;
 const MIN_LIMIT_MB: u64 = 256;
@@ -391,6 +400,47 @@ fn pack_dir(root: &Path, id: &str) -> Result<PathBuf, IncidentPackError> {
     Ok(root.join(id))
 }
 
+fn held_root(root: &Path) -> PathBuf {
+    root.join(HELD_FOLDER)
+}
+
+fn held_dir(root: &Path, id: &str) -> Result<PathBuf, IncidentPackError> {
+    validate_id(id)?;
+    Ok(held_root(root).join(id))
+}
+
+/// Throws away every pack waiting out an undo window, and says how many.
+///
+/// Called at the next start, before a delete holds another one, and rather
+/// than refusing a download for bytes that are already deleted. A held pack is
+/// somebody's undo, not their data: taking it away costs them the undo and
+/// nothing else.
+fn reap_held(root: &Path, except: Option<&str>) -> Result<usize, IncidentPackError> {
+    let held = held_root(root);
+    if !held.is_dir() {
+        return Ok(0);
+    }
+    let mut reaped = 0;
+    for entry in fs::read_dir(&held)? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if except == Some(name.as_str()) {
+            continue;
+        }
+        forget_verified_archive(&entry.path().join(ARCHIVE_FILE));
+        if entry.file_type()?.is_dir() {
+            fs::remove_dir_all(entry.path())?;
+        } else {
+            fs::remove_file(entry.path())?;
+        }
+        reaped += 1;
+    }
+    if reaped > 0 {
+        log::info!("OpenRadar reaped {reaped} deleted incident pack(s) held for undo");
+    }
+    Ok(reaped)
+}
+
 fn manifest_path(pack_dir: &Path) -> PathBuf {
     pack_dir.join(MANIFEST_FILE)
 }
@@ -502,6 +552,15 @@ fn folder_bytes(path: &Path) -> Result<u64, IncidentPackError> {
         });
     }
     Ok(bytes)
+}
+
+/// What the reader's own packs use, which a held one no longer is.
+///
+/// Reported to the panel and used for the ceiling. A pack waiting out its undo
+/// window is deleted as far as the reader is concerned, so charging its bytes
+/// against their limit would say a pack they removed is still taking room.
+fn used_bytes(root: &Path) -> Result<u64, IncidentPackError> {
+    Ok(folder_bytes(root)?.saturating_sub(folder_bytes(&held_root(root))?))
 }
 
 fn clean_name(name: &str) -> Result<String, IncidentPackError> {
@@ -841,18 +900,35 @@ async fn fetch_tile(tile: Tile) -> Result<(Tile, Vec<u8>), IncidentPackError> {
         .unwrap_or(IncidentPackError::InvalidTile))
 }
 
-fn quota_allows(
+fn quota_peak_fits(
     root: &Path,
     downloaded_bytes: u64,
     incoming_bytes: u64,
 ) -> Result<bool, IncidentPackError> {
-    let used = folder_bytes(root)?;
+    let used = used_bytes(root)?;
     let current_without_tiles = used.saturating_sub(downloaded_bytes);
     let staged = downloaded_bytes.saturating_add(incoming_bytes);
     let peak = current_without_tiles
         .saturating_add(staged.saturating_mul(2))
         .saturating_add(ARCHIVE_OVERHEAD_BYTES);
     Ok(peak <= disk_limit_bytes(root)?)
+}
+
+fn quota_allows(
+    root: &Path,
+    downloaded_bytes: u64,
+    incoming_bytes: u64,
+) -> Result<bool, IncidentPackError> {
+    if quota_peak_fits(root, downloaded_bytes, incoming_bytes)? {
+        return Ok(true);
+    }
+    // A held pack is bytes the reader already deleted. Refusing their next
+    // download over it, or counting it in the ceiling they set, would make an
+    // undo window into a disk charge; reap and ask again instead.
+    if reap_held(root, None)? == 0 {
+        return Ok(false);
+    }
+    quota_peak_fits(root, downloaded_bytes, incoming_bytes)
 }
 
 async fn write_tile_under_quota(
@@ -1252,6 +1328,14 @@ fn recover_store(root: &Path) -> Result<(), IncidentPackError> {
             continue;
         }
         let name = entry.file_name().to_string_lossy().to_string();
+        // An undo window does not survive the app closing. Whatever is still
+        // held was deleted last session, so it goes now, and it says so:
+        // several megabytes leaving the store is worth a line in the log.
+        if name == HELD_FOLDER {
+            reap_held(root, None)?;
+            let _ = fs::remove_dir(entry.path());
+            continue;
+        }
         if validate_id(&name).is_err() || !entry.path().join(MANIFEST_FILE).exists() {
             fs::remove_dir_all(entry.path())?;
             continue;
@@ -1298,7 +1382,7 @@ pub fn incident_pack_estimate(request: EstimateRequest) -> Result<PackEstimate, 
     let tile_count = tiles_for(request)?.len();
     let estimated = estimated_bytes(tile_count);
     let temporary = estimated.saturating_mul(2);
-    let used = folder_bytes(root)?;
+    let used = used_bytes(root)?;
     let limit = disk_limit_bytes(root)?;
     Ok(PackEstimate {
         tile_count,
@@ -1326,7 +1410,7 @@ pub fn incident_pack_list() -> Result<PackLibrary, IncidentPackError> {
     packs.sort_by(|left, right| right.created_at.cmp(&left.created_at));
     Ok(PackLibrary {
         packs,
-        used_bytes: folder_bytes(root)?,
+        used_bytes: used_bytes(root)?,
         disk_limit_bytes: disk_limit_bytes(root)?,
     })
 }
@@ -1356,7 +1440,11 @@ pub async fn incident_pack_create(
         max_zoom: request.max_zoom,
     })?;
     let estimate = estimated_bytes(tiles.len());
-    if folder_bytes(root)?.saturating_add(estimate.saturating_mul(2)) > disk_limit_bytes(root)? {
+    // A new pack takes the undo away from any deleted one, because the bytes
+    // it is about to write are the reader's answer to what they want the disk
+    // for. Held first so the ceiling is measured against what is left.
+    let _ = reap_held(root, None)?;
+    if used_bytes(root)?.saturating_add(estimate.saturating_mul(2)) > disk_limit_bytes(root)? {
         return Err(IncidentPackError::DiskCeiling);
     }
     let id = new_id(&name);
@@ -1456,6 +1544,67 @@ fn remove_pack_files(root: &Path, id: &str) -> Result<(), IncidentPackError> {
     Ok(())
 }
 
+/// Moves a finished pack aside so the delete can be undone.
+///
+/// Only a ready pack is worth holding: anything still downloading has no
+/// archive to give back, and cancelling one is not the press this is about.
+/// The verification cache is forgotten on the way out, so a restored archive
+/// is hashed again before its first tile is served rather than trusted for
+/// having been verified under its old path.
+fn hold_pack_files(root: &Path, id: &str) -> Result<(), IncidentPackError> {
+    let pack_dir = pack_dir(root, id)?;
+    if !pack_dir.is_dir() {
+        return Err(IncidentPackError::NotFound);
+    }
+    let _ = reap_held(root, None)?;
+    let held = held_dir(root, id)?;
+    fs::create_dir_all(held_root(root))?;
+    if held.exists() {
+        fs::remove_dir_all(&held)?;
+    }
+    forget_verified_archive(&pack_dir.join(ARCHIVE_FILE));
+    // A rename inside one directory cannot cross a volume, but Windows will
+    // still refuse it while something holds a file open. Falling through to
+    // the removal keeps the press meaning what it says; the reader loses the
+    // undo, not the delete.
+    if let Err(error) = fs::rename(&pack_dir, &held) {
+        log::warn!("OpenRadar deleted an incident pack outright, with no undo: {error}");
+        return remove_pack_files(root, id);
+    }
+    Ok(())
+}
+
+fn restore_pack_files(root: &Path, id: &str) -> Result<PackManifest, IncidentPackError> {
+    validate_id(id)?;
+    let held = held_dir(root, id)?;
+    if !held.is_dir() {
+        return Err(IncidentPackError::NotFound);
+    }
+    let pack_dir = pack_dir(root, id)?;
+    if pack_dir.exists() {
+        // Something already sits under that id, so the held copy is the older
+        // of the two. It goes rather than overwriting what is there now, which
+        // is also what makes a second press of one undo do nothing.
+        fs::remove_dir_all(&held)?;
+        return Err(IncidentPackError::NotFound);
+    }
+    fs::rename(&held, &pack_dir)?;
+    // Not registered as verified on the way in: the archive is hashed again
+    // before its first tile is served, the way a recovered one is.
+    read_manifest(&pack_dir)
+}
+
+async fn hold_pack(id: &str) -> Result<(), IncidentPackError> {
+    let root = root()?;
+    validate_id(id)?;
+    stop_task(id).await?;
+    // Taken after the task has stopped, never across the wait: a download
+    // writes its tiles under this same lock, so holding it while asking one to
+    // stop would leave both waiting on the other until the wait ran out.
+    let _write = store_write().lock().await;
+    hold_pack_files(root, id)
+}
+
 #[tauri::command]
 pub async fn incident_pack_cancel(id: String) -> Result<(), IncidentPackError> {
     remove_pack(&id).await
@@ -1463,7 +1612,35 @@ pub async fn incident_pack_cancel(id: String) -> Result<(), IncidentPackError> {
 
 #[tauri::command]
 pub async fn incident_pack_delete(id: String) -> Result<(), IncidentPackError> {
-    remove_pack(&id).await
+    let root = root()?;
+    // Only a finished pack is worth holding. One that never finished has no
+    // archive to hand back, and putting a half-downloaded directory in the
+    // held folder would offer an undo that restores nothing.
+    let ready = pack_dir(root, &id)
+        .ok()
+        .and_then(|dir| read_manifest(&dir).ok())
+        .is_some_and(|manifest| manifest.status == PackStatus::Ready);
+    if !ready {
+        return remove_pack(&id).await;
+    }
+    hold_pack(&id).await
+}
+
+/// Puts a held pack back where it was deleted from.
+#[tauri::command]
+pub async fn incident_pack_restore(id: String) -> Result<PackSummary, IncidentPackError> {
+    let root = root()?;
+    let _write = store_write().lock().await;
+    Ok(PackSummary::from(&restore_pack_files(root, &id)?))
+}
+
+/// Ends the undo window, called when the toast that carried it goes.
+#[tauri::command]
+pub async fn incident_pack_reap() -> Result<(), IncidentPackError> {
+    let root = root()?;
+    let _write = store_write().lock().await;
+    reap_held(root, None)?;
+    Ok(())
 }
 
 fn parse_tile_uri(uri: &str) -> Result<(String, Tile), IncidentPackError> {
@@ -2014,6 +2191,179 @@ mod tests {
             .next()
             .is_none());
         assert_eq!(manifest.downloaded_bytes, 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+    fn ready_manifest(id: &str, name: &str, archive_bytes: u64, hash: String) -> PackManifest {
+        let timestamp = now();
+        PackManifest {
+            schema_version: STORE_SCHEMA,
+            id: id.into(),
+            name: name.into(),
+            bounds: PackBounds {
+                west: -100.0,
+                south: 30.0,
+                east: -90.0,
+                north: 40.0,
+            },
+            min_zoom: 2,
+            max_zoom: 2,
+            status: PackStatus::Ready,
+            tile_count: 1,
+            downloaded_tiles: 1,
+            downloaded_bytes: 0,
+            estimated_bytes: estimated_bytes(1),
+            archive_bytes,
+            sha256: Some(hash),
+            source: SOURCE_NAME.into(),
+            attribution: ATTRIBUTION.into(),
+            error: None,
+            created_at: timestamp.clone(),
+            updated_at: timestamp,
+        }
+    }
+
+    /// Writes a ready pack with a real archive, and returns its SHA-256.
+    fn ready_pack(root: &Path, id: &str, name: &str) -> String {
+        let pack = root.join(id);
+        fs::create_dir_all(&pack).unwrap();
+        let archive = pack.join(ARCHIVE_FILE);
+        fs::write(&archive, format!("archive for {name}")).unwrap();
+        let hash = sha256_file(&archive).unwrap();
+        let bytes = fs::metadata(&archive).unwrap().len();
+        write_manifest(&pack, &ready_manifest(id, name, bytes, hash.clone())).unwrap();
+        hash
+    }
+
+    #[test]
+    fn a_deleted_pack_comes_back_with_the_bytes_it_had() {
+        let root = temporary("hold-restore");
+        let id = "aaaa1111bbbb2222cccc3333";
+        let hash = ready_pack(&root, id, "Held");
+        let pack = root.join(id);
+
+        hold_pack_files(&root, id).unwrap();
+        assert!(!pack.exists(), "the pack is gone from where it was drawn");
+        assert!(root.join(HELD_FOLDER).join(id).is_dir());
+        // Gone from the listing and from what the reader is charged for, the
+        // same as a pack that was removed outright.
+        assert!(read_manifest(&root.join(HELD_FOLDER).join(id)).is_ok());
+        assert_eq!(used_bytes(&root).unwrap(), 0);
+
+        let manifest = restore_pack_files(&root, id).unwrap();
+        assert_eq!(manifest.name, "Held");
+        assert_eq!(manifest.status, PackStatus::Ready);
+        assert_eq!(sha256_file(&pack.join(ARCHIVE_FILE)).unwrap(), hash);
+        assert_eq!(manifest.sha256.as_deref(), Some(hash.as_str()));
+        assert!(!root.join(HELD_FOLDER).join(id).exists());
+        assert!(used_bytes(&root).unwrap() > 0);
+
+        // A restored archive is not carried over as already verified, so its
+        // first tile hashes it again rather than trusting the old path.
+        assert!(verified_archives()
+            .lock()
+            .unwrap()
+            .get(&pack.join(ARCHIVE_FILE))
+            .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn an_undo_used_twice_changes_nothing_the_second_time() {
+        let root = temporary("hold-twice");
+        let id = "bbbb1111cccc2222dddd3333";
+        let hash = ready_pack(&root, id, "Twice");
+        hold_pack_files(&root, id).unwrap();
+        restore_pack_files(&root, id).unwrap();
+
+        let error = restore_pack_files(&root, id).unwrap_err();
+        assert!(matches!(error, IncidentPackError::NotFound));
+        assert_eq!(
+            sha256_file(&root.join(id).join(ARCHIVE_FILE)).unwrap(),
+            hash,
+            "the pack that was already put back is untouched"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn an_undo_refused_leaves_the_pack_deleted() {
+        let root = temporary("hold-reaped");
+        let id = "cccc1111dddd2222eeee3333";
+        ready_pack(&root, id, "Reaped");
+        hold_pack_files(&root, id).unwrap();
+
+        assert_eq!(reap_held(&root, None).unwrap(), 1);
+        assert!(restore_pack_files(&root, id).is_err());
+        assert!(!root.join(id).exists());
+        assert_eq!(used_bytes(&root).unwrap(), 0);
+        assert_eq!(
+            reap_held(&root, None).unwrap(),
+            0,
+            "reaping an empty held folder says so"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn holding_a_second_pack_reaps_the_first() {
+        let root = temporary("hold-one-at-a-time");
+        let first = "dddd1111eeee2222ffff3333";
+        let second = "eeee1111ffff222200003333";
+        ready_pack(&root, first, "First");
+        ready_pack(&root, second, "Second");
+
+        hold_pack_files(&root, first).unwrap();
+        hold_pack_files(&root, second).unwrap();
+        assert!(!root.join(HELD_FOLDER).join(first).exists());
+        assert!(root.join(HELD_FOLDER).join(second).is_dir());
+        assert!(restore_pack_files(&root, first).is_err());
+        assert!(restore_pack_files(&root, second).is_ok());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_held_pack_does_not_survive_a_restart() {
+        let root = temporary("hold-restart");
+        let held = "ffff11110000222211113333";
+        let kept = "0000111122223333444455aa";
+        ready_pack(&root, held, "Held over");
+        ready_pack(&root, kept, "Kept");
+        hold_pack_files(&root, held).unwrap();
+
+        recover_store(&root).unwrap();
+        assert!(!root.join(HELD_FOLDER).exists(), "the held folder is gone");
+        assert!(!root.join(held).exists());
+        assert_eq!(read_manifest(&root.join(kept)).unwrap().name, "Kept");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_held_pack_is_not_charged_against_the_disk_ceiling() {
+        let root = temporary("hold-quota");
+        let id = "1111222233334444555566aa";
+        ready_pack(&root, id, "Quota");
+        let with_pack = folder_bytes(&root).unwrap();
+        assert!(with_pack > 0);
+
+        hold_pack_files(&root, id).unwrap();
+        assert_eq!(folder_bytes(&root).unwrap(), with_pack);
+        assert_eq!(
+            used_bytes(&root).unwrap(),
+            0,
+            "the bytes are still on disk but no longer the reader's"
+        );
+
+        // A request the ceiling cannot take. It is still refused, which is the
+        // point of a ceiling, but the held bytes are given up on the way: a
+        // pack the reader deleted is not what stands between them and a
+        // download.
+        let over = disk_limit_bytes(&root).unwrap();
+        assert!(!quota_allows(&root, 0, over).unwrap());
+        assert!(
+            !root.join(HELD_FOLDER).join(id).exists(),
+            "the held pack was reaped before the refusal"
+        );
+        assert!(quota_allows(&root, 0, 1).unwrap());
         fs::remove_dir_all(root).unwrap();
     }
 }
