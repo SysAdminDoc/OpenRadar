@@ -6,6 +6,8 @@
 
 - How far back a held site's loop reaches is yours to set, from one volume to thirty. It was fixed at ten with no way to change it.
 
+- A saved loop of a held site is that site's own volumes. It was the timeline's steps, which run every two minutes while a radar finishes a volume every four to six, so the same picture went into the file two and three times over, each copy stamped with a different time and credited to the national mosaic that did not make it. Every frame now carries its own record naming the radar it came from and the moment it was collected.
+
 ## OpenRadar v0.8.0
 
 - The scrubber under the map has a handle you can actually grab. It was whatever the browser drew, about two thirds of the size a pointer target is meant to be, and so was every slider in Settings and Layers.

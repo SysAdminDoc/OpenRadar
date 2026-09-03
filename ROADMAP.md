@@ -76,14 +76,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P1
 
-- [ ] AUD-201 (P1): The rest of the single-site loop
-  Why: AUD-170 shipped the loop itself: the native side lists a site's recent volume times, the timeline's own scrubber picks the volume each step belongs to, and a decoded volume is held rather than fetched twice. Four parts of that item's acceptance did not ship, and each is a place where the loop is visibly half a feature.
-  Evidence: `src/hooks/useSingleSiteRadar.ts` (the loop effect, which draws a volume per step); `src/lib/siteLoop.ts` and its tests; `src-tauri/src/level2.rs` `recent_times` / `level2_recent_times`. `e2e/level2.spec.ts` proves the listing is asked for and NOT that a scrub draws an older volume: the mosaic frame count in that spec comes from a live-shaped provider stub and changes underneath a scrub, so the assertion could not be held still.
-  Touches: `e2e/level2.spec.ts` (a deterministic frame list for that spec, then a real three-volume scrub), `src/lib/settings.ts` and the Settings panel (the loop length, ten by default and thirty at most, which is `DEFAULT_LOOP_VOLUMES` today and settable by nobody), `src/lib/export.ts` (a saved loop follows the site series rather than the mosaic's), `src/lib/provenance.ts` (one record per volume rather than one for the sweep on screen), `src/components/WorkspaceChrome.tsx` (the legend says which volume of how many).
-  Acceptance: A browser test scrubs a stubbed three-volume site loop and asserts the volume time in the legend changes with the step; the loop length is a setting between one and thirty; a saved loop of a held site contains the site's own volumes; each frame carries its own provenance record.
-  Confidence: Verified
-  Effort: M
-
 ### P2
 
 - [ ] AUD-173 (P2): Read radar site status from the NWS rather than inferring it from archive freshness
@@ -282,4 +274,11 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Evidence: `git log -1 -- assets/screenshots` (2026-08-31, "Rebuild the weather workspace around the map"); `CHANGELOG.md` 0.8.0 visual entries.
   Touches: `assets/screenshots/openradar-main.png`, `README.md` alt text, `docs/listings.json` screenshot reference.
   Acceptance: A fresh 1487x1058 capture of the dark workspace with Alerts open, taken headless per `screenshots.md`, replaces the file in the same commit as the next visual change; the alt text names the state.
+  Complexity: S
+
+- [ ] AUD-202 (P3): A held volume does not record when it was decoded
+  Why: The record beside an exported loop of a held site is stamped with the moment its caption was written, because nothing anywhere records when a volume's bytes actually reached this machine. For a volume the loop already holds that can be minutes early, and `cachedAgeSeconds` stays null, which the type documents as meaning the bytes came off the network.
+  Evidence: `src/hooks/useExport.ts` `sweepCaptionFor` passes `Date.now()`; `src/hooks/useSingleSiteRadar.ts` holds the decoded picture in `heldRef` and not the moment it arrived; `src/lib/provenance.ts` calls `cachedAgeSeconds` what separates a picture that is current from one that survived an outage.
+  Touches: `src/hooks/useSingleSiteRadar.ts` (hold the moment beside the picture and expose it with the series), `src/hooks/useExport.ts`, `src/lib/provenance.ts` if the sweep builder should take both.
+  Acceptance: An exported loop of a held site says per volume when that volume reached this machine; a volume drawn from the loop's own held pictures carries how long it had been held rather than a null.
   Complexity: S

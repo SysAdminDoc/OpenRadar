@@ -1075,6 +1075,14 @@ export default function App() {
       ) ?? null,
     ),
     dataSources,
+    // A saved loop of a held site is that site's volumes. The mosaic's steps
+    // are what the timeline runs on, and they are two minutes apart against
+    // a radar's four to six, so walking them wrote the same volume two and
+    // three times over under mosaic timestamps.
+    siteLoop:
+      singleSite.sweep && singleSite.volumes.length > 1
+        ? { sweep: singleSite.sweep, volumes: singleSite.volumes }
+        : null,
     pushToast,
   });
 

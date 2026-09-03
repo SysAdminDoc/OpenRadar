@@ -172,6 +172,10 @@ describe("the legend over a volume the loop reached back for", () => {
     );
     expect(screen.getByText(/VOLUME 2 OF 3/)).toBeTruthy();
     expect(screen.queryByText(/HISTORICAL/)).toBeNull();
+    // Nor is it treated as history anywhere else. The same test decided the
+    // credit line under the map and whether the scrubber was usable at all,
+    // so one step back disabled the control that took it.
+    expect(screen.queryByText("NOAA NEXRAD Level II")).toBeNull();
   });
 });
 

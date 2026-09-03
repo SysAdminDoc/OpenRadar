@@ -22,12 +22,16 @@ import type { RadarProvider } from "../lib/providers";
 import {
   provenanceCredit,
   provenanceDocument,
+  sweepProvenance,
   timelineProvenance,
   type Provenance,
 } from "../lib/provenance";
+import { stepsForVolumes } from "../lib/siteLoop";
+import type { SweepImage } from "../lib/level2";
 import {
   frameAgeMinutes,
   formatFrameTime,
+  formatRadarTime,
   type RadarFrame,
 } from "../lib/radar";
 import { saveFile } from "../lib/saveFile";
@@ -103,6 +107,14 @@ export function useExport(options: {
   basemapCredit: string;
   /** Datasets drawn right now, in the order the panel should offer them. */
   dataSources: DataExportSource[];
+  /**
+   * The held site's loop, when one is on the map: the sweep drawn and the
+   * volume times behind it.
+   *
+   * Null whenever the mosaic is the picture, which is what every export did
+   * before this existed.
+   */
+  siteLoop: { sweep: SweepImage; volumes: number[] } | null;
   pushToast: (message: Omit<ToastMessage, "id">) => void;
 }): ExportState {
   const {
@@ -113,6 +125,7 @@ export function useExport(options: {
     timeline,
     basemapCredit,
     dataSources,
+    siteLoop,
     pushToast,
   } = options;
   const [busy, setBusy] = useState<string | null>(null);
@@ -180,6 +193,40 @@ export function useExport(options: {
       timeline.cachedAgeSeconds,
       timeline.fetchedAt,
     ],
+  );
+
+  /**
+   * The caption for one volume of a held site.
+   *
+   * Written from the volume's own record for the same reason the mosaic's is
+   * written from the frame's: the words burned into the corner and the record
+   * saved beside the file have to be the same statement. The station and
+   * product come from the sweep because every volume in this walk is the same
+   * site and the same product; only the time moves.
+   */
+  const sweepCaptionFor = useCallback(
+    (sweep: SweepImage, at: number, index: number): ExportCaption => {
+      const record = sweepProvenance({
+        sweep,
+        at,
+        // The walk draws each volume as it captions it, either fetching it or
+        // re-reading one the loop already holds, so this is when the machine
+        // had those bytes to within the length of the walk.
+        fetchedAt: Date.now(),
+      });
+      drawnRef.current.set(index, record);
+      return {
+        lines: [
+          formatRadarTime(at / 1000),
+          translate("chrome.sweepProduct", {
+            station: sweep.station,
+            product: sweep.product,
+          }),
+        ],
+        attribution: provenanceCredit(basemapCredit, record),
+      };
+    },
+    [basemapCredit],
   );
 
   const finish = useCallback(
@@ -343,7 +390,15 @@ export function useExport(options: {
     (extension: string, encode: typeof exportLoop, busyAs: string) => {
       void (async () => {
         const canvas = mapRef.current?.canvas();
-        if (!canvas || frames.length < 2) return;
+        // A held site's own volumes when there are any, the mosaic's steps
+        // otherwise. Two of whichever it is, because a loop of one frame is
+        // a still.
+        const walk =
+          siteLoop && siteLoop.volumes.length > 1
+            ? stepsForVolumes(frames, siteLoop.volumes)
+            : null;
+        const count = walk ? walk.length : frames.length;
+        if (!canvas || count < 2) return;
         drawnRef.current.clear();
         const originalFrame = frameIndex;
         const wasPlaying = timeline.playing;
@@ -352,12 +407,16 @@ export function useExport(options: {
         try {
           const blob = await encode({
             source: canvas,
-            frameCount: frames.length,
+            frameCount: count,
             showFrame: async (index) => {
-              timeline.selectFrame(index);
+              timeline.selectFrame(walk ? walk[index].index : index);
               await mapRef.current?.onceIdle();
             },
-            captionFor,
+            captionFor:
+              walk && siteLoop
+                ? (index) =>
+                    sweepCaptionFor(siteLoop.sweep, walk[index].at, index)
+                : captionFor,
             onProgress: (done, total) => setProgress({ done, total }),
             // Only the video path can fall back, and it says so because the
             // slow path costs the loop's own duration in wall clock.
@@ -398,9 +457,11 @@ export function useExport(options: {
       captionFor,
       finish,
       frameIndex,
-      frames.length,
+      frames,
       mapRef,
       pushToast,
+      siteLoop,
+      sweepCaptionFor,
       timeline,
     ],
   );

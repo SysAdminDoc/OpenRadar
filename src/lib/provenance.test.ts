@@ -9,6 +9,7 @@ import {
   provenanceStale,
   provenanceValid,
   radarProvenance,
+  sweepProvenance,
   type Provenance,
 } from "./provenance";
 import { provenanceFileName } from "./export";
@@ -233,6 +234,43 @@ describe("building records from what the app already has", () => {
       ).toEqual([]);
       expect(record.freshForMs).toBe(adapter.refreshMs);
     }
+  });
+});
+
+describe("a record for one volume of one radar", () => {
+  const sweep = {
+    station: "KDMX",
+    product: "Reflectivity",
+    collected: "2026-08-31T12:00:00.000Z",
+    source: {
+      kind: "archive" as const,
+      label: "NOAA NEXRAD Level II archive",
+      url: "https://registry.opendata.aws/noaa-nexrad/",
+    },
+  } as unknown as Parameters<typeof sweepProvenance>[0]["sweep"];
+
+  it("is well formed and credits the archive rather than the mosaic", () => {
+    const record = sweepProvenance({ sweep, fetchedAt: FETCHED_AT });
+    expect(provenanceProblems(record)).toEqual([]);
+    expect(record.sourceId).toBe("level2:KDMX");
+    expect(record.attribution).toBe("NOAA NEXRAD Level II archive");
+    expect(record.kind).toBe("observation");
+    expect(record.observedAt).toBe(OBSERVED_AT);
+  });
+
+  it("takes the volume it is asked about, not the one on screen", () => {
+    // The loop export captions ten volumes from the one sweep it holds. If
+    // the time came off that sweep every frame of the saved loop would carry
+    // the same stamp, which is the defect the walk exists to fix.
+    const earlier = OBSERVED_AT - 5 * 60_000;
+    const record = sweepProvenance({
+      sweep,
+      at: earlier,
+      fetchedAt: FETCHED_AT,
+    });
+    expect(record.observedAt).toBe(earlier);
+    expect(record.validAt).toBe(earlier);
+    expect(provenanceProblems(record)).toEqual([]);
   });
 });
 

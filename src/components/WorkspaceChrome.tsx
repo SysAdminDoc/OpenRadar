@@ -170,8 +170,13 @@ export function WorkspaceChrome({
   onDismissToast,
 }: WorkspaceChromeProps) {
   const t = useT();
+  // A volume the loop reached back for comes from the archive as well, and
+  // reading that as history disabled the scrubber the moment somebody used
+  // it: one step back and there was no way to take another or to come
+  // forward again. History is the reader having left the present, which is a
+  // file they opened or a moment they chose, not a step of the loop.
   const historicalSweep =
-    sweep && sweep.source.kind !== "recent" ? sweep : null;
+    sweep && sweep.source.kind !== "recent" && !sweepLoop ? sweep : null;
   // Redraws when the units or the clock change, since this is on screen the
   // whole time and would otherwise keep showing the old ones.
   useMeasurements();

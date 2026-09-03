@@ -336,6 +336,13 @@ async function fakeNativeSide(page: Page) {
             });
           }
           if (command === "level2_recent_times") {
+            // A spec that scrubs plants its own, against a mosaic it also
+            // plants: which volume a step shows is only checkable when both
+            // series are held still, and the loop window is measured from
+            // the clock, so a fixed date would fall out of it.
+            const planted = (window as unknown as { __siteVolumes?: string[] })
+              .__siteVolumes;
+            if (planted) return Promise.resolve(planted);
             // Three volumes, five minutes apart, the newest at the same
             // moment the mosaic's newest frame is: a real site's volumes and
             // the mosaic's steps do not line up, and the loop's whole job is
@@ -346,6 +353,19 @@ async function fakeNativeSide(page: Page) {
                 .map((back) => new Date(newest - back * 60_000).toISOString())
                 .reverse(),
             );
+          }
+          if (command === "mrms_frames") {
+            // Only for a spec that plants one. The rest of this file lets the
+            // chain fall through to the mosaics it already stubs over the
+            // network, and answering here would change the picture under
+            // every test in it.
+            const planted = (
+              window as unknown as {
+                __mrmsFrames?: Array<{ time: number; key: string }>;
+              }
+            ).__mrmsFrames;
+            if (planted) return Promise.resolve(planted);
+            return Promise.reject(new Error("mrms_frames is not stubbed"));
           }
           if (command === "level2_sweep" && String(args.station) === "FAIL") {
             return Promise.reject("the site did not answer");
@@ -568,6 +588,86 @@ test("lists the site's recent volumes so the timeline has a loop to scrub", asyn
   // who asks for a hundred is asking the machine to stop answering.
   expect(Number(listing?.args.count)).toBeGreaterThan(0);
   expect(Number(listing?.args.count)).toBeLessThanOrEqual(30);
+});
+
+test("draws the volume each step belongs to when the timeline is scrubbed", async ({
+  page,
+}) => {
+  // The half the listing test could not hold still. Both series are planted
+  // here: seven mosaic steps two minutes apart, and three of the site's own
+  // volumes five minutes apart across them. Anchored to the clock because
+  // the loop window is, so a fixed date would leave the timeline empty.
+  const anchor = Math.floor(Date.now() / 120_000) * 120_000;
+  await page.addInitScript(
+    ({ frames, volumes }: { frames: unknown; volumes: unknown }) => {
+      (window as unknown as { __mrmsFrames: unknown }).__mrmsFrames = frames;
+      (window as unknown as { __siteVolumes: unknown }).__siteVolumes = volumes;
+    },
+    {
+      frames: [12, 10, 8, 6, 4, 2, 0].map((back) => ({
+        time: Math.round((anchor - back * 60_000) / 1000),
+        key: `plant/${back}`,
+      })),
+      volumes: [10, 5, 0].map((back) =>
+        new Date(anchor - back * 60_000).toISOString(),
+      ),
+    },
+  );
+
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+  // Playing, the loop would move under every assertion, and the app does not
+  // reach back for an older volume while the timeline is running: a volume is
+  // ten megabytes and a step is a second.
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+
+  const eyebrow = page.locator(".radar-legend small");
+  const scrubber = page.getByLabel("Radar frame");
+
+  // Step 1 is the mosaic's 10-minutes-ago, which is the moment the oldest
+  // planted volume was finished.
+  await scrubber.fill("1");
+  await expect(eyebrow).toContainText("VOLUME 1 OF 3");
+  const first = (await eyebrow.textContent()) ?? "";
+
+  // Step 4 is a minute after the second volume and four minutes short of the
+  // third, so it is showing the second: at-or-before, never the nearest,
+  // because the nearest here would be a picture of four minutes that have
+  // not happened yet.
+  await scrubber.fill("4");
+  await expect(eyebrow).toContainText("VOLUME 2 OF 3");
+  const second = (await eyebrow.textContent()) ?? "";
+
+  // The point of the whole item: the time in the legend is the volume's own
+  // and it moves with the step. Two steps showing the same volume would read
+  // identically here, which is what the export walk exists to avoid writing.
+  expect(second).not.toBe(first);
+  expect(/VOLUME 2 OF 3, (.+)$/.exec(second)?.[1]).not.toBe(
+    /VOLUME 1 OF 3, (.+)$/.exec(first)?.[1],
+  );
+
+  // And the archive was asked for those two moments, not for a third.
+  const asked = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __sweepCalls: Array<{
+            command: string;
+            args: Record<string, unknown>;
+          }>;
+        }
+      ).__sweepCalls,
+  );
+  const at = asked
+    .filter((call) => call.command === "level2_archive_sweep")
+    .map((call) => String(call.args.at));
+  expect(new Set(at).size).toBe(2);
+
+  // Back on the newest step the picture is the live one again, and the loop
+  // line goes with it rather than leaving a volume number over a sweep that
+  // is not one of them.
+  await scrubber.fill("6");
+  await expect(eyebrow).not.toContainText("VOLUME");
 });
 
 test("writes the gates of the sweep on screen as numbers", async ({ page }) => {
