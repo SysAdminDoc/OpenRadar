@@ -114,6 +114,51 @@ async function fakeNativeSide(page: Page) {
                 : [],
             );
           }
+          if (command === "level2_vwp") {
+            // Two volumes, each a wind that veers and strengthens with
+            // height, with one level in the middle the fit could not be
+            // vouched for.
+            const column = (volume: string, collected: string) => ({
+              volume,
+              collected,
+              levels: [
+                {
+                  heightKm: 0.5,
+                  speedMs: 10,
+                  fromDegrees: 180,
+                  elevationDegrees: 0.5,
+                  rangeKm: 44,
+                  residualMs: 0.4,
+                  symmetryMs: 0.9,
+                  refused: null,
+                },
+                {
+                  heightKm: 1,
+                  speedMs: null,
+                  fromDegrees: null,
+                  elevationDegrees: null,
+                  rangeKm: null,
+                  residualMs: null,
+                  symmetryMs: null,
+                  refused: "residual",
+                },
+                {
+                  heightKm: 1.5,
+                  speedMs: 25,
+                  fromDegrees: 250,
+                  elevationDegrees: 3.5,
+                  rangeKm: 30,
+                  residualMs: 1.1,
+                  symmetryMs: 2,
+                  refused: null,
+                },
+              ],
+            });
+            return Promise.resolve([
+              column("KDMX20260830_091659_V06", "2026-08-30T09:16:59Z"),
+              column("KDMX20260830_092159_V06", "2026-08-30T09:21:59Z"),
+            ]);
+          }
           if (command === "level2_nearest_site") {
             // The real command answers nothing for a point no site can see,
             // which is what the frontend has to cope with.
@@ -1608,4 +1653,29 @@ test("cuts the volume between two points and labels what it drew", async ({
     const to = call.args.to as [number, number];
     expect(from[0]).not.toBe(to[0]);
   }
+});
+
+test("reads the wind out of the volumes a held site is showing", async ({
+  page,
+}) => {
+  // The same fit storm-relative velocity has always used, run at a set of
+  // heights rather than once for the sweep. Nothing is fetched for it that
+  // the picture did not already need.
+  await fakeNativeSide(page);
+  await open(page, 9);
+
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page.locator('[data-command="surface:vwp"]').click();
+
+  const panel = page.getByRole("dialog", { name: "Wind Profile" });
+  await expect(panel).toBeVisible();
+  // One column per volume, so a reader can see the wind change between them.
+  await expect(panel.locator(".vwp-column")).toHaveCount(2);
+  // A height the fit could not be vouched for is marked rather than left to
+  // read as calm air, which is the whole reason the checks are applied.
+  await expect(panel.locator(".vwp-nd").first()).toBeVisible();
+  // And the hodograph is offered beside the barbs.
+  await expect(panel.locator(".vwp-hodograph")).toHaveCount(2);
+  // Each column says which volume it came from.
+  await expect(panel.locator(".vwp-volume").first()).not.toBeEmpty();
 });

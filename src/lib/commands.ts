@@ -345,6 +345,12 @@ const SURFACE_COMMANDS: Array<{
     keywords: ["model", "ensemble", "compare", "gfs", "ecmwf", "icon"],
   },
   {
+    surface: "vwp",
+    key: "panel.vwp",
+    extra: "keywords.vwp",
+    keywords: ["vad", "vwp", "wind profile", "barbs", "shear", "hodograph"],
+  },
+  {
     surface: "sounding",
     key: "panel.sounding",
     extra: "keywords.sounding",

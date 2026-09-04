@@ -180,6 +180,7 @@ import {
   type WorkspaceOverlayFile,
 } from "./lib/workspaceOverlays";
 import { formatNumber, translate, useT, type StringKey } from "./i18n";
+import { fetchVwp, vwpAvailable } from "./lib/vwp";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 import {
@@ -1205,6 +1206,14 @@ export default function App() {
   const gateMinute = gates.timed
     ? Math.floor((activeFrame?.time ?? clock / 1000) / 60)
     : null;
+  // The volume times the wind profile is drawn for, as the archive names
+  // them. Held rather than rebuilt inline, because the panel refetches on any
+  // change to this list and a new array every render would ask forever.
+  const vwpTimes = useMemo(
+    () => singleSite.volumes.map((at) => new Date(at).toISOString()),
+    [singleSite.volumes],
+  );
+
   const overlayShapes = useMemo(
     () =>
       mergedOverlayShapes(
@@ -2527,6 +2536,11 @@ export default function App() {
             historyStormId={historyStorm?.id ?? null}
             replayId={replay?.id ?? null}
             sectionLine={sectionLine}
+            // The volumes the held site is looping, as the times the archive
+            // lists them by. Empty asks for whichever one the radar published
+            // last, which is the single-column case.
+            vwpTimes={vwpTimes}
+            readVwp={vwpAvailable() ? fetchVwp : null}
             soundingAt={activeFrame?.time ?? Math.floor(clock / 1000)}
             mapReady={mapStatus === "ready"}
             health={health}

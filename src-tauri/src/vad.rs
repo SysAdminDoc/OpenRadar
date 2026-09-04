@@ -120,6 +120,97 @@ pub fn fit_ring(samples: &[(f32, f32)], elevation_degrees: f32) -> Option<Wind> 
     refined.or(Some(first))
 }
 
+/// A knot in metres a second. The office states its thresholds in knots.
+const KNOT_MS: f32 = 0.514_444;
+
+/// How far out a ring's fit may be before the profile draws nothing there.
+///
+/// The RPG's own numbers, converted: 9.7 knots of residual, 13.6 knots of
+/// disagreement between the halves, over at least 25 gates. A wind profile
+/// that draws a barb it cannot vouch for is worse than one with a gap in it,
+/// because a barb is read as a measurement.
+pub const MAX_RESIDUAL_MS: f32 = 9.7 * KNOT_MS;
+pub const MAX_SYMMETRY_MS: f32 = 13.6 * KNOT_MS;
+pub const MIN_FIT_GATES: usize = 25;
+
+/// One ring's fit, with the two checks that decide whether to draw it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RingFit {
+    pub wind: Wind,
+    /// What the fitted wave did not explain, as a root mean square.
+    pub residual_ms: f32,
+    /// How far the two halves of the ring disagree about the wind.
+    ///
+    /// A ring crossing a front, or one whose echo is all down one side, has a
+    /// wave fitted through it that neither half agrees with, and the residual
+    /// alone can stay small while that happens. Fitting the halves apart and
+    /// comparing them is what catches it.
+    pub symmetry_ms: f32,
+    /// How many gates were left once the outliers were dropped.
+    pub used: usize,
+}
+
+impl RingFit {
+    /// Whether this ring is worth a barb rather than a gap.
+    pub fn trusted(&self) -> bool {
+        self.used >= MIN_FIT_GATES
+            && self.residual_ms <= MAX_RESIDUAL_MS
+            && self.symmetry_ms <= MAX_SYMMETRY_MS
+    }
+}
+
+/// Fits one ring and measures how far it can be trusted.
+///
+/// The fit itself is `fit_ring`, unchanged: this is the same answer with the
+/// two numbers a profile needs beside it. Both are measured over the gates
+/// the fit actually kept, because a residual taken over the outliers it threw
+/// away is a measurement of the outliers.
+pub fn fit_ring_checked(samples: &[(f32, f32)], elevation_degrees: f32) -> Option<RingFit> {
+    let wind = fit_ring(samples, elevation_degrees)?;
+    let off = |azimuth: f32, radial: f32| radial - wind.along_beam(azimuth, elevation_degrees);
+    let kept: Vec<(f32, f32)> = samples
+        .iter()
+        .copied()
+        .filter(|(azimuth, radial)| off(*azimuth, *radial).abs() <= OUTLIER_MS)
+        .collect();
+    if kept.is_empty() {
+        return None;
+    }
+
+    let squares: f64 = kept
+        .iter()
+        .map(|(azimuth, radial)| {
+            let each = off(*azimuth, *radial) as f64;
+            each * each
+        })
+        .sum();
+    let residual_ms = (squares / kept.len() as f64).sqrt() as f32;
+
+    // A half that will not fit at all is a ring nothing can vouch for, which
+    // is what an infinite disagreement says and what `trusted` then refuses.
+    let half = |from: f32, to: f32| {
+        let part: Vec<(f32, f32)> = kept
+            .iter()
+            .copied()
+            .filter(|(azimuth, _)| *azimuth >= from && *azimuth < to)
+            .collect();
+        fit_ring(&part, elevation_degrees)
+    };
+    let symmetry_ms = match (half(0.0, 180.0), half(180.0, 360.0)) {
+        (Some(left), Some(right)) => {
+            ((left.east - right.east).powi(2) + (left.north - right.north).powi(2)).sqrt()
+        }
+        _ => f32::INFINITY,
+    };
+
+    Some(RingFit {
+        wind,
+        residual_ms,
+        symmetry_ms,
+        used: kept.len(),
+    })
+}
+
 /// The wind from several rings, as the middle value rather than the mean.
 ///
 /// One ring can sit inside a storm and come back with the storm's own motion.
@@ -150,6 +241,96 @@ mod tests {
                 (azimuth, wind.along_beam(azimuth, elevation))
             })
             .collect()
+    }
+
+    #[test]
+    fn a_clean_ring_is_trusted_and_says_how_well_it_fitted() {
+        let truth = Wind {
+            east: 14.14,
+            north: 14.14,
+        };
+        let fit = fit_ring_checked(&ring(truth, 0.5, 360), 0.5).expect("a full ring fits");
+        assert!(fit.trusted(), "{fit:?}");
+        assert!(fit.residual_ms < 0.1, "{}", fit.residual_ms);
+        assert!(fit.symmetry_ms < 0.5, "{}", fit.symmetry_ms);
+        assert_eq!(fit.used, 360);
+    }
+
+    #[test]
+    fn a_ring_the_wave_does_not_explain_is_not_trusted() {
+        // Noise no wind could produce. The fit still answers, because a
+        // least-squares solve always does; what it cannot do is claim the
+        // answer means anything, and a barb is read as a measurement.
+        let mut samples = ring(
+            Wind {
+                east: 10.0,
+                north: 0.0,
+            },
+            0.5,
+            360,
+        );
+        for (at, sample) in samples.iter_mut().enumerate() {
+            // Under the outlier threshold, so the fit keeps every gate and
+            // has to answer for all of them, and over the residual one.
+            sample.1 += if at % 2 == 0 { 8.0 } else { -8.0 };
+        }
+        let fit = fit_ring_checked(&samples, 0.5).expect("the solve answers");
+        assert!(
+            fit.residual_ms > MAX_RESIDUAL_MS,
+            "residual {}",
+            fit.residual_ms
+        );
+        assert!(!fit.trusted());
+    }
+
+    #[test]
+    fn a_ring_whose_halves_disagree_is_not_trusted() {
+        // A front through the ring: one side blowing one way, the other side
+        // the other. The wave fitted through both has a modest residual and
+        // means nothing, which is the case the symmetry check exists for.
+        let east = ring(
+            Wind {
+                east: 12.0,
+                north: 0.0,
+            },
+            0.5,
+            360,
+        );
+        let west = ring(
+            Wind {
+                east: -12.0,
+                north: 0.0,
+            },
+            0.5,
+            360,
+        );
+        let split: Vec<(f32, f32)> = east
+            .iter()
+            .copied()
+            .zip(west.iter().copied())
+            .map(|(left, right)| if left.0 < 180.0 { left } else { right })
+            .collect();
+        let fit = fit_ring_checked(&split, 0.5).expect("the solve answers");
+        assert!(
+            fit.symmetry_ms > MAX_SYMMETRY_MS,
+            "symmetry {}",
+            fit.symmetry_ms
+        );
+        assert!(!fit.trusted());
+    }
+
+    #[test]
+    fn a_ring_with_too_few_gates_left_is_not_trusted() {
+        // Enough to fit, too few to vouch for. MIN_RING_GATES is what the fit
+        // needs; MIN_FIT_GATES is what the office wants behind a barb.
+        let truth = Wind {
+            east: 10.0,
+            north: 0.0,
+        };
+        let sparse = ring(truth, 0.5, 24);
+        let fit = fit_ring_checked(&sparse, 0.5).expect("twenty-four still fits");
+        assert_eq!(fit.used, 24);
+        assert!(!fit.trusted(), "{fit:?}");
     }
 
     #[test]

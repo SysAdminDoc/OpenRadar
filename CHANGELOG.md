@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A wind profile panel for a held site, read out of the radar's own velocity. The app has fitted the wind to a ring of gates since storm-relative velocity shipped, and it showed nobody: the fit ran once for the sweep and was used only to subtract. Run at a set of heights instead, it is what a forecaster calls a VAD wind profile. A column of barbs per volume, so the wind between two scans is a comparison rather than a memory, a hodograph under each, and every column names the volume it came from. A height where the fit could not be vouched for is marked ND rather than left blank, because a gap in a wind profile is information: it says the radar had nothing up there it could read the wind from, and a profile that closed up around its gaps would read as shear nobody measured. The two checks are the office's own, in its own numbers.
+
 - The Layers panel says when your imported files hold more pictures than the map draws. Each placefile may carry four and eight files can be loaded, so a set could ask for thirty-two while the first four appeared and the rest were counted as shapes and then quietly left off.
 
 - A KML style written inside the placemark is read now. That is the shape Google Earth writes for a placemark somebody recoloured by hand, and what several generators write for every placemark in the file, and it was being ignored: those imported in the default blue while the README said the shapes carried the file's own colours. A style inside the placemark also wins over one it points at, which is the format's own order.

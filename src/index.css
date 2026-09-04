@@ -5779,3 +5779,84 @@ label.settings-field > span {
   font-size: 11px;
   line-height: 1.5;
 }
+
+/* The wind profile: a column of barbs per volume beside a shared height
+   scale, and a hodograph under each. Everything is drawn in the accent so a
+   barb reads as the app's own measurement rather than as basemap furniture,
+   and the whole block scrolls sideways rather than squeezing the barbs, which
+   are the one thing here whose size carries meaning. */
+.vwp-chart {
+  display: flex;
+  overflow-x: auto;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.vwp-heights {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin: 0 0 22px;
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 10px;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.vwp-column {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vwp-volume {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.vwp-barbs {
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  fill: var(--accent);
+}
+
+.vwp-nd {
+  fill: var(--muted);
+  stroke: none;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+}
+
+.vwp-hodographs {
+  display: flex;
+  overflow-x: auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.vwp-hodograph {
+  flex: 0 0 auto;
+}
+
+.vwp-hodograph circle {
+  fill: none;
+  stroke: var(--border);
+}
+
+.vwp-hodograph .vwp-axis {
+  stroke: var(--border);
+}
+
+.vwp-hodograph .vwp-trace {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.vwp-hodograph .vwp-point {
+  fill: var(--accent);
+  stroke: none;
+}

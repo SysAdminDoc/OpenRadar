@@ -58,13 +58,6 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-185 (P2): A VAD wind profile panel from the wind the app already fits
-  Why: Supercell Wx #383 asks for a VWP, GR2Analyst ships one, and `vad.rs` already computes the wind per ring to make storm-relative velocity and shows nobody.
-  Evidence: `src-tauri/src/vad.rs` (`fit_ring`, `median_wind`), no `vad`/`VWP` reference in `src/panels`; NWS VWP conventions (height against time, barbs coloured by RMS error, up to 30 altitudes) and the RPG reference guide (RMS threshold 9.7 kt, symmetry 13.6 kt, at least 25 points).
-  Touches: `src-tauri/src/vad.rs` (per-ring RMS and symmetry checks, altitude bins from beam height), a `level2_vwp` command in `lib.rs`, new `src/panels/VwpPanel.tsx` with a hodograph, `src/lib/commands.ts` and the rail's tools group, catalogues.
-  Acceptance: For a held site the panel shows barbs by height for the last volumes the loop holds (or the one volume today), marks bins that failed the RMS or symmetry checks as ND, offers a hodograph, and says which volume each column came from; a fixture volume produces a known profile in a test.
-  Complexity: M
-
 ### P3
 
 - [ ] AUD-187 (P3): Scan the staged installer with Defender in the release gate

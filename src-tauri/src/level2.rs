@@ -30,6 +30,7 @@ use crate::palette::Palette;
 use crate::radar_status;
 use crate::tdwr;
 use crate::vad;
+use crate::vwp;
 
 const ARCHIVE_HOST: &str = "https://unidata-nexrad-level2.s3.amazonaws.com";
 /// The image is square because a sweep is a circle; this is its side in pixels.
@@ -2693,6 +2694,54 @@ pub async fn level2_sweep(
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
+}
+
+/// How many volumes a profile is drawn for at once.
+///
+/// Each is a whole Archive II object fetched and decoded, so this is the
+/// ceiling on what one press of a panel is allowed to ask the bucket for.
+const MAX_VWP_COLUMNS: usize = 6;
+
+/// The wind profile of the volumes a held site is showing.
+///
+/// One column per volume, in the order they were asked for, each carrying
+/// which volume it came from. An empty list means the volume the radar
+/// published last, which is the single-column case for a reader who is not
+/// looping.
+#[tauri::command]
+pub async fn level2_vwp(
+    station: String,
+    times: Vec<String>,
+) -> Result<Vec<vwp::VwpColumn>, Level2Error> {
+    let station = station.to_uppercase();
+    wsr88d_only(&station)?;
+
+    let wanted: Vec<Option<DateTime<Utc>>> = if times.is_empty() {
+        vec![None]
+    } else {
+        let mut asked = Vec::new();
+        for at in times.iter().take(MAX_VWP_COLUMNS) {
+            let parsed = DateTime::parse_from_rfc3339(at)
+                .map_err(|_| Level2Error::InvalidTime(at.clone()))?
+                .with_timezone(&Utc);
+            asked.push(Some(parsed));
+        }
+        asked
+    };
+
+    let mut columns = Vec::with_capacity(wanted.len());
+    for at in wanted {
+        let (key, data) = volume_for_export(&station, at).await?;
+        // Decoding a volume is CPU work and must not sit on the async runtime.
+        let column = tauri::async_runtime::spawn_blocking(move || {
+            let (scan, _) = decoded_volume(&key, data)?;
+            Ok::<vwp::VwpColumn, Level2Error>(vwp::profile(&key, &scan))
+        })
+        .await
+        .map_err(|error| Level2Error::Decode(error.to_string()))??;
+        columns.push(column);
+    }
+    Ok(columns)
 }
 
 #[tauri::command]
