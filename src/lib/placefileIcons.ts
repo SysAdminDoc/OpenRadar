@@ -114,10 +114,12 @@ export function sliceIcon(
  * skips icons, so those features disappeared with no note: fewer shapes than
  * the import counted, and nothing saying why. This is what a placefile's own
  * "there is something here" looks like when its picture is missing.
+ *
+ * Registered under the icon's OWN id rather than as a named fallback the
+ * layer coalesces onto: a tile records only the image its expression actually
+ * resolved to as its dependency, so a fallback that won once would keep
+ * winning and the real sheet would never reload behind it.
  */
-export const FALLBACK_ICON = "openradar-placefile-dot";
-
-/** A filled disc with a light rim, built rather than shipped as a file. */
 export function fallbackDot(size = 12): Pixels {
   const data = new Uint8ClampedArray(size * size * 4);
   const middle = (size - 1) / 2;

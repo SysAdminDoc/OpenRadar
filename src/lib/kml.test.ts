@@ -268,6 +268,28 @@ describe("a style written inside the placemark", () => {
     expect(read.features[0].properties.stroke).toBe("#ff0000");
   });
 
+  it("does not throw away a shared colour it says nothing about", () => {
+    // Google Earth writes an inline block carrying only an IconStyle beside
+    // a styleUrl all the time. Replacing the shared style with it wholesale
+    // loses the line and fill colours the file did state, which is the same
+    // "imports in the default blue" the inline read was added to fix.
+    const read = parseKml(
+      document(
+        `<Placemark><styleUrl>#shared</styleUrl>
+          <Style><IconStyle><scale>1.2</scale></IconStyle></Style>
+          <Point><coordinates>-93.6,41.6</coordinates></Point>
+        </Placemark>`,
+        `<Style id="shared">
+          <LineStyle><color>ff0000ff</color><width>3</width></LineStyle>
+          <PolyStyle><color>7f00ff00</color></PolyStyle>
+        </Style>`,
+      ),
+    );
+    expect(read.features[0].properties.stroke).toBe("#ff0000");
+    expect(read.features[0].properties.fill).toBe("rgba(0, 255, 0, 0.498)");
+    expect(read.features[0].properties.strokeWidth).toBe(3);
+  });
+
   it("does not take a style from somewhere else in the document", () => {
     // Only a direct child. A shared style declared elsewhere must not be
     // picked up by a placemark that never asked for it.

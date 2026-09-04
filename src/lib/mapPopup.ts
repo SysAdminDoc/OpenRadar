@@ -99,7 +99,7 @@ const DRAWN_WITH = new Set([
   "stroke",
   "icon",
   "image",
-  "fileName",
+  "openradarFile",
   "fileOpacity",
   "label",
   "name",
@@ -163,7 +163,7 @@ function importedShape(
   }
   if (!lines.length) return null;
   return {
-    title: said(properties.fileName) ?? translate("popup.importedShape"),
+    title: said(properties.openradarFile) ?? translate("popup.importedShape"),
     lines: lines.slice(0, MAX_IMPORTED_LINES),
   };
 }

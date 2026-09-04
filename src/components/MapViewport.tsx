@@ -27,7 +27,6 @@ import { cachedUrl } from "../lib/tileCache";
 import { log } from "../lib/log";
 import { parseIconId, placefilePictures, type IconRef } from "../lib/placefile";
 import {
-  FALLBACK_ICON,
   fallbackDot,
   hasAlpha,
   iconsWanted,
@@ -1474,15 +1473,14 @@ function MapViewportInner(
         source: CUSTOM_SOURCE_ID,
         filter: ["==", ["get", "kind"], "icon"],
         layout: {
-          // The sheet's own cell where it was fetched, and a plain dot where
-          // it was not: a symbol naming an image MapLibre does not hold
-          // draws nothing, and the circle layer below skips icons on
-          // purpose, so those shapes vanished with no note.
-          "icon-image": [
-            "coalesce",
-            ["image", ["get", "icon"]],
-            ["image", FALLBACK_ICON],
-          ],
+          // The icon named on the feature, and nothing else. A coalesce onto
+          // a fallback image looks like the obvious way to cover a sheet that
+          // will not load and is a trap: the tile records only the image the
+          // coalesce RESOLVED to as its dependency, so once the fallback has
+          // won, adding the real icon later reloads nothing and the sheet
+          // never appears. The fallback is registered under the icon's own id
+          // instead, where adding the real one would replace it.
+          "icon-image": ["get", "icon"],
           // The cell was padded so its hotspot is the middle of it, which is
           // what makes an arbitrary hotspot exact under a keyword anchor.
           "icon-anchor": "center",
@@ -1542,11 +1540,19 @@ function MapViewportInner(
         // draws black as transparent.
         const blackIsTransparent = !hasAlpha(sheet);
         for (const { id, ref } of refs) {
+          if (map.hasImage(id)) continue;
+          // A cell the sheet is too small to hold gets the dot for the same
+          // reason a sheet that would not load does.
           const icon = sliceIcon(sheet, ref, blackIsTransparent);
-          if (!icon || map.hasImage(id)) continue;
-          map.addImage(id, icon);
+          map.addImage(id, icon ?? fallbackDot());
         }
       } catch (error) {
+        // A sheet that will not answer leaves its icons drawing nothing at
+        // all, because the circle layer skips them on purpose. A plain dot
+        // under each id the sheet owed says there is something here.
+        for (const { id } of refs) {
+          if (!map.hasImage(id)) map.addImage(id, fallbackDot());
+        }
         log.warn(
           "placefile",
           `icon sheet ${new URL(url).hostname} refused: ${String(error)}`,
@@ -1880,10 +1886,6 @@ function MapViewportInner(
       syncRoute();
       syncCounties();
       syncStormTrack();
-      // Before the lane that names it. A style change drops every image,
-      // so this is registered here rather than once at start-up.
-      if (!map.hasImage(FALLBACK_ICON))
-        map.addImage(FALLBACK_ICON, fallbackDot());
       syncCustomOverlay();
       onMapStatus?.("ready");
     };
