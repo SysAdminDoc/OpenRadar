@@ -107,7 +107,7 @@ export const en = {
   "layers.opacityFor": "{layer}, {percent}% solid",
   "layers.files": "Files you imported",
   "layers.picturesCeiling":
-    "{count, plural, one {# picture} other {# pictures}} in these files; the first {drawn} are drawn.",
+    "{count, plural, one {# picture} other {# pictures}} in these files. The map draws {drawn} at a time, and leaves out any that are outside their own zoom or time range.",
   "layers.filesDetail":
     "Each one on its own switch, with the last in the list drawn on top",
   "layers.filesNone":

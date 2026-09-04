@@ -116,7 +116,7 @@ export const fr: Catalogue = {
   "layers.opacityFor": "{layer}, {percent} % d'opacité",
   "layers.files": "Fichiers que vous avez importés",
   "layers.picturesCeiling":
-    "{count, plural, one {# image} other {# images}} dans ces fichiers ; les {drawn} premières sont dessinées.",
+    "{count, plural, one {# image} other {# images}} dans ces fichiers. La carte en dessine {drawn} à la fois, et laisse de côté celles qui sortent de leur propre plage de zoom ou de temps.",
   "layers.filesDetail":
     "Chacun avec son propre interrupteur, le dernier de la liste dessiné par-dessus",
   "layers.filesNone":

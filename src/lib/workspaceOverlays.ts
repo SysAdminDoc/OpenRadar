@@ -140,9 +140,13 @@ export interface OverlayGates {
  * How many georeferenced pictures the switched-on files between them ask for.
  *
  * A placefile may carry four and eight files may be loaded, so the set can ask
- * for thirty-two while the map draws the first four in drawing order. The
- * others simply were not there, and the import counted them as shapes like
- * everything else.
+ * for thirty-two while the map draws four. The others simply were not there,
+ * and the import counted them as shapes like everything else.
+ *
+ * What the files ask for, which is not the same as what would be drawn right
+ * now: a picture outside its own zoom or time range is dropped before the
+ * ceiling is reached at all. The sentence this feeds says so rather than
+ * claiming the first four of these are the four on screen.
  */
 export function picturesWanted(files: WorkspaceOverlayFile[]): number {
   let count = 0;

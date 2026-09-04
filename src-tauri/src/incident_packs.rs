@@ -137,12 +137,17 @@ impl IncidentPackError {
             | Self::ArchiveVerification
             | Self::ArchiveHashMismatch => ("corrupt", Vec::new()),
             // The app refusing the request, before anything was downloaded.
-            Self::NoStore | Self::InvalidRegion | Self::InvalidName => ("refused", Vec::new()),
+            Self::InvalidRegion | Self::InvalidName => ("refused", Vec::new()),
             // Something on this machine, which the reader cannot act on
             // beyond trying again and sending the diagnostics block.
-            Self::Worker(_) | Self::Io(_) | Self::Json(_) | Self::Image(_) | Self::PmTiles(_) => {
-                ("failed", Vec::new())
-            }
+            // Nothing the reader did, and nothing they can change: the
+            // store itself is missing, or something on this machine gave way.
+            Self::NoStore
+            | Self::Worker(_)
+            | Self::Io(_)
+            | Self::Json(_)
+            | Self::Image(_)
+            | Self::PmTiles(_) => ("failed", Vec::new()),
             Self::Http(error) => error.parts(),
         }
     }
@@ -231,6 +236,14 @@ pub struct PackSummary {
     pub source: String,
     pub attribution: String,
     pub error: Option<String>,
+    /// What the sentence for that code needs filling in, when it needs any.
+    ///
+    /// Beside the code rather than folded into it, because the field is read
+    /// back out of a file an older build wrote and that one holds a sentence.
+    /// Without this a tile server's status was thrown away here and the pack
+    /// row drew the placeholder: "The tile server could not be reached. {0}".
+    #[serde(default)]
+    pub error_args: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -254,6 +267,7 @@ struct PackManifest {
     source: String,
     attribution: String,
     error: Option<String>,
+    error_args: Vec<String>,
     created_at: String,
     updated_at: String,
 }
@@ -276,6 +290,7 @@ impl From<&PackManifest> for PackSummary {
             source: value.source.clone(),
             attribution: value.attribution.clone(),
             error: value.error.clone(),
+            error_args: value.error_args.clone(),
             created_at: value.created_at.clone(),
             updated_at: value.updated_at.clone(),
         }
@@ -1299,7 +1314,9 @@ fn mark_failed(root: &Path, id: &str, error: &IncidentPackError) {
     // A code rather than a sentence. This is read back and shown on the pack
     // row, and an English sentence written into a file on disk is one the
     // page can never translate; the exact words still go to the log below.
-    manifest.error = Some(error.parts().0.to_string());
+    let (code, args) = error.parts();
+    manifest.error = Some(code.to_string());
+    manifest.error_args = args;
     manifest.updated_at = now();
     if let Err(write_error) = write_manifest(&pack_dir, &manifest) {
         log::error!("OpenRadar could not record an incident pack failure: {write_error}");
@@ -1310,7 +1327,9 @@ fn mark_archive_failed(pack_dir: &Path, manifest: &mut PackManifest, error: &Inc
     forget_verified_archive(&pack_dir.join(ARCHIVE_FILE));
     manifest.status = PackStatus::Failed;
     // A code, for the same reason as `mark_failed`: this is shown on a row.
-    manifest.error = Some(error.parts().0.to_string());
+    let (code, args) = error.parts();
+    manifest.error = Some(code.to_string());
+    manifest.error_args = args;
     manifest.updated_at = now();
     if let Err(write_error) = write_manifest(pack_dir, manifest) {
         log::error!("OpenRadar could not record incident pack integrity failure: {write_error}");
@@ -1397,6 +1416,7 @@ fn recover_store(root: &Path) -> Result<(), IncidentPackError> {
             if !archive.is_file() || fs::metadata(&archive)?.len() != manifest.archive_bytes {
                 manifest.status = PackStatus::Failed;
                 manifest.error = Some("corrupt".into());
+                manifest.error_args = Vec::new();
                 manifest.updated_at = now();
                 write_manifest(&entry.path(), &manifest)?;
             } else {
@@ -1409,6 +1429,7 @@ fn recover_store(root: &Path) -> Result<(), IncidentPackError> {
         ) {
             manifest.status = PackStatus::Paused;
             manifest.error = Some("pausedOnExit".into());
+            manifest.error_args = Vec::new();
             manifest.updated_at = now();
             let _ = reconcile_staging(&entry.path(), &mut manifest)?;
         } else {
@@ -1510,6 +1531,7 @@ pub async fn incident_pack_create(
         source: SOURCE_NAME.into(),
         attribution: ATTRIBUTION.into(),
         error: None,
+        error_args: Vec::new(),
         created_at: timestamp.clone(),
         updated_at: timestamp,
     };
@@ -1982,6 +2004,7 @@ mod tests {
             source: SOURCE_NAME.into(),
             attribution: ATTRIBUTION.into(),
             error: None,
+            error_args: Vec::new(),
             created_at: timestamp.clone(),
             updated_at: timestamp,
         };
@@ -2029,6 +2052,7 @@ mod tests {
             source: SOURCE_NAME.into(),
             attribution: ATTRIBUTION.into(),
             error: None,
+            error_args: Vec::new(),
             created_at: timestamp.clone(),
             updated_at: timestamp,
         };
@@ -2091,6 +2115,7 @@ mod tests {
             source: SOURCE_NAME.into(),
             attribution: ATTRIBUTION.into(),
             error: None,
+            error_args: Vec::new(),
             created_at: timestamp.clone(),
             updated_at: timestamp,
         };
@@ -2152,6 +2177,7 @@ mod tests {
                 source: SOURCE_NAME.into(),
                 attribution: ATTRIBUTION.into(),
                 error: None,
+                error_args: Vec::new(),
                 created_at: timestamp.clone(),
                 updated_at: timestamp,
             },
@@ -2228,6 +2254,7 @@ mod tests {
             source: SOURCE_NAME.into(),
             attribution: ATTRIBUTION.into(),
             error: None,
+            error_args: Vec::new(),
             created_at: timestamp.clone(),
             updated_at: timestamp,
         };
@@ -2303,6 +2330,7 @@ mod tests {
             source: SOURCE_NAME.into(),
             attribution: ATTRIBUTION.into(),
             error: None,
+            error_args: Vec::new(),
             created_at: timestamp.clone(),
             updated_at: timestamp,
         };
@@ -2340,6 +2368,7 @@ mod tests {
             source: SOURCE_NAME.into(),
             attribution: ATTRIBUTION.into(),
             error: None,
+            error_args: Vec::new(),
             created_at: timestamp.clone(),
             updated_at: timestamp,
         }

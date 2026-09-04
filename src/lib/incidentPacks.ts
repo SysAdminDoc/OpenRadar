@@ -31,6 +31,8 @@ export interface IncidentPack {
   source: string;
   attribution: string;
   error: string | null;
+  /** What that code's sentence needs filling in, when it needs any. */
+  errorArgs?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -191,23 +193,25 @@ export function formatPackBytes(bytes: number): string {
  * build hold a sentence in this field rather than a code, so anything with no
  * key of its own is shown as it was rather than swallowed.
  */
-export function packErrorText(failure: unknown): string {
+export function packErrorText(failure: unknown, args: string[] = []): string {
   const code =
     typeof failure === "string"
       ? failure
       : failure && typeof failure === "object" && "code" in failure
         ? String((failure as { code?: unknown }).code)
         : null;
-  const args =
+  // A rejected command carries its own; a manifest read back off disk hands
+  // them separately, because the field that holds the code is a string.
+  const carried =
     failure && typeof failure === "object" && "args" in failure
       ? ((failure as { args?: unknown }).args ?? [])
-      : [];
+      : args;
   if (code) {
     const key = `packs.error.${code}`;
     if (key in en) {
       return translate(
         key as StringKey,
-        nativeErrorParams(code, Array.isArray(args) ? args : []),
+        nativeErrorParams(code, Array.isArray(carried) ? carried : []),
       );
     }
     // A sentence an older build wrote into a manifest, which is not a code
