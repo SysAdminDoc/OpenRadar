@@ -5,7 +5,7 @@ import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
 
 /** A file lands every twenty seconds; asking once a minute is plenty. */
-const REFRESH_MS = 60_000;
+export const REFRESH_MS = 60_000;
 
 export interface Flash {
   latitude: number;
@@ -127,10 +127,25 @@ export function useLightning(options: {
   ready: boolean;
   enabled: boolean;
   pageVisible: boolean;
+  /**
+   * Keep asking even while the window is hidden.
+   *
+   * True when the lightning watch is on. A watch that only works while
+   * somebody is looking at the map is not a watch: the reader minimised the
+   * window, or put it in the tray, precisely so it could tell them something
+   * they were not watching for.
+   */
+  keepPollingWhileHidden?: boolean;
   /** Milliseconds, ticking once a minute, for judging what is still current. */
   clock: number;
 }): LightningState {
-  const { ready, enabled, pageVisible, clock } = options;
+  const {
+    ready,
+    enabled,
+    pageVisible,
+    keepPollingWhileHidden = false,
+    clock,
+  } = options;
   const [window_, setWindow] = useState<FlashWindow | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Interval ticks and visibility changes share one native read. The command
@@ -192,7 +207,7 @@ export function useLightning(options: {
     // Not with no network, where it is one more failure in the log.
     if (isOnline()) void refresh();
 
-    if (!pageVisible) {
+    if (!pageVisible && !keepPollingWhileHidden) {
       return () => {
         open = false;
         requestGeneration += 1;
@@ -204,7 +219,7 @@ export function useLightning(options: {
       requestGeneration += 1;
       stop();
     };
-  }, [pageVisible, wanted]);
+  }, [keepPollingWhileHidden, pageVisible, wanted]);
 
   // Built once per fetch. What the map does with them changes every tick; what
   // they are does not.

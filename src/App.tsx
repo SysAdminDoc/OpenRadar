@@ -964,6 +964,10 @@ export default function App() {
     enabled: settings.layers.stormCells && !singleSite.historical,
     station: singleSite.station,
     pageVisible,
+    // The approach notice is derived from this report and exists to reach
+    // somebody who is not looking at the map, so the report has to keep
+    // arriving while the window is hidden or in the tray.
+    keepPollingWhileHidden: settings.approach.enabled,
     clock,
     names: cellNames,
     // Names follow the identity the algorithm gives, so when it stops
@@ -1094,6 +1098,10 @@ export default function App() {
     ready: hydrated,
     enabled: settings.layers.lightningFlashes,
     pageVisible,
+    // Same reason as the cells above: the lightning notice is derived from
+    // this window, and a watch that only works while somebody is watching
+    // is not a watch.
+    keepPollingWhileHidden: settings.lightningWatch.enabled,
     clock,
   });
   // Lightning near a watched place, from the window the map already holds.

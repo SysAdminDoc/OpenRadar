@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- The two notices about a watched place that are not warnings, a storm heading for it and lightning falling near it, now keep working while the window is minimised or sitting in the tray. They could not before: both are worked out from feeds that stopped asking the moment the window was hidden, so the one time a background notice is any use was the one time it could not arrive. A warning at the same place was always announced, which is what made the gap easy to miss. The feeds now carry on only while the watch that needs them is switched on, so nothing asks for anything a reader has not turned on.
+
 - The lightning watch no longer forgets a place it has already told when the flash feed goes quiet for a moment. The feed answers with nothing whenever its listing fails, whenever the newest file it found has aged out of the window, and whenever you switch the lightning layer off, and any one of those used to wipe what every watched place had been told. A storm still going on was then announced a second time, and worse, the all-clear was measured from a flash the app no longer remembered, so somebody told to come in was never told they could go back out. What a place has been told is now only replaced by a real answer.
 
 ## OpenRadar v0.9.0

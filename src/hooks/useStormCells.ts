@@ -37,6 +37,14 @@ export function useStormCells(options: {
   enabled: boolean;
   station: string | null;
   pageVisible: boolean;
+  /**
+   * Keep asking even while the window is hidden.
+   *
+   * True when the approach watch is on. The notice exists to reach somebody
+   * who is not looking at the map, so the report it is derived from has to
+   * keep arriving while the window is hidden or in the tray.
+   */
+  keepPollingWhileHidden?: boolean;
   /** Milliseconds, ticking once a minute, for judging what is still current. */
   clock: number;
   /**
@@ -57,7 +65,15 @@ export function useStormCells(options: {
    */
   onReport?: (report: CellReport | null) => void;
 }): StormCellState {
-  const { ready, enabled, station, pageVisible, clock, names } = options;
+  const {
+    ready,
+    enabled,
+    station,
+    pageVisible,
+    keepPollingWhileHidden = false,
+    clock,
+    names,
+  } = options;
   const reportRef = useRef(options.onReport);
   useEffect(() => {
     reportRef.current = options.onReport;
@@ -110,7 +126,7 @@ export function useStormCells(options: {
     // Not with no network, where it is one more failure in the log.
     if (isOnline()) void refresh();
 
-    if (!pageVisible) {
+    if (!pageVisible && !keepPollingWhileHidden) {
       return () => {
         open = false;
       };
@@ -120,7 +136,7 @@ export function useStormCells(options: {
       open = false;
       stop();
     };
-  }, [pageVisible, station, wanted]);
+  }, [keepPollingWhileHidden, pageVisible, station, wanted]);
 
   // A volume from half an hour ago is not what is happening now, and cells are
   // the one layer somebody might act on.
