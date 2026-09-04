@@ -38,6 +38,16 @@ import { rangeFill } from "../lib/rangeFill";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
 import { GAUGE_QPE_PERIODS, type GaugeQpePeriod } from "../lib/gaugeQpe";
 import {
+  ISOTHERM_LEVELS,
+  LIGHTNING_FORECASTS,
+  LIGHTNING_JUMPS,
+  LIGHTNING_WINDOWS,
+  type IsothermLevel,
+  type LightningForecast,
+  type LightningJump,
+  type LightningWindow,
+} from "../lib/lightningGrids";
+import {
   AZ_SHEAR_LEVELS,
   ROTATION_PERIODS,
   type AzShearLevel,
@@ -310,6 +320,16 @@ interface LayersPanelProps {
   /** Which slab the merged shear is measured through. */
   azShearLevel: AzShearLevel;
   onAzShearLevel: (level: AzShearLevel) => void;
+  /** Which of the lightning grids each of its three switches is showing. */
+  lightningWindow: LightningWindow;
+  onLightningWindow: (window: LightningWindow) => void;
+  lightningForecastWindow: LightningForecast;
+  onLightningForecastWindow: (window: LightningForecast) => void;
+  lightningJumpWindow: LightningJump;
+  onLightningJumpWindow: (window: LightningJump) => void;
+  /** Which temperature the isothermal reflectivity is sampled at. */
+  isothermLevel: IsothermLevel;
+  onIsothermLevel: (level: IsothermLevel) => void;
   /** Which day of each of the two Weather Prediction Center outlooks. */
   wpcDay: number;
   spcDay: number;
@@ -551,6 +571,24 @@ const LAYER_OPTIONS: Array<{
     icon: Zap,
   },
   {
+    key: "lightningForecast",
+    labelKey: "layer.lightningForecast",
+    detailKey: "layers.lightningForecastDetail",
+    icon: Zap,
+  },
+  {
+    key: "lightningJump",
+    labelKey: "layer.lightningJump",
+    detailKey: "layers.lightningJumpDetail",
+    icon: Zap,
+  },
+  {
+    key: "isothermReflectivity",
+    labelKey: "layer.isothermReflectivity",
+    detailKey: "layers.isothermReflectivityDetail",
+    icon: Snowflake,
+  },
+  {
     key: "lightningFlashes",
     labelKey: "layer.lightningFlashes",
     detailKey: "layers.lightningFlashesDetail",
@@ -599,6 +637,14 @@ export function LayersPanel({
   onRotationPeriod,
   azShearLevel,
   onAzShearLevel,
+  lightningWindow,
+  onLightningWindow,
+  lightningForecastWindow,
+  onLightningForecastWindow,
+  lightningJumpWindow,
+  onLightningJumpWindow,
+  isothermLevel,
+  onIsothermLevel,
   wpcDay,
   spcDay,
   spcHazard,
@@ -999,8 +1045,13 @@ export function LayersPanel({
               </button>
             ))}
           </div>
-          {/* Days 3 to 8 publish one probability with no hazard split, so
-              there is nothing to choose between there. */}
+          {/* Day 3 publishes two products, a categorical and one combined
+              probability, and it used to have no control of its own: which
+              one you got came from whichever hazard was last picked on Day 1
+              or 2, with nothing on screen saying which was drawn. On the
+              default that is categorical, so the Day 3 probability was
+              unreachable from a fresh workspace. Days 4 to 8 publish one
+              probability and genuinely have nothing to choose between. */}
           {spcDay <= 2 ? (
             <div
               className="segmented-control segmented-control--full"
@@ -1017,6 +1068,32 @@ export function LayersPanel({
                   {t(HAZARD_LABELS[hazard])}
                 </button>
               ))}
+            </div>
+          ) : spcDay === 3 ? (
+            <div
+              className="segmented-control segmented-control--full"
+              aria-label={t("layers.spcHazard")}
+            >
+              <button
+                type="button"
+                className={spcHazard === "categorical" ? "is-active" : ""}
+                aria-pressed={spcHazard === "categorical"}
+                onClick={() => onSpcHazard("categorical")}
+              >
+                {t(HAZARD_LABELS.categorical)}
+              </button>
+              <button
+                type="button"
+                className={spcHazard === "categorical" ? "" : "is-active"}
+                aria-pressed={spcHazard !== "categorical"}
+                // Day 3's probability is one combined number rather than one
+                // per hazard, so any of the three hazards names it. Tornado
+                // is chosen so switching back to Day 1 or 2 lands somewhere
+                // a reader would recognise.
+                onClick={() => onSpcHazard("tornado")}
+              >
+                {t("layers.spcDay3Probability")}
+              </button>
             </div>
           ) : null}
         </div>
@@ -1091,6 +1168,129 @@ export function LayersPanel({
                 onClick={() => onRotationPeriod(period)}
               >
                 {t(`rotationPeriod.${period}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.lightningDensity ? (
+        <div
+          className="settings-section"
+          data-lightning-window={lightningWindow}
+        >
+          <div className="settings-section__title">
+            <span>{t("layers.lightningWindow")}</span>
+            <small>{t("layers.lightningWindowDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.lightningWindow")}
+          >
+            {LIGHTNING_WINDOWS.map((window) => (
+              <button
+                key={window}
+                type="button"
+                className={lightningWindow === window ? "is-active" : ""}
+                aria-pressed={lightningWindow === window}
+                onClick={() => onLightningWindow(window)}
+              >
+                {t(`lightningWindow.${window}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.lightningForecast ? (
+        <div
+          className="settings-section"
+          data-lightning-forecast={lightningForecastWindow}
+        >
+          <div className="settings-section__title">
+            <span>{t("layers.lightningForecastWindow")}</span>
+            {/* That this is a forecast rather than a flash that has already
+                struck, said where the reader chooses the window: a grid over
+                ground nothing has hit yet reads as an observation otherwise. */}
+            <small>{t("layers.lightningForecastWindowDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.lightningForecastWindow")}
+          >
+            {LIGHTNING_FORECASTS.map((window) => (
+              <button
+                key={window}
+                type="button"
+                className={
+                  lightningForecastWindow === window ? "is-active" : ""
+                }
+                aria-pressed={lightningForecastWindow === window}
+                onClick={() => onLightningForecastWindow(window)}
+              >
+                {t(`lightningForecast.${window}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.lightningJump ? (
+        <div
+          className="settings-section"
+          data-lightning-jump={lightningJumpWindow}
+        >
+          <div className="settings-section__title">
+            <span>{t("layers.lightningJumpWindow")}</span>
+            {/* The number on the map is in standard deviations, and two of
+                them is the threshold the Warning Decision Training Division
+                teaches. Without that a reader has no scale to read it on. */}
+            <small>{t("layers.lightningJumpWindowDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.lightningJumpWindow")}
+          >
+            {LIGHTNING_JUMPS.map((window) => (
+              <button
+                key={window}
+                type="button"
+                className={lightningJumpWindow === window ? "is-active" : ""}
+                aria-pressed={lightningJumpWindow === window}
+                onClick={() => onLightningJumpWindow(window)}
+              >
+                {t(`lightningJump.${window}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {layers.isothermReflectivity ? (
+        <div className="settings-section" data-isotherm-level={isothermLevel}>
+          <div className="settings-section__title">
+            <span>{t("layers.isothermLevel")}</span>
+            {/* Both keys written out rather than built from the level, so the
+                catalogue coverage gate can see them. */}
+            <small>
+              {isothermLevel === "minus10"
+                ? t("layers.isothermLevelDetailMinus10")
+                : t("layers.isothermLevelDetailMinus20")}
+            </small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.isothermLevel")}
+          >
+            {ISOTHERM_LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                className={isothermLevel === level ? "is-active" : ""}
+                aria-pressed={isothermLevel === level}
+                onClick={() => onIsothermLevel(level)}
+              >
+                {t(`isothermLevel.${level}`)}
               </button>
             ))}
           </div>

@@ -9,6 +9,12 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { LayersPanel } from "./MapOptionsPanels";
+import type {
+  IsothermLevel,
+  LightningForecast,
+  LightningJump,
+  LightningWindow,
+} from "../lib/lightningGrids";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import { en } from "../i18n/en";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
@@ -30,6 +36,14 @@ function panel(overrides: {
   onRotationPeriod?: (period: RotationPeriod) => void;
   azShearLevel?: AzShearLevel;
   onAzShearLevel?: (level: AzShearLevel) => void;
+  lightningWindow?: LightningWindow;
+  onLightningWindow?: (window: LightningWindow) => void;
+  lightningForecastWindow?: LightningForecast;
+  onLightningForecastWindow?: (window: LightningForecast) => void;
+  lightningJumpWindow?: LightningJump;
+  onLightningJumpWindow?: (window: LightningJump) => void;
+  isothermLevel?: IsothermLevel;
+  onIsothermLevel?: (level: IsothermLevel) => void;
   wpcDay?: number;
   onWpcDay?: (day: number) => void;
   wssiDay?: number;
@@ -55,6 +69,21 @@ function panel(overrides: {
       onRotationPeriod={overrides.onRotationPeriod ?? vi.fn()}
       azShearLevel={overrides.azShearLevel ?? DEFAULT_SETTINGS.azShearLevel}
       onAzShearLevel={overrides.onAzShearLevel ?? vi.fn()}
+      lightningWindow={
+        overrides.lightningWindow ?? DEFAULT_SETTINGS.lightningWindow
+      }
+      onLightningWindow={overrides.onLightningWindow ?? vi.fn()}
+      lightningForecastWindow={
+        overrides.lightningForecastWindow ??
+        DEFAULT_SETTINGS.lightningForecastWindow
+      }
+      onLightningForecastWindow={overrides.onLightningForecastWindow ?? vi.fn()}
+      lightningJumpWindow={
+        overrides.lightningJumpWindow ?? DEFAULT_SETTINGS.lightningJumpWindow
+      }
+      onLightningJumpWindow={overrides.onLightningJumpWindow ?? vi.fn()}
+      isothermLevel={overrides.isothermLevel ?? DEFAULT_SETTINGS.isothermLevel}
+      onIsothermLevel={overrides.onIsothermLevel ?? vi.fn()}
       wpcDay={overrides.wpcDay ?? DEFAULT_SETTINGS.wpcDay}
       onWpcDay={overrides.onWpcDay ?? vi.fn()}
       wssiDay={overrides.wssiDay ?? DEFAULT_SETTINGS.wssiDay}

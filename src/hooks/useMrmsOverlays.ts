@@ -11,6 +11,10 @@ import {
   GAUGE_QPE_PRODUCTS,
   ROTATION_PRODUCTS,
   AZ_SHEAR_PRODUCTS,
+  ISOTHERM_PRODUCTS,
+  LIGHTNING_DENSITY_PRODUCTS,
+  LIGHTNING_FORECAST_PRODUCTS,
+  LIGHTNING_JUMP_PRODUCTS,
   type MrmsProductId,
   type MrmsProductInfo,
 } from "../lib/providers/mrms";
@@ -34,8 +38,19 @@ const REFRESH_MS = 2 * 60_000;
 export interface MrmsChoices {
   gaugeQpePeriod: GaugeQpePeriod;
   rotationPeriod: RotationPeriod;
+  lightningWindow: LightningWindow;
+  lightningForecastWindow: LightningForecast;
+  lightningJumpWindow: LightningJump;
+  isothermLevel: IsothermLevel;
   azShearLevel: AzShearLevel;
 }
+
+import type {
+  IsothermLevel,
+  LightningForecast,
+  LightningJump,
+  LightningWindow,
+} from "../lib/lightningGrids";
 
 /** Which layer switch drives which MRMS product. */
 export const MRMS_LAYERS: Array<{
@@ -53,7 +68,13 @@ export const MRMS_LAYERS: Array<{
   { layer: "shi", product: "shi" },
   { layer: "posh", product: "posh" },
   { layer: "vii", product: "vii" },
+  // Four windows, two forecasts, two jump grids and two temperatures, one
+  // switch each; the entry names the default and the hook swaps in whichever
+  // the reader chose. See the four maps in `providers/mrms.ts`.
   { layer: "lightningDensity", product: "lightning" },
+  { layer: "lightningForecast", product: "lightning-probability-30min" },
+  { layer: "lightningJump", product: "lightning-jump-max" },
+  { layer: "isothermReflectivity", product: "reflectivity-minus-10c" },
   { layer: "echoTops", product: "echo-tops" },
   { layer: "vil", product: "vil" },
   { layer: "precipRate", product: "precip-rate" },
@@ -95,6 +116,15 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
   vii: "mrms.vii",
   "hail-swath": "mrms.hailSwath",
   lightning: "mrms.lightning",
+  "lightning-1min": "mrms.lightning1min",
+  "lightning-15min": "mrms.lightning15min",
+  "lightning-30min": "mrms.lightning30min",
+  "lightning-probability-30min": "mrms.lightningProbability30",
+  "lightning-probability-60min": "mrms.lightningProbability60",
+  "lightning-jump": "mrms.lightningJump",
+  "lightning-jump-max": "mrms.lightningJumpMax",
+  "reflectivity-minus-10c": "mrms.reflectivityMinus10c",
+  "reflectivity-minus-20c": "mrms.reflectivityMinus20c",
   "echo-tops": "mrms.echoTops",
   vil: "mrms.vil",
   "precip-rate": "mrms.precipRate",
@@ -130,6 +160,18 @@ export function productFor(
     return ROTATION_PRODUCTS[choices.rotationPeriod];
   }
   if (layer === "azShear") return AZ_SHEAR_PRODUCTS[choices.azShearLevel];
+  if (layer === "lightningDensity") {
+    return LIGHTNING_DENSITY_PRODUCTS[choices.lightningWindow];
+  }
+  if (layer === "lightningForecast") {
+    return LIGHTNING_FORECAST_PRODUCTS[choices.lightningForecastWindow];
+  }
+  if (layer === "lightningJump") {
+    return LIGHTNING_JUMP_PRODUCTS[choices.lightningJumpWindow];
+  }
+  if (layer === "isothermReflectivity") {
+    return ISOTHERM_PRODUCTS[choices.isothermLevel];
+  }
   return product;
 }
 

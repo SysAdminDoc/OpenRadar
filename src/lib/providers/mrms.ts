@@ -1,5 +1,11 @@
 import { isDesktopRuntime } from "../settings";
 import type { GaugeQpePeriod } from "../gaugeQpe";
+import type {
+  IsothermLevel,
+  LightningForecast,
+  LightningJump,
+  LightningWindow,
+} from "../lightningGrids";
 import type { AzShearLevel, RotationPeriod } from "../rotationTrack";
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
 
@@ -33,6 +39,15 @@ export const MRMS_PRODUCT_IDS = [
   "posh",
   "vii",
   "lightning",
+  "lightning-1min",
+  "lightning-15min",
+  "lightning-30min",
+  "lightning-probability-30min",
+  "lightning-probability-60min",
+  "lightning-jump",
+  "lightning-jump-max",
+  "reflectivity-minus-10c",
+  "reflectivity-minus-20c",
   "echo-tops",
   "vil",
   "precip-rate",
@@ -70,6 +85,38 @@ export const ROTATION_PRODUCTS: Record<RotationPeriod, MrmsProductId> = {
 export const AZ_SHEAR_PRODUCTS: Record<AzShearLevel, MrmsProductId> = {
   low: "az-shear-low",
   mid: "az-shear-mid",
+};
+
+/** Which window the density switch is pointing at. */
+export const LIGHTNING_DENSITY_PRODUCTS: Record<
+  LightningWindow,
+  MrmsProductId
+> = {
+  "1m": "lightning-1min",
+  "5m": "lightning",
+  "15m": "lightning-15min",
+  "30m": "lightning-30min",
+};
+
+/** Which forecast the chance-of-lightning switch is pointing at. */
+export const LIGHTNING_FORECAST_PRODUCTS: Record<
+  LightningForecast,
+  MrmsProductId
+> = {
+  "30m": "lightning-probability-30min",
+  "60m": "lightning-probability-60min",
+};
+
+/** Which jump grid the switch beside it is pointing at. */
+export const LIGHTNING_JUMP_PRODUCTS: Record<LightningJump, MrmsProductId> = {
+  now: "lightning-jump",
+  max: "lightning-jump-max",
+};
+
+/** Which temperature the isothermal reflectivity is sampled at. */
+export const ISOTHERM_PRODUCTS: Record<IsothermLevel, MrmsProductId> = {
+  minus10: "reflectivity-minus-10c",
+  minus20: "reflectivity-minus-20c",
 };
 
 export interface MrmsProductInfo {

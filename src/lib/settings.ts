@@ -33,6 +33,16 @@ import {
   type LightningRule,
 } from "./lightningWatch";
 import {
+  isIsothermLevel,
+  isLightningForecast,
+  isLightningJump,
+  isLightningWindow,
+  type IsothermLevel,
+  type LightningForecast,
+  type LightningJump,
+  type LightningWindow,
+} from "./lightningGrids";
+import {
   isAzShearLevel,
   isRotationPeriod,
   type AzShearLevel,
@@ -211,6 +221,12 @@ export interface LayerSettings {
   /** What kind of precipitation the network says is falling. */
   precipType: boolean;
   lightningDensity: boolean;
+  /** The MRMS chance that lightning strikes ground it has not struck yet. */
+  lightningForecast: boolean;
+  /** Where a cell's flash rate has climbed faster than its own history. */
+  lightningJump: boolean;
+  /** Reflectivity at the level the air is cold enough for ice. */
+  isothermReflectivity: boolean;
   /** GLM total-lightning flashes from GOES-East. */
   lightningFlashes: boolean;
   /** Animated GFS wind particles. */
@@ -429,6 +445,14 @@ export interface AppSettings {
   gaugeQpePeriod: GaugeQpePeriod;
   /** Which window the rotation track covers. */
   rotationPeriod: RotationPeriod;
+  /** How long a window the cloud-to-ground density is averaged over. */
+  lightningWindow: LightningWindow;
+  /** How far ahead the chance of lightning is forecast. */
+  lightningForecastWindow: LightningForecast;
+  /** Whether the jump grid shows this minute or the past five minutes. */
+  lightningJumpWindow: LightningJump;
+  /** Which temperature the isothermal reflectivity is sampled at. */
+  isothermLevel: IsothermLevel;
   /** Which slab the merged shear is measured through. */
   azShearLevel: AzShearLevel;
   /**
@@ -660,6 +684,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     unitStreamflow: false,
     precipType: false,
     lightningDensity: false,
+    lightningForecast: false,
+    lightningJump: false,
+    isothermReflectivity: false,
     lightningFlashes: false,
     wind: false,
     surge: false,
@@ -689,6 +716,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wssiDay: 1,
   gaugeQpePeriod: "24h",
   rotationPeriod: "1h",
+  lightningWindow: "5m",
+  lightningForecastWindow: "30m",
+  lightningJumpWindow: "max",
+  isothermLevel: "minus10",
   azShearLevel: "low",
   presets: [null, null, null, null],
   incidentPacks: {
@@ -1637,6 +1668,18 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.lightningDensity,
         DEFAULT_SETTINGS.layers.lightningDensity,
       ),
+      lightningForecast: bool(
+        layers.lightningForecast,
+        DEFAULT_SETTINGS.layers.lightningForecast,
+      ),
+      lightningJump: bool(
+        layers.lightningJump,
+        DEFAULT_SETTINGS.layers.lightningJump,
+      ),
+      isothermReflectivity: bool(
+        layers.isothermReflectivity,
+        DEFAULT_SETTINGS.layers.isothermReflectivity,
+      ),
       lightningFlashes: bool(
         layers.lightningFlashes,
         DEFAULT_SETTINGS.layers.lightningFlashes,
@@ -1732,6 +1775,18 @@ export function normalizeSettings(value: unknown): AppSettings {
     rotationPeriod: isRotationPeriod(raw.rotationPeriod)
       ? raw.rotationPeriod
       : DEFAULT_SETTINGS.rotationPeriod,
+    lightningWindow: isLightningWindow(raw.lightningWindow)
+      ? raw.lightningWindow
+      : DEFAULT_SETTINGS.lightningWindow,
+    lightningForecastWindow: isLightningForecast(raw.lightningForecastWindow)
+      ? raw.lightningForecastWindow
+      : DEFAULT_SETTINGS.lightningForecastWindow,
+    lightningJumpWindow: isLightningJump(raw.lightningJumpWindow)
+      ? raw.lightningJumpWindow
+      : DEFAULT_SETTINGS.lightningJumpWindow,
+    isothermLevel: isIsothermLevel(raw.isothermLevel)
+      ? raw.isothermLevel
+      : DEFAULT_SETTINGS.isothermLevel,
     azShearLevel: isAzShearLevel(raw.azShearLevel)
       ? raw.azShearLevel
       : DEFAULT_SETTINGS.azShearLevel,

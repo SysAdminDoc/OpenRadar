@@ -446,6 +446,52 @@ export const en = {
   "spc.significant":
     "Hatched: where this hazard would be significant if it happens",
   "spc.asIssued": "The outlook that stood over this day",
+  "layer.lightningForecast": "Lightning Chance",
+  "layer.lightningJump": "Lightning Jump",
+  "layer.isothermReflectivity": "Reflectivity at Ice Level",
+  "keywords.lightningForecast": "",
+  "keywords.lightningJump": "",
+  "keywords.isothermReflectivity": "",
+  "layers.lightningForecastDetail":
+    "The chance lightning strikes ground it has not struck yet.",
+  "layers.lightningJumpDetail":
+    "Where a cell's flash rate has climbed faster than its own history.",
+  "layers.isothermReflectivityDetail":
+    "Reflectivity at the level the air is cold enough for ice.",
+  "layers.lightningWindow": "Averaged over",
+  "layers.lightningWindowDetail":
+    "All four are a flash rate, so you can step between them and compare.",
+  "layers.lightningForecastWindow": "Forecast for the next",
+  "layers.lightningForecastWindowDetail":
+    "A forecast, not a strike. This covers ground nothing has hit yet.",
+  "layers.lightningJumpWindow": "Jump shown",
+  "layers.lightningJumpWindowDetail":
+    "In standard deviations. Two is where the WDTD says to start looking.",
+  "layers.isothermLevel": "Sampled at",
+  "layers.isothermLevelDetailMinus10":
+    "Where lightning gets going. Strong echo here means charge is separating.",
+  "layers.isothermLevelDetailMinus20":
+    "Deeper into the ice. Strong echo here goes with hail and a jump in flashes.",
+  "lightningWindow.1m": "1 min",
+  "lightningWindow.5m": "5 min",
+  "lightningWindow.15m": "15 min",
+  "lightningWindow.30m": "30 min",
+  "lightningForecast.30m": "30 min",
+  "lightningForecast.60m": "60 min",
+  "lightningJump.now": "Now",
+  "lightningJump.max": "Past 5 min",
+  "isothermLevel.minus10": "-10 C",
+  "isothermLevel.minus20": "-20 C",
+  "mrms.lightning1min": "Cloud-to-ground lightning, 1 min",
+  "mrms.lightning15min": "Cloud-to-ground lightning, 15 min",
+  "mrms.lightning30min": "Cloud-to-ground lightning, 30 min",
+  "mrms.lightningProbability30": "Chance of lightning in 30 min",
+  "mrms.lightningProbability60": "Chance of lightning in 60 min",
+  "mrms.lightningJump": "Lightning jump",
+  "mrms.lightningJumpMax": "Largest lightning jump, 5 min",
+  "mrms.reflectivityMinus10c": "Reflectivity at -10 C",
+  "mrms.reflectivityMinus20c": "Reflectivity at -20 C",
+  "layers.spcDay3Probability": "Probability",
   "service.busy": "is busy",
   "service.notFound": "could not find it",
   "service.tooMany": "has been asked too often",

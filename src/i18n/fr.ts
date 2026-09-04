@@ -469,6 +469,52 @@ export const fr: Catalogue = {
   "spc.significant":
     "Hachuré : où cet aléa serait significatif s'il se produit",
   "spc.asIssued": "La prévision en vigueur ce jour-là",
+  "layer.lightningForecast": "Probabilité de foudre",
+  "layer.lightningJump": "Saut de foudre",
+  "layer.isothermReflectivity": "Réflectivité au niveau de la glace",
+  "keywords.lightningForecast": "chance prevision foudre prochain",
+  "keywords.lightningJump": "saut hausse taux sigma foudre",
+  "keywords.isothermReflectivity": "isotherme glace froid dbz zero",
+  "layers.lightningForecastDetail":
+    "La probabilité que la foudre tombe là où elle n'est pas encore tombée.",
+  "layers.lightningJumpDetail":
+    "Là où le taux d'éclairs d'une cellule a grimpé plus vite que son propre historique.",
+  "layers.isothermReflectivityDetail":
+    "Réflectivité au niveau où l'air est assez froid pour former de la glace.",
+  "layers.lightningWindow": "Moyenne sur",
+  "layers.lightningWindowDetail":
+    "Les quatre donnent un taux d'éclairs, donc vous pouvez passer de l'une à l'autre et comparer.",
+  "layers.lightningForecastWindow": "Prévision pour les",
+  "layers.lightningForecastWindowDetail":
+    "Une prévision, pas un impact. Cela couvre du terrain où rien n'est tombé.",
+  "layers.lightningJumpWindow": "Saut affiché",
+  "layers.lightningJumpWindowDetail":
+    "En écarts-types. À partir de deux, le WDTD dit qu'il faut regarder.",
+  "layers.isothermLevel": "Mesurée à",
+  "layers.isothermLevelDetailMinus10":
+    "Là où la foudre démarre. Un écho fort ici veut dire que la charge se sépare.",
+  "layers.isothermLevelDetailMinus20":
+    "Plus profond dans la glace. Un écho fort ici accompagne la grêle et une hausse des éclairs.",
+  "lightningWindow.1m": "1 min",
+  "lightningWindow.5m": "5 min",
+  "lightningWindow.15m": "15 min",
+  "lightningWindow.30m": "30 min",
+  "lightningForecast.30m": "30 min",
+  "lightningForecast.60m": "60 min",
+  "lightningJump.now": "Maintenant",
+  "lightningJump.max": "5 dernières min",
+  "isothermLevel.minus10": "-10 C",
+  "isothermLevel.minus20": "-20 C",
+  "mrms.lightning1min": "Foudre nuage-sol, 1 min",
+  "mrms.lightning15min": "Foudre nuage-sol, 15 min",
+  "mrms.lightning30min": "Foudre nuage-sol, 30 min",
+  "mrms.lightningProbability30": "Probabilité de foudre dans 30 min",
+  "mrms.lightningProbability60": "Probabilité de foudre dans 60 min",
+  "mrms.lightningJump": "Saut de foudre",
+  "mrms.lightningJumpMax": "Plus grand saut de foudre, 5 min",
+  "mrms.reflectivityMinus10c": "Réflectivité à -10 C",
+  "mrms.reflectivityMinus20c": "Réflectivité à -20 C",
+  "layers.spcDay3Probability": "Probabilité",
   "service.busy": "est occupé",
   "service.notFound": "ne l'a pas trouvé",
   "service.tooMany": "a reçu trop de demandes",
