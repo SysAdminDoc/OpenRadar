@@ -55,6 +55,7 @@ export function parseEarthquakes(payload: unknown): OverlayData {
 
 export const earthquakesOverlay: OverlayAdapter = {
   id: "earthquakes",
+  nameKey: "layer.earthquakes",
   label: "Earthquakes",
   attribution: '<a href="https://earthquake.usgs.gov/">USGS earthquakes</a>',
   attributionUrl: "https://earthquake.usgs.gov/",

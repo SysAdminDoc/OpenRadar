@@ -2159,4 +2159,15 @@ export const es: Catalogue = {
     "Marca un extremo del corte, dentro del alcance del radar",
   "tool.sectionEndHint": "Marca el otro extremo del corte",
   "tool.sectionTaken": "Cortando el volumen a lo largo de la línea",
+  "notice.offline": "Este equipo está sin conexión",
+  "notice.offlineBody":
+    "El mapa muestra lo que guardó. No llegará nada nuevo hasta que vuelva la conexión.",
+  "notice.online": "Conexión restablecida",
+  "notice.onlineBody": "El mapa está recuperando lo que se perdió.",
+  "notice.layerFailing": "{layer} dejó de dibujarse",
+  "notice.layerFailingBody":
+    "El servicio no respondió. El mapa sigue intentándolo.",
+  "notice.layerBack": "{layer} vuelve a dibujarse",
+  "notice.loopStalled": "El bucle se detuvo",
+  "notice.loopBack": "El bucle vuelve a funcionar",
 };

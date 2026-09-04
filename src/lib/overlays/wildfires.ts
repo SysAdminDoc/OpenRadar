@@ -55,6 +55,7 @@ export function parseWildfires(payload: unknown): OverlayData {
 
 export const wildfiresOverlay: OverlayAdapter = {
   id: "wildfires",
+  nameKey: "layer.wildfires",
   label: "Wildfires",
   attribution:
     '<a href="https://data-nifc.opendata.arcgis.com/">NIFC wildfire perimeters</a>',

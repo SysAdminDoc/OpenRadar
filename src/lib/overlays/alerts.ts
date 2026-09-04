@@ -471,6 +471,7 @@ async function dwdFeatures(
 
 export const alertsOverlay: OverlayAdapter = {
   id: "alerts",
+  nameKey: "layer.weatherAlerts",
   label: "Weather Alerts",
   attribution:
     '<a href="https://www.weather.gov/">NWS watches and warnings</a>',

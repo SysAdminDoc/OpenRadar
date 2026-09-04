@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ridgeCapabilities, routeWorkspace } from "./support/fixtures";
+import { en } from "../src/i18n/en";
 
 /**
  * What the app sees when it is running inside Tauri: enough of the internals
@@ -320,5 +321,29 @@ test.describe("with no network at all", () => {
     );
     await expect.poll(() => asked.length).toBeGreaterThan(0);
     await expect(page.locator("[data-offline]")).toHaveCount(0);
+  });
+});
+
+test("says out loud that the machine went offline, and that it came back", async ({
+  page,
+}) => {
+  // The greyed chip in the top bar is the whole of what the workspace said,
+  // so a reader who cannot see it heard nothing at all: every layer went on
+  // polling and failing into the log, and the only hint was a line about the
+  // radar that says nothing about the warnings drawn over it.
+  const toasts = page.locator(".toast-host");
+  await expect(toasts).toHaveCount(1);
+
+  // The real switch, not a dispatched event: `online.ts` reads
+  // `navigator.onLine`, and an event alone leaves it saying the machine can
+  // still see, so nothing changes and nothing is announced.
+  await page.context().setOffline(true);
+  await expect(toasts.getByText(en["notice.offline"])).toBeVisible();
+
+  await page.context().setOffline(false);
+  // Coming back is only a claim until something answers, which is what
+  // clears the line, so this waits on a fetch rather than on the flag.
+  await expect(toasts.getByText(en["notice.online"])).toBeVisible({
+    timeout: 20_000,
   });
 });

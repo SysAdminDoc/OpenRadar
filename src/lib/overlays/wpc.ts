@@ -231,6 +231,7 @@ function fillAndLine(sourceId: string): LayerSpecification[] {
 
 export const wpcExcessiveRainOverlay: OverlayAdapter = {
   id: "wpcExcessiveRain",
+  nameKey: "layer.wpcExcessiveRain",
   label: "WPC excessive rainfall outlook",
   attribution: ATTRIBUTION,
   attributionUrl: ATTRIBUTION_URL,
@@ -270,6 +271,7 @@ export const wpcExcessiveRainOverlay: OverlayAdapter = {
 
 export const wpcWinterSeverityOverlay: OverlayAdapter = {
   id: "wpcWinterSeverity",
+  nameKey: "layer.wpcWinterSeverity",
   label: "WPC winter storm severity index",
   attribution: ATTRIBUTION,
   attributionUrl: ATTRIBUTION_URL,

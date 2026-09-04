@@ -204,6 +204,7 @@ export function thinStations(
 
 export const metarOverlay: OverlayAdapter = {
   id: "metar",
+  nameKey: "layer.metar",
   label: "Surface observations",
   attribution:
     '<a href="https://aviationweather.gov/">NOAA Aviation Weather Center</a>',

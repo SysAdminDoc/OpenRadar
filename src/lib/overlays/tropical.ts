@@ -120,6 +120,7 @@ export function parseTropicalLayer(
 
 export const tropicalOverlay: OverlayAdapter = {
   id: "tropical",
+  nameKey: "layer.tropical",
   label: "Tropical",
   attribution:
     '<a href="https://www.nhc.noaa.gov/">NOAA National Hurricane Center</a>',

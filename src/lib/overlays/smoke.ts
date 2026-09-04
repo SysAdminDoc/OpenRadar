@@ -193,6 +193,7 @@ export async function fetchSmoke(
 
 export const smokeOverlay: OverlayAdapter = {
   id: "smoke",
+  nameKey: "layer.smoke",
   label: "Smoke",
   attribution:
     '<a href="https://www.ospo.noaa.gov/products/land/hms.html">NOAA Hazard Mapping System</a>',

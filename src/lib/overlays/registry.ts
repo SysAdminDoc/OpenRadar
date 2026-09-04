@@ -1,3 +1,4 @@
+import type { StringKey } from "../../i18n";
 import type { LayerSpecification } from "maplibre-gl";
 import { translate } from "../../i18n";
 import { formatAge } from "../units";
@@ -118,6 +119,15 @@ export interface OverlayDescription {
 export interface OverlayAdapter {
   id: OverlayId;
   label: string;
+  /**
+   * The catalogue key for this layer name, said rather than derived.
+   *
+   * `layer.${id}` is right for eleven of the twelve and wrong for the one
+   * that matters most: the alerts adapter is `alerts` and its line is
+   * `layer.weatherAlerts`, so a message built from the id named nothing at
+   * all where it most needed to name something.
+   */
+  nameKey: StringKey;
   attribution: string;
   attributionUrl: string;
   host: string;

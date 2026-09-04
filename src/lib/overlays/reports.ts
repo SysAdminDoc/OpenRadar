@@ -337,6 +337,7 @@ export function serviceReportsUrl(offset = 0): string {
 
 export const stormReportsOverlay: OverlayAdapter = {
   id: "stormReports",
+  nameKey: "layer.stormReports",
   label: "Storm reports",
   attribution: ATTRIBUTION,
   attributionUrl: "https://mesonet.agron.iastate.edu/",
