@@ -65,12 +65,22 @@ export function faultReason(
 ): string | null {
   if (!status?.fault) return null;
   if (status.fault === "notOperating") {
-    // The RDA's own word, which is the useful half: "Start-Up" says a radar
-    // will be back and "Maintenance" says it will not be back this afternoon,
-    // and both come from the office rather than from a guess here.
-    return status.status
-      ? translate("radar.faultNotOperating", { state: status.status })
-      : translate("radar.faultOffline");
+    // The RDA's own word is the useful half: it says whether a radar will be
+    // back shortly or not this afternoon, and it comes from the office rather
+    // than from a guess here. What it must not do is arrive untranslated in
+    // the middle of a translated sentence, which is what happened while this
+    // key was a bare "{state}".
+    //
+    // The live feed carries two words today, checked rather than assumed:
+    // Operate on 199 sites and Start-Up on four. Start-Up is the one that
+    // reaches here, and it gets a sentence somebody wrote. Anything else is
+    // wrapped, so the office's word is still shown and still sits inside the
+    // reader's own language.
+    if (!status.status) return translate("radar.faultOffline");
+    if (status.status.trim().toLowerCase() === "start-up") {
+      return translate("radar.faultStartUp");
+    }
+    return translate("radar.faultNotOperating", { state: status.status });
   }
   const late = minutesSinceLevelTwo(status, now);
   return late === null

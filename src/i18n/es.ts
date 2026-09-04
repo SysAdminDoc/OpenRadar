@@ -49,7 +49,15 @@ export const es: Catalogue = {
     "Serían {0, plural, one {# lectura} other {# lecturas}} en un solo archivo. Acerca el mapa para que la exportación abarque menos.",
   "dataExport.error.noFolder": "No hay dónde escribir la exportación.",
   "dataExport.error.write": "No se pudo escribir la exportación: {0}",
-  "dataExport.error.grid": "{0}",
+  "dataExport.error.gridUnknownProduct": "No existe una malla llamada {0}.",
+  "dataExport.error.gridBadListing":
+    "No se pudo leer la lista de mallas publicadas.",
+  "dataExport.error.gridNoFrames":
+    "Todavía no se ha publicado ninguna malla de {0}.",
+  "dataExport.error.gridNotGrib": "Ese archivo no es una malla GRIB2.",
+  "dataExport.error.gridUnreadable":
+    "Esa malla viene empaquetada de una forma que esta versión no lee.",
+  "dataExport.error.gridNotDrawn": "No se pudo dibujar la malla.",
   "dataExport.error.unknown": "No se pudo escribir la exportación.",
 
   "search.eyebrow": "Busca un lugar",
@@ -790,7 +798,9 @@ export const es: Catalogue = {
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "sin datos desde hace {age}",
   "radar.faultOffline": "sin transmitir",
-  "radar.faultNotOperating": "{state}",
+  "radar.faultStartUp": "El radar está arrancando. Debería volver en breve.",
+  "radar.faultNotOperating":
+    "El radar no está barriendo. La oficina lo reporta como {state}.",
   "radar.terminalLine":
     "Radar Doppler de terminal, {range} km de alcance · {source}",
   "radar.terminalProducts":

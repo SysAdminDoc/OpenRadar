@@ -398,16 +398,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-294 (P3): Two error keys pass the native side's English straight through, and one carries the feed's own state word
-      Category: ux
-      Where: `src/i18n/en.ts:382` (`bundle.error.http` = `"{0}"`, filled by `HttpError`'s Display from `src-tauri/src/bundles.rs:109`), `:47` (`dataExport.error.grid` = `"{0}"`), `:722` (`radar.faultNotOperating` = `"{state}"`, filled by the RDA feed's English word at `src/lib/radarStatus.ts:69-72`)
-      Problem: A Spanish reader whose replay bundle fetch fails sees "the request failed: ..." in English inside a translated toast; compare `radar.error.http`, which at least wraps it. The RDA state case is documented as deliberate in a comment but still puts "Start-Up" inside a French sentence.
-      Evidence: The three keys; `replayBundle.ts:268` and `dataExport.ts:81` build the key from the code.
-      Fix: Wrap both (`"The bundle could not be fetched: {0}"`, `"The grid could not be read: {0}"`) and route the HTTP status through the `service.*` phrases the rest of the app uses; map the handful of RDA states (`Operate`, `Start-Up`, `Maintenance`, `Off-line`) to keys.
-      Acceptance: No catalogue value is a bare `{0}` or `{state}`; a test in `nativeError.test.ts` asserts the wrapped text.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-295 (P3): Microcopy consistency sweep
       Category: ux
       Where: `src/i18n/en.ts` and the two translations

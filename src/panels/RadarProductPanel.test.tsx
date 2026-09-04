@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { en } from "../i18n/en";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import { RadarProductPanel } from "./RadarProductPanel";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
@@ -127,7 +128,7 @@ describe("the site picker and what the office says", () => {
     ]);
     const down = option(/^TSDF/);
     expect(down?.hasAttribute("disabled")).toBe(true);
-    expect(down?.textContent).toContain("Start-Up");
+    expect(down?.textContent).toContain(en["radar.faultStartUp"]);
     // Its neighbours are untouched.
     expect(option(/^TBWI/)?.hasAttribute("disabled")).toBe(false);
   });
@@ -200,7 +201,7 @@ describe("the site picker and what the office says", () => {
       .getAllByRole("option")
       .find((one) => /^KTLX/.test(one.textContent ?? ""));
     expect(held?.hasAttribute("disabled")).toBe(false);
-    expect(held?.textContent).toContain("Start-Up");
+    expect(held?.textContent).toContain(en["radar.faultStartUp"]);
   });
 
   it("greys one the office says is not running, and says which", () => {
@@ -219,7 +220,7 @@ describe("the site picker and what the office says", () => {
     const down = options.find((one) => /^KTLX/.test(one.textContent ?? ""));
     const up = options.find((one) => /^KFDR/.test(one.textContent ?? ""));
     expect(down?.hasAttribute("disabled")).toBe(true);
-    expect(down?.textContent).toContain("Start-Up");
+    expect(down?.textContent).toContain(en["radar.faultStartUp"]);
     expect(up?.hasAttribute("disabled")).toBe(false);
   });
 
@@ -240,7 +241,7 @@ describe("the site picker and what the office says", () => {
       "TSDF",
     );
     expect(held()?.hasAttribute("disabled")).toBe(false);
-    expect(held()?.textContent).toContain("Start-Up");
+    expect(held()?.textContent).toContain(en["radar.faultStartUp"]);
   });
 
   describe("smoothing an airport radar's sweep", () => {
