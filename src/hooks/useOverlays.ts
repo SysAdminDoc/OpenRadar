@@ -22,6 +22,14 @@ export interface OverlayState {
   error: string | null;
   /** What the layer drew without, when it drew something. See `OverlayData`. */
   partial: string | null;
+  /**
+   * Which question this answers.
+   *
+   * Beside the data rather than only in the coverage record, so a snapshot
+   * that answers a question nobody is asking any more can be told apart
+   * where the map is drawn rather than by writing state from an effect.
+   */
+  variant: string;
 }
 
 export type OverlayStates = Record<OverlayId, OverlayState>;
@@ -32,6 +40,7 @@ export const IDLE_OVERLAY: OverlayState = {
   fetchedAt: null,
   error: null,
   partial: null,
+  variant: "",
 };
 
 const POLL_MS = 30_000;
@@ -195,10 +204,13 @@ export function useOverlays(
 
         const controller = new AbortController();
         const box = boxFor(adapter);
+        // The question this request is being made for, read once: whatever
+        // comes back answers this one and nothing later.
+        const asking = variantOf(adapter, choices);
         requests.set(adapter.id, {
           controller,
           bounds: box,
-          variant: variantOf(adapter, choices),
+          variant: asking,
         });
         void adapter
           .fetchData(box, controller.signal, choices)
@@ -213,7 +225,7 @@ export function useOverlays(
             coverage[adapter.id] = {
               bounds: box,
               at: Date.now(),
-              variant: variantOf(adapter, choices),
+              variant: asking,
             };
             setStates((current) => ({
               ...current,
@@ -223,6 +235,7 @@ export function useOverlays(
                 fetchedAt: Date.now(),
                 error: null,
                 partial: data.partial ?? null,
+                variant: asking,
               },
             }));
           })
@@ -232,21 +245,25 @@ export function useOverlays(
               error instanceof Error ? error.message : "The request failed.";
             log.warn("overlay", `${adapter.label} failed: ${message}`);
             // The last good snapshot stays on the map; only the label changes.
-            // Unless it answers a different question: end a replay while the
-            // network is flaky and the 2011 reports and outlook would stay
-            // drawn over the present until a retry happened to succeed.
-            const asked = variantOf(adapter, choices);
+            // Unless it answers a different question, in which case there is
+            // nothing left to keep: what is drawn is cleared where the map
+            // reads the state, and the coverage goes so the next run asks.
             const held = coverage[adapter.id]?.variant;
-            const stale = held !== undefined && held !== asked;
+            const stale = held !== undefined && held !== asking;
             if (stale) delete coverage[adapter.id];
             setStates((current) => ({
               ...current,
               [adapter.id]: stale
-                ? { ...IDLE_OVERLAY, error: message }
+                ? { ...IDLE_OVERLAY, error: message, variant: asking }
                 : // The note described the snapshot that just failed to be
                   // replaced, and the error is the newer statement. Keeping
                   // both would leave a note about an answer nobody has.
-                  { ...current[adapter.id], error: message, partial: null },
+                  {
+                    ...current[adapter.id],
+                    error: message,
+                    partial: null,
+                    variant: asking,
+                  },
             }));
           })
           .finally(() => {
@@ -279,17 +296,29 @@ export function useOverlays(
     };
   }, []);
 
-  // A disabled layer reports nothing, and so does a snapshot of somewhere the
-  // user has already left, so the map drops both without a second render pass.
+  // A disabled layer reports nothing, and neither does a snapshot of
+  // somewhere the reader has already left or of a day they have already left,
+  // so the map drops all three without a second render pass.
+  //
+  // The day is the one that could not be settled anywhere else. Ending a
+  // replay while the machine is offline changes the question and asks
+  // nothing, because `run` returns before it makes a request, so the 2011
+  // reports and outlook stayed drawn over the present until some later
+  // request happened to succeed or fail. Nothing in an effect can clear it:
+  // a `setState` in an effect body is rejected outright here. Comparing
+  // during render is the same shape the rest of the app uses for "which
+  // question does this answer".
   return useMemo(() => {
     const visible = {} as OverlayStates;
     for (const adapter of OVERLAY_ADAPTERS) {
       const state = states[adapter.id];
       visible[adapter.id] =
-        enabled[adapter.id] && coversViewport(adapter, state, viewport)
+        enabled[adapter.id] &&
+        state.variant === variantOf(adapter, choices) &&
+        coversViewport(adapter, state, viewport)
           ? state
           : IDLE_OVERLAY;
     }
     return visible;
-  }, [enabled, states, viewport]);
+  }, [enabled, states, viewport, choices]);
 }

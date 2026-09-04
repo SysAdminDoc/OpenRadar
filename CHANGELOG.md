@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- Ending a replay with no network no longer leaves that day's storm reports and outlook drawn over the present. The layers cleared themselves when a later request came back, and with nothing to ask over there was no later request: a 2011 afternoon could sit on top of today's map, unlabelled, until the network came back. A layer now drops anything that answers a question you have stopped asking, whether or not it can go and fetch the new answer.
+
 - The close button on a map popup is visible again in the dark theme. It belongs to the map library, which draws it on a white card and gives it no colour of its own, so it picked up the workspace text colour and came out near-white on white. Every popup had one: warnings, reports, storm cells, river gauges and anything you imported. You could still close them by clicking the map, which is probably why nobody said anything.
 
 - The second source for storm reports now brings back the newest ones. It was asking the weather service for whatever came first, and an ArcGIS layer asked for nothing in particular answers in the order it stored things and stops at five hundred: on 4 September that was 500 of the 854 reports it held, ending an hour and a half before the newest one. The hour you open that layer for was the hour it left out. It asks newest first now, over the same day the usual source covers, and keeps asking while the service says it is holding more.
