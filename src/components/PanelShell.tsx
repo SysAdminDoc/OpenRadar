@@ -24,18 +24,31 @@ export function PanelShell({
   // Whatever opened this panel gets the focus back when it closes. Without it
   // focus falls to the document body, and the next Tab starts again from the
   // top of the window rather than from the button that was just pressed.
-  const openedFromRef = useRef<HTMLElement | null>(null);
+  //
+  // Read on the first render rather than in the effect. Swapping one panel
+  // for another happens in a single commit, and React runs the outgoing
+  // panel's cleanup before the incoming panel's effect: the old panel had
+  // already put the focus back on its own rail button by then, so the new
+  // panel recorded that button as its opener and Escape returned one along.
+  // Rendering happens before either, while the focus is still on the button
+  // the reader actually pressed.
+  const openedFromRef = useRef<HTMLElement | null>(
+    typeof document === "undefined" ||
+      !(document.activeElement instanceof HTMLElement) ||
+      document.activeElement === document.body
+      ? null
+      : document.activeElement,
+  );
   useEffect(() => {
-    const opener = document.activeElement;
-    openedFromRef.current =
-      opener instanceof HTMLElement && opener !== document.body ? opener : null;
-
+    // Taken now rather than read in the cleanup. It was written on the first
+    // render and is never written again, so the two are the same value; the
+    // hooks rule cannot know that and is right to ask in general.
+    const opener = openedFromRef.current;
     // The heading, so a screen reader announces what opened rather than
     // reading out whichever control happens to be first.
     panelRef.current?.querySelector<HTMLElement>("h2")?.focus();
 
     return () => {
-      const opener = openedFromRef.current;
       // Only if it is still on the page: a command that swapped one panel for
       // another leaves nothing to go back to.
       if (opener?.isConnected) opener.focus();

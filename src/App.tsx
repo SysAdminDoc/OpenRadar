@@ -2721,6 +2721,11 @@ export default function App() {
             onOverlayOrder={(overlayOrder) =>
               applySettings({ ...settingsRef.current, overlayOrder })
             }
+            // Moving a row changes nothing a reader can see except the row
+            // itself, and the button they pressed has moved out from under
+            // them. The toast host is already a polite live region, so this
+            // is both the announcement and the visible confirmation.
+            onOrderSaid={(said) => pushToast({ title: said })}
             onSurgeCategory={(surgeCategory) =>
               applySettings({ ...settingsRef.current, surgeCategory })
             }
@@ -2922,6 +2927,8 @@ export default function App() {
         onZoomOut={() => mapRef.current?.zoomOut()}
         onResetNorth={() => mapRef.current?.resetNorth()}
         onDismissToast={toasts.dismiss}
+        onHoldToasts={toasts.hold}
+        onReleaseToasts={toasts.release}
       />
     </main>
   );

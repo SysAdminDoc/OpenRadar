@@ -369,6 +369,11 @@ export function IncidentPackManager({
               style={rangeFill(settings.incidentPacks.diskLimitMb, 256, 32_768)}
               value={settings.incidentPacks.diskLimitMb}
               aria-label={t("packs.ceiling")}
+              // The ceiling as a size, which is what the line under it says.
+              // The raw value is a number of megabytes and reads as one.
+              aria-valuetext={formatPackBytes(
+                settings.incidentPacks.diskLimitMb * 1024 * 1024,
+              )}
               onChange={(event) =>
                 onSettings({
                   ...settingsRef.current,

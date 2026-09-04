@@ -13,6 +13,13 @@ const LIFETIME_MS = 5200;
  */
 export const UNDO_LIFETIME_MS = 30_000;
 
+/**
+ * The marker that says the clocks are stopped, kept in the same set as the
+ * messages waiting on them. Ids come from a counter that starts at zero, so
+ * nothing below it can be one.
+ */
+const HOLDING = -1;
+
 /** Three at once is as many as anyone reads. */
 const MAX_VISIBLE = 3;
 
@@ -20,6 +27,10 @@ export interface Toasts {
   messages: ToastMessage[];
   push: (message: Omit<ToastMessage, "id">) => void;
   dismiss: (id: number) => void;
+  /** Stops every timer while a reader is reading or reaching. */
+  hold: () => void;
+  /** Starts them again. */
+  release: () => void;
 }
 
 export function useToasts(): Toasts {
@@ -77,13 +88,72 @@ export function useToasts(): Toasts {
           { ...message, id },
         ];
       });
-      timers.current.set(
-        id,
-        window.setTimeout(() => dismiss(id), message.lifetimeMs ?? LIFETIME_MS),
-      );
+      if (held.current.has(HOLDING)) {
+        // Held from the moment it arrives, rather than given a clock that
+        // runs while the reader is still on the message above it.
+        held.current.add(id);
+      } else {
+        timers.current.set(
+          id,
+          window.setTimeout(
+            () => dismiss(id),
+            message.lifetimeMs ?? LIFETIME_MS,
+          ),
+        );
+      }
     },
     [dismiss],
   );
+
+  /**
+   * Holds every pending dismissal while the reader is on the toasts.
+   *
+   * A message with an action button had a few seconds to be noticed, read
+   * and pressed, and the host sits near the end of the tab order: somebody
+   * tabbing towards an undo could watch it go while they were still on the
+   * way. Pointing at one holds it for the same reason.
+   *
+   * What is left of each timer is not recoverable from a `setTimeout`, so
+   * releasing starts a fresh full lifetime rather than the remainder. That
+   * is the generous direction, and the only one that does not need a second
+   * clock per message.
+   */
+  /**
+   * What is waiting for the clock to start again, and whether it is stopped.
+   *
+   * One set rather than a set and a flag, because ids come from a counter
+   * that starts at zero and `HOLDING` is below it, so the marker cannot
+   * collide with a message. A boolean ref would read better and the hooks
+   * rule will not have it: mutating a plain object handed to `useRef` is
+   * what it forbids, and a set is what it allows.
+   */
+  const held = useRef(new Set<number>());
+  // Plain functions rather than `useCallback`. These write a ref, which the
+  // hooks rule will not allow inside a memoised callback, and nothing below
+  // them is memoised on their identity.
+  const hold = () => {
+    held.current.add(HOLDING);
+    // Everything on screen, including anything that arrived since the last
+    // hold. A first version returned early when it was already holding, so a
+    // message pushed while somebody was reading kept its own clock and went
+    // out from under them.
+    for (const [id, timer] of timers.current) {
+      window.clearTimeout(timer);
+      held.current.add(id);
+    }
+    timers.current.clear();
+  };
+  const release = () => {
+    if (!held.current.has(HOLDING)) return;
+    held.current.delete(HOLDING);
+    for (const id of held.current) {
+      timers.current.set(
+        id,
+        window.setTimeout(() => dismiss(id), LIFETIME_MS),
+      );
+    }
+    held.current.clear();
+  };
 
   // The workspace going away takes every pending dismissal with it.
   useEffect(() => {
@@ -94,5 +164,5 @@ export function useToasts(): Toasts {
     };
   }, []);
 
-  return { messages, push, dismiss };
+  return { messages, push, dismiss, hold, release };
 }

@@ -408,16 +408,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-302 (P3): Small keyboard and screen-reader gaps: slider values, MapLibre's English, draw undo, toast timers, reorder focus, panel-swap focus, keyboard popups
-      Category: a11y
-      Where: `src/panels/MapOptionsPanels.tsx:2053-2082` and `IncidentPackManager.tsx:372` (sliders announce `0.35` while the `<output>` shows `35%`; only `MapChrome.tsx:215` has `aria-valuetext`); `src/components/MapViewport.tsx:1816` (no `locale`, so the canvas is "Map" and the close "Close popup" in every language); `:2049` (Enter appends a draw point; the only undo is Clear); `src/hooks/useToasts.ts:82` (timers ignore focus and hover, and the host is near the end of the tab order); `MapOptionsPanels.tsx:740-756` (a reorder button disables itself under focus, dropping focus to `body`, and nothing announces the new order); `PanelShell.tsx:28-43` (the opener is recorded on mount, so swapping Layers for Alerts records the Layers rail button and Escape returns one button off); `PanelSurfaces.tsx:513, 535` (keyed VWP and Section panels remount and yank focus to the heading on every new time); `MapViewport.tsx:771-822` (a popup opened with Enter gets no focus and no announcement)
-      Problem: None blocks a task; each is a place where a keyboard reader has to work harder than a pointer one.
-      Evidence: The 2026-09-04 accessibility snapshot shows `status "Opacity 0.7"` beside a visible "70%"; the rest read from the sites above.
-      Fix: `aria-valuetext` equal to the `<output>`; `locale: { "Map.Title", "Popup.Close" }` from the catalogue; Backspace pops the last draw point; `onFocus`/`onMouseEnter` pause the toast timer; keep reorder buttons enabled with `aria-disabled` and move focus to the sibling, announcing "X moved above Y"; pass the opener from the click path as a `returnFocusTo` prop; reset VWP and Section state in an effect on the key values rather than a React `key`; focus the popup's first control after `addTo` and return to the canvas on close.
-      Acceptance: Each has a unit or e2e assertion; the existing axe gate stays clean.
-      Confidence: Likely
-      Effort: M
-
 - [ ] AUD-307 (P3): Tests that write shared statics with no lock, and gates that cannot fail
       Category: testing
       Where: `src-tauri/src/tray.rs:84, 92` (`static COPY`, `static HAZARD`) and the four tests at `:468, 476, 498, 531` that mutate them with no serialising lock (every other module with static state has one); `src-tauri/src/level2.rs:5287, 5617, 5710` and `mrms.rs:3836` (ignored live tests call `clear_cache()` or touch `CACHE` outside `decoded_cache_test()` / `ONE_AT_A_TIME`); `src/i18n/coverage.test.ts:486-491` (a key is "alive" if its quoted name appears anywhere, comments included, and the family check at `:521-536` accepts a bare suffix such as `"rain"` or `"name"`, so 95 keys are alive on prefix alone)

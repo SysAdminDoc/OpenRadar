@@ -2170,4 +2170,9 @@ export const es: Catalogue = {
   "notice.layerBack": "{layer} vuelve a dibujarse",
   "notice.loopStalled": "El bucle se detuvo",
   "notice.loopBack": "El bucle vuelve a funcionar",
+  "map.popupClose": "Cerrar",
+  "map.toggleAttribution": "Ver quién hizo este mapa",
+  "map.mapFeedback": "Informar de un problema con este mapa",
+  "layers.movedUp": "{layer} se movió por encima de {other}",
+  "layers.movedDown": "{layer} se movió por debajo de {other}",
 };

@@ -1111,3 +1111,140 @@ test("one Escape dismisses one thing", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(hud).toHaveAttribute("data-empty", "1");
 });
+
+test("Backspace takes back the last point of a path", async ({ page }) => {
+  // Enter appends a point and the only way back was Clear, which throws the
+  // whole path away: a keyboard reader who put one point in the wrong place
+  // had to start again from nothing.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("draw");
+  await page.locator(String.raw`[data-command="tool:draw"]`).click();
+
+  const hud = page.locator(".tool-hud");
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
+
+  // The listener is on MapLibre own canvas, not on the container that
+  // carries the application role.
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  await canvas.focus();
+  await page.keyboard.press("Enter");
+  await expect(hud).toContainText("1 point in path");
+  await page.keyboard.press("Enter");
+  await expect(hud).toContainText("2 points in path");
+
+  await page.keyboard.press("Backspace");
+  await expect(hud).toContainText("1 point in path");
+
+  // And back to nothing without taking the tool with it: the path is empty,
+  // the tool is still armed.
+  await page.keyboard.press("Backspace");
+  await expect(hud).toContainText("0 points in path");
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
+
+  // Nothing left to take back is not an error, and must not scroll or go
+  // back a page either.
+  await page.keyboard.press("Backspace");
+  await expect(hud).toContainText("0 points in path");
+});
+
+test("swapping one panel for another gives the focus back to the right button", async ({
+  page,
+}) => {
+  // Swapping happens in one commit, and React runs the outgoing panel's
+  // cleanup before the incoming panel's effect. The old panel had already
+  // put the focus back on its own rail button by then, so the new panel
+  // recorded that button as its opener: closing Alerts returned to Layers,
+  // one along from where the reader was.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Layers" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Alerts" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.activeElement?.getAttribute("aria-label")),
+    )
+    .toBe("Alerts");
+});
+
+/** The camera eases into place, so a reading is only good once it stops. */
+async function settledCamera(page: Page): Promise<string> {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  let previous: string | null = null;
+  await expect
+    .poll(
+      async () => {
+        const current = await pane.getAttribute("data-camera");
+        const stable = current !== null && current === previous;
+        previous = current;
+        return stable;
+      },
+      { intervals: [150, 150, 150, 150, 150, 150, 150, 150] },
+    )
+    .toBe(true);
+  return previous ?? "";
+}
+
+test("a popup opened from the keyboard takes the focus, and gives it back", async ({
+  page,
+}) => {
+  // Pressing Enter over a warning opened a popup that nothing announced and
+  // nothing moved to, so a keyboard reader had to hunt for what appeared.
+  //
+  // A point is planted exactly where the workspace is already looking, so
+  // the centre of the canvas has something under it. Read rather than
+  // assumed: the opening camera is a setting, and hard-coding it would be
+  // testing the setting.
+  const [lon, lat] = (await settledCamera(page)).split(",").map(Number);
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles(String.raw`.drop-zone input[type="file"]`, {
+    name: "spotters.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      [
+        "Title: Reports",
+        "Color: 255 0 255",
+        `Place: ${lat}, ${lon}, "Hail 2.0 in"`,
+      ].join(String.fromCharCode(10)),
+    ),
+  });
+  await expect(page.getByText(/spotters.txt added/)).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  const popup = page.locator(".maplibregl-popup");
+  // Pressing again is what waiting for MapLibre to make a published layer
+  // queryable looks like from out here.
+  await expect(async () => {
+    await canvas.focus();
+    await page.keyboard.press("Enter");
+    await expect(popup).toHaveCount(1, { timeout: 1500 });
+  }).toPass({ timeout: 20_000 });
+
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.activeElement?.className.includes(
+          "maplibregl-popup-close-button",
+        ),
+      ),
+    )
+    .toBe(true);
+
+  await page.keyboard.press("Enter");
+  await expect(popup).toHaveCount(0);
+  // And back to the map rather than onto the body.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.activeElement?.classList.contains("maplibregl-canvas"),
+      ),
+    )
+    .toBe(true);
+});

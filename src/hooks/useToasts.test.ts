@@ -101,3 +101,88 @@ describe("what a toast is worth waiting for", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe("a toast somebody is still reading", () => {
+  it("stops the clock while it is held, and starts it again after", () => {
+    // A message carrying an undo had a few seconds to be noticed, read and
+    // pressed, and the host sits near the end of the tab order: somebody
+    // tabbing towards the button could watch it go while they were still on
+    // the way.
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.push({ title: "Cleared" }));
+    expect(result.current.messages).toHaveLength(1);
+
+    act(() => result.current.hold());
+    expect(vi.getTimerCount()).toBe(0);
+
+    // Well past the usual lifetime, and it is still there.
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.messages).toHaveLength(1);
+
+    act(() => result.current.release());
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it("holds everything on screen, not only the newest", () => {
+    const { result } = renderHook(() => useToasts());
+    act(() => {
+      result.current.push({ title: "One" });
+      result.current.push({ title: "Two" });
+    });
+    act(() => result.current.hold());
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.messages).toHaveLength(2);
+    act(() => result.current.release());
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it("does nothing surprising when held or released twice", () => {
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.push({ title: "Saved" }));
+    act(() => {
+      result.current.hold();
+      result.current.hold();
+    });
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.messages).toHaveLength(1);
+    act(() => {
+      result.current.release();
+      result.current.release();
+    });
+    // One clock, not two: a second release must not queue a second dismissal.
+    expect(vi.getTimerCount()).toBe(1);
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it("releases with nothing held without starting a clock", () => {
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.release());
+    expect(vi.getTimerCount()).toBe(0);
+    expect(result.current.messages).toHaveLength(0);
+  });
+});
+
+describe("a toast that arrives while somebody is reading", () => {
+  it("is held too, rather than running its own clock", () => {
+    // The first version of the hold returned early when it was already
+    // holding, so a message pushed during the hold kept the timer `push`
+    // gave it and went out from under the reader.
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.push({ title: "One" }));
+    act(() => result.current.hold());
+    act(() => result.current.push({ title: "Two" }));
+
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.messages.map((toast) => toast.title)).toEqual([
+      "One",
+      "Two",
+    ]);
+
+    act(() => result.current.release());
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+});
