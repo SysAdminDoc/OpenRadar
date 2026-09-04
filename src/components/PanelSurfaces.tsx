@@ -173,6 +173,7 @@ interface PanelSurfacesProps {
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onOverlayOpacity: (opacity: Record<string, number>) => void;
   onOverlayOrder: (order: string[]) => void;
+  onOrderSaid: (said: string) => void;
   overlayFiles: WorkspaceOverlayFile[];
   onOverlayFiles: (files: WorkspaceOverlayFile[]) => void;
   /** What the radar's tracking algorithm is following, for the radar panel. */
@@ -289,6 +290,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onOverlayOpacity={props.onOverlayOpacity}
             overlayOrder={settings.overlayOrder}
             onOverlayOrder={props.onOverlayOrder}
+            onOrderSaid={props.onOrderSaid}
             overlayFiles={props.overlayFiles}
             onOverlayFiles={props.onOverlayFiles}
             onRemoved={props.onRemoved}

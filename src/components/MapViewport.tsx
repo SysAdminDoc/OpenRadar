@@ -416,6 +416,8 @@ function MapViewportInner(
   // Which inspection is the current one, so a slow gate read cannot overwrite
   // the readout for a point somebody has already clicked past.
   const inspectRef = useRef(0);
+  /** True while a click raised by the canvas key handler is running. */
+  const fromKeyboardRef = useRef(false);
   const mrmsLayersRef = useRef<MrmsLayer[]>(mrmsLayers);
   const flashesRef = useRef<Record<string, unknown> | null>(flashes);
   const cellsRef = useRef<Record<string, unknown> | null>(cells);
@@ -818,6 +820,20 @@ function MapViewportInner(
         popup.remove();
       });
       node.append(button);
+    }
+    // MapLibre focuses the first thing in a popup itself, which is the
+    // close button, so the arriving half needs nothing from here. Getting
+    // back does: when the popup goes the focus goes with it, onto the body,
+    // and the next Tab starts again from the top of the window rather than
+    // from the map the reader was looking at.
+    //
+    // Only for a popup a keyboard opened. Moving the focus after a mouse
+    // click would scroll a pointer user back to the map and draw a ring
+    // nobody asked for.
+    if (fromKeyboardRef.current) {
+      popup.once("close", () => {
+        map.getCanvas().focus();
+      });
     }
   };
 
@@ -1823,6 +1839,21 @@ function MapViewportInner(
         minZoom: 2.5,
         maxZoom: 15,
         attributionControl: false,
+        // The library ships its own English for the handful of strings it
+        // writes into the DOM itself. Without this the canvas is announced
+        // as "Map" and the popup close button as "Close popup" in every
+        // language, inside a workspace that is otherwise entirely
+        // translated. Only the four this app can actually surface: it adds
+        // one attribution control and one popup, and none of the other
+        // twenty-two.
+        locale: {
+          "Map.Title": translate("map.label"),
+          "Popup.Close": translate("map.popupClose"),
+          "AttributionControl.ToggleAttribution": translate(
+            "map.toggleAttribution",
+          ),
+          "AttributionControl.MapFeedback": translate("map.mapFeedback"),
+        },
         canvasContextAttributes: { preserveDrawingBuffer: true },
         // Guarded first, so a request the budget refuses is never fetched at
         // all, and then routed through the cache so it survives going offline.
@@ -1922,21 +1953,40 @@ function MapViewportInner(
     map.on("mouseout", () => onCursorChange?.(null));
     const canvas = map.getCanvas();
     const onCanvasKeyDown = (event: KeyboardEvent) => {
-      if (
-        !toolModeRef.current ||
-        (event.key !== "Enter" && event.key !== " ")
-      ) {
+      // Backspace takes back the last point of a path. Enter appends one and
+      // the only way back was Clear, which throws the whole path away: a
+      // keyboard reader who put a point in the wrong place had to start
+      // again from nothing.
+      if (event.key === "Backspace" && toolModeRef.current === "draw") {
+        if (!drawPointsRef.current.length) return;
+        event.preventDefault();
+        drawPointsRef.current = drawPointsRef.current.slice(0, -1);
+        renderTools();
+        const left = drawPointsRef.current.length;
+        onToolResult?.(() => translate("tool.pathPoints", { count: left }));
         return;
       }
+      // With no tool armed this opens whatever is under the centre, which is
+      // what a click there does. It used to return early, so a keyboard
+      // reader had no way at all to ask what a warning or a storm cell was:
+      // the popup existed only for the pointer.
+      if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       const bounds = canvas.getBoundingClientRect();
-      canvas.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          clientX: bounds.left + bounds.width / 2,
-          clientY: bounds.top + bounds.height / 2,
-        }),
-      );
+      // Marked for the duration of the click this raises, so anything that
+      // opens because of it knows the reader is on the keyboard.
+      fromKeyboardRef.current = true;
+      try {
+        canvas.dispatchEvent(
+          new MouseEvent("click", {
+            bubbles: true,
+            clientX: bounds.left + bounds.width / 2,
+            clientY: bounds.top + bounds.height / 2,
+          }),
+        );
+      } finally {
+        fromKeyboardRef.current = false;
+      }
     };
     canvas.addEventListener("keydown", onCanvasKeyDown);
     map.on("click", (event) => {

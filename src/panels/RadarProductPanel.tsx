@@ -291,6 +291,16 @@ export function RadarProductPanel({
           step={1}
           style={rangeFill(mosaicThreshold ?? 0, 0, 70)}
           aria-label={t("radar.thresholdMosaic")}
+          // The words the output shows, so the reading is spoken as a
+          // reading rather than as the number behind the thumb.
+          aria-valuetext={
+            mosaicThreshold === null
+              ? t("radar.thresholdOff")
+              : t("radar.thresholdValue", {
+                  value: formatNumber(mosaicThreshold, 0),
+                  unit: "dBZ",
+                })
+          }
           value={mosaicThreshold ?? 0}
           onChange={(event) => {
             const asked = Number(event.target.value);
@@ -597,6 +607,17 @@ export function RadarProductPanel({
                     shownRange.max,
                   )}
                   aria-label={t("radar.thresholdLabel")}
+                  aria-valuetext={
+                    threshold === null
+                      ? t("radar.thresholdOff")
+                      : t("radar.thresholdValue", {
+                          value: formatNumber(
+                            toShown(threshold),
+                            shownRange.step < 1 ? 2 : 0,
+                          ),
+                          unit: thresholdUnit,
+                        })
+                  }
                   value={toShown(threshold ?? range.min)}
                   onChange={(event) => {
                     const asked = fromShown(Number(event.target.value));
@@ -887,6 +908,7 @@ export function RadarProductPanel({
           step="0.05"
           style={rangeFill(radar.opacity, 0.05, 1)}
           aria-label={t("radar.opacityLabel")}
+          aria-valuetext={`${Math.round(radar.opacity * 100)}%`}
           value={radar.opacity}
           onChange={(event) =>
             onRadar({ ...radar, opacity: Number(event.target.value) })

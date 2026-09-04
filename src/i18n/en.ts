@@ -2127,6 +2127,11 @@ export const en = {
   "notice.layerBack": "{layer} is drawing again",
   "notice.loopStalled": "The loop stalled",
   "notice.loopBack": "The loop is running again",
+  "map.popupClose": "Close",
+  "map.toggleAttribution": "Show who made this map",
+  "map.mapFeedback": "Report a problem with this map",
+  "layers.movedUp": "{layer} moved above {other}",
+  "layers.movedDown": "{layer} moved below {other}",
 } as const;
 
 export type StringKey = keyof typeof en;

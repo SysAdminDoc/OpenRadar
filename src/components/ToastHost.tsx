@@ -34,14 +34,34 @@ export interface UndoableRemoval {
 }
 
 interface ToastHostProps {
+  /** Stops the dismissal clocks while a reader is on them. */
+  onHold: () => void;
+  onRelease: () => void;
   messages: ToastMessage[];
   onDismiss: (id: number) => void;
 }
 
-export function ToastHost({ messages, onDismiss }: ToastHostProps) {
+export function ToastHost({
+  messages,
+  onDismiss,
+  onHold,
+  onRelease,
+}: ToastHostProps) {
   const t = useT();
   return (
-    <div className="toast-host" aria-live="polite" aria-atomic="false">
+    <div
+      className="toast-host"
+      aria-live="polite"
+      aria-atomic="false"
+      // A message with an undo had a few seconds to be noticed, read and
+      // pressed, and this host sits near the end of the tab order: somebody
+      // tabbing towards the button could watch it go while they were still
+      // on the way. Focus and the pointer both hold the clock.
+      onFocusCapture={onHold}
+      onBlurCapture={onRelease}
+      onMouseEnter={onHold}
+      onMouseLeave={onRelease}
+    >
       {messages.map((message) => (
         <div className="toast" key={message.id}>
           <div className="toast__copy">

@@ -209,3 +209,30 @@ describe("a container that carries a name", () => {
     ).toEqual([]);
   });
 });
+
+describe("a slider says what it is showing", () => {
+  it("carries the reading beside it, not the number behind the thumb", () => {
+    // A range input announces its `value`. Every one of these has an
+    // `<output>` next to it holding the reading a person sees, and the two
+    // are rarely the same thing: the opacity slider showed 70% and announced
+    // 0.7, the loop showed "90 minutes" and announced 90, and the pack
+    // ceiling showed "4 GB" and announced 4096. Only the timeline had
+    // `aria-valuetext`.
+    const offenders: string[] = [];
+    for (const file of tsxUnder(join(process.cwd(), "src"))) {
+      const source = readFileSync(file, "utf8");
+      for (const at of allIndexesOf(source, /type="range"/g)) {
+        // The whole element, from its own `<input` back through to the `>`
+        // that closes the opening tag.
+        const start = source.lastIndexOf("<input", at);
+        const tag = openingTagAt(source, start);
+        if (tag.includes("aria-valuetext")) continue;
+        const line = source.slice(0, at).split("\n").length;
+        offenders.push(`${relative(process.cwd(), file)}:${line}`);
+      }
+    }
+    expect(offenders, `${offenders.join(", ")} announces a raw value`).toEqual(
+      [],
+    );
+  });
+});

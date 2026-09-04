@@ -134,6 +134,9 @@ interface WorkspaceChromeProps {
   onZoomOut: () => void;
   onResetNorth: () => void;
   onDismissToast: (id: number) => void;
+  /** Holds and releases the toast dismissal clocks. */
+  onHoldToasts: () => void;
+  onReleaseToasts: () => void;
 }
 
 /** Everything drawn over the map: the timeline, the controls, and the credits. */
@@ -176,6 +179,8 @@ export function WorkspaceChrome({
   onZoomOut,
   onResetNorth,
   onDismissToast,
+  onHoldToasts,
+  onReleaseToasts,
 }: WorkspaceChromeProps) {
   const t = useT();
   // A volume the loop reached back for comes from the archive as well, and
@@ -613,7 +618,12 @@ export function WorkspaceChrome({
         onPreset={onPreset}
         onShare={onShare}
       />
-      <ToastHost messages={toasts} onDismiss={onDismissToast} />
+      <ToastHost
+        messages={toasts}
+        onDismiss={onDismissToast}
+        onHold={onHoldToasts}
+        onRelease={onReleaseToasts}
+      />
       <LiveRegion polite={readout} assertive={announcement} />
 
       <div className="source-attribution">

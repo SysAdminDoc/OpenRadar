@@ -2196,4 +2196,9 @@ export const fr: Catalogue = {
   "notice.layerBack": "{layer} se dessine de nouveau",
   "notice.loopStalled": "La boucle s'est arrêtée",
   "notice.loopBack": "La boucle fonctionne de nouveau",
+  "map.popupClose": "Fermer",
+  "map.toggleAttribution": "Voir qui a fait cette carte",
+  "map.mapFeedback": "Signaler un problème avec cette carte",
+  "layers.movedUp": "{layer} est passé au-dessus de {other}",
+  "layers.movedDown": "{layer} est passé au-dessous de {other}",
 };

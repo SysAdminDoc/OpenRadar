@@ -119,6 +119,8 @@ function chrome(
       onZoomOut={vi.fn()}
       onResetNorth={vi.fn()}
       onDismissToast={vi.fn()}
+      onHoldToasts={vi.fn()}
+      onReleaseToasts={vi.fn()}
     />
   );
 }

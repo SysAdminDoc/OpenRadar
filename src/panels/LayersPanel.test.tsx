@@ -48,6 +48,9 @@ function panel(overrides: {
   onWpcDay?: (day: number) => void;
   wssiDay?: number;
   onWssiDay?: (day: number) => void;
+  overlayOrder?: string[];
+  onOverlayOrder?: (order: string[]) => void;
+  onOrderSaid?: (said: string) => void;
 }) {
   return (
     <LayersPanel
@@ -91,8 +94,9 @@ function panel(overrides: {
       onSatelliteBand={vi.fn()}
       overlayOpacity={DEFAULT_SETTINGS.overlayOpacity}
       onOverlayOpacity={vi.fn()}
-      overlayOrder={DEFAULT_SETTINGS.overlayOrder}
-      onOverlayOrder={vi.fn()}
+      overlayOrder={overrides.overlayOrder ?? DEFAULT_SETTINGS.overlayOrder}
+      onOverlayOrder={overrides.onOverlayOrder ?? vi.fn()}
+      onOrderSaid={overrides.onOrderSaid ?? vi.fn()}
       overlayFiles={overrides.overlayFiles ?? []}
       onOverlayFiles={overrides.onOverlayFiles ?? vi.fn()}
       onRemoved={overrides.onRemoved ?? vi.fn()}
@@ -264,5 +268,70 @@ describe("taking an imported file off the map", () => {
     expect(shown()).toEqual(["b", "a"]);
     act(() => (removal as UndoableRemoval).undo());
     expect(shown()).toEqual(["b", "a"]);
+  });
+});
+
+describe("reordering the layers from the keyboard", () => {
+  it("keeps the button in the tab order and says what moved", () => {
+    // A button that disables itself under the focus drops the focus on the
+    // body, so a reader moving a layer to the top lost their place at the
+    // exact moment they arrived there, and nothing said the order had
+    // changed at all.
+    const onOverlayOrder = vi.fn();
+    const onOrderSaid = vi.fn();
+    render(
+      panel({
+        layers: { weatherAlerts: true, stormReports: true },
+        overlayOrder: ["stormReports", "alerts"],
+        onOverlayOrder,
+        onOrderSaid,
+      }),
+    );
+
+    const list = document.querySelector(".layer-order");
+    expect(list).toBeTruthy();
+    const buttons = within(list as HTMLElement).getAllByRole("button");
+    // Every one of them is still reachable, whatever it can do.
+    for (const button of buttons) {
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+    }
+
+    // The row at the top cannot go higher, and says so without leaving.
+    const top = buttons[0];
+    expect(top.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(top);
+    expect(onOverlayOrder).not.toHaveBeenCalled();
+    expect(onOrderSaid).not.toHaveBeenCalled();
+
+    // Both directions, by name against the layer each one passed rather
+    // than by position. Clicking whichever happens to be enabled would let a
+    // missing announcement on one of the two go unnoticed.
+    const up = buttons.filter((button) =>
+      button.getAttribute("aria-label")?.startsWith("Move"),
+    );
+    const movable = up.filter(
+      (button) => button.getAttribute("aria-disabled") !== "true",
+    );
+    expect(movable.length).toBe(2);
+    for (const button of movable) fireEvent.click(button);
+
+    expect(onOverlayOrder).toHaveBeenCalledTimes(2);
+    expect(onOrderSaid).toHaveBeenCalledTimes(2);
+    const said = onOrderSaid.mock.calls.map((call) => call[0] as string);
+    for (const line of said) expect(line).not.toContain("{");
+
+    // One of each direction, and the right way round. "Moved above" and
+    // "moved below" are the whole content of the message, so a pair that
+    // reads the same, or reads backwards, tells the reader nothing or
+    // something false.
+    // The words between the two layer names, which is the whole of what
+    // distinguishes the two sentences.
+    const between = (line: string) =>
+      line.replace("{layer}", "").replace("{other}", "").trim();
+    const above = between(en["layers.movedUp"]);
+    const below = between(en["layers.movedDown"]);
+    expect(above).not.toBe(below);
+    expect(said.filter((line) => line.includes(above))).toHaveLength(1);
+    expect(said.filter((line) => line.includes(below))).toHaveLength(1);
   });
 });

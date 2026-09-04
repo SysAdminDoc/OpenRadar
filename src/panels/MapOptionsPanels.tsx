@@ -301,6 +301,8 @@ interface LayersPanelProps {
   /** The order the overlays are drawn in, bottom first. */
   overlayOrder: string[];
   onOverlayOrder: (order: string[]) => void;
+  /** Says the new order out loud, because moving a row shows nothing else. */
+  onOrderSaid: (said: string) => void;
   /** The local files on the map, bottom first. */
   overlayFiles: WorkspaceOverlayFile[];
   onOverlayFiles: (files: WorkspaceOverlayFile[]) => void;
@@ -627,6 +629,7 @@ export function LayersPanel({
   onOverlayOpacity,
   overlayOrder,
   onOverlayOrder,
+  onOrderSaid,
   overlayFiles,
   onOverlayFiles,
   onRemoved,
@@ -739,22 +742,47 @@ export function LayersPanel({
                 next.splice(to, 0, taken);
                 onOverlayOrder(next);
               };
+              // Kept in the tab order and refused rather than disabled.
+              // A button that disables itself under the focus drops it on
+              // the body, so a reader moving a layer to the top lost their
+              // place at the exact moment it arrived, and nothing said the
+              // order had changed at all.
+              const atTop = at === arrangeable.length - 1;
+              const atBottom = at === 0;
               return (
                 <li key={overlayId} data-overlay={overlayId}>
                   <span>{label}</span>
                   <button
                     type="button"
                     aria-label={t("layers.moveUp", { layer: label })}
-                    disabled={at === arrangeable.length - 1}
-                    onClick={() => move(at + 1)}
+                    aria-disabled={atTop}
+                    onClick={() => {
+                      if (atTop) return;
+                      move(at + 1);
+                      onOrderSaid(
+                        t("layers.movedUp", {
+                          layer: label,
+                          other: t(labelFor(arrangeable[at + 1])),
+                        }),
+                      );
+                    }}
                   >
                     <ChevronUp size={15} />
                   </button>
                   <button
                     type="button"
                     aria-label={t("layers.moveDown", { layer: label })}
-                    disabled={at === 0}
-                    onClick={() => move(at - 1)}
+                    aria-disabled={atBottom}
+                    onClick={() => {
+                      if (atBottom) return;
+                      move(at - 1);
+                      onOrderSaid(
+                        t("layers.movedDown", {
+                          layer: label,
+                          other: t(labelFor(arrangeable[at - 1])),
+                        }),
+                      );
+                    }}
                   >
                     <ChevronDown size={15} />
                   </button>
@@ -887,6 +915,10 @@ export function LayersPanel({
                           layer: file.name,
                           percent: solid,
                         })}
+                        // The same words the output beside it shows. A
+                        // screen reader reads the raw value otherwise, so a
+                        // slider showing 35% announced 0.35.
+                        aria-valuetext={`${solid}%`}
                         value={solid}
                         onChange={(event) =>
                           patch({ opacity: Number(event.target.value) / 100 })
@@ -928,6 +960,7 @@ export function LayersPanel({
                       layer: t(labelKey),
                       percent: solid,
                     })}
+                    aria-valuetext={`${solid}%`}
                     value={solid}
                     onChange={(event) => {
                       const next = { ...overlayOpacity };
@@ -2122,6 +2155,7 @@ export function SettingsPanel({
             step="0.05"
             style={rangeFill(settings.radar.opacity, 0.05, 1)}
             aria-label={t("settings.opacityLabel")}
+            aria-valuetext={`${Math.round(settings.radar.opacity * 100)}%`}
             value={settings.radar.opacity}
             onChange={(event) =>
               updateRadar({ opacity: Number(event.target.value) })
@@ -2140,6 +2174,7 @@ export function SettingsPanel({
             step="0.1"
             style={rangeFill(settings.radar.animationSpeed, -0.8, 0.5)}
             aria-label={t("settings.animationSpeedLabel")}
+            aria-valuetext={formatNumber(settings.radar.animationSpeed, 1)}
             value={settings.radar.animationSpeed}
             onChange={(event) =>
               updateRadar({ animationSpeed: Number(event.target.value) })
@@ -2160,6 +2195,9 @@ export function SettingsPanel({
             step="10"
             style={rangeFill(settings.radar.loopMinutes, 60, 120)}
             aria-label={t("settings.loopLengthLabel")}
+            aria-valuetext={t("settings.minutes", {
+              count: settings.radar.loopMinutes,
+            })}
             value={settings.radar.loopMinutes}
             onChange={(event) =>
               updateRadar({ loopMinutes: Number(event.target.value) })
@@ -2184,6 +2222,9 @@ export function SettingsPanel({
               MAX_LOOP_VOLUMES,
             )}
             aria-label={t("settings.siteLoopLengthLabel")}
+            aria-valuetext={t("settings.volumes", {
+              count: settings.radar.loopVolumes,
+            })}
             value={settings.radar.loopVolumes}
             onChange={(event) =>
               updateRadar({ loopVolumes: Number(event.target.value) })
@@ -2266,6 +2307,9 @@ export function SettingsPanel({
                   0,
                   100,
                 )}
+                aria-valuetext={t("alerts.volumeValue", {
+                  percent: Math.round(settings.alertVolume * 100),
+                })}
                 value={Math.round(settings.alertVolume * 100)}
                 onChange={(event) =>
                   onSettings({
@@ -2559,6 +2603,9 @@ export function SettingsPanel({
             step={radiusSlider.step}
             style={rangeFill(radiusShown, radiusSlider.min, radiusSlider.max)}
             aria-label={t("settings.radiusLabel", { unit: distanceUnit() })}
+            aria-valuetext={t("settings.radiusValue", {
+              distance: formatDistance(milesFromDistance(radiusShown)),
+            })}
             // Snapped to the slider's own stops, so the thumb and the readout
             // beside it cannot disagree about where it is.
             value={radiusShown}

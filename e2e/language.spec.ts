@@ -338,3 +338,22 @@ test("a first run reads a language in the units that language uses", async ({
     page.getByRole("button", { name: es["settings.unitsImperial"] }),
   ).toHaveAttribute("aria-pressed", "true");
 });
+
+test("the map's own controls are in the reader's language too", async ({
+  page,
+}) => {
+  // MapLibre ships its own English for the few strings it writes into the
+  // DOM itself, so the canvas was announced as "Map" and the popup close
+  // button as "Close popup" inside a workspace that is otherwise entirely
+  // translated.
+  await startIn(page, "fr");
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  await expect(canvas).toHaveAttribute("aria-label", fr["map.label"]);
+
+  // The attribution toggle is the other one a reader can reach.
+  const toggle = page.locator(".maplibregl-ctrl-attrib-button");
+  await expect(toggle).toHaveAttribute(
+    "aria-label",
+    fr["map.toggleAttribution"],
+  );
+});
