@@ -59,7 +59,7 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 ### P2
 
 ### P3
-
+  Note 2026-09-04: Retention evidence: a Bluesky reader stays on RadarScope for being "the lightest running" (2026-08-26); Anvil's memory sampler (`0f5972d`) shows a 26-frame replay retaining 2,178 MB, which is the comparison the README number would sit against.
 - [ ] AUD-187 (P3): Scan the staged installer with Defender in the release gate
   Why: HookEcho and BowEcho, both unsigned Rust desktop apps, were flagged `Win32/Wacapew.A!ml` and publish false-positive FAQs; nothing here would know before a reader did.
   Evidence: r/stormchasing HookEcho thread (2026-08); BowEcho README FAQ; `scripts/release.mjs` verifies the signature and hashes but never scans.
@@ -115,14 +115,14 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Touches: new `src/lib/overlays/aviation.ts`, `registry.ts`, legends, catalogues, live contract (host already allowed).
   Acceptance: Convective and non-convective SIGMETs, G-AIRMET turbulence, icing and IFR, and CWAs draw as polygons with their valid times; PIREPs draw as points with altitude and remark; the layer says it is not for flight planning; requests stay under one per minute per product.
   Complexity: M
-
+  Note 2026-09-04: The same hazards are on `mapservices.weather.noaa.gov/vector/rest/services/aviation/awc_aviation_weather` (ArcGIS, `f=geojson`, CORS), a host already allowed, which avoids aviationweather.gov's no-CORS and 100 req/min.
 - [ ] AUD-195 (P3): Snowfall analysis for the winter lane
   Why: Precipitation type shipped in 0.6.0 and nothing says how much fell; NOHRSC's national snowfall analysis is the official 24/48/72-hour answer and is keyless.
   Evidence: Verified live 2026-09-02: `https://www.nohrsc.noaa.gov/snowfall_v2/data/{YYYYMM}/sfav2_CONUS_{6h|24h|48h|72h}_{YYYYMMDDHH}.tif` (00Z and 12Z for 24/48/72 h, no CORS: native), or the rendered `raster/rest/services/snow/NOHRSC_Snow_Analysis/MapServer/export` on the allowed mapservices host (daily, not time-enabled).
   Touches: either `src-tauri/src/geotiff.rs` gains a reader for the sfav2 GeoTIFF and a new native tile lane, or a raster overlay adapter for the ArcGIS export; `http.rs`/CSP for `www.nohrsc.noaa.gov` if native; legends, ramps, catalogues, ledger, live contract.
   Acceptance: A snowfall layer draws 24, 48 or 72-hour totals with the analysis time in the legend and the NOHRSC credit; provenance says `observation` with a daily cadence; the winter lane's product entry names it beside precipitation type.
   Complexity: M
-
+  Note 2026-09-04: `raster/rest/services/snow/NOHRSC_Snow_Analysis` (ImageServer) is on the allowed host; SCN26-75 makes the Probabilistic Precipitation Portal operational on 2026-10-01 as the PWPF successor (`ftp-wpc.ncep.noaa.gov/prob_precip_portal/`), which is the snow and ice probability source for this lane.
 - [ ] AUD-196 (P3): CoCoRaHS daily precipitation, hail and significant weather reports
   Why: Storm reports are one feed; CoCoRaHS is the densest volunteer rain and hail network in North America, CC BY 4.0, keyless and CORS-open.
   Evidence: Verified live 2026-09-02: `https://data.cocorahs.org/export/exportreports.aspx?Format=json&ReportType=Daily&State=IA&Date=MM/DD/YYYY` (also `Hail`, `SigWx`, `MultiDay`; CORS `*`); licence CC BY 4.0 in the site footer.
@@ -150,7 +150,7 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Touches: `scripts/release.mjs` (a second target and asset name `OpenRadar_<version>_arm64-setup.exe`), `latest.json` platforms (`windows-aarch64`), `README.md` asset table, `docs/listings.json`, `SHA256SUMS`.
   Acceptance: The release stages an ARM64 installer with its own updater signature and `latest.json` entry; the asset-name promise in the README lists it; a Defender scan (AUD-187) covers both; a launch on ARM hardware is recorded in the working notes or the badge stays x64.
   Complexity: M
-
+  Note 2026-09-04: Verified 2026-09-04 in the Tauri bundler source: NSIS maps `aarch64` to `arm64` and the updater accepts a `windows-aarch64` target, so `--target aarch64-pc-windows-msvc` works today without a Tauri change.
 - [ ] AUD-200 (P3): Re-capture the README screenshot
   Why: `assets/screenshots/openradar-main.png` is from 2026-08-31 and predates the light-theme repairs, French, the rail rework, the dark form controls and the accent changes described in the 0.8.0 changelog; a stale picture misleads the first reader.
   Evidence: `git log -1 -- assets/screenshots` (2026-08-31, "Rebuild the weather workspace around the map"); `CHANGELOG.md` 0.8.0 visual entries.
@@ -174,7 +174,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Complexity: M
 
 ### P3
-
+  Note 2026-09-04: The cited line range is stale (the products table now ends past 1090). The switch-group shape from `AUD-217` (`lightningGrids.ts`, `productFor`, the two `EVERY_CHOICE` fixtures) is the pattern; a level parameter on a family should replace rows, and `EVERY_CHOICE` must cross the level or the family is checked by nothing.
 - [ ] AUD-233 (P3): The finer MRMS grids at their own resolution, on demand
   Why: `AUD-175` shipped merged azimuthal shear, which MRMS publishes at 0.005 degrees, and it draws folded by two to the 0.01 degree grid the rest of the app uses. That is a deliberate memory decision from commit `9fcfc11` and not an oversight: one unfolded grid is 196 MB against 49, the cache budget is 768 MB, and `CACHE_CAPACITY > LAYERS_AT_ONCE` stops holding. It also means the item's own acceptance line, "at full 0.005 degree resolution", was not met, and the detail is real: a shear couplet is a few hundred metres across.
   Evidence: `src-tauri/src/mrms.rs` `MAX_SOURCE_REDUCTION`, `GRID_BYTES`, `CACHE_BUDGET_BYTES` and the two const assertions beneath them; `mrms::tests::a_finer_grid_is_folded_and_costs_what_a_coarse_one_does` measures the fold and its cost (330 ms to decode, 3.9 ms a tile on 2026-09-03).
@@ -195,14 +195,14 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Touches: `src-tauri/src/level2/{mod,listing,decode,render,loop,status}.rs`, `src-tauri/src/lib.rs` paths, tests move with their code, the working notes' architecture line, `docs/architecture.md`.
   Acceptance: No file under `level2/` exceeds 2,000 lines; `cargo test` passes the same count; clippy is clean; the four derived-product items name their target module.
   Complexity: M
-
+  Note 2026-09-04: `level2.rs` is 7,019 lines on 2026-09-04 (+552 in one day, with `level2_vwp` beside `level2_cross_section`); `mrms.rs` is 4,467. See also `AUD-272` for the four hottest frontend files, which have no split item.
 - [ ] AUD-220 (P3): Tests for the twelve panels that have none
   Why: Coverage floors are 63/56/57/64 and the panels are most of what is missing; twelve panels have no sibling test, so their empty, loading and error states are held only by e2e specs that stub the world.
   Evidence: `src/panels/` listing against `*.test.tsx` on 2026-09-03: CuriositySection, ExportPanel, GuidancePanel, IncidentPackManager, JournalSection, MapOptionsPanels, RecapSection, RoutePanel, SearchPanel, SoundingPanel, TidesPanel, UtilityPanels; `vitest.config.ts:34-47`.
   Touches: one `*.test.tsx` per panel, `vitest.config.ts` floors.
   Acceptance: Each panel has a sibling test covering its empty, loading and error states with the catalogue's copy; every floor rises by at least two points and none falls.
   Complexity: M
-
+  Note 2026-09-04: The list is stale: `IncidentPackManager.test.tsx` now exists, and `StorageSection.tsx` and `VwpPanel.tsx` have no test. Thirteen panels, different membership; derive the list from `src/panels/*.tsx` minus `*.test.tsx` rather than naming them.
 - [ ] AUD-222 (P3): Save the volume on screen as the file it came from
   Why: A reader who found the sweep that matters can export a picture, a CSV or a GeoTIFF but not the Archive II object itself, so the case study cannot be reopened in the app or handed to another tool; Supercell Wx has a pull request for the same ask.
   Evidence: `src-tauri/src/exports.rs:24` (`png`, `webm`, `gif`, `json`, `jsonl`, `md` only); the app opens local Archive II files already (`src-tauri/src/level2.rs` local mode); https://github.com/dpaulat/supercell-wx/pull/688.
@@ -223,7 +223,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Touches: new `src/lib/lightningJump.ts` (two-minute flash-rate series per cell within the cell's radius, rate of change against two sigma of the prior ten minutes, a minimum rate), the cell popup and a badge in `src/panels/RadarProductPanel.tsx`, `src/i18n/*`, tests with planted series.
   Acceptance: A planted flash series that doubles over two bins produces a jump badge on the cell with the time; a steady series does not; the badge says it is a signal, not a warning; the GLM "not a strike report" note is carried.
   Complexity: M
-
+  Note 2026-09-04: Half overtaken: `lightning-jump` and `lightning-jump-max` grids shipped in `AUD-217` (`mrms.rs`), so "no open-source app ships the jump" no longer describes this one. The per-cell join of `cells.ts` to the flash feed is what remains; the FMI graph tracker (AMT 19:1853, MIT) is the reference if a cell must be followed through a merge.
 - [ ] AUD-225 (P3): The melting layer from the volume's own top tilt
   Why: The hail size item (`AUD-190`) needs the freezing level and takes it from a sounding that may be hours old and far away; the volume's own high tilt carries the bright band, and a published method finds it without model data to about 250 m.
   Evidence: Giangrande-style automated detection, AMT 14:2873 (2021): normalised Z, ZDR and (1 − ρhv) product on the tilt at or above 9°, threshold 0.08, second-derivative weight 0.75 (https://amt.copernicus.org/articles/14/2873/2021/); `src-tauri/src/level2.rs` has no melting-layer product; `MRMS BrightBandTopHeight` exists on the bucket but is 17.9 MB per file.
@@ -237,7 +237,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Touches: `src/lib/providers/` (a MET Norway PNG provider by area; a MeteoGate GeoTIFF lane through `src-tauri/src/geotiff.rs`), `src-tauri/src/http.rs` and the CSP (`api.met.no`, `api.meteogate.eu`), `docs/asset-ledger.md`, `src/lib/providers/coverage.ts` (Norway, then OPERA members), two live contracts that measure the anonymous limit, `src/i18n/*`.
   Acceptance: Over Norway the timeline draws MET Norway radar with the CC BY credit; over OPERA members the composite draws with the EUMETNET credit and its cadence in the legend; the live contract records the anonymous limit and the provider budget stays under it; RainViewer remains only where neither reaches.
   Complexity: L
-
+  Note 2026-09-04: FMI renames every radar layer in autumn 2026 (`Radar:suomi_dbz_eureffin` becomes `Radar:radar_finland_cappi_dbzh`, old names removed end of November 2026); KNMI rotated its anonymous key on 2026-06-30 (old key dead 2026-08-01); SMHI's old API docs page 404s. Use the new FMI names from the start if FMI is wired.
 - [ ] AUD-227 (P3): MeteoAlarm warnings for the rest of Europe
   Why: Canadian and German warnings proved the adapter shape and MeteoAlarm publishes every other European service's warnings under CC BY 4.0 with no registration; HookEcho reads it, and a reader in France or Italy with the DWD composite on has no warnings at all.
   Evidence: https://feeds.meteoalarm.org/ (CC BY 4.0, attribution to EUMETNET members, Atom only since 2026-01-14); `src/lib/overlays/dwdWarnings.ts` and `ecccAlerts.ts`; the 2026-09-02 lesson that every ECCC alert shared one identity because the watch keyed on `url`.
@@ -287,7 +287,7 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
 
 
 ## Audit Findings, 2026-09-04
-
+  Note 2026-09-04: `consecutiveFailures` moved to `src/lib/diagnostics.ts:295-296` and `src/lib/providers/health.ts:8,25,47,60`; the cited lines are stale. A Bluesky post (2026-09-03) of RadarScope and RadarOmega both losing their feed in a storm is the reader-facing reason for the history.
 - [ ] AUD-247 (P3): A placefile icon sheet cannot be stubbed in the browser suite, so the path where an icon really draws has no end-to-end test
       Category: testing
       Where: `e2e/support/fixtures.ts` (the `https://mesonet.agron.iastate.edu/**` stub, whose default branch answers `emptyCollection` as JSON); `src/components/MapViewport.tsx` `loadPlacefileIcons`; `src/lib/placefileIcons.test.ts` (the source-reading gate standing in for it today)
@@ -307,3 +307,126 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
       Acceptance: Every handler answers on every path; a deliberately unrecognised URL on a stubbed host comes back with a status rather than hanging.
       Confidence: Verified
       Effort: S
+
+
+## Research-Driven Additions
+
+Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
+
+### P1
+
+- [ ] AUD-259 (P1): The West Palm Beach terminal radar has been unreachable since 2026-08-03, because its identifier changed
+      Why: SCN26-61 renamed the TDWR from TPBI to TDJT for Level II and Level III effective 2026-08-03. `src/lib/tdwrSites.json:38` still says `TPBI`, and `src-tauri/src/tdwr.rs:80` strips the first letter for the Level III prefix, so every product for the site asks for `PBI_`. A reader who holds it gets nothing, and the site list does not say why.
+      Evidence: Verified live 2026-09-04: `unidata-nexrad-level2-chunks/TDJT/` active, `TPBI/` empty; archive `2026/09/03/TDJT/` present, `TPBI/` absent; Level III `DJT_TZL_2026_09_03` and `DJT_TV0_2026_09_03` present, `PBI_TZL_2026_09_03` absent. https://www.weather.gov/media/notification/pdf_2026/scn26-61_Identifer_Change_PBI_to_DJT.pdf
+      Touches: `src/lib/tdwrSites.json`, `src-tauri/src/tdwr.rs` (an alias so an archive date before 2026-08-03 still asks for `PBI_`), `src-tauri/src/tdwr.rs` tests, `scripts/live-contracts-lib.mjs` (a contract that every TDWR id in the table has a Level III key today), README site count if it changes.
+      Acceptance: Holding West Palm Beach draws a sweep; a live contract asks the bucket for the newest `TZL` key of every id in the table and fails on any that has none; an archive request dated 2026-07-01 for the site asks under `PBI_`.
+      Complexity: S
+
+- [ ] AUD-260 (P1): Diagnostics never says how autostart is set or that Windows notifications are blocked
+      Why: `CHANGELOG.md:53` says the report names which way autostart is set; `src/lib/diagnostics.ts:244-300` has no such line. Separately, `src/lib/notify.ts:31` returns false on a denied permission and the three watches fall back to a toast, and no surface, Diagnostics included, tells the reader Windows notifications are blocked. Both are exactly the "why did I not hear about last night's warning" case the report exists for.
+      Evidence: `grep -n 'autostart\|Startup' src/lib/diagnostics.ts` is empty; `src/lib/autostart.ts:57`; `src/hooks/useAlertWatch.ts:271,387`, `useApproachWatch.ts:146`, `useLightningWatch.ts:120`.
+      Touches: `src/lib/diagnostics.ts`, `src/lib/notify.ts` (expose the permission state), `src/panels/MapOptionsPanels.tsx` (a line beside the watch settings when permission is denied), `src/i18n/*`, `src/lib/diagnostics.test.ts`.
+      Acceptance: The report carries one line for autostart (on, off, or unavailable) and one for notification permission (granted, denied, not asked); with permission denied the watch settings show a sentence saying so with the Windows settings path; tests cover all three permission states.
+      Complexity: S
+
+- [ ] AUD-261 (P1): A failed hatch layer is dropped silently, so an outlook draws without its significant areas and nothing says so
+      Why: `src/lib/overlays/spc.ts:449-452` catches the significant-hazard query's failure and returns the bands alone. A reader sees a 15% tornado band with no hatching and reads it as "not significant", which is the opposite of "the service did not answer". It is the only swallowed error in `src/` without copy.
+      Evidence: the catch at the cited lines; every other swallowed catch in `src/` is commented as deliberate (`ErrorBoundary.tsx:125,133`, `MapViewport.tsx:2156`, `glance.tsx:134`, `autostart.ts:68`, `export.ts:177`).
+      Touches: `src/lib/overlays/spc.ts`, `src/lib/overlays/registry.ts` (a partial-answer note on `OverlayData` if none exists), the legend or provenance line for the layer, `src/i18n/*`, `src/lib/overlays/spc.test.ts`.
+      Acceptance: With the significant query stubbed to fail, the bands draw and the layer's provenance line says the hatched area could not be read; a test asserts the note; with both queries succeeding the note is absent.
+      Complexity: S
+
+### P2
+
+- [ ] AUD-262 (P2): The README, SECURITY.md, the architecture note and the export policy script lag the code by two releases
+      Why: README.md:59 says "SPC convective outlooks" for what is now all 26 layers with day and hazard controls; :87 "Lightning two ways" for what is now ten grids; popups on imported shapes, smoothing greyed on a TDWR, and replay-day outlooks and reports are not mentioned; :93 "Seven map styles" against :380 "five of the eight" and `MAP_STYLES` with eight entries. `SECURITY.md:9-10` lists 0.9.x and 0.7.x and earlier, leaving 0.8.x unclassified. `docs/architecture.md:45` and `scripts/unused-exports.mjs:14-16` say about a hundred and fifty exports where the count is 205 test-only and 148 file-local. `CHANGELOG.md` carries no dates except v0.1.0.
+      Evidence: the cited lines; `src/lib/mapStyles.ts:16-59, 81`; the counts measured 2026-09-04.
+      Touches: `README.md`, `SECURITY.md`, `docs/architecture.md`, `scripts/unused-exports.mjs`, `CHANGELOG.md` (a date on each version heading), `src/lib/settings.ts:79` (retire the `"dark"` id no picker offers, keeping the resolver for old files), `src/lib/docs.test.ts`.
+      Acceptance: Every shipped v0.9.0 and v0.10.0 feature has a README line; the style count is stated once and matches `MAP_STYLES`; SECURITY.md classifies every minor since 0.7; the two export counts are measured by the script rather than written in; `docs.test.ts` fails if a CHANGELOG heading has no date. AUD-200 (the screenshot) stays its own item.
+      Complexity: S
+
+- [ ] AUD-263 (P2): Vitest 5.0.0, and the three routine bumps beside it
+      Why: Vitest 5.0.0 (2026-09-03) changes defaults the suite relies on implicitly: `clearMocks` on by default (62 explicit clear or reset calls become redundant), `expect.poll` rejects on timeout, unawaited `.resolves` fails, artifacts move under `.vitest/`. The tree already satisfies the removals (0 `sequential`, 0 `toHaveTextContent`, all 38 `vi.mock` at top level). `lucide-react` 1.41.0 and `@types/react-dom` 19.2.7 are trivial.
+      Evidence: https://github.com/vitest-dev/vitest/releases/tag/v5.0.0 ; https://vitest.dev/guide/migration.html ; `npm outdated` 2026-09-04.
+      Touches: `package.json`, `package-lock.json`, `.gitignore` (`.vitest/`), `vitest.config.ts` if coverage patterns need the relative-path form, the redundant clear calls.
+      Acceptance: `npm run check` green on Vitest 5 and coverage-v8 5 with the same floors; no `vi.clearAllMocks` left where `clearMocks` covers it; `.vitest/` ignored.
+      Complexity: S
+
+- [ ] AUD-264 (P2): Time since the last flash, and how far the nearest one was, per watched place
+      Why: The 2026 Hazardous Weather Testbed found forecasters wanted the Lightning Stoplight's colouring by time since the last strike, decaying slowly, beside any probability, and were told never to message an all-clear from probabilities alone after a strike six miles out while both tools trended clear. A reader on Bluesky (2026-09-04) paid for a lightning tier to know when to unplug. The app has the flashes, the places, and a 30-minute quiet rule (`useLightningWatch.ts`); it shows neither the age of the last flash nor its distance.
+      Evidence: https://inside.nssl.noaa.gov/ewp/topic/lightning-stoplight/ ; https://baronweather.com/baron-news/tag/baron-threat-net (five radii, 30-minute all-clear); `src/hooks/useLightningWatch.ts`, `src/lib/lightningWatch.ts`.
+      Touches: `src/lib/lightningWatch.ts` (nearest flash distance and bearing, time since last inside the radius), `src/hooks/useLightningWatch.ts`, the watched-place card and the Nearby panel (a stoplight chip: red under 10 min, amber to 30, green after, with the minutes written), `src/i18n/*`, tests.
+      Acceptance: Each watched place shows minutes since the last flash inside its radius and the nearest flash's distance and bearing, from the same feed the watch reads; the chip's colour steps at the stated minutes and never says "clear" from anything but elapsed time; a test drives a flash then advances a fake clock through the three steps.
+      Complexity: M
+
+- [ ] AUD-265 (P2): A shared link carries the held site, product, tilt and threshold, not only the camera
+      Why: `openradar://view` carries `lon`, `lat`, `zoom`, `bearing`, `pitch` and `projection` (`src/lib/deepLink.ts:23-33`). HookEcho #71 (2026-08-23) is a dashboard user asking for exactly the rest: site, product, tilt and threshold in the link, persisted. A link that opens the camera over a storm and a different product than the sender saw is a link that shows a different picture.
+      Evidence: https://github.com/d4vid87/HookEcho/issues/71 ; `src/lib/deepLink.ts`; the share action in `src/hooks/useWorkspaceActions.ts`.
+      Touches: `src/lib/deepLink.ts` (optional `site`, `product`, `tilt`, `threshold`, each validated against the same normalisers settings use), the share action, the link handler in `src/App.tsx`, `src/lib/deepLink.test.ts`, README.
+      Acceptance: A link made while holding KDMX velocity on tilt 2 with a threshold opens the same; an unknown site or product in a link is ignored with a toast rather than refused whole; the old camera-only form still works; tests cover each field and each rejection.
+      Complexity: S
+
+- [ ] AUD-266 (P2): Read the radar's own wind profile product first, and fit the volume only when it has none
+      Why: Every WSR-88D and TDWR publishes Level III NVW (product 48), the RPG's own VAD wind profile: 354 objects a day at DMX, 233 at TLX, 235 at TDJT on 2026-09-03. The app fits every ring itself from Level II (`src-tauri/src/level2.rs:1124` `fitted_wind`, `src-tauri/src/vwp.rs`), which is a whole volume fetched and decoded before storm-relative velocity can paint. Anvil reads NVW first and falls back to its own fit, and cut first paint of SRV from 19.7 to 5.9 s.
+      Evidence: bucket listings `DMX_NVW_2026_09_03`, `TLX_NVW_2026_09_03`, `DJT_NVW_2026_09_03` verified 2026-09-04; https://github.com/jhammon88219/Anvil/commit/9783bf8 ; ICD 2620001 product 48 packet 8/9 text and the VAD wind profile in 2620003.
+      Touches: `src-tauri/src/level3.rs` (the NVW decoder: heights, direction, speed, RMS per level), `src-tauri/src/vwp.rs` (a column from NVW carries the RPG's own RMS as its trust number; the fit remains the fallback and the source is named on the column), `src-tauri/src/level2.rs` (storm motion from NVW when present), `src/panels/VwpPanel.tsx` (which source each column came from), `src/i18n/*`, tests with a real NVW object as fixture.
+      Acceptance: With NVW available the panel's column names the product and appears before the volume finishes decoding; with it absent (stub 404) the fitted column appears as today; a level the RPG marked ND stays ND; a fixture NVW decodes to the heights and winds its packet text states.
+      Complexity: M
+
+- [ ] AUD-267 (P2): A second live source for storm reports on the NWS map service
+      Why: Storm reports come from one host (IEM). Chasers posted on 2026-09-03 that RadarScope and RadarOmega both lost their feed during a storm while WeatherFront stayed up; a report layer that is empty because its one source is down looks like a quiet afternoon. The NWS publishes the same reports on a host the app already reads for warnings and outlooks.
+      Evidence: `mapservices.weather.noaa.gov/vector/rest/services/obs/nws_local_storm_reports` listed live 2026-09-04; https://bsky.app/profile/ontariowedges.bsky.social/post/3mul7suzxzc23 ; `src/lib/overlays/reports.ts` (one `fetchData` path); the mosaic failover in `src/lib/providers/` as the pattern.
+      Touches: `src/lib/overlays/reports.ts` (a second parser for the ArcGIS fields, tried when the first fails or times out), the provenance line (which source answered), `scripts/live-contracts-lib.mjs` (a contract for the second), `src/lib/overlays/reports.test.ts`.
+      Acceptance: With the IEM stub failing, reports still draw from the NWS service and the provenance line names it; with both up, IEM is asked first and the NWS service is not; the archive replay path is unaffected; a live contract reads today's reports from the NWS service.
+      Complexity: S
+
+- [ ] AUD-268 (P2): A launch that starts hidden must show a full-size map when the tray opens it
+      Why: WebView2 152 reports a roughly 70 by 39 pixel viewport to a host whose window was hidden when the WebView was created (WebView2Feedback #5689, 2026-09), which is the autostart-to-tray path `AUD-209` shipped. `MapViewport.tsx:2129` resizes on a `ResizeObserver`, which should fire on first show, but nothing has watched that path on 152.
+      Evidence: https://github.com/MicrosoftEdge/WebView2Feedback/issues/5689 ; `src-tauri/src/lib.rs` (the start-hidden window), `src/components/MapViewport.tsx:2129`.
+      Touches: `src/components/MapViewport.tsx` (a `map.resize()` on the window's first `visibilitychange` to visible, cheap and idempotent), `src/App.tsx`, an e2e spec that starts the page hidden (`page.emulateMedia` and a hidden `document.visibilityState`) and asserts the canvas size after show.
+      Acceptance: The spec passes; on a desktop session a start-with-Windows launch opened from the tray shows the map at the window's size (recorded in `Roadmap_Blocked.md` if no session is available, as the other desktop checks are).
+      Complexity: S
+
+### P3
+
+- [ ] AUD-269 (P3): Keep the display awake while the second-monitor view is showing
+      Why: README says the full-screen view "is meant to be left running on the screen you are not typing on"; Windows turns that screen off on its own timer, and the page cannot stop it: the Screen Wake Lock API is unsupported in WebView2. One Win32 call from the native side is.
+      Evidence: https://caniwebview.com/features/web-feature-screen-wake-lock/ ; `grep -rn wakeLock src` empty; `SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)`.
+      Touches: `src-tauri/src/lib.rs` (a `display_awake(bool)` command), the ambient-view enter and leave path in `src/App.tsx`, Settings (off by default, beside the ambient options), `src/i18n/*`, a test that the command is asked on enter and released on leave and on window close.
+      Acceptance: With the option on, entering the ambient view asks the native side to hold the display and leaving it releases; the hold is released when the app exits; the option is off by default and says what it does.
+      Complexity: S
+
+- [ ] AUD-270 (P3): Speak a warning at a watched place with the Windows voice, off by default
+      Why: HookEcho made spoken warnings the default on 2026-09-03 (#298: county, towns in path, distance and bearing from a saved place, a tone then speech, a queue); Supercell Wx #581 asks for voice lightning alerts. The app's watched places already compose the sentence (which place, which warning, how many minutes); speaking it through the page's own `speechSynthesis` is offline and keyless, and is the one form a reader away from the screen can take in.
+      Evidence: https://github.com/d4vid87/HookEcho/pull/298 ; https://github.com/dpaulat/supercell-wx/issues/581 ; `src/lib/notify.ts`, `src/hooks/useAlertWatch.ts`, `src/hooks/useApproachWatch.ts`.
+      Touches: `src/lib/notify.ts` (a `speak` beside `announceOnDesktop`, queued, cancelled by a newer warning for the same place), the watch settings (per place, off by default, honouring quiet hours and calm mode), `src/i18n/*` (the spoken sentence in the reader's language), tests with a stubbed `speechSynthesis`.
+      Acceptance: With voice on for a place, a warning reaching it is spoken once in the catalogue language after the tone; quiet hours and calm mode silence it exactly as they silence the sound; two warnings queue rather than overlap; nothing is spoken by default.
+      Complexity: S
+
+- [ ] AUD-271 (P3): A search box over the settings
+      Why: `src/panels/MapOptionsPanels.tsx` is 2,847 lines of settings with no filter; `searchCommands` (`src/lib/commands.ts:619`) exists for the palette and nothing points it at settings. Every setting has a catalogue label already, which is the index.
+      Evidence: `grep -rn 'searchSettings\|filterSettings' src` empty; the palette's own search as the pattern; StormDeck's settings search in the sibling repo.
+      Touches: `src/panels/MapOptionsPanels.tsx` (each row carries its label key; a box at the top hides rows whose label and detail do not match), `src/lib/commands.ts` (share the matcher), `src/i18n/*`, `src/panels/LayersPanel.test.tsx`.
+      Acceptance: Typing "lightning" leaves only the rows whose label or detail mention it, in every language; clearing the box restores everything; the box is reachable from the command palette.
+      Complexity: M
+
+- [ ] AUD-272 (P3): Split `App.tsx` and `MapOptionsPanels.tsx` along the seams the churn shows
+      Why: Since 2026-08-25, `App.tsx` was touched by 143 commits and `MapOptionsPanels.tsx` by 85, and they are 2,814 and 2,847 lines: four of the six largest files are the four hottest, and only `level2.rs` has a split item. Every layer added this week edited both.
+      Evidence: `git log --since=2026-08-25 --format=%H -- src/App.tsx | wc -l` and the same for the panel; `wc -l`; the ten-place list in `CLAUDE.md` for adding a switch group.
+      Touches: `src/App.tsx` (the watches, the replay wiring, the panel props each into a hook or component), `src/panels/MapOptionsPanels.tsx` (one file per section: layers, radar, watches, appearance, storage), `src/components/PanelSurfaces.tsx`, the tests that import them.
+      Acceptance: Neither file is above 1,500 lines; adding a switch group edits one panel section file rather than the panel; `npm run check` and the e2e suite unchanged.
+      Complexity: M
+
+- [ ] AUD-273 (P3): Tauri 2.12 readiness, when it ships
+      Why: The 2.12 milestone (32 closed, 14 open on 2026-09-04) carries tao 0.37 (the process exits on `WM_ENDSESSION` instead of the "cannot move state from Destroyed" crash, which the autostart path is most exposed to), wry 0.56 (a WebView2 teardown crash fix), MSRV 1.90, `noRedirectionBitmap`, `bundle.windows.bundleVCRuntime`, and exit codes propagated from `app_handle().exit(n)`. None reaches this tree until `tauri-runtime-wry` 2.12.
+      Evidence: https://github.com/tauri-apps/tauri/milestones ; https://github.com/tauri-apps/tao/blob/dev/CHANGELOG.md ; `src-tauri/Cargo.toml:7` (`rust-version = "1.85"`).
+      Touches: `src-tauri/Cargo.toml` (`rust-version` 1.90, the bump), `src-tauri/tauri.conf.json` (`noRedirectionBitmap`, tested against the MapLibre canvas), `src-tauri/src/lib.rs` (the crash handler's exit-code assumption), `tauri-plugin-single-instance` 2.4.4 now.
+      Acceptance: On 2.12: `cargo test`, clippy and the release gate green; a shutdown while the app runs in the tray leaves no crash file; the single-instance bump lands ahead of it.
+      Complexity: S
+
+- [ ] AUD-274 (P3): A held site that stops publishing says so and names the nearest one that is
+      Why: KLWX went down inside a tornado warning on 2026-08-17 (Bluesky). The app reads every site's status from `api.weather.gov/radar/stations` and passes over a downed one when picking; whether a site already held keeps drawing its last volume with nothing but the age to say so has not been verified.
+      Evidence: https://bsky.app/profile/mergerson.bsky.social (2026-08-17) ; `src/hooks/useSingleSiteRadar.ts`, `src-tauri/src/radar_status.rs`, the sites-in-reach picker.
+      Touches: `src/hooks/useSingleSiteRadar.ts` (when the held site's status turns from Operate, or no volume arrives for two cadences, a line on the chrome naming the nearest publishing site in reach with one action to hold it), `src/components/WorkspaceChrome.tsx`, `src/i18n/*`, an e2e spec with the status stub flipping mid-hold.
+      Acceptance: With the held site's status stubbed to Start-Up the chrome says the radar is down and offers the nearest one; taking the offer holds it; the loop's last volume stays on screen with its age until then.
+      Complexity: S

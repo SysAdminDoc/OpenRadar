@@ -2,6 +2,8 @@
 
 ## Three releases are built and never published, and only the owner can publish them
 
+Re-checked 2026-09-04: the published manifest still answers v0.4.0; the tree is v0.9.0 with an unreleased v0.10.0 in the changelog, so the gap is now five releases and the one-release gate below refuses to stage a build until the owner publishes.
+
 Found 2026-09-02, and confirmed live the same day: `https://github.com/SysAdminDoc/OpenRadar/releases/latest/download/latest.json` answers with `version: 0.4.0`, dated 31 August, while every manifest in this tree says 0.7.0 and the changelog carries an unreleased 0.8.0. The updater is the only channel an installed copy has, and it reads that one file, so every installed copy has been told it is up to date through 0.5, 0.6 and 0.7. Among the fixes sitting unpublished is the one that made every external link in the packaged build work again: in an installed 0.4.0, clicking the weather office's own page for a warning does nothing at all.
 
 **Done here.** `npm run release` now reads the published manifest, prints it beside the repository version, and refuses to stage a build when the gap is more than one release, naming the publish as the owner's act. `publishedLag` and `publishedLagLine` in `scripts/release-lib.mjs` carry the rule, with the live 0.4.0-against-0.7.0 case pinned as a test. The README's install section says what an installed copy is actually being offered and why that can lag this repository.
