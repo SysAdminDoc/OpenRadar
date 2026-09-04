@@ -271,4 +271,44 @@ describe("the site picker and what the office says", () => {
       expect(screen.getByText(/no gates to read between/i)).toBeInTheDocument();
     });
   });
+
+  describe("unfolding an airport radar's velocity", () => {
+    function unfold(station: string | null) {
+      render(
+        <RadarProductPanel
+          radar={{
+            ...DEFAULT_SETTINGS.radar,
+            singleSite: true,
+            station,
+            dealias: true,
+          }}
+          clock={Date.parse("2026-09-03T02:06:00Z")}
+          singleSite={{ ...singleSite, sweep: null } as SingleSiteState}
+          siteStatus={[]}
+          stormCells={CELLS}
+          watch={DEFAULT_SETTINGS.watch}
+          onRadar={vi.fn()}
+          onClose={() => {}}
+        />,
+      );
+      return screen.getByRole("checkbox", { name: /Unfold velocity/i });
+    }
+
+    it("is offered on a WSR-88D", () => {
+      const said = unfold("KDMX");
+      expect(said.hasAttribute("disabled")).toBe(false);
+      expect((said as HTMLInputElement).checked).toBe(true);
+    });
+
+    it("is not offered on a terminal radar, and says why", () => {
+      // The row beside it was greyed out for exactly this reason and this one
+      // was left live: a terminal radar's velocity arrives already unfolded,
+      // the native side passes no flag, and the switch showed as ticked over
+      // a sweep it had done nothing to.
+      const said = unfold("TBWI");
+      expect(said.hasAttribute("disabled")).toBe(true);
+      expect((said as HTMLInputElement).checked).toBe(false);
+      expect(screen.getByText(/nothing here to take out/i)).toBeInTheDocument();
+    });
+  });
 });

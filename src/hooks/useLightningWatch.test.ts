@@ -145,3 +145,70 @@ describe("what a gap in the flash feed does to what a place has been told", () =
     expect(onFallback.mock.calls[1][0].kind).toBe("started");
   });
 });
+
+describe("a place switched off while the feed is quiet", () => {
+  it("is told again when it comes back to a storm still going", async () => {
+    // The record of what a place has been told is pruned where the notices
+    // are worked out, which only runs on a real window. Through an outage,
+    // or with the lightning layer off, a place switched off and back on kept
+    // its record: still marked as told, and a storm that was still going
+    // over it went unannounced. Missing a notice is the direction that
+    // matters here.
+    const onFallback = vi.fn();
+    const view = renderHook(
+      (props: {
+        window: FlashWindow | null;
+        clock: number;
+        places: WatchPlace[];
+      }) =>
+        useLightningWatch({
+          window: props.window,
+          places: props.places,
+          rule: RULE,
+          clock: props.clock,
+          onFallback,
+        }),
+      {
+        initialProps: {
+          window: windowWith(1, AT) as FlashWindow | null,
+          clock: AT,
+          places: [PLACE],
+        },
+      },
+    );
+    await vi.waitFor(() => expect(onFallback).toHaveBeenCalledTimes(1));
+    expect(onFallback.mock.calls[0][0].kind).toBe("started");
+
+    // The feed goes quiet, and the reader switches the place off and on.
+    view.rerender({ window: null, clock: AT + 60_000, places: [PLACE] });
+    view.rerender({
+      window: null,
+      clock: AT + 120_000,
+      places: [{ ...PLACE, enabled: false }],
+    });
+    view.rerender({ window: null, clock: AT + 180_000, places: [PLACE] });
+
+    // The storm is still there when the feed comes back.
+    view.rerender({
+      window: windowWith(1, AT + 240_000),
+      clock: AT + 240_000,
+      places: [PLACE],
+    });
+    await vi.waitFor(() => expect(onFallback).toHaveBeenCalledTimes(2));
+    expect(onFallback.mock.calls[1][0].kind).toBe("started");
+  });
+
+  it("is not told twice for a place that stayed on", async () => {
+    // The pair, so the prune cannot pass by forgetting everything: a place
+    // nobody touched keeps its record through the same outage.
+    const onFallback = vi.fn();
+    const view = watch(onFallback);
+    await vi.waitFor(() => expect(onFallback).toHaveBeenCalledTimes(1));
+
+    view.rerender({ window: null, clock: AT + 60_000 });
+    view.rerender({ window: null, clock: AT + 120_000 });
+    view.rerender({ window: windowWith(1, AT + 240_000), clock: AT + 240_000 });
+    await Promise.resolve();
+    expect(onFallback).toHaveBeenCalledTimes(1);
+  });
+});
