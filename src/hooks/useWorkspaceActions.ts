@@ -13,9 +13,11 @@ import type { ToastMessage } from "../components/ToastHost";
 import {
   deepLinkUrl,
   linkNamedUnknownRadar,
+  sharedRadar,
   viewFromDeepLink,
   webLinkUrl,
 } from "../lib/deepLink";
+import { supportedProduct } from "../lib/radarKinds";
 import { log } from "../lib/log";
 import { looksLikePlacefile, parsePlacefile } from "../lib/placefile";
 import { looksLikeKml, parseKml } from "../lib/kml";
@@ -297,23 +299,15 @@ export function useWorkspaceActions(options: {
   );
 
   const share = useCallback(async () => {
-    const radar = settingsRef.current.radar;
+    // Only a site the reader is actually holding, drawing what is actually
+    // on screen. Following whichever site the view is over is a property of
+    // their workspace rather than of the picture, and putting it in a link
+    // would pin it for the receiver.
+    const held = sharedRadar(settingsRef.current.radar);
     const view = {
       camera: mapRef.current?.camera() ?? settingsRef.current.camera,
       projection: settingsRef.current.projection,
-      // Only a site the reader actually pinned. Following whichever site the
-      // view is over is a property of their workspace rather than of the
-      // picture, and putting it in a link would pin it for the receiver.
-      ...(radar.station
-        ? {
-            radar: {
-              station: radar.station,
-              product: radar.product,
-              tilt: radar.tilt,
-              threshold: radar.thresholds[radar.product] ?? null,
-            },
-          }
-        : null),
+      ...(held ? { radar: held } : null),
     };
     // Inside the app the address bar reads http://tauri.localhost, which opens
     // nothing, so the desktop build hands out its own scheme instead.
@@ -777,16 +771,28 @@ export function useWorkspaceActions(options: {
       const view = viewFromDeepLink(link, settingsRef.current.camera);
       if (!view) return;
       const now = settingsRef.current;
+      // What the named radar can actually draw. A link can name a product
+      // that radar has not got, either from a build that knows more or from
+      // a sender whose own workspace had fallen back: the receiver would
+      // otherwise hold a terminal radar with spectrum width chosen and draw
+      // reflectivity under it, which is the shape of the settings the sender
+      // was in rather than the picture they saw.
+      const product = view.radar
+        ? supportedProduct(view.radar.station, view.radar.product)
+        : null;
       applySettings({
         ...now,
         camera: view.camera,
         projection: view.projection,
-        ...(view.radar
+        ...(view.radar && product
           ? {
               radar: {
                 ...now.radar,
+                // A link that names a site is a link to that site, held.
+                enabled: true,
+                singleSite: true,
                 station: view.radar.station,
-                product: view.radar.product,
+                product,
                 tilt: view.radar.tilt,
                 thresholds:
                   view.radar.threshold === null
@@ -795,12 +801,12 @@ export function useWorkspaceActions(options: {
                       // draw a different picture under the same link.
                       Object.fromEntries(
                         Object.entries(now.radar.thresholds).filter(
-                          ([product]) => product !== view.radar?.product,
+                          ([held]) => held !== product,
                         ),
                       )
                     : {
                         ...now.radar.thresholds,
-                        [view.radar.product]: view.radar.threshold,
+                        [product]: view.radar.threshold,
                       },
               },
             }
@@ -813,7 +819,12 @@ export function useWorkspaceActions(options: {
       // says so rather than looking like it worked.
       pushToast({
         title: translate(
-          linkNamedUnknownRadar(link)
+          // Either the link named something this build cannot read at all,
+          // or it named a product the radar it also named cannot draw. Both
+          // open the right place under a different picture, and both are
+          // worth a word rather than looking like they worked.
+          linkNamedUnknownRadar(link) ||
+            (view.radar !== undefined && product !== view.radar.product)
             ? "toast.sharedViewPartly"
             : "toast.sharedViewOpened",
         ),

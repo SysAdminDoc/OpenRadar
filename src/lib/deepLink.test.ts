@@ -4,6 +4,8 @@ import {
   linkNamedUnknownRadar,
   viewFromDeepLink,
   webLinkUrl,
+  radarFromSearch,
+  sharedRadar,
 } from "./deepLink";
 import { DEFAULT_SETTINGS } from "./settings";
 
@@ -180,5 +182,83 @@ describe("a link that carries what was drawn, not only where", () => {
         camera,
       )?.radar,
     ).toEqual(held.radar);
+  });
+});
+
+describe("what a workspace puts into a link", () => {
+  const holding = {
+    enabled: true,
+    singleSite: true,
+    station: "KDMX",
+    product: "velocity" as const,
+    tilt: 2,
+    thresholds: { velocity: 20, reflectivity: 5 },
+  };
+
+  it("names the product on screen, not the one the settings hold", () => {
+    // A terminal radar has reflectivity, velocity and the long-range
+    // picture and nothing else, so a workspace holding one with spectrum
+    // width chosen draws reflectivity. The link named the choice, which sent
+    // the receiver a product that radar cannot draw under the threshold of a
+    // picture nobody was looking at, and the receiver's own workspace then
+    // fell back to reflectivity with their own threshold on it.
+    const terminal = sharedRadar({
+      ...holding,
+      station: "TDAL",
+      product: "spectrum-width",
+    });
+    expect(terminal?.product).toBe("reflectivity");
+    expect(terminal?.threshold).toBe(5);
+    // And a product the radar does have travels as itself.
+    expect(sharedRadar({ ...holding, station: "TDAL" })?.product).toBe(
+      "velocity",
+    );
+  });
+
+  it("says nothing when the reader is looking at the mosaic", () => {
+    // Switching back to the national mosaic leaves the station set, so
+    // `station` on its own is not "a site is being held": a mosaic view went
+    // out as a link that pinned a site on whoever opened it, and a receiver
+    // already on the mosaic had one set behind their back for the next time
+    // they held anything.
+    expect(sharedRadar({ ...holding, singleSite: false })).toBeUndefined();
+    expect(sharedRadar({ ...holding, enabled: false })).toBeUndefined();
+    expect(sharedRadar({ ...holding, station: null })).toBeUndefined();
+    expect(sharedRadar(holding)).not.toBeUndefined();
+  });
+
+  it("carries no threshold for a product nothing was hidden on", () => {
+    expect(
+      sharedRadar({ ...holding, product: "reflectivity", thresholds: {} })
+        ?.threshold,
+    ).toBeNull();
+  });
+
+  it("reads the same radar back out of a plain address bar", () => {
+    // The desktop build takes the link through the scheme and the browser
+    // has the parameters in its own address bar. Only the camera was read
+    // there, so a shared link opened the right place under whatever the
+    // receiver's workspace happened to be on.
+    const link = webLinkUrl(
+      {
+        camera: {
+          center: [-93.723, 41.731],
+          zoom: 9.5,
+          bearing: 0,
+          pitch: 0,
+        },
+        projection: "mercator",
+        radar: sharedRadar(holding),
+      },
+      "https://example.test/",
+    );
+    expect(radarFromSearch(new URL(link).search)).toEqual({
+      station: "KDMX",
+      product: "velocity",
+      tilt: 2,
+      threshold: 20,
+    });
+    // And a plain address bar with nothing of the sort in it stays quiet.
+    expect(radarFromSearch("?lon=-93&lat=41")).toBeUndefined();
   });
 });

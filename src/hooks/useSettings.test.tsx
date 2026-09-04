@@ -62,3 +62,81 @@ describe("settings persistence", () => {
     ]);
   });
 });
+
+describe("a shared link opened in a browser", () => {
+  const address = window.location.href;
+
+  afterEach(() => {
+    window.history.replaceState(null, "", address);
+  });
+
+  it("holds the site the link named, with what it was drawing", async () => {
+    // The desktop build takes a shared link through its own scheme and this
+    // one has the parameters sitting in the address bar. Only the camera was
+    // read here, so a link opened in a browser went to the right place under
+    // whatever the receiver's own workspace happened to be on: the site, the
+    // product, the tilt and the threshold were all written into the link and
+    // then ignored.
+    window.history.replaceState(
+      null,
+      "",
+      "/?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0" +
+        "&projection=mercator&site=KDMX&product=velocity&tilt=2&threshold=20",
+    );
+    const { result } = renderHook(() =>
+      useSettings({ onPersistError: () => {} }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const radar = result.current.settings.radar;
+    expect(radar.station).toBe("KDMX");
+    expect(radar.product).toBe("velocity");
+    expect(radar.tilt).toBe(2);
+    expect(radar.thresholds.velocity).toBe(20);
+    // A link naming a site is a link to that site, held: a receiver on the
+    // mosaic would otherwise store a station they never chose and hold it
+    // the next time they switched to a single site.
+    expect(radar.singleSite).toBe(true);
+    expect(radar.enabled).toBe(true);
+    expect(result.current.settings.camera.center[0]).toBeCloseTo(-93.723, 3);
+  });
+
+  it("draws what the named radar has when the link names something else", async () => {
+    // A terminal radar has no spectrum width. The link opens on the site and
+    // the picture falls back to reflectivity rather than storing a choice
+    // that radar cannot answer.
+    window.history.replaceState(
+      null,
+      "",
+      "/?lon=-96.9&lat=32.9&zoom=9.00&bearing=0.0&pitch=0.0" +
+        "&projection=mercator&site=TDAL&product=spectrum-width&tilt=0",
+    );
+    const { result } = renderHook(() =>
+      useSettings({ onPersistError: () => {} }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.settings.radar.station).toBe("TDAL");
+    expect(result.current.settings.radar.product).toBe("reflectivity");
+  });
+
+  it("leaves the workspace alone when the address bar names no site", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0",
+    );
+    const { result } = renderHook(() =>
+      useSettings({ onPersistError: () => {} }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.settings.radar.station).toBe(
+      DEFAULT_SETTINGS.radar.station,
+    );
+  });
+});
