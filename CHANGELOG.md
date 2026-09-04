@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- The wind profile panel says why it has nothing to draw. Every refusal from the decoder came out as "not available here", so holding an airport radar, asking for a time that would not parse and hitting an archive that was down all read the same. It now gives the reason, says so when the volumes came back with no wind in them, and tells a reader in a replay to come back to the present rather than to hold a site they can plainly see is held. It also stops rebuilding itself every few minutes: a new volume swapped the chart for a spinner while three of them were read again.
+
 - A shared link now says what was actually on the screen. Three things it got wrong. Holding an airport radar with a product that radar has not got draws reflectivity, and the link named the product you had picked instead, so whoever opened it got a picture nobody was looking at under a threshold from somewhere else. Switching back to the national mosaic left the site set behind the scenes, so a mosaic view went out as a link that pinned a site on the person opening it. And a link opened in a browser read only the camera, so it went to the right place under whatever the reader's own workspace was on. All three now carry, and open, the picture that was sent.
 
 - Ending a replay with no network no longer leaves that day's storm reports and outlook drawn over the present. The layers cleared themselves when a later request came back, and with nothing to ask over there was no later request: a 2011 afternoon could sit on top of today's map, unlabelled, until the network came back. A layer now drops anything that answers a question you have stopped asking, whether or not it can go and fetch the new answer.

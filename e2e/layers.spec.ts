@@ -856,6 +856,10 @@ test("hands a warning to the layer that explains it", async ({ page }) => {
     contrast(light.ink, light.card),
     `${light.ink} on ${light.card}`,
   ).toBeGreaterThanOrEqual(4.5);
+  // The same ink in both themes, which is the half that says it is not
+  // inheriting. The light theme's own text is dark, so a contrast reading
+  // there passes whether this rule exists or not.
+  expect(light.ink).toBe(dark.ink);
 
   // The app already holds the thing that explains this warning. The reader
   // should not have to know where it is.

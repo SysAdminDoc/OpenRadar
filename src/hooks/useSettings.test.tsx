@@ -83,6 +83,14 @@ describe("a shared link opened in a browser", () => {
       "/?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0" +
         "&projection=mercator&site=KDMX&product=velocity&tilt=2&threshold=20",
     );
+    // A reader who was on the national mosaic, which is the case where
+    // "pins the site" means anything: against the defaults both of these
+    // are already true and the assertions below would hold with the whole
+    // change reverted.
+    mocks.loadSettings.mockResolvedValue({
+      ...DEFAULT_SETTINGS,
+      radar: { ...DEFAULT_SETTINGS.radar, singleSite: false, enabled: false },
+    });
     const { result } = renderHook(() =>
       useSettings({ onPersistError: () => {} }),
     );
@@ -129,14 +137,26 @@ describe("a shared link opened in a browser", () => {
       "",
       "/?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0",
     );
+    // A reader who already had a site held. Against the defaults this reads
+    // null against null and could not tell a clobbered station from an
+    // untouched one.
+    mocks.loadSettings.mockResolvedValue({
+      ...DEFAULT_SETTINGS,
+      radar: {
+        ...DEFAULT_SETTINGS.radar,
+        station: "KTLX",
+        product: "velocity",
+        tilt: 3,
+      },
+    });
     const { result } = renderHook(() =>
       useSettings({ onPersistError: () => {} }),
     );
     await act(async () => {
       await Promise.resolve();
     });
-    expect(result.current.settings.radar.station).toBe(
-      DEFAULT_SETTINGS.radar.station,
-    );
+    expect(result.current.settings.radar.station).toBe("KTLX");
+    expect(result.current.settings.radar.product).toBe("velocity");
+    expect(result.current.settings.radar.tilt).toBe(3);
   });
 });

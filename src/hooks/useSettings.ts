@@ -108,6 +108,10 @@ export function useSettings(options: {
           ? {
               radar: {
                 ...stored.radar,
+                // A link that names a site is a link to that site, held: a
+                // receiver on the national mosaic would otherwise store a
+                // station they never chose and hold it the next time they
+                // switched to a single site.
                 enabled: true,
                 singleSite: true,
                 station: shared.station,

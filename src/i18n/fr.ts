@@ -449,10 +449,13 @@ export const fr: Catalogue = {
   "vwp.title": "Profil du vent",
   "vwp.loading": "Lecture du vent dans les volumes",
   "vwp.failedTitle": "Le profil du vent n'a pas pu être lu",
-  "vwp.unavailable": "Le profil du vent n'est pas disponible ici.",
   "vwp.needsSite":
     "Fixez un seul radar et ceci lit son propre vent, hauteur par hauteur.",
   "vwp.noData": "ND",
+  "vwp.nothingToDraw":
+    "Les volumes sont revenus sans vent à l'intérieur : il n'y a donc encore rien à dessiner ici.",
+  "vwp.historical":
+    "Le profil du vent lit les volumes qu'un radar publie en ce moment. Revenez au présent pour le voir.",
   "vwp.note":
     "Le vent dans lequel se déplace chaque hauteur, ajusté sur un anneau de la vitesse mesurée par le radar. Une hauteur marquée ND est une hauteur où l'ajustement n'a pas pu être garanti : c'est un trou, pas de l'air calme.",
   "vwp.columnLabel": "Vent par hauteur pour le volume {volume}",

@@ -426,10 +426,13 @@ export const en = {
   "vwp.title": "Wind Profile",
   "vwp.loading": "Reading the wind out of the volumes",
   "vwp.failedTitle": "The wind profile could not be read",
-  "vwp.unavailable": "The wind profile is not available here.",
   "vwp.needsSite":
     "Hold a single radar site and this reads its own wind, height by height.",
   "vwp.noData": "ND",
+  "vwp.nothingToDraw":
+    "The volumes came back with no wind in them, so there is nothing to draw here yet.",
+  "vwp.historical":
+    "The wind profile reads the volumes a site is publishing now. Come back to the present to see it.",
   "vwp.note":
     "The wind each height is moving in, fitted to a ring of the radar's own velocity. A height marked ND is one the fit could not be vouched for at, which is a gap rather than calm air.",
   "vwp.columnLabel": "Wind by height for volume {volume}",
