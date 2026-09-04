@@ -721,6 +721,8 @@ export const es: Catalogue = {
   "radar.error.unknownSite": "{0} no es un radar NEXRAD.",
   "radar.error.notWsr88d":
     "{0} es el radar de terminal de un aeropuerto: no tiene volumen de Nivel II que leer ni archivo.",
+  "radar.error.noLongerListed":
+    "{0} ya no está en la lista de radares del servicio meteorológico. Puede que lo hayan renombrado o retirado de la red; elige otro sitio.",
   "radar.error.noVolume":
     "No se ha publicado ningún volumen de {0} ni hoy ni ayer.",
   "radar.error.badListing": "No se pudo leer el listado de volúmenes.",

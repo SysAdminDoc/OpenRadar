@@ -283,7 +283,6 @@ pub async fn radar_status() -> Result<Vec<SiteStatus>, RadarStatusError> {
         .collect())
 }
 
-#[cfg(test)]
 /// Which terminal radars the office lists, by their four-letter id.
 ///
 /// The station list is the only thing that knows a terminal radar has been
@@ -299,6 +298,36 @@ pub async fn terminal_stations() -> Result<Vec<String>, RadarStatusError> {
         .collect())
 }
 
+/// Puts a station list in place of the live one, for a test.
+///
+/// The alternative is a test that talks to the weather service to prove what
+/// this app does when the weather service says something particular, which is
+/// a test of the weather service.
+#[cfg(test)]
+pub fn hold_stations_for_test(stations: &[(&str, &str)]) {
+    if let Ok(mut held) = STATIONS.lock() {
+        *held = Some((
+            Utc::now(),
+            stations
+                .iter()
+                .map(|(id, kind)| StationRecord {
+                    station: (*id).to_string(),
+                    status: Some("Operate".to_string()),
+                    kind: Some((*kind).to_string()),
+                    level_two_at: None,
+                })
+                .collect(),
+        ));
+    }
+}
+
+/// Forgets whatever a test put there, so the next one starts clean.
+#[cfg(test)]
+pub fn forget_stations_for_test() {
+    if let Ok(mut held) = STATIONS.lock() {
+        *held = None;
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
