@@ -180,3 +180,31 @@ describe("removing a chosen alert sound", () => {
     expect(screen.getByText(en["alerts.soundFileClear"])).toBeTruthy();
   });
 });
+
+describe("forgetting the places you have found", () => {
+  const found: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    curiosities: true,
+    curiositiesFound: ["hoosier-slide", "tri-state-path"],
+  };
+
+  it("offers an undo, like every other removal here", () => {
+    // The one removal in this panel that had no way back, against the rule
+    // the whole section is written under. What is lost is a list somebody
+    // built by going and looking at places, and nothing marks them on the
+    // map, so there is no pressing anything to build it again.
+    const removal = held(found, en["curiosity.forget"]);
+    expect(removal.title).toBe(en["curiosity.forgotten"]);
+    expect(screen.queryByText(en["curiosity.forget"])).toBeNull();
+
+    removal.undo();
+    expect(screen.getByText(en["curiosity.forget"])).toBeTruthy();
+  });
+
+  it("puts back what was there rather than a stale everything", () => {
+    const removal = held(found, en["curiosity.forget"]);
+    removal.undo();
+    removal.undo();
+    expect(screen.getByText(en["curiosity.forget"])).toBeTruthy();
+  });
+});

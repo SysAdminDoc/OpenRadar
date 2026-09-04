@@ -1800,6 +1800,9 @@ export const es: Catalogue = {
   "curiosity.found": "Lugares que has encontrado",
   "curiosity.foundEmpty": "Todavía no has encontrado ninguno.",
   "curiosity.forget": "Olvidarlos",
+  "curiosity.forgotten": "Los lugares que encontraste se han olvidado",
+  "curiosity.forgottenBody":
+    "Nada los marca en el mapa, así que volver a encontrarlos significa volver a ir y mirar.",
   "figures.title": "Lo que guarda tu registro",
   "figures.note":
     "Contado del archivo de esta máquina, de ningún otro sitio. Nada de esto es una racha ni una meta, y nada de esto se anuncia nunca.",
@@ -2042,6 +2045,8 @@ export const es: Catalogue = {
   "tides.inlandBody":
     "La más cercana está a más de {distance}, lo que no dice nada del agua de aquí.",
   "tides.failedTitle": "No se pudo leer la marea",
+  "tides.noPredictions":
+    "Esta estación no publica predicciones de marea, así que no hay nada que dibujar. Prueba con otra estación de la costa.",
   "tides.unknown": "La consulta de mareas falló.",
   "tides.stationWithState": "{name}, {state}",
   "tides.distance": "a {miles} {unit} del centro del mapa",

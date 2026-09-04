@@ -1768,6 +1768,9 @@ export const en = {
   "curiosity.found": "Places you have found",
   "curiosity.foundEmpty": "Nothing found yet.",
   "curiosity.forget": "Forget them",
+  "curiosity.forgotten": "The places you found are forgotten",
+  "curiosity.forgottenBody":
+    "Nothing marks them on the map, so finding them again means going and looking again.",
   "figures.title": "What your record holds",
   "figures.note":
     "Counted from the file on this machine, nowhere else. Nothing here is a streak or a target, and nothing about it is ever announced.",
@@ -2003,6 +2006,8 @@ export const en = {
   "tides.inlandBody":
     "The nearest one is more than {distance} away, which says nothing about the water here.",
   "tides.failedTitle": "The tide could not be read",
+  "tides.noPredictions":
+    "This station publishes no tide predictions, so there is nothing to draw for it. Try another station along the coast.",
   "tides.unknown": "The tide request failed.",
   "tides.stationWithState": "{name}, {state}",
   "tides.distance": "{miles} {unit} from the map centre",
