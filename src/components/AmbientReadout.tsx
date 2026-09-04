@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { useT } from "../i18n";
 import { formatClock } from "../lib/units";
@@ -32,6 +33,21 @@ export function AmbientReadout({
   onLeave: () => void;
 }) {
   const t = useT();
+
+  /**
+   * The way out takes the focus when this mounts.
+   *
+   * The mode hides the rail, the panels and the toasts, so whatever the
+   * reader had focused is gone from the page and the focus falls to the
+   * body: the next Tab starts again from the top of an empty window, and
+   * the only control left sits at a tenth opacity. Focus-visible is what
+   * draws a ring, so a pointer user entering this sees nothing appear.
+   */
+  const leaveRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    leaveRef.current?.focus();
+  }, []);
+
   const at = drift(idleMs);
   return (
     <div
@@ -61,6 +77,7 @@ export function AmbientReadout({
           on a wall is not showing a button all night. */}
       <button
         type="button"
+        ref={leaveRef}
         className="ambient-readout__leave"
         onClick={onLeave}
         aria-label={t("ambientScreen.leave")}

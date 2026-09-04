@@ -8,6 +8,7 @@ import { PANEL_SETTLE_MS, describeViolations, scan } from "./support/axe";
 import { contrast } from "./support/contrast";
 import { fr } from "../src/i18n/fr";
 import { pseudo } from "../src/i18n/pseudo";
+import { en } from "../src/i18n/en";
 
 test.beforeEach(async ({ page }) => {
   await routeWorkspace(page);
@@ -1023,4 +1024,59 @@ test.describe("under a system contrast theme", () => {
       page.getByRole("button", { name: "Dark", exact: true }),
     ).toBeDisabled();
   });
+});
+
+test("Escape closes a panel from anywhere, not just from inside it", async ({
+  page,
+}) => {
+  // The only Escape handler lived on the panel, so it worked while focus was
+  // inside the panel and nowhere else. Opening Layers, tabbing out to the map
+  // and pressing Escape did nothing at all.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Layers" });
+  await expect(panel).toBeVisible();
+
+  // Out of the panel and onto the map, which is where a reader ends up.
+  await page.getByRole("application").click({ position: { x: 400, y: 300 } });
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+});
+
+test("Escape puts a drawing tool away", async ({ page }) => {
+  // The tool strip's Clear was the only way out of draw, range and section,
+  // and it is a mouse target.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("range");
+  await page.locator(String.raw`[data-command="tool:range"]`).click();
+  // The strip is a live region and stays mounted; the flag is what says
+  // whether a tool is held.
+  const hud = page.locator(".tool-hud");
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
+
+  await page.keyboard.press("Escape");
+  await expect(hud).toHaveAttribute("data-empty", "1");
+});
+
+test("entering the full-screen view puts the focus on the way out", async ({
+  page,
+}) => {
+  // The mode hides the rail, the panels and the toasts, so the focused
+  // control is unmounted and the focus falls to the body. The only thing
+  // left sits at a tenth opacity.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("full");
+  await page.locator('[data-command="ambient-screen"]').click();
+  await expect(page.locator("[data-ambient-screen]")).toBeVisible();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        document.activeElement?.getAttribute("aria-label")?.trim(),
+      ),
+    )
+    .toBe(en["ambientScreen.leave"]);
 });

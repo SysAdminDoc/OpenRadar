@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { NoGpu } from "./NoGpu";
 import { rememberWebviewVersion } from "../lib/crashReport";
 import { diagnosticsBlock } from "../lib/diagnostics";
 import { DEFAULT_SETTINGS, resetLayout } from "../lib/settings";
@@ -234,5 +235,31 @@ describe("putting the workspace back the way it opens", () => {
     expect(back.radar.loopVolumes).toBe(22);
     expect(back.palettes).toEqual(theirs.palettes);
     expect(back.incidentPacks).toEqual(theirs.incidentPacks);
+  });
+});
+
+describe("where the focus goes when the workspace stops", () => {
+  it("puts it on the heading of the crash screen", () => {
+    // Everything focusable has unmounted, so the focus falls to the body:
+    // the screen reads itself out once and the next Tab starts again from
+    // the top of a page holding two buttons and no way back to what was
+    // said. The heading is script-focusable only, so nobody else's tab
+    // order gains a stop.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <ErrorBoundary>
+        <Throws />
+      </ErrorBoundary>,
+    );
+    const heading = screen.getByRole("heading", { name: en["fatal.title"] });
+    expect(heading.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(heading);
+  });
+
+  it("puts it on the heading of the no-GPU screen", () => {
+    render(<NoGpu />);
+    const heading = screen.getByRole("heading", { name: en["gpu.title"] });
+    expect(heading.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(heading);
   });
 });

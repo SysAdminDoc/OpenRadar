@@ -1659,6 +1659,36 @@ export default function App() {
     [historyStorm, spoken],
   );
 
+  /**
+   * Escape, from anywhere the panel did not already handle it.
+   *
+   * A panel stops its own Escape (`PanelShell`), and a native listener on
+   * `window` sits above the root React attaches to, so this never runs twice
+   * for one press: checked in a browser rather than assumed. What it covers
+   * is everywhere else. A reader who opened Layers, tabbed out to the map and
+   * pressed Escape got nothing at all, and the drawing, range and section
+   * tools had no keyboard way out: the only exit was the Clear button in the
+   * tool strip, which is a mouse target.
+   *
+   * The tool goes first when both are on, because it is the thing drawn over
+   * the map and under the pointer.
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (activeTool) {
+        handleTool(null);
+        return;
+      }
+      if (activeSurface || productOpen) {
+        setActiveSurface(null);
+        setProductOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeTool, activeSurface, productOpen, handleTool]);
+
   // Picking a storm frames its whole track; replaying one goes to the moment
   // the radar is about, which is a much tighter view.
   const showStorm = useCallback((storm: Storm | null) => {

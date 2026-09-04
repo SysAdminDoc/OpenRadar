@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, createRef, type ErrorInfo, type ReactNode } from "react";
 import { translate } from "../i18n";
 import { diagnosticsBlock } from "../lib/diagnostics";
 import { gpuSupport } from "../lib/gpu";
@@ -61,9 +61,19 @@ export class ErrorBoundary extends Component<
     return { error };
   }
 
+  /**
+   * The heading, so the focus has somewhere to be once the workspace has
+   * gone. Everything that was focusable a moment ago has unmounted, which
+   * leaves the focus on the body: this screen reads itself out once through
+   * `role="alert"` and then the next Tab starts again from the top of a page
+   * with two buttons on it and no way back to what was just said.
+   */
+  private headingRef = createRef<HTMLHeadingElement>();
+
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("OpenRadar render failure", error, info.componentStack);
     this.setState({ componentStack: info.componentStack ?? null });
+    this.headingRef.current?.focus();
   }
 
   private report(): string {
@@ -142,7 +152,9 @@ export class ErrorBoundary extends Component<
       <main className="fatal-error" role="alert">
         <div className="fatal-error__mark">!</div>
         <p className="eyebrow">{translate("fatal.eyebrow")}</p>
-        <h1>{translate("fatal.title")}</h1>
+        <h1 ref={this.headingRef} tabIndex={-1}>
+          {translate("fatal.title")}
+        </h1>
         <p>{messageOf(this.state.error)}</p>
         <div className="fatal-error__actions">
           <button

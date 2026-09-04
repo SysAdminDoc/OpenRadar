@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { translate } from "../i18n";
 
 /**
@@ -8,11 +9,21 @@ import { translate } from "../i18n";
  * that turns it back on is not.
  */
 export function NoGpu() {
+  // The focus goes to the heading, because everything that had it is gone.
+  // Left on the body, the next Tab starts from the top of the window and the
+  // sentence that explains the screen is never reachable again.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+
   return (
     <main className="fatal-error" role="alert">
       <div className="fatal-error__mark">!</div>
       <p className="eyebrow">{translate("gpu.eyebrow")}</p>
-      <h1>{translate("gpu.title")}</h1>
+      <h1 ref={headingRef} tabIndex={-1}>
+        {translate("gpu.title")}
+      </h1>
       <p>{translate("gpu.body")}</p>
       <p>{translate("gpu.hint")}</p>
       <button type="button" onClick={() => window.location.reload()}>
