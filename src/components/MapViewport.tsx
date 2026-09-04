@@ -63,6 +63,7 @@ import {
   formatMeasure,
   formatNumber,
   translate,
+  useLanguage,
   type StringKey,
 } from "../i18n";
 import { overlayBandOrder } from "../lib/overlayOrder";
@@ -807,6 +808,17 @@ function MapViewportInner(
       .setLngLat(at)
       .setDOMContent(node)
       .addTo(map);
+    // Named here rather than left to the library. MapLibre reads its own
+    // locale table, which it copied once when the map was built, so a
+    // reader who changed language got this button in whatever language the
+    // app had started in.
+    const closeButton = popup
+      .getElement()
+      ?.querySelector<HTMLElement>(".maplibregl-popup-close-button");
+    if (closeButton) {
+      closeButton.setAttribute("aria-label", translate("map.popupClose"));
+      closeButton.title = translate("map.popupClose");
+    }
     // The layer that explains what this popup is about. It closes with the
     // click, because the reader asked to look at something else.
     if (description.action) {
@@ -1958,12 +1970,23 @@ function MapViewportInner(
       // keyboard reader who put a point in the wrong place had to start
       // again from nothing.
       if (event.key === "Backspace" && toolModeRef.current === "draw") {
-        if (!drawPointsRef.current.length) return;
+        // Taken before the empty check, not after. Chromium stopped
+        // navigating back on Backspace years ago, so nothing goes wrong
+        // here today, but a key this handler claims should be claimed
+        // whether or not there was anything left to take back.
         event.preventDefault();
+        if (!drawPointsRef.current.length) return;
         drawPointsRef.current = drawPointsRef.current.slice(0, -1);
         renderTools();
         const left = drawPointsRef.current.length;
-        onToolResult?.(() => translate("tool.pathPoints", { count: left }));
+        // Back to the hint at nothing, rather than sitting on "0 points in
+        // path". That line is the tool telling the reader where they are,
+        // and where they are with no points is the start.
+        onToolResult?.(() =>
+          left
+            ? translate("tool.pathPoints", { count: left })
+            : translate("tool.drawHint"),
+        );
         return;
       }
       // With no tool armed this opens whatever is under the centre, which is
@@ -2224,6 +2247,36 @@ function MapViewportInner(
       // Projection applies again after the active style finishes loading.
     }
   }, [projection]);
+
+  /**
+   * The library's own strings, said again when the language changes.
+   *
+   * MapLibre copies its locale table once, when the map is built, and writes
+   * the canvas name into the DOM at that moment. The map is never rebuilt, so
+   * the four strings it owns stayed in whatever language the app booted in
+   * while every other word on screen changed. The settings panel says the
+   * choice applies immediately, and for these it did not.
+   */
+  const spoken = useLanguage();
+  // Keyed on the words rather than on the language id. Changing language
+  // flips the store before the catalogue for it has been fetched, so an
+  // effect keyed on the id runs once, while `translate` is still answering
+  // in English, and never again. These change when the words do, whenever
+  // that turns out to be.
+  const canvasName = translate("map.label");
+  const attributionName = translate("map.toggleAttribution");
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.getCanvas().setAttribute("aria-label", canvasName);
+    const attribution = containerRef.current?.querySelector<HTMLElement>(
+      ".maplibregl-ctrl-attrib-button",
+    );
+    if (attribution) {
+      attribution.setAttribute("aria-label", attributionName);
+      attribution.title = attributionName;
+    }
+  }, [canvasName, attributionName, spoken]);
 
   useEffect(() => {
     // Which basemap is actually drawn, which is not the same as the setting:

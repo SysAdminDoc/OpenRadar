@@ -186,3 +186,80 @@ describe("a toast that arrives while somebody is reading", () => {
     expect(result.current.messages).toHaveLength(0);
   });
 });
+
+describe("a message that asked for longer than the usual few seconds", () => {
+  it("gets its own lifetime back after a hold, not the ordinary one", () => {
+    // An undo asks for thirty seconds because it is the only way back from
+    // something destructive. A first version of the hold handed everything
+    // the ordinary five on release, so pointing at the one message that most
+    // needs reading made it leave six times sooner, which is the opposite of
+    // what the hold is for.
+    const { result } = renderHook(() => useToasts());
+    act(() =>
+      result.current.push({ title: "Journal cleared", lifetimeMs: 30_000 }),
+    );
+
+    act(() => result.current.hold());
+    act(() => result.current.release());
+
+    // Well past the ordinary lifetime and still there.
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.messages).toHaveLength(1);
+
+    act(() => vi.advanceTimersByTime(21_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it("keeps its own lifetime even when it arrives during a hold", () => {
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.hold());
+    act(() =>
+      result.current.push({ title: "Places removed", lifetimeMs: 30_000 }),
+    );
+    act(() => result.current.release());
+
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.messages).toHaveLength(1);
+    act(() => vi.advanceTimersByTime(21_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+});
+
+describe("two reasons to hold at once", () => {
+  it("waits for both of them to end", () => {
+    // The pointer and the focus are separate reasons and either can end
+    // without the other. Counting them as one meant moving the mouse away
+    // restarted every clock while the reader was still tabbed onto the undo
+    // button they were reaching for.
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.push({ title: "Saved" }));
+
+    act(() => result.current.hold());
+    act(() => result.current.hold());
+    act(() => result.current.release());
+
+    // One reason has gone; the other has not.
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.messages).toHaveLength(1);
+
+    act(() => result.current.release());
+    act(() => vi.advanceTimersByTime(6_000));
+    expect(result.current.messages).toHaveLength(0);
+  });
+});
+
+describe("a message dismissed by hand while everything is held", () => {
+  it("leaves no timer behind for something that has gone", () => {
+    const { result } = renderHook(() => useToasts());
+    act(() => result.current.push({ title: "Saved" }));
+    const id = result.current.messages[0].id;
+
+    act(() => result.current.hold());
+    act(() => result.current.dismiss(id));
+    expect(result.current.messages).toHaveLength(0);
+
+    act(() => result.current.release());
+    // Nothing waiting to fire for a message nobody can see.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

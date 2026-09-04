@@ -1137,16 +1137,18 @@ test("Backspace takes back the last point of a path", async ({ page }) => {
   await page.keyboard.press("Backspace");
   await expect(hud).toContainText("1 point in path");
 
-  // And back to nothing without taking the tool with it: the path is empty,
-  // the tool is still armed.
+  // And back to nothing without taking the tool with it. The strip goes
+  // back to the hint rather than sitting on "0 points in path": that line is
+  // the tool saying where the reader is, and with no points they are at the
+  // start.
   await page.keyboard.press("Backspace");
-  await expect(hud).toContainText("0 points in path");
+  await expect(hud).toContainText(en["tool.drawHint"]);
   await expect(hud).not.toHaveAttribute("data-empty", "1");
 
   // Nothing left to take back is not an error, and must not scroll or go
   // back a page either.
   await page.keyboard.press("Backspace");
-  await expect(hud).toContainText("0 points in path");
+  await expect(hud).toContainText(en["tool.drawHint"]);
 });
 
 test("swapping one panel for another gives the focus back to the right button", async ({
@@ -1247,4 +1249,27 @@ test("a popup opened from the keyboard takes the focus, and gives it back", asyn
       ),
     )
     .toBe(true);
+});
+
+test("a panel opened from the command palette leaves somewhere to go back to", async ({
+  page,
+}) => {
+  // The palette and every panel are siblings keyed off one piece of state,
+  // so choosing a result unmounts the palette and mounts the panel in a
+  // single commit. Capturing the opener during the panel's first render
+  // catches the palette's own result button, which is about to be detached,
+  // and the cleanup's isConnected guard then restores nothing. Checked
+  // rather than assumed: the focus lands on the rail button that opened the
+  // palette, which is a sensible place to be.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("layers");
+  await page.locator('[data-command="surface:layers"]').first().click();
+  await expect(page.getByRole("dialog", { name: "Layers" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.tagName))
+    .not.toBe("BODY");
 });

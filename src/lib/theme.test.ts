@@ -526,3 +526,37 @@ describe("the stylesheet", () => {
     expect([...light].filter((name) => !base.has(name))).toEqual([]);
   });
 });
+
+describe("the second monitor's readout", () => {
+  const css = readFileSync(join(ROOT, "index.css"), "utf8");
+
+  /** One rule's declarations, from its selector to the closing brace. */
+  function ruleFor(selector: string): string {
+    const at = css.indexOf(`\n${selector} {`);
+    expect(at, selector).toBeGreaterThan(-1);
+    const from = css.indexOf("{", at);
+    return css.slice(from, css.indexOf("\n}", from));
+  }
+
+  it("keeps its drift and its fade on the base rule", () => {
+    // The light-basemap override was written into the middle of the base
+    // rule, which closed it early: every dark basemap lost the easing on the
+    // drift and the fade, and the override then outranked the reduced-motion
+    // block, so a reader who asked for less motion still got the fade.
+    expect(ruleFor(".ambient-readout")).toContain("transition:");
+    expect(ruleFor(".ambient-readout[data-over-light]")).not.toContain(
+      "transition:",
+    );
+  });
+
+  it("lets the reduced-motion block win", () => {
+    // Specificity, not order: `[data-over-light]` is one class heavier than
+    // the plain selector the media block uses, so anything it declares that
+    // the block also declares cannot be turned off by asking for less
+    // motion.
+    const over = ruleFor(".ambient-readout[data-over-light]");
+    for (const property of ["transition", "transform", "animation"]) {
+      expect(over, property).not.toContain(`${property}:`);
+    }
+  });
+});

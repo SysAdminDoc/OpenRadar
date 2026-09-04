@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { MAP_STYLE_OPTIONS, mapStyleDefinition } from "./mapStyles";
+import {
+  MAP_STYLE_OPTIONS,
+  isLightBasemap,
+  mapStyleDefinition,
+  resolvedMapStyle,
+} from "./mapStyles";
 
 afterEach(() => {
   delete (window as unknown as { __TAURI_INTERNALS__?: unknown })
@@ -62,5 +69,31 @@ describe("map styles", () => {
     expect(text).toContain("USGS The National Map");
     expect(text).not.toContain("openfreemap.org");
     expect(text).not.toContain("nationalmap.gov");
+  });
+});
+
+describe("asking whether the drawn basemap is a light one", () => {
+  it("needs the resolved style, because auto is not a style", () => {
+    // The default is "auto" and `isLightBasemap` has no case for it, so
+    // asking about the setting rather than about what is drawn answered no
+    // for every reader who had not gone and picked a style by hand: the
+    // ambient clock kept its pale text over a near-white map.
+    expect(isLightBasemap("auto")).toBe(false);
+    expect(isLightBasemap(resolvedMapStyle("auto", "light"))).toBe(true);
+    expect(isLightBasemap(resolvedMapStyle("auto", "dark"))).toBe(false);
+  });
+
+  it("is asked that way by the readout that draws over the map", () => {
+    // A test that calls the helper directly leaves the call site free to go
+    // back to the setting, which is exactly what was wrong. Read the caller.
+    const app = readFileSync(
+      join(import.meta.dirname, "..", "App.tsx"),
+      "utf8",
+    );
+    const at = app.indexOf("overLight={");
+    expect(at).toBeGreaterThan(-1);
+    const said = app.slice(at, at + 160);
+    expect(said).toContain("resolvedMapStyle(");
+    expect(said).not.toMatch(/isLightBasemap\(\s*settings\.mapStyle\s*\)/);
   });
 });

@@ -119,7 +119,11 @@ import {
   trackBounds,
   type Storm,
 } from "./lib/hurdat";
-import { basemapCredit, isLightBasemap } from "./lib/mapStyles";
+import {
+  basemapCredit,
+  isLightBasemap,
+  resolvedMapStyle,
+} from "./lib/mapStyles";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
@@ -2482,7 +2486,14 @@ export default function App() {
           source={timeline.sourceLabel ?? ""}
           frameAgeMinutes={radarAge}
           idleMs={idleMs}
-          overLight={isLightBasemap(settings.mapStyle)}
+          // Resolved first. "auto" is the default and `isLightBasemap`
+          // has no case for it, so this asked whether the word "auto" was
+          // a light style, was told no, and the fix never fired for
+          // anybody who had not gone and picked a style by hand. The
+          // county lines read a resolved style; this now does too.
+          overLight={isLightBasemap(
+            resolvedMapStyle(settings.mapStyle, settings.theme),
+          )}
           onLeave={() => {
             setAmbientAsked(false);
             // Also counts as being here, which is what stops the idle rule

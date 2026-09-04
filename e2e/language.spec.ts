@@ -357,3 +357,25 @@ test("the map's own controls are in the reader's language too", async ({
     fr["map.toggleAttribution"],
   );
 });
+
+test("the map's own controls follow a language change, not only a launch", async ({
+  page,
+}) => {
+  // MapLibre copies its locale table once, when the map is built, and writes
+  // the canvas name into the DOM at that moment. The map is never rebuilt on
+  // a language change, so these stayed in whatever language the app booted in
+  // while every other word on screen changed. The settings panel says the
+  // choice applies immediately.
+  await startIn(page, "en");
+  const canvas = page.locator("canvas.maplibregl-canvas");
+  await expect(canvas).toHaveAttribute("aria-label", en["map.label"]);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Français", exact: true }).click();
+
+  await expect(canvas).toHaveAttribute("aria-label", fr["map.label"]);
+  await expect(page.locator(".maplibregl-ctrl-attrib-button")).toHaveAttribute(
+    "aria-label",
+    fr["map.toggleAttribution"],
+  );
+});
