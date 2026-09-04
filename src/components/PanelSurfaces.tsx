@@ -1,3 +1,4 @@
+import type { VwpColumn } from "../lib/vwp";
 import { Suspense, lazy } from "react";
 import type { SurfaceId } from "./CommandBar";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
@@ -31,6 +32,11 @@ import { CrossSectionPanel } from "../panels/CrossSectionPanel";
  * other panel here is opened by most readers at some point; this one is for
  * the ones who came looking for it.
  */
+const VwpPanel = lazy(async () => {
+  const module = await import("../panels/VwpPanel");
+  return { default: module.VwpPanel };
+});
+
 const SoundingPanel = lazy(async () => {
   const module = await import("../panels/SoundingPanel");
   return { default: module.SoundingPanel };
@@ -131,6 +137,10 @@ interface PanelSurfacesProps {
   replayId: string | null;
   /** The line the cross-section tool put down, or null before both ends are. */
   sectionLine: { from: GeoPoint; to: GeoPoint } | null;
+  /** The volume times the held site is looping, oldest first. */
+  vwpTimes: string[];
+  /** Asks the native side for a wind profile, or null in a browser preview. */
+  readVwp: ((station: string, times: string[]) => Promise<VwpColumn[]>) | null;
   onClose: () => void;
   onCloseProduct: () => void;
   onLayers: (layers: LayerSettings) => void;
@@ -458,6 +468,21 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           <SoundingPanel
             center={settings.camera.center}
             at={props.soundingAt}
+            onClose={onClose}
+          />
+        </Suspense>
+      ) : null}
+
+      {activeSurface === "vwp" ? (
+        <Suspense fallback={null}>
+          <VwpPanel
+            // A different site, or a different set of volumes, is a different
+            // question. Mounting fresh for it is what lets "no answer yet" be
+            // where the panel starts.
+            key={`${props.singleSite?.station ?? ""}:${props.vwpTimes.join(",")}`}
+            station={props.singleSite?.station ?? null}
+            times={props.vwpTimes}
+            read={props.readVwp}
             onClose={onClose}
           />
         </Suspense>

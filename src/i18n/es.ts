@@ -435,6 +435,20 @@ export const es: Catalogue = {
   "export.encoderFailed":
     "El codificador de video de este equipo se detuvo a mitad de la animación.",
   "metar.failed": "El Aviation Weather Center {answer}.",
+  "panel.vwp": "Perfil de viento",
+  "keywords.vwp": "vad perfil viento barbas cizalladura hodografo",
+  "vwp.eyebrow": "Pantalla de azimut de velocidad",
+  "vwp.title": "Perfil de viento",
+  "vwp.loading": "Leyendo el viento en los volúmenes",
+  "vwp.failedTitle": "No se pudo leer el perfil de viento",
+  "vwp.unavailable": "El perfil de viento no está disponible aquí.",
+  "vwp.needsSite":
+    "Fija un solo radar y esto lee su propio viento, altura por altura.",
+  "vwp.noData": "ND",
+  "vwp.note":
+    "El viento en el que se mueve cada altura, ajustado a un anillo de la velocidad del propio radar. Una altura marcada ND es una en la que el ajuste no se pudo respaldar, y eso es un hueco y no aire en calma.",
+  "vwp.columnLabel": "Viento por altura del volumen {volume}",
+  "vwp.hodographLabel": "Hodógrafo del viento por altura",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",

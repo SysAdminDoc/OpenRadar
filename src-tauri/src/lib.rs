@@ -34,6 +34,7 @@ mod tdwr;
 mod tiles;
 mod tray;
 mod vad;
+mod vwp;
 mod wallpaper;
 mod window_geometry;
 
@@ -272,6 +273,7 @@ pub fn run() {
             level2::level2_nearest_site,
             level2::level2_sites_in_reach,
             level2::level2_cross_section,
+            level2::level2_vwp,
             level3::level3_cells,
             level3::level3_classification,
             cache::cache_size,

@@ -45,6 +45,7 @@ export const SURFACES: Record<OpenSurface, Surface> = {
   route: palette("route", "Route"),
   guidance: palette("guidance", "Guidance"),
   sounding: palette("sounding", "Sounding"),
+  vwp: palette("vwp", "Wind Profile"),
   tides: palette("tides", "Tides"),
   "map-type": palette("map-type", "Map Type"),
   layers: palette("layers", "Layers"),

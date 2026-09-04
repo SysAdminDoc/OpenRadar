@@ -26,6 +26,7 @@ import {
   Command,
   Rows3,
   Waves,
+  Gauge,
   Wind,
 } from "lucide-react";
 import { useEffect, useRef, type ComponentType } from "react";
@@ -41,6 +42,7 @@ export type SurfaceId =
   | "route"
   | "guidance"
   | "sounding"
+  | "vwp"
   | "tides"
   | "map-type"
   | "layers"
@@ -315,6 +317,12 @@ export function CommandBar({
             label={t("panel.sounding")}
             active={activeSurface === "sounding"}
             onClick={() => toggleSurface("sounding")}
+          />
+          <CommandButton
+            icon={Gauge}
+            label={t("panel.vwp")}
+            active={activeSurface === "vwp"}
+            onClick={() => toggleSurface("vwp")}
           />
         </div>
 
