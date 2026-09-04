@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- The close button on a map popup is visible again in the dark theme. It belongs to the map library, which draws it on a white card and gives it no colour of its own, so it picked up the workspace text colour and came out near-white on white. Every popup had one: warnings, reports, storm cells, river gauges and anything you imported. You could still close them by clicking the map, which is probably why nobody said anything.
+
 - The second source for storm reports now brings back the newest ones. It was asking the weather service for whatever came first, and an ArcGIS layer asked for nothing in particular answers in the order it stored things and stops at five hundred: on 4 September that was 500 of the 854 reports it held, ending an hour and a half before the newest one. The hour you open that layer for was the hour it left out. It asks newest first now, over the same day the usual source covers, and keeps asking while the service says it is holding more.
 
 - Thunderstorm wind reports from that second source are the right colour. The service abbreviates, so "Tstm Wnd Gst" and "Tstm Wnd Dmg", which are most of what a severe day produces, were falling through to the grey catch-all with the wrong word in the popup. A funnel cloud and a waterspout also came out in each other's colours depending on which source answered. Both feeds read from one table now, so they cannot drift apart again.

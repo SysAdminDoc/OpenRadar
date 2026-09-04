@@ -1062,6 +1062,27 @@ input[type="range"]:disabled {
   outline-offset: 2px;
 }
 
+/* The close button belongs to MapLibre, which gives it no colour of its own,
+   and it is a sibling of `.map-popup` rather than a child, so the ink fixed
+   there never reached it. The app's reset hands every button `color:
+   inherit`, which walked up to the workspace `--text`: near-white on the
+   white card MapLibre draws, about 1.1 to 1, in the theme the app opens in.
+   The card is a fixed light surface in both themes, so its ink is fixed too,
+   the same way the rest of this block is. */
+.maplibregl-popup-close-button {
+  color: #101722;
+}
+
+.maplibregl-popup-close-button:hover {
+  color: #0b1220;
+  background: #e2e8f0;
+}
+
+.maplibregl-popup-close-button:focus-visible {
+  outline: 2px solid #0369a1;
+  outline-offset: -2px;
+}
+
 .alert-list {
   display: flex;
   flex-direction: column;

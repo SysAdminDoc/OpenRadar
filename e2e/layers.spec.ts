@@ -1,6 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { routeWorkspace, transparentPng } from "./support/fixtures";
 import { expectClean } from "./support/axe";
+import { contrast } from "./support/contrast";
 
 /** Every switch in the Layers panel and the map layer it is meant to control. */
 const LAYERS: Array<{ label: RegExp; layerId: string; onByDefault: boolean }> =
@@ -821,6 +822,38 @@ test("hands a warning to the layer that explains it", async ({ page }) => {
   // A popup over the map is markup the gate had no way to open: it takes a
   // click that lands inside a warning polygon.
   await expectClean(page, "warning popup");
+
+  // The close button is MapLibre's, drawn on MapLibre's white card, and it
+  // is a sibling of `.map-popup` rather than a child, so the ink fixed
+  // there never reached it. The app's reset hands every button `color:
+  // inherit`, which walked all the way up to the workspace text colour:
+  // near-white on white in the dark theme, which is the one the app opens
+  // in. The card is a fixed light surface in both themes, so this reads the
+  // same in both, and inheriting again in either fails it.
+  const closeInk = async () =>
+    await page.locator(".maplibregl-popup-close-button").evaluate((node) => {
+      const style = getComputedStyle(node);
+      const card = node.closest(".maplibregl-popup-content");
+      return {
+        ink: style.color,
+        card: card ? getComputedStyle(card).backgroundColor : "",
+      };
+    });
+  const dark = await closeInk();
+  expect(
+    contrast(dark.ink, dark.card),
+    `${dark.ink} on ${dark.card}`,
+  ).toBeGreaterThanOrEqual(4.5);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  const light = await closeInk();
+  expect(
+    contrast(light.ink, light.card),
+    `${light.ink} on ${light.card}`,
+  ).toBeGreaterThanOrEqual(4.5);
 
   // The app already holds the thing that explains this warning. The reader
   // should not have to know where it is.
