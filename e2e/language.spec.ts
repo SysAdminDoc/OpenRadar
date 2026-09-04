@@ -34,6 +34,9 @@ const PANELS: StringKey[] = [
 async function clippedAcrossPanels(
   page: Page,
   label: (key: StringKey) => string,
+  // The rail may shorten a caption in the generated language, whose words are
+  // a third longer than anybody's, and may not in one somebody reads.
+  railMayShorten = false,
 ): Promise<string[]> {
   const offenders: string[] = [];
   let opened = 0;
@@ -45,7 +48,9 @@ async function clippedAcrossPanels(
     await button.first().click();
     await expect(page.locator(".surface-panel")).toBeVisible();
     opened += 1;
-    offenders.push(...(await clipped(page)).map((text) => `${key}: ${text}`));
+    offenders.push(
+      ...(await clipped(page, railMayShorten)).map((text) => `${key}: ${text}`),
+    );
     await button.first().click();
   }
   expect(opened, "no panel was opened, so nothing was measured").toBe(
@@ -129,8 +134,10 @@ test.describe("a workspace in another language", () => {
     // so seeing one means the screen really is drawn in it.
     await expect(page.locator(".command-bar")).toContainText("⟦");
 
-    const offenders = await clippedAcrossPanels(page, (key) =>
-      pseudoize(en[key]),
+    const offenders = await clippedAcrossPanels(
+      page,
+      (key) => pseudoize(en[key]),
+      true,
     );
     expect(offenders).toEqual([]);
 

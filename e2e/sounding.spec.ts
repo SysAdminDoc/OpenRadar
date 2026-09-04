@@ -241,7 +241,10 @@ for (const language of ["pseudo", "es"] as const) {
     await expect(page.locator("[data-sounding-chart]")).toBeVisible();
     // Give the chart a moment to lay its labels out.
     await page.waitForTimeout(400);
-    expect(await clipped(page)).toEqual([]);
+    // The rail may shorten a caption in the generated language, whose words
+    // are a third longer than any reader's, and may not in Spanish.
+    const railMayShorten = language === "pseudo";
+    expect(await clipped(page, railMayShorten)).toEqual([]);
 
     // And the same in the other theme, since the chart draws its own colours
     // from the tokens rather than hard-coding a background.
@@ -249,6 +252,6 @@ for (const language of ["pseudo", "es"] as const) {
       document.documentElement.dataset.theme = "light";
     });
     await page.waitForTimeout(200);
-    expect(await clipped(page)).toEqual([]);
+    expect(await clipped(page, railMayShorten)).toEqual([]);
   });
 }

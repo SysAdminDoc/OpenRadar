@@ -1394,6 +1394,8 @@ export const en = {
 
   "bar.label": "Map commands",
   "bar.compact": "Compact commands",
+  "bar.nearbyShort": "Nearby",
+  "bar.sectionShort": "Section",
   "bar.location": "Location",
   "bar.locate": "Locate",
   "bar.commands": "Commands",

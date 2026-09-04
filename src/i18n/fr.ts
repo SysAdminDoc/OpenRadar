@@ -1435,6 +1435,8 @@ export const fr: Catalogue = {
 
   "bar.label": "Commandes de la carte",
   "bar.compact": "Commandes compactes",
+  "bar.nearbyShort": "Autour",
+  "bar.sectionShort": "Coupe",
   "bar.location": "Position",
   "bar.locate": "Me localiser",
   "bar.commands": "Commandes",

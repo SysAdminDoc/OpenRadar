@@ -983,3 +983,21 @@ test("puts the arrangement back without touching what the reader set up", async 
   expect(after.incidentPacks).toEqual(before.incidentPacks);
   expect(after.presets).toEqual(before.presets);
 });
+
+test("the rail's own words fit the rail", async ({ page }) => {
+  // The clipping sweep cannot see these. It skips everything inside a
+  // scroller, on the grounds that a scroller's contents are allowed to
+  // overflow it, and the rail scrolls: so two captions were cut off in
+  // English, in the app's own primary navigation, at the size the README
+  // screenshot is taken, and nothing said so for as long as the rail has
+  // existed. Measured directly instead.
+  const cut = await page.evaluate(() =>
+    Array.from(document.querySelectorAll(".command-button span"))
+      .filter((span) => span.scrollWidth > span.clientWidth + 1)
+      .map(
+        (span) =>
+          `${span.textContent}: ${span.scrollWidth} in ${span.clientWidth}`,
+      ),
+  );
+  expect(cut).toEqual([]);
+});

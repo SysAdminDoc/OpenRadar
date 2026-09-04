@@ -78,6 +78,16 @@ interface CommandButtonProps {
   active?: boolean;
   onClick: () => void;
   detail?: string;
+  /**
+   * A shorter word for the strip, when the name will not fit in it.
+   *
+   * The rail gives a label sixty-eight pixels at eight point and cuts it off
+   * with an ellipsis, and two of them were cut in English at the size the
+   * README screenshot is taken: "Nearby we..." and "Cross-secti..." in the
+   * app's own primary navigation. The name itself does not change: it is
+   * still what the tooltip says and still what a screen reader is told.
+   */
+  short?: string;
 }
 
 function CommandButton({
@@ -86,6 +96,7 @@ function CommandButton({
   active,
   onClick,
   detail,
+  short,
 }: CommandButtonProps) {
   return (
     <button
@@ -99,7 +110,7 @@ function CommandButton({
       onClick={onClick}
     >
       <Icon size={18} strokeWidth={1.8} />
-      <span>{label}</span>
+      <span>{short ?? label}</span>
     </button>
   );
 }
@@ -234,6 +245,7 @@ export function CommandBar({
           <CommandButton
             icon={ScrollText}
             label={t("panel.nearby")}
+            short={t("bar.nearbyShort")}
             active={activeSurface === "nearby"}
             onClick={() => toggleSurface("nearby")}
           />
@@ -309,6 +321,7 @@ export function CommandBar({
           <CommandButton
             icon={Layers2}
             label={t("tool.section")}
+            short={t("bar.sectionShort")}
             active={activeTool === "section"}
             onClick={() => toggleTool("section")}
           />
