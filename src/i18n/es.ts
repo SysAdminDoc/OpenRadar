@@ -249,6 +249,8 @@ export const es: Catalogue = {
   "storage.clearedBody":
     "Se recuperaron {freed}. El mapa volverá a pedir lo que necesite.",
   "storage.clearFailed": "No se pudo vaciar",
+  "storage.clearFailedUnknown":
+    "No llegó el motivo. El registro tiene lo que dijo el comando.",
   "packs.error.tooManyTiles":
     "Esa región necesita {0, plural, one {# tesela} other {# teselas}}, más de las que cabe en un paquete. Acércate o toma menos niveles de zoom.",
   "packs.error.diskCeiling":

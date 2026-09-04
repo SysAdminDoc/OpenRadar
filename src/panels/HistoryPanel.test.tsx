@@ -282,3 +282,54 @@ describe("HistoryPanel replay bundles", () => {
     ).toBeNull();
   });
 });
+
+describe("HistoryPanel while a storm is being fetched", () => {
+  it("says which row is loading, and only that row", async () => {
+    // A decade file is a network round trip and nothing happened on screen
+    // between the press and the answer, so a slow line read as a dead click.
+    const alpha = deferred<hurdat.Storm>();
+    loadStorm.mockReturnValueOnce(alpha.promise);
+    renderPanel();
+    const rows = await resultButtons();
+
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("false");
+    fireEvent.click(rows.alpha);
+
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("true");
+    expect(rows.beta.getAttribute("aria-busy")).toBe("false");
+    // And still pressable. Holding the list shut while one row loads would
+    // make the panel unable to change its mind, which it is written to do.
+    expect((rows.beta as HTMLButtonElement).disabled).toBe(false);
+
+    await act(async () => {
+      alpha.resolve(ALPHA);
+      // The flag is cleared in a `finally`, which is two microtasks past the
+      // resolve, so awaiting the promise alone is not enough.
+      await alpha.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("stops saying it is busy when the fetch fails", async () => {
+    const alpha = deferred<hurdat.Storm>();
+    loadStorm.mockReturnValueOnce(alpha.promise);
+    renderPanel();
+    const rows = await resultButtons();
+    fireEvent.click(rows.alpha);
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("true");
+
+    await act(async () => {
+      alpha.reject(new Error("the decade could not be read"));
+      await alpha.promise.catch(() => {});
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // A failed fetch that never let go would leave the row spinning for the
+    // rest of the session.
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("false");
+  });
+});

@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, History, Play, Save, Search, X } from "lucide-react";
+import {
+  FolderOpen,
+  History,
+  LoaderCircle,
+  Play,
+  Save,
+  Search,
+  X,
+} from "lucide-react";
 import { PanelShell } from "../components/PanelShell";
 import {
   ARCHIVE_FIRST_YEAR,
@@ -109,13 +117,20 @@ export function HistoryPanel({
 
   const clearSelection = () => {
     selectionGenerationRef.current += 1;
+    setLoading(null);
     setLoadedStorm(null);
     setError(null);
     onSelect(null);
   };
 
+  // Which storm is being fetched, so the row somebody pressed can say so.
+  // A decade file is a network round trip with nothing on screen between the
+  // press and the answer, which reads as a dead click on a slow line.
+  const [loading, setLoading] = useState<string | null>(null);
+
   const selectStorm = (id: string) => {
     const generation = ++selectionGenerationRef.current;
+    setLoading(id);
     void loadStorm(id)
       .then((storm) => {
         if (generation !== selectionGenerationRef.current) return;
@@ -126,6 +141,11 @@ export function HistoryPanel({
       .catch((failure: unknown) => {
         if (generation !== selectionGenerationRef.current) return;
         setError(failureMessage(failure));
+      })
+      .finally(() => {
+        // Only the run that is still the current one clears it: an older
+        // fetch landing late must not unlock a row that is loading now.
+        if (generation === selectionGenerationRef.current) setLoading(null);
       });
   };
 
@@ -272,7 +292,11 @@ export function HistoryPanel({
                   <button
                     type="button"
                     onClick={() => selectStorm(entry.storm.id)}
+                    aria-busy={loading === entry.storm.id}
                   >
+                    {loading === entry.storm.id ? (
+                      <LoaderCircle className="spin" size={14} />
+                    ) : null}
                     {/* Choosing it draws the track and offers the replay where
                         the archive reaches, which is the same path a search
                         result takes. Nothing here decides that on its own. */}
@@ -388,11 +412,21 @@ export function HistoryPanel({
             className="result-row"
             key={storm.id}
             onClick={() => selectStorm(storm.id)}
+            // A decade file is a round trip, and until it lands the only
+            // thing that happened is that a row was pressed. The other rows
+            // stay pressable on purpose: `selectionGenerationRef` exists so
+            // somebody can change their mind mid-fetch, and holding the list
+            // shut would make that unreachable.
+            aria-busy={loading === storm.id}
           >
-            <i
-              className="track-swatch"
-              style={{ background: trackColor(storm.peakWindKt) }}
-            />
+            {loading === storm.id ? (
+              <LoaderCircle className="spin" size={14} />
+            ) : (
+              <i
+                className="track-swatch"
+                style={{ background: trackColor(storm.peakWindKt) }}
+              />
+            )}
             <span>
               <strong>
                 {storm.name} {storm.year}

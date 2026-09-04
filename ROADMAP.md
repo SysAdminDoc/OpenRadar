@@ -398,16 +398,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-291 (P3): Secondary panel state nits: diagnostics ages never tick, history has no busy state, empty copy flashes before the first read
-      Category: ux
-      Where: `src/panels/UtilityPanels.tsx:173-178` (`ageLabel` reads `Date.now()` at render; the panel subscribes to no clock); `src/panels/HistoryPanel.tsx:117-130` (`loadStorm` fetches a decade file with nothing on screen between the click and the answer); `src/panels/JournalSection.tsx:84, 246, 398` and `RecapSection.tsx:36, 127` (`rows` starts `[]`, so "Nothing recorded yet." shows until `journal_rows` resolves); `src/panels/StorageSection.tsx:81` (`String(failure)` on a command that cannot yet reject)
-      Problem: Each is small on its own; together they are the difference between a panel that feels finished and one that does not. A quiet source's "3 minutes ago" stays until something else re-renders; a slow decade fetch looks like a dead click; the empty sentence appears for a frame on every open of a record that is not empty.
-      Evidence: The sites above; `StorageSection.tsx:43` is the in-file example of the `undefined` "not read yet" state.
-      Fix: `useMinuteClock()` in the diagnostics panel; a per-row spinner and disabled rows in History while a storm loads; `rows: JournalRow[] | undefined` with nothing rendered until the read lands.
-      Acceptance: Diagnostics ages advance on the minute; the history row shows a spinner during a slow fetch; the journal empty copy does not render before the first read (a test with a pending `journal_rows`).
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-294 (P3): Two error keys pass the native side's English straight through, and one carries the feed's own state word
       Category: ux
       Where: `src/i18n/en.ts:382` (`bundle.error.http` = `"{0}"`, filled by `HttpError`'s Display from `src-tauri/src/bundles.rs:109`), `:47` (`dataExport.error.grid` = `"{0}"`), `:722` (`radar.faultNotOperating` = `"{state}"`, filled by the RDA feed's English word at `src/lib/radarStatus.ts:69-72`)

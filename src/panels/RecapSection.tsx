@@ -37,7 +37,10 @@ export function RecapSection({
   onFailed: (why: string) => void;
 }) {
   const t = useT();
-  const [rows, setRows] = useState<JournalRow[]>([]);
+  // Undefined until the record has been read, so the empty sentence does not
+  // render for a frame over a year somebody actually had.
+  const [read, setRead] = useState<JournalRow[] | undefined>(undefined);
+  const rows = useMemo(() => read ?? [], [read]);
   const [days, setDays] = useState<number>(365);
   const [withPlaces, setWithPlaces] = useState(false);
   // Drawing and encoding the card is asynchronous; the button is held shut
@@ -46,7 +49,7 @@ export function RecapSection({
   const saving = useInFlight(RECAP_SAVE);
 
   useEffect(() => {
-    void journalRows().then(setRows);
+    void journalRows().then(setRead);
   }, [clock]);
 
   const recap = useMemo(
@@ -138,7 +141,7 @@ export function RecapSection({
             {t("recap.save")}
           </button>
         </>
-      ) : (
+      ) : read === undefined ? null : (
         // Nothing rather than a card of noughts: an absence of records is not
         // an absence of weather.
         <p className="source-note">{t("recap.empty")}</p>
