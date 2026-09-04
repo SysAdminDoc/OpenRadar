@@ -5,6 +5,7 @@ import { obscuredWhenFocused, unreachable } from "./support/layout";
 import { SURFACES, declaredSurfaces, openSurface } from "./support/surfaces";
 import type { OpenSurface } from "./support/surfaces";
 import { PANEL_SETTLE_MS, describeViolations, scan } from "./support/axe";
+import { contrast } from "./support/contrast";
 import { fr } from "../src/i18n/fr";
 import { pseudo } from "../src/i18n/pseudo";
 
@@ -52,25 +53,6 @@ async function goLight(page: Page) {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.getByRole("button", { name: "Close Settings" }).click();
   await page.waitForTimeout(PANEL_SETTLE_MS);
-}
-
-/** WCAG relative luminance of an `rgb(...)` string. */
-function luminance(colour: string): number {
-  const parts = colour.match(/[\d.]+/g)?.map(Number) ?? [];
-  const [red, green, blue] = parts;
-  const channel = (value: number) => {
-    const ratio = value / 255;
-    return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4;
-  };
-  return (
-    0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
-  );
-}
-
-function contrast(one: string, two: string): number {
-  const light = Math.max(luminance(one), luminance(two));
-  const dark = Math.min(luminance(one), luminance(two));
-  return (light + 0.05) / (dark + 0.05);
 }
 
 test("the command rail stays readable in the light theme", async ({ page }) => {
