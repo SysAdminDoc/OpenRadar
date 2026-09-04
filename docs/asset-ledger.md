@@ -8,7 +8,7 @@ The host table below is held to `ALLOWED_HOSTS` in `src-tauri/src/http.rs` by `s
 
 | Asset | Source | Licence | Obligation |
 | --- | --- | --- | --- |
-| OpenRadar brand mark | New asset | Project's own | None |
+| OpenRadar brand mark | New asset | Project's own | None. The source drawing is `assets/brand/openradar-icon.png`, which is what the sizes under `src-tauri/icons/` are generated from |
 | Command icons | Lucide | ISC | Named accessibly in the app; the licence text travels with the package |
 | Colour ramps | Written for this project from the published NWS reflectivity and velocity scales | Project's own | None. A loaded GRLevelX table replaces them at the user's choosing |
 | Interface reference mockups | Original OpenRadar design studies | Project's own | Kept under `docs/mockups/` as design history; not packaged with the app |

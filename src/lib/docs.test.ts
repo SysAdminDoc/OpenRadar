@@ -108,3 +108,28 @@ describe("the pages a reader is pointed at", () => {
     }
   });
 });
+
+describe("what the repository root holds", () => {
+  it("keeps no design note the working notes believe is gone", () => {
+    // `design-qa.md` was deleted, re-added thirteen hours later, and left
+    // there. The working notes went on saying it had been deleted, so the
+    // file the public could read and the note the next person reads were
+    // two different accounts. It recorded a layout pass against a v0.1
+    // workspace, said the interface was localised in English and Spanish
+    // when it has three languages, and ended "final result: passed".
+    expect(() => read("design-qa.md")).toThrow();
+  });
+
+  it("names the brand drawing where the ledger says it is", () => {
+    // A megabyte of PNG sat at the root, named in no config, script, page or
+    // ledger. It is the drawing the packaged icon sizes are generated from,
+    // which is worth keeping and worth saying so.
+    expect(read("docs/asset-ledger.md")).toContain(
+      "assets/brand/openradar-icon.png",
+    );
+    expect(() =>
+      readFileSync(join(ROOT, "assets/brand/openradar-icon.png")),
+    ).not.toThrow();
+    expect(() => readFileSync(join(ROOT, "icon.png"))).toThrow();
+  });
+});
