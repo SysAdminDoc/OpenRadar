@@ -78,7 +78,11 @@ const EMPTY_TEST_STYLE: StyleSpecification = {
 /**
  * The credit for the map under the weather, for the style on screen.
  *
- * Five of the eight styles are OpenStreetMap data by way of OpenFreeMap, and
+ * Five of the seven styles are OpenStreetMap data by way of OpenFreeMap, and
+ * Auto is a chooser rather than a style of its own, so it never reaches here:
+ * it has already resolved to one of the seven by the time a credit is asked
+ * for. Counting it made the README say seven in one place and eight in
+ * another, which reads as one of them being wrong.
  * saying so is right for those. Aerial is USGS orthoimagery and topography is
  * OpenTopoMap, which asks for an exact line, so a picture exported over either
  * one used to credit a service that had nothing to do with it. An incident
@@ -241,7 +245,6 @@ export function mapStyleDefinition(
         OPENTOPOMAP_CREDIT,
         17,
       );
-    case "dark":
     case "pro-dark":
     default:
       return "https://tiles.openfreemap.org/styles/dark";

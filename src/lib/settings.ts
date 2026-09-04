@@ -76,7 +76,6 @@ export type MapStyleId =
    * somebody who wants roads under a dark workspace means.
    */
   | "auto"
-  | "dark"
   | "grayscale"
   | "roads"
   | "aerial"
@@ -764,17 +763,41 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
+/**
+ * The styles a file may name, which is the ones the picker offers.
+ *
+ * Written out rather than imported to keep the settings module free of the
+ * map's own imports, and held against `MAP_STYLE_OPTIONS` by a test so the
+ * two cannot drift. They already had: this list carried `dark`, which no
+ * picker has offered for a long time, and left out `auto`, which is the
+ * default and the one most readers are on. A saved view naming Auto was
+ * refused and quietly replaced.
+ */
+const MAP_STYLE_IDS: MapStyleId[] = [
+  "auto",
+  "grayscale",
+  "roads",
+  "aerial",
+  "topography",
+  "pro-dark",
+  "pro-light",
+  "daylight",
+];
+
 function isMapStyle(value: unknown): value is MapStyleId {
-  return [
-    "dark",
-    "grayscale",
-    "roads",
-    "aerial",
-    "topography",
-    "pro-dark",
-    "pro-light",
-    "daylight",
-  ].includes(String(value));
+  return MAP_STYLE_IDS.includes(String(value) as MapStyleId);
+}
+
+/**
+ * The style a stored file meant, including one that has been renamed.
+ *
+ * `dark` was what the plain dark basemap was called before the professional
+ * pair arrived. A file that still says it means `pro-dark`, and dropping it
+ * to the default would move a reader who had pinned a style off it.
+ */
+export function normalizeMapStyle(value: unknown): MapStyleId {
+  if (value === "dark") return "pro-dark";
+  return isMapStyle(value) ? value : DEFAULT_SETTINGS.mapStyle;
 }
 
 function normalizeCamera(value: unknown): CameraState {
@@ -959,9 +982,7 @@ function normalizePreset(value: unknown): PresetState | null {
         : translate("app.savedView"),
     camera: normalizeCamera(raw.camera),
     projection,
-    mapStyle: isMapStyle(raw.mapStyle)
-      ? raw.mapStyle
-      : DEFAULT_SETTINGS.mapStyle,
+    mapStyle: normalizeMapStyle(raw.mapStyle),
   };
 }
 
@@ -1528,9 +1549,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ? (raw.textScale as TextScale)
       : 100,
     projection: raw.projection === "globe" ? "globe" : "mercator",
-    mapStyle: isMapStyle(raw.mapStyle)
-      ? raw.mapStyle
-      : DEFAULT_SETTINGS.mapStyle,
+    mapStyle: normalizeMapStyle(raw.mapStyle),
     camera: normalizeCamera(raw.camera),
     radar: {
       enabled: bool(radar.enabled, DEFAULT_SETTINGS.radar.enabled),

@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { MAP_STYLE_OPTIONS } from "./mapStyles";
+import { DEFAULT_SETTINGS, normalizeMapStyle } from "./settings";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -36,6 +38,58 @@ describe("the pages a reader is pointed at", () => {
     // had not been taken.
     const page = read("docs", "architecture.md");
     expect(page).not.toMatch(/no repository exists|has not been created/i);
+  });
+
+  it("dates every released version in the changelog", () => {
+    // A changelog with no dates cannot answer the one question it is opened
+    // for, which is whether the thing a reader is running is older than a
+    // fix. Every heading but the top one carries the day its work landed;
+    // the top one is what has not been released yet, and dating it would be
+    // a claim about a day that has not happened.
+    const changelog = read("CHANGELOG.md");
+    const headings = changelog
+      .split("\n")
+      .filter((line) => line.startsWith("## OpenRadar v"));
+    expect(headings.length).toBeGreaterThan(5);
+    const undated = headings.filter(
+      (line) => !/ \(\d{4}-\d{2}-\d{2}\)$/.test(line.trimEnd()),
+    );
+    expect(
+      undated.length,
+      `dated: every heading but the unreleased one. Undated: ${undated.join(", ")}`,
+    ).toBeLessThanOrEqual(1);
+    if (undated.length === 1) {
+      expect(undated[0]).toBe(headings[0]);
+    }
+  });
+
+  it("states the number of map styles once, and correctly", () => {
+    // The README said seven in one place and eight in another, because one
+    // counted Auto and the other did not. Auto is a chooser: it has already
+    // resolved to one of the others by the time anything asks what is drawn.
+    // Read off the list itself rather than out of the source text, so adding
+    // a style fails this until the README follows.
+    const real = MAP_STYLE_OPTIONS.filter((style) => style.id !== "auto");
+    expect(real).toHaveLength(7);
+    const readme = read("README.md");
+    expect(readme).toContain("Seven map styles");
+    expect(readme).toContain("five of the seven are OpenStreetMap");
+  });
+
+  it("validates exactly the styles the picker offers", () => {
+    // The two lists are written out separately, one in the settings module so
+    // it carries no map imports and one in the map module so it carries the
+    // swatches. They had already drifted: the validator accepted "dark",
+    // which no picker offers, and refused "auto", which is the default, so a
+    // saved view naming Auto was quietly replaced with it.
+    for (const style of MAP_STYLE_OPTIONS) {
+      expect(normalizeMapStyle(style.id)).toBe(style.id);
+    }
+    // The one renamed id still lands where it meant, rather than dropping a
+    // reader who had pinned a style back onto the default.
+    expect(normalizeMapStyle("dark")).toBe("pro-dark");
+    expect(normalizeMapStyle("nonsense")).toBe(DEFAULT_SETTINGS.mapStyle);
+    expect(normalizeMapStyle(undefined)).toBe(DEFAULT_SETTINGS.mapStyle);
   });
 
   it("names the features the changelog says shipped", () => {
