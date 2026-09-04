@@ -10,7 +10,12 @@ import {
 import type { SurfaceId } from "../components/CommandBar";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { ToastMessage } from "../components/ToastHost";
-import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "../lib/deepLink";
+import {
+  deepLinkUrl,
+  linkNamedUnknownRadar,
+  viewFromDeepLink,
+  webLinkUrl,
+} from "../lib/deepLink";
 import { log } from "../lib/log";
 import { looksLikePlacefile, parsePlacefile } from "../lib/placefile";
 import { looksLikeKml, parseKml } from "../lib/kml";
@@ -292,9 +297,23 @@ export function useWorkspaceActions(options: {
   );
 
   const share = useCallback(async () => {
+    const radar = settingsRef.current.radar;
     const view = {
       camera: mapRef.current?.camera() ?? settingsRef.current.camera,
       projection: settingsRef.current.projection,
+      // Only a site the reader actually pinned. Following whichever site the
+      // view is over is a property of their workspace rather than of the
+      // picture, and putting it in a link would pin it for the receiver.
+      ...(radar.station
+        ? {
+            radar: {
+              station: radar.station,
+              product: radar.product,
+              tilt: radar.tilt,
+              threshold: radar.thresholds[radar.product] ?? null,
+            },
+          }
+        : null),
     };
     // Inside the app the address bar reads http://tauri.localhost, which opens
     // nothing, so the desktop build hands out its own scheme instead.
@@ -757,13 +776,48 @@ export function useWorkspaceActions(options: {
     (link: string) => {
       const view = viewFromDeepLink(link, settingsRef.current.camera);
       if (!view) return;
+      const now = settingsRef.current;
       applySettings({
-        ...settingsRef.current,
+        ...now,
         camera: view.camera,
         projection: view.projection,
+        ...(view.radar
+          ? {
+              radar: {
+                ...now.radar,
+                station: view.radar.station,
+                product: view.radar.product,
+                tilt: view.radar.tilt,
+                thresholds:
+                  view.radar.threshold === null
+                    ? // The sender was hiding nothing, so neither is the
+                      // receiver: leaving their own threshold in place would
+                      // draw a different picture under the same link.
+                      Object.fromEntries(
+                        Object.entries(now.radar.thresholds).filter(
+                          ([product]) => product !== view.radar?.product,
+                        ),
+                      )
+                    : {
+                        ...now.radar.thresholds,
+                        [view.radar.product]: view.radar.threshold,
+                      },
+              },
+            }
+          : null),
       });
       mapRef.current?.flyTo(view.camera);
-      pushToast({ title: translate("toast.sharedViewOpened") });
+      // A link that names a site or a product this build does not know still
+      // opens: it is a link to a place, and losing the camera over one word
+      // would be worse. But it draws something the sender did not see, so it
+      // says so rather than looking like it worked.
+      pushToast({
+        title: translate(
+          linkNamedUnknownRadar(link)
+            ? "toast.sharedViewPartly"
+            : "toast.sharedViewOpened",
+        ),
+      });
     },
     [applySettings, mapRef, pushToast, settingsRef],
   );

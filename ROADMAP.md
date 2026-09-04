@@ -331,13 +331,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Acceptance: Each watched place shows minutes since the last flash inside its radius and the nearest flash's distance and bearing, from the same feed the watch reads; the chip's colour steps at the stated minutes and never says "clear" from anything but elapsed time; a test drives a flash then advances a fake clock through the three steps.
       Complexity: M
 
-- [ ] AUD-265 (P2): A shared link carries the held site, product, tilt and threshold, not only the camera
-      Why: `openradar://view` carries `lon`, `lat`, `zoom`, `bearing`, `pitch` and `projection` (`src/lib/deepLink.ts:23-33`). HookEcho #71 (2026-08-23) is a dashboard user asking for exactly the rest: site, product, tilt and threshold in the link, persisted. A link that opens the camera over a storm and a different product than the sender saw is a link that shows a different picture.
-      Evidence: https://github.com/d4vid87/HookEcho/issues/71 ; `src/lib/deepLink.ts`; the share action in `src/hooks/useWorkspaceActions.ts`.
-      Touches: `src/lib/deepLink.ts` (optional `site`, `product`, `tilt`, `threshold`, each validated against the same normalisers settings use), the share action, the link handler in `src/App.tsx`, `src/lib/deepLink.test.ts`, README.
-      Acceptance: A link made while holding KDMX velocity on tilt 2 with a threshold opens the same; an unknown site or product in a link is ignored with a toast rather than refused whole; the old camera-only form still works; tests cover each field and each rejection.
-      Complexity: S
-
 - [ ] AUD-266 (P2): Read the radar's own wind profile product first, and fit the volume only when it has none
       Why: Every WSR-88D and TDWR publishes Level III NVW (product 48), the RPG's own VAD wind profile: 354 objects a day at DMX, 233 at TLX, 235 at TDJT on 2026-09-03. The app fits every ring itself from Level II (`src-tauri/src/level2.rs:1124` `fitted_wind`, `src-tauri/src/vwp.rs`), which is a whole volume fetched and decoded before storm-relative velocity can paint. Anvil reads NVW first and falls back to its own fit, and cut first paint of SRV from 19.7 to 5.9 s.
       Evidence: bucket listings `DMX_NVW_2026_09_03`, `TLX_NVW_2026_09_03`, `DJT_NVW_2026_09_03` verified 2026-09-04; https://github.com/jhammon88219/Anvil/commit/9783bf8 ; ICD 2620001 product 48 packet 8/9 text and the VAD wind profile in 2620003.

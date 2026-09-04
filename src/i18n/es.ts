@@ -512,6 +512,8 @@ export const es: Catalogue = {
     "El pronóstico se dibuja sin las áreas sombreadas de amenaza significativa: esa parte no respondió. No se muestra dónde el peligro sería significativo.",
   "reports.fromService":
     "Los informes de tormenta vienen del servicio meteorológico y no del archivo habitual, que no respondió.",
+  "toast.sharedViewPartly":
+    "Se abrió la vista compartida. Mencionaba un radar o producto que esta versión no tiene, así que esa parte se dejó como estaba.",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",
