@@ -15,10 +15,13 @@ afterEach(cleanup);
  * where a reader goes after a warning did not arrive, so the sentence has to
  * be there and not only in the report they would have to know to copy.
  */
-function panel(notifications: NotifyPermission | undefined) {
+function panel(notifications: NotifyPermission | undefined, watching = true) {
   return (
     <SettingsPanel
-      settings={DEFAULT_SETTINGS}
+      settings={{
+        ...DEFAULT_SETTINGS,
+        watch: { ...DEFAULT_SETTINGS.watch, enabled: watching },
+      }}
       onSettings={vi.fn()}
       onRemoved={vi.fn()}
       autostart={null}
@@ -64,5 +67,14 @@ describe("what the watch settings say about Windows notifications", () => {
       render(panel(answer));
       expect(screen.queryByText(en["watch.notificationsRefused"])).toBeNull();
     }
+  });
+
+  it("says nothing while no watch is on, refused or not", () => {
+    // With every watch off there is no channel being blocked. Saying Windows
+    // will not let a notification through is true and useless: nothing is
+    // trying to send one, and the sentence would sit in the settings of a
+    // reader who never asked to be told anything.
+    render(panel("refused", false));
+    expect(screen.queryByText(en["watch.notificationsRefused"])).toBeNull();
   });
 });

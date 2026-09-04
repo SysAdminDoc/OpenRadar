@@ -321,7 +321,10 @@ export default function App() {
     return () => {
       open = false;
     };
-  }, [activeSurface]);
+    // Also on the minute, because a refusal recorded while a panel is
+    // already open would otherwise not show until it was closed and opened
+    // again, and that is the panel a reader is on when they go looking.
+  }, [activeSurface, clock]);
 
   const onPersistError = useCallback(
     () =>
