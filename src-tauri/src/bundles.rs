@@ -106,7 +106,7 @@ impl BundleError {
             Self::NotABundle => ("notABundle", Vec::new()),
             Self::Newer(version) => ("newer", vec![version.to_string()]),
             Self::Corrupt(why) => ("corrupt", vec![why.clone()]),
-            Self::Http(_) => ("http", vec![self.to_string()]),
+            Self::Http(error) => error.parts(),
         }
     }
 }

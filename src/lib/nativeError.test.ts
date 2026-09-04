@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { nativeErrorParams } from "./nativeError";
 import { ensureLanguage, setLanguage, translate } from "../i18n";
+import { en } from "../i18n/en";
+import { fr } from "../i18n/fr";
 
 /**
  * A failure the native side reported, said in the reader's own language.
@@ -59,5 +61,54 @@ describe("a counted failure from the native side", () => {
     // the bare digits Rust handed over.
     expect(said).not.toContain("4300000");
     expect(said).toContain("relevés");
+  });
+});
+
+describe("a failure the native side blamed on a service", () => {
+  it("says what the status means rather than printing it", () => {
+    // `reqwest`'s own Display carries the address it failed on, and the whole
+    // of it was being handed to the page: a bucket key that 404s reached the
+    // panel as an S3 URL and a status code, in English, in every language.
+    // The status is what travels now, and this is where it becomes words.
+    const said = translate(
+      "radar.error.httpStatus",
+      nativeErrorParams("httpStatus", ["404"]),
+    );
+    expect(said).toContain(en["service.notFound"]);
+    expect(said).not.toContain("404");
+    expect(said).not.toContain("http");
+
+    expect(
+      translate(
+        "radar.error.httpStatus",
+        nativeErrorParams("httpStatus", ["503"]),
+      ),
+    ).toContain(en["service.busy"]);
+  });
+
+  it("says it in the reader's language, which the old text never was", async () => {
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    const said = translate(
+      "radar.error.httpStatus",
+      nativeErrorParams("httpStatus", ["503"]),
+    );
+    expect(said).toContain(fr["service.busy"]);
+    expect(said).not.toContain(en["service.busy"]);
+  });
+
+  it("has a sentence for the failures that carry no status", () => {
+    // A machine with no network, a host off the allowlist, and a reply larger
+    // than the reader is going to be handed. None of them is a service saying
+    // anything, so none of them has a code to say.
+    for (const code of [
+      "httpUnreachable",
+      "httpRefused",
+      "httpTooLarge",
+    ] as const) {
+      expect(nativeErrorParams(code, [])).toEqual({});
+      expect(en[`radar.error.${code}`].length).toBeGreaterThan(0);
+      expect(en[`bundle.error.${code}`].length).toBeGreaterThan(0);
+    }
   });
 });

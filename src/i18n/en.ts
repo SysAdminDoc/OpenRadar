@@ -379,7 +379,6 @@ export const en = {
   "bundle.error.newer":
     "That bundle was made by a newer OpenRadar. Update to open it.",
   "bundle.error.corrupt": "That bundle is damaged: {0}",
-  "bundle.error.http": "{0}",
   "bundle.error.noView": "The map has no view to bundle yet.",
   "bundle.error.noFrames": "That bundle holds no frames this build can draw.",
   "bundle.error.letGo":
@@ -701,7 +700,20 @@ export const en = {
   "radar.error.localTooLarge": "The selected file is larger than 128 MB.",
   "radar.error.outOfRange":
     "Both ends of a cross-section have to be within range of {0}.",
-  "radar.error.http": "The radar archive could not be reached: {0}",
+  "radar.error.httpStatus": "The radar archive could not be reached. {0}",
+  "radar.error.httpUnreachable":
+    "The radar archive could not be reached. Check that this machine is online.",
+  "radar.error.httpRefused":
+    "OpenRadar would not fetch that: the address is not one it is allowed to reach.",
+  "radar.error.httpTooLarge":
+    "The radar archive sent more than OpenRadar will read in one go.",
+  "bundle.error.httpStatus": "The replay could not be fetched. {0}",
+  "bundle.error.httpUnreachable":
+    "The replay could not be fetched. Check that this machine is online.",
+  "bundle.error.httpRefused":
+    "OpenRadar would not fetch that: the address is not one it is allowed to reach.",
+  "bundle.error.httpTooLarge":
+    "The replay sent more than OpenRadar will read in one go.",
   "radar.error.unknown": "The radar site did not answer.",
   "radar.dealiasForced":
     "Storm relative velocity has to unfold first, because the wind it takes out is read off the sweep",

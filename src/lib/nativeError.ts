@@ -1,3 +1,4 @@
+import { serviceAnswer } from "./serviceAnswer";
 /**
  * The arguments a native failure carries, ready to fill a sentence with.
  *
@@ -16,14 +17,31 @@
  */
 const COUNTED = new Set(["tooLarge", "tooManyTiles"]);
 
+/**
+ * The failures whose one argument is an HTTP status.
+ *
+ * A number out of a protocol tells a reader nothing about whether to wait or
+ * to give up, which is what `serviceAnswer` exists to say, and every page-side
+ * fetch already goes through it. The native side had no way to: it was
+ * sending the whole of `reqwest`'s own message instead, address and all, so a
+ * bucket key that 404s reached the panel as an S3 URL and a status code in
+ * English. Now it sends the status and this says it in words.
+ */
+const STATUS = new Set(["httpStatus"]);
+
 export function nativeErrorParams(
   code: string,
   args: readonly unknown[],
 ): Record<string, string | number> {
   const counted = COUNTED.has(code);
+  const spoken = STATUS.has(code);
   const params: Record<string, string | number> = {};
   args.forEach((value, at) => {
-    params[String(at)] = counted ? measured(value) : String(value);
+    params[String(at)] = counted
+      ? measured(value)
+      : spoken && at === 0
+        ? serviceAnswer(Number(value))
+        : String(value);
   });
   return params;
 }
