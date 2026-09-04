@@ -1320,10 +1320,10 @@ export const en = {
   "approach.sound": "Make a sound for it",
   "approach.soundDetail":
     "Off, because a warning already makes one and this is not a warning.",
-  "approach.needsPlace":
-    "Needs a place to watch, since that is what a storm would be heading for.",
   "approach.needsCells":
     "Needs the Storm Cells layer, which is what tracks them.",
+  "approach.needsPlace":
+    "Needs a place to watch, since that is what a storm would be heading for.",
   "approach.heading": "On the way",
   "approach.row": "{id} reaches {place} in about {count} min",
   "approach.rowSoon": "{id} is reaching {place} now",
@@ -1339,8 +1339,6 @@ export const en = {
   "lightningWatch.setting": "Tell me about lightning near a watched place",
   "lightningWatch.settingDetail":
     "Counts the satellite flashes within a radius you set, and says when it starts and when it has been quiet for half an hour.",
-  "lightningWatch.needsLayer":
-    "Needs the Lightning Flashes layer, which is what reads them.",
   "lightningWatch.needsPlace":
     "Needs a place to watch, since that is what the radius is around.",
   "lightningWatch.radius": "How far around each place",

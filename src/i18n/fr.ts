@@ -1359,10 +1359,10 @@ export const fr: Catalogue = {
   "approach.sound": "Avec un son",
   "approach.soundDetail":
     "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
-  "approach.needsPlace":
-    "Il faut un lieu surveillé, puisque c'est là que l'orage irait.",
   "approach.needsCells":
     "Nécessite la couche Cellules orageuses, qui est ce qui les suit.",
+  "approach.needsPlace":
+    "Il faut un lieu surveillé, puisque c'est là que l'orage irait.",
   "approach.heading": "En route",
   "approach.row": "{id} atteint {place} dans environ {count} min",
   "approach.rowSoon": "{id} atteint {place} maintenant",
@@ -1378,8 +1378,6 @@ export const fr: Catalogue = {
   "lightningWatch.setting": "Prévenez-moi des éclairs près d'un lieu surveillé",
   "lightningWatch.settingDetail":
     "Compte les éclairs vus par satellite dans un rayon que vous choisissez, et prévient au début et après une demi-heure de calme.",
-  "lightningWatch.needsLayer":
-    "Nécessite la couche Éclairs, qui est ce qui les lit.",
   "lightningWatch.needsPlace":
     "Il faut un lieu surveillé, puisque c'est autour de lui que porte le rayon.",
   "lightningWatch.radius": "À quelle distance de chaque lieu",

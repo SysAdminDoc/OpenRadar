@@ -1537,9 +1537,13 @@ export function SettingsPanel({
   ).length;
   // Both halves of the notice: somewhere for a storm to be heading, and the
   // tracker that finds one.
-  const approachPossible = watchedPlaceCount > 0 && settings.layers.stormCells;
-  const lightningPossible =
-    watchedPlaceCount > 0 && settings.layers.lightningFlashes;
+  // A place to watch is all either of these needs. The layer used to be part
+  // of it, which made the switch read as off for a reader who had turned the
+  // cells or the flashes off the map: the stored rule stayed on, so switching
+  // the layer back on weeks later silently re-armed a watch the panel had
+  // been showing as off. Each feed now runs for its own watch.
+  const approachPossible = watchedPlaceCount > 0;
+  const lightningPossible = watchedPlaceCount > 0;
   // Whether the system has taken the colours over, which is not a preference
   // this app can honour halfway.
   const forcedColours = useForcedColours();
@@ -2287,9 +2291,7 @@ export function SettingsPanel({
               <small>
                 {watchedPlaceCount === 0
                   ? t("approach.needsPlace")
-                  : settings.layers.stormCells
-                    ? t("approach.settingDetail")
-                    : t("approach.needsCells")}
+                  : t("approach.settingDetail")}
               </small>
             </span>
             <input
@@ -2356,9 +2358,10 @@ export function SettingsPanel({
             />
           </>
         ) : null}
-        {/* The same shape as the approach notice above, and the same two
-            halves: somewhere for lightning to fall near, and the layer that
-            reads it. */}
+        {/* The same shape as the approach notice above, and it needs the
+            same one thing: somewhere for lightning to fall near. The layer
+            was part of it and is not: a watch that stops when its layer is
+            switched off is a watch that stops when nobody is looking. */}
         <div className="settings-field" data-lightning-watch>
           <label className="toggle-row toggle-row--plain">
             <span>
@@ -2366,9 +2369,7 @@ export function SettingsPanel({
               <small>
                 {watchedPlaceCount === 0
                   ? t("lightningWatch.needsPlace")
-                  : settings.layers.lightningFlashes
-                    ? t("lightningWatch.settingDetail")
-                    : t("lightningWatch.needsLayer")}
+                  : t("lightningWatch.settingDetail")}
               </small>
             </span>
             <input

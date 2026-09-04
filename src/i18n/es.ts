@@ -1341,10 +1341,10 @@ export const es: Catalogue = {
   "approach.sound": "Que suene",
   "approach.soundDetail":
     "Apagado, porque un aviso ya suena y esto no es un aviso.",
-  "approach.needsPlace":
-    "Necesita un lugar que vigilar, que es hacia donde iría la tormenta.",
   "approach.needsCells":
     "Necesita la capa de Celdas de tormenta, que es la que las sigue.",
+  "approach.needsPlace":
+    "Necesita un lugar que vigilar, que es hacia donde iría la tormenta.",
   "approach.heading": "En camino",
   "approach.row": "{id} llega a {place} en unos {count} min",
   "approach.rowSoon": "{id} está llegando a {place} ahora",
@@ -1360,8 +1360,6 @@ export const es: Catalogue = {
   "lightningWatch.setting": "Avísame de rayos cerca de un lugar vigilado",
   "lightningWatch.settingDetail":
     "Cuenta los destellos que ve el satélite dentro de un radio que eliges, y avisa cuando empieza y cuando lleva media hora en calma.",
-  "lightningWatch.needsLayer":
-    "Necesita la capa de Destellos de rayo, que es la que los lee.",
   "lightningWatch.needsPlace":
     "Necesita un lugar que vigilar, que es alrededor de lo que va el radio.",
   "lightningWatch.radius": "A qué distancia de cada lugar",

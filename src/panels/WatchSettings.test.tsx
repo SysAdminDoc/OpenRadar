@@ -178,3 +178,80 @@ describe("whether the watch is still hearing back", () => {
     expect(document.querySelector("[data-watch-checked]")).toBeNull();
   });
 });
+
+describe("a watch whose layer is switched off", () => {
+  /** A workspace watching home, with the two map layers off. */
+  function withLayersOff(rules: Partial<AppSettings>) {
+    const settings: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      watch: { ...DEFAULT_SETTINGS.watch, enabled: true },
+      layers: {
+        ...DEFAULT_SETTINGS.layers,
+        stormCells: false,
+        lightningFlashes: false,
+      },
+      ...rules,
+    };
+    render(
+      <SettingsPanel
+        settings={settings}
+        onSettings={vi.fn()}
+        onRemoved={vi.fn()}
+        autostart={false}
+        onAutostart={vi.fn()}
+        onWatchHere={vi.fn()}
+        onAddWatchPlace={vi.fn()}
+        onSendWatchTest={vi.fn()}
+        ambient={{ seen: null, dropped: false }}
+        onJournalSaved={vi.fn()}
+        onJournalFailed={vi.fn()}
+        onImportSettings={vi.fn()}
+        onStorageCleared={vi.fn()}
+        onStorageFailed={vi.fn()}
+        onJournalCleared={vi.fn()}
+        onJournalRemoved={vi.fn()}
+        onChooseSound={vi.fn()}
+        clock={0}
+        onReset={vi.fn()}
+        onExportSettings={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+  }
+
+  it("still reads as on, because it is", () => {
+    // The switch was drawn from the stored rule AND the map layer, so a
+    // reader who took the storm cells or the flashes off the map saw these
+    // read as off while the stored rule stayed on. Switching the layer back
+    // on weeks later silently re-armed a watch the panel had shown as off.
+    withLayersOff({
+      approach: { ...DEFAULT_SETTINGS.approach, enabled: true },
+      lightningWatch: { ...DEFAULT_SETTINGS.lightningWatch, enabled: true },
+    });
+    const approach = screen.getByRole("checkbox", {
+      name: new RegExp(en["approach.setting"], "i"),
+    }) as HTMLInputElement;
+    const lightning = screen.getByRole("checkbox", {
+      name: new RegExp(en["lightningWatch.setting"], "i"),
+    }) as HTMLInputElement;
+    expect(approach.checked).toBe(true);
+    expect(approach.disabled).toBe(false);
+    expect(lightning.checked).toBe(true);
+    expect(lightning.disabled).toBe(false);
+  });
+
+  it("is still refused when there is no place to watch", () => {
+    // The other half of the rule, which is the one that survives: neither of
+    // these is anything without somewhere for a storm to be heading.
+    withLayersOff({
+      watch: { ...DEFAULT_SETTINGS.watch, enabled: false },
+      approach: { ...DEFAULT_SETTINGS.approach, enabled: true },
+      lightningWatch: { ...DEFAULT_SETTINGS.lightningWatch, enabled: true },
+    });
+    const approach = screen.getByRole("checkbox", {
+      name: new RegExp(en["approach.setting"], "i"),
+    }) as HTMLInputElement;
+    expect(approach.disabled).toBe(true);
+    expect(approach.checked).toBe(false);
+  });
+});

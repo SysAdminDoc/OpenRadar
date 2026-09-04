@@ -990,7 +990,14 @@ export default function App() {
   // are that radar's own account of that volume.
   const stormCells = useStormCells({
     ready: hydrated,
-    enabled: settings.layers.stormCells && !singleSite.historical,
+    // The watch keeps its own feed. Tying it to the layer meant a reader
+    // who switched the cells off had the approach notice stop with them,
+    // while its switch stayed on in the settings and re-armed itself weeks
+    // later when the layer came back. A watch runs whether or not anybody is
+    // looking at what it is watching.
+    enabled:
+      (settings.layers.stormCells || settings.approach.enabled) &&
+      !singleSite.historical,
     station: singleSite.station,
     pageVisible,
     // The approach notice is derived from this report and exists to reach
@@ -1137,7 +1144,8 @@ export default function App() {
 
   const lightning = useLightning({
     ready: hydrated,
-    enabled: settings.layers.lightningFlashes,
+    enabled:
+      settings.layers.lightningFlashes || settings.lightningWatch.enabled,
     pageVisible,
     // Same reason as the cells above: the lightning notice is derived from
     // this window, and a watch that only works while somebody is watching
