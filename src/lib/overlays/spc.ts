@@ -441,6 +441,7 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     // significant IF it happens, which is a different statement from how
     // likely it is at all.
     let hatched: OverlayFeature[] = [];
+    let missedHatching = false;
     try {
       hatched = parseOutlooks(
         await query(layerQuery(chosen.significant), bounds, fields, signal),
@@ -448,7 +449,10 @@ export const spcOutlooksOverlay: OverlayAdapter = {
       ).features;
     } catch {
       // The bands are the answer; the hatching is an annotation on them, and
-      // losing it is not worth losing the outlook over.
+      // losing it is not worth losing the outlook over. But it is worth
+      // saying: a band drawn without its hatching looks exactly like a band
+      // the Center did not hatch, which is the opposite claim.
+      missedHatching = true;
     }
     // Which outlook this is travels on the features, because the popup is
     // handed a feature and nothing else.
@@ -456,7 +460,13 @@ export const spcOutlooksOverlay: OverlayAdapter = {
       ...feature,
       properties: { ...feature.properties, day: choices.spcDay },
     }));
-    return { type: "FeatureCollection", features: stamped };
+    return {
+      type: "FeatureCollection",
+      features: stamped,
+      ...(missedHatching
+        ? { partial: translate("spc.hatchingMissing") }
+        : null),
+    };
   },
   images: () => [{ id: HATCH_IMAGE, ...hatch() }],
   layers: (sourceId) => [

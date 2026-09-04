@@ -315,13 +315,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P1
 
-- [ ] AUD-261 (P1): A failed hatch layer is dropped silently, so an outlook draws without its significant areas and nothing says so
-      Why: `src/lib/overlays/spc.ts:449-452` catches the significant-hazard query's failure and returns the bands alone. A reader sees a 15% tornado band with no hatching and reads it as "not significant", which is the opposite of "the service did not answer". It is the only swallowed error in `src/` without copy.
-      Evidence: the catch at the cited lines; every other swallowed catch in `src/` is commented as deliberate (`ErrorBoundary.tsx:125,133`, `MapViewport.tsx:2156`, `glance.tsx:134`, `autostart.ts:68`, `export.ts:177`).
-      Touches: `src/lib/overlays/spc.ts`, `src/lib/overlays/registry.ts` (a partial-answer note on `OverlayData` if none exists), the legend or provenance line for the layer, `src/i18n/*`, `src/lib/overlays/spc.test.ts`.
-      Acceptance: With the significant query stubbed to fail, the bands draw and the layer's provenance line says the hatched area could not be read; a test asserts the note; with both queries succeeding the note is absent.
-      Complexity: S
-
 ### P2
 
 - [ ] AUD-262 (P2): The README, SECURITY.md, the architecture note and the export policy script lag the code by two releases

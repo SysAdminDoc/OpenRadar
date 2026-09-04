@@ -508,6 +508,8 @@ export const es: Catalogue = {
   "layers.spcDay3Probability": "Probabilidad",
   "watch.notificationsRefused":
     "Windows no deja que OpenRadar muestre notificaciones, así que estas solo pueden aparecer dentro de la app. Actívalas en Configuración de Windows, en Sistema, Notificaciones.",
+  "spc.hatchingMissing":
+    "El pronóstico se dibuja sin las áreas sombreadas de amenaza significativa: esa parte no respondió. No se muestra dónde el peligro sería significativo.",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",

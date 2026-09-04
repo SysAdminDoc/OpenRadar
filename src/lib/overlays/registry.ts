@@ -86,6 +86,18 @@ export interface OverlayFeature {
 export interface OverlayData {
   type: "FeatureCollection";
   features: OverlayFeature[];
+  /**
+   * What a layer drew without, when it drew something.
+   *
+   * Not an error: the layer is on the map and the features in it are real.
+   * It is for the case where part of the answer did not arrive and the part
+   * that did looks complete, which is worse than drawing nothing at all. The
+   * outlook is the one that has it: the bands and the hatched significant
+   * area are two queries, and losing the hatching leaves a fifteen per cent
+   * tornado band that reads as "not significant" when what happened is that
+   * nobody answered.
+   */
+  partial?: string;
 }
 
 export interface OverlayDescription {

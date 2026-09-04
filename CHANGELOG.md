@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- An outlook that arrived without its hatching says so. The bands and the hatched significant areas are two separate questions to the Storm Prediction Center, and when the second one went unanswered the app drew the bands alone and said nothing. A fifteen per cent tornado band with no hatching on it looks exactly like a band the Center decided not to hatch, which is the opposite of what happened. The outlook still draws, because losing the annotation is not worth losing the outlook, and now there is a line beside the switch saying what is missing from it.
+
 - The workspace says when Windows will not let it notify you. A refused permission quietly dropped every watch to a message inside the app, which is exactly what somebody who has looked away never sees, and nothing anywhere said so. The watch settings now carry a line saying it and where to switch it back on, and the diagnostics report carries the same answer for a bug report. It distinguishes a refusal from a question nobody has asked yet, because those are not the same silence.
 
 - The West Palm Beach terminal radar works again. The Radar Operations Center renamed it from TPBI to TDJT on 3 August, because the airport itself was renamed, and the app kept asking for a radar that no longer answers to that name. Holding it drew nothing at all, with nothing to say why, which is what a quiet radar looks like too. Two other entries went the same way for a different reason: they came from a historical station file and are not radars any more, so the list is forty-five now rather than forty-seven. A check that runs against the weather service catches the next rename instead of leaving a dead site in the list for a month.

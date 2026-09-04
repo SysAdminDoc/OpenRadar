@@ -20,6 +20,8 @@ export interface OverlayState {
   bounds: OverlayBounds | null;
   fetchedAt: number | null;
   error: string | null;
+  /** What the layer drew without, when it drew something. See `OverlayData`. */
+  partial: string | null;
 }
 
 export type OverlayStates = Record<OverlayId, OverlayState>;
@@ -29,6 +31,7 @@ export const IDLE_OVERLAY: OverlayState = {
   bounds: null,
   fetchedAt: null,
   error: null,
+  partial: null,
 };
 
 const POLL_MS = 30_000;
@@ -219,6 +222,7 @@ export function useOverlays(
                 bounds: adapter.global ? null : box,
                 fetchedAt: Date.now(),
                 error: null,
+                partial: data.partial ?? null,
               },
             }));
           })

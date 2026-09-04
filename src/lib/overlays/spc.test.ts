@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { en } from "../../i18n/en";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   HATCH_IMAGE,
@@ -521,5 +522,92 @@ describe("the outlook day a reader landed on", () => {
     });
     expect(read.features).toHaveLength(1);
     expect(read.features[0].properties.label).toBe("0.15");
+  });
+});
+
+describe("an outlook that could only be half read", () => {
+  const bounds = { west: -104, south: 30, east: -90, north: 42 };
+  const band = {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [] },
+    properties: {
+      dn: 15,
+      label: "0.15",
+      label2: "15%",
+      fill: "#f6f6f6",
+      stroke: "#000000",
+    },
+  };
+
+  /** Answers the bands and refuses the hatching, which is layer 2 here. */
+  function halfAnswering(refuse: number) {
+    return async (url: string) => {
+      if (url.includes(`MapServer/${refuse}/query`)) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ features: [band] }),
+      } as Response;
+    };
+  }
+
+  it("draws the bands and says the hatching is not on them", async () => {
+    // A fifteen per cent tornado band with no hatching looks exactly like a
+    // band the Center chose not to hatch, which is the opposite claim. The
+    // layer used to swallow the failure whole and say nothing at all.
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(halfAnswering(2) as typeof fetch);
+    try {
+      const data = await spcOutlooksOverlay.fetchData(bounds, undefined, {
+        ...DEFAULT_OVERLAY_CHOICES,
+        spcHazard: "tornado",
+      });
+      // The outlook is still on the map. Losing the annotation is not worth
+      // losing the outlook over, which was the right half of the old choice.
+      expect(data.features.length).toBeGreaterThan(0);
+      expect(data.partial).toBe(en["spc.hatchingMissing"]);
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("says nothing when both halves answered", async () => {
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ features: [band] }),
+      })) as unknown as typeof fetch);
+    try {
+      const data = await spcOutlooksOverlay.fetchData(bounds, undefined, {
+        ...DEFAULT_OVERLAY_CHOICES,
+        spcHazard: "tornado",
+      });
+      expect(data.partial).toBeUndefined();
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("still fails whole when the bands themselves do not answer", async () => {
+    // The distinction the note exists for: a missing annotation is a note,
+    // a missing answer is an error, and they must not become the same thing.
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(halfAnswering(3) as typeof fetch);
+    try {
+      await expect(
+        spcOutlooksOverlay.fetchData(bounds, undefined, {
+          ...DEFAULT_OVERLAY_CHOICES,
+          spcHazard: "tornado",
+        }),
+      ).rejects.toThrow();
+    } finally {
+      fetched.mockRestore();
+    }
   });
 });

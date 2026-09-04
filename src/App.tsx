@@ -2489,7 +2489,9 @@ export default function App() {
                       ? translate("replay.warningsPartial")
                       : null))
                 : overlays.states.alerts.error,
-              spcOutlooks: overlays.states.spcOutlooks.error,
+              spcOutlooks:
+                overlays.states.spcOutlooks.error ??
+                overlays.states.spcOutlooks.partial,
               spcDiscussions: overlays.states.spcDiscussions.error,
               stormReports: overlays.states.stormReports.error,
               stormCells: stormCells.error,
