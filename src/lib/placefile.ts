@@ -123,12 +123,18 @@ interface Sheet {
  * The map needs the sheet's address, how it is cut up and which cell to take,
  * and the feature is the only thing that survives being stored in the
  * workspace and merged with seven other files. So the whole description is the
- * property, and `|` separates it because a URL cannot contain one unescaped.
+ * property, with `|` between its parts.
+ *
+ * The address is percent-encoded rather than written in plainly. A URL may
+ * hold a `|`: the WHATWG parser leaves one in a path untouched, so
+ * `https://example.test/a|b.png` survives `new URL()` whole, and a sheet at
+ * such an address produced an id with eight parts that read back as nothing
+ * at all. The icon was then neither fetched nor drawn as a point.
  */
 export function iconId(sheet: Sheet, index: number): string {
   return [
     "icon",
-    sheet.url,
+    encodeURIComponent(sheet.url),
     sheet.iconWidth,
     sheet.iconHeight,
     sheet.hotX,
@@ -150,7 +156,15 @@ export function parseIconId(id: string): IconRef | null {
     return null;
   }
   if (iconWidth <= 0 || iconHeight <= 0 || index < 1) return null;
-  return { url: parts[1], iconWidth, iconHeight, hotX, hotY, index };
+  let url: string;
+  try {
+    url = decodeURIComponent(parts[1]);
+  } catch {
+    // A stored workspace can be edited by hand, and a stray percent sign is
+    // not an address.
+    return null;
+  }
+  return { url, iconWidth, iconHeight, hotX, hotY, index };
 }
 
 interface TimeWindow {

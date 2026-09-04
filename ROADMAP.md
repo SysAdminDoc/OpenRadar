@@ -313,26 +313,6 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
 
 ### P3
 
-- [ ] AUD-240: An icon sheet whose address carries a `|` never draws, and the icon draws as nothing rather than as a point
-      Category: correctness
-      Where: `src/lib/placefile.ts` `iconId` (joins the sheet URL and five numbers with `|`, with a comment claiming a URL cannot contain one unescaped) and `parseIconId` (`split("|")` and `parts.length !== 7`); `src/components/MapViewport.tsx` `loadPlacefileIcons` (skips an id `parseIconId` refuses) and the custom lane (the circle layer filters out `kind == "icon"`, the symbol layer has no fallback image)
-      Problem: `new URL("https://example/a|b.png").href` is `https://example/a|b.png` (checked in Node 24): the WHATWG parser leaves `|` in a path. A sheet at such an address produces an id with eight parts, `parseIconId` returns null, the sheet is never fetched, and because the feature is `kind: "icon"` the circle layer will not draw it either. The reader gets nothing where the file put an icon, which is worse than the no-sheet case that at least draws a point.
-      Evidence: `node -e "console.log(new URL('https://mesonet.agron.iastate.edu/a|b.png').href)"` prints the pipe intact; `parseIconId` refuses any id whose split is not exactly seven parts (`src/lib/placefile.test.ts` "refuses to read back anything it did not write").
-      Fix: Put the URL last in the id and split with a limit (`id.split("|", 6)` then the remainder is the URL), or `encodeURIComponent` the URL inside the id and decode it in `parseIconId`. Fix the comment.
-      Acceptance: A unit test round-trips `iconId` / `parseIconId` for a URL containing `|`, `#` and `?`; the e2e placefile test gains an `IconFile` on an allowed host whose path contains `|` and asserts the icon lane lists the feature.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-241: An allowed icon sheet that cannot be fetched leaves its icons invisible instead of falling back to a point
-      Category: reliability
-      Where: `src/components/MapViewport.tsx` custom lane: `CUSTOM_POINT_LAYER_ID` filter `["!=", ["get", "kind"], "icon"]`, `CUSTOM_ICON_LAYER_ID` layout `"icon-image": ["get", "icon"]`; `loadPlacefileIcons` `catch` (logs and moves on)
-      Problem: A sheet on an allowlisted host that answers 404, times out, or is asked for while the machine is offline (a sheet never fetched before is not in the tile cache) leaves every feature that names it with an `icon-image` MapLibre cannot resolve. MapLibre draws nothing for those symbols, the circle layer excludes them by design, and the reader sees fewer shapes than the import toast counted, with no note. The parser deliberately draws a point for a sheet it may not ask; the same file with a sheet it may ask but cannot reach draws nothing.
-      Evidence: The two filters above; `loadPlacefileIcons` swallows the failure into `log.warn("placefile", ...)`; no image is registered as a fallback and `iconsAskedRef` prevents a retry for the life of the style.
-      Fix: Register one small dot image at style load (`map.addImage("openradar-dot", ...)`, a 12 px RGBA disc built in `src/lib/placefileIcons.ts` so it is unit-testable) and make the layout `"icon-image": ["coalesce", ["image", ["get", "icon"]], ["image", "openradar-dot"]]`, which MapLibre resolves to the first image that exists. Re-register the dot in the `style.load` handler alongside the lanes.
-      Acceptance: With a stubbed 404 for the sheet, the e2e placefile test still counts the icon's pixels on the canvas (magenta dot at the icon's position); with the sheet stubbed to a real PNG the icon draws instead.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-242: A KML's inline `<Style>` is ignored, so most Google Earth exports lose their colours
       Category: ux
       Where: `src/lib/kml.ts` `stylesOf` (`if (!id) continue;` skips any `<Style>` without an id) and `parseKml` (resolves colours only through `styleUrl`)
