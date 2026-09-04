@@ -39,6 +39,10 @@ function panel(overrides: {
     <LayersPanel
       layers={{ ...DEFAULT_SETTINGS.layers, ...overrides.layers }}
       layerNotes={overrides.layerNotes}
+      spcDay={DEFAULT_SETTINGS.spcDay}
+      spcHazard={DEFAULT_SETTINGS.spcHazard}
+      onSpcDay={() => {}}
+      onSpcHazard={() => {}}
       satelliteBand={DEFAULT_SETTINGS.satelliteBand}
       spacecraft={"east"}
       gaugeQpePeriod={

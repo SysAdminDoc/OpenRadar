@@ -1,3 +1,5 @@
+import { SPC_HAZARDS } from "./overlays/spc";
+import type { SpcHazard } from "./overlays/registry";
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
 import {
@@ -401,6 +403,10 @@ export interface AppSettings {
   satelliteBand: SatelliteBandId;
   /** Which day of the excessive rainfall outlook, 1 through 5. */
   wpcDay: number;
+  /** Which day of the convective outlook, 1 through 8. */
+  spcDay: number;
+  /** Which hazard's probability, or the categorical outlook. */
+  spcHazard: SpcHazard;
   /** Which day of the winter storm severity index, 1 through 3. */
   wssiDay: number;
   /**
@@ -678,6 +684,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   approach: DEFAULT_APPROACH,
   lightningWatch: DEFAULT_LIGHTNING_RULE,
   wpcDay: 1,
+  spcDay: 1,
+  spcHazard: "categorical",
   wssiDay: 1,
   gaugeQpePeriod: "24h",
   rotationPeriod: "1h",
@@ -1709,6 +1717,12 @@ export function normalizeSettings(value: unknown): AppSettings {
         DEFAULT_LIGHTNING_RULE.sound,
       ),
     },
+    spcDay: Math.round(
+      finiteInRange(raw.spcDay, DEFAULT_SETTINGS.spcDay, 1, 8),
+    ),
+    spcHazard: SPC_HAZARDS.includes(raw.spcHazard as SpcHazard)
+      ? (raw.spcHazard as SpcHazard)
+      : DEFAULT_SETTINGS.spcHazard,
     wpcDay: Math.round(
       finiteInRange(raw.wpcDay, DEFAULT_SETTINGS.wpcDay, 1, 5),
     ),

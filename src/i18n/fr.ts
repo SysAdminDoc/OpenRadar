@@ -457,6 +457,17 @@ export const fr: Catalogue = {
     "Le vent dans lequel se déplace chaque hauteur, ajusté sur un anneau de la vitesse mesurée par le radar. Une hauteur marquée ND est une hauteur où l'ajustement n'a pas pu être garanti : c'est un trou, pas de l'air calme.",
   "vwp.columnLabel": "Vent par hauteur pour le volume {volume}",
   "vwp.hodographLabel": "Hodographe du vent par hauteur",
+  "layers.spcOutlookChoice": "Prévision convective",
+  "layers.spcOutlookChoiceDetail":
+    "Quel jour, et le risque par catégories ou la probabilité d'un aléa. Les jours 3 à 8 publient une seule probabilité, sans distinction d'aléa.",
+  "layers.spcDay": "Jour de la prévision",
+  "layers.spcHazard": "Aléa de la prévision",
+  "layers.spcCategorical": "Par catégories",
+  "layers.spcTornado": "Tornade",
+  "layers.spcHail": "Grêle",
+  "layers.spcWind": "Vent",
+  "spc.significant":
+    "Hachuré : où cet aléa serait significatif s'il se produit",
   "service.busy": "est occupé",
   "service.notFound": "ne l'a pas trouvé",
   "service.tooMany": "a reçu trop de demandes",
@@ -812,7 +823,7 @@ export const fr: Catalogue = {
     "L'impact plutôt que la quantité : ce que cet hiver-là fait à ce lieu-là.",
   "wpc.outlookNote":
     "Une prévision, pas une alerte. Elle dit ce que la journée pourrait apporter, pas ce qui se passe.",
-  "spc.outlookDay1": "Perspective convective du jour 1",
+  "spc.outlookDay": "Prévision convective du jour {day}",
   "spc.validBetween": "Valide de {from} à {to} UTC",
   "spc.guidanceNote":
     "Ceci oriente sur ce qui pourrait arriver; ce n'est pas une alerte.",

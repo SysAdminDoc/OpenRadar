@@ -77,7 +77,7 @@ export function useWorkspaceOverlays(options: {
   const zoom = settings.camera.zoom;
   const { spcOutlooks, spcDiscussions, stormReports } = settings.layers;
   const { wpcExcessiveRain, wpcWinterSeverity } = settings.layers;
-  const { wpcDay, wssiDay } = settings;
+  const { wpcDay, wssiDay, spcDay, spcHazard } = settings;
 
   const toggles = useMemo(
     () => ({
@@ -130,7 +130,10 @@ export function useWorkspaceOverlays(options: {
   );
 
   // Which day each of the two outlooks that offer a choice is drawing.
-  const choices = useMemo(() => ({ wpcDay, wssiDay }), [wpcDay, wssiDay]);
+  const choices = useMemo(
+    () => ({ wpcDay, wssiDay, spcDay, spcHazard }),
+    [wpcDay, wssiDay, spcDay, spcHazard],
+  );
 
   const states = useOverlays(toggles, viewport, choices);
 

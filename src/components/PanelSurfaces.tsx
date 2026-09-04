@@ -1,4 +1,5 @@
 import type { VwpColumn } from "../lib/vwp";
+import type { SpcHazard } from "../lib/overlays/registry";
 import { Suspense, lazy } from "react";
 import type { SurfaceId } from "./CommandBar";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
@@ -137,6 +138,11 @@ interface PanelSurfacesProps {
   replayId: string | null;
   /** The line the cross-section tool put down, or null before both ends are. */
   sectionLine: { from: GeoPoint; to: GeoPoint } | null;
+  /** Which convective outlook the reader has chosen, and its hazard. */
+  spcDay: number;
+  spcHazard: SpcHazard;
+  onSpcDay: (day: number) => void;
+  onSpcHazard: (hazard: SpcHazard) => void;
   /** The volume times the held site is looping, oldest first. */
   vwpTimes: string[];
   /** Asks the native side for a wind profile, or null in a browser preview. */
@@ -287,6 +293,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onRotationPeriod={props.onRotationPeriod}
             azShearLevel={settings.azShearLevel}
             onAzShearLevel={props.onAzShearLevel}
+            spcDay={props.spcDay}
+            spcHazard={props.spcHazard}
+            onSpcDay={props.onSpcDay}
+            onSpcHazard={props.onSpcHazard}
             wpcDay={settings.wpcDay}
             onWpcDay={props.onWpcDay}
             wssiDay={settings.wssiDay}

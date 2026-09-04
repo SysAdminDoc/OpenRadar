@@ -434,6 +434,17 @@ export const en = {
     "The wind each height is moving in, fitted to a ring of the radar's own velocity. A height marked ND is one the fit could not be vouched for at, which is a gap rather than calm air.",
   "vwp.columnLabel": "Wind by height for volume {volume}",
   "vwp.hodographLabel": "Hodograph of the wind by height",
+  "layers.spcOutlookChoice": "Convective outlook",
+  "layers.spcOutlookChoiceDetail":
+    "Which day, and whether the categorical risk or the chance of one hazard. Days 3 to 8 publish one probability with no hazard split.",
+  "layers.spcDay": "Outlook day",
+  "layers.spcHazard": "Outlook hazard",
+  "layers.spcCategorical": "Categorical",
+  "layers.spcTornado": "Tornado",
+  "layers.spcHail": "Hail",
+  "layers.spcWind": "Wind",
+  "spc.significant":
+    "Hatched: where this hazard would be significant if it happens",
   "service.busy": "is busy",
   "service.notFound": "could not find it",
   "service.tooMany": "has been asked too often",
@@ -789,7 +800,7 @@ export const en = {
     "Impact rather than amount: what this much winter weather does to this place.",
   "wpc.outlookNote":
     "An outlook, not a warning. It says what the day may bring, not what is happening.",
-  "spc.outlookDay1": "Day 1 convective outlook",
+  "spc.outlookDay": "Day {day} convective outlook",
   "spc.validBetween": "Valid {from} to {to} UTC",
   "spc.guidanceNote": "This is guidance about what may happen, not a warning.",
   "spc.discussion": "Mesoscale discussion",
