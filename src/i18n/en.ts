@@ -498,6 +498,8 @@ export const en = {
     "The outlook is drawn without its hatched significant areas: that part did not answer. Where a hazard would be significant is not shown.",
   "reports.fromService":
     "Storm reports are coming from the weather service rather than the usual archive, which did not answer.",
+  "toast.sharedViewPartly":
+    "Opened the shared view. It named a radar or product this version does not have, so that part was left as it was.",
   "service.busy": "is busy",
   "service.notFound": "could not find it",
   "service.tooMany": "has been asked too often",

@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A shared view carries what you were looking at, not just where. If you had a site held, the link now names it along with the product, the tilt and any threshold you had set, so whoever opens it sees the picture you sent rather than the same ground under whatever their own workspace was on. A link made over the national mosaic still names no site, because following the nearest one is a habit of your workspace and not part of the view. Older links keep working, and a link naming a radar or product this version does not have still takes you to the place and says which part it could not use.
+
 - Storm reports have somewhere else to come from. They arrived from one archive, and a layer with one source cannot tell a quiet afternoon from a service that is down: two chasers lost their feed in the middle of a storm on 3 September in software that had the same problem. If the usual archive does not answer, the reports now come from the weather service’s own map service instead, and the layer says which one you are looking at.
 
 - A saved view that had pinned the Auto map style is honoured again. The check that reads a stored file listed a style the picker stopped offering a long time ago and left out Auto, which is the one most people are on, so a view saved on it came back on whatever the default happened to be. A file that still names the old dark style now lands on the professional dark one, which is where it meant to be.

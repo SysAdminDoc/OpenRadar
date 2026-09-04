@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { deepLinkUrl, viewFromDeepLink, webLinkUrl } from "./deepLink";
+import {
+  deepLinkUrl,
+  linkNamedUnknownRadar,
+  viewFromDeepLink,
+  webLinkUrl,
+} from "./deepLink";
 import { DEFAULT_SETTINGS } from "./settings";
 
 const view = {
@@ -86,5 +91,94 @@ describe("incomplete links", () => {
         fallback,
       ),
     ).toBeNull();
+  });
+});
+
+describe("a link that carries what was drawn, not only where", () => {
+  const camera = {
+    center: [-93.723, 41.731] as [number, number],
+    zoom: 9.5,
+    bearing: 0,
+    pitch: 0,
+  };
+  const held = {
+    camera,
+    projection: "mercator" as const,
+    radar: {
+      station: "KDMX",
+      product: "velocity" as const,
+      tilt: 2,
+      threshold: 20,
+    },
+  };
+
+  it("opens on the same site, product, tilt and threshold", () => {
+    // The camera alone puts the receiver over the same ground with whatever
+    // product their own workspace was on, which is a different picture of the
+    // same storm.
+    const read = viewFromDeepLink(deepLinkUrl(held), camera);
+    expect(read?.radar).toEqual(held.radar);
+  });
+
+  it("says nothing about a radar when no site was held", () => {
+    // Following whichever site the view is over belongs to the reader's
+    // workspace rather than to the picture, so a link made that way must not
+    // pin a site on whoever opens it.
+    const link = deepLinkUrl({ camera, projection: "mercator" });
+    expect(link).not.toContain("site=");
+    expect(viewFromDeepLink(link, camera)?.radar).toBeUndefined();
+  });
+
+  it("still opens a link from before any of this existed", () => {
+    const old =
+      "openradar://view?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0&projection=mercator";
+    const read = viewFromDeepLink(old, camera);
+    expect(read).not.toBeNull();
+    expect(read?.camera.zoom).toBeCloseTo(9.5, 2);
+    expect(read?.radar).toBeUndefined();
+    expect(linkNamedUnknownRadar(old)).toBe(false);
+  });
+
+  it("keeps the place when it cannot use the radar, and says so", () => {
+    // A link naming a product this build does not know is still a link to a
+    // place. Refusing the whole thing over one word would lose the camera.
+    for (const bad of [
+      "openradar://view?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0&projection=mercator&site=KDMX&product=nonsense",
+      "openradar://view?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0&projection=mercator&site=NOTASITE&product=velocity",
+    ]) {
+      const read = viewFromDeepLink(bad, camera);
+      expect(read).not.toBeNull();
+      expect(read?.camera.zoom).toBeCloseTo(9.5, 2);
+      expect(read?.radar).toBeUndefined();
+      expect(linkNamedUnknownRadar(bad)).toBe(true);
+    }
+  });
+
+  it("leaves out a threshold that was hiding nothing", () => {
+    const link = deepLinkUrl({
+      ...held,
+      radar: { ...held.radar, threshold: null },
+    });
+    expect(link).not.toContain("threshold=");
+    expect(viewFromDeepLink(link, camera)?.radar?.threshold).toBeNull();
+  });
+
+  it("refuses a tilt outside what a volume holds rather than carrying it", () => {
+    const link =
+      "openradar://view?lon=-93.72300&lat=41.73100&zoom=9.50&bearing=0.0&pitch=0.0&projection=mercator&site=KDMX&product=velocity&tilt=99";
+    expect(viewFromDeepLink(link, camera)?.radar?.tilt).toBe(0);
+    // A tilt it could not use is not a radar it could not use: the site and
+    // the product are both real, so nothing is said about them.
+    expect(linkNamedUnknownRadar(link)).toBe(false);
+  });
+
+  it("carries the same radar through a web link", () => {
+    const link = webLinkUrl(held, "https://example.test/app");
+    expect(
+      viewFromDeepLink(
+        link.replace("https://example.test/app", "openradar://view"),
+        camera,
+      )?.radar,
+    ).toEqual(held.radar);
   });
 });

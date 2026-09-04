@@ -521,6 +521,8 @@ export const fr: Catalogue = {
     "La prévision est dessinée sans ses zones hachurées de menace significative : cette partie n'a pas répondu. Les endroits où le danger serait significatif ne sont pas affichés.",
   "reports.fromService":
     "Les signalements viennent du service météo et non de l'archive habituelle, qui n'a pas répondu.",
+  "toast.sharedViewPartly":
+    "Vue partagée ouverte. Elle nommait un radar ou un produit que cette version n'a pas, donc cette partie a été laissée telle quelle.",
   "service.busy": "est occupé",
   "service.notFound": "ne l'a pas trouvé",
   "service.tooMany": "a reçu trop de demandes",
