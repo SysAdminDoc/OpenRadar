@@ -1896,6 +1896,7 @@ export const en = {
   "app.preparing": "Preparing the map",
   "app.settingsNotSavedBody": "The current window is still using your changes.",
   "app.savedView": "Saved view",
+  "popup.importedShape": "Imported shape",
   "popup.openProduct": "Open the official product",
   "pairing.rainfall": "Show the rain that has fallen",
   "pairing.rainfallDay": "Show the day's rainfall",

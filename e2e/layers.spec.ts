@@ -255,7 +255,8 @@ test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
         " 24.0, -88.0",
         " 27.0, -83.0",
         "End:",
-        'Place: 26.5, -85.5, "Hail 2.0 in"',
+        // The workspace opens centred here, so the click below lands on it.
+        'Place: 25.5, -85.5, "Hail 2.0 in"',
         'IconFile: 1, 15, 25, 8, 25, "https://example.test/icons.png"',
       ].join(String.fromCharCode(10)),
     ),
@@ -299,6 +300,51 @@ test("draws a GRLevelX placefile in its own colours", async ({ page }) => {
       }),
     )
     .toBeGreaterThan(600);
+});
+
+test("says what an imported shape carried when it is clicked", async ({
+  page,
+}) => {
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+
+  // Put the point exactly where the workspace is already looking, so the
+  // click below lands on it. Read rather than assumed: the opening camera is
+  // a setting, and a test that hard-codes it is testing the setting.
+  const [lon, lat] = (await settledCamera(pane)).split(",").map(Number);
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "spotters.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      [
+        "Title: Reports",
+        "Color: 255 0 255",
+        `Place: ${lat}, ${lon}, "Hail 2.0 in"`,
+      ].join(String.fromCharCode(10)),
+    ),
+  });
+  await expect(page.getByText(/spotters.txt added/)).toBeVisible();
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+
+  const box = await pane.boundingBox();
+  const popup = page.locator(".map-popup");
+  // Clicking again is what waiting for MapLibre to make a published layer
+  // queryable looks like from out here; no number of clicks opens a popup
+  // over nothing.
+  await expect(async () => {
+    await page.mouse.click(
+      (box?.x ?? 0) + (box?.width ?? 0) / 2,
+      (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    );
+    await expect(popup).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 6_000 });
+
+  // The file it came from, and the words the file carried for this shape.
+  await expect(popup).toContainText("spotters.txt");
+  await expect(popup).toContainText("Hail 2.0 in");
 });
 
 test("holds a placefile shape back until the map is close enough", async ({

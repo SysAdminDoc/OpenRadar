@@ -94,6 +94,7 @@ import {
   FORECAST_SMOKE_SOURCE_ID,
   CUSTOM_FILL_LAYER_ID,
   CUSTOM_ICON_LAYER_ID,
+  CUSTOM_LAYER_IDS,
   CUSTOM_IMAGE_LAYER_IDS,
   CUSTOM_LINE_LAYER_ID,
   CUSTOM_POINT_LAYER_ID,
@@ -819,9 +820,14 @@ function MapViewportInner(
     const map = mapRef.current;
     if (!map) return;
 
-    const clickable = [...overlayLayerIds(), PROBSEVERE_FILL_LAYER_ID].filter(
-      (id) => map.getLayer(id),
-    );
+    // The shapes a reader imported answer too. Nothing else in the app
+    // knows what is in their file, so the popup is the only account of a
+    // placefile's hover text or a placemark's own name there is.
+    const clickable = [
+      ...overlayLayerIds(),
+      ...CUSTOM_LAYER_IDS,
+      PROBSEVERE_FILL_LAYER_ID,
+    ].filter((id) => map.getLayer(id));
     if (!clickable.length) return;
 
     const hits = map.queryRenderedFeatures(event.point, { layers: clickable });
