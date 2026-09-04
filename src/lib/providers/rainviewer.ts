@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
 import { cachedUrl } from "../tileCache";
 import { noteCachedResponse } from "../tileCache";
@@ -83,7 +84,11 @@ export const rainviewerProvider: RadarProvider = {
     });
     noteCachedResponse(response, cacheReport);
     if (!response.ok) {
-      throw new Error(`The service returned ${response.status}.`);
+      throw new Error(
+        translate("provider.failed", {
+          answer: serviceAnswer(response.status),
+        }),
+      );
     }
     const frames = parseRainViewerFrames(await response.json());
     if (!frames.length) {

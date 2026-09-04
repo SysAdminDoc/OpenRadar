@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import type { RadarFrame } from "./types";
 import { cachedUrl } from "../tileCache";
 import { translate } from "../../i18n";
@@ -41,7 +42,9 @@ export async function fetchHrrrRun(signal?: AbortSignal): Promise<HrrrRun> {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error(`The forecast index returned ${response.status}.`);
+    throw new Error(
+      translate("hrrr.failed", { answer: serviceAnswer(response.status) }),
+    );
   }
   const run = parseHrrrRun(await response.json());
   if (!run) throw new Error(translate("radar.noRun"));

@@ -155,6 +155,12 @@ function untranslatedStrings(source: string): string[] {
   const found: string[] = [];
   const patterns: Array<[string, RegExp]> = [
     ["thrown", /throw new Error\(\s*"([^"]{8,})"/g],
+    // The same thing written as a template. Every one of the twelve that were
+    // here reached a reader: an overlay adapter's message is the note under
+    // its switch in the Layers panel, and a provider's is what Diagnostics
+    // prints. The convention for a message that genuinely cannot reach one is
+    // to name the function and start lowercase, which `isCopy` lets through.
+    ["thrown", /throw new Error\(\s*`([^`]{8,})`/g],
     ["written", /\.textContent\s*=\s*"([^"]{4,})"/g],
     ["label", /\blabel\s*=\s*"([^"]{4,})"/g],
     // Anything handed straight to a state setter, which is how an error line

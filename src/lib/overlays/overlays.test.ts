@@ -443,7 +443,9 @@ describe("alert parsing", () => {
         undefined,
         DEFAULT_OVERLAY_CHOICES,
       ),
-    ).rejects.toThrow(/500/);
+      // The sentence under the switch in the Layers panel, in the reader's
+      // own language. The status goes to the log rather than to the screen.
+    ).rejects.toThrow(/is busy/);
   });
 });
 

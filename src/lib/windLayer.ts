@@ -130,7 +130,7 @@ function compile(
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(shader);
     gl.deleteShader(shader);
-    throw new Error(`The wind layer could not build a shader: ${log}`);
+    throw new Error(`createWindLayer could not build a shader: ${log}`);
   }
   return shader;
 }
@@ -148,7 +148,7 @@ function link(
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     const log = gl.getProgramInfoLog(program);
     gl.deleteProgram(program);
-    throw new Error(`The wind layer could not link a program: ${log}`);
+    throw new Error(`createWindLayer could not link a program: ${log}`);
   }
   return program;
 }

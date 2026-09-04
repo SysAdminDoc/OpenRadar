@@ -235,3 +235,25 @@ test.describe("the Start with Windows row in a long language", () => {
     await expect(row.locator("input[type=checkbox]")).toBeDisabled();
   });
 });
+
+test("says a service failure in the reader's own language", async ({
+  page,
+}) => {
+  // A failure sentence is the one a reader meets when something is wrong,
+  // which is when the words matter most. Twelve of them were English-only
+  // template literals that the copy gate could not see.
+  await startIn(page, "fr");
+  // After the workspace fixture, whose own handler for this host would win:
+  // the last route registered is the one Playwright uses.
+  await page.route("https://services3.arcgis.com/**", async (route) => {
+    await route.fulfill({ status: 503, body: "maintenance" });
+  });
+  await page.reload();
+  await expect(page.getByRole("application")).toBeVisible();
+
+  await page.getByRole("button", { name: /Couches/ }).click();
+  const row = page.locator(".toggle-row").filter({ hasText: /Feux de forêt/ });
+  await row.getByRole("checkbox").check();
+  await expect(row).toContainText("Le service des incendies du NIFC");
+  await expect(row).not.toContainText("503");
+});

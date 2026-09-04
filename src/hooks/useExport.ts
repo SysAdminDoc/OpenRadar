@@ -609,9 +609,13 @@ export function useExport(options: {
           pushToast({
             title: translate("export.loopFailed"),
             detail:
-              failure instanceof Error
-                ? failure.message
-                : translate("export.nothingWritten"),
+              // An encoder that stops partway through raises a DOMException,
+              // whose message is the browser's own word for it in English.
+              failure instanceof DOMException
+                ? translate("export.encoderFailed")
+                : failure instanceof Error
+                  ? failure.message
+                  : translate("export.nothingWritten"),
           });
         } finally {
           timeline.selectFrame(originalFrame);

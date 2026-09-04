@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   relativeTime,
   type OverlayAdapter,
@@ -67,7 +68,11 @@ export const earthquakesOverlay: OverlayAdapter = {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
-      throw new Error(`USGS returned ${response.status}.`);
+      throw new Error(
+        translate("earthquakes.failed", {
+          answer: serviceAnswer(response.status),
+        }),
+      );
     }
     return parseEarthquakes(await response.json());
   },

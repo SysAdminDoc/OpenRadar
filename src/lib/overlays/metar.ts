@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   type OverlayAdapter,
   type OverlayBounds,
@@ -233,7 +234,7 @@ export const metarOverlay: OverlayAdapter = {
     });
     if (!response.ok) {
       throw new Error(
-        `The Aviation Weather Center returned ${response.status}.`,
+        translate("metar.failed", { answer: serviceAnswer(response.status) }),
       );
     }
     return thinStations(parseMetars(await response.json()), bounds);

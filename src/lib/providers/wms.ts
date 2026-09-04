@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import { withinLoop, type BoundingBox, type ProviderId } from "./types";
 import type { RadarFrame, RadarProvider } from "./types";
 import { cachedUrl, noteCachedResponse } from "../tileCache";
@@ -184,7 +185,11 @@ export function createWmsProvider(config: WmsProviderConfig): RadarProvider {
       });
       noteCachedResponse(response, cacheReport);
       if (!response.ok) {
-        throw new Error(`The service returned ${response.status}.`);
+        throw new Error(
+          translate("provider.failed", {
+            answer: serviceAnswer(response.status),
+          }),
+        );
       }
       const steps = parseWmsTimeSteps(await response.text(), config.layer);
       if (!steps.length) {

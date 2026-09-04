@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   type OverlayAdapter,
   type OverlayBounds,
@@ -164,7 +165,9 @@ export async function fetchSmoke(
       headers: { Accept: "application/vnd.google-earth.kml+xml" },
     });
     if (!response.ok) {
-      throw new Error(`NOAA HMS returned ${response.status}.`);
+      throw new Error(
+        translate("smoke.failed", { answer: serviceAnswer(response.status) }),
+      );
     }
     return response.text();
   };

@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../lib/serviceAnswer";
 import { useEffect, useMemo, useState } from "react";
 import {
   archiveCoverage,
@@ -85,7 +86,11 @@ export function useArchiveWarnings(options: {
         headers: { Accept: "application/json" },
       });
       if (!response.ok) {
-        throw new Error(`the archive returned ${response.status}`);
+        throw new Error(
+          translate("replay.archiveFailed", {
+            answer: serviceAnswer(response.status),
+          }),
+        );
       }
       return response.json();
     };

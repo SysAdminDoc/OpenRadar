@@ -410,7 +410,11 @@ export async function fetchRouteForecast(
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(`The forecast returned ${response.status}.`);
+    throw new Error(
+      translate("route.forecastFailed", {
+        answer: serviceAnswer(response.status),
+      }),
+    );
   }
   return readRouteForecast(await response.json(), samples, departure);
 }
