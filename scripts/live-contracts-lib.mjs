@@ -224,6 +224,15 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "reports-service",
+    label: "Local storm reports, the weather service copy",
+    host: "mapservices.weather.noaa.gov",
+    kind: "browser",
+    files: ["src/lib/overlays/reports.test.ts"],
+    liveBlock: "against the live weather service",
+    required: false,
+  },
+  {
     id: "tides",
     label: "NOAA CO-OPS tides",
     host: "api.tidesandcurrents.noaa.gov",

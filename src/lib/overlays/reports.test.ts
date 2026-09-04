@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { en } from "../../i18n/en";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   REPLAY_RADIUS_DEGREES,
@@ -6,6 +7,8 @@ import {
   parseReports,
   replayReportsUrl,
   stormReportsOverlay,
+  parseServiceReports,
+  serviceReportsUrl,
 } from "./reports";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
@@ -94,6 +97,37 @@ describe("what people on the ground saw", () => {
     expect(feature.properties.magnitude).toBeNull();
     expect(feature.properties.unit).toBe("");
   });
+});
+
+describe.runIf(LIVE)("against the live weather service", () => {
+  it("reads today's reports from the second source, in its own shape", async () => {
+    // The fallback is only ever reached when the first source is down, which
+    // is exactly when nobody is watching it, so it needs a contract of its
+    // own. A field renamed here would otherwise show up as an empty layer on
+    // the day the archive goes out.
+    const answer = await fetch(serviceReportsUrl(), {
+      headers: { Accept: "application/json" },
+    });
+    expect(answer.ok).toBe(true);
+    const data = parseServiceReports(await answer.json());
+    // The country sees reports every day, and this layer holds the last
+    // twenty-four hours of them.
+    expect(data.features.length).toBeGreaterThan(0);
+    for (const feature of data.features) {
+      expect(feature.geometry.type).toBe("Point");
+      expect(String(feature.properties.color)).toMatch(/^#[0-9a-f]{6}$/i);
+      // The two fields the parse would silently lose if they were renamed:
+      // a time read the archive's way is NaN, and a type read as a letter
+      // makes every report "other".
+      expect(Number(feature.properties.at)).toBeGreaterThan(0);
+      expect(String(feature.properties.label).length).toBeGreaterThan(0);
+    }
+    // And at least one of them is something the map has a colour for, rather
+    // than everything falling to the catch-all.
+    expect(
+      data.features.some((feature) => feature.properties.kind !== "other"),
+    ).toBe(true);
+  }, 30_000);
 });
 
 describe.runIf(LIVE)("against the live feed", () => {
@@ -215,5 +249,160 @@ describe("the reports that came in during a replayed window", () => {
     expect(
       stormReportsOverlay.variant?.({ ...DEFAULT_OVERLAY_CHOICES }),
     ).not.toBe(same);
+  });
+});
+
+describe("when the usual source for storm reports does not answer", () => {
+  const bounds = { west: -104, south: 30, east: -90, north: 42 };
+
+  /** One report, in the shape the weather service's own map service sends. */
+  const serviceFeature = {
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [-97.17, 44.91] },
+    properties: {
+      descript: "Tornado",
+      magnitude: "",
+      units: "",
+      lsr_validtime: 1788511200000,
+      loc_desc: "3 W Watertown",
+      state: "SD",
+      remarks: "Brief touchdown, no damage.",
+      wfo: "Aberdeen SD",
+    },
+  };
+
+  function answering(iem: boolean) {
+    return (async (url: string) => {
+      const forService = String(url).includes("mapservices.weather.noaa.gov");
+      if (!forService && !iem) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: forService
+            ? [serviceFeature]
+            : [
+                {
+                  type: "Feature",
+                  geometry: { type: "Point", coordinates: [-93, 41] },
+                  properties: {
+                    valid: "2026-09-03T20:10:00Z",
+                    type: "H",
+                    magf: 1.75,
+                    typetext: "HAIL",
+                    unit: "INCH",
+                  },
+                },
+              ],
+        }),
+      } as Response;
+    }) as unknown as typeof fetch;
+  }
+
+  it("draws the reports from the weather service instead, and says so", async () => {
+    // One source for a layer means a quiet afternoon and a host that is down
+    // look identical, which is what two chasers hit mid-storm on 2026-09-03.
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(answering(false));
+    try {
+      const data = await stormReportsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(data.features).toHaveLength(1);
+      expect(data.features[0].properties.kind).toBe("tornado");
+      expect(data.partial).toBe(en["reports.fromService"]);
+      // Both were asked, in that order.
+      const asked = fetched.mock.calls.map((call) => String(call[0]));
+      expect(asked[0]).toContain("mesonet.agron.iastate.edu");
+      expect(asked[1]).toContain("mapservices.weather.noaa.gov");
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("does not ask the second one at all while the first answers", async () => {
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(answering(true));
+    try {
+      const data = await stormReportsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(data.features).toHaveLength(1);
+      expect(data.features[0].properties.kind).toBe("hail");
+      expect(data.partial).toBeUndefined();
+      const asked = fetched.mock.calls.map((call) => String(call[0]));
+      expect(asked.some((url) => url.includes("mapservices"))).toBe(false);
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("leaves the replayed day alone, which has its own archive", async () => {
+    // The archive answers for a past window and the service's layer holds the
+    // last twenty-four hours. Falling back would draw today's reports over
+    // somebody else's afternoon, which is the claim the replay exists to
+    // avoid making.
+    const fetched = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(answering(false));
+    try {
+      await expect(
+        stormReportsOverlay.fetchData(bounds, undefined, {
+          ...DEFAULT_OVERLAY_CHOICES,
+          replay: {
+            from: Date.UTC(2011, 3, 27, 18),
+            to: Date.UTC(2011, 3, 27, 23),
+          },
+        }),
+      ).rejects.toThrow();
+      const asked = fetched.mock.calls.map((call) => String(call[0]));
+      expect(asked.some((url) => url.includes("mapservices"))).toBe(false);
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("reads the service's own field names, which are not the archive's", async () => {
+    // Nothing but the geometry is shared: the type is written out rather than
+    // lettered, the magnitude is a string, and the time is epoch milliseconds,
+    // where `Date.parse` gives NaN and would drop every report.
+    const read = parseServiceReports({ features: [serviceFeature] });
+    expect(read.features).toHaveLength(1);
+    const said = read.features[0].properties;
+    expect(said.at).toBe(1788511200000);
+    expect(said.label).toBe("Tornado");
+    expect(said.city).toBe("3 W Watertown");
+    expect(said.source).toBe("Aberdeen SD");
+    // Blank rather than zero: most wind damage is reported without a number,
+    // and `Number("")` is 0, which would put a size on a report that claimed
+    // none.
+    expect(said.magnitude).toBeNull();
+  });
+
+  it("keeps a magnitude the service did send", () => {
+    const read = parseServiceReports({
+      features: [
+        {
+          ...serviceFeature,
+          properties: {
+            ...serviceFeature.properties,
+            descript: "Marine Tstm Wind",
+            magnitude: "41",
+            units: "mph",
+          },
+        },
+      ],
+    });
+    expect(read.features[0].properties.magnitude).toBe(41);
+    expect(read.features[0].properties.unit).toBe("mph");
+    expect(read.features[0].properties.kind).toBe("wind");
   });
 });

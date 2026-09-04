@@ -510,6 +510,8 @@ export const es: Catalogue = {
     "Windows no deja que OpenRadar muestre notificaciones, así que estas solo pueden aparecer dentro de la app. Actívalas en Configuración de Windows, en Sistema, Notificaciones.",
   "spc.hatchingMissing":
     "El pronóstico se dibuja sin las áreas sombreadas de amenaza significativa: esa parte no respondió. No se muestra dónde el peligro sería significativo.",
+  "reports.fromService":
+    "Los informes de tormenta vienen del servicio meteorológico y no del archivo habitual, que no respondió.",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",

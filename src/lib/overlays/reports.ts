@@ -152,6 +152,117 @@ export function replayReportsUrl(
   return `${ARCHIVE}?${search.toString()}`;
 }
 
+/**
+ * The same reports, from the weather service's own map service.
+ *
+ * One host for a layer means a quiet afternoon and a host that is down look
+ * identical, and a reader has no way to tell which they are looking at. Two
+ * chasers lost their feed mid-storm on 2026-09-03 in software that had only
+ * one. This is the second answer, on a host the workspace already reads
+ * warnings and outlooks from.
+ *
+ * A different shape, so a different parse: the type is written out rather
+ * than lettered, the magnitude arrives as a string, and the time is epoch
+ * milliseconds rather than a stamp.
+ */
+const FALLBACK =
+  "https://mapservices.weather.noaa.gov/vector/rest/services/obs" +
+  "/nws_local_storm_reports/MapServer/0/query";
+
+/** The service writes the type out; this is the same grouping by its words. */
+function kindOfWords(said: string): { kind: string; color: string } {
+  const lower = said.toLowerCase();
+  if (lower.includes("tornado") || lower.includes("funnel")) {
+    return { kind: "tornado", color: "#f43f5e" };
+  }
+  if (lower.includes("waterspout"))
+    return { kind: "tornado", color: "#fb7185" };
+  if (lower.includes("hail")) return { kind: "hail", color: "#22d3ee" };
+  if (lower.includes("wind") || lower.includes("gust")) {
+    return { kind: "wind", color: "#f59e0b" };
+  }
+  if (lower.includes("flood") || lower.includes("flash")) {
+    return { kind: "flood", color: "#818cf8" };
+  }
+  return OTHER;
+}
+
+/**
+ * The weather service's own reports, in the shape the map already draws.
+ *
+ * Exported so the fallback is checkable on its own: the two feeds agree on
+ * nothing but the geometry, and a field read from the wrong one is a report
+ * drawn with no size on it or at the wrong hour.
+ */
+export function parseServiceReports(payload: unknown): OverlayData {
+  const raw = payload as { features?: unknown };
+  const features = Array.isArray(raw?.features) ? raw.features : [];
+  const parsed: OverlayFeature[] = [];
+
+  for (const item of features) {
+    const feature = item as {
+      geometry?: Record<string, unknown>;
+      properties?: Record<string, unknown>;
+    };
+    const geometry = feature.geometry;
+    const properties = feature.properties;
+    if (!geometry || !properties) continue;
+    if (geometry.type !== "Point") continue;
+
+    // Epoch milliseconds here, not a stamp. `Date.parse` of a number is NaN,
+    // so reading it the other feed's way drops every report.
+    const at = properties.lsr_validtime;
+    if (typeof at !== "number" || !Number.isFinite(at)) continue;
+
+    const said = text(properties.descript);
+    const { kind, color } = kindOfWords(said);
+    // A string here, and blank for a report that claimed no number, which is
+    // most wind damage. `Number("")` is 0, which would put "0 mph" on it.
+    const size = text(properties.magnitude);
+    const magnitude = size === "" ? null : Number(size);
+
+    parsed.push({
+      type: "Feature",
+      geometry,
+      properties: {
+        kind,
+        color,
+        label: said || kind,
+        city: text(properties.loc_desc),
+        state: text(properties.state),
+        // The office that took the report, which is the nearest thing this
+        // feed has to the other one's source.
+        source: text(properties.wfo),
+        remark: text(properties.remarks),
+        magnitude:
+          magnitude !== null && Number.isFinite(magnitude) ? magnitude : null,
+        unit: text(properties.units),
+        at,
+      },
+    });
+  }
+
+  parsed.sort(
+    (left, right) => Number(left.properties.at) - Number(right.properties.at),
+  );
+  return { type: "FeatureCollection", features: parsed };
+}
+
+/** The fallback's own request, for the window the live layer covers. */
+export function serviceReportsUrl(): string {
+  const search = new URLSearchParams({
+    where: "1=1",
+    outFields:
+      "descript,magnitude,units,lsr_validtime,loc_desc,state,remarks,wfo",
+    returnGeometry: "true",
+    geometryPrecision: "4",
+    outSR: "4326",
+    resultRecordCount: "500",
+    f: "geojson",
+  });
+  return `${FALLBACK}?${search.toString()}`;
+}
+
 export const stormReportsOverlay: OverlayAdapter = {
   id: "stormReports",
   label: "Storm reports",
@@ -186,18 +297,38 @@ export const stormReportsOverlay: OverlayAdapter = {
       inc_ap: "no",
       hours: String(REPORT_HOURS),
     });
-    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
+    let failed: string;
+    try {
+      const response = await fetch(
+        cachedUrl(`${SERVICE}?${query.toString()}`),
+        { signal, headers: { Accept: "application/json" } },
+      );
+      if (response.ok) return parseReports(await response.json());
+      failed = serviceAnswer(response.status);
+    } catch (error) {
+      // An aborted request is the workspace changing its mind, not a source
+      // that is down, and asking the second one for it would be a request
+      // nobody wants and an answer nobody reads.
+      if (signal?.aborted) throw error;
+      failed = error instanceof Error ? error.message : "";
+    }
+    // The second answer. A layer with one source cannot tell a quiet
+    // afternoon from a host that is down, and neither can the reader.
+    const second = await fetch(cachedUrl(serviceReportsUrl()), {
       signal,
       headers: { Accept: "application/json" },
     });
-    if (!response.ok) {
+    if (!second.ok) {
       throw new Error(
         translate("reports.serviceStatus", {
-          answer: serviceAnswer(response.status),
+          answer: failed || serviceAnswer(second.status),
         }),
       );
     }
-    return parseReports(await response.json());
+    return {
+      ...parseServiceReports(await second.json()),
+      partial: translate("reports.fromService"),
+    };
   },
   layers: (sourceId) => [
     {
