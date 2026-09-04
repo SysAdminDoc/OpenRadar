@@ -24,25 +24,40 @@ const ATTRIBUTION =
 export const REPORT_HOURS = 24;
 
 /**
+ * The kinds a report can be drawn as, named once for both feeds.
+ *
+ * The archive letters them and the weather service writes them out, so the
+ * two are read by different code and were free to disagree: they did, with
+ * a funnel cloud drawn in the full tornado colour from one source and the
+ * lighter one from the other. Named constants are what stops the next pair
+ * from drifting. A funnel is aloft and a waterspout is on the water, which
+ * is why one of them is the tornado colour and the other is not.
+ */
+const TORNADO = { kind: "tornado", color: "#f43f5e" };
+const FUNNEL = { kind: "tornado", color: "#fb7185" };
+const HAIL = { kind: "hail", color: "#22d3ee" };
+const WIND = { kind: "wind", color: "#f59e0b" };
+const FLOOD = { kind: "flood", color: "#818cf8" };
+const OTHER = { kind: "other", color: "#94a3b8" };
+
+/**
  * What a report is about, from the single letter the feed uses.
  *
  * Only the ones a radar viewer is looking for get a colour of their own. The
  * rest are real reports and are drawn, in grey, rather than dropped.
  */
 const KINDS: Record<string, { kind: string; color: string }> = {
-  T: { kind: "tornado", color: "#f43f5e" },
-  H: { kind: "hail", color: "#22d3ee" },
-  D: { kind: "wind", color: "#f59e0b" },
-  G: { kind: "wind", color: "#f59e0b" },
-  O: { kind: "wind", color: "#f59e0b" },
-  N: { kind: "wind", color: "#f59e0b" },
-  W: { kind: "tornado", color: "#f43f5e" },
-  C: { kind: "tornado", color: "#fb7185" },
-  F: { kind: "flood", color: "#818cf8" },
-  E: { kind: "flood", color: "#818cf8" },
+  T: TORNADO,
+  H: HAIL,
+  D: WIND,
+  G: WIND,
+  O: WIND,
+  N: WIND,
+  W: TORNADO,
+  C: FUNNEL,
+  F: FLOOD,
+  E: FLOOD,
 };
-
-const OTHER = { kind: "other", color: "#94a3b8" };
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -169,21 +184,23 @@ const FALLBACK =
   "https://mapservices.weather.noaa.gov/vector/rest/services/obs" +
   "/nws_local_storm_reports/MapServer/0/query";
 
-/** The service writes the type out; this is the same grouping by its words. */
+/**
+ * The service writes the type out; this is the same grouping by its words.
+ *
+ * It abbreviates, which is the whole difficulty. The words it published on
+ * 2026-09-04 were `Tstm Wnd Gst`, `Tstm Wnd Dmg`, `Marine Tstm Wind`, `Hail`,
+ * `Funnel Cloud`, `Flash Flood`, `Flood`, `Fog`, `Rain` and `Lightning`, so a
+ * match on the whole word "wind" caught the marine one and let the two that
+ * make up most of a severe day fall through to grey.
+ */
 function kindOfWords(said: string): { kind: string; color: string } {
   const lower = said.toLowerCase();
-  if (lower.includes("tornado") || lower.includes("funnel")) {
-    return { kind: "tornado", color: "#f43f5e" };
-  }
-  if (lower.includes("waterspout"))
-    return { kind: "tornado", color: "#fb7185" };
-  if (lower.includes("hail")) return { kind: "hail", color: "#22d3ee" };
-  if (lower.includes("wind") || lower.includes("gust")) {
-    return { kind: "wind", color: "#f59e0b" };
-  }
-  if (lower.includes("flood") || lower.includes("flash")) {
-    return { kind: "flood", color: "#818cf8" };
-  }
+  if (lower.includes("waterspout")) return TORNADO;
+  if (lower.includes("funnel")) return FUNNEL;
+  if (lower.includes("tornado")) return TORNADO;
+  if (lower.includes("hail")) return HAIL;
+  if (/\b(wind|wnd|gust|gst)\b/.test(lower)) return WIND;
+  if (lower.includes("flood") || lower.includes("flash")) return FLOOD;
   return OTHER;
 }
 
@@ -248,16 +265,47 @@ export function parseServiceReports(payload: unknown): OverlayData {
   return { type: "FeatureCollection", features: parsed };
 }
 
-/** The fallback's own request, for the window the live layer covers. */
-export function serviceReportsUrl(): string {
+/** How many reports one ask of the fallback brings back. */
+const SERVICE_PAGE = 500;
+
+/**
+ * How many of those a single refresh will make.
+ *
+ * Bounded so a service that always claims there is more cannot turn one
+ * refresh into an unending run of requests. Six pages is three thousand
+ * reports, against the eight hundred and fifty-four the layer held on
+ * 2026-09-04, so the ceiling is for a day nobody has seen yet.
+ */
+const SERVICE_PAGES = 6;
+
+/**
+ * The fallback's own request, for the window the live layer covers.
+ *
+ * Newest first, and bounded to the same twenty-four hours the archive
+ * answers for. Neither was there to begin with, and an ArcGIS layer asked
+ * for nothing in particular hands back its rows in object-id order and stops
+ * at the record count: measured against the live service on 2026-09-04, the
+ * layer held 854 rows, the first 500 of them ended at 14:12Z, and the newest
+ * report it had was 15:37Z. The hour a reader opens this layer for was the
+ * hour it left out.
+ */
+export function serviceReportsUrl(offset = 0): string {
+  // The service's own date syntax, which wants a space rather than the T and
+  // no milliseconds. Its dates are UTC, which is what `toISOString` gives.
+  const since = new Date(Date.now() - REPORT_HOURS * 3_600_000)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
   const search = new URLSearchParams({
-    where: "1=1",
+    where: `lsr_validtime >= TIMESTAMP '${since}'`,
+    orderByFields: "lsr_validtime DESC",
     outFields:
       "descript,magnitude,units,lsr_validtime,loc_desc,state,remarks,wfo",
     returnGeometry: "true",
     geometryPrecision: "4",
     outSR: "4326",
-    resultRecordCount: "500",
+    resultRecordCount: String(SERVICE_PAGE),
+    resultOffset: String(offset),
     f: "geojson",
   });
   return `${FALLBACK}?${search.toString()}`;
@@ -314,19 +362,42 @@ export const stormReportsOverlay: OverlayAdapter = {
     }
     // The second answer. A layer with one source cannot tell a quiet
     // afternoon from a host that is down, and neither can the reader.
-    const second = await fetch(cachedUrl(serviceReportsUrl()), {
-      signal,
-      headers: { Accept: "application/json" },
-    });
-    if (!second.ok) {
-      throw new Error(
-        translate("reports.serviceStatus", {
-          answer: failed || serviceAnswer(second.status),
-        }),
+    //
+    // Asked a page at a time, because the service caps a page and says when
+    // it is holding more: five hundred rows covered twelve hours of the
+    // twenty-four the archive answers for on 2026-09-04, so one ask stops
+    // half way through the window. The rows are gathered and parsed together
+    // at the end rather than page by page, so the sort that puts the newest
+    // report on top sees all of them.
+    const rows: unknown[] = [];
+    for (let page = 0; page < SERVICE_PAGES; page += 1) {
+      const answer = await fetch(
+        cachedUrl(serviceReportsUrl(page * SERVICE_PAGE)),
+        { signal, headers: { Accept: "application/json" } },
       );
+      if (!answer.ok) {
+        // Nothing at all is a failure worth saying. A page that fails after
+        // others landed is not: the reader is already looking at the second
+        // source because the first one is down, and the newest reports are
+        // the ones already in hand.
+        if (page === 0) {
+          throw new Error(
+            translate("reports.serviceStatus", {
+              answer: failed || serviceAnswer(answer.status),
+            }),
+          );
+        }
+        break;
+      }
+      const body = (await answer.json()) as {
+        features?: unknown;
+        exceededTransferLimit?: unknown;
+      };
+      if (Array.isArray(body.features)) rows.push(...body.features);
+      if (body.exceededTransferLimit !== true) break;
     }
     return {
-      ...parseServiceReports(await second.json()),
+      ...parseServiceReports({ features: rows }),
       partial: translate("reports.fromService"),
     };
   },

@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.10.0
 
+- The second source for storm reports now brings back the newest ones. It was asking the weather service for whatever came first, and an ArcGIS layer asked for nothing in particular answers in the order it stored things and stops at five hundred: on 4 September that was 500 of the 854 reports it held, ending an hour and a half before the newest one. The hour you open that layer for was the hour it left out. It asks newest first now, over the same day the usual source covers, and keeps asking while the service says it is holding more.
+
+- Thunderstorm wind reports from that second source are the right colour. The service abbreviates, so "Tstm Wnd Gst" and "Tstm Wnd Dmg", which are most of what a severe day produces, were falling through to the grey catch-all with the wrong word in the popup. A funnel cloud and a waterspout also came out in each other's colours depending on which source answered. Both feeds read from one table now, so they cannot drift apart again.
+
 - A launch that starts with Windows opens to a map the size of its window. The map is built while the window is still hidden in the tray, and the runtime hands a hidden window a viewport a fraction of its real size, which nothing afterwards corrects: the map watches its container, and the container does not change when the window it sits in appears. It now measures itself again the moment the window is shown.
 
 - A shared view carries what you were looking at, not just where. If you had a site held, the link now names it along with the product, the tilt and any threshold you had set, so whoever opens it sees the picture you sent rather than the same ground under whatever their own workspace was on. A link made over the national mosaic still names no site, because following the nearest one is a habit of your workspace and not part of the view. Older links keep working, and a link naming a radar or product this version does not have still takes you to the place and says which part it could not use.
