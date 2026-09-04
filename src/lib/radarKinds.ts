@@ -32,7 +32,13 @@ export interface TdwrSite {
   elevationFeet: number;
 }
 
-/** NCEI's station file for the network, the forty-seven rows typed TDWR. */
+/**
+ * The network the weather service says is running now: the forty-five
+ * stations typed TDWR at api.weather.gov/radar/stations, read 2026-09-04.
+ *
+ * Not NCEI HOMR, which this used to name. That file is a historical
+ * inventory and carries two more that are not radars any more.
+ */
 export const TDWR_SITES: readonly TdwrSite[] = sites;
 
 export function isTdwrStation(station: string | null | undefined): boolean {

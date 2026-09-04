@@ -2652,8 +2652,11 @@ export function SettingsPanel({
         {/* A refused permission drops every watch to an in-app toast, which
             is exactly what nobody looking away from the screen sees. The
             settings are where a reader goes after a warning did not arrive,
-            so the sentence belongs here as well as in the report. */}
-        {notifications === "refused" ? (
+            so the sentence belongs here as well as in the report. Only
+            while a watch is actually on: with every watch off there is no
+            channel being blocked, and a warning about one would sit there
+            on every quiet afternoon. */}
+        {notifications === "refused" && settings.watch.enabled ? (
           <p className="watch-not-reaching" data-notifications-refused>
             {t("watch.notificationsRefused")}
           </p>

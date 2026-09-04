@@ -243,7 +243,10 @@ export function useOverlays(
               ...current,
               [adapter.id]: stale
                 ? { ...IDLE_OVERLAY, error: message }
-                : { ...current[adapter.id], error: message },
+                : // The note described the snapshot that just failed to be
+                  // replaced, and the error is the newer statement. Keeping
+                  // both would leave a note about an answer nobody has.
+                  { ...current[adapter.id], error: message, partial: null },
             }));
           })
           .finally(() => {
