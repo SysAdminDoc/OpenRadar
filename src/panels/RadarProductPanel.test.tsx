@@ -242,4 +242,33 @@ describe("the site picker and what the office says", () => {
     expect(held()?.hasAttribute("disabled")).toBe(false);
     expect(held()?.textContent).toContain("Start-Up");
   });
+
+  describe("smoothing an airport radar's sweep", () => {
+    function panel(station: string | null) {
+      render(
+        <RadarProductPanel
+          radar={{ ...DEFAULT_SETTINGS.radar, singleSite: true, station }}
+          clock={Date.parse("2026-09-03T02:06:00Z")}
+          singleSite={{ ...singleSite, sweep: null } as SingleSiteState}
+          siteStatus={[]}
+          stormCells={CELLS}
+          watch={DEFAULT_SETTINGS.watch}
+          onRadar={vi.fn()}
+          onClose={() => {}}
+        />,
+      );
+      return screen.getByRole("checkbox", { name: /Smooth the sweep/i });
+    }
+
+    it("is offered on a WSR-88D", () => {
+      expect(panel("KDMX").hasAttribute("disabled")).toBe(false);
+    });
+
+    it("is not offered on a terminal radar, and says why", () => {
+      // A TDWR's products arrive as a picture the office already drew, so the
+      // switch did nothing at all and nothing said so.
+      expect(panel("TBWI").hasAttribute("disabled")).toBe(true);
+      expect(screen.getByText(/no gates to read between/i)).toBeInTheDocument();
+    });
+  });
 });

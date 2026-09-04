@@ -149,22 +149,40 @@ export function geometriesIn(node: Element): Array<Record<string, unknown>> {
   return found;
 }
 
+/** One `<Style>` element read into the colours it names. */
+function styleOf(style: Element): KmlStyle {
+  return {
+    fill: kmlColor(text(style.getElementsByTagName("PolyStyle")[0], "color")),
+    stroke: kmlColor(text(style.getElementsByTagName("LineStyle")[0], "color")),
+    strokeWidth:
+      Number(text(style.getElementsByTagName("LineStyle")[0], "width") ?? "") ||
+      null,
+  };
+}
+
+/**
+ * A `<Style>` written straight inside a placemark, with no id on it.
+ *
+ * This is what Google Earth writes for a placemark somebody recoloured by
+ * hand, and what several generators write for every placemark in the file.
+ * Read only as a direct child: a `getElementsByTagName` from the placemark
+ * would also find the style of a nested feature, and there is no nesting
+ * here worth guessing at.
+ */
+function inlineStyle(placemark: Element): KmlStyle | null {
+  for (const child of Array.from(placemark.children)) {
+    if (child.localName === "Style") return styleOf(child);
+  }
+  return null;
+}
+
 /** The styles a document declares, by id. */
 function stylesOf(document: Document): Map<string, KmlStyle> {
   const styles = new Map<string, KmlStyle>();
   for (const style of Array.from(document.getElementsByTagName("Style"))) {
     const id = style.getAttribute("id");
     if (!id) continue;
-    styles.set(id, {
-      fill: kmlColor(text(style.getElementsByTagName("PolyStyle")[0], "color")),
-      stroke: kmlColor(
-        text(style.getElementsByTagName("LineStyle")[0], "color"),
-      ),
-      strokeWidth:
-        Number(
-          text(style.getElementsByTagName("LineStyle")[0], "width") ?? "",
-        ) || null,
-    });
+    styles.set(id, styleOf(style));
   }
   // A StyleMap points at one of two styles by state. The normal one is what
   // a map draws; the highlighted one is for a cursor this app does not have.
@@ -218,7 +236,10 @@ export function parseKml(xml: string): KmlDocument {
   )) {
     if (features.length >= MAX_KML_FEATURES) break;
     const styleId = (text(placemark, "styleUrl") ?? "").replace(/^#/, "");
-    const style = styles.get(styleId) ?? null;
+    // A style written inside the placemark wins over one it points at, which
+    // is the format's own precedence and the shape a hand-recoloured
+    // placemark arrives in.
+    const style = inlineStyle(placemark) ?? styles.get(styleId) ?? null;
     const name = text(placemark, "name");
     const description = text(placemark, "description");
     // The file's own extended data, which is where a published KML puts the

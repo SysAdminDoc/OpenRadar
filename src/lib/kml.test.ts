@@ -231,3 +231,52 @@ describe("whether a file is KML at all", () => {
     expect(looksLikeKml("place.txt", "Title: converted from kml")).toBe(false);
   });
 });
+
+describe("a style written inside the placemark", () => {
+  it("is read, which is the shape most exports arrive in", () => {
+    // What Google Earth writes for a placemark somebody recoloured by hand,
+    // and what several generators write for every placemark in the file.
+    // Ignored, those import in the default blue while the README says the
+    // shapes carry the file's own colours.
+    const read = parseKml(
+      document(`
+      <Placemark><name>Recoloured</name>
+        <Style>
+          <LineStyle><color>ff0000ff</color><width>4</width></LineStyle>
+          <PolyStyle><color>7f00ff00</color></PolyStyle>
+        </Style>
+        <Point><coordinates>-93.6,41.6</coordinates></Point>
+      </Placemark>`),
+    );
+    expect(read.features[0].properties.stroke).toBe("#ff0000");
+    expect(read.features[0].properties.fill).toBe("rgba(0, 255, 0, 0.498)");
+    expect(read.features[0].properties.strokeWidth).toBe(4);
+  });
+
+  it("wins over one the placemark points at, which is KML's own order", () => {
+    const read = parseKml(
+      document(
+        `<Placemark><styleUrl>#shared</styleUrl>
+          <Style><LineStyle><color>ff0000ff</color></LineStyle></Style>
+          <Point><coordinates>-93.6,41.6</coordinates></Point>
+        </Placemark>`,
+        `<Style id="shared">
+          <LineStyle><color>ff00ff00</color></LineStyle>
+        </Style>`,
+      ),
+    );
+    expect(read.features[0].properties.stroke).toBe("#ff0000");
+  });
+
+  it("does not take a style from somewhere else in the document", () => {
+    // Only a direct child. A shared style declared elsewhere must not be
+    // picked up by a placemark that never asked for it.
+    const read = parseKml(
+      document(
+        `<Placemark><Point><coordinates>-93.6,41.6</coordinates></Point></Placemark>`,
+        `<Style id="shared"><LineStyle><color>ff00ff00</color></LineStyle></Style>`,
+      ),
+    );
+    expect(read.features[0].properties.stroke).toBeUndefined();
+  });
+});
