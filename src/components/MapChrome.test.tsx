@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RadarTimeline } from "./MapChrome";
@@ -58,6 +58,53 @@ describe("the radar timeline slider", () => {
   });
 });
 
+/** Every component file under a directory, tests and stories left out. */
+function tsxUnder(from: string): string[] {
+  const found: string[] = [];
+  for (const name of readdirSync(from)) {
+    const path = join(from, name);
+    if (statSync(path).isDirectory()) {
+      found.push(...tsxUnder(path));
+      continue;
+    }
+    if (!name.endsWith(".tsx") || name.includes(".test.")) continue;
+    found.push(path);
+  }
+  return found;
+}
+
+function allIndexesOf(source: string, pattern: RegExp): number[] {
+  return [...source.matchAll(pattern)].map((found) => found.index);
+}
+
+/**
+ * The whole of one opening JSX tag, from `<` to the `>` that closes it.
+ *
+ * Reading to the first `>` is wrong and quietly so: an arrow function in a
+ * prop ends the tag early, so `<div onClick={() => go()} aria-label="X">`
+ * looked like a tag with no name on it and the gate passed over a real
+ * offender. Braces are counted, and a `>` inside one is not the end.
+ */
+function openingTagAt(source: string, at: number): string {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let step = at; step < source.length; step += 1) {
+    const character = source[step];
+    if (quote) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    else if (character === "}") depth -= 1;
+    else if (character === ">" && depth === 0) return source.slice(at, step + 1);
+  }
+  return source.slice(at);
+}
+
 describe("a container that carries a name", () => {
   it("carries a role to hang it on", () => {
     // `aria-label` on a plain `div` is dropped: the element has no role, so
@@ -65,26 +112,19 @@ describe("a container that carries a name", () => {
     // in Settings had one, and a screen reader announced "Flat, pressed"
     // with no "Projection" anywhere near it. `axe`'s own rules do not catch
     // this, because the markup is not invalid, only useless.
-    const roots = ["src/components", "src/panels"];
     const offenders: string[] = [];
-    for (const root of roots) {
-      for (const name of readdirSync(join(process.cwd(), root))) {
-        if (!name.endsWith(".tsx") || name.includes(".test.")) continue;
-        const file = join(process.cwd(), root, name);
-        const source = readFileSync(file, "utf8");
-        // Each opening tag on its own, so a role on a sibling cannot cover
-        // for a name on this one.
-        // `section` is left out on purpose: a named one is implicitly a
-        // region, which is a role for its name to hang on.
-        for (const tag of source.matchAll(/<(div|span|li)\b[^>]*>/gs)) {
-          const text = tag[0];
-          if (!text.includes("aria-label")) continue;
-          if (/\brole=/.test(text)) continue;
-          // A name on a hidden element is decoration, not a label.
-          if (text.includes('aria-hidden="true"')) continue;
-          const line = source.slice(0, tag.index).split("\n").length;
-          offenders.push(`${root}/${name}:${line}`);
-        }
+    for (const file of tsxUnder(join(process.cwd(), "src"))) {
+      const source = readFileSync(file, "utf8");
+      // `section` is left out on purpose: a named one is implicitly a
+      // region, which is a role for its name to hang on.
+      for (const at of allIndexesOf(source, /<(div|span|li)\b/g)) {
+        const text = openingTagAt(source, at);
+        if (!text.includes("aria-label")) continue;
+        if (/\brole=/.test(text)) continue;
+        // A name on a hidden element is decoration, not a label.
+        if (text.includes('aria-hidden="true"')) continue;
+        const line = source.slice(0, at).split("\n").length;
+        offenders.push(`${relative(process.cwd(), file)}:${line}`);
       }
     }
     expect(

@@ -88,7 +88,12 @@ export function RadarLegend({
           />
           <span
             className="legend-scale"
-            role="img"
+            // A group rather than an image. Both give the name something to
+            // hang on, but `img` is the role ARIA gives presentational
+            // children, and the readings along the scale are the content
+            // here. Chromium exposes them under either, and there is no
+            // reason to depend on that.
+            role="group"
             aria-label={t("legend.scale", {
               product: productLabel,
               min: formatMeasure(reading.min),
