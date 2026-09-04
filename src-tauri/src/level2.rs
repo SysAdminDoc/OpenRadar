@@ -773,6 +773,22 @@ fn remember(key: &str, data: &[u8]) {
 /// it holds fewer cuts, it changes every few seconds, and caching it under the
 /// volume's own key would let a partial sweep be served as the finished one.
 fn decoded_volume(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
+    decode_volume(key, data, true)
+}
+
+/// The same decode, taking a hit but never leaving one behind.
+///
+/// For a caller that reads a volume once and is done with it. The wind
+/// profile asks for as many volumes as the decoded cache holds, so keeping
+/// them evicted whatever the map was drawing and the next tilt or threshold
+/// change on that frame decoded the whole volume again. Taking the hit still
+/// matters: the newest column is usually the volume on screen, and that one
+/// should cost nothing.
+fn decoded_volume_once(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
+    decode_volume(key, data, false)
+}
+
+fn decode_volume(key: &str, data: Vec<u8>, keep: bool) -> Result<Decoded, Level2Error> {
     if let Some(hit) = decoded_hit(key) {
         return Ok(hit);
     }
@@ -795,7 +811,9 @@ fn decoded_volume(key: &str, data: Vec<u8>) -> Result<Decoded, Level2Error> {
             .unwrap_or_default(),
     );
     DECODES.fetch_add(1, Ordering::Relaxed);
-    remember_decoded(key, &scan, &nyquist, source_bytes);
+    if keep {
+        remember_decoded(key, &scan, &nyquist, source_bytes);
+    }
     Ok((scan, nyquist))
 }
 
@@ -2745,7 +2763,12 @@ pub async fn level2_vwp(
         let (key, data) = volume_for_export(&station, at).await?;
         // Decoding a volume is CPU work and must not sit on the async runtime.
         let column = tauri::async_runtime::spawn_blocking(move || {
-            let (scan, _) = decoded_volume(&key, data)?;
+            // Read once and not kept. This panel asks for as many volumes as
+            // the decoded cache holds, so keeping them evicted the volume the
+            // map was drawing and the next tilt or threshold change on that
+            // frame decoded the whole thing again. Nothing here is read
+            // twice: a column is built and the scan is dropped.
+            let (scan, _) = decoded_volume_once(&key, data)?;
             Ok::<vwp::VwpColumn, Level2Error>(vwp::profile(&key, &scan))
         })
         .await
@@ -4845,6 +4868,39 @@ mod tests {
         // Asking twice for the same volume does not store it twice.
         remember("KDMX/6", &volume);
         assert_eq!(cached_bytes(), 4 * volume.len());
+        clear_cache();
+    }
+
+    #[test]
+    fn a_wind_profile_leaves_the_volume_on_screen_decoded() {
+        // The panel asks for `MAX_VWP_COLUMNS` volumes at once, which is as
+        // many as the decoded cache holds. Storing them evicted the scan the
+        // map was drawing, so the next tilt, product or threshold change on
+        // that frame decoded the whole volume again: the bytes were still
+        // cached, so it was seconds of processor rather than a download, with
+        // nothing on screen to say why.
+        let _guard = decoded_cache_test();
+        clear_cache();
+
+        // The volume the map is drawing, decoded and kept the ordinary way.
+        let (_, drawn, bytes) = two_cut_volume();
+        decoded_volume(&drawn, bytes).expect("the fixture decodes");
+        assert!(decoded_hit(&drawn).is_some(), "the drawn volume is cached");
+
+        // Then a profile's worth of other volumes, read the way the panel
+        // reads them.
+        let (_, _, other) = two_cut_volume();
+        for index in 0..MAX_VWP_COLUMNS {
+            decoded_volume_once(&format!("profile/{index}"), other.clone())
+                .expect("the fixture decodes");
+        }
+
+        assert!(
+            decoded_hit(&drawn).is_some(),
+            "opening the wind profile evicted the volume on screen",
+        );
+        // And the columns themselves were not kept, which is what makes room.
+        assert!(decoded_hit("profile/0").is_none());
         clear_cache();
     }
 
