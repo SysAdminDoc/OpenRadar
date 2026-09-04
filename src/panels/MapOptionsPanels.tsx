@@ -72,7 +72,7 @@ import type {
   WatchState,
 } from "../lib/settings";
 import type { PackBounds } from "../lib/incidentPacks";
-import { watchedPlaces } from "../lib/settings";
+import { watchedPlaces, watchesAnything } from "../lib/settings";
 import {
   moveOverlayFile,
   overlayShapeCount,
@@ -2655,8 +2655,10 @@ export function SettingsPanel({
             so the sentence belongs here as well as in the report. Only
             while a watch is actually on: with every watch off there is no
             channel being blocked, and a warning about one would sit there
-            on every quiet afternoon. */}
-        {notifications === "refused" && settings.watch.enabled ? (
+            on every quiet afternoon. Any of them, not home's own switch:
+            a reader with home off and a school watched, or with only the
+            lightning rule on, is having notices dropped just the same. */}
+        {notifications === "refused" && watchesAnything(settings) ? (
           <p className="watch-not-reaching" data-notifications-refused>
             {t("watch.notificationsRefused")}
           </p>

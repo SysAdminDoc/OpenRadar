@@ -882,6 +882,23 @@ function normalizeWatch(value: unknown): WatchState {
  * either key, so there is one answer to "what is being watched" and the
  * storage shape is nobody else's problem.
  */
+/**
+ * Whether anything at all would raise a notification.
+ *
+ * Three separate switches can, and `watch.enabled` is only the first of
+ * them: it is home's own flag. A reader with home off and a school watched,
+ * or with only the lightning rule on, is being announced to through the same
+ * channel, so anything that speaks about that channel has to ask this rather
+ * than asking home.
+ */
+export function watchesAnything(settings: AppSettings): boolean {
+  return (
+    watchedPlaces(settings).some((place) => place.enabled) ||
+    settings.approach.enabled ||
+    settings.lightningWatch.enabled
+  );
+}
+
 export function watchedPlaces(settings: AppSettings): WatchPlace[] {
   const home: WatchPlace = {
     ...settings.watch,

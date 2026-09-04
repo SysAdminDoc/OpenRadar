@@ -15,13 +15,44 @@ afterEach(cleanup);
  * where a reader goes after a warning did not arrive, so the sentence has to
  * be there and not only in the report they would have to know to copy.
  */
-function panel(notifications: NotifyPermission | undefined, watching = true) {
+/**
+ * A workspace with exactly one of the three notifying switches on.
+ *
+ * `watch.enabled` is home's own flag and only the first of them, which is
+ * what the sentence was gated on: a reader with home off and a school
+ * watched, or with only the lightning rule on, had notices being dropped
+ * with nothing anywhere saying so.
+ */
+function settingsWith(on: "home" | "place" | "approach" | "lightning" | null) {
+  return {
+    ...DEFAULT_SETTINGS,
+    watch: { ...DEFAULT_SETTINGS.watch, enabled: on === "home" },
+    watchPlaces:
+      on === "place"
+        ? [
+            {
+              ...DEFAULT_SETTINGS.watch,
+              enabled: true,
+              id: "school",
+              name: "School",
+            },
+          ]
+        : [],
+    approach: { ...DEFAULT_SETTINGS.approach, enabled: on === "approach" },
+    lightningWatch: {
+      ...DEFAULT_SETTINGS.lightningWatch,
+      enabled: on === "lightning",
+    },
+  };
+}
+
+function panel(
+  notifications: NotifyPermission | undefined,
+  on: "home" | "place" | "approach" | "lightning" | null = "home",
+) {
   return (
     <SettingsPanel
-      settings={{
-        ...DEFAULT_SETTINGS,
-        watch: { ...DEFAULT_SETTINGS.watch, enabled: watching },
-      }}
+      settings={settingsWith(on)}
       onSettings={vi.fn()}
       onRemoved={vi.fn()}
       autostart={null}
@@ -74,7 +105,22 @@ describe("what the watch settings say about Windows notifications", () => {
     // will not let a notification through is true and useless: nothing is
     // trying to send one, and the sentence would sit in the settings of a
     // reader who never asked to be told anything.
-    render(panel("refused", false));
+    render(panel("refused", null));
     expect(screen.queryByText(en["watch.notificationsRefused"])).toBeNull();
+  });
+
+  it("says so for any of the three switches that can notify", () => {
+    // Home's own flag is only the first of them. A reader who watches a
+    // school rather than home, or who only wants to hear about lightning,
+    // is having notices dropped through the same channel, and the sentence
+    // was gated on a switch they had deliberately left off.
+    for (const on of ["place", "approach", "lightning"] as const) {
+      cleanup();
+      render(panel("refused", on));
+      expect(
+        screen.queryByText(en["watch.notificationsRefused"]),
+        `nothing said with only the ${on} watch on`,
+      ).not.toBeNull();
+    }
   });
 });
