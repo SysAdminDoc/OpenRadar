@@ -105,7 +105,34 @@ describe("storm track", () => {
     expect(geojson.features[3].properties.color).toBe("#c026d3");
     // The landfall fix is 130 kt, a category four.
     expect(geojson.features[4].properties.color).toBe("#f43f5e");
-    expect(geojson.features[1].properties.label).toBe("TS 45 kt");
+    // This asserted "TS 45 kt", which is the archive's own two-letter code
+    // put in front of a reader. The code is what the file holds, not what
+    // the point on the map should say.
+    expect(geojson.features[1].properties.label).toBe("Tropical storm 45 kt");
+  });
+
+  it("says the state of the storm in words, not the archive's code", () => {
+    // The nine codes NOAA documents for HURDAT2, which are the nine the
+    // shipped index actually uses.
+    const codes = ["TD", "TS", "HU", "EX", "SD", "SS", "LO", "WV", "DB"];
+    const labels = codes.map((_, at) => {
+      const geojson = stormTrack(
+        storm({ statuses: codes, track: [[0, 25, -80, 45, at]] }),
+      ) as {
+        features: Array<{ properties: { label: string } }>;
+      };
+      return geojson.features[1].properties.label;
+    });
+    for (const [at, label] of labels.entries()) {
+      expect(label, codes[at]).not.toContain(codes[at]);
+      expect(label).toContain("45 kt");
+    }
+    // A code from a file this build has never seen is shown rather than
+    // swallowed: somebody can still look it up.
+    const strange = stormTrack(
+      storm({ statuses: ["ZZ"], track: [[0, 25, -80, 45, 0]] }),
+    ) as { features: Array<{ properties: { label: string } }> };
+    expect(strange.features[1].properties.label).toBe("ZZ 45 kt");
   });
 
   it("colours by the Saffir-Simpson band", () => {

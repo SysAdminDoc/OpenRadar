@@ -12,15 +12,18 @@ import {
   distanceValue,
   forecastUnits,
   formatClock,
+  formatDepth,
   formatDistance,
   formatHeight,
   formatReportMagnitude,
   formatTideHeight,
+  precipitationUnit,
   setClockZone,
   setUnits,
   speedFromMetres,
   speedToMetres,
   speedUnit,
+  unitsForLanguage,
   useMeasurements,
   utcHourLabel,
 } from "./units";
@@ -328,5 +331,57 @@ describe("a speed the app assumed rather than measured", () => {
     setUnits("metric");
     expect(formatSpeedFromMph(55)).toBe("89 km/h");
     setUnits("imperial");
+  });
+});
+
+describe("the words a unit is written with", () => {
+  it("comes from the catalogue, not the formatter", async () => {
+    // These were literals in `units.ts`, so a French window read "12 000 ft"
+    // and "0.4 in" while every sentence around them was in French. The OQLF
+    // gives pi for pied, po for pouce and mi for mille terrestre.
+    setUnits("imperial");
+    setLanguage("en");
+    expect(formatHeight(12_000)).toContain("ft");
+    expect(precipitationUnit()).toBe("in");
+    expect(speedUnit()).toBe("mph");
+    expect(formatDistance(25)).toContain("mi");
+    expect(formatDistance(0.05)).toContain("ft");
+
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    expect(formatHeight(12_000)).toContain("pi");
+    expect(formatHeight(12_000)).not.toContain("ft");
+    expect(precipitationUnit()).toBe("po");
+    expect(speedUnit()).toBe("mi/h");
+    expect(formatDepth(3)).toContain("pi");
+    expect(formatTideHeight(2.5)).toContain("pi");
+    expect(formatDistance(0.05)).toContain("pi");
+
+    setLanguage("en");
+    setUnits("imperial");
+  });
+
+  it("leaves the metric symbols alone, because they are the same everywhere", async () => {
+    setUnits("metric");
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    expect(speedUnit()).toBe("km/h");
+    expect(precipitationUnit()).toBe("mm");
+    expect(formatHeight(3000)).toContain("m");
+    setLanguage("en");
+    setUnits("imperial");
+  });
+});
+
+describe("the units a language is read in", () => {
+  it("is imperial for English and metric for the rest", () => {
+    // The app's data is American and English here means the United States,
+    // which is the only country that reads weather in Fahrenheit and miles.
+    expect(unitsForLanguage("en")).toBe("imperial");
+    // The generated language follows English so a layout check measures the
+    // longer words.
+    expect(unitsForLanguage("pseudo")).toBe("imperial");
+    expect(unitsForLanguage("es")).toBe("metric");
+    expect(unitsForLanguage("fr")).toBe("metric");
   });
 });

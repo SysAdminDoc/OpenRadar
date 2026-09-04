@@ -196,6 +196,21 @@ export function trackSegments(track: TrackPoint[]): number[][][] {
   return segments;
 }
 
+/**
+ * What the archive calls the state of a storm, in words.
+ *
+ * The nine codes NOAA documents for HURDAT2, which are the nine the shipped
+ * data uses. Anything else is shown as it arrived rather than swallowed: a
+ * code this build has never seen is still worth putting in front of somebody
+ * who can look it up.
+ */
+const STORM_KINDS = ["TD", "TS", "HU", "EX", "SD", "SS", "LO", "WV", "DB"];
+
+function stormKind(code: string | undefined): string {
+  if (!code) return "";
+  return STORM_KINDS.includes(code) ? translate(`storm.status.${code}`) : code;
+}
+
 export function stormTrack(storm: Storm): Record<string, unknown> {
   const line = {
     type: "Feature",
@@ -212,7 +227,14 @@ export function stormTrack(storm: Storm): Record<string, unknown> {
     properties: {
       kind: "place",
       color: trackColor(point[3]),
-      label: `${storm.statuses[point[4]] ?? ""} ${point[3]} kt`.trim(),
+      // Through the catalogue, because none of this label was the reader's
+      // own words: the French copy says nœuds in every other place it names
+      // a wind speed and this one said kt, and the state of the storm was
+      // the archive's two-letter code. A map point read "TS 65 kt".
+      label: translate("history.trackPoint", {
+        kind: stormKind(storm.statuses[point[4]]),
+        knots: point[3],
+      }).trim(),
     },
   }));
 

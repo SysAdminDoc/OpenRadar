@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { formatMeasure, formatNumber, locale, translate } from "../i18n";
+import type { LanguageId } from "../i18n";
 
 /**
  * Which units the workspace shows, and which clock it reads.
@@ -166,11 +167,11 @@ export function temperatureUnit(): string {
 
 /** What a depth of rain arrives in, which is what it has to be labelled as. */
 export function precipitationUnit(): string {
-  return units === "metric" ? "mm" : "in";
+  return units === "metric" ? "mm" : translate("units.inches");
 }
 
 export function speedUnit(): string {
-  return units === "metric" ? "km/h" : "mph";
+  return units === "metric" ? "km/h" : translate("units.mph");
 }
 
 /** A distance the service gave in miles, in whichever units are asked for. */
@@ -181,9 +182,11 @@ export function formatDistance(miles: number): string {
     if (km < 10) return `${formatNumber(km, 1)} km`;
     return `${formatNumber(Math.round(km))} km`;
   }
-  if (miles < 0.1) return `${formatNumber(Math.round(miles * 5280))} ft`;
-  if (miles < 10) return `${formatNumber(miles, 1)} mi`;
-  return `${formatNumber(Math.round(miles))} mi`;
+  const foot = translate("units.feet");
+  const mile = translate("units.mile");
+  if (miles < 0.1) return `${formatNumber(Math.round(miles * 5280))} ${foot}`;
+  if (miles < 10) return `${formatNumber(miles, 1)} ${mile}`;
+  return `${formatNumber(Math.round(miles))} ${mile}`;
 }
 
 /** Miles, rounded, for the places that want a bare number with a word. */
@@ -235,7 +238,7 @@ export function formatHeight(feet: number): string {
   if (units === "metric") {
     return `${Math.round(feet * FEET_TO_METRES).toLocaleString(locale())} m`;
   }
-  return `${Math.round(feet).toLocaleString(locale())} ft`;
+  return `${Math.round(feet).toLocaleString(locale())} ${translate("units.feet")}`;
 }
 
 /**
@@ -254,13 +257,13 @@ export function formatDepth(feet: number): string {
       ? `${formatNumber(metres, 1)} m`
       : `${Math.round(metres).toLocaleString(locale())} m`;
   }
-  return `${formatNumber(Math.round(feet))} ft`;
+  return `${formatNumber(Math.round(feet))} ${translate("units.feet")}`;
 }
 
 /** A tide, which NOAA publishes in feet and which is read to a tenth. */
 export function formatTideHeight(feet: number): string {
   if (units === "metric") return `${formatNumber(feet * FEET_TO_METRES, 2)} m`;
-  return `${formatNumber(feet, 2)} ft`;
+  return `${formatNumber(feet, 2)} ${translate("units.feet")}`;
 }
 
 /**
@@ -330,4 +333,16 @@ export function formatAge(minutes: number): string {
 export function formatSpeedFromMph(mph: number): string {
   const shown = units === "metric" ? mph * MILES_TO_KM : mph;
   return `${formatNumber(Math.round(shown))} ${speedUnit()}`;
+}
+
+/**
+ * The units a language is normally read in.
+ *
+ * English here means the United States, which is the country this app's data
+ * comes from and the only one that reads weather in Fahrenheit and miles.
+ * Everywhere else is metric, and the generated language follows English so a
+ * layout check measures the longer words.
+ */
+export function unitsForLanguage(which: LanguageId): UnitSystem {
+  return which === "en" || which === "pseudo" ? "imperial" : "metric";
 }

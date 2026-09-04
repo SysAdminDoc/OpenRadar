@@ -408,16 +408,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-293 (P3): Unit words are hard-coded outside the catalogue, and choosing a language never sets the unit default
-      Category: ux
-      Where: `src/lib/units.ts:164-186, 238-263` (`mph`, `ft`, `in`, `mi`, `°F` literals), `src/lib/hurdat.ts:215` (`kt`); `src/lib/settings.ts:616-617` (`language: "en"`, `units: "imperial"` independent), `:1545-1546`; `src/panels/MapOptionsPanels.tsx:1920` (language change writes only `language`)
-      Problem: French Canada writes `mi/h`, `pi`, `po` and `nœuds` (the catalogue already says `{knots} nœuds` in eight places while `hurdat.ts` emits `kt` into a French window). And a reader who picks Français or Español still gets miles and Fahrenheit until they find the Units row; the German item (`AUD-198`) already assumes the language sets the default.
-      Evidence: The sites above; `units.miles` and `units.kilometres` are the only unit words in the catalogue.
-      Fix: Catalogue keys `units.mph`, `units.feet`, `units.inches`, `units.knots` read from `speedUnit()`, `formatHeight()`, `formatDistance()`, `precipitationUnit()` and `hurdat.ts`; when the language changes and the reader has never touched Units (a `unitsChosen` flag, absent in older files), set `units` to `metric` for `es` and `fr`. Tests for both.
-      Acceptance: A French window shows `pi` and `nœuds`; picking Français on a fresh workspace flips to metric; a reader who chose imperial first keeps it.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-294 (P3): Two error keys pass the native side's English straight through, and one carries the feed's own state word
       Category: ux
       Where: `src/i18n/en.ts:382` (`bundle.error.http` = `"{0}"`, filled by `HttpError`'s Display from `src-tauri/src/bundles.rs:109`), `:47` (`dataExport.error.grid` = `"{0}"`), `:722` (`radar.faultNotOperating` = `"{state}"`, filled by the RDA feed's English word at `src/lib/radarStatus.ts:69-72`)

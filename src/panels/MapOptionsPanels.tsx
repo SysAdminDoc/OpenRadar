@@ -63,6 +63,7 @@ import {
   formatDistance,
   milesFromDistance,
   TEXT_SCALES,
+  unitsForLanguage,
 } from "../lib/units";
 import type {
   AppSettings,
@@ -1964,7 +1965,19 @@ export function SettingsPanel({
               type="button"
               className={settings.language === option.id ? "is-active" : ""}
               aria-pressed={settings.language === option.id}
-              onClick={() => onSettings({ ...settings, language: option.id })}
+              onClick={() =>
+                onSettings({
+                  ...settings,
+                  language: option.id,
+                  // Somebody who picks Français and is then shown Fahrenheit
+                  // has to go and find the Units row to finish the job. Only
+                  // until they pick for themselves, though: after that the
+                  // choice is theirs.
+                  units: settings.unitsChosen
+                    ? settings.units
+                    : unitsForLanguage(option.id),
+                })
+              }
             >
               {option.label}
             </button>
@@ -2030,7 +2043,11 @@ export function SettingsPanel({
               type="button"
               className={settings.units === option ? "is-active" : ""}
               aria-pressed={settings.units === option}
-              onClick={() => onSettings({ ...settings, units: option })}
+              onClick={() =>
+                // Chosen, from here on. A later change of language leaves
+                // this alone.
+                onSettings({ ...settings, units: option, unitsChosen: true })
+              }
             >
               {option === "imperial"
                 ? t("settings.unitsImperial")
