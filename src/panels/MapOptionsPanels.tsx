@@ -36,6 +36,7 @@ import { PanelShell } from "../components/PanelShell";
 import { MAP_STYLE_OPTIONS } from "../lib/mapStyles";
 import { rangeFill } from "../lib/rangeFill";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
+import type { NotifyPermission } from "../lib/notify";
 import { GAUGE_QPE_PERIODS, type GaugeQpePeriod } from "../lib/gaugeQpe";
 import {
   ISOTHERM_LEVELS,
@@ -1412,6 +1413,8 @@ interface SettingsPanelProps {
    * is looking, so it is the one thing that has to say when it has stopped.
    */
   watchHealth?: WatchHealth;
+  /** What Windows has said about notifications, for the line below. */
+  notifications?: NotifyPermission;
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   /** The record was written to a file, at this path when there is one. */
@@ -1509,6 +1512,7 @@ export function SettingsPanel({
   clock,
   onSendWatchTest,
   watchHealth = WATCH_HEALTHY,
+  notifications,
   onWatchHere,
   onAddWatchPlace,
   onReset,
@@ -2642,6 +2646,16 @@ export function SettingsPanel({
             {t("watch.notReaching", {
               age: formatAge((clock - watchHealth.failingSince) / 60_000),
             })}
+          </p>
+        ) : null}
+
+        {/* A refused permission drops every watch to an in-app toast, which
+            is exactly what nobody looking away from the screen sees. The
+            settings are where a reader goes after a warning did not arrive,
+            so the sentence belongs here as well as in the report. */}
+        {notifications === "refused" ? (
+          <p className="watch-not-reaching" data-notifications-refused>
+            {t("watch.notificationsRefused")}
           </p>
         ) : null}
 

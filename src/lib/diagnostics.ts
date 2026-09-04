@@ -1,6 +1,7 @@
 import { APP_VERSION } from "./settings";
 import type { LogEntry } from "./log";
 import type { ProviderHealth } from "./providers/health";
+import type { NotifyPermission } from "./notify";
 import {
   provenanceLines,
   provenanceProblems,
@@ -151,6 +152,15 @@ export interface DiagnosticsInput {
    * means nobody asked, which is what the crash screen can say.
    */
   startsWithMachine?: boolean | null;
+  /**
+   * Whether Windows will let a watch raise a notice.
+   *
+   * The one question a reader asking "why did I not hear about last night's
+   * warning" needs answered, and the watches were failing it silently: a
+   * refused permission dropped them to an in-app toast that nobody looking
+   * away from the screen ever saw, and no surface said so.
+   */
+  notifications?: NotifyPermission;
   /**
    * The reader's watched place, and only when they have asked for it to be
    * included.
@@ -342,6 +352,19 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
               selectedPack ? "one in use" : "none in use"
             }`
           : ""),
+    );
+  }
+
+  if (input.notifications !== undefined) {
+    lines.push(
+      "",
+      `Desktop notifications: ${
+        input.notifications === "granted"
+          ? "allowed"
+          : input.notifications === "refused"
+            ? "refused by Windows, so the watches can only draw a toast"
+            : "not asked for yet"
+      }`,
     );
   }
 

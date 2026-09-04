@@ -23,6 +23,7 @@ import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
 import type { WatchHealth } from "../lib/watch";
+import type { NotifyPermission } from "../lib/notify";
 import type { UndoableRemoval } from "./ToastHost";
 import { CrossSectionPanel } from "../panels/CrossSectionPanel";
 /**
@@ -219,6 +220,7 @@ interface PanelSurfacesProps {
   onAddWatchPlace: () => void;
   onSendWatchTest: () => void;
   watchHealth: WatchHealth;
+  notifications: NotifyPermission;
   /** What the chrome is drawing, so the switch can name its source. */
   ambient: AmbientState;
   onJournalSaved: (path: string | null) => void;
@@ -408,6 +410,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onAddWatchPlace={props.onAddWatchPlace}
             onSendWatchTest={props.onSendWatchTest}
             watchHealth={props.watchHealth}
+            notifications={props.notifications}
             ambient={props.ambient}
             onJournalSaved={props.onJournalSaved}
             onJournalFailed={props.onJournalFailed}

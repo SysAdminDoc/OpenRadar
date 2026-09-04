@@ -45,6 +45,7 @@ import { useSettings } from "./hooks/useSettings";
 import { useToasts, UNDO_LIFETIME_MS } from "./hooks/useToasts";
 import type { UndoableRemoval } from "./components/ToastHost";
 import { useAutostart } from "./hooks/useAutostart";
+import { notificationPermission, type NotifyPermission } from "./lib/notify";
 import {
   useApproachWatch,
   approachBody,
@@ -307,6 +308,20 @@ export default function App() {
   // Read from the machine rather than from settings: the Run entry is what
   // decides whether the watch is running after a reboot.
   const autostart = useAutostart();
+  // Read once on open and again whenever a panel that shows it is opened: the
+  // answer changes the moment a watch first asks Windows, and a reader who
+  // went looking after a warning did not arrive is opening a panel to do it.
+  const [notifications, setNotifications] =
+    useState<NotifyPermission>("unasked");
+  useEffect(() => {
+    let open = true;
+    void notificationPermission().then((answer) => {
+      if (open) setNotifications(answer);
+    });
+    return () => {
+      open = false;
+    };
+  }, [activeSurface]);
 
   const onPersistError = useCallback(
     () =>
@@ -1837,6 +1852,7 @@ export default function App() {
           selectedPack: packs.selectedId !== null,
           packLimitMb: packs.diskLimitMb,
         },
+        notifications,
         startsWithMachine: autostart.on,
         // Only when the reader ticked the box beside the button, and only when
         // there is a watched place at all.
@@ -1868,6 +1884,7 @@ export default function App() {
     },
     [
       autostart.on,
+      notifications,
       classification.report,
       countiesDrawn,
       drawnForecastSmoke,
@@ -2666,6 +2683,7 @@ export default function App() {
               failing: overlays.watchFailing,
               failingSince: overlays.watchFailingSince,
             }}
+            notifications={notifications}
             onOpenLogFolder={actions.openLogFolder}
             onCopyDiagnostics={copyDiagnostics}
             hasWatchedPlace={settings.watch.enabled}

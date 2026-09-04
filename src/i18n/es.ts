@@ -506,6 +506,8 @@ export const es: Catalogue = {
   "mrms.reflectivityMinus10c": "Reflectividad a -10 C",
   "mrms.reflectivityMinus20c": "Reflectividad a -20 C",
   "layers.spcDay3Probability": "Probabilidad",
+  "watch.notificationsRefused":
+    "Windows no deja que OpenRadar muestre notificaciones, así que estas solo pueden aparecer dentro de la app. Actívalas en Configuración de Windows, en Sistema, Notificaciones.",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",
