@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- Storm reports have somewhere else to come from. They arrived from one archive, and a layer with one source cannot tell a quiet afternoon from a service that is down: two chasers lost their feed in the middle of a storm on 3 September in software that had the same problem. If the usual archive does not answer, the reports now come from the weather service’s own map service instead, and the layer says which one you are looking at.
+
 - A saved view that had pinned the Auto map style is honoured again. The check that reads a stored file listed a style the picker stopped offering a long time ago and left out Auto, which is the one most people are on, so a view saved on it came back on whatever the default happened to be. A file that still names the old dark style now lands on the professional dark one, which is where it meant to be.
 
 - The README describes what the app actually does now, and the changelog says when each version landed.

@@ -345,13 +345,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Acceptance: With NVW available the panel's column names the product and appears before the volume finishes decoding; with it absent (stub 404) the fitted column appears as today; a level the RPG marked ND stays ND; a fixture NVW decodes to the heights and winds its packet text states.
       Complexity: M
 
-- [ ] AUD-267 (P2): A second live source for storm reports on the NWS map service
-      Why: Storm reports come from one host (IEM). Chasers posted on 2026-09-03 that RadarScope and RadarOmega both lost their feed during a storm while WeatherFront stayed up; a report layer that is empty because its one source is down looks like a quiet afternoon. The NWS publishes the same reports on a host the app already reads for warnings and outlooks.
-      Evidence: `mapservices.weather.noaa.gov/vector/rest/services/obs/nws_local_storm_reports` listed live 2026-09-04; https://bsky.app/profile/ontariowedges.bsky.social/post/3mul7suzxzc23 ; `src/lib/overlays/reports.ts` (one `fetchData` path); the mosaic failover in `src/lib/providers/` as the pattern.
-      Touches: `src/lib/overlays/reports.ts` (a second parser for the ArcGIS fields, tried when the first fails or times out), the provenance line (which source answered), `scripts/live-contracts-lib.mjs` (a contract for the second), `src/lib/overlays/reports.test.ts`.
-      Acceptance: With the IEM stub failing, reports still draw from the NWS service and the provenance line names it; with both up, IEM is asked first and the NWS service is not; the archive replay path is unaffected; a live contract reads today's reports from the NWS service.
-      Complexity: S
-
 - [ ] AUD-268 (P2): A launch that starts hidden must show a full-size map when the tray opens it
       Why: WebView2 152 reports a roughly 70 by 39 pixel viewport to a host whose window was hidden when the WebView was created (WebView2Feedback #5689, 2026-09), which is the autostart-to-tray path `AUD-209` shipped. `MapViewport.tsx:2129` resizes on a `ResizeObserver`, which should fire on first show, but nothing has watched that path on 152.
       Evidence: https://github.com/MicrosoftEdge/WebView2Feedback/issues/5689 ; `src-tauri/src/lib.rs` (the start-hidden window), `src/components/MapViewport.tsx:2129`.

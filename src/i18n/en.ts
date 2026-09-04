@@ -496,6 +496,8 @@ export const en = {
     "Windows is not letting OpenRadar show notifications, so these can only appear in the app. Turn them on in Windows Settings, under System, Notifications.",
   "spc.hatchingMissing":
     "The outlook is drawn without its hatched significant areas: that part did not answer. Where a hazard would be significant is not shown.",
+  "reports.fromService":
+    "Storm reports are coming from the weather service rather than the usual archive, which did not answer.",
   "service.busy": "is busy",
   "service.notFound": "could not find it",
   "service.tooMany": "has been asked too often",
