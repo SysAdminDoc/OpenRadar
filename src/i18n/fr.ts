@@ -115,6 +115,8 @@ export const fr: Catalogue = {
     "Chacune séparément, pour pouvoir atténuer une couche au lieu de l'éteindre",
   "layers.opacityFor": "{layer}, {percent} % d'opacité",
   "layers.files": "Fichiers que vous avez importés",
+  "layers.picturesCeiling":
+    "{count, plural, one {# image} other {# images}} dans ces fichiers ; les {drawn} premières sont dessinées.",
   "layers.filesDetail":
     "Chacun avec son propre interrupteur, le dernier de la liste dessiné par-dessus",
   "layers.filesNone":

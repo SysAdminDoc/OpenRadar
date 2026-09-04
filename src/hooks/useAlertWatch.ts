@@ -1,3 +1,4 @@
+import { announceOnDesktop } from "../lib/notify";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
@@ -37,29 +38,6 @@ const EMPTY = new Map<string, ReadonlyMap<string, number>>();
  */
 function placeKey(place: WatchPlace): string {
   return `${place.center[0].toFixed(3)},${place.center[1].toFixed(3)},${place.radiusMiles},${place.minSeverity}`;
-}
-
-async function announceOnDesktop(
-  alert: WatchAlert,
-  isCurrent: () => boolean,
-): Promise<boolean> {
-  const { isPermissionGranted, requestPermission, sendNotification } =
-    await import("@tauri-apps/plugin-notification");
-  if (!isCurrent()) return false;
-
-  let granted = await isPermissionGranted();
-  if (!isCurrent()) return false;
-  if (!granted) {
-    granted = (await requestPermission()) === "granted";
-    if (!isCurrent()) return false;
-  }
-  if (!granted) return false;
-
-  sendNotification({
-    title: alert.headline,
-    body: watchAlertBody(alert),
-  });
-  return true;
 }
 
 /**
@@ -290,7 +268,11 @@ export function useAlertWatch(
           let delivered = false;
           if (isDesktopRuntime()) {
             try {
-              delivered = await announceOnDesktop(alert, () => mounted);
+              delivered = await announceOnDesktop(
+                alert.headline,
+                watchAlertBody(alert),
+                () => mounted,
+              );
             } catch (failure) {
               log.warn(
                 "watch",
@@ -402,7 +384,11 @@ export function useAlertWatch(
     let delivered = false;
     if (isDesktopRuntime()) {
       try {
-        delivered = await announceOnDesktop(alert, () => true);
+        delivered = await announceOnDesktop(
+          alert.headline,
+          watchAlertBody(alert),
+          () => true,
+        );
       } catch (failure) {
         log.warn(
           "watch",

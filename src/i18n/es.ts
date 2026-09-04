@@ -109,6 +109,8 @@ export const es: Catalogue = {
     "Cada una por su cuenta, para atenuar una capa en vez de apagarla",
   "layers.opacityFor": "{layer}, {percent}% de opacidad",
   "layers.files": "Archivos que importaste",
+  "layers.picturesCeiling":
+    "{count, plural, one {# imagen} other {# imágenes}} en estos archivos; se dibujan las primeras {drawn}.",
   "layers.filesDetail":
     "Cada uno con su propio interruptor, y el último de la lista se dibuja encima",
   "layers.filesNone":

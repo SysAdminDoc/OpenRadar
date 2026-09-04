@@ -65,8 +65,10 @@ import { watchedPlaces } from "../lib/settings";
 import {
   moveOverlayFile,
   overlayShapeCount,
+  picturesWanted,
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
+import { MAX_DRAWN_PICTURES } from "../lib/placefile";
 import { useForcedColours } from "../hooks/useClock";
 import { useOfflineSince } from "../hooks/useOffline";
 import { IncidentPackManager } from "./IncidentPackManager";
@@ -699,6 +701,14 @@ export function LayersPanel({
             <span>{t("layers.files")}</span>
             <small>{t("layers.filesDetail")}</small>
           </div>
+          {picturesWanted(overlayFiles) > MAX_DRAWN_PICTURES ? (
+            <p className="source-note">
+              {t("layers.picturesCeiling", {
+                count: picturesWanted(overlayFiles),
+                drawn: MAX_DRAWN_PICTURES,
+              })}
+            </p>
+          ) : null}
           {overlayFiles.length ? (
             <ol role="list" className="overlay-files">
               {/* Top first, the way somebody thinks about what is over what,
