@@ -242,7 +242,6 @@ pub struct PackSummary {
     /// back out of a file an older build wrote and that one holds a sentence.
     /// Without this a tile server's status was thrown away here and the pack
     /// row drew the placeholder: "The tile server could not be reached. {0}".
-    #[serde(default)]
     pub error_args: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -267,6 +266,15 @@ struct PackManifest {
     source: String,
     attribution: String,
     error: Option<String>,
+    /// What that code's sentence needs filling in, when it needs any.
+    ///
+    /// Defaulted, and this is the attribute that matters: every manifest on
+    /// disk was written before this field existed, and a manifest that will
+    /// not parse is treated as debris by `recover_store`, which deletes the
+    /// directory it is in. Without the default, adding this field would have
+    /// thrown away every incident pack a reader had downloaded, on the first
+    /// launch of the build that added it.
+    #[serde(default)]
     error_args: Vec<String>,
     created_at: String,
     updated_at: String,
@@ -1826,6 +1834,44 @@ pub async fn serve_tile(uri: &str) -> ServedTile {
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_pack_written_by_an_older_build_still_reads() {
+        // What this costs if it is wrong: `recover_store` treats a manifest
+        // it cannot parse as debris and removes the directory it is in, and
+        // it runs on every launch. A field added without a default would
+        // therefore delete every incident pack a reader had downloaded, on
+        // the first start of the build that added it, with one log line.
+        let root = temporary("older-manifest");
+        let id = "0123456789abcdef01234567";
+        let pack = root.join(id);
+        fs::create_dir_all(&pack).unwrap();
+        // Exactly what the previous build wrote: no `errorArgs` key at all,
+        // and a failure recorded as its own English sentence.
+        let older = format!(
+            concat!(
+                "{{\"schemaVersion\":1,\"id\":\"{id}\",\"name\":\"Ames\",",
+                "\"bounds\":{{\"west\":-94.0,\"south\":41.0,\"east\":-93.0,\"north\":42.0}},",
+                "\"minZoom\":6,\"maxZoom\":9,\"status\":\"failed\",\"tileCount\":12,",
+                "\"downloadedTiles\":3,\"downloadedBytes\":900,\"estimatedBytes\":4000,",
+                "\"archiveBytes\":0,\"sha256\":null,\"source\":\"USGS\",",
+                "\"attribution\":\"USGS\",",
+                "\"error\":\"the downloaded bytes failed their SHA-256 check\",",
+                "\"createdAt\":\"2026-09-01T00:00:00Z\",",
+                "\"updatedAt\":\"2026-09-01T00:00:00Z\"}}"
+            ),
+            id = id
+        );
+        fs::write(pack.join("manifest.json"), older).unwrap();
+
+        let read = read_manifest(&pack).expect("a manifest an older build wrote");
+        assert_eq!(read.id, id);
+        assert!(read.error_args.is_empty());
+        // And the sentence it holds is shown as it is rather than swallowed,
+        // which is what `packErrorText` does with anything that is not a code.
+        assert!(read.error.unwrap().contains("SHA-256"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
     fn temporary(name: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
             "openradar-incident-{name}-{}",

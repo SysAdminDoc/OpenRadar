@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ImageDown } from "lucide-react";
+import { ImageDown, LoaderCircle } from "lucide-react";
 import { useT } from "../i18n";
 import { journalAvailable, journalRows, type JournalRow } from "../lib/journal";
 import { recapCredits, recapFrom, recapLines } from "../lib/recap";
@@ -36,6 +36,9 @@ export function RecapSection({
   const [rows, setRows] = useState<JournalRow[]>([]);
   const [days, setDays] = useState<number>(365);
   const [withPlaces, setWithPlaces] = useState(false);
+  // Drawing and encoding the card is asynchronous; the button is held shut
+  // for the whole of it.
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void journalRows().then(setRows);
@@ -95,7 +98,12 @@ export function RecapSection({
           <button
             type="button"
             className="secondary-button"
+            // Drawing the card and encoding it is asynchronous, and the
+            // button stayed pressable through it, so a second press wrote a
+            // second copy of the same name over the first.
+            disabled={saving}
             onClick={() => {
+              setSaving(true);
               void (async () => {
                 try {
                   const blob = await drawRecapCard({
@@ -114,11 +122,18 @@ export function RecapSection({
                       ? failure.message
                       : t("journal.failed"),
                   );
+                } finally {
+                  setSaving(false);
                 }
               })();
             }}
           >
-            <ImageDown size={16} /> {t("recap.save")}
+            {saving ? (
+              <LoaderCircle className="spin" size={16} />
+            ) : (
+              <ImageDown size={16} />
+            )}{" "}
+            {t("recap.save")}
           </button>
         </>
       ) : (

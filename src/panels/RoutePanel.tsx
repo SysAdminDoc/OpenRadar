@@ -105,10 +105,16 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
           }
         }
         const samples = sampleRoute(route);
-        const departAt = new Date(departure).getTime();
+        // An empty box means now. A `datetime-local` field normalises
+        // anything it cannot parse to the empty string, so that is the only
+        // other state it has, and nothing in the summary claims a departure
+        // time, so planning for now is not mislabelled as anything else.
+        const departAt = departure.trim()
+          ? new Date(departure).getTime()
+          : Date.now();
         const forecast = await fetchRouteForecast(
           samples,
-          Number.isFinite(departAt) ? departAt : Date.now(),
+          departAt,
           controller.signal,
         );
 
@@ -179,7 +185,12 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
       <button
         type="button"
         className="secondary-button"
-        disabled={from.trim().length < 2 || to.trim().length < 2}
+        // Held shut while it works. Pressing again restarted the plan
+        // rather than running two, because the previous request is aborted,
+        // but a spinner that still takes a press is a spinner that lies.
+        disabled={
+          from.trim().length < 2 || to.trim().length < 2 || status === "working"
+        }
         onClick={() => void plan()}
       >
         {status === "working" ? (

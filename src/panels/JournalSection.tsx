@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Trash2, Download, Pencil } from "lucide-react";
+import { Trash2, Download, LoaderCircle, Pencil } from "lucide-react";
 import { translate, useT } from "../i18n";
 import { formatClock } from "../lib/units";
 import {
@@ -120,6 +120,11 @@ export function JournalSection({
   // it also cancelled the whole batch on each pass, and somebody typing
   // faster than a round trip saw no pictures at all.
   const [pictures, setPictures] = useState<Record<string, string>>({});
+  // An export of a year writes the record, the readable copy, and one file
+  // per picture, one after another. The button stayed pressable through all
+  // of it, so a second press started a second run of the same names over the
+  // top of the first.
+  const [exporting, setExporting] = useState(false);
   const heldRef = useRef<Record<string, string>>({});
   const askedRef = useRef(new Set<string>());
   const openRef = useRef(true);
@@ -402,8 +407,9 @@ export function JournalSection({
       <button
         type="button"
         className="secondary-button"
-        disabled={!rows.length}
+        disabled={!rows.length || exporting}
         onClick={() => {
+          setExporting(true);
           void (async () => {
             try {
               // Files, plural, and readable ones. The record as it is on disk,
@@ -434,11 +440,18 @@ export function JournalSection({
               onSaved(saved.path);
             } catch (failure) {
               failed(failure);
+            } finally {
+              setExporting(false);
             }
           })();
         }}
       >
-        <Download size={16} /> {t("journal.export")}
+        {exporting ? (
+          <LoaderCircle className="spin" size={16} />
+        ) : (
+          <Download size={16} />
+        )}{" "}
+        {t("journal.export")}
       </button>
       <button
         type="button"

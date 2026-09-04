@@ -143,6 +143,30 @@ fn ring_at(field: &SweepField, range_km: f64) -> Option<Vec<(f32, f32)>> {
     Some(samples)
 }
 
+/// Whether a ring's gates are spread widely enough for its mean to mean
+/// anything.
+///
+/// The mean of a uniform wind's radial velocity is zero around a whole
+/// circle and nothing in particular around part of one. Measured in twelve
+/// sectors rather than four quadrants, because four gates at the compass
+/// points satisfy quadrants and say nothing: ten of twelve is an arc of at
+/// least three hundred degrees with at most one gap in it.
+fn goes_most_of_the_way_round(samples: &[(f32, f32)]) -> bool {
+    const SECTORS: usize = 12;
+    const NEEDED: usize = 10;
+    let mut seen = [false; SECTORS];
+    for (azimuth, _) in samples {
+        if !azimuth.is_finite() {
+            continue;
+        }
+        let sector = (azimuth.rem_euclid(360.0) / (360.0 / SECTORS as f32)) as usize;
+        if let Some(slot) = seen.get_mut(sector.min(SECTORS - 1)) {
+            *slot = true;
+        }
+    }
+    seen.iter().filter(|had| **had).count() >= NEEDED
+}
+
 /// The same ring with a whole folding interval taken off it, or nothing.
 ///
 /// The region dealiaser fixes patches relative to each other and anchors on
@@ -155,16 +179,26 @@ fn ring_at(field: &SweepField, range_km: f64) -> Option<Vec<(f32, f32)>> {
 ///
 /// The radial velocity of a uniform wind averages to zero around a circle, so
 /// a mean sitting near a whole interval is that interval. That is only true
-/// of a ring the beam went most of the way round, though, and no cheap test
-/// of the coverage is worth trusting: a wind of 42 m/s read over two thirds
-/// of a circle has a mean of its own that looks exactly like an interval, and
-/// shifting on it turns an exact fit into a refusal.
+/// of a ring the beam went most of the way round: a 42 m/s wind read over two
+/// thirds of a circle has a mean of its own that looks exactly like an
+/// interval.
 ///
-/// So this offers rather than decides. The caller fits the ring as it stands,
-/// and only if that will not do does it try this one; a ring that already
-/// answers is never touched.
+/// So this offers rather than decides, and only for a ring the beam went
+/// most of the way round. The caller fits the ring as it stands, and only if
+/// that will not do does it try this one; a ring that already answers is
+/// never touched.
+///
+/// Both halves are needed and neither is enough. Adoption alone lets a
+/// partial arc through: over an arc the sine and cosine the fit uses are not
+/// orthogonal to a constant, so subtracting one is partly absorbed into the
+/// wind itself and can turn a refusal into a pass on a ring that was never
+/// folded. Measured on a 143 degree arc: a 40 m/s wind refused for symmetry
+/// came back as 26 m/s and passed every check.
 fn ring_without_a_fold(samples: &[(f32, f32)], nyquist: f32) -> Option<Vec<(f32, f32)>> {
     if nyquist <= 0.0 || samples.is_empty() {
+        return None;
+    }
+    if !goes_most_of_the_way_round(samples) {
         return None;
     }
     let interval = 2.0 * nyquist;
@@ -638,26 +672,46 @@ mod tests {
         assert!(refusal(&straight).is_none(), "the ring already answers");
         assert!((straight.wind.speed() - speed).abs() < 1.0);
 
-        // And its mean is far enough from zero to look like an interval.
+        // Its mean is far enough from zero to look like a whole interval,
+        // which is what made the first version of this shift on it.
         let nyquist = 8.0f32;
-        let offered =
-            ring_without_a_fold(&samples, nyquist).expect("a mean this far out looks like a fold");
-        let shifted = vad::fit_ring_checked(&offered, elevation).expect("a fit");
+        let interval = 2.0 * nyquist;
+        let mean = samples.iter().map(|(_, value)| *value).sum::<f32>() / samples.len() as f32;
         assert!(
-            (shifted.wind.speed() - speed).abs() > 5.0,
-            "the shift would have to change the answer for this to be worth testing",
-        );
-        // And the shifted ring does not pass on its own account either, which
-        // is the second of the two things keeping this barb: the offer is
-        // only ever adopted when it answers, and this one does not.
-        assert!(
-            refusal(&shifted).is_some(),
-            "a shifted ring that passes would be adopted and would be wrong",
+            (mean / interval).round() != 0.0,
+            "this arc has to look folded for the test to be about anything",
         );
 
-        // Which is why the offer is never reached: the branch that reaches
-        // for it is "the ring as it stands did not answer", and this one did.
-        let answered = refusal(&straight).is_none();
-        assert!(answered, "the guard that keeps the good fit is this one");
+        // It is not offered one, because two thirds of a circle is not a
+        // circle. Over an arc the fit's own sine and cosine are not
+        // orthogonal to a constant, so subtracting one is partly absorbed
+        // into the wind: an adversarial pass found arcs where that turned a
+        // refusal into a confident wrong answer rather than into a lost barb.
+        assert!(
+            ring_without_a_fold(&samples, nyquist).is_none(),
+            "a partial arc was offered a shift its coverage cannot justify",
+        );
+    }
+
+    #[test]
+    fn a_full_ring_in_an_ordinary_wind_is_offered_nothing() {
+        // The other guard, on a ring the coverage one lets through: a whole
+        // circle in a wind inside the radar's limit averages to nothing, so
+        // there is no interval to take off and nothing to adopt.
+        let elevation = 0.5f32;
+        let speed = 12.0f32;
+        let toward = (200.0f32 + 180.0).rem_euclid(360.0);
+        let samples: Vec<(f32, f32)> = (0..360)
+            .map(|azimuth| {
+                let angle = azimuth as f32;
+                let between = (angle - toward).to_radians();
+                (angle, speed * between.cos() * elevation.to_radians().cos())
+            })
+            .collect();
+
+        let straight = vad::fit_ring_checked(&samples, elevation).expect("a fit");
+        assert!(refusal(&straight).is_none(), "the ring already answers");
+        assert!((straight.wind.speed() - speed).abs() < 1.0);
+        assert!(ring_without_a_fold(&samples, 26.0).is_none());
     }
 }
