@@ -5,6 +5,8 @@ import type { ArchiveReplay } from "../hooks/useRadarTimeline";
 import type { Storm } from "./hurdat";
 import type { WorkspaceBackup } from "./workspaceBackup";
 import { archiveTagsUrl, archiveWarningsUrls } from "./archiveWarnings";
+import { archiveOutlookUrl } from "./overlays/spc";
+import { replayReportsUrl } from "./overlays/reports";
 import { translate, type StringKey } from "../i18n";
 import { nativeErrorParams } from "./nativeError";
 import { en } from "../i18n/en";
@@ -181,6 +183,12 @@ export function captureRequestFor(options: {
     extraUrls: [
       ...archiveWarningsUrls(from * 1000, to * 1000),
       archiveTagsUrl(from * 1000, to * 1000),
+      // The two layers that answer for the replayed day rather than for
+      // today. Without these a bundle replays the radar and the warnings
+      // offline and then asks a live service for the outlook, which is the
+      // one thing a bundle exists to avoid.
+      archiveOutlookUrl(from * 1000),
+      replayReportsUrl(bounds, { from: from * 1000, to: to * 1000 }),
     ],
     camera: {
       center: [camera.center[0], camera.center[1]],

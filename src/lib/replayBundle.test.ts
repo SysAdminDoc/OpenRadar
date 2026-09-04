@@ -77,11 +77,24 @@ describe("what a bundle is asked to hold", () => {
     expect(request?.minZoom).toBe(6);
     expect(request?.maxZoom).toBe(8);
     // The three interval requests and the tag feed, for the frames' own
-    // window in milliseconds.
-    expect(request?.extraUrls).toHaveLength(4);
+    // window in milliseconds, plus the outlook and the reports of the day
+    // being replayed. Without those two a bundle replays the radar and the
+    // warnings offline and then asks a live service for the outlook, which
+    // is the one thing a bundle exists to avoid.
+    expect(request?.extraUrls).toHaveLength(6);
     for (const url of request?.extraUrls ?? []) {
-      expect(url).toContain("2022-09-28T16:30:00Z");
+      // Every one of them is asked for the day being replayed rather than
+      // for now. The instant is spelled differently between them, because
+      // one archive takes it in the path and another percent-encodes it in
+      // a query string, so the day is what they have in common.
+      expect(url).toContain("2022-09-28");
     }
+    expect(request?.extraUrls.some((url) => url.includes("spc_outlook"))).toBe(
+      true,
+    );
+    expect(
+      request?.extraUrls.some((url) => url.includes("lsrs_by_point")),
+    ).toBe(true);
     expect(request?.workspace).toBeNull();
     expect(request?.camera).toEqual({
       center: [-82, 26.5],
