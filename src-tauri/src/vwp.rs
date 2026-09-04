@@ -15,6 +15,8 @@
 //! the wind from up there, and a profile that silently closed up around its
 //! gaps would read as continuous shear that nobody measured.
 
+use std::collections::BTreeMap;
+
 use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 use serde::Serialize;
 
@@ -141,6 +143,50 @@ fn ring_at(field: &SweepField, range_km: f64) -> Option<Vec<(f32, f32)>> {
     Some(samples)
 }
 
+/// Takes a whole folding interval off a ring that came back with one on it.
+///
+/// The region dealiaser fixes patches relative to each other and anchors on
+/// the largest, which keeps whatever it read: a sweep comes back right in
+/// shape and up to a whole interval out in level, and nothing in the picture
+/// says which. That is tolerable for a picture and fatal for this fit, which
+/// has no constant term to absorb it. Measured on the fixture: a 35 m/s wind
+/// folded at 22 unfolded to a ring running 9 to 79 rather than -35 to 35, and
+/// every level came back refused.
+///
+/// A full ring settles it. The radial velocity of a uniform wind averages to
+/// zero around a circle, so a mean sitting near a whole interval is that
+/// interval, and taking it off is the only shift that can be right.
+///
+/// Only for a ring that goes most of the way round. Half a ring in a uniform
+/// wind has a mean of its own that means nothing of the sort, and shifting on
+/// it would invent a wind rather than recover one.
+fn unfold_ring(samples: &mut [(f32, f32)], nyquist: f32) {
+    if nyquist <= 0.0 || samples.is_empty() {
+        return;
+    }
+    // Four quadrants, which is what "most of the way round" is worth being.
+    let mut seen = [false; 4];
+    for (azimuth, _) in samples.iter() {
+        let quadrant = (azimuth.rem_euclid(360.0) / 90.0) as usize;
+        if let Some(slot) = seen.get_mut(quadrant.min(3)) {
+            *slot = true;
+        }
+    }
+    if !seen.iter().all(|had| *had) {
+        return;
+    }
+
+    let interval = 2.0 * nyquist;
+    let mean = samples.iter().map(|(_, value)| *value).sum::<f32>() / samples.len() as f32;
+    let intervals = (mean / interval).round();
+    if intervals == 0.0 {
+        return;
+    }
+    for sample in samples.iter_mut() {
+        sample.1 -= intervals * interval;
+    }
+}
+
 /// Which check a fit failed, for a fit that failed one.
 fn refusal(fit: &vad::RingFit) -> Option<Refusal> {
     // The same three thresholds, asked once as a verdict and then again for
@@ -169,15 +215,28 @@ fn refusal(fit: &vad::RingFit) -> Option<Refusal> {
 /// the level is fitted from. Lowest first because a beam is narrower in height
 /// the lower it is: the same altitude read off a steep cut is an average over
 /// a much deeper slab of air.
-pub fn profile(volume: &str, scan: &Scan) -> VwpColumn {
+pub fn profile(volume: &str, scan: &Scan, nyquist: &BTreeMap<u8, f32>) -> VwpColumn {
     // Lowest elevation first, and each cut's velocity read once rather than
     // once per level.
-    let mut cuts: Vec<(f32, SweepField)> = Vec::new();
+    let mut cuts: Vec<(f32, SweepField, Option<f32>)> = Vec::new();
     for sweep in scan.sweeps() {
-        let Some(field) = SweepField::from_radials(sweep.radials(), Product::Velocity) else {
+        let Some(mut field) = SweepField::from_radials(sweep.radials(), Product::Velocity) else {
             continue;
         };
-        cuts.push((field.elevation_degrees(), field));
+        // Unfolded first, on the cut's own limit. A Doppler radar wraps
+        // anything faster than its Nyquist velocity, so a ring in a wind
+        // above it is not a sine wave and no fit will take it: the level
+        // came back refused, and the levels this panel exists for are
+        // exactly the ones where the wind is fastest. Measured on the
+        // arithmetic: a 35 m/s wind read through a 26.5 m/s limit fits to
+        // 18.1 m/s with a residual over the threshold, so it was refused
+        // rather than drawn wrong, which is the right failure and still a
+        // gap where a jet is.
+        let folds_at = nyquist.get(&sweep.elevation_number()).copied();
+        if let Some(limit) = folds_at {
+            crate::level2::unfold_velocity(&mut field, limit);
+        }
+        cuts.push((field.elevation_degrees(), field, folds_at));
     }
     cuts.sort_by(|left, right| left.0.total_cmp(&right.0));
 
@@ -209,17 +268,21 @@ pub fn profile(volume: &str, scan: &Scan) -> VwpColumn {
 /// search: the next cut up is asked as well, and only when none of them
 /// answers is the level refused. The refusal kept is the first cut's, which is
 /// the closest thing to an account of why.
-fn level_at(height_km: f64, cuts: &[(f32, SweepField)]) -> VwpLevel {
+fn level_at(height_km: f64, cuts: &[(f32, SweepField, Option<f32>)]) -> VwpLevel {
     let mut refused: Option<Refusal> = None;
     let mut reached = false;
 
-    for (elevation, field) in cuts {
+    for (elevation, field, folds_at) in cuts {
         let Some(range_km) = range_at_height(height_km, *elevation) else {
             continue;
         };
-        let Some(samples) = ring_at(field, range_km) else {
+        let Some(mut samples) = ring_at(field, range_km) else {
             continue;
         };
+        // The ring's own level, which the sweep-wide unfold cannot settle.
+        if let Some(nyquist) = folds_at {
+            unfold_ring(&mut samples, *nyquist);
+        }
         reached = true;
         let Some(fit) = vad::fit_ring_checked(&samples, *elevation) else {
             refused = refused.or(Some(Refusal::NoFit));
@@ -354,7 +417,7 @@ mod tests {
     #[test]
     fn a_volume_in_a_known_wind_reads_that_wind_back_at_every_height_it_reaches() {
         let (key, scan) = volume_with_wind();
-        let column = profile(&key, &scan);
+        let column = profile(&key, &scan, &BTreeMap::new());
         assert_eq!(column.volume, key);
         assert_eq!(column.levels.len(), LEVELS);
 
@@ -413,7 +476,7 @@ mod tests {
     #[test]
     fn a_height_no_cut_reaches_says_so_rather_than_going_blank() {
         let (key, scan) = volume_with_wind();
-        let column = profile(&key, &scan);
+        let column = profile(&key, &scan, &BTreeMap::new());
         // Twelve kilometres is far above what a half and a three and a half
         // degree cut reach inside a hundred kilometres of gates.
         let top = column.levels.last().expect("a top level");
@@ -440,5 +503,103 @@ mod tests {
         // a ring can be read at.
         assert!(range_at_height(10.0, 0.5).is_none());
         assert!(range_at_height(0.0, 0.5).is_none());
+    }
+
+    /// A cut in a wind too fast for its own folding limit.
+    ///
+    /// The velocity a radar reports wraps at its Nyquist limit, so the same
+    /// arithmetic as `wind_cut` with a faster wind and a tighter limit, then
+    /// folded the way the radar would fold it.
+    fn folded_cut(
+        at: chrono::DateTime<Utc>,
+        number: u8,
+        degrees: f32,
+        gates: usize,
+        speed_ms: f32,
+        nyquist_ms: f32,
+    ) -> Vec<fixture::Radial> {
+        (0..360u16)
+            .map(|step| {
+                let azimuth = step as f32;
+                let velocity: Vec<fixture::Gate> = (0..gates)
+                    .map(|gate| {
+                        let range_km = (gate as f32 + 1.0) * GATE_KM;
+                        let toward = (planted_from(range_km) + 180.0).rem_euclid(360.0);
+                        let between = (azimuth - toward).to_radians();
+                        let real = speed_ms * between.cos() * degrees.to_radians().cos();
+                        // What the radar would have written down: everything
+                        // outside the limit comes back a whole interval in.
+                        let span = 2.0 * nyquist_ms;
+                        let folded = ((real + nyquist_ms).rem_euclid(span)) - nyquist_ms;
+                        fixture::Gate::Reading(folded)
+                    })
+                    .collect();
+                fixture::Radial {
+                    azimuth_degrees: azimuth,
+                    azimuth_number: step + 1,
+                    elevation_number: number,
+                    elevation_degrees: degrees,
+                    nyquist_ms,
+                    collected: at,
+                    azimuth_spacing_degrees: 1.0,
+                    reflectivity: vec![fixture::Gate::Reading(20.0); gates],
+                    velocity,
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_wind_above_the_folding_limit_is_read_rather_than_refused() {
+        // The levels this panel exists for are the ones where the wind is
+        // fastest, and those are the ones a Doppler radar wraps. A folded
+        // ring is not a sine wave, so no fit takes it and the level came back
+        // "the fit was noisy": the jet a forecaster opened the profile to see
+        // was the one thing it would not show them.
+        let site = fixture::Site {
+            id: *b"KDMX",
+            latitude: 41.731,
+            longitude: -93.723,
+            height_metres: 299,
+        };
+        let at = Utc.with_ymd_and_hms(2026, 5, 1, 20, 0, 0).unwrap();
+        // Thirty-five metres a second through a twenty-two limit, which is a
+        // real low-level jet through a real velocity-only cut.
+        let speed = 35.0f32;
+        let nyquist = 22.0f32;
+        let data = fixture::volume(&site, at, &[folded_cut(at, 1, 0.5, 400, speed, nyquist)]);
+        let file = volume::File::new(data);
+        let scan = file.scan().expect("the fixture volume decodes");
+        let key = "KDMX20260501_200000_V06";
+
+        // First the failure, so this cannot pass by the fixture not folding:
+        // with no limit to unfold on, nothing is readable.
+        let blind = profile(key, &scan, &BTreeMap::new());
+        assert!(
+            blind.levels.iter().all(|level| level.speed_ms.is_none()),
+            "a folded ring fitted without being unfolded",
+        );
+
+        // And then the same volume with the cut's own limit in hand.
+        let mut table = BTreeMap::new();
+        table.insert(1u8, nyquist);
+        let column = profile(key, &scan, &table);
+        let read: Vec<&VwpLevel> = column
+            .levels
+            .iter()
+            .filter(|level| level.speed_ms.is_some())
+            .collect();
+        assert!(
+            !read.is_empty(),
+            "no level came back with a wind after unfolding",
+        );
+        for level in read {
+            let found = level.speed_ms.expect("a speed");
+            assert!(
+                (found - speed).abs() < 2.0,
+                "{} km read {found} m/s of a planted {speed}",
+                level.height_km,
+            );
+        }
     }
 }

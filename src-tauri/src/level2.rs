@@ -1237,7 +1237,7 @@ fn make_storm_relative(field: &mut SweepField, wind: vad::Wind) {
 /// Every gate a fold is taken out of lands at or beyond the limit by
 /// definition, since it started inside it and moved a whole interval, so
 /// counting them answers the same question with no hole in it.
-fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
+pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
     let azimuths = field.azimuth_count();
     let gates = field.gate_count();
     let mut values = field.values().to_vec();
@@ -2768,8 +2768,8 @@ pub async fn level2_vwp(
             // map was drawing and the next tilt or threshold change on that
             // frame decoded the whole thing again. Nothing here is read
             // twice: a column is built and the scan is dropped.
-            let (scan, _) = decoded_volume_once(&key, data)?;
-            Ok::<vwp::VwpColumn, Level2Error>(vwp::profile(&key, &scan))
+            let (scan, nyquist) = decoded_volume_once(&key, data)?;
+            Ok::<vwp::VwpColumn, Level2Error>(vwp::profile(&key, &scan, &nyquist))
         })
         .await
         .map_err(|error| Level2Error::Decode(error.to_string()))??;
