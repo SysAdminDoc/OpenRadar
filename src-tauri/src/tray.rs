@@ -447,6 +447,26 @@ pub fn tray_enabled(app: AppHandle, on: bool) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    /// The held copy and the held hazard are shared, so the tests that write
+    /// them have to take turns.
+    ///
+    /// Every other module with static state has one of these; this one did
+    /// not, and the default runner runs these in parallel. A test that set
+    /// French copy and a test that cleared it could read each other, so a
+    /// tooltip assertion could see the wrong language and an icon assertion
+    /// the wrong hazard. It passed every time it was run, which is the
+    /// problem: nothing was stopping it from not passing.
+    ///
+    /// A panicking test poisons this; the next one carries on rather than
+    /// failing for a reason that has nothing to do with it.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+    fn alone() -> std::sync::MutexGuard<'static, ()> {
+        ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|held| held.into_inner())
+    }
+
     #[test]
     fn the_icon_says_one_thing_and_says_it_in_colour() {
         let quiet = icon(Hazard::Quiet);
@@ -466,6 +486,7 @@ mod tests {
 
     #[test]
     fn the_tooltip_says_what_the_icon_means() {
+        let _alone = alone();
         // An icon nobody can read is an icon that needs words on hover.
         *COPY.lock().unwrap_or_else(|held| held.into_inner()) = None;
         assert!(tooltip(Hazard::Warning).contains("warning"));
@@ -474,6 +495,7 @@ mod tests {
 
     #[test]
     fn the_words_are_the_readers_own() {
+        let _alone = alone();
         // The glance window goes out of its way not to be the one English
         // surface in a French app. The menu that opens it should not be
         // either.
@@ -496,6 +518,7 @@ mod tests {
 
     #[test]
     fn saying_the_same_words_does_not_rebuild_the_icon() {
+        let _alone = alone();
         // An English reader's workspace hands over exactly what the icon was
         // built with. Compared against "nothing said yet" that read as a
         // change, so every launch made the icon vanish from the tray and come
@@ -529,6 +552,7 @@ mod tests {
 
     #[test]
     fn a_warning_survives_the_icon_being_rebuilt() {
+        let _alone = alone();
         // Changing language rebuilds the icon, and a rebuild builds one from
         // whatever it was last told. The workspace only speaks when the alert
         // state changes, so without this a warning standing through a
@@ -561,6 +585,7 @@ mod tests {
     /// knew any more.
     #[test]
     fn says_when_the_watch_has_stopped_hearing_back() {
+        let _alone = alone();
         assert_eq!(hazard_for(false, false), Hazard::Unreachable);
         assert_eq!(
             tooltip(Hazard::Unreachable),

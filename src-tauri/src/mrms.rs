@@ -3867,6 +3867,12 @@ mod tests {
     #[test]
     #[ignore = "asks the live MRMS bucket for every region"]
     fn every_region_the_network_publishes_decodes_and_draws() {
+        // Held, so two live tests do not wipe each other's cache. Under
+        // `-- --ignored` these run together, and one clearing the cache while
+        // another was reading it turned a real answer into a re-fetch or an
+        // empty one, which reads as a service that failed rather than as a
+        // test that raced.
+        let _guard = live_test();
         // Four of these were unreachable until now: the map fell through the
         // whole chain to a personal-use tier for anybody in Alaska, Hawaii,
         // Guam or Puerto Rico. Each grid is its own projection at its own

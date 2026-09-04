@@ -64,6 +64,23 @@ function builtPrefixes(sources: string): string[] {
   return [...found];
 }
 
+/**
+ * A file's code, with its comments out of the way.
+ *
+ * The liveness scan below asks whether a key's quoted name appears anywhere,
+ * and a comment is anywhere. So a key whose caller had gone but whose name
+ * was still written in a note about why it went read as alive, and the gate
+ * could not fail for it. No key is in that state today; the point is that
+ * none could be caught.
+ *
+ * The same shape `scripts/unused-exports.mjs` uses, and for the same reason.
+ * Line comments only: a block comment can carry a route glob or a URL, and
+ * stripping those has its own false positives.
+ */
+function code(source: string): string {
+  return source.replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
 function sourceFiles(from: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(from)) {
@@ -480,7 +497,7 @@ describe("the workspace is translated", () => {
     // glance window's own strings all read as dead.
     const sources = sourceFiles(ROOT)
       .filter((path) => !path.includes(`i18n${sep}`))
-      .map((path) => readFileSync(path, "utf8"))
+      .map((path) => code(readFileSync(path, "utf8")))
       .join("\n");
 
     const unused = Object.keys(en).filter(
@@ -503,10 +520,10 @@ describe("the workspace is translated", () => {
     // `notWsr88d` exist nowhere in the app that renders them.
     const sources = sourceFiles(ROOT)
       .filter((path) => !path.includes(`i18n${sep}`))
-      .map((path) => readFileSync(path, "utf8"))
+      .map((path) => code(readFileSync(path, "utf8")))
       .join("\n");
     const native = rustFiles(join(ROOT, "..", "src-tauri", "src"))
-      .map((path) => readFileSync(path, "utf8"))
+      .map((path) => code(readFileSync(path, "utf8")))
       .join("\n");
     const everywhere = `${sources}\n${native}`;
 

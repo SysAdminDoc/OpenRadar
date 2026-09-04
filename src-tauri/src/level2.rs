@@ -5364,6 +5364,12 @@ mod tests {
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
     fn decodes_and_draws_a_live_kdmx_volume() {
+        // Held, so two live tests do not wipe each other's cache. Under
+        // `-- --ignored` these run together, and one clearing the cache while
+        // another was reading it turned a real answer into a re-fetch or an
+        // empty one, which reads as a service that failed rather than as a
+        // test that raced.
+        let _guard = decoded_cache_test();
         clear_cache();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -5694,6 +5700,12 @@ mod tests {
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
     fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
+        // Held, so two live tests do not wipe each other's cache. Under
+        // `-- --ignored` these run together, and one clearing the cache while
+        // another was reading it turned a real answer into a re-fetch or an
+        // empty one, which reads as a service that failed rather than as a
+        // test that raced.
+        let _guard = decoded_cache_test();
         clear_cache();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -5787,6 +5799,12 @@ mod tests {
     #[test]
     #[ignore = "fetches a live volume from the NEXRAD archive"]
     fn the_wind_read_off_a_live_sweep_is_a_wind() {
+        // Held, so two live tests do not wipe each other's cache. Under
+        // `-- --ignored` these run together, and one clearing the cache while
+        // another was reading it turned a real answer into a re-fetch or an
+        // empty one, which reads as a service that failed rather than as a
+        // test that raced.
+        let _guard = decoded_cache_test();
         // The fit has to hold up on real returns, not only on a ring drawn from
         // the formula it inverts. There is no truth to compare against out of
         // the archive, so what is checked is that the answer is a wind a
