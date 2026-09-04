@@ -142,8 +142,19 @@ export async function unreachable(page: Page): Promise<string[]> {
   });
 }
 
-export async function clipped(page: Page) {
-  return page.evaluate(() => {
+/**
+ * Everything on screen whose own words do not fit inside it.
+ *
+ * `railMayShorten` is what the pseudolocale run passes. A rail caption is
+ * allowed to end in an ellipsis when the text is a third longer than anybody
+ * writes it, because the whole name is on the tooltip and on the button's
+ * accessible name either way. It is not allowed to in a language somebody
+ * actually reads: two of them were cut in English at the size the README
+ * screenshot is taken, in the app's own primary navigation, and this sweep
+ * was the thing that should have said so.
+ */
+export async function clipped(page: Page, railMayShorten = false) {
+  return page.evaluate((railMayShorten: boolean) => {
     const scrolls = (element: Element) => {
       const style = getComputedStyle(element);
       return (
@@ -190,12 +201,13 @@ export async function clipped(page: Page) {
         if (element.tagName === "CANVAS" || element.tagName === "INPUT") {
           continue;
         }
-        // The one caption allowed to end in an ellipsis. It sits under an
-        // icon in a bar of fixed height, and the whole label is on the
-        // button's tooltip and its accessible name, so nothing is lost by
-        // shortening what is drawn. The bar itself scrolls, so no button
-        // becomes unreachable however long the words get.
-        if (element.closest(".command-button")) continue;
+        // The one caption that may end in an ellipsis, and only where the
+        // words are longer than any reader's. It sits under an icon in a bar
+        // of fixed height, and the whole label is on the button's tooltip
+        // and its accessible name, so nothing is lost by shortening what is
+        // drawn. The bar itself scrolls, so no button becomes unreachable
+        // however long the words get.
+        if (railMayShorten && element.closest(".command-button")) continue;
         if (!element.textContent?.trim()) continue;
         const wide = element.scrollWidth > element.clientWidth + 1;
         const tall = element.scrollHeight > element.clientHeight + 1;
@@ -208,7 +220,7 @@ export async function clipped(page: Page) {
       }
     }
     return bad;
-  });
+  }, railMayShorten);
 }
 
 /**

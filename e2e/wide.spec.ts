@@ -177,7 +177,12 @@ test("fits words a third longer than the English", async ({ page }) => {
     await expect(page.locator(".surface-panel")).toBeVisible();
     await page.waitForTimeout(SETTLE_MS);
     opened += 1;
-    offenders.push(...(await clipped(page)).map((text) => `${panel}: ${text}`));
+    // The rail may shorten a caption in the generated language, whose
+    // words are a third longer than any reader's, and may not in one
+    // somebody reads: the English sweeps above hold it to fitting.
+    offenders.push(
+      ...(await clipped(page, true)).map((text) => `${panel}: ${text}`),
+    );
     await button.first().click();
   }
   expect(opened, "no panel was opened, so nothing was measured").toBe(
