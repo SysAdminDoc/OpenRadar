@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_SAMPLES,
@@ -419,5 +421,43 @@ describe("units the router does not spell as expected", () => {
       },
     };
     expect(parseRoute(bad)).toBeNull();
+  });
+});
+
+describe("the departure the panel asks for", () => {
+  /**
+   * The panel's own body, so a test cannot pass while the call site goes back
+   * to handing a NaN forward. Sliced from the function name to the next
+   * declaration at column zero.
+   */
+  function departureBlock(): string {
+    const source = readFileSync(
+      join(import.meta.dirname, "..", "panels", "RoutePanel.tsx"),
+      "utf8",
+    );
+    const at = source.indexOf("const asked =");
+    expect(at).toBeGreaterThan(-1);
+    return source.slice(at, at + 200);
+  }
+
+  it("falls back to now for anything that will not parse", () => {
+    // A `datetime-local` box only ever holds a good value or nothing, so the
+    // string this reads can only be strange when it came from somewhere else:
+    // a shared link, or a workspace restored from an older build. A NaN going
+    // forward asks the forecast for weather at no time at all.
+    expect(departureBlock()).toContain("Number.isFinite(asked)");
+
+    const read = (departure: string, now: number) => {
+      const asked = departure.trim() ? new Date(departure).getTime() : NaN;
+      return Number.isFinite(asked) ? asked : now;
+    };
+    const now = Date.parse("2026-09-04T12:00:00Z");
+    expect(read("", now)).toBe(now);
+    expect(read("   ", now)).toBe(now);
+    expect(read("half past four", now)).toBe(now);
+    expect(read("2026-13-45T99:99", now)).toBe(now);
+    expect(read("2026-09-05T08:30", now)).toBe(
+      new Date("2026-09-05T08:30").getTime(),
+    );
   });
 });

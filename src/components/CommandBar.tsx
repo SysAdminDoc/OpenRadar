@@ -252,6 +252,7 @@ export function CommandBar({
           <CommandButton
             icon={Map}
             label={t("panel.mapType")}
+            short={t("bar.mapTypeShort")}
             active={activeSurface === "map-type"}
             onClick={() => toggleSurface("map-type")}
           />
@@ -328,12 +329,14 @@ export function CommandBar({
           <CommandButton
             icon={Wind}
             label={t("panel.sounding")}
+            short={t("bar.soundingShort")}
             active={activeSurface === "sounding"}
             onClick={() => toggleSurface("sounding")}
           />
           <CommandButton
             icon={Gauge}
             label={t("panel.vwp")}
+            short={t("bar.vwpShort")}
             active={activeSurface === "vwp"}
             onClick={() => toggleSurface("vwp")}
           />
@@ -380,6 +383,7 @@ export function CommandBar({
           <CommandButton
             icon={Download}
             label={t("panel.upload")}
+            short={t("bar.uploadShort")}
             active={activeSurface === "upload"}
             onClick={() => toggleSurface("upload")}
           />

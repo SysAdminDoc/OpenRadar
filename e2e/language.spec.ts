@@ -264,3 +264,43 @@ test("says a service failure in the reader's own language", async ({
   await expect(row).toContainText("Le service des incendies du NIFC");
   await expect(row).not.toContainText("503");
 });
+
+test.describe("the rail's own words, in every language it ships", () => {
+  // The clipping sweep skips anything inside a scroller, and the rail
+  // scrolls, so it can never see these. The direct measurement in
+  // `workspace.spec.ts` runs in English at one width. Two captions were cut
+  // off in English at 1920 for as long as the rail has existed, which is the
+  // width the bug was reported at and the one the README screenshot uses, so
+  // the widths and the languages are both walked here.
+  //
+  // The generated language is deliberately left out: its words are padded
+  // beyond anything a translator would write, and the rail is allowed to
+  // shorten a caption there.
+  for (const language of ["en", "es", "fr"]) {
+    for (const width of [1920, 1440, 1024]) {
+      test(`fits in ${language} at ${width}`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await startIn(page, language);
+        const measured = await page.evaluate(() =>
+          Array.from(document.querySelectorAll(".command-button span"))
+            // A caption the layout hides at this width has no size at all,
+            // and a zero inside a zero is not a fit. Only what a reader can
+            // actually see is measured.
+            .filter((span) => span.clientWidth > 0)
+            .map((span) => ({
+              text: span.textContent ?? "",
+              wants: span.scrollWidth,
+              has: span.clientWidth,
+            })),
+        );
+        // Without this the whole test passes by measuring nothing, which is
+        // exactly what the compact run was doing.
+        expect(measured.length).toBeGreaterThan(3);
+        const cut = measured
+          .filter((span) => span.wants > span.has + 1)
+          .map((span) => `${span.text}: ${span.wants} in ${span.has}`);
+        expect(cut).toEqual([]);
+      });
+    }
+  }
+});
