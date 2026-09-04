@@ -80,11 +80,13 @@ test("credits the map that was actually under the weather", async ({
 test("writes the loop as a WebM the size cap allows", async ({ page }) => {
   await page.getByRole("button", { name: "Export", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: /Export loop \(3 frames\)/ }),
+    page.getByRole("button", { name: /Export loop \(WebM\) \(3 frames\)/ }),
   ).toBeVisible();
 
   const download = page.waitForEvent("download", { timeout: 60_000 });
-  await page.getByRole("button", { name: /Export loop/ }).click();
+  // Named by container. There are two loop buttons now, and a bare
+  // "Export loop" matches the MP4 one as well.
+  await page.getByRole("button", { name: /Export loop \(WebM\)/ }).click();
   const file = await download;
 
   expect(file.suggestedFilename()).toMatch(/^openradar-loop-.*\.webm$/);

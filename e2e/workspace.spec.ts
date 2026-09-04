@@ -502,7 +502,15 @@ test("keeps radar under the alert polygons", async ({ page }) => {
   const pane = page.getByRole("application", {
     name: "Interactive weather map",
   });
+  // Both of them, before either is compared against the other. Waiting on
+  // the warnings alone and then requiring the radar is a race the radar loses
+  // whenever the machine is busy: the two lanes arrive from different
+  // services and nothing orders them.
   await expect(pane).toHaveAttribute("data-layer-stack", /alerts-fill/);
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-radar-layer-observed/,
+  );
 
   const stack = (await pane.getAttribute("data-layer-stack"))?.split(" ") ?? [];
   expect(

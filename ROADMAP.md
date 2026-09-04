@@ -329,16 +329,6 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-246: Two end-to-end specs fail in every project after the 2026-09-03 evening drain (pre-existing baseline)
-      Category: testing
-      Where: `e2e/export.spec.ts:80` "writes the loop as a WebM the size cap allows" (`getByRole("button", { name: /Export loop \(3 frames\)/ })` at line 83); `e2e/workspace.spec.ts:474` "keeps radar under the alert polygons" (`stack.indexOf("openradar-radar-layer-observed")` is -1 at line 510)
-      Problem: The full `npx playwright test` run on `168271b` ends 606 passed, 4 failed: both specs fail in both the `chromium` and `compact` projects, deterministically, which is not the one-different-test-per-run load flake the working notes describe. The suite exits 1, so the release gate's e2e step would refuse this tree. The earlier full run this session, before `61503b5..168271b` landed, was 607 of 608.
-      Evidence: The first is the button label: `AUD-183` renamed `export.loop` to "Export loop (WebM)", so the accessible name is now "Export loop (WebM) (3 frames)" and the spec's regex no longer matches; the export itself still runs (its unit tests and the MP4 probe pass). The second is not yet explained: `AUD-182` added `CUSTOM_IMAGE_LAYER_IDS` and `CUSTOM_ICON_LAYER_ID` to `CUSTOM_LAYER_IDS` in `src/lib/layerStack.ts` and a second `publishLayers()` call in `MapViewport.tsx`'s custom lane sync, and the spec reads `data-layer-stack` for the observed radar layer immediately after the alerts layer appears; whether the published stack is missing the radar layer, or is published before the radar lane exists and never republished, needs the trace (`npx playwright show-trace test-results\workspace-keeps-radar-under-the-alert-polygons-chromium\trace.zip`).
-      Fix: For the first, change the locator to `/Export loop \(WebM\) \(3 frames\)/` (the test was pinning a label the item changed; the export behaviour is unchanged). For the second, run the spec alone (`npx playwright test e2e/workspace.spec.ts:474 --project=chromium`), read the stack attribute it received, and fix whichever of the two changes above stopped `openradar-radar-layer-observed` being in the published stack; then run the whole suite and require 0 failed.
-      Acceptance: `npx playwright test` exits 0 with both specs passing in all three projects.
-      Confidence: Verified (the failures); Needs-repro (the cause of the second)
-      Effort: S
-
 ### P2
 
 - [ ] AUD-238: Imported shapes have no popup, hover or label, so a placefile's hover text and a KML's name and description are read and never shown
