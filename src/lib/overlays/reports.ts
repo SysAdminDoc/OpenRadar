@@ -5,6 +5,7 @@ import { formatReportMagnitude } from "../units";
 import {
   relativeTime,
   type OverlayAdapter,
+  type OverlayBounds,
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
@@ -77,7 +78,11 @@ export function parseReports(payload: unknown): OverlayData {
     // Wind damage is reported without a number, and the feed sends null for
     // it. Number(null) is 0, which would put "0 mph" on a report that never
     // claimed a speed.
-    const raw = properties.magf;
+    // The live feed calls it `magf` and the archive calls it `magnitude`,
+    // and both send null for a report that never claimed a number: wind
+    // damage is reported without a speed, and `Number(null)` is 0, which
+    // would put "0 mph" on it.
+    const raw = properties.magf ?? properties.magnitude;
     const magnitude =
       typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 
@@ -107,6 +112,46 @@ export function parseReports(payload: unknown): OverlayData {
   return { type: "FeatureCollection", features: parsed };
 }
 
+/** The archive of past reports, on the host the live feed already uses. */
+const ARCHIVE =
+  "https://mesonet.agron.iastate.edu/api/1/nws/lsrs_by_point.geojson";
+
+/**
+ * How far around the view a replay looks for reports.
+ *
+ * The archive answers by point and radius rather than by box, so the box is
+ * turned into the circle that covers it. Bounded, because a reader zoomed out
+ * to the hemisphere is not asking for every report in it, and floored so a
+ * reader zoomed into one county still gets the reports around them.
+ */
+export const REPLAY_RADIUS_DEGREES = { least: 1, most: 12 };
+
+export function replayReportsUrl(
+  bounds: OverlayBounds,
+  window: { from: number; to: number },
+): string {
+  const lon = (bounds.west + bounds.east) / 2;
+  const lat = (bounds.south + bounds.north) / 2;
+  const across = Math.max(
+    Math.abs(bounds.north - bounds.south),
+    Math.abs(bounds.east - bounds.west),
+  );
+  const radius = Math.min(
+    REPLAY_RADIUS_DEGREES.most,
+    Math.max(REPLAY_RADIUS_DEGREES.least, across / 2),
+  );
+  const search = new URLSearchParams({
+    lon: lon.toFixed(3),
+    lat: lat.toFixed(3),
+    // The parameter is named for its unit: there is a `radius_miles` beside
+    // it, and a bare `radius` is accepted and ignored.
+    radius_degrees: radius.toFixed(2),
+    begints: new Date(window.from).toISOString(),
+    endts: new Date(window.to).toISOString(),
+  });
+  return `${ARCHIVE}?${search.toString()}`;
+}
+
 export const stormReportsOverlay: OverlayAdapter = {
   id: "stormReports",
   label: "Storm reports",
@@ -117,7 +162,25 @@ export const stormReportsOverlay: OverlayAdapter = {
   // panning does not need to ask again.
   global: true,
   refreshMs: 5 * 60_000,
-  fetchData: async (_bounds, signal) => {
+  // A replay asks for the reports of that afternoon, once, rather than
+  // today's over somebody else's day.
+  variant: (choices) =>
+    choices.replay ? `replay:${choices.replay.from}` : "live",
+  fetchData: async (bounds, signal, choices) => {
+    if (choices.replay) {
+      const response = await fetch(
+        cachedUrl(replayReportsUrl(bounds, choices.replay)),
+        { signal, headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new Error(
+          translate("reports.serviceStatus", {
+            answer: serviceAnswer(response.status),
+          }),
+        );
+      }
+      return parseReports(await response.json());
+    }
     const query = new URLSearchParams({
       // Airport observations are automatic and repeat the same wind all day.
       inc_ap: "no",

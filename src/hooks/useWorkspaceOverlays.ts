@@ -43,6 +43,14 @@ export function useWorkspaceOverlays(options: {
   viewport: OverlayBounds | null;
   /** True while archive radar from another day is on the map. */
   replaying: boolean;
+  /**
+   * The window a replay is showing, or null while the workspace is live.
+   *
+   * Separate from `replaying`, which also covers a held site on a historical
+   * volume: that has no window of frames to ask an archive about, so the two
+   * layers that can answer for a past day only do it for a real replay.
+   */
+  replayWindow: { from: number; to: number } | null;
   pushToast: (message: Omit<ToastMessage, "id">) => void;
   setActiveSurface: (surface: SurfaceId) => void;
   /**
@@ -63,8 +71,14 @@ export function useWorkspaceOverlays(options: {
    */
   capture?: () => Promise<Uint8Array | null>;
 }): WorkspaceOverlays {
-  const { settings, viewport, pushToast, setActiveSurface, replaying } =
-    options;
+  const {
+    settings,
+    viewport,
+    pushToast,
+    setActiveSurface,
+    replaying,
+    replayWindow,
+  } = options;
   const {
     weatherAlerts,
     earthquakes,
@@ -103,9 +117,12 @@ export function useWorkspaceOverlays(options: {
       // The Storm Prediction Center publishes what it thinks about today, and
       // a replay is showing some other day's weather. Painting this morning's
       // risk over Katrina would be worse than showing nothing.
-      spcOutlooks: spcOutlooks && !replaying,
+      // These two answer for the replayed day rather than being held
+      // back: the outlook that stood over it, and the reports that came in
+      // during it.
+      spcOutlooks: spcOutlooks && (!replaying || replayWindow !== null),
       spcDiscussions: spcDiscussions && !replaying,
-      stormReports: stormReports && !replaying,
+      stormReports: stormReports && (!replaying || replayWindow !== null),
       // Both are forecasts about today, so both are held back over a replay
       // for the reason the outlook above is.
       wpcExcessiveRain: wpcExcessiveRain && !replaying,
@@ -115,6 +132,7 @@ export function useWorkspaceOverlays(options: {
       earthquakes,
       spcDiscussions,
       replaying,
+      replayWindow,
       metar,
       riverGauges,
       smoke,
@@ -130,9 +148,26 @@ export function useWorkspaceOverlays(options: {
   );
 
   // Which day each of the two outlooks that offer a choice is drawing.
+  // Keyed by the window's own numbers rather than by the object, which is
+  // rebuilt whenever the replay is: choosing the same storm twice asks the
+  // same question and must not ask it again.
+  const replayKey = replayWindow
+    ? `${replayWindow.from}:${replayWindow.to}`
+    : "";
   const choices = useMemo(
-    () => ({ wpcDay, wssiDay, spcDay, spcHazard }),
-    [wpcDay, wssiDay, spcDay, spcHazard],
+    () => ({
+      wpcDay,
+      wssiDay,
+      spcDay,
+      spcHazard,
+      replay: replayKey
+        ? {
+            from: Number(replayKey.split(":")[0]),
+            to: Number(replayKey.split(":")[1]),
+          }
+        : null,
+    }),
+    [wpcDay, wssiDay, spcDay, spcHazard, replayKey],
   );
 
   const states = useOverlays(toggles, viewport, choices);

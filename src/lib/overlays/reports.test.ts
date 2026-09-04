@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
-import { REPORT_HOURS, parseReports, stormReportsOverlay } from "./reports";
+import {
+  REPLAY_RADIUS_DEGREES,
+  REPORT_HOURS,
+  parseReports,
+  replayReportsUrl,
+  stormReportsOverlay,
+} from "./reports";
 
 const LIVE = process.env.OPENRADAR_LIVE === "1";
 
@@ -116,4 +122,98 @@ describe.runIf(LIVE)("against the live feed", () => {
       expect(feature.geometry.type).toBe("Point");
     }
   }, 30_000);
+});
+
+describe("the reports that came in during a replayed window", () => {
+  const bounds = { west: -90, south: 32, east: -86, north: 36 };
+  const window = {
+    from: Date.UTC(2011, 3, 27, 18),
+    to: Date.UTC(2011, 3, 27, 23),
+  };
+
+  it("asks the archive by point and window, in the unit the parameter names", () => {
+    // There is a `radius_miles` beside it and a bare `radius` is accepted
+    // and ignored, which is how a request comes back with the wrong reports
+    // and no error.
+    const url = replayReportsUrl(bounds, window);
+    expect(url).toContain("radius_degrees=");
+    expect(url).not.toMatch(/[?&]radius=/);
+    expect(url).toContain("lon=-88.000");
+    expect(url).toContain("lat=34.000");
+    expect(url).toContain("begints=2011-04-27T18%3A00%3A00.000Z");
+    expect(url).toContain("endts=2011-04-27T23%3A00%3A00.000Z");
+  });
+
+  it("bounds the radius at both ends", () => {
+    // A reader zoomed out to the hemisphere is not asking for every report
+    // in it, and one zoomed into a county still wants the ones around them.
+    const wide = replayReportsUrl(
+      { west: -170, south: -60, east: 170, north: 60 },
+      window,
+    );
+    expect(wide).toContain(
+      `radius_degrees=${REPLAY_RADIUS_DEGREES.most.toFixed(2)}`,
+    );
+    const tight = replayReportsUrl(
+      { west: -93.8, south: 41.6, east: -93.6, north: 41.8 },
+      window,
+    );
+    expect(tight).toContain(
+      `radius_degrees=${REPLAY_RADIUS_DEGREES.least.toFixed(2)}`,
+    );
+  });
+
+  it("reads the archive's own name for a magnitude", () => {
+    // The live feed calls it `magf` and the archive calls it `magnitude`.
+    // Reading only the live name put no size on any archived hail report.
+    const read = parseReports({
+      features: [
+        {
+          geometry: { type: "Point", coordinates: [-88, 34] },
+          properties: {
+            valid: "2011-04-27T20:10:00Z",
+            type: "H",
+            magnitude: 2.75,
+            typetext: "HAIL",
+            unit: "INCH",
+          },
+        },
+      ],
+    });
+    expect(read.features[0].properties.magnitude).toBe(2.75);
+  });
+
+  it("still says nothing about a report that claimed no number", () => {
+    const read = parseReports({
+      features: [
+        {
+          geometry: { type: "Point", coordinates: [-88, 34] },
+          properties: {
+            valid: "2011-04-27T20:10:00Z",
+            type: "D",
+            magnitude: null,
+            magf: null,
+            typetext: "TSTM WND DMG",
+          },
+        },
+      ],
+    });
+    expect(read.features[0].properties.magnitude).toBeNull();
+  });
+
+  it("asks again for a different replay and not for the same one", () => {
+    const same = stormReportsOverlay.variant?.({
+      ...DEFAULT_OVERLAY_CHOICES,
+      replay: window,
+    });
+    expect(
+      stormReportsOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        replay: { ...window },
+      }),
+    ).toBe(same);
+    expect(
+      stormReportsOverlay.variant?.({ ...DEFAULT_OVERLAY_CHOICES }),
+    ).not.toBe(same);
+  });
 });

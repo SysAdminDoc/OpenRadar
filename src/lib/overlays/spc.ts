@@ -260,6 +260,95 @@ export function parseDiscussions(payload: unknown): OverlayData {
   return { type: "FeatureCollection", features: parsed };
 }
 
+/**
+ * The colours the categorical outlook is published in, by its own code.
+ *
+ * The live service carries a fill and a stroke on every feature; the archive
+ * this replays from carries neither, only a threshold code. Rather than
+ * invent colours for it, these are the service's own, read from
+ * `SPC_wx_outlks/MapServer/1?f=pjson` on 2026-09-04 and keyed by the code
+ * the archive uses for the same category.
+ */
+const CATEGORY_COLOURS: Record<
+  string,
+  { rank: number; fill: string; stroke: string }
+> = {
+  TSTM: { rank: 2, fill: "#c1e9c1", stroke: "#55bb55" },
+  MRGL: { rank: 3, fill: "#66a366", stroke: "#005500" },
+  SLGT: { rank: 4, fill: "#ffe066", stroke: "#ddaa00" },
+  ENH: { rank: 5, fill: "#ffa366", stroke: "#ff6600" },
+  MDT: { rank: 6, fill: "#e06666", stroke: "#cc0000" },
+  HIGH: { rank: 8, fill: "#ee99ee", stroke: "#cc00cc" },
+};
+
+/** The archive of past outlooks, on the host the replay already reads. */
+const ARCHIVE = "https://mesonet.agron.iastate.edu/api/1/nws";
+
+/**
+ * The outlook that stood over a replayed day.
+ *
+ * One request per replay rather than one per frame: an outlook is issued a
+ * few times a day and does not change as a loop steps through an afternoon.
+ * `cycle=-1` asks the archive for one deterministic issuance rather than
+ * having this guess at the hours the Center issues on, and what comes back
+ * says which issuance it is, so the popup can name it rather than implying
+ * the reader is looking at whichever one they expected.
+ */
+export function archiveOutlookUrl(from: number): string {
+  const day = new Date(from).toISOString().slice(0, 10);
+  const search = new URLSearchParams({
+    day: "1",
+    valid: day,
+    cycle: "-1",
+    outlook_type: "C",
+  });
+  return `${ARCHIVE}/spc_outlook.geojson?${search.toString()}`;
+}
+
+/** The archive's own answer, in the shape the live layer draws. */
+export function parseArchiveOutlooks(payload: unknown): OverlayData {
+  const raw = payload as { features?: unknown };
+  const features = Array.isArray(raw?.features) ? raw.features : [];
+  const parsed: OverlayFeature[] = [];
+
+  for (const item of features) {
+    const feature = item as {
+      geometry?: Record<string, unknown>;
+      properties?: Record<string, unknown>;
+    };
+    const geometry = feature.geometry;
+    const properties = feature.properties;
+    if (!geometry || !properties) continue;
+    const code = text(properties.threshold).toUpperCase();
+    const known = CATEGORY_COLOURS[code];
+    if (!known) continue;
+
+    parsed.push({
+      type: "Feature",
+      geometry,
+      properties: {
+        rank: known.rank,
+        significant: false,
+        label: code,
+        risk: code,
+        fill: known.fill,
+        stroke: known.stroke,
+        day: 1,
+        archived: true,
+        valid: Date.parse(text(properties.issue)) || null,
+        expire: Date.parse(text(properties.expire)) || null,
+        issue: Date.parse(text(properties.product_issue)) || null,
+      },
+    });
+  }
+
+  parsed.sort(
+    (left, right) =>
+      Number(left.properties.rank) - Number(right.properties.rank),
+  );
+  return { type: "FeatureCollection", features: parsed };
+}
+
 export const spcOutlooksOverlay: OverlayAdapter = {
   id: "spcOutlooks",
   label: "SPC outlook",
@@ -271,8 +360,28 @@ export const spcOutlooksOverlay: OverlayAdapter = {
   // A different day, or a different hazard, is a different picture rather
   // than a stale one. Compared before freshness, so switching does not wait
   // out the poll.
-  variant: (choices) => `${choices.spcDay}:${choices.spcHazard}`,
+  variant: (choices) =>
+    choices.replay
+      ? `replay:${choices.replay.from}`
+      : `${choices.spcDay}:${choices.spcHazard}`,
   fetchData: async (bounds, signal, choices) => {
+    // A replay draws the outlook that stood over that day. Today's over
+    // somebody else's afternoon is the same false claim the warnings
+    // layer is held back for.
+    if (choices.replay) {
+      const response = await fetch(
+        cachedUrl(archiveOutlookUrl(choices.replay.from)),
+        { signal, headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new Error(
+          translate("spc.serviceStatus", {
+            answer: serviceAnswer(response.status),
+          }),
+        );
+      }
+      return parseArchiveOutlooks(await response.json());
+    }
     const chosen = outlookLayers(choices.spcDay, choices.spcHazard);
     if (!chosen) return { type: "FeatureCollection", features: [] };
     const fields = "dn,label,label2,valid,expire,issue,stroke,fill";
@@ -349,9 +458,11 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     const lines = [
       properties.significant === true
         ? translate("spc.significant")
-        : translate("spc.outlookDay", {
-            day: String(properties.day ?? 1),
-          }),
+        : properties.archived === true
+          ? translate("spc.asIssued")
+          : translate("spc.outlookDay", {
+              day: String(properties.day ?? 1),
+            }),
     ];
     if (Number.isFinite(valid) && Number.isFinite(expire)) {
       // With the day, because a Day 1 outlook runs from midday to midday and

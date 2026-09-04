@@ -166,13 +166,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-216 (P2): Outlooks and storm reports at the replayed time
-  Why: Replay draws archived warnings and radar for a past event, but the SPC layer and storm reports stay in the present, so a reader replaying 2011-04-27 sees today's outlook over that day's radar; WeatherWise made 1990s archive free on 2026-09-03 and Anvil keys outlooks and reports to the replayed window, so this is where the free field is moving.
-  Evidence: Verified 2026-09-03 from `https://mesonet.agron.iastate.edu/api/1/openapi.json`: `/nws/spc_outlook.{fmt}` (`day`, `valid`, `cycle`, `outlook_type`), `/nws/lsrs_by_point.{fmt}` (`begints`, `endts`, radius), `/spc_watch_outline.geojson` (`valid`); `src/lib/archiveWarnings.ts:33` already reads this host; `src/lib/overlays/spc.ts` and `reports.ts` are present-only; https://stormtrack.org/threads/weatherwise-adds-free-archived-radar.33509/; https://github.com/jhammon88219/Anvil.
-  Touches: `src/lib/overlays/spc.ts` and `reports.ts` (a replay-time branch keyed on the timeline's parked time, following `useArchiveWarnings.ts`), `src/lib/replayBundle.ts` (carry the outlook and the reports so a bundle replays offline), legends ("as issued {cycle}Z {date}"), `src/i18n/*`, two live contracts on the allowed host, fixture e2e.
-  Acceptance: With the timeline parked in the past, the SPC layer draws the outlook valid then with its cycle in the legend, and reports draws the LSRs inside the replayed window; back in the present the live adapters resume without a stale frame; a bundle exported in replay carries both and replays them offline; the IEM host is asked at most once per parked time per layer.
-  Complexity: M
-
 - [ ] AUD-217 (P2): The lightning grids on the MRMS bucket
   Why: The app decodes one lightning grid (five-minute NLDN density) and GLM flashes; the same bucket carries the 30- and 60-minute lightning probability, the lightning jump grid, reflectivity at −10 °C and −20 °C (the initiation signal forecasters read) and NLDN at 1, 15 and 30 minutes, all in the packing the decoder already reads; the HWT 2026 experiment ran a "Lightning Stoplight" on exactly these.
   Evidence: Verified 2026-09-03 from the CONUS prefix listing: `LightningProbabilityNext30minGrid_scale_1`, `LightningProbabilityNext60minGrid_scale_1`, `LtgJumpGrid_scale_1`, `LtgJumpGrid_Max_005min_scale_1`, `Reflectivity_-10C_00.50`, `Reflectivity_-20C_00.50`, `NLDN_CG_001min`/`015min`/`030min_AvgDensity`; `src-tauri/src/mrms.rs:533-725` holds `NLDN_CG_005min` only; https://inside.nssl.noaa.gov/ewp/; https://github.com/cwmac/mrms-viewer.

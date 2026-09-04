@@ -445,6 +445,7 @@ export const en = {
   "layers.spcWind": "Wind",
   "spc.significant":
     "Hatched: where this hazard would be significant if it happens",
+  "spc.asIssued": "The outlook that stood over this day",
   "service.busy": "is busy",
   "service.notFound": "could not find it",
   "service.tooMany": "has been asked too often",
