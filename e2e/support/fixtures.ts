@@ -375,6 +375,30 @@ export const stormReportFeature = {
   },
 };
 
+/**
+ * The same report as the weather service's own copy sends it.
+ *
+ * Nothing but the geometry is shared with the archive above: the type is
+ * written out and abbreviated, the magnitude is a string, and the time is
+ * epoch milliseconds where the archive sends a stamp. A handler that
+ * answered this host with the archive's shape would draw an empty layer and
+ * look like a quiet afternoon.
+ */
+export const serviceStormReportFeature = {
+  type: "Feature",
+  geometry: { type: "Point", coordinates: [-85.1, 26.6] },
+  properties: {
+    descript: "Tstm Wnd Gst",
+    magnitude: "61",
+    units: "mph",
+    lsr_validtime: Date.parse("2026-08-30T12:05:00Z"),
+    loc_desc: "2 S Testville",
+    state: "FL",
+    remarks: "Measured by a home station.",
+    wfo: "MFL",
+  },
+};
+
 export const stormRecord = {
   generated: "2026-08-30",
   statuses: ["TD", "TS", "HU", "EX", "SD", "SS", "LO"],
@@ -652,6 +676,12 @@ export async function routeWorkspace(page: Page) {
     } else if (url.includes("wpc_wssi")) {
       const layer = Number(/MapServer\/(\d+)\/query/.exec(url)?.[1] ?? 1);
       features = [wssiFeature(layer)];
+    } else if (url.includes("nws_local_storm_reports")) {
+      // The storm-report fallback, which is asked only when the archive on
+      // the other host does not answer. Answering it with the alert polygon
+      // this handler defaults to would parse to nothing and read as a quiet
+      // afternoon rather than as the second source working.
+      features = [serviceStormReportFeature];
     }
     await route.fulfill({
       contentType: "application/json",

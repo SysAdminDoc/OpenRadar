@@ -2496,7 +2496,12 @@ export default function App() {
                 overlays.states.spcOutlooks.error ??
                 overlays.states.spcOutlooks.partial,
               spcDiscussions: overlays.states.spcDiscussions.error,
-              stormReports: overlays.states.stormReports.error,
+              // The second source answering is worth saying: the reports on
+              // the map came from somewhere else, and the reader is looking
+              // at this switch because the usual one went quiet.
+              stormReports:
+                overlays.states.stormReports.error ??
+                overlays.states.stormReports.partial,
               stormCells: stormCells.error,
               classification: classification.error,
               forecastSmoke: forecastSmoke.error,
