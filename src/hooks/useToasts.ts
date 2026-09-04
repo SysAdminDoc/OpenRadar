@@ -48,12 +48,30 @@ export function useToasts(): Toasts {
    */
   const timers = useRef(new Map<number, number>());
 
+  /**
+   * How long each message asked for, so a held one can be given its own back
+   * rather than the ordinary five seconds. An undo asks for thirty.
+   */
+  const lifetimes = useRef(new Map<number, number>());
+  /**
+   * Declared up here because `dismiss` above has to reach it, and named as
+   * the ref rather than aliased, so the hooks rule can see that a callback
+   * reading it depends on nothing.
+   */
+  const heldRef = useRef(new Map<number, number>());
+
   const dismiss = useCallback((id: number) => {
     const timer = timers.current.get(id);
     if (timer !== undefined) {
       window.clearTimeout(timer);
       timers.current.delete(id);
     }
+    // Out of the held list too. A message dismissed by hand during a hold
+    // stayed in it, so releasing scheduled a timer for something already
+    // gone: harmless to the reader, and a timeout with no owner is exactly
+    // what the note above says is worth not having.
+    heldRef.current.delete(id);
+    lifetimes.current.delete(id);
     setMessages((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
@@ -88,17 +106,16 @@ export function useToasts(): Toasts {
           { ...message, id },
         ];
       });
-      if (held.current.has(HOLDING)) {
+      const lifetime = message.lifetimeMs ?? LIFETIME_MS;
+      lifetimes.current.set(id, lifetime);
+      if (heldRef.current.has(HOLDING)) {
         // Held from the moment it arrives, rather than given a clock that
         // runs while the reader is still on the message above it.
-        held.current.add(id);
+        heldRef.current.set(id, lifetime);
       } else {
         timers.current.set(
           id,
-          window.setTimeout(
-            () => dismiss(id),
-            message.lifetimeMs ?? LIFETIME_MS,
-          ),
+          window.setTimeout(() => dismiss(id), lifetime),
         );
       }
     },
@@ -106,53 +123,55 @@ export function useToasts(): Toasts {
   );
 
   /**
-   * Holds every pending dismissal while the reader is on the toasts.
+   * Holds every pending dismissal while the reader is on the toasts, and what
+   * each one is owed when they start again.
    *
    * A message with an action button had a few seconds to be noticed, read
    * and pressed, and the host sits near the end of the tab order: somebody
    * tabbing towards an undo could watch it go while they were still on the
    * way. Pointing at one holds it for the same reason.
    *
-   * What is left of each timer is not recoverable from a `setTimeout`, so
-   * releasing starts a fresh full lifetime rather than the remainder. That
-   * is the generous direction, and the only one that does not need a second
-   * clock per message.
-   */
-  /**
-   * What is waiting for the clock to start again, and whether it is stopped.
+   * What is left of a running `setTimeout` is not recoverable, so releasing
+   * starts a fresh lifetime rather than the remainder. It has to be the
+   * message's OWN lifetime: an undo asks for thirty seconds, and a first
+   * version handed everything the ordinary five, so hovering the one message
+   * that most needs reading made it leave six times sooner. That is the exact
+   * opposite of what this is for.
    *
-   * One set rather than a set and a flag, because ids come from a counter
-   * that starts at zero and `HOLDING` is below it, so the marker cannot
-   * collide with a message. A boolean ref would read better and the hooks
-   * rule will not have it: mutating a plain object handed to `useRef` is
-   * what it forbids, and a set is what it allows.
+   * A map rather than a set and two flags, because the hooks rule forbids
+   * mutating a plain object handed to `useRef` and allows a map. `HOLDING`
+   * is below every id, which start at one, so it cannot collide; its value is
+   * how many reasons are holding, since the pointer and the focus are two and
+   * either can end without the other.
    */
-  const held = useRef(new Set<number>());
   // Plain functions rather than `useCallback`. These write a ref, which the
   // hooks rule will not allow inside a memoised callback, and nothing below
   // them is memoised on their identity.
   const hold = () => {
-    held.current.add(HOLDING);
-    // Everything on screen, including anything that arrived since the last
-    // hold. A first version returned early when it was already holding, so a
-    // message pushed while somebody was reading kept its own clock and went
-    // out from under them.
+    const reasons = heldRef.current.get(HOLDING) ?? 0;
+    heldRef.current.set(HOLDING, reasons + 1);
+    if (reasons > 0) return;
     for (const [id, timer] of timers.current) {
       window.clearTimeout(timer);
-      held.current.add(id);
+      heldRef.current.set(id, lifetimes.current.get(id) ?? LIFETIME_MS);
     }
     timers.current.clear();
   };
   const release = () => {
-    if (!held.current.has(HOLDING)) return;
-    held.current.delete(HOLDING);
-    for (const id of held.current) {
+    const reasons = heldRef.current.get(HOLDING) ?? 0;
+    if (reasons === 0) return;
+    if (reasons > 1) {
+      heldRef.current.set(HOLDING, reasons - 1);
+      return;
+    }
+    heldRef.current.delete(HOLDING);
+    for (const [id, lifetime] of heldRef.current) {
       timers.current.set(
         id,
-        window.setTimeout(() => dismiss(id), LIFETIME_MS),
+        window.setTimeout(() => dismiss(id), lifetime),
       );
     }
-    held.current.clear();
+    heldRef.current.clear();
   };
 
   // The workspace going away takes every pending dismissal with it.

@@ -1520,12 +1520,19 @@ input[type="range"]:disabled {
 .map-style-card > i {
   width: 36px;
   height: 34px;
-  /* A neutral edge rather than a white one. On --surface-raised: #fff the
-     white version is invisible, so the swatch lost its outline in the one
-     theme where it needs it most. */
-  border: 1px solid var(--border);
+  /* The rim composites over the swatch itself, not over the card, because
+     the swatch paints its own background. So the white version is right
+     against the dark styles and invisible against the pale ones, and a
+     single neutral token swapped one for the other: it halved the rim on
+     pro-dark, aerial and topography. White in the dark theme, dark in the
+     light one, which is the only pair that reads against both. */
+  border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.07);
+}
+
+:root[data-theme="light"] .map-style-card > i {
+  border-color: rgba(36, 51, 71, 0.28);
 }
 
 .map-style-card > span {
@@ -2439,8 +2446,14 @@ input[type="range"]:disabled {
   width: 9px;
   height: 9px;
   background: var(--subtle);
-  border: 1px solid var(--border);
+  /* Over its own fill rather than over the surface behind it, so the same
+     reasoning as the style swatch above applies. */
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 3px;
+}
+
+:root[data-theme="light"] .status-dot {
+  border-color: rgba(36, 51, 71, 0.22);
 }
 
 .status-dot.is-live {
@@ -2946,18 +2959,23 @@ input[type="range"]:disabled {
   pointer-events: none;
   color: #d6dfeb;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
-}
-
-/* Over a light basemap the pale text relied entirely on its shadow, which is
-   a halo rather than a colour. This is keyed on what is under it rather than
-   on the theme, because the two are set separately and a reader can pick a
-   light basemap in the dark theme. */
-.ambient-readout[data-over-light] {
-  color: #0f172a;
-  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.85);
   transition:
     opacity 1.2s linear,
     transform 1.2s linear;
+}
+
+/* Over a light basemap the pale text relied entirely on its shadow, which is
+   a halo rather than a colour. Keyed on what is under it rather than on the
+   theme, because the two are set separately and a reader can pick a light
+   basemap in the dark theme.
+
+   Colour only. Putting the transition in here as well took it off the base
+   rule, so the drift and the fade stopped easing over every dark basemap,
+   and it outranked the reduced-motion block below, which is the one thing
+   that must not lose. */
+.ambient-readout[data-over-light] {
+  color: #0f172a;
+  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.85);
 }
 
 .ambient-readout strong {
@@ -3720,12 +3738,19 @@ input[type="range"]:disabled {
   cursor: pointer;
 }
 
-.layer-order button:hover:not(:disabled) {
+.layer-order button:hover:not(:disabled):not([aria-disabled="true"]) {
   color: var(--text);
   border-color: var(--border-strong);
 }
 
-.layer-order button:disabled {
+/* Both, because these two are kept in the tab order and refuse rather than
+   disabling themselves: a button that disables itself under the focus drops
+   it on the body. Styling the disabled state alone left the top row's up
+   arrow at full opacity with a pointer cursor, lighting up under the mouse
+   and doing nothing, so the affordance was there for a screen reader and
+   gone for everybody else. */
+.layer-order button:disabled,
+.layer-order button[aria-disabled="true"] {
   opacity: 0.35;
   cursor: default;
 }

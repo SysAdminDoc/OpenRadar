@@ -369,11 +369,14 @@ export function IncidentPackManager({
               style={rangeFill(settings.incidentPacks.diskLimitMb, 256, 32_768)}
               value={settings.incidentPacks.diskLimitMb}
               aria-label={t("packs.ceiling")}
-              // The ceiling as a size, which is what the line under it says.
-              // The raw value is a number of megabytes and reads as one.
-              aria-valuetext={formatPackBytes(
-                settings.incidentPacks.diskLimitMb * 1024 * 1024,
-              )}
+              // Exactly what the output below it renders. A first version
+              // used `formatPackBytes`, which switches to gigabytes past a
+              // thousand: the slider showed "4,096 MB" and announced "4.0 GB"
+              // for every stop from 1024 up, which is the same quantity said
+              // two different ways to two different readers.
+              aria-valuetext={t("packs.megabytes", {
+                count: formatNumber(settings.incidentPacks.diskLimitMb),
+              })}
               onChange={(event) =>
                 onSettings({
                   ...settingsRef.current,

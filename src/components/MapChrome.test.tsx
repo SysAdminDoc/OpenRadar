@@ -236,3 +236,83 @@ describe("a slider says what it is showing", () => {
     );
   });
 });
+
+/**
+ * The expression a JSX attribute is given, from its opening brace to the one
+ * that closes it.
+ *
+ * Counted rather than matched. A regex ending at the first closing brace
+ * stops inside the first nested object, and a greedy one runs to the end of
+ * the file: the first version of this reported an attribute whose value was
+ * in fact correct, with three hundred lines of unrelated markup attached.
+ */
+function braced(tag: string, attribute: string): string | null {
+  const at = tag.indexOf(`${attribute}={`);
+  if (at < 0) return null;
+  const from = tag.indexOf("{", at) + 1;
+  let depth = 1;
+  for (let step = from; step < tag.length; step += 1) {
+    if (tag[step] === "{") depth += 1;
+    else if (tag[step] === "}") {
+      depth -= 1;
+      if (depth === 0) return tag.slice(from, step);
+    }
+  }
+  return null;
+}
+
+describe("what a slider announces is what it shows", () => {
+  it("says the same expression its own output renders", () => {
+    // The gate above only asks whether `aria-valuetext` is there. An
+    // attribute that is present and wrong is worse than one that is missing:
+    // the pack ceiling announced "4.0 GB" over an output reading "4,096 MB",
+    // the same quantity said two different ways to two different readers.
+    //
+    // Compared as text with whitespace flattened, because the two are
+    // written in the same file a few lines apart and there is no reason for
+    // them to differ at all. A slider whose two forms genuinely cannot match
+    // has to say so here rather than drift quietly.
+    // The same value can be written two ways a few lines apart: an output
+    // holds JSX, so it wraps its expression in braces and puts literal text
+    // outside them, while an attribute takes a template literal. Neither
+    // difference is a difference in what a reader gets, so the braces, the
+    // backticks, the `$` and the whitespace all come out before comparing.
+    // Identifiers and calls do not, which is what the real defect differed
+    // in: `formatPackBytes(...)` against `t("packs.megabytes", ...)`.
+    // A trailing comma goes too: the formatter adds one to a call it has
+    // wrapped over several lines and leaves it off a shorter one, which is a
+    // difference in how the file is printed rather than in what is said.
+    const flat = (text: string) =>
+      text
+        .replace(/[{}`$]/g, "")
+        .replace(/\s+/g, "")
+        .replace(/,(?=\))/g, "")
+        .trim();
+    const offenders: string[] = [];
+    for (const file of tsxUnder(join(process.cwd(), "src"))) {
+      const source = readFileSync(file, "utf8");
+      for (const at of allIndexesOf(source, /type="range"/g)) {
+        const start = source.lastIndexOf("<input", at);
+        const tag = openingTagAt(source, start);
+        const said = braced(tag, "aria-valuetext");
+        // The `<output>` inside this input's own label. Bounded that way
+        // rather than by a window of characters: a fixed window reaches into
+        // the slider above or below, and a first version compared the loop
+        // length against the opacity readout two rules up.
+        const opens = source.lastIndexOf("<label", start);
+        const closes = source.indexOf("</label>", start);
+        const around =
+          opens < 0 || closes < 0 ? "" : source.slice(opens, closes);
+        const shown = /<output>([\s\S]*?)<\/output>/.exec(around);
+        if (said === null || !shown) continue;
+        const line = source.slice(0, at).split("\n").length;
+        if (flat(said) !== flat(shown[1])) {
+          offenders.push(
+            `${relative(process.cwd(), file)}:${line}\n    says  ${flat(said)}\n    shows ${flat(shown[1])}`,
+          );
+        }
+      }
+    }
+    expect(offenders, offenders.join("\n  ")).toEqual([]);
+  });
+});
