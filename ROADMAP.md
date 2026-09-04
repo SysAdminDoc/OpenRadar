@@ -313,26 +313,6 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
 
 ### P3
 
-- [ ] AUD-242: A KML's inline `<Style>` is ignored, so most Google Earth exports lose their colours
-      Category: ux
-      Where: `src/lib/kml.ts` `stylesOf` (`if (!id) continue;` skips any `<Style>` without an id) and `parseKml` (resolves colours only through `styleUrl`)
-      Problem: A `<Style>` written directly inside a `<Placemark>` with no id is the form Google Earth writes for a placemark whose colour was changed by hand, and the form many generators use for every placemark. Those files import in the default blue although the README says the shapes draw "with the colours the file carries".
-      Evidence: `stylesOf` iterates `document.getElementsByTagName("Style")` and requires `getAttribute("id")`; `parseKml` reads `styleUrl` only. `src/lib/kml.test.ts` covers shared styles and StyleMap and has no inline case.
-      Fix: In `parseKml`, before falling back to `styles.get(styleId)`, look for a `Style` element that is a direct child of the placemark (`Array.from(placemark.children).find((c) => c.localName === "Style")`) and read its `LineStyle` / `PolyStyle` the same way `stylesOf` does (extract the per-element reader so both call it).
-      Acceptance: A unit test with a placemark holding an inline `<Style><LineStyle><color>ff0000ff</color></LineStyle></Style>` asserts `properties.stroke === "#ff0000"`; an inline style beats a `styleUrl` on the same placemark, which is KML's own precedence.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-243: The sweep smoothing switch is offered while an airport radar is held, and does nothing there
-      Category: ux
-      Where: `src/panels/RadarProductPanel.tsx` (the smoothing row is `disabled={!radar.singleSite}` only); `src-tauri/src/level2.rs` `level2_sweep` (the TDWR branch calls `tdwr::sweep(station, product, tilt, threshold, high_contrast)` without `smooth`); `src-tauri/src/tdwr.rs` (`smoothed: false` on every sweep it builds)
-      Problem: Holding one of the 47 terminal radars, the reader can switch smoothing on, the picture does not change, and the legend does not say smoothed. Nothing tells them the switch does not apply to this kind of radar, and the live and persistence rows beside it do say what they need.
-      Evidence: The three code sites above; the panel already knows the held site's kind (it names it in the site line per the README) so the information is on hand.
-      Fix: Disable the row when the held station is a TDWR (the panel already has `singleSite` state that says which kind of radar is held) and add a `small` note, `radar.smoothTdwr`: "An airport radar's products arrive drawn, so there are no gates to read between." Alternatively implement it in `tdwr.rs` over the Level III radial product, which has the same polar layout.
-      Acceptance: With a TDWR held, the smoothing checkbox is disabled and the note is visible; with a WSR-88D held it is enabled; `RadarProductPanel.test.tsx` covers both.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-244: More than four pictures across the imported set are dropped without a word
       Category: ux
       Where: `src/lib/placefile.ts` `MAX_DRAWN_PICTURES` and `placefilePictures` (`break` at four); `src/components/MapViewport.tsx` `syncCustomPictures`; `src/hooks/useWorkspaceActions.ts` (the import toast counts every feature, pictures included, as "shapes")

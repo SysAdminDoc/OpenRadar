@@ -31,6 +31,7 @@ import {
   TDWR_SITES,
   radarCapabilities,
   supportedProduct,
+  isTdwrStation,
 } from "../lib/radarKinds";
 import {
   formatAge,
@@ -388,12 +389,16 @@ export function RadarProductPanel({
           <label className="toggle-row toggle-row--plain">
             <span>
               <strong>{t("radar.smooth")}</strong>
-              <small>{t("radar.smoothDetail")}</small>
+              <small>
+                {isTdwrStation(radar.station)
+                  ? t("radar.smoothTdwr")
+                  : t("radar.smoothDetail")}
+              </small>
             </span>
             <input
               type="checkbox"
-              checked={radar.smoothSweep}
-              disabled={!radar.singleSite}
+              checked={radar.smoothSweep && !isTdwrStation(radar.station)}
+              disabled={!radar.singleSite || isTdwrStation(radar.station)}
               onChange={(event) =>
                 onRadar({ ...radar, smoothSweep: event.target.checked })
               }

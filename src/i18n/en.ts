@@ -562,6 +562,8 @@ export const en = {
   "radar.liveDetail":
     "Draw the sweep the radar is making now over the last one it finished. The finished picture is four to six minutes old by the time it is published; this one is seconds old over the sector the radar has reached, and unchanged everywhere else.",
   "radar.smooth": "Smooth the sweep",
+  "radar.smoothTdwr":
+    "An airport radar's products arrive already drawn, so there are no gates to read between.",
   "radar.smoothDetail":
     "Read between the gates rather than taking the nearest one. The picture only: inspected readings and exported numbers are the gates themselves.",
   "radar.persistence": "Phosphor persistence",

@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.10.0
 
+- A KML style written inside the placemark is read now. That is the shape Google Earth writes for a placemark somebody recoloured by hand, and what several generators write for every placemark in the file, and it was being ignored: those imported in the default blue while the README said the shapes carried the file's own colours. A style inside the placemark also wins over one it points at, which is the format's own order.
+
+- The smoothing switch is greyed out while an airport radar is held, and says why. A terminal radar's products arrive as a picture the office already drew, so there are no gates to read between and the switch quietly did nothing.
+
 - Two repairs to placefile icons. A sheet whose address contains a vertical bar, which a URL is allowed to hold, produced a description the map could not read back, so the icon was neither fetched nor drawn at all; the address is escaped now. And a sheet the app is allowed to fetch but cannot reach, because the server answered 404 or there was no network, used to leave its icons invisible: the shapes were simply missing, fewer than the import had counted, with nothing saying why. Those now draw as a plain dot where the file put them.
 
 - The sentences the app shows when something has gone wrong are in your language now. Thirteen of them were English whatever you had chosen, because they were written as templates carrying an HTTP status code and the check that is meant to catch untranslated copy could only see the other kind of quotation mark. They also said the wrong thing: "NIFC returned 503" is the protocol talking, and what a reader can act on is that the fire service is busy. The number still goes to the log, so a bug report carries it. A file that will not parse now says to choose a GeoJSON or a placefile instead of quoting the parser, and a video encoder that stops partway through says so in words rather than in the browser's.

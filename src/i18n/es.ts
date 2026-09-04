@@ -573,6 +573,8 @@ export const es: Catalogue = {
   "radar.liveDetail":
     "Dibuja el barrido que el radar está haciendo ahora sobre el último que terminó. La imagen terminada ya tiene de cuatro a seis minutos cuando se publica; esta tiene segundos en el sector que el radar ha alcanzado, y no cambia en el resto.",
   "radar.smooth": "Suavizar el barrido",
+  "radar.smoothTdwr":
+    "Los productos de un radar de aeropuerto llegan ya dibujados, así que no hay compuertas entre las que interpolar.",
   "radar.smoothDetail":
     "Interpola entre las compuertas en vez de tomar la más cercana. Solo la imagen: las lecturas consultadas y los números exportados siguen siendo las compuertas.",
   "radar.persistence": "Persistencia de fósforo",
