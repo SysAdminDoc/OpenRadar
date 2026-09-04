@@ -110,7 +110,7 @@ export const es: Catalogue = {
   "layers.opacityFor": "{layer}, {percent}% de opacidad",
   "layers.files": "Archivos que importaste",
   "layers.picturesCeiling":
-    "{count, plural, one {# imagen} other {# imágenes}} en estos archivos; se dibujan las primeras {drawn}.",
+    "{count, plural, one {# imagen} other {# imágenes}} en estos archivos. El mapa dibuja {drawn} a la vez, y deja fuera las que quedan fuera de su propio rango de zoom o de tiempo.",
   "layers.filesDetail":
     "Cada uno con su propio interruptor, y el último de la lista se dibuja encima",
   "layers.filesNone":

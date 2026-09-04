@@ -143,7 +143,7 @@ fn ring_at(field: &SweepField, range_km: f64) -> Option<Vec<(f32, f32)>> {
     Some(samples)
 }
 
-/// Takes a whole folding interval off a ring that came back with one on it.
+/// The same ring with a whole folding interval taken off it, or nothing.
 ///
 /// The region dealiaser fixes patches relative to each other and anchors on
 /// the largest, which keeps whatever it read: a sweep comes back right in
@@ -153,38 +153,32 @@ fn ring_at(field: &SweepField, range_km: f64) -> Option<Vec<(f32, f32)>> {
 /// folded at 22 unfolded to a ring running 9 to 79 rather than -35 to 35, and
 /// every level came back refused.
 ///
-/// A full ring settles it. The radial velocity of a uniform wind averages to
-/// zero around a circle, so a mean sitting near a whole interval is that
-/// interval, and taking it off is the only shift that can be right.
+/// The radial velocity of a uniform wind averages to zero around a circle, so
+/// a mean sitting near a whole interval is that interval. That is only true
+/// of a ring the beam went most of the way round, though, and no cheap test
+/// of the coverage is worth trusting: a wind of 42 m/s read over two thirds
+/// of a circle has a mean of its own that looks exactly like an interval, and
+/// shifting on it turns an exact fit into a refusal.
 ///
-/// Only for a ring that goes most of the way round. Half a ring in a uniform
-/// wind has a mean of its own that means nothing of the sort, and shifting on
-/// it would invent a wind rather than recover one.
-fn unfold_ring(samples: &mut [(f32, f32)], nyquist: f32) {
+/// So this offers rather than decides. The caller fits the ring as it stands,
+/// and only if that will not do does it try this one; a ring that already
+/// answers is never touched.
+fn ring_without_a_fold(samples: &[(f32, f32)], nyquist: f32) -> Option<Vec<(f32, f32)>> {
     if nyquist <= 0.0 || samples.is_empty() {
-        return;
+        return None;
     }
-    // Four quadrants, which is what "most of the way round" is worth being.
-    let mut seen = [false; 4];
-    for (azimuth, _) in samples.iter() {
-        let quadrant = (azimuth.rem_euclid(360.0) / 90.0) as usize;
-        if let Some(slot) = seen.get_mut(quadrant.min(3)) {
-            *slot = true;
-        }
-    }
-    if !seen.iter().all(|had| *had) {
-        return;
-    }
-
     let interval = 2.0 * nyquist;
     let mean = samples.iter().map(|(_, value)| *value).sum::<f32>() / samples.len() as f32;
     let intervals = (mean / interval).round();
     if intervals == 0.0 {
-        return;
+        return None;
     }
-    for sample in samples.iter_mut() {
-        sample.1 -= intervals * interval;
-    }
+    Some(
+        samples
+            .iter()
+            .map(|(azimuth, value)| (*azimuth, value - intervals * interval))
+            .collect(),
+    )
 }
 
 /// Which check a fit failed, for a fit that failed one.
@@ -276,19 +270,33 @@ fn level_at(height_km: f64, cuts: &[(f32, SweepField, Option<f32>)]) -> VwpLevel
         let Some(range_km) = range_at_height(height_km, *elevation) else {
             continue;
         };
-        let Some(mut samples) = ring_at(field, range_km) else {
+        let Some(samples) = ring_at(field, range_km) else {
             continue;
         };
-        // The ring's own level, which the sweep-wide unfold cannot settle.
-        if let Some(nyquist) = folds_at {
-            unfold_ring(&mut samples, *nyquist);
-        }
         reached = true;
-        let Some(fit) = vad::fit_ring_checked(&samples, *elevation) else {
+        // As it stands first. Only a ring that will not answer is offered the
+        // one with an interval taken off it, and only if that one answers is
+        // it used: the shift is a guess about a level the dealiaser could not
+        // settle, and a guess must not be allowed to take a barb away.
+        let mut fit = vad::fit_ring_checked(&samples, *elevation);
+        let mut why = fit.as_ref().and_then(refusal);
+        if fit.is_none() || why.is_some() {
+            if let Some(levelled) =
+                folds_at.and_then(|nyquist| ring_without_a_fold(&samples, nyquist))
+            {
+                let second = vad::fit_ring_checked(&levelled, *elevation);
+                let refused_again = second.as_ref().and_then(refusal);
+                if second.is_some() && refused_again.is_none() {
+                    fit = second;
+                    why = None;
+                }
+            }
+        }
+        let Some(fit) = fit else {
             refused = refused.or(Some(Refusal::NoFit));
             continue;
         };
-        if let Some(why) = refusal(&fit) {
+        if let Some(why) = why {
             refused = refused.or(Some(why));
             continue;
         }
@@ -601,5 +609,55 @@ mod tests {
                 level.height_km,
             );
         }
+    }
+
+    #[test]
+    fn a_ring_that_already_answers_is_never_shifted() {
+        // The case an adversarial pass found. A ring covering two thirds of a
+        // circle in a fast wind has a mean of its own that looks exactly like
+        // a whole folding interval, so a pin that fired on the mean alone
+        // moved an exact fit by a whole interval and the symmetry check then
+        // refused it: 41.8 m/s from 200 degrees became 24.2 and then a gap,
+        // in the very regime this panel exists for. It is offered rather than
+        // applied now, and a ring that already answers is never offered it.
+        let elevation = 0.5f32;
+        let speed = 41.8f32;
+        let from = 200.0f32;
+        let toward = (from + 180.0).rem_euclid(360.0);
+        // Two thirds of a circle, which is what one-sided echo looks like.
+        let samples: Vec<(f32, f32)> = (110..=290)
+            .map(|azimuth| {
+                let angle = azimuth as f32;
+                let between = (angle - toward).to_radians();
+                (angle, speed * between.cos() * elevation.to_radians().cos())
+            })
+            .collect();
+
+        // The ring as it stands is an exact fit.
+        let straight = vad::fit_ring_checked(&samples, elevation).expect("a fit");
+        assert!(refusal(&straight).is_none(), "the ring already answers");
+        assert!((straight.wind.speed() - speed).abs() < 1.0);
+
+        // And its mean is far enough from zero to look like an interval.
+        let nyquist = 8.0f32;
+        let offered =
+            ring_without_a_fold(&samples, nyquist).expect("a mean this far out looks like a fold");
+        let shifted = vad::fit_ring_checked(&offered, elevation).expect("a fit");
+        assert!(
+            (shifted.wind.speed() - speed).abs() > 5.0,
+            "the shift would have to change the answer for this to be worth testing",
+        );
+        // And the shifted ring does not pass on its own account either, which
+        // is the second of the two things keeping this barb: the offer is
+        // only ever adopted when it answers, and this one does not.
+        assert!(
+            refusal(&shifted).is_some(),
+            "a shifted ring that passes would be adopted and would be wrong",
+        );
+
+        // Which is why the offer is never reached: the branch that reaches
+        // for it is "the ring as it stands did not answer", and this one did.
+        let answered = refusal(&straight).is_none();
+        assert!(answered, "the guard that keeps the good fit is this one");
     }
 }

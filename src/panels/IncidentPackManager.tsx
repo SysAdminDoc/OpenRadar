@@ -539,7 +539,7 @@ export function IncidentPackManager({
                   ) : null}
                   {pack.error ? (
                     <p className="incident-pack-error" role="alert">
-                      {packErrorText(pack.error)}
+                      {packErrorText(pack.error, pack.errorArgs ?? [])}
                     </p>
                   ) : null}
                   <p className="source-note">{pack.attribution}</p>

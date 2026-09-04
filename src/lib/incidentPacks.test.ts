@@ -62,3 +62,30 @@ describe("a pack failure in the reader's language", () => {
     );
   });
 });
+
+describe("a code a manifest stored beside its numbers", () => {
+  it("fills the sentence in rather than printing the placeholder", () => {
+    // The manifest field that holds the failure is a string, so the first
+    // pass stored the code and dropped everything the sentence needed. A tile
+    // server that answered 404 left "httpStatus" on disk, and the pack row
+    // then drew "The tile server could not be reached. {0}" at the reader, in
+    // whichever language they had on.
+    const said = packErrorText("httpStatus", ["404"]);
+    expect(said).toContain(en["service.notFound"]);
+    expect(said).not.toContain("{0}");
+    expect(said).not.toContain("404");
+  });
+
+  it("counts the tiles a stored code was about", () => {
+    const said = packErrorText("tooManyTiles", ["41200"]);
+    expect(said).toContain("41,200");
+    expect(said).not.toContain("{0}");
+    expect(said).not.toContain("#");
+  });
+
+  it("leaves no placeholder behind for a code that needs nothing", () => {
+    for (const code of ["corrupt", "pausedOnExit", "failed", "refused"]) {
+      expect(packErrorText(code)).not.toContain("{");
+    }
+  });
+});
