@@ -408,16 +408,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-297 (P3): Light-theme leftovers on the map layer
-      Category: visual
-      Where: `src/index.css:1305-1316` (`.map-watermark`: dark chip and pale icon with no `[data-theme="light"]` override, unlike `.map-readout` and `.source-attribution` beside it, whose override the comment at `:1287-1291` explains); `:4038-4046` (`.top-status__health .live-chip` non-live states fixed `#f8fafc` on `#334155` while `is-live` is tokenised); `:2940-2951` (`.ambient-readout` fixed `#d6dfeb` text over whatever basemap the theme chose); `:1500` and `:2441` (`rgba(255,255,255,0.25)` edges on style cards and the status dot vanish on `--surface-raised: #fff`); `index.html:2` (`data-theme="dark"` hard-coded with no boot script, so every light-theme cold start paints dark chrome and a `#0b1018` stage, then flips)
-      Problem: None of these is illegible on its own; together they are the places where the light theme was not finished. The watermark is a grey smudge on grey water; the non-live chip is the one slate pill on a white bar; the ambient clock over a light basemap relies on its shadow; the dark flash on launch is the first thing a light-theme reader sees.
-      Evidence: Observed 2026-09-04 in the browser under `data-theme="light"`: `.map-watermark` computed `rgba(229,237,247,0.55)` on `rgba(5,8,13,0.42)`; `.map-stage` background `rgb(11,16,24)`; `.ambient-readout` `rgb(214,223,235)` with a `rgba(0,0,0,0.85)` shadow over the light basemap; screenshots `light-main`, `light-ambient`.
-      Fix: A light override for `.map-watermark` matching the readout's; tokens for the non-live chip; an ambient readout colour keyed on `isLightBasemap` the way the county lines are; a neutral edge token for the two borders; and a two-line inline script in `index.html` that reads `openradar.settings` (or the store's cached theme) and sets `data-theme` before first paint, matching what `useAppearance.ts:92` will set.
-      Acceptance: `e2e/theme.spec.ts` asserts the watermark and chip colours differ between themes and that the first painted `data-theme` on a light-theme reload is `light`.
-      Confidence: Likely
-      Effort: S
-
 - [ ] AUD-301 (P3): A layer failing, the workspace going offline, and the timeline stalling are visual only
       Category: a11y
       Where: `src/hooks/useOverlays.ts:229-233` (a failed layer only `log.warn`s; the note is static text in the Layers panel), `src/hooks/useLightning.ts:201`, `useWind.ts:58`; `src/components/WorkspaceChrome.tsx:212-216, 296-302` (`chrome.offline` as a span; `useOffline.ts` has no side effect); `src/components/MapChrome.tsx:167-170` (`error ?? cached ?? stale` in a `<strong>`)

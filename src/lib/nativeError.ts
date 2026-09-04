@@ -27,7 +27,7 @@ const COUNTED = new Set(["tooLarge", "tooManyTiles"]);
  * bucket key that 404s reached the panel as an S3 URL and a status code in
  * English. Now it sends the status and this says it in words.
  */
-const STATUS = new Set(["httpStatus"]);
+const STATUS = new Set(["httpStatus", "gridHttpStatus"]);
 
 export function nativeErrorParams(
   code: string,
@@ -60,4 +60,27 @@ function measured(value: unknown): string | number {
   return Number.isFinite(number) && String(value).trim() !== ""
     ? number
     : String(value);
+}
+
+/**
+ * What a native failure said for itself, for the log rather than the page.
+ *
+ * The page gets a sentence somebody wrote, keyed on the failure's code. That
+ * is right for a reader and it throws away the part that identifies the
+ * problem: which GRIB2 template would not unpack, what the decoder choked on.
+ * Both errors that share `gridUnreadable` are indistinguishable in the toast
+ * by design, and were indistinguishable in the log too, which is where
+ * somebody debugging one of them has to look.
+ */
+export function nativeErrorDetail(failure: unknown): string {
+  if (!failure || typeof failure !== "object") return "";
+  const named = failure as { code?: unknown; args?: unknown; text?: unknown };
+  const parts: string[] = [];
+  if (typeof named.code === "string") parts.push(named.code);
+  if (Array.isArray(named.args) && named.args.length) {
+    parts.push(named.args.map((arg) => String(arg)).join(", "));
+  } else if (typeof named.text === "string" && named.text) {
+    parts.push(named.text);
+  }
+  return parts.join(": ");
 }

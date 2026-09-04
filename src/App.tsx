@@ -119,7 +119,7 @@ import {
   trackBounds,
   type Storm,
 } from "./lib/hurdat";
-import { basemapCredit } from "./lib/mapStyles";
+import { basemapCredit, isLightBasemap } from "./lib/mapStyles";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
@@ -1674,24 +1674,38 @@ export default function App() {
    * tools had no keyboard way out: the only exit was the Clear button in the
    * tool strip, which is a mouse target.
    *
-   * The tool goes first when both are on, because it is the thing drawn over
-   * the map and under the pointer.
+   * One press dismisses one thing. The panel goes first, and only if there
+   * is no panel does the tool go: a tool and a surface can be open together,
+   * and `handleTool(null)` is the Clear button, which also wipes whatever has
+   * been drawn. Taking the tool first meant a single Escape closed the panel,
+   * put the tool away and erased the reader's measurement, three things they
+   * asked for one of.
+   *
+   * Nothing at all while a full-screen mode is on. Both of those promise the
+   * workspace comes back exactly as it was, panel and tool included, and the
+   * same press is already what leaves them.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (activeTool) {
-        handleTool(null);
-        return;
-      }
+      if (capture || ambientScreen) return;
       if (activeSurface || productOpen) {
         setActiveSurface(null);
         setProductOpen(false);
+        return;
       }
+      if (activeTool) handleTool(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeTool, activeSurface, productOpen, handleTool]);
+  }, [
+    activeTool,
+    activeSurface,
+    ambientScreen,
+    capture,
+    productOpen,
+    handleTool,
+  ]);
 
   // Picking a storm frames its whole track; replaying one goes to the moment
   // the radar is about, which is a much tighter view.
@@ -2451,6 +2465,7 @@ export default function App() {
           source={timeline.sourceLabel ?? ""}
           frameAgeMinutes={radarAge}
           idleMs={idleMs}
+          overLight={isLightBasemap(settings.mapStyle)}
           onLeave={() => {
             setAmbientAsked(false);
             // Also counts as being here, which is what stops the idle rule

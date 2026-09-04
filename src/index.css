@@ -1314,6 +1314,15 @@ input[type="range"]:disabled {
   color: #000;
 }
 
+/* The light counterpart the readout and the attribution both got and this
+   did not. Over a light basemap the dark chip reads as a smudge on grey
+   water: the same failure, in the same corner, missed because a screenshot
+   of the dark theme cannot show it. */
+:root[data-theme="light"] .map-watermark {
+  color: #1e293b;
+  background: rgba(248, 250, 252, 0.72);
+}
+
 .map-watermark {
   position: absolute;
   z-index: 15;
@@ -1511,7 +1520,10 @@ input[type="range"]:disabled {
 .map-style-card > i {
   width: 36px;
   height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  /* A neutral edge rather than a white one. On --surface-raised: #fff the
+     white version is invisible, so the swatch lost its outline in the one
+     theme where it needs it most. */
+  border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.07);
 }
@@ -2427,7 +2439,7 @@ input[type="range"]:disabled {
   width: 9px;
   height: 9px;
   background: var(--subtle);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
   border-radius: 3px;
 }
 
@@ -2934,6 +2946,15 @@ input[type="range"]:disabled {
   pointer-events: none;
   color: #d6dfeb;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
+}
+
+/* Over a light basemap the pale text relied entirely on its shadow, which is
+   a halo rather than a colour. This is keyed on what is under it rather than
+   on the theme, because the two are set separately and a reader can pick a
+   light basemap in the dark theme. */
+.ambient-readout[data-over-light] {
+  color: #0f172a;
+  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.85);
   transition:
     opacity 1.2s linear,
     transform 1.2s linear;
@@ -4023,8 +4044,11 @@ input[type="range"]:disabled {
 .top-status__health .live-chip {
   min-height: 26px;
   padding: 0 8px;
-  color: #f8fafc;
-  background: #334155;
+  /* Tokens, because the is-live state next door is tokenised and this one
+     was not: on the light bar it was the single slate pill in a row of
+     white ones. */
+  color: var(--text);
+  background: var(--surface-hover);
   border: 1px solid var(--border);
   border-radius: 6px;
   text-transform: capitalize;

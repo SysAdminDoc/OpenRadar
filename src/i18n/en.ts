@@ -56,6 +56,13 @@ export const en = {
     "That grid is packed a way this build does not read.",
   "dataExport.error.gridNotDrawn": "The grid could not be drawn.",
   "dataExport.error.unknown": "The export could not be written.",
+  "dataExport.error.gridHttpStatus": "The grid could not be fetched. {0}",
+  "dataExport.error.gridHttpUnreachable":
+    "The grid could not be fetched. Check that this machine is online.",
+  "dataExport.error.gridHttpRefused":
+    "OpenRadar would not fetch that grid: the address is not one it is allowed to reach.",
+  "dataExport.error.gridHttpTooLarge":
+    "That grid is larger than OpenRadar will read in one go.",
 
   "search.eyebrow": "Find a place",
   "search.title": "Search",
@@ -1495,7 +1502,7 @@ export const en = {
   "chrome.standby": "Standby",
   "chrome.toolClear": "Clear",
   "chrome.toolKeyboard":
-    "Press Enter or Space to use this tool at the map centre.",
+    "Press Enter or Space to use this tool at the map centre, or Escape to put it away.",
   "chrome.dwdComposite": "German composite",
   "chrome.rainRate": "Rain Rate",
   "chrome.composite": "Composite Radar",

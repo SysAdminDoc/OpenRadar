@@ -136,3 +136,58 @@ describe("the ages on the diagnostics panel", () => {
     expect(body).toContain("useMinuteClock()");
   });
 });
+
+describe("a record the panel cannot read", () => {
+  beforeEach(() => {
+    vi.spyOn(journal, "journalAvailable").mockReturnValue(true);
+    vi.spyOn(journal, "journalPath").mockResolvedValue("C:/journal.jsonl");
+  });
+
+  it("says the record is empty rather than showing nothing at all", async () => {
+    // Holding the empty sentence back until the read lands is right, and it
+    // has to end. An uncaught rejection left `read` undefined for good, so
+    // the panel drew no rows, no sentence and no error: a silent blank card,
+    // which is worse than the one frame of wrong copy it replaced.
+    vi.spyOn(journal, "journalRows").mockRejectedValue(
+      new Error("the bridge is not there"),
+    );
+    render(
+      <JournalSection
+        clock={0}
+        writing={true}
+        onWriting={vi.fn()}
+        onSaved={vi.fn()}
+        onFailed={vi.fn()}
+        onCleared={vi.fn()}
+        onRemoved={vi.fn()}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getAllByText(en["journal.empty"]).length).toBeGreaterThan(0);
+  });
+
+  it("does the same for the year card", async () => {
+    vi.spyOn(journal, "journalRows").mockRejectedValue(
+      new Error("the bridge is not there"),
+    );
+    render(
+      <RecapSection
+        clock={Date.parse("2026-09-04T12:00:00Z")}
+        onSaved={vi.fn()}
+        onFailed={vi.fn()}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(en["recap.empty"])).toBeTruthy();
+  });
+});

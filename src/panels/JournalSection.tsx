@@ -23,6 +23,7 @@ import {
   type JournalFilter,
   type JournalRow,
 } from "../lib/journal";
+import { log } from "../lib/log";
 import { saveFile } from "../lib/saveFile";
 import { figureLines, figuresFrom } from "../lib/figures";
 
@@ -102,7 +103,20 @@ export function JournalSection({
   );
 
   const reload = useCallback(() => {
-    void journalRows().then(setRead);
+    // A rejection has to land somewhere. Left uncaught, `read` stays
+    // undefined and both the list and the empty sentence render nothing at
+    // all: a silent blank card, which is worse than the one-frame wrong
+    // sentence this replaced. The command itself cannot fail, so anything
+    // here is the bridge, and an empty record is the honest thing to show.
+    void journalRows()
+      .then(setRead)
+      .catch((failure: unknown) => {
+        log.warn(
+          "journal",
+          failure instanceof Error ? failure.message : String(failure),
+        );
+        setRead([]);
+      });
     void journalPath().then(setWhere);
   }, []);
 

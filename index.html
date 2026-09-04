@@ -9,10 +9,38 @@
     />
     <meta name="theme-color" content="#090b10" />
     <title>OpenRadar</title>
+    <script>
+      // The theme, before anything is painted.
+      //
+      // `data-theme` above is the default, and the workspace only corrected it
+      // once React had mounted and read the settings, so every cold start on
+      // the light theme painted dark chrome over a near-black stage and then
+      // flipped. That flash was the first thing a light-theme reader saw.
+      //
+      // Read from a mirror rather than from the settings themselves: on the
+      // desktop the settings live in a Tauri store behind an async command,
+      // which cannot be reached before first paint. `useAppearance` writes
+      // this key every time it applies a theme, so it is right from the second
+      // launch onwards and the first launch is the default anyway.
+      //
+      // Tauri hashes local inline scripts at compile time and appends the hash
+      // to `script-src`, so this runs under the app's own CSP, which carries
+      // no `unsafe-inline`.
+      try {
+        var held = localStorage.getItem("openradar.theme");
+        if (held === "light" || held === "dark") {
+          document.documentElement.dataset.theme = held;
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute("content", held === "light" ? "#eef2f6" : "#090b10");
+        }
+      } catch (ignored) {
+        // A window with no storage at all keeps the default.
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
