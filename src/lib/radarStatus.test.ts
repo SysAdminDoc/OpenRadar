@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { en } from "../i18n/en";
 import {
   faultReason,
   levelTwoLate,
@@ -29,13 +30,31 @@ describe("what the office says about a radar", () => {
     expect(faultReason(null, NOW)).toBeNull();
   });
 
-  it("names the state a radar reports rather than the word 'down'", () => {
-    // "Start-Up" is the office's own word and it is the useful one: a radar
-    // restarting after a power cut will be back, and one in maintenance will
-    // not be back this afternoon. Flattening both to "down" throws away the
-    // only part a reader can act on.
+  it("says what the reported state means rather than repeating it", () => {
+    // What a radar restarting after a power cut is doing is the useful part:
+    // it will be back, and one in maintenance will not be back this
+    // afternoon. Flattening both to "down" throws that away.
+    //
+    // This asserted the bare word "Start-Up", which is the archive of the
+    // defect: the state arrived untranslated in the middle of a translated
+    // sentence, because the catalogue value was a bare "{state}".
     const restarting = station({ status: "Start-Up", fault: "notOperating" });
-    expect(faultReason(restarting, NOW)).toBe("Start-Up");
+    expect(faultReason(restarting, NOW)).toBe(en["radar.faultStartUp"]);
+    expect(faultReason(restarting, NOW)).not.toBe("Start-Up");
+  });
+
+  it("wraps a state it has no sentence for, rather than passing it through", () => {
+    // The live feed carries Operate and Start-Up today, so anything else is
+    // a word this build has not seen. It is still shown, because it came
+    // from the office and a reader can look it up, but it sits inside a
+    // sentence in their own language.
+    const odd = station({ status: "Maintenance", fault: "notOperating" });
+    const said = faultReason(odd, NOW);
+    expect(said).toContain("Maintenance");
+    expect(said).not.toBe("Maintenance");
+    expect(said).toBe(
+      en["radar.faultNotOperating"].replace("{state}", "Maintenance"),
+    );
   });
 
   it("says how long a silent radar has been silent", () => {

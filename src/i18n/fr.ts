@@ -55,7 +55,14 @@ export const fr: Catalogue = {
     "Cela ferait {0, plural, one {# relevé} other {# relevés}} dans un seul fichier. Zoomez pour que l'export couvre moins de terrain.",
   "dataExport.error.noFolder": "Il n'y a nulle part où écrire l'exportation.",
   "dataExport.error.write": "L'exportation n'a pas pu être écrite : {0}",
-  "dataExport.error.grid": "{0}",
+  "dataExport.error.gridUnknownProduct": "Il n'y a pas de grille appelée {0}.",
+  "dataExport.error.gridBadListing":
+    "La liste des grilles publiées n'a pas pu être lue.",
+  "dataExport.error.gridNoFrames": "Aucune grille {0} n'a encore été publiée.",
+  "dataExport.error.gridNotGrib": "Ce fichier n'est pas une grille GRIB2.",
+  "dataExport.error.gridUnreadable":
+    "Cette grille est empaquetée d'une façon que cette version ne lit pas.",
+  "dataExport.error.gridNotDrawn": "La grille n'a pas pu être dessinée.",
   "dataExport.error.unknown": "L'exportation n'a pas pu être écrite.",
 
   "search.eyebrow": "Trouver un endroit",
@@ -801,7 +808,9 @@ export const fr: Catalogue = {
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "aucune donnée depuis {age}",
   "radar.faultOffline": "n'émet plus",
-  "radar.faultNotOperating": "{state}",
+  "radar.faultStartUp": "Le radar démarre. Il devrait revenir sous peu.",
+  "radar.faultNotOperating":
+    "Le radar ne balaie pas. Le bureau le signale comme {state}.",
   "radar.terminalLine":
     "Radar météorologique Doppler terminal, portée de {range} km · {source}",
   "radar.terminalProducts":

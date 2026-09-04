@@ -47,7 +47,14 @@ export const en = {
     "That would be {0, plural, one {# reading} other {# readings}} in one file. Zoom in so the export covers less.",
   "dataExport.error.noFolder": "There is nowhere to write the export.",
   "dataExport.error.write": "The export could not be written: {0}",
-  "dataExport.error.grid": "{0}",
+  "dataExport.error.gridUnknownProduct": "There is no grid called {0}.",
+  "dataExport.error.gridBadListing":
+    "The list of published grids could not be read.",
+  "dataExport.error.gridNoFrames": "No {0} grid has been published yet.",
+  "dataExport.error.gridNotGrib": "That file is not a GRIB2 grid.",
+  "dataExport.error.gridUnreadable":
+    "That grid is packed a way this build does not read.",
+  "dataExport.error.gridNotDrawn": "The grid could not be drawn.",
   "dataExport.error.unknown": "The export could not be written.",
 
   "search.eyebrow": "Find a place",
@@ -779,7 +786,9 @@ export const en = {
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "nothing received for {age}",
   "radar.faultOffline": "not sending",
-  "radar.faultNotOperating": "{state}",
+  "radar.faultStartUp": "The radar is starting up. It should be back shortly.",
+  "radar.faultNotOperating":
+    "The radar is not sweeping. The office reports it as {state}.",
   "radar.terminalLine":
     "Terminal Doppler weather radar, {range} km reach · {source}",
   "radar.terminalProducts":

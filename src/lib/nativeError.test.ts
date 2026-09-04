@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { nativeErrorParams } from "./nativeError";
+import { dataExportErrorText } from "./dataExport";
 import { ensureLanguage, setLanguage, translate } from "../i18n";
 import { en } from "../i18n/en";
 import { fr } from "../i18n/fr";
@@ -110,5 +111,61 @@ describe("a failure the native side blamed on a service", () => {
       expect(en[`radar.error.${code}`].length).toBeGreaterThan(0);
       expect(en[`bundle.error.${code}`].length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("no catalogue line is only a placeholder", () => {
+  it("wraps every native failure in words somebody wrote", () => {
+    // Three keys were exactly "{0}" or "{state}", so a Spanish reader whose
+    // grid export failed saw a Rust error's Display text in English inside a
+    // translated toast, and a French reader saw the RDA's own word inside a
+    // French sentence. A catalogue value that is only a parameter is not a
+    // translation of anything.
+    // A positional argument is always a string the native side or a feed
+    // handed over, so a value that is only one is a line nobody wrote. A
+    // named one is a different thing and three of those are deliberate:
+    // `settings.radiusValue` and `tool.rangeResult` hold a distance this app
+    // formatted with the catalogue's own unit words, and `alerts.impactBadge`
+    // holds an office tag. Each exists so a language can put wording around
+    // the value if it needs to.
+    const bare = Object.entries(en)
+      .filter(([, value]) => /^\{\d+\}$/.test(value.trim()))
+      .map(([key]) => key);
+    expect(bare).toEqual([]);
+
+    // And the state key by name, so this cannot pass because it was renamed.
+    expect(en["radar.faultNotOperating"]).toContain("{state}");
+    expect(en["radar.faultNotOperating"].trim()).not.toBe("{state}");
+  });
+
+  it("says what went wrong with a grid, in the reader's own language", async () => {
+    // The MRMS errors were flattened to their Display text and handed
+    // through. Each one now carries a code the catalogue answers.
+    const cases: Array<[string, string[]]> = [
+      ["gridUnknownProduct", ["mrms-rala"]],
+      ["gridBadListing", []],
+      ["gridNoFrames", ["MergedReflectivityQCComposite"]],
+      ["gridNotGrib", []],
+      ["gridUnreadable", []],
+      ["gridNotDrawn", []],
+    ];
+    for (const [code, args] of cases) {
+      const said = dataExportErrorText({ code, args });
+      expect(said, code).not.toBe("");
+      expect(said, code).not.toContain("{");
+      // Not the code itself leaking through as the whole message.
+      expect(said, code).not.toBe(code);
+    }
+    // And the argument reaches the sentence.
+    expect(
+      dataExportErrorText({ code: "gridUnknownProduct", args: ["mrms-rala"] }),
+    ).toContain("mrms-rala");
+
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    expect(dataExportErrorText({ code: "gridNotGrib", args: [] })).toBe(
+      fr["dataExport.error.gridNotGrib"],
+    );
+    setLanguage("en");
   });
 });

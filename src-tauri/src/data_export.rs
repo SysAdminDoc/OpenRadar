@@ -84,7 +84,7 @@ impl DataExportError {
             // already has, so the page says the same thing it would have said
             // about the picture.
             Self::Sweep(inner) => inner.parts(),
-            Self::Grid(inner) => ("grid", vec![inner.to_string()]),
+            Self::Grid(inner) => inner.parts(),
             Self::NotDrawn => ("notDrawn", Vec::new()),
             Self::NoProduct(id) => ("noProduct", vec![id.clone()]),
             Self::NothingInView => ("nothingInView", Vec::new()),
@@ -719,6 +719,56 @@ mod tests {
     use super::*;
     use nexrad_model::data::SweepField;
     use nexrad_model::meta::Site;
+
+    /// A grid failure keeps its own code rather than being flattened to the
+    /// Display text of a Rust error.
+    ///
+    /// It used to arrive as `("grid", [inner.to_string()])`, and the
+    /// catalogue line for that was a bare `{0}`, so a Spanish reader whose
+    /// export failed was handed an English sentence written in this file.
+    #[test]
+    fn a_grid_failure_carries_a_code_the_catalogue_answers() {
+        let cases = [
+            (
+                mrms::MrmsError::UnknownProduct("mrms-rala".into()),
+                "gridUnknownProduct",
+                vec!["mrms-rala".to_string()],
+            ),
+            (mrms::MrmsError::BadListing, "gridBadListing", Vec::new()),
+            (
+                mrms::MrmsError::NoFrames("MergedReflectivityQCComposite".into()),
+                "gridNoFrames",
+                vec!["MergedReflectivityQCComposite".to_string()],
+            ),
+            (mrms::MrmsError::NotGrib, "gridNotGrib", Vec::new()),
+            (
+                mrms::MrmsError::Unsupported("template 5.99".into()),
+                "gridUnreadable",
+                Vec::new(),
+            ),
+            (
+                mrms::MrmsError::Decode("short read".into()),
+                "gridUnreadable",
+                Vec::new(),
+            ),
+            (
+                mrms::MrmsError::Encode("no encoder".into()),
+                "gridNotDrawn",
+                Vec::new(),
+            ),
+        ];
+        for (inner, code, args) in cases {
+            let said = inner.to_string();
+            let (got_code, got_args) = DataExportError::Grid(inner).parts();
+            assert_eq!(got_code, code);
+            assert_eq!(got_args, args);
+            // And the English sentence this file holds is not what goes out.
+            assert!(
+                !got_args.contains(&said),
+                "{code} still carries the Display text"
+            );
+        }
+    }
 
     /// A three-azimuth cut with one gate of each kind in it, so a CSV can be
     /// read line by line and checked against what went in.

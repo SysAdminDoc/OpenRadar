@@ -98,6 +98,26 @@ pub enum MrmsError {
     Http(#[from] http::HttpError),
 }
 
+impl MrmsError {
+    /// A code and its arguments, so the reader is told this in their own
+    /// language rather than handed the Display text of a Rust error. The
+    /// wording lived here, in English, and the page printed it verbatim
+    /// inside a translated sentence.
+    pub fn parts(&self) -> (&'static str, Vec<String>) {
+        match self {
+            Self::UnknownProduct(id) => ("gridUnknownProduct", vec![id.clone()]),
+            Self::BadListing => ("gridBadListing", Vec::new()),
+            Self::NoFrames(id) => ("gridNoFrames", vec![id.clone()]),
+            Self::NotGrib => ("gridNotGrib", Vec::new()),
+            // What is wrong is the same either way: the file is a shape this
+            // build cannot turn into a picture. The detail is for the log.
+            Self::Unsupported(_) | Self::Decode(_) => ("gridUnreadable", Vec::new()),
+            Self::Encode(_) => ("gridNotDrawn", Vec::new()),
+            Self::Http(inner) => inner.parts(),
+        }
+    }
+}
+
 impl Serialize for MrmsError {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())
