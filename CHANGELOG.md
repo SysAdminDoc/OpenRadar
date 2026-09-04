@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.10.0
 
+- The two watches that are not about warnings now run whether or not their layer is on the map. Taking Storm Cells or Lightning Flashes off the map used to stop the notice with it, and the switch in Settings went grey while the setting itself stayed on, so putting the layer back weeks later quietly re-armed a watch you had been shown as off. Each keeps its own feed now. Neither works without somewhere to watch, which is the part that was always true.
+
+- A place you switch off during a gap in the lightning feed is properly forgotten. The record of what each place has been told was only tidied when a new batch of flashes arrived, so during an outage, or with the layer off, switching a place off and on left it marked as already told and a storm still going overhead went unannounced.
+
 - The wind profile can read a jet. A Doppler radar wraps anything moving faster than its own limit, and the profile was fitting the wrapped numbers: a ring in a 35 m/s wind read through a 22 m/s limit is not a wave any fit will take, so those heights came back marked as unreadable. The heights it was refusing are the ones a forecaster opens it for. Each cut is now unwrapped on its own limit before the fit, and each ring is levelled against the fact that a wind blowing across a full circle averages to nothing.
 
 - Offline pack failures are in your language too, and they say what to do. They came straight out of the decoder as its own English, so a French reader was told "that region needs 41200 tiles, above the 25000 tile limit", with the count written the way a machine writes one. Each now says the thing you can act on: zoom in, free some space, wait for it to finish, or try the download again. The exact fault still goes to the log for a bug report.
