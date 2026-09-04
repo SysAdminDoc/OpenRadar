@@ -53,6 +53,14 @@ const KINDS: Record<string, { kind: string; color: string }> = {
   G: WIND,
   O: WIND,
   N: WIND,
+  // Sustained wind and the marine reports, both of which the weather service
+  // writes out as wind and this table used to leave grey, so the same report
+  // was one kind or the other depending on which source answered. Read off
+  // the live feed on 2026-09-04: `A` is HIGH SUST WINDS and `M` is MARINE
+  // TSTM WIND.
+  A: WIND,
+  M: WIND,
+  // Waterspout and landspout, which are both a tornado somewhere awkward.
   W: TORNADO,
   C: FUNNEL,
   F: FLOOD,
@@ -187,19 +195,24 @@ const FALLBACK =
 /**
  * The service writes the type out; this is the same grouping by its words.
  *
- * It abbreviates, which is the whole difficulty. The words it published on
- * 2026-09-04 were `Tstm Wnd Gst`, `Tstm Wnd Dmg`, `Marine Tstm Wind`, `Hail`,
- * `Funnel Cloud`, `Flash Flood`, `Flood`, `Fog`, `Rain` and `Lightning`, so a
- * match on the whole word "wind" caught the marine one and let the two that
- * make up most of a severe day fall through to grey.
+ * It abbreviates, which is the whole difficulty. The words the two feeds
+ * published on 2026-09-04 were `Tstm Wnd Gst`, `Tstm Wnd Dmg`, `Non-Tstm Wnd
+ * Gst`, `Non-Tstm Wnd Dmg`, `Marine Tstm Wind`, `High Sust Winds`, `Hail`,
+ * `Tornado`, `Funnel Cloud`, `Waterspout`, `Landspout`, `Flash Flood`,
+ * `Flood`, `Fog`, `Rain`, `Lightning`, `Debris Flow` and `Landslide`. A match
+ * on the whole word "wind" caught the marine one and let the two that make up
+ * most of a severe day fall through to grey; a match that then forgot the
+ * plural would have dropped the sustained-wind reports the same way.
  */
 function kindOfWords(said: string): { kind: string; color: string } {
   const lower = said.toLowerCase();
-  if (lower.includes("waterspout")) return TORNADO;
+  if (lower.includes("waterspout") || lower.includes("landspout")) {
+    return TORNADO;
+  }
   if (lower.includes("funnel")) return FUNNEL;
   if (lower.includes("tornado")) return TORNADO;
   if (lower.includes("hail")) return HAIL;
-  if (/\b(wind|wnd|gust|gst)\b/.test(lower)) return WIND;
+  if (/\b(wind|wnd|gust|gst)s?\b/.test(lower)) return WIND;
   if (lower.includes("flood") || lower.includes("flash")) return FLOOD;
   return OTHER;
 }
@@ -292,15 +305,26 @@ const SERVICE_PAGES = 6;
 export function serviceReportsUrl(offset = 0): string {
   // The service's own date syntax, which wants a space rather than the T and
   // no milliseconds. Its dates are UTC, which is what `toISOString` gives.
+  //
+  // Rounded down to the hour, so the same hour asks the same question. The
+  // address is the native cache's key, and one carrying the current second
+  // is a key nothing can ever hit again: every refresh would write entries
+  // that are dead on arrival and push real tiles out of the budget, and the
+  // offline view would have no copy of this layer to fall back to. The
+  // window is then a day and up to an hour, which is the direction to err.
   const since = new Date(Date.now() - REPORT_HOURS * 3_600_000)
     .toISOString()
-    .slice(0, 19)
+    .slice(0, 13)
     .replace("T", " ");
   const search = new URLSearchParams({
-    where: `lsr_validtime >= TIMESTAMP '${since}'`,
-    orderByFields: "lsr_validtime DESC",
+    where: `lsr_validtime >= TIMESTAMP '${since}:00:00'`,
+    // The time is not a total order: reports cluster on the minute, and a
+    // tie split across two pages can be ordered differently by each of the
+    // two requests, which drops one report and repeats another. The row id
+    // breaks the tie the same way for both.
+    orderByFields: "lsr_validtime DESC,objectid DESC",
     outFields:
-      "descript,magnitude,units,lsr_validtime,loc_desc,state,remarks,wfo",
+      "objectid,descript,magnitude,units,lsr_validtime,loc_desc,state,remarks,wfo",
     returnGeometry: "true",
     geometryPrecision: "4",
     outSR: "4326",
@@ -370,6 +394,7 @@ export const stormReportsOverlay: OverlayAdapter = {
     // at the end rather than page by page, so the sort that puts the newest
     // report on top sees all of them.
     const rows: unknown[] = [];
+    const seen = new Set<number>();
     for (let page = 0; page < SERVICE_PAGES; page += 1) {
       const answer = await fetch(
         cachedUrl(serviceReportsUrl(page * SERVICE_PAGE)),
@@ -393,7 +418,20 @@ export const stormReportsOverlay: OverlayAdapter = {
         features?: unknown;
         exceededTransferLimit?: unknown;
       };
-      if (Array.isArray(body.features)) rows.push(...body.features);
+      if (Array.isArray(body.features)) {
+        for (const row of body.features) {
+          // A report filed between two of these requests shifts every row
+          // down one, so the next page begins with the row the last one
+          // ended on. Its own id is what says it has already been counted.
+          const id = (row as { properties?: { objectid?: unknown } })
+            ?.properties?.objectid;
+          if (typeof id === "number") {
+            if (seen.has(id)) continue;
+            seen.add(id);
+          }
+          rows.push(row);
+        }
+      }
       if (body.exceededTransferLimit !== true) break;
     }
     return {
