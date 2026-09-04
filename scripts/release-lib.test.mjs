@@ -252,3 +252,53 @@ describe("how far behind the published updater manifest is", () => {
     expect(() => publishedLag("0.7.0", "not a version")).toThrow();
   });
 });
+
+describe("what the manifest says ships", () => {
+  it("declares every package the app imports at runtime", () => {
+    // A package the app imports and the manifest calls a development
+    // dependency is a package nothing outside this repository knows ships:
+    // an SBOM, a licence audit and `npm ls --omit=dev` all read the manifest
+    // rather than the bundle. `lucide-react` spent a day on the wrong side
+    // of that line, and the bundler hid it by not caring which side it was.
+    const root = path.resolve(import.meta.dirname, "..");
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(root, "package.json"), "utf8"),
+    );
+    const runtime = new Set(Object.keys(pkg.dependencies ?? {}));
+    const development = new Set(Object.keys(pkg.devDependencies ?? {}));
+
+    /** Every source file the app itself is built from. */
+    const sources = [];
+    const walk = (at) => {
+      for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+        const here = path.join(at, entry.name);
+        if (entry.isDirectory()) {
+          walk(here);
+        } else if (
+          /\.(ts|tsx)$/.test(entry.name) &&
+          !/\.test\./.test(entry.name)
+        ) {
+          sources.push(here);
+        }
+      }
+    };
+    walk(path.join(root, "src"));
+    expect(sources.length).toBeGreaterThan(100);
+
+    const missing = new Set();
+    for (const file of sources) {
+      const text = fs.readFileSync(file, "utf8");
+      for (const found of text.matchAll(/from\s+"([^"./][^"]*)"/g)) {
+        // The package, not the path inside it, and not a scoped one's org.
+        const specifier = found[1];
+        const name = specifier.startsWith("@")
+          ? specifier.split("/").slice(0, 2).join("/")
+          : specifier.split("/")[0];
+        if (name.startsWith("node:")) continue;
+        if (runtime.has(name)) continue;
+        if (development.has(name)) missing.add(name);
+      }
+    }
+    expect([...missing]).toEqual([]);
+  });
+});
