@@ -408,16 +408,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-307 (P3): Tests that write shared statics with no lock, and gates that cannot fail
-      Category: testing
-      Where: `src-tauri/src/tray.rs:84, 92` (`static COPY`, `static HAZARD`) and the four tests at `:468, 476, 498, 531` that mutate them with no serialising lock (every other module with static state has one); `src-tauri/src/level2.rs:5287, 5617, 5710` and `mrms.rs:3836` (ignored live tests call `clear_cache()` or touch `CACHE` outside `decoded_cache_test()` / `ONE_AT_A_TIME`); `src/i18n/coverage.test.ts:486-491` (a key is "alive" if its quoted name appears anywhere, comments included, and the family check at `:521-536` accepts a bare suffix such as `"rain"` or `"name"`, so 95 keys are alive on prefix alone)
-      Problem: The tray tests can read each other's French copy under the default parallel runner, the same shape `level2` was fixed for on 2026-08-31; the live tests wipe each other's cache under `-- --ignored`; the dead-key gate cannot fail for a key mentioned only in a comment. No key slips today; the point is that none can be caught.
-      Evidence: The sites above; a scan with comments stripped found zero keys alive only via a comment.
-      Fix: A `static ONE_AT_A_TIME: Mutex<()>` in `tray.rs`'s tests; the cache guards on the four live tests; strip comments before the liveness scan (the way `scripts/unused-exports.mjs:116` does) and require the family suffix to appear inside a template literal or `t(`/`translate(` call.
-      Acceptance: `cargo test tray` passes under `--test-threads=8` twenty times in a row; the coverage gate fails when a key is planted in a comment only.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-308 (P3): The same helper written twice or more
       Category: maintainability
       Where: bearing: `src/lib/cells.ts:143` and `src/lib/nearby.ts:49` (`bearingDegrees`, identical); distance: `src/lib/geo.ts:6` (`haversineMiles`) and `src/lib/sounding.ts:55` (`distanceKm`, different radius and form), with `MapViewport.tsx:1955` multiplying by a bare `1.609344` while `units.ts:73` and `cells.ts:65` both hold `MILES_TO_KM`; "minutes ago": `UtilityPanels.tsx:173`, `RadarProductPanel.tsx:98`, `overlays/registry.ts:255`; the ArcGIS `query()` in `overlays/spc.ts:138-165` and `overlays/wpc.ts:92-119` (byte-identical but for the status key) with the same envelope built inline a third and fourth time in `wildfires.ts:76` and `alerts.ts:489`; the `matchMedia` subscriber three times in `useClock.ts:103, 145, 171` (the first without the `typeof` guard the other two have); the "still mounted" ref effect in `useApproachWatch.ts:70`, `useLightningWatch.ts:70`, `useForecastSmoke.ts:86`, `useAutostart.ts:33`; the `["pointerdown","keydown","wheel"]` trio in `App.tsx:1546-1554` and `FirstRunReveal.tsx:37-45`
