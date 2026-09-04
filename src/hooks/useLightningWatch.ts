@@ -79,6 +79,24 @@ export function useLightningWatch(options: {
     .map((place) => `${place.id}@${place.center.join(",")}`)
     .join("|");
 
+  // Forgetting a place that is no longer watched cannot wait for the feed.
+  // The prune lives in `lightningAfter`, which only runs on a real window, so
+  // through an outage or with the lightning layer switched off a place turned
+  // off and back on kept its record: it was still marked as told, and a storm
+  // that was still going over it went unannounced. Missing a notice is the
+  // direction that matters, so this runs on the watched set alone.
+  useEffect(() => {
+    const live = new Set(
+      places.filter((place) => place.enabled).map((place) => place.id),
+    );
+    for (const id of [...saidRef.current.keys()]) {
+      if (!live.has(id)) saidRef.current.delete(id);
+    }
+    // `places` is a new array every render; `watched` is the part of it that
+    // decides this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watched]);
+
   useEffect(() => {
     if (!rule.enabled) return;
     // No window is not an empty window. The feed answers with nothing when

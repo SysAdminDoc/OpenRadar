@@ -330,15 +330,19 @@ export function RadarProductPanel({
                     against a folded field collapses, so it unfolds whatever
                     this says. The control says so rather than sitting
                     unchecked over a sweep that has been unfolded anyway. */}
-                {unfoldForced
-                  ? t("radar.dealiasForced")
-                  : t("radar.dealiasDetail")}
+                {isTdwrStation(radar.station)
+                  ? t("radar.dealiasTdwr")
+                  : unfoldForced
+                    ? t("radar.dealiasForced")
+                    : t("radar.dealiasDetail")}
               </small>
             </span>
             <input
               type="checkbox"
-              checked={radar.dealias || unfoldForced}
-              disabled={unfoldForced}
+              checked={
+                (radar.dealias || unfoldForced) && !isTdwrStation(radar.station)
+              }
+              disabled={unfoldForced || isTdwrStation(radar.station)}
               onChange={(event) =>
                 onRadar({ ...radar, dealias: event.target.checked })
               }

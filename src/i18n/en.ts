@@ -667,6 +667,8 @@ export const en = {
   "radar.liveDetail":
     "Draw the sweep the radar is making now over the last one it finished. The finished picture is four to six minutes old by the time it is published; this one is seconds old over the sector the radar has reached, and unchanged everywhere else.",
   "radar.smooth": "Smooth the sweep",
+  "radar.dealiasTdwr":
+    "An airport radar's velocity arrives already unfolded, so there is nothing here to take out.",
   "radar.smoothTdwr":
     "An airport radar's products arrive already drawn, so there are no gates to read between.",
   "radar.smoothDetail":

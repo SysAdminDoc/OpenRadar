@@ -688,6 +688,8 @@ export const fr: Catalogue = {
   "radar.liveDetail":
     "Dessiner le balayage que le radar fait en ce moment par-dessus le dernier qu'il a terminé. L'image terminée a de quatre à six minutes au moment d'être publiée; celle-ci a quelques secondes sur le secteur que le radar a atteint, et ne change rien ailleurs.",
   "radar.smooth": "Lisser le balayage",
+  "radar.dealiasTdwr":
+    "La vitesse d'un radar d'aéroport arrive déjà dépliée : il n'y a rien à retirer ici.",
   "radar.smoothTdwr":
     "Les produits d'un radar d'aéroport arrivent déjà dessinés : il n'y a pas de portes entre lesquelles interpoler.",
   "radar.smoothDetail":
