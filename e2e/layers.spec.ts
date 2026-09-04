@@ -109,6 +109,42 @@ test("puts a failed enabled layer beside its switch", async ({ page }) => {
   await expect(row).toContainText("The NIFC fire service is busy");
 });
 
+test("says when the storm reports came from the second source", async ({
+  page,
+}) => {
+  // The fallback shipped drawing the weather service's reports and saying
+  // nothing about it: the note reached the overlay's state and the panel was
+  // never handed it, so the catalogue line for it could not render at all.
+  // A reader looking at this switch is looking because the layer went quiet,
+  // and "these came from somewhere else" is the answer they came for.
+  await page.route(
+    "https://mesonet.agron.iastate.edu/geojson/lsr.geojson**",
+    async (route) => {
+      await route.fulfill({ status: 503, body: "maintenance" });
+    },
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  // By the switch's own name rather than by the row's words: the Counties
+  // row explains itself with "how warnings and storm reports are worded",
+  // and `hasText` does not care about case, so filtering on the layer's name
+  // matches two rows.
+  const row = page
+    .locator(".toggle-row")
+    .filter({ has: page.getByRole("checkbox", { name: /^Storm Reports/ }) });
+  await row.getByRole("checkbox").check();
+  await expect(row).toContainText(
+    "coming from the weather service rather than the usual archive",
+  );
+  // The other half, that the note goes when the archive answers again, is in
+  // `useOverlays.test.ts`: this layer refreshes every five minutes, so no
+  // browser test can wait for the answer that would clear it.
+});
+
 test("saves, reopens, and undoes a preset", async ({ page }) => {
   const pane = page.getByRole("application", {
     name: "Interactive weather map",
