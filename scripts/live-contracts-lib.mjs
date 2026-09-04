@@ -53,6 +53,14 @@ export const LIVE_CONTRACTS = [
     required: false,
   },
   {
+    id: "tdwr",
+    label: "Terminal radar station list",
+    host: "api.weather.gov",
+    kind: "native",
+    filter: "tdwr::tests::every_site_in_the_table_is_one_the_office_still_lists",
+    required: false,
+  },
+  {
     id: "lightning",
     label: "GOES lightning",
     host: "noaa-goes19.s3.amazonaws.com",

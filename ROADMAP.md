@@ -315,13 +315,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P1
 
-- [ ] AUD-259 (P1): The West Palm Beach terminal radar has been unreachable since 2026-08-03, because its identifier changed
-      Why: SCN26-61 renamed the TDWR from TPBI to TDJT for Level II and Level III effective 2026-08-03. `src/lib/tdwrSites.json:38` still says `TPBI`, and `src-tauri/src/tdwr.rs:80` strips the first letter for the Level III prefix, so every product for the site asks for `PBI_`. A reader who holds it gets nothing, and the site list does not say why.
-      Evidence: Verified live 2026-09-04: `unidata-nexrad-level2-chunks/TDJT/` active, `TPBI/` empty; archive `2026/09/03/TDJT/` present, `TPBI/` absent; Level III `DJT_TZL_2026_09_03` and `DJT_TV0_2026_09_03` present, `PBI_TZL_2026_09_03` absent. https://www.weather.gov/media/notification/pdf_2026/scn26-61_Identifer_Change_PBI_to_DJT.pdf
-      Touches: `src/lib/tdwrSites.json`, `src-tauri/src/tdwr.rs` (an alias so an archive date before 2026-08-03 still asks for `PBI_`), `src-tauri/src/tdwr.rs` tests, `scripts/live-contracts-lib.mjs` (a contract that every TDWR id in the table has a Level III key today), README site count if it changes.
-      Acceptance: Holding West Palm Beach draws a sweep; a live contract asks the bucket for the newest `TZL` key of every id in the table and fails on any that has none; an archive request dated 2026-07-01 for the site asks under `PBI_`.
-      Complexity: S
-
 - [ ] AUD-260 (P1): Diagnostics never says how autostart is set or that Windows notifications are blocked
       Why: `CHANGELOG.md:53` says the report names which way autostart is set; `src/lib/diagnostics.ts:244-300` has no such line. Separately, `src/lib/notify.ts:31` returns false on a denied permission and the three watches fall back to a toast, and no surface, Diagnostics included, tells the reader Windows notifications are blocked. Both are exactly the "why did I not hear about last night's warning" case the report exists for.
       Evidence: `grep -n 'autostart\|Startup' src/lib/diagnostics.ts` is empty; `src/lib/autostart.ts:57`; `src/hooks/useAlertWatch.ts:271,387`, `useApproachWatch.ts:146`, `useLightningWatch.ts:120`.
