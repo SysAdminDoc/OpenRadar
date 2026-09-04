@@ -104,7 +104,9 @@ test("puts a failed enabled layer beside its switch", async ({ page }) => {
   await page.getByRole("button", { name: "Layers", exact: true }).click();
   const row = page.locator(".toggle-row").filter({ hasText: "Wildfires" });
   await row.getByRole("checkbox").check();
-  await expect(row).toContainText("NIFC returned 503");
+  // The sentence a reader can act on, in their own language. The status
+  // code itself goes to the log rather than to the panel.
+  await expect(row).toContainText("The NIFC fire service is busy");
 });
 
 test("saves, reopens, and undoes a preset", async ({ page }) => {

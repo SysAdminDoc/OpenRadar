@@ -1,3 +1,4 @@
+import { serviceAnswer } from "./serviceAnswer";
 import { haversineMiles, type GeoPoint } from "./geo";
 import { translate } from "../i18n";
 import { forecastUnits } from "./units";
@@ -61,7 +62,9 @@ export async function searchPlaces(
     headers: { Accept: "application/json" },
   });
   if (!response.ok)
-    throw new Error(`Place search returned ${response.status}.`);
+    throw new Error(
+      translate("search.failed", { answer: serviceAnswer(response.status) }),
+    );
   const payload = (await response.json()) as { results?: unknown };
   if (!Array.isArray(payload.results)) return [];
 
@@ -126,7 +129,10 @@ export async function fetchForecast(
     signal,
     headers: { Accept: "application/json" },
   });
-  if (!response.ok) throw new Error(`Forecast returned ${response.status}.`);
+  if (!response.ok)
+    throw new Error(
+      translate("weather.failed", { answer: serviceAnswer(response.status) }),
+    );
   const payload = (await response.json()) as Record<string, unknown>;
   const current = (payload.current ?? {}) as Record<string, unknown>;
   const daily = (payload.daily ?? {}) as Record<string, unknown>;

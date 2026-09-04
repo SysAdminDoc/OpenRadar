@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   boundsQuery,
   type OverlayAdapter,
@@ -501,7 +502,9 @@ export const alertsOverlay: OverlayAdapter = {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
-      throw new Error(`NWS alerts returned ${response.status}.`);
+      throw new Error(
+        translate("alerts.failed", { answer: serviceAnswer(response.status) }),
+      );
     }
     const drawn = parseAlerts(await response.json(), tagged);
 

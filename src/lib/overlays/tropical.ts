@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   relativeTime,
   type OverlayAdapter,
@@ -145,7 +146,11 @@ export const tropicalOverlay: OverlayAdapter = {
           { signal, headers: { Accept: "application/json" } },
         );
         if (!response.ok) {
-          throw new Error(`The tropical service returned ${response.status}.`);
+          throw new Error(
+            translate("tropical.failed", {
+              answer: serviceAnswer(response.status),
+            }),
+          );
         }
         return parseTropicalLayer(await response.json(), layer.kind);
       }),

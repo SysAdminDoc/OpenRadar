@@ -147,8 +147,11 @@ describe("failover", () => {
     expect(timeline.frames[0].tileUrl).toContain("base_reflectivity_mosaic");
 
     const health = providerHealth();
+    // What a reader is told, which is what to do about it rather than the
+    // protocol's number. The number itself goes to the log on the way past,
+    // which is what a bug report carries.
     expect(health.find((item) => item.id === "ridge")?.lastError).toContain(
-      "503",
+      "is busy",
     );
     expect(health.find((item) => item.id === "nowcoast")?.frameCount).toBe(2);
   });

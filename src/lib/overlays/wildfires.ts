@@ -1,3 +1,4 @@
+import { serviceAnswer } from "../serviceAnswer";
 import {
   boundsQuery,
   relativeTime,
@@ -82,7 +83,11 @@ export const wildfiresOverlay: OverlayAdapter = {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) {
-      throw new Error(`NIFC returned ${response.status}.`);
+      throw new Error(
+        translate("wildfires.failed", {
+          answer: serviceAnswer(response.status),
+        }),
+      );
     }
     return parseWildfires(await response.json());
   },

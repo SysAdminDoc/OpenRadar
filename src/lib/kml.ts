@@ -1,3 +1,4 @@
+import { translate } from "../i18n";
 /**
  * KML, read into the GeoJSON the rest of the app draws.
  *
@@ -204,10 +205,10 @@ export function looksLikeKml(name: string, text: string): boolean {
 export function parseKml(xml: string): KmlDocument {
   const document = new DOMParser().parseFromString(xml, "text/xml");
   if (document.getElementsByTagName("parsererror").length) {
-    throw new Error("that file could not be read as XML");
+    throw new Error(translate("kml.notXml"));
   }
   if (document.getElementsByTagName("kml").length === 0) {
-    throw new Error("that file is not a KML document");
+    throw new Error(translate("kml.notKml"));
   }
   const styles = stylesOf(document);
   const features: KmlFeature[] = [];

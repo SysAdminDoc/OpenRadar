@@ -235,7 +235,7 @@ describe("falling back to the day before", () => {
   it("fails rather than walking backwards for a week", async () => {
     stub({ hms_smoke: 503 });
     await expect(fetchSmoke(new Date(Date.UTC(2026, 8, 1, 6)))).rejects.toThrow(
-      /503/,
+      /is busy/,
     );
   });
 

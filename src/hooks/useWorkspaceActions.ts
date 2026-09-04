@@ -644,9 +644,14 @@ export function useWorkspaceActions(options: {
         pushToast({
           title: translate("toast.overlayFailed"),
           detail:
-            error instanceof Error
-              ? error.message
-              : translate("toast.unreadable"),
+            // A parse failure is the engine talking about tokens and offsets,
+            // in English, at somebody who chose the wrong file. What they
+            // need is which file to choose.
+            error instanceof SyntaxError
+              ? translate("toast.notGeoJson")
+              : error instanceof Error
+                ? error.message
+                : translate("toast.unreadable"),
         });
       }
     },

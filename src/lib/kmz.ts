@@ -1,3 +1,4 @@
+import { translate } from "../i18n";
 /**
  * KMZ: one KML in a zip, which is how almost every published KML arrives.
  *
@@ -41,7 +42,7 @@ function endOfDirectory(bytes: DataView): { at: number; count: number } | null {
 
 function readDirectory(bytes: DataView): ZipEntry[] {
   const end = endOfDirectory(bytes);
-  if (!end) throw new Error("that file is not a zip archive");
+  if (!end) throw new Error(translate("kmz.notZip"));
   const entries: ZipEntry[] = [];
   let at = end.at;
   for (let read = 0; read < end.count; read += 1) {
@@ -67,7 +68,7 @@ function readDirectory(bytes: DataView): ZipEntry[] {
 
 async function inflate(raw: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream === "undefined") {
-    throw new Error("this build cannot decompress a zip archive");
+    throw new Error(translate("kmz.noDecompressor"));
   }
   // A stream built from the bytes rather than from a Blob. A Blob does not
   // carry a stream everywhere this runs, and going through one buys nothing:
@@ -90,7 +91,7 @@ async function inflate(raw: Uint8Array): Promise<Uint8Array> {
     // and this is the thing that actually landed.
     if (total > MAX_KMZ_ENTRY_BYTES) {
       await reader.cancel();
-      throw new Error("that archive unpacks to more than this will read");
+      throw new Error(translate("kmz.tooBigUnpacked"));
     }
     parts.push(value);
   }
@@ -112,16 +113,16 @@ async function inflate(raw: Uint8Array): Promise<Uint8Array> {
  */
 export async function readKmz(archive: ArrayBuffer): Promise<string> {
   if (archive.byteLength > MAX_KMZ_BYTES) {
-    throw new Error("that archive is larger than this will read");
+    throw new Error(translate("kmz.tooBig"));
   }
   const bytes = new DataView(archive);
   const entries = readDirectory(bytes);
   const kml =
     entries.find((entry) => entry.name.toLowerCase() === "doc.kml") ??
     entries.find((entry) => entry.name.toLowerCase().endsWith(".kml"));
-  if (!kml) throw new Error("that archive holds no KML file");
+  if (!kml) throw new Error(translate("kmz.noKml"));
   if (kml.uncompressedBytes > MAX_KMZ_ENTRY_BYTES) {
-    throw new Error("that archive unpacks to more than this will read");
+    throw new Error(translate("kmz.tooBigUnpacked"));
   }
 
   // The local header, whose own name and extra lengths are the ones that
@@ -129,23 +130,23 @@ export async function readKmz(archive: ArrayBuffer): Promise<string> {
   // directory's offsets is how an archive reads as corrupt.
   const local = kml.headerAt;
   if (local + 30 > archive.byteLength) {
-    throw new Error("that archive is truncated");
+    throw new Error(translate("kmz.truncated"));
   }
   if (bytes.getUint32(local, true) !== 0x04034b50) {
-    throw new Error("that archive is not laid out as a zip");
+    throw new Error(translate("kmz.notZipLayout"));
   }
   const nameLength = bytes.getUint16(local + 26, true);
   const extraLength = bytes.getUint16(local + 28, true);
   const from = local + 30 + nameLength + extraLength;
   const to = from + kml.compressedBytes;
-  if (to > archive.byteLength) throw new Error("that archive is truncated");
+  if (to > archive.byteLength) throw new Error(translate("kmz.truncated"));
   const raw = new Uint8Array(archive, from, kml.compressedBytes);
 
   if (kml.compression === 0) {
     return new TextDecoder().decode(raw);
   }
   if (kml.compression !== 8) {
-    throw new Error("that archive uses a compression this cannot read");
+    throw new Error(translate("kmz.compression"));
   }
   return new TextDecoder().decode(await inflate(raw));
 }

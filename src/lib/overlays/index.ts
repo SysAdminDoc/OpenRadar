@@ -27,7 +27,7 @@ export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
 
 export function overlayAdapter(id: OverlayId): OverlayAdapter {
   const adapter = OVERLAY_ADAPTERS.find((candidate) => candidate.id === id);
-  if (!adapter) throw new Error(`No overlay adapter for ${id}.`);
+  if (!adapter) throw new Error(`overlayAdapter has no adapter for ${id}.`);
   return adapter;
 }
 
