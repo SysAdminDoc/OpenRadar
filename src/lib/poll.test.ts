@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pollWhileOnline } from "./poll";
 
@@ -80,5 +82,37 @@ describe("a repeating ask that knows about the network", () => {
     network("offline");
     network("online");
     expect(asked).not.toHaveBeenCalled();
+  });
+});
+
+describe("every repeating ask in the workspace", () => {
+  it("goes through this one, or says why it does not", () => {
+    // The rule the twelve pollers share is written down once: hold off with
+    // no network, ask again the moment there is one, and stop cleanly. A
+    // hook that writes its own timer gets its own copy of that rule, and the
+    // thirteenth got it slightly wrong. Two intervals in `src/hooks` are not
+    // asks at all and are named here rather than left to be recognised.
+    const allowed = new Map([
+      ["useClock.ts", "the minute and second clocks, which fetch nothing"],
+      ["useAmbient.ts", "a frame-rate sampler, which fetches nothing"],
+      [
+        "useRadarTimeline.ts",
+        "the playback clock, which walks frames already held",
+      ],
+    ]);
+    const at = join(import.meta.dirname, "..", "hooks");
+    const offenders: string[] = [];
+    for (const name of readdirSync(at)) {
+      if (!name.endsWith(".ts") && !name.endsWith(".tsx")) continue;
+      if (name.includes(".test.")) continue;
+      const source = readFileSync(join(at, name), "utf8");
+      if (!source.includes("setInterval")) continue;
+      if (allowed.has(name)) continue;
+      offenders.push(name);
+    }
+    expect(
+      offenders,
+      `${offenders.join(", ")} keeps its own timer; use pollWhileOnline or add a reason here`,
+    ).toEqual([]);
   });
 });

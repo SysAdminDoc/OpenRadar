@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { isOnline, noteReached } from "../lib/online";
+import { noteReached } from "../lib/online";
+import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import {
   EMPTY_OVERLAY,
@@ -180,13 +181,13 @@ export function useOverlays(
     }
 
     const run = () => {
-      // Nothing is asked for while there is no network. Every adapter kept
-      // its own timer running and failing: a line in the log every thirty
-      // seconds per switched-on layer, an error stamped over each one's last
-      // good snapshot, and no way for a reader to tell "this service is
-      // down" from "this machine is not connected". The snapshots stay on
-      // the map either way; only the asking stops.
-      if (!isOnline()) return;
+      // Nothing is asked for while there is no network, which the poller
+      // below settles: every adapter used to keep its own timer running and
+      // failing, a line in the log every thirty seconds per switched-on
+      // layer, an error stamped over each one's last good snapshot, and no
+      // way for a reader to tell "this service is down" from "this machine
+      // is not connected". The snapshots stay on the map either way; only
+      // the asking stops.
       for (const adapter of OVERLAY_ADAPTERS) {
         if (!enabled[adapter.id]) continue;
         if (requests.has(adapter.id)) continue;
@@ -285,15 +286,12 @@ export function useOverlays(
       }
     };
 
-    run();
-    const timer = window.setInterval(run, POLL_MS);
-    // And the first thing that happens when it comes back is an ask, rather
-    // than up to thirty seconds of a map nobody has told about the network.
-    window.addEventListener("online", run);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("online", run);
-    };
+    // The one poller, which asks now, asks again on the timer, holds off
+    // while there is no network, and asks the moment there is one again
+    // rather than leaving up to thirty seconds of a map nobody has told.
+    // This was written out by hand here, which is how a thirteenth poller
+    // gets its own copy of a rule the other twelve share.
+    return pollWhileOnline(run, POLL_MS);
     // The keys stand in for `enabled` and `viewport`, which are read inside.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabledKey, variantKey, viewportKey]);
