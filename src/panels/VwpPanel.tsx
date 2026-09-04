@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { formatNumber, useT } from "../i18n";
 import { formatClock, useMeasurements } from "../lib/units";
+import { sweepErrorText } from "../lib/level2";
 import {
   barbParts,
   fastestMs,
@@ -153,6 +154,13 @@ function Hodograph({
 interface VwpPanelProps {
   /** The site the profile is read from, or null when none is held. */
   station: string | null;
+  /**
+   * Why there is no site to read, when there is not.
+   *
+   * A replay hands over no station on purpose, and telling that reader to
+   * hold one is wrong advice under a map that plainly has one held.
+   */
+  quiet?: "noSite" | "historical";
   /** The volume times the loop is showing, newest last. */
   times: string[];
   /** Asks the native side, or null in a browser preview. */
@@ -160,7 +168,13 @@ interface VwpPanelProps {
   onClose: () => void;
 }
 
-export function VwpPanel({ station, times, read, onClose }: VwpPanelProps) {
+export function VwpPanel({
+  station,
+  quiet = "noSite",
+  times,
+  read,
+  onClose,
+}: VwpPanelProps) {
   const t = useT();
   useMeasurements();
   const [answer, setAnswer] = useState<{
@@ -182,11 +196,13 @@ export function VwpPanel({ station, times, read, onClose }: VwpPanelProps) {
       })
       .catch((failure: unknown) => {
         if (request !== requestRef.current) return;
-        setAnswer({
-          columns: [],
-          error:
-            failure instanceof Error ? failure.message : t("vwp.unavailable"),
-        });
+        // The native side answers with its own `{code, args, text}`, which is
+        // never an `Error`, so checking for one sent every refusal to the
+        // same "not available here": a terminal radar, a time that would not
+        // parse, a bucket that was down and a volume that would not decode
+        // all read alike. `sweepErrorText` is what every other Level II
+        // surface already puts them through.
+        setAnswer({ columns: [], error: sweepErrorText(failure) });
       });
     // `times` is a new array every render; its contents are what matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,7 +220,11 @@ export function VwpPanel({ station, times, read, onClose }: VwpPanelProps) {
       className="surface-panel--right"
     >
       {!read || !station ? (
-        <p className="empty-copy">{t("vwp.needsSite")}</p>
+        <p className="empty-copy">
+          {/* Written out rather than built on a suffix: the coverage gate
+              refuses a key assembled from a variable. */}
+          {quiet === "historical" ? t("vwp.historical") : t("vwp.needsSite")}
+        </p>
       ) : answer === null ? (
         <div className="panel-loading">
           <LoaderCircle className="spin" size={16} />
@@ -215,6 +235,12 @@ export function VwpPanel({ station, times, read, onClose }: VwpPanelProps) {
           <strong>{t("vwp.failedTitle")}</strong>
           <span>{answer.error}</span>
         </div>
+      ) : columns.length === 0 ? (
+        // An answer with no columns in it. The chart below would draw an
+        // empty height rail and a list that owns no list items, which reads
+        // as a panel that is still loading rather than one that has been
+        // told there is nothing to draw.
+        <p className="empty-copy">{t("vwp.nothingToDraw")}</p>
       ) : (
         <>
           <div className="vwp-chart">

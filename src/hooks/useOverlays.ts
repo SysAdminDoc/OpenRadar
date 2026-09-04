@@ -246,25 +246,35 @@ export function useOverlays(
             log.warn("overlay", `${adapter.label} failed: ${message}`);
             // The last good snapshot stays on the map; only the label changes.
             // Unless it answers a different question, in which case there is
-            // nothing left to keep: what is drawn is cleared where the map
-            // reads the state, and the coverage goes so the next run asks.
-            const held = coverage[adapter.id]?.variant;
-            const stale = held !== undefined && held !== asking;
-            if (stale) delete coverage[adapter.id];
-            setStates((current) => ({
-              ...current,
-              [adapter.id]: stale
-                ? { ...IDLE_OVERLAY, error: message, variant: asking }
-                : // The note described the snapshot that just failed to be
-                  // replaced, and the error is the newer statement. Keeping
-                  // both would leave a note about an answer nobody has.
-                  {
-                    ...current[adapter.id],
-                    error: message,
-                    partial: null,
-                    variant: asking,
-                  },
-            }));
+            // nothing left to keep. The coverage governs whether the next run
+            // asks again, and is dropped on the same terms it always was: a
+            // failed request never stamped it, so an unconditional delete
+            // here would turn every failure into an immediate retry.
+            if (coverage[adapter.id]?.variant !== asking) {
+              delete coverage[adapter.id];
+            }
+            setStates((current) => {
+              // Asked of the snapshot itself rather than of the coverage
+              // record. The two part company: switching a layer off drops its
+              // coverage and leaves its data, so a snapshot of one day could
+              // come back with the coverage gone, read as "not stale" for
+              // want of anything to compare against, and be stamped with the
+              // question it does not answer. It was then drawn under the new
+              // day's heading, which is the failure this whole item is about,
+              // re-entered through the path meant to close it.
+              const held = current[adapter.id];
+              return {
+                ...current,
+                [adapter.id]:
+                  held.variant === asking
+                    ? // The note described the snapshot that just failed to
+                      // be replaced, and the error is the newer statement.
+                      // Keeping both would leave a note about an answer
+                      // nobody has.
+                      { ...held, error: message, partial: null }
+                    : { ...IDLE_OVERLAY, error: message, variant: asking },
+              };
+            });
           })
           .finally(() => {
             // A newer request may already own the slot.

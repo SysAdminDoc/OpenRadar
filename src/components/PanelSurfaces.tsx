@@ -507,10 +507,13 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "vwp" ? (
         <Suspense fallback={null}>
           <VwpPanel
-            // A different site, or a different set of volumes, is a different
-            // question. Mounting fresh for it is what lets "no answer yet" be
-            // where the panel starts.
-            key={`${props.singleSite?.station ?? ""}:${props.vwpTimes.join(",")}`}
+            // A different site is a different question, and mounting fresh
+            // for it is what lets "no answer yet" be where the panel starts.
+            // The volume list is deliberately not in the key: it grows a new
+            // entry every few minutes, and remounting on that swapped the
+            // chart for a spinner while three volumes were read again. The
+            // panel's own effect already re-asks when the list changes.
+            key={props.singleSite?.station ?? ""}
             // No station while the site is held on a volume from another day.
             // A historical hold publishes no volume list, and an empty list
             // means "whatever the radar put out last", so the panel drew this
@@ -520,6 +523,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
               props.singleSite?.historical
                 ? null
                 : (props.singleSite?.station ?? null)
+            }
+            // Which of the two silences it is. "Hold a site" is wrong advice
+            // under a map that plainly has one held.
+            quiet={
+              props.singleSite?.historical ? "historical" : ("noSite" as const)
             }
             times={props.vwpTimes}
             read={props.readVwp}

@@ -238,3 +238,84 @@ describe("a snapshot of a day the reader has left", () => {
     expect(view.result.current.stormReports.data.features).toHaveLength(1);
   });
 });
+
+describe("a snapshot that outlived the coverage record beside it", () => {
+  afterEach(() => {
+    online.reachable = true;
+    vi.restoreAllMocks();
+  });
+
+  function only(id: OverlayId): Record<OverlayId, boolean> {
+    const switches = {} as Record<OverlayId, boolean>;
+    for (const adapter of OVERLAY_ADAPTERS) switches[adapter.id] = false;
+    switches[id] = true;
+    return switches;
+  }
+
+  const nothing = {} as Record<OverlayId, boolean>;
+  for (const adapter of OVERLAY_ADAPTERS) nothing[adapter.id] = false;
+
+  it("is not stamped with a question it does not answer when a later ask fails", async () => {
+    // Switching a layer off drops its coverage record and leaves its data,
+    // so the two part company. Asking the coverage "is what I hold stale?"
+    // then answers "there is nothing to compare against", and the old day's
+    // polygons were stamped with the new day's question and drawn under its
+    // heading. The same failure the variant was added to prevent, coming
+    // back through the path meant to close it.
+    let answer: "ok" | "fail" = "ok";
+    vi.spyOn(globalThis, "fetch").mockImplementation((async () => {
+      if (answer === "fail") throw new Error("the outlook service is down");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-88, 32],
+                    [-86, 32],
+                    [-86, 34],
+                    [-88, 34],
+                    [-88, 32],
+                  ],
+                ],
+              },
+              properties: { dn: 2, label: "TSTM", valid: "", expire: "" },
+            },
+          ],
+        }),
+      } as Response;
+    }) as unknown as typeof fetch);
+
+    const dayOne = DEFAULT_OVERLAY_CHOICES;
+    const dayTwo = { ...DEFAULT_OVERLAY_CHOICES, spcDay: 2 as const };
+    const view = renderHook<
+      ReturnType<typeof useOverlays>,
+      { on: Record<OverlayId, boolean>; choices: OverlayChoices }
+    >(({ on, choices }) => useOverlays(on, ALABAMA, choices), {
+      initialProps: { on: only("spcOutlooks"), choices: dayOne },
+    });
+    await waitFor(() =>
+      expect(
+        view.result.current.spcOutlooks.data.features.length,
+      ).toBeGreaterThan(0),
+    );
+
+    // Off, which drops the coverage and keeps the data.
+    view.rerender({ on: nothing, choices: dayOne });
+    // Another day, and back on, and this time the service is down.
+    answer = "fail";
+    view.rerender({ on: only("spcOutlooks"), choices: dayTwo });
+    await waitFor(() =>
+      expect(view.result.current.spcOutlooks.error).not.toBeNull(),
+    );
+
+    // The error is what the reader is told, and Day 1's polygons are not
+    // drawn under Day 2's heading beside it.
+    expect(view.result.current.spcOutlooks.data.features).toHaveLength(0);
+  });
+});
