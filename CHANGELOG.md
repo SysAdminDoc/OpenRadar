@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A launch that starts with Windows opens to a map the size of its window. The map is built while the window is still hidden in the tray, and the runtime hands a hidden window a viewport a fraction of its real size, which nothing afterwards corrects: the map watches its container, and the container does not change when the window it sits in appears. It now measures itself again the moment the window is shown.
+
 - A shared view carries what you were looking at, not just where. If you had a site held, the link now names it along with the product, the tilt and any threshold you had set, so whoever opens it sees the picture you sent rather than the same ground under whatever their own workspace was on. A link made over the national mosaic still names no site, because following the nearest one is a habit of your workspace and not part of the view. Older links keep working, and a link naming a radar or product this version does not have still takes you to the place and says which part it could not use.
 
 - Storm reports have somewhere else to come from. They arrived from one archive, and a layer with one source cannot tell a quiet afternoon from a service that is down: two chasers lost their feed in the middle of a storm on 3 September in software that had the same problem. If the usual archive does not answer, the reports now come from the weather service’s own map service instead, and the layer says which one you are looking at.
