@@ -374,6 +374,7 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Touches: `src/App.tsx` (the watches, the replay wiring, the panel props each into a hook or component), `src/panels/MapOptionsPanels.tsx` (one file per section: layers, radar, watches, appearance, storage), `src/components/PanelSurfaces.tsx`, the tests that import them.
       Acceptance: Neither file is above 1,500 lines; adding a switch group edits one panel section file rather than the panel; `npm run check` and the e2e suite unchanged.
       Complexity: M
+      Note 2026-09-04: this is no longer only hygiene. `npm run check` exits 1 at `check:bundle`: the settings chunk is 72 kB against its 70 kB budget, and `scripts/bundle-budget.mjs` says in its own comment that reaching the budget means the settings panel has stopped being one panel. Verified pre-existing by building 9d27982. The three panels share one module, so opening Layers fetches Settings too; splitting them into a module each is what drops the chunk.
 
 - [ ] AUD-273 (P3): Tauri 2.12 readiness, when it ships
       Why: The 2.12 milestone (32 closed, 14 open on 2026-09-04) carries tao 0.37 (the process exits on `WM_ENDSESSION` instead of the "cannot move state from Destroyed" crash, which the autostart path is most exposed to), wry 0.56 (a WebView2 teardown crash fix), MSRV 1.90, `noRedirectionBitmap`, `bundle.windows.bundleVCRuntime`, and exit codes propagated from `app_handle().exit(n)`. None reaches this tree until `tauri-runtime-wry` 2.12.
