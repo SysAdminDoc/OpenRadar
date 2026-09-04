@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   HATCH_IMAGE,
+  archiveOutlookUrl,
+  parseArchiveOutlooks,
   SPC_DAYS,
   SPC_HAZARDS,
   hatch,
@@ -346,5 +348,104 @@ describe("the hatched area", () => {
       expect(opaque.length).toBeGreaterThan(0);
     }
     expect(spcOutlooksOverlay.images?.()[0].id).toBe(HATCH_IMAGE);
+  });
+});
+
+describe("the outlook that stood over a replayed day", () => {
+  it("asks the archive for that day, once, with a named issuance", () => {
+    // One request per replay rather than one per frame: an outlook is issued
+    // a few times a day and does not change as a loop steps through an
+    // afternoon. `cycle=-1` is asked for so this does not have to guess at
+    // the hours the Center issues on.
+    const url = archiveOutlookUrl(Date.UTC(2011, 3, 27, 20, 30));
+    expect(url).toContain("valid=2011-04-27");
+    expect(url).toContain("cycle=-1");
+    expect(url).toContain("day=1");
+    expect(url).toContain("outlook_type=C");
+  });
+
+  it("takes the day from the window's start, whatever the clock here says", () => {
+    // A reader in Iowa replaying the evening of the 27th is on the 28th in
+    // UTC for part of it, and the archive is keyed by the UTC day the
+    // outlook was issued for.
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 0, 0))).toContain(
+      "valid=2011-04-27",
+    );
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 23, 59))).toContain(
+      "valid=2011-04-27",
+    );
+  });
+
+  it("paints the archive in the colours the live service publishes", () => {
+    // The archive carries a threshold code and no colours at all, so they
+    // come from the live service's own renderer rather than being invented.
+    const read = parseArchiveOutlooks({
+      features: [
+        {
+          geometry: { type: "Polygon", coordinates: [] },
+          properties: {
+            threshold: "HIGH",
+            category: "CATEGORICAL",
+            issue: "2011-04-27T16:30:00Z",
+            product_issue: "2011-04-27T16:29:00Z",
+            expire: "2011-04-28T12:00:00Z",
+          },
+        },
+        {
+          geometry: { type: "Polygon", coordinates: [] },
+          properties: { threshold: "TSTM", issue: "2011-04-27T16:30:00Z" },
+        },
+      ],
+    });
+    // Weakest first, so the strongest ends up drawn on top.
+    expect(read.features.map((one) => one.properties.label)).toEqual([
+      "TSTM",
+      "HIGH",
+    ]);
+    const high = read.features[1].properties;
+    expect(high.fill).toBe("#ee99ee");
+    expect(high.stroke).toBe("#cc00cc");
+    expect(high.archived).toBe(true);
+    expect(high.valid).toBe(Date.parse("2011-04-27T16:30:00Z"));
+    expect(high.expire).toBe(Date.parse("2011-04-28T12:00:00Z"));
+  });
+
+  it("drops a threshold it has no colour for rather than drawing it grey", () => {
+    // A category this does not know is one the service has added, and
+    // guessing a colour for it would put an unlabelled band on the map.
+    const read = parseArchiveOutlooks({
+      features: [
+        {
+          geometry: { type: "Polygon", coordinates: [] },
+          properties: { threshold: "SOMETHING NEW" },
+        },
+      ],
+    });
+    expect(read.features).toEqual([]);
+  });
+
+  it("asks again for a different replay and not for the same one", () => {
+    const window = { from: 1, to: 2 };
+    const same = spcOutlooksOverlay.variant?.({
+      ...DEFAULT_OVERLAY_CHOICES,
+      replay: window,
+    });
+    expect(
+      spcOutlooksOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        replay: { from: 1, to: 2 },
+      }),
+    ).toBe(same);
+    expect(
+      spcOutlooksOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        replay: { from: 9, to: 10 },
+      }),
+    ).not.toBe(same);
+    // And a replay is never the same question as the live layer, whatever
+    // day and hazard are chosen.
+    expect(
+      spcOutlooksOverlay.variant?.({ ...DEFAULT_OVERLAY_CHOICES }),
+    ).not.toBe(same);
   });
 });

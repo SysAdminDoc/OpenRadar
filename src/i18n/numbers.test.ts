@@ -45,6 +45,9 @@ const MACHINE_VALUES: Record<string, number> = {
   "lib/overlays/ecccAlerts.ts": 1,
   "lib/overlays/metar.ts": 1,
   "lib/overlays/registry.ts": 1,
+  // A longitude, a latitude and a radius, all going into a query string
+  // rather than onto a screen.
+  "lib/overlays/reports.ts": 3,
   "lib/overlays/rivers.ts": 4,
   "lib/route.ts": 6,
   "lib/sounding.ts": 2,

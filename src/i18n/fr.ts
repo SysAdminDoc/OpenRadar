@@ -468,6 +468,7 @@ export const fr: Catalogue = {
   "layers.spcWind": "Vent",
   "spc.significant":
     "Hachuré : où cet aléa serait significatif s'il se produit",
+  "spc.asIssued": "La prévision en vigueur ce jour-là",
   "service.busy": "est occupé",
   "service.notFound": "ne l'a pas trouvé",
   "service.tooMany": "a reçu trop de demandes",

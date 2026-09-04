@@ -616,8 +616,17 @@ export default function App() {
     viewport,
     pushToast,
     setActiveSurface,
-    // Today's warnings and reports cannot sit on a volume from another day.
+    // Today's warnings cannot sit on a volume from another day.
     replaying: replay !== null || singleSite.historical,
+    // The window a replay is showing, for the two layers that can answer
+    // for the day it is showing rather than being held back.
+    replayWindow:
+      replay && replay.frames.length
+        ? {
+            from: replay.frames[0].time * 1000,
+            to: replay.frames[replay.frames.length - 1].time * 1000,
+          }
+        : null,
     onAnnounced: rememberFollow,
     capture: journalFrame,
   });

@@ -38,6 +38,17 @@ export interface OverlayChoices {
    * refusing a combination a reader can reach by changing the day.
    */
   spcHazard: SpcHazard;
+  /**
+   * The window a replay is showing, or null while the workspace is live.
+   *
+   * A layer that draws today's answer over a replay of some other day is
+   * making a false claim, and two of them can answer for the replayed day
+   * instead. Carried as the window rather than the frame on screen so each
+   * is asked once per replay: an outlook is issued a few times a day and the
+   * reports of an afternoon are one list, and neither changes as the loop
+   * steps through it.
+   */
+  replay: { from: number; to: number } | null;
 }
 
 export type SpcHazard = "categorical" | "tornado" | "hail" | "wind";
@@ -56,6 +67,7 @@ export const DEFAULT_OVERLAY_CHOICES: OverlayChoices = {
   // could draw anything else.
   spcDay: 1,
   spcHazard: "categorical",
+  replay: null,
 };
 
 export interface OverlayBounds {

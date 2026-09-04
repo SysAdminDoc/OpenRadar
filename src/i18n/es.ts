@@ -459,6 +459,7 @@ export const es: Catalogue = {
   "layers.spcHail": "Granizo",
   "layers.spcWind": "Viento",
   "spc.significant": "Rayado: donde este peligro sería significativo si ocurre",
+  "spc.asIssued": "El pronóstico vigente ese día",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",
