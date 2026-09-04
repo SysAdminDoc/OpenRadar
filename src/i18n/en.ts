@@ -492,6 +492,8 @@ export const en = {
   "mrms.reflectivityMinus10c": "Reflectivity at -10 C",
   "mrms.reflectivityMinus20c": "Reflectivity at -20 C",
   "layers.spcDay3Probability": "Probability",
+  "watch.notificationsRefused":
+    "Windows is not letting OpenRadar show notifications, so these can only appear in the app. Turn them on in Windows Settings, under System, Notifications.",
   "service.busy": "is busy",
   "service.notFound": "could not find it",
   "service.tooMany": "has been asked too often",

@@ -315,13 +315,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P1
 
-- [ ] AUD-260 (P1): Diagnostics never says how autostart is set or that Windows notifications are blocked
-      Why: `CHANGELOG.md:53` says the report names which way autostart is set; `src/lib/diagnostics.ts:244-300` has no such line. Separately, `src/lib/notify.ts:31` returns false on a denied permission and the three watches fall back to a toast, and no surface, Diagnostics included, tells the reader Windows notifications are blocked. Both are exactly the "why did I not hear about last night's warning" case the report exists for.
-      Evidence: `grep -n 'autostart\|Startup' src/lib/diagnostics.ts` is empty; `src/lib/autostart.ts:57`; `src/hooks/useAlertWatch.ts:271,387`, `useApproachWatch.ts:146`, `useLightningWatch.ts:120`.
-      Touches: `src/lib/diagnostics.ts`, `src/lib/notify.ts` (expose the permission state), `src/panels/MapOptionsPanels.tsx` (a line beside the watch settings when permission is denied), `src/i18n/*`, `src/lib/diagnostics.test.ts`.
-      Acceptance: The report carries one line for autostart (on, off, or unavailable) and one for notification permission (granted, denied, not asked); with permission denied the watch settings show a sentence saying so with the Windows settings path; tests cover all three permission states.
-      Complexity: S
-
 - [ ] AUD-261 (P1): A failed hatch layer is dropped silently, so an outlook draws without its significant areas and nothing says so
       Why: `src/lib/overlays/spc.ts:449-452` catches the significant-hazard query's failure and returns the bands alone. A reader sees a 15% tornado band with no hatching and reads it as "not significant", which is the opposite of "the service did not answer". It is the only swallowed error in `src/` without copy.
       Evidence: the catch at the cited lines; every other swallowed catch in `src/` is commented as deliberate (`ErrorBoundary.tsx:125,133`, `MapViewport.tsx:2156`, `glance.tsx:134`, `autostart.ts:68`, `export.ts:177`).

@@ -513,6 +513,32 @@ describe("what a report is allowed to carry", () => {
   });
 });
 
+describe("whether Windows will let a watch say anything", () => {
+  it("says which of the three silences this is", () => {
+    // The other half of "I never heard about last night's warning". A refused
+    // permission drops every watch to an in-app toast, which is exactly what
+    // a reader looking away from the screen never sees, and no surface said
+    // so. Three answers because a refusal and a question nobody has asked
+    // are not the same thing, and the plugin offers only a boolean.
+    expect(diagnosticsBlock({ ...base(), notifications: "granted" })).toContain(
+      "Desktop notifications: allowed",
+    );
+    expect(diagnosticsBlock({ ...base(), notifications: "refused" })).toContain(
+      "Desktop notifications: refused by Windows",
+    );
+    expect(diagnosticsBlock({ ...base(), notifications: "unasked" })).toContain(
+      "Desktop notifications: not asked for yet",
+    );
+  });
+
+  it("says nothing at all when nobody handed it an answer", () => {
+    // The crash screen builds its report with no app left to ask. A line
+    // claiming notifications were never asked for would be a statement it
+    // has no standing to make.
+    expect(diagnosticsBlock(base())).not.toContain("Desktop notifications");
+  });
+});
+
 describe("whether anything starts the app after a reboot", () => {
   it("says so, in the three answers there are", () => {
     // The watch only runs while the app does, so "I never heard about last
