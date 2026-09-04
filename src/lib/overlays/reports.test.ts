@@ -128,6 +128,38 @@ describe.runIf(LIVE)("against the live weather service", () => {
       data.features.some((feature) => feature.properties.kind !== "other"),
     ).toBe(true);
   }, 30_000);
+
+  it("brings back the newest reports the service is holding", async () => {
+    // The failure this exists for drew no error and lost no field: asked
+    // for nothing in particular, the layer answered in object-id order and
+    // stopped at the record count, so the newest hour was the part left out.
+    // On 2026-09-04 the layer held 854 rows, the first 500 ended at 14:12Z,
+    // and the newest report it had was 15:37Z.
+    const asked = await fetch(serviceReportsUrl(), {
+      headers: { Accept: "application/json" },
+    });
+    expect(asked.ok).toBe(true);
+    const drawn = parseServiceReports(await asked.json());
+    expect(drawn.features.length).toBeGreaterThan(0);
+    const newestDrawn = Math.max(
+      ...drawn.features.map((one) => Number(one.properties.at)),
+    );
+
+    // What the service says its newest row is, asked for on its own.
+    const url = new URL(serviceReportsUrl());
+    url.searchParams.set("resultRecordCount", "1");
+    url.searchParams.set("returnGeometry", "false");
+    const top = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    expect(top.ok).toBe(true);
+    const held = (await top.json()) as {
+      features?: { properties?: { lsr_validtime?: number } }[];
+    };
+    const newestHeld = Number(held.features?.[0]?.properties?.lsr_validtime);
+    expect(Number.isFinite(newestHeld)).toBe(true);
+    expect(newestDrawn).toBe(newestHeld);
+  }, 30_000);
 });
 
 describe.runIf(LIVE)("against the live feed", () => {
@@ -300,6 +332,194 @@ describe("when the usual source for storm reports does not answer", () => {
       } as Response;
     }) as unknown as typeof fetch;
   }
+
+  it("asks for the newest reports first, over the window the archive covers", () => {
+    // Measured against the live service on 2026-09-04: the layer held 854
+    // rows, the unordered first 500 of them ended at 14:12Z, and the newest
+    // report it had was 15:37Z. An ArcGIS layer asked for nothing in
+    // particular answers in object-id order, so the hour a reader opens this
+    // for was the hour that got left out.
+    const url = new URL(serviceReportsUrl());
+    expect(url.searchParams.get("orderByFields")).toBe("lsr_validtime DESC");
+    const where = url.searchParams.get("where") ?? "";
+    const said = /lsr_validtime >= TIMESTAMP '([\d-]+ [\d:]+)'/.exec(where);
+    expect(said, `the window is not bounded: ${where}`).not.toBeNull();
+    // The same twenty-four hours the archive answers for, give or take the
+    // second this test takes to run.
+    const from = Date.parse(`${said?.[1].replace(" ", "T")}Z`);
+    const back = (Date.now() - from) / 3_600_000;
+    expect(back).toBeGreaterThan(REPORT_HOURS - 0.01);
+    expect(back).toBeLessThan(REPORT_HOURS + 0.01);
+  });
+
+  it("counts an offset off in whole pages", () => {
+    // The offset is what a second page is, and one that did not move would
+    // fetch the same five hundred reports six times.
+    expect(new URL(serviceReportsUrl()).searchParams.get("resultOffset")).toBe(
+      "0",
+    );
+    const second = new URL(serviceReportsUrl(500));
+    expect(second.searchParams.get("resultOffset")).toBe("500");
+    expect(second.searchParams.get("resultRecordCount")).toBe("500");
+  });
+
+  it("reads the words the service actually publishes, abbreviations and all", () => {
+    // The distinct values the live layer held on 2026-09-04. The two that
+    // make up most of a severe day are abbreviated, and a match on the whole
+    // word "wind" caught the marine one and dropped both of those into grey.
+    const wind = ["Tstm Wnd Gst", "Tstm Wnd Dmg", "Marine Tstm Wind"];
+    for (const said of wind) {
+      const read = parseServiceReports({
+        features: [
+          {
+            ...serviceFeature,
+            properties: { ...serviceFeature.properties, descript: said },
+          },
+        ],
+      });
+      expect(read.features[0].properties.kind, said).toBe("wind");
+    }
+    const others: Record<string, string> = {
+      Hail: "hail",
+      "Flash Flood": "flood",
+      Flood: "flood",
+      Tornado: "tornado",
+      "Funnel Cloud": "tornado",
+      Waterspout: "tornado",
+      Fog: "other",
+      Rain: "other",
+      Lightning: "other",
+    };
+    for (const [said, kind] of Object.entries(others)) {
+      const read = parseServiceReports({
+        features: [
+          {
+            ...serviceFeature,
+            properties: { ...serviceFeature.properties, descript: said },
+          },
+        ],
+      });
+      expect(read.features[0].properties.kind, said).toBe(kind);
+    }
+  });
+
+  it("gives a funnel and a waterspout the same colours the archive does", () => {
+    // The two feeds are read by different code and were free to disagree.
+    // They did: the same funnel cloud came out in the full tornado colour
+    // from one source and the lighter one from the other.
+    const words = (said: string) =>
+      parseServiceReports({
+        features: [
+          {
+            ...serviceFeature,
+            properties: { ...serviceFeature.properties, descript: said },
+          },
+        ],
+      }).features[0].properties.color;
+    const letter = (type: string) =>
+      parseReports({
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [-97, 44] },
+            properties: { valid: "2026-09-04T12:00:00Z", type },
+          },
+        ],
+      }).features[0].properties.color;
+    expect(words("Funnel Cloud")).toBe(letter("C"));
+    expect(words("Waterspout")).toBe(letter("W"));
+    expect(words("Tornado")).toBe(letter("T"));
+    expect(words("Hail")).toBe(letter("H"));
+    expect(words("Tstm Wnd Gst")).toBe(letter("G"));
+    expect(words("Flash Flood")).toBe(letter("F"));
+  });
+
+  it("keeps asking while the service says it is holding more", async () => {
+    // Five hundred rows covered twelve hours of the twenty-four the archive
+    // answers for on 2026-09-04, so one ask stops half way through the
+    // window with no sign that it did.
+    const offsets: string[] = [];
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      url: string,
+    ) => {
+      const said = String(url);
+      if (!said.includes("mapservices.weather.noaa.gov")) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response;
+      }
+      const offset =
+        new URL(said).searchParams.get("resultOffset") ?? "missing";
+      offsets.push(offset);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: [
+            {
+              ...serviceFeature,
+              properties: {
+                ...serviceFeature.properties,
+                // Older with every page, which is what newest-first means.
+                lsr_validtime: 1788511200000 - offsets.length * 60_000,
+              },
+            },
+          ],
+          // Two pages held back, then the service is done.
+          exceededTransferLimit: offsets.length < 3,
+        }),
+      } as Response;
+    }) as unknown as typeof fetch);
+    try {
+      const data = await stormReportsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(offsets).toEqual(["0", "500", "1000"]);
+      expect(data.features).toHaveLength(3);
+      // Oldest first, so the newest report is drawn on top: the sort has to
+      // see every page rather than running once per page.
+      const times = data.features.map((one) => Number(one.properties.at));
+      expect(times).toEqual([...times].sort((a, b) => a - b));
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("keeps the pages that landed when a later one fails", async () => {
+    // The reader is already on the second source because the first is down,
+    // and the newest reports are the ones already in hand. Throwing them
+    // away over an older page would leave the map empty.
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      url: string,
+    ) => {
+      const said = String(url);
+      if (!said.includes("mapservices.weather.noaa.gov")) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response;
+      }
+      if (new URL(said).searchParams.get("resultOffset") !== "0") {
+        return { ok: false, status: 500, json: async () => ({}) } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: [serviceFeature],
+          exceededTransferLimit: true,
+        }),
+      } as Response;
+    }) as unknown as typeof fetch);
+    try {
+      const data = await stormReportsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(data.features).toHaveLength(1);
+      expect(data.partial).toBe(en["reports.fromService"]);
+    } finally {
+      fetched.mockRestore();
+    }
+  });
 
   it("draws the reports from the weather service instead, and says so", async () => {
     // One source for a layer means a quiet afternoon and a host that is down
