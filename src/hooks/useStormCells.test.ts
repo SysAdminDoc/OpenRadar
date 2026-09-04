@@ -182,3 +182,50 @@ describe("the cells the map is given", () => {
     expect(result.current.report).toBeNull();
   });
 });
+
+describe("a hidden window", () => {
+  it("stops asking, unless the approach watch needs it to carry on", async () => {
+    // The approach notice is derived from this report and exists to reach
+    // somebody who is not looking at the map, so with the watch on the
+    // report has to keep arriving while the window is in the tray.
+    vi.useFakeTimers();
+    try {
+      cells.mockResolvedValue(report());
+      const quiet = renderHook(() =>
+        useStormCells({
+          ready: true,
+          enabled: true,
+          station: "KDMX",
+          pageVisible: false,
+          clock: NOW,
+        }),
+      );
+      await vi.waitFor(() => expect(cells).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CELLS_REFRESH_MS * 3);
+      });
+      // One read, from switching the layer on. Nothing since.
+      expect(cells).toHaveBeenCalledTimes(1);
+      quiet.unmount();
+
+      cells.mockClear();
+      renderHook(() =>
+        useStormCells({
+          ready: true,
+          enabled: true,
+          station: "KDMX",
+          pageVisible: false,
+          keepPollingWhileHidden: true,
+          clock: NOW,
+        }),
+      );
+      await vi.waitFor(() => expect(cells).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(CELLS_REFRESH_MS * 3);
+      });
+      expect(cells.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

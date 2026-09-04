@@ -372,9 +372,10 @@ export function useAlertWatch(
       }
     };
 
-    // The first ask, in the place it has always been: before the
-    // visibility check below, so a hidden window still reads once.
-    // Not with no network, where it is one more failure in the log.
+    // The first ask, before the timer below rather than waiting out an
+    // interval for it. Not with no network, where it is one more failure in
+    // the log. There is no visibility check here on purpose: a warning at a
+    // watched place has to reach somebody whose window is in the tray.
     if (isOnline()) void check();
 
     const stop = pollWhileOnline(() => void check(), POLL_MS, false);

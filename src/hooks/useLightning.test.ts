@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  REFRESH_MS,
   flashAgeExpression,
   flashPoints,
   useLightning,
@@ -229,5 +230,50 @@ describe("what the map is handed", () => {
       second.resolve(window_({ satellite: "Second window" })),
     );
     expect(result.current.window?.satellite).toBe("Second window");
+  });
+});
+
+describe("a hidden window", () => {
+  it("stops asking, unless the lightning watch needs it to carry on", async () => {
+    // A watch that only works while somebody is looking at the map is not a
+    // watch: the reader minimised the window or put it in the tray precisely
+    // so it could tell them something they were not watching for.
+    vi.useFakeTimers();
+    try {
+      flashes.mockResolvedValue(window_());
+      const quiet = renderHook(() =>
+        useLightning({
+          ready: true,
+          enabled: true,
+          pageVisible: false,
+          clock: Date.now(),
+        }),
+      );
+      await vi.waitFor(() => expect(flashes).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(REFRESH_MS * 3);
+      });
+      // One read, from switching the layer on. Nothing since.
+      expect(flashes).toHaveBeenCalledTimes(1);
+      quiet.unmount();
+
+      flashes.mockClear();
+      renderHook(() =>
+        useLightning({
+          ready: true,
+          enabled: true,
+          pageVisible: false,
+          keepPollingWhileHidden: true,
+          clock: Date.now(),
+        }),
+      );
+      await vi.waitFor(() => expect(flashes).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(REFRESH_MS * 3);
+      });
+      expect(flashes.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
