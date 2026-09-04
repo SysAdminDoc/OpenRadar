@@ -1,3 +1,4 @@
+import { announceOnDesktop } from "../lib/notify";
 import { useEffect, useRef } from "react";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
@@ -35,27 +36,6 @@ export function lightningBody(notice: LightningNotice): string {
     count: notice.place.flashes,
     miles: notice.place.radiusMiles,
   });
-}
-
-async function announceOnDesktop(
-  notice: LightningNotice,
-  isMounted: () => boolean,
-): Promise<boolean> {
-  const { isPermissionGranted, requestPermission, sendNotification } =
-    await import("@tauri-apps/plugin-notification");
-  if (!isMounted()) return false;
-  let granted = await isPermissionGranted();
-  if (!isMounted()) return false;
-  if (!granted) {
-    granted = (await requestPermission()) === "granted";
-    if (!isMounted()) return false;
-  }
-  if (!granted) return false;
-  sendNotification({
-    title: lightningTitle(notice),
-    body: lightningBody(notice),
-  });
-  return true;
 }
 
 /**
@@ -138,7 +118,8 @@ export function useLightningWatch(options: {
         if (isDesktopRuntime()) {
           try {
             delivered = await announceOnDesktop(
-              notice,
+              lightningTitle(notice),
+              lightningBody(notice),
               () => mountedRef.current,
             );
           } catch (failure) {

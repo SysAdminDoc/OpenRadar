@@ -313,22 +313,3 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
 
 ### P3
 
-- [ ] AUD-244: More than four pictures across the imported set are dropped without a word
-      Category: ux
-      Where: `src/lib/placefile.ts` `MAX_DRAWN_PICTURES` and `placefilePictures` (`break` at four); `src/components/MapViewport.tsx` `syncCustomPictures`; `src/hooks/useWorkspaceActions.ts` (the import toast counts every feature, pictures included, as "shapes")
-      Problem: Each file may carry four pictures and eight files may be loaded, so up to thirty-two are parsed and counted in the toast while only the first four in drawing order are put on the map. The fifth picture simply does not appear.
-      Evidence: `placefilePictures` returns at most `MAX_DRAWN_PICTURES`; `overlayShapeCount` and the toast count all features; nothing surfaces the difference.
-      Fix: Count the pictures the set asks for in `overlayGates` (or a sibling) and, when it exceeds the ceiling, show a note on the Layers panel's imported-files section (`upload.picturesCeiling`: "{count} pictures in these files; the first four are drawn"), and say the same in the import toast when the newly added file pushes the total past four.
-      Acceptance: Importing a fifth picture produces the note; a unit test on the counting helper; the note goes when a file with pictures is removed.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-245: Three copies of the desktop notification sender
-      Category: maintainability
-      Where: `src/hooks/useAlertWatch.ts:42`, `src/hooks/useApproachWatch.ts:29`, `src/hooks/useLightningWatch.ts:40` (`async function announceOnDesktop`)
-      Problem: The same fifteen lines (dynamic import of the notification plugin, the mounted checks between each await, the permission ask, `sendNotification`) exist three times with only the title/body source differing. The working notes' own rule is that a third usage is when the helper gets written, and the third usage landed with `AUD-179`. A fix to the permission flow (for example the Windows AUMID problem recorded in `Roadmap_Blocked.md`) has to be made three times.
-      Evidence: `grep -rn "async function announceOnDesktop" src/hooks` lists three definitions; diffing them shows only the argument type and the two `translate` calls differ.
-      Fix: One `announceOnDesktop(title, body, isMounted)` in `src/lib/notify.ts` (or beside `playAlertTone` in `sound.ts`'s neighbour), the three hooks calling it with their own title/body builders. Keep the `isMounted` checks between awaits exactly as they are; they are what the 2026-09-03 refutation pass fixed.
-      Acceptance: One definition; the three hooks' existing tests pass unchanged; `scripts/unused-exports.mjs` stays clean.
-      Confidence: Verified
-      Effort: S

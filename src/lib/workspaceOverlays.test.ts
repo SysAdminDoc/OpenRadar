@@ -9,6 +9,7 @@ import {
   overlayFileId,
   overlayGates,
   overlayShapeCount,
+  picturesWanted,
   type WorkspaceOverlayFile,
 } from "./workspaceOverlays";
 
@@ -320,5 +321,38 @@ describe("what a placefile asked to be shown at", () => {
     expect(
       overlayGates([gated({ label: "during", from: 1, to: 2, minZoom: 9 })]),
     ).toEqual({ zoomed: true, timed: true });
+  });
+});
+
+describe("how many pictures the set is asking for", () => {
+  const withPictures = (id: string, count: number): WorkspaceOverlayFile => ({
+    id,
+    name: `${id}.txt`,
+    enabled: true,
+    opacity: 1,
+    shapes: {
+      type: "FeatureCollection",
+      features: [
+        ...Array.from({ length: count }, () => ({
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [[]] },
+          properties: { kind: "image", image: "https://example.test/a.png" },
+        })),
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0, 0] },
+          properties: { kind: "place", label: "not a picture" },
+        },
+      ],
+    },
+  });
+
+  it("counts them across the switched-on files and no others", () => {
+    // Four per file and eight files, so the set can ask for far more than
+    // the map draws, and the import counts every one of them as a shape.
+    const files = [withPictures("a", 3), withPictures("b", 2)];
+    expect(picturesWanted(files)).toBe(5);
+    expect(picturesWanted([files[0], { ...files[1], enabled: false }])).toBe(3);
+    expect(picturesWanted([])).toBe(0);
   });
 });

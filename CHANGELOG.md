@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- The Layers panel says when your imported files hold more pictures than the map draws. Each placefile may carry four and eight files can be loaded, so a set could ask for thirty-two while the first four appeared and the rest were counted as shapes and then quietly left off.
+
 - A KML style written inside the placemark is read now. That is the shape Google Earth writes for a placemark somebody recoloured by hand, and what several generators write for every placemark in the file, and it was being ignored: those imported in the default blue while the README said the shapes carried the file's own colours. A style inside the placemark also wins over one it points at, which is the format's own order.
 
 - The smoothing switch is greyed out while an airport radar is held, and says why. A terminal radar's products arrive as a picture the office already drew, so there are no gates to read between and the switch quietly did nothing.

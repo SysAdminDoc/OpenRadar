@@ -1,3 +1,4 @@
+import { announceOnDesktop } from "../lib/notify";
 import { useEffect, useRef } from "react";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
@@ -24,27 +25,6 @@ export function approachBody(approach: Approach): string {
     id: approach.cellId,
     count: Math.max(1, Math.round(approach.minutes)),
   });
-}
-
-async function announceOnDesktop(
-  approach: Approach,
-  isMounted: () => boolean,
-): Promise<boolean> {
-  const { isPermissionGranted, requestPermission, sendNotification } =
-    await import("@tauri-apps/plugin-notification");
-  if (!isMounted()) return false;
-  let granted = await isPermissionGranted();
-  if (!isMounted()) return false;
-  if (!granted) {
-    granted = (await requestPermission()) === "granted";
-    if (!isMounted()) return false;
-  }
-  if (!granted) return false;
-  sendNotification({
-    title: approachTitle(approach),
-    body: approachBody(approach),
-  });
-  return true;
 }
 
 /**
@@ -164,7 +144,8 @@ export function useApproachWatch(options: {
         if (isDesktopRuntime()) {
           try {
             delivered = await announceOnDesktop(
-              approach,
+              approachTitle(approach),
+              approachBody(approach),
               () => mountedRef.current,
             );
           } catch (failure) {

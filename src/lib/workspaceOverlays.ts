@@ -136,6 +136,27 @@ export interface OverlayGates {
   timed: boolean;
 }
 
+/**
+ * How many georeferenced pictures the switched-on files between them ask for.
+ *
+ * A placefile may carry four and eight files may be loaded, so the set can ask
+ * for thirty-two while the map draws the first four in drawing order. The
+ * others simply were not there, and the import counted them as shapes like
+ * everything else.
+ */
+export function picturesWanted(files: WorkspaceOverlayFile[]): number {
+  let count = 0;
+  for (const file of files) {
+    if (!file.enabled) continue;
+    for (const feature of featuresOf(file.shapes)) {
+      const properties = (feature as { properties?: Record<string, unknown> })
+        .properties;
+      if (properties?.kind === "image") count += 1;
+    }
+  }
+  return count;
+}
+
 export function overlayGates(files: WorkspaceOverlayFile[]): OverlayGates {
   const gates: OverlayGates = { zoomed: false, timed: false };
   for (const file of files) {

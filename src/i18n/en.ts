@@ -106,6 +106,8 @@ export const en = {
     "Each one on its own, so a layer can be faded rather than switched off",
   "layers.opacityFor": "{layer}, {percent}% solid",
   "layers.files": "Files you imported",
+  "layers.picturesCeiling":
+    "{count, plural, one {# picture} other {# pictures}} in these files; the first {drawn} are drawn.",
   "layers.filesDetail":
     "Each one on its own switch, with the last in the list drawn on top",
   "layers.filesNone":
