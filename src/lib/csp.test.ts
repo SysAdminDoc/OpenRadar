@@ -208,4 +208,15 @@ describe("the packaged app's content security policy", () => {
     expect(csp["default-src"]).not.toContain("https:");
     expect(csp["script-src"]).not.toContain("unsafe-inline");
   });
+
+  it("pins where a relative address resolves and refuses a form", () => {
+    // Neither of these falls back to `default-src`, so leaving them out
+    // leaves them unset. An injected `<base>` cannot redirect a script here,
+    // because `script-src` carries no `unsafe-inline` and Tauri nonces what
+    // it serves, but it can move every relative address on the page: the
+    // basemap's own sprites and glyphs are fetched that way. There is no
+    // form in this app and nowhere for one to post to.
+    expect(csp["base-uri"]).toBe("'self'");
+    expect(csp["form-action"]).toBe("'none'");
+  });
 });

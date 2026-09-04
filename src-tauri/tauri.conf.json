@@ -34,7 +34,9 @@
         "worker-src": "'self' blob:",
         "child-src": "'self' blob:",
         "font-src": "'self' data: cached: http://cached.localhost https://tiles.openfreemap.org",
-        "frame-src": "'self'"
+        "frame-src": "'self'",
+        "base-uri": "'self'",
+        "form-action": "'none'"
       }
     }
   },
