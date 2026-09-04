@@ -2129,8 +2129,27 @@ function MapViewportInner(
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(containerRef.current);
 
+    // And again the first time the window is actually shown.
+    //
+    // A build that starts with Windows opens to the tray, so the map is
+    // built inside a window nobody has shown yet. WebView2 152 hands such a
+    // host a viewport of about seventy by forty pixels rather than the
+    // window's own size (WebView2Feedback #5689), and a map built at that
+    // size stays that size: the observer fires on the container changing,
+    // and the container does not change when the window it is in appears.
+    // The reader opens the tray to a map drawn in the corner of its canvas.
+    //
+    // Idempotent, and cheap enough to do on every return to the window
+    // rather than tracking whether this is the first: `resize` reads the
+    // container and does nothing when it already agrees.
+    const onShown = () => {
+      if (document.visibilityState === "visible") map.resize();
+    };
+    document.addEventListener("visibilitychange", onShown);
+
     return () => {
       canvas.removeEventListener("keydown", onCanvasKeyDown);
+      document.removeEventListener("visibilitychange", onShown);
       resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;

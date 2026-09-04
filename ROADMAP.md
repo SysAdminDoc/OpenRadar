@@ -338,13 +338,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Acceptance: With NVW available the panel's column names the product and appears before the volume finishes decoding; with it absent (stub 404) the fitted column appears as today; a level the RPG marked ND stays ND; a fixture NVW decodes to the heights and winds its packet text states.
       Complexity: M
 
-- [ ] AUD-268 (P2): A launch that starts hidden must show a full-size map when the tray opens it
-      Why: WebView2 152 reports a roughly 70 by 39 pixel viewport to a host whose window was hidden when the WebView was created (WebView2Feedback #5689, 2026-09), which is the autostart-to-tray path `AUD-209` shipped. `MapViewport.tsx:2129` resizes on a `ResizeObserver`, which should fire on first show, but nothing has watched that path on 152.
-      Evidence: https://github.com/MicrosoftEdge/WebView2Feedback/issues/5689 ; `src-tauri/src/lib.rs` (the start-hidden window), `src/components/MapViewport.tsx:2129`.
-      Touches: `src/components/MapViewport.tsx` (a `map.resize()` on the window's first `visibilitychange` to visible, cheap and idempotent), `src/App.tsx`, an e2e spec that starts the page hidden (`page.emulateMedia` and a hidden `document.visibilityState`) and asserts the canvas size after show.
-      Acceptance: The spec passes; on a desktop session a start-with-Windows launch opened from the tray shows the map at the window's size (recorded in `Roadmap_Blocked.md` if no session is available, as the other desktop checks are).
-      Complexity: S
-
 ### P3
 
 - [ ] AUD-269 (P3): Keep the display awake while the second-monitor view is showing
