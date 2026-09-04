@@ -26,7 +26,13 @@ import {
 import { cachedUrl } from "../lib/tileCache";
 import { log } from "../lib/log";
 import { parseIconId, placefilePictures, type IconRef } from "../lib/placefile";
-import { hasAlpha, iconsWanted, sliceIcon } from "../lib/placefileIcons";
+import {
+  FALLBACK_ICON,
+  fallbackDot,
+  hasAlpha,
+  iconsWanted,
+  sliceIcon,
+} from "../lib/placefileIcons";
 import { guardRadarRequest, type SatelliteProductId } from "../lib/providers";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
 import {
@@ -1468,7 +1474,15 @@ function MapViewportInner(
         source: CUSTOM_SOURCE_ID,
         filter: ["==", ["get", "kind"], "icon"],
         layout: {
-          "icon-image": ["get", "icon"],
+          // The sheet's own cell where it was fetched, and a plain dot where
+          // it was not: a symbol naming an image MapLibre does not hold
+          // draws nothing, and the circle layer below skips icons on
+          // purpose, so those shapes vanished with no note.
+          "icon-image": [
+            "coalesce",
+            ["image", ["get", "icon"]],
+            ["image", FALLBACK_ICON],
+          ],
           // The cell was padded so its hotspot is the middle of it, which is
           // what makes an arbitrary hotspot exact under a keyword anchor.
           "icon-anchor": "center",
@@ -1866,6 +1880,10 @@ function MapViewportInner(
       syncRoute();
       syncCounties();
       syncStormTrack();
+      // Before the lane that names it. A style change drops every image,
+      // so this is registered here rather than once at start-up.
+      if (!map.hasImage(FALLBACK_ICON))
+        map.addImage(FALLBACK_ICON, fallbackDot());
       syncCustomOverlay();
       onMapStatus?.("ready");
     };

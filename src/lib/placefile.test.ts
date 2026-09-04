@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  iconId,
   imageCorners,
   looksLikePlacefile,
   parseIconId,
@@ -221,10 +222,31 @@ describe("icons", () => {
     });
   });
 
+  it("round-trips an address a URL is allowed to hold", () => {
+    // `new URL("https://example.test/a|b.png").href` keeps the pipe, so a
+    // sheet at such an address wrote an id with eight parts that read back
+    // as nothing: the icon was neither fetched nor drawn as a point.
+    for (const url of [
+      "https://mesonet.agron.iastate.edu/a|b.png",
+      "https://mesonet.agron.iastate.edu/icons.png?set=a|b#2",
+      "https://mesonet.agron.iastate.edu/plain.png",
+    ]) {
+      const sheet = {
+        url,
+        iconWidth: 15,
+        iconHeight: 25,
+        hotX: 7,
+        hotY: 24,
+      };
+      expect(parseIconId(iconId(sheet, 3))).toEqual({ ...sheet, index: 3 });
+    }
+  });
+
   it("refuses to read back anything it did not write", () => {
-    expect(parseIconId("icon|https://x.test/a.png|15|25|7|24")).toBeNull();
-    expect(parseIconId("icon|https://x.test/a.png|0|25|7|24|1")).toBeNull();
-    expect(parseIconId("icon|https://x.test/a.png|15|25|7|24|0")).toBeNull();
+    expect(parseIconId("icon|https%3A%2F%2Fx.test|15|25|7|24")).toBeNull();
+    expect(parseIconId("icon|https%3A%2F%2Fx.test|0|25|7|24|1")).toBeNull();
+    expect(parseIconId("icon|https%3A%2F%2Fx.test|15|25|7|24|0")).toBeNull();
+    expect(parseIconId("icon|%E0%A4%A|15|25|7|24|1")).toBeNull();
     expect(parseIconId("something else")).toBeNull();
   });
 

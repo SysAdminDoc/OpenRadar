@@ -105,6 +105,39 @@ export function sliceIcon(
   return { width: box.width, height: box.height, data };
 }
 
+/**
+ * The image an icon falls back to when its sheet could not be fetched.
+ *
+ * A sheet on an allowed host can still answer 404, time out, or be asked for
+ * with no network behind it, and a symbol whose `icon-image` names an image
+ * MapLibre does not hold draws nothing at all. The circle layer deliberately
+ * skips icons, so those features disappeared with no note: fewer shapes than
+ * the import counted, and nothing saying why. This is what a placefile's own
+ * "there is something here" looks like when its picture is missing.
+ */
+export const FALLBACK_ICON = "openradar-placefile-dot";
+
+/** A filled disc with a light rim, built rather than shipped as a file. */
+export function fallbackDot(size = 12): Pixels {
+  const data = new Uint8ClampedArray(size * size * 4);
+  const middle = (size - 1) / 2;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const away = Math.hypot(x - middle, y - middle);
+      const at = (y * size + x) * 4;
+      if (away > middle) continue;
+      // The outermost ring is the rim, so the dot reads against a dark
+      // basemap and a light one alike.
+      const rim = away > middle - 1.5;
+      data[at] = rim ? 239 : 96;
+      data[at + 1] = rim ? 246 : 165;
+      data[at + 2] = rim ? 255 : 250;
+      data[at + 3] = 255;
+    }
+  }
+  return { width: size, height: size, data };
+}
+
 /** Every distinct icon a drawn collection asks for. */
 export function iconsWanted(data: unknown): string[] {
   const features = (data as { features?: unknown[] } | null)?.features;

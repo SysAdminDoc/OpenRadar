@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseIconId, placefilePictures } from "./placefile";
 import {
+  fallbackDot,
   hasAlpha,
   hotspotBox,
   iconCell,
@@ -193,5 +194,26 @@ describe("what a drawn collection asks the map for", () => {
     expect(
       placefilePictures(collection([{ properties: { kind: "place" } }])),
     ).toEqual([]);
+  });
+});
+
+describe("the dot an icon falls back to", () => {
+  it("is a disc with a rim, and nothing outside it", () => {
+    // A sheet on an allowed host can still 404 or time out, and a symbol
+    // naming an image MapLibre does not hold draws nothing at all.
+    const dot = fallbackDot(12);
+    expect(dot.width).toBe(12);
+    expect(dot.height).toBe(12);
+    // The corner is outside the circle, so it stays transparent.
+    expect(dot.data[3]).toBe(0);
+    // The middle is filled and opaque.
+    const middle = (6 * 12 + 6) * 4;
+    expect(dot.data[middle + 3]).toBe(255);
+    // And the rim is a lighter colour than the fill, so it reads on a dark
+    // basemap and a light one alike.
+    // Just inside the edge, where the rim is drawn.
+    const rim = (6 * 12 + 10) * 4;
+    expect(dot.data[rim + 3]).toBe(255);
+    expect(dot.data[rim]).toBeGreaterThan(dot.data[middle]);
   });
 });
