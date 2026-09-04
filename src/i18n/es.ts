@@ -392,7 +392,6 @@ export const es: Catalogue = {
   "bundle.error.newer":
     "Ese paquete lo hizo un OpenRadar más nuevo. Actualiza para abrirlo.",
   "bundle.error.corrupt": "Ese paquete está dañado: {0}",
-  "bundle.error.http": "{0}",
   "bundle.error.noView": "El mapa aún no tiene una vista que empaquetar.",
   "bundle.error.noFrames":
     "Ese paquete no tiene cuadros que esta versión pueda dibujar.",
@@ -707,7 +706,20 @@ export const es: Catalogue = {
   "radar.error.noStormMotion":
     "No se pudo leer el viento en {0}, así que no hay nada que quitar de la imagen.",
   "radar.error.encode": "No se pudo dibujar la imagen: {0}",
-  "radar.error.http": "No se pudo llegar al archivo de radar: {0}",
+  "radar.error.httpStatus": "No se pudo llegar al archivo de radar. {0}",
+  "radar.error.httpUnreachable":
+    "No se pudo llegar al archivo de radar. Comprueba que esta máquina esté en línea.",
+  "radar.error.httpRefused":
+    "OpenRadar no fue a buscar eso: la dirección no es una a la que se le permite llegar.",
+  "radar.error.httpTooLarge":
+    "El archivo de radar envió más de lo que OpenRadar lee de una vez.",
+  "bundle.error.httpStatus": "No se pudo obtener la repetición. {0}",
+  "bundle.error.httpUnreachable":
+    "No se pudo obtener la repetición. Comprueba que esta máquina esté en línea.",
+  "bundle.error.httpRefused":
+    "OpenRadar no fue a buscar eso: la dirección no es una a la que se le permite llegar.",
+  "bundle.error.httpTooLarge":
+    "La repetición envió más de lo que OpenRadar lee de una vez.",
   "radar.error.unknown": "El radar no respondió.",
   "radar.error.invalidTime": "{0} no es una fecha y hora UTC.",
   "radar.error.localRead": "No se pudo leer el archivo seleccionado: {0}",

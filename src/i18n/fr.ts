@@ -399,7 +399,6 @@ export const fr: Catalogue = {
   "bundle.error.newer":
     "Ce dossier a été fait par un OpenRadar plus récent. Mettez à jour pour l'ouvrir.",
   "bundle.error.corrupt": "Ce dossier est endommagé : {0}",
-  "bundle.error.http": "{0}",
   "bundle.error.noView": "La carte n'a pas encore de vue à mettre en dossier.",
   "bundle.error.noFrames":
     "Ce dossier ne contient aucune image que cette version sait dessiner.",
@@ -722,7 +721,20 @@ export const fr: Catalogue = {
   "radar.error.localTooLarge": "Le fichier choisi dépasse 128 Mo.",
   "radar.error.outOfRange":
     "Les deux extrémités d'une coupe verticale doivent être à portée de {0}.",
-  "radar.error.http": "L'archive radar n'a pas pu être jointe : {0}",
+  "radar.error.httpStatus": "Les archives radar sont restées muettes. {0}",
+  "radar.error.httpUnreachable":
+    "Les archives radar sont restées muettes. Vérifiez que cette machine est en ligne.",
+  "radar.error.httpRefused":
+    "OpenRadar n'est pas allé chercher cela : l'adresse n'en est pas une qu'il a le droit d'atteindre.",
+  "radar.error.httpTooLarge":
+    "Les archives radar ont envoyé plus que ce qu'OpenRadar lit d'un coup.",
+  "bundle.error.httpStatus": "La rediffusion n'a pas pu être récupérée. {0}",
+  "bundle.error.httpUnreachable":
+    "La rediffusion n'a pas pu être récupérée. Vérifiez que cette machine est en ligne.",
+  "bundle.error.httpRefused":
+    "OpenRadar n'est pas allé chercher cela : l'adresse n'en est pas une qu'il a le droit d'atteindre.",
+  "bundle.error.httpTooLarge":
+    "La rediffusion a envoyé plus que ce qu'OpenRadar lit d'un coup.",
   "radar.error.unknown": "Le site radar n'a pas répondu.",
   "radar.dealiasForced":
     "La vitesse relative à l'orage doit d'abord déplier, parce que le vent qu'elle retire est lu dans le balayage",

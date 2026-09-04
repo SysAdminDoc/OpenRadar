@@ -76,6 +76,36 @@ pub enum HttpError {
     RangeNotHonored,
 }
 
+impl HttpError {
+    /// What the page can say about this, with nothing in it but the reason.
+    ///
+    /// `to_string` is the wrong thing to hand a reader. `reqwest`'s own
+    /// Display carries the address it failed on, so a bucket key that 404s
+    /// came out as an S3 URL and a status code under the site picker, in
+    /// English, in every language. The address and the library's words belong
+    /// in the log; what travels is a code the catalogue has a sentence for,
+    /// and the status where there is one, because "the service is busy" and
+    /// "there is no such file" are different things to do about.
+    pub fn parts(&self) -> (&'static str, Vec<String>) {
+        match self {
+            Self::Transport(error) => match error.status() {
+                Some(status) => ("httpStatus", vec![status.as_u16().to_string()]),
+                None => ("httpUnreachable", Vec::new()),
+            },
+            // Every one of these is this app refusing, not the service: a
+            // host off the allowlist, an address that will not parse, a
+            // redirect somewhere it may not follow.
+            Self::HostNotAllowed(_) | Self::BadUrl | Self::RedirectRefused => {
+                ("httpRefused", Vec::new())
+            }
+            Self::TooLarge => ("httpTooLarge", Vec::new()),
+            // A range the server would not honour is a service that cannot
+            // answer the question, which is what "unreachable" says.
+            Self::InvalidRange | Self::RangeNotHonored => ("httpUnreachable", Vec::new()),
+        }
+    }
+}
+
 /// HTTPS only, and the host has to match an entry exactly. A lookalike such as
 /// `nowcoast.noaa.gov.example.net` is refused because it is a different host.
 pub fn is_allowed(url: &Url) -> bool {
@@ -397,6 +427,36 @@ mod tests {
             range_length(0, MAX_BODY_BYTES as u64),
             Err(HttpError::TooLarge)
         ));
+    }
+
+    #[test]
+    fn what_the_page_is_told_carries_no_address() {
+        // The whole of `reqwest`'s message used to go to the page, so a
+        // bucket key that 404s reached the panel as an S3 URL and a status
+        // code in English. Every failure a reader can see has to come out as
+        // a code the catalogue has a sentence for, with nothing in the
+        // arguments but a status.
+        for error in [
+            HttpError::HostNotAllowed("example.test".to_string()),
+            HttpError::BadUrl,
+            HttpError::TooLarge,
+            HttpError::RedirectRefused,
+            HttpError::InvalidRange,
+            HttpError::RangeNotHonored,
+        ] {
+            let (code, args) = error.parts();
+            assert!(
+                code.starts_with("http"),
+                "{code} is not one of the http codes"
+            );
+            assert!(
+                args.is_empty(),
+                "{code} carried {args:?}, which the reader would be shown",
+            );
+            // And in particular not the host, which is the one argument any
+            // of these has to hand.
+            assert!(!args.iter().any(|said| said.contains("example.test")));
+        }
     }
 
     #[test]

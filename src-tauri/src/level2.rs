@@ -159,7 +159,7 @@ impl Level2Error {
             Self::LocalRead(why) => ("localRead", vec![why.clone()]),
             Self::LocalTooLarge => ("localTooLarge", Vec::new()),
             Self::OutOfRange(site) => ("outOfRange", vec![site.clone()]),
-            Self::Http(_) => ("http", vec![self.to_string()]),
+            Self::Http(error) => error.parts(),
         }
     }
 }

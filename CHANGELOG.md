@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A radar archive or replay that will not answer says so in your language, without a web address in it. The reason came straight from the network library, so a missing file under the site picker read as an Amazon S3 URL and a status code, in English, whatever language you had chosen. It now says whether the service is busy, has no such file, refused, or could not be reached at all, in the same words the rest of the app uses for the same thing.
+
 - The wind profile panel says why it has nothing to draw. Every refusal from the decoder came out as "not available here", so holding an airport radar, asking for a time that would not parse and hitting an archive that was down all read the same. It now gives the reason, says so when the volumes came back with no wind in them, and tells a reader in a replay to come back to the present rather than to hold a site they can plainly see is held. It also stops rebuilding itself every few minutes: a new volume swapped the chart for a spinner while three of them were read again.
 
 - A shared link now says what was actually on the screen. Three things it got wrong. Holding an airport radar with a product that radar has not got draws reflectivity, and the link named the product you had picked instead, so whoever opened it got a picture nobody was looking at under a threshold from somewhere else. Switching back to the national mosaic left the site set behind the scenes, so a mosaic view went out as a link that pinned a site on the person opening it. And a link opened in a browser read only the camera, so it went to the right place under whatever the reader's own workspace was on. All three now carry, and open, the picture that was sent.
