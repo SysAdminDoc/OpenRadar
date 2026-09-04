@@ -25,11 +25,22 @@ afterEach(cleanup);
 function Harness({
   start,
   onRemoved,
+  onSeen,
 }: {
   start: AppSettings;
   onRemoved: (removal: UndoableRemoval) => void;
+  /**
+   * Hands the test the applier, so it can change the settings from outside
+   * the panel the way the rest of the app does. Half the app writes settings
+   * without anybody opening this panel, and an undo has to survive that.
+   */
+  onSeen?: (
+    apply: (change: (now: AppSettings) => AppSettings) => void,
+    settings: AppSettings,
+  ) => void;
 }) {
   const [settings, setSettings] = useState(start);
+  onSeen?.(setSettings, settings);
   return (
     <SettingsPanel
       settings={settings}
@@ -59,11 +70,18 @@ function Harness({
 
 function held(start: AppSettings, label: string) {
   let removal: UndoableRemoval | null = null;
+  let apply: ((change: (now: AppSettings) => AppSettings) => void) | null =
+    null;
+  let latest = start;
   render(
     <Harness
       start={start}
       onRemoved={(next) => {
         removal = next;
+      }}
+      onSeen={(setter, settings) => {
+        apply = setter;
+        latest = settings;
       }}
     />,
   );
@@ -74,6 +92,10 @@ function held(start: AppSettings, label: string) {
   return {
     undo: () => act(() => (removal as UndoableRemoval).undo()),
     title: (removal as UndoableRemoval).title,
+    /** A change from elsewhere in the app, while the undo is still offered. */
+    outside: (change: (now: AppSettings) => AppSettings) =>
+      act(() => (apply as NonNullable<typeof apply>)(change)),
+    settings: () => latest,
   };
 }
 
@@ -203,8 +225,26 @@ describe("forgetting the places you have found", () => {
 
   it("puts back what was there rather than a stale everything", () => {
     const removal = held(found, en["curiosity.forget"]);
-    removal.undo();
+    // Something else changes while the toast is up, from outside the panel.
+    // An undo built on a snapshot of the settings writes this back off.
+    removal.outside((now) => ({ ...now, theme: "light" }));
     removal.undo();
     expect(screen.getByText(en["curiosity.forget"])).toBeTruthy();
+    expect(removal.settings().theme).toBe("light");
+  });
+
+  it("keeps a place found while the undo was still on offer", () => {
+    // A curiosity is found by the camera coming to rest near one, which needs
+    // nobody to touch this panel. Writing the old list back over the new one
+    // threw that discovery away.
+    const removal = held(found, en["curiosity.forget"]);
+    removal.outside((now) => ({
+      ...now,
+      curiositiesFound: [...now.curiositiesFound, "devils-tower"],
+    }));
+    removal.undo();
+    const list = removal.settings().curiositiesFound;
+    expect(list).toContain("devils-tower");
+    for (const was of found.curiositiesFound) expect(list).toContain(was);
   });
 });

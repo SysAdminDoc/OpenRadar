@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { runOnce, useInFlight } from "../lib/inFlight";
 import { Trash2 } from "lucide-react";
 import { useT } from "../i18n";
 import { formatPackBytes } from "../lib/incidentPacks";
@@ -8,6 +9,9 @@ import {
   diskCacheAvailable,
   diskCacheSize,
 } from "../lib/tileCache";
+
+/** Named so a remount of this panel finds the clear that is already going. */
+const CACHE_CLEAR = "cache-clear";
 
 /**
  * What the app is holding on disk, and a way to give it back.
@@ -41,7 +45,9 @@ export function StorageSection({
    * over a size nobody had yet.
    */
   const [bytes, setBytes] = useState<number | null | undefined>(undefined);
-  const [working, setWorking] = useState(false);
+  // Outside the component: closing Settings and opening it again while a
+  // clear is running would otherwise show a pressable button over it.
+  const working = useInFlight(CACHE_CLEAR);
 
   const read = useCallback(() => {
     if (!available) return;
@@ -57,9 +63,9 @@ export function StorageSection({
   useEffect(read, [read]);
 
   const clear = () => {
-    setWorking(true);
-    void clearDiskCache()
-      .then((cleared) => {
+    void runOnce(CACHE_CLEAR, async () => {
+      try {
+        const cleared = await clearDiskCache();
         // What came back, and what a reader loses by it. The last view IS
         // this cache: with no network, clearing it is the difference between
         // opening on what they saw and opening on nothing, and a line that
@@ -76,11 +82,10 @@ export function StorageSection({
         // Read back rather than assumed to be zero: an entry whose file would
         // not go is still there, and the row should say so.
         read();
-      })
-      .catch((failure: unknown) => {
+      } catch (failure: unknown) {
         onFailed(failure instanceof Error ? failure.message : String(failure));
-      })
-      .finally(() => setWorking(false));
+      }
+    });
   };
 
   return (

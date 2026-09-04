@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { runOnce, useInFlight } from "../lib/inFlight";
 import { ImageDown, LoaderCircle } from "lucide-react";
 import { useT } from "../i18n";
 import { journalAvailable, journalRows, type JournalRow } from "../lib/journal";
@@ -6,6 +7,9 @@ import { recapCredits, recapFrom, recapLines } from "../lib/recap";
 import { drawRecapCard } from "../lib/recapCard";
 import { exportFileName } from "../lib/export";
 import { saveFile } from "../lib/saveFile";
+
+/** Named so a remount of this panel finds the save that is already going. */
+const RECAP_SAVE = "recap-save";
 
 /**
  * A year at your own places, from your own record, on any date you like.
@@ -37,8 +41,9 @@ export function RecapSection({
   const [days, setDays] = useState<number>(365);
   const [withPlaces, setWithPlaces] = useState(false);
   // Drawing and encoding the card is asynchronous; the button is held shut
-  // for the whole of it.
-  const [saving, setSaving] = useState(false);
+  // for the whole of it, and outside this component, so closing Settings and
+  // opening it again mid-save does not hand the reader a second press.
+  const saving = useInFlight(RECAP_SAVE);
 
   useEffect(() => {
     void journalRows().then(setRows);
@@ -103,8 +108,7 @@ export function RecapSection({
             // second copy of the same name over the first.
             disabled={saving}
             onClick={() => {
-              setSaving(true);
-              void (async () => {
+              void runOnce(RECAP_SAVE, async () => {
                 try {
                   const blob = await drawRecapCard({
                     title: t("recap.title"),
@@ -122,10 +126,8 @@ export function RecapSection({
                       ? failure.message
                       : t("journal.failed"),
                   );
-                } finally {
-                  setSaving(false);
                 }
-              })();
+              });
             }}
           >
             {saving ? (

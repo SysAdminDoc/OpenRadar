@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { runOnce, useInFlight } from "../lib/inFlight";
 import { Trash2, Download, LoaderCircle, Pencil } from "lucide-react";
 import { translate, useT } from "../i18n";
 import { formatClock } from "../lib/units";
@@ -24,6 +25,9 @@ import {
 } from "../lib/journal";
 import { saveFile } from "../lib/saveFile";
 import { figureLines, figuresFrom } from "../lib/figures";
+
+/** Named so a remount of this panel finds the run that is already going. */
+const JOURNAL_EXPORT = "journal-export";
 
 /**
  * The reader's own record, in plain form, with the buttons that matter.
@@ -123,8 +127,10 @@ export function JournalSection({
   // An export of a year writes the record, the readable copy, and one file
   // per picture, one after another. The button stayed pressable through all
   // of it, so a second press started a second run of the same names over the
-  // top of the first.
-  const [exporting, setExporting] = useState(false);
+  // top of the first. Held outside the component, because closing Settings
+  // and opening it again mid-export remounts this and would hand the reader
+  // a pressable button over a run that is still going.
+  const exporting = useInFlight(JOURNAL_EXPORT);
   const heldRef = useRef<Record<string, string>>({});
   const askedRef = useRef(new Set<string>());
   const openRef = useRef(true);
@@ -409,8 +415,7 @@ export function JournalSection({
         className="secondary-button"
         disabled={!rows.length || exporting}
         onClick={() => {
-          setExporting(true);
-          void (async () => {
+          void runOnce(JOURNAL_EXPORT, async () => {
             try {
               // Files, plural, and readable ones. The record as it is on disk,
               // the same thing written for a person, and every picture beside
@@ -440,10 +445,8 @@ export function JournalSection({
               onSaved(saved.path);
             } catch (failure) {
               failed(failure);
-            } finally {
-              setExporting(false);
             }
-          })();
+          });
         }}
       >
         {exporting ? (
