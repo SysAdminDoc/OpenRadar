@@ -11,10 +11,13 @@ import {
 import { LEVEL2_PRODUCTS } from "./level2";
 
 describe("which radars are terminal radars", () => {
-  it("knows the forty-seven from the official list, by id", () => {
-    expect(TDWR_SITES).toHaveLength(47);
+  it("knows the forty-five from the official list, by id", () => {
+    // Forty-five, not the forty-seven NCEI's historical station file carries:
+    // TJBQ and TJRV answer 404 at the station endpoint and have published no
+    // product in a year, so they are not radars a reader can hold.
+    expect(TDWR_SITES).toHaveLength(45);
     const ids = new Set(TDWR_SITES.map((site) => site.id));
-    expect(ids.size).toBe(47);
+    expect(ids.size).toBe(45);
     for (const site of TDWR_SITES) {
       expect(site.id).toMatch(/^T[A-Z]{3}$/);
       expect(site.latitude).toBeGreaterThan(17);

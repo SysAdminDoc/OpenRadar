@@ -284,6 +284,22 @@ pub async fn radar_status() -> Result<Vec<SiteStatus>, RadarStatusError> {
 }
 
 #[cfg(test)]
+/// Which terminal radars the office lists, by their four-letter id.
+///
+/// The station list is the only thing that knows a terminal radar has been
+/// renamed or taken out of the network, which the product buckets cannot say:
+/// a radar that has been quiet for three weeks and a name that is not a radar
+/// at all look identical there.
+pub async fn terminal_stations() -> Result<Vec<String>, RadarStatusError> {
+    Ok(stations()
+        .await?
+        .iter()
+        .filter(|record| record.kind.as_deref() == Some("TDWR"))
+        .map(|record| record.station.clone())
+        .collect())
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

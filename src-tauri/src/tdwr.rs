@@ -1,6 +1,6 @@
 //! Terminal Doppler Weather Radar: the airports' own radars, held like a site.
 //!
-//! The FAA runs forty-seven of these at the big airports, and the Weather
+//! The FAA runs forty-five of these at the big airports, and the Weather
 //! Service relays their products over the same Level III feed the WSR-88D
 //! products travel on, under the airport's own three-letter code. They see
 //! the low levels over a city better than the WSR-88D thirty miles out does,
@@ -18,9 +18,13 @@
 //! them. The products carry their own scale in the description block, which
 //! is read rather than assumed.
 //!
-//! The site list is NCEI's station file for the network, which is the
-//! official one: https://www.ncei.noaa.gov/access/homr/file/nexrad-stations.txt
-//! (fetched 2026-09-01, the 47 rows typed TDWR). The product set and the
+//! The site list is the network the weather service says is running now:
+//! https://api.weather.gov/radar/stations?stationType=TDWR (read 2026-09-04,
+//! forty-five stations). NCEI's own station file carries two more, TJBQ and
+//! TJRV, and they are not radars any more: the station endpoint answers 404
+//! for both and neither has published a Level III product in a year. That
+//! file is a historical inventory and this table is what a reader can hold,
+//! so the two are not the same list. The product set and the
 //! tilts are the Radar Product Central Collection Dissemination Service's
 //! own table: https://www.weather.gov/media/tg/rpccds_radar_products.pdf
 //! (180/DR base reflectivity and 182/DV base radial velocity at 48 nmi as
@@ -61,7 +65,7 @@ const HEADER_BYTES: u64 = 255;
 /// Feet, which is how the station file gives a height, to metres.
 const METRES_PER_FOOT: f32 = 0.3048;
 
-/// One of the forty-seven, as the station file has it.
+/// One of the forty-five, as the station file has it.
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TdwrSite {
@@ -466,13 +470,50 @@ mod tests {
     }
 
     #[test]
-    fn knows_the_forty_seven_from_the_official_list() {
+    #[ignore = "asks the live NWS station list which terminal radars exist"]
+    fn every_site_in_the_table_is_one_the_office_still_lists() {
+        // The identifier of a terminal radar can change under the app: the
+        // Radar Operations Center renamed West Palm Beach from TPBI to TDJT
+        // on 2026-08-03 (SCN26-61), and the only symptom was that holding the
+        // site drew nothing. A name the bucket does not know looks exactly
+        // like a radar that is quiet, so nothing said why and the site sat
+        // dead in the list for a month.
+        //
+        // Asked of the station list rather than of the bucket, because the
+        // bucket cannot tell the two apart: Louisville had published nothing
+        // for three weeks on 2026-09-04 and is a real radar the office lists
+        // as running. What this catches is a name that is not a radar.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let listed = runtime
+            .block_on(crate::radar_status::terminal_stations())
+            .expect("the office answers");
+        assert!(
+            listed.len() >= 40,
+            "only {} terminal radars listed, which is the feed being wrong rather than the table",
+            listed.len()
+        );
+        let missing: Vec<&str> = sites()
+            .iter()
+            .map(|site| site.id.as_str())
+            .filter(|id| !listed.iter().any(|listed| listed == id))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "the table names {missing:?}, which the office does not list as terminal radars"
+        );
+    }
+
+    #[test]
+    fn knows_the_forty_five_from_the_official_list() {
         let all = sites();
-        assert_eq!(all.len(), 47);
+        assert_eq!(all.len(), 45);
         let mut ids: Vec<&str> = all.iter().map(|site| site.id.as_str()).collect();
         ids.sort_unstable();
         ids.dedup();
-        assert_eq!(ids.len(), 47, "an id repeats");
+        assert_eq!(ids.len(), 45, "an id repeats");
         for site in all {
             assert_eq!(site.id.len(), 4, "{}", site.id);
             assert!(site.id.starts_with('T'), "{} is not a TDWR id", site.id);
