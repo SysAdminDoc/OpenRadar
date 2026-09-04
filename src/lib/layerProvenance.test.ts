@@ -7,17 +7,35 @@ import { MRMS_PRODUCT_IDS } from "./providers/mrms";
 import { MRMS_LAYERS, mrmsTimeFor, productFor } from "../hooks/useMrmsOverlays";
 import { GAUGE_QPE_PERIODS } from "./gaugeQpe";
 import { AZ_SHEAR_LEVELS, ROTATION_PERIODS } from "./rotationTrack";
+import {
+  ISOTHERM_LEVELS,
+  LIGHTNING_FORECASTS,
+  LIGHTNING_JUMPS,
+  LIGHTNING_WINDOWS,
+} from "./lightningGrids";
 import type { MrmsChoices } from "../hooks/useMrmsOverlays";
 
-/** Every combination of the three switches that stand for several grids. */
+/** Every combination of the seven switches that stand for several grids. */
 const EVERY_CHOICE: MrmsChoices[] = GAUGE_QPE_PERIODS.flatMap(
   (gaugeQpePeriod) =>
     ROTATION_PERIODS.flatMap((rotationPeriod) =>
-      AZ_SHEAR_LEVELS.map((azShearLevel) => ({
-        gaugeQpePeriod,
-        rotationPeriod,
-        azShearLevel,
-      })),
+      AZ_SHEAR_LEVELS.flatMap((azShearLevel) =>
+        LIGHTNING_WINDOWS.flatMap((lightningWindow) =>
+          LIGHTNING_FORECASTS.flatMap((lightningForecastWindow) =>
+            LIGHTNING_JUMPS.flatMap((lightningJumpWindow) =>
+              ISOTHERM_LEVELS.map((isothermLevel) => ({
+                gaugeQpePeriod,
+                rotationPeriod,
+                azShearLevel,
+                lightningWindow,
+                lightningForecastWindow,
+                lightningJumpWindow,
+                isothermLevel,
+              })),
+            ),
+          ),
+        ),
+      ),
     ),
 );
 

@@ -373,6 +373,34 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     kind: "observation",
     freshForMs: MRMS_REFRESH,
   },
+  lightningForecast: {
+    sourceId: "lightning-probability",
+    label: "Chance of lightning",
+    attribution: MRMS,
+    // A forecast, and the panel has to say so: the grid covers ground no
+    // flash has struck. Read as an observation it says lightning is falling
+    // where none is.
+    kind: "forecast",
+    freshForMs: MRMS_REFRESH,
+  },
+  lightningJump: {
+    sourceId: "lightning-jump",
+    label: "Lightning jump",
+    attribution: MRMS,
+    kind: "derived",
+    derivedFrom: "flash rate against each cell's own recent history",
+    freshForMs: MRMS_REFRESH,
+  },
+  isothermReflectivity: {
+    sourceId: "isotherm-reflectivity",
+    label: "Reflectivity at the ice level",
+    attribution: MRMS,
+    // Measured reflectivity, but at a height the model chose, so it is not
+    // the plain observation the composite is.
+    kind: "derived",
+    derivedFrom: "radar reflectivity sampled at a model temperature level",
+    freshForMs: MRMS_REFRESH,
+  },
   lightningFlashes: {
     sourceId: "lightningFlashes",
     label: "GOES total lightning",

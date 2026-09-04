@@ -79,6 +79,12 @@ import { HistoryPanel } from "../panels/HistoryPanel";
 import { RadarProductPanel } from "../panels/RadarProductPanel";
 import type { SiteStatus } from "../lib/radarStatus";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
+import type {
+  IsothermLevel,
+  LightningForecast,
+  LightningJump,
+  LightningWindow,
+} from "../lib/lightningGrids";
 import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
@@ -192,6 +198,10 @@ interface PanelSurfacesProps {
   onSatelliteBand: (band: SatelliteBandId) => void;
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   onRotationPeriod: (period: RotationPeriod) => void;
+  onLightningWindow: (window: LightningWindow) => void;
+  onLightningForecastWindow: (window: LightningForecast) => void;
+  onLightningJumpWindow: (window: LightningJump) => void;
+  onIsothermLevel: (level: IsothermLevel) => void;
   onAzShearLevel: (level: AzShearLevel) => void;
   onWpcDay: (day: number) => void;
   onWssiDay: (day: number) => void;
@@ -291,6 +301,14 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onGaugeQpePeriod={props.onGaugeQpePeriod}
             rotationPeriod={settings.rotationPeriod}
             onRotationPeriod={props.onRotationPeriod}
+            lightningWindow={settings.lightningWindow}
+            onLightningWindow={props.onLightningWindow}
+            lightningForecastWindow={settings.lightningForecastWindow}
+            onLightningForecastWindow={props.onLightningForecastWindow}
+            lightningJumpWindow={settings.lightningJumpWindow}
+            onLightningJumpWindow={props.onLightningJumpWindow}
+            isothermLevel={settings.isothermLevel}
+            onIsothermLevel={props.onIsothermLevel}
             azShearLevel={settings.azShearLevel}
             onAzShearLevel={props.onAzShearLevel}
             spcDay={props.spcDay}
@@ -490,7 +508,16 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             // question. Mounting fresh for it is what lets "no answer yet" be
             // where the panel starts.
             key={`${props.singleSite?.station ?? ""}:${props.vwpTimes.join(",")}`}
-            station={props.singleSite?.station ?? null}
+            // No station while the site is held on a volume from another day.
+            // A historical hold publishes no volume list, and an empty list
+            // means "whatever the radar put out last", so the panel drew this
+            // afternoon's wind under a map showing 2011 and labelled the
+            // column with a clock time from today.
+            station={
+              props.singleSite?.historical
+                ? null
+                : (props.singleSite?.station ?? null)
+            }
             times={props.vwpTimes}
             read={props.readVwp}
             onClose={onClose}

@@ -1,4 +1,16 @@
 import { describe, expect, it } from "vitest";
+import type {
+  IsothermLevel,
+  LightningForecast,
+  LightningJump,
+  LightningWindow,
+} from "../lib/lightningGrids";
+import {
+  ISOTHERM_LEVELS,
+  LIGHTNING_FORECASTS,
+  LIGHTNING_JUMPS,
+  LIGHTNING_WINDOWS,
+} from "../lib/lightningGrids";
 import { MRMS_LAYERS, productFor, type MrmsChoices } from "./useMrmsOverlays";
 import { GAUGE_QPE_PERIODS } from "../lib/gaugeQpe";
 import {
@@ -9,20 +21,40 @@ import {
 } from "../lib/rotationTrack";
 import { MRMS_PRODUCT_IDS } from "../lib/providers/mrms";
 
-/** Every combination of the three choices, which is thirty of them. */
+/** Every combination of the seven choices behind a switch. */
 const EVERY_CHOICE: MrmsChoices[] = GAUGE_QPE_PERIODS.flatMap(
   (gaugeQpePeriod) =>
     ROTATION_PERIODS.flatMap((rotationPeriod) =>
-      AZ_SHEAR_LEVELS.map((azShearLevel) => ({
-        gaugeQpePeriod,
-        rotationPeriod,
-        azShearLevel,
-      })),
+      AZ_SHEAR_LEVELS.flatMap((azShearLevel) =>
+        LIGHTNING_WINDOWS.flatMap((lightningWindow) =>
+          LIGHTNING_FORECASTS.flatMap((lightningForecastWindow) =>
+            LIGHTNING_JUMPS.flatMap((lightningJumpWindow) =>
+              ISOTHERM_LEVELS.map((isothermLevel) => ({
+                gaugeQpePeriod,
+                rotationPeriod,
+                azShearLevel,
+                lightningWindow,
+                lightningForecastWindow,
+                lightningJumpWindow,
+                isothermLevel,
+              })),
+            ),
+          ),
+        ),
+      ),
     ),
 );
 
-/** The three switches that stand for more than one grid. */
-const CHOOSING = new Set(["gaugeQpe", "rotationTracks", "azShear"]);
+/** The seven switches that stand for more than one grid. */
+const CHOOSING = new Set([
+  "gaugeQpe",
+  "rotationTracks",
+  "azShear",
+  "lightningDensity",
+  "lightningForecast",
+  "lightningJump",
+  "isothermReflectivity",
+]);
 
 describe("which grid is behind a switch", () => {
   it("is the one the table names, for every ordinary layer", () => {
@@ -45,6 +77,10 @@ describe("which grid is behind a switch", () => {
         gaugeQpePeriod,
         rotationPeriod: "1h",
         azShearLevel: "low",
+        lightningWindow: "5m",
+        lightningForecastWindow: "30m",
+        lightningJumpWindow: "max",
+        isothermLevel: "minus10",
       }),
     );
     expect(chosen).toEqual([
@@ -66,6 +102,10 @@ describe("which grid is behind a switch", () => {
         gaugeQpePeriod: "24h",
         rotationPeriod,
         azShearLevel: "low",
+        lightningWindow: "5m",
+        lightningForecastWindow: "30m",
+        lightningJumpWindow: "max",
+        isothermLevel: "minus10",
       }),
     );
     expect(chosen).toEqual([
@@ -86,10 +126,102 @@ describe("which grid is behind a switch", () => {
         gaugeQpePeriod: "24h",
         rotationPeriod: "1h",
         azShearLevel,
+        lightningWindow: "5m",
+        lightningForecastWindow: "30m",
+        lightningJumpWindow: "max",
+        isothermLevel: "minus10",
       }),
     );
     expect(chosen).toEqual(["az-shear-low", "az-shear-mid"]);
     expect(new Set(chosen).size).toBe(AZ_SHEAR_LEVELS.length);
+  });
+
+  it("follows the window for the cloud-to-ground density, over all four", () => {
+    // One unit across the four, so the failure is quiet: half an hour of
+    // accumulated flashes read as the past minute says a storm is electrifying
+    // far harder than it is.
+    const entry = MRMS_LAYERS.find(({ layer }) => layer === "lightningDensity");
+    expect(entry, "the density switch is in the table").toBeTruthy();
+    const chosen = LIGHTNING_WINDOWS.map((lightningWindow) =>
+      productFor("lightningDensity", entry!.product, {
+        gaugeQpePeriod: "24h",
+        rotationPeriod: "1h",
+        azShearLevel: "low",
+        lightningWindow,
+        lightningForecastWindow: "30m",
+        lightningJumpWindow: "max",
+        isothermLevel: "minus10",
+      }),
+    );
+    expect(chosen).toEqual([
+      "lightning-1min",
+      "lightning",
+      "lightning-15min",
+      "lightning-30min",
+    ]);
+    expect(new Set(chosen).size).toBe(LIGHTNING_WINDOWS.length);
+  });
+
+  it("follows the window for the chance of lightning, and never leaves it", () => {
+    // These two are forecasts. Falling back to an observation grid would put a
+    // flash density behind a switch labelled as a chance.
+    const entry = MRMS_LAYERS.find(
+      ({ layer }) => layer === "lightningForecast",
+    );
+    expect(entry, "the forecast switch is in the table").toBeTruthy();
+    const chosen = LIGHTNING_FORECASTS.map((lightningForecastWindow) =>
+      productFor("lightningForecast", entry!.product, {
+        gaugeQpePeriod: "24h",
+        rotationPeriod: "1h",
+        azShearLevel: "low",
+        lightningWindow: "5m",
+        lightningForecastWindow,
+        lightningJumpWindow: "max",
+        isothermLevel: "minus10",
+      }),
+    );
+    expect(chosen).toEqual([
+      "lightning-probability-30min",
+      "lightning-probability-60min",
+    ]);
+    expect(new Set(chosen).size).toBe(LIGHTNING_FORECASTS.length);
+  });
+
+  it("follows the window for the jump, and the temperature for the ice level", () => {
+    const jump = MRMS_LAYERS.find(({ layer }) => layer === "lightningJump");
+    expect(jump, "the jump switch is in the table").toBeTruthy();
+    const jumps = LIGHTNING_JUMPS.map((lightningJumpWindow) =>
+      productFor("lightningJump", jump!.product, {
+        gaugeQpePeriod: "24h",
+        rotationPeriod: "1h",
+        azShearLevel: "low",
+        lightningWindow: "5m",
+        lightningForecastWindow: "30m",
+        lightningJumpWindow,
+        isothermLevel: "minus10",
+      }),
+    );
+    expect(jumps).toEqual(["lightning-jump", "lightning-jump-max"]);
+
+    const ice = MRMS_LAYERS.find(
+      ({ layer }) => layer === "isothermReflectivity",
+    );
+    expect(ice, "the ice level switch is in the table").toBeTruthy();
+    const levels = ISOTHERM_LEVELS.map((isothermLevel) =>
+      productFor("isothermReflectivity", ice!.product, {
+        gaugeQpePeriod: "24h",
+        rotationPeriod: "1h",
+        azShearLevel: "low",
+        lightningWindow: "5m",
+        lightningForecastWindow: "30m",
+        lightningJumpWindow: "max",
+        isothermLevel,
+      }),
+    );
+    expect(levels).toEqual([
+      "reflectivity-minus-10c",
+      "reflectivity-minus-20c",
+    ]);
   });
 
   it("lets each choice move its own switch and nobody else's", () => {
@@ -100,11 +232,22 @@ describe("which grid is behind a switch", () => {
       gaugeQpePeriod: "24h",
       rotationPeriod: "1h",
       azShearLevel: "low",
+      lightningWindow: "5m",
+      lightningForecastWindow: "30m",
+      lightningJumpWindow: "max",
+      isothermLevel: "minus10",
     };
     const moved: Array<[Partial<MrmsChoices>, string]> = [
       [{ rotationPeriod: "24h" as RotationPeriod }, "rotationTracks"],
       [{ azShearLevel: "mid" as AzShearLevel }, "azShear"],
       [{ gaugeQpePeriod: "1h" }, "gaugeQpe"],
+      [{ lightningWindow: "30m" as LightningWindow }, "lightningDensity"],
+      [
+        { lightningForecastWindow: "60m" as LightningForecast },
+        "lightningForecast",
+      ],
+      [{ lightningJumpWindow: "now" as LightningJump }, "lightningJump"],
+      [{ isothermLevel: "minus20" as IsothermLevel }, "isothermReflectivity"],
     ];
     for (const [change, moves] of moved) {
       const after = { ...base, ...change };

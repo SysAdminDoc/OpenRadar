@@ -265,6 +265,24 @@ const LAYER_COMMANDS: Array<{
     keywords: ["lightning", "strike", "cloud to ground", "cg", "nldn", "flash"],
   },
   {
+    layer: "lightningForecast",
+    key: "layer.lightningForecast",
+    extra: "keywords.lightningForecast",
+    keywords: ["lightning", "probability", "chance", "forecast", "next"],
+  },
+  {
+    layer: "lightningJump",
+    key: "layer.lightningJump",
+    extra: "keywords.lightningJump",
+    keywords: ["lightning", "jump", "surge", "sigma", "rate", "increase"],
+  },
+  {
+    layer: "isothermReflectivity",
+    key: "layer.isothermReflectivity",
+    extra: "keywords.isothermReflectivity",
+    keywords: ["reflectivity", "isothermal", "ice", "freezing", "dbz", "cold"],
+  },
+  {
     layer: "lightningFlashes",
     key: "layer.lightningFlashes",
     extra: "keywords.lightningFlashes",

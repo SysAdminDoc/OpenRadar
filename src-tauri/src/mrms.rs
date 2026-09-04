@@ -291,6 +291,29 @@ const LIGHTNING_RAMP: &[(f32, [u8; 3])] = &[
     (4.00, [0xc0, 0x26, 0xd3]),
 ];
 
+/// A chance, as a percentage. Nothing below one in ten is worth painting a
+/// county for.
+const LIGHTNING_PROBABILITY_RAMP: &[(f32, [u8; 3])] = &[
+    (10.0, [0x38, 0xbd, 0xf8]),
+    (25.0, [0x4a, 0xde, 0x80]),
+    (50.0, [0xfa, 0xcc, 0x15]),
+    (75.0, [0xfb, 0x92, 0x3c]),
+    (90.0, [0xf4, 0x3f, 0x5e]),
+];
+
+/// How far a cell's flash rate has jumped, in standard deviations.
+///
+/// Two sigma is the threshold the Warning Decision Training Division teaches
+/// as worth looking at, which is where the ramp changes colour rather than
+/// where it starts: a reader has to be able to see the approach to it.
+const LIGHTNING_JUMP_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, [0x38, 0xbd, 0xf8]),
+    (2.0, [0xfa, 0xcc, 0x15]),
+    (3.0, [0xfb, 0x92, 0x3c]),
+    (4.0, [0xf4, 0x3f, 0x5e]),
+    (6.0, [0xc0, 0x26, 0xd3]),
+];
+
 /// How high the eighteen dBZ echo reaches, in kilometres. A summer storm tops
 /// out around twelve; anything past fifteen is a serious updraft.
 const ECHO_TOP_RAMP: &[(f32, [u8; 3])] = &[
@@ -495,6 +518,22 @@ const HIGH_CONTRAST_LIGHTNING_RAMP: &[(f32, [u8; 3])] = &[
     (1.00, HIGH_CONTRAST_STEPS[3]),
     (2.00, HIGH_CONTRAST_STEPS[4]),
     (4.00, HIGH_CONTRAST_STEPS[5]),
+];
+
+const HIGH_CONTRAST_LIGHTNING_PROBABILITY_RAMP: &[(f32, [u8; 3])] = &[
+    (10.0, HIGH_CONTRAST_STEPS[0]),
+    (25.0, HIGH_CONTRAST_STEPS[1]),
+    (50.0, HIGH_CONTRAST_STEPS[2]),
+    (75.0, HIGH_CONTRAST_STEPS[3]),
+    (90.0, HIGH_CONTRAST_STEPS[4]),
+];
+
+const HIGH_CONTRAST_LIGHTNING_JUMP_RAMP: &[(f32, [u8; 3])] = &[
+    (1.0, HIGH_CONTRAST_STEPS[0]),
+    (2.0, HIGH_CONTRAST_STEPS[1]),
+    (3.0, HIGH_CONTRAST_STEPS[2]),
+    (4.0, HIGH_CONTRAST_STEPS[3]),
+    (6.0, HIGH_CONTRAST_STEPS[4]),
 ];
 
 const HIGH_CONTRAST_ECHO_TOP_RAMP: &[(f32, [u8; 3])] = &[
@@ -927,6 +966,114 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_RAMP,
         floor: 0.01,
         sampling: Sampling::Cells,
+        categories: None,
+    },
+    // The rest of the cloud-to-ground density windows. One ramp across all
+    // four on purpose: the unit is the same and the windows are only worth
+    // having if a reader can compare them, which they cannot if each is
+    // scaled to itself.
+    MrmsProduct {
+        id: "lightning-1min",
+        folder: "NLDN_CG_001min_AvgDensity_00.00",
+        label: "Cloud-to-ground lightning, 1 min",
+        unit: "flashes/km2/min",
+        ramp: LIGHTNING_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_RAMP,
+        floor: 0.01,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "lightning-15min",
+        folder: "NLDN_CG_015min_AvgDensity_00.00",
+        label: "Cloud-to-ground lightning, 15 min",
+        unit: "flashes/km2/min",
+        ramp: LIGHTNING_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_RAMP,
+        floor: 0.01,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "lightning-30min",
+        folder: "NLDN_CG_030min_AvgDensity_00.00",
+        label: "Cloud-to-ground lightning, 30 min",
+        unit: "flashes/km2/min",
+        ramp: LIGHTNING_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_RAMP,
+        floor: 0.01,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    // The two that are forecasts rather than observations. Everything the
+    // workspace says about them has to carry that, which is why they are
+    // labelled by what they are rather than by their folder.
+    MrmsProduct {
+        id: "lightning-probability-30min",
+        folder: "LightningProbabilityNext30minGrid_scale_1",
+        label: "Chance of lightning in 30 min",
+        unit: "%",
+        ramp: LIGHTNING_PROBABILITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_PROBABILITY_RAMP,
+        floor: 10.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "lightning-probability-60min",
+        folder: "LightningProbabilityNext60minGrid_scale_1",
+        label: "Chance of lightning in 60 min",
+        unit: "%",
+        ramp: LIGHTNING_PROBABILITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_PROBABILITY_RAMP,
+        floor: 10.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "lightning-jump",
+        folder: "LtgJumpGrid_scale_1",
+        label: "Lightning jump",
+        unit: "sigma",
+        ramp: LIGHTNING_JUMP_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_JUMP_RAMP,
+        floor: 1.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "lightning-jump-max",
+        folder: "LtgJumpGrid_Max_005min_scale_1",
+        label: "Largest lightning jump, 5 min",
+        unit: "sigma",
+        ramp: LIGHTNING_JUMP_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_LIGHTNING_JUMP_RAMP,
+        floor: 1.0,
+        sampling: Sampling::Cells,
+        categories: None,
+    },
+    // Reflectivity at the height the air is cold enough for ice, which is
+    // what a forecaster reads for lightning initiation rather than for rain.
+    MrmsProduct {
+        id: "reflectivity-minus-10c",
+        folder: "Reflectivity_-10C_00.50",
+        label: "Reflectivity at -10 C",
+        unit: "dBZ",
+        ramp: REFLECTIVITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_REFLECTIVITY_RAMP,
+        floor: 5.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+    },
+    MrmsProduct {
+        id: "reflectivity-minus-20c",
+        folder: "Reflectivity_-20C_00.50",
+        label: "Reflectivity at -20 C",
+        unit: "dBZ",
+        ramp: REFLECTIVITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_REFLECTIVITY_RAMP,
+        floor: 5.0,
+        sampling: Sampling::Nearest,
         categories: None,
     },
     MrmsProduct {
@@ -3909,6 +4056,23 @@ mod tests {
             ("unit-streamflow", Sampling::Nearest),
             ("hail-swath", Sampling::Cells),
             ("lightning", Sampling::Cells),
+            // The other density windows are the same sparse cells as the
+            // five-minute one.
+            ("lightning-1min", Sampling::Cells),
+            ("lightning-15min", Sampling::Cells),
+            ("lightning-30min", Sampling::Cells),
+            // A probability is a smooth field over whole counties, so it is
+            // sampled per pixel rather than drawn cell by cell.
+            ("lightning-probability-30min", Sampling::Nearest),
+            ("lightning-probability-60min", Sampling::Nearest),
+            // A jump belongs to a storm, and is as sparse as the flashes it
+            // is counted from.
+            ("lightning-jump", Sampling::Cells),
+            ("lightning-jump-max", Sampling::Cells),
+            // Reflectivity at a temperature is reflectivity: a continuous
+            // field, drawn the way the composite is.
+            ("reflectivity-minus-10c", Sampling::Nearest),
+            ("reflectivity-minus-20c", Sampling::Nearest),
             ("precip-type", Sampling::Nearest),
         ];
         assert_eq!(expected.len(), PRODUCTS.len(), "a product has no verdict");

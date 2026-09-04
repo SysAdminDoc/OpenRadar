@@ -1071,9 +1071,21 @@ export default function App() {
     () => ({
       gaugeQpePeriod: settings.gaugeQpePeriod,
       rotationPeriod: settings.rotationPeriod,
+      lightningWindow: settings.lightningWindow,
+      lightningForecastWindow: settings.lightningForecastWindow,
+      lightningJumpWindow: settings.lightningJumpWindow,
+      isothermLevel: settings.isothermLevel,
       azShearLevel: settings.azShearLevel,
     }),
-    [settings.azShearLevel, settings.gaugeQpePeriod, settings.rotationPeriod],
+    [
+      settings.azShearLevel,
+      settings.gaugeQpePeriod,
+      settings.rotationPeriod,
+      settings.lightningWindow,
+      settings.lightningForecastWindow,
+      settings.lightningJumpWindow,
+      settings.isothermLevel,
+    ],
   );
 
   const mrms = useMrmsOverlays({
@@ -2504,6 +2516,9 @@ export default function App() {
               qpeHour: mrms.error,
               qpeDay: mrms.error,
               lightningDensity: mrms.error,
+              lightningForecast: mrms.error,
+              lightningJump: mrms.error,
+              isothermReflectivity: mrms.error,
               lightningFlashes: lightning.error,
               wind: wind.error,
             }}
@@ -2598,6 +2613,18 @@ export default function App() {
             }
             onGaugeQpePeriod={(gaugeQpePeriod) =>
               applySettings({ ...settingsRef.current, gaugeQpePeriod })
+            }
+            onLightningWindow={(lightningWindow) =>
+              applySettings({ ...settingsRef.current, lightningWindow })
+            }
+            onLightningForecastWindow={(lightningForecastWindow) =>
+              applySettings({ ...settingsRef.current, lightningForecastWindow })
+            }
+            onLightningJumpWindow={(lightningJumpWindow) =>
+              applySettings({ ...settingsRef.current, lightningJumpWindow })
+            }
+            onIsothermLevel={(isothermLevel) =>
+              applySettings({ ...settingsRef.current, isothermLevel })
             }
             onRotationPeriod={(rotationPeriod) =>
               applySettings({ ...settingsRef.current, rotationPeriod })
