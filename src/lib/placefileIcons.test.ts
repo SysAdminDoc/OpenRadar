@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseIconId, placefilePictures } from "./placefile";
 import {
@@ -215,5 +217,40 @@ describe("the dot an icon falls back to", () => {
     const rim = (6 * 12 + 10) * 4;
     expect(dot.data[rim + 3]).toBe(255);
     expect(dot.data[rim]).toBeGreaterThan(dot.data[middle]);
+  });
+});
+
+describe("how the map is told which icon to draw", () => {
+  /**
+   * The lane lives inside MapViewport, which no unit test can stand up, so
+   * this reads the source the way `tiles.rs` reads `lib.rs` for the same
+   * reason. It is here rather than in a browser test because the defect it
+   * catches is invisible on screen until a sheet actually loads, and the
+   * sheet only loads on a host the app is allowed to fetch.
+   */
+  const viewport = readFileSync(
+    join(process.cwd(), "src", "components", "MapViewport.tsx"),
+    "utf8",
+  );
+
+  it("names the icon itself rather than coalescing onto a fallback", () => {
+    // A coalesce looks like the obvious way to cover a sheet that will not
+    // load, and it silently breaks every sheet that does. MapLibre records
+    // only the image the expression RESOLVED to as the tile's icon
+    // dependency, so once the always-present fallback has won, adding the
+    // real icon later reloads nothing and the sheet never appears: every
+    // placefile icon draws as a generic dot, at the wrong size and without
+    // the hotspot the file named.
+    const at = viewport.indexOf('"icon-image"');
+    expect(at, "the icon lane no longer sets icon-image").toBeGreaterThan(0);
+    const expression = viewport.slice(at, at + 200);
+    expect(expression).toContain('["get", "icon"]');
+    expect(expression).not.toContain("coalesce");
+  });
+
+  it("puts the fallback under the icon's own id, where it can be replaced", () => {
+    // Which is what makes the fallback safe: adding the real icon under an
+    // id a tile is already missing does reload the tiles that wanted it.
+    expect(viewport).toContain("map.addImage(id, fallbackDot())");
   });
 });

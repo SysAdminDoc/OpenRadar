@@ -122,7 +122,7 @@ describe("a shape somebody imported", () => {
         imported({
           kind: "place",
           color: "#ffc800",
-          fileName: "spotters.txt",
+          openradarFile: "spotters.txt",
           label: "Hail 2.0 in",
         }),
       ],
@@ -136,7 +136,7 @@ describe("a shape somebody imported", () => {
     const content = popupFrom(
       [
         imported({
-          fileName: "survey.kml",
+          openradarFile: "survey.kml",
           name: "EF3",
           description: "Damage survey leg 4",
           width: "400 yd",
@@ -165,7 +165,7 @@ describe("a shape somebody imported", () => {
     const content = popupFrom(
       [
         imported({
-          fileName: "hostile.kml",
+          openradarFile: "hostile.kml",
           name: "<img src=x onerror=alert(1)>",
           description: "<script>alert(1)</script>",
           link: "javascript:alert(1)",
@@ -180,7 +180,10 @@ describe("a shape somebody imported", () => {
   });
 
   it("stops rather than filling the window with a file's own fields", () => {
-    const many: Record<string, unknown> = { fileName: "wide.kml", name: "One" };
+    const many: Record<string, unknown> = {
+      openradarFile: "wide.kml",
+      name: "One",
+    };
     for (let at = 0; at < 30; at += 1) many[`field${at}`] = `value ${at}`;
     const content = popupFrom([imported(many)], ORDER);
     expect(content?.lines).toHaveLength(8);

@@ -217,7 +217,10 @@ function stamped(feature: unknown, file: WorkspaceOverlayFile): unknown {
     ...record,
     properties: {
       ...properties,
-      fileName: file.name,
+      // Under a name a KML or a GeoJSON cannot produce. A published KML can
+      // carry an extended-data field called anything,  included,
+      // and stamping over it loses the reader's own value with nothing said.
+      openradarFile: file.name,
       ...(file.opacity >= 1 ? {} : { fileOpacity: file.opacity }),
     },
   };

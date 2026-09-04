@@ -250,7 +250,10 @@ test("names the radar source and fails over to nowCOAST", async ({ page }) => {
 
   await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
   await expect(page.getByText(/NWS RIDGE II/).first()).toBeVisible();
-  await expect(page.getByText(/returned 503/).first()).toBeVisible();
+  // The sentence a reader can act on rather than the protocol's number,
+  // which goes to the log. Diagnostics still carries the status through the
+  // log block a bug report is pasted from.
+  await expect(page.getByText(/is busy/).first()).toBeVisible();
 });
 
 test("adds and removes a map layer when a toggle changes", async ({ page }) => {

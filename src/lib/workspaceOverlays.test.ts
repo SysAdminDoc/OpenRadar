@@ -142,6 +142,33 @@ describe("what the map is handed", () => {
     expect(drawn[2].properties.fileOpacity).toBe(0.4);
   });
 
+  it("does not stamp over a field the file itself carried", () => {
+    // A published KML can call an extended-data field anything, and a
+    // damage survey naming the file it came from is exactly that case:
+    // stamping over it loses the reader's own value with nothing said.
+    const own: WorkspaceOverlayFile = {
+      id: "survey",
+      name: "survey.kml",
+      enabled: true,
+      opacity: 1,
+      shapes: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [0, 0] },
+            properties: { fileName: "survey-2026-04-27", label: "EF3" },
+          },
+        ],
+      },
+    };
+    const merged = mergedOverlayShapes([own]) as {
+      features: Array<{ properties: Record<string, unknown> }>;
+    };
+    expect(merged.features[0].properties.fileName).toBe("survey-2026-04-27");
+    expect(merged.features[0].properties.openradarFile).toBe("survey.kml");
+  });
+
   it("does not touch the file's own shapes while stamping", () => {
     mergedOverlayShapes(files);
     const kept = files[2].shapes.features as Array<{

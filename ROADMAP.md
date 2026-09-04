@@ -313,3 +313,25 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
 
 ### P3
 
+
+## Audit Findings, 2026-09-04
+
+- [ ] AUD-247 (P3): A placefile icon sheet cannot be stubbed in the browser suite, so the path where an icon really draws has no end-to-end test
+      Category: testing
+      Where: `e2e/support/fixtures.ts` (the `https://mesonet.agron.iastate.edu/**` stub, whose default branch answers `emptyCollection` as JSON); `src/components/MapViewport.tsx` `loadPlacefileIcons`; `src/lib/placefileIcons.test.ts` (the source-reading gate standing in for it today)
+      Problem: The regression that broke every placefile icon (a `coalesce` onto a fallback image, which made the tile record the fallback as its only icon dependency so the real sheet never reloaded behind it) was invisible to the whole browser suite. An attempt to cover it failed on the fixture rather than on the product: a test-local `page.route` for a sheet on `mesonet.agron.iastate.edu` never answered the request, the fetch was still pending after two and a half seconds, and `performance.getEntriesByType("resource")` listed no request for it. The gate that covers it now reads the layer expression out of `MapViewport.tsx` as text, which catches this exact mistake and nothing else about whether an icon reaches the screen.
+      Evidence: Reproduced 2026-09-04 with a probe logging inside `loadPlacefileIcons`. The wanted id is correct and the fetch starts against the right address; nothing is drawn, and neither the sheet's own colour nor the fallback dot appears on the canvas. The import toast reports one shape with no "left out" note, so the parser accepted the sheet, and the icon layer is on the published stack.
+      Fix: Work out which route actually answers the request, either by giving the mesonet stub a branch that serves a real PNG for an image path, or by registering the test-local stub through the fixture's own `stubHost` so ordering is not in question. Then write the test the product needs: a placefile whose `IconFile` is a solid-colour fifteen by twenty-five PNG on an allowed host, an `Icon` at the camera centre, and a pixel count for that colour above fifty; plus the same with the sheet stubbed 404 and a pixel count for the fallback dot instead.
+      Acceptance: Both cases pass, and reverting the layer expression to a coalesce turns the first one red.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-248 (P3): A request the workspace fixture does not recognise can hang forever instead of failing
+      Category: testing
+      Where: `e2e/support/fixtures.ts`, every `stub(...)` handler that branches on the URL
+      Problem: A handler that falls off its last branch without calling `fulfill`, `abort` or `continue` leaves the request pending for the life of the page. A test that then waits on whatever that request feeds fails by timing out somewhere else entirely, which is most of what AUD-247 cost. Several handlers do have a default; whether all of them do has not been checked, and the ones that do sometimes answer with the wrong content type for the request.
+      Evidence: The mesonet handler's default answers JSON for any path it does not recognise, including an image request, and the same shape of handler is repeated for a dozen hosts in the same file.
+      Fix: Read every `stub` handler in `fixtures.ts` and give each a default that fulfils with something the caller can use. Then add a guard so the next one cannot go unnoticed: a check in `routeWorkspace` that no request is left pending when a spec ends.
+      Acceptance: Every handler answers on every path; a deliberately unrecognised URL on a stubbed host comes back with a status rather than hanging.
+      Confidence: Verified
+      Effort: S

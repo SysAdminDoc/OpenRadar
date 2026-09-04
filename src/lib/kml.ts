@@ -236,10 +236,22 @@ export function parseKml(xml: string): KmlDocument {
   )) {
     if (features.length >= MAX_KML_FEATURES) break;
     const styleId = (text(placemark, "styleUrl") ?? "").replace(/^#/, "");
-    // A style written inside the placemark wins over one it points at, which
-    // is the format's own precedence and the shape a hand-recoloured
-    // placemark arrives in.
-    const style = inlineStyle(placemark) ?? styles.get(styleId) ?? null;
+    // A style written inside the placemark wins over one it points at, per
+    // field rather than wholesale. An inline block that carries only an
+    // IconStyle says nothing about the line or the fill, and replacing the
+    // shared style with it threw away colours the file did state: that is
+    // the same "imports in the default blue" this was meant to fix, moved
+    // to a different file.
+    const shared = styles.get(styleId) ?? null;
+    const inline = inlineStyle(placemark);
+    const style: KmlStyle | null =
+      inline || shared
+        ? {
+            fill: inline?.fill ?? shared?.fill ?? null,
+            stroke: inline?.stroke ?? shared?.stroke ?? null,
+            strokeWidth: inline?.strokeWidth ?? shared?.strokeWidth ?? null,
+          }
+        : null;
     const name = text(placemark, "name");
     const description = text(placemark, "description");
     // The file's own extended data, which is where a published KML puts the
