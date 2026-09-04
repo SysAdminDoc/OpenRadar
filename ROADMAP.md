@@ -438,16 +438,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Likely
       Effort: S
 
-- [ ] AUD-299 (P3): Escape works only while focus is inside a panel, tools have no keyboard exit, and three full-screen states drop focus to the body
-      Category: a11y
-      Where: `src/components/PanelShell.tsx:54-58` (the only Escape handler in `src/`); `src/components/WorkspaceChrome.tsx:360` (the tool HUD's Clear is the only way out of draw, range and section); `src/index.css:5539-5560` (capture mode hides the rail, panels and toasts with `display: none`); `src/components/CaptureBar.tsx:110-116` and `AmbientReadout.tsx:62-68` (leave buttons with no mount focus); `src/components/ErrorBoundary.tsx:142` and `NoGpu.tsx:12` (`role="alert"`, nothing focused)
-      Problem: A keyboard reader who opens Layers, tabs to the map and presses Escape gets nothing; entering capture or the second-monitor view removes the focused control and leaves focus on `body` with the exit at 10% opacity; the crash screen reads once and the next Tab starts from the top of an empty page.
-      Evidence: Observed 2026-09-04: `document.activeElement` is `BODY` after entering the full-screen view from the palette; the grep for `"Escape"` in `src/` finds the one handler.
-      Fix: A `keydown` listener on the app root that closes the surface and clears the tool when an Escape reaches it un-stopped (PanelShell stops its own, so no double close); a mount effect in `CaptureBar` and `AmbientReadout` that focuses the leave button (focus-visible only draws on keyboard focus, so nothing appears in a stream); `tabIndex={-1}` on the fatal screens' `h1` focused from `componentDidCatch`. Extend `e2e/accessibility.spec.ts` with the three keyboard paths.
-      Acceptance: The three e2e paths pass: Escape from the map closes the panel; entering capture puts focus on the leave button; the crash screen's heading has focus.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-301 (P3): A layer failing, the workspace going offline, and the timeline stalling are visual only
       Category: a11y
       Where: `src/hooks/useOverlays.ts:229-233` (a failed layer only `log.warn`s; the note is static text in the Layers panel), `src/hooks/useLightning.ts:201`, `useWind.ts:58`; `src/components/WorkspaceChrome.tsx:212-216, 296-302` (`chrome.offline` as a span; `useOffline.ts` has no side effect); `src/components/MapChrome.tsx:167-170` (`error ?? cached ?? stale` in a `<strong>`)
