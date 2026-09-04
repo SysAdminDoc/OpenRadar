@@ -180,7 +180,13 @@ import {
   overlayGates,
   type WorkspaceOverlayFile,
 } from "./lib/workspaceOverlays";
-import { formatNumber, translate, useT, type StringKey } from "./i18n";
+import {
+  formatNumber,
+  translate,
+  useLanguage,
+  useT,
+  type StringKey,
+} from "./i18n";
 import { fetchVwp, vwpAvailable } from "./lib/vwp";
 import type { SpcHazard } from "./lib/overlays/registry";
 import { diagnosticsBlock } from "./lib/diagnostics";
@@ -1642,9 +1648,15 @@ export default function App() {
     }
   }, []);
 
+  // The labels on the points are the reader's own words now, not the
+  // archive's codes, so this has to be rebuilt when the language changes.
+  // Keyed on the storm alone it was correct while the label was "TS 65 kt"
+  // and wrong the moment it became a sentence: every panel turned French and
+  // the points on the map stayed English until the storm was picked again.
+  const spoken = useLanguage();
   const stormTrackData = useMemo(
     () => (historyStorm ? stormTrack(historyStorm) : null),
-    [historyStorm],
+    [historyStorm, spoken],
   );
 
   // Picking a storm frames its whole track; replaying one goes to the moment

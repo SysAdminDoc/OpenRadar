@@ -204,11 +204,22 @@ export function trackSegments(track: TrackPoint[]): number[][][] {
  * code this build has never seen is still worth putting in front of somebody
  * who can look it up.
  */
-const STORM_KINDS = ["TD", "TS", "HU", "EX", "SD", "SS", "LO", "WV", "DB"];
+const STORM_KINDS = [
+  "TD",
+  "TS",
+  "HU",
+  "EX",
+  "SD",
+  "SS",
+  "LO",
+  "WV",
+  "DB",
+] as const;
 
 function stormKind(code: string | undefined): string {
   if (!code) return "";
-  return STORM_KINDS.includes(code) ? translate(`storm.status.${code}`) : code;
+  const known = STORM_KINDS.find((kind) => kind === code);
+  return known ? translate(`storm.status.${known}`) : code;
 }
 
 export function stormTrack(storm: Storm): Record<string, unknown> {

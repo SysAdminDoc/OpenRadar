@@ -774,8 +774,27 @@ describe("reading the settings when the store will not answer", () => {
 });
 
 describe("whether the reader has picked their units", () => {
-  it("starts unpicked on a fresh workspace", () => {
-    expect(normalizeSettings(DEFAULT_SETTINGS).unitsChosen).toBe(false);
+  it("starts unpicked on a workspace with nothing stored", async () => {
+    // Through `readSettings`, which is the path a launch actually takes.
+    // Asserting on `normalizeSettings(DEFAULT_SETTINGS)` proves nothing about
+    // it: that object is the pre-hydration placeholder, and every real first
+    // run hands `normalizeSettings` an `undefined` or a `null` instead, which
+    // took the older-file branch and marked a brand-new install as already
+    // picked. The whole feature was dead in the product and four mutation
+    // proofs missed it, because none of them went through here.
+    vi.spyOn(Storage.prototype, "getItem").mockReturnValue(null);
+    await expect(readSettings()).resolves.toEqual(
+      expect.objectContaining({ unitsChosen: false }),
+    );
+  });
+
+  it("reads a stored workspace with no flag in it as picked", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockReturnValue(
+      JSON.stringify({ schemaVersion: 2, language: "fr", units: "imperial" }),
+    );
+    const read = await readSettings();
+    expect(read.unitsChosen).toBe(true);
+    expect(read.units).toBe("imperial");
   });
 
   it("reads a file written before the flag existed as picked", () => {

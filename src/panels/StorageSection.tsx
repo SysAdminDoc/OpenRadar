@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { runOnce, useInFlight } from "../lib/inFlight";
 import { Trash2 } from "lucide-react";
 import { useT } from "../i18n";
@@ -62,6 +62,18 @@ export function StorageSection({
 
   useEffect(read, [read]);
 
+  // And again whenever a clear finishes, driven by the job ending rather
+  // than by the closure that started it. Settings can be closed and reopened
+  // mid-clear, and the instance that pressed the button is gone by then: its
+  // read landed on a dead component, so the reopened panel sat showing the
+  // size it happened to catch on the way past, over an empty cache, with
+  // Clear still pressable because it never saw the zero.
+  const wasWorking = useRef(working);
+  useEffect(() => {
+    if (wasWorking.current && !working) read();
+    wasWorking.current = working;
+  }, [working, read]);
+
   const clear = () => {
     void runOnce(CACHE_CLEAR, async () => {
       try {
@@ -79,9 +91,6 @@ export function StorageSection({
                 freed: formatPackBytes(cleared.freed),
               }),
         );
-        // Read back rather than assumed to be zero: an entry whose file would
-        // not go is still there, and the row should say so.
-        read();
       } catch (failure: unknown) {
         onFailed(failure instanceof Error ? failure.message : String(failure));
       }

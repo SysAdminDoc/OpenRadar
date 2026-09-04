@@ -1423,9 +1423,7 @@ export function LayersPanel({
 interface SettingsPanelProps {
   settings: AppSettings;
   bounds?: PackBounds | null;
-  onSettings: (
-    next: AppSettings | ((now: AppSettings) => AppSettings),
-  ) => void;
+  onSettings: (next: AppSettings | ((now: AppSettings) => AppSettings)) => void;
   onSendWatchTest: () => void;
   /**
    * Whether the watch is still hearing back from the service.

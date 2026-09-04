@@ -88,10 +88,46 @@ function allIndexesOf(source: string, pattern: RegExp): number[] {
 function openingTagAt(source: string, at: number): string {
   let depth = 0;
   let quote: string | null = null;
+  let comment: "line" | "block" | null = null;
   for (let step = at; step < source.length; step += 1) {
     const character = source[step];
+    const next = source[step + 1];
+
+    // Comments first. A prop can hold a whole arrow function body, and this
+    // codebase writes comments with apostrophes in them, so treating a
+    // possessive as an opening quote swallowed the rest of the tag and the
+    // element after it, which is how a real offender could hide behind the
+    // next element's role.
+    if (comment === "line") {
+      if (character === "\n") comment = null;
+      continue;
+    }
+    if (comment === "block") {
+      if (character === "*" && next === "/") {
+        step += 1;
+        comment = null;
+      }
+      continue;
+    }
+
     if (quote) {
+      // An escaped quote does not close the string.
+      if (character === "\\") {
+        step += 1;
+        continue;
+      }
       if (character === quote) quote = null;
+      continue;
+    }
+
+    if (character === "/" && next === "/" && depth > 0) {
+      comment = "line";
+      step += 1;
+      continue;
+    }
+    if (character === "/" && next === "*" && depth > 0) {
+      comment = "block";
+      step += 1;
       continue;
     }
     if (character === '"' || character === "'" || character === "`") {
@@ -99,11 +135,51 @@ function openingTagAt(source: string, at: number): string {
       continue;
     }
     if (character === "{") depth += 1;
-    else if (character === "}") depth -= 1;
-    else if (character === ">" && depth === 0) return source.slice(at, step + 1);
+    // Never below zero: a stray closing brace used to leave the scan unable
+    // to recognise its own tag end for the rest of the file.
+    else if (character === "}") depth = Math.max(0, depth - 1);
+    else if (character === ">" && depth === 0)
+      return source.slice(at, step + 1);
   }
   return source.slice(at);
 }
+
+describe("the gate that reads the markup", () => {
+  // A gate nobody has tried to fool is a gate nobody has tested. Each of
+  // these was a real hole: the first two let an unnamed container through
+  // because the scan ended at a > inside a prop, and the third read the rest
+  // of the file as one string because of an apostrophe in a comment.
+  const cases: [string, string][] = [
+    ["an arrow function", '<div onClick={() => go()} aria-label="X">'],
+    ["a comparison", '<div hidden={n > 2} aria-label="X">'],
+    [
+      "a possessive in a comment",
+      '<div onClick={() => {\n  // it\'s the way out\n  go();\n}} aria-label="X">',
+    ],
+    ["a quote in a string", '<div title={"a > b"} aria-label="X">'],
+    ["an escaped quote", '<div title="say \\"hi\\"" aria-label="X">'],
+    ["a template", '<div className={`a-${kind}`} aria-label="X">'],
+    ["a stray closing brace", '<div title={"}"} aria-label="X">'],
+  ];
+
+  for (const [name, markup] of cases) {
+    it(`reads a whole tag past ${name}`, () => {
+      const read = openingTagAt(markup, 0);
+      expect(read).toBe(markup);
+      // And the gate's own question gets the right answer: named, no role.
+      expect(read.includes("aria-label")).toBe(true);
+      expect(/\brole=/.test(read)).toBe(false);
+    });
+  }
+
+  it("does not run past the tag into the element after it", () => {
+    // The shape that hid a real offender: the scan swallowed this tag, the
+    // close, and the span after it, then found that span's role and passed.
+    const markup =
+      '<div onClick={() => {\n  // it\'s fine\n}} aria-label="X">\n</div>\n<span role="img" aria-label="ok">x</span>';
+    expect(openingTagAt(markup, 0)).not.toContain("role=");
+  });
+});
 
 describe("a container that carries a name", () => {
   it("carries a role to hang it on", () => {
