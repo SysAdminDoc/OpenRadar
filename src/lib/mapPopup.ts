@@ -1,5 +1,6 @@
 import { translate } from "../i18n";
 import {
+  CUSTOM_LAYER_IDS,
   OVERLAY_SOURCE_PREFIX,
   PROBSEVERE_FILL_LAYER_ID,
   topmost,
@@ -71,9 +72,98 @@ export function popupFrom(
     };
   }
 
+  if (CUSTOM_LAYER_IDS.includes(hit.layer.id)) {
+    return importedShape(properties);
+  }
+
   const adapter = OVERLAY_ADAPTERS.find((candidate) =>
     hit.layer.id.startsWith(`${OVERLAY_SOURCE_PREFIX}${candidate.id}`),
   );
   if (!adapter) return null;
   return adapter.describe(properties);
+}
+
+/**
+ * The properties an imported shape is DRAWN with rather than described by.
+ *
+ * Everything else a file carried is the reader's own data and belongs in the
+ * popup, because there is no adapter here that knows what any of it means:
+ * a placefile's hover text, a placemark's name, and whatever fields the
+ * publisher put in its extended data are the only account of the shape there
+ * is.
+ */
+const DRAWN_WITH = new Set([
+  "kind",
+  "color",
+  "fill",
+  "stroke",
+  "icon",
+  "image",
+  "fileName",
+  "fileOpacity",
+  "label",
+  "name",
+  "description",
+]);
+
+/**
+ * Drawing instructions that are numbers, and are only those when they are.
+ *
+ * `width` is a placefile's stroke width and it is also what a tornado damage
+ * survey calls the width of the path, which arrives as "400 yd". Suppressing
+ * the name outright threw the reader's own field away; suppressing it only
+ * where the value is the number the renderer would have used keeps both.
+ */
+const DRAWN_WITH_NUMBER = new Set([
+  "width",
+  "strokeWidth",
+  "angle",
+  "minZoom",
+  "from",
+  "to",
+]);
+
+/**
+ * How many of a shape's own fields are worth a popup.
+ *
+ * A published KML can carry dozens per placemark, and a popup taller than the
+ * window is a worse answer than a popup that stops.
+ */
+const MAX_IMPORTED_LINES = 8;
+
+/**
+ * What a shape somebody imported has to say about itself.
+ *
+ * Titled by the file it came from, because with eight of them on the map at
+ * once "which of my files is this" is the question a reader has, and the
+ * shape's own words are the first line under it. Every value goes out as text:
+ * a KML description is untrusted input and the popup writes it with
+ * `textContent`, so it is read rather than rendered.
+ */
+function importedShape(
+  properties: Record<string, unknown>,
+): PopupContent | null {
+  const said = (value: unknown): string | null => {
+    if (typeof value === "number" && Number.isFinite(value))
+      return String(value);
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  };
+
+  const lines: string[] = [];
+  const named = said(properties.label) ?? said(properties.name);
+  if (named) lines.push(named);
+  const description = said(properties.description);
+  if (description) lines.push(description);
+  for (const [key, value] of Object.entries(properties)) {
+    if (lines.length >= MAX_IMPORTED_LINES) break;
+    if (DRAWN_WITH.has(key)) continue;
+    if (DRAWN_WITH_NUMBER.has(key) && typeof value === "number") continue;
+    const text = said(value);
+    if (text) lines.push(`${key}: ${text}`);
+  }
+  if (!lines.length) return null;
+  return {
+    title: said(properties.fileName) ?? translate("popup.importedShape"),
+    lines: lines.slice(0, MAX_IMPORTED_LINES),
+  };
 }

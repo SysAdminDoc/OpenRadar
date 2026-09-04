@@ -177,14 +177,29 @@ function visible(feature: unknown, zoom: number, at: number | null): boolean {
   return true;
 }
 
-function withOpacity(feature: unknown, opacity: number): unknown {
-  if (opacity >= 1) return feature;
+/**
+ * A shape with what the map needs to know about the file it came from.
+ *
+ * The name, because a popup on an imported shape has no adapter behind it to
+ * say what the shape is: with eight files on the map at once, which file this
+ * came out of is the question. The opacity only when it is not full, because
+ * the paint expression's own default covers that case and most files are at
+ * full.
+ */
+function stamped(feature: unknown, file: WorkspaceOverlayFile): unknown {
   const record = feature as Record<string, unknown>;
   const properties =
     record.properties && typeof record.properties === "object"
       ? (record.properties as Record<string, unknown>)
       : {};
-  return { ...record, properties: { ...properties, fileOpacity: opacity } };
+  return {
+    ...record,
+    properties: {
+      ...properties,
+      fileName: file.name,
+      ...(file.opacity >= 1 ? {} : { fileOpacity: file.opacity }),
+    },
+  };
 }
 
 /**
@@ -211,7 +226,7 @@ export function mergedOverlayShapes(
     if (!file.enabled) continue;
     for (const feature of featuresOf(file.shapes)) {
       if (!visible(feature, zoom, at)) continue;
-      features.push(withOpacity(feature, file.opacity));
+      features.push(stamped(feature, file));
     }
   }
   return features.length ? { type: "FeatureCollection", features } : null;

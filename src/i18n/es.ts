@@ -1936,6 +1936,7 @@ export const es: Catalogue = {
   "app.preparing": "Preparando el mapa",
   "app.settingsNotSavedBody": "Esta ventana sigue usando tus cambios.",
   "app.savedView": "Vista guardada",
+  "popup.importedShape": "Forma importada",
   "popup.openProduct": "Abrir el producto oficial",
   "pairing.rainfall": "Ver la lluvia caída",
   "pairing.rainfallDay": "Ver la lluvia del día",

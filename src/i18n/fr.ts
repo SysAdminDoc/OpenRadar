@@ -1960,6 +1960,7 @@ export const fr: Catalogue = {
   "app.settingsNotSavedBody":
     "La fenêtre actuelle se sert quand même de vos changements.",
   "app.savedView": "Vue enregistrée",
+  "popup.importedShape": "Forme importée",
   "popup.openProduct": "Ouvrir le produit officiel",
   "pairing.rainfall": "Montrer la pluie tombée",
   "pairing.rainfallDay": "Montrer la pluie de la journée",
