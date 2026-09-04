@@ -145,7 +145,11 @@ pub struct RingFit {
     /// wave fitted through it that neither half agrees with, and the residual
     /// alone can stay small while that happens. Fitting the halves apart and
     /// comparing them is what catches it.
-    pub symmetry_ms: f32,
+    /// How far the two halves of the ring disagreed, when both could be
+    /// fitted at all. `None` means the gates sat too far to one side to
+    /// compare the halves, which is not the same as a disagreement and must
+    /// not be reported as one.
+    pub symmetry_ms: Option<f32>,
     /// How many gates were left once the outliers were dropped.
     pub used: usize,
 }
@@ -155,7 +159,9 @@ impl RingFit {
     pub fn trusted(&self) -> bool {
         self.used >= MIN_FIT_GATES
             && self.residual_ms <= MAX_RESIDUAL_MS
-            && self.symmetry_ms <= MAX_SYMMETRY_MS
+            && self
+                .symmetry_ms
+                .is_some_and(|apart| apart <= MAX_SYMMETRY_MS)
     }
 }
 
@@ -186,8 +192,11 @@ pub fn fit_ring_checked(samples: &[(f32, f32)], elevation_degrees: f32) -> Optio
         .sum();
     let residual_ms = (squares / kept.len() as f64).sqrt() as f32;
 
-    // A half that will not fit at all is a ring nothing can vouch for, which
-    // is what an infinite disagreement says and what `trusted` then refuses.
+    // A half that will not fit at all is a ring nothing can vouch for. That
+    // used to be recorded as an infinite disagreement, which refused every
+    // ring between twenty-five and forty-seven kept gates however clean it
+    // was, and told the reader the halves disagreed about a wind neither half
+    // was ever fitted for.
     let half = |from: f32, to: f32| {
         let part: Vec<(f32, f32)> = kept
             .iter()
@@ -198,9 +207,9 @@ pub fn fit_ring_checked(samples: &[(f32, f32)], elevation_degrees: f32) -> Optio
     };
     let symmetry_ms = match (half(0.0, 180.0), half(180.0, 360.0)) {
         (Some(left), Some(right)) => {
-            ((left.east - right.east).powi(2) + (left.north - right.north).powi(2)).sqrt()
+            Some(((left.east - right.east).powi(2) + (left.north - right.north).powi(2)).sqrt())
         }
-        _ => f32::INFINITY,
+        _ => None,
     };
 
     Some(RingFit {
@@ -252,7 +261,8 @@ mod tests {
         let fit = fit_ring_checked(&ring(truth, 0.5, 360), 0.5).expect("a full ring fits");
         assert!(fit.trusted(), "{fit:?}");
         assert!(fit.residual_ms < 0.1, "{}", fit.residual_ms);
-        assert!(fit.symmetry_ms < 0.5, "{}", fit.symmetry_ms);
+        let apart = fit.symmetry_ms.expect("both halves fitted");
+        assert!(apart < 0.5, "{apart}");
         assert_eq!(fit.used, 360);
     }
 
@@ -312,10 +322,38 @@ mod tests {
             .collect();
         let fit = fit_ring_checked(&split, 0.5).expect("the solve answers");
         assert!(
-            fit.symmetry_ms > MAX_SYMMETRY_MS,
+            fit.symmetry_ms.is_some_and(|apart| apart > MAX_SYMMETRY_MS),
             "symmetry {}",
-            fit.symmetry_ms
+            fit.symmetry_ms.unwrap_or(f32::NAN)
         );
+        assert!(!fit.trusted());
+    }
+
+    #[test]
+    fn a_ring_whose_gates_sit_on_one_side_is_refused_for_that_and_not_for_disagreeing() {
+        // Fifty gates in a clean wind, every one of them in the eastern half.
+        // Both are true of it: it is above the floor the profile advertises,
+        // and there is no western half to compare the eastern one against.
+        // Recording that as an infinite disagreement told a reader the two
+        // halves of the ring disagreed about a wind neither half was ever
+        // fitted for, which is a meteorological verdict on an arithmetic
+        // problem, and it is the clear-air and scattered-echo rings where a
+        // reader most wants to know which of the two it was.
+        let truth = Wind {
+            east: 10.0,
+            north: 4.0,
+        };
+        let lopsided: Vec<(f32, f32)> = (0..50)
+            .map(|at| {
+                let azimuth = at as f32 * 170.0 / 50.0;
+                (azimuth, truth.along_beam(azimuth, 0.5))
+            })
+            .collect();
+        let fit = fit_ring_checked(&lopsided, 0.5).expect("a half ring still solves");
+        assert!(fit.used >= MIN_FIT_GATES, "used {}", fit.used);
+        assert!(fit.residual_ms <= MAX_RESIDUAL_MS, "{}", fit.residual_ms);
+        // Not measured, rather than measured and found wanting.
+        assert_eq!(fit.symmetry_ms, None);
         assert!(!fit.trusted());
     }
 

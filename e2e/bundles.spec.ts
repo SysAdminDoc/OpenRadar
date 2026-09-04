@@ -211,11 +211,19 @@ test("keeps a replay as one file, with the reader's workspace only when asked", 
   expect(request.minZoom).toBeLessThan(request.maxZoom as number);
   const bounds = request.bounds as { west: number; east: number };
   expect(bounds.west).toBeLessThan(bounds.east);
-  // The three warnings interval feeds and the tag feed for the window.
-  expect(request.extraUrls).toHaveLength(4);
-  for (const url of request.extraUrls as string[]) {
-    expect(url).toContain("2022-09-28T");
-  }
+  // The three warnings interval feeds and the tag feed for the window, plus
+  // the two the replay layers now answer that day out of: the outlook that
+  // stood over it and the reports that came in during it. A bundle that
+  // carried the warnings but not those would play back offline with two
+  // layers permanently empty and nothing saying why.
+  const extra = request.extraUrls as string[];
+  expect(extra).toHaveLength(6);
+  expect(extra.filter((url) => url.includes("2022-09-28T"))).toHaveLength(5);
+  // The outlook is keyed by the day it was issued for rather than by an
+  // instant, so it is the one that does not carry a time.
+  expect(extra.filter((url) => url.includes("valid=2022-09-28"))).toHaveLength(
+    1,
+  );
   // Home, watched places and the rest stay out unless the box is ticked.
   expect(request.workspace).toBeNull();
 

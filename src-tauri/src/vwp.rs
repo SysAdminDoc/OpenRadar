@@ -53,6 +53,8 @@ pub enum Refusal {
     Residual,
     /// The two halves of the ring disagreed about the wind.
     Symmetry,
+    /// The gates sat too far to one side to compare the halves at all.
+    Lopsided,
     /// Too few gates behind the fit to vouch for it.
     Gates,
 }
@@ -152,8 +154,10 @@ fn refusal(fit: &vad::RingFit) -> Option<Refusal> {
     if fit.residual_ms > vad::MAX_RESIDUAL_MS {
         return Some(Refusal::Residual);
     }
-    if fit.symmetry_ms > vad::MAX_SYMMETRY_MS {
-        return Some(Refusal::Symmetry);
+    match fit.symmetry_ms {
+        None => return Some(Refusal::Lopsided),
+        Some(apart) if apart > vad::MAX_SYMMETRY_MS => return Some(Refusal::Symmetry),
+        Some(_) => {}
     }
     None
 }
@@ -232,7 +236,7 @@ fn level_at(height_km: f64, cuts: &[(f32, SweepField)]) -> VwpLevel {
             elevation_degrees: Some(*elevation),
             range_km: Some(range_km),
             residual_ms: Some(fit.residual_ms),
-            symmetry_ms: Some(fit.symmetry_ms),
+            symmetry_ms: fit.symmetry_ms,
             refused: None,
         };
     }
@@ -260,9 +264,28 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use nexrad_data::volume;
 
-    /// A planted wind: ten metres a second out of the south west.
+    /// A planted wind: ten metres a second out of the south west at the
+    /// ground, veering with height the way a real one does.
     const SPEED_MS: f32 = 10.0;
     const FROM_DEGREES: f32 = 225.0;
+
+    /// How far the planted wind turns per kilometre of range along the beam.
+    ///
+    /// It used to be the same wind at every gate, which made the profile test
+    /// pass whichever ring each level was read off: a level taken from the
+    /// wrong range, the wrong cut, or a range computed for another height all
+    /// read back the same answer, so the one thing the test was for was the
+    /// one thing it could not see. A wind that turns as the beam climbs makes
+    /// the direction at each level a statement about the geometry.
+    const VEER_PER_KM: f32 = 0.5;
+
+    /// The gate spacing the fixture writes, in kilometres.
+    const GATE_KM: f32 = 0.25;
+
+    /// Where the planted wind comes from at one range along the beam.
+    fn planted_from(range_km: f32) -> f32 {
+        (FROM_DEGREES + VEER_PER_KM * range_km).rem_euclid(360.0)
+    }
 
     /// One cut of radials whose velocity is what that wind would read as.
     ///
@@ -276,12 +299,21 @@ mod tests {
         degrees: f32,
         gates: usize,
     ) -> Vec<fixture::Radial> {
-        let blowing_toward = (FROM_DEGREES + 180.0) % 360.0;
         (0..360u16)
             .map(|step| {
                 let azimuth = step as f32;
-                let between = (azimuth - blowing_toward).to_radians();
-                let radial = SPEED_MS * between.cos() * degrees.to_radians().cos();
+                // One reading per gate rather than one per radial, because the
+                // wind is a different one at every range.
+                let velocity: Vec<fixture::Gate> = (0..gates)
+                    .map(|gate| {
+                        let range_km = (gate as f32 + 1.0) * GATE_KM;
+                        let toward = (planted_from(range_km) + 180.0).rem_euclid(360.0);
+                        let between = (azimuth - toward).to_radians();
+                        fixture::Gate::Reading(
+                            SPEED_MS * between.cos() * degrees.to_radians().cos(),
+                        )
+                    })
+                    .collect();
                 fixture::Radial {
                     azimuth_degrees: azimuth,
                     azimuth_number: step + 1,
@@ -291,7 +323,7 @@ mod tests {
                     collected: at,
                     azimuth_spacing_degrees: 1.0,
                     reflectivity: vec![fixture::Gate::Reading(20.0); gates],
-                    velocity: vec![fixture::Gate::Reading(radial); gates],
+                    velocity,
                 }
             })
             .collect()
@@ -344,9 +376,30 @@ mod tests {
                 "{} km read {speed} m/s",
                 level.height_km
             );
+            // The wind this level's own ring was planted in, which is what
+            // makes this a check of the height-to-range geometry rather than
+            // of the fit alone: read the level off another range and the
+            // direction is wrong by degrees per kilometre of the miss.
+            // The ring this level was actually read off has to be the ring
+            // at this height. Without this the direction check below is
+            // self-consistent and proves nothing: it would compare the fit
+            // against whatever range the code said it used, so a level taken
+            // twenty kilometres too far out would still agree with itself.
+            let range_km = level.range_km.expect("a range");
+            let elevation = level.elevation_degrees.expect("an elevation");
+            let back = beam_height_km(range_km, elevation);
             assert!(
-                (from - FROM_DEGREES).abs() < 5.0,
-                "{} km read {from} degrees",
+                (back - level.height_km).abs() < 0.05,
+                "{} km was read off {range_km} km, which is {back} km up",
+                level.height_km
+            );
+            let range = range_km as f32;
+            let expected = planted_from(range);
+            let apart = (from - expected).rem_euclid(360.0);
+            let apart = apart.min(360.0 - apart);
+            assert!(
+                apart < 5.0,
+                "{} km at {range} km read {from} degrees, not {expected}",
                 level.height_km
             );
             assert!(level.refused.is_none());

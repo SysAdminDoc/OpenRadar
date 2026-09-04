@@ -2700,7 +2700,12 @@ pub async fn level2_sweep(
 ///
 /// Each is a whole Archive II object fetched and decoded, so this is the
 /// ceiling on what one press of a panel is allowed to ask the bucket for.
-const MAX_VWP_COLUMNS: usize = 6;
+///
+/// Held below what the volume cache carries, and it used to be above it: six
+/// columns against four slots evicted every volume the cache held including
+/// the one the loop was drawing, so opening the panel made the picture
+/// re-download and re-decode itself. One slot is left for that volume.
+const MAX_VWP_COLUMNS: usize = CACHE_CAPACITY - 1;
 
 /// The wind profile of the volumes a held site is showing.
 ///
@@ -2720,7 +2725,13 @@ pub async fn level2_vwp(
         vec![None]
     } else {
         let mut asked = Vec::new();
-        for at in times.iter().take(MAX_VWP_COLUMNS) {
+        // The newest volumes, not the oldest. The list arrives oldest first
+        // and the default loop is longer than this ceiling, so taking from
+        // the front drew the wind from an hour ago and never the volume on
+        // screen: a profile that answers about a storm the reader is not
+        // looking at, with nothing saying so.
+        let first = times.len().saturating_sub(MAX_VWP_COLUMNS);
+        for at in times.iter().skip(first) {
             let parsed = DateTime::parse_from_rfc3339(at)
                 .map_err(|_| Level2Error::InvalidTime(at.clone()))?
                 .with_timezone(&Utc);
@@ -4804,6 +4815,13 @@ mod tests {
     /// compiled rather than when the tests are run: a capacity or a limit that
     /// breaks the budget should not build at all.
     const _: () = assert!(CACHE_CAPACITY * LARGEST_VOLUME_BYTES < BUDGET_BYTES);
+
+    /// One press of the wind profile panel must not empty the cache under the
+    /// volume the loop is drawing. Checked at compile time for the same
+    /// reason: asking for more columns than the cache can hold beside the
+    /// picture makes the picture re-download itself, and nothing about that
+    /// looks wrong from the outside.
+    const _: () = assert!(MAX_VWP_COLUMNS < CACHE_CAPACITY);
 
     #[test]
     fn holds_four_volumes_and_no_more() {

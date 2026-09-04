@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
   HATCH_IMAGE,
+  outlookPage,
   archiveOutlookUrl,
   parseArchiveOutlooks,
   SPC_DAYS,
@@ -279,17 +280,20 @@ describe("which layer a day and a hazard read from", () => {
 });
 
 describe("the hatched area", () => {
-  it("is kept rather than dropped for having a name instead of a number", () => {
-    // The conditional intensity layers rank by `CIG1` and up. Dropping what
-    // will not parse as a number threw the whole hatched area away.
+  it("is kept, in the shape the conditional intensity layers really send", () => {
+    // Read live from `SPC_wx_outlks/MapServer/2?f=pjson` on 2026-09-04:
+    // `dn` is an integer on every layer of this service, and the `CIG1` name
+    // a reader sees is in `label`, which is the field the renderer draws by.
+    // This used to plant `dn: "CIG1"`, a shape the API cannot produce, so it
+    // proved nothing about the hatched area against the real service.
     const read = parseOutlooks(
       {
         features: [
           {
             geometry: { type: "Polygon", coordinates: [] },
             properties: {
-              dn: "CIG1",
-              label: "SIGN",
+              dn: 1,
+              label: "CIG1",
               label2: "Significant",
               fill: "#000000",
               stroke: "#000000",
@@ -301,7 +305,7 @@ describe("the hatched area", () => {
     );
     expect(read.features).toHaveLength(1);
     expect(read.features[0].properties.significant).toBe(true);
-    expect(read.features[0].properties.rank).toBe(0);
+    expect(read.features[0].properties.rank).toBe(1);
   });
 
   it("is not marked on the bands underneath it", () => {
@@ -364,14 +368,24 @@ describe("the outlook that stood over a replayed day", () => {
     expect(url).toContain("outlook_type=C");
   });
 
-  it("takes the day from the window's start, whatever the clock here says", () => {
+  it("takes the outlook day, which runs from noon and not from midnight", () => {
     // A reader in Iowa replaying the evening of the 27th is on the 28th in
-    // UTC for part of it, and the archive is keyed by the UTC day the
-    // outlook was issued for.
-    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 0, 0))).toContain(
+    // UTC for part of it, and a Day 1 outlook covers 12Z to 12Z. Keying on
+    // the calendar date instead asked for the outlook issued at noon the
+    // following day, which was made after the last replayed frame and covers
+    // the afternoon after the one on screen. The 00:00Z case below was
+    // asserting exactly that mistake.
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 28, 0, 5))).toContain(
       "valid=2011-04-27",
     );
     expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 23, 59))).toContain(
+      "valid=2011-04-27",
+    );
+    // Noon is where it turns over, so either side of it is a different day.
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 11, 59))).toContain(
+      "valid=2011-04-26",
+    );
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 12, 0))).toContain(
       "valid=2011-04-27",
     );
   });
@@ -447,5 +461,65 @@ describe("the outlook that stood over a replayed day", () => {
     expect(
       spcOutlooksOverlay.variant?.({ ...DEFAULT_OVERLAY_CHOICES }),
     ).not.toBe(same);
+  });
+});
+
+describe("the outlook day a reader landed on", () => {
+  it("sends the popup to that day's page, not always to Day 1", () => {
+    // The Center publishes a page per day and one shared page for the
+    // extended range. Every popup pointed at Day 1, so following the link off
+    // a Day 5 outlook landed on this afternoon's.
+    expect(outlookPage(1)).toContain("day1otlk.html");
+    expect(outlookPage(3)).toContain("day3otlk.html");
+    expect(outlookPage(4)).toContain("day4-8");
+    expect(outlookPage(8)).toContain("day4-8");
+  });
+
+  it("asks the archive for the day the reader chose", () => {
+    // The day picker stayed on screen during a replay and did nothing,
+    // because the archive URL was written with Day 1 in it.
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 20), 2)).toContain("day=2");
+    expect(archiveOutlookUrl(Date.UTC(2011, 3, 27, 20))).toContain("day=1");
+    // And the day is part of the question, so switching it asks again.
+    const first = spcOutlooksOverlay.variant?.({
+      ...DEFAULT_OVERLAY_CHOICES,
+      replay: { from: 1, to: 2 },
+      spcDay: 1,
+    });
+    expect(
+      spcOutlooksOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        replay: { from: 1, to: 2 },
+        spcDay: 2,
+      }),
+    ).not.toBe(first);
+  });
+
+  it("drops the placeholder a day with no outlook yet publishes", () => {
+    // Every field null and a three-point triangle in the Atlantic.
+    // `Number(null)` is zero, which is finite, so it passed the rank check,
+    // drew in the fallback grey and rendered its popup time as 01-01 00:00.
+    // Unreachable until Days 4 to 8 could be chosen.
+    const read = parseOutlooks({
+      features: [
+        {
+          geometry: { type: "Polygon", coordinates: [] },
+          properties: {
+            dn: 0,
+            label: null,
+            label2: null,
+            valid: null,
+            expire: null,
+            issue: null,
+          },
+        },
+        {
+          geometry: { type: "Polygon", coordinates: [] },
+          properties: { dn: 15, label: "0.15", label2: "15%" },
+        },
+      ],
+    });
+    expect(read.features).toHaveLength(1);
+    expect(read.features[0].properties.label).toBe("0.15");
   });
 });

@@ -54,9 +54,15 @@ export function shouldRefetch(
   // Day 3, it is the wrong picture, and it would sit on the map until its
   // refresh came round.
   if (coverage.variant !== variantOf(adapter, choices)) return true;
-  if (now - coverage.at >= adapter.refreshMs) return true;
+  // A window that has already happened does not get newer. Without this a
+  // parked replay asked the archive for the same fixed past afternoon every
+  // five minutes for as long as the panel stayed open.
+  const replaying = choices.replay !== null;
+  if (!replaying && now - coverage.at >= adapter.refreshMs) return true;
   // A worldwide feed already holds every feature, so panning changes nothing.
-  if (adapter.global) return false;
+  // The archive path is not one: it is asked by point and radius, so the box
+  // matters there even for an adapter whose live feed covers the country.
+  if (adapter.global && !replaying) return false;
   return !boundsContain(coverage.bounds, viewport);
 }
 
@@ -153,7 +159,9 @@ export function useOverlays(
         requests.delete(id);
         continue;
       }
-      if (adapter.global) continue;
+      // A worldwide feed's request stands whatever the camera does, except on
+      // the archive path, which is asked by point and radius.
+      if (adapter.global && choices.replay === null) continue;
       if (boundsContain(request.bounds, viewport)) continue;
       request.controller.abort();
       requests.delete(id);
@@ -220,9 +228,18 @@ export function useOverlays(
               error instanceof Error ? error.message : "The request failed.";
             log.warn("overlay", `${adapter.label} failed: ${message}`);
             // The last good snapshot stays on the map; only the label changes.
+            // Unless it answers a different question: end a replay while the
+            // network is flaky and the 2011 reports and outlook would stay
+            // drawn over the present until a retry happened to succeed.
+            const asked = variantOf(adapter, choices);
+            const held = coverage[adapter.id]?.variant;
+            const stale = held !== undefined && held !== asked;
+            if (stale) delete coverage[adapter.id];
             setStates((current) => ({
               ...current,
-              [adapter.id]: { ...current[adapter.id], error: message },
+              [adapter.id]: stale
+                ? { ...IDLE_OVERLAY, error: message }
+                : { ...current[adapter.id], error: message },
             }));
           })
           .finally(() => {
