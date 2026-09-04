@@ -81,7 +81,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   cleanup();
-  vi.clearAllMocks();
+  // Vitest clears mocks between tests on its own since 5.0.
 });
 
 function options(archive: ArchiveReplay | null) {

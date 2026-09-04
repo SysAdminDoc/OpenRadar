@@ -317,13 +317,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P2
 
-- [ ] AUD-263 (P2): Vitest 5.0.0, and the three routine bumps beside it
-      Why: Vitest 5.0.0 (2026-09-03) changes defaults the suite relies on implicitly: `clearMocks` on by default (62 explicit clear or reset calls become redundant), `expect.poll` rejects on timeout, unawaited `.resolves` fails, artifacts move under `.vitest/`. The tree already satisfies the removals (0 `sequential`, 0 `toHaveTextContent`, all 38 `vi.mock` at top level). `lucide-react` 1.41.0 and `@types/react-dom` 19.2.7 are trivial.
-      Evidence: https://github.com/vitest-dev/vitest/releases/tag/v5.0.0 ; https://vitest.dev/guide/migration.html ; `npm outdated` 2026-09-04.
-      Touches: `package.json`, `package-lock.json`, `.gitignore` (`.vitest/`), `vitest.config.ts` if coverage patterns need the relative-path form, the redundant clear calls.
-      Acceptance: `npm run check` green on Vitest 5 and coverage-v8 5 with the same floors; no `vi.clearAllMocks` left where `clearMocks` covers it; `.vitest/` ignored.
-      Complexity: S
-
 - [ ] AUD-264 (P2): Time since the last flash, and how far the nearest one was, per watched place
       Why: The 2026 Hazardous Weather Testbed found forecasters wanted the Lightning Stoplight's colouring by time since the last strike, decaying slowly, beside any probability, and were told never to message an all-clear from probabilities alone after a strike six miles out while both tools trended clear. A reader on Bluesky (2026-09-04) paid for a lightning tier to know when to unplug. The app has the flashes, the places, and a 30-minute quiet rule (`useLightningWatch.ts`); it shows neither the age of the last flash nor its distance.
       Evidence: https://inside.nssl.noaa.gov/ewp/topic/lightning-stoplight/ ; https://baronweather.com/baron-news/tag/baron-threat-net (five radii, 30-minute all-clear); `src/hooks/useLightningWatch.ts`, `src/lib/lightningWatch.ts`.

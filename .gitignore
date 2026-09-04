@@ -29,3 +29,4 @@ CODEX_CHANGELOG.md
 
 # Release staging, rebuilt by scripts/release.mjs on every run
 artifacts/
+.vitest/
