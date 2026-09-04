@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- An airport radar that has been renamed says so instead of drawing nothing. West Palm Beach became TDJT on 3 August and this app kept asking for the old name for a month: the only sign was an empty picture, because a name the archive has never heard of and a radar that is quiet today look exactly the same from there. It now asks the weather service's own list, which is the one thing that can tell those apart, and says the site is no longer listed. A list that will not load, or that comes back without the airport radars in it, changes nothing: a feed about somebody else's equipment does not get to take a working radar off your map.
+
 - The two watches that are not about warnings now run whether or not their layer is on the map. Taking Storm Cells or Lightning Flashes off the map used to stop the notice with it, and the switch in Settings went grey while the setting itself stayed on, so putting the layer back weeks later quietly re-armed a watch you had been shown as off. Each keeps its own feed now. Neither works without somewhere to watch, which is the part that was always true.
 
 - A place you switch off during a gap in the lightning feed is properly forgotten. The record of what each place has been told was only tidied when a new batch of flashes arrived, so during an outage, or with the layer off, switching a place off and on left it marked as already told and a storm still going overhead went unannounced.

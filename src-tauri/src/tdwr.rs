@@ -311,10 +311,13 @@ fn decode_error(error: level3::Level3Error) -> Level2Error {
 
 /// The newest product of one code for a site, and its key.
 async fn newest_product(site: &TdwrSite, code: &str) -> Result<(String, Vec<u8>), Level2Error> {
-    let key = level3::newest_key(site.bucket_code(), code)
+    let key = match level3::newest_key(site.bucket_code(), code)
         .await
         .map_err(decode_error)?
-        .ok_or_else(|| Level2Error::NoVolume(site.id.clone()))?;
+    {
+        Some(key) => key,
+        None => return Err(gone_or_quiet(site).await),
+    };
     let bytes = http::get_bytes(&format!("https://{}/{key}", level3::BUCKET)).await?;
     Ok((key, bytes))
 }
@@ -457,6 +460,34 @@ pub async fn sweep(
     .map_err(|error| Level2Error::Decode(error.to_string()))?
 }
 
+/// Which of the two silences this is: a radar that is quiet, or one that is
+/// no longer a radar.
+///
+/// The bucket cannot tell them apart. West Palm Beach was renamed on
+/// 2026-08-03 and this app went on asking for the old name for a month, with
+/// nothing to show but an empty picture, because "no product published" is
+/// what a renamed radar and a radar down for maintenance both look like from
+/// there. The station list is the one thing that knows, and it is already
+/// fetched for the picker.
+///
+/// Only ever a second opinion. A list that will not load, or that comes back
+/// without this radar's whole network in it, says nothing and the ordinary
+/// silence stands: a feed about somebody else's equipment must not be able
+/// to take a working radar off the map.
+async fn gone_or_quiet(site: &TdwrSite) -> Level2Error {
+    let quiet = Level2Error::NoVolume(site.id.clone());
+    let Ok(listed) = crate::radar_status::terminal_stations().await else {
+        return quiet;
+    };
+    if listed.is_empty() {
+        return quiet;
+    }
+    if listed.iter().any(|id| id.eq_ignore_ascii_case(&site.id)) {
+        return quiet;
+    }
+    Level2Error::NoLongerListed(site.id.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -469,6 +500,74 @@ mod tests {
         site("TDAL").expect("Dallas Love Field is in the list")
     }
 
+    #[test]
+    fn a_renamed_radar_says_so_rather_than_looking_quiet() {
+        // West Palm Beach was renamed from TPBI to TDJT on 2026-08-03 and
+        // this app asked for the old name for a month. The only symptom was
+        // an empty picture: a name the bucket does not know and a radar that
+        // has published nothing today look identical from there. The station
+        // list is the one thing that can tell them apart.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let held = dallas();
+
+        // The office lists it. Nothing published is nothing published.
+        crate::radar_status::hold_stations_for_test(&[
+            ("TDAL", "TDWR"),
+            ("TBWI", "TDWR"),
+            ("KDMX", "WSR-88D"),
+        ]);
+        assert!(matches!(
+            runtime.block_on(gone_or_quiet(held)),
+            Level2Error::NoVolume(_)
+        ));
+
+        // The office does not list it any more, and the rest of the network
+        // is there, so this is a name rather than a silence.
+        crate::radar_status::hold_stations_for_test(&[
+            ("TBWI", "TDWR"),
+            ("TDJT", "TDWR"),
+            ("KDMX", "WSR-88D"),
+        ]);
+        assert!(matches!(
+            runtime.block_on(gone_or_quiet(held)),
+            Level2Error::NoLongerListed(_)
+        ));
+
+        // And a feed with no terminal radars in it at all says nothing.
+        // A second opinion about somebody else's equipment must not be able
+        // to take a working radar off the map, which is the lesson the site
+        // picker learned the hard way on 2026-09-02.
+        crate::radar_status::hold_stations_for_test(&[("KDMX", "WSR-88D")]);
+        assert!(matches!(
+            runtime.block_on(gone_or_quiet(held)),
+            Level2Error::NoVolume(_)
+        ));
+
+        crate::radar_status::forget_stations_for_test();
+
+        // And the place that asks. Everything above holds the helper, and a
+        // helper nothing calls is a helper: putting the bare refusal back in
+        // `newest_product` is the regression this test is for, and it leaves
+        // the assertions above green.
+        let source = include_str!("tdwr.rs");
+        let asking = source
+            .split("async fn newest_product(")
+            .nth(1)
+            .expect("the product reader is in this file");
+        let body = &asking[..asking
+            .find(
+                "
+}",
+            )
+            .unwrap_or(asking.len())];
+        assert!(
+            body.contains("gone_or_quiet(site)"),
+            "a terminal radar with nothing published no longer asks which silence it is",
+        );
+    }
     #[test]
     #[ignore = "asks the live NWS station list which terminal radars exist"]
     fn every_site_in_the_table_is_one_the_office_still_lists() {

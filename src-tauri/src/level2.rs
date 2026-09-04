@@ -115,6 +115,8 @@ pub enum Level2Error {
     NotWsr88d(String),
     #[error("no radar volume has been published for {0} yet today or yesterday")]
     NoVolume(String),
+    #[error("{0} is no longer listed by the weather service as a radar")]
+    NoLongerListed(String),
     #[error("the volume listing could not be read")]
     BadListing,
     #[error("the volume could not be decoded: {0}")]
@@ -150,6 +152,7 @@ impl Level2Error {
             Self::UnknownSite(site) => ("unknownSite", vec![site.clone()]),
             Self::NotWsr88d(site) => ("notWsr88d", vec![site.clone()]),
             Self::NoVolume(site) => ("noVolume", vec![site.clone()]),
+            Self::NoLongerListed(site) => ("noLongerListed", vec![site.clone()]),
             Self::BadListing => ("badListing", Vec::new()),
             Self::Decode(why) => ("decode", vec![why.clone()]),
             Self::NoSweep(site, product) => ("noSweep", vec![site.clone(), product.clone()]),

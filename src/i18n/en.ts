@@ -710,6 +710,8 @@ export const en = {
   "radar.error.unknownSite": "{0} is not a NEXRAD site.",
   "radar.error.notWsr88d":
     "{0} is an airport's terminal radar: it has no Level II volume to read and no archive.",
+  "radar.error.noLongerListed":
+    "{0} is not on the weather service's list of radars any more. It may have been renamed or taken out of the network; pick another site.",
   "radar.error.noVolume":
     "No radar volume has been published for {0} yet today or yesterday.",
   "radar.error.badListing": "The volume listing could not be read.",
