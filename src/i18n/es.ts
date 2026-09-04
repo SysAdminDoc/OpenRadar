@@ -1354,7 +1354,7 @@ export const es: Catalogue = {
   "lightningWatch.title": "Rayos cerca de {place}",
   "lightningWatch.titleHome": "Rayos cerca de ti",
   "lightningWatch.body":
-    "{count, plural, one {# destello} other {# destellos}} en {miles, plural, one {# milla} other {# millas}}. El satélite ve la luz sobre la nube, así que esto no es un informe de lo que llegó al suelo.",
+    "{count, plural, one {# destello} other {# destellos}} en {miles} {unit}. El satélite ve la luz sobre la nube, así que esto no es un informe de lo que llegó al suelo.",
   "lightningWatch.quietTitle": "{place} lleva media hora en calma",
   "lightningWatch.quietTitleHome": "Media hora en calma",
   "lightningWatch.quietBody":
@@ -1365,7 +1365,6 @@ export const es: Catalogue = {
   "lightningWatch.needsPlace":
     "Necesita un lugar que vigilar, que es alrededor de lo que va el radio.",
   "lightningWatch.radius": "A qué distancia de cada lugar",
-  "lightningWatch.radiusMiles": "{count} mi",
   "lightningWatch.count": "Cuántos destellos merecen aviso",
   "lightningWatch.countFlashes":
     "{count, plural, one {# destello} other {# destellos}}",

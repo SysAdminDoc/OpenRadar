@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
 import { playAlertTone } from "../lib/sound";
+import { distanceUnit, distanceValue } from "../lib/units";
 import { translate } from "../i18n";
 import {
   lightningAfter,
@@ -34,7 +35,11 @@ export function lightningBody(notice: LightningNotice): string {
   }
   return translate("lightningWatch.body", {
     count: notice.place.flashes,
-    miles: notice.place.radiusMiles,
+    // In whichever units the reader chose, like every other distance the
+    // app says out loud. This one was handed raw miles and a catalogue
+    // string that wrote "mi" into all three languages.
+    miles: distanceValue(notice.place.radiusMiles),
+    unit: distanceUnit(),
   });
 }
 

@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { lightningBody } from "../hooks/useLightningWatch";
+import { setUnits } from "./units";
 import {
   DEFAULT_LIGHTNING_RULE,
   LIGHTNING_COUNTS,
@@ -231,5 +233,47 @@ describe("what is worth saying about it", () => {
   it("offers only the radii and counts the setting can hold", () => {
     expect(LIGHTNING_RADII).toContain(DEFAULT_LIGHTNING_RULE.radiusMiles);
     expect(LIGHTNING_COUNTS).toContain(DEFAULT_LIGHTNING_RULE.count);
+  });
+});
+
+describe("what the lightning watch says a radius is", () => {
+  afterEach(() => setUnits("imperial"));
+
+  it("says it in the units the reader chose", async () => {
+    // Every other distance the app says out loud goes through
+    // `distanceValue`; this one was handed raw miles under a catalogue
+    // string that wrote "mi" into all three languages, so a metric reader
+    // was told "10 mi" on the control and "within 10 miles" in the notice.
+    setUnits("metric");
+    const said = lightningBody({
+      kind: "started",
+      place: {
+        placeId: "home",
+        placeName: "Home",
+        named: false,
+        flashes: 3,
+        radiusMiles: 10,
+        newest: Date.UTC(2026, 8, 4, 20),
+      },
+    });
+    // The long word in a sentence, the way every other distance the app
+    // says out loud reads: "within 16 kilometres".
+    expect(said).toContain("16 kilometres");
+    expect(said).not.toContain("miles");
+
+    setUnits("imperial");
+    expect(
+      lightningBody({
+        kind: "started",
+        place: {
+          placeId: "home",
+          placeName: "Home",
+          named: false,
+          flashes: 3,
+          radiusMiles: 10,
+          newest: Date.UTC(2026, 8, 4, 20),
+        },
+      }),
+    ).toContain("10 miles");
   });
 });
