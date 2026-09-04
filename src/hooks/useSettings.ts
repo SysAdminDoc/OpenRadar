@@ -11,6 +11,8 @@ import {
   type CameraState,
   type ProjectionMode,
 } from "../lib/settings";
+import { radarFromSearch } from "../lib/deepLink";
+import { supportedProduct } from "../lib/radarKinds";
 
 /** Camera moves arrive in bursts, so the file is written once the map settles. */
 const CAMERA_SAVE_DELAY_MS = 450;
@@ -90,10 +92,41 @@ export function useSettings(options: {
       const params = new URLSearchParams(window.location.search);
       const projection: ProjectionMode =
         params.get("projection") === "globe" ? "globe" : stored.projection;
+      // The held site travels in the same link. The desktop build gets it
+      // through the scheme and this one has it in the address bar, and for
+      // as long as only the camera was read here a shared link opened the
+      // right place under whatever the receiver's own workspace was on.
+      const shared = radarFromSearch(window.location.search);
+      const product = shared
+        ? supportedProduct(shared.station, shared.product)
+        : null;
       const next = normalizeSettings({
         ...stored,
         projection,
         camera: cameraFromSearch(window.location.search, stored.camera),
+        ...(shared && product
+          ? {
+              radar: {
+                ...stored.radar,
+                enabled: true,
+                singleSite: true,
+                station: shared.station,
+                product,
+                tilt: shared.tilt,
+                thresholds:
+                  shared.threshold === null
+                    ? Object.fromEntries(
+                        Object.entries(stored.radar.thresholds).filter(
+                          ([held]) => held !== product,
+                        ),
+                      )
+                    : {
+                        ...stored.radar.thresholds,
+                        [product]: shared.threshold,
+                      },
+              },
+            }
+          : null),
       });
       // Apply the saved language before the loading screen gives way to the
       // workspace. Otherwise the first screen after launch is always English.

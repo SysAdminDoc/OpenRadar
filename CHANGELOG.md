@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A shared link now says what was actually on the screen. Three things it got wrong. Holding an airport radar with a product that radar has not got draws reflectivity, and the link named the product you had picked instead, so whoever opened it got a picture nobody was looking at under a threshold from somewhere else. Switching back to the national mosaic left the site set behind the scenes, so a mosaic view went out as a link that pinned a site on the person opening it. And a link opened in a browser read only the camera, so it went to the right place under whatever the reader's own workspace was on. All three now carry, and open, the picture that was sent.
+
 - Ending a replay with no network no longer leaves that day's storm reports and outlook drawn over the present. The layers cleared themselves when a later request came back, and with nothing to ask over there was no later request: a 2011 afternoon could sit on top of today's map, unlabelled, until the network came back. A layer now drops anything that answers a question you have stopped asking, whether or not it can go and fetch the new answer.
 
 - The close button on a map popup is visible again in the dark theme. It belongs to the map library, which draws it on a white card and gives it no colour of its own, so it picked up the workspace text colour and came out near-white on white. Every popup had one: warnings, reports, storm cells, river gauges and anything you imported. You could still close them by clicking the map, which is probably why nobody said anything.
