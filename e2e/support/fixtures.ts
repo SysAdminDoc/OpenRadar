@@ -580,6 +580,27 @@ export async function fakeDesktop(page: Page, stub: DesktopStub = {}) {
  * Every network route the workspace touches, answered locally. A test that
  * needs different data re-routes the host it cares about and reloads.
  */
+/**
+ * The outlook one numbered layer answers with.
+ *
+ * The categorical layers rank by a risk level and the probability layers
+ * by a percentage, and the conditional intensity layers by a name; the
+ * label is what a popup shows, so it carries the layer number and a test
+ * can tell which outlook it is looking at.
+ */
+function outlookForLayer(layer: number) {
+  const significant = [2, 4, 6, 10, 12, 14, 18].includes(layer);
+  return {
+    ...outlookFeature,
+    properties: {
+      ...outlookFeature.properties,
+      dn: significant ? "CIG1" : 15,
+      label: significant ? "SIGN" : `layer ${layer}`,
+      label2: significant ? "Significant" : `Layer ${layer} outlook`,
+    },
+  };
+}
+
 export async function routeWorkspace(page: Page) {
   const stub = (pattern: string, handler: Handler) =>
     stubHost(page, pattern, handler);
@@ -616,7 +637,10 @@ export async function routeWorkspace(page: Page) {
         ? [tropicalPointFeature]
         : [tropicalFeature];
     } else if (url.includes("SPC_wx_outlks")) {
-      features = [outlookFeature];
+      // Per layer, because the day and the hazard are which layer is asked
+      // for and nothing else says which outlook came back.
+      const layer = Number(/MapServer\/(\d+)\/query/.exec(url)?.[1] ?? 1);
+      features = [outlookForLayer(layer)];
     } else if (url.includes("spc_mesoscale_discussion")) {
       features = [discussionFeature];
     } else if (url.includes("wpc_precip_hazards")) {

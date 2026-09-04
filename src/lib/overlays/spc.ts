@@ -3,6 +3,7 @@ import { serviceAnswer } from "../serviceAnswer";
 import { cachedUrl } from "../tileCache";
 import {
   boundsQuery,
+  type SpcHazard,
   relativeTime,
   type OverlayAdapter,
   type OverlayBounds,
@@ -11,8 +12,56 @@ import {
 } from "./registry";
 
 const SERVICE = "https://mapservices.weather.noaa.gov/vector/rest/services";
-/** Day 1 categorical is the one a person means by "the outlook". */
-const OUTLOOK_LAYER = `${SERVICE}/outlooks/SPC_wx_outlks/MapServer/1/query`;
+const OUTLOOKS = `${SERVICE}/outlooks/SPC_wx_outlks/MapServer`;
+
+/** The days the service publishes a convective outlook for. */
+export const SPC_DAYS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+/** The hazards Day 1 and Day 2 break their probabilities down by. */
+export const SPC_HAZARDS: SpcHazard[] = [
+  "categorical",
+  "tornado",
+  "hail",
+  "wind",
+];
+
+/**
+ * Which numbered layer answers for a day and a hazard.
+ *
+ * Read off the service's own layer list rather than worked out from a
+ * pattern, because there is no pattern: Day 1 and Day 2 carry a categorical
+ * and three hazards apiece, Day 3 carries a categorical and one combined
+ * probability, and Days 4 to 8 carry a probability and nothing else. Read
+ * 2026-09-04 from `SPC_wx_outlks/MapServer?f=pjson`.
+ *
+ * The second number is the conditional intensity, which is the hatched area
+ * where the hazard, if it happens, is expected to be significant. It exists
+ * only where a hazard probability does.
+ */
+export function outlookLayers(
+  day: number,
+  hazard: SpcHazard,
+): { probability: number; significant: number | null } | null {
+  if (day >= 4) {
+    // Day 4 is layer 21, and one per day after it.
+    if (day > 8) return null;
+    return { probability: 17 + day, significant: null };
+  }
+  if (day === 3) {
+    return hazard === "categorical"
+      ? { probability: 17, significant: null }
+      : { probability: 19, significant: 18 };
+  }
+  const base = day === 1 ? 0 : 8;
+  if (hazard === "categorical")
+    return { probability: base + 1, significant: null };
+  const at = { tornado: 3, hail: 5, wind: 7 }[hazard];
+  return { probability: base + at, significant: base + at - 1 };
+}
+
+/** The address of one numbered layer's query endpoint. */
+function layerQuery(layer: number): string {
+  return `${OUTLOOKS}/${layer}/query`;
+}
 const DISCUSSION_LAYER = `${SERVICE}/outlooks/spc_mesoscale_discussion/MapServer/0/query`;
 const ATTRIBUTION =
   '<a href="https://www.spc.noaa.gov/">NOAA Storm Prediction Center</a>';
@@ -35,6 +84,35 @@ export function outlookTime(value: unknown): number | null {
     Number(digits.slice(10, 12)),
   );
   return Number.isFinite(at) ? at : null;
+}
+
+/** The name the hatched fill's pattern is registered under. */
+export const HATCH_IMAGE = "openradar-spc-hatch";
+
+/**
+ * Diagonal hatching, built rather than shipped as a file.
+ *
+ * The Storm Prediction Center hatches the area where a hazard would be
+ * significant if it happened, and there is no fill pattern in a map style
+ * that draws one. Eight pixels with a single diagonal stroke tiles into the
+ * hatch every one of their own products uses.
+ */
+export function hatch(size = 8): {
+  width: number;
+  height: number;
+  data: Uint8Array;
+} {
+  const data = new Uint8Array(size * size * 4);
+  for (let at = 0; at < size; at += 1) {
+    for (const across of [at, (at + 1) % size]) {
+      const pixel = (at * size + across) * 4;
+      data[pixel] = 17;
+      data[pixel + 1] = 24;
+      data[pixel + 2] = 39;
+      data[pixel + 3] = 235;
+    }
+  }
+  return { width: size, height: size, data };
 }
 
 function text(value: unknown): string {
@@ -88,7 +166,11 @@ async function query(
  * is one comparison: if the areas ever arrive nested, or a probabilistic layer
  * is added where they genuinely do overlap, the strongest still ends up on top.
  */
-export function parseOutlooks(payload: unknown): OverlayData {
+export function parseOutlooks(
+  payload: unknown,
+  /** True for the hatched area, which is drawn over the bands rather than in them. */
+  significant = false,
+): OverlayData {
   const raw = payload as { features?: unknown };
   const features = Array.isArray(raw?.features) ? raw.features : [];
   const parsed: OverlayFeature[] = [];
@@ -102,14 +184,20 @@ export function parseOutlooks(payload: unknown): OverlayData {
     const properties = feature.properties;
     if (!geometry || !properties) continue;
 
+    // The categorical and probability layers rank by a number: a risk
+    // level, or a percentage. The conditional intensity layers rank by a
+    // name (`CIG1` and up), and dropping what will not parse as a number
+    // threw the whole hatched area away.
     const rank = Number(properties.dn);
-    if (!Number.isFinite(rank)) continue;
+    const named = text(properties.dn);
+    if (!Number.isFinite(rank) && !named) continue;
 
     parsed.push({
       type: "Feature",
       geometry,
       properties: {
-        rank,
+        rank: Number.isFinite(rank) ? rank : 0,
+        significant,
         label: text(properties.label),
         risk: text(properties.label2),
         // The service carries the Storm Prediction Center's own colours, so
@@ -180,24 +268,68 @@ export const spcOutlooksOverlay: OverlayAdapter = {
   host: HOST,
   // Day 1 is reissued at 0600, 1300, 1630, 2000 and 0100 UTC.
   refreshMs: 15 * 60_000,
-  fetchData: async (bounds, signal) =>
-    parseOutlooks(
-      await query(
-        OUTLOOK_LAYER,
-        bounds,
-        "dn,label,label2,valid,expire,issue,stroke,fill",
-        signal,
-      ),
-    ),
+  // A different day, or a different hazard, is a different picture rather
+  // than a stale one. Compared before freshness, so switching does not wait
+  // out the poll.
+  variant: (choices) => `${choices.spcDay}:${choices.spcHazard}`,
+  fetchData: async (bounds, signal, choices) => {
+    const chosen = outlookLayers(choices.spcDay, choices.spcHazard);
+    if (!chosen) return { type: "FeatureCollection", features: [] };
+    const fields = "dn,label,label2,valid,expire,issue,stroke,fill";
+    const bands = parseOutlooks(
+      await query(layerQuery(chosen.probability), bounds, fields, signal),
+    );
+    const withDay = (features: OverlayFeature[]) =>
+      features.map((feature) => ({
+        ...feature,
+        properties: { ...feature.properties, day: choices.spcDay },
+      }));
+    if (chosen.significant === null) {
+      return { type: "FeatureCollection", features: withDay(bands.features) };
+    }
+    // The hatched area is a second layer of the same service, drawn over the
+    // bands rather than among them: it says where the hazard would be
+    // significant IF it happens, which is a different statement from how
+    // likely it is at all.
+    let hatched: OverlayFeature[] = [];
+    try {
+      hatched = parseOutlooks(
+        await query(layerQuery(chosen.significant), bounds, fields, signal),
+        true,
+      ).features;
+    } catch {
+      // The bands are the answer; the hatching is an annotation on them, and
+      // losing it is not worth losing the outlook over.
+    }
+    // Which outlook this is travels on the features, because the popup is
+    // handed a feature and nothing else.
+    const stamped = [...bands.features, ...hatched].map((feature) => ({
+      ...feature,
+      properties: { ...feature.properties, day: choices.spcDay },
+    }));
+    return { type: "FeatureCollection", features: stamped };
+  },
+  images: () => [{ id: HATCH_IMAGE, ...hatch() }],
   layers: (sourceId) => [
     {
       id: `${sourceId}-fill`,
       type: "fill",
       source: sourceId,
+      filter: ["!=", ["get", "significant"], true],
       paint: {
         "fill-color": ["get", "fill"],
         // Light enough that the radar it is under still reads through it.
         "fill-opacity": 0.28,
+      },
+    },
+    {
+      id: `${sourceId}-hatch`,
+      type: "fill",
+      source: sourceId,
+      filter: ["==", ["get", "significant"], true],
+      paint: {
+        "fill-pattern": HATCH_IMAGE,
+        "fill-opacity": 0.9,
       },
     },
     {
@@ -214,7 +346,13 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     const valid = Number(properties.valid);
     const expire = Number(properties.expire);
     const issue = Number(properties.issue);
-    const lines = [translate("spc.outlookDay1")];
+    const lines = [
+      properties.significant === true
+        ? translate("spc.significant")
+        : translate("spc.outlookDay", {
+            day: String(properties.day ?? 1),
+          }),
+    ];
     if (Number.isFinite(valid) && Number.isFinite(expire)) {
       // With the day, because a Day 1 outlook runs from midday to midday and
       // reading the two clock times alone makes a nineteen hour window look

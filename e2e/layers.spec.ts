@@ -383,6 +383,41 @@ test("holds a placefile shape back until the map is close enough", async ({
   await expect(pane).toHaveAttribute("data-layer-stack", /custom-line/);
 });
 
+test("switches the convective outlook to another day and hazard", async ({
+  page,
+}) => {
+  // The Day 1 categorical is what a person means by the outlook, so it
+  // stays the default and the other twenty-three are a choice.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  // The outlook is off until somebody asks for it, and the chooser belongs
+  // to the switch rather than standing on its own.
+  await page
+    .locator(".setting-list")
+    .getByRole("checkbox", { name: /Severe Outlook/ })
+    .check();
+  const section = page.locator("[data-spc-day]");
+  await expect(section).toHaveAttribute("data-spc-day", "1");
+  await expect(section).toHaveAttribute("data-spc-hazard", "categorical");
+
+  // Day 1 tornado probability is layer 3, with its hatched significant
+  // area on layer 2 over the top.
+  await section.getByRole("button", { name: "Tornado" }).click();
+  await expect(section).toHaveAttribute("data-spc-hazard", "tornado");
+  await expect(pane).toHaveAttribute(
+    "data-layer-stack",
+    /openradar-overlay-spcOutlooks-hatch/,
+  );
+
+  // Day 4 publishes one probability and no hazard split, so the hazard
+  // row goes rather than offering a choice the service cannot answer.
+  await section.getByRole("button", { name: "4", exact: true }).click();
+  await expect(section).toHaveAttribute("data-spc-day", "4");
+  await expect(section.getByRole("button", { name: "Tornado" })).toHaveCount(0);
+});
+
 test("keeps warnings above the context layers", async ({ page }) => {
   const pane = page.getByRole("application", {
     name: "Interactive weather map",

@@ -205,22 +205,50 @@ describe("the day a change of choice asks for", () => {
     // until the refresh came round.
     const seen = new Set(
       ERO_DAYS.map((wpcDay) =>
-        wpcExcessiveRainOverlay.variant?.({ wpcDay, wssiDay: 1 }),
+        wpcExcessiveRainOverlay.variant?.({
+          ...DEFAULT_OVERLAY_CHOICES,
+          wpcDay,
+          wssiDay: 1,
+        }),
       ),
     );
     expect(seen.size).toBe(ERO_DAYS.length);
     const winter = new Set(
       WSSI_DAYS.map((wssiDay) =>
-        wpcWinterSeverityOverlay.variant?.({ wpcDay: 1, wssiDay }),
+        wpcWinterSeverityOverlay.variant?.({
+          ...DEFAULT_OVERLAY_CHOICES,
+          wpcDay: 1,
+          wssiDay,
+        }),
       ),
     );
     expect(winter.size).toBe(WSSI_DAYS.length);
     // And neither moves when the other one does.
-    expect(wpcExcessiveRainOverlay.variant?.({ wpcDay: 2, wssiDay: 1 })).toBe(
-      wpcExcessiveRainOverlay.variant?.({ wpcDay: 2, wssiDay: 3 }),
+    expect(
+      wpcExcessiveRainOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        wpcDay: 2,
+        wssiDay: 1,
+      }),
+    ).toBe(
+      wpcExcessiveRainOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        wpcDay: 2,
+        wssiDay: 3,
+      }),
     );
-    expect(wpcWinterSeverityOverlay.variant?.({ wpcDay: 1, wssiDay: 2 })).toBe(
-      wpcWinterSeverityOverlay.variant?.({ wpcDay: 5, wssiDay: 2 }),
+    expect(
+      wpcWinterSeverityOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        wpcDay: 1,
+        wssiDay: 2,
+      }),
+    ).toBe(
+      wpcWinterSeverityOverlay.variant?.({
+        ...DEFAULT_OVERLAY_CHOICES,
+        wpcDay: 5,
+        wssiDay: 2,
+      }),
     );
   });
 });

@@ -166,13 +166,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-215 (P2): SPC probabilistic outlooks and conditional intensity
-  Why: The app draws the Day 1 categorical outlook only; the same service carries tornado, hail and wind probabilities with the hatched significant area for Days 1 and 2, a Day 3 probability and Days 4 to 8, which is what a reader planning a week wants and what RadarScope 5.6 (2026-08-12) and MyRadar 7.124 both added this year.
-  Evidence: Verified 2026-09-03 from `https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer?f=pjson`: layers 3/5/7 (Day 1 tornado, hail, wind probability), 2/4/6 (conditional intensity), 11/13/15 and 10/12/14 (Day 2), 19 and 18 (Day 3), 21-25 (Days 4-8); `src/lib/overlays/spc.ts:15` reads layer 1 only; RadarScope and MyRadar release notes in `RESEARCH.md`.
-  Touches: `src/lib/overlays/spc.ts` (a day and hazard choice; probability polygons with the hatched conditional-intensity overlay), `src/panels/MapOptionsPanels.tsx` (day and hazard selector), legends (SPC's own percentages and colours), `src/lib/layerProvenance.ts` (`kind: forecast` with issue and valid), `src/i18n/*`, `src/lib/overlays/spc.test.ts` fixtures, the `spc` live contract (after `AUD-207`).
-  Acceptance: A reader can choose Day 1 tornado, hail or wind probability, Day 2 the same, Day 3 probability or any of Days 4-8, and see percentage bands in SPC's colours with the significant area hatched; the popup names issue and valid times; the Day 1 categorical stays the default; a fixture e2e switches hazard and asserts the legend changes.
-  Complexity: M
-
 - [ ] AUD-216 (P2): Outlooks and storm reports at the replayed time
   Why: Replay draws archived warnings and radar for a past event, but the SPC layer and storm reports stay in the present, so a reader replaying 2011-04-27 sees today's outlook over that day's radar; WeatherWise made 1990s archive free on 2026-09-03 and Anvil keys outlooks and reports to the replayed window, so this is where the free field is moving.
   Evidence: Verified 2026-09-03 from `https://mesonet.agron.iastate.edu/api/1/openapi.json`: `/nws/spc_outlook.{fmt}` (`day`, `valid`, `cycle`, `outlook_type`), `/nws/lsrs_by_point.{fmt}` (`begints`, `endts`, radius), `/spc_watch_outline.geojson` (`valid`); `src/lib/archiveWarnings.ts:33` already reads this host; `src/lib/overlays/spc.ts` and `reports.ts` are present-only; https://stormtrack.org/threads/weatherwise-adds-free-archived-radar.33509/; https://github.com/jhammon88219/Anvil.

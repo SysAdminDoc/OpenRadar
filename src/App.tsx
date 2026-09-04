@@ -181,6 +181,7 @@ import {
 } from "./lib/workspaceOverlays";
 import { formatNumber, translate, useT, type StringKey } from "./i18n";
 import { fetchVwp, vwpAvailable } from "./lib/vwp";
+import type { SpcHazard } from "./lib/overlays/registry";
 import { diagnosticsBlock } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 import {
@@ -2594,6 +2595,14 @@ export default function App() {
             }
             onAzShearLevel={(azShearLevel) =>
               applySettings({ ...settingsRef.current, azShearLevel })
+            }
+            spcDay={settings.spcDay}
+            spcHazard={settings.spcHazard}
+            onSpcDay={(spcDay: number) =>
+              applySettings({ ...settingsRef.current, spcDay })
+            }
+            onSpcHazard={(spcHazard: SpcHazard) =>
+              applySettings({ ...settingsRef.current, spcHazard })
             }
             onWpcDay={(wpcDay) =>
               applySettings({ ...settingsRef.current, wpcDay })

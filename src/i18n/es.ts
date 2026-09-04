@@ -449,6 +449,16 @@ export const es: Catalogue = {
     "El viento en el que se mueve cada altura, ajustado a un anillo de la velocidad del propio radar. Una altura marcada ND es una en la que el ajuste no se pudo respaldar, y eso es un hueco y no aire en calma.",
   "vwp.columnLabel": "Viento por altura del volumen {volume}",
   "vwp.hodographLabel": "Hodógrafo del viento por altura",
+  "layers.spcOutlookChoice": "Pronóstico convectivo",
+  "layers.spcOutlookChoiceDetail":
+    "Qué día, y si el riesgo por categorías o la probabilidad de un peligro. Los días 3 a 8 publican una sola probabilidad sin desglose.",
+  "layers.spcDay": "Día del pronóstico",
+  "layers.spcHazard": "Peligro del pronóstico",
+  "layers.spcCategorical": "Por categorías",
+  "layers.spcTornado": "Tornado",
+  "layers.spcHail": "Granizo",
+  "layers.spcWind": "Viento",
+  "spc.significant": "Rayado: donde este peligro sería significativo si ocurre",
   "service.busy": "está ocupado",
   "service.notFound": "no lo encontró",
   "service.tooMany": "ha recibido demasiadas consultas",
@@ -802,7 +812,7 @@ export const es: Catalogue = {
     "Impacto y no cantidad: lo que este invierno le hace a este lugar.",
   "wpc.outlookNote":
     "Un pronóstico, no un aviso. Dice lo que el día podría traer, no lo que está pasando.",
-  "spc.outlookDay1": "Pronóstico convectivo del día 1",
+  "spc.outlookDay": "Pronóstico convectivo del día {day}",
   "spc.validBetween": "Válido de {from} a {to} UTC",
   "spc.guidanceNote":
     "Esto es orientación sobre lo que puede pasar, no un aviso.",

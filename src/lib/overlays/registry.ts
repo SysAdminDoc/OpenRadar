@@ -28,7 +28,19 @@ export interface OverlayChoices {
   wpcDay: number;
   /** Which day of the winter storm severity index, 1 through 3. */
   wssiDay: number;
+  /** Which day of the convective outlook, 1 through 8. */
+  spcDay: number;
+  /**
+   * Which hazard's probability, or the categorical outlook.
+   *
+   * Days 4 to 8 publish one probabilistic outlook and no categorical, so the
+   * hazard says nothing there and the layer chooser ignores it rather than
+   * refusing a combination a reader can reach by changing the day.
+   */
+  spcHazard: SpcHazard;
 }
+
+export type SpcHazard = "categorical" | "tornado" | "hail" | "wind";
 
 /**
  * What a caller that has no reader to ask passes.
@@ -40,6 +52,10 @@ export interface OverlayChoices {
 export const DEFAULT_OVERLAY_CHOICES: OverlayChoices = {
   wpcDay: 1,
   wssiDay: 1,
+  // What a person means by "the outlook", and what the layer drew before it
+  // could draw anything else.
+  spcDay: 1,
+  spcHazard: "categorical",
 };
 
 export interface OverlayBounds {

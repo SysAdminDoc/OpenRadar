@@ -69,6 +69,16 @@ import {
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
 import { MAX_DRAWN_PICTURES } from "../lib/placefile";
+import { SPC_DAYS, SPC_HAZARDS } from "../lib/overlays/spc";
+import type { SpcHazard } from "../lib/overlays/registry";
+
+/** One key per hazard, written out so the copy gate can see every one. */
+const HAZARD_LABELS = {
+  categorical: "layers.spcCategorical",
+  tornado: "layers.spcTornado",
+  hail: "layers.spcHail",
+  wind: "layers.spcWind",
+} as const;
 import { useForcedColours } from "../hooks/useClock";
 import { useOfflineSince } from "../hooks/useOffline";
 import { IncidentPackManager } from "./IncidentPackManager";
@@ -302,6 +312,10 @@ interface LayersPanelProps {
   onAzShearLevel: (level: AzShearLevel) => void;
   /** Which day of each of the two Weather Prediction Center outlooks. */
   wpcDay: number;
+  spcDay: number;
+  spcHazard: SpcHazard;
+  onSpcDay: (day: number) => void;
+  onSpcHazard: (hazard: SpcHazard) => void;
   onWpcDay: (day: number) => void;
   wssiDay: number;
   onWssiDay: (day: number) => void;
@@ -586,6 +600,10 @@ export function LayersPanel({
   azShearLevel,
   onAzShearLevel,
   wpcDay,
+  spcDay,
+  spcHazard,
+  onSpcDay,
+  onSpcHazard,
   onWpcDay,
   wssiDay,
   onWssiDay,
@@ -952,6 +970,55 @@ export function LayersPanel({
               })}
             </p>
           )}
+        </div>
+      ) : null}
+
+      {layers.spcOutlooks ? (
+        <div
+          className="settings-section"
+          data-spc-day={spcDay}
+          data-spc-hazard={spcHazard}
+        >
+          <div className="settings-section__title">
+            <span>{t("layers.spcOutlookChoice")}</span>
+            <small>{t("layers.spcOutlookChoiceDetail")}</small>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            aria-label={t("layers.spcDay")}
+          >
+            {SPC_DAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                className={spcDay === day ? "is-active" : ""}
+                aria-pressed={spcDay === day}
+                onClick={() => onSpcDay(day)}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+          {/* Days 3 to 8 publish one probability with no hazard split, so
+              there is nothing to choose between there. */}
+          {spcDay <= 2 ? (
+            <div
+              className="segmented-control segmented-control--full"
+              aria-label={t("layers.spcHazard")}
+            >
+              {SPC_HAZARDS.map((hazard) => (
+                <button
+                  key={hazard}
+                  type="button"
+                  className={spcHazard === hazard ? "is-active" : ""}
+                  aria-pressed={spcHazard === hazard}
+                  onClick={() => onSpcHazard(hazard)}
+                >
+                  {t(HAZARD_LABELS[hazard])}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
