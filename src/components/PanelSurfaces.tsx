@@ -158,9 +158,7 @@ interface PanelSurfacesProps {
   onCloseProduct: () => void;
   onLayers: (layers: LayerSettings) => void;
   onEnableLayer: (layer: keyof LayerSettings) => void;
-  onSettings: (
-    next: AppSettings | ((now: AppSettings) => AppSettings),
-  ) => void;
+  onSettings: (next: AppSettings | ((now: AppSettings) => AppSettings)) => void;
   onMapStyle: (style: MapStyleId) => void;
   onProjection: (projection: ProjectionMode) => void;
   onRadar: (radar: RadarSettings) => void;

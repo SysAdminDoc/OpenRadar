@@ -4,6 +4,7 @@ import { clipped } from "./support/layout";
 import { pseudoize } from "../src/i18n/pseudo";
 import { en, type StringKey } from "../src/i18n/en";
 import { fr } from "../src/i18n/fr";
+import { es } from "../src/i18n/es";
 
 /**
  * The panels that hold copy, named by the catalogue key that labels each
@@ -303,4 +304,37 @@ test.describe("the rail's own words, in every language it ships", () => {
       });
     }
   }
+});
+
+test("a first run reads a language in the units that language uses", async ({
+  page,
+}) => {
+  // Nothing seeded: this is the path a real first launch takes, and it is
+  // the one the unit tests could not reach. `readSettings` handed
+  // `normalizeSettings` an undefined when localStorage was empty, which took
+  // the older-file branch and marked a brand-new install as having already
+  // picked units, so this never worked for anybody.
+  await routeWorkspace(page);
+  await page.goto("/?testMode=1");
+  await expect(page.getByRole("application")).toBeVisible();
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const imperial = page.getByRole("button", {
+    name: en["settings.unitsImperial"],
+  });
+  await expect(imperial).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "Français", exact: true }).click();
+  const metric = page.getByRole("button", { name: fr["settings.unitsMetric"] });
+  await expect(metric).toHaveAttribute("aria-pressed", "true");
+
+  // And once the reader says what they want, a later language change leaves
+  // it alone.
+  await page
+    .getByRole("button", { name: fr["settings.unitsImperial"] })
+    .click();
+  await page.getByRole("button", { name: "Español", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: es["settings.unitsImperial"] }),
+  ).toHaveAttribute("aria-pressed", "true");
 });

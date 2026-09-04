@@ -117,7 +117,7 @@ describe("storm track", () => {
     const codes = ["TD", "TS", "HU", "EX", "SD", "SS", "LO", "WV", "DB"];
     const labels = codes.map((_, at) => {
       const geojson = stormTrack(
-        storm({ statuses: codes, track: [[0, 25, -80, 45, at]] }),
+        storm({ statuses: codes, track: [[0, 25, -80, 45, at, 0]] }),
       ) as {
         features: Array<{ properties: { label: string } }>;
       };
@@ -130,7 +130,7 @@ describe("storm track", () => {
     // A code from a file this build has never seen is shown rather than
     // swallowed: somebody can still look it up.
     const strange = stormTrack(
-      storm({ statuses: ["ZZ"], track: [[0, 25, -80, 45, 0]] }),
+      storm({ statuses: ["ZZ"], track: [[0, 25, -80, 45, 0, 0]] }),
     ) as { features: Array<{ properties: { label: string } }> };
     expect(strange.features[1].properties.label).toBe("ZZ 45 kt");
   });

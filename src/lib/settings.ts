@@ -1572,8 +1572,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     // English rather than painting the screen with missing keys.
     language: isLanguage(raw.language) ? raw.language : "en",
     units: raw.units === "metric" ? "metric" : "imperial",
-    unitsChosen:
-      typeof raw.unitsChosen === "boolean" ? raw.unitsChosen : true,
+    unitsChosen: typeof raw.unitsChosen === "boolean" ? raw.unitsChosen : true,
     clock: raw.clock === "utc" ? "utc" : "local",
     textScale: TEXT_SCALES.includes(raw.textScale as TextScale)
       ? (raw.textScale as TextScale)
@@ -2018,12 +2017,19 @@ export async function loadSettings(): Promise<AppSettings> {
  * the defaults, which is the inverse of what the button promises.
  */
 export async function readSettings(): Promise<AppSettings> {
+  // Nothing stored at all is a first run, and a first run is the one case
+  // where nobody has picked units yet. That is not the same as a file with no
+  // `unitsChosen` in it, which is a reader from an older build whose choice
+  // cannot be known and is left alone. Handing the defaults in rather than
+  // `undefined` is what tells the two apart: without it every real first
+  // launch was marked as already picked, and choosing a language never set
+  // the units it is read in for anybody.
   if (isDesktopRuntime()) {
     const value = await (await getStore()).get<unknown>("settings");
-    return normalizeSettings(value);
+    return normalizeSettings(value ?? DEFAULT_SETTINGS);
   }
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  return normalizeSettings(raw ? JSON.parse(raw) : undefined);
+  return normalizeSettings(raw ? JSON.parse(raw) : DEFAULT_SETTINGS);
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
