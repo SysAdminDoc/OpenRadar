@@ -375,3 +375,157 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Touches: `src/hooks/useSingleSiteRadar.ts` (when the held site's status turns from Operate, or no volume arrives for two cadences, a line on the chrome naming the nearest publishing site in reach with one action to hold it), `src/components/WorkspaceChrome.tsx`, `src/i18n/*`, an e2e spec with the status stub flipping mid-hold.
       Acceptance: With the held site's status stubbed to Start-Up the chrome says the radar is down and offers the nearest one; taking the offer holds it; the loop's last volume stays on screen with its age until then.
       Complexity: S
+
+## Audit Findings, 2026-09-04 (afternoon)
+
+Read-only audit of `4f9a18a` (v0.9.0 tree, v0.10.0 unreleased in the changelog). Baseline at that commit: `npm run check` 182 files / 1710 passed / 38 skipped, lint 0 errors 1 pre-existing warning, coverage 65.3 / 59.4 / 60.17 / 66.5 above every floor, and **exit 1 at `check:bundle`** (settings chunk 72 kB against 70 kB, pre-existing baseline, already carried on `AUD-272`); `npx playwright test` 622 passed across chromium, compact and wide in 14.6 minutes; `cargo test` 420 passed / 29 ignored; `cargo clippy --all-targets` clean; `gitleaks` 372 commits clean; `npm audit` 0 with and without dev; `cargo audit` 0 vulnerabilities, 17 default-allowed warnings (the `lru` one is in `Roadmap_Blocked.md`); `grype` one Medium in `glib`, the documented Linux-only case. The GitHub tracker holds zero issues and zero pull requests, open or closed, and discussions are disabled, so there was nothing to take in from reporters. Every P1 below survived a fresh-context refutation, and the two storm-report items were confirmed against the live service rather than by reading. Items are numbered on from `AUD-275`.
+
+Where this pass dug: the eleven items drained on 2026-09-04 that had no refutation of their own (`AUD-263`, `AUD-265`, `AUD-267`, `AUD-268` and the `AUD-185` frontend), the seams between them and the chrome, the secondary panels' failure states, the light theme with panels open in a real browser, and the keyboard paths axe cannot see.
+
+### P1
+
+### P2
+
+### P3
+
+- [ ] AUD-287 (P3): Guidance refetches on a pan with no busy signal, and a failed refetch stacks its error on somebody else's table
+      Category: ux
+      Where: `src/panels/GuidancePanel.tsx:240` (spinner gated on `loading && !guidance`), `:78-100` (the catch sets `error` and leaves `guidance` as it was)
+      Problem: Once one answer exists, moving the map far enough to refetch shows nothing (no `aria-busy`, no age) while the old table stays; when that refetch fails the reader sees "could not load" above a full table for the previous place. `guidance.spec.ts` covers the first load and cancel-on-close only.
+      Evidence: The two sites above.
+      Fix: Keep the table but mark the panel `aria-busy` and dim it during a refetch (the `panel-loading` treatment `SoundingPanel` uses on remount is the pattern); on a failed refetch keep the table, stamp it with the place it answers for and the age, and put the error under it rather than over it. An e2e that pans after the first answer and asserts the busy state, then stubs the second request 503 and asserts the stamp.
+      Acceptance: The e2e passes; the first-load test is unchanged.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-291 (P3): Secondary panel state nits: diagnostics ages never tick, history has no busy state, empty copy flashes before the first read
+      Category: ux
+      Where: `src/panels/UtilityPanels.tsx:173-178` (`ageLabel` reads `Date.now()` at render; the panel subscribes to no clock); `src/panels/HistoryPanel.tsx:117-130` (`loadStorm` fetches a decade file with nothing on screen between the click and the answer); `src/panels/JournalSection.tsx:84, 246, 398` and `RecapSection.tsx:36, 127` (`rows` starts `[]`, so "Nothing recorded yet." shows until `journal_rows` resolves); `src/panels/StorageSection.tsx:81` (`String(failure)` on a command that cannot yet reject)
+      Problem: Each is small on its own; together they are the difference between a panel that feels finished and one that does not. A quiet source's "3 minutes ago" stays until something else re-renders; a slow decade fetch looks like a dead click; the empty sentence appears for a frame on every open of a record that is not empty.
+      Evidence: The sites above; `StorageSection.tsx:43` is the in-file example of the `undefined` "not read yet" state.
+      Fix: `useMinuteClock()` in the diagnostics panel; a per-row spinner and disabled rows in History while a storm loads; `rows: JournalRow[] | undefined` with nothing rendered until the read lands.
+      Acceptance: Diagnostics ages advance on the minute; the history row shows a spinner during a slow fetch; the journal empty copy does not render before the first read (a test with a pending `journal_rows`).
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-293 (P3): Unit words are hard-coded outside the catalogue, and choosing a language never sets the unit default
+      Category: ux
+      Where: `src/lib/units.ts:164-186, 238-263` (`mph`, `ft`, `in`, `mi`, `°F` literals), `src/lib/hurdat.ts:215` (`kt`); `src/lib/settings.ts:616-617` (`language: "en"`, `units: "imperial"` independent), `:1545-1546`; `src/panels/MapOptionsPanels.tsx:1920` (language change writes only `language`)
+      Problem: French Canada writes `mi/h`, `pi`, `po` and `nœuds` (the catalogue already says `{knots} nœuds` in eight places while `hurdat.ts` emits `kt` into a French window). And a reader who picks Français or Español still gets miles and Fahrenheit until they find the Units row; the German item (`AUD-198`) already assumes the language sets the default.
+      Evidence: The sites above; `units.miles` and `units.kilometres` are the only unit words in the catalogue.
+      Fix: Catalogue keys `units.mph`, `units.feet`, `units.inches`, `units.knots` read from `speedUnit()`, `formatHeight()`, `formatDistance()`, `precipitationUnit()` and `hurdat.ts`; when the language changes and the reader has never touched Units (a `unitsChosen` flag, absent in older files), set `units` to `metric` for `es` and `fr`. Tests for both.
+      Acceptance: A French window shows `pi` and `nœuds`; picking Français on a fresh workspace flips to metric; a reader who chose imperial first keeps it.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-294 (P3): Two error keys pass the native side's English straight through, and one carries the feed's own state word
+      Category: ux
+      Where: `src/i18n/en.ts:382` (`bundle.error.http` = `"{0}"`, filled by `HttpError`'s Display from `src-tauri/src/bundles.rs:109`), `:47` (`dataExport.error.grid` = `"{0}"`), `:722` (`radar.faultNotOperating` = `"{state}"`, filled by the RDA feed's English word at `src/lib/radarStatus.ts:69-72`)
+      Problem: A Spanish reader whose replay bundle fetch fails sees "the request failed: ..." in English inside a translated toast; compare `radar.error.http`, which at least wraps it. The RDA state case is documented as deliberate in a comment but still puts "Start-Up" inside a French sentence.
+      Evidence: The three keys; `replayBundle.ts:268` and `dataExport.ts:81` build the key from the code.
+      Fix: Wrap both (`"The bundle could not be fetched: {0}"`, `"The grid could not be read: {0}"`) and route the HTTP status through the `service.*` phrases the rest of the app uses; map the handful of RDA states (`Operate`, `Start-Up`, `Maintenance`, `Off-line`) to keys.
+      Acceptance: No catalogue value is a bare `{0}` or `{state}`; a test in `nativeError.test.ts` asserts the wrapped text.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-295 (P3): Microcopy consistency sweep
+      Category: ux
+      Where: `src/i18n/en.ts` and the two translations
+      Problem: Small things a reader notices without naming: (1) trailing periods on `*Detail` strings are a coin flip, 52 with and 62 without, with adjacent rows differing (`layers.countiesDetail` between `qpeDayDetail` and `precipTypeDetail`; `satellite.geocolorDetail` beside `redVisibleDetail`), while `*Body` is 42 of 42 with; (2) layer and panel names mix Title Case ("Storm Cells", "Map Type", "Wind Profile", 44 of them) with sentence case ("Rain, gauge corrected", "Storm history", "Nearby weather"); (3) `radar.archiveReading` is the only in-progress line ending in "..."; (4) "WDTD" appears twice (`layers.lightningJumpWindowDetail` L467, `azShearLevel.midNote` L1143) and is the one acronym no reader would know; (5) the isotherm labels use a hyphen and no degree sign (`-10 C`, L476-477, L486-487) where `satellite.cleanIrLegend` L880 uses `−92 to +57 °C`; (6) `layers.note` L1200 says the same thing twice; (7) `es.ts:698` says "Nivel II" where every other Spanish string keeps "Level II"; (8) the file header at L7-10 forbids positional placeholders and 21 `radar.error.*`, `bundle.error.*`, `dataExport.error.*` keys use `{0}`/`{1}`.
+      Evidence: A pass over all 1,683 keys on 2026-09-04; es and fr mirror en exactly on periods (0 mismatches) so the rule chosen has to be applied three times.
+      Fix: Decide "one-sentence fragment: no period; two or more sentences: periods", sweep the details; Title Case for `layer.*` and `panel.*` names, sentence case for everything else; drop the dots; "NWS training guidance" for WDTD; `−10 °C`; rewrite `layers.note`; "Level II" in es; named parameters for the 21 keys with the Rust `parts()` callers updated.
+      Acceptance: A gate in `coverage.test.ts` that asserts the period rule over `*Detail` and refuses `{0}`-style placeholders; the es/fr parity test still passes.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-297 (P3): Light-theme leftovers on the map layer
+      Category: visual
+      Where: `src/index.css:1305-1316` (`.map-watermark`: dark chip and pale icon with no `[data-theme="light"]` override, unlike `.map-readout` and `.source-attribution` beside it, whose override the comment at `:1287-1291` explains); `:4038-4046` (`.top-status__health .live-chip` non-live states fixed `#f8fafc` on `#334155` while `is-live` is tokenised); `:2940-2951` (`.ambient-readout` fixed `#d6dfeb` text over whatever basemap the theme chose); `:1500` and `:2441` (`rgba(255,255,255,0.25)` edges on style cards and the status dot vanish on `--surface-raised: #fff`); `index.html:2` (`data-theme="dark"` hard-coded with no boot script, so every light-theme cold start paints dark chrome and a `#0b1018` stage, then flips)
+      Problem: None of these is illegible on its own; together they are the places where the light theme was not finished. The watermark is a grey smudge on grey water; the non-live chip is the one slate pill on a white bar; the ambient clock over a light basemap relies on its shadow; the dark flash on launch is the first thing a light-theme reader sees.
+      Evidence: Observed 2026-09-04 in the browser under `data-theme="light"`: `.map-watermark` computed `rgba(229,237,247,0.55)` on `rgba(5,8,13,0.42)`; `.map-stage` background `rgb(11,16,24)`; `.ambient-readout` `rgb(214,223,235)` with a `rgba(0,0,0,0.85)` shadow over the light basemap; screenshots `light-main`, `light-ambient`.
+      Fix: A light override for `.map-watermark` matching the readout's; tokens for the non-live chip; an ambient readout colour keyed on `isLightBasemap` the way the county lines are; a neutral edge token for the two borders; and a two-line inline script in `index.html` that reads `openradar.settings` (or the store's cached theme) and sets `data-theme` before first paint, matching what `useAppearance.ts:92` will set.
+      Acceptance: `e2e/theme.spec.ts` asserts the watermark and chip colours differ between themes and that the first painted `data-theme` on a light-theme reload is `light`.
+      Confidence: Likely
+      Effort: S
+
+- [ ] AUD-299 (P3): Escape works only while focus is inside a panel, tools have no keyboard exit, and three full-screen states drop focus to the body
+      Category: a11y
+      Where: `src/components/PanelShell.tsx:54-58` (the only Escape handler in `src/`); `src/components/WorkspaceChrome.tsx:360` (the tool HUD's Clear is the only way out of draw, range and section); `src/index.css:5539-5560` (capture mode hides the rail, panels and toasts with `display: none`); `src/components/CaptureBar.tsx:110-116` and `AmbientReadout.tsx:62-68` (leave buttons with no mount focus); `src/components/ErrorBoundary.tsx:142` and `NoGpu.tsx:12` (`role="alert"`, nothing focused)
+      Problem: A keyboard reader who opens Layers, tabs to the map and presses Escape gets nothing; entering capture or the second-monitor view removes the focused control and leaves focus on `body` with the exit at 10% opacity; the crash screen reads once and the next Tab starts from the top of an empty page.
+      Evidence: Observed 2026-09-04: `document.activeElement` is `BODY` after entering the full-screen view from the palette; the grep for `"Escape"` in `src/` finds the one handler.
+      Fix: A `keydown` listener on the app root that closes the surface and clears the tool when an Escape reaches it un-stopped (PanelShell stops its own, so no double close); a mount effect in `CaptureBar` and `AmbientReadout` that focuses the leave button (focus-visible only draws on keyboard focus, so nothing appears in a stream); `tabIndex={-1}` on the fatal screens' `h1` focused from `componentDidCatch`. Extend `e2e/accessibility.spec.ts` with the three keyboard paths.
+      Acceptance: The three e2e paths pass: Escape from the map closes the panel; entering capture puts focus on the leave button; the crash screen's heading has focus.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-301 (P3): A layer failing, the workspace going offline, and the timeline stalling are visual only
+      Category: a11y
+      Where: `src/hooks/useOverlays.ts:229-233` (a failed layer only `log.warn`s; the note is static text in the Layers panel), `src/hooks/useLightning.ts:201`, `useWind.ts:58`; `src/components/WorkspaceChrome.tsx:212-216, 296-302` (`chrome.offline` as a span; `useOffline.ts` has no side effect); `src/components/MapChrome.tsx:167-170` (`error ?? cached ?? stale` in a `<strong>`)
+      Problem: A screen-reader user whose alerts layer stopped drawing, whose machine went offline, or whose loop stalled hears nothing unless the right panel is open and re-read. The toast host at `ToastHost.tsx:44` is already `aria-live="polite"`.
+      Evidence: The sites above; the assertive `LiveRegion` is used for watch alerts and the tool HUD only.
+      Fix: `pushToast` (or a polite `LiveRegion` line) on the transition into each of the three states and on the way back out, once per transition rather than per poll.
+      Acceptance: A unit test per transition asserts one announcement; the offline e2e asserts the toast text.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-302 (P3): Small keyboard and screen-reader gaps: slider values, MapLibre's English, draw undo, toast timers, reorder focus, panel-swap focus, keyboard popups
+      Category: a11y
+      Where: `src/panels/MapOptionsPanels.tsx:2053-2082` and `IncidentPackManager.tsx:372` (sliders announce `0.35` while the `<output>` shows `35%`; only `MapChrome.tsx:215` has `aria-valuetext`); `src/components/MapViewport.tsx:1816` (no `locale`, so the canvas is "Map" and the close "Close popup" in every language); `:2049` (Enter appends a draw point; the only undo is Clear); `src/hooks/useToasts.ts:82` (timers ignore focus and hover, and the host is near the end of the tab order); `MapOptionsPanels.tsx:740-756` (a reorder button disables itself under focus, dropping focus to `body`, and nothing announces the new order); `PanelShell.tsx:28-43` (the opener is recorded on mount, so swapping Layers for Alerts records the Layers rail button and Escape returns one button off); `PanelSurfaces.tsx:513, 535` (keyed VWP and Section panels remount and yank focus to the heading on every new time); `MapViewport.tsx:771-822` (a popup opened with Enter gets no focus and no announcement)
+      Problem: None blocks a task; each is a place where a keyboard reader has to work harder than a pointer one.
+      Evidence: The 2026-09-04 accessibility snapshot shows `status "Opacity 0.7"` beside a visible "70%"; the rest read from the sites above.
+      Fix: `aria-valuetext` equal to the `<output>`; `locale: { "Map.Title", "Popup.Close" }` from the catalogue; Backspace pops the last draw point; `onFocus`/`onMouseEnter` pause the toast timer; keep reorder buttons enabled with `aria-disabled` and move focus to the sibling, announcing "X moved above Y"; pass the opener from the click path as a `returnFocusTo` prop; reset VWP and Section state in an effect on the key values rather than a React `key`; focus the popup's first control after `addTo` and return to the canvas on close.
+      Acceptance: Each has a unit or e2e assertion; the existing axe gate stays clean.
+      Confidence: Likely
+      Effort: M
+
+- [ ] AUD-307 (P3): Tests that write shared statics with no lock, and gates that cannot fail
+      Category: testing
+      Where: `src-tauri/src/tray.rs:84, 92` (`static COPY`, `static HAZARD`) and the four tests at `:468, 476, 498, 531` that mutate them with no serialising lock (every other module with static state has one); `src-tauri/src/level2.rs:5287, 5617, 5710` and `mrms.rs:3836` (ignored live tests call `clear_cache()` or touch `CACHE` outside `decoded_cache_test()` / `ONE_AT_A_TIME`); `src/i18n/coverage.test.ts:486-491` (a key is "alive" if its quoted name appears anywhere, comments included, and the family check at `:521-536` accepts a bare suffix such as `"rain"` or `"name"`, so 95 keys are alive on prefix alone)
+      Problem: The tray tests can read each other's French copy under the default parallel runner, the same shape `level2` was fixed for on 2026-08-31; the live tests wipe each other's cache under `-- --ignored`; the dead-key gate cannot fail for a key mentioned only in a comment. No key slips today; the point is that none can be caught.
+      Evidence: The sites above; a scan with comments stripped found zero keys alive only via a comment.
+      Fix: A `static ONE_AT_A_TIME: Mutex<()>` in `tray.rs`'s tests; the cache guards on the four live tests; strip comments before the liveness scan (the way `scripts/unused-exports.mjs:116` does) and require the family suffix to appear inside a template literal or `t(`/`translate(` call.
+      Acceptance: `cargo test tray` passes under `--test-threads=8` twenty times in a row; the coverage gate fails when a key is planted in a comment only.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-308 (P3): The same helper written twice or more
+      Category: maintainability
+      Where: bearing: `src/lib/cells.ts:143` and `src/lib/nearby.ts:49` (`bearingDegrees`, identical); distance: `src/lib/geo.ts:6` (`haversineMiles`) and `src/lib/sounding.ts:55` (`distanceKm`, different radius and form), with `MapViewport.tsx:1955` multiplying by a bare `1.609344` while `units.ts:73` and `cells.ts:65` both hold `MILES_TO_KM`; "minutes ago": `UtilityPanels.tsx:173`, `RadarProductPanel.tsx:98`, `overlays/registry.ts:255`; the ArcGIS `query()` in `overlays/spc.ts:138-165` and `overlays/wpc.ts:92-119` (byte-identical but for the status key) with the same envelope built inline a third and fourth time in `wildfires.ts:76` and `alerts.ts:489`; the `matchMedia` subscriber three times in `useClock.ts:103, 145, 171` (the first without the `typeof` guard the other two have); the "still mounted" ref effect in `useApproachWatch.ts:70`, `useLightningWatch.ts:70`, `useForecastSmoke.ts:86`, `useAutostart.ts:33`; the `["pointerdown","keydown","wheel"]` trio in `App.tsx:1546-1554` and `FirstRunReveal.tsx:37-45`
+      Problem: Each pair can drift; the haversine pair already has (two Earth radii), and the two ArcGIS readers will diverge the first time one service changes its answer shape.
+      Evidence: The sites above.
+      Fix: One `bearingDegrees` and one distance helper in `geo.ts`; one `arcgisQuery(url, bounds, fields, signal, statusKey)` in `overlays/`; one `subscribeMedia(query)` in `useClock.ts`; leave the mounted-ref effect (four lines) unless a fifth appears.
+      Acceptance: `rg -n "function bearingDegrees|function query\(|matchMedia\(" src` finds one definition each; tests unchanged.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-315 (P3): Placefile icon ids saved before the escape fix decode wrongly or throw, and the icon vanishes silently
+      Category: reliability
+      Where: `src/lib/placefile.ts:137` (encodes the sheet address into the id at write), `:161` (`decodeURIComponent` at read); `src/components/MapViewport.tsx:1519` (`parseIconId` null means the feature enters neither `bySheet` nor the fallback)
+      Problem: Overlay features are the part of a workspace that survives being stored. A workspace saved before `8ca33d3` holds `icon|https://h/a%2Bb.png|...`, which now decodes to `a+b.png` (a different object), and one with a bare `%` throws, parses to null, and gets neither the sheet nor the dot: the exact `AUD-241` failure mode again, for readers who imported a placefile before 2026-09-04.
+      Evidence: The three sites read together; no saved pre-fix workspace was available to load.
+      Fix: Version the id (`icon2|...` for escaped, treat the bare `icon|` prefix as raw) or migrate stored features in `normalizeSettings`; a test that loads a fixture feature with the old shape and asserts the sheet address round-trips. Also worth a line on screen: `iconsAskedRef` (`MapViewport.tsx:1505`) means a sheet that 404s once stays a dot until a basemap switch, and nothing says so.
+      Acceptance: The fixture test passes; a `%`-bearing old id draws its icon.
+      Confidence: Needs-repro
+      Effort: S
+
+### Unaudited, needs a pass
+
+- [ ] AUD-310 (P3): Spanish and French rendered on screen
+      Category: testing
+      Where: `e2e/language.spec.ts` (renders the pseudolocale only); `src/i18n/es.ts`, `fr.ts`
+      Problem: The clipping sweep proves labels survive a third more text; nothing renders the real Spanish or French and looks at it. A translation that is correct and too long for its control, or a French string that wraps inside a segmented button, is invisible to every gate.
+      Evidence: `rg -n "es\"|fr\"" e2e/language.spec.ts` matches nothing but the pseudolocale selector.
+      Fix: Run the same sweep in `es` and `fr` at 1024x720 and 1487x1058, and add the two screenshots to the visual set.
+      Acceptance: The sweep passes in all three languages.
+      Confidence: Needs-repro
+      Effort: S
+
+- [ ] AUD-311 (P3): What this pass could not observe
+      Category: testing
+      Where: the packaged Tauri window (tray launch, `visibilitychange` on first show, the notification permission prompt, the opener, the updater); a real screen reader (the ARIA findings above are traced, not heard); the MP4 export (Playwright's Chromium has no H.264; Edge does, per the 2026-09-03 note); a long-running session (`AUD-166`); the live TDWR and Level II decode paths under real network conditions
+      Problem: Each is a place where the e2e suite also cannot see, and each has an item or a `Roadmap_Blocked.md` entry already; this line exists so the next pass does not assume they were covered.
+      Evidence: This audit ran headless browser automation, read the packaged configuration, and queried two live services; it did not drive the installed app on a display.
+      Fix: The desktop-session checks in `Roadmap_Blocked.md`, plus a NVDA or Narrator pass over the rail, the settings panel and one popup once `AUD-299` to `AUD-302` land.
+      Acceptance: Each named surface has a recorded observation or a reason it cannot be made.
+      Confidence: Needs-repro
+      Effort: M

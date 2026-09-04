@@ -131,8 +131,7 @@ a {
 
 .app-brand,
 .top-status__center,
-.live-chip,
-.camera-chip {
+.live-chip {
   display: flex;
   align-items: center;
 }
@@ -192,8 +191,7 @@ a {
   backdrop-filter: blur(18px) saturate(130%);
 }
 
-.live-chip,
-.camera-chip {
+.live-chip {
   gap: 6px;
   min-height: 28px;
   padding: 0 9px;
@@ -206,11 +204,6 @@ a {
 .live-chip.is-live {
   color: var(--green);
   background: color-mix(in srgb, var(--green) 10%, transparent);
-}
-
-.camera-chip {
-  border-left: 1px solid var(--border);
-  border-radius: 0 6px 6px 0;
 }
 
 /* The bar stays dark in both themes, so its ink is fixed rather than themed.
@@ -2121,8 +2114,7 @@ input[type="range"]:disabled {
   color: var(--muted);
 }
 
-.result-row,
-.link-row {
+.result-row {
   display: flex;
   width: 100%;
   min-height: 48px;
@@ -2138,8 +2130,7 @@ input[type="range"]:disabled {
   cursor: pointer;
 }
 
-.result-row:hover,
-.link-row:hover {
+.result-row:hover {
   color: var(--text);
   background: var(--surface-hover);
   border-color: var(--border);
@@ -2150,8 +2141,7 @@ input[type="range"]:disabled {
   color: var(--accent);
 }
 
-.result-row span,
-.link-row span {
+.result-row span {
   display: flex;
   min-width: 0;
   flex: 1;
@@ -2159,13 +2149,11 @@ input[type="range"]:disabled {
   gap: 2px;
 }
 
-.result-row strong,
-.link-row strong {
+.result-row strong {
   font-size: 12px;
 }
 
-.result-row small,
-.link-row small {
+.result-row small {
   overflow: hidden;
   color: var(--subtle);
   font-size: 9px;
@@ -2313,15 +2301,6 @@ input[type="range"]:disabled {
   border-radius: 8px;
 }
 
-.feature-card--accent {
-  background: linear-gradient(
-    145deg,
-    var(--accent-soft),
-    var(--surface-raised)
-  );
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
-}
-
 .feature-card > svg {
   flex: 0 0 auto;
   color: var(--accent);
@@ -2341,17 +2320,6 @@ input[type="range"]:disabled {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.4;
-}
-
-.link-row {
-  justify-content: space-between;
-  border-color: var(--border);
-}
-
-.link-row span {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
 }
 
 .drop-zone {
@@ -2889,10 +2857,6 @@ input[type="range"]:disabled {
 
 :root[data-narrow~="980"] .live-chip {
   display: none;
-}
-
-:root[data-narrow~="980"] .camera-chip {
-  border-left: 0;
 }
 
 :root[data-narrow~="980"] .map-readout {
@@ -4474,7 +4438,6 @@ input[type="range"]:disabled {
   border-radius: 0;
 }
 
-.surface-panel .feature-card--accent,
 .surface-panel .current-forecast {
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -4482,8 +4445,7 @@ input[type="range"]:disabled {
 }
 
 .surface-panel .toggle-row,
-.surface-panel .result-row,
-.surface-panel .link-row {
+.surface-panel .result-row {
   border-radius: 5px;
 }
 
