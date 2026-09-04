@@ -283,7 +283,38 @@ pub async fn radar_status() -> Result<Vec<SiteStatus>, RadarStatusError> {
         .collect())
 }
 
-/// Which terminal radars the office lists, by their four-letter id.
+/// The terminal radars from the last answer, without asking for a new one.
+///
+/// The same shape as `faulty_stations_known` and for the same reason, which
+/// this module learned once already: a fetch in front of something a reader
+/// is waiting on means a machine that can reach the radar archive but not
+/// this service waits out a thirty second timeout first. The picker's own
+/// poll is what keeps this warm, and a cold one knows nothing, which is the
+/// answer that changes nothing.
+pub fn terminal_stations_known() -> Vec<String> {
+    let now = Utc::now();
+    let Ok(held) = STATIONS.lock() else {
+        return Vec::new();
+    };
+    let Some((asked, records)) = held.as_ref() else {
+        return Vec::new();
+    };
+    if !still_fresh(*asked, records, now) {
+        return Vec::new();
+    }
+    records
+        .iter()
+        .filter(|record| record.kind.as_deref() == Some("TDWR"))
+        .map(|record| record.station.clone())
+        .collect()
+}
+
+/// Which terminal radars the office lists, asking if it has to.
+///
+/// For the live gate, which is checking the bundled table against the feed
+/// and has nowhere to get a warm cache from. Anything on a path a reader is
+/// waiting on takes `terminal_stations_known` instead.
+#[cfg(test)]
 ///
 /// The station list is the only thing that knows a terminal radar has been
 /// renamed or taken out of the network, which the product buckets cannot say:

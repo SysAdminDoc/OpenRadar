@@ -316,7 +316,7 @@ async fn newest_product(site: &TdwrSite, code: &str) -> Result<(String, Vec<u8>)
         .map_err(decode_error)?
     {
         Some(key) => key,
-        None => return Err(gone_or_quiet(site).await),
+        None => return Err(gone_or_quiet(site)),
     };
     let bytes = http::get_bytes(&format!("https://{}/{key}", level3::BUCKET)).await?;
     Ok((key, bytes))
@@ -474,12 +474,18 @@ pub async fn sweep(
 /// without this radar's whole network in it, says nothing and the ordinary
 /// silence stands: a feed about somebody else's equipment must not be able
 /// to take a working radar off the map.
-async fn gone_or_quiet(site: &TdwrSite) -> Level2Error {
+fn gone_or_quiet(site: &TdwrSite) -> Level2Error {
     let quiet = Level2Error::NoVolume(site.id.clone());
-    let Ok(listed) = crate::radar_status::terminal_stations().await else {
-        return quiet;
-    };
-    if listed.is_empty() {
+    // Whatever the picker's own poll has already fetched, never a fetch of
+    // its own: this sits on the path a reader is waiting on, and a machine
+    // that can reach the product bucket but not the station feed would wait
+    // out a thirty second timeout before being told a radar is quiet.
+    let listed = crate::radar_status::terminal_stations_known();
+    // A partial answer says nothing. There are forty-five of these and the
+    // feed carries them all or it is not describing the network: a list with
+    // three in it would declare the other forty-two gone and take a room full
+    // of working radars off the map.
+    if listed.len() < ENOUGH_TO_JUDGE {
         return quiet;
     }
     if listed.iter().any(|id| id.eq_ignore_ascii_case(&site.id)) {
@@ -487,6 +493,14 @@ async fn gone_or_quiet(site: &TdwrSite) -> Level2Error {
     }
     Level2Error::NoLongerListed(site.id.clone())
 }
+
+/// How many terminal radars a station list has to hold before it is worth
+/// believing about which ones exist.
+///
+/// The network is forty-five and does not change by much. Well below that so
+/// a decommissioning or two cannot silence the check, and well above the
+/// handful a truncated or half-parsed answer would carry.
+const ENOUGH_TO_JUDGE: usize = 30;
 
 #[cfg(test)]
 mod tests {
@@ -507,46 +521,56 @@ mod tests {
         // an empty picture: a name the bucket does not know and a radar that
         // has published nothing today look identical from there. The station
         // list is the one thing that can tell them apart.
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("a runtime");
         let held = dallas();
+        // A whole network, with the named sites in or out of it.
+        let network = |include_dallas: bool| {
+            let mut list: Vec<(String, &'static str)> =
+                (0..40).map(|at| (format!("TX{at:02}"), "TDWR")).collect();
+            if include_dallas {
+                list.push(("TDAL".to_string(), "TDWR"));
+            } else {
+                list.push(("TDJT".to_string(), "TDWR"));
+            }
+            list.push(("KDMX".to_string(), "WSR-88D"));
+            list
+        };
+        let hold = |list: &[(String, &'static str)]| {
+            let borrowed: Vec<(&str, &str)> =
+                list.iter().map(|(id, kind)| (id.as_str(), *kind)).collect();
+            crate::radar_status::hold_stations_for_test(&borrowed);
+        };
 
         // The office lists it. Nothing published is nothing published.
-        crate::radar_status::hold_stations_for_test(&[
-            ("TDAL", "TDWR"),
-            ("TBWI", "TDWR"),
-            ("KDMX", "WSR-88D"),
-        ]);
-        assert!(matches!(
-            runtime.block_on(gone_or_quiet(held)),
-            Level2Error::NoVolume(_)
-        ));
+        hold(&network(true));
+        assert!(matches!(gone_or_quiet(held), Level2Error::NoVolume(_)));
 
         // The office does not list it any more, and the rest of the network
         // is there, so this is a name rather than a silence.
-        crate::radar_status::hold_stations_for_test(&[
-            ("TBWI", "TDWR"),
-            ("TDJT", "TDWR"),
-            ("KDMX", "WSR-88D"),
-        ]);
+        hold(&network(false));
         assert!(matches!(
-            runtime.block_on(gone_or_quiet(held)),
+            gone_or_quiet(held),
             Level2Error::NoLongerListed(_)
         ));
 
-        // And a feed with no terminal radars in it at all says nothing.
-        // A second opinion about somebody else's equipment must not be able
-        // to take a working radar off the map, which is the lesson the site
-        // picker learned the hard way on 2026-09-02.
+        // A feed with no terminal radars in it at all says nothing. A second
+        // opinion about somebody else's equipment must not be able to take a
+        // working radar off the map, which is the lesson the site picker
+        // learned the hard way on 2026-09-02.
         crate::radar_status::hold_stations_for_test(&[("KDMX", "WSR-88D")]);
-        assert!(matches!(
-            runtime.block_on(gone_or_quiet(held)),
-            Level2Error::NoVolume(_)
-        ));
+        assert!(matches!(gone_or_quiet(held), Level2Error::NoVolume(_)));
 
+        // And neither does a partial one. Three terminal radars is not the
+        // network; believing it would declare the other forty-two gone.
+        crate::radar_status::hold_stations_for_test(&[
+            ("TBWI", "TDWR"),
+            ("TDJT", "TDWR"),
+            ("TMDW", "TDWR"),
+        ]);
+        assert!(matches!(gone_or_quiet(held), Level2Error::NoVolume(_)));
+
+        // Nothing fetched anything: this runs where a reader is waiting.
         crate::radar_status::forget_stations_for_test();
+        assert!(matches!(gone_or_quiet(held), Level2Error::NoVolume(_)));
 
         // And the place that asks. Everything above holds the helper, and a
         // helper nothing calls is a helper: putting the bare refusal back in
