@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- The wind profile can read a jet. A Doppler radar wraps anything moving faster than its own limit, and the profile was fitting the wrapped numbers: a ring in a 35 m/s wind read through a 22 m/s limit is not a wave any fit will take, so those heights came back marked as unreadable. The heights it was refusing are the ones a forecaster opens it for. Each cut is now unwrapped on its own limit before the fit, and each ring is levelled against the fact that a wind blowing across a full circle averages to nothing.
+
 - Offline pack failures are in your language too, and they say what to do. They came straight out of the decoder as its own English, so a French reader was told "that region needs 41200 tiles, above the 25000 tile limit", with the count written the way a machine writes one. Each now says the thing you can act on: zoom in, free some space, wait for it to finish, or try the download again. The exact fault still goes to the log for a bug report.
 
 - A radar archive or replay that will not answer says so in your language, without a web address in it. The reason came straight from the network library, so a missing file under the site picker read as an Amazon S3 URL and a status code, in English, whatever language you had chosen. It now says whether the service is busy, has no such file, refused, or could not be reached at all, in the same words the rest of the app uses for the same thing.
