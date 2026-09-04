@@ -1884,7 +1884,27 @@ export function SettingsPanel({
       {settings.curiosities ? (
         <CuriositySection
           found={settings.curiositiesFound}
-          onForget={() => onSettings({ ...settings, curiositiesFound: [] })}
+          // The one removal in here that had no way back, against a rule
+          // this section is written under: everything is reversible in one
+          // action. What is lost is a list somebody built by going and
+          // looking at places, which is not a list they can rebuild by
+          // pressing anything.
+          onForget={() => {
+            const held = settings.curiositiesFound;
+            onSettings({ ...settings, curiositiesFound: [] });
+            onRemoved({
+              title: t("curiosity.forgotten"),
+              detail: t("curiosity.forgottenBody"),
+              // Into the settings as they stand when the undo is pressed,
+              // rather than the whole of what they were: anything else the
+              // reader changed in between is theirs to keep.
+              undo: () =>
+                onSettings({
+                  ...settingsRef.current,
+                  curiositiesFound: held,
+                }),
+            });
+          }}
         />
       ) : null}
 

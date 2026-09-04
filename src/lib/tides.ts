@@ -11,6 +11,7 @@
  * connection.
  */
 import { haversineMiles, type GeoPoint } from "./geo";
+import { log } from "./log";
 import { serviceAnswer } from "./serviceAnswer";
 import { cachedUrl } from "./tileCache";
 import { translate } from "../i18n";
@@ -121,7 +122,20 @@ export function parsePredictions(payload: unknown): TideExtreme[] {
     predictions?: unknown;
     error?: { message?: string };
   };
-  if (raw?.error?.message) throw new Error(String(raw.error.message));
+  // CO-OPS says why in English prose, and the panel printed it: "No
+  // Predictions data was found. Please make sure the Datum input is valid."
+  // reached a French reader exactly like that. What a reader can act on is
+  // which of the two it is, so the sentence is this app's own and the
+  // service's own wording goes to the log with everything else it says.
+  if (raw?.error?.message) {
+    const said = String(raw.error.message);
+    log.info("tides", "CO-OPS refused the request: " + said);
+    throw new Error(
+      /no\s+predictions/i.test(said)
+        ? translate("tides.noPredictions")
+        : translate("tides.unknown"),
+    );
+  }
   const rows = Array.isArray(raw?.predictions) ? raw.predictions : [];
 
   const extremes: TideExtreme[] = [];

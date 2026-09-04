@@ -12,6 +12,7 @@ import {
   upcoming,
   type TideStation,
 } from "./tides";
+import { en } from "../i18n/en";
 
 const STATIONS: TideStation[] = [
   {
@@ -103,10 +104,15 @@ describe("reading the predictions", () => {
     expect(extremes[1].feet).toBeCloseTo(2.47, 5);
   });
 
-  it("passes on what the service says went wrong", () => {
+  it("does not pass on what the service says went wrong", () => {
+    // This asserted the opposite until 2026-09-04, and the opposite was
+    // wrong: the message is CO-OPS's own English prose and it went straight
+    // to the panel, so a French reader was told "No Predictions data was
+    // found. Please make sure the Datum input is valid." The service's
+    // wording is a diagnosis for a log, not a sentence for a reader.
     expect(() =>
       parsePredictions({ error: { message: "No Predictions data was found" } }),
-    ).toThrow(/No Predictions data/);
+    ).not.toThrow(/No Predictions data/);
   });
 
   it("drops a row it cannot read rather than the whole reply", () => {
@@ -205,4 +211,34 @@ live("against NOAA itself", () => {
     const last = reading.extremes.at(-1)!.time;
     expect(last - first).toBeLessThan(5 * 24 * 3_600_000);
   }, 30_000);
+});
+
+describe("what CO-OPS says when it will not answer", () => {
+  it("says which of the two it is, in the reader's language", () => {
+    // The service answers in English prose and the panel printed it: "No
+    // Predictions data was found. Please make sure the Datum input is
+    // valid." reached a French reader exactly like that. The station being
+    // wrong for tides and the request being wrong are different things to
+    // do about, and both are said here rather than quoted.
+    expect(() =>
+      parsePredictions({
+        error: {
+          message:
+            "No Predictions data was found. Please make sure the Datum input is valid.",
+        },
+      }),
+    ).toThrow(en["tides.noPredictions"]);
+
+    expect(() =>
+      parsePredictions({ error: { message: "Wrong Date Format" } }),
+    ).toThrow(en["tides.unknown"]);
+  });
+
+  it("still reads a good answer", () => {
+    const read = parsePredictions({
+      predictions: [{ t: "2026-09-04 18:00", v: "3.2", type: "H" }],
+    });
+    expect(read).toHaveLength(1);
+    expect(read[0].high).toBe(true);
+  });
 });
