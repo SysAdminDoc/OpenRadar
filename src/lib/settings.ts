@@ -363,6 +363,17 @@ export interface AppSettings {
   /** Which language the workspace is written in. */
   language: LanguageId;
   units: UnitSystem;
+  /**
+   * Whether the reader has picked units for themselves.
+   *
+   * Until they have, choosing a language sets the units that language is
+   * read in: somebody who picks Français and then sees Fahrenheit has to go
+   * and find the Units row to finish the job. Once they have picked, the
+   * choice is theirs and no language change touches it. A settings file
+   * written before this existed has no way to say, and is read as chosen,
+   * because flipping a reader who is happy is the worse mistake.
+   */
+  unitsChosen: boolean;
   clock: ClockZone;
   textScale: TextScale;
   projection: ProjectionMode;
@@ -615,6 +626,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   occasions: { enabled: true, declined: {}, seen: {} },
   language: "en",
   units: "imperial",
+  unitsChosen: false,
   clock: "local",
   textScale: 100,
   projection: "mercator",
@@ -1560,6 +1572,8 @@ export function normalizeSettings(value: unknown): AppSettings {
     // English rather than painting the screen with missing keys.
     language: isLanguage(raw.language) ? raw.language : "en",
     units: raw.units === "metric" ? "metric" : "imperial",
+    unitsChosen:
+      typeof raw.unitsChosen === "boolean" ? raw.unitsChosen : true,
     clock: raw.clock === "utc" ? "utc" : "local",
     textScale: TEXT_SCALES.includes(raw.textScale as TextScale)
       ? (raw.textScale as TextScale)

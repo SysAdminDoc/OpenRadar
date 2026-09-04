@@ -772,3 +772,28 @@ describe("reading the settings when the store will not answer", () => {
     );
   });
 });
+
+describe("whether the reader has picked their units", () => {
+  it("starts unpicked on a fresh workspace", () => {
+    expect(normalizeSettings(DEFAULT_SETTINGS).unitsChosen).toBe(false);
+  });
+
+  it("reads a file written before the flag existed as picked", () => {
+    // There is no way to know what an older reader meant, and flipping
+    // somebody who is happy with miles the moment they change language is
+    // the worse mistake of the two.
+    const older = { schemaVersion: 2, language: "fr", units: "imperial" };
+    expect(normalizeSettings(older).unitsChosen).toBe(true);
+    expect(normalizeSettings(older).units).toBe("imperial");
+  });
+
+  it("keeps what the file says once it says something", () => {
+    expect(
+      normalizeSettings({ ...DEFAULT_SETTINGS, unitsChosen: true }).unitsChosen,
+    ).toBe(true);
+    expect(
+      normalizeSettings({ ...DEFAULT_SETTINGS, unitsChosen: false })
+        .unitsChosen,
+    ).toBe(false);
+  });
+});
