@@ -247,6 +247,7 @@ function stageLine(value: unknown, unit: unknown): string {
 
 export const riverGaugesOverlay: OverlayAdapter = {
   id: "riverGauges",
+  nameKey: "layer.riverGauges",
   label: "River gauges",
   attribution:
     '<a href="https://water.noaa.gov/">NOAA National Water Prediction Service</a>',

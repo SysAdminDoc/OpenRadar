@@ -384,6 +384,7 @@ export function parseArchiveOutlooks(payload: unknown): OverlayData {
 
 export const spcOutlooksOverlay: OverlayAdapter = {
   id: "spcOutlooks",
+  nameKey: "layer.spcOutlooks",
   label: "SPC outlook",
   attribution: ATTRIBUTION,
   attributionUrl: ATTRIBUTION_URL,
@@ -543,6 +544,7 @@ export const spcOutlooksOverlay: OverlayAdapter = {
 
 export const spcDiscussionsOverlay: OverlayAdapter = {
   id: "spcDiscussions",
+  nameKey: "layer.spcDiscussions",
   label: "SPC discussion",
   attribution: ATTRIBUTION,
   attributionUrl: ATTRIBUTION_URL,

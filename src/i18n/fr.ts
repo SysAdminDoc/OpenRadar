@@ -2185,4 +2185,15 @@ export const fr: Catalogue = {
     "Cliquez une extrémité de la coupe, à portée du radar",
   "tool.sectionEndHint": "Cliquez l'autre extrémité de la coupe",
   "tool.sectionTaken": "Découpe du volume le long de la ligne",
+  "notice.offline": "Cette machine est hors ligne",
+  "notice.offlineBody":
+    "La carte affiche ce qu'elle a gardé. Rien de nouveau n'arrivera tant que la connexion ne sera pas revenue.",
+  "notice.online": "De nouveau en ligne",
+  "notice.onlineBody": "La carte récupère ce qu'elle a manqué.",
+  "notice.layerFailing": "{layer} ne se dessine plus",
+  "notice.layerFailingBody":
+    "Le service n'a pas répondu. La carte continue d'essayer.",
+  "notice.layerBack": "{layer} se dessine de nouveau",
+  "notice.loopStalled": "La boucle s'est arrêtée",
+  "notice.loopBack": "La boucle fonctionne de nouveau",
 };

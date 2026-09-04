@@ -2116,6 +2116,17 @@ export const en = {
     "Click one end of the slice, inside the radar's range",
   "tool.sectionEndHint": "Click the other end of the slice",
   "tool.sectionTaken": "Cutting the volume along the line",
+  "notice.offline": "This machine is offline",
+  "notice.offlineBody":
+    "The map is showing what it kept. Nothing new will arrive until the connection is back.",
+  "notice.online": "Back online",
+  "notice.onlineBody": "The map is fetching what it missed.",
+  "notice.layerFailing": "{layer} stopped drawing",
+  "notice.layerFailingBody":
+    "The service did not answer. The map keeps trying.",
+  "notice.layerBack": "{layer} is drawing again",
+  "notice.loopStalled": "The loop stalled",
+  "notice.loopBack": "The loop is running again",
 } as const;
 
 export type StringKey = keyof typeof en;

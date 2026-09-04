@@ -408,16 +408,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-301 (P3): A layer failing, the workspace going offline, and the timeline stalling are visual only
-      Category: a11y
-      Where: `src/hooks/useOverlays.ts:229-233` (a failed layer only `log.warn`s; the note is static text in the Layers panel), `src/hooks/useLightning.ts:201`, `useWind.ts:58`; `src/components/WorkspaceChrome.tsx:212-216, 296-302` (`chrome.offline` as a span; `useOffline.ts` has no side effect); `src/components/MapChrome.tsx:167-170` (`error ?? cached ?? stale` in a `<strong>`)
-      Problem: A screen-reader user whose alerts layer stopped drawing, whose machine went offline, or whose loop stalled hears nothing unless the right panel is open and re-read. The toast host at `ToastHost.tsx:44` is already `aria-live="polite"`.
-      Evidence: The sites above; the assertive `LiveRegion` is used for watch alerts and the tool HUD only.
-      Fix: `pushToast` (or a polite `LiveRegion` line) on the transition into each of the three states and on the way back out, once per transition rather than per poll.
-      Acceptance: A unit test per transition asserts one announcement; the offline e2e asserts the toast text.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-302 (P3): Small keyboard and screen-reader gaps: slider values, MapLibre's English, draw undo, toast timers, reorder focus, panel-swap focus, keyboard popups
       Category: a11y
       Where: `src/panels/MapOptionsPanels.tsx:2053-2082` and `IncidentPackManager.tsx:372` (sliders announce `0.35` while the `<output>` shows `35%`; only `MapChrome.tsx:215` has `aria-valuetext`); `src/components/MapViewport.tsx:1816` (no `locale`, so the canvas is "Map" and the close "Close popup" in every language); `:2049` (Enter appends a draw point; the only undo is Clear); `src/hooks/useToasts.ts:82` (timers ignore focus and hover, and the host is near the end of the tab order); `MapOptionsPanels.tsx:740-756` (a reorder button disables itself under focus, dropping focus to `body`, and nothing announces the new order); `PanelShell.tsx:28-43` (the opener is recorded on mount, so swapping Layers for Alerts records the Layers rail button and Escape returns one button off); `PanelSurfaces.tsx:513, 535` (keyed VWP and Section panels remount and yank focus to the heading on every new time); `MapViewport.tsx:771-822` (a popup opened with Enter gets no focus and no announcement)

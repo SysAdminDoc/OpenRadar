@@ -225,6 +225,8 @@ import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
 import { useProbSevere } from "./hooks/useProbSevere";
 import { gpuSupport } from "./lib/gpu";
 import { NoGpu } from "./components/NoGpu";
+import { useOfflineSince } from "./hooks/useOffline";
+import { useStateNotices } from "./hooks/useStateNotices";
 
 const PanelSurfaces = lazy(async () => {
   const module = await import("./components/PanelSurfaces");
@@ -372,6 +374,9 @@ export default function App() {
   // dimming, by the loop for how often it asks, and by the full-screen view
   // for whether to let itself in.
   const idleMs = clock - touchedAt;
+  // One answer for the whole workspace, so the notice and the chrome cannot
+  // disagree about whether the machine is on.
+  const offlineSince = useOfflineSince();
 
   const timeline = useRadarTimeline({
     ready: hydrated,
@@ -1706,6 +1711,18 @@ export default function App() {
     productOpen,
     handleTool,
   ]);
+
+  // What the workspace only showed, said out loud once per transition. A
+  // reader who cannot see the greyed chip, the note in the Layers panel or
+  // the reason written into the timeline heard none of the three.
+  useStateNotices({
+    offline: offlineSince !== null,
+    failing: OVERLAY_ADAPTERS.filter(
+      (adapter) => overlays.states[adapter.id]?.error,
+    ).map((adapter) => ({ id: adapter.id, nameKey: adapter.nameKey })),
+    timelineError: timeline.error,
+    push: pushToast,
+  });
 
   // Picking a storm frames its whole track; replaying one goes to the moment
   // the radar is about, which is a much tighter view.
