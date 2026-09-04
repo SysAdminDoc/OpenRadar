@@ -161,10 +161,18 @@ describe("what the native side said went wrong", () => {
     // Reading the codes out of the Rust file is the only way to know the two
     // lists still agree; a key added on one side and not the other is exactly
     // how this went wrong.
-    const source = await readFile(
-      resolve(process.cwd(), "src-tauri/src/level2.rs"),
-      "utf8",
-    );
+    // Both files, because the network codes moved out of the first one. A
+    // `Self::Http(error) => error.parts()` arm matches no code at all, so
+    // reading `level2.rs` alone stopped seeing every HTTP failure the moment
+    // they were classified rather than stringified, and a fifth variant
+    // added later would have gone straight back to showing the reader a URL.
+    const source = (
+      await Promise.all(
+        ["src-tauri/src/level2.rs", "src-tauri/src/http.rs"].map((file) =>
+          readFile(resolve(process.cwd(), file), "utf8"),
+        ),
+      )
+    ).join("\n");
     // Anchored on the match arm rather than on any tuple that happens to hold
     // a string and a vector. Without the arrow this also read the labels in
     // the decoder's own tests, so adding a corrupt-input case called "zeros"

@@ -113,9 +113,52 @@ pub enum IncidentPackError {
     Http(#[from] http::HttpError),
 }
 
+impl IncidentPackError {
+    /// What the page can say about this, and what it needs to say it.
+    ///
+    /// Grouped by what the reader would do about it rather than one code per
+    /// variant. A hash that did not match and a tile that arrived short are
+    /// the same instruction ("that download did not arrive intact, try it
+    /// again"), and eighteen sentences saying so in eighteen ways would be
+    /// eighteen chances to say one of them badly in three languages. The
+    /// exact variant is still in `text`, which is what the log carries.
+    pub fn parts(&self) -> (&'static str, Vec<String>) {
+        match self {
+            Self::TooManyTiles(count) => ("tooManyTiles", vec![count.to_string()]),
+            Self::DiskCeiling => ("diskCeiling", Vec::new()),
+            Self::NotFound => ("notFound", Vec::new()),
+            Self::NotReady | Self::Busy => ("notReady", Vec::new()),
+            Self::Cancelled => ("cancelled", Vec::new()),
+            // The download did not arrive intact. Every one of these is a
+            // reason to try again rather than to change anything.
+            Self::ByteMismatch { .. }
+            | Self::InvalidTile
+            | Self::HashMismatch
+            | Self::ArchiveVerification
+            | Self::ArchiveHashMismatch => ("corrupt", Vec::new()),
+            // The app refusing the request, before anything was downloaded.
+            Self::NoStore | Self::InvalidRegion | Self::InvalidName => ("refused", Vec::new()),
+            // Something on this machine, which the reader cannot act on
+            // beyond trying again and sending the diagnostics block.
+            Self::Worker(_) | Self::Io(_) | Self::Json(_) | Self::Image(_) | Self::PmTiles(_) => {
+                ("failed", Vec::new())
+            }
+            Self::Http(error) => error.parts(),
+        }
+    }
+}
+
 impl Serialize for IncidentPackError {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
+        use serde::ser::SerializeStruct;
+        let (code, args) = self.parts();
+        let mut out = serializer.serialize_struct("IncidentPackError", 3)?;
+        out.serialize_field("code", code)?;
+        out.serialize_field("args", &args)?;
+        // What the native side would have said, for the log and for anything
+        // the page has no wording of its own for.
+        out.serialize_field("text", &self.to_string())?;
+        out.end()
     }
 }
 
@@ -1253,7 +1296,10 @@ fn mark_failed(root: &Path, id: &str, error: &IncidentPackError) {
         return;
     }
     manifest.status = PackStatus::Failed;
-    manifest.error = Some(error.to_string());
+    // A code rather than a sentence. This is read back and shown on the pack
+    // row, and an English sentence written into a file on disk is one the
+    // page can never translate; the exact words still go to the log below.
+    manifest.error = Some(error.parts().0.to_string());
     manifest.updated_at = now();
     if let Err(write_error) = write_manifest(&pack_dir, &manifest) {
         log::error!("OpenRadar could not record an incident pack failure: {write_error}");
@@ -1263,7 +1309,8 @@ fn mark_failed(root: &Path, id: &str, error: &IncidentPackError) {
 fn mark_archive_failed(pack_dir: &Path, manifest: &mut PackManifest, error: &IncidentPackError) {
     forget_verified_archive(&pack_dir.join(ARCHIVE_FILE));
     manifest.status = PackStatus::Failed;
-    manifest.error = Some(error.to_string());
+    // A code, for the same reason as `mark_failed`: this is shown on a row.
+    manifest.error = Some(error.parts().0.to_string());
     manifest.updated_at = now();
     if let Err(write_error) = write_manifest(pack_dir, manifest) {
         log::error!("OpenRadar could not record incident pack integrity failure: {write_error}");
@@ -1349,8 +1396,7 @@ fn recover_store(root: &Path) -> Result<(), IncidentPackError> {
             let archive = entry.path().join(ARCHIVE_FILE);
             if !archive.is_file() || fs::metadata(&archive)?.len() != manifest.archive_bytes {
                 manifest.status = PackStatus::Failed;
-                manifest.error =
-                    Some("The PMTiles archive is missing or has the wrong byte count.".into());
+                manifest.error = Some("corrupt".into());
                 manifest.updated_at = now();
                 write_manifest(&entry.path(), &manifest)?;
             } else {
@@ -1362,7 +1408,7 @@ fn recover_store(root: &Path) -> Result<(), IncidentPackError> {
             PackStatus::Queued | PackStatus::Downloading | PackStatus::Finalizing
         ) {
             manifest.status = PackStatus::Paused;
-            manifest.error = Some("The download paused when OpenRadar closed.".into());
+            manifest.error = Some("pausedOnExit".into());
             manifest.updated_at = now();
             let _ = reconcile_staging(&entry.path(), &mut manifest)?;
         } else {
@@ -1815,6 +1861,52 @@ mod tests {
         assert!(matches!(error, IncidentPackError::TooManyTiles(_)));
     }
 
+    #[test]
+    fn every_failure_a_reader_can_see_carries_a_code_and_no_english() {
+        // These were serialized as this module's own sentences, so a French
+        // or Spanish reader was shown "that region needs 41200 tiles, above
+        // the 25000 tile limit" with the counts unformatted as well. What
+        // travels now is a code the catalogue has a sentence for, and a count
+        // where the sentence needs one; the wording stays in `text`, which is
+        // what the log takes.
+        let cases = [
+            IncidentPackError::NoStore,
+            IncidentPackError::InvalidRegion,
+            IncidentPackError::TooManyTiles(41_200),
+            IncidentPackError::InvalidName,
+            IncidentPackError::NotFound,
+            IncidentPackError::NotReady,
+            IncidentPackError::DiskCeiling,
+            IncidentPackError::Busy,
+            IncidentPackError::Cancelled,
+            IncidentPackError::ByteMismatch {
+                expected: 4096,
+                actual: 0,
+            },
+            IncidentPackError::InvalidTile,
+            IncidentPackError::HashMismatch,
+            IncidentPackError::ArchiveVerification,
+            IncidentPackError::ArchiveHashMismatch,
+            IncidentPackError::Worker("a thread went away".to_string()),
+        ];
+        for error in cases {
+            let (code, args) = error.parts();
+            assert!(!code.is_empty(), "{error} has no code");
+            // A count is the only argument any of these may carry: anything
+            // else would be English on its way to a sentence.
+            for said in &args {
+                assert!(
+                    said.chars().all(|one| one.is_ascii_digit()),
+                    "{code} carried {said:?}, which the reader would be shown",
+                );
+            }
+        }
+        // And the one that does need a number still has it.
+        let (code, args) = IncidentPackError::TooManyTiles(41_200).parts();
+        assert_eq!(code, "tooManyTiles");
+        assert_eq!(args, vec!["41200".to_string()]);
+    }
+
     #[tokio::test]
     async fn concurrent_pack_writes_cannot_spend_the_same_remaining_quota() {
         let root = temporary("quota-race");
@@ -1949,7 +2041,12 @@ mod tests {
         mark_archive_failed(&pack, &mut manifest, &error);
         let failed = read_manifest(&pack).unwrap();
         assert_eq!(failed.status, PackStatus::Failed);
-        assert!(failed.error.unwrap().contains("SHA-256"));
+        // A code rather than the sentence this used to assert. The field is
+        // read back and drawn on a pack row, and an English sentence written
+        // into a file on disk is one the page can never translate. The exact
+        // words are still on the error itself, which is what the log takes.
+        assert_eq!(failed.error.as_deref(), Some("corrupt"));
+        assert!(error.to_string().contains("SHA-256"));
         fs::remove_dir_all(root).unwrap();
     }
 

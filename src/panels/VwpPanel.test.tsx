@@ -93,3 +93,72 @@ describe("the wind profile with nothing to draw", () => {
     expect(screen.getByText(en["vwp.needsSite"])).toBeTruthy();
   });
 });
+
+describe("the panel while the loop moves on", () => {
+  const column = (volume: string) => ({
+    volume,
+    collected: "2026-09-04T18:00:00Z",
+    levels: [
+      {
+        heightKm: 1,
+        fromDegrees: 220,
+        speedMs: 15,
+        rangeKm: 20,
+        elevationDegrees: 0.5,
+        residualMs: 1,
+        symmetryMs: 1,
+        refused: null,
+      },
+    ],
+  });
+
+  it("asks again for a new volume without going back to the spinner", async () => {
+    // A new volume every few minutes is the ordinary case, and the panel
+    // used to be keyed on the volume list: it remounted, threw its answer
+    // away, and drew a spinner while three volumes were read again.
+    const asked: string[][] = [];
+    const read = (_station: string, times: string[]) => {
+      asked.push(times);
+      return Promise.resolve([column(times.at(-1) ?? "one")]);
+    };
+    const view = render(
+      <VwpPanel station="KDMX" times={["a"]} read={read} onClose={vi.fn()} />,
+    );
+    await waitFor(() => expect(asked).toHaveLength(1));
+    await waitFor(() =>
+      expect(document.querySelector(".vwp-chart")).not.toBeNull(),
+    );
+
+    view.rerender(
+      <VwpPanel
+        station="KDMX"
+        times={["a", "b"]}
+        read={read}
+        onClose={vi.fn()}
+      />,
+    );
+    // Asked again for the longer list, and the chart never left the screen.
+    expect(document.querySelector(".vwp-chart")).not.toBeNull();
+    await waitFor(() => expect(asked).toHaveLength(2));
+    expect(asked[1]).toEqual(["a", "b"]);
+  });
+
+  it("asks again for a different site", async () => {
+    // The other direction. Starting over for a new radar is the parent's
+    // job, through the key it mounts this with; what the panel owes is the
+    // ask, so that the columns cannot be the ones the last site answered.
+    const asked: string[] = [];
+    const read = (station: string) => {
+      asked.push(station);
+      return Promise.resolve([column(`${station}-volume`)]);
+    };
+    const view = render(
+      <VwpPanel station="KDMX" times={["a"]} read={read} onClose={vi.fn()} />,
+    );
+    await waitFor(() => expect(asked).toEqual(["KDMX"]));
+    view.rerender(
+      <VwpPanel station="KTLX" times={["a"]} read={read} onClose={vi.fn()} />,
+    );
+    await waitFor(() => expect(asked).toEqual(["KDMX", "KTLX"]));
+  });
+});

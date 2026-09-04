@@ -22,6 +22,7 @@ import {
   formatPackBytes,
   incidentPacksAvailable,
   listIncidentPacks,
+  packErrorText,
   pauseIncidentPack,
   resumeIncidentPack,
   setIncidentPackLimit,
@@ -141,7 +142,7 @@ export function IncidentPackManager({
         timer = window.setTimeout(poll, active ? 650 : 1000);
       } catch (failure) {
         if (!open) return;
-        setError(failure instanceof Error ? failure.message : String(failure));
+        setError(packErrorText(failure));
         timer = window.setTimeout(poll, 1000);
       }
     };
@@ -156,9 +157,7 @@ export function IncidentPackManager({
     if (!available) return;
     void setIncidentPackLimit(settings.incidentPacks.diskLimitMb)
       .then((next) => setLibrary(next))
-      .catch((failure) =>
-        setError(failure instanceof Error ? failure.message : String(failure)),
-      );
+      .catch((failure) => setError(packErrorText(failure)));
   }, [available, settings.incidentPacks.diskLimitMb]);
 
   useEffect(() => {
@@ -177,9 +176,7 @@ export function IncidentPackManager({
         .catch((failure) => {
           if (!open) return;
           setEstimate(null);
-          setError(
-            failure instanceof Error ? failure.message : String(failure),
-          );
+          setError(packErrorText(failure));
         });
     }, 180);
     return () => {
@@ -198,7 +195,7 @@ export function IncidentPackManager({
         await refresh();
         setNotice(done);
       } catch (failure) {
-        setError(failure instanceof Error ? failure.message : String(failure));
+        setError(packErrorText(failure));
       } finally {
         setBusy(null);
       }
@@ -542,7 +539,7 @@ export function IncidentPackManager({
                   ) : null}
                   {pack.error ? (
                     <p className="incident-pack-error" role="alert">
-                      {pack.error}
+                      {packErrorText(pack.error)}
                     </p>
                   ) : null}
                   <p className="source-note">{pack.attribution}</p>

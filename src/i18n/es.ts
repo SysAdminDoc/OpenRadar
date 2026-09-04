@@ -235,6 +235,27 @@ export const es: Catalogue = {
   "storage.clearedBody":
     "Se recuperaron {freed}. El mapa volverá a pedir lo que necesite.",
   "storage.clearFailed": "No se pudo vaciar",
+  "packs.error.tooManyTiles":
+    "Esa región necesita {0, plural, one {# tesela} other {# teselas}}, más de las que cabe en un paquete. Acércate o toma menos niveles de zoom.",
+  "packs.error.diskCeiling":
+    "Eso pasaría del límite de disco que fijaste. Borra un paquete o sube el límite de arriba.",
+  "packs.error.notFound": "Ese paquete ya no está.",
+  "packs.error.notReady":
+    "Ese paquete todavía no está listo. Espera a que termine y vuelve a intentarlo.",
+  "packs.error.cancelled": "La descarga se detuvo.",
+  "packs.error.corrupt":
+    "La descarga no llegó entera, así que se descartó. Vuelve a intentarlo.",
+  "packs.error.refused": "OpenRadar no pudo aceptar esa petición.",
+  "packs.error.failed":
+    "Algo falló en esta máquina y la descarga se detuvo. El panel de Diagnóstico tiene los detalles.",
+  "packs.error.pausedOnExit": "La descarga se pausó cuando OpenRadar se cerró.",
+  "packs.error.httpStatus": "No se pudo llegar al servidor de teselas. {0}",
+  "packs.error.httpUnreachable":
+    "No se pudo llegar al servidor de teselas. Comprueba que esta máquina esté en línea.",
+  "packs.error.httpRefused":
+    "OpenRadar no fue a buscar eso: la dirección no es una a la que se le permite llegar.",
+  "packs.error.httpTooLarge":
+    "Una tesela llegó más grande de lo que OpenRadar lee de una vez.",
   "packs.title": "Paquetes de incidentes sin conexión",
   "packs.format": "PMTiles",
   "packs.detail":

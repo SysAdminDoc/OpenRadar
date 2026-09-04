@@ -109,18 +109,28 @@ describe("what the watch settings say about Windows notifications", () => {
     expect(screen.queryByText(en["watch.notificationsRefused"])).toBeNull();
   });
 
-  it("says so for any of the three switches that can notify", () => {
-    // Home's own flag is only the first of them. A reader who watches a
-    // school rather than home, or who only wants to hear about lightning,
-    // is having notices dropped through the same channel, and the sentence
-    // was gated on a switch they had deliberately left off.
-    for (const on of ["place", "approach", "lightning"] as const) {
+  it("says so for a place that is not home", () => {
+    // Home's own flag was what the sentence was gated on, and it is only
+    // home's. A reader who watches a school rather than home is having every
+    // notice dropped through the same channel, with the warning about it
+    // hidden behind a switch they deliberately left off.
+    render(panel("refused", "place"));
+    expect(screen.queryByText(en["watch.notificationsRefused"])).not.toBeNull();
+  });
+
+  it("says nothing for a rule with no place to apply it to", () => {
+    // The approach and lightning rules are per place: each hook filters to
+    // the enabled places before it decides anything, so with none enabled
+    // neither can announce whatever its own switch says. Warning that a
+    // notification was blocked would be a warning about something that was
+    // never going to happen.
+    for (const on of ["approach", "lightning"] as const) {
       cleanup();
       render(panel("refused", on));
       expect(
         screen.queryByText(en["watch.notificationsRefused"]),
-        `nothing said with only the ${on} watch on`,
-      ).not.toBeNull();
+        `warned about a blocked ${on} notice that could not have been sent`,
+      ).toBeNull();
     }
   });
 });

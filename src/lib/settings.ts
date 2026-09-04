@@ -885,18 +885,17 @@ function normalizeWatch(value: unknown): WatchState {
 /**
  * Whether anything at all would raise a notification.
  *
- * Three separate switches can, and `watch.enabled` is only the first of
- * them: it is home's own flag. A reader with home off and a school watched,
- * or with only the lightning rule on, is being announced to through the same
- * channel, so anything that speaks about that channel has to ask this rather
- * than asking home.
+ * `watch.enabled` is home's own flag, and asking it was wrong: a reader with
+ * home off and a school watched has every notice going to the same place.
+ *
+ * The approach and lightning rules are deliberately not asked about on their
+ * own. Both are per-place rules: each hook filters to the enabled places
+ * before it decides anything, so with none enabled neither can announce
+ * whatever its own switch says, and saying a notification was blocked would
+ * be warning somebody about a thing that was never going to happen.
  */
 export function watchesAnything(settings: AppSettings): boolean {
-  return (
-    watchedPlaces(settings).some((place) => place.enabled) ||
-    settings.approach.enabled ||
-    settings.lightningWatch.enabled
-  );
+  return watchedPlaces(settings).some((place) => place.enabled);
 }
 
 export function watchedPlaces(settings: AppSettings): WatchPlace[] {

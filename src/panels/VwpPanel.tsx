@@ -186,8 +186,12 @@ export function VwpPanel({
   useEffect(() => {
     if (!read || !station) return;
     // Nothing is set on the way in: the panel is mounted fresh for each
-    // site and volume list, so "no answer yet" is where it starts rather
-    // than something an effect has to put it into.
+    // site, so "no answer yet" is where it starts rather than something an
+    // effect has to put it into. A new volume is not a new mount, on
+    // purpose: the list grows every few minutes and remounting for it swapped
+    // the chart for a spinner while three volumes were read again. The
+    // previous columns stay up meanwhile, each labelled from its own volume
+    // rather than from this list, so nothing is drawn under the wrong time.
     const request = ++requestRef.current;
     void read(station, times)
       .then((columns) => {
