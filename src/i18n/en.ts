@@ -243,6 +243,8 @@ export const en = {
   "storage.clearedBody":
     "{freed} came back. The map will fetch what it needs again.",
   "storage.clearFailed": "The cache could not be cleared",
+  "storage.clearFailedUnknown":
+    "The reason did not come back. The log has whatever the command said.",
   "packs.error.tooManyTiles":
     "That region needs {0, plural, one {# tile} other {# tiles}}, which is more than one pack holds. Zoom in, or take fewer zoom levels.",
   "packs.error.diskCeiling":

@@ -85,7 +85,16 @@ export function JournalSection({
   onRemoved: (undo: () => void) => void;
 }) {
   const t = useT();
-  const [rows, setRows] = useState<JournalRow[]>([]);
+  /**
+   * Undefined until the record has actually been read.
+   *
+   * Starting at an empty array meant "Nothing recorded yet." rendered for a
+   * frame on every open of a record that is not empty, which is the one
+   * sentence that must not be shown to somebody whose journal is full.
+   */
+  const [read, setRead] = useState<JournalRow[] | undefined>(undefined);
+  // Memoised, so the two memos below do not see a new array every render.
+  const rows = useMemo(() => read ?? [], [read]);
   const [where, setWhere] = useState<string | null>(null);
   const [filter, setFilter] = useState<JournalFilter>(JOURNAL_FILTER);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(
@@ -93,7 +102,7 @@ export function JournalSection({
   );
 
   const reload = useCallback(() => {
-    void journalRows().then(setRows);
+    void journalRows().then(setRead);
     void journalPath().then(setWhere);
   }, []);
 
@@ -250,7 +259,7 @@ export function JournalSection({
             <p className="source-note">{t("figures.paused")}</p>
           )}
         </>
-      ) : (
+      ) : read === undefined ? null : (
         // Nothing counted rather than a row of noughts: an absence of records
         // is not an absence of weather.
         <p className="source-note">
@@ -404,7 +413,7 @@ export function JournalSection({
               </li>
             ))}
         </ol>
-      ) : (
+      ) : read === undefined ? null : (
         <p className="source-note">
           {rows.length ? t("journal.noneMatch") : t("journal.empty")}
         </p>

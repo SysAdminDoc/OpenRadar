@@ -257,6 +257,8 @@ export const fr: Catalogue = {
   "storage.clearedBody":
     "{freed} récupérés. La carte redemandera ce dont elle a besoin.",
   "storage.clearFailed": "Impossible de vider",
+  "storage.clearFailedUnknown":
+    "La raison n'est pas revenue. Le journal contient ce que la commande a dit.",
   "packs.error.tooManyTiles":
     "Cette région demande {0, plural, one {# tuile} other {# tuiles}}, plus que ce que contient un paquet. Zoomez, ou prenez moins de niveaux.",
   "packs.error.diskCeiling":

@@ -1656,6 +1656,10 @@ export default function App() {
   const spoken = useLanguage();
   const stormTrackData = useMemo(
     () => (historyStorm ? stormTrack(historyStorm) : null),
+    // `spoken` reads as unused because `stormTrack` reaches the catalogue
+    // through the module rather than through an argument. It is the reason
+    // this is rebuilt at all.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [historyStorm, spoken],
   );
 

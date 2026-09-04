@@ -3,6 +3,7 @@ import { runOnce, useInFlight } from "../lib/inFlight";
 import { Trash2 } from "lucide-react";
 import { useT } from "../i18n";
 import { formatPackBytes } from "../lib/incidentPacks";
+import { log } from "../lib/log";
 import { isOnline } from "../lib/online";
 import {
   clearDiskCache,
@@ -92,7 +93,17 @@ export function StorageSection({
               }),
         );
       } catch (failure: unknown) {
-        onFailed(failure instanceof Error ? failure.message : String(failure));
+        // The command itself returns no error, so anything landing here came
+        // from the bridge: an older build with no such command, or a message
+        // that would not cross. Stringifying an unknown put things like
+        // [object Object] in a toast, which tells a reader nothing and
+        // cannot be translated. The raw value goes to the log instead.
+        if (failure instanceof Error) {
+          onFailed(failure.message);
+        } else {
+          log.warn("storage", String(failure));
+          onFailed(t("storage.clearFailedUnknown"));
+        }
       }
     });
   };

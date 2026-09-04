@@ -18,7 +18,7 @@ import { APP_VERSION } from "../lib/settings";
 import { gpuSupport } from "../lib/gpu";
 import { translate, useT } from "../i18n";
 import { formatAge, formatClock } from "../lib/units";
-import { useHighContrast } from "../hooks/useClock";
+import { useHighContrast, useMinuteClock } from "../hooks/useClock";
 
 interface CloseOnlyProps {
   onClose: () => void;
@@ -191,6 +191,12 @@ export function MorePanel({
   hasWatchedPlace,
 }: MorePanelProps) {
   const t = useT();
+  // The ages below are read from `Date.now()` at render, and this panel
+  // subscribed to nothing, so a quiet source sat on "3 minutes ago" until
+  // something unrelated re-rendered. On a panel whose whole job is saying how
+  // long ago each source last answered, that is the number that has to move
+  // on its own.
+  useMinuteClock();
   // Off every time the panel opens. A switch that remembered would quietly
   // put somebody's home in the next report they sent.
   const [withPlace, setWithPlace] = useState(false);
