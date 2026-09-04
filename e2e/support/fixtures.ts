@@ -594,8 +594,10 @@ function outlookForLayer(layer: number) {
     ...outlookFeature,
     properties: {
       ...outlookFeature.properties,
-      dn: significant ? "CIG1" : 15,
-      label: significant ? "SIGN" : `layer ${layer}`,
+      // `dn` is an integer on every layer of this service; the `CIG1` name
+      // is in `label`. Read live 2026-09-04.
+      dn: significant ? 1 : 15,
+      label: significant ? "CIG1" : `layer ${layer}`,
       label2: significant ? "Significant" : `Layer ${layer} outlook`,
     },
   };

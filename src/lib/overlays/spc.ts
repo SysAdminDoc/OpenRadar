@@ -58,6 +58,17 @@ export function outlookLayers(
   return { probability: base + at, significant: base + at - 1 };
 }
 
+/**
+ * The Center's own page for one outlook day.
+ *
+ * Days 1 to 3 have a page each; 4 through 8 share the extended one.
+ */
+export function outlookPage(day: number): string {
+  const root = "https://www.spc.noaa.gov/products/outlook";
+  if (day >= 4) return `${root}/day4-8/`;
+  return `${root}/day${day}otlk.html`;
+}
+
 /** The address of one numbered layer's query endpoint. */
 function layerQuery(layer: number): string {
   return `${OUTLOOKS}/${layer}/query`;
@@ -184,13 +195,22 @@ export function parseOutlooks(
     const properties = feature.properties;
     if (!geometry || !properties) continue;
 
-    // The categorical and probability layers rank by a number: a risk
-    // level, or a percentage. The conditional intensity layers rank by a
-    // name (`CIG1` and up), and dropping what will not parse as a number
-    // threw the whole hatched area away.
+    // Every layer on this service types `dn` as an integer: a risk level,
+    // a percentage, or on the conditional intensity layers a plain 1. The
+    // name a reader sees there, `CIG1` and up, is in `label`. A rank that
+    // will not parse as a number is kept anyway, because it means the
+    // service has changed shape and dropping it would take the whole hatched
+    // area off the map without saying so.
     const rank = Number(properties.dn);
     const named = text(properties.dn);
     if (!Number.isFinite(rank) && !named) continue;
+
+    // A day with no outlook yet publishes one placeholder: every field null
+    // and a three-point triangle out in the Atlantic. `Number(null)` is
+    // zero, which is finite, so it survived the rank check, drew in the
+    // fallback grey and put "01-01 00:00" in its popup. That was unreachable
+    // until Days 4 to 8 could be chosen.
+    if (!text(properties.label) && !text(properties.label2)) continue;
 
     parsed.push({
       type: "Feature",
@@ -294,11 +314,25 @@ const ARCHIVE = "https://mesonet.agron.iastate.edu/api/1/nws";
  * says which issuance it is, so the popup can name it rather than implying
  * the reader is looking at whichever one they expected.
  */
-export function archiveOutlookUrl(from: number): string {
-  const day = new Date(from).toISOString().slice(0, 10);
+/**
+ * A Day 1 outlook covers 12Z to 12Z, not midnight to midnight.
+ *
+ * The archive is keyed by the day the outlook was issued for, so anything
+ * before 12Z belongs to the day before. Taking the calendar date instead
+ * meant a replay starting at 00:05Z, which is seven in the evening in Central
+ * time and an entirely ordinary way to replay an outbreak, was drawn under the
+ * outlook issued at noon the following day: a forecast made after the last
+ * frame, for the afternoon after the one on screen.
+ */
+const OUTLOOK_DAY_STARTS_AT_MS = 12 * 3_600_000;
+
+export function archiveOutlookUrl(from: number, day = 1): string {
+  const issued = new Date(from - OUTLOOK_DAY_STARTS_AT_MS)
+    .toISOString()
+    .slice(0, 10);
   const search = new URLSearchParams({
-    day: "1",
-    valid: day,
+    day: String(day),
+    valid: issued,
     cycle: "-1",
     outlook_type: "C",
   });
@@ -333,7 +367,6 @@ export function parseArchiveOutlooks(payload: unknown): OverlayData {
         risk: code,
         fill: known.fill,
         stroke: known.stroke,
-        day: 1,
         archived: true,
         valid: Date.parse(text(properties.issue)) || null,
         expire: Date.parse(text(properties.expire)) || null,
@@ -362,7 +395,7 @@ export const spcOutlooksOverlay: OverlayAdapter = {
   // out the poll.
   variant: (choices) =>
     choices.replay
-      ? `replay:${choices.replay.from}`
+      ? `replay:${choices.replay.from}:${choices.spcDay}`
       : `${choices.spcDay}:${choices.spcHazard}`,
   fetchData: async (bounds, signal, choices) => {
     // A replay draws the outlook that stood over that day. Today's over
@@ -370,7 +403,7 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     // layer is held back for.
     if (choices.replay) {
       const response = await fetch(
-        cachedUrl(archiveOutlookUrl(choices.replay.from)),
+        cachedUrl(archiveOutlookUrl(choices.replay.from, choices.spcDay)),
         { signal, headers: { Accept: "application/json" } },
       );
       if (!response.ok) {
@@ -380,7 +413,14 @@ export const spcOutlooksOverlay: OverlayAdapter = {
           }),
         );
       }
-      return parseArchiveOutlooks(await response.json());
+      const archived = parseArchiveOutlooks(await response.json());
+      return {
+        ...archived,
+        features: archived.features.map((feature) => ({
+          ...feature,
+          properties: { ...feature.properties, day: choices.spcDay },
+        })),
+      };
     }
     const chosen = outlookLayers(choices.spcDay, choices.spcHazard);
     if (!chosen) return { type: "FeatureCollection", features: [] };
@@ -482,7 +522,11 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     return {
       title: String(properties.risk || properties.label || ""),
       lines,
-      url: "https://www.spc.noaa.gov/products/outlook/day1otlk.html",
+      // The day the feature came from, not always Day 1. The Center
+      // publishes a page per day, and every popup pointed at the first one,
+      // so a reader following the link off a Day 5 outlook landed on this
+      // afternoon's.
+      url: outlookPage(Number(properties.day) || 1),
     };
   },
 };

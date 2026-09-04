@@ -11,7 +11,7 @@ import { isDesktopRuntime } from "./settings";
 
 /** Why a level has no wind on it. The native side's own words. */
 export type VwpRefusal =
-  "outOfReach" | "noFit" | "residual" | "symmetry" | "gates";
+  "outOfReach" | "noFit" | "residual" | "symmetry" | "lopsided" | "gates";
 
 export interface VwpLevel {
   heightKm: number;

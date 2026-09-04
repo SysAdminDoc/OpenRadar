@@ -166,13 +166,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-217 (P2): The lightning grids on the MRMS bucket
-  Why: The app decodes one lightning grid (five-minute NLDN density) and GLM flashes; the same bucket carries the 30- and 60-minute lightning probability, the lightning jump grid, reflectivity at −10 °C and −20 °C (the initiation signal forecasters read) and NLDN at 1, 15 and 30 minutes, all in the packing the decoder already reads; the HWT 2026 experiment ran a "Lightning Stoplight" on exactly these.
-  Evidence: Verified 2026-09-03 from the CONUS prefix listing: `LightningProbabilityNext30minGrid_scale_1`, `LightningProbabilityNext60minGrid_scale_1`, `LtgJumpGrid_scale_1`, `LtgJumpGrid_Max_005min_scale_1`, `Reflectivity_-10C_00.50`, `Reflectivity_-20C_00.50`, `NLDN_CG_001min`/`015min`/`030min_AvgDensity`; `src-tauri/src/mrms.rs:533-725` holds `NLDN_CG_005min` only; https://inside.nssl.noaa.gov/ewp/; https://github.com/cwmac/mrms-viewer.
-  Touches: `src-tauri/src/mrms.rs` (table rows, ramps for percent and sigma), `src/lib/providers/mrms.ts`, `src/panels/RadarProductPanel.tsx` (a lightning group: density window, probability window, jump, isothermal reflectivity), legends, `src/lib/layerProvenance.ts` (probability is `forecast`), `src/i18n/*`, `mrms::tests::every_product_decodes`.
-  Acceptance: Each product draws with a measured ramp and its unit; the probability layers say they are a 30- or 60-minute forecast; the −10 °C reflectivity legend says what it signals; the jump grid draws in sigma with the WDTD threshold noted; `every_product_decodes` covers all nine; cache slots count one per switch group.
-  Complexity: M
-
 - [ ] AUD-218 (P2): MRMS reflectivity, correlation and differential reflectivity at a chosen height
   Why: The composite is the column's maximum; a reader who wants the picture at 3 km or the ZDR column at 6 km has nothing, and the bucket carries the merged 3D cube at 33 heights for reflectivity, RhoHV and ZDR in the packing already decoded; HookEcho draws CAPPIs from single volumes, and a national one at 1 km would be the first in the field.
   Evidence: Verified 2026-09-03 from the CONUS prefix listing: `MergedReflectivityQC_00.50` … `_19.00`, `MergedRhoHV_00.50` … `_19.00`, `MergedZdr_00.50` … `_19.00` (33 levels each); the fold and table machinery in `src-tauri/src/mrms.rs:1055-1218`; https://github.com/d4vid87/hookecho (CAPPI).

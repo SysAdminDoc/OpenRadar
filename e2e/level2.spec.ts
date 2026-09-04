@@ -1655,6 +1655,43 @@ test("cuts the volume between two points and labels what it drew", async ({
   }
 });
 
+test("says nothing about the wind over a volume from another day", async ({
+  page,
+}) => {
+  // A historical hold publishes no volume list, and an empty list used to
+  // mean "whatever the radar put out last". So the panel drew this
+  // afternoon's wind under a map showing 2013 and labelled the column with a
+  // clock time from today: a forecaster's own reading of a storm that is not
+  // the one on screen, with nothing saying so.
+  await fakeNativeSide(page);
+  await open(page, 9);
+
+  await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+  await page
+    .getByRole("button", { name: "Open local Archive II file" })
+    .click();
+  await expect(page.locator("[data-historical-radar]")).toContainText(
+    "KTLX20130520_205600_V06",
+  );
+
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page.locator('[data-command="surface:vwp"]').click();
+
+  const panel = page.getByRole("dialog", { name: "Wind Profile" });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator(".vwp-column")).toHaveCount(0);
+
+  // And nothing was asked for, rather than asked for and then hidden.
+  const asked = await page.evaluate(() =>
+    (
+      window as unknown as {
+        __sweepCalls: Array<{ command: string }>;
+      }
+    ).__sweepCalls.filter((call) => call.command === "level2_vwp"),
+  );
+  expect(asked).toHaveLength(0);
+});
+
 test("reads the wind out of the volumes a held site is showing", async ({
   page,
 }) => {
