@@ -110,10 +110,23 @@ impl MrmsError {
             Self::NoFrames(id) => ("gridNoFrames", vec![id.clone()]),
             Self::NotGrib => ("gridNotGrib", Vec::new()),
             // What is wrong is the same either way: the file is a shape this
-            // build cannot turn into a picture. The detail is for the log.
-            Self::Unsupported(_) | Self::Decode(_) => ("gridUnreadable", Vec::new()),
-            Self::Encode(_) => ("gridNotDrawn", Vec::new()),
-            Self::Http(inner) => inner.parts(),
+            // build cannot turn into a picture. The detail rides along as an
+            // argument the sentence does not use, so it still reaches the log
+            // and somebody can see which GRIB2 template to add.
+            Self::Unsupported(why) | Self::Decode(why) => ("gridUnreadable", vec![why.clone()]),
+            Self::Encode(why) => ("gridNotDrawn", vec![why.clone()]),
+            // Flavoured, because this is not the radar archive. MRMS comes
+            // from its own bucket, and delegating straight to HttpError put
+            // the archive codes on it, which the page answers with "The radar
+            // archive could not be reached" over a grid the archive never
+            // served.
+            Self::Http(inner) => match inner.parts() {
+                ("httpStatus", args) => ("gridHttpStatus", args),
+                ("httpUnreachable", args) => ("gridHttpUnreachable", args),
+                ("httpRefused", args) => ("gridHttpRefused", args),
+                ("httpTooLarge", args) => ("gridHttpTooLarge", args),
+                other => other,
+            },
         }
     }
 }

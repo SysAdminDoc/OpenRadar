@@ -23,6 +23,7 @@ import {
   exportSize,
   type DataExportReport,
 } from "../lib/dataExport";
+import { nativeErrorDetail } from "../lib/nativeError";
 import { log } from "../lib/log";
 import { drawPostcard, type PostcardSize } from "../lib/postcard";
 import { setWallpaper } from "../lib/wallpaper";
@@ -681,7 +682,19 @@ export function useExport(options: {
                 }),
               });
             } catch (failure: unknown) {
-              log.warn("export", dataExportErrorText(failure));
+              // The sentence for the reader, and what the native side
+              // actually said beside it. Logging only the translated line
+              // threw away the argument that names the problem: the
+              // catalogue answers Unsupported and Decode with one sentence,
+              // so without this there is nothing anywhere that says which
+              // GRIB2 template would not unpack.
+              const detail = nativeErrorDetail(failure);
+              log.warn(
+                "export",
+                detail
+                  ? `${dataExportErrorText(failure)} (${detail})`
+                  : dataExportErrorText(failure),
+              );
               pushToast({
                 title: translate("export.dataFailed"),
                 detail: dataExportErrorText(failure),

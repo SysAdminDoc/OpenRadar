@@ -505,3 +505,66 @@ test("the button that is already live does not look like the one you press", asy
     expect(seen.background).toBe(seen.fill);
   }
 });
+
+test("the map chrome is painted for the theme, not only the panels", async ({
+  page,
+}) => {
+  // The places the light theme was not finished. Each of these sits on the
+  // map rather than in a panel, which is why they were missed: a screenshot
+  // of the dark theme cannot show a dark chip on dark water.
+  const read = async (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((node) => {
+        const style = getComputedStyle(node);
+        return { colour: style.color, background: style.backgroundColor };
+      });
+
+  await startWith(page, null, "dark");
+  const darkMark = await read(".map-watermark");
+  const darkChip = await read(".top-status__health .live-chip");
+
+  await startWith(page, null, "light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  const lightMark = await read(".map-watermark");
+  const lightChip = await read(".top-status__health .live-chip");
+
+  // Different in both themes, which is the whole claim. A watermark that
+  // reads the same either way is one that was never given a light form.
+  expect(lightMark.colour).not.toBe(darkMark.colour);
+  expect(lightMark.background).not.toBe(darkMark.background);
+  expect(lightChip.background).not.toBe(darkChip.background);
+});
+
+test("a light-theme launch does not paint dark first", async ({ page }) => {
+  // The shell hard-codes data-theme="dark" and the workspace only corrected
+  // it once React had mounted and read the settings, so the first thing a
+  // light-theme reader saw on every cold start was a dark flash.
+  await startWith(page, null, "light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  // The mirror the boot script reads, written by the workspace.
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("openradar.theme")))
+    .toBe("light");
+
+  // Now reload and read the attribute as the document is parsed, before any
+  // module has run. Polling after load would only prove React got there.
+  const early: string[] = [];
+  await page.exposeFunction("sawTheme", (value: string) => {
+    early.push(value);
+  });
+  await page.addInitScript(() => {
+    document.addEventListener("readystatechange", () => {
+      if (document.readyState === "interactive") {
+        (window as unknown as { sawTheme: (value: string) => void }).sawTheme(
+          document.documentElement.dataset.theme ?? "",
+        );
+      }
+    });
+  });
+  await page.reload();
+  await expect(page.getByRole("application")).toBeVisible();
+  expect(early).toContain("light");
+});

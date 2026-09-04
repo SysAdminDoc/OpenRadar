@@ -143,9 +143,14 @@ export function HistoryPanel({
         setError(failureMessage(failure));
       })
       .finally(() => {
-        // Only the run that is still the current one clears it: an older
-        // fetch landing late must not unlock a row that is loading now.
-        if (generation === selectionGenerationRef.current) setLoading(null);
+        // By the row, not by the generation. The generation is bumped in two
+        // other places that never touch `loading`, so a selection changing
+        // underneath a fetch left the row it started on spinning and
+        // reporting aria-busy for the life of the panel. Checking the id
+        // instead is immune to every bump: an older fetch landing late still
+        // cannot unlock a row that is loading now, because the id will have
+        // moved on.
+        setLoading((held) => (held === id ? null : held));
       });
   };
 

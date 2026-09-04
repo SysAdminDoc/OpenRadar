@@ -6,6 +6,7 @@ import { journalAvailable, journalRows, type JournalRow } from "../lib/journal";
 import { recapCredits, recapFrom, recapLines } from "../lib/recap";
 import { drawRecapCard } from "../lib/recapCard";
 import { exportFileName } from "../lib/export";
+import { log } from "../lib/log";
 import { saveFile } from "../lib/saveFile";
 
 /** Named so a remount of this panel finds the save that is already going. */
@@ -49,7 +50,17 @@ export function RecapSection({
   const saving = useInFlight(RECAP_SAVE);
 
   useEffect(() => {
-    void journalRows().then(setRead);
+    // Same as the journal list: an uncaught rejection leaves this rendering
+    // nothing at all rather than saying the record is empty.
+    void journalRows()
+      .then(setRead)
+      .catch((failure: unknown) => {
+        log.warn(
+          "recap",
+          failure instanceof Error ? failure.message : String(failure),
+        );
+        setRead([]);
+      });
   }, [clock]);
 
   const recap = useMemo(

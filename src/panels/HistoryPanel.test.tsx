@@ -333,3 +333,46 @@ describe("HistoryPanel while a storm is being fetched", () => {
     expect(rows.alpha.getAttribute("aria-busy")).toBe("false");
   });
 });
+
+describe("HistoryPanel when the selection moves under a fetch", () => {
+  it("still lets the row go", async () => {
+    // The flag used to be cleared only when the generation still matched, and
+    // the generation is bumped in two places that never touch it. Anything
+    // that changed the selection while a decade file was in flight left the
+    // row it started on spinning, and reporting aria-busy, for the life of
+    // the panel.
+    const alpha = deferred<hurdat.Storm>();
+    loadStorm.mockReturnValueOnce(alpha.promise);
+    const { rerender } = renderPanel();
+    const rows = await resultButtons();
+    fireEvent.click(rows.alpha);
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("true");
+
+    // A storm arriving from somewhere else entirely, which is what opening a
+    // replay bundle does.
+    rerender(
+      <HistoryPanel
+        selectedId={BETA.id}
+        replayId={null}
+        onSelect={vi.fn()}
+        onReplay={() => {}}
+        onStopReplay={() => {}}
+        onSaveBundle={vi.fn()}
+        onOpenBundle={() => {}}
+        bundlesAvailable={false}
+        almanac={false}
+        onFlyTo={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      alpha.resolve(ALPHA);
+      await alpha.promise;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(rows.alpha.getAttribute("aria-busy")).toBe("false");
+  });
+});

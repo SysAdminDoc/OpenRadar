@@ -1080,3 +1080,34 @@ test("entering the full-screen view puts the focus on the way out", async ({
     )
     .toBe(en["ambientScreen.leave"]);
 });
+
+test("one Escape dismisses one thing", async ({ page }) => {
+  // A tool and a panel can be open together, and `handleTool(null)` is the
+  // Clear button: it puts the tool away, closes the surface AND wipes what
+  // has been drawn. Taking the tool first meant a single press did all three,
+  // so a reader who pressed Escape to close a panel lost their measurement.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page
+    .getByRole("searchbox", { name: /Search every layer/ })
+    .fill("range");
+  await page.locator(String.raw`[data-command="tool:range"]`).click();
+  const hud = page.locator(".tool-hud");
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
+
+  // Now a panel over the top, with the tool still held.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Layers" });
+  await expect(panel).toBeVisible();
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
+
+  await page.getByRole("application").click({ position: { x: 400, y: 300 } });
+  await page.keyboard.press("Escape");
+
+  // The panel went. The tool did not.
+  await expect(panel).toHaveCount(0);
+  await expect(hud).not.toHaveAttribute("data-empty", "1");
+
+  // And the second press is the one that puts the tool away.
+  await page.keyboard.press("Escape");
+  await expect(hud).toHaveAttribute("data-empty", "1");
+});

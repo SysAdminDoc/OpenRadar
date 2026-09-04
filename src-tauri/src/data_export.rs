@@ -726,6 +726,36 @@ mod tests {
     /// It used to arrive as `("grid", [inner.to_string()])`, and the
     /// catalogue line for that was a bare `{0}`, so a Spanish reader whose
     /// export failed was handed an English sentence written in this file.
+    /// A grid that could not be fetched does not blame the radar archive.
+    ///
+    /// MRMS comes from its own bucket. Delegating straight to `HttpError`
+    /// gave it the `http*` codes, and the page has no `dataExport.error.http*`
+    /// family, so it fell through to `radar.error.httpStatus`, which reads
+    /// "The radar archive could not be reached." A reader whose grid export
+    /// hit a 503 was told the wrong service was down, in three languages.
+    #[test]
+    fn a_grid_that_would_not_fetch_does_not_blame_the_archive() {
+        let (code, args) =
+            DataExportError::Grid(mrms::MrmsError::Http(crate::http::HttpError::TooLarge)).parts();
+        assert_eq!(code, "gridHttpTooLarge");
+        assert!(args.is_empty());
+
+        let (code, _) =
+            DataExportError::Grid(mrms::MrmsError::Http(crate::http::HttpError::BadUrl)).parts();
+        assert_eq!(code, "gridHttpRefused");
+
+        let (code, _) = DataExportError::Grid(mrms::MrmsError::Http(
+            crate::http::HttpError::HostNotAllowed("example.test".into()),
+        ))
+        .parts();
+        assert_eq!(code, "gridHttpRefused");
+
+        // And a sweep failure still is the archive, which is why the
+        // delegation was right there and wrong here.
+        let (code, _) = crate::http::HttpError::TooLarge.parts();
+        assert_eq!(code, "httpTooLarge");
+    }
+
     #[test]
     fn a_grid_failure_carries_a_code_the_catalogue_answers() {
         let cases = [
@@ -741,20 +771,25 @@ mod tests {
                 vec!["MergedReflectivityQCComposite".to_string()],
             ),
             (mrms::MrmsError::NotGrib, "gridNotGrib", Vec::new()),
+            // The detail rides along as an argument. The catalogue sentence
+            // does not use it, so a reader never sees it, but it reaches the
+            // log, which is the only place that says which GRIB2 template
+            // would not unpack. Dropping it made the two indistinguishable
+            // everywhere, not just on the page.
             (
                 mrms::MrmsError::Unsupported("template 5.99".into()),
                 "gridUnreadable",
-                Vec::new(),
+                vec!["template 5.99".to_string()],
             ),
             (
                 mrms::MrmsError::Decode("short read".into()),
                 "gridUnreadable",
-                Vec::new(),
+                vec!["short read".to_string()],
             ),
             (
                 mrms::MrmsError::Encode("no encoder".into()),
                 "gridNotDrawn",
-                Vec::new(),
+                vec!["no encoder".to_string()],
             ),
         ];
         for (inner, code, args) in cases {
@@ -762,7 +797,9 @@ mod tests {
             let (got_code, got_args) = DataExportError::Grid(inner).parts();
             assert_eq!(got_code, code);
             assert_eq!(got_args, args);
-            // And the English sentence this file holds is not what goes out.
+            // What must not go out is the whole English sentence this file
+            // holds. A bare detail is fine and is the point: it is an
+            // argument the catalogue sentence ignores and the log keeps.
             assert!(
                 !got_args.contains(&said),
                 "{code} still carries the Display text"

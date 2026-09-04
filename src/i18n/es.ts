@@ -59,6 +59,13 @@ export const es: Catalogue = {
     "Esa malla viene empaquetada de una forma que esta versión no lee.",
   "dataExport.error.gridNotDrawn": "No se pudo dibujar la malla.",
   "dataExport.error.unknown": "No se pudo escribir la exportación.",
+  "dataExport.error.gridHttpStatus": "No se pudo obtener la malla. {0}",
+  "dataExport.error.gridHttpUnreachable":
+    "No se pudo obtener la malla. Comprueba que este equipo tenga conexión.",
+  "dataExport.error.gridHttpRefused":
+    "OpenRadar no obtuvo esa malla: la dirección no es una de las permitidas.",
+  "dataExport.error.gridHttpTooLarge":
+    "Esa malla es más grande de lo que OpenRadar lee de una vez.",
 
   "search.eyebrow": "Busca un lugar",
   "search.title": "Buscar",
@@ -1517,7 +1524,7 @@ export const es: Catalogue = {
   "chrome.standby": "En espera",
   "chrome.toolClear": "Borrar",
   "chrome.toolKeyboard":
-    "Pulsa Intro o Espacio para usar esta herramienta en el centro del mapa.",
+    "Pulsa Intro o Espacio para usar esta herramienta en el centro del mapa, o Escape para guardarla.",
   "chrome.dwdComposite": "Composición alemana",
   "chrome.rainRate": "Intensidad de lluvia",
   "chrome.composite": "Radar compuesto",

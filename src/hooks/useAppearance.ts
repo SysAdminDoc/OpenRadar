@@ -99,6 +99,16 @@ export function useAppearance(
       'meta[name="theme-color"]',
     );
     meta?.setAttribute("content", CHROME_COLOR[settings.theme]);
+    // Mirrored where the boot script in `index.html` can read it before first
+    // paint. The settings themselves are behind an async store on the
+    // desktop, so nothing synchronous can reach them; this key is the only
+    // thing standing between a light-theme reader and a dark flash on every
+    // cold start. Best effort: a window with no storage keeps the default.
+    try {
+      window.localStorage.setItem("openradar.theme", settings.theme);
+    } catch {
+      // Nothing to do about it, and nothing depends on it having worked.
+    }
   }, [settings.calm, settings.theme, wanted]);
 
   return {

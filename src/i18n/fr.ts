@@ -64,6 +64,13 @@ export const fr: Catalogue = {
     "Cette grille est empaquetée d'une façon que cette version ne lit pas.",
   "dataExport.error.gridNotDrawn": "La grille n'a pas pu être dessinée.",
   "dataExport.error.unknown": "L'exportation n'a pas pu être écrite.",
+  "dataExport.error.gridHttpStatus": "La grille n'a pas pu être récupérée. {0}",
+  "dataExport.error.gridHttpUnreachable":
+    "La grille n'a pas pu être récupérée. Vérifiez que cette machine est connectée.",
+  "dataExport.error.gridHttpRefused":
+    "OpenRadar n'a pas récupéré cette grille : l'adresse ne fait pas partie de celles qu'il peut joindre.",
+  "dataExport.error.gridHttpTooLarge":
+    "Cette grille est plus grande que ce qu'OpenRadar lit en une fois.",
 
   "search.eyebrow": "Trouver un endroit",
   "search.title": "Recherche",
@@ -1537,7 +1544,7 @@ export const fr: Catalogue = {
   "chrome.standby": "En veille",
   "chrome.toolClear": "Effacer",
   "chrome.toolKeyboard":
-    "Appuyez sur Entrée ou Espace pour utiliser cet outil au centre de la carte.",
+    "Appuyez sur Entrée ou Espace pour utiliser cet outil au centre de la carte, ou sur Échap pour le ranger.",
   "chrome.dwdComposite": "Composite allemand",
   "chrome.rainRate": "Taux de pluie",
   "chrome.composite": "Radar composite",

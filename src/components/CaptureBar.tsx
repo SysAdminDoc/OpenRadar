@@ -57,17 +57,33 @@ export function CaptureBar({
   const t = useT();
 
   /**
-   * The way out takes the focus when this mounts.
+   * The way out takes the focus when this mounts, and hands it back on the
+   * way out.
    *
    * The mode hides the rail, the panels and the toasts, so whatever the
-   * reader had focused is gone from the page and the focus falls to the
-   * body: the next Tab starts again from the top of an empty window, and
-   * the only control left sits at a tenth opacity. Focus-visible is what
-   * draws a ring, so a pointer user entering this sees nothing appear.
+   * reader had focused is out of the tab order and the focus falls to the
+   * body: the next Tab starts again from the top of an empty window, and the
+   * only control left sits at a tenth opacity. Focus-visible is what draws a
+   * ring, so a pointer user entering this sees nothing appear.
+   *
+   * Leaving has the same problem in reverse. Pressing the leave button
+   * unmounts the thing holding the focus, so without the second half of this
+   * the exit dropped the focus exactly where the entrance used to.
    */
   const leaveRef = useRef<HTMLButtonElement>(null);
+  const cameFromRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
+    const opener = document.activeElement;
+    cameFromRef.current =
+      opener instanceof HTMLElement && opener !== document.body ? opener : null;
     leaveRef.current?.focus();
+    return () => {
+      // Only if it is still on the page. Everything in here is hidden while
+      // the mode is on, so a control that has since gone is nothing to
+      // return to.
+      const back = cameFromRef.current;
+      if (back?.isConnected) back.focus();
+    };
   }, []);
 
   // The same switch the rest of the app follows. A stream is somebody else's
