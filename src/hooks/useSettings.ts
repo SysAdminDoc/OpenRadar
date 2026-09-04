@@ -23,7 +23,18 @@ export interface SettingsState {
   hydrated: boolean;
   /** The newest settings, readable from a callback without a stale closure. */
   settingsRef: { readonly current: AppSettings };
-  applySettings: (next: AppSettings) => void;
+  /**
+   * Settings, or a function given the settings as they stand right now.
+   *
+   * The second form is what an undo wants. A panel that held its own copy of
+   * the settings to write back over could only keep that copy current while
+   * it was mounted, and the toast offering the undo outlives the panel by up
+   * to half a minute, so closing the panel froze the copy and pressing undo
+   * then wrote a stale snapshot over everything changed since.
+   */
+  applySettings: (
+    next: AppSettings | ((now: AppSettings) => AppSettings),
+  ) => void;
   updateCamera: (camera: CameraState) => void;
 }
 
@@ -55,8 +66,13 @@ export function useSettings(options: {
   }, []);
 
   const applySettings = useCallback(
-    (next: AppSettings) => {
-      const normalized = normalizeSettings(next);
+    (next: AppSettings | ((now: AppSettings) => AppSettings)) => {
+      // `settingsRef` is written synchronously below, so an updater always
+      // sees every apply that has already happened, including several in one
+      // tick.
+      const normalized = normalizeSettings(
+        typeof next === "function" ? next(settingsRef.current) : next,
+      );
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;

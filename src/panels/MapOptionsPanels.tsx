@@ -1422,7 +1422,9 @@ export function LayersPanel({
 interface SettingsPanelProps {
   settings: AppSettings;
   bounds?: PackBounds | null;
-  onSettings: (settings: AppSettings) => void;
+  onSettings: (
+    next: AppSettings | ((now: AppSettings) => AppSettings),
+  ) => void;
   onSendWatchTest: () => void;
   /**
    * Whether the watch is still hearing back from the service.
@@ -1539,13 +1541,6 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
-  // The settings as they stand, for an undo pressed after the reader has
-  // changed something else. The closure offering it was made when the thing
-  // went, so reading `settings` there would put its whole snapshot back.
-  const settingsRef = useRef(settings);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
   // Home counts, and only places actually switched on: a storm heading for a
   // place nobody is watching is not news. Counted through `watchedPlaces`,
   // which applies the cap, because with ten saved places the tenth is never
@@ -1873,12 +1868,11 @@ export function SettingsPanel({
                   title: t("settings.themeRemoved", { name: removed.name }),
                   detail: t("settings.themeRemovedBody"),
                   // Only the theme, put back over whatever else the reader
-                  // changed while the toast was up.
+                  // changed while the toast was up. The settings arrive from
+                  // the applier rather than a copy held here, so closing the
+                  // panel while the toast is up cannot freeze them.
                   undo: () =>
-                    onSettings({
-                      ...settingsRef.current,
-                      workspaceTheme: removed,
-                    }),
+                    onSettings((now) => ({ ...now, workspaceTheme: removed })),
                 });
               }}
             >
@@ -1918,10 +1912,19 @@ export function SettingsPanel({
               // rather than the whole of what they were: anything else the
               // reader changed in between is theirs to keep.
               undo: () =>
-                onSettings({
-                  ...settingsRef.current,
-                  curiositiesFound: held,
-                }),
+                onSettings((now) => ({
+                  ...now,
+                  // Put back, not written over. A curiosity is found by the
+                  // camera coming to rest near one, which needs no panel
+                  // interaction at all, so anything discovered while the
+                  // toast was up was being lost by pressing undo.
+                  curiositiesFound: [
+                    ...held,
+                    ...now.curiositiesFound.filter(
+                      (found) => !held.includes(found),
+                    ),
+                  ],
+                })),
             });
           }}
         />
@@ -2310,10 +2313,10 @@ export function SettingsPanel({
                         title: t("alerts.soundFileRemoved"),
                         detail: t("alerts.soundFileRemovedBody"),
                         undo: () =>
-                          onSettings({
-                            ...settingsRef.current,
+                          onSettings((now) => ({
+                            ...now,
                             alertSoundPath: removed,
-                          }),
+                          })),
                       });
                     }}
                   >
@@ -2826,25 +2829,25 @@ export function SettingsPanel({
                       detail: t("settings.placeRemovedBody"),
                       // Back where it was in the list, into the list as it
                       // stands now, and not at all if it is already there.
-                      undo: () => {
-                        const now = settingsRef.current;
-                        // By its own id, which is what a place is. Matching on
-                        // the name and the point instead meant two places
-                        // called the same thing at the same point could not
-                        // both come back.
-                        if (
-                          now.watchPlaces.some((held) => held.id === place.id)
-                        ) {
-                          return;
-                        }
-                        // Home is the tenth, so the list itself holds nine.
-                        if (now.watchPlaces.length >= MAX_WATCH_PLACES - 1) {
-                          return;
-                        }
-                        const back = [...now.watchPlaces];
-                        back.splice(Math.min(index, back.length), 0, place);
-                        onSettings({ ...now, watchPlaces: back });
-                      },
+                      undo: () =>
+                        onSettings((now) => {
+                          // By its own id, which is what a place is. Matching
+                          // on the name and the point instead meant two places
+                          // called the same thing at the same point could not
+                          // both come back.
+                          if (
+                            now.watchPlaces.some((held) => held.id === place.id)
+                          ) {
+                            return now;
+                          }
+                          // Home is the tenth, so the list itself holds nine.
+                          if (now.watchPlaces.length >= MAX_WATCH_PLACES - 1) {
+                            return now;
+                          }
+                          const back = [...now.watchPlaces];
+                          back.splice(Math.min(index, back.length), 0, place);
+                          return { ...now, watchPlaces: back };
+                        }),
                     });
                   }}
                 >
