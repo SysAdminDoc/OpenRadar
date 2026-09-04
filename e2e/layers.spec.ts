@@ -141,9 +141,11 @@ test("says when the storm reports came from the second source", async ({
   await expect(row).toContainText(
     "coming from the weather service rather than the usual archive",
   );
-  // The other half, that the note goes when the archive answers again, is in
-  // `useOverlays.test.ts`: this layer refreshes every five minutes, so no
-  // browser test can wait for the answer that would clear it.
+  // The other half, that the note goes when the archive answers again, is
+  // carried by `reports.test.ts` asserting an archive answer has no note on
+  // it at all, and by `useOverlays` writing whatever the answer carries on
+  // every success. No browser test can watch it happen: this layer refreshes
+  // every five minutes.
 });
 
 test("saves, reopens, and undoes a preset", async ({ page }) => {

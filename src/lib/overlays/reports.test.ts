@@ -145,18 +145,37 @@ describe.runIf(LIVE)("against the live weather service", () => {
       ...drawn.features.map((one) => Number(one.properties.at)),
     );
 
-    // What the service says its newest row is, asked for on its own.
+    // What the service says its newest row is, asked in a way that does not
+    // depend on the ordering under test. Reading it back through the same
+    // query with a count of one would fall to object-id order beside the
+    // thing it is checking, and both would be wrong together: ArcGIS ignores
+    // a query parameter it does not support rather than refusing it, which
+    // is exactly the failure this contract exists to catch.
     const url = new URL(serviceReportsUrl());
-    url.searchParams.set("resultRecordCount", "1");
+    url.searchParams.delete("orderByFields");
+    url.searchParams.delete("resultRecordCount");
+    url.searchParams.delete("resultOffset");
+    url.searchParams.delete("outFields");
     url.searchParams.set("returnGeometry", "false");
+    url.searchParams.set("f", "json");
+    url.searchParams.set(
+      "outStatistics",
+      JSON.stringify([
+        {
+          statisticType: "max",
+          onStatisticField: "lsr_validtime",
+          outStatisticFieldName: "newest",
+        },
+      ]),
+    );
     const top = await fetch(url.toString(), {
       headers: { Accept: "application/json" },
     });
     expect(top.ok).toBe(true);
     const held = (await top.json()) as {
-      features?: { properties?: { lsr_validtime?: number } }[];
+      features?: { attributes?: { newest?: number } }[];
     };
-    const newestHeld = Number(held.features?.[0]?.properties?.lsr_validtime);
+    const newestHeld = Number(held.features?.[0]?.attributes?.newest);
     expect(Number.isFinite(newestHeld)).toBe(true);
     expect(newestDrawn).toBe(newestHeld);
   }, 30_000);
@@ -340,16 +359,32 @@ describe("when the usual source for storm reports does not answer", () => {
     // particular answers in object-id order, so the hour a reader opens this
     // for was the hour that got left out.
     const url = new URL(serviceReportsUrl());
-    expect(url.searchParams.get("orderByFields")).toBe("lsr_validtime DESC");
+    // The row id breaks a tie the time cannot: reports cluster on the
+    // minute, and a tie split across two pages that each order it their own
+    // way drops one report and repeats another.
+    expect(url.searchParams.get("orderByFields")).toBe(
+      "lsr_validtime DESC,objectid DESC",
+    );
     const where = url.searchParams.get("where") ?? "";
     const said = /lsr_validtime >= TIMESTAMP '([\d-]+ [\d:]+)'/.exec(where);
     expect(said, `the window is not bounded: ${where}`).not.toBeNull();
-    // The same twenty-four hours the archive answers for, give or take the
-    // second this test takes to run.
+    // The day the archive answers for, and up to an hour more: the boundary
+    // is rounded down so the address stays the same within an hour.
     const from = Date.parse(`${said?.[1].replace(" ", "T")}Z`);
     const back = (Date.now() - from) / 3_600_000;
-    expect(back).toBeGreaterThan(REPORT_HOURS - 0.01);
-    expect(back).toBeLessThan(REPORT_HOURS + 0.01);
+    expect(back).toBeGreaterThanOrEqual(REPORT_HOURS);
+    expect(back).toBeLessThan(REPORT_HOURS + 1);
+  });
+
+  it("asks the same question twice within the hour", () => {
+    // The address is the native cache's key. One carrying the current second
+    // is a key nothing can hit again: every refresh would write entries that
+    // are dead on arrival, push real tiles out of the budget, and leave the
+    // offline view with no copy of this layer at all.
+    expect(serviceReportsUrl()).toBe(serviceReportsUrl());
+    const where = new URL(serviceReportsUrl()).searchParams.get("where") ?? "";
+    // Whole hours only, which is what makes that true.
+    expect(where).toMatch(/ \d{2}:00:00'$/);
   });
 
   it("counts an offset off in whole pages", () => {
@@ -364,10 +399,20 @@ describe("when the usual source for storm reports does not answer", () => {
   });
 
   it("reads the words the service actually publishes, abbreviations and all", () => {
-    // The distinct values the live layer held on 2026-09-04. The two that
-    // make up most of a severe day are abbreviated, and a match on the whole
-    // word "wind" caught the marine one and dropped both of those into grey.
-    const wind = ["Tstm Wnd Gst", "Tstm Wnd Dmg", "Marine Tstm Wind"];
+    // The distinct values the two live feeds held on 2026-09-04. The ones
+    // that make up most of a severe day are abbreviated, a match on the whole
+    // word "wind" caught only the marine one, and a match that then forgot
+    // the plural would drop the sustained-wind reports the same way.
+    const wind = [
+      "Tstm Wnd Gst",
+      "Tstm Wnd Dmg",
+      "Non-Tstm Wnd Gst",
+      "Non-Tstm Wnd Dmg",
+      "Marine Tstm Wind",
+      "High Sust Winds",
+      "Strong Winds",
+      "Gusts",
+    ];
     for (const said of wind) {
       const read = parseServiceReports({
         features: [
@@ -386,9 +431,12 @@ describe("when the usual source for storm reports does not answer", () => {
       Tornado: "tornado",
       "Funnel Cloud": "tornado",
       Waterspout: "tornado",
+      Landspout: "tornado",
       Fog: "other",
       Rain: "other",
       Lightning: "other",
+      "Debris Flow": "other",
+      Landslide: "other",
     };
     for (const [said, kind] of Object.entries(others)) {
       const read = parseServiceReports({
@@ -426,12 +474,114 @@ describe("when the usual source for storm reports does not answer", () => {
           },
         ],
       }).features[0].properties.color;
-    expect(words("Funnel Cloud")).toBe(letter("C"));
-    expect(words("Waterspout")).toBe(letter("W"));
-    expect(words("Tornado")).toBe(letter("T"));
-    expect(words("Hail")).toBe(letter("H"));
-    expect(words("Tstm Wnd Gst")).toBe(letter("G"));
-    expect(words("Flash Flood")).toBe(letter("F"));
+    // Each pair is the same event as the two feeds spell it, read off both
+    // live feeds on 2026-09-04. The last two were the ones still disagreeing
+    // after the colours were shared: the letter table had no row for
+    // sustained or marine wind, so the weather service drew them amber and
+    // the archive drew the same report grey.
+    const pairs: Array<[string, string]> = [
+      ["Funnel Cloud", "C"],
+      ["Waterspout", "W"],
+      ["Landspout", "W"],
+      ["Tornado", "T"],
+      ["Hail", "H"],
+      ["Tstm Wnd Gst", "G"],
+      ["Tstm Wnd Dmg", "D"],
+      ["Non-Tstm Wnd Gst", "N"],
+      ["Non-Tstm Wnd Dmg", "O"],
+      ["Flash Flood", "F"],
+      ["Flood", "E"],
+      ["High Sust Winds", "A"],
+      ["Marine Tstm Wind", "M"],
+    ];
+    for (const [said, type] of pairs) {
+      expect(words(said), `${said} against ${type}`).toBe(letter(type));
+    }
+  });
+
+  it("draws six hundred reports across two pages when the service holds them", async () => {
+    // The window the archive answers for runs to more than one page of the
+    // service on any busy day: 500 rows covered twelve of the twenty-four
+    // hours on 2026-09-04.
+    const page = (offset: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...serviceFeature,
+        properties: {
+          ...serviceFeature.properties,
+          objectid: offset + index,
+          lsr_validtime: 1788511200000 - (offset + index) * 60_000,
+        },
+      }));
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      url: string,
+    ) => {
+      const said = String(url);
+      if (!said.includes("mapservices.weather.noaa.gov")) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response;
+      }
+      const offset = Number(
+        new URL(said).searchParams.get("resultOffset") ?? 0,
+      );
+      const count = offset === 0 ? 500 : 100;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: page(offset, count),
+          exceededTransferLimit: offset === 0,
+        }),
+      } as Response;
+    }) as unknown as typeof fetch);
+    try {
+      const data = await stormReportsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(data.features).toHaveLength(600);
+    } finally {
+      fetched.mockRestore();
+    }
+  });
+
+  it("counts a report the service repeated across two pages only once", async () => {
+    // A report filed between the two requests shifts every row down one, so
+    // the second page begins with the row the first one ended on.
+    const row = (objectid: number) => ({
+      ...serviceFeature,
+      properties: {
+        ...serviceFeature.properties,
+        objectid,
+        lsr_validtime: 1788511200000 - objectid * 60_000,
+      },
+    });
+    const fetched = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      url: string,
+    ) => {
+      const said = String(url);
+      if (!said.includes("mapservices.weather.noaa.gov")) {
+        return { ok: false, status: 503, json: async () => ({}) } as Response;
+      }
+      const offset = new URL(said).searchParams.get("resultOffset");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          features: offset === "0" ? [row(1), row(2)] : [row(2), row(3)],
+          exceededTransferLimit: offset === "0",
+        }),
+      } as Response;
+    }) as unknown as typeof fetch);
+    try {
+      const data = await stormReportsOverlay.fetchData(
+        bounds,
+        undefined,
+        DEFAULT_OVERLAY_CHOICES,
+      );
+      expect(data.features).toHaveLength(3);
+    } finally {
+      fetched.mockRestore();
+    }
   });
 
   it("keeps asking while the service says it is holding more", async () => {
