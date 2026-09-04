@@ -229,6 +229,27 @@ export const en = {
   "storage.clearedBody":
     "{freed} came back. The map will fetch what it needs again.",
   "storage.clearFailed": "The cache could not be cleared",
+  "packs.error.tooManyTiles":
+    "That region needs {0, plural, one {# tile} other {# tiles}}, which is more than one pack holds. Zoom in, or take fewer zoom levels.",
+  "packs.error.diskCeiling":
+    "That would take the packs past the disk limit you set. Delete one, or raise the limit above.",
+  "packs.error.notFound": "That pack is not there any more.",
+  "packs.error.notReady":
+    "That pack is not ready yet. Wait for it to finish and try again.",
+  "packs.error.cancelled": "The download stopped.",
+  "packs.error.corrupt":
+    "The download did not arrive intact, so it was thrown away. Try it again.",
+  "packs.error.refused": "OpenRadar could not take that request.",
+  "packs.error.failed":
+    "Something went wrong on this machine and the download stopped. The Diagnostics panel has the details.",
+  "packs.error.pausedOnExit": "The download paused when OpenRadar closed.",
+  "packs.error.httpStatus": "The tile server could not be reached. {0}",
+  "packs.error.httpUnreachable":
+    "The tile server could not be reached. Check that this machine is online.",
+  "packs.error.httpRefused":
+    "OpenRadar would not fetch that: the address is not one it is allowed to reach.",
+  "packs.error.httpTooLarge":
+    "A tile came back larger than OpenRadar will read in one go.",
   "packs.title": "Offline incident packs",
   "packs.format": "PMTiles",
   "packs.detail":

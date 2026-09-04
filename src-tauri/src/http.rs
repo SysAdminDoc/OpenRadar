@@ -223,6 +223,21 @@ pub async fn get_bytes_uncached(url: &str) -> Result<Vec<u8>, HttpError> {
 }
 
 async fn fetch_bytes(url: &str) -> Result<Vec<u8>, HttpError> {
+    match fetch_bytes_inner(url).await {
+        Ok(body) => Ok(body),
+        Err(error) => {
+            // The one place the address and the library's own words are
+            // written down. What the page is handed is a code and at most a
+            // status, so that it can say something in the reader's language
+            // with no URL in it; the detail a bug report needs has to be
+            // kept here or it is gone.
+            log::warn!("OpenRadar could not fetch {url}: {error}");
+            Err(error)
+        }
+    }
+}
+
+async fn fetch_bytes_inner(url: &str) -> Result<Vec<u8>, HttpError> {
     let parsed = Url::parse(url).map_err(|_| HttpError::BadUrl)?;
     if !is_allowed(&parsed) {
         return Err(HttpError::HostNotAllowed(

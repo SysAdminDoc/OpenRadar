@@ -4902,6 +4902,26 @@ mod tests {
         // And the columns themselves were not kept, which is what makes room.
         assert!(decoded_hit("profile/0").is_none());
         clear_cache();
+
+        // The command has to be the thing that reads them that way. Driving
+        // it here would need the bucket, and everything above holds only the
+        // helper: putting `level2_vwp` back on the caching path is the exact
+        // regression this test is for, and the assertions above stay green
+        // through it.
+        let source = include_str!("level2.rs");
+        let command = source
+            .split("pub async fn level2_vwp(")
+            .nth(1)
+            .expect("the wind profile command is in this file");
+        let body = &command[..command.find("\n#[tauri::command]").unwrap_or(command.len())];
+        assert!(
+            body.contains("decoded_volume_once("),
+            "the wind profile no longer reads its volumes without keeping them",
+        );
+        assert!(
+            !body.contains("decoded_volume("),
+            "the wind profile is keeping a volume again",
+        );
     }
 
     #[test]

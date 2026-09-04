@@ -1,4 +1,7 @@
 import { formatNumber, translate } from "../i18n";
+import { en } from "../i18n/en";
+import type { StringKey } from "../i18n/en";
+import { nativeErrorParams } from "./nativeError";
 import type { IncidentPackReference } from "./settings";
 import { isDesktopRuntime } from "./settings";
 
@@ -177,4 +180,44 @@ export function formatPackBytes(bytes: number): string {
   return translate("packs.gigabytes", {
     count: formatNumber(size / 1024, 1),
   });
+}
+/**
+ * A pack failure in the reader's own language.
+ *
+ * The native side used to serialize these as its own English sentence, so a
+ * French reader was told "that region needs 41200 tiles, above the 25000 tile
+ * limit", counts unformatted and all. It sends a code now, and the exact
+ * wording still travels in `text` for the log. Manifests written by an older
+ * build hold a sentence in this field rather than a code, so anything with no
+ * key of its own is shown as it was rather than swallowed.
+ */
+export function packErrorText(failure: unknown): string {
+  const code =
+    typeof failure === "string"
+      ? failure
+      : failure && typeof failure === "object" && "code" in failure
+        ? String((failure as { code?: unknown }).code)
+        : null;
+  const args =
+    failure && typeof failure === "object" && "args" in failure
+      ? ((failure as { args?: unknown }).args ?? [])
+      : [];
+  if (code) {
+    const key = `packs.error.${code}`;
+    if (key in en) {
+      return translate(
+        key as StringKey,
+        nativeErrorParams(code, Array.isArray(args) ? args : []),
+      );
+    }
+    // A sentence an older build wrote into a manifest, which is not a code
+    // and has no key. Better read in English than not read at all.
+    if (typeof failure === "string") return failure;
+  }
+  if (failure && typeof failure === "object" && "text" in failure) {
+    const text = (failure as { text?: unknown }).text;
+    if (typeof text === "string" && text) return text;
+  }
+  if (failure instanceof Error) return failure.message;
+  return translate("packs.error.failed");
 }

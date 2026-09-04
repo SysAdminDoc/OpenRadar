@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- Offline pack failures are in your language too, and they say what to do. They came straight out of the decoder as its own English, so a French reader was told "that region needs 41200 tiles, above the 25000 tile limit", with the count written the way a machine writes one. Each now says the thing you can act on: zoom in, free some space, wait for it to finish, or try the download again. The exact fault still goes to the log for a bug report.
+
 - A radar archive or replay that will not answer says so in your language, without a web address in it. The reason came straight from the network library, so a missing file under the site picker read as an Amazon S3 URL and a status code, in English, whatever language you had chosen. It now says whether the service is busy, has no such file, refused, or could not be reached at all, in the same words the rest of the app uses for the same thing.
 
 - The wind profile panel says why it has nothing to draw. Every refusal from the decoder came out as "not available here", so holding an airport radar, asking for a time that would not parse and hitting an archive that was down all read the same. It now gives the reason, says so when the volumes came back with no wind in them, and tells a reader in a replay to come back to the present rather than to hold a site they can plainly see is held. It also stops rebuilding itself every few minutes: a new volume swapped the chart for a spinner while three of them were read again.

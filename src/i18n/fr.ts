@@ -243,6 +243,28 @@ export const fr: Catalogue = {
   "storage.clearedBody":
     "{freed} récupérés. La carte redemandera ce dont elle a besoin.",
   "storage.clearFailed": "Impossible de vider",
+  "packs.error.tooManyTiles":
+    "Cette région demande {0, plural, one {# tuile} other {# tuiles}}, plus que ce que contient un paquet. Zoomez, ou prenez moins de niveaux.",
+  "packs.error.diskCeiling":
+    "Cela dépasserait la limite de disque que vous avez fixée. Supprimez un paquet, ou relevez la limite ci-dessus.",
+  "packs.error.notFound": "Ce paquet n'est plus là.",
+  "packs.error.notReady":
+    "Ce paquet n'est pas encore prêt. Attendez la fin et réessayez.",
+  "packs.error.cancelled": "Le téléchargement s'est arrêté.",
+  "packs.error.corrupt":
+    "Le téléchargement n'est pas arrivé entier : il a été jeté. Réessayez.",
+  "packs.error.refused": "OpenRadar n'a pas pu accepter cette demande.",
+  "packs.error.failed":
+    "Quelque chose a échoué sur cette machine et le téléchargement s'est arrêté. Le panneau Diagnostic en a le détail.",
+  "packs.error.pausedOnExit":
+    "Le téléchargement s'est mis en pause à la fermeture d'OpenRadar.",
+  "packs.error.httpStatus": "Le serveur de tuiles est resté muet. {0}",
+  "packs.error.httpUnreachable":
+    "Le serveur de tuiles est resté muet. Vérifiez que cette machine est en ligne.",
+  "packs.error.httpRefused":
+    "OpenRadar n'est pas allé chercher cela : l'adresse n'en est pas une qu'il a le droit d'atteindre.",
+  "packs.error.httpTooLarge":
+    "Une tuile est arrivée plus grande que ce qu'OpenRadar lit d'un coup.",
   "packs.title": "Trousses hors ligne",
   "packs.format": "PMTiles",
   "packs.detail":
