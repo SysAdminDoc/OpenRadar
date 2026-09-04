@@ -1,5 +1,9 @@
 # Changelog
 
+## OpenRadar v0.10.0
+
+- The lightning watch no longer forgets a place it has already told when the flash feed goes quiet for a moment. The feed answers with nothing whenever its listing fails, whenever the newest file it found has aged out of the window, and whenever you switch the lightning layer off, and any one of those used to wipe what every watched place had been told. A storm still going on was then announced a second time, and worse, the all-clear was measured from a flash the app no longer remembered, so somebody told to come in was never told they could go back out. What a place has been told is now only replaced by a real answer.
+
 ## OpenRadar v0.9.0
 
 - A smoothing switch for a single site's sweep. GR2Analyst, GRLevel3, Supercell Wx and WeatherWise all offer one and people expect the choice; the sweep here was drawn as hard gates. Switched on, the picture reads between neighbouring gates in the radar's own polar space rather than taking the nearest one, which is the only place it is honest: a gate is a wedge that grows with range, so blurring in the map's square pixels would smear a distant gate and barely touch a near one. Two things it will not do. It never paints where the radar read nothing, so a beam blockage stays a hole and a range-folded gate keeps its own colour instead of being averaged into the weather beside it. And on velocity it leaves the sign boundary alone, because interpolating across it paints a band of calm air down the middle of a rotation. The legend says the picture has been smoothed. Off by default, and the numbers you inspect and the numbers an export writes are the gates themselves either way.

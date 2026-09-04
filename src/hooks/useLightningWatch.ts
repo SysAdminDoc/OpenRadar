@@ -101,6 +101,15 @@ export function useLightningWatch(options: {
 
   useEffect(() => {
     if (!rule.enabled) return;
+    // No window is not an empty window. The feed answers with nothing when
+    // the bucket listing fails, when the newest file it found is older than
+    // the window it was asked for, and whenever the reader switches the
+    // lightning layer off. Treating any of those as "no flashes anywhere"
+    // let `lightningAfter` prune every place it had already told, so a storm
+    // still in progress was announced a second time and the all-clear, which
+    // is measured from the newest flash this map remembers, could never be
+    // said at all. What is held is only replaced by a real answer.
+    if (!flashes) return;
     const near = lightningNear(flashes, places, rule);
     const notices = lightningToAnnounce(
       near,
