@@ -1372,7 +1372,7 @@ export const fr: Catalogue = {
   "lightningWatch.title": "Éclairs près de {place}",
   "lightningWatch.titleHome": "Éclairs près de vous",
   "lightningWatch.body":
-    "{count, plural, one {# éclair} other {# éclairs}} dans un rayon de {miles, plural, one {# mille} other {# milles}}. Le satellite voit la lumière au-dessus du nuage, ce n'est donc pas un relevé de ce qui a touché le sol.",
+    "{count, plural, one {# éclair} other {# éclairs}} dans un rayon de {miles} {unit}. Le satellite voit la lumière au-dessus du nuage, ce n'est donc pas un relevé de ce qui a touché le sol.",
   "lightningWatch.quietTitle": "{place} est calme depuis une demi-heure",
   "lightningWatch.quietTitleHome": "Calme depuis une demi-heure",
   "lightningWatch.quietBody":
@@ -1383,7 +1383,6 @@ export const fr: Catalogue = {
   "lightningWatch.needsPlace":
     "Il faut un lieu surveillé, puisque c'est autour de lui que porte le rayon.",
   "lightningWatch.radius": "À quelle distance de chaque lieu",
-  "lightningWatch.radiusMiles": "{count} mi",
   "lightningWatch.count": "Combien d'éclairs méritent un mot",
   "lightningWatch.countFlashes":
     "{count, plural, one {# éclair} other {# éclairs}}",

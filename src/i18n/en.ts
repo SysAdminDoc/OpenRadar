@@ -1333,7 +1333,7 @@ export const en = {
   "lightningWatch.title": "Lightning near {place}",
   "lightningWatch.titleHome": "Lightning near you",
   "lightningWatch.body":
-    "{count, plural, one {# flash} other {# flashes}} within {miles, plural, one {# mile} other {# miles}}. The satellite sees light above the cloud, so this is not a report of what reached the ground.",
+    "{count, plural, one {# flash} other {# flashes}} within {miles} {unit}. The satellite sees light above the cloud, so this is not a report of what reached the ground.",
   "lightningWatch.quietTitle": "{place} has been quiet for half an hour",
   "lightningWatch.quietTitleHome": "Quiet for half an hour",
   "lightningWatch.quietBody":
@@ -1344,7 +1344,6 @@ export const en = {
   "lightningWatch.needsPlace":
     "Needs a place to watch, since that is what the radius is around.",
   "lightningWatch.radius": "How far around each place",
-  "lightningWatch.radiusMiles": "{count} mi",
   "lightningWatch.count": "How many flashes are worth saying",
   "lightningWatch.countFlashes":
     "{count, plural, one {# flash} other {# flashes}}",

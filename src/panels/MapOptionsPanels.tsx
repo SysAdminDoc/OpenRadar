@@ -2464,7 +2464,9 @@ export function SettingsPanel({
                       })
                     }
                   >
-                    {t("lightningWatch.radiusMiles", { count })}
+                    {/* The short form, which is what fits in a chip:
+                        "16 km" rather than "16 kilometres". */}
+                    {formatDistance(count)}
                   </button>
                 ))}
               </div>
