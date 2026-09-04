@@ -105,13 +105,15 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
           }
         }
         const samples = sampleRoute(route);
-        // An empty box means now. A `datetime-local` field normalises
-        // anything it cannot parse to the empty string, so that is the only
-        // other state it has, and nothing in the summary claims a departure
-        // time, so planning for now is not mislabelled as anything else.
-        const departAt = departure.trim()
-          ? new Date(departure).getTime()
-          : Date.now();
+        // An empty box means now, and so does anything that will not parse.
+        // A `datetime-local` field normalises what it cannot read to the
+        // empty string, so in the app today only the first case happens, but
+        // a shared link or a restored workspace can put any string in here
+        // and a NaN reaching the forecast asks for weather at no time at all.
+        // Nothing in the summary claims a departure time, so planning for
+        // now is not mislabelled as anything else.
+        const asked = departure.trim() ? new Date(departure).getTime() : NaN;
+        const departAt = Number.isFinite(asked) ? asked : Date.now();
         const forecast = await fetchRouteForecast(
           samples,
           departAt,

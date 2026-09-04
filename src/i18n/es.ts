@@ -1417,6 +1417,10 @@ export const es: Catalogue = {
   "bar.compact": "Comandos compactos",
   "bar.nearbyShort": "Cerca",
   "bar.sectionShort": "Corte",
+  "bar.mapTypeShort": "Mapa",
+  "bar.soundingShort": "Sondeo",
+  "bar.vwpShort": "Perfil",
+  "bar.uploadShort": "Cargar",
   "bar.location": "Ubicación",
   "bar.locate": "Ubicar",
   "welcome.detail":
