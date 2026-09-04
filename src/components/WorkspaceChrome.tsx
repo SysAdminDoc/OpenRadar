@@ -392,7 +392,11 @@ export function WorkspaceChrome({
       smokeScale ||
       classification ||
       forecastSmoke ? (
-        <div className="product-legends" aria-label={t("chrome.extraScales")}>
+        <div
+          className="product-legends"
+          role="group"
+          aria-label={t("chrome.extraScales")}
+        >
           {windReduced ? (
             <div className="product-legend">
               <strong>{t("chrome.wind")}</strong>

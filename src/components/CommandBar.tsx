@@ -390,7 +390,11 @@ export function CommandBar({
         />
       </div>
 
-      <div className="compact-command-group" aria-label={t("bar.compact")}>
+      <div
+        className="compact-command-group"
+        role="group"
+        aria-label={t("bar.compact")}
+      >
         <CommandButton
           icon={MapPin}
           label={t("bar.locate")}

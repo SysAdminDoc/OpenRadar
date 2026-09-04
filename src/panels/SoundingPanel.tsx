@@ -427,6 +427,7 @@ export function SoundingPanel({ center, at, onClose }: SoundingPanelProps) {
     >
       <div
         className="segmented-control segmented-control--full"
+        role="group"
         aria-label={t("sounding.which")}
       >
         <button
