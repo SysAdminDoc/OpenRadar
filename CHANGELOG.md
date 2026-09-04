@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.10.0
 
+- A saved view that had pinned the Auto map style is honoured again. The check that reads a stored file listed a style the picker stopped offering a long time ago and left out Auto, which is the one most people are on, so a view saved on it came back on whatever the default happened to be. A file that still names the old dark style now lands on the professional dark one, which is where it meant to be.
+
+- The README describes what the app actually does now, and the changelog says when each version landed.
+
 - An outlook that arrived without its hatching says so. The bands and the hatched significant areas are two separate questions to the Storm Prediction Center, and when the second one went unanswered the app drew the bands alone and said nothing. A fifteen per cent tornado band with no hatching on it looks exactly like a band the Center decided not to hatch, which is the opposite of what happened. The outlook still draws, because losing the annotation is not worth losing the outlook, and now there is a line beside the switch saying what is missing from it.
 
 - The workspace says when Windows will not let it notify you. A refused permission quietly dropped every watch to a message inside the app, which is exactly what somebody who has looked away never sees, and nothing anywhere said so. The watch settings now carry a line saying it and where to switch it back on, and the diagnostics report carries the same answer for a bug report. It distinguishes a refusal from a question nobody has asked yet, because those are not the same silence.
@@ -34,7 +38,7 @@
 
 - The lightning watch no longer forgets a place it has already told when the flash feed goes quiet for a moment. The feed answers with nothing whenever its listing fails, whenever the newest file it found has aged out of the window, and whenever you switch the lightning layer off, and any one of those used to wipe what every watched place had been told. A storm still going on was then announced a second time, and worse, the all-clear was measured from a flash the app no longer remembered, so somebody told to come in was never told they could go back out. What a place has been told is now only replaced by a real answer.
 
-## OpenRadar v0.9.0
+## OpenRadar v0.9.0 (2026-09-02)
 
 - A smoothing switch for a single site's sweep. GR2Analyst, GRLevel3, Supercell Wx and WeatherWise all offer one and people expect the choice; the sweep here was drawn as hard gates. Switched on, the picture reads between neighbouring gates in the radar's own polar space rather than taking the nearest one, which is the only place it is honest: a gate is a wedge that grows with range, so blurring in the map's square pixels would smear a distant gate and barely touch a near one. Two things it will not do. It never paints where the radar read nothing, so a beam blockage stays a hole and a range-folded gate keeps its own colour instead of being averaged into the weather beside it. And on velocity it leaves the sign boundary alone, because interpolating across it paints a band of calm air down the middle of a rotation. The legend says the picture has been smoothed. Off by default, and the numbers you inspect and the numbers an export writes are the gates themselves either way.
 
@@ -116,7 +120,7 @@
 
 - A saved loop of a held site is that site's own volumes. It was the timeline's steps, which run every two minutes while a radar finishes a volume every four to six, so the same picture went into the file two and three times over, each copy stamped with a different time and credited to the national mosaic that did not make it. Every frame now carries its own record naming the radar it came from and the moment it was collected.
 
-## OpenRadar v0.8.0
+## OpenRadar v0.8.0 (2026-09-02)
 
 - The scrubber under the map has a handle you can actually grab. It was whatever the browser drew, about two thirds of the size a pointer target is meant to be, and so was every slider in Settings and Layers.
 
@@ -204,7 +208,7 @@
 
 - The site loop no longer runs while the loop is playing. Left as it was, a window playing on a second monitor would have asked a public archive for a ten megabyte volume about once a second for as long as it was open. Stopping the scrubber on an older step is what draws that step's volume, which is also when anybody is looking at it.
 
-## OpenRadar v0.7.0
+## OpenRadar v0.7.0 (2026-09-02)
 
 - Fixes from a sixth pass, which went after the fifth pass's own fixes and found two with the outcome they were written to prevent. An expandable registry value, which is what a wallpaper set by a theme or by policy usually is, was read but never expanded: the `%SystemRoot%` in it was handed straight to Windows, which does not expand anything, so the restore either failed for ever or blanked the desktop with the note already deleted. And a registry read that failed for any reason was recorded as "this reader had no wallpaper", written as an empty note, and read back as a real answer from then on. Neither can happen now, and a note that cannot be written stops the whole thing rather than pretending.
 
@@ -376,7 +380,7 @@
 
 - An exported picture now credits whoever actually served it, and carries the whole record beside it. The credit burned into the corner was the literal words "OpenRadar · OpenStreetMap · NOAA", which is right for a live American mosaic and wrong for a German or Canadian one, and badly wrong for a 2005 hurricane replayed out of the Iowa State archive. It comes from the layer's own provenance record now. Every provider states its credit as an HTML anchor, because that is what the map's attribution control renders, so the words are pulled out of the markup before anything draws them. That fixes the diagnostics block too, which had been pasting raw tags into bug reports. Beside each exported file there is now a small JSON record, one entry per frame that reached the file, in timeline order: the source, the credit and its link, whether the frame was observed or forecast, when it was measured and when it was fetched, which model run produced it, and whether the disk cache served it during an outage. A loop is not one source, so a loop gets one entry per frame rather than one for the file. The format is written down in the README. If the record cannot be written the picture is still saved, because an export that destroys what it was asked for to protect a footnote is worse than a missing footnote.
 
-## OpenRadar v0.6.0
+## OpenRadar v0.6.0 (2026-08-31)
 
 - Snow is drawn as snow. The app painted everything on the rain scale, so a winter storm looked like rain falling hard, and the network has published what is actually falling all along: MRMS PrecipFlag, on the same bucket, every two minutes, in the same packing the other grids already use. The new layer lists its categories by name rather than as a scale, because six is not more than three, it is convection rather than snow. The colours were searched rather than picked: every pair of them stays 17 apart under all three colour-vision simulations, against the 10 the ramps are held to, and none is dark enough to read as a hole in the map. A value the published table does not name is left undrawn, and the legend says the classification is the network's own rather than a report from the ground.
 
@@ -396,7 +400,7 @@
 
 - More contrast now reaches the rest of the map. The nine MRMS grids get scales built the same way the single-site ones were: measured under three kinds of colour blindness, held ten apart at their closest neighbours, and climbing steadily in lightness so the reading survives on a bad screen or in sunlight. The shared ladder they used before was readable enough, it just never said which way was more, because its yellow is lighter than the red and the magenta above it. The composite was worse, since it ran on the NWS reflectivity scale that brings 40 and 45 dBZ within 4.9 of each other. The choice travels in the tile address, so a picture drawn one way is never served to somebody who asked for the other, and the bar beside the map is built from whichever scale actually painted what you are looking at. Warning outlines and storm tracks are stroked heavier, with the four warning weights kept apart so a tagged warning still reads as the heavier one. A colour table you loaded yourself is left exactly as you supplied it, and the Upload panel says so rather than quietly changing somebody else's scale.
 
-## OpenRadar v0.5.0
+## OpenRadar v0.5.0 (2026-08-31)
 
 - A map region can now be prepared before the network disappears. Choose its zoom range in Settings, see the final and temporary size estimates, then pause or resume the download as needed. Each tile is checked before it enters a PMTiles archive, and the archive is read back and hashed before the map will use it. Recovered archives must match that stored hash again before serving their first tile. A separate disk ceiling bounds the library, with one write gate stopping simultaneous downloads from spending the same remaining bytes. Cancelling or deleting removes the whole pack, while workspace backups keep only a small reference to it.
 
@@ -426,7 +430,7 @@
 
 - Every layer on the map can now say where it came from and what it is claiming: the source, the credit, when it was observed, when it is valid, when it was fetched, how long it stays fresh, whether it came off the disk cache, and which model run produced it. Diagnostics writes the record for each drawn layer into the block you paste into a report, and an exported picture takes its caption from the same record, so a forecast cannot be labelled as something an instrument saw.
 
-## OpenRadar v0.4.0
+## OpenRadar v0.4.0 (2026-08-31)
 
 - The workspace has been rebuilt around the map. A fixed status bar, compact command rail, docked panels, and one shared playback band keep weather data visible while every existing surface stays directly reachable. The layout holds at compact sizes, larger text settings, light mode, and increased contrast.
 
@@ -466,7 +470,7 @@
 
 - Links supplied by remote overlay data are opened only when they are credential-free HTTPS addresses. Removing an imported overlay from its notification now switches the layer off as well as clearing its shapes.
 
-## OpenRadar v0.3.0
+## OpenRadar v0.3.0 (2026-08-30)
 
 - Germany has radar. Europe had none: the American mosaics stop at the coast, the Canadian service is Canada, and everywhere else fell through to a feed licensed for personal use only. The German weather service publishes a composite of its seventeen radars every five minutes, keyless, and that is what a map over Germany now draws, with the colours the service paints it in rather than the American ones. Past fifty decibels it turns blue and then magenta, which is the German convention for hail and not a fault. The service is offered with no availability guarantee, so what was there before is still behind it.
 
@@ -539,7 +543,7 @@
 
 - A close-in view is handed to a site that is actually publishing. The nearest radar was chosen by distance alone, so one down for maintenance took the view and showed an error where the site next to it would have shown weather. The nearest few are now asked whether they have published anything in the last twenty minutes, and the first that has takes the view. If none of them has, the nearest is still named, so what you see is that site's own trouble rather than an empty map.
 
-## OpenRadar v0.2.0
+## OpenRadar v0.2.0 (2026-08-30)
 
 - Three new things for the coast and for the day after tomorrow.
 

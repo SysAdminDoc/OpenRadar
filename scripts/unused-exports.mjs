@@ -12,8 +12,11 @@
  * is reported when NOTHING else in the tree names it AND its own file names it
  * only once, which is the declaration itself. So it catches a symbol nobody
  * anywhere calls, and it deliberately says nothing about two much larger
- * groups: the hundred and fifty whose only caller is inside their own file,
- * and the hundred and fifty-five whose only caller is a test.
+ * groups: the ones whose only caller is inside their own file, and the ones
+ * whose only caller is a test. Both are counted and printed rather than
+ * written down here, because a number in a comment is a number nobody
+ * updates: these two were wrong by fifty-five and by two when they were last
+ * measured, which made the paragraph read as a guess.
  *
  * Both of those are the shape this codebase is deliberately written in: a rule
  * extracted out of a hook or a component so a test can drive the real thing
@@ -119,13 +122,27 @@ const said = new Map(
     .map((path) => [path, code(readFileSync(path, "utf8"))]),
 );
 
+const isTest = (path) => /\.test\.[tj]sx?$/.test(path);
+
 const dead = [];
+/** Exported, and named only by a test. */
+let testOnly = 0;
+/** Exported, and named only inside its own file. */
+let fileLocal = 0;
 for (const { path, name } of declared) {
   const asked = new RegExp(`\\b${name}\\b`);
-  const namedElsewhere = [...said].some(
+  const elsewhere = [...said].filter(
     ([other, source]) => other !== path && asked.test(source),
   );
-  if (namedElsewhere) continue;
+  if (elsewhere.length) {
+    if (elsewhere.every(([other]) => isTest(other))) testOnly += 1;
+    continue;
+  }
+  {
+    const own = said.get(path) ?? "";
+    const times = (own.match(new RegExp(`\\b${name}\\b`, "g")) ?? []).length;
+    if (times > 1) fileLocal += 1;
+  }
   // Its own file may still use it; what makes it dead is that nothing else
   // in the tree, test or app, ever says the word.
   const own = said.get(path) ?? "";
@@ -134,8 +151,12 @@ for (const { path, name } of declared) {
   dead.push(`${path.slice(ROOT.length + 1).replace(/\\/g, "/")}: ${name}`);
 }
 
+const shape = `${testOnly} are driven only by a test, ${fileLocal} only by their own file.`;
+
 if (!dead.length) {
-  console.log(`All ${declared.length} exports are named by something.`);
+  console.log(
+    `All ${declared.length} exports are named by something. ${shape}`,
+  );
   process.exit(0);
 }
 

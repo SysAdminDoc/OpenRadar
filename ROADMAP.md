@@ -317,13 +317,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P2
 
-- [ ] AUD-262 (P2): The README, SECURITY.md, the architecture note and the export policy script lag the code by two releases
-      Why: README.md:59 says "SPC convective outlooks" for what is now all 26 layers with day and hazard controls; :87 "Lightning two ways" for what is now ten grids; popups on imported shapes, smoothing greyed on a TDWR, and replay-day outlooks and reports are not mentioned; :93 "Seven map styles" against :380 "five of the eight" and `MAP_STYLES` with eight entries. `SECURITY.md:9-10` lists 0.9.x and 0.7.x and earlier, leaving 0.8.x unclassified. `docs/architecture.md:45` and `scripts/unused-exports.mjs:14-16` say about a hundred and fifty exports where the count is 205 test-only and 148 file-local. `CHANGELOG.md` carries no dates except v0.1.0.
-      Evidence: the cited lines; `src/lib/mapStyles.ts:16-59, 81`; the counts measured 2026-09-04.
-      Touches: `README.md`, `SECURITY.md`, `docs/architecture.md`, `scripts/unused-exports.mjs`, `CHANGELOG.md` (a date on each version heading), `src/lib/settings.ts:79` (retire the `"dark"` id no picker offers, keeping the resolver for old files), `src/lib/docs.test.ts`.
-      Acceptance: Every shipped v0.9.0 and v0.10.0 feature has a README line; the style count is stated once and matches `MAP_STYLES`; SECURITY.md classifies every minor since 0.7; the two export counts are measured by the script rather than written in; `docs.test.ts` fails if a CHANGELOG heading has no date. AUD-200 (the screenshot) stays its own item.
-      Complexity: S
-
 - [ ] AUD-263 (P2): Vitest 5.0.0, and the three routine bumps beside it
       Why: Vitest 5.0.0 (2026-09-03) changes defaults the suite relies on implicitly: `clearMocks` on by default (62 explicit clear or reset calls become redundant), `expect.poll` rejects on timeout, unawaited `.resolves` fails, artifacts move under `.vitest/`. The tree already satisfies the removals (0 `sequential`, 0 `toHaveTextContent`, all 38 `vi.mock` at top level). `lucide-react` 1.41.0 and `@types/react-dom` 19.2.7 are trivial.
       Evidence: https://github.com/vitest-dev/vitest/releases/tag/v5.0.0 ; https://vitest.dev/guide/migration.html ; `npm outdated` 2026-09-04.
