@@ -158,6 +158,7 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
     >
       <div
         className="segmented-control segmented-control--full"
+        role="group"
         aria-label={t("guidance.models")}
         aria-describedby="guidance-model-minimum"
       >

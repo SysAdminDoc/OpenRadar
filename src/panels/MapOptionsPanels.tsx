@@ -177,7 +177,11 @@ export function MapTypePanel({
       onClose={onClose}
       className="surface-panel--left surface-panel--wide"
     >
-      <div className="segmented-control" aria-label={t("mapType.projection")}>
+      <div
+        className="segmented-control"
+        role="group"
+        aria-label={t("mapType.projection")}
+      >
         <button
           type="button"
           className={projection === "mercator" ? "is-active" : ""}
@@ -982,6 +986,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control"
+            role="group"
             aria-label={t("satellite.product")}
           >
             {satelliteBands().map((band) => (
@@ -1032,6 +1037,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.spcDay")}
           >
             {SPC_DAYS.map((day) => (
@@ -1056,6 +1062,7 @@ export function LayersPanel({
           {spcDay <= 2 ? (
             <div
               className="segmented-control segmented-control--full"
+              role="group"
               aria-label={t("layers.spcHazard")}
             >
               {SPC_HAZARDS.map((hazard) => (
@@ -1073,6 +1080,7 @@ export function LayersPanel({
           ) : spcDay === 3 ? (
             <div
               className="segmented-control segmented-control--full"
+              role="group"
               aria-label={t("layers.spcHazard")}
             >
               <button
@@ -1108,6 +1116,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.wpcDay")}
           >
             {ERO_DAYS.map((day) => (
@@ -1133,6 +1142,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.wssiDay")}
           >
             {WSSI_DAYS.map((day) => (
@@ -1158,6 +1168,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.rotationPeriod")}
           >
             {ROTATION_PERIODS.map((period) => (
@@ -1186,6 +1197,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.lightningWindow")}
           >
             {LIGHTNING_WINDOWS.map((window) => (
@@ -1217,6 +1229,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.lightningForecastWindow")}
           >
             {LIGHTNING_FORECASTS.map((window) => (
@@ -1250,6 +1263,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.lightningJumpWindow")}
           >
             {LIGHTNING_JUMPS.map((window) => (
@@ -1281,6 +1295,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.isothermLevel")}
           >
             {ISOTHERM_LEVELS.map((level) => (
@@ -1317,6 +1332,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.azShearLevel")}
           >
             {AZ_SHEAR_LEVELS.map((level) => (
@@ -1345,6 +1361,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.gaugeQpePeriod")}
           >
             {GAUGE_QPE_PERIODS.map((period) => (
@@ -1370,6 +1387,7 @@ export function LayersPanel({
           </div>
           <div
             className="segmented-control segmented-control--full"
+            role="group"
             aria-label={t("layers.surgeCategory")}
           >
             {SURGE_CATEGORIES.map((category) => (
@@ -1596,6 +1614,7 @@ export function SettingsPanel({
         </div>
         <div
           className="segmented-control segmented-control--full"
+          role="group"
           aria-label={t("settings.theme")}
         >
           <button
@@ -1933,6 +1952,7 @@ export function SettingsPanel({
         </div>
         <div
           className="segmented-control segmented-control--full"
+          role="group"
           aria-label={t("settings.language")}
         >
           {LANGUAGES.map((option) => (
@@ -1998,6 +2018,7 @@ export function SettingsPanel({
         </div>
         <div
           className="segmented-control segmented-control--full"
+          role="group"
           aria-label={t("settings.units")}
         >
           {(["imperial", "metric"] as const).map((option) => (
@@ -2023,6 +2044,7 @@ export function SettingsPanel({
         </div>
         <div
           className="segmented-control segmented-control--full"
+          role="group"
           aria-label={t("settings.clock")}
         >
           {(["local", "utc"] as const).map((option) => (
@@ -2048,6 +2070,7 @@ export function SettingsPanel({
         </div>
         <div
           className="segmented-control segmented-control--full"
+          role="group"
           aria-label={t("settings.textSize")}
         >
           {TEXT_SCALES.map((option) => (
@@ -2343,6 +2366,7 @@ export function SettingsPanel({
               </span>
               <div
                 className="segmented-control segmented-control--full"
+                role="group"
                 aria-label={t("approach.window")}
               >
                 {APPROACH_MINUTES.map((count) => (
@@ -2417,6 +2441,7 @@ export function SettingsPanel({
               </span>
               <div
                 className="segmented-control segmented-control--full"
+                role="group"
                 aria-label={t("lightningWatch.radius")}
               >
                 {LIGHTNING_RADII.map((count) => (
@@ -2451,6 +2476,7 @@ export function SettingsPanel({
               </span>
               <div
                 className="segmented-control segmented-control--full"
+                role="group"
                 aria-label={t("lightningWatch.count")}
               >
                 {LIGHTNING_COUNTS.map((count) => (

@@ -88,6 +88,7 @@ export function RadarLegend({
           />
           <span
             className="legend-scale"
+            role="img"
             aria-label={t("legend.scale", {
               product: productLabel,
               min: formatMeasure(reading.min),
@@ -145,6 +146,7 @@ export function RadarTimeline({
   return (
     <div
       className={`radar-timeline ${forecast ? "is-forecast" : ""}${showingHistory ? " is-historical" : ""}`}
+      role="group"
       aria-label={t("timeline.label")}
     >
       <button
@@ -253,7 +255,7 @@ export function ZoomControls({
 }: ZoomControlsProps) {
   const t = useT();
   return (
-    <div className="zoom-controls" aria-label={t("zoom.controls")}>
+    <div className="zoom-controls" role="group" aria-label={t("zoom.controls")}>
       <button
         type="button"
         aria-label={t("zoom.resetNorth")}
