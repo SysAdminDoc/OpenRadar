@@ -66,22 +66,40 @@ const BUDGETS = [
   },
   {
     name: "settings",
-    match: /^MapOptionsPanels-.*\.js$/,
-    // Settings, the layers panel and the map-type panel, fetched when one of
-    // them is opened. Split out of the panel chunk because it is most of it:
-    // the watch, the themes, the record with its figures, the year card, the
-    // sounds, the curiosities and the incident packs are all in here, and a
-    // reader opening Alerts was fetching every one of them.
+    match: /^SettingsPanel-.*\.js$/,
+    // Settings on its own, fetched when it is opened. It is the largest panel
+    // in the app by a distance: the watch, the themes, the record with its
+    // figures, the year card, the sounds, the curiosities and the incident
+    // packs are all in it.
     //
-    // Raised from 62 and 15 on 2026-09-03 for seven more layer switches and
-    // six more segmented controls: the rotation and hail families, the two
-    // Weather Prediction Center outlooks with a day beside each, the satellite
-    // bands, and the approach notice with its window. Raised on the
-    // measurement rather than on a guess. Copy is most of what was added; if
-    // this ever reaches the panel chunk's own budget, the settings panel has
-    // stopped being one panel.
-    raw: 70,
-    gzip: 17,
+    // The three map-options panels shared one module until 2026-09-04, and
+    // that module went over the 70 kB this line used to carry. The comment
+    // then said that reaching the budget would mean the settings panel had
+    // stopped being one panel; what it had actually stopped being is one
+    // panel's worth of module, because opening Layers fetched Settings too.
+    // A module each is the split, and each one is now budgeted on its own
+    // measurement.
+    raw: 56,
+    gzip: 14,
+    firstLoad: false,
+  },
+  {
+    name: "layers",
+    match: /^LayersPanel-.*\.js$/,
+    // The layer switches and their segmented controls, fetched when the
+    // layers panel is opened. Adding a switch group lands here.
+    raw: 26,
+    gzip: 6,
+    firstLoad: false,
+  },
+  {
+    name: "map type",
+    match: /^MapTypePanel-.*\.js$/,
+    // Two projection buttons and the basemap cards. It is this small because
+    // the style list lives in `src/lib/mapStyles.ts`; if it grows past a few
+    // kilobytes it has taken on work that belongs somewhere else.
+    raw: 4,
+    gzip: 2,
     firstLoad: false,
   },
   {

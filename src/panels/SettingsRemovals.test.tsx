@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SettingsPanel } from "./MapOptionsPanels";
+import { SettingsPanel } from "./SettingsPanel";
 import { DEFAULT_SETTINGS, type AppSettings } from "../lib/settings";
 import { en } from "../i18n/en";
 import type { UndoableRemoval } from "../components/ToastHost";

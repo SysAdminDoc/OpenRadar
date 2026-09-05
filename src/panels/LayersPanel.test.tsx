@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { LayersPanel } from "./MapOptionsPanels";
+import { LayersPanel } from "./LayersPanel";
 import type {
   IsothermLevel,
   LightningForecast,

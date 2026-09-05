@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SettingsPanel } from "./MapOptionsPanels";
+import { SettingsPanel } from "./SettingsPanel";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import { en } from "../i18n/en";
 import type { NotifyPermission } from "../lib/notify";
