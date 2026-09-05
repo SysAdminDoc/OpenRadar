@@ -217,3 +217,22 @@ exists for: under the `coalesce` the icon id is still added and the symbol is
 still rendered, so `hasImage` and `queryRenderedFeatures` both stay true. The
 source-reading gate in `placefileIcons.test.ts` remains the only thing
 holding that mistake down.
+
+## AUD-273: Tauri 2.12 has not shipped
+
+Checked against the registry on 2026-09-05: `tauri` is at 2.11.5, published
+2026-07-01, and there is no 2.12 to move to. Everything the item wants comes
+with it: tao 0.37, so a shutdown exits on `WM_ENDSESSION` rather than
+crashing with "cannot move state from Destroyed", which the autostart path is
+most exposed to; wry 0.56 and its WebView2 teardown fix; MSRV 1.90;
+`noRedirectionBitmap`; `bundle.windows.bundleVCRuntime`; and exit codes
+propagated from `app_handle().exit(n)`. None of it reaches this tree until
+`tauri-runtime-wry` 2.12 is out.
+
+The one part that did not wait has shipped: `tauri-plugin-single-instance` is
+on 2.4.4, which the item asked to land ahead of the rest.
+
+To pick this up: check the registry again, and when 2.12 is there, move
+`rust-version` to 1.90, try `noRedirectionBitmap` against the MapLibre
+canvas, re-read the crash handler's assumption about exit codes, and hold the
+release gate green.
