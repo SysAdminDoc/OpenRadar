@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { lightningBody } from "../hooks/useLightningWatch";
 import { setUnits } from "./units";
 import {
@@ -7,7 +7,10 @@ import {
   LIGHTNING_FRESH_MS,
   LIGHTNING_RADII,
   QUIET_AFTER_MS,
+  forgetLightning,
+  lightningRemembered,
   lightningStep,
+  rememberLightning,
   flashesNear,
   lightningAfter,
   lightningNear,
@@ -147,20 +150,43 @@ describe("the stoplight a watched place shows", () => {
     // read as clear, because a probability that has trended down is not an
     // all-clear while a strike six miles out is ten minutes old. So the
     // clock is driven forward through all three and nothing else changes.
+    // The feed is read at each of these moments, so the quiet is observed
+    // rather than assumed; the case where it is not is below.
     const at = NOW;
-    expect(lightningStep(at, at)).toBe("fresh");
-    expect(lightningStep(at, at + LIGHTNING_FRESH_MS - 1)).toBe("fresh");
-    expect(lightningStep(at, at + LIGHTNING_FRESH_MS)).toBe("recent");
-    expect(lightningStep(at, at + QUIET_AFTER_MS - 1)).toBe("recent");
-    expect(lightningStep(at, at + QUIET_AFTER_MS)).toBe("clear");
-    expect(lightningStep(at, at + QUIET_AFTER_MS * 4)).toBe("clear");
+    const read = (now: number) => lightningStep(at, now, now);
+    expect(read(at)).toBe("fresh");
+    expect(read(at + LIGHTNING_FRESH_MS - 1)).toBe("fresh");
+    expect(read(at + LIGHTNING_FRESH_MS)).toBe("recent");
+    expect(read(at + QUIET_AFTER_MS - 1)).toBe("recent");
+    expect(read(at + QUIET_AFTER_MS)).toBe("clear");
+    expect(read(at + QUIET_AFTER_MS * 4)).toBe("clear");
   });
 
   it("steps on the same half hour the all-clear is said on", () => {
     // Two numbers for one rule is how a chip reads clear while the notice has
     // not gone out, or the other way round.
-    expect(lightningStep(NOW, NOW + QUIET_AFTER_MS)).toBe("clear");
+    expect(lightningStep(NOW, NOW + QUIET_AFTER_MS, NOW + QUIET_AFTER_MS)).toBe(
+      "clear",
+    );
     expect(LIGHTNING_FRESH_MS).toBeLessThan(QUIET_AFTER_MS);
+  });
+
+  it("will not call a place clear off a feed nobody has read", () => {
+    // The failure this exists for: with the lightning layer on and the notice
+    // off, the app stops polling while the window is hidden, and the flashes
+    // it is holding go on being the flashes it was holding. Elapsed time says
+    // half an hour; nobody watched any of it.
+    const stale = NOW + 60_000;
+    expect(lightningStep(NOW, NOW + QUIET_AFTER_MS, stale)).toBe("recent");
+    expect(lightningStep(NOW, NOW + QUIET_AFTER_MS * 4, stale)).toBe("recent");
+    // Read since, and for long enough, it is the all-clear.
+    expect(lightningStep(NOW, NOW + QUIET_AFTER_MS, NOW + QUIET_AFTER_MS)).toBe(
+      "clear",
+    );
+    // A minute short of it is not.
+    expect(
+      lightningStep(NOW, NOW + QUIET_AFTER_MS, NOW + QUIET_AFTER_MS - 60_000),
+    ).toBe("recent");
   });
 
   it("says nothing at all about a place that has seen no flash", () => {
@@ -174,6 +200,84 @@ describe("the stoplight a watched place shows", () => {
     // ahead of the other by a few seconds must not read as half an hour of
     // quiet in the other direction.
     expect(lightningStep(NOW + 5_000, NOW)).toBe("fresh");
+  });
+});
+
+describe("what a place is remembered as having had", () => {
+  it("keeps the last flash after it falls out of the window", () => {
+    // The feed holds five minutes. Read from that alone the age of the last
+    // flash could never pass about six minutes, so the chip could never reach
+    // its second step and the all-clear it exists to say was unreachable.
+    const seen = lightningNear(window_([flash(41.6, -93.6, NOW)]), [FIELD], ON);
+    const held = new Map(seen.map((place) => [place.placeId, place]));
+
+    // The next window, four minutes later, with the storm gone.
+    const empty = lightningNear(window_([]), [FIELD], ON);
+    expect(empty[0].newest).toBeNull();
+
+    const remembered = lightningRemembered(empty, held);
+    expect(remembered[0].newest).toBe(NOW);
+    expect(remembered[0].nearestMiles).toBeCloseTo(0, 1);
+    // The count is the window's own and is not carried: a place that has gone
+    // quiet has had no flashes, whatever it had before.
+    expect(remembered[0].flashes).toBe(0);
+  });
+
+  it("takes a real reading over the one it was holding", () => {
+    const older = lightningNear(
+      window_([flash(41.6, -93.6, NOW - 600_000)]),
+      [FIELD],
+      ON,
+    );
+    const held = new Map(older.map((place) => [place.placeId, place]));
+    const newer = lightningNear(
+      window_([flash(41.6, -93.6, NOW)]),
+      [FIELD],
+      ON,
+    );
+    expect(lightningRemembered(newer, held)[0].newest).toBe(NOW);
+  });
+
+  it("remembers nothing for a place that has never had a flash", () => {
+    const empty = lightningNear(window_([]), [FIELD], ON);
+    expect(lightningRemembered(empty, new Map())[0].newest).toBeNull();
+  });
+
+  describe("the store the app keeps it in", () => {
+    beforeEach(forgetLightning);
+    afterEach(forgetLightning);
+
+    it("carries a flash across the window that loses it", () => {
+      const seen = rememberLightning(
+        lightningNear(window_([flash(41.6, -93.6, NOW)]), [FIELD], ON),
+      );
+      expect(seen[0].newest).toBe(NOW);
+      const after = rememberLightning(lightningNear(window_([]), [FIELD], ON));
+      expect(after[0].newest).toBe(NOW);
+      expect(after[0].flashes).toBe(0);
+    });
+
+    it("gives the same answer folded twice, which is what a re-render is", () => {
+      // The fold happens while rendering, and React renders a component twice
+      // in development. A second pass over the same window must not move the
+      // answer, or a chip would read one age and then another.
+      const window = window_([flash(41.6, -93.6, NOW)]);
+      const once = rememberLightning(lightningNear(window, [FIELD], ON));
+      const twice = rememberLightning(lightningNear(window, [FIELD], ON));
+      expect(twice).toEqual(once);
+    });
+
+    it("forgets a place that is no longer watched", () => {
+      rememberLightning(
+        lightningNear(window_([flash(41.6, -93.6, NOW)]), [FIELD], ON),
+      );
+      // The place goes away, and comes back an hour later.
+      rememberLightning(
+        lightningNear(window_([]), [place("other", "Other", -80.2, 25.8)], ON),
+      );
+      const back = rememberLightning(lightningNear(window_([]), [FIELD], ON));
+      expect(back[0].newest).toBeNull();
+    });
   });
 });
 
@@ -322,6 +426,7 @@ describe("what the lightning watch says a radius is", () => {
         radiusMiles: 10,
         nearestMiles: 4,
         nearestBearing: 90,
+        checkedAt: Date.UTC(2026, 8, 4, 20),
         newest: Date.UTC(2026, 8, 4, 20),
       },
     });
@@ -342,6 +447,7 @@ describe("what the lightning watch says a radius is", () => {
           radiusMiles: 10,
           nearestMiles: 4,
           nearestBearing: 90,
+          checkedAt: Date.UTC(2026, 8, 4, 20),
           newest: Date.UTC(2026, 8, 4, 20),
         },
       }),

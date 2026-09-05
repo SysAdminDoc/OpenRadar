@@ -65,13 +65,21 @@ export const LIGHTNING_FRESH_MS = 10 * 60_000;
 export type LightningStep = "fresh" | "recent" | "clear";
 
 /**
- * Which step a place is on, given when it last saw a flash.
+ * Which step a place is on, given when it last saw a flash and when the feed
+ * was last read.
  *
- * Elapsed time is the whole rule. A probability that has come down, a window
- * that went empty because a file was missed, and a storm that looks finished
- * are all reasons a place can look quiet while a strike six miles out is ten
- * minutes old, and the testbed's forecasters were told never to message an
- * all-clear from any of them.
+ * Elapsed time decides the first two steps. A probability that has come down,
+ * a window that went empty because a file was missed, and a storm that looks
+ * finished are all reasons a place can look quiet while a strike six miles out
+ * is ten minutes old, and the testbed's forecasters were told never to message
+ * an all-clear from any of them.
+ *
+ * The last step needs one thing more: half an hour of quiet somebody actually
+ * watched. A satellite feed that stopped being polled looks exactly like a sky
+ * that stopped flashing, and the difference is the whole point of the step, so
+ * "clear" is only reached when the feed has been read at least that long after
+ * the flash. Until then a place that has gone quiet sits on "recent" with the
+ * true age beside it, which is a fact rather than an all-clear.
  *
  * Null for a place that has seen no flash at all: nothing has happened, which
  * is a different statement from something that has stopped.
@@ -79,6 +87,7 @@ export type LightningStep = "fresh" | "recent" | "clear";
 export function lightningStep(
   newest: number | null,
   at: number = Date.now(),
+  checkedAt: number | null = null,
 ): LightningStep | null {
   if (newest === null) return null;
   // A flash stamped after the clock is a clock disagreeing with a satellite
@@ -87,7 +96,9 @@ export function lightningStep(
   const since = at - newest;
   if (since < LIGHTNING_FRESH_MS) return "fresh";
   if (since < QUIET_AFTER_MS) return "recent";
-  return "clear";
+  return checkedAt !== null && checkedAt - newest >= QUIET_AFTER_MS
+    ? "clear"
+    : "recent";
 }
 
 export interface PlaceLightning {
@@ -103,6 +114,14 @@ export interface PlaceLightning {
   nearestMiles: number | null;
   /** Which way that one lay from the place, in degrees from north. */
   nearestBearing: number | null;
+  /**
+   * When the feed this came from was last read, in milliseconds.
+   *
+   * Not the same question as when the last flash was. A window nobody has
+   * polled for half an hour holds the same flashes it held half an hour ago,
+   * and without this the app would read that as half an hour of quiet sky.
+   */
+  checkedAt: number | null;
   radiusMiles: number;
 }
 
@@ -149,6 +168,10 @@ export function lightningNear(
       flashes: near.length,
       nearestMiles: nearest?.miles ?? null,
       nearestBearing: nearest?.bearing ?? null,
+      // The window's own observation time, which is when this answer was
+      // last checked against the sky rather than when it was last read out
+      // of memory.
+      checkedAt: window.observed * 1000,
       // The flash times arrive in seconds, like everything else the radar
       // publishes, and every clock this is compared against is milliseconds.
       newest: near.length
@@ -159,6 +182,72 @@ export function lightningNear(
   }
   found.sort((left, right) => right.flashes - left.flashes);
   return found;
+}
+
+/**
+ * What each place has had, remembered past the window that showed it.
+ *
+ * The feed holds five minutes of flashes. Read from it alone, the age of the
+ * last flash near a place could never pass about six minutes: the flash falls
+ * out of the window and the place goes back to having seen nothing, which is
+ * the one thing that must not be said after a strike. So the last reading is
+ * kept, and only a window with a flash in it replaces one.
+ *
+ * The count is not carried. That is the current window's answer and it is what
+ * decides whether to say anything at all, so a place that has gone quiet keeps
+ * the age of its last flash and a count of none.
+ */
+export function lightningRemembered(
+  near: readonly PlaceLightning[],
+  held: ReadonlyMap<string, PlaceLightning>,
+): PlaceLightning[] {
+  return near.map((place) => {
+    if (place.newest !== null) return place;
+    const kept = held.get(place.placeId);
+    if (!kept || kept.newest === null) return place;
+    return {
+      ...place,
+      newest: kept.newest,
+      nearestMiles: kept.nearestMiles,
+      nearestBearing: kept.nearestBearing,
+    };
+  });
+}
+
+/**
+ * The last reading each place had, held past the windows that lose it.
+ *
+ * Module state rather than a hook's, because React allows neither of the two
+ * shapes this would otherwise take: a ref cannot be written while rendering,
+ * and setting state inside an effect is a cascading render the linter refuses.
+ * It is one map for one running app, the same way the unit and the clock zone
+ * are held in `units.ts`, and it is only ever a cache: everything it holds
+ * came out of a real window, and losing it costs the age of the last flash and
+ * nothing else.
+ *
+ * Folding is idempotent, which is what makes it safe to do while rendering: a
+ * second pass over the same window merges the same reading into a store that
+ * already holds it and produces the same answer.
+ */
+const remembered = new Map<string, PlaceLightning>();
+
+/** What each place has had, with what it had before folded in. */
+export function rememberLightning(
+  near: readonly PlaceLightning[],
+): PlaceLightning[] {
+  const merged = lightningRemembered(near, remembered);
+  // Rebuilt rather than updated, so a place that has stopped being watched is
+  // dropped: switching one back on should not show it an age from an hour ago.
+  remembered.clear();
+  for (const place of merged) {
+    if (place.newest !== null) remembered.set(place.placeId, place);
+  }
+  return merged;
+}
+
+/** Forgets every place, for a test that needs an app that has seen nothing. */
+export function forgetLightning(): void {
+  remembered.clear();
 }
 
 /** What a place was last told about its own lightning. */

@@ -9,6 +9,7 @@ import {
   lightningAfter,
   lightningNear,
   lightningToAnnounce,
+  rememberLightning,
   type LightningNotice,
   type LightningRule,
   type LightningSaid,
@@ -86,9 +87,15 @@ export function useLightningWatch(options: {
     };
   }, []);
 
+  // The name is in the key because the answer carries it: a place renamed
+  // between two windows would otherwise be announced, and drawn, under the
+  // name it had before.
   const watched = places
     .filter((place) => place.enabled)
-    .map((place) => `${place.id}@${place.center.join(",")}`)
+    .map(
+      (place) =>
+        `${place.id}@${place.center.join(",")}:${place.named === false ? "" : place.name}`,
+    )
     .join("|");
 
   // Forgetting a place that is no longer watched cannot wait for the feed.
@@ -112,8 +119,12 @@ export function useLightningWatch(options: {
   // What each place has had, counted once and read by both the notice below
   // and whatever is on screen. A window that has not arrived is not an empty
   // one, so nothing is claimed about a place until a real answer comes back.
+  // The feed carries five minutes, so a reading is folded into what the app
+  // already had: read from the window alone the age of the last flash could
+  // never pass about six minutes, and the age is most of what a reader is
+  // reading.
   const near = useMemo(
-    () => lightningNear(flashes, places, rule),
+    () => rememberLightning(lightningNear(flashes, places, rule)),
     // `places` is a new array every render; `watched` is the part of it that
     // decides this, and the radius is the only part of the rule that changes
     // what is counted.
