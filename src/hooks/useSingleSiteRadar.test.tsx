@@ -78,6 +78,8 @@ function sweepFor(
     dealiased: false,
     live: false,
     liveTilts: 0,
+    nextChunkAt: null,
+    volumeEndsAt: null,
     stormMotion: null,
     product: product === "velocity" ? "Velocity" : "Reflectivity",
     unit: product === "velocity" ? "m/s" : "dBZ",

@@ -30,6 +30,8 @@ const sweep: SweepImage = {
   dealiased: false,
   live: false,
   liveTilts: 0,
+  nextChunkAt: null,
+  volumeEndsAt: null,
   stormMotion: null,
   product: "Reflectivity",
   unit: "dBZ",

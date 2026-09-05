@@ -220,6 +220,14 @@ pub struct SweepImage {
     /// How many tilts the radar has published of this volume so far. Only
     /// meaningful on a live sweep, where the answer grows as it is watched.
     pub live_tilts: usize,
+    /// When the next piece of the volume in progress is due, and when the
+    /// volume is projected to finish, from the radar's own coverage pattern.
+    ///
+    /// Absent on anything but a live sweep, and on a live one until a start
+    /// chunk has been read: the pattern is what says how long each remaining
+    /// cut takes, and there is nothing honest to say without it.
+    pub next_chunk_at: Option<String>,
+    pub volume_ends_at: Option<String>,
     /// When the volume was collected, not when it was fetched.
     pub collected: String,
     /// When the older cut under a live composite was collected.
@@ -1900,6 +1908,19 @@ fn prepare_sweep(
     })
 }
 
+/// How far the volume being swept right now has got, for the legend.
+///
+/// The three travel together and mean nothing apart: a count of cuts with no
+/// projection beside it is what the legend had before, and a projection with
+/// no live sweep under it is an answer about a volume nobody is watching.
+pub struct LiveProgress {
+    /// How many cuts the volume in progress has published.
+    pub tilts: usize,
+    /// When the next piece is due, and when the volume is projected to end.
+    pub next_chunk_at: Option<String>,
+    pub ends_at: Option<String>,
+}
+
 /// Paints a prepared sweep, optionally over the one before it.
 #[allow(clippy::too_many_arguments)]
 fn draw_sweep(
@@ -1915,8 +1936,8 @@ fn draw_sweep(
     asked: SweepRequest<'_>,
     // The volume's own start time, used when the cut does not carry one.
     volume_time: Option<DateTime<Utc>>,
-    // How many cuts the volume in progress has published, when this is live.
-    live_tilts: Option<usize>,
+    // What the volume in progress has published so far, when this is live.
+    live: Option<LiveProgress>,
 ) -> Result<SweepImage, Level2Error> {
     let Prepared {
         chosen,
@@ -2024,8 +2045,10 @@ fn draw_sweep(
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts_offered,
         tilt_index,
-        live: live_tilts.is_some(),
-        live_tilts: live_tilts.unwrap_or(0),
+        live: live.is_some(),
+        live_tilts: live.as_ref().map_or(0, |one| one.tilts),
+        next_chunk_at: live.as_ref().and_then(|one| one.next_chunk_at.clone()),
+        volume_ends_at: live.as_ref().and_then(|one| one.ends_at.clone()),
         collected: collected.to_rfc3339(),
         beneath_collected: beneath_collected.map(|at| at.to_rfc3339()),
         west,
@@ -2708,6 +2731,10 @@ pub async fn level2_sweep(
                     &|elevation| folding.get(&elevation).copied(),
                     &found.scan,
                     &|elevation| found.nyquist.get(&elevation).copied(),
+                    (
+                        found.volume.next_chunk_at.clone(),
+                        found.volume.ends_at.clone(),
+                    ),
                     asked,
                 )
             }
@@ -3224,6 +3251,7 @@ pub async fn level2_cross_section(
 /// picture; everywhere else the finished volume is still the best there is.
 /// If the cut being asked for has not been reached yet, there is nothing live
 /// to show for it and the finished volume is the whole answer.
+#[allow(clippy::too_many_arguments)]
 fn sweep_over(
     station: &str,
     volume_key: &str,
@@ -3231,6 +3259,9 @@ fn sweep_over(
     older_nyquist: &dyn Fn(u8) -> Option<f32>,
     live: &Scan,
     live_nyquist: &dyn Fn(u8) -> Option<f32>,
+    // When the next piece is due and when the volume ends, from the chunk
+    // reader's projection. Absent until a start chunk has been read.
+    projected: (Option<String>, Option<String>),
     asked: SweepRequest<'_>,
 ) -> Result<SweepImage, Level2Error> {
     let offered = tilts(older);
@@ -3275,7 +3306,11 @@ fn sweep_over(
         beneath.ok(),
         asked,
         live.time_range().map(|(start, _)| start),
-        Some(tilts(live).len()),
+        Some(LiveProgress {
+            tilts: tilts(live).len(),
+            next_chunk_at: projected.0,
+            ends_at: projected.1,
+        }),
     )
 }
 
@@ -6272,6 +6307,7 @@ mod tests {
                 &none,
                 &live,
                 &none,
+                (None, None),
                 SweepRequest {
                     tilt_index: tilt,
                     ..asked
@@ -6293,8 +6329,17 @@ mod tests {
                 ..fixture::Cut::default()
             },
         )]);
-        let sweep = sweep_over("KTLX", "live", &older, &none, &far, &none, asked)
-            .expect("the finished volume answers");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &far,
+            &none,
+            (None, None),
+            asked,
+        )
+        .expect("the finished volume answers");
         assert!(
             !sweep.live,
             "the live volume has nothing at 3.08 and must not offer its 4.30 cut"
@@ -6322,10 +6367,28 @@ mod tests {
             product_name: "reflectivity",
             ..SweepRequest::default()
         };
-        let first =
-            sweep_over("KTLX", "live", &older, &none, &live, &none, plain).expect("a composite");
-        let again =
-            sweep_over("KTLX", "live", &older, &none, &live, &none, plain).expect("a composite");
+        let first = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            plain,
+        )
+        .expect("a composite");
+        let again = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            plain,
+        )
+        .expect("a composite");
         assert_eq!(
             drawn_pixels(&first),
             drawn_pixels(&again),
@@ -6363,10 +6426,30 @@ mod tests {
             ..plain
         };
         let before = drawn_pixels(
-            &sweep_over("KTLX", "live", &older, &none, &live, &none, plain).expect("a composite"),
+            &sweep_over(
+                "KTLX",
+                "live",
+                &older,
+                &none,
+                &live,
+                &none,
+                (None, None),
+                plain,
+            )
+            .expect("a composite"),
         );
         let after = drawn_pixels(
-            &sweep_over("KTLX", "live", &older, &none, &live, &none, faded).expect("a composite"),
+            &sweep_over(
+                "KTLX",
+                "live",
+                &older,
+                &none,
+                &live,
+                &none,
+                (None, None),
+                faded,
+            )
+            .expect("a composite"),
         );
         assert_eq!(before.len(), after.len());
 
@@ -6412,10 +6495,30 @@ mod tests {
             ..still
         };
         let quiet = drawn_pixels(
-            &sweep_over("KTLX", "live", &older, &none, &live, &none, still).expect("a composite"),
+            &sweep_over(
+                "KTLX",
+                "live",
+                &older,
+                &none,
+                &live,
+                &none,
+                (None, None),
+                still,
+            )
+            .expect("a composite"),
         );
         let lit = drawn_pixels(
-            &sweep_over("KTLX", "live", &older, &none, &live, &none, moving).expect("a composite"),
+            &sweep_over(
+                "KTLX",
+                "live",
+                &older,
+                &none,
+                &live,
+                &none,
+                (None, None),
+                moving,
+            )
+            .expect("a composite"),
         );
         assert_ne!(quiet, lit, "the beam edge was drawn either way");
         // Reduced motion keeps the composite: it is the edge that goes, not
@@ -6442,8 +6545,17 @@ mod tests {
             product_name: "reflectivity",
             ..SweepRequest::default()
         };
-        let sweep =
-            sweep_over("KTLX", "live", &older, &none, &live, &none, asked).expect("a composite");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            asked,
+        )
+        .expect("a composite");
         // A composite whose age is reported from its newer half is a picture
         // claiming to be fresher than it is.
         let beneath = sweep
@@ -6567,8 +6679,17 @@ mod tests {
             ..SweepRequest::default()
         };
         let none = |_: u8| None;
-        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
-            .expect("a sweep drawn over the one before it");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            asked,
+        )
+        .expect("a sweep drawn over the one before it");
         assert!(sweep.live, "a sweep with live radials in it has to say so");
 
         let both = drawn_pixels(&sweep);
@@ -6653,8 +6774,17 @@ mod tests {
             ..SweepRequest::default()
         };
         let none = |_: u8| None;
-        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
-            .expect("a sweep drawn over the one before it");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            asked,
+        )
+        .expect("a sweep drawn over the one before it");
         let pixels = drawn_pixels(&sweep);
 
         // Nothing below the lowest ramp stop is drawn at all, so the swept
@@ -6695,8 +6825,17 @@ mod tests {
             ..SweepRequest::default()
         };
         let none = |_: u8| None;
-        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
-            .expect("the finished volume's second cut");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            asked,
+        )
+        .expect("the finished volume's second cut");
         assert!(
             !sweep.live,
             "nothing on screen came from the volume in progress, so it must not claim to be live"
@@ -6742,8 +6881,17 @@ mod tests {
             ..SweepRequest::default()
         };
         let none = |_: u8| None;
-        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, asked)
-            .expect("the cut both volumes hold");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            asked,
+        )
+        .expect("the cut both volumes hold");
         assert!(sweep.live);
         assert!(
             (sweep.elevation_degrees - 1.5).abs() < 0.05,
@@ -6756,8 +6904,17 @@ mod tests {
             tilt_index: 0,
             ..asked
         };
-        let sweep = sweep_over("KTLX", "live", &older, &none, &live, &none, lowest)
-            .expect("the finished volume's lowest cut");
+        let sweep = sweep_over(
+            "KTLX",
+            "live",
+            &older,
+            &none,
+            &live,
+            &none,
+            (None, None),
+            lowest,
+        )
+        .expect("the finished volume's lowest cut");
         assert!(!sweep.live);
         assert!((sweep.elevation_degrees - 0.5).abs() < 0.05);
     }

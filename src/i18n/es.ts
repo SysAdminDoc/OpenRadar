@@ -1559,6 +1559,8 @@ export const es: Catalogue = {
     "ELEVACIÓN {degrees}° · VOLUMEN {index} DE {count}, {time}",
   "chrome.levelTwoLate": "SIN NOTICIAS DESDE HACE {age}",
   "chrome.tiltDealiased": "ELEVACIÓN {degrees}° · DESPLEGADA",
+  "chrome.nextPiece": "SIGUIENTE PARTE EN {seconds} S",
+  "chrome.volumeEnds": "TERMINA {time}",
   "chrome.tiltLive": "ELEVACIÓN {degrees}° · EN VIVO, HACE {seconds} S",
   "chrome.tiltLiveDealiased":
     "ELEVACIÓN {degrees}° · DESPLEGADA · EN VIVO, HACE {seconds} S",

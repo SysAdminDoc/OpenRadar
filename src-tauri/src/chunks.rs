@@ -20,7 +20,10 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
-use nexrad_data::aws::realtime::Chunk;
+use nexrad_data::aws::realtime::{
+    project_scan_timing, Chunk, ChunkIdentifier, ChunkType, ElevationChunkMapper, VolumeIndex,
+};
+use nexrad_decode::messages::MessageContents;
 use nexrad_model::data::Scan;
 
 use crate::http;
@@ -32,11 +35,134 @@ const BUCKET: &str = "https://unidata-nexrad-level2-chunks.s3.amazonaws.com";
 const VOLUMES: u32 = 999;
 
 /// How old the newest chunk may be before the volume is a finished one rather
-/// than one in progress.
+/// than one in progress, when nothing better is known.
 ///
 /// A chunk arrives every eleven or twelve seconds while a volume is being
-/// swept, so a gap of a minute means the radar has moved on.
+/// swept, so a gap of a minute means the radar has moved on. This is the
+/// fallback: once a volume has been read once, its own coverage pattern says
+/// when each remaining piece is due and `LiveTiming` decides instead.
 const LIVE_SECONDS: i64 = 60;
+
+/// When a chunk that has not arrived counts as a stall, and when the volume
+/// on screen is projected to finish.
+///
+/// The radar publishes a piece every eleven or twelve seconds on average, but
+/// the average is not what a reader is watching: a piece of a slow sweep at
+/// the bottom of the pattern takes far longer than one at the top, and the
+/// gap between volumes is longer than either. The coverage pattern says which
+/// is which, so the wait is projected from the pattern rather than guessed at
+/// with one number for all of them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LiveTiming {
+    /// When the next piece is due.
+    pub next_chunk: DateTime<Utc>,
+    /// When the last piece of this volume is due.
+    pub ends: DateTime<Utc>,
+    /// Past this, the radar has stopped adding to the volume.
+    ///
+    /// One whole projected interval past the moment the piece was due. A
+    /// stream that is a little behind is a stream, and a stream that has
+    /// missed a whole piece has stopped.
+    pub stalled_after: DateTime<Utc>,
+}
+
+/// Whether the radar has stopped adding to the volume on screen.
+///
+/// With a projection in hand the answer comes from the coverage pattern: a
+/// piece is late when it is a whole projected interval past due, and the
+/// interval is the pattern's own rather than one number for every cut. With
+/// no projection, which is a volume nobody has read a start chunk for yet, it
+/// falls back to the fixed minute this used before there was anything better.
+pub fn stalled(timing: Option<LiveTiming>, newest: DateTime<Utc>, now: DateTime<Utc>) -> bool {
+    match timing {
+        Some(timing) => now > timing.stalled_after,
+        None => (now - newest).num_seconds() > LIVE_SECONDS,
+    }
+}
+
+/// What the coverage pattern says about the rest of the volume.
+///
+/// `None` whenever the projection cannot be made: no start chunk in hand, a
+/// key that does not parse, a start chunk with no coverage pattern in it, or
+/// an anchor already at the end of the pattern. Every one of those is a
+/// reason to fall back to the fixed wait rather than to stop drawing.
+///
+/// The pattern borrows the record it was decoded from, so the projection is
+/// made here, while the records are alive, and only the moments it produces
+/// are kept.
+pub fn project(
+    station: &str,
+    volume: u32,
+    newest_key: &str,
+    uploaded: DateTime<Utc>,
+    records: &[nexrad_data::volume::Record<'_>],
+) -> Option<LiveTiming> {
+    let anchor = chunk_identifier(station, volume, newest_key, uploaded)?;
+    for record in records {
+        let decompressed;
+        let record = if record.compressed() {
+            match record.decompress() {
+                Ok(plain) => {
+                    decompressed = plain;
+                    &decompressed
+                }
+                Err(_) => continue,
+            }
+        } else {
+            record
+        };
+        let Ok(messages) = record.messages() else {
+            continue;
+        };
+        for message in messages {
+            let MessageContents::VolumeCoveragePattern(vcp) = message.contents() else {
+                continue;
+            };
+            let mapper = ElevationChunkMapper::new(vcp);
+            let projection = project_scan_timing(&anchor, vcp, &mapper, None)?;
+            let next = projection.chunks().first()?;
+            let due = next.projected_time();
+            return Some(LiveTiming {
+                next_chunk: due,
+                ends: projection.volume_end_time(),
+                stalled_after: due + next.interval_from_previous(),
+            });
+        }
+    }
+    None
+}
+
+/// A bucket key read back as the chunk it names.
+///
+/// `KTLX/114/20260830-161604-017-I`: the folder is the volume, and the last
+/// segment carries the moment the volume started, the piece's sequence and
+/// which of the three kinds it is.
+fn chunk_identifier(
+    station: &str,
+    volume: u32,
+    key: &str,
+    uploaded: DateTime<Utc>,
+) -> Option<ChunkIdentifier> {
+    let name = key.rsplit('/').next()?;
+    let mut parts = name.split('-');
+    let day = parts.next()?;
+    let time = parts.next()?;
+    let sequence = parts.next()?.parse::<usize>().ok()?;
+    let kind = ChunkType::from_abbreviation(parts.next()?.chars().next()?).ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    let started =
+        chrono::NaiveDateTime::parse_from_str(&format!("{day}{time}"), "%Y%m%d%H%M%S").ok()?;
+    Some(ChunkIdentifier::new(
+        station.to_string(),
+        VolumeIndex::new(volume as usize),
+        started,
+        sequence,
+        kind,
+        Some(uploaded),
+    ))
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChunkError {
@@ -224,6 +350,9 @@ struct Remembered {
     station: String,
     volume: u32,
     pieces: BTreeMap<String, Vec<u8>>,
+    /// What the last read projected, so the next one can decide whether the
+    /// radar has stopped without fetching the volume again to find out.
+    timing: Option<LiveTiming>,
 }
 
 static HELD: Mutex<Option<Remembered>> = Mutex::new(None);
@@ -254,6 +383,15 @@ fn carried_over(
     }
 }
 
+/// What the last read of this same volume projected, when it was this one.
+fn held_timing(station: &str, volume: u32) -> Option<LiveTiming> {
+    let held = HELD.lock().ok()?;
+    let held = held.as_ref()?;
+    (held.station == station && held.volume == volume)
+        .then_some(held.timing)
+        .flatten()
+}
+
 /// The keys that still have to be fetched, in the order they were published.
 fn still_wanted(pieces: &BTreeMap<String, Vec<u8>>, keys: &[ChunkKey]) -> Vec<String> {
     keys.iter()
@@ -280,6 +418,10 @@ pub struct LiveVolume {
     pub uploaded: String,
     /// How many chunks went into it.
     pub chunks: usize,
+    /// When the next piece is due and when the volume is projected to finish,
+    /// from the coverage pattern. Absent until a start chunk has been read.
+    pub next_chunk_at: Option<String>,
+    pub ends_at: Option<String>,
 }
 
 use serde::Serialize;
@@ -299,10 +441,15 @@ pub async fn live_scan(station: &str) -> Result<LiveScan, ChunkError> {
     let Some(newest) = keys.iter().map(|chunk| chunk.uploaded).max() else {
         return Err(ChunkError::NotLive(station.to_string()));
     };
-    // A volume nobody has added to for a minute is one the radar has finished,
-    // and the archive path already draws those with the whole scan rather than
-    // whatever part of it arrived first.
-    if (Utc::now() - newest).num_seconds() > LIVE_SECONDS {
+    // A volume the radar has stopped adding to is a finished one, and the
+    // archive path already draws those with the whole scan rather than
+    // whatever part of it arrived first. What counts as stopped comes from
+    // the last read's own projection when there is one: a piece of a slow
+    // sweep at the bottom of the pattern takes far longer than one at the
+    // top, and a single minute for all of them called a live volume finished
+    // while it was still being swept.
+    let projected = held_timing(station, volume);
+    if stalled(projected, newest, Utc::now()) {
         return Err(ChunkError::NotLive(station.to_string()));
     }
 
@@ -351,11 +498,23 @@ async fn assemble(
     }
 
     let mut nyquist: BTreeMap<u8, f32> = BTreeMap::new();
+    let mut timing: Option<LiveTiming> = None;
     let mut readable = Vec::with_capacity(pieces.len());
+    let newest_key = pieces.keys().next_back().cloned().unwrap_or_default();
     for (key, bytes) in &pieces {
         match Chunk::new(bytes.clone()) {
             Ok(piece) => {
                 collect_nyquist(&piece, &mut nyquist);
+                // The coverage pattern is in the start chunk and borrows the
+                // record it was decoded from, so the projection is made here
+                // rather than kept.
+                if timing.is_none() {
+                    if let Chunk::Start(file) = &piece {
+                        if let Ok(records) = file.records() {
+                            timing = project(station, volume, &newest_key, newest, &records);
+                        }
+                    }
+                }
                 readable.push(piece);
             }
             Err(reason) => {
@@ -370,6 +529,7 @@ async fn assemble(
             station: station.to_string(),
             volume,
             pieces,
+            timing,
         });
     }
 
@@ -382,6 +542,8 @@ async fn assemble(
             volume,
             uploaded: newest.to_rfc3339(),
             chunks: held_count,
+            next_chunk_at: timing.map(|one| one.next_chunk.to_rfc3339()),
+            ends_at: timing.map(|one| one.ends.to_rfc3339()),
         },
         nyquist,
     })
@@ -412,6 +574,87 @@ mod tests {
 
     use super::*;
     use crate::fixture;
+
+    /// A moment, spelled the way the tests below want to read it.
+    fn at(hour: u32, minute: u32, second: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 8, 30, hour, minute, second)
+            .single()
+            .expect("a real moment")
+    }
+
+    #[test]
+    fn a_bucket_key_reads_back_as_the_chunk_it_names() {
+        // The projection is anchored on the newest piece, and the anchor is
+        // built from the key: the folder is the volume, and the last segment
+        // carries when the volume started, which piece this is, and which of
+        // the three kinds it is.
+        let found = chunk_identifier(
+            "KTLX",
+            114,
+            "KTLX/114/20260830-161604-017-I",
+            at(16, 16, 20),
+        )
+        .expect("a real key");
+        assert_eq!(found.sequence(), 17);
+        assert_eq!(found.chunk_type(), ChunkType::Intermediate);
+        assert_eq!(found.upload_date_time(), Some(at(16, 16, 20)));
+        // The name is rebuilt from the parts, so a round trip proves every
+        // one of them was read rather than only the ones asserted above.
+        assert_eq!(found.name(), "20260830-161604-017-I");
+
+        assert_eq!(
+            chunk_identifier("KTLX", 114, "KTLX/114/20260830-161604-001-S", at(16, 16, 8))
+                .map(|one| one.chunk_type()),
+            Some(ChunkType::Start)
+        );
+
+        // And nothing that is not one.
+        for key in [
+            "KTLX/114/",
+            "KTLX/114/20260830-161604-017",
+            "KTLX/114/20260830-161604-0x7-I",
+            "KTLX/114/20260830-161604-017-Q",
+            "KTLX/114/20260830-161604-017-I-extra",
+            "KTLX/114/notadate-161604-017-I",
+        ] {
+            assert!(
+                chunk_identifier("KTLX", 114, key, at(16, 16, 20)).is_none(),
+                "{key} is not a chunk"
+            );
+        }
+    }
+
+    #[test]
+    fn a_stall_is_a_piece_a_whole_interval_late() {
+        // The radar publishes a piece every eleven or twelve seconds on
+        // average, and the average is not what a reader is watching: a piece
+        // of a slow sweep at the bottom of the pattern takes far longer than
+        // one at the top. One minute for all of them called a live volume
+        // finished while it was still being swept.
+        let timing = LiveTiming {
+            next_chunk: at(16, 17, 0),
+            ends: at(16, 20, 0),
+            // A twenty second interval, so the piece is late at 16:17:20.
+            stalled_after: at(16, 17, 20),
+        };
+        let newest = at(16, 16, 40);
+
+        // Due, and a little past due, is a stream that is running.
+        assert!(!stalled(Some(timing), newest, at(16, 17, 0)));
+        assert!(!stalled(Some(timing), newest, at(16, 17, 20)));
+        // A whole interval past due is a stream that has stopped.
+        assert!(stalled(Some(timing), newest, at(16, 17, 21)));
+
+        // With no projection it is the fixed minute it always was, which is
+        // what a volume nobody has read a start chunk for still gets.
+        assert!(!stalled(None, newest, at(16, 17, 40)));
+        assert!(stalled(None, newest, at(16, 17, 41)));
+
+        // And the two disagree, which is the point: at 16:17:30 the pattern
+        // says the radar has stopped and the fixed minute says it has not.
+        assert!(stalled(Some(timing), newest, at(16, 17, 30)));
+        assert!(!stalled(None, newest, at(16, 17, 30)));
+    }
 
     #[test]
     fn a_listing_gives_its_chunks_in_order_with_their_upload_times() {
@@ -673,6 +916,7 @@ mod tests {
                     .enumerate()
                     .map(|(at, bytes)| (format!("KTLX/210/piece-{at}"), bytes.clone()))
                     .collect(),
+                timing: None,
             });
         }
 
@@ -694,6 +938,7 @@ mod tests {
                 .iter()
                 .map(|key| ((*key).to_string(), vec![0u8; 4]))
                 .collect(),
+            timing: None,
         }
     }
 

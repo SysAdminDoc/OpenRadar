@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A live picture now says when the next piece of it is due and when the volume will finish. Watching a sector fill in, the legend told you how old the newest piece was and nothing about the rest. The radar publishes its coverage pattern with the volume, and that says how long each remaining cut takes, which is not one number for all of them: a slow sweep at the bottom of the pattern takes far longer than one at the top. The same projection decides when the radar has stopped: a piece is late when it is a whole projected interval past due, rather than after a fixed minute that called a live volume finished while it was still being swept.
+
 - A bug report now says what the sources have been doing, not just what they are doing this second. Diagnostics could tell you a service had failed three times in a row and nothing about an outage that ended an hour ago, which is usually the one you are writing about. It keeps the last fifty times a source changed its mind about whether it was working, with the time and what it said, and those go into the copied report. It survives a restart, it is capped, and there is a button to end it.
 
 - A radar you are holding that stops sending now says so, and offers the nearest one that is still working. KLWX went down inside a tornado warning last month. The app already passed over a downed radar when it picked one for you, but a site you chose by hand kept being drawn with nothing but the age of the last sweep to say anything was wrong, which looks a lot like a quiet afternoon. The last volume stays on screen, because it is still the last thing anybody knows; what changes is that the app says the transmitter has stopped and gives you one click to the next radar that can see the same weather.
