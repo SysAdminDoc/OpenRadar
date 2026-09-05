@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  drawFrame,
   exportFileName,
   exportLoop,
   exportLoopGif,
@@ -45,6 +46,102 @@ function fakeCanvas(width: number, height: number) {
   } as unknown as HTMLCanvasElement;
   return { canvas, drawn };
 }
+
+describe("the keys burned into an exported picture", () => {
+  /** The canvas above, with the colours each fill was made in recorded. */
+  function recording(width: number, height: number) {
+    const { canvas, drawn } = fakeCanvas(width, height);
+    const context = canvas.getContext("2d") as unknown as {
+      fillRect: ReturnType<typeof vi.fn>;
+      fillStyle: string;
+    };
+    const swatches: Array<{ color: string; x: number }> = [];
+    context.fillRect = vi.fn((x: number) => {
+      swatches.push({ color: context.fillStyle, x });
+    });
+    return { canvas, drawn, swatches };
+  }
+
+  const caption = {
+    lines: ["2026-09-05 21:00Z"],
+    attribution: "NOAA",
+  };
+
+  it("draws nothing extra when the reader did not ask for the keys", () => {
+    const { canvas, drawn } = recording(1280, 720);
+    drawFrame(canvas, canvas, caption);
+    expect(drawn).toEqual(["2026-09-05 21:00Z", "NOAA"]);
+  });
+
+  it("names every band and paints it in the colour it is drawn in", () => {
+    const { canvas, drawn, swatches } = recording(1280, 720);
+    drawFrame(canvas, canvas, {
+      ...caption,
+      keys: [
+        {
+          id: "spcOutlooks",
+          title: "Day 1 convective outlook",
+          bands: [
+            { label: "Marginal Risk", color: "#66a366" },
+            { label: "Slight Risk", color: "#ffe066" },
+          ],
+          note: null,
+        },
+      ],
+    });
+    expect(drawn).toContain("Day 1 convective outlook");
+    expect(drawn).toContain("Marginal Risk");
+    expect(drawn).toContain("Slight Risk");
+    // The swatch beside a name is that band's own colour. A key drawn in one
+    // colour would name the categories and describe none of them.
+    const colors = swatches.map((swatch) => swatch.color);
+    expect(colors).toContain("#66a366");
+    expect(colors).toContain("#ffe066");
+  });
+
+  it("puts the keys opposite the caption rather than on top of it", () => {
+    // The caption is in the bottom left and the picture is the point: two
+    // blocks in the same corner means one of them is over the weather.
+    const { canvas, swatches } = recording(1280, 720);
+    drawFrame(canvas, canvas, {
+      ...caption,
+      keys: [
+        {
+          id: "spcOutlooks",
+          title: "Day 1 convective outlook",
+          bands: [{ label: "Slight Risk", color: "#ffe066" }],
+          note: null,
+        },
+      ],
+    });
+    const band = swatches.find((swatch) => swatch.color === "#ffe066");
+    expect(band).toBeTruthy();
+    expect(band!.x).toBeGreaterThan(1280 / 2);
+  });
+
+  it("keeps one block per layer when several are on", () => {
+    const { canvas, drawn } = recording(1280, 720);
+    drawFrame(canvas, canvas, {
+      ...caption,
+      keys: [
+        {
+          id: "spcOutlooks",
+          title: "Day 1 convective outlook",
+          bands: [{ label: "Slight Risk", color: "#ffe066" }],
+          note: null,
+        },
+        {
+          id: "wpcExcessiveRain",
+          title: "Excessive rainfall outlook",
+          bands: [{ label: "Moderate", color: "#e06666" }],
+          note: null,
+        },
+      ],
+    });
+    expect(drawn).toContain("Day 1 convective outlook");
+    expect(drawn).toContain("Excessive rainfall outlook");
+  });
+});
 
 describe("export file names", () => {
   it("stamps the moment so two exports never collide", () => {

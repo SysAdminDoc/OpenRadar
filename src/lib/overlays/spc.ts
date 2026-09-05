@@ -3,11 +3,13 @@ import { serviceAnswer } from "../serviceAnswer";
 import { cachedUrl } from "../tileCache";
 import {
   arcgisQuery,
+  bandsIn,
   type SpcHazard,
   relativeTime,
   type OverlayAdapter,
   type OverlayData,
   type OverlayFeature,
+  type OverlayLegend,
 } from "./registry";
 
 const SERVICE = "https://mapservices.weather.noaa.gov/vector/rest/services";
@@ -520,7 +522,40 @@ export const spcOutlooksOverlay: OverlayAdapter = {
       url: outlookPage(Number(properties.day) || 1),
     };
   },
+  legend: (data, choices) => outlookLegend(data, choices.spcDay),
 };
+
+/**
+ * The key for an outlook: the categories actually on screen, weakest first.
+ *
+ * Weakest first because that is the order the Center publishes them in and
+ * the order a reader scans a risk scale. The times come off the features
+ * rather than from the clock, so a replayed day's key says what stood over
+ * that day.
+ */
+function outlookLegend(data: OverlayData, day: number): OverlayLegend | null {
+  const bands = bandsIn(data, (properties) => ({
+    label: String(properties.risk || properties.label || ""),
+    color: String(properties.fill ?? ""),
+    rank: Number(properties.rank) || 0,
+  }));
+  if (bands.length === 0) return null;
+  const first = data.features[0]?.properties ?? {};
+  const valid = Number(first.valid);
+  const expire = Number(first.expire);
+  return {
+    id: "spcOutlooks",
+    title: translate("spc.outlookDay", { day: String(day) }),
+    bands,
+    note:
+      Number.isFinite(valid) && Number.isFinite(expire)
+        ? translate("spc.validBetween", {
+            from: stamp(valid),
+            to: stamp(expire),
+          })
+        : null,
+  };
+}
 
 export const spcDiscussionsOverlay: OverlayAdapter = {
   id: "spcDiscussions",

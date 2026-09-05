@@ -11,7 +11,7 @@ import { paletteLegend } from "../lib/legend";
 import { mosaicLegend } from "../lib/mosaicLegend";
 import { assignedPalette } from "../lib/palette";
 import type { MrmsLayer } from "../hooks/useMrmsOverlays";
-import type { OverlayData } from "../lib/overlays";
+import type { OverlayData, OverlayLegend } from "../lib/overlays";
 import { analysisDate, type SmokeDensity } from "../lib/overlays/smoke";
 import {
   CLASSIFICATION_PRODUCT_KEYS,
@@ -103,6 +103,14 @@ interface WorkspaceChromeProps {
   onHoldSite: (station: string) => void;
   /** MRMS products drawn over the radar, each with its own scale. */
   mrmsLayers: MrmsLayer[];
+  /**
+   * The keys for the overlay layers that draw bands.
+   *
+   * An outlook is a set of coloured areas and nothing on the map said what
+   * any of them meant: the popup did, and only for the one under the pointer.
+   * A reader with three of them on had three sets of colours and no key.
+   */
+  overlayKeys: OverlayLegend[];
   /** The GOES flash window on the map, when that layer is on. */
   lightning: FlashWindow | null;
   /** The day's smoke analysis, when that layer is on, for its own scale. */
@@ -167,6 +175,7 @@ export function WorkspaceChrome({
   sitesInReach,
   onHoldSite,
   mrmsLayers,
+  overlayKeys,
   lightning,
   smoke,
   classification,
@@ -442,6 +451,7 @@ export function WorkspaceChrome({
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length ||
+      overlayKeys.length ||
       lightning ||
       wind ||
       windReduced ||
@@ -590,6 +600,23 @@ export function WorkspaceChrome({
               <small>{t("chrome.classificationNote")}</small>
             </div>
           ) : null}
+          {overlayKeys.map((key) => (
+            <div key={key.id} className="product-legend">
+              <strong>{key.title}</strong>
+              {/* Named rather than shaded: these are steps on a scale of
+                  risk, not readings of anything, and a gradient between two
+                  of them would be a category the forecast does not have. */}
+              <ol role="list" className="is-categorical">
+                {key.bands.map((band) => (
+                  <li key={`${band.label}|${band.color}`}>
+                    <i style={{ background: band.color }} aria-hidden="true" />
+                    {band.label}
+                  </li>
+                ))}
+              </ol>
+              {key.note ? <small>{key.note}</small> : null}
+            </div>
+          ))}
           {mrmsLayers.map((layer) => (
             <div key={layer.product} className="product-legend">
               <strong>

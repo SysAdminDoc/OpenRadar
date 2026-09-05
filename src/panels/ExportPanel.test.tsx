@@ -23,6 +23,9 @@ function panel(
     mp4Ready?: boolean | null;
     dataExports?: DataExportOffer[];
     onExportImage?: () => void;
+    keyCount?: number;
+    keysInExport?: boolean;
+    onKeysInExport?: (on: boolean) => void;
   } = {},
 ) {
   return (
@@ -38,6 +41,9 @@ function panel(
       mp4Ready={overrides.mp4Ready ?? true}
       onExportGif={vi.fn()}
       dataExports={overrides.dataExports ?? []}
+      keyCount={overrides.keyCount ?? 0}
+      keysInExport={overrides.keysInExport ?? false}
+      onKeysInExport={overrides.onKeysInExport ?? vi.fn()}
       onClose={vi.fn()}
     />
   );
@@ -51,6 +57,44 @@ function panel(
  * reader presses it, nothing happens, and there is no way to tell whether
  * the export failed or was never going to run.
  */
+describe("putting the layer keys in the picture", () => {
+  it("offers nothing when no layer on the map has bands", () => {
+    // A switch about layers nobody has on says nothing about this export.
+    render(panel({ keyCount: 0 }));
+    expect(
+      screen.queryByRole("checkbox", { name: like(en["export.keys"]) }),
+    ).toBeNull();
+  });
+
+  it("is off until the reader turns it on", () => {
+    const onKeysInExport = vi.fn();
+    render(panel({ keyCount: 2, onKeysInExport }));
+    const box = screen.getByRole("checkbox", { name: like(en["export.keys"]) });
+    expect((box as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(box);
+    expect(onKeysInExport).toHaveBeenCalledWith(true);
+  });
+
+  it("says how many keys would go in", () => {
+    // The whole line rather than a digit: the panel is full of numbers and a
+    // bare /2/ matches the frame count beside it.
+    render(panel({ keyCount: 2 }));
+    expect(
+      screen.getByText(
+        "The scales for the 2 banded layers on screen go down the right-hand side of anything you save.",
+      ),
+    ).toBeTruthy();
+
+    cleanup();
+    render(panel({ keyCount: 1 }));
+    expect(
+      screen.getByText(
+        "The scale for the one banded layer on screen goes down the right-hand side of anything you save.",
+      ),
+    ).toBeTruthy();
+  });
+});
+
 describe("what the export panel offers", () => {
   it("offers nothing to make a loop from one frame", () => {
     // A loop of one frame is a picture, and the still export above it is

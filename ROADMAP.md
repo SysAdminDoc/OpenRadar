@@ -154,13 +154,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P3
 
-- [ ] AUD-234 (P3): A legend for the overlay layers
-  Why: `AUD-176` asked for the excessive rainfall outlook to carry its issue and valid time "in the popup and legend". The popup does. There is no legend to put it in: the two legend surfaces in the app are the radar ramp (`MapChrome.tsx`) and the satellite chip (`MapStage.tsx`), and neither knows an overlay exists. Every overlay with bands the reader has to interpret has the same gap, the SPC outlook and the storm surge ramp included, and a reader with three of them on has three sets of colours and nothing naming any of them.
-  Evidence: `grep -rn "legend" src/components` finds `radar-legend` and `satellite-chip__legend` only; `src/lib/legend.ts` is the radar ramp; the WPC popup lines are `wpc.validWindow` and `wpc.issued` in `src/lib/overlays/wpc.ts`.
-  Touches: a legend surface fed from the overlay adapters (each already knows its own bands and colours), `src/lib/overlays/registry.ts` for what an adapter says about its own key, `src/components/MapChrome.tsx` or a surface of its own, `src/i18n/*`, the layer-stack and clipping tests.
-  Acceptance: With an overlay on that has bands, the map carries a key naming them in the reader’s language and in the service’s own colours, with the issue and valid time for the ones that are forecasts; it is off the export unless the reader asked for it; the pseudolocale clipping test covers it.
-  Complexity: M
-
 - [ ] AUD-222 (P3): Save the volume on screen as the file it came from
   Why: A reader who found the sweep that matters can export a picture, a CSV or a GeoTIFF but not the Archive II object itself, so the case study cannot be reopened in the app or handed to another tool; Supercell Wx has a pull request for the same ask.
   Evidence: `src-tauri/src/exports.rs:24` (`png`, `webm`, `gif`, `json`, `jsonl`, `md` only); the app opens local Archive II files already (`src-tauri/src/level2/decode.rs` local mode); https://github.com/dpaulat/supercell-wx/pull/688.

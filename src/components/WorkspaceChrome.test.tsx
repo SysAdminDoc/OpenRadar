@@ -11,6 +11,7 @@ import { en } from "../i18n/en";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import type { SweepImage } from "../lib/level2";
 import type { SiteStatus } from "../lib/radarStatus";
+import type { OverlayLegend } from "../lib/overlays";
 import { formatClock, formatDistance, setUnits } from "../lib/units";
 
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
@@ -90,6 +91,7 @@ function chrome(
     onHoldSite?: (station: string) => void;
     /** The site the reader is holding, which is what can stop sending. */
     station?: string;
+    overlayKeys?: OverlayLegend[];
   } = {},
 ) {
   return (
@@ -111,6 +113,7 @@ function chrome(
       sitesInReach={overrides.sitesInReach ?? []}
       onHoldSite={overrides.onHoldSite ?? vi.fn()}
       mrmsLayers={[]}
+      overlayKeys={overrides.overlayKeys ?? []}
       lightning={null}
       smoke={null}
       classification={null}
@@ -153,6 +156,49 @@ function chrome(
 afterEach(() => {
   cleanup();
   setUnits("imperial");
+});
+
+describe("the key for the banded layers", () => {
+  const outlook = {
+    id: "spcOutlooks",
+    title: "Day 1 convective outlook",
+    bands: [
+      { label: "Marginal Risk", color: "#66a366" },
+      { label: "Slight Risk", color: "#ffe066" },
+    ],
+    note: "Valid 12Z to 12Z",
+  };
+
+  it("names every band and paints it in the service's own colour", () => {
+    // The popup names the one under the pointer. A reader with an outlook on
+    // and no pointer on it had a map of coloured areas and nothing saying
+    // what any of them was.
+    render(chrome(113, { overlayKeys: [outlook] }));
+    expect(screen.getByText("Day 1 convective outlook")).toBeTruthy();
+    const rows = [
+      ...document.querySelectorAll<HTMLElement>(".product-legend li"),
+    ];
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "Marginal Risk",
+      "Slight Risk",
+    ]);
+    const patches = rows.map(
+      (row) => row.querySelector("i")?.style.background ?? "",
+    );
+    // jsdom writes a hex colour back as rgb().
+    expect(patches[0]).toBe("rgb(102, 163, 102)");
+    expect(patches[1]).toBe("rgb(255, 224, 102)");
+  });
+
+  it("says what a forecast is valid for", () => {
+    render(chrome(113, { overlayKeys: [outlook] }));
+    expect(screen.getByText("Valid 12Z to 12Z")).toBeTruthy();
+  });
+
+  it("draws no surface at all when nothing on the map has bands", () => {
+    render(chrome(113, { overlayKeys: [] }));
+    expect(document.querySelector(".product-legends")).toBeNull();
+  });
 });
 
 describe("the legend over a live sweep", () => {

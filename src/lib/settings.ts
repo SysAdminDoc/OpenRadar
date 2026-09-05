@@ -567,6 +567,15 @@ export interface AppSettings {
    */
   displayAwake: boolean;
   /**
+   * Whether an exported picture carries the keys for the banded layers on it.
+   *
+   * Off. A picture somebody shares is usually a picture of one thing, and a
+   * column of colour scales down its side is chrome rather than weather. A
+   * reader sharing an outlook wants the opposite, which is why it is a
+   * choice rather than a rule either way.
+   */
+  exportKeys: boolean;
+  /**
    * Whether there is an icon in the tray at all.
    *
    * On, because it is the one place the app can say something useful while
@@ -766,6 +775,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   calm: false,
   ambientIdleMinutes: 0,
   displayAwake: false,
+  exportKeys: false,
   wallpaperMinutes: 0,
   tray: true,
   closeToTray: false,
@@ -1919,6 +1929,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       ? Number(raw.ambientIdleMinutes)
       : DEFAULT_SETTINGS.ambientIdleMinutes,
     displayAwake: bool(raw.displayAwake, DEFAULT_SETTINGS.displayAwake),
+    exportKeys: bool(raw.exportKeys, DEFAULT_SETTINGS.exportKeys),
     journal: bool(raw.journal, DEFAULT_SETTINGS.journal),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
     curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),

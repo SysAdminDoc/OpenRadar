@@ -8,7 +8,13 @@ import { smokeOverlay } from "./smoke";
 import { metarOverlay } from "./metar";
 import { riverGaugesOverlay } from "./rivers";
 import { wpcExcessiveRainOverlay, wpcWinterSeverityOverlay } from "./wpc";
-import type { OverlayAdapter, OverlayId } from "./registry";
+import type {
+  OverlayAdapter,
+  OverlayChoices,
+  OverlayData,
+  OverlayId,
+  OverlayLegend,
+} from "./registry";
 
 export const OVERLAY_ADAPTERS: OverlayAdapter[] = [
   alertsOverlay,
@@ -64,6 +70,29 @@ export {
   type OverlayChoices,
   type OverlayData,
   type OverlayDescription,
+  type OverlayBand,
   type OverlayFeature,
   type OverlayId,
+  type OverlayLegend,
 } from "./registry";
+
+/**
+ * The keys for every layer on screen that has bands, in the order the layers
+ * are drawn.
+ *
+ * A reader with three banded layers on has three sets of colours and, until
+ * this, nothing naming any of them. Built from what is actually drawn rather
+ * than from the switches: a layer that is on but whose snapshot has not
+ * arrived, or covers somewhere else, has no bands on screen and so no key.
+ */
+export function overlayLegends(
+  states: Record<OverlayId, { data: OverlayData }>,
+  choices: OverlayChoices,
+): OverlayLegend[] {
+  const keys: OverlayLegend[] = [];
+  for (const adapter of OVERLAY_ADAPTERS) {
+    const legend = adapter.legend?.(states[adapter.id].data, choices);
+    if (legend && legend.bands.length > 0) keys.push(legend);
+  }
+  return keys;
+}

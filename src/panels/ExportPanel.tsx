@@ -50,6 +50,16 @@ interface ExportPanelProps {
   onExportGif: () => void;
   /** The readings behind the picture, one entry per dataset drawn. */
   dataExports: DataExportOffer[];
+  /**
+   * How many banded layers are on screen, and whether their keys go into the
+   * picture.
+   *
+   * The switch is only offered when there is something for it to do: a
+   * checkbox about layers nobody has on says nothing about this export.
+   */
+  keyCount: number;
+  keysInExport: boolean;
+  onKeysInExport: (on: boolean) => void;
   onClose: () => void;
 }
 
@@ -57,6 +67,9 @@ export function ExportPanel({
   frameCount,
   busy,
   progress,
+  keyCount,
+  keysInExport,
+  onKeysInExport,
   onExportImage,
   onExportPostcard,
   placeName,
@@ -79,6 +92,21 @@ export function ExportPanel({
       onClose={onClose}
       className="surface-panel--right"
     >
+      {keyCount > 0 ? (
+        <label className="toggle-row toggle-row--plain" data-export-keys>
+          <span>
+            <strong>{t("export.keys")}</strong>
+            <small>{t("export.keysDetail", { count: keyCount })}</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={keysInExport}
+            onChange={(event) => onKeysInExport(event.target.checked)}
+          />
+          <i className="toggle-track" aria-hidden="true" />
+        </label>
+      ) : null}
+
       <button
         type="button"
         className="secondary-button"

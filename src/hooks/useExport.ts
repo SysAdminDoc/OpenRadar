@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { ToastMessage } from "../components/ToastHost";
+import type { OverlayLegend } from "../lib/overlays";
 import {
   exportFileName,
   exportLoop,
@@ -175,6 +176,14 @@ export function useExport(options: {
      */
     drawnVolume: () => number | null;
   } | null;
+  /**
+   * The keys for the banded layers on screen, or an empty list.
+   *
+   * The workspace decides whether the reader asked for them; this only draws
+   * what it is handed, so an export cannot end up carrying a key that the
+   * workspace was not showing.
+   */
+  keys: OverlayLegend[];
   pushToast: (message: Omit<ToastMessage, "id">) => void;
 }): ExportState {
   const {
@@ -237,6 +246,10 @@ export function useExport(options: {
    * product come from the sweep because every volume in this walk is the same
    * site and the same product; only the time moves.
    */
+  // Read off the options object once, so the caption callbacks depend on
+  // the list rather than on the whole of what this hook was handed.
+  const { keys } = options;
+
   const sweepCaptionFor = useCallback(
     (
       sweep: SweepImage,
@@ -283,9 +296,10 @@ export function useExport(options: {
           }),
         ],
         attribution: provenanceCredit(basemapCredit, record),
+        keys,
       };
     },
-    [arrivedAt, basemapCredit],
+    [arrivedAt, basemapCredit, keys],
   );
 
   const captionFor = useCallback(
@@ -339,12 +353,14 @@ export function useExport(options: {
               : translate("export.radar"),
         ].filter(Boolean),
         attribution: provenanceCredit(basemapCredit, record),
+        keys,
       };
     },
     [
       basemapCredit,
       drawnVolume,
       frames,
+      keys,
       source,
       sweep,
       sweepCaptionFor,

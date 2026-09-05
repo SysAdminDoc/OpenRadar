@@ -182,6 +182,74 @@ export interface OverlayAdapter {
   ) => Promise<OverlayData>;
   layers: (sourceId: string) => LayerSpecification[];
   describe: (properties: Record<string, unknown>) => OverlayDescription;
+  /**
+   * The bands on screen and what each one is, for the key over the map.
+   *
+   * Read off the snapshot rather than declared, because most of these layers
+   * are painted in colours the service sends with the features themselves: a
+   * table written here would be this app's idea of the outlook's colours
+   * rather than the outlook's. Null for a layer whose colours mean nothing on
+   * their own, which is most of them: a pin is a pin.
+   */
+  legend?: (data: OverlayData, choices: OverlayChoices) => OverlayLegend | null;
+}
+
+/** One row of a key: a colour and what the service calls it. */
+export interface OverlayBand {
+  label: string;
+  color: string;
+}
+
+/**
+ * What one layer's key says.
+ *
+ * The band names are the service's own words and are not translated. The app
+ * shows them untranslated in the popup already, and a key that renamed the
+ * Storm Prediction Center's categories would be this app inventing
+ * terminology for somebody else's forecast. What is in the reader's language
+ * is everything this app wrote: the layer's name and the times under it.
+ */
+export interface OverlayLegend {
+  /** The layer this key is for. A string, because the surge picture is not
+   * an overlay adapter and still has bands a reader has to interpret. */
+  id: string;
+  title: string;
+  bands: OverlayBand[];
+  /** When a forecast was issued and the window it covers, already worded. */
+  note: string | null;
+}
+
+/**
+ * The distinct bands in a snapshot, strongest last.
+ *
+ * Shared because every layer that has bands at all draws them the same way:
+ * a fill on each feature and a name beside it, with the same band repeated
+ * across as many polygons as the shape needed.
+ */
+export function bandsIn(
+  data: OverlayData,
+  read: (properties: Record<string, unknown>) => {
+    label: string;
+    color: string;
+    rank: number;
+  } | null,
+): OverlayBand[] {
+  const found = new Map<string, { band: OverlayBand; rank: number }>();
+  for (const feature of data.features) {
+    const seen = read(feature.properties ?? {});
+    if (!seen || !seen.label || !seen.color) continue;
+    const key = `${seen.label}|${seen.color}`;
+    const held = found.get(key);
+    if (!held || seen.rank > held.rank) {
+      found.set(key, {
+        band: { label: seen.label, color: seen.color },
+        rank: seen.rank,
+      });
+    }
+  }
+  return [...found.values()]
+    .sort((a, b) => a.rank - b.rank)
+    .map((entry) => entry.band);
 }
 
 export const EMPTY_OVERLAY: OverlayData = {
