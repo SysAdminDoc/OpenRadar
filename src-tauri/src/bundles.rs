@@ -497,6 +497,15 @@ pub fn read_bundle(bytes: &[u8]) -> Result<(Manifest, Vec<Entry>), BundleError> 
             "the manifest is not this bundle's".into(),
         ));
     }
+    // Before anything is served. The id rides out on every response this
+    // bundle answers, as a header, and a header value the builder refuses
+    // takes the scheme handler down rather than the request.
+    if !id_safe(&manifest.id) {
+        return Err(BundleError::Corrupt(format!(
+            "{} is not an id this can serve",
+            manifest.id
+        )));
+    }
     let count = cursor.u32()? as usize;
     if count != manifest.entries.len() {
         return Err(BundleError::Corrupt(format!(
@@ -527,6 +536,14 @@ pub fn read_bundle(bytes: &[u8]) -> Result<(Manifest, Vec<Entry>), BundleError> 
         {
             return Err(BundleError::Corrupt(format!(
                 "{} does not match the manifest's record of it",
+                record.url
+            )));
+        }
+        // The two halves agreeing says only that whoever wrote the file wrote
+        // both. This is the type the webview is handed as a response header.
+        if !media_type_safe(&content_type) {
+            return Err(BundleError::Corrupt(format!(
+                "{} is not a content type this can serve",
                 record.url
             )));
         }
@@ -622,6 +639,50 @@ pub fn lookup(url: &str) -> Option<(String, Bytes, u64, String)> {
     ))
 }
 
+/// Whether a string can be a header value without the builder refusing it.
+///
+/// Both of these leave this process as HTTP headers on the `cached` scheme's
+/// response: the content type as `Content-Type` and the id as
+/// `X-OpenRadar-Bundle`. A `.orb` file is something a reader can be handed by
+/// somebody else, and every other field in it is checked against the
+/// manifest's own record, which is checked against nothing: a control byte or
+/// a non-ASCII character in either one makes `Response::builder().body()`
+/// answer an error, and the scheme handler had no way to say so.
+///
+/// Visible ASCII only, which is what a media type and this app's own ids are.
+fn header_safe(value: &str, most: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= most
+        && value
+            .chars()
+            .all(|character| character.is_ascii_graphic() || character == ' ')
+}
+
+/// A media type this will hand back to the webview.
+///
+/// `type/subtype`, with the parameters a real service sends kept: the fixture
+/// and several NOAA services answer `application/json; charset=utf-8`.
+fn media_type_safe(value: &str) -> bool {
+    header_safe(value, 255)
+        && value.split(';').next().is_some_and(|essence| {
+            let mut halves = essence.trim().split('/');
+            let (Some(kind), Some(subtype), None) = (halves.next(), halves.next(), halves.next())
+            else {
+                return false;
+            };
+            !kind.is_empty() && !subtype.is_empty()
+        })
+}
+
+/// The shape `slug` produces, which is what an id written here looks like.
+fn id_safe(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 80
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '-')
+}
+
 fn slug(label: &str) -> String {
     let mut out = String::new();
     for character in label.chars() {
@@ -672,6 +733,19 @@ async fn capture(request: CaptureRequest, folder: PathBuf) -> Result<CaptureRepo
                     missing.push(MissingRecord {
                         url,
                         reason: format!("{} bytes, past what one entry may hold", body.len()),
+                    });
+                    continue;
+                }
+                // Refused here as well as on the way back in. This is the
+                // service's own word, and one that cannot be sent as a header
+                // would write a bundle that will not open: better to say which
+                // address was left out, which is what `missing` is for.
+                if !media_type_safe(&content_type) {
+                    missing.push(MissingRecord {
+                        url,
+                        reason: format!(
+                            "answered with a content type that cannot be served: {content_type:?}"
+                        ),
                     });
                     continue;
                 }
@@ -1040,6 +1114,59 @@ pub(crate) mod tests {
         let bytes = write_bundle(&manifest, &entries).expect("writes");
         let refused = read_bundle(&bytes).expect_err("a refusal");
         assert!(matches!(refused, BundleError::Corrupt(_)), "{refused:?}");
+    }
+
+    /// A type both halves of the file agree on, and that no header may hold.
+    ///
+    /// The check above compares the entry against the manifest, and a file
+    /// somebody else made can say the same wrong thing twice. Both of these
+    /// end up as a `Content-Type` header on the `cached` scheme, where a value
+    /// the builder refuses used to be an `.expect`.
+    #[test]
+    fn a_content_type_no_header_can_hold_is_refused() {
+        for bad in [
+            "image/png\r\nX-Injected: 1",
+            "image/png\nSet-Cookie: a=b",
+            "imagé/png",
+            "image/png\u{7f}",
+            "",
+            "notamediatype",
+            "image/png/extra",
+        ] {
+            let mut entries = entries();
+            entries[0].content_type = bad.to_string();
+            let manifest = manifest(&entries);
+            let bytes = write_bundle(&manifest, &entries).expect("writes");
+            let refused =
+                read_bundle(&bytes).expect_err(&format!("{bad:?} is not a type this may serve"));
+            assert!(matches!(refused, BundleError::Corrupt(_)), "{refused:?}");
+        }
+
+        // And the ordinary ones still read, parameters included: several NOAA
+        // services answer with a charset and the fixture does too.
+        for good in ["image/png", "application/json; charset=utf-8"] {
+            let mut entries = entries();
+            entries[0].content_type = good.to_string();
+            let manifest = manifest(&entries);
+            let bytes = write_bundle(&manifest, &entries).expect("writes");
+            read_bundle(&bytes).unwrap_or_else(|_| panic!("{good} is ordinary"));
+        }
+    }
+
+    /// The bundle's own name, which rides out on every response it answers.
+    #[test]
+    fn an_id_no_header_can_hold_is_refused() {
+        for bad in ["café", "one two", "a\r\nb", ""] {
+            let entries = entries();
+            let mut manifest = manifest(&entries);
+            manifest.id = bad.to_string();
+            let bytes = write_bundle(&manifest, &entries).expect("writes");
+            let refused =
+                read_bundle(&bytes).expect_err(&format!("{bad:?} is not an id this may serve"));
+            assert!(matches!(refused, BundleError::Corrupt(_)), "{refused:?}");
+        }
+        // The shape `slug` writes.
+        assert!(id_safe(&slug("Hurricane Ian (landfall) 2022")));
     }
 
     #[test]

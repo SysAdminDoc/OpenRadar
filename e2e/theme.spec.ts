@@ -568,3 +568,38 @@ test("a light-theme launch does not paint dark first", async ({ page }) => {
   await expect(page.getByRole("application")).toBeVisible();
   expect(early).toContain("light");
 });
+
+test("the ground under the map follows the theme", async ({ page }) => {
+  // A tile that has not arrived shows this: the second pane the moment it
+  // opens, a cold start before the style loads, a fast pan. It was one
+  // near-black colour whatever the theme, so on the light theme those gaps
+  // read as holes cut in the workspace.
+  await startWith(page, null);
+  const ground = () =>
+    page.evaluate(() => ({
+      stage: getComputedStyle(document.querySelector(".map-stage")!)
+        .backgroundColor,
+      pane: getComputedStyle(document.querySelector(".map-viewport")!)
+        .backgroundColor,
+    }));
+
+  const dark = await ground();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  const light = await ground();
+
+  const luminanceOf = (colour: string) => {
+    const [red, green, blue] = colour.match(/\d+/g)!.map(Number);
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  // Light rather than merely different: a swapped pair of dark colours would
+  // satisfy "it changed".
+  expect(luminanceOf(light.pane)).toBeGreaterThan(200);
+  expect(luminanceOf(light.stage)).toBeGreaterThan(200);
+  expect(luminanceOf(dark.pane)).toBeLessThan(60);
+  expect(luminanceOf(dark.stage)).toBeLessThan(60);
+  // And the two agree, because the pane sits inside the stage and a seam
+  // between them is visible wherever the panes do not fill it.
+  expect(light.pane).toBe(light.stage);
+});

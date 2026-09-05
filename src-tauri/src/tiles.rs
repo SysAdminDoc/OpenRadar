@@ -187,6 +187,47 @@ mod tests {
         );
     }
 
+    /// And it does not panic when one of them will not build.
+    ///
+    /// Two of the headers on that response are not this app's words: the
+    /// content type is whatever the upstream service said, and the bundle name
+    /// comes out of a `.orb` file a reader may have been handed by somebody
+    /// else. A value a header may not hold makes the builder answer an error,
+    /// and unwrapping it panicked inside the spawned task: the request never
+    /// answered, the map waited on that tile for the rest of the session, and
+    /// nothing was said. `bundles::read_bundle` refuses both shapes now, and
+    /// this is the second half of that.
+    ///
+    /// The other two schemes build from constants alone, so they cannot fail
+    /// and are left as they are; this reads only the one that carries values
+    /// from outside.
+    #[test]
+    fn the_cached_scheme_answers_rather_than_panicking_on_a_header_it_cannot_send() {
+        let source = include_str!("lib.rs");
+        let at = source
+            .find(r#"register_asynchronous_uri_scheme_protocol("cached""#)
+            .expect("the cached scheme is no longer registered");
+        let handler = &source[at..];
+        let ends = handler
+            .find(".body(served.body)")
+            .expect("the cached response no longer has a body");
+        // From the body to the end of that statement, which is where the
+        // builder's Result is dealt with.
+        let after = &handler[ends..];
+        let closed = after
+            .find(");")
+            .expect("the cached response is never handed to the responder");
+        let settled = &after[..closed];
+        assert!(
+            !settled.contains(".expect("),
+            "the cached scheme still unwraps its response: {settled}"
+        );
+        assert!(
+            settled.contains("refused_response()"),
+            "the cached scheme has no answer for a response it cannot build"
+        );
+    }
+
     #[test]
     fn reads_the_whole_address_out_of_the_request() {
         // A tile address carries its own query string, which has to survive

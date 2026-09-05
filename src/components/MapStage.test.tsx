@@ -141,14 +141,32 @@ describe("the moment each pane draws the sun for", () => {
     expect(primary.nightAt).not.toBe(0);
   });
 
-  it("does not move the edge inside one minute", () => {
-    // The polygon is rebuilt whenever this number changes, and a loop steps
-    // through a frame every fraction of a second. Frames within a minute of
-    // each other have to answer the same moment or every step of a replay
-    // rebuilds a 361-point ring for an edge nobody can see move.
+  it("gives the compare pane the primary's moment when it has none of its own", () => {
+    // `compareFrame` is undefined whenever the offset asks for more history
+    // than the loop holds, which is every scrub near the start of one. The
+    // pane still draws: the basemap, the overlays and the wash are not gated
+    // on a radar frame. Falling back to the clock there put tonight's
+    // terminator on the right-hand side of a 2011 replay.
+    const outbreak = "2011-04-27T21:00:00Z";
+    const panes = mount({
+      dualPane: true,
+      activeFrame: frameAt(outbreak),
+      compareFrame: undefined,
+    });
+    expect(panes).toHaveLength(2);
+    expect(panes[1].nightAt).toBe(Date.parse(outbreak));
+    expect(panes[1].nightAt).not.toBe(CLOCK);
+  });
+
+  it("answers one moment for two frames inside the same minute", () => {
+    // Both have to be the frame's own minute, not merely equal to each other:
+    // with the wiring reverted to the wall clock they would also be equal, and
+    // an assertion that only compares them to one another is satisfied by the
+    // defect.
     const [early] = mount({ activeFrame: frameAt("2011-04-27T21:00:20Z") });
     const [late] = mount({ activeFrame: frameAt("2011-04-27T21:00:59Z") });
-    expect(early.nightAt).toBe(late.nightAt);
+    expect(early.nightAt).toBe(Date.parse("2011-04-27T21:00:00Z"));
+    expect(late.nightAt).toBe(early.nightAt);
   });
 });
 

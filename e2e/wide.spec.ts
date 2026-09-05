@@ -143,7 +143,10 @@ test("splits a wide window into two panes worth having", async ({ page }) => {
   const card = (await page.locator(".pane-compare").boundingBox())!;
   const zoom = (await page.locator(".zoom-controls").boundingBox())!;
   expect(
-    card.x + card.width <= zoom.x || zoom.x + zoom.width <= card.x,
+    card.x + card.width <= zoom.x ||
+      zoom.x + zoom.width <= card.x ||
+      card.y + card.height <= zoom.y ||
+      zoom.y + zoom.height <= card.y,
     "the compare card runs into the zoom controls",
   ).toBe(true);
 

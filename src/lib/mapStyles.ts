@@ -63,17 +63,37 @@ export const MAP_STYLE_OPTIONS: MapStyleOption[] = [
   },
 ];
 
-const EMPTY_TEST_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [
-    {
-      id: "background",
-      type: "background",
-      paint: { "background-color": "#101722" },
-    },
-  ],
-};
+/** What the map is painted on where no tiles are drawn. */
+export const MAP_GROUND_DARK = "#101722";
+export const MAP_GROUND_LIGHT = "#e9edf2";
+
+/**
+ * A basemap with no tiles behind it, for the browser suite.
+ *
+ * Its ground follows the style it stands in for. It was one dark colour for
+ * every style, so a spec that picked the light theme got a light workspace
+ * over a near-black map: `data-over-light` was set, the ink flipped to dark
+ * for it, and every contrast assertion about a light basemap was measured
+ * against a dark canvas. A stand-in that gets the ground backwards cannot
+ * catch the one class of defect it is standing in for.
+ */
+function emptyTestStyle(id: MapStyleId): StyleSpecification {
+  return {
+    version: 8,
+    sources: {},
+    layers: [
+      {
+        id: "background",
+        type: "background",
+        paint: {
+          "background-color": isLightBasemap(id)
+            ? MAP_GROUND_LIGHT
+            : MAP_GROUND_DARK,
+        },
+      },
+    ],
+  };
+}
 
 /**
  * The credit for the map under the weather, for the style on screen.
@@ -217,7 +237,7 @@ export function mapStyleDefinition(
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("testMode")
   ) {
-    return EMPTY_TEST_STYLE;
+    return emptyTestStyle(id);
   }
 
   switch (id) {

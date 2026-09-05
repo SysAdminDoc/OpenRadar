@@ -1036,6 +1036,24 @@ test("keeps the compare card and the cursor readout out from under everything", 
 
   expect(apart(await boxes())).toBe(true);
 
+  // And clear of the toasts, which is the other thing that owns that corner.
+  // A toast stops its own dismissal clock while a pointer is on it, so one
+  // parked over these buttons is not a moment's overlap: it never goes away
+  // and the controls under it cannot be clicked at all. The "Dual pane
+  // opened" toast is on screen right now, which is what makes this the
+  // moment to ask.
+  const toast = page.locator(".toast-host");
+  await expect(toast).toContainText(/./);
+  const toastBox = (await toast.boundingBox())!;
+  const cardBox = (await card.boundingBox())!;
+  expect(
+    cardBox.y >= toastBox.y + toastBox.height ||
+      toastBox.y >= cardBox.y + cardBox.height ||
+      cardBox.x >= toastBox.x + toastBox.width ||
+      toastBox.x >= cardBox.x + cardBox.width,
+    "a toast is drawn over the compare controls",
+  ).toBe(true);
+
   // With the panel open, both have to be the thing under the pointer at their
   // own middle. A box that has merely moved is not enough: the panel is drawn
   // over anything it reaches whatever the coordinates say.

@@ -132,10 +132,13 @@ export function solarElevation(
  * the map shows and where the sun was have to be the same moment, and the
  * frame is the one that knows.
  *
- * Rounded down to the minute, because the wash is redrawn whenever this number
- * changes and a minute of clock moves the edge a quarter of a degree: at frame
- * resolution the whole polygon would be rebuilt on every step of a loop for an
- * edge nobody could see move.
+ * Rounded down to the minute, which is the granularity the fallback below has:
+ * the clock this stands in for ticks once a minute, and two frames a second
+ * apart are not two positions of the sun. It does not make playback cheaper.
+ * Frames are five or ten minutes apart, so every step of a loop is a new
+ * moment and a new polygon, which is the feature working rather than a cost to
+ * avoid: ten minutes is two and a half degrees of longitude and the edge
+ * visibly moves.
  *
  * The clock is the fallback rather than the rule. With no frames yet there is
  * no moment to draw for, and the caller's own guard treats zero as "no wash",

@@ -98,7 +98,7 @@ a {
       rgba(31, 74, 104, 0.24),
       transparent 42%
     ),
-    #0b1018;
+    var(--map-ground);
 }
 
 .app-shell.is-dual-pane .map-stage {
@@ -113,7 +113,7 @@ a {
   min-height: 0;
   width: 100%;
   height: 100%;
-  background: #0c111a;
+  background: var(--map-ground);
 }
 
 .top-status {
@@ -1227,16 +1227,23 @@ input[type="range"]:disabled {
   opacity: 0.85;
 }
 
-/* Clear of the zoom stack, which owns the same corner: it is 40px wide at 16px
-   in, so anything ending nearer the edge than 56px is drawn under it. The card
-   was at 12px and its time read "4:58 P" behind the compass button, at every
-   width rather than only at the narrow end. */
+/* Under the zoom stack rather than beside it. The card was at 12px from the
+   top and 12px from the right, which is inside the stack's own column, so its
+   time read "4:58 P" behind the compass button at every width. Moving it left
+   instead put it in the toasts' column, where a toast parks over its buttons
+   and stops its own dismissal clock the moment a pointer reaches it: the
+   controls were then unclickable until the pointer left. So: down the page,
+   clear of a stack 116px tall that starts 16px below the chrome. */
 .pane-compare {
   position: absolute;
   z-index: 18;
-  top: 12px;
-  right: 68px;
-  max-width: calc(100% - 96px);
+  top: 144px;
+  right: 12px;
+  /* Narrow enough to stay inside the pane it belongs to. Not a percentage:
+     this is positioned against the whole stage, so `100%` is both panes and a
+     card capped that way would grow across the divider and over the other map
+     before it ever wrapped. */
+  max-width: min(420px, 40vw);
   display: flex;
   /* A longer word in another language takes a second line rather than pushing
      the time off the end of the card. */
@@ -3002,6 +3009,23 @@ input[type="range"]:disabled {
   color: #a9b6c6;
 }
 
+/* The line the view exists to show, over a light basemap.
+ *
+ * The block above recolours the readout, and this one declares its own colour,
+ * so it won over the inheritance and stayed pale grey on a white halo: about
+ * 1.2:1 over the ocean and 1.8:1 over land, while the clock beside it read at
+ * ten. Quieter than the clock, which is the hierarchy this had all along, and
+ * dark enough to be read from across a room. */
+.ambient-readout[data-over-light] small {
+  color: #334155;
+}
+
+/* And the way out, which was a dark chip left over a light map. */
+.ambient-readout[data-over-light] .ambient-readout__leave {
+  background: rgba(248, 250, 252, 0.72);
+  color: #172033;
+}
+
 /* The way out, at a tenth opacity until it is pointed at, so a monitor left
    on a wall is not showing a button all night. */
 .ambient-readout__leave {
@@ -3881,6 +3905,13 @@ input[type="range"]:disabled {
      colour as the text painted "Extreme" at 1:1 with nothing to stop it.
      Everything a theme may reach is chrome; this one is under a reading. */
   --surface-sunken: rgb(15 23 42 / 35%);
+  /* What the map is painted on where no tile has arrived: the second pane the
+     moment it opens, a cold start before the style loads, a fast pan. It was
+     one near-black colour in both themes, so a light workspace showed those
+     as black holes. Kept in step with `MAP_GROUND_DARK` and
+     `MAP_GROUND_LIGHT` in `src/lib/mapStyles.ts`, which is the same ground
+     for the basemap the browser suite draws. */
+  --map-ground: #0b1018;
   --border: rgba(166, 184, 207, 0.16);
   --border-strong: rgba(166, 184, 207, 0.28);
   --text: #edf3fb;
@@ -3964,11 +3995,12 @@ input[type="range"]:disabled {
      shadow on a light ground has to be. Carried over from the block that
      used to sit at the top of this file. */
   --shadow: 0 18px 45px rgba(34, 48, 66, 0.2);
+  --map-ground: #e9edf2;
 }
 
 .map-stage {
   inset: var(--chrome-top) 0 var(--timeline-height) var(--rail-width);
-  background: #0b1018;
+  background: var(--map-ground);
 }
 
 .top-status {
@@ -4589,7 +4621,7 @@ input[type="range"]:disabled {
    readout. Each keeps the lead it has over the zoom stack and the credits
    rather than being moved to the same place as them. */
 .app-shell[data-panel-side="right"] .pane-compare {
-  right: calc(var(--panel-width) + 68px);
+  right: calc(var(--panel-width) + 12px);
 }
 
 .app-shell[data-panel-side="right"] .map-readout {
@@ -4712,7 +4744,7 @@ input[type="range"]:disabled {
   /* The panel covers the map at this width, so nothing is shifted out of its
      way; these two go back to where they sit with no panel open. */
   .app-shell[data-panel-side="right"] .pane-compare {
-    right: 68px;
+    right: 12px;
   }
 
   .app-shell[data-panel-side="right"] .map-readout {
