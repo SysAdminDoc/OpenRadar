@@ -5527,6 +5527,54 @@ label.settings-field > span {
   }
 }
 
+/* A held radar the office says has stopped. Over the map with the rest of
+   the chrome, and coloured like a fault rather than like a warning: the sky
+   is not the problem, the transmitter is. */
+.site-down {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--timeline-height) + 14px);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100vw - 2 * var(--rail-width)));
+  padding: 8px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+}
+
+.site-down span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.site-down small {
+  color: var(--subtle);
+}
+
+.site-down button {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.site-down button:hover {
+  background: var(--surface-hover);
+}
+
 .watch-place .source-note {
   margin: 0;
 }

@@ -347,13 +347,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Acceptance: On 2.12: `cargo test`, clippy and the release gate green; a shutdown while the app runs in the tray leaves no crash file; the single-instance bump lands ahead of it.
       Complexity: S
 
-- [ ] AUD-274 (P3): A held site that stops publishing says so and names the nearest one that is
-      Why: KLWX went down inside a tornado warning on 2026-08-17 (Bluesky). The app reads every site's status from `api.weather.gov/radar/stations` and passes over a downed one when picking; whether a site already held keeps drawing its last volume with nothing but the age to say so has not been verified.
-      Evidence: https://bsky.app/profile/mergerson.bsky.social (2026-08-17) ; `src/hooks/useSingleSiteRadar.ts`, `src-tauri/src/radar_status.rs`, the sites-in-reach picker.
-      Touches: `src/hooks/useSingleSiteRadar.ts` (when the held site's status turns from Operate, or no volume arrives for two cadences, a line on the chrome naming the nearest publishing site in reach with one action to hold it), `src/components/WorkspaceChrome.tsx`, `src/i18n/*`, an e2e spec with the status stub flipping mid-hold.
-      Acceptance: With the held site's status stubbed to Start-Up the chrome says the radar is down and offers the nearest one; taking the offer holds it; the loop's last volume stays on screen with its age until then.
-      Complexity: S
-
 ## Audit Findings, 2026-09-04 (afternoon)
 
 Read-only audit of `4f9a18a` (v0.9.0 tree, v0.10.0 unreleased in the changelog). Baseline at that commit: `npm run check` 182 files / 1710 passed / 38 skipped, lint 0 errors 1 pre-existing warning, coverage 65.3 / 59.4 / 60.17 / 66.5 above every floor, and **exit 1 at `check:bundle`** (settings chunk 72 kB against 70 kB, pre-existing baseline, already carried on `AUD-272`); `npx playwright test` 622 passed across chromium, compact and wide in 14.6 minutes; `cargo test` 420 passed / 29 ignored; `cargo clippy --all-targets` clean; `gitleaks` 372 commits clean; `npm audit` 0 with and without dev; `cargo audit` 0 vulnerabilities, 17 default-allowed warnings (the `lru` one is in `Roadmap_Blocked.md`); `grype` one Medium in `glib`, the documented Linux-only case. The GitHub tracker holds zero issues and zero pull requests, open or closed, and discussions are disabled, so there was nothing to take in from reporters. Every P1 below survived a fresh-context refutation, and the two storm-report items were confirmed against the live service rather than by reading. Items are numbered on from `AUD-275`.

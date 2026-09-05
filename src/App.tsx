@@ -2896,6 +2896,14 @@ export default function App() {
             ? null
             : statusFor(siteStatus, singleSite.station)
         }
+        siteStatus={siteStatus}
+        sitesInReach={singleSite.inReach}
+        onHoldSite={(station) =>
+          applySettings({
+            ...settingsRef.current,
+            radar: { ...settingsRef.current.radar, station },
+          })
+        }
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
         lightning={singleSite.historical ? null : lightning.window}
         smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}

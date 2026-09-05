@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A radar you are holding that stops sending now says so, and offers the nearest one that is still working. KLWX went down inside a tornado warning last month. The app already passed over a downed radar when it picked one for you, but a site you chose by hand kept being drawn with nothing but the age of the last sweep to say anything was wrong, which looks a lot like a quiet afternoon. The last volume stays on screen, because it is still the last thing anybody knows; what changes is that the app says the transmitter has stopped and gives you one click to the next radar that can see the same weather.
+
 - Most of the national grids draw now. Rotation tracks, hail size and lightning density were the only three with a lane on the map; every grid added since, including four of the five rotation windows and both shear heights, fetched its data and then drew nothing, with nothing to say why. Each product has its own lane, with the scattered ones over the fields that cover the country so a hail core is not buried under the rain around it.
 
 - The Guidance panel says when it is fetching again. Move the map far enough, or turn a model on, and it used to sit there with the previous answer and no sign it was working. It now dims and says so, and a refetch that fails keeps the table with a line saying which place and which moment those numbers are for, with the failure under them instead of a "could not load" banner over a full table.

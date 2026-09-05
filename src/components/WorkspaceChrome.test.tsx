@@ -1,6 +1,13 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceChrome } from "./WorkspaceChrome";
+import { en } from "../i18n/en";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import type { SweepImage } from "../lib/level2";
 import type { SiteStatus } from "../lib/radarStatus";
@@ -75,16 +82,31 @@ function chrome(
     liveClock?: number;
     sweepLoop?: { index: number; count: number } | null;
     sweepStatus?: SiteStatus | null;
+    siteStatus?: SiteStatus[];
+    sitesInReach?: Array<{ station: string }>;
+    onHoldSite?: (station: string) => void;
+    /** The site the reader is holding, which is what can stop sending. */
+    station?: string;
   } = {},
 ) {
   return (
     <WorkspaceChrome
-      settings={DEFAULT_SETTINGS}
+      settings={
+        overrides.station
+          ? {
+              ...DEFAULT_SETTINGS,
+              radar: { ...DEFAULT_SETTINGS.radar, station: overrides.station },
+            }
+          : DEFAULT_SETTINGS
+      }
       timeline={timeline}
       frames={[]}
       sweep={overrides.sweep ?? null}
       sweepLoop={overrides.sweepLoop ?? null}
       sweepStatus={overrides.sweepStatus ?? null}
+      siteStatus={overrides.siteStatus ?? []}
+      sitesInReach={overrides.sitesInReach ?? []}
+      onHoldSite={overrides.onHoldSite ?? vi.fn()}
       mrmsLayers={[]}
       lightning={null}
       smoke={null}
@@ -284,5 +306,101 @@ describe("which ramp the bar beside the map is drawn from", () => {
     setContrast(true);
     render(chrome(113, { sweep: null }));
     expect(bar().style.background).toContain("rgb(0, 37, 108)");
+  });
+});
+
+describe("a held radar that has stopped", () => {
+  it("says so and offers the nearest one that has not", () => {
+    // KLWX went down inside a tornado warning on 2026-08-17. A site the
+    // reader chose keeps being drawn, because the last volume is still the
+    // last thing anybody knows, and until now the only sign was the age on
+    // the legend: the picture simply stopped moving.
+    const onHoldSite = vi.fn();
+    render(
+      chrome(113, {
+        sweepStatus: {
+          station: "KLWX",
+          status: "Start-Up",
+          levelTwoAt: null,
+          fault: "notOperating",
+        },
+        siteStatus: [
+          {
+            station: "KLWX",
+            status: "Start-Up",
+            levelTwoAt: null,
+            fault: "notOperating",
+          },
+          {
+            station: "KDOX",
+            status: "Start-Up",
+            levelTwoAt: null,
+            fault: "notOperating",
+          },
+          {
+            station: "KAKQ",
+            status: "Operate",
+            levelTwoAt: null,
+            fault: null,
+          },
+        ],
+        // Nearest first, and the nearest one is also down: the offer is the
+        // nearest that is publishing, not the nearest.
+        sitesInReach: [
+          { station: "KLWX" },
+          { station: "KDOX" },
+          { station: "KAKQ" },
+        ],
+        onHoldSite,
+        station: "KLWX",
+      }),
+    );
+
+    const line = document.querySelector(".site-down");
+    expect(line, "the chrome says the radar has stopped").toBeTruthy();
+    expect(line?.textContent).toContain("KLWX");
+    // The office's own word for it, in a sentence somebody wrote.
+    expect(line?.textContent).toContain(en["radar.faultStartUp"]);
+
+    const offer = screen.getByRole("button", {
+      name: en["radar.holdInstead"].replace("{station}", "KAKQ"),
+    });
+    fireEvent.click(offer);
+    expect(onHoldSite).toHaveBeenCalledWith("KAKQ");
+  });
+
+  it("says nothing while the office says the radar is working", () => {
+    render(
+      chrome(113, {
+        sweepStatus: {
+          station: "KLWX",
+          status: "Operate",
+          levelTwoAt: null,
+          fault: null,
+        },
+        station: "KLWX",
+      }),
+    );
+    expect(document.querySelector(".site-down")).toBeNull();
+  });
+
+  it("still says the radar stopped when nothing else can be offered", () => {
+    // A reader in a corner of the coverage with one radar in reach still
+    // needs to know it has stopped, even though there is nowhere to go.
+    render(
+      chrome(113, {
+        sweepStatus: {
+          station: "KLWX",
+          status: null,
+          levelTwoAt: null,
+          fault: "notOperating",
+        },
+        sitesInReach: [{ station: "KLWX" }],
+        station: "KLWX",
+      }),
+    );
+    const line = document.querySelector(".site-down");
+    expect(line?.textContent).toContain("KLWX");
+    expect(line?.querySelector("button")).toBeNull();
   });
 });

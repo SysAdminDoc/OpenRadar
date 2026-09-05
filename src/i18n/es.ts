@@ -807,6 +807,8 @@ export const es: Catalogue = {
   "radar.sitesInReach": "Radares que alcanzan esta vista",
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "sin datos desde hace {age}",
+  "radar.siteStopped": "{station} ha dejado de enviar",
+  "radar.holdInstead": "Fijar {station} en su lugar",
   "radar.faultOffline": "sin transmitir",
   "radar.faultStartUp": "El radar está arrancando. Debería volver en breve.",
   "radar.faultNotOperating":
