@@ -4167,26 +4167,63 @@ input[type="range"]:disabled {
 }
 
 /* Something is up there, or down there. The region scrolls with its scrollbar
-   hidden, and at 1440 by 900 it ends partway through a button: half a label
-   was the only sign that the tools below it existed at all, and it reads as a
-   layout fault rather than as "there is more". Masked rather than shaded so
-   the fade is the bar's own background whatever the theme is doing. */
+   hidden, so the fade is most of what says so. Masked rather than shaded so
+   it is the bar's own background whatever the theme is doing.
+
+   A button tall rather than twelve pixels. At twelve the fade was shorter than
+   the gap between an icon and its caption, so the last button dimmed by an
+   amount nobody reads as "there is more"; the region is also floored to a
+   whole button now, so this lands on a boundary rather than through a word. */
 .command-scroll-region[data-more-above] {
-  mask-image: linear-gradient(to bottom, transparent, #000 12px);
+  mask-image: linear-gradient(to bottom, transparent, #000 40px);
 }
 
 .command-scroll-region[data-more-below] {
-  mask-image: linear-gradient(to top, transparent, #000 12px);
+  mask-image: linear-gradient(to top, transparent, #000 40px);
 }
 
 .command-scroll-region[data-more-above][data-more-below] {
   mask-image: linear-gradient(
     to bottom,
     transparent,
-    #000 12px,
-    #000 calc(100% - 12px),
+    #000 40px,
+    #000 calc(100% - 40px),
     transparent
   );
+}
+
+/* And a control, because a fade is not one. Eleven tools sat below the fold
+   with nothing to press: the scrollbar is hidden, the app has no keyboard
+   shortcuts, and nobody expects to drag inside a 68px rail. Only on screen
+   when there is somewhere to go. */
+.command-page {
+  display: flex;
+  flex: 0 0 auto;
+  /* Held whether or not there is anything in it. The region above is fitted
+     to the room this leaves, so a strip that appeared along with the chevrons
+     would take that room back and cut the last button by its own height. */
+  height: 24px;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+
+.command-page__step {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  color: var(--command-ink-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.command-page__step:hover {
+  color: var(--command-ink);
+  background: var(--command-hover);
 }
 
 /* And a scrollbar for anybody who reaches for one, once the pointer is on the

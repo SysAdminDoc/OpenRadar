@@ -277,16 +277,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### P2
 
-- [ ] AUD-322 (P2): The rail's tool list cuts off mid-button with nothing that reads as "more below"
-      Category: ux
-      Where: `src/index.css:4113-4168` (`.command-scroll-region`: `scrollbar-width: none`, the `[data-more-below]` mask of 12px, a scrollbar only on hover), `src/components/CommandBar.tsx:165-175` (sets `data-more-above` and `data-more-below`).
-      Problem: The middle of the rail is a scroller with its scrollbar hidden and a 12px fade as its only sign. At 1440x900 the region is 390px tall against 948px of content: the cut lands through the Range button (icon drawn, caption gone), and Inspector, Cross-section, Sounding, Wind Profile, Tropical, Route, Guidance, Tides, Export, Share and Upload are off screen with no scrollbar, no arrow, and a fade shorter than the gap between an icon and its caption. At the window's declared default (1600x1000) the region is 490px and still hides eight tools; at the 680 minimum it hides nearly all of them. The stylesheet's comment at `:4129-4132` names this exact symptom as the reason for the mask, and the mask does not cure it: the rail reads as a stray unlabeled icon above Settings, and Export and Upload, the two a first-time reader looks for, are among the hidden.
-      Evidence: Measured 2026-09-05 at 1440x900: `.command-scroll-region` rect top 400 bottom 790, `scrollHeight` 948, `clientHeight` 390, `data-more-below` set, computed `mask-image: linear-gradient(to top, transparent, black 12px)`; button rects Range 755-803 (clipped at 790), Inspector 803-851 through Upload 1300-1348. An element screenshot of the rail shows the Range icon with no caption and no scrollbar. `e2e/support/layout.ts` skips elements inside a scroller, so the reachability gate cannot see it.
-      Fix: Three things together: (1) a fade one button tall (48px) so the last visible button visibly dims; (2) `scroll-snap-type: y mandatory` on the region with `scroll-snap-align: start` on the buttons, or `scroll-padding-bottom`, so the region never ends mid-button; (3) a focusable chevron pinned at the bottom of the region while `data-more-below` is set, which pages the list. The chevron takes its height from the region, so it costs one more button below the fold at 900px; the hover scrollbar at `:4155` stays as it is (the refutation pass could not see it in headless Chromium, which hides scrollbars, so do not rely on it in the acceptance test). Consider promoting Export and Upload into the primary group.
-      Acceptance: At 1440x900 and 1600x1000 every rail button is either wholly visible or wholly hidden; a chevron is visible whenever content is hidden; an assertion in `e2e/wide.spec.ts` and the compact project checks that no rail button's caption is clipped by the region.
-      Confidence: Verified
-      Effort: M
-
 ### P3
 
 - [ ] AUD-323 (P3): Escape does nothing in the full-screen and capture views, and the code says it does
