@@ -6,7 +6,7 @@ OpenRadar reads public weather data and draws it. It has no account, no server o
 
 | Version | Fixes |
 | ------- | ----- |
-| 0.10.x  | Yes   |
+| 0.11.x  | Yes   |
 | 0.9.x   | No    |
 | 0.8.x and earlier | No |
 
