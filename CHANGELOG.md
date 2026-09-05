@@ -1,6 +1,22 @@
 # Changelog
 
-## OpenRadar v0.10.0
+## OpenRadar v0.11.0
+
+- The map now names the colours on it. An outlook is a set of coloured areas, and the only thing that said what any of them meant was the popup, for the one under the pointer. With the convective outlook, the excessive rainfall outlook and the winter severity index all on, that was three sets of colours and nothing naming a single one. The key is built from what is actually drawn, in the service's own colours and its own words, with the window a forecast is valid for underneath. It stays out of a picture you export unless you ask for it, because a shared picture is usually a picture of one thing.
+
+- Day and night on the map, if you want it. A line of storms running through the night looked exactly like one running through the afternoon. The shading needs nothing from the network: where the sun is, is arithmetic. It sits under everything else, moves every minute, and is off until you turn it on.
+
+- The full-screen view can keep the screen on. It is meant to be left up on the monitor you are not typing at, and Windows turns that monitor off on its own timer. Off by default, and it lets the screen go the moment you leave the view.
+
+- The rotation and shear grids draw at their own resolution when you are close enough to see it. They are published at twice the detail of everything else and were folded in half on the way in to save memory; a shear couplet is a few hundred metres across, so the fold was throwing away the thing the layer is for. Zoomed out you get the same picture as before at a quarter of the cost.
+
+- A live radar stays live. A volume being swept right now was being called finished a few seconds after the app first read it, so a site went to one frame per volume until its folder number rolled over. It now measures the wait against the newest piece actually published, and against the radar's own coverage pattern rather than a fixed minute.
+
+- An exported grid is the same file every time. The same product, for the same moment, over the same box came out at one cell size or another, or was refused as too big, depending on how far in you had zoomed a minute earlier.
+
+- The picture in the README is of this version.
+
+## OpenRadar v0.10.0 (2026-09-05)
 
 - A live picture now says when the next piece of it is due and when the volume will finish. Watching a sector fill in, the legend told you how old the newest piece was and nothing about the rest. The radar publishes its coverage pattern with the volume, and that says how long each remaining cut takes, which is not one number for all of them: a slow sweep at the bottom of the pattern takes far longer than one at the top. The same projection decides when the radar has stopped: a piece is late when it is a whole projected interval past due, rather than after a fixed minute that called a live volume finished while it was still being swept.
 
