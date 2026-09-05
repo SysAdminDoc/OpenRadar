@@ -25,6 +25,7 @@ use crate::chunks;
 use crate::cross_section;
 use crate::dealias;
 use crate::http;
+use crate::level3;
 use crate::palette;
 use crate::palette::Palette;
 use crate::radar_status;
@@ -2761,8 +2762,18 @@ pub async fn level2_vwp(
         asked
     };
 
+    // The radar's own processor runs this fit on every volume and publishes
+    // the answer as a nine kilobyte file, so the whole volume is only fetched
+    // and decoded for a column the office has not written up. One listing
+    // covers every column, because they are minutes apart.
+    let keys = level3::wind_profile_keys(&station, &wanted).await;
+
     let mut columns = Vec::with_capacity(wanted.len());
     for at in wanted {
+        if let Some((key, profile)) = level3::wind_profile(&keys, at).await {
+            columns.push(vwp::from_product(&key, &profile));
+            continue;
+        }
         let (key, data) = volume_for_export(&station, at).await?;
         // Decoding a volume is CPU work and must not sit on the async runtime.
         let column = tauri::async_runtime::spawn_blocking(move || {
@@ -5793,6 +5804,44 @@ mod tests {
         assert!(
             rejoined * 5 > wrapped,
             "only {rejoined} of {wrapped} folded gates came back to their own branch"
+        );
+    }
+
+    #[test]
+    #[ignore = "fetches a live volume from the NEXRAD archive"]
+    fn a_wind_profile_comes_from_the_office_when_the_office_published_one() {
+        // The whole reason for reading NVW is that it is nearly always
+        // there, and the only sign that it has stopped being there is that
+        // every column quietly costs a whole volume again. So this asks for
+        // a real volume by its real time and reads which of the two answered.
+        let _guard = decoded_cache_test();
+        clear_cache();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        // The newest volume's own time, which is what the panel hands in.
+        let (key, _data) = runtime
+            .block_on(latest_volume("KDMX"))
+            .expect("KDMX publishes a volume every few minutes");
+        let at = key_time(&key)
+            .expect("an archive key carries the volume time")
+            .to_rfc3339();
+
+        let columns = runtime
+            .block_on(level2_vwp("KDMX".into(), vec![at.clone()]))
+            .expect("the profile answers for a volume that is on the archive");
+        let column = columns.first().expect("one column was asked for");
+        println!("{at}: {:?} from {}", column.source, column.volume);
+        assert_eq!(
+            column.source,
+            vwp::VwpSource::Product,
+            "the office published nothing for {at}, so the volume was fitted here"
+        );
+        assert!(
+            column.levels.iter().any(|level| level.speed_ms.is_some()),
+            "the published column had no wind on it at all"
         );
     }
 

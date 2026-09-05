@@ -484,7 +484,9 @@ export const en = {
   "vwp.historical":
     "The wind profile reads the volumes a site is publishing now. Come back to the present to see it.",
   "vwp.note":
-    "The wind each height is moving in, fitted to a ring of the radar's own velocity. A height marked ND is one the fit could not be vouched for at, which is a gap rather than calm air.",
+    "The wind each height is moving in. Most columns are the wind profile the radar publishes for that volume, read as the office wrote it; a volume it has not written up is fitted here from the radar's own velocity. A height marked ND is one neither could vouch for, which is a gap rather than calm air.",
+  "vwp.sourceProduct": "Radar's own",
+  "vwp.sourceFitted": "Fitted here",
   "vwp.columnLabel": "Wind by height for volume {volume}",
   "vwp.hodographLabel": "Hodograph of the wind by height",
   "layers.spcOutlookChoice": "Convective outlook",

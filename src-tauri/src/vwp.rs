@@ -21,6 +21,7 @@ use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 use serde::Serialize;
 
 use crate::cross_section::beam_height_km;
+use crate::level3;
 use crate::vad;
 
 /// The heights a profile is drawn at, in kilometres above the radar.
@@ -59,6 +60,25 @@ pub enum Refusal {
     Lopsided,
     /// Too few gates behind the fit to vouch for it.
     Gates,
+    /// The radar's own product had nothing at this height. It is the ND a
+    /// forecaster reads off the office's plot, and it is a different answer
+    /// from anything this app worked out for itself.
+    NotPublished,
+}
+
+/// Which of the two answers a column is.
+///
+/// The radar's own processor runs this fit on every volume and publishes the
+/// result as product 48, so most of the time there is no reason to fetch and
+/// decode a whole volume to work out something the office has already
+/// written down. The fit here is what answers when it has not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VwpSource {
+    /// Read out of the radar's own wind profile product.
+    Product,
+    /// Fitted here, from the volume's velocity.
+    Fitted,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,7 +92,10 @@ pub struct VwpLevel {
     /// The elevation the ring was taken from, so a reader can see the geometry.
     pub elevation_degrees: Option<f32>,
     pub range_km: Option<f64>,
-    /// What the fit did not explain, and how far the halves disagreed.
+    /// What the fit did not explain, or, on a column from the radar's own
+    /// product, the root mean square difference the RPG published for the
+    /// level. Both are the trust number for the wind beside them, and the
+    /// column says which one it is carrying.
     pub residual_ms: Option<f32>,
     pub symmetry_ms: Option<f32>,
     pub refused: Option<Refusal>,
@@ -86,6 +109,8 @@ pub struct VwpColumn {
     pub volume: String,
     /// When the volume was collected, as an ISO string, when it says.
     pub collected: Option<String>,
+    /// Where the wind came from: the radar's own product, or the fit here.
+    pub source: VwpSource,
     pub levels: Vec<VwpLevel>,
 }
 
@@ -276,6 +301,7 @@ pub fn profile(volume: &str, scan: &Scan, nyquist: &BTreeMap<u8, f32>) -> VwpCol
 
     VwpColumn {
         volume: volume.to_string(),
+        source: VwpSource::Fitted,
         collected: scan
             .sweeps()
             .first()
@@ -286,6 +312,66 @@ pub fn profile(volume: &str, scan: &Scan, nyquist: &BTreeMap<u8, f32>) -> VwpCol
                     .and_then(|radial| radial.collection_time())
             })
             .map(|at| at.to_rfc3339()),
+        levels,
+    }
+}
+
+/// How near a published level has to be to one of this app's to speak for it.
+///
+/// The RPG writes its levels at round altitudes above the sea and this app
+/// draws them at half kilometre steps above the radar, so the two sets never
+/// line up. Half a step is the widest a level can be moved without it
+/// standing in front of the next one along, and anything further is left as
+/// ND rather than dragged into place: a wind measured at nine thousand feet
+/// is not a statement about three kilometres.
+const NEAREST_KM: f64 = LEVEL_STEP_KM / 2.0;
+
+/// One column from the radar's own wind profile product.
+///
+/// The same heights the fitted column answers at, so the panel can put a
+/// product column beside a fitted one and read them off one height rail. A
+/// height the product has nothing within half a step of stays empty, which is
+/// the ND on the office's own plot.
+pub fn from_product(volume: &str, profile: &level3::WindProfile) -> VwpColumn {
+    let mut levels = Vec::with_capacity(LEVELS);
+    for step in 1..=LEVELS {
+        let height_km = step as f64 * LEVEL_STEP_KM;
+        let nearest = profile
+            .winds
+            .iter()
+            .min_by(|left, right| {
+                (left.height_km - height_km)
+                    .abs()
+                    .total_cmp(&(right.height_km - height_km).abs())
+            })
+            .filter(|wind| (wind.height_km - height_km).abs() <= NEAREST_KM);
+        levels.push(match nearest {
+            Some(wind) => VwpLevel {
+                height_km,
+                speed_ms: Some(wind.speed_ms),
+                from_degrees: Some(wind.from_degrees),
+                elevation_degrees: Some(wind.elevation_degrees),
+                range_km: Some(wind.range_km),
+                residual_ms: Some(wind.rms_ms),
+                symmetry_ms: None,
+                refused: None,
+            },
+            None => VwpLevel {
+                height_km,
+                speed_ms: None,
+                from_degrees: None,
+                elevation_degrees: None,
+                range_km: None,
+                residual_ms: None,
+                symmetry_ms: None,
+                refused: Some(Refusal::NotPublished),
+            },
+        });
+    }
+    VwpColumn {
+        volume: volume.to_string(),
+        collected: Some(profile.volume_time.to_rfc3339()),
+        source: VwpSource::Product,
         levels,
     }
 }
@@ -365,6 +451,105 @@ fn level_at(height_km: f64, cuts: &[(f32, SweepField, Option<f32>)]) -> VwpLevel
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The wind profile the RPG published for a DMX volume, decoded.
+    fn published() -> level3::WindProfile {
+        level3::read_wind_profile(include_bytes!(
+            "../tests/fixtures/DMX_NVW_2026_09_05_01_05_20"
+        ))
+        .expect("the fixture is a wind profile")
+    }
+
+    #[test]
+    fn a_published_column_answers_on_the_same_heights_the_fit_does() {
+        // The panel puts the columns of a loop side by side against one
+        // height rail, so a column from the office and a column fitted here
+        // have to be the same shape or the rail says one thing and the barbs
+        // beside it another.
+        let column = from_product("DMX_NVW_2026_09_05_01_05_20", &published());
+        assert_eq!(column.source, VwpSource::Product);
+        assert_eq!(column.levels.len(), LEVELS);
+        for (at, level) in column.levels.iter().enumerate() {
+            assert!(
+                (level.height_km - (at + 1) as f64 * LEVEL_STEP_KM).abs() < f64::EPSILON,
+                "level {at} is at {} km",
+                level.height_km
+            );
+        }
+        assert_eq!(
+            column.collected.as_deref(),
+            Some("2026-09-05T01:05:20+00:00")
+        );
+    }
+
+    #[test]
+    fn a_published_level_carries_the_office_wind_and_its_own_trust_number() {
+        // The table's row at 3,000 feet above the sea is 284 degrees at five
+        // knots with an RMS of 4.9, and the radar stands at 1,094 feet, which
+        // puts it 0.58 km up: inside a quarter kilometre of the half kilometre
+        // level, so that is the level it speaks for.
+        let column = from_product("DMX", &published());
+        let level = &column.levels[0];
+        assert!((level.height_km - 0.5).abs() < f64::EPSILON);
+        assert_eq!(level.from_degrees, Some(284.0));
+        assert!((level.speed_ms.expect("a wind") - 2.572).abs() < 0.01);
+        // The RPG's own root mean square difference, in metres a second, not
+        // a residual this app worked out.
+        assert!((level.residual_ms.expect("a trust number") - 2.521).abs() < 0.01);
+        assert_eq!(level.symmetry_ms, None);
+        assert_eq!(level.refused, None);
+        assert_eq!(level.elevation_degrees, Some(0.9));
+    }
+
+    #[test]
+    fn a_height_the_office_did_not_publish_stays_empty() {
+        // The office's plot writes ND at a height its algorithm could not
+        // read, and this fixture's table stops at 12,200 feet, which is 3.4
+        // km above the radar. Every level above that is ND: filling one in
+        // from the last wind below it would draw shear nobody measured.
+        let column = from_product("DMX", &published());
+        let top = column
+            .levels
+            .iter()
+            .rposition(|level| level.speed_ms.is_some())
+            .expect("some level was published");
+        assert!(
+            (column.levels[top].height_km - 3.5).abs() < f64::EPSILON,
+            "the highest published level is at {} km",
+            column.levels[top].height_km
+        );
+        for level in &column.levels[top + 1..] {
+            assert_eq!(level.speed_ms, None);
+            assert_eq!(level.from_degrees, None);
+            assert_eq!(level.refused, Some(Refusal::NotPublished));
+        }
+    }
+
+    #[test]
+    fn a_wind_below_the_lowest_level_is_not_dragged_up_to_it() {
+        // The office publishes down to a few hundred feet above the tower and
+        // this panel's lowest level is half a kilometre up, so the bottom two
+        // rows of most tables belong to no level here. Half a step is the
+        // whole rule: a wind measured at three hundred feet is not a statement
+        // about half a kilometre, and a nearest-wins lookup with no distance
+        // on it would put it there.
+        let profile = level3::WindProfile {
+            volume_time: chrono::Utc::now(),
+            winds: vec![level3::ProductWind {
+                height_km: 0.09,
+                from_degrees: 270.0,
+                speed_ms: 20.0,
+                rms_ms: 1.0,
+                elevation_degrees: 0.5,
+                range_km: 10.0,
+            }],
+        };
+        let column = from_product("DMX", &profile);
+        assert!(
+            column.levels.iter().all(|level| level.speed_ms.is_none()),
+            "a wind below every level was drawn on one of them"
+        );
+    }
     use crate::fixture;
     use chrono::{TimeZone, Utc};
     use nexrad_data::volume;

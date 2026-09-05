@@ -5892,8 +5892,18 @@ label.settings-field > span {
 }
 
 .vwp-volume {
+  display: flex;
+  flex-direction: column;
   color: var(--muted);
   font-size: 10px;
+}
+
+/* Which of the two measurements a column is: the office's own product, or
+   this app's fit of the volume. Quieter than the clock above it, because
+   the clock is what a reader is looking for and this is what they check. */
+.vwp-source {
+  color: var(--subtle);
+  font-size: 9px;
 }
 
 .vwp-barbs {

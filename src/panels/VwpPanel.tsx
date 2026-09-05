@@ -260,6 +260,16 @@ export function VwpPanel({
                   {column.collected
                     ? formatClock(Date.parse(column.collected))
                     : column.volume}
+                  {/* Which of the two measurements this column is. The
+                      office runs the same fit on its own volume and
+                      publishes it, and a reader comparing columns should be
+                      able to see when one is the radar's own answer and
+                      the next is this app's. */}
+                  <span className="vwp-source">
+                    {column.source === "product"
+                      ? t("vwp.sourceProduct")
+                      : t("vwp.sourceFitted")}
+                  </span>
                 </small>
               </div>
             ))}
