@@ -1,4 +1,4 @@
-import { haversineMiles, type GeoPoint } from "./geo";
+import { bearingDegrees, haversineMiles, type GeoPoint } from "./geo";
 import { translate, type StringKey } from "../i18n";
 import {
   formatClock,
@@ -37,27 +37,6 @@ const COMPASS: StringKey[] = [
   "nearby.west",
   "nearby.northwest",
 ];
-
-/**
- * The bearing from one point to another, in degrees clockwise from north.
- *
- * The great-circle bearing rather than the flat one: over the distances a
- * radar covers the two barely differ, but a storm five hundred miles away at
- * a high latitude is exactly where the flat answer starts being wrong, and
- * this is not more code.
- */
-export function bearingDegrees(from: GeoPoint, to: GeoPoint): number {
-  const radians = (degrees: number) => (degrees * Math.PI) / 180;
-  const fromLat = radians(from.lat);
-  const toLat = radians(to.lat);
-  const deltaLon = radians(to.lon - from.lon);
-  const y = Math.sin(deltaLon) * Math.cos(toLat);
-  const x =
-    Math.cos(fromLat) * Math.sin(toLat) -
-    Math.sin(fromLat) * Math.cos(toLat) * Math.cos(deltaLon);
-  const degrees = (Math.atan2(y, x) * 180) / Math.PI;
-  return (degrees + 360) % 360;
-}
 
 /** A bearing as one of eight words. */
 export function compassPoint(degrees: number): string {

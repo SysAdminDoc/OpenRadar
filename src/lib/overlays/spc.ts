@@ -2,11 +2,10 @@ import { translate } from "../../i18n";
 import { serviceAnswer } from "../serviceAnswer";
 import { cachedUrl } from "../tileCache";
 import {
-  boundsQuery,
+  arcgisQuery,
   type SpcHazard,
   relativeTime,
   type OverlayAdapter,
-  type OverlayBounds,
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
@@ -133,39 +132,6 @@ function text(value: unknown): string {
 /** A UTC day and time, so a window crossing midnight reads as one. */
 function stamp(at: number): string {
   return new Date(at).toISOString().slice(5, 16).replace("T", " ");
-}
-
-async function query(
-  url: string,
-  bounds: OverlayBounds,
-  fields: string,
-  signal?: AbortSignal,
-): Promise<unknown> {
-  const search = new URLSearchParams({
-    where: "1=1",
-    outFields: fields,
-    returnGeometry: "true",
-    geometryPrecision: "4",
-    outSR: "4326",
-    inSR: "4326",
-    geometry: boundsQuery(bounds),
-    geometryType: "esriGeometryEnvelope",
-    spatialRel: "esriSpatialRelIntersects",
-    resultRecordCount: "60",
-    f: "geojson",
-  });
-  const response = await fetch(cachedUrl(`${url}?${search.toString()}`), {
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(
-      translate("spc.serviceStatus", {
-        answer: serviceAnswer(response.status),
-      }),
-    );
-  }
-  return response.json();
 }
 
 /**
@@ -427,7 +393,14 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     if (!chosen) return { type: "FeatureCollection", features: [] };
     const fields = "dn,label,label2,valid,expire,issue,stroke,fill";
     const bands = parseOutlooks(
-      await query(layerQuery(chosen.probability), bounds, fields, signal),
+      await arcgisQuery({
+        url: layerQuery(chosen.probability),
+        bounds: bounds,
+        fields: fields,
+        statusKey: "spc.serviceStatus",
+        limit: 60,
+        signal: signal,
+      }),
     );
     const withDay = (features: OverlayFeature[]) =>
       features.map((feature) => ({
@@ -445,7 +418,14 @@ export const spcOutlooksOverlay: OverlayAdapter = {
     let missedHatching = false;
     try {
       hatched = parseOutlooks(
-        await query(layerQuery(chosen.significant), bounds, fields, signal),
+        await arcgisQuery({
+          url: layerQuery(chosen.significant),
+          bounds: bounds,
+          fields: fields,
+          statusKey: "spc.serviceStatus",
+          limit: 60,
+          signal: signal,
+        }),
         true,
       ).features;
     } catch {
@@ -554,12 +534,14 @@ export const spcDiscussionsOverlay: OverlayAdapter = {
   refreshMs: 5 * 60_000,
   fetchData: async (bounds, signal) =>
     parseDiscussions(
-      await query(
-        DISCUSSION_LAYER,
-        bounds,
-        "name,popupinfo,idp_filedate",
-        signal,
-      ),
+      await arcgisQuery({
+        url: DISCUSSION_LAYER,
+        bounds: bounds,
+        fields: "name,popupinfo,idp_filedate",
+        statusKey: "spc.serviceStatus",
+        limit: 60,
+        signal: signal,
+      }),
     ),
   layers: (sourceId) => [
     {

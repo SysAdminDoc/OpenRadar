@@ -1,7 +1,7 @@
 import { haversineMiles, type GeoPoint } from "./geo";
 import { serviceAnswer } from "./serviceAnswer";
 import { translate } from "../i18n";
-import { forecastUnits } from "./units";
+import { forecastUnits, MILES_TO_KM } from "./units";
 
 const ROUTER_URL = "https://valhalla1.openstreetmap.de/route";
 
@@ -202,7 +202,7 @@ export function parseRoute(payload: unknown): RouteShape | null {
   // an explicit kilometre answer is converted now.
   const named = String(trip.units ?? "").toLowerCase();
   const inKilometres = named.startsWith("kilom") || named === "km";
-  const miles = inKilometres ? length / 1.609344 : length;
+  const miles = inKilometres ? length / MILES_TO_KM : length;
   return {
     coordinates,
     distanceMiles: miles,

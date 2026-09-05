@@ -408,16 +408,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-308 (P3): The same helper written twice or more
-      Category: maintainability
-      Where: bearing: `src/lib/cells.ts:143` and `src/lib/nearby.ts:49` (`bearingDegrees`, identical); distance: `src/lib/geo.ts:6` (`haversineMiles`) and `src/lib/sounding.ts:55` (`distanceKm`, different radius and form), with `MapViewport.tsx:1955` multiplying by a bare `1.609344` while `units.ts:73` and `cells.ts:65` both hold `MILES_TO_KM`; "minutes ago": `UtilityPanels.tsx:173`, `RadarProductPanel.tsx:98`, `overlays/registry.ts:255`; the ArcGIS `query()` in `overlays/spc.ts:138-165` and `overlays/wpc.ts:92-119` (byte-identical but for the status key) with the same envelope built inline a third and fourth time in `wildfires.ts:76` and `alerts.ts:489`; the `matchMedia` subscriber three times in `useClock.ts:103, 145, 171` (the first without the `typeof` guard the other two have); the "still mounted" ref effect in `useApproachWatch.ts:70`, `useLightningWatch.ts:70`, `useForecastSmoke.ts:86`, `useAutostart.ts:33`; the `["pointerdown","keydown","wheel"]` trio in `App.tsx:1546-1554` and `FirstRunReveal.tsx:37-45`
-      Problem: Each pair can drift; the haversine pair already has (two Earth radii), and the two ArcGIS readers will diverge the first time one service changes its answer shape.
-      Evidence: The sites above.
-      Fix: One `bearingDegrees` and one distance helper in `geo.ts`; one `arcgisQuery(url, bounds, fields, signal, statusKey)` in `overlays/`; one `subscribeMedia(query)` in `useClock.ts`; leave the mounted-ref effect (four lines) unless a fifth appears.
-      Acceptance: `rg -n "function bearingDegrees|function query\(|matchMedia\(" src` finds one definition each; tests unchanged.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-315 (P3): Placefile icon ids saved before the escape fix decode wrongly or throw, and the icon vanishes silently
       Category: reliability
       Where: `src/lib/placefile.ts:137` (encodes the sheet address into the id at write), `:161` (`decodeURIComponent` at read); `src/components/MapViewport.tsx:1519` (`parseIconId` null means the feature enters neither `bySheet` nor the fallback)

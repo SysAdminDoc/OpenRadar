@@ -45,7 +45,12 @@ import {
 import { createWindLayer } from "../lib/windLayer";
 import type { WindField } from "../lib/wind";
 import type { RadarFrame } from "../lib/radar";
-import { formatClock, formatHeight, useMeasurements } from "../lib/units";
+import {
+  formatClock,
+  formatHeight,
+  MILES_TO_KM,
+  useMeasurements,
+} from "../lib/units";
 import {
   cameraKey,
   sameCamera,
@@ -2025,7 +2030,7 @@ function MapViewportInner(
         let beam: { feet: number; tilt: number } | null = null;
         if (drawn) {
           const site = sweepSite(drawn);
-          const rangeKm = haversineMiles(site, point) * 1.609344;
+          const rangeKm = haversineMiles(site, point) * MILES_TO_KM;
           if (rangeKm <= drawn.rangeKm) {
             beam = {
               feet: beamHeightFeet(rangeKm, drawn.elevationDegrees),
