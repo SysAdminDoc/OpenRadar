@@ -1961,6 +1961,9 @@ export const fr: Catalogue = {
   "ambientScreen.settingDetail":
     "La carte sans rien d'autre dessus, une horloge et ce qu'elle montre. La boucle continue et ralentit quand personne ne touche à rien pendant un moment, pour qu'un écran laissé allumé la nuit ne demande pas une image par minute. Une alerte là où vous surveillez la referme et rend l'espace de travail.",
   "ambientScreen.leave": "Quitter la vue plein écran",
+  "ambientScreen.awake": "Garder l'écran allumé pendant l'affichage",
+  "ambientScreen.awakeDetail":
+    "Windows éteint un moniteur selon sa propre minuterie, ce qui ne convient pas à une vue destinée à rester affichée. Ceci garde l'écran allumé uniquement pendant que la vue plein écran est affichée, et le rend dès que vous la quittez. Windows uniquement.",
   "ambientScreen.idle": "Y entrer seule après",
   "ambientScreen.idleOff": "Jamais",
   "ambientScreen.idleMinutes":

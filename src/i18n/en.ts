@@ -1903,6 +1903,9 @@ export const en = {
   "ambientScreen.settingDetail":
     "The map with nothing else on it, a clock, and what it is showing. The loop keeps running and slows down when nobody has touched anything for a while, so a screen left on overnight is not asking a public service for a picture every minute. A warning where you watch takes it down and puts the workspace back.",
   "ambientScreen.leave": "Leave the full-screen view",
+  "ambientScreen.awake": "Keep the screen on while it is showing",
+  "ambientScreen.awakeDetail":
+    "Windows turns a monitor off on its own timer, which is not much use for a view meant to be left up. This holds the screen on only while the full-screen view is showing, and gives it back the moment you leave. Windows only.",
   "ambientScreen.idle": "Go into it on its own after",
   "ambientScreen.idleOff": "Never",
   "ambientScreen.idleMinutes":
