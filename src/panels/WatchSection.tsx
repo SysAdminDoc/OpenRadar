@@ -23,6 +23,8 @@ import {
 import { APPROACH_MINUTES } from "../lib/approach";
 import { LIGHTNING_COUNTS, LIGHTNING_RADII } from "../lib/lightningWatch";
 import { ToggleSetting } from "../components/ToggleSetting";
+import { LightningChip } from "../components/LightningChip";
+import type { PlaceLightning } from "../lib/lightningWatch";
 /**
  * Minutes past midnight as a time field reads them, and back again.
  *
@@ -68,6 +70,14 @@ interface WatchSectionProps {
   onAddWatchPlace: () => void;
   /** Asks for a sound file of the reader's own, or leaves it as it was. */
   onChooseSound: () => Promise<void>;
+  /**
+   * What the lightning watch counted for each place, by its identifier.
+   *
+   * Empty until a flash window arrives, which is the honest state: a place
+   * with no entry has had nothing said about it rather than been called
+   * clear.
+   */
+  placeLightning: readonly PlaceLightning[];
 }
 
 /**
@@ -89,8 +99,12 @@ export function WatchSection({
   onWatchHere,
   onAddWatchPlace,
   onChooseSound,
+  placeLightning,
 }: WatchSectionProps) {
   const t = useT();
+  const lightningByPlace = new Map(
+    placeLightning.map((place) => [place.placeId, place]),
+  );
   // Home counts, and only places actually switched on: a storm heading for a
   // place nobody is watching is not news. Counted through `watchedPlaces`,
   // which applies the cap, because with ten saved places the tenth is never
@@ -157,6 +171,7 @@ export function WatchSection({
           }
         />
       </label>
+      <LightningChip lightning={lightningByPlace.get("home")} clock={clock} />
       <ToggleSetting
         label={t("alerts.sound")}
         detail={t("alerts.soundDetail")}
@@ -677,6 +692,10 @@ export function WatchSection({
                 }
               />
             </label>
+            <LightningChip
+              lightning={lightningByPlace.get(place.id)}
+              clock={clock}
+            />
             <div className="watch-place__row">
               <label>
                 <span>{t("settings.radius", { unit: distanceUnit() })}</span>

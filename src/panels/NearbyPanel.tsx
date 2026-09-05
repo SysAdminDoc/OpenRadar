@@ -6,6 +6,8 @@ import { relativeTime } from "../lib/overlays";
 import { formatClock, useMeasurements } from "../lib/units";
 import { useT } from "../i18n";
 import { MAX_NAME } from "../lib/cellNames";
+import { LightningChip } from "../components/LightningChip";
+import type { PlaceLightning } from "../lib/lightningWatch";
 
 export interface NearbyPlaceOption {
   id: string;
@@ -20,6 +22,10 @@ interface NearbyPanelProps {
   cells: NearbyCell[];
   /** The soonest storm heading for each watched place, soonest first. */
   approaching: Approach[];
+  /** What the lightning watch counted for each watched place. */
+  placeLightning: PlaceLightning[];
+  /** Ticks once a minute, so the ages on the chips stay honest. */
+  clock: number;
   /** What the reader calls each of them, by the algorithm's identifier. */
   cellNames: ReadonlyMap<string, string>;
   /** Naming one, or clearing the name by handing over nothing. */
@@ -48,6 +54,8 @@ export function NearbyPanel({
   warnings,
   cells,
   approaching,
+  placeLightning,
+  clock,
   cellNames,
   onNameCell,
   cellsNote,
@@ -173,6 +181,29 @@ export function NearbyPanel({
           <p className="nearby-empty">{t("approach.none")}</p>
         )}
       </section>
+
+      {/* One line per watched place, from the same window the watch reads.
+          A place with no flashes in it is left out rather than called clear:
+          an empty window is a satellite file that did not arrive as often as
+          it is a quiet sky. */}
+      {placeLightning.some((place) => place.newest !== null) ? (
+        <section className="nearby-block" data-lightning>
+          <h3>{t("nearby.lightningHeading")}</h3>
+          <ul role="list" className="nearby-list">
+            {placeLightning
+              .filter((place) => place.newest !== null)
+              .map((place) => (
+                <li key={place.placeId}>
+                  <span>
+                    <strong>{place.placeName}</strong>
+                    <LightningChip lightning={place} clock={clock} />
+                  </span>
+                </li>
+              ))}
+          </ul>
+          <p className="nearby-empty">{t("lightningWatch.note")}</p>
+        </section>
+      ) : null}
 
       <section className="nearby-block">
         <h3>{t("nearby.cellsHeading")}</h3>

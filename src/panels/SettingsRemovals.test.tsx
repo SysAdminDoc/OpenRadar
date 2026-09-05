@@ -63,6 +63,7 @@ function Harness({
       clock={0}
       onReset={vi.fn()}
       onExportSettings={vi.fn()}
+      placeLightning={[]}
       onClose={vi.fn()}
     />
   );

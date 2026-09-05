@@ -23,6 +23,7 @@ import { CuriositySection } from "./CuriositySection";
 import { WATCH_HEALTHY, type WatchHealth } from "../lib/watch";
 import { ToggleSetting } from "../components/ToggleSetting";
 import { WatchSection } from "./WatchSection";
+import type { PlaceLightning } from "../lib/lightningWatch";
 interface SettingsPanelProps {
   settings: AppSettings;
   bounds?: PackBounds | null;
@@ -69,6 +70,8 @@ interface SettingsPanelProps {
   onExportSettings: () => Promise<void>;
   /** Asks for a sound file of the reader's own, or leaves it as it was. */
   onChooseSound: () => Promise<void>;
+  /** What the lightning watch counted for each watched place. */
+  placeLightning: readonly PlaceLightning[];
   onClose: () => void;
 }
 
@@ -111,6 +114,7 @@ export function SettingsPanel({
   onReset,
   onExportSettings,
   onChooseSound,
+  placeLightning,
   onClose,
 }: SettingsPanelProps) {
   const t = useT();
@@ -766,6 +770,7 @@ export function SettingsPanel({
         onWatchHere={onWatchHere}
         onAddWatchPlace={onAddWatchPlace}
         onChooseSound={onChooseSound}
+        placeLightning={placeLightning}
       />
 
       <div className="settings-section settings-section--camera">
