@@ -34,6 +34,7 @@ function open(start: AppSettings, onSeen: (settings: AppSettings) => void) {
         clock={0}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}
+        placeLightning={[]}
         onClose={vi.fn()}
       />
     );

@@ -1029,6 +1029,7 @@ export const es: Catalogue = {
   "nearby.warningTagged": "{headline}, marcado como {tag}.",
   "nearby.warningUntil": "Vigente hasta las {when}.",
   "nearby.cellsHeading": "Tormentas más cercanas",
+  "nearby.lightningHeading": "Rayos cerca de tus lugares",
   "nearby.noCells":
     "El rastreador no sigue ninguna tormenta cerca de este lugar.",
   "nearby.cellsOff":
@@ -1406,6 +1407,9 @@ export const es: Catalogue = {
     "Apagado, porque un aviso ya suena y esto no es un aviso.",
   "lightningWatch.note":
     "Destellos detectados por satélite, no informes de impactos en tierra.",
+  "lightningWatch.chipSince": "Último destello hace {since}",
+  "lightningWatch.chipClear": "En calma desde hace {since}",
+  "lightningWatch.chipNearest": "El más cercano a {distance} al {direction}",
   "approach.none": "Nada de lo que el radar sigue va hacia tus lugares.",
   "cells.arrivingSoon": "{id} llega al punto vigilado en menos de un minuto",
   "cells.nothingComing": "Nada de lo que sigue el radar va hacia allí",

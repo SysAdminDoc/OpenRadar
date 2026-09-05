@@ -1014,6 +1014,7 @@ export const en = {
   "nearby.warningTagged": "{headline}, tagged {tag}.",
   "nearby.warningUntil": "In force until {when}.",
   "nearby.cellsHeading": "Nearest storms",
+  "nearby.lightningHeading": "Lightning near your places",
   "nearby.noCells": "The tracker is following no storms near this place.",
   "nearby.cellsOff":
     "Storm cells are switched off, so there is nothing to list. Turn the layer on to hear what the radar is tracking.",
@@ -1384,6 +1385,9 @@ export const en = {
     "Off, because a warning already makes one and this is not a warning.",
   "lightningWatch.note":
     "Satellite-detected flashes, not ground strike reports.",
+  "lightningWatch.chipSince": "Last flash {since} ago",
+  "lightningWatch.chipClear": "Quiet for {since}",
+  "lightningWatch.chipNearest": "Nearest was {distance} to the {direction}",
   "approach.none": "Nothing the radar is tracking is heading for your places.",
   "cells.arrivingSoon": "{id} reaches the place you watch within a minute",
   "cells.nothingComing": "Nothing the radar is tracking is heading that way",

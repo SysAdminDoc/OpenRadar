@@ -5517,6 +5517,54 @@ label.settings-field > span {
   margin: 0;
 }
 
+/* How long since the last flash near a watched place, on the place's own card
+   and in the Nearby readout. The colour is elapsed time and nothing else, and
+   it is never the only signal: the line says the minutes, so a reader who
+   cannot tell the three apart by colour reads the same answer. */
+.lightning-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.lightning-chip svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.lightning-chip span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lightning-chip small {
+  font-size: 11px;
+  color: var(--subtle);
+}
+
+.lightning-chip[data-step="fresh"] {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+.lightning-chip[data-step="recent"] {
+  border-left-color: var(--amber);
+}
+
+.lightning-chip[data-step="clear"] {
+  border-left-color: var(--green);
+}
+
 /* When each model last ran, above the table. A model twelve hours behind
    another is not disagreeing with it, and the table cannot say which. */
 .model-runs {

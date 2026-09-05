@@ -44,6 +44,7 @@ function panel(
         clock={clock}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}
+        placeLightning={[]}
         onClose={vi.fn()}
       />
     ),
@@ -214,6 +215,7 @@ describe("a watch whose layer is switched off", () => {
         clock={0}
         onReset={vi.fn()}
         onExportSettings={vi.fn()}
+        placeLightning={[]}
         onClose={vi.fn()}
       />,
     );

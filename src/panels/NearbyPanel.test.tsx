@@ -4,6 +4,9 @@ import { NearbyPanel } from "./NearbyPanel";
 import { cellKey, withName } from "../lib/cellNames";
 import type { Approach } from "../lib/approach";
 
+/** A fixed moment, so nothing here depends on when the suite runs. */
+const CLOCK = Date.parse("2026-09-04T18:00:00Z");
+
 /**
  * Where a reader gives a storm a name.
  *
@@ -30,6 +33,8 @@ function markup(names: ReadonlyMap<string, string>, onName: () => void) {
       station="KFWS"
       observed={Date.now()}
       alertsFetchedAt={Date.now()}
+      placeLightning={[]}
+      clock={CLOCK}
       onClose={() => undefined}
     />
   );
@@ -107,6 +112,8 @@ function approachPanel(
       station="KFWS"
       observed={Date.now()}
       alertsFetchedAt={Date.now()}
+      placeLightning={[]}
+      clock={CLOCK}
       onClose={() => undefined}
     />
   );

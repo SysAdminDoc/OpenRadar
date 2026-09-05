@@ -4,8 +4,10 @@ import { setUnits } from "./units";
 import {
   DEFAULT_LIGHTNING_RULE,
   LIGHTNING_COUNTS,
+  LIGHTNING_FRESH_MS,
   LIGHTNING_RADII,
   QUIET_AFTER_MS,
+  lightningStep,
   flashesNear,
   lightningAfter,
   lightningNear,
@@ -107,6 +109,71 @@ describe("which flashes are near a place", () => {
       ON,
     );
     expect(near[0].newest).toBe(NOW);
+  });
+
+  it("reports the nearest flash, not the newest one", () => {
+    // A reader at a ballfield acts on how close the storm has come. The
+    // closest flash and the most recent one are rarely the same flash, and
+    // reading the distance off the newest would say a strike was eight miles
+    // out while one had landed two miles away a minute earlier.
+    const near = lightningNear(
+      window_([
+        // About eight miles north, just now, and first in the file: taking
+        // whichever flash comes first reads this one.
+        flash(41.716, -93.6, NOW),
+        // About two miles east, a minute ago.
+        flash(41.6, -93.5613, NOW - 60_000),
+      ]),
+      [FIELD],
+      ON,
+    );
+    expect(near[0].newest).toBe(NOW);
+    expect(near[0].nearestMiles).toBeCloseTo(2, 0);
+    // Due east of the place, which is where the near one was planted.
+    expect(near[0].nearestBearing).toBeCloseTo(90, 0);
+  });
+
+  it("says nothing about distance for a place with no flashes", () => {
+    const near = lightningNear(window_([]), [FIELD], ON);
+    expect(near[0].flashes).toBe(0);
+    expect(near[0].nearestMiles).toBeNull();
+    expect(near[0].nearestBearing).toBeNull();
+  });
+});
+
+describe("the stoplight a watched place shows", () => {
+  it("steps at ten minutes and again at half an hour", () => {
+    // The testbed's finding is the negative one: nothing but elapsed time may
+    // read as clear, because a probability that has trended down is not an
+    // all-clear while a strike six miles out is ten minutes old. So the
+    // clock is driven forward through all three and nothing else changes.
+    const at = NOW;
+    expect(lightningStep(at, at)).toBe("fresh");
+    expect(lightningStep(at, at + LIGHTNING_FRESH_MS - 1)).toBe("fresh");
+    expect(lightningStep(at, at + LIGHTNING_FRESH_MS)).toBe("recent");
+    expect(lightningStep(at, at + QUIET_AFTER_MS - 1)).toBe("recent");
+    expect(lightningStep(at, at + QUIET_AFTER_MS)).toBe("clear");
+    expect(lightningStep(at, at + QUIET_AFTER_MS * 4)).toBe("clear");
+  });
+
+  it("steps on the same half hour the all-clear is said on", () => {
+    // Two numbers for one rule is how a chip reads clear while the notice has
+    // not gone out, or the other way round.
+    expect(lightningStep(NOW, NOW + QUIET_AFTER_MS)).toBe("clear");
+    expect(LIGHTNING_FRESH_MS).toBeLessThan(QUIET_AFTER_MS);
+  });
+
+  it("says nothing at all about a place that has seen no flash", () => {
+    // Not "clear". Nothing has happened, which is a different statement from
+    // something that has stopped, and the chip draws neither.
+    expect(lightningStep(null, NOW)).toBeNull();
+  });
+
+  it("treats a flash stamped after the clock as now", () => {
+    // The satellite's stamp and this machine's clock are two clocks. One
+    // ahead of the other by a few seconds must not read as half an hour of
+    // quiet in the other direction.
+    expect(lightningStep(NOW + 5_000, NOW)).toBe("fresh");
   });
 });
 
@@ -253,6 +320,8 @@ describe("what the lightning watch says a radius is", () => {
         named: false,
         flashes: 3,
         radiusMiles: 10,
+        nearestMiles: 4,
+        nearestBearing: 90,
         newest: Date.UTC(2026, 8, 4, 20),
       },
     });
@@ -271,6 +340,8 @@ describe("what the lightning watch says a radius is", () => {
           named: false,
           flashes: 3,
           radiusMiles: 10,
+          nearestMiles: 4,
+          nearestBearing: 90,
           newest: Date.UTC(2026, 8, 4, 20),
         },
       }),

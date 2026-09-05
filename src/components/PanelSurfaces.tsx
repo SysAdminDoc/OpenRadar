@@ -87,6 +87,7 @@ import type {
   LightningWindow,
 } from "../lib/lightningGrids";
 import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
+import type { PlaceLightning } from "../lib/lightningWatch";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
 import { TropicalPanel } from "../panels/TropicalPanel";
@@ -194,6 +195,8 @@ interface PanelSurfacesProps {
   onNearbyPlace: (id: string) => void;
   /** The soonest storm heading for each watched place, soonest first. */
   approaching: Approach[];
+  /** What the lightning watch counted for each watched place. */
+  placeLightning: PlaceLightning[];
   onSurgeCategory: (category: SurgeCategory) => void;
   /** The moment a sounding is asked for, which is the timeline's own. */
   soundingAt: number;
@@ -347,6 +350,8 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       {activeSurface === "nearby" ? (
         <NearbyPanel
           approaching={props.approaching}
+          placeLightning={props.placeLightning}
+          clock={props.clock}
           places={props.nearbyPlaces}
           placeId={props.nearbyPlaceId}
           onPlace={props.onNearbyPlace}
@@ -428,6 +433,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onReset={props.onReset}
             onExportSettings={props.onExportSettings}
             onChooseSound={props.onChooseSound}
+            placeLightning={props.placeLightning}
             onClose={onClose}
           />
         </Suspense>

@@ -1171,7 +1171,7 @@ export default function App() {
   // Lightning near a watched place, from the window the map already holds.
   // Two notices per storm: come in, and half an hour after the last flash it
   // is over. Nothing here is a warning and every line of it says so.
-  useLightningWatch({
+  const placeLightning = useLightningWatch({
     window: lightning.window,
     places: watchedForJournal,
     rule: settings.lightningWatch,
@@ -2678,6 +2678,7 @@ export default function App() {
             nearbyPlaces={nearbyPlaces}
             nearbyPlaceId={nearbyPlaceId}
             approaching={approaching}
+            placeLightning={placeLightning}
             onNearbyPlace={setNearbyPlaceId}
             clock={clock}
             update={updates.state}

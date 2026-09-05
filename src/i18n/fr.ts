@@ -1042,6 +1042,7 @@ export const fr: Catalogue = {
   "nearby.warningTagged": "{headline}, qualifiée de {tag}.",
   "nearby.warningUntil": "En vigueur jusqu'à {when}.",
   "nearby.cellsHeading": "Orages les plus proches",
+  "nearby.lightningHeading": "Éclairs près de vos lieux",
   "nearby.noCells": "Le pisteur ne suit aucun orage près de cet endroit.",
   "nearby.cellsOff":
     "Les cellules orageuses sont éteintes, alors il n'y a rien à énumérer. Allumez la couche pour entendre ce que le radar suit.",
@@ -1423,6 +1424,10 @@ export const fr: Catalogue = {
     "Désactivé, parce qu'une alerte en fait déjà un et ceci n'en est pas une.",
   "lightningWatch.note":
     "Éclairs détectés par satellite, pas des relevés d'impacts au sol.",
+  "lightningWatch.chipSince": "Dernier éclair il y a {since}",
+  "lightningWatch.chipClear": "Calme depuis {since}",
+  "lightningWatch.chipNearest":
+    "Le plus proche à {distance} vers le {direction}",
   "approach.none": "Rien de ce que le radar suit ne va vers vos lieux.",
   "cells.arrivingSoon":
     "{id} atteint l'endroit que vous surveillez d'ici une minute",

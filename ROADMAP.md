@@ -317,13 +317,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P2
 
-- [ ] AUD-264 (P2): Time since the last flash, and how far the nearest one was, per watched place
-      Why: The 2026 Hazardous Weather Testbed found forecasters wanted the Lightning Stoplight's colouring by time since the last strike, decaying slowly, beside any probability, and were told never to message an all-clear from probabilities alone after a strike six miles out while both tools trended clear. A reader on Bluesky (2026-09-04) paid for a lightning tier to know when to unplug. The app has the flashes, the places, and a 30-minute quiet rule (`useLightningWatch.ts`); it shows neither the age of the last flash nor its distance.
-      Evidence: https://inside.nssl.noaa.gov/ewp/topic/lightning-stoplight/ ; https://baronweather.com/baron-news/tag/baron-threat-net (five radii, 30-minute all-clear); `src/hooks/useLightningWatch.ts`, `src/lib/lightningWatch.ts`.
-      Touches: `src/lib/lightningWatch.ts` (nearest flash distance and bearing, time since last inside the radius), `src/hooks/useLightningWatch.ts`, the watched-place card and the Nearby panel (a stoplight chip: red under 10 min, amber to 30, green after, with the minutes written), `src/i18n/*`, tests.
-      Acceptance: Each watched place shows minutes since the last flash inside its radius and the nearest flash's distance and bearing, from the same feed the watch reads; the chip's colour steps at the stated minutes and never says "clear" from anything but elapsed time; a test drives a flash then advances a fake clock through the three steps.
-      Complexity: M
-
 - [ ] AUD-266 (P2): Read the radar's own wind profile product first, and fit the volume only when it has none
       Why: Every WSR-88D and TDWR publishes Level III NVW (product 48), the RPG's own VAD wind profile: 354 objects a day at DMX, 233 at TLX, 235 at TDJT on 2026-09-03. The app fits every ring itself from Level II (`src-tauri/src/level2.rs:1124` `fitted_wind`, `src-tauri/src/vwp.rs`), which is a whole volume fetched and decoded before storm-relative velocity can paint. Anvil reads NVW first and falls back to its own fit, and cut first paint of SRV from 19.7 to 5.9 s.
       Evidence: bucket listings `DMX_NVW_2026_09_03`, `TLX_NVW_2026_09_03`, `DJT_NVW_2026_09_03` verified 2026-09-04; https://github.com/jhammon88219/Anvil/commit/9783bf8 ; ICD 2620001 product 48 packet 8/9 text and the VAD wind profile in 2620003.

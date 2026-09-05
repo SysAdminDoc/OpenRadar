@@ -1,5 +1,5 @@
 import { announceOnDesktop } from "../lib/notify";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/settings";
 import { playAlertTone } from "../lib/sound";
@@ -12,6 +12,7 @@ import {
   type LightningNotice,
   type LightningRule,
   type LightningSaid,
+  type PlaceLightning,
 } from "../lib/lightningWatch";
 import type { FlashWindow } from "./useLightning";
 import type { WatchPlace } from "../lib/watch";
@@ -52,6 +53,12 @@ export function lightningBody(notice: LightningNotice): string {
  * the last flash, it is over. Everything it says carries what these flashes
  * are, which is an instrument seeing light above the cloud rather than a
  * report of what reached the ground.
+ *
+ * Returns what it counted, one entry per watched place, so the panels can
+ * show the same figures the notice is decided from rather than counting the
+ * window a second time and disagreeing with it. Counted whether or not the
+ * notice is switched on: a reader who never wants a notification still wants
+ * to know how long it has been since the last flash.
  */
 export function useLightningWatch(options: {
   window: FlashWindow | null;
@@ -61,7 +68,7 @@ export function useLightningWatch(options: {
   clock: number;
   /** How the workspace shows one, when a desktop notification did not land. */
   onFallback: (notice: LightningNotice) => void;
-}): void {
+}): PlaceLightning[] {
   const { window: flashes, places, rule, clock, onFallback } = options;
   const saidRef = useRef(new Map<string, LightningSaid>());
   const fallbackRef = useRef(onFallback);
@@ -102,6 +109,18 @@ export function useLightningWatch(options: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watched]);
 
+  // What each place has had, counted once and read by both the notice below
+  // and whatever is on screen. A window that has not arrived is not an empty
+  // one, so nothing is claimed about a place until a real answer comes back.
+  const near = useMemo(
+    () => lightningNear(flashes, places, rule),
+    // `places` is a new array every render; `watched` is the part of it that
+    // decides this, and the radius is the only part of the rule that changes
+    // what is counted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flashes, watched, rule.radiusMiles],
+  );
+
   useEffect(() => {
     if (!rule.enabled) return;
     // No window is not an empty window. The feed answers with nothing when
@@ -113,7 +132,6 @@ export function useLightningWatch(options: {
     // is measured from the newest flash this map remembers, could never be
     // said at all. What is held is only replaced by a real answer.
     if (!flashes) return;
-    const near = lightningNear(flashes, places, rule);
     const notices = lightningToAnnounce(
       near,
       rule,
@@ -170,4 +188,6 @@ export function useLightningWatch(options: {
     rule.sound,
     watched,
   ]);
+
+  return near;
 }
