@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { MRMS_PRODUCT_IDS } from "./providers/mrms";
 import {
   CELL_LAYER_IDS,
   COUNTY_LAYER_ID,
   CUSTOM_LAYER_IDS,
   layerStackOrder,
   MRMS_LAYER_IDS,
+  MRMS_SOURCE_PREFIX,
   RADAR_LANE_LAYER_IDS,
   SATELLITE_LAYER_ID,
   stackHeight,
@@ -109,6 +111,49 @@ describe("guidance never sits in front of a decision", () => {
       for (const guess of guidance) {
         expect(stackHeight(order, cell)).toBeGreaterThan(
           stackHeight(order, guess),
+        );
+      }
+    }
+  });
+});
+
+describe("every grid the panel can switch on has a lane to draw in", () => {
+  it("names one per product, less the composite", () => {
+    // The sync loop only visits the lanes in this list, so a product without
+    // one fetches its frames, builds a tile address, and draws nothing at
+    // all. Three were written out by hand when there were three, and every
+    // grid added since was invisible: the other four rotation windows, both
+    // shear heights, the hail figures, the accumulations, the flash flood
+    // grids, precipitation type, and the merged grid at a height.
+    const drawn = new Set(
+      MRMS_LAYER_IDS.filter((id) => id.startsWith(MRMS_SOURCE_PREFIX)).map(
+        (id) => id.slice(MRMS_SOURCE_PREFIX.length),
+      ),
+    );
+    for (const product of MRMS_PRODUCT_IDS) {
+      if (product === "composite") continue;
+      expect(drawn.has(product), `${product} has no lane`).toBe(true);
+    }
+    // And nothing in the list that is not a product.
+    for (const product of drawn) {
+      expect(
+        (MRMS_PRODUCT_IDS as readonly string[]).includes(product),
+        `${product} is not a product`,
+      ).toBe(true);
+    }
+    expect(drawn.has("composite")).toBe(false);
+  });
+
+  it("keeps the scattered grids over the fields that cover the map", () => {
+    // A hail core is a smaller target than the rain around it, and a
+    // continuous field drawn over one buries it.
+    const order = layerStackOrder([]);
+    const lane = (product: string) =>
+      stackHeight(order, `${MRMS_SOURCE_PREFIX}${product}`);
+    for (const scattered of ["mesh", "rotation-240", "lightning-jump"]) {
+      for (const field of ["qpe-day", "precip-type", "cappi-reflectivity"]) {
+        expect(lane(scattered), `${scattered} over ${field}`).toBeGreaterThan(
+          lane(field),
         );
       }
     }

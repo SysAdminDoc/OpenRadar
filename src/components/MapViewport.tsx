@@ -283,6 +283,22 @@ interface MapViewportProps {
  * anchor has to be read from the style, because layers are added in whatever
  * order their data arrives, not in the order the adapters are declared.
  */
+/**
+ * The host of an address, or the address itself when it is not one.
+ *
+ * A log line about a sheet that would not load must not be able to fail: it
+ * runs inside the handler that draws the fallback dot, and `new URL` on a
+ * string that is not an address threw there and abandoned every sheet after
+ * it.
+ */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
 function firstExisting(map: maplibregl.Map, ids: string[]): string | undefined {
   const wanted = new Set(ids);
   for (const layer of map.getStyle().layers ?? []) {
@@ -1586,9 +1602,13 @@ function MapViewportInner(
         for (const { id } of refs) {
           if (!map.hasImage(id)) map.addImage(id, fallbackDot());
         }
+        // The host if it is one, and the address otherwise. `new URL` on a
+        // string that is not an address throws, and throwing here, inside the
+        // handler for a sheet that would not load, abandoned every sheet
+        // after it: none of them got the dot this branch exists to draw.
         log.warn(
           "placefile",
-          `icon sheet ${new URL(url).hostname} refused: ${String(error)}`,
+          `icon sheet ${hostOf(url)} refused: ${String(error)}`,
         );
       }
     }

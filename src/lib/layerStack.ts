@@ -13,6 +13,8 @@
  * checked without standing a whole map up.
  */
 
+import { MRMS_PRODUCT_IDS } from "./providers/mrms";
+
 /** Every overlay names its source and its layers from this. */
 export const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
 
@@ -100,11 +102,56 @@ export const CELL_LAYER_IDS = [
   CELL_LABEL_LAYER_ID,
 ];
 
-/** Hail sits over rotation, because a hail core is the smaller target. */
+/**
+ * The grids that are scattered single cells rather than a field over the map.
+ *
+ * They go on top of the ones that cover the country, because a hail core is a
+ * smaller target than the rain around it and a continuous field drawn over
+ * one buries it. The same split decides how each is drawn on the native side,
+ * where it is `Sampling::Cells` against `Sampling::Nearest`; the two lists are
+ * held together by `every_product_is_drawn_the_way_its_data_is_shaped` there
+ * and by the test beside this one here.
+ */
+const SCATTERED_MRMS_PRODUCTS = [
+  "rotation",
+  "rotation-30",
+  "rotation-120",
+  "rotation-240",
+  "rotation-1440",
+  "az-shear-low",
+  "az-shear-mid",
+  "mesh",
+  "shi",
+  "posh",
+  "hail-swath",
+  "lightning",
+  "lightning-1min",
+  "lightning-15min",
+  "lightning-30min",
+  "lightning-jump",
+  "lightning-jump-max",
+];
+
+/**
+ * One lane per grid the panel can switch on, continuous fields under the
+ * scattered ones.
+ *
+ * Derived from the product list rather than written out. Three of them were
+ * named here by hand, which was right when there were three: every grid added
+ * since drew nothing at all, because the lane it needed did not exist and the
+ * sync loop only ever visits the lanes in this list. That includes every
+ * window of the rotation track except the default one.
+ *
+ * The composite is not here on purpose. It is the radar timeline rather than
+ * an overlay, and it has its own lane under everything.
+ */
 export const MRMS_LAYER_IDS = [
-  `${MRMS_SOURCE_PREFIX}rotation`,
-  `${MRMS_SOURCE_PREFIX}mesh`,
-  `${MRMS_SOURCE_PREFIX}lightning`,
+  ...MRMS_PRODUCT_IDS.filter(
+    (id) =>
+      id !== "composite" &&
+      !(SCATTERED_MRMS_PRODUCTS as readonly string[]).includes(id),
+  ).map((id) => `${MRMS_SOURCE_PREFIX}${id}`),
+  ...SCATTERED_MRMS_PRODUCTS.map((id) => `${MRMS_SOURCE_PREFIX}${id}`),
   FLASH_LAYER_ID,
   WIND_LAYER_ID,
 ];

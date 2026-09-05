@@ -47,6 +47,14 @@ export interface GridDataRequest {
   /** Seconds since the epoch, as the timeline holds them. */
   time: number;
   domain?: string | null;
+  /**
+   * Which height of the merged grid, for the three products published at more
+   * than one. Absent for every other product: the native side answers with
+   * the lowest for a family and ignores it for the rest, so leaving it out is
+   * how an export of the six kilometre grid came back as the half kilometre
+   * one.
+   */
+  level?: string;
   west: number;
   south: number;
   east: number;

@@ -253,6 +253,24 @@ describe("icons", () => {
     expect(parseIconId("icon3|https%3A%2F%2Fx.test|15|25|7|24|1")).toBeNull();
   });
 
+  it("reads the escaped shape that shipped under the old prefix too", () => {
+    // The escaping landed on 2026-09-04 and kept the old prefix; the prefix
+    // changed a day later. So the bare prefix covers two shapes, and a
+    // workspace saved in between holds an escaped address under it. Reading
+    // that one raw hands back "https%3A%2F%2F..." , which is not an address:
+    // the fetch resolves against the app origin and 404s.
+    const between = parseIconId(
+      "icon|https%3A%2F%2Fspotters.example%2Fa.png|15|25|7|24|2",
+    );
+    expect(between?.url).toBe("https://spotters.example/a.png");
+    expect(between?.index).toBe(2);
+    // Which shape it is comes from looking at it: an escaped address has no
+    // separators left in it.
+    expect(
+      parseIconId("icon|https://spotters.example/a.png|15|25|7|24|2")?.url,
+    ).toBe("https://spotters.example/a.png");
+  });
+
   it("still reads an id written before the address was escaped", () => {
     // A feature is stored in the workspace and a workspace outlives the build
     // that wrote it. Before 2026-09-05 the address went in as it stood, so

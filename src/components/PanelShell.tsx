@@ -8,6 +8,15 @@ interface PanelShellProps {
   children: ReactNode;
   onClose: () => void;
   className?: string;
+  /**
+   * Whether the panel is fetching what it is about to show.
+   *
+   * On the panel rather than on a region inside it, because it is the panel a
+   * reader has open and the thing a screen reader is in. A panel that keeps
+   * what it drew last time while it asks again has to say so, or the reader
+   * is looking at the previous answer with nothing to tell them.
+   */
+  busy?: boolean;
 }
 
 export function PanelShell({
@@ -16,6 +25,7 @@ export function PanelShell({
   children,
   onClose,
   className = "",
+  busy,
 }: PanelShellProps) {
   const t = useT();
   const headingId = useId();
@@ -62,6 +72,8 @@ export function PanelShell({
       role="dialog"
       aria-modal="false"
       aria-labelledby={headingId}
+      aria-busy={busy === undefined ? undefined : busy}
+      data-busy={busy ? true : undefined}
       // Escape is what closes a dialog. This is the dialog's own behaviour
       // while it has focus, not an application shortcut.
       onKeyDown={(event) => {

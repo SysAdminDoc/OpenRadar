@@ -234,6 +234,16 @@ export function mrmsTimeFor(
 export interface MrmsLayer {
   product: MrmsProductId;
   /**
+   * Which height of the merged grid this one is drawn at, for the three
+   * products published at more than one.
+   *
+   * On the layer rather than only inside `tileUrl`, because anything else
+   * that asks for this grid has to ask for the same one: an export that left
+   * it out wrote the half kilometre grid under the name of whatever height
+   * was on screen.
+   */
+  level?: CubeLevel;
+  /**
    * The name the native side gives the grid, which is English wherever the
    * reader is. `labelKey` is the one to show; this one is for a log line or a
    * file name.
@@ -382,6 +392,7 @@ export function useMrmsOverlays(options: {
         .filter((entry) => on.has(entry.id) && times[entry.id])
         .map((entry) => ({
           product: entry.id,
+          level: levelFor(entry.id, choices),
           label: entry.label,
           labelKey: LABEL_KEYS[entry.id],
           unit: entry.unit,

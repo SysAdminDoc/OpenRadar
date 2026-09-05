@@ -16,6 +16,7 @@ import {
   levelFor,
   productFor,
   type MrmsChoices,
+  type MrmsLayer,
 } from "./useMrmsOverlays";
 import { GAUGE_QPE_PERIODS } from "../lib/gaugeQpe";
 import {
@@ -104,6 +105,23 @@ describe("which height a grid is read at", () => {
       expect(levelFor("cappi-zdr", at(level))).toBe(level);
     }
     expect(CUBE_LEVELS).toHaveLength(33);
+  });
+
+  it("is on the layer itself, not only inside its tile address", () => {
+    // Everything else that asks for this grid has to ask for the same one.
+    // Baked into the address alone, an export of the six kilometre picture
+    // came back as the half kilometre one, written out under the name of the
+    // height that was on screen and with no error anywhere.
+    const drawn = MRMS_LAYERS.find(({ layer }) => layer === "cappi");
+    expect(drawn, "the merged grid is in the layer table").toBeTruthy();
+    const product = productFor("cappi", drawn!.product, at("06.00"));
+    expect(levelFor(product, at("06.00"))).toBe("06.00");
+    // The shape a drawn layer carries, which is what the export reads.
+    const layer: Pick<MrmsLayer, "product" | "level"> = {
+      product,
+      level: levelFor(product, at("06.00")),
+    };
+    expect(layer.level).toBe("06.00");
   });
 
   it("puts the height in the tile address, and only for a family", () => {

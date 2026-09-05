@@ -138,18 +138,28 @@ export function flashesNear(
   );
 }
 
-/** What each watched place has had, one entry per place being watched. */
+/**
+ * What each watched place has had, one entry per place being watched.
+ *
+ * A place answers even with no window at all, with nothing counted and no
+ * moment when the feed was read. That is a different answer from an empty
+ * window, and the difference matters twice: `lightningStep` will not call a
+ * place clear without a read behind it, and `rememberLightning` needs the
+ * place to still be in the list or it drops what it was holding. A poll that
+ * failed must not read as a place that has never seen a flash.
+ */
 export function lightningNear(
   window: FlashWindow | null,
   places: readonly WatchPlace[],
   rule: LightningRule,
 ): PlaceLightning[] {
-  if (!window) return [];
   const found: PlaceLightning[] = [];
   for (const place of places) {
     if (!place.enabled) continue;
     const centre = { lon: place.center[0], lat: place.center[1] };
-    const near = flashesNear(window.flashes, centre, rule.radiusMiles);
+    const near = window
+      ? flashesNear(window.flashes, centre, rule.radiusMiles)
+      : [];
     // The nearest one, which is the distance a reader at a ballfield is
     // acting on. Not the newest: the one that decides whether to come in is
     // the closest the storm has come, and the two are rarely the same flash.
@@ -170,8 +180,9 @@ export function lightningNear(
       nearestBearing: nearest?.bearing ?? null,
       // The window's own observation time, which is when this answer was
       // last checked against the sky rather than when it was last read out
-      // of memory.
-      checkedAt: window.observed * 1000,
+      // of memory. Null when there is no window: nothing was read, which is
+      // exactly what stops a place being called clear.
+      checkedAt: window ? window.observed * 1000 : null,
       // The flash times arrive in seconds, like everything else the radar
       // publishes, and every clock this is compared against is milliseconds.
       newest: near.length

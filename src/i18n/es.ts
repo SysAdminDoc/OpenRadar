@@ -2083,6 +2083,9 @@ export const es: Catalogue = {
   "guidance.loading": "Consultando los modelos",
   "guidance.failedTitle": "No se pudieron consultar los modelos",
   "guidance.unknown": "La consulta a los modelos falló.",
+  "guidance.answeredFor": "Responde para {place}, leído hace {age}.",
+  "guidance.refreshFailed":
+    "Los números de arriba son los últimos que llegaron. {answer}",
   "guidance.noValue": "—",
   "guidance.compare": "Comparar con la pasada de ayer",
   "guidance.compareDetail":

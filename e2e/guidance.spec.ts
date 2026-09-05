@@ -191,6 +191,57 @@ test("puts three models beside each other for the same hours", async ({
   ).toHaveCount(0);
 });
 
+test("says it is refetching, and keeps the table when the refetch fails", async ({
+  page,
+}) => {
+  // A panel that has answered once keeps its table while it asks again, which
+  // is right: an empty panel is worse than the previous answer for a second.
+  // What it cannot do is stay silent about which of the two a reader is
+  // looking at, or put "could not load" above a full table so the table reads
+  // as the thing that failed.
+  //
+  // The second question is asked by turning a model on rather than by panning
+  // the map: it is the same branch of the same effect, one the panel handles
+  // without being remounted, and a pan in a headless run is a camera the
+  // panel may or may not have moved far enough for.
+  await page.getByRole("button", { name: "Guidance", exact: true }).click();
+  const temperature = page.locator("[data-guidance='temperature_2m']");
+  await expect(temperature).toBeVisible();
+
+  const panel = page.locator(".surface-panel--settings").first();
+  await expect(panel).toHaveAttribute("aria-busy", "false");
+  // Whatever is drawn says what it is an answer to.
+  await expect(page.locator("[data-guidance-stamp]")).toBeVisible();
+
+  // Hold the next answer open, and refuse it.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("https://api.open-meteo.com/**", async (route) => {
+    if (!route.request().url().includes("models=")) {
+      await route.fallback();
+      return;
+    }
+    await held;
+    await route.fulfill({ status: 503, body: "the models are away" });
+  });
+
+  await page.getByRole("button", { name: "GEM", exact: true }).click();
+  // Working, and saying so, with the table it already had still on screen.
+  await expect(panel).toHaveAttribute("aria-busy", "true");
+  await expect(panel).toHaveAttribute("data-busy", "true");
+  await expect(temperature).toBeVisible();
+  release();
+
+  // The failure lands under the table rather than over it, and the stamp says
+  // the numbers above are an answer to the question before this one.
+  await expect(page.locator("[data-guidance-error]")).toBeVisible();
+  await expect(temperature).toBeVisible();
+  await expect(page.locator(".panel-error")).toHaveCount(0);
+  await expect(page.locator("[data-guidance-stamp]")).toBeVisible();
+});
+
 test("names the nearest tide station and what the water does next", async ({
   page,
 }) => {

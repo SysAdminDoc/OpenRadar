@@ -2044,6 +2044,9 @@ export const en = {
   "guidance.loading": "Reading the models",
   "guidance.failedTitle": "The models could not be read",
   "guidance.unknown": "The guidance request failed.",
+  "guidance.answeredFor": "Answering for {place}, read {age} ago.",
+  "guidance.refreshFailed":
+    "The numbers above are the last ones that arrived. {answer}",
   "guidance.noValue": "—",
   "guidance.compare": "Compare with yesterday's run",
   "guidance.compareDetail":

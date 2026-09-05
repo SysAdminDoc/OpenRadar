@@ -16,7 +16,7 @@ import {
 } from "../lib/guidance";
 import { FORECAST_DEBOUNCE_MS, shouldRefetchForecast } from "../lib/weather";
 import { formatNumber, translate, useT, type StringKey } from "../i18n";
-import { formatClock } from "../lib/units";
+import { formatAge, formatClock } from "../lib/units";
 import { useMinuteClock } from "../hooks/useClock";
 
 interface GuidancePanelProps {
@@ -54,6 +54,18 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /**
+   * The place and the moment the table on screen answers for.
+   *
+   * A refetch keeps the old table, which is the right thing to do: an empty
+   * panel is worse than yesterday's numbers for two seconds. What it cannot
+   * do is leave the reader thinking they are looking at the new place, so
+   * whatever is drawn says what it is an answer to.
+   */
+  const [answeredFor, setAnsweredFor] = useState<{
+    point: GeoPoint;
+    at: number;
+  } | null>(null);
   const requestedRef = useRef<GeoPoint | null>(null);
   const timerRef = useRef<number | null>(null);
   const inFlightRef = useRef<AbortController | null>(null);
@@ -85,6 +97,7 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
         )
           .then((reply) => {
             setGuidance(reply);
+            setAnsweredFor({ point: next, at: Date.now() });
             setError(null);
             setLoading(false);
           })
@@ -155,6 +168,10 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
       title={t("guidance.title")}
       onClose={onClose}
       className="surface-panel--right surface-panel--settings"
+      // A refetch keeps the table it already drew, so without this a reader
+      // who moved the map saw the old numbers with nothing saying they were
+      // the old numbers, and a screen reader heard nothing at all.
+      busy={loading}
     >
       <div
         className="segmented-control segmented-control--full"
@@ -245,7 +262,10 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
         </div>
       ) : null}
 
-      {error ? (
+      {/* Over the panel only when there is nothing under it. A failure to
+          refresh is not a failure to answer, and putting it above a full
+          table read as though the table was the thing that failed. */}
+      {error && !guidance ? (
         <div className="panel-error">
           <Rows3 size={24} />
           <strong>{t("guidance.failedTitle")}</strong>
@@ -340,6 +360,27 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
             );
           })
         : null}
+
+      {/* What the table above is an answer to, once there has been more
+          than one question. A refetch that failed leaves the previous
+          place's numbers on screen, and the reader has to be able to tell. */}
+      {guidance && answeredFor ? (
+        <p className="source-note" data-guidance-stamp>
+          {t("guidance.answeredFor", {
+            place: `${formatNumber(answeredFor.point.lat, 2)}, ${formatNumber(
+              answeredFor.point.lon,
+              2,
+            )}`,
+            age: formatAge((clock - answeredFor.at) / 60_000),
+          })}
+        </p>
+      ) : null}
+
+      {error && guidance ? (
+        <p className="source-note" data-guidance-error>
+          {t("guidance.refreshFailed", { answer: error })}
+        </p>
+      ) : null}
 
       <p className="source-note">{t("guidance.note")}</p>
     </PanelShell>

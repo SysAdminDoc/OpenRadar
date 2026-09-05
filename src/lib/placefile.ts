@@ -158,10 +158,14 @@ export interface IconRef extends Sheet {
  * Reads back what `iconId` wrote, in either of its two shapes, or null for
  * anything else.
  *
- * `icon2` holds an escaped address and `icon` the raw one a build before
- * 2026-09-05 wrote. An old id whose address held a `|` was already unreadable
- * when it was written, so it stays unreadable; what this recovers is every
- * other one, which is nearly all of them.
+ * `icon2` always holds an escaped address. The bare `icon` prefix covers two
+ * builds: everything before 2026-09-04 wrote the address as it stood, and the
+ * day between the escaping landing and the prefix changing wrote it escaped
+ * under the old name. They are told apart by looking: an escaped address has
+ * no `://` in it, because both characters encode.
+ *
+ * An old id whose address held a `|` was already unreadable when it was
+ * written, so it stays unreadable; what this recovers is every other one.
  */
 export function parseIconId(id: string): IconRef | null {
   const parts = id.split("|");
@@ -173,13 +177,17 @@ export function parseIconId(id: string): IconRef | null {
   }
   if (iconWidth <= 0 || iconHeight <= 0 || index < 1) return null;
   let url = parts[1];
-  if (escaped) {
+  // An address that still has its own separators in it was written raw, and
+  // unescaping one turns a percent the site itself wrote into a different
+  // character: a different object, fetched and not found.
+  if (escaped || !url.includes("://")) {
     try {
       url = decodeURIComponent(url);
     } catch {
       // A stored workspace can be edited by hand, and a stray percent sign is
-      // not an address.
-      return null;
+      // not an address. Under the old prefix it is one written raw, which is
+      // the shape that has to survive being read.
+      if (escaped) return null;
     }
   }
   if (!url) return null;
