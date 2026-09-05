@@ -242,6 +242,7 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
       Acceptance: Neither file is above 1,500 lines; adding a switch group edits one panel section file rather than the panel; `npm run check` and the e2e suite unchanged.
       Complexity: M
       Note 2026-09-04: this is no longer only hygiene. `npm run check` exits 1 at `check:bundle`: the settings chunk is 72 kB against its 70 kB budget, and `scripts/bundle-budget.mjs` says in its own comment that reaching the budget means the settings panel has stopped being one panel. Verified pre-existing by building 9d27982. The three panels share one module, so opening Layers fetches Settings too; splitting them into a module each is what drops the chunk.
+      Note 2026-09-05: the bundle half is done: at a9407d4 `check:bundle` passes with the settings chunk at 12 kB gzip against 14 (the 2026-09-04 panel split did it). The file half has got worse: `src/App.tsx` is 3,011 lines (was 2,814), `src/components/MapViewport.tsx` 2,516, `src/lib/settings.ts` 2,121, and `src/panels/LayersPanel.tsx` 1,440 after the split; `AUD-330` carries the same ask for `src-tauri/src/mrms.rs`.
 
 ## Audit Findings, 2026-09-04 (afternoon)
 
@@ -267,3 +268,175 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### Unaudited, needs a pass
 
+
+## Audit Findings, 2026-09-05 (evening)
+
+Read-only audit of `a9407d4` (v0.11.0). Baseline at that commit, all green: `npm run check` 200 files / 1956 passed / 39 skipped, lint 0 errors 1 pre-existing warning (`react-refresh/only-export-components`), 1308 exports all named, coverage 67.1 / 62.17 / 63.39 / 68.29, every bundle inside budget (the settings chunk is 12 kB gzip against 14, so the `check:bundle` failure `AUD-272` carried is gone); `cargo fmt --check` clean, `cargo clippy --all-targets` clean, `cargo test` 466 passed / 31 ignored; `npx playwright test` 690 passed / 2 skipped in 16.7 minutes, exit 0, but with 184 `[Unhandled rejection]` lines in the page console of a green run (`AUD-332`); `gitleaks` 447 commits clean; `npm audit` 0 with and without dev; `cargo audit` 0 vulnerabilities and the 17 documented allowances; `grype` the one documented Linux-only `glib` Medium. The GitHub tracker holds zero issues and zero pull requests, open or closed, and discussions are disabled, so there was nothing to take in from reporters. Every P2 below was measured in a running browser rather than read, and handed to a fresh-context refutation pass. Items are numbered on from `AUD-318`.
+
+Where this pass dug: the six commits of 2026-09-05 that landed after the last refutation pass (the day-and-night wash, the display hold, the MRMS smoothing and zoom ceiling, the level2 split, the legend keys), the native command surface and the three URI schemes, the light theme with Layers, Settings, Diagnostics, the command list and the full-screen view open in a real browser at 1440x900 and at the 1024x680 minimum, and the rail at both sizes.
+
+### P2
+
+- [ ] AUD-318 (P2): The day-and-night wash is drawn for the wall clock while the map shows another moment
+      Category: correctness
+      Where: `src/components/MapStage.tsx:217` (`nightAt: clock`), `src/App.tsx:323` (`const clock = useMinuteClock()`), `src/components/MapViewport.tsx:1760-1764` (`useMapSync(night && nightAt > 0 ? nightAt : 0, ...)` calling `nightPolygon(at)`), `src/lib/terminator.ts`.
+      Problem: The polygon is computed from the workspace minute clock and never from the frame on screen. Scrubbing to the start of a two-hour loop leaves the terminator thirty degrees of longitude east of where it stood when that frame was observed; a replay from Storm history (a 2011 outbreak, a 2022 hurricane) draws tonight's night over that afternoon's storms; the exported still, the wallpaper and the postcard burn that in. The switch's own detail copy says "worked out from the clock", so the setting is honest about the mechanism and wrong about the picture. The layer is off by default, so only readers who turned it on see it.
+      Evidence: `MapStage.tsx:217` passes `clock`; `activeFrame` is in scope on the same props (`MapStageProps.activeFrame`) and `App.tsx:1221` already derives `frameTime: activeFrame?.time` for another consumer. Nothing between MapStage and MapViewport substitutes a frame time, and nothing hides the lane during a replay. `src/lib/terminator.test.ts` covers the arithmetic only. Frame times are seconds (`framesWithinLoop` in `useRadarTimeline.ts` subtracts `loopMinutes * 60`), the clock is milliseconds.
+      Fix: In MapStage pass `nightAt: activeFrame ? activeFrame.time * 1000 : clock` for the primary pane and the compare frame's time for the second pane, rounded down to the minute so `useMapSync` (which keys on the raw number) does not rebuild the polygon on every frame of a loop; keep the minute clock only while there is no frame, since the `nightAt > 0` guard at `MapViewport.tsx:1760` would otherwise take the wash off an empty timeline. Reword `layers.nightDetail` (`en.ts:892`) in en/es/fr to say the wash follows the frame on screen. The refutation pass noted the alerts layer already goes dark during a replay at `App.tsx:1215-1217` for the same reason; this is the same rule applied to the wash.
+      Acceptance: A test that renders `MapStage` with an `activeFrame` at 2011-04-27T21:00Z and asserts the night source's `properties.subsolarLongitude` equals `subsolarLongitude(Date.UTC(2011, 3, 27, 21))` rather than the value for now; in `e2e/layers.spec.ts`, scrubbing the timeline with the layer on moves the wash; the exported still of a replay frame carries that frame's night.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-319 (P2): A panel docked on the right buries the compare card and the coordinate readout
+      Category: visual
+      Where: `src/index.css:1230-1234` (`.pane-compare`, `right: 12px`, `z-index: 18`), `src/index.css:1267-1279` (`.map-readout`, `right: 216px`, `z-index: 16`), `src/index.css:4572-4576` and its narrow twin at `:4685-4689` (the `[data-panel-side="right"]` shift, which lists `.zoom-controls`, `.product-legends`, `.source-attribution` and `.map-watermark` and not these two).
+      Problem: Settings opens on the right. With it open and Dual Pane on, the compare offsets (Live, 3 back, 6 back, 12 back) and the compare time sit under the panel and cannot be seen or clicked, and the pointer coordinate readout is drawn under the panel too. The attribution beside it moves out of the way because it is on the shift list; these two were left off it.
+      Evidence: Measured 2026-09-05 in the browser at 1440x900, light theme, Dual Pane on, Settings open: `.pane-compare` rect [1139, 68, 1428, 166], `.surface-panel` rect [1104, 56, 1440, 812] with `z-index` 45, `document.elementFromPoint` at the card's centre returns `surface-panel__header`; `.map-readout` rect [1117, 784, 1224, 804] with `elementFromPoint` returning a `<strong>` inside the panel; `.source-attribution` had moved to [877, 788, 1088, 804].
+      Fix: Add `.pane-compare` and `.map-readout` to both `[data-panel-side="right"]` rules, the card at `right: calc(var(--panel-width) + 16px)` and the readout at `right: calc(var(--panel-width) + 216px)` so it keeps its lead over the attribution.
+      Acceptance: A test in `e2e/workspace.spec.ts` that opens Dual Pane and Settings at 1440x900, hovers the map, and asserts `elementFromPoint` at the centre of `.pane-compare` and of `.map-readout` lands inside those elements; clicking "3 back" with Settings open changes the compare frame.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-320 (P2): In Dual Pane the compare card's time sits under the zoom controls at every width
+      Category: visual
+      Where: `src/index.css:1230-1234` (`.pane-compare`, `top: 12px; right: 12px`, `z-index: 18`), `src/index.css:4362-4368` (`.zoom-controls`, `right: 16px; top: calc(var(--chrome-top) + 16px)`, `z-index: 31`), `src/components/MapStage.tsx:319` (the card is a plain div over the second pane).
+      Problem: Both are anchored to the same corner of the same pane, so whenever Dual Pane is on the compare time (`.pane-compare small`) is drawn under the zoom buttons and its right end is unreadable, at every window width. At the 1024 minimum the buttons also cover the card's last offset button.
+      Evidence: Measured 2026-09-05. At 1024x680: `.pane-compare` [723, 68, 1012, 166], `.pane-compare small` [940, 110, 1001, 125], `.zoom-controls` [968, 72, 1008, 188], `elementFromPoint` at the time text returns a zoom `BUTTON`; the screenshot showed "4:58 P" cut. The refutation pass repeated it with no panel open at 1440 wide (time 1356..1417 against zoom 1384..1424, hit BUTTON) and 1280 wide (1196..1257 against 1224..1264, hit BUTTON): there is no width at which they clear, and no `is-dual-pane` rule in `index.css`.
+      Fix: Move the card out of the zoom stack's column: `right: 64px` (the stack is 40px wide plus its 16px inset), or place it under the stack with `top: calc(var(--chrome-top) + 140px)`; give it `max-width: calc(100% - 96px)` so a long localised time wraps. Apply the `AUD-319` panel shift to it in the same change, and check it against the alert badge the comment at `index.css:5698` says shares that corner.
+      Acceptance: With Dual Pane on at 1024x680, 1280x800 and 1440x900 the bounding boxes of `.pane-compare` and `.zoom-controls` do not intersect (asserted across the three e2e projects) and the time reads in full in the pseudolocale.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-321 (P2): The full-screen view's source line is unreadable over a light basemap
+      Category: a11y
+      Where: `src/index.css:2992-2994` (`.ambient-readout small { color: #a9b6c6 }`), `src/index.css:2976-2979` (`.ambient-readout[data-over-light]`, which recolours the parent and sets a white halo but not `small`), `src/index.css:2999-3006` (`.ambient-readout__leave`, a fixed dark chip), `src/components/AmbientReadout.tsx` (`overLight` sets the attribute).
+      Problem: Over a light basemap (Light theme with Auto, or Roads, Daylight, Radar Light) the clock flips to dark ink with a white halo but the line under it, the one that says which source the picture is and how old it is, stays pale grey on a white halo: about 1.8:1 against the map's land, far under the 4.5:1 the rest of the app is held to by `e2e/support/contrast.ts`. That line is what the view exists to show across a room.
+      Evidence: Measured 2026-09-05, Light theme, `pro-light` basemap, full-screen view on: `.ambient-readout` carried `data-over-light="1"` with color rgb(15, 23, 42); `.ambient-readout small` computed color rgb(169, 182, 198) with text-shadow rgba(255, 255, 255, 0.85); the screenshot shows "NWS RIDGE II · 5 minutes old" nearly invisible over the Yucatán. `data-over-light` appears once in `index.css` (line 2976) with no `small` or `__leave` counterpart.
+      Fix: Add `.ambient-readout[data-over-light] small { color: #334155; }` beside the existing rule (the light palette's muted ink), and a light chip for `.ambient-readout[data-over-light] .ambient-readout__leave`; extend `e2e/ambient-screen.spec.ts` to run the contrast helper on the source line over `pro-light` as well as `pro-dark`.
+      Acceptance: The ambient contrast check reads at or above 4.5:1 for `.ambient-readout small` over both basemaps.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-322 (P2): The rail's tool list cuts off mid-button with nothing that reads as "more below"
+      Category: ux
+      Where: `src/index.css:4113-4168` (`.command-scroll-region`: `scrollbar-width: none`, the `[data-more-below]` mask of 12px, a scrollbar only on hover), `src/components/CommandBar.tsx:165-175` (sets `data-more-above` and `data-more-below`).
+      Problem: The middle of the rail is a scroller with its scrollbar hidden and a 12px fade as its only sign. At 1440x900 the region is 390px tall against 948px of content: the cut lands through the Range button (icon drawn, caption gone), and Inspector, Cross-section, Sounding, Wind Profile, Tropical, Route, Guidance, Tides, Export, Share and Upload are off screen with no scrollbar, no arrow, and a fade shorter than the gap between an icon and its caption. At the window's declared default (1600x1000) the region is 490px and still hides eight tools; at the 680 minimum it hides nearly all of them. The stylesheet's comment at `:4129-4132` names this exact symptom as the reason for the mask, and the mask does not cure it: the rail reads as a stray unlabeled icon above Settings, and Export and Upload, the two a first-time reader looks for, are among the hidden.
+      Evidence: Measured 2026-09-05 at 1440x900: `.command-scroll-region` rect top 400 bottom 790, `scrollHeight` 948, `clientHeight` 390, `data-more-below` set, computed `mask-image: linear-gradient(to top, transparent, black 12px)`; button rects Range 755-803 (clipped at 790), Inspector 803-851 through Upload 1300-1348. An element screenshot of the rail shows the Range icon with no caption and no scrollbar. `e2e/support/layout.ts` skips elements inside a scroller, so the reachability gate cannot see it.
+      Fix: Three things together: (1) a fade one button tall (48px) so the last visible button visibly dims; (2) `scroll-snap-type: y mandatory` on the region with `scroll-snap-align: start` on the buttons, or `scroll-padding-bottom`, so the region never ends mid-button; (3) a focusable chevron pinned at the bottom of the region while `data-more-below` is set, which pages the list. The chevron takes its height from the region, so it costs one more button below the fold at 900px; the hover scrollbar at `:4155` stays as it is (the refutation pass could not see it in headless Chromium, which hides scrollbars, so do not rely on it in the acceptance test). Consider promoting Export and Upload into the primary group.
+      Acceptance: At 1440x900 and 1600x1000 every rail button is either wholly visible or wholly hidden; a chevron is visible whenever content is hidden; an assertion in `e2e/wide.spec.ts` and the compact project checks that no rail button's caption is clipped by the region.
+      Confidence: Verified
+      Effort: M
+
+### P3
+
+- [ ] AUD-323 (P3): Escape does nothing in the full-screen and capture views, and the code says it does
+      Category: a11y
+      Where: `src/App.tsx:1729-1735` (`if (capture || ambientScreen) return;` under a comment saying "the same press is already what leaves them"), `src/components/AmbientReadout.tsx:100-110` (leave button, no key handler), `src/components/CaptureBar.tsx:140-150`, `src/components/PanelShell.tsx:80` (the only other Escape handler).
+      Problem: Neither of the app's two Escape handlers leaves the full-screen view or the capture layout, and the comment claims one does, so the early return looks intentional and the promise is unkept. The keyboard way out is the focused 26x30 leave button (Enter or Space), which works only while it holds focus.
+      Evidence: 2026-09-05 in the browser: entered the full-screen view from the command list; `.app-shell` dataset `{ambientScreen: "1", capture: "1"}`; `document.activeElement` was `.ambient-readout__leave`; pressed Escape; dataset unchanged 400 ms later. `grep -rn '"Escape"' src` outside tests lists only `App.tsx:1734` and `PanelShell.tsx:80`.
+      Fix: In the App effect, before the panel branch, run the readout's `onLeave` body when `ambientScreen` (`setAmbientAsked(false); setTouchedAt(Date.now())`) and `setCapture(false)` when `capture`, then return; correct the comment. Raise both leave buttons to 44x44.
+      Acceptance: `e2e/ambient-screen.spec.ts` and `e2e/capture.spec.ts` press Escape and assert the workspace returns with the panel that was open; both leave buttons measure at least 44x44.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-324 (P3): The incident-pack ceiling slider writes the store config on every drag step, unguarded
+      Category: reliability
+      Where: `src/panels/IncidentPackManager.tsx:155-161` (the effect on `settings.incidentPacks.diskLimitMb`), `:355-390` (`<input type="range" min={256} max={32_768} step={256}>` whose `onChange` writes settings), `src-tauri/src/incident_packs.rs:1490-1500` (`incident_pack_set_limit` takes the store write lock, writes `config.json` atomically, then lists the whole library).
+      Problem: A range input fires `change` on every step of a drag, so one drag across the slider is up to 128 settings saves, 128 native config writes under the store lock (each an atomic JSON write plus a directory listing), and 128 unguarded `setLibrary` calls whose replies can land out of order. The effect has no cancellation flag and no cleanup, unlike its neighbours at `:131` and `:163`. A download in progress waits on the same lock in `write_tile_under_quota`. On mount the effect also writes the current value back once for nothing.
+      Evidence: Code as cited; no debounce between the input and the effect; effect deps `[available, settings.incidentPacks.diskLimitMb]`.
+      Fix: Debounce the native write (a `window.setTimeout` of 250 ms after the last change, cleared in the effect cleanup), guard with `let open = true` like the poll effect, and skip the write when the value equals the library's reported limit. The settings save is already queued and can stay.
+      Acceptance: A test in `IncidentPackManager.test.tsx` that fires ten `change` events within 100 ms and asserts `incident_pack_set_limit` is invoked once with the last value, and that an unmount before the reply does not set state.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-325 (P3): A crafted replay bundle can make the cached scheme's response builder panic
+      Category: reliability
+      Where: `src-tauri/src/lib.rs:203-227` (the `cached` handler builds `Content-Type` from `served.content_type` and `X-OpenRadar-Bundle` from `served.bundle`, then `.expect("a cached response is well formed")`), `src-tauri/src/bundles.rs:468-545` (`read_bundle` accepts any UTF-8 `content_type` and any `manifest.id`), `src-tauri/src/tiles.rs:106-118` (an open bundle answers first).
+      Problem: The content type and the bundle id come out of the `.orb` file a reader opens with `replay_bundle_open`, which is a file somebody else may have made. `read_bundle` checks only that the entry's type equals the manifest's record, and both live in the same file. A value with a control byte or a non-ASCII character (`image/png\r\nX: 1`, an id with an accent) fails `HeaderValue` construction; the builder returns `Err` at `.body()` and the `.expect` panics inside the spawned task. The process survives, the tile request never answers, and the reader sees a map that stops drawing with nothing said.
+      Evidence: `http::Response::builder().header(...)` defers an invalid value to `.body()`'s `Result`, and `lib.rs:226` unwraps it with `expect`. `bundles.rs` has no character check on `content_type` or `id`; the `text/html` test at `:1032` covers only a mismatch between entry and manifest; `slug()` at `:625` constrains ids on the write side only.
+      Fix: In `read_bundle`, refuse a `content_type` that is not visible ASCII in `type/subtype` form and an `id` that is not `[a-z0-9-]{1,40}` (the shape `slug()` produces); in `lib.rs` replace the three `.expect` calls on the scheme responders with a fallback 500 response so a builder error can never take the task down.
+      Acceptance: Unit tests in `bundles.rs` where a manifest with `content_type: "image/png\r\nX: 1"` and one with `id: "café"` are refused as `Corrupt`; a test in `tiles.rs` that the three scheme registrations in `lib.rs` no longer contain `.expect(` (the way `the_cached_scheme_serves_nothing_a_browser_will_guess_at` already reads that source).
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-326 (P3): The map panes keep a dark ground in the light theme
+      Category: visual
+      Where: `src/index.css:90-101` (`.map-stage`, its radial glow and `#0b1018`), `:110-116` (`.map-viewport`, `background: #0c111a`), `:3961` (`.map-stage { background: #0b1018 }` inside the palette block, also dark-only).
+      Problem: In the light theme every tile that has not painted yet shows as a near-black block: the second pane the moment Dual Pane is switched on, the whole stage on a cold start before the style loads, any gap while panning fast. The chrome around it is light, so it reads as a broken pane.
+      Evidence: Computed `.map-viewport` background rgb(12, 17, 26) and `.map-stage` rgb(11, 16, 24) with `data-theme="light"` on 2026-09-05; the full-screen view screenshot in the light theme showed the right pane as dark blocks while it re-tiled. No `[data-theme="light"]` rule names either selector.
+      Fix: Put both on a token, `background: var(--map-ground)`, with `--map-ground: #0b1018` in the dark palette and `#e9edf2` in the light one at `index.css:3929-3958`, and keep the radial glow dark-only.
+      Acceptance: With `data-theme="light"`, `getComputedStyle(document.querySelector(".map-viewport")).backgroundColor` is the light ground, asserted in `e2e/theme.spec.ts`.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-327 (P3): Settings files desktop and character controls under "Appearance", and puts language, units and clock last
+      Category: ux
+      Where: `src/panels/SettingsPanel.tsx:168` (the Appearance section, which runs to about `:520` and holds theme, accent, weather on the chrome, the full-screen view and its screen hold, the tray icon, Start with Windows, close-to-tray, the glance window, the wallpaper, calm mode, curiosities, catch-up, on-this-date and the seasonal look), `:540` Language, `:576` Backup, `:619` Units, `:648` Clock, `:674` Text size, `:698` Radar, `:819` Camera.
+      Problem: "Appearance · Applies immediately" heads fourteen rows of which four are about looks. Start with Windows, the tray, close-to-tray and the glance window are desktop integration; calm mode, curiosities, catch-up, on-this-date and the seasonal look are the character set the roadmap treats as its own thing. Language, units and clock, the three a new reader wants first, come after the record, the packs and the storage row. A reader scanning headings cannot find "start with Windows".
+      Evidence: The panel's accessibility tree on 2026-09-05 (section titles in that order); line numbers as cited.
+      Fix: Reorder and re-head: a "Reading" section first (language, units, clock, text size), then Appearance (theme, accent, seasonal look, weather on the chrome), Desktop (tray, start with Windows, close-to-tray, glance window, wallpaper, full-screen view and its screen hold), Character (calm, curiosities, catch-up, on this date), then Radar, Camera, the record, packs, storage and backup. New section headings need catalogue keys in en/es/fr; the 2026-09-04 split into panel section files makes this a move rather than a rewrite. Coordinate with `AUD-271` and `AUD-272`.
+      Acceptance: The `settings-section__title` sequence matches the order above in all three languages; `SettingsPanel` tests updated; the pseudolocale clipping run stays green.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-328 (P3): Forty-seven layer switches in one unbroken list
+      Category: ux
+      Where: `src/panels/LayersPanel.tsx:234` (`LAYER_OPTIONS`), `:600` (rendered as one list), `:627` (the first section title, after all of them).
+      Problem: The Layers panel opens on 47 switches with no heading between Weather Alerts and Custom Overlay: hazards, the MRMS hail family, rainfall, flood guidance, lightning, satellite, wind and the reader's own files run together in the order they were added. Finding "Rain or Snow" means reading past thirty rows; the command list, which sorts by kind, is the only grouped view of them.
+      Evidence: The panel's accessibility snapshot on 2026-09-05: 47 checkboxes as siblings under one container, the first `settings-section__title` being "How the national grids are drawn".
+      Fix: Give each `LAYER_OPTIONS` entry a `group` (Hazards, Radar-derived, Rain and flood, Lightning, Sky, Reference, Your files) and render a `settings-section__title` per group, collapsed state remembered in settings; keep switch order within a group. Pair with `AUD-271`, whose search box filters across groups.
+      Acceptance: The panel shows the seven headings; `LayersPanel.test.tsx` asserts every option belongs to a group and every group renders; the pseudolocale clipping test covers the headings.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-329 (P3): Two whole-record reads a minute while Settings is open
+      Category: perf
+      Where: `src/panels/RecapSection.tsx:52-64` (`journalRows()` in an effect keyed on `clock`, no cancellation guard), `src/panels/JournalSection.tsx:123-127` (the same read, deliberately, on the same clock), `src/panels/SettingsPanel.tsx:475` and `:521` (both fed the minute clock from `App.tsx:323`).
+      Problem: Every minute Settings is open, both sections invoke `journal_rows`, which reads and parses the whole JSONL record (up to 4 MB) on the native side, twice. The recap's read has no guard, so a slow reply can land after a faster one.
+      Evidence: Code as cited; `clock` is `useMinuteClock()`.
+      Fix: Lift the read into `SettingsPanel` (one guarded `journalRows()` per tick) and hand `rows` to both sections, or read once on mount in the recap and re-read only when the journal section's reload runs.
+      Acceptance: With Settings open for three minutes a spy on `journalRows` counts three calls, not six; an unmounted `RecapSection` does not set state.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-330 (P3): `mrms.rs` is 6,237 lines with three test modules inside it
+      Category: maintainability
+      Where: `src-tauri/src/mrms.rs` (6,237 lines; `#[cfg(test)]` at `:109`, `:2418` and `:2673`; 85 functions).
+      Problem: The largest file in the repository by a factor of two, holding the GRIB reader, the grid cache and its byte budget, the tile renderer and the smoothing, the product table with its ramps, the frame listing, the export window and three test modules. `level2.rs` was split into a directory on 2026-09-05 for the same reason at sixty percent of this size, and every MRMS item since (`AUD-217`, `AUD-218`, the smoothing, the zoom ceiling) edited this one file.
+      Evidence: `wc -l src-tauri/src/mrms.rs` on 2026-09-05; commit `63d33bc` as the pattern (`mod.rs` plus one module per concern, `#[path = "..._tests.rs"]` test modules, `pub(crate) use` re-exports).
+      Fix: The same split: `mrms/mod.rs` (types, constants, the cache), `grib.rs` (decode), `products.rs` (table and ramps), `tiles.rs` (rendering, smoothing, tile cache), `listing.rs`, `window.rs` (the export window), each with a sibling `_tests.rs`. Three frontend gates read this file as text and must be pointed at the new one: `src/lib/providers/mrms.test.ts` reads `zoom > (\d+)`, `src/hooks/useMrmsOverlays.test.ts` reads the `Sampling` verdicts, and `src/test/rustSource.ts` is the helper the level2 split introduced for exactly this.
+      Acceptance: No file under `src-tauri/src/mrms/` above 1,500 lines; the `cargo test` count unchanged at 466; the three frontend gates pass; `docs/architecture.md` names the directory the way it names `level2/`.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-331 (P3): Small things outside `AUD-295`'s list
+      Category: ux
+      Where: `src/i18n/en.ts:1010` (`panel.tropical: "Tropical panel"`) and `:1011` (`panel.history: "Storm history"`); `src/panels/UtilityPanels.tsx:171-175` (`clockLabel` with `hour: "2-digit"`); `index.html` and `glance.html` (no `<link rel="icon">`).
+      Problem: (1) The command list renders "Tropical panel · Panel" and the rail says "Tropical"; every other panel command is the panel's own title. (2) The Diagnostics event list reads "05:34:03 PM" while every other clock in the app uses `hour: "numeric"` and reads "3:44 PM"; the leading zero is the only one in the product. (3) Neither page declares an icon, so the webview requests `/favicon.ico` and logs a 404 on every load; `assets/brand/openradar-icon.png` exists.
+      Evidence: The command list's accessibility tree and the Diagnostics panel's on 2026-09-05; the page console's first error on load is the favicon 404.
+      Fix: `panel.tropical` becomes "Tropical" in the three catalogues (the rail already says so); `clockLabel` drops to `hour: "numeric"`; a `<link rel="icon" href="/openradar-icon.png">` in both pages with the file copied under `public/`.
+      Acceptance: The command list shows "Tropical · Panel"; the Diagnostics list shows "5:34:03 PM"; a fresh load logs no 404.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-332 (P3): A green browser run carries 184 unhandled rejections, and two of them are the app's own
+      Category: testing
+      Where: `src/App.tsx:826` (`void journalRows().then(...)` with no catch: the catch-up read on launch), `src/panels/JournalSection.tsx:120` (`void journalPath().then(setWhere)`, no catch), `src/App.tsx:753-755` (`whenGlanceOpens(...).then((unlisten) => { if (alive) stop = unlisten; else unlisten(); })`), `e2e/support/fixtures.ts` (the `__TAURI_INTERNALS__` stub, which throws "`<command>` is not stubbed" for any command a spec did not stub, and has no `__TAURI_EVENT_PLUGIN_INTERNALS__`).
+      Problem: The 2026-09-05 full run passed 690 tests and logged 184 `[Unhandled rejection]` lines in the page console: 114 `journal_rows is not stubbed` from `App.tsx:826`, 20 `journal_path is not stubbed` from `JournalSection.tsx:120`, and 50 `Cannot read properties of undefined (reading 'unregisterListener')` from `App.tsx:755` when an effect was torn down before `listen` resolved. Two things follow. In the desktop build, a `journal_rows` failure on launch (an unreadable app-data folder) leaves the catch-up card silently absent with an unhandled rejection in the log, and `JournalSection` would leave its path line blank the same way; `JournalSection.tsx:111` catches the sibling call three lines above and explains why. And nothing in the fixture turns an unhandled rejection into a failure, so a real one anywhere in the app passes the suite.
+      Evidence: The run's `[WebServer]` output, counted with `grep -c "Unhandled rejection"`; the callers as cited; `useWorkspaceActions.ts:853` has the same early-`unlisten()` shape.
+      Fix: Catch at `App.tsx:826` and `JournalSection.tsx:120` the way `:111` does (log and fall back); wrap the early `unlisten()` at `App.tsx:755` and `useWorkspaceActions.ts:853` in a try that logs; stub `journal_rows` (`[]`), `journal_path` (`null`) and `window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} }` in the desktop fixture; and register a `page.on("pageerror")` plus a console filter for "Unhandled rejection" in the fixture that fails the test at teardown, with an allowlist for the known network refusals.
+      Acceptance: The full suite runs with zero "Unhandled rejection" lines in its output; a planted `Promise.reject()` in a spec's page fails that spec.
+      Confidence: Verified
+      Effort: S
+
+### Unaudited, needs a pass
+
+- [ ] AUD-333: The secondary panels in the light theme, and the map overlay colours over a light basemap
+      Category: visual
+      Where: `src/panels/AlertsPanel.tsx`, `HistoryPanel.tsx`, `ExportPanel.tsx`, `UtilityPanels.tsx` (Upload), `SoundingPanel.tsx`, `TidesPanel.tsx`, `TropicalPanel.tsx`, `RoutePanel.tsx`, `GuidancePanel.tsx`, `NearbyPanel.tsx`, `VwpPanel.tsx`, `CrossSectionPanel.tsx`, `RadarProductPanel.tsx`; `src/components/MapViewport.tsx:1241`, `:1256`, `:1290` (cell track and forecast strokes `#f8fafc`), `:609` and `:622` (tool line and point stroke `#7dd3fc`), `:1501` and `:1567` (overlay point strokes).
+      Problem: This pass observed the light theme with Layers, Settings, Diagnostics, the command list, the full-screen view and the compact layout open, and not the thirteen panels above; they rest on `e2e/theme.spec.ts` and `e2e/accessibility.spec.ts`. On the map, the county lane consults `isLightBasemap` (`MapViewport.tsx:965`) and the cited strokes do not, so near-white cell tracks and forecast dots may wash out over Roads, Daylight or Radar Light; there were no storm cells on the live feed at audit time to see it.
+      Evidence: The 2026-09-05 pass; the colour sweep of `MapViewport.tsx`.
+      Fix: Open each panel in both themes with its error and empty states (the fixtures in `e2e/support/fixtures.ts` can refuse each host); draw the cells fixture from `e2e/layers.spec.ts` over `pro-light` and read the stroke pixels back the way the magenta-line test does.
+      Acceptance: Each panel observed and any defect logged here; the cell strokes either pass the pixel read over a light basemap or gain a light variant keyed on `isLightBasemap`.
+      Confidence: Needs-repro
+      Effort: M
