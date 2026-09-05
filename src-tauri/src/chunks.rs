@@ -500,6 +500,10 @@ async fn assemble(
     let mut nyquist: BTreeMap<u8, f32> = BTreeMap::new();
     let mut timing: Option<LiveTiming> = None;
     let mut readable = Vec::with_capacity(pieces.len());
+    // The last key in the map is the newest piece, because every piece of a
+    // volume shares a prefix and differs only in a sequence number padded to
+    // three digits, so the map's own order is the order they were published.
+    // Pinned by `the_newest_piece_is_the_last_key` below.
     let newest_key = pieces.keys().next_back().cloned().unwrap_or_default();
     for (key, bytes) in &pieces {
         match Chunk::new(bytes.clone()) {
@@ -580,6 +584,39 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 8, 30, hour, minute, second)
             .single()
             .expect("a real moment")
+    }
+
+    #[test]
+    fn the_newest_piece_is_the_last_key() {
+        // The projection is anchored on the newest piece in hand, and what
+        // picks it is the order of the map the pieces are held in. That is
+        // only the order they were published because the sequence number is
+        // padded to three digits: unpadded, "10" sorts before "2" and the
+        // projection would be anchored on a piece from the middle of the
+        // volume with the newest one's upload time beside it.
+        let held: BTreeMap<String, Vec<u8>> = [
+            "KTLX/114/20260830-161604-001-S",
+            "KTLX/114/20260830-161604-002-I",
+            "KTLX/114/20260830-161604-010-I",
+            "KTLX/114/20260830-161604-009-I",
+            "KTLX/114/20260830-161604-017-I",
+        ]
+        .iter()
+        .map(|key| ((*key).to_string(), Vec::new()))
+        .collect();
+        assert_eq!(
+            held.keys().next_back().map(String::as_str),
+            Some("KTLX/114/20260830-161604-017-I")
+        );
+
+        // And the end chunk, which sorts after every intermediate one at the
+        // same sequence, is still the last thing published.
+        let mut ended = held;
+        ended.insert("KTLX/114/20260830-161604-018-E".to_string(), Vec::new());
+        assert_eq!(
+            ended.keys().next_back().map(String::as_str),
+            Some("KTLX/114/20260830-161604-018-E")
+        );
     }
 
     #[test]
