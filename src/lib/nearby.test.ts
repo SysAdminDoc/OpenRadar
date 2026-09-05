@@ -1,7 +1,7 @@
+import { bearingDegrees } from "./geo";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   NEARBY_LIMIT,
-  bearingDegrees,
   compassPoint,
   nearbyCells,
   nearbySummary,

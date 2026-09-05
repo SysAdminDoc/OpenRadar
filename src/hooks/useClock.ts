@@ -101,11 +101,25 @@ export function cameraMotion(duration: number): {
   };
 }
 
-function subscribeMotion(listener: () => void): () => void {
-  const query = window.matchMedia(REDUCED_MOTION);
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
+/**
+ * Watches one media query, for the three that are watched here.
+ *
+ * Written three times before, and the first of the three had no guard: a
+ * plain jsdom has no `matchMedia`, and a question about motion must not be
+ * able to take a panel down any more than a question about colour can. The
+ * copies that came later had it and the original did not, which is the shape
+ * a duplicated helper drifts into.
+ */
+function subscribeMedia(query: string): (listener: () => void) => () => void {
+  return (listener) => {
+    if (typeof window.matchMedia !== "function") return () => {};
+    const watched = window.matchMedia(query);
+    watched.addEventListener("change", listener);
+    return () => watched.removeEventListener("change", listener);
+  };
 }
+
+const subscribeMotion = subscribeMedia(REDUCED_MOTION);
 
 /**
  * Whether the viewer has asked for less movement. Read as a live value rather
@@ -141,12 +155,7 @@ export function highContrastRequested(): boolean {
   return window.matchMedia(MORE_CONTRAST).matches;
 }
 
-function subscribeContrast(listener: () => void): () => void {
-  if (typeof window.matchMedia !== "function") return () => {};
-  const query = window.matchMedia(MORE_CONTRAST);
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
-}
+const subscribeContrast = subscribeMedia(MORE_CONTRAST);
 
 const FORCED_COLOURS = "(forced-colors: active)";
 
@@ -167,12 +176,7 @@ function forcedColoursActive(): boolean {
   return window.matchMedia(FORCED_COLOURS).matches;
 }
 
-function subscribeForcedColours(listener: () => void): () => void {
-  if (typeof window.matchMedia !== "function") return () => {};
-  const query = window.matchMedia(FORCED_COLOURS);
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
-}
+const subscribeForcedColours = subscribeMedia(FORCED_COLOURS);
 
 /** The same answer as a value a render can follow. */
 export function useForcedColours(): boolean {

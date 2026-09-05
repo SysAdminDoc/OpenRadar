@@ -1,12 +1,9 @@
 import { translate } from "../../i18n";
-import { serviceAnswer } from "../serviceAnswer";
-import { cachedUrl } from "../tileCache";
 import type { LayerSpecification } from "maplibre-gl";
 import {
-  boundsQuery,
+  arcgisQuery,
   relativeTime,
   type OverlayAdapter,
-  type OverlayBounds,
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
@@ -87,39 +84,6 @@ export function band(
   const lower = name.toLowerCase();
   const found = table.find((entry) => lower.includes(entry.match));
   return found ? { rank: found.rank, fill: found.fill } : null;
-}
-
-async function query(
-  url: string,
-  bounds: OverlayBounds,
-  fields: string,
-  signal?: AbortSignal,
-): Promise<unknown> {
-  const search = new URLSearchParams({
-    where: "1=1",
-    outFields: fields,
-    returnGeometry: "true",
-    geometryPrecision: "4",
-    outSR: "4326",
-    inSR: "4326",
-    geometry: boundsQuery(bounds),
-    geometryType: "esriGeometryEnvelope",
-    spatialRel: "esriSpatialRelIntersects",
-    resultRecordCount: "60",
-    f: "geojson",
-  });
-  const response = await fetch(cachedUrl(`${url}?${search.toString()}`), {
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(
-      translate("wpc.serviceStatus", {
-        answer: serviceAnswer(response.status),
-      }),
-    );
-  }
-  return response.json();
 }
 
 /**
@@ -241,12 +205,14 @@ export const wpcExcessiveRainOverlay: OverlayAdapter = {
   variant: (choices) => `ero${choices.wpcDay}`,
   fetchData: async (bounds, signal, choices) =>
     parse(
-      await query(
-        eroLayer(choices.wpcDay),
-        bounds,
-        "outlook,valid_time,issue_time",
-        signal,
-      ),
+      await arcgisQuery({
+        url: eroLayer(choices.wpcDay),
+        bounds: bounds,
+        fields: "outlook,valid_time,issue_time",
+        statusKey: "wpc.serviceStatus",
+        limit: 60,
+        signal: signal,
+      }),
       "outlook",
       ERO_RISKS,
       (rank) => ERO_STROKES[rank] ?? "#475569",
@@ -281,12 +247,14 @@ export const wpcWinterSeverityOverlay: OverlayAdapter = {
   variant: (choices) => `wssi${choices.wssiDay}`,
   fetchData: async (bounds, signal, choices) =>
     parse(
-      await query(
-        wssiLayer(choices.wssiDay),
-        bounds,
-        "impact,valid_time,issue_time",
-        signal,
-      ),
+      await arcgisQuery({
+        url: wssiLayer(choices.wssiDay),
+        bounds: bounds,
+        fields: "impact,valid_time,issue_time",
+        statusKey: "wpc.serviceStatus",
+        limit: 60,
+        signal: signal,
+      }),
       "impact",
       WSSI_IMPACTS,
       // One outline for all of them: the index's own bands are told apart by

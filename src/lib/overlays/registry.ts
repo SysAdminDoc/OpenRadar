@@ -2,6 +2,8 @@ import type { StringKey } from "../../i18n";
 import type { LayerSpecification } from "maplibre-gl";
 import { translate } from "../../i18n";
 import { formatAge } from "../units";
+import { cachedUrl } from "../tileCache";
+import { serviceAnswer } from "../serviceAnswer";
 
 export type OverlayId =
   | "alerts"
@@ -217,6 +219,59 @@ export function boundsQuery(bounds: OverlayBounds): string {
   return [bounds.west, bounds.south, bounds.east, bounds.north]
     .map((value) => value.toFixed(4))
     .join(",");
+}
+
+/**
+ * One read of an ArcGIS feature service.
+ *
+ * Four copies of this before: two byte-identical but for the catalogue key
+ * they throw with, and two more written inline with their own record counts.
+ * Nothing had diverged yet, which is the only reason it reads as tidying;
+ * the first time one of these services changes the shape of its answer, four
+ * places have to notice.
+ *
+ * The parts that genuinely differ are arguments. `precision` is how many
+ * decimal places of geometry to ask for, and `offset` asks the server to
+ * generalise, which full-resolution fire perimeters need because they run to
+ * megabytes.
+ */
+export async function arcgisQuery(options: {
+  url: string;
+  bounds: OverlayBounds;
+  fields: string;
+  /** The catalogue line to throw with when the service refuses. */
+  statusKey: StringKey;
+  limit: number;
+  precision?: number;
+  offset?: number;
+  signal?: AbortSignal;
+}): Promise<unknown> {
+  const search = new URLSearchParams({
+    where: "1=1",
+    outFields: options.fields,
+    returnGeometry: "true",
+    geometryPrecision: String(options.precision ?? 4),
+    outSR: "4326",
+    inSR: "4326",
+    geometry: boundsQuery(options.bounds),
+    geometryType: "esriGeometryEnvelope",
+    spatialRel: "esriSpatialRelIntersects",
+    resultRecordCount: String(options.limit),
+    f: "geojson",
+  });
+  if (options.offset !== undefined) {
+    search.set("maxAllowableOffset", String(options.offset));
+  }
+  const response = await fetch(
+    cachedUrl(`${options.url}?${search.toString()}`),
+    { signal: options.signal, headers: { Accept: "application/json" } },
+  );
+  if (!response.ok) {
+    throw new Error(
+      translate(options.statusKey, { answer: serviceAnswer(response.status) }),
+    );
+  }
+  return response.json();
 }
 
 function walkCoordinates(

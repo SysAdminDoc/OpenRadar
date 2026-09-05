@@ -1,13 +1,11 @@
-import { serviceAnswer } from "../serviceAnswer";
 import {
-  boundsQuery,
+  arcgisQuery,
   relativeTime,
   type OverlayAdapter,
   type OverlayBounds,
   type OverlayData,
   type OverlayFeature,
 } from "./registry";
-import { cachedUrl } from "../tileCache";
 import { translate } from "../../i18n";
 
 const SERVICE =
@@ -63,34 +61,20 @@ export const wildfiresOverlay: OverlayAdapter = {
   host: "services3.arcgis.com",
   refreshMs: 10 * 60_000,
   fetchData: async (bounds: OverlayBounds, signal) => {
-    const query = new URLSearchParams({
-      // Perimeters under a hundred acres are noise at these zoom levels.
-      where: "poly_GISAcres>100",
-      outFields: FIELDS,
-      returnGeometry: "true",
-      geometryPrecision: "3",
-      // Full-resolution perimeters run to megabytes, so the server generalizes.
-      maxAllowableOffset: "0.01",
-      outSR: "4326",
-      inSR: "4326",
-      geometry: boundsQuery(bounds),
-      geometryType: "esriGeometryEnvelope",
-      spatialRel: "esriSpatialRelIntersects",
-      resultRecordCount: "200",
-      f: "geojson",
-    });
-    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
-      signal,
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(
-        translate("wildfires.failed", {
-          answer: serviceAnswer(response.status),
-        }),
-      );
-    }
-    return parseWildfires(await response.json());
+    return parseWildfires(
+      await arcgisQuery({
+        url: SERVICE,
+        bounds,
+        fields: FIELDS,
+        statusKey: "wildfires.failed",
+        limit: 200,
+        precision: 3,
+        // Full-resolution perimeters run to megabytes, so the server
+        // generalizes.
+        offset: 0.01,
+        signal,
+      }),
+    );
   },
   layers: (sourceId) => [
     {

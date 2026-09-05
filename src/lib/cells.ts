@@ -1,5 +1,6 @@
 import { isDesktopRuntime } from "./settings";
-import { haversineMiles, type GeoPoint } from "./geo";
+import { bearingDegrees, haversineMiles, type GeoPoint } from "./geo";
+import { MILES_TO_KM } from "./units";
 
 /**
  * Storm cells, as the radar's own tracking algorithm found them.
@@ -61,8 +62,6 @@ export const CELLS_STALE_MINUTES = 20;
 
 /** The products come once a volume, so this is roughly one scan. */
 export const CELLS_REFRESH_MS = 4 * 60_000;
-
-const MILES_TO_KM = 1.609344;
 
 /**
  * How close a storm gets to a place, and when, or null when it never comes.
@@ -138,18 +137,6 @@ export function minutesUntilArrival(
  * "coming"; narrower and one that hits the next town over goes unmentioned.
  */
 export const NEAR_KM = 20;
-
-/** The compass bearing from one place to another. */
-export function bearingDegrees(from: GeoPoint, to: GeoPoint): number {
-  const lat1 = (from.lat * Math.PI) / 180;
-  const lat2 = (to.lat * Math.PI) / 180;
-  const dLon = ((to.lon - from.lon) * Math.PI) / 180;
-  const y = Math.sin(dLon) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) -
-    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
 
 /**
  * The soonest any tracked cell reaches the watched place.

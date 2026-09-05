@@ -1,6 +1,7 @@
+import { bearingDegrees } from "./geo";
+import { MILES_TO_KM } from "./units";
 import { describe, expect, it } from "vitest";
 import {
-  bearingDegrees,
   cellFeatures,
   closestApproach,
   minutesUntilArrival,
@@ -60,7 +61,7 @@ function walkedApproach(cell: StormCell, place: GeoPoint) {
   let best = { minutes: 0, km: Infinity };
   for (let minutes = 0; minutes <= 240; minutes += 0.25) {
     const at = walk(cell, minutes);
-    const km = haversineMiles(at, place) * 1.609344;
+    const km = haversineMiles(at, place) * MILES_TO_KM;
     if (km < best.km) best = { minutes, km };
   }
   return best;

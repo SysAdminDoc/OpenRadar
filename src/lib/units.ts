@@ -127,7 +127,7 @@ export function formatReportMagnitude(value: number, unit: string): string {
   if (named === "MPH" || named === "KTS" || named === "KNOTS") {
     const mph = named === "MPH" ? value : value * 1.15078;
     return translate("reports.measured", {
-      value: formatNumber(Math.round(mph * 1.609344)),
+      value: formatNumber(Math.round(mph * MILES_TO_KM)),
       unit: "km/h",
     });
   }

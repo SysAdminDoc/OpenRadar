@@ -1,5 +1,7 @@
 import sites from "./soundingSites.json";
+import { haversineMiles } from "./geo";
 import { serviceAnswer } from "./serviceAnswer";
+import { MILES_TO_KM } from "./units";
 import { cachedUrl } from "./tileCache";
 import { translate } from "../i18n";
 import type { SoundingLevel } from "./thermo";
@@ -51,21 +53,23 @@ export interface Sounding {
   attributionUrl: string;
 }
 
-/** Great-circle distance in kilometres, for choosing the nearest site. */
+/**
+ * Great-circle distance in kilometres, for choosing the nearest site.
+ *
+ * Through the one haversine in `geo.ts` rather than a second copy of it. The
+ * two had already drifted: this held the Earth at 6371 km and that one holds
+ * it at 3958.7613 miles, which is 6371.0088 km. Nothing here could tell the
+ * difference, and a pair that has drifted once will drift again.
+ */
 function distanceKm(
   from: { latitude: number; longitude: number },
   lat: number,
   lon: number,
 ): number {
-  const toRad = Math.PI / 180;
-  const dLat = (lat - from.latitude) * toRad;
-  const dLon = (lon - from.longitude) * toRad;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(from.latitude * toRad) *
-      Math.cos(lat * toRad) *
-      Math.sin(dLon / 2) ** 2;
-  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+  return (
+    haversineMiles({ lat: from.latitude, lon: from.longitude }, { lat, lon }) *
+    MILES_TO_KM
+  );
 }
 
 /** The launch site nearest a point, with how far away it is. */

@@ -1,6 +1,5 @@
-import { serviceAnswer } from "../serviceAnswer";
 import {
-  boundsQuery,
+  arcgisQuery,
   type OverlayAdapter,
   type OverlayBounds,
   type OverlayData,
@@ -479,35 +478,24 @@ export const alertsOverlay: OverlayAdapter = {
   host: "mapservices.weather.noaa.gov",
   refreshMs: 60_000,
   fetchData: async (bounds: OverlayBounds, signal) => {
-    const query = new URLSearchParams({
-      where: "1=1",
-      outFields: FIELDS,
-      returnGeometry: "true",
-      geometryPrecision: "3",
-      outSR: "4326",
-      inSR: "4326",
-      geometry: boundsQuery(bounds),
-      geometryType: "esriGeometryEnvelope",
-      spatialRel: "esriSpatialRelIntersects",
-      resultRecordCount: "300",
-      f: "geojson",
-    });
     // The tags. The first read of a session waits for them, briefly, because
     // a warning drawn and announced without its damage threat is announced
     // again when the threat turns up. Every read after that takes what is held
     // and never waits: the feed is unpaginated and the polygons are what the
     // map draws.
     const tagged = await alertTagsReady(signal);
-    const response = await fetch(cachedUrl(`${SERVICE}?${query.toString()}`), {
-      signal,
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(
-        translate("alerts.failed", { answer: serviceAnswer(response.status) }),
-      );
-    }
-    const drawn = parseAlerts(await response.json(), tagged);
+    const drawn = parseAlerts(
+      await arcgisQuery({
+        url: SERVICE,
+        bounds,
+        fields: FIELDS,
+        statusKey: "alerts.failed",
+        limit: 300,
+        precision: 3,
+        signal,
+      }),
+      tagged,
+    );
 
     // And Canada, when the view reaches it. The same layer rather than a
     // switch of its own: the hazard filters, the watch, the readout and the
