@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { level2Source } from "../test/rustSource";
 import { describe, expect, it } from "vitest";
 import {
   MAX_LOOP_VOLUMES,
@@ -168,20 +167,17 @@ describe("the bound on a loop's length is written down once", () => {
   // the bucket. Nothing failed when they drifted. The one that matters is
   // the native clamp, because a reader who is offered 40 in a dropdown and
   // silently given 30 has a loop that stops where nothing said it would.
-  const native = readFileSync(
-    join(import.meta.dirname, "..", "..", "src-tauri", "src", "level2.rs"),
-    "utf8",
-  );
+  const native = level2Source();
 
-  it("agrees with the clamp in level2.rs", () => {
+  it("agrees with the clamp the native side applies", () => {
     const declared = native.match(/pub const MAX_LOOP_VOLUMES: usize = (\d+);/);
     expect(
       declared,
-      "level2.rs no longer declares MAX_LOOP_VOLUMES, so this gate is reading nothing",
+      "the radar no longer declares MAX_LOOP_VOLUMES, so this gate is reading nothing",
     ).not.toBeNull();
     expect(
       Number(declared![1]),
-      "src/lib/siteLoop.ts and src-tauri/src/level2.rs disagree about the longest loop",
+      "src/lib/siteLoop.ts and the native clamp disagree about the longest loop",
     ).toBe(MAX_LOOP_VOLUMES);
   });
 

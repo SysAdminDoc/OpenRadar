@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { level2Source } from "../test/rustSource";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { en } from "../i18n/en";
@@ -168,13 +169,10 @@ describe("what the native side said went wrong", () => {
     // reading `level2.rs` alone stopped seeing every HTTP failure the moment
     // they were classified rather than stringified, and a fifth variant
     // added later would have gone straight back to showing the reader a URL.
-    const source = (
-      await Promise.all(
-        ["src-tauri/src/level2.rs", "src-tauri/src/http.rs"].map((file) =>
-          readFile(resolve(process.cwd(), file), "utf8"),
-        ),
-      )
-    ).join("\n");
+    const source = [
+      level2Source(),
+      await readFile(resolve(process.cwd(), "src-tauri/src/http.rs"), "utf8"),
+    ].join("\n");
     // Anchored on the match arm rather than on any tuple that happens to hold
     // a string and a vector. Without the arrow this also read the labels in
     // the decoder's own tests, so adding a corrupt-input case called "zeros"
