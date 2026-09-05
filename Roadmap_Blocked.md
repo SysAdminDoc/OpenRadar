@@ -81,6 +81,43 @@ Not observable from here, and already carried above with their identifiers:
   not, and no item should claim otherwise.
 
 
+## AUD-199: the ARM64 build needs a C compiler this account cannot install
+
+Everything that does not need the toolchain is ready. `rustup target add
+aarch64-pc-windows-msvc` is done, and the 2026-09-04 note in the item was
+right that the Tauri bundler needs no change: NSIS maps `aarch64` to `arm64`
+and the updater already accepts a `windows-aarch64` platform key.
+
+What stops it is one crate. `ring 0.17.14` compiles C for whatever target it
+is built for, and for `aarch64-pc-windows-msvc` it wants either the MSVC ARM64
+cross compiler or clang:
+
+    cargo build --target aarch64-pc-windows-msvc
+    warning: ring@0.17.14: Compiler family detection failed due to error:
+      ToolNotFound: failed to find tool "cl.exe": program not found
+    warning: ring@0.17.14: Compiler family detection failed due to error:
+      ToolNotFound: failed to find tool "clang": program not found
+    error occurred in cc-rs: failed to find tool "clang": program not found
+
+This machine has the x64 and x86 cross compilers under
+`C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\bin\Hostx64`
+and no `arm64` beside them, and no LLVM at all. Adding the component is one
+command, and it has to be approved:
+
+    "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe" modify ^
+      --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" ^
+      --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --quiet --norestart
+
+Run unelevated it exits 5007 with "Commands with --quiet or --passive should
+be run elevated from the beginning", which is a prompt somebody has to click.
+
+Nothing of the release script was changed in the meantime, on purpose. The
+staged asset names are a promise to whoever packages this outside the
+repository, and `assertReleaseAssetNames` holds a release to them exactly:
+adding `OpenRadar_<version>_arm64-setup.exe` to that list before anything can
+build one would stop every release from staging at all. The change and the
+first build belong in the same pass.
+
 ## Placefile parts the security model rules out
 
 - Loading a placefile from a URL the user types cannot work under a fixed content security policy, and the Rust boundary refuses an address handed over by the frontend for the same reason. Allowing arbitrary placefile hosts is a security decision, not an implementation detail, so it needs a call on whether to add a trusted-host list and what belongs on it. Local placefiles load today through the Upload panel, and the refresh interval the file asks for is read and reported back when it loads, even though nothing refetches a local file.
