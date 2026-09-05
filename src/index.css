@@ -3471,6 +3471,11 @@ input[type="range"]:disabled {
   flex-direction: column;
   gap: 6px;
   max-height: calc(var(--screen-height) - 238px);
+  /* A third of the window and no more. The band names come from the service,
+     so a long one is somebody else's decision, and in a language whose words
+     run a third longer than English the key otherwise walks out across the
+     map it is meant to explain. Held by the pseudolocale sweep. */
+  max-width: min(360px, 33vw);
   overflow-y: auto;
   overscroll-behavior: contain;
   pointer-events: auto;

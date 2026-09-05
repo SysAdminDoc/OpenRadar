@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- The national grids can be read between their cells rather than at the nearest one. A cell of the mosaic is about a kilometre across, so zoomed in on a storm you were looking at squares of one colour with hard edges against the squares beside them, and the steps between colour bands read as the resolution of the radar when they are the resolution of the ramp. Off until you turn it on, under Layers. It smooths the fields that cover the country and not the scattered ones like hail and rotation, never reads across ground the network had no coverage of, and never touches the grids that name what is falling: halfway between snow and hail is not sleet. What an export writes and what the inspector answers with are the cells themselves either way.
+
 - The map now names the colours on it. An outlook is a set of coloured areas, and the only thing that said what any of them meant was the popup, for the one under the pointer. With the convective outlook, the excessive rainfall outlook and the winter severity index all on, that was three sets of colours and nothing naming a single one. The key is built from what is actually drawn, in the service's own colours and its own words, with the window a forecast is valid for underneath. It stays out of a picture you export unless you ask for it, because a shared picture is usually a picture of one thing.
 
 - Day and night on the map, if you want it. A line of storms running through the night looked exactly like one running through the afternoon. The shading needs nothing from the network: where the sun is, is arithmetic. It sits under everything else, moves every minute, and is off until you turn it on.

@@ -155,14 +155,11 @@ export async function unreachable(page: Page): Promise<string[]> {
  */
 export async function clipped(page: Page, railMayShorten = false) {
   return page.evaluate((railMayShorten: boolean) => {
-    const scrolls = (element: Element) => {
+    /** Whether a box scrolls on one axis, which says nothing about the other. */
+    const scrollsOn = (element: Element, axis: "X" | "Y") => {
       const style = getComputedStyle(element);
-      return (
-        style.overflowX === "auto" ||
-        style.overflowX === "scroll" ||
-        style.overflowY === "auto" ||
-        style.overflowY === "scroll"
-      );
+      const overflow = axis === "X" ? style.overflowX : style.overflowY;
+      return overflow === "auto" || overflow === "scroll";
     };
     const bad: string[] = [];
     const scope = [
@@ -185,19 +182,26 @@ export async function clipped(page: Page, railMayShorten = false) {
         // A box that is meant to scroll is doing its job, and so is anything
         // inside one: the point of a scroller is that its contents are allowed
         // to be bigger than it is.
-        if (scrolls(element)) continue;
-        let inScroller = false;
-        for (
-          let parent = element.parentElement;
-          parent;
-          parent = parent.parentElement
-        ) {
-          if (scrolls(parent)) {
-            inScroller = true;
-            break;
+        //
+        // Per axis, though. A panel that scrolls down does not excuse text
+        // running off its right-hand edge, where there is nothing to scroll:
+        // the map key is inside a column that scrolls vertically, and asking
+        // the question both ways at once meant the sweep walked it and
+        // measured nothing. A band label stretched to 145 characters ran the
+        // full width of the window, over the map, and the run stayed green.
+        const excused = (axis: "X" | "Y") => {
+          if (scrollsOn(element, axis)) return true;
+          for (
+            let parent = element.parentElement;
+            parent;
+            parent = parent.parentElement
+          ) {
+            if (scrollsOn(parent, axis)) return true;
           }
-        }
-        if (inScroller) continue;
+          return false;
+        };
+        const [freeX, freeY] = [excused("X"), excused("Y")];
+        if (freeX && freeY) continue;
         if (element.tagName === "CANVAS" || element.tagName === "INPUT") {
           continue;
         }
@@ -209,8 +213,8 @@ export async function clipped(page: Page, railMayShorten = false) {
         // however long the words get.
         if (railMayShorten && element.closest(".command-button")) continue;
         if (!element.textContent?.trim()) continue;
-        const wide = element.scrollWidth > element.clientWidth + 1;
-        const tall = element.scrollHeight > element.clientHeight + 1;
+        const wide = !freeX && element.scrollWidth > element.clientWidth + 1;
+        const tall = !freeY && element.scrollHeight > element.clientHeight + 1;
         if (!wide && !tall) continue;
         bad.push(
           `${element.className || element.tagName} ${wide ? "wide" : "tall"}: ${element.textContent

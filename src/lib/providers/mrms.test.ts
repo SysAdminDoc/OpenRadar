@@ -108,6 +108,28 @@ describe("MRMS tiles", () => {
     );
   });
 
+  it("keeps the smoothing in the address too", () => {
+    // Every input to the picture is in the address, so neither the map's own
+    // tile cache nor the native side's can serve one for the other. A tile
+    // read between the cells and the same tile read at the nearest one are
+    // two pictures of the same ground.
+    const nearest = tileUrl("http://mrms.localhost/", "composite", 1);
+    const between = tileUrl(
+      "http://mrms.localhost/",
+      "composite",
+      1,
+      0,
+      null,
+      "CONUS",
+      false,
+      null,
+      true,
+    );
+    expect(nearest).not.toContain("smooth=1");
+    expect(between).toContain("smooth=1");
+    expect(between).not.toBe(nearest);
+  });
+
   it("asks for one frame per two minutes of loop, within reason", () => {
     expect(frameLimit(120)).toBe(60);
     expect(frameLimit(60)).toBe(30);

@@ -174,6 +174,7 @@ describe("settings normalization", () => {
       "persistence",
       "product",
       "singleSite",
+      "smoothGrids",
       "smoothSweep",
       "station",
       "stormMotion",

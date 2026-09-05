@@ -243,12 +243,17 @@ export function tileUrl(
   // than one. In the address like the rest: a different height is a different
   // picture and the map's own cache must not serve one for the other.
   level: CubeLevel | null = null,
+  // Read between the cells rather than take the nearest one. In the address
+  // like the rest: it is a different picture, and neither the map's own tile
+  // cache nor the native side's may serve one for the other.
+  smooth = false,
 ): string {
   const floor =
     threshold !== null && Number.isFinite(threshold) ? `&min=${threshold}` : "";
   const contrast = highContrast ? "&hc=1" : "";
   const height = level ? `&level=${level}` : "";
-  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}${contrast}${height}`;
+  const between = smooth ? "&smooth=1" : "";
+  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}${contrast}${height}${between}`;
 }
 
 /** The base URL for the local tile scheme, once Tauri has spelled it out. */

@@ -1415,7 +1415,6 @@ impl Grid {
         (self.reference + sample * 2f32.powi(self.binary as i32)) / 10f32.powi(self.decimal as i32)
     }
 
-    /// The row and column a point falls in, or None when it is off the grid.
     /// What this grid is holding, in bytes.
     ///
     /// The samples are what costs: a folded CONUS grid is 49 MB and an
@@ -1425,6 +1424,88 @@ impl Grid {
         self.samples.len() * std::mem::size_of::<u16>()
     }
 
+    /// What this grid packs "nothing was measured here" as, if it packs one.
+    ///
+    /// MRMS writes no coverage as the smallest sample the packing can hold,
+    /// which decodes to the reference value itself. On a reflectivity grid
+    /// that is -999, which nobody could mistake for weather. On an
+    /// accumulation grid the reference is zero and the smallest sample is a
+    /// genuine zero millimetres, so there is no sentinel at all and reading
+    /// towards it is right: it says the estimate there was nothing, which is
+    /// a measurement.
+    fn absent(&self) -> Option<f32> {
+        let lowest = self.reference / 10f32.powi(self.decimal as i32);
+        (lowest < -100.0).then_some(lowest)
+    }
+
+    /// The reading in a cell, or None where the grid says it had no coverage.
+    ///
+    /// Drawing does not need the difference, because neither gets painted.
+    /// Reading between cells does: smoothing towards a low reading is an
+    /// estimate of the air between two measurements, and smoothing towards an
+    /// absence is an invention at the edge of what the network can see.
+    pub fn reading(&self, row: usize, column: usize) -> Option<f32> {
+        if self.absent().is_some() && self.samples[row * self.columns + column] == 0 {
+            return None;
+        }
+        Some(self.value(row, column))
+    }
+
+    /// The reading at a point, read between the four cells around it.
+    ///
+    /// A cell of the mosaic is about a kilometre across, so a reader zoomed in
+    /// on a storm is looking at squares of one colour with hard edges against
+    /// the squares beside them, and the terraces between colour bands read as
+    /// the resolution of the instrument when they are the resolution of the
+    /// ramp. This reads the field between the cell centres instead.
+    ///
+    /// Bilinear rather than anything smoother on purpose. Bicubic overshoots
+    /// at a sharp gradient and puts a value on the map above the strongest one
+    /// in the neighbourhood, so a storm core would read hotter than the
+    /// network measured it.
+    ///
+    /// None when any of the four says nothing was measured, and the caller
+    /// falls back to the nearest cell there rather than dropping the pixel:
+    /// the edge of coverage stays where it is and stays square, which is
+    /// honest, instead of being feathered outwards into ground nothing saw.
+    pub fn between(&self, latitude: f64, longitude: f64) -> Option<f32> {
+        // Cell centres, so the whole numbers are the centres and the fraction
+        // between them is what is being read. `locate` rounds instead,
+        // because it answers a different question: which cell's footprint is
+        // this point in.
+        let x = (longitude - self.west) / self.d_lon;
+        let y = (self.north - latitude) / self.d_lat;
+        // Half a cell past the outermost centre is still inside the grid's own
+        // footprint, and there is nothing beyond it to read towards.
+        if !(-0.5..=(self.columns as f64 - 0.5)).contains(&x) {
+            return None;
+        }
+        if !(-0.5..=(self.rows as f64 - 0.5)).contains(&y) {
+            return None;
+        }
+        let x = x.clamp(0.0, self.columns as f64 - 1.0);
+        let y = y.clamp(0.0, self.rows as f64 - 1.0);
+
+        let (column, row) = (x.floor(), y.floor());
+        let (fx, fy) = ((x - column) as f32, (y - row) as f32);
+        let (row, column) = (row as usize, column as usize);
+        // The far side of the block, held inside the grid: the last row and
+        // column read towards themselves, which is the nearest answer rather
+        // than one wrapped round from the other edge of the country.
+        let next_row = (row + 1).min(self.rows - 1);
+        let next_column = (column + 1).min(self.columns - 1);
+
+        let north_west = self.reading(row, column)?;
+        let north_east = self.reading(row, next_column)?;
+        let south_west = self.reading(next_row, column)?;
+        let south_east = self.reading(next_row, next_column)?;
+
+        let north = north_west + (north_east - north_west) * fx;
+        let south = south_west + (south_east - south_west) * fx;
+        Some(north + (south - north) * fy)
+    }
+
+    /// The row and column a point falls in, or None when it is off the grid.
     pub fn locate(&self, latitude: f64, longitude: f64) -> Option<(usize, usize)> {
         let row = ((self.north - latitude) / self.d_lat).round();
         let column = ((longitude - self.west) / self.d_lon).round();
@@ -1464,15 +1545,31 @@ static DECODING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// A drawn tile belongs to the grid it came from and to the colour table it
 /// was drawn with. Leaving the table out of the key would serve tiles in the
 /// old colours after a new one is loaded.
-fn tile_key(
-    key: &str,
-    zoom: u32,
-    x: u32,
-    y: u32,
-    threshold: Option<f32>,
-    high_contrast: bool,
-    reduce: usize,
-) -> String {
+/// What a tile is drawn to look like, as against which tile it is.
+///
+/// One value rather than three arguments repeated across the drawing, the
+/// caching and the address, because that is what they are: every one of these
+/// changes the picture, so every one of them belongs in the key, and passing
+/// them separately is how one of them gets left out of it.
+#[derive(Clone, Copy, PartialEq)]
+pub struct TileLook {
+    /// Hide anything below this, on top of the product's own floor. It can
+    /// only ever hide more, never bring back what the floor already excluded.
+    pub threshold: Option<f32>,
+    /// Draw on the ramp built for a reader who asked for more contrast.
+    pub high_contrast: bool,
+    /// Read between the cells rather than take the nearest one. Ignored for a
+    /// categorical grid and for the scattered products, which say so
+    /// themselves: see `smooths`.
+    pub smooth: bool,
+}
+
+fn tile_key(key: &str, zoom: u32, x: u32, y: u32, look: TileLook, reduce: usize) -> String {
+    let TileLook {
+        threshold,
+        high_contrast,
+        smooth,
+    } = look;
     // The threshold is part of what the tile shows, so two tiles drawn at two
     // thresholds are two tiles. Leaving it out of the key served the first one
     // back for the second and the picture never changed.
@@ -1486,8 +1583,9 @@ fn tile_key(
     // drawn on the ordinary ramp must never be served to a reader who asked
     // for the high-contrast one.
     let ramp = if high_contrast { "hc" } else { "-" };
+    let between = if smooth { "s" } else { "-" };
     format!(
-        "{key}|{zoom}/{x}/{y}|{floor}|{ramp}|r{reduce}|{}",
+        "{key}|{zoom}/{x}/{y}|{floor}|{ramp}|{between}|r{reduce}|{}",
         palette::generation()
     )
 }
@@ -2030,6 +2128,8 @@ pub struct TileRequest {
     pub zoom: u32,
     pub x: u32,
     pub y: u32,
+    /// Read between the cells rather than take the nearest one.
+    pub smooth: bool,
     /// Whether the reader is close enough to see the fold.
     ///
     /// On the request rather than worked out where the grid is asked for, so
@@ -2070,6 +2170,9 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
     let high_contrast = query
         .map(|query| query.split('&').any(|pair| pair == "hc=1"))
         .unwrap_or(false);
+    let smooth = query
+        .map(|query| query.split('&').any(|pair| pair == "smooth=1"))
+        .unwrap_or(false);
     let stem = path.strip_suffix(".png").unwrap_or(path);
     let mut parts = stem.split('/').peekable();
     // A leading segment that names a region, or nothing and the old shape.
@@ -2107,6 +2210,7 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         zoom,
         x,
         y,
+        smooth,
         detail: fold_shows(zoom),
         threshold,
         high_contrast,
@@ -2129,6 +2233,7 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         x,
         y,
         detail,
+        smooth,
         threshold,
         high_contrast,
     } = asked;
@@ -2149,15 +2254,12 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
     // it. A guess that turns out wrong costs one redraw; storing under the
     // guess would serve one grid's tile as the other's, which is the whole
     // of what this is for.
-    let asking = tile_key(
-        &key,
-        zoom,
-        x,
-        y,
+    let look = TileLook {
         threshold,
         high_contrast,
-        cached_reduction(&key).unwrap_or(1),
-    );
+        smooth,
+    };
+    let asking = tile_key(&key, zoom, x, y, look, cached_reduction(&key).unwrap_or(1));
     if let Some(bytes) = cached_tile(&asking) {
         return bytes;
     }
@@ -2168,12 +2270,12 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         return EMPTY_TILE.to_vec();
     }
     let reduce = cached_reduction(&key).unwrap_or(1);
-    let drawn = tile_key(&key, zoom, x, y, threshold, high_contrast, reduce);
+    let drawn = tile_key(&key, zoom, x, y, look, reduce);
     if let Some(bytes) = cached_tile(&drawn) {
         return bytes;
     }
-    let bytes = tile_from_cache(&key, entry, zoom, x, y, threshold, high_contrast)
-        .unwrap_or_else(|| EMPTY_TILE.to_vec());
+    let bytes =
+        tile_from_cache(&key, entry, zoom, x, y, look).unwrap_or_else(|| EMPTY_TILE.to_vec());
     remember_tile(drawn, &bytes);
     bytes
 }
@@ -2342,6 +2444,18 @@ fn inverse_mercator_y(y: f64) -> f64 {
     (2.0 * y.exp().atan() - std::f64::consts::FRAC_PI_2).to_degrees()
 }
 
+/// Whether reading between this product's cells says anything true.
+///
+/// Two kinds of grid it does not. A categorical one names what is falling, and
+/// halfway between snow and hail is not sleet: it is a number nobody has
+/// defined, which `category_color` would refuse, leaving a hole along every
+/// boundary. A `Sampling::Cells` one is scattered single cells rather than a
+/// field, and reading between them would spread a hail core over ground the
+/// network never put one on.
+fn smooths(entry: &MrmsProduct) -> bool {
+    entry.categories.is_none() && matches!(entry.sampling, Sampling::Nearest)
+}
+
 /// Draws one slippy-map tile out of a decoded grid, as the RGBA it becomes
 /// before it is encoded. None when the tile holds nothing worth sending,
 /// which is most of the world.
@@ -2351,14 +2465,15 @@ pub fn tile_pixels(
     zoom: u32,
     x: u32,
     y: u32,
-    // Hide anything below this, on top of the product's own floor. It can only
-    // ever hide more, never bring back what the floor already excluded.
-    threshold: Option<f32>,
-    // Draw on the ramp built for a reader who asked for more contrast. A
-    // loaded colour table still wins: it is drawn as supplied rather than
-    // altered, and the panel says so.
-    high_contrast: bool,
+    // A loaded colour table still wins over the contrast ramp: it is drawn as
+    // supplied rather than altered, and the panel says so.
+    look: TileLook,
 ) -> Option<Vec<u8>> {
+    let TileLook {
+        threshold,
+        high_contrast,
+        smooth,
+    } = look;
     let scale = 2f64.powi(zoom as i32);
     if x as f64 >= scale || y as f64 >= scale {
         return None;
@@ -2420,16 +2535,26 @@ pub fn tile_pixels(
 
     match entry.sampling {
         Sampling::Nearest => {
+            let between = smooth && smooths(entry);
             for row in 0..TILE_SIZE {
                 let mercator = top + (bottom - top) * ((row as f64 + 0.5) / TILE_SIZE as f64);
                 let latitude = inverse_mercator_y(mercator);
                 for column in 0..TILE_SIZE {
                     let longitude =
                         left + (right - left) * ((column as f64 + 0.5) / TILE_SIZE as f64);
-                    let Some((grid_row, grid_column)) = grid.locate(latitude, longitude) else {
+                    // The nearest cell either way where the field is not
+                    // smoothed, and where it is but one of the four around
+                    // this point had no coverage.
+                    let value = between
+                        .then(|| grid.between(latitude, longitude))
+                        .flatten()
+                        .or_else(|| {
+                            grid.locate(latitude, longitude)
+                                .map(|(grid_row, grid_column)| grid.value(grid_row, grid_column))
+                        });
+                    let Some(value) = value else {
                         continue;
                     };
-                    let value = grid.value(grid_row, grid_column);
                     if !value.is_finite() || value < floor {
                         continue;
                     }
@@ -2764,6 +2889,14 @@ pub fn grid_window(
     let last_column = (last_column as usize).min(grid.columns - 1);
     let last_row = (last_row as usize).min(grid.rows - 1);
 
+    // Snapped back to the grid's own block boundaries, so a folded window is
+    // made of the same blocks the decoder would have made. Folded from
+    // wherever the box happened to start, a window beginning on an odd row
+    // summarised a different set of source cells than one beginning on an
+    // even row, and the same ground came out as two different rasters.
+    let first_column = first_column - first_column % fold;
+    let first_row = first_row - first_row % fold;
+
     // Counted after the fold, because that is the file: the same product for
     // the same moment over the same box has to come out the same size
     // whether or not the reader had zoomed in far enough to be shown the
@@ -2782,11 +2915,17 @@ pub fn grid_window(
             // the only safe one here: these grids are maxima over a window,
             // so taking one cell of four drops three quarters of a rotation
             // track or a hail swath on the floor.
+            //
+            // The block is held inside the GRID rather than inside the
+            // window. Clamping it to the window instead made the last block
+            // of a row summarise fewer source cells than the decoder's own
+            // fold did, which understates a rotation track exactly at the
+            // edge of the raster somebody asked for.
             let mut most = f32::NEG_INFINITY;
             for down in 0..fold {
                 for across in 0..fold {
-                    let row = (row + down).min(last_row);
-                    let column = (column + across).min(last_column);
+                    let row = (row + down).min(grid.rows - 1);
+                    let column = (column + across).min(grid.columns - 1);
                     most = most.max(grid.value(row, column));
                 }
             }
@@ -2797,10 +2936,15 @@ pub fn grid_window(
     Ok(GridWindow {
         columns,
         rows,
-        west: grid.west + first_column as f64 * grid.d_lon - grid.d_lon / 2.0
-            + (fold - 1) as f64 * grid.d_lon / 2.0,
-        north: grid.north - first_row as f64 * grid.d_lat + grid.d_lat / 2.0
-            - (fold - 1) as f64 * grid.d_lat / 2.0,
+        // The outer edge of the corner cell, which is what a raster's tie
+        // point means, and the corner cell is the whole block. Folding moves
+        // the cell CENTRE half a source cell, which is what the decoder's own
+        // `reduced_geometry` accounts for; it does not move the edge at all.
+        // Adding that centre offset here put the same readings on the ground
+        // 278 metres from where the decoder would have put them, depending
+        // only on which grid happened to be cached.
+        west: grid.west + first_column as f64 * grid.d_lon - grid.d_lon / 2.0,
+        north: grid.north - first_row as f64 * grid.d_lat + grid.d_lat / 2.0,
         d_lon: grid.d_lon * fold as f64,
         d_lat: grid.d_lat * fold as f64,
         values,
@@ -2828,8 +2972,7 @@ pub fn tile_from_cache(
     zoom: u32,
     x: u32,
     y: u32,
-    threshold: Option<f32>,
-    high_contrast: bool,
+    look: TileLook,
 ) -> Option<Vec<u8>> {
     // The lock is held for the drawing, which reads the grid, and dropped
     // before the encode, which does not. Holding it across the encode
@@ -2837,7 +2980,7 @@ pub fn tile_from_cache(
     let pixels = {
         let cache = CACHE.lock().ok()?;
         let held = cache.iter().find(|held| held.key == key)?;
-        tile_pixels(&held.grid, entry, zoom, x, y, threshold, high_contrast)?
+        tile_pixels(&held.grid, entry, zoom, x, y, look)?
     };
     encode_png(&pixels).ok()
 }
@@ -3130,13 +3273,36 @@ mod tests {
 
         // A tile over the middle of the country draws; one over Europe does not.
         let drawing = std::time::Instant::now();
-        let tile = tile_from_cache(&newest.key, entry, 4, 3, 5, None, false);
+        let tile = tile_from_cache(
+            &newest.key,
+            entry,
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+        );
         let drawn = drawing.elapsed();
         assert!(
             tile.as_ref().is_some_and(|bytes| bytes.len() > 200),
             "the tile over the plains came out empty"
         );
-        assert!(tile_from_cache(&newest.key, entry, 4, 8, 5, None, false).is_none());
+        assert!(tile_from_cache(
+            &newest.key,
+            entry,
+            4,
+            8,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false
+            }
+        )
+        .is_none());
 
         println!("decode {decoded:?}, tile {drawn:?}");
         assert!(
@@ -3251,7 +3417,18 @@ mod tests {
             }
 
             let drawing = std::time::Instant::now();
-            let _ = tile_from_cache(&newest.key, entry, 4, 3, 5, None, false);
+            let _ = tile_from_cache(
+                &newest.key,
+                entry,
+                4,
+                3,
+                5,
+                TileLook {
+                    threshold: None,
+                    high_contrast: false,
+                    smooth: false,
+                },
+            );
             let drawn = drawing.elapsed();
             println!("{id}: decode {decoded:?}, tile {drawn:?}");
 
@@ -3534,6 +3711,254 @@ mod tests {
             body.contains("grid_for(&key, detail)"),
             "the tile handler no longer asks for the grid the address called for"
         );
+        // And nothing rebinds it on the way. Reading the source for a call is
+        // a weak gate and this is the hole it had: shadowing `detail` one line
+        // above the call satisfied the search above while restoring the bug it
+        // was written for, with no compiler warning and the whole suite green.
+        // Everything between the address and the fetch is a bucket, so this is
+        // what there is; what it can promise is that the name the handler
+        // passes is the one the parser put on the request.
+        let taken = body
+            .find("} = asked;")
+            .expect("the handler takes the request apart");
+        let called = body
+            .find("grid_for(&key, detail)")
+            .expect("checked just above");
+        assert!(
+            !body[taken..called].contains("let detail"),
+            "something reassigns `detail` between the address and the fetch"
+        );
+    }
+
+    /// Reading between the cells, and where it refuses to.
+    #[test]
+    fn a_reading_between_cells_is_between_the_readings_around_it() {
+        let grid = ramp_grid(4, 4, 0.01);
+        // Dead on a centre it is that cell, whatever the interpolation does.
+        assert_eq!(grid.between(40.1, -94.0), Some(grid.value(0, 0)));
+        assert_eq!(grid.between(40.09, -93.99), Some(grid.value(1, 1)));
+
+        // Halfway between two centres it is halfway between two readings,
+        // and it lies between them rather than outside: bicubic would
+        // overshoot here and put a value on the map stronger than anything
+        // the network measured.
+        let west = grid.value(0, 0);
+        let east = grid.value(0, 1);
+        let middle = grid.between(40.1, -93.995).expect("a reading between");
+        assert!((middle - (west + east) / 2.0).abs() < 1e-3);
+        assert!(middle > west.min(east) && middle < west.max(east));
+
+        // Off the grid entirely is nothing, not the nearest edge cell
+        // stretched out over the ocean.
+        assert_eq!(grid.between(40.1, -90.0), None);
+        assert_eq!(grid.between(30.0, -94.0), None);
+    }
+
+    /// The one thing it must never do.
+    #[test]
+    fn nothing_is_read_across_a_cell_the_network_could_not_see() {
+        let mut grid = ramp_grid(4, 4, 0.01);
+        // What MRMS packs no coverage as: the smallest sample there is,
+        // which decodes to the reference value.
+        grid.reference = -9990.0;
+        grid.decimal = 1;
+        // The ramp counts from zero, and a packed zero IS the sentinel, so the
+        // cell that is meant to hold a reading is given one.
+        grid.samples[0] = 500;
+        grid.samples[1] = 0;
+
+        assert_eq!(grid.reading(0, 1), None, "no coverage read as a reading");
+        assert!(grid.reading(0, 0).is_some());
+        // A point between the two is refused rather than feathered out into
+        // ground nothing looked at. The caller falls back to the nearest
+        // cell, so the edge of coverage stays where it is.
+        assert_eq!(grid.between(40.1, -93.995), None);
+
+        // And where the smallest sample is a genuine zero rather than a
+        // sentinel, as an accumulation grid's is, it is a measurement and
+        // reading towards it is right.
+        let mut rain = ramp_grid(4, 4, 0.01);
+        rain.reference = 0.0;
+        rain.samples[0] = 500;
+        rain.samples[1] = 0;
+        assert_eq!(rain.reading(0, 1), Some(0.0));
+        assert!(rain.between(40.1, -93.995).is_some());
+    }
+
+    /// Which products it is honest on.
+    #[test]
+    fn only_the_fields_that_cover_the_country_are_read_between() {
+        // A categorical grid names what is falling: halfway between snow and
+        // hail is a number nobody has defined, and `category_color` would
+        // refuse it and leave a hole along every boundary.
+        let categorical = product_by_id("precip-type").expect("a categorical product");
+        assert!(!smooths(categorical));
+
+        // The scattered ones are single cells rather than a field, and
+        // reading between them spreads a hail core over ground the network
+        // never put one on.
+        for id in ["rotation", "az-shear-low", "posh"] {
+            let entry = product_by_id(id).expect(id);
+            assert!(
+                !smooths(entry),
+                "{id} is scattered and must not be smoothed"
+            );
+        }
+
+        // The fields that cover the country are the point of the exercise.
+        for id in ["composite", "precip-rate"] {
+            let entry = product_by_id(id).expect(id);
+            assert!(smooths(entry), "{id} covers the country and should smooth");
+        }
+    }
+
+    /// The drawing actually changes, which nothing else here would notice.
+    ///
+    /// Every other test around this reads a flag, a key or a function in
+    /// isolation. Setting the sampler's own `between` to false left all of
+    /// them green while the picture went back to hard squares, which is the
+    /// whole of what this was built to fix, so the pixels are compared.
+    #[test]
+    fn reading_between_the_cells_changes_the_picture() {
+        let entry = product_by_id("composite").expect("composite");
+        let reference = solid_block().reference;
+        let mut grid = solid_block();
+        // A ramp across the block, so neighbouring cells differ and there is
+        // something between them to read.
+        for (at, sample) in grid.samples.iter_mut().enumerate() {
+            let dbz = ((at % 100) / 10) as f32 * 8.0;
+            *sample = ((dbz * 10.0) - reference) as u16;
+        }
+
+        // Zoomed in far enough that one cell is many pixels, which is where
+        // the squares are visible and where this is worth doing.
+        let (x, y) = tile_of(41.0, -94.0, 9);
+        let nearest = tile_pixels(
+            &grid,
+            entry,
+            9,
+            x,
+            y,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+        )
+        .expect("a tile off the ramp");
+        let smoothed = tile_pixels(
+            &grid,
+            entry,
+            9,
+            x,
+            y,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: true,
+            },
+        )
+        .expect("a smoothed tile off the same ramp");
+
+        assert_ne!(nearest, smoothed, "smoothing drew the same picture");
+
+        // And it is smoother rather than merely different: reading between
+        // the cells puts colours on the map that the terraced version steps
+        // straight over.
+        let shades = |pixels: &[u8]| {
+            pixels
+                .chunks_exact(4)
+                .filter(|pixel| pixel[3] > 0)
+                .map(|pixel| (pixel[0], pixel[1], pixel[2]))
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+        };
+        assert!(
+            shades(&smoothed) > shades(&nearest),
+            "the smoothed tile held no more colours than the terraced one: {} against {}",
+            shades(&smoothed),
+            shades(&nearest)
+        );
+
+        // The same tile drawn twice the same way is the same tile, so the
+        // difference above is the smoothing rather than anything drifting.
+        let again = tile_pixels(
+            &grid,
+            entry,
+            9,
+            x,
+            y,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: true,
+            },
+        )
+        .expect("a tile");
+        assert_eq!(smoothed, again);
+    }
+
+    /// A smoothed tile is a different picture at the same address.
+    #[test]
+    fn a_smoothed_tile_is_not_served_for_a_nearest_one() {
+        let plain = tile_key(
+            "k",
+            8,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+            1,
+        );
+        let smooth = tile_key(
+            "k",
+            8,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: true,
+            },
+            1,
+        );
+        assert_ne!(plain, smooth);
+        assert_eq!(
+            smooth,
+            tile_key(
+                "k",
+                8,
+                3,
+                5,
+                TileLook {
+                    threshold: None,
+                    high_contrast: false,
+                    smooth: true
+                },
+                1
+            )
+        );
+    }
+
+    /// And the address carries the reader's answer through to the drawing.
+    #[test]
+    fn a_tile_address_says_whether_to_read_between_the_cells() {
+        let asked = |query: &str| {
+            parse_tile_path(&format!("composite/1756800000/8/10/20.png{query}"))
+                .expect("a tile address")
+        };
+        assert!(!asked("").smooth);
+        assert!(asked("?smooth=1").smooth);
+        // Beside the other flags rather than instead of them.
+        let both = asked("?hc=1&smooth=1");
+        assert!(both.smooth && both.high_contrast);
+        // Anything but the flag itself is off, the way the contrast flag is:
+        // a picture is not something to guess at from a malformed address.
+        assert!(!asked("?smooth=0").smooth);
+        assert!(!asked("?smooth").smooth);
     }
 
     /// The same export whatever the reader had been looking at.
@@ -3548,10 +3973,10 @@ mod tests {
         let _turn = live_test();
         clear_caches();
 
-        // The same ground twice: a grid at the resolution this app draws at,
-        // and the same ground at twice that in each axis.
-        let coarse = ramp_grid(8, 8, 0.01);
+        // The same ground twice: the grid as the network publishes it, and
+        // the grid the decoder makes of it when nobody is zoomed in.
         let fine = ramp_grid(16, 16, 0.005);
+        let coarse = folded_like_the_decoder(&fine, 2);
 
         remember_grid("shear/whole", coarse, 2);
         let folded = grid_window("shear/whole", -94.0, 40.0, -93.9, 40.1, 4_000_000)
@@ -3575,7 +4000,130 @@ mod tests {
             whole.values, folded.values,
             "the readings changed with what happened to be cached"
         );
+        // And on the same ground. A raster's corner is its tie point, and two
+        // files of the same readings at the same cell size, georeferenced a
+        // few hundred metres apart, disagree about where the weather was.
+        assert!(
+            (whole.west - folded.west).abs() < 1e-9,
+            "the exported corner moved with the cache: {} against {}",
+            whole.west,
+            folded.west
+        );
+        assert!(
+            (whole.north - folded.north).abs() < 1e-9,
+            "the exported corner moved with the cache: {} against {}",
+            whole.north,
+            folded.north
+        );
         clear_caches();
+    }
+
+    /// A window that does not start or end on a block boundary.
+    ///
+    /// The fold has to be made of the grid's own blocks, not of blocks
+    /// counted from wherever the box happened to begin. Otherwise a window
+    /// starting on an odd row summarises a different set of source cells than
+    /// one starting on an even row, and the last block of each row summarises
+    /// fewer cells than the decoder's fold did, which understates a rotation
+    /// track exactly at the edge of the raster somebody asked for.
+    #[test]
+    fn a_folded_window_is_made_of_the_grid_s_own_blocks() {
+        let _turn = live_test();
+        clear_caches();
+
+        let fine = ramp_grid(16, 16, 0.005);
+        let coarse = folded_like_the_decoder(&fine, 2);
+        // A box whose edges fall inside cells rather than on them, and whose
+        // span is not a whole number of folded cells.
+        // Edges inside cells rather than on them, and an odd number of
+        // source cells across and down, so the last block of each row and
+        // column reaches past the box and has to be read out of the grid
+        // rather than clamped to the window.
+        let box_of = |key: &str| grid_window(key, -93.987, 40.05, -93.95, 40.098, 4_000_000);
+
+        remember_grid("shear/odd", coarse, 2);
+        let folded = box_of("shear/odd").expect("a window off the folded grid");
+        clear_caches();
+        remember_grid("shear/odd", fine, 1);
+        let whole = box_of("shear/odd").expect("a window off the unfolded grid");
+
+        assert_eq!(
+            (whole.columns, whole.rows),
+            (folded.columns, folded.rows),
+            "an unaligned box came out a different size"
+        );
+        assert_eq!(
+            whole.values, folded.values,
+            "an unaligned box read different cells depending on the cache"
+        );
+        assert!((whole.west - folded.west).abs() < 1e-9);
+        assert!((whole.north - folded.north).abs() < 1e-9);
+
+        // Every block is the full one, the last of each row included: read
+        // back out of the source grid rather than compared with another
+        // folded copy, so a fold that clamped its blocks to the window would
+        // show up as a short block here even if both copies clamped alike.
+        let fine = ramp_grid(16, 16, 0.005);
+        let block_column = ((whole.west + fine.d_lon / 2.0 - fine.west) / fine.d_lon).round();
+        let block_row = ((fine.north - whole.north + fine.d_lat / 2.0) / fine.d_lat).round();
+        for row in 0..whole.rows {
+            for column in 0..whole.columns {
+                let mut most = f32::NEG_INFINITY;
+                for down in 0..2 {
+                    for across in 0..2 {
+                        let source_row = (block_row as usize + row * 2 + down).min(fine.rows - 1);
+                        let source_column =
+                            (block_column as usize + column * 2 + across).min(fine.columns - 1);
+                        most = most.max(fine.value(source_row, source_column));
+                    }
+                }
+                assert_eq!(
+                    whole.values[row * whole.columns + column],
+                    most,
+                    "block {row},{column} summarised fewer source cells than the whole block"
+                );
+            }
+        }
+        clear_caches();
+    }
+
+    /// The grid the decoder itself would produce from this one.
+    ///
+    /// Built its way rather than by hand, because the two halves of "the same
+    /// ground" are easy to get wrong: the largest of each block, and the
+    /// geometry `reduced_geometry` gives, which puts the first centre half a
+    /// source cell in from the corner. A hand-written coarse grid sharing the
+    /// fine one's corner is a different piece of the world, and a test built
+    /// on one proves nothing about the export it is checking.
+    fn folded_like_the_decoder(fine: &Grid, fold: usize) -> Grid {
+        let (north, west, d_lat, d_lon) =
+            reduced_geometry(fine.north, fine.west, fine.d_lat, fine.d_lon, fold);
+        let (columns, rows) = (fine.columns / fold, fine.rows / fold);
+        let mut samples = Vec::with_capacity(columns * rows);
+        for row in 0..rows {
+            for column in 0..columns {
+                let mut most = 0u16;
+                for down in 0..fold {
+                    for across in 0..fold {
+                        let at = (row * fold + down) * fine.columns + column * fold + across;
+                        most = most.max(fine.samples[at]);
+                    }
+                }
+                samples.push(most);
+            }
+        }
+        Grid {
+            columns,
+            rows,
+            north,
+            west,
+            d_lat,
+            d_lon,
+            reference: fine.reference,
+            binary: fine.binary,
+            decimal: fine.decimal,
+            samples,
+        }
     }
 
     /// A grid whose cells count up, so a fold is visible in the numbers.
@@ -3590,16 +4138,12 @@ mod tests {
             reference: 0.0,
             binary: 0,
             decimal: 0,
-            // The largest of each block is what a fold keeps, and at half the
-            // step each drawn cell is four of these: written so the two
-            // grids' maxima agree cell for cell.
+            // Every cell its own number, so the largest of a block is a
+            // particular cell rather than any of them. Written block-constant
+            // once, and a fold that read half a block was then invisible: the
+            // half it read held the same value as the half it skipped.
             samples: (0..columns * rows)
-                .map(|at| {
-                    let row = at / columns;
-                    let column = at % columns;
-                    let scale = if step < 0.0075 { 2 } else { 1 };
-                    ((row / scale) * 100 + (column / scale)) as u16
-                })
+                .map(|at| ((at / columns) * 100 + at % columns) as u16)
                 .collect(),
         }
     }
@@ -3612,10 +4156,46 @@ mod tests {
         // one address they leave a seam at a tile boundary that stays for the
         // session, because nothing invalidates a drawn tile when a finer grid
         // replaces the one it came from.
-        let folded = tile_key("k", 7, 3, 5, None, false, 2);
-        let whole = tile_key("k", 7, 3, 5, None, false, 1);
+        let folded = tile_key(
+            "k",
+            7,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+            2,
+        );
+        let whole = tile_key(
+            "k",
+            7,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+            1,
+        );
         assert_ne!(folded, whole);
-        assert_eq!(whole, tile_key("k", 7, 3, 5, None, false, 1));
+        assert_eq!(
+            whole,
+            tile_key(
+                "k",
+                7,
+                3,
+                5,
+                TileLook {
+                    threshold: None,
+                    high_contrast: false,
+                    smooth: false
+                },
+                1
+            )
+        );
     }
 
     /// What the cache drops, read against grids the size they really are.
@@ -4014,14 +4594,38 @@ mod tests {
         // Zoom 4 tile 3/5 covers the middle of the country, so this tile does
         // overlap the grid; it simply has nothing worth drawing.
         assert!(
-            tile_pixels(&quiet, entry, 4, 3, 5, None, false).is_none(),
+            tile_pixels(
+                &quiet,
+                entry,
+                4,
+                3,
+                5,
+                TileLook {
+                    threshold: None,
+                    high_contrast: false,
+                    smooth: false
+                }
+            )
+            .is_none(),
             "a tile of clear air should not be sent"
         );
 
         // The same tile with one gate of real rain in it does get sent.
         let mut wet = quiet;
         wet.samples = vec![10490, 10490, 10490, 10490];
-        assert!(tile_pixels(&wet, entry, 4, 3, 5, None, false).is_some());
+        assert!(tile_pixels(
+            &wet,
+            entry,
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false
+            }
+        )
+        .is_some());
     }
 
     /// One screen is a dozen tiles arriving at once, all wanting the same
@@ -4342,7 +4946,20 @@ mod tests {
         let count = |product: &MrmsProduct| {
             tiles
                 .iter()
-                .filter_map(|(x, y)| tile_pixels(grid, product, 4, *x, *y, None, false))
+                .filter_map(|(x, y)| {
+                    tile_pixels(
+                        grid,
+                        product,
+                        4,
+                        *x,
+                        *y,
+                        TileLook {
+                            threshold: None,
+                            high_contrast: false,
+                            smooth: false,
+                        },
+                    )
+                })
                 .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
                 .sum::<usize>()
         };
@@ -4393,9 +5010,20 @@ mod tests {
         // Zoom four over the plains: one pixel covers about forty grid cells,
         // so a single live cell is a needle.
         let painted = |product: &MrmsProduct| {
-            tile_pixels(&grid, product, 4, 3, 5, None, false)
-                .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
-                .unwrap_or(0)
+            tile_pixels(
+                &grid,
+                product,
+                4,
+                3,
+                5,
+                TileLook {
+                    threshold: None,
+                    high_contrast: false,
+                    smooth: false,
+                },
+            )
+            .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+            .unwrap_or(0)
         };
 
         assert_eq!(
@@ -4426,9 +5054,20 @@ mod tests {
 
         let (x, y) = tile_of(41.0, -94.0, 8);
         let painted = |floor: Option<f32>| {
-            tile_pixels(&grid, entry, 8, x, y, floor, false)
-                .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
-                .unwrap_or(0)
+            tile_pixels(
+                &grid,
+                entry,
+                8,
+                x,
+                y,
+                TileLook {
+                    threshold: floor,
+                    high_contrast: false,
+                    smooth: false,
+                },
+            )
+            .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+            .unwrap_or(0)
         };
 
         let whole = painted(None);
@@ -4457,15 +5096,62 @@ mod tests {
         // The threshold is part of what the tile shows, so it has to be part
         // of the address the drawn tile is remembered under. Leaving it out
         // served the first reader's picture to the second.
-        let plain = tile_key("k", 4, 3, 5, None, false, 1);
-        let low = tile_key("k", 4, 3, 5, Some(20.0), false, 1);
-        let high = tile_key("k", 4, 3, 5, Some(45.0), false, 1);
+        let plain = tile_key(
+            "k",
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+            1,
+        );
+        let low = tile_key(
+            "k",
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: Some(20.0),
+                high_contrast: false,
+                smooth: false,
+            },
+            1,
+        );
+        let high = tile_key(
+            "k",
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: Some(45.0),
+                high_contrast: false,
+                smooth: false,
+            },
+            1,
+        );
         assert_ne!(plain, low);
         assert_ne!(low, high);
         assert_ne!(plain, high);
         // The same threshold is the same tile, or nothing would ever be
         // remembered at all.
-        assert_eq!(low, tile_key("k", 4, 3, 5, Some(20.0), false, 1));
+        assert_eq!(
+            low,
+            tile_key(
+                "k",
+                4,
+                3,
+                5,
+                TileLook {
+                    threshold: Some(20.0),
+                    high_contrast: false,
+                    smooth: false
+                },
+                1
+            )
+        );
     }
 
     /// A block of live cells over the plains, for the zoom tests below.
@@ -4485,9 +5171,20 @@ mod tests {
     }
 
     fn painted_count(grid: &Grid, entry: &MrmsProduct, zoom: u32, x: u32, y: u32) -> usize {
-        tile_pixels(grid, entry, zoom, x, y, None, false)
-            .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
-            .unwrap_or(0)
+        tile_pixels(
+            grid,
+            entry,
+            zoom,
+            x,
+            y,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+        )
+        .map(|pixels| pixels.chunks_exact(4).filter(|p| p[3] > 0).count())
+        .unwrap_or(0)
     }
 
     /// The tile covering a point at a zoom, which is how a viewer gets there.
@@ -4608,7 +5305,19 @@ mod tests {
         };
 
         let color_at = |zoom, x, y| {
-            tile_pixels(&grid, entry, zoom, x, y, None, false).map(|pixels| {
+            tile_pixels(
+                &grid,
+                entry,
+                zoom,
+                x,
+                y,
+                TileLook {
+                    threshold: None,
+                    high_contrast: false,
+                    smooth: false,
+                },
+            )
+            .map(|pixels| {
                 let first = pixels
                     .chunks_exact(4)
                     .find(|p| p[3] > 0)
@@ -5063,9 +5772,33 @@ mod tests {
         let grid = grid();
         let entry = product_by_id("composite").expect("the composite product");
         // Zoom 4 tile over western Europe, nowhere near the grid.
-        assert!(tile_pixels(&grid, entry, 4, 8, 5, None, false).is_none());
+        assert!(tile_pixels(
+            &grid,
+            entry,
+            4,
+            8,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false
+            }
+        )
+        .is_none());
         // A tile index that does not exist at its zoom.
-        assert!(tile_pixels(&grid, entry, 1, 4, 0, None, false).is_none());
+        assert!(tile_pixels(
+            &grid,
+            entry,
+            1,
+            4,
+            0,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false
+            }
+        )
+        .is_none());
     }
 
     /// Writes what the `mrms_grib` fuzz target starts from.
@@ -5293,10 +6026,46 @@ mod tests {
 
     #[test]
     fn two_contrast_choices_are_two_tiles() {
-        let plain = tile_key("k", 4, 3, 5, None, false, 1);
-        let contrast = tile_key("k", 4, 3, 5, None, true, 1);
+        let plain = tile_key(
+            "k",
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+            1,
+        );
+        let contrast = tile_key(
+            "k",
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: true,
+                smooth: false,
+            },
+            1,
+        );
         assert_ne!(plain, contrast);
-        assert_eq!(contrast, tile_key("k", 4, 3, 5, None, true, 1));
+        assert_eq!(
+            contrast,
+            tile_key(
+                "k",
+                4,
+                3,
+                5,
+                TileLook {
+                    threshold: None,
+                    high_contrast: true,
+                    smooth: false
+                },
+                1
+            )
+        );
     }
 
     /// And the pixels actually differ, so the address is separating two
@@ -5305,8 +6074,32 @@ mod tests {
     fn a_high_contrast_tile_is_drawn_on_the_other_ramp() {
         let grid = grid();
         let entry = product_by_id("composite").expect("the composite product");
-        let plain = tile_pixels(&grid, entry, 4, 3, 5, None, false).expect("a tile");
-        let contrast = tile_pixels(&grid, entry, 4, 3, 5, None, true).expect("a tile");
+        let plain = tile_pixels(
+            &grid,
+            entry,
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+        )
+        .expect("a tile");
+        let contrast = tile_pixels(
+            &grid,
+            entry,
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: true,
+                smooth: false,
+            },
+        )
+        .expect("a tile");
         assert_ne!(plain, contrast);
     }
 
@@ -5377,7 +6170,19 @@ mod tests {
         grid.decimal = 1;
         grid.reference = 0.0;
         let entry = product_by_id("precip-type").expect("the precipitation flag");
-        let pixels = tile_pixels(&grid, entry, 4, 3, 5, None, false).expect("a tile");
+        let pixels = tile_pixels(
+            &grid,
+            entry,
+            4,
+            3,
+            5,
+            TileLook {
+                threshold: None,
+                high_contrast: false,
+                smooth: false,
+            },
+        )
+        .expect("a tile");
         let snow = entry
             .categories
             .unwrap()

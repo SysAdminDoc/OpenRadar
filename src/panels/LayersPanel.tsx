@@ -193,6 +193,9 @@ interface LayersPanelProps {
   onSurgeCategory: (category: SurgeCategory) => void;
   onSatelliteBand: (band: SatelliteBandId) => void;
   gaugeQpePeriod: GaugeQpePeriod;
+  /** Read the national grids between their cells rather than at the nearest. */
+  smoothGrids: boolean;
+  onSmoothGrids: (on: boolean) => void;
   onGaugeQpePeriod: (period: GaugeQpePeriod) => void;
   /** How far back the rotation track reaches. */
   rotationPeriod: RotationPeriod;
@@ -531,6 +534,8 @@ export function LayersPanel({
   satelliteBand,
   spacecraft,
   gaugeQpePeriod,
+  smoothGrids,
+  onSmoothGrids,
   onGaugeQpePeriod,
   rotationPeriod,
   onRotationPeriod,
@@ -618,6 +623,28 @@ export function LayersPanel({
           </label>
         ))}
       </div>
+      <div className="settings-section" data-grid-smoothing>
+        <div className="settings-section__title">
+          <span>{t("layers.smoothGrids")}</span>
+          <small>{t("layers.smoothGridsDetail")}</small>
+        </div>
+        {/* The picture only. What the inspector answers with and what an
+            export writes are the cells themselves either way, which is the
+            same bargain the sweep's own smoothing makes. */}
+        <label className="toggle-row toggle-row--plain">
+          <span>
+            <strong>{t("layers.smoothGridsLabel")}</strong>
+            <small>{t("layers.smoothGridsNote")}</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={smoothGrids}
+            onChange={(event) => onSmoothGrids(event.target.checked)}
+          />
+          <i className="toggle-track" aria-hidden="true" />
+        </label>
+      </div>
+
       {arrangeable.length > 1 ? (
         <div className="settings-section" data-overlay-order>
           <div className="settings-section__title">
