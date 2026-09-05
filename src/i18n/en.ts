@@ -795,6 +795,8 @@ export const en = {
   "radar.sitesInReach": "Radars that can see this view",
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "nothing received for {age}",
+  "radar.siteStopped": "{station} has stopped sending",
+  "radar.holdInstead": "Hold {station} instead",
   "radar.faultOffline": "not sending",
   "radar.faultStartUp": "The radar is starting up. It should be back shortly.",
   "radar.faultNotOperating":

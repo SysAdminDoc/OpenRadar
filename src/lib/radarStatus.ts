@@ -88,6 +88,40 @@ export function faultReason(
     : translate("radar.faultNoRecentData", { age: formatAge(late) });
 }
 
+/**
+ * Whether the office's own report says this site has stopped.
+ *
+ * The picker already passes over a faulted site when it chooses one. A site
+ * the reader chose by hand is different: it keeps being drawn, because the
+ * last volume is still the last thing anybody knows, and until now the only
+ * sign was the age on the legend. KLWX went down inside a tornado warning on
+ * 2026-08-17 and the picture simply stopped moving.
+ */
+export function siteHasStopped(status: SiteStatus | null): boolean {
+  return Boolean(status?.fault);
+}
+
+/**
+ * The nearest site in reach that is still publishing, or null when none is.
+ *
+ * In reach order, which is nearest first, and never the one already held. A
+ * site the feed says nothing about is offered: the report covers the network
+ * and not the wind profilers or the odd overseas radar, and not being
+ * mentioned has never been a fault here.
+ */
+export function nextPublishingSite(
+  held: string | null,
+  inReach: readonly { station: string }[],
+  said: readonly SiteStatus[],
+): string | null {
+  for (const site of inReach) {
+    if (site.station === held) continue;
+    if (siteHasStopped(statusFor(said, site.station))) continue;
+    return site.station;
+  }
+  return null;
+}
+
 /** How long ago Level II was last received, in whole minutes. */
 export function minutesSinceLevelTwo(
   status: SiteStatus | null,

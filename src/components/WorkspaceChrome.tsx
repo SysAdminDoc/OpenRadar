@@ -18,7 +18,13 @@ import {
   type Classification,
 } from "../lib/classification";
 import { liveAgeSeconds, type SweepImage } from "../lib/level2";
-import { levelTwoLate, type SiteStatus } from "../lib/radarStatus";
+import {
+  faultReason,
+  levelTwoLate,
+  nextPublishingSite,
+  siteHasStopped,
+  type SiteStatus,
+} from "../lib/radarStatus";
 import {
   FORECAST_SMOKE_UNIT,
   forecastSmokeLabel,
@@ -85,6 +91,16 @@ interface WorkspaceChromeProps {
    * anything. Null over the mosaic and in a browser preview.
    */
   sweepStatus: SiteStatus | null;
+  /**
+   * What the office says about every site, and which ones can see the view.
+   *
+   * Both, because the offer below is the nearest site that is still
+   * publishing, and neither list answers that on its own.
+   */
+  siteStatus: readonly SiteStatus[];
+  sitesInReach: readonly { station: string }[];
+  /** Holds another site, which is what the offer does. */
+  onHoldSite: (station: string) => void;
   /** MRMS products drawn over the radar, each with its own scale. */
   mrmsLayers: MrmsLayer[];
   /** The GOES flash window on the map, when that layer is on. */
@@ -147,6 +163,9 @@ export function WorkspaceChrome({
   sweep,
   sweepLoop,
   sweepStatus,
+  siteStatus,
+  sitesInReach,
+  onHoldSite,
   mrmsLayers,
   lightning,
   smoke,
@@ -194,6 +213,18 @@ export function WorkspaceChrome({
   // whole time and would otherwise keep showing the old ones.
   useMeasurements();
   const offlineSince = useOfflineSince();
+  // A site the reader chose that the office says has stopped, and the nearest
+  // one that has not. Both from the same report the picker already reads, so
+  // the offer and the greyed-out rows in the picker cannot disagree.
+  const heldStation = settings.radar.station;
+  const downSite =
+    heldStation && siteHasStopped(sweepStatus)
+      ? {
+          station: heldStation,
+          reason: faultReason(sweepStatus, clock),
+          next: nextPublishingSite(heldStation, sitesInReach, siteStatus),
+        }
+      : null;
   const stale =
     radarAgeMinutes !== null && radarAgeMinutes >= STALE_MINUTES
       ? t("chrome.stale", { age: formatAge(radarAgeMinutes) })
@@ -336,6 +367,26 @@ export function WorkspaceChrome({
       {cursor ? (
         <div className="map-readout" aria-live="off">
           {`${formatNumber(cursor.lat, 3)}°, ${formatNumber(cursor.lon, 3)}°`}
+        </div>
+      ) : null}
+
+      {/* A held site that has stopped. It keeps being drawn, because the
+          last volume is still the last thing anybody knows and the reader
+          chose this radar, but a picture that has stopped moving must not go
+          on looking like a quiet afternoon. */}
+      {downSite ? (
+        <div className="site-down" role="status">
+          <span>
+            <strong>
+              {t("radar.siteStopped", { station: downSite.station })}
+            </strong>
+            {downSite.reason ? <small>{downSite.reason}</small> : null}
+          </span>
+          {downSite.next ? (
+            <button type="button" onClick={() => onHoldSite(downSite.next!)}>
+              {t("radar.holdInstead", { station: downSite.next })}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
