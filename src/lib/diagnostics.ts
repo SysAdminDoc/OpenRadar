@@ -1,6 +1,6 @@
 import { APP_VERSION } from "./settings";
 import type { LogEntry } from "./log";
-import type { ProviderHealth } from "./providers/health";
+import type { ProviderHealth, ProviderIncident } from "./providers/health";
 import type { NotifyPermission } from "./notify";
 import {
   provenanceLines,
@@ -200,6 +200,13 @@ export interface DiagnosticsInput {
     stack: string | null;
     componentStack: string | null;
   } | null;
+  /**
+   * When each source last changed its mind about whether it was working.
+   *
+   * A count of failures in a row says nothing about an outage that ended an
+   * hour ago, and that is exactly the one a report is usually written about.
+   */
+  incidents?: readonly ProviderIncident[];
 }
 
 /** What is on disk, as the workspace can see it without asking the disk. */
@@ -313,6 +320,19 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
         entry.lastError ? ` · ${redact(entry.lastError)}` : ""
       }`,
     );
+  }
+  if (input.incidents?.length) {
+    lines.push("", "What the sources have done lately:");
+    for (const one of input.incidents) {
+      // The reason a source failed with is whatever the service or the
+      // network said, and a request URL carries the position it was asking
+      // about. Through the same redaction as everything else here.
+      lines.push(
+        `  ${new Date(one.at).toISOString()} ${one.id}: ${
+          one.ok ? "working" : "failing"
+        }${one.reason ? ` · ${redact(one.reason)}` : ""}`,
+      );
+    }
   }
   if (input.layers?.length) {
     lines.push("", "Layers:");

@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  MAX_INCIDENTS,
+  clearIncidents,
+  loadProviderIncidents,
   providerHealth,
+  providerIncidents,
   recordFailure,
   recordSuccess,
   resetHealth,
@@ -92,5 +96,106 @@ describe("what each radar source has been doing", () => {
     expect(providerHealth()).toHaveLength(2);
     resetHealth();
     expect(providerHealth()).toEqual([]);
+  });
+});
+
+/**
+ * What the sources have done lately, which a count of failures cannot say.
+ *
+ * The report used to carry "three failed in a row" and nothing else, so an
+ * outage that ended an hour ago left no trace at all and a reader sending a
+ * report could not say which service had been down.
+ */
+describe("the history of what each source has done", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetHealth();
+    loadProviderIncidents();
+  });
+  afterEach(() => {
+    window.localStorage.clear();
+    resetHealth();
+  });
+
+  it("records a change of state and not a poll", () => {
+    // A source failing for an hour is one incident, not two hundred. The
+    // whole point of keeping fifty of them is that fifty covers a bad
+    // afternoon across every source.
+    recordFailure("ridge", "the service is busy", 1000);
+    recordFailure("ridge", "the service is busy", 2000);
+    recordFailure("ridge", "still busy", 3000);
+    expect(providerIncidents()).toHaveLength(1);
+
+    recordSuccess("ridge", 12, 4000);
+    recordSuccess("ridge", 12, 5000);
+    expect(providerIncidents()).toHaveLength(2);
+
+    const [failed, repaired] = providerIncidents();
+    expect(failed).toMatchObject({
+      id: "ridge",
+      at: 1000,
+      ok: false,
+      reason: "the service is busy",
+    });
+    expect(repaired).toMatchObject({ id: "ridge", at: 4000, ok: true });
+    // A repair carries no reason: there is nothing for a service to say
+    // about working.
+    expect(repaired.reason).toBeNull();
+  });
+
+  it("keeps one source's history apart from another's", () => {
+    recordFailure("ridge", "busy", 1000);
+    recordFailure("rainviewer", "refused", 1100);
+    recordSuccess("ridge", 4, 1200);
+    expect(providerIncidents().map((one) => [one.id, one.ok])).toEqual([
+      ["ridge", false],
+      ["rainviewer", false],
+      ["ridge", true],
+    ]);
+  });
+
+  it("is bounded, oldest out first", () => {
+    for (let at = 0; at < MAX_INCIDENTS + 10; at += 1) {
+      if (at % 2) recordSuccess("ridge", 1, at + 1);
+      else recordFailure("ridge", `failure ${at}`, at + 1);
+    }
+    const kept = providerIncidents();
+    expect(kept).toHaveLength(MAX_INCIDENTS);
+    // The newest is the last thing that happened, and the oldest has gone.
+    expect(kept[kept.length - 1].at).toBe(MAX_INCIDENTS + 10);
+    expect(kept[0].at).toBeGreaterThan(1);
+  });
+
+  it("survives a restart, and can be ended", () => {
+    recordFailure("ridge", "busy", 1000);
+    recordSuccess("ridge", 4, 2000);
+
+    // A restart: the module's own memory goes, the store does not.
+    resetHealth();
+    expect(providerIncidents()).toHaveLength(0);
+    loadProviderIncidents();
+    expect(providerIncidents()).toHaveLength(2);
+
+    clearIncidents();
+    expect(providerIncidents()).toHaveLength(0);
+    loadProviderIncidents();
+    expect(providerIncidents()).toHaveLength(0);
+  });
+
+  it("drops a stored history it cannot read rather than repairing one", () => {
+    window.localStorage.setItem("openradar.incidents", "not json at all");
+    loadProviderIncidents();
+    expect(providerIncidents()).toEqual([]);
+
+    window.localStorage.setItem(
+      "openradar.incidents",
+      JSON.stringify([
+        { id: "ridge", at: 1000, ok: false, reason: "busy" },
+        { id: "ridge", ok: true },
+        "nonsense",
+      ]),
+    );
+    loadProviderIncidents();
+    expect(providerIncidents()).toHaveLength(1);
   });
 });

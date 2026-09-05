@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Info,
   ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -13,7 +14,11 @@ import { PanelShell } from "../components/PanelShell";
 import { MAX_PALETTES, paletteUnit, type Palette } from "../lib/palette";
 import type { UpdateState } from "../lib/updates";
 import type { LogEntry } from "../lib/log";
-import { DIAGNOSTIC_SOURCES, type ProviderHealth } from "../lib/providers";
+import {
+  DIAGNOSTIC_SOURCES,
+  clearIncidents,
+  type ProviderHealth,
+} from "../lib/providers";
 import { APP_VERSION } from "../lib/settings";
 import { gpuSupport } from "../lib/gpu";
 import { translate, useT } from "../i18n";
@@ -200,6 +205,9 @@ export function MorePanel({
   // Off every time the panel opens. A switch that remembered would quietly
   // put somebody's home in the next report they sent.
   const [withPlace, setWithPlace] = useState(false);
+  // Said in place of the note about what a report carries, because that note
+  // is about the history this button just ended.
+  const [forgotten, setForgotten] = useState(false);
   return (
     <PanelShell
       eyebrow={t("diagnostics.eyebrow", { version: APP_VERSION })}
@@ -281,8 +289,23 @@ export function MorePanel({
           <button type="button" onClick={onOpenLogFolder}>
             <FolderOpen size={14} /> {t("diagnostics.openLogs")}
           </button>
+          {/* The history of what the sources have done goes into the report
+              above, and it is a record of this machine's afternoon: the
+              reader gets to end it. */}
+          <button
+            type="button"
+            data-clear-incidents
+            onClick={() => {
+              clearIncidents();
+              setForgotten(true);
+            }}
+          >
+            <Trash2 size={14} /> {t("diagnostics.forget")}
+          </button>
         </div>
-        <p className="source-note">{t("diagnostics.whatIsCopied")}</p>
+        <p className="source-note">
+          {forgotten ? t("diagnostics.forgot") : t("diagnostics.whatIsCopied")}
+        </p>
         {hasWatchedPlace ? (
           <label className="diagnostics-consent">
             <input

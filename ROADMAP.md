@@ -258,13 +258,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: Day/night shading draws with no request, updates each minute, sits below every data layer, is off by default, and is listed in the provenance table as computed locally.
   Complexity: S
 
-- [ ] AUD-231 (P3): Provider failure history in diagnostics
-  Why: Diagnostics says how many times a source failed in a row and nothing about when or why, so an outage that ended an hour ago leaves no trace and a report cannot say which service was down.
-  Evidence: `src/lib/diagnostics.ts:199-200` (`consecutiveFailures` only); `src/lib/providers/health.ts`; `C:\repos\StormDeck` keeps 200 redacted provider incidents for 30 days.
-  Touches: `src/lib/providers/health.ts` (a bounded ring of the last fifty transitions with times and typed reasons), `src/lib/diagnostics.ts`, `src/panels/UtilityPanels.tsx`, the store, tests.
-  Acceptance: The diagnostics report lists each source's last transitions with times and reasons; the ring is bounded, survives a restart and can be cleared; nothing in it names a place or a URL with a place in it.
-  Complexity: S
-
 ## Audit Findings, 2026-09-03 (evening)
 
 Read-only audit of `168271b` (v0.9.0). Baseline at that commit, all green: `npm run check` 176 files / 1622 passed / 37 skipped, lint 0 errors 1 pre-existing warning, every bundle inside budget; `cargo test` 412 passed / 28 ignored; `cargo clippy --all-targets` clean; `cargo audit` 0 vulnerabilities with 17 documented allowances; `gitleaks` 344 commits clean; `npm audit --omit=dev` 0; `grype` one Medium in `glib`, already documented as unreachable in `src-tauri/.cargo/audit.toml`. The GitHub tracker holds zero issues and zero pull requests (open or closed), so there was nothing to take in from reporters. Every P1 below survived a fresh-context refutation pass. Items are numbered on from `AUD-236`.
