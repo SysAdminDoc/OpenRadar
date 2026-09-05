@@ -290,17 +290,6 @@ Where this pass dug: the three items drained on 2026-09-03 after the last refuta
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-248 (P3): A request the workspace fixture does not recognise can hang forever instead of failing
-      Category: testing
-      Where: `e2e/support/fixtures.ts`, every `stub(...)` handler that branches on the URL
-      Problem: A handler that falls off its last branch without calling `fulfill`, `abort` or `continue` leaves the request pending for the life of the page. A test that then waits on whatever that request feeds fails by timing out somewhere else entirely, which is most of what AUD-247 cost. Several handlers do have a default; whether all of them do has not been checked, and the ones that do sometimes answer with the wrong content type for the request.
-      Evidence: The mesonet handler's default answers JSON for any path it does not recognise, including an image request, and the same shape of handler is repeated for a dozen hosts in the same file.
-      Fix: Read every `stub` handler in `fixtures.ts` and give each a default that fulfils with something the caller can use. Then add a guard so the next one cannot go unnoticed: a check in `routeWorkspace` that no request is left pending when a spec ends.
-      Acceptance: Every handler answers on every path; a deliberately unrecognised URL on a stubbed host comes back with a status rather than hanging.
-      Confidence: Verified
-      Effort: S
-
-
 ## Research-Driven Additions
 
 Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
