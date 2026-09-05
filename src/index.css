@@ -1227,12 +1227,20 @@ input[type="range"]:disabled {
   opacity: 0.85;
 }
 
+/* Clear of the zoom stack, which owns the same corner: it is 40px wide at 16px
+   in, so anything ending nearer the edge than 56px is drawn under it. The card
+   was at 12px and its time read "4:58 P" behind the compass button, at every
+   width rather than only at the narrow end. */
 .pane-compare {
   position: absolute;
   z-index: 18;
   top: 12px;
-  right: 12px;
+  right: 68px;
+  max-width: calc(100% - 96px);
   display: flex;
+  /* A longer word in another language takes a second line rather than pushing
+     the time off the end of the card. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 9px;
   padding: 7px 10px;
@@ -4576,6 +4584,18 @@ input[type="range"]:disabled {
   right: calc(var(--panel-width) + 16px);
 }
 
+/* The two that were left off the list above and were drawn under the panel:
+   the compare card, whose offset buttons could not be clicked, and the cursor
+   readout. Each keeps the lead it has over the zoom stack and the credits
+   rather than being moved to the same place as them. */
+.app-shell[data-panel-side="right"] .pane-compare {
+  right: calc(var(--panel-width) + 68px);
+}
+
+.app-shell[data-panel-side="right"] .map-readout {
+  right: calc(var(--panel-width) + 216px);
+}
+
 /* Above the readout and the credits, which share the row under here and are
    drawn over anything they meet: the readout starts 216px in from the right,
    so a legend wider than 200px used to lose its bottom line under it. */
@@ -4687,6 +4707,16 @@ input[type="range"]:disabled {
   .app-shell[data-panel-side="right"] .source-attribution,
   .app-shell[data-panel-side="right"] .map-watermark {
     right: 16px;
+  }
+
+  /* The panel covers the map at this width, so nothing is shifted out of its
+     way; these two go back to where they sit with no panel open. */
+  .app-shell[data-panel-side="right"] .pane-compare {
+    right: 68px;
+  }
+
+  .app-shell[data-panel-side="right"] .map-readout {
+    right: 216px;
   }
 }
 

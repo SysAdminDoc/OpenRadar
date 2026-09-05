@@ -136,6 +136,17 @@ test("splits a wide window into two panes worth having", async ({ page }) => {
   expect(Math.abs(first.width - second.width)).toBeLessThanOrEqual(4);
   expect(first.width).toBeGreaterThan(700);
 
+  // The compare card and the zoom stack own the same corner of the second
+  // pane, and the card sat inside the stack's column at every width until it
+  // was moved clear. Checked here as well as at 1440 and 1024 because "it
+  // fits on a wide screen" was the assumption that let it ship.
+  const card = (await page.locator(".pane-compare").boundingBox())!;
+  const zoom = (await page.locator(".zoom-controls").boundingBox())!;
+  expect(
+    card.x + card.width <= zoom.x || zoom.x + zoom.width <= card.x,
+    "the compare card runs into the zoom controls",
+  ).toBe(true);
+
   expect(await clipped(page)).toEqual([]);
   expect(await unreachable(page)).toEqual([]);
   await page.screenshot({ path: `${SHOTS}/dual-pane.png` });
