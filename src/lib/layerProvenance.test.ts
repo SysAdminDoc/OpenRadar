@@ -4,6 +4,7 @@ import { overlayProvenance, provenanceProblems } from "./provenance";
 import { DEFAULT_SETTINGS } from "./settings";
 import { OVERLAY_ADAPTERS } from "./overlays";
 import { MRMS_PRODUCT_IDS } from "./providers/mrms";
+import { CAPPI_FIELDS, DEFAULT_CUBE_LEVEL } from "./cappi";
 import { MRMS_LAYERS, mrmsTimeFor, productFor } from "../hooks/useMrmsOverlays";
 import { GAUGE_QPE_PERIODS } from "./gaugeQpe";
 import { AZ_SHEAR_LEVELS, ROTATION_PERIODS } from "./rotationTrack";
@@ -23,15 +24,22 @@ const EVERY_CHOICE: MrmsChoices[] = GAUGE_QPE_PERIODS.flatMap(
         LIGHTNING_WINDOWS.flatMap((lightningWindow) =>
           LIGHTNING_FORECASTS.flatMap((lightningForecastWindow) =>
             LIGHTNING_JUMPS.flatMap((lightningJumpWindow) =>
-              ISOTHERM_LEVELS.map((isothermLevel) => ({
-                gaugeQpePeriod,
-                rotationPeriod,
-                azShearLevel,
-                lightningWindow,
-                lightningForecastWindow,
-                lightningJumpWindow,
-                isothermLevel,
-              })),
+              ISOTHERM_LEVELS.flatMap((isothermLevel) =>
+                CAPPI_FIELDS.map((cappiField) => ({
+                  gaugeQpePeriod,
+                  rotationPeriod,
+                  azShearLevel,
+                  lightningWindow,
+                  lightningForecastWindow,
+                  lightningJumpWindow,
+                  isothermLevel,
+                  cappiField,
+                  // The height does not decide which grid a switch means, so
+                  // it is not crossed here. What reads it is `levelFor`, and
+                  // that is checked against every one of the thirty-three.
+                  cappiLevel: DEFAULT_CUBE_LEVEL,
+                })),
+              ),
             ),
           ),
         ),

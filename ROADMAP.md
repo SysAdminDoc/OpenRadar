@@ -166,15 +166,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
 
 ### P2
 
-- [ ] AUD-218 (P2): MRMS reflectivity, correlation and differential reflectivity at a chosen height
-  Why: The composite is the column's maximum; a reader who wants the picture at 3 km or the ZDR column at 6 km has nothing, and the bucket carries the merged 3D cube at 33 heights for reflectivity, RhoHV and ZDR in the packing already decoded; HookEcho draws CAPPIs from single volumes, and a national one at 1 km would be the first in the field.
-  Evidence: Verified 2026-09-03 from the CONUS prefix listing: `MergedReflectivityQC_00.50` … `_19.00`, `MergedRhoHV_00.50` … `_19.00`, `MergedZdr_00.50` … `_19.00` (33 levels each); the fold and table machinery in `src-tauri/src/mrms.rs:1055-1218`; https://github.com/d4vid87/hookecho (CAPPI).
-  Touches: `src-tauri/src/mrms.rs` (a level parameter on a product family rather than 99 table rows; the cache slot rule counts one per family), `src/lib/providers/mrms.ts`, `src/panels/RadarProductPanel.tsx` (a height slider in the reader's units), legends (height named), `src/i18n/*`, `every_product_decodes` sampling three levels per family.
-  Acceptance: A national reflectivity picture at any of the 33 heights draws under the same ramp, with RhoHV and ZDR selectable at the same height; the slider names the height in the reader's units; the cache counts one slot for the family; the live test decodes 0.5, 3.0 and 10.0 km for each field.
-  Complexity: M
-
 ### P3
-  Note 2026-09-04: The cited line range is stale (the products table now ends past 1090). The switch-group shape from `AUD-217` (`lightningGrids.ts`, `productFor`, the two `EVERY_CHOICE` fixtures) is the pattern; a level parameter on a family should replace rows, and `EVERY_CHOICE` must cross the level or the family is checked by nothing.
 - [ ] AUD-233 (P3): The finer MRMS grids at their own resolution, on demand
   Why: `AUD-175` shipped merged azimuthal shear, which MRMS publishes at 0.005 degrees, and it draws folded by two to the 0.01 degree grid the rest of the app uses. That is a deliberate memory decision from commit `9fcfc11` and not an oversight: one unfolded grid is 196 MB against 49, the cache budget is 768 MB, and `CACHE_CAPACITY > LAYERS_AT_ONCE` stops holding. It also means the item's own acceptance line, "at full 0.005 degree resolution", was not met, and the detail is real: a shear couplet is a few hundred metres across.
   Evidence: `src-tauri/src/mrms.rs` `MAX_SOURCE_REDUCTION`, `GRID_BYTES`, `CACHE_BUDGET_BYTES` and the two const assertions beneath them; `mrms::tests::a_finer_grid_is_folded_and_costs_what_a_coarse_one_does` measures the fold and its cost (330 ms to decode, 3.9 ms a tile on 2026-09-03).

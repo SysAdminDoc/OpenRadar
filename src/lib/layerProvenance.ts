@@ -401,6 +401,16 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "radar reflectivity sampled at a model temperature level",
     freshForMs: MRMS_REFRESH,
   },
+  cappi: {
+    sourceId: "cappi",
+    label: "Merged grid at a height",
+    attribution: MRMS,
+    // One height of the merged three-dimensional grid, which is measured
+    // rather than modelled: the network built the cube out of the radars, and
+    // this is a slice of it rather than a column reduced to one number.
+    kind: "observation",
+    freshForMs: MRMS_REFRESH,
+  },
   lightningFlashes: {
     sourceId: "lightningFlashes",
     label: "GOES total lightning",
