@@ -110,6 +110,16 @@ export interface SweepImage {
   live: boolean;
   /** How many cuts the volume in progress has published. Zero when not live. */
   liveTilts: number;
+  /**
+   * When the next piece of the volume in progress is due, and when the volume
+   * is projected to finish, from the radar's own coverage pattern.
+   *
+   * Null on anything but a live sweep, and on a live one until a start chunk
+   * has been read: the pattern is what says how long each remaining cut takes,
+   * and there is nothing honest to say without it.
+   */
+  nextChunkAt: string | null;
+  volumeEndsAt: string | null;
   collected: string;
   /**
    * When the older cut under a live composite was collected.

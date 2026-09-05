@@ -51,6 +51,8 @@ function sweepOf(live: boolean): SweepImage {
     dealiased: false,
     live,
     liveTilts: live ? 3 : 0,
+    nextChunkAt: null,
+    volumeEndsAt: null,
     stormMotion: null,
     product: "Reflectivity",
     unit: "dBZ",
@@ -167,6 +169,56 @@ describe("the legend over a live sweep", () => {
     // "SEC" rather than "S": a lone S beside a number is the code's
     // abbreviation, not a word anybody reads.
     expect(screen.getByText(/LIVE, 37 SEC OLD/)).toBeTruthy();
+  });
+
+  it("says when the next piece is due and when the volume ends", () => {
+    // A live picture is a volume being built a piece at a time, and the
+    // legend said only how old the newest piece was: a reader watching a
+    // sector fill in had nothing to say when the rest would arrive.
+    const at = Date.parse(COLLECTED) + 37_000;
+    render(
+      chrome(113, {
+        sweep: {
+          ...sweepOf(true),
+          nextChunkAt: new Date(at + 8_000).toISOString(),
+          volumeEndsAt: new Date(at + 190_000).toISOString(),
+        },
+        liveClock: at,
+      }),
+    );
+    expect(screen.getByText(/NEXT PIECE IN 8 S/)).toBeTruthy();
+    expect(screen.getByText(/ENDS /)).toBeTruthy();
+  });
+
+  it("stops counting down once the piece is overdue", () => {
+    // A countdown that has run out is a worse answer than the age beside it,
+    // which keeps counting up and is still true.
+    const at = Date.parse(COLLECTED) + 37_000;
+    render(
+      chrome(113, {
+        sweep: {
+          ...sweepOf(true),
+          nextChunkAt: new Date(at - 1_000).toISOString(),
+          volumeEndsAt: new Date(at + 60_000).toISOString(),
+        },
+        liveClock: at,
+      }),
+    );
+    expect(screen.queryByText(/NEXT PIECE/)).toBeNull();
+    // And the age it already had is still there.
+    expect(screen.getByText(/LIVE, 37 SEC OLD/)).toBeTruthy();
+  });
+
+  it("says nothing about a projection the radar has not published", () => {
+    // Until a start chunk has been read there is no coverage pattern, and
+    // there is nothing honest to say about when the next piece is due.
+    render(
+      chrome(113, {
+        sweep: sweepOf(true),
+        liveClock: Date.parse(COLLECTED) + 37_000,
+      }),
+    );
+    expect(screen.queryByText(/NEXT PIECE/)).toBeNull();
   });
 
   it("says nothing about being live when the sweep is not", () => {

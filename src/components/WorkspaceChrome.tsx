@@ -43,7 +43,7 @@ import {
   useT,
   type StringKey,
 } from "../i18n";
-import { formatAge, useMeasurements } from "../lib/units";
+import { formatAge, formatClock, useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
 
 /** Past this the loop is old enough that the timeline should say so. */
@@ -722,7 +722,11 @@ function sweepEyebrow(
   status: SiteStatus | null,
 ): string {
   const tilt = withSilence(
-    withOldest(tiltEyebrow(sweep, clock, loop), sweep, clock),
+    withDue(
+      withOldest(tiltEyebrow(sweep, clock, loop), sweep, clock),
+      sweep,
+      clock,
+    ),
     status,
     clock,
   );
@@ -751,6 +755,33 @@ function withSilence(
 ): string {
   const late = levelTwoLate(status, clock);
   return late ? `${line} · ${late}` : line;
+}
+
+/**
+ * When the next piece of the volume being swept is due, and when the volume
+ * finishes.
+ *
+ * A live picture is a volume being built a piece at a time, and until now the
+ * legend said only how old the newest piece was: a reader watching a sector
+ * fill in had nothing to say when the rest of it would arrive. The radar's own
+ * coverage pattern says how long each remaining cut takes, which is not one
+ * number for all of them, so the wait is projected from the pattern rather
+ * than averaged.
+ *
+ * Nothing at all once the piece is overdue. A countdown that has run out is a
+ * worse answer than the age already beside it, which keeps counting up and is
+ * still true.
+ */
+function withDue(line: string, sweep: SweepImage, clock: number): string {
+  if (!sweep.live || !sweep.nextChunkAt) return line;
+  const due = Date.parse(sweep.nextChunkAt);
+  if (!Number.isFinite(due) || due <= clock) return line;
+  const seconds = Math.round((due - clock) / 1000);
+  const ends = sweep.volumeEndsAt ? Date.parse(sweep.volumeEndsAt) : Number.NaN;
+  const finish = Number.isFinite(ends)
+    ? ` · ${translate("chrome.volumeEnds", { time: formatClock(ends) })}`
+    : "";
+  return `${line} · ${translate("chrome.nextPiece", { seconds })}${finish}`;
 }
 
 /**

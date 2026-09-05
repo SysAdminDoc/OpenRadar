@@ -1579,6 +1579,8 @@ export const fr: Catalogue = {
   "chrome.tiltLoop": "ANGLE {degrees}° · VOLUME {index} SUR {count}, {time}",
   "chrome.levelTwoLate": "SANS NOUVELLES DEPUIS {age}",
   "chrome.tiltDealiased": "ANGLE {degrees}° · DÉPLIÉ",
+  "chrome.nextPiece": "PROCHAIN MORCEAU DANS {seconds} S",
+  "chrome.volumeEnds": "FIN {time}",
   "chrome.tiltLive": "ANGLE {degrees}° · DIRECT, IL Y A {seconds} S",
   "chrome.tiltLiveDealiased":
     "ANGLE {degrees}° · DÉPLIÉ · DIRECT, IL Y A {seconds} S",

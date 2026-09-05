@@ -1536,6 +1536,8 @@ export const en = {
   "chrome.tiltLoop": "{degrees}° TILT · VOLUME {index} OF {count}, {time}",
   "chrome.levelTwoLate": "NOT HEARD FROM FOR {age}",
   "chrome.tiltDealiased": "{degrees}° TILT · UNFOLDED",
+  "chrome.nextPiece": "NEXT PIECE IN {seconds} S",
+  "chrome.volumeEnds": "ENDS {time}",
   "chrome.tiltLive": "{degrees}° TILT · LIVE, {seconds} SEC OLD",
   "chrome.tiltLiveDealiased":
     "{degrees}° TILT · UNFOLDED · LIVE, {seconds} SEC OLD",

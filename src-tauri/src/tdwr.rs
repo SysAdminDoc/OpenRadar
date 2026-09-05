@@ -437,6 +437,10 @@ pub async fn sweep(
             tilt_index: asked.tilt_index,
             live: false,
             live_tilts: 0,
+            // A terminal radar publishes no chunk stream, so there is no volume in
+            // progress to project the rest of.
+            next_chunk_at: None,
+            volume_ends_at: None,
             collected: description.volume_time.to_rfc3339(),
             // A terminal radar publishes one finished product at a time, so
             // there is never a second sweep under this one.
