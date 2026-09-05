@@ -277,26 +277,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### P2
 
-- [ ] AUD-319 (P2): A panel docked on the right buries the compare card and the coordinate readout
-      Category: visual
-      Where: `src/index.css:1230-1234` (`.pane-compare`, `right: 12px`, `z-index: 18`), `src/index.css:1267-1279` (`.map-readout`, `right: 216px`, `z-index: 16`), `src/index.css:4572-4576` and its narrow twin at `:4685-4689` (the `[data-panel-side="right"]` shift, which lists `.zoom-controls`, `.product-legends`, `.source-attribution` and `.map-watermark` and not these two).
-      Problem: Settings opens on the right. With it open and Dual Pane on, the compare offsets (Live, 3 back, 6 back, 12 back) and the compare time sit under the panel and cannot be seen or clicked, and the pointer coordinate readout is drawn under the panel too. The attribution beside it moves out of the way because it is on the shift list; these two were left off it.
-      Evidence: Measured 2026-09-05 in the browser at 1440x900, light theme, Dual Pane on, Settings open: `.pane-compare` rect [1139, 68, 1428, 166], `.surface-panel` rect [1104, 56, 1440, 812] with `z-index` 45, `document.elementFromPoint` at the card's centre returns `surface-panel__header`; `.map-readout` rect [1117, 784, 1224, 804] with `elementFromPoint` returning a `<strong>` inside the panel; `.source-attribution` had moved to [877, 788, 1088, 804].
-      Fix: Add `.pane-compare` and `.map-readout` to both `[data-panel-side="right"]` rules, the card at `right: calc(var(--panel-width) + 16px)` and the readout at `right: calc(var(--panel-width) + 216px)` so it keeps its lead over the attribution.
-      Acceptance: A test in `e2e/workspace.spec.ts` that opens Dual Pane and Settings at 1440x900, hovers the map, and asserts `elementFromPoint` at the centre of `.pane-compare` and of `.map-readout` lands inside those elements; clicking "3 back" with Settings open changes the compare frame.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-320 (P2): In Dual Pane the compare card's time sits under the zoom controls at every width
-      Category: visual
-      Where: `src/index.css:1230-1234` (`.pane-compare`, `top: 12px; right: 12px`, `z-index: 18`), `src/index.css:4362-4368` (`.zoom-controls`, `right: 16px; top: calc(var(--chrome-top) + 16px)`, `z-index: 31`), `src/components/MapStage.tsx:319` (the card is a plain div over the second pane).
-      Problem: Both are anchored to the same corner of the same pane, so whenever Dual Pane is on the compare time (`.pane-compare small`) is drawn under the zoom buttons and its right end is unreadable, at every window width. At the 1024 minimum the buttons also cover the card's last offset button.
-      Evidence: Measured 2026-09-05. At 1024x680: `.pane-compare` [723, 68, 1012, 166], `.pane-compare small` [940, 110, 1001, 125], `.zoom-controls` [968, 72, 1008, 188], `elementFromPoint` at the time text returns a zoom `BUTTON`; the screenshot showed "4:58 P" cut. The refutation pass repeated it with no panel open at 1440 wide (time 1356..1417 against zoom 1384..1424, hit BUTTON) and 1280 wide (1196..1257 against 1224..1264, hit BUTTON): there is no width at which they clear, and no `is-dual-pane` rule in `index.css`.
-      Fix: Move the card out of the zoom stack's column: `right: 64px` (the stack is 40px wide plus its 16px inset), or place it under the stack with `top: calc(var(--chrome-top) + 140px)`; give it `max-width: calc(100% - 96px)` so a long localised time wraps. Apply the `AUD-319` panel shift to it in the same change, and check it against the alert badge the comment at `index.css:5698` says shares that corner.
-      Acceptance: With Dual Pane on at 1024x680, 1280x800 and 1440x900 the bounding boxes of `.pane-compare` and `.zoom-controls` do not intersect (asserted across the three e2e projects) and the time reads in full in the pseudolocale.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-321 (P2): The full-screen view's source line is unreadable over a light basemap
       Category: a11y
       Where: `src/index.css:2992-2994` (`.ambient-readout small { color: #a9b6c6 }`), `src/index.css:2976-2979` (`.ambient-readout[data-over-light]`, which recolours the parent and sets a white halo but not `small`), `src/index.css:2999-3006` (`.ambient-readout__leave`, a fixed dark chip), `src/components/AmbientReadout.tsx` (`overLight` sets the attribute).

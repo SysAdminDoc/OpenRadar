@@ -1001,3 +1001,89 @@ test("the rail's own words fit the rail", async ({ page }) => {
   );
   expect(cut).toEqual([]);
 });
+
+test("keeps the compare card and the cursor readout out from under everything", async ({
+  page,
+}) => {
+  // Two corners' worth of collisions. The compare card sat at 12px from the
+  // right, which is inside the zoom stack's own column, so its time read
+  // "4:58 P" behind the compass button at every width. And neither it nor the
+  // cursor readout was on the list of things a right-hand panel shifts, so
+  // opening Settings drew both under the panel: the offsets could not be
+  // clicked and the coordinates could not be read.
+  await page.getByRole("button", { name: "Dual Pane" }).click();
+  const card = page.locator(".pane-compare");
+  const zoom = page.locator(".zoom-controls");
+  await expect(card).toBeVisible();
+
+  const boxes = async () => {
+    const one = (await card.boundingBox())!;
+    const two = (await zoom.boundingBox())!;
+    return { one, two };
+  };
+
+  const apart = ({
+    one,
+    two,
+  }: {
+    one: { x: number; y: number; width: number; height: number };
+    two: { x: number; y: number; width: number; height: number };
+  }) =>
+    one.x + one.width <= two.x ||
+    two.x + two.width <= one.x ||
+    one.y + one.height <= two.y ||
+    two.y + two.height <= one.y;
+
+  expect(apart(await boxes())).toBe(true);
+
+  // With the panel open, both have to be the thing under the pointer at their
+  // own middle. A box that has merely moved is not enough: the panel is drawn
+  // over anything it reaches whatever the coordinates say.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.locator(".surface-panel")).toBeVisible();
+  const pane = page.locator(".map-viewport").first();
+  const map = (await pane.boundingBox())!;
+  await page.mouse.move(map.x + map.width / 2, map.y + map.height / 2);
+  await expect(page.locator(".map-readout")).toBeVisible();
+
+  // The card is a control, so the question is whether a click reaches it.
+  const covered = await page.evaluate(() => {
+    const node = document.querySelector(".pane-compare");
+    if (!node) return "missing";
+    const box = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      box.left + box.width / 2,
+      box.top + box.height / 2,
+    );
+    return hit && (node === hit || node.contains(hit)) ? "" : "covered";
+  });
+  expect(covered, "the compare card is drawn under something").toBe("");
+
+  // The readout takes no pointer events, so `elementFromPoint` answers with
+  // whatever is behind it whether or not anything is in front, and asking it
+  // would be a check that cannot pass. What matters for a label is whether it
+  // is drawn over the map or over the panel.
+  const overlap = await page.evaluate(() => {
+    const readout = document.querySelector(".map-readout");
+    const panel = document.querySelector(".surface-panel");
+    if (!readout || !panel) return "missing";
+    const one = readout.getBoundingClientRect();
+    const two = panel.getBoundingClientRect();
+    const clear =
+      one.right <= two.left ||
+      two.right <= one.left ||
+      one.bottom <= two.top ||
+      two.bottom <= one.top;
+    return clear ? "" : `${Math.round(one.left)} into ${Math.round(two.left)}`;
+  });
+  expect(overlap, "the cursor readout is under the panel").toBe("");
+
+  expect(apart(await boxes())).toBe(true);
+
+  // And it still works as a control from under there.
+  await page.getByRole("button", { name: "3 back" }).click();
+  await expect(page.getByRole("button", { name: "3 back" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});

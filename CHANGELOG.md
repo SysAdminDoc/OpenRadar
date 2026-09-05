@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- In dual pane, the compare card no longer hides behind the zoom buttons or behind an open panel. It sat in the same corner as the zoom stack, so the time it was showing read as "4:58 P" with the rest under the compass, and it was not on the list of things that move aside when Settings opens on the right, so its Live and 3 back buttons could not be reached at all. The cursor coordinates had the same problem with the panel. Both move now, and the card wraps rather than pushing its time off the end when the words are longer in another language.
+
 - The national grids are drawn at the zoom you are actually at. They stopped at zoom ten and anything closer was that picture stretched, so past it you were looking at the tile’s own pixel grid rather than at the weather. Nothing new is known about the sky past ten; what changed is that the drawing is made for the view instead of blown up to fit it.
 
 - The national grids can be read between their cells rather than at the nearest one. A cell of the mosaic is about a kilometre across, so zoomed in on a storm you were looking at squares of one colour with hard edges against the squares beside them, and the steps between colour bands read as the resolution of the radar when they are the resolution of the ramp. Off until you turn it on, under Layers. It smooths the fields that cover the country and not the scattered ones like hail and rotation, never reads across ground the network had no coverage of, and never touches the grids that name what is falling: halfway between snow and hail is not sleet. What an export writes and what the inspector answers with are the cells themselves either way.
