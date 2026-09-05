@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ridgeCapabilities, routeWorkspace } from "./support/fixtures";
+import {
+  ridgeCapabilities,
+  routeWorkspace,
+  stubHost,
+} from "./support/fixtures";
 import { en } from "../src/i18n/en";
 
 /**
@@ -346,4 +350,42 @@ test("says out loud that the machine went offline, and that it came back", async
   await expect(toasts.getByText(en["notice.online"])).toBeVisible({
     timeout: 20_000,
   });
+});
+
+test("a stub that answers nothing fails the request rather than hanging", async ({
+  page,
+}) => {
+  // A handler that falls off its last branch leaves the request open for the
+  // life of the page, and the spec then fails by timing out on whatever that
+  // request feeds: somewhere else entirely, with a message about the wrong
+  // thing. That is most of what AUD-247 cost, so it cannot be allowed to go
+  // unnoticed again.
+  await stubHost(page, "https://silent.example/**", async () => {
+    // Deliberately answers nothing at all.
+  });
+  const status = await page.evaluate(async () => {
+    const reply = await fetch("https://silent.example/anything.json");
+    return { code: reply.status, body: await reply.text() };
+  });
+  expect(status.code).toBe(599);
+  expect(status.body).toContain("https://silent.example/anything.json");
+});
+
+test("an unrecognised path answers with what was asked for", async ({
+  page,
+}) => {
+  // The mesonet handler answered JSON for every path it did not know,
+  // including the icon sheet a placefile points at. A decoder handed JSON
+  // where it wanted a PNG fails in a way that reads as the feature being
+  // broken rather than as the fixture being thin.
+  const types = await page.evaluate(async () => {
+    const of = async (url: string) =>
+      (await fetch(url)).headers.get("content-type");
+    return {
+      image: await of("https://mesonet.agron.iastate.edu/pictures/sheet.png"),
+      data: await of("https://mesonet.agron.iastate.edu/nothing/at/all"),
+    };
+  });
+  expect(types.image).toContain("image/png");
+  expect(types.data).toContain("application/json");
 });

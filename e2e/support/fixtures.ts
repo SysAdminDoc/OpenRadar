@@ -44,15 +44,81 @@ function globMatcher(pattern: string): (url: string) => boolean {
 }
 
 /**
+ * Runs a handler and refuses to let it leave a request pending.
+ *
+ * A handler that falls off its last branch without answering leaves the
+ * request open for the life of the page, and the spec then fails by timing
+ * out on whatever that request feeds: somewhere else entirely, with a message
+ * about the wrong thing. That is most of what `AUD-247` cost. This answers
+ * with a status and the address instead, so the failure names itself.
+ */
+function answering(handler: Handler): Handler {
+  return async (route) => {
+    let answered = false;
+    const watched = new Proxy(route, {
+      get(target, key, receiver) {
+        const held = Reflect.get(target, key, receiver) as unknown;
+        if (typeof held !== "function") return held;
+        if (
+          key === "fulfill" ||
+          key === "abort" ||
+          key === "continue" ||
+          key === "fallback"
+        ) {
+          answered = true;
+        }
+        return (held as (...args: unknown[]) => unknown).bind(target);
+      },
+    });
+    await handler(watched);
+    if (answered) return;
+    await route.fulfill({
+      status: 599,
+      contentType: "text/plain",
+      body: `no stub answered ${route.request().url()}`,
+    });
+  };
+}
+
+/**
+ * A default answer shaped like the thing that was asked for.
+ *
+ * The mesonet handler answered JSON for every path it did not recognise,
+ * including the icon sheet a placefile points at, and a decoder handed JSON
+ * where it wanted a PNG fails in a way that reads as the feature being
+ * broken. What a fixture owes an unrecognised path is something the caller
+ * can at least parse.
+ */
+export async function answerEmpty(route: Route) {
+  const url = route.request().url();
+  if (/\.(png|jpe?g|gif|webp)(\?|$)/i.test(url)) {
+    await route.fulfill({ contentType: "image/png", body: transparentPng });
+    return;
+  }
+  if (/\.(xml|kml)(\?|$)/i.test(url)) {
+    await route.fulfill({
+      contentType: "application/xml",
+      body: '<?xml version="1.0"?><nothing/>',
+    });
+    return;
+  }
+  await route.fulfill({
+    contentType: "application/json",
+    body: emptyCollection,
+  });
+}
+
+/**
  * Routes a host for the page, and remembers the handler so a request for the
  * same address through the cached scheme is answered by it too. Use this,
  * rather than `page.route`, for any host the app fetches through the cache.
  */
 export async function stubHost(page: Page, pattern: string, handler: Handler) {
+  const guarded = answering(handler);
   const held = stubs.get(page) ?? [];
-  held.unshift({ matches: globMatcher(pattern), handler });
+  held.unshift({ matches: globMatcher(pattern), handler: guarded });
   stubs.set(page, held);
-  await page.route(pattern, handler);
+  await page.route(pattern, guarded);
 }
 
 /** The stubbed handler for an address, or null when nobody stubbed its host. */
@@ -861,10 +927,9 @@ export async function routeWorkspace(page: Page) {
       });
       return;
     }
-    await route.fulfill({
-      contentType: "application/json",
-      body: emptyCollection,
-    });
+    // Including the icon sheet a placefile points at, which is an image and
+    // was being answered with JSON.
+    await answerEmpty(route);
   });
   // The shipped record is an index with no positions in it and one file of
   // tracks per decade. One handler answers both, because a later route wins
