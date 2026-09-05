@@ -500,7 +500,9 @@ export const es: Catalogue = {
   "vwp.historical":
     "El perfil de viento lee los volúmenes que un radar publica ahora. Vuelve al presente para verlo.",
   "vwp.note":
-    "El viento en el que se mueve cada altura, ajustado a un anillo de la velocidad del propio radar. Una altura marcada ND es una en la que el ajuste no se pudo respaldar, y eso es un hueco y no aire en calma.",
+    "El viento en el que se mueve cada altura. La mayoría de las columnas son el perfil de viento que el radar publica para ese volumen, tal como lo escribió la oficina; un volumen que no ha publicado se ajusta aquí a partir de su propia velocidad. Una altura marcada ND es una que ninguno de los dos pudo respaldar, y eso es un hueco y no aire en calma.",
+  "vwp.sourceProduct": "Del propio radar",
+  "vwp.sourceFitted": "Ajustado aquí",
   "vwp.columnLabel": "Viento por altura del volumen {volume}",
   "vwp.hodographLabel": "Hodógrafo del viento por altura",
   "layers.spcOutlookChoice": "Pronóstico convectivo",

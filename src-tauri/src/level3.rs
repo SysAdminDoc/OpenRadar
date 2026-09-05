@@ -193,6 +193,11 @@ pub(crate) struct Description {
     pub(crate) tabular: Option<usize>,
     /// The ICD's product code, which says what the bytes are.
     pub(crate) product_code: u16,
+    /// How high the radar itself stands, in feet above sea level. The wind
+    /// profile writes its altitudes from sea level and every height in this
+    /// app is above the radar, so nothing converts between the two without
+    /// this.
+    pub(crate) height_feet: i16,
     /// The tilt a base product was scanned at, from the third product
     /// dependent halfword, in degrees. Meaningless for a product that has
     /// no tilt, where the halfword holds something else.
@@ -265,6 +270,7 @@ pub(crate) fn read_description(msg: &[u8]) -> Result<Description, Level3Error> {
         symbology: block(MESSAGE_HEADER + 90),
         tabular: block(MESSAGE_HEADER + 98),
         product_code: u16_at(msg, 30).unwrap_or(0),
+        height_feet: halfword(15),
         elevation_degrees: f32::from(halfword(30)) / 10.0,
         minimum: f32::from(halfword(31)) / 10.0,
         increment: f32::from(halfword(32)) / 10.0,
@@ -961,6 +967,293 @@ pub fn read_mesocyclones(bytes: &[u8]) -> Result<Vec<Mesocyclone>, Level3Error> 
     Ok(out)
 }
 
+/// The wind profile the radar's own processor already worked out.
+///
+/// Every WSR-88D and TDWR publishes NVW, product 48, which is the RPG running
+/// the same velocity azimuth display fit this app runs in `vwp.rs`, on the
+/// volume it has just finished, and writing the answer out as a nine kilobyte
+/// file. Reading that is a fraction of the work of fetching and decoding the
+/// whole volume to fit it again, and it is the office's own number rather than
+/// this app's account of it.
+///
+/// The numbers are in the tabular block, not the picture: the symbology block
+/// holds barbs positioned for a plot, and the table beside it holds the
+/// altitude, the direction, the speed and the RPG's own root mean square
+/// difference for every level it could read.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ProductWind {
+    /// Height above the radar, in kilometres, which is what every height in
+    /// this app means. The table writes hundreds of feet above sea level.
+    pub(crate) height_km: f64,
+    /// Where the wind is coming from, in degrees, which is how one is named.
+    pub(crate) from_degrees: f32,
+    /// Metres a second, from the knots the table writes.
+    pub(crate) speed_ms: f32,
+    /// The RPG's own root mean square difference for that level, in metres a
+    /// second. It is the trust number the office publishes and it is not the
+    /// same quantity as this app's residual, so a column says which it is.
+    pub(crate) rms_ms: f32,
+    /// The cut the RPG read the level from, and how far out the ring sat.
+    pub(crate) elevation_degrees: f32,
+    pub(crate) range_km: f64,
+}
+
+/// One product's worth of wind, and the volume it describes.
+#[derive(Debug, Clone)]
+pub(crate) struct WindProfile {
+    pub(crate) volume_time: DateTime<Utc>,
+    /// Lowest first. Only the levels the RPG could read are in it: a height
+    /// it marked ND is absent rather than present and empty, and nothing here
+    /// fills one in.
+    pub(crate) winds: Vec<ProductWind>,
+}
+
+/// A knot in metres a second.
+const KNOT_MS: f32 = 0.514_444;
+/// A foot in kilometres.
+const FOOT_KM: f64 = 0.000_304_8;
+
+/// The wind profile in a product 48 message.
+pub(crate) fn read_wind_profile(bytes: &[u8]) -> Result<WindProfile, Level3Error> {
+    let start =
+        message_start(bytes).ok_or_else(|| Level3Error::Decode("no teletype header".into()))?;
+    let msg = &bytes[start..];
+    let description = read_description(msg)?;
+    if description.product_code != WIND_PROFILE_PRODUCT {
+        return Err(Level3Error::Decode(format!(
+            "product {} is not a wind profile",
+            description.product_code
+        )));
+    }
+    let at = description
+        .tabular
+        .ok_or_else(|| Level3Error::Decode("the wind profile has no table in it".into()))?;
+    let winds = winds_in(&tabular_lines(msg, at), description.height_feet);
+    Ok(WindProfile {
+        volume_time: description.volume_time,
+        winds,
+    })
+}
+
+/// The ICD's code for the velocity azimuth display wind profile.
+pub(crate) const WIND_PROFILE_PRODUCT: u16 = 48;
+
+/// Every readable row of the table, in height order.
+///
+/// The table repeats its own two header lines once a page and writes `NA` in
+/// any column the algorithm did not fill, so a row is taken only when the
+/// four things a wind needs are all numbers. A header line fails that on its
+/// first field, which is why there is no list of headings to keep in step
+/// with the RPG.
+fn winds_in(lines: &[String], radar_feet: i16) -> Vec<ProductWind> {
+    let mut winds: Vec<ProductWind> = Vec::new();
+    for line in lines {
+        let mut fields: Vec<&str> = line.split_whitespace().collect();
+        // Each line carries a leading page marker that is not one of the ten
+        // columns.
+        if fields.len() == 11 {
+            fields.remove(0);
+        }
+        if fields.len() != 10 {
+            continue;
+        }
+        let (Ok(hundreds_of_feet), Ok(from), Ok(knots), Ok(rms), Ok(nautical_miles), Ok(elevation)) = (
+            fields[0].parse::<f64>(),
+            fields[4].parse::<f32>(),
+            fields[5].parse::<f32>(),
+            fields[6].parse::<f32>(),
+            fields[8].parse::<f64>(),
+            fields[9].parse::<f32>(),
+        ) else {
+            continue;
+        };
+        // Above the radar rather than above the sea, which is what every
+        // height in this app means and what the fitted profile answers in.
+        let height_km = (hundreds_of_feet * 100.0 - f64::from(radar_feet)) * FOOT_KM;
+        if height_km <= 0.0 {
+            continue;
+        }
+        winds.push(ProductWind {
+            height_km,
+            from_degrees: from,
+            speed_ms: knots * KNOT_MS,
+            rms_ms: rms * KNOT_MS,
+            elevation_degrees: elevation,
+            range_km: nautical_miles * NAUTICAL_MILE_KM,
+        });
+    }
+    // The table publishes the same altitude more than once when two cuts
+    // reached it, and the lower cut is the one to keep: a beam is narrower in
+    // height the lower it is, which is the same rule the fitted profile picks
+    // its cut by. Sorted by height and then by elevation so the keeper is
+    // first, then the repeats are dropped.
+    winds.sort_by(|left, right| {
+        left.height_km
+            .total_cmp(&right.height_km)
+            .then(left.elevation_degrees.total_cmp(&right.elevation_degrees))
+    });
+    winds.dedup_by(|later, kept| (later.height_km - kept.height_km).abs() < f64::EPSILON);
+    winds
+}
+
+/// The stamp a Level III key ends with, as a moment.
+///
+/// Keys are `SITE_PRODUCT_YYYY_MM_DD_HH_MM_SS` and the stamp is when the
+/// product was generated, a minute or two after the volume it describes
+/// began. It is only used to pick which file to fetch; what a product
+/// actually describes is read out of the file itself.
+pub(crate) fn key_time(key: &str) -> Option<DateTime<Utc>> {
+    let parts: Vec<&str> = key.rsplitn(7, '_').collect();
+    if parts.len() < 7 {
+        return None;
+    }
+    // `rsplitn` hands them back last first.
+    let (second, minute, hour, day, month, year) = (
+        parts[0].parse::<u32>().ok()?,
+        parts[1].parse::<u32>().ok()?,
+        parts[2].parse::<u32>().ok()?,
+        parts[3].parse::<u32>().ok()?,
+        parts[4].parse::<u32>().ok()?,
+        parts[5].parse::<i32>().ok()?,
+    );
+    Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
+        .single()
+}
+
+/// Which key describes the volume that began at a given moment.
+///
+/// The nearest stamp, which is how the Level II archive is asked for a volume
+/// too. Both buckets name a file after the volume it belongs to, and the
+/// moment this is asked with came out of a Level II key, so the two are
+/// seconds apart at most; taking the next one along instead of the nearest
+/// missed by a whole volume whenever they were not to the second.
+///
+/// Nothing here decides whether the file is the right one. It carries its own
+/// volume time and that is what settles it, because a site that skipped a
+/// scan would otherwise have the next volume's profile drawn over the one on
+/// screen.
+///
+/// With no moment asked for, the newest is the answer, which is what a live
+/// column wants.
+pub(crate) fn key_for(keys: &[String], wanted: Option<DateTime<Utc>>) -> Option<String> {
+    let Some(at) = wanted else {
+        return keys.last().cloned();
+    };
+    keys.iter()
+        .filter_map(|key| key_time(key).map(|when| (when, key)))
+        .min_by_key(|(when, _)| (*when - at).abs())
+        .map(|(_, key)| key.clone())
+}
+
+/// Every key for one site, product and UTC day, oldest first.
+async fn keys_for_day(site: &str, product: &str, day: &str) -> Result<Vec<String>, Level3Error> {
+    let prefix = format!("{site}_{product}_{day}");
+    let url = format!("https://{BUCKET}/?list-type=2&prefix={prefix}&max-keys=1000");
+    let body = http::get_bytes(&url).await?;
+    Ok(all_keys(&String::from_utf8_lossy(&body)))
+}
+
+/// Every key in a listing, in the order S3 answered, which is oldest first.
+fn all_keys(listing: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut rest = listing;
+    while let Some(start) = rest.find("<Key>") {
+        let after = &rest[start + 5..];
+        let Some(end) = after.find("</Key>") else {
+            break;
+        };
+        found.push(after[..end].to_string());
+        rest = &after[end..];
+    }
+    found
+}
+
+/// Every wind profile key a set of wanted volumes could need.
+///
+/// One listing per UTC day rather than one per column: the columns a panel
+/// asks for are minutes apart, so they are almost always the same day, and a
+/// listing per column would be three requests for one answer. The day after
+/// each is listed too, because a volume beginning just before midnight is
+/// written up just after it; with nothing asked for, the day before is
+/// listed as well, since a site can be quiet for hours and a listing taken
+/// seconds into a new day is empty.
+pub(crate) async fn wind_profile_keys(
+    station: &str,
+    wanted: &[Option<DateTime<Utc>>],
+) -> Vec<String> {
+    let Some(site) = bucket_site(station) else {
+        return Vec::new();
+    };
+    let mut days: Vec<String> = Vec::new();
+    let mut asked: Vec<DateTime<Utc>> = Vec::new();
+    for at in wanted {
+        let base = at.unwrap_or_else(Utc::now);
+        asked.push(base);
+        asked.push(base + Duration::days(1));
+        if at.is_none() {
+            asked.push(base - Duration::days(1));
+        }
+    }
+    let mut keys = Vec::new();
+    for day in asked {
+        let stamp = day.format("%Y_%m_%d").to_string();
+        if days.contains(&stamp) {
+            continue;
+        }
+        days.push(stamp.clone());
+        if let Ok(mut found) = keys_for_day(&site, "NVW", &stamp).await {
+            keys.append(&mut found);
+        }
+    }
+    keys.sort();
+    keys.dedup();
+    keys
+}
+
+/// The radar's own wind profile for one volume, when it published one.
+///
+/// `None` rather than an error whenever the office has nothing to say: no
+/// listing, no file for that volume, or a file describing a different volume.
+/// Every one of those is a reason to fit the volume here instead, and none of
+/// them is a reason to show a reader an error about a product they did not
+/// ask for by name.
+pub(crate) async fn wind_profile(
+    keys: &[String],
+    wanted: Option<DateTime<Utc>>,
+) -> Option<(String, WindProfile)> {
+    let key = key_for(keys, wanted)?;
+    let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}"))
+        .await
+        .ok()?;
+    let profile = read_wind_profile(&bytes).ok()?;
+    describes_volume(&profile, wanted).then_some((key, profile))
+}
+
+/// Whether a product answers the question that was asked.
+///
+/// The listing is picked by a stamp in a file name and this is what settles
+/// it, off the volume time in the file itself: a site that skipped a scan, or
+/// a day the office published nothing for, would otherwise put the wrong
+/// volume's wind on screen under the right clock.
+///
+/// A function rather than a condition inside the fetch so a test can put a
+/// real product through it. Written inline, the gate could be widened to
+/// forever or closed to never and every test would stay green, which is the
+/// same reason `rotations_for` is one.
+fn describes_volume(profile: &WindProfile, wanted: Option<DateTime<Utc>>) -> bool {
+    // A product with no readable level in it is not an answer either. The
+    // office publishes a header and nothing else when its algorithm found
+    // no wind at all, and drawing that as a column of ND would say the radar
+    // measured emptiness rather than that nothing was fetched.
+    if profile.winds.is_empty() {
+        return false;
+    }
+    let Some(at) = wanted else {
+        return true;
+    };
+    (profile.volume_time - at).num_seconds().abs() <= SAME_VOLUME_SECONDS
+}
+
 /// How far apart two products' volume times may be and still be one volume.
 ///
 /// A scan is four to six minutes, so anything inside two is the same one.
@@ -992,17 +1285,7 @@ pub(crate) async fn newest_key(site: &str, product: &str) -> Result<Option<Strin
 
 /// The last key in a listing, which is the newest: S3 answers in order.
 fn last_key(listing: &str) -> Option<String> {
-    let mut newest = None;
-    let mut rest = listing;
-    while let Some(start) = rest.find("<Key>") {
-        let after = &rest[start + 5..];
-        let Some(end) = after.find("</Key>") else {
-            break;
-        };
-        newest = Some(after[..end].to_string());
-        rest = &after[end..];
-    }
-    newest
+    all_keys(listing).pop()
 }
 
 /// Everything one site is tracking right now.
@@ -1272,6 +1555,182 @@ mod tests {
     /// whole scan. Both taken live from the Unidata bucket.
     const N0H: &[u8] = include_bytes!("../tests/fixtures/TLX_N0H_2026_09_01_17_55_29");
     const HHC: &[u8] = include_bytes!("../tests/fixtures/TLX_HHC_2026_09_01_17_55_29");
+    /// The wind profile the RPG published for the same volume, taken live
+    /// from the Unidata bucket.
+    const NVW: &[u8] = include_bytes!("../tests/fixtures/DMX_NVW_2026_09_05_01_05_20");
+
+    #[test]
+    fn a_wind_profile_reads_the_levels_its_own_table_states() {
+        // The table in this file, verbatim, as the tail of its printable text:
+        //   P    014    -3.5    -0.9     NA    076   007   8.8      NA   5.67  0.5
+        //   ...
+        //   P    122     7.8    -9.0     1.8   319   023   2.2  -0.0286  16.20  6.4
+        // Read against the numbers in it rather than against whatever the
+        // decoder produced, which is the only way this test can fail when the
+        // decoder is wrong.
+        let profile = read_wind_profile(NVW).expect("the fixture is a wind profile");
+        assert_eq!(
+            profile.volume_time.to_rfc3339(),
+            "2026-09-05T01:05:20+00:00"
+        );
+
+        // Twenty-one rows in the table, two of which repeat an altitude
+        // another cut already answered for.
+        assert_eq!(profile.winds.len(), 19);
+
+        // The radar stands 1094 feet above the sea and the first row is at
+        // 1400 feet, so it is 306 feet up: 0.093 km.
+        let lowest = profile.winds.first().expect("a lowest level");
+        assert!(
+            (lowest.height_km - 0.0933).abs() < 0.001,
+            "the lowest level came back at {} km",
+            lowest.height_km
+        );
+        assert_eq!(lowest.from_degrees, 76.0);
+        // Seven knots.
+        assert!((lowest.speed_ms - 3.601).abs() < 0.01);
+        // 8.8 knots of root mean square difference, the RPG's own.
+        assert!((lowest.rms_ms - 4.527).abs() < 0.01);
+        assert_eq!(lowest.elevation_degrees, 0.5);
+        // 5.67 nautical miles.
+        assert!((lowest.range_km - 10.5).abs() < 0.05);
+
+        // The top of it: 12,200 feet above the sea, 319 degrees at 23 knots.
+        let highest = profile.winds.last().expect("a highest level");
+        assert!(
+            (highest.height_km - 3.386).abs() < 0.001,
+            "the highest level came back at {} km",
+            highest.height_km
+        );
+        assert_eq!(highest.from_degrees, 319.0);
+        assert!((highest.speed_ms - 11.83).abs() < 0.01);
+
+        // Rising, and never the same height twice: the 2,000 and 10,000 foot
+        // rows are each in the table under two cuts.
+        for pair in profile.winds.windows(2) {
+            assert!(
+                pair[1].height_km > pair[0].height_km,
+                "{} km is not above {} km",
+                pair[1].height_km,
+                pair[0].height_km
+            );
+        }
+        // Of the two rows at 2,000 feet the 0.5 degree cut is the one kept,
+        // not the one that came first in the file, which is the 0.9.
+        let two_thousand = profile
+            .winds
+            .iter()
+            .find(|wind| (wind.height_km - 0.2762).abs() < 0.001)
+            .expect("the level at two thousand feet");
+        assert_eq!(two_thousand.elevation_degrees, 0.5);
+    }
+
+    #[test]
+    fn a_key_is_picked_by_the_volume_it_belongs_to() {
+        // Three real key names from one afternoon at DMX, four minutes apart.
+        let keys: Vec<String> = [
+            "DMX_NVW_2026_09_05_00_56_44",
+            "DMX_NVW_2026_09_05_01_00_58",
+            "DMX_NVW_2026_09_05_01_05_20",
+        ]
+        .iter()
+        .map(|key| (*key).to_string())
+        .collect();
+
+        // Nothing asked for is the live column, which wants the newest.
+        assert_eq!(
+            key_for(&keys, None).as_deref(),
+            Some("DMX_NVW_2026_09_05_01_05_20")
+        );
+
+        // The Level II volumes of that afternoon are named 00_56_44, 01_00_58
+        // and 01_05_20, the same stamps: both buckets name a file after the
+        // volume it belongs to. So a moment a few seconds off one of them,
+        // which is what a collection time read out of the volume itself is,
+        // still belongs to that volume, and the one before it is four
+        // minutes away.
+        let at = Utc.with_ymd_and_hms(2026, 9, 5, 1, 1, 3).unwrap();
+        assert_eq!(
+            key_for(&keys, Some(at)).as_deref(),
+            Some("DMX_NVW_2026_09_05_01_00_58")
+        );
+
+        // Past the last one the nearest is still the last one. Whether it
+        // describes the volume asked for is not settled here: the file says
+        // which volume it is about, and the fetch holds it to that.
+        let later = Utc.with_ymd_and_hms(2026, 9, 5, 2, 0, 0).unwrap();
+        assert_eq!(
+            key_for(&keys, Some(later)).as_deref(),
+            Some("DMX_NVW_2026_09_05_01_05_20")
+        );
+        assert_eq!(key_for(&[], None), None);
+        assert_eq!(key_for(&[], Some(at)), None);
+    }
+
+    #[test]
+    fn a_key_with_no_stamp_in_it_is_not_a_moment() {
+        assert_eq!(
+            key_time("DMX_NVW_2026_09_05_01_05_20"),
+            Utc.with_ymd_and_hms(2026, 9, 5, 1, 5, 20).single()
+        );
+        assert_eq!(key_time("DMX_NVW"), None);
+        assert_eq!(key_time("DMX_NVW_2026_09_05_01_05_XX"), None);
+        // A month nobody has is not a date, and `with_ymd_and_hms` is what
+        // says so rather than a range check written out here.
+        assert_eq!(key_time("DMX_NVW_2026_13_05_01_05_20"), None);
+    }
+
+    #[test]
+    fn a_wind_profile_is_only_used_when_it_describes_the_volume_asked_for() {
+        // The key is chosen by a stamp in a file name; this is what settles
+        // it. A site that skipped a scan publishes nothing for that volume,
+        // and the nearest file is then the next volume's: drawn under the
+        // right clock, it is a wind from four minutes later with nothing
+        // saying so.
+        let profile = read_wind_profile(NVW).expect("the fixture is a wind profile");
+        let when = profile.volume_time;
+        assert!(describes_volume(&profile, None));
+        assert!(describes_volume(&profile, Some(when)));
+        // Seconds out is the ordinary case: a volume time read off the
+        // Level II file is not to the second the same as the product's.
+        assert!(describes_volume(
+            &profile,
+            Some(when + Duration::seconds(SAME_VOLUME_SECONDS))
+        ));
+        assert!(describes_volume(
+            &profile,
+            Some(when - Duration::seconds(SAME_VOLUME_SECONDS))
+        ));
+        // A whole volume out is a different volume, in both directions.
+        assert!(!describes_volume(
+            &profile,
+            Some(when + Duration::seconds(SAME_VOLUME_SECONDS + 1))
+        ));
+        assert!(!describes_volume(
+            &profile,
+            Some(when - Duration::seconds(SAME_VOLUME_SECONDS + 1))
+        ));
+
+        // And a product with no level in it answers nothing, whoever asked.
+        let empty = WindProfile {
+            volume_time: when,
+            winds: Vec::new(),
+        };
+        assert!(!describes_volume(&empty, None));
+        assert!(!describes_volume(&empty, Some(when)));
+    }
+
+    #[test]
+    fn a_product_that_is_not_a_wind_profile_is_refused() {
+        // The code in the description block is the only thing that says what
+        // the bytes are, and a table read out of another product would be
+        // read as winds by a decoder that trusted the file name.
+        let refused = read_wind_profile(NST).expect_err("storm tracking is not a wind profile");
+        assert!(
+            format!("{refused}").contains("not a wind profile"),
+            "{refused}"
+        );
+    }
 
     #[test]
     fn the_bucket_files_a_site_under_three_letters() {
@@ -2060,6 +2519,66 @@ mod tests {
         assert!(
             current > 0,
             "{answered} sites answered but none within the last ninety minutes,              which means the listing is finding old keys rather than new ones"
+        );
+    }
+
+    #[test]
+    #[ignore = "asks the live NEXRAD Level III archive for today's products"]
+    fn every_site_is_publishing_a_wind_profile_now() {
+        // The committed fixture proves the layout. This proves the bucket
+        // still carries NVW under that name and that the table still reads,
+        // which is the half that can change without anybody touching this
+        // code: the whole point of preferring the office's own answer is that
+        // it is there, and a site that quietly stopped publishing one would
+        // only show up as every column being fitted here.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+
+        let mut answered = 0;
+        for station in ["KTLX", "KJAX", "KTBW", "KDMX", "KGRR"] {
+            let keys = runtime.block_on(wind_profile_keys(station, &[None]));
+            if keys.is_empty() {
+                continue;
+            }
+            let Some((key, profile)) = runtime.block_on(wind_profile(&keys, None)) else {
+                continue;
+            };
+            answered += 1;
+            let age = Utc::now() - profile.volume_time;
+            assert!(
+                age.num_minutes() < 180,
+                "{key} describes a volume {} minutes old",
+                age.num_minutes()
+            );
+            for wind in &profile.winds {
+                assert!(
+                    (0.0..=25.0).contains(&wind.height_km),
+                    "{key} has a level at {} km",
+                    wind.height_km
+                );
+                assert!(
+                    (0.0..=360.0).contains(&wind.from_degrees),
+                    "{key} has a wind from {} degrees",
+                    wind.from_degrees
+                );
+                assert!(
+                    wind.speed_ms < 150.0,
+                    "{key} has a {} m/s wind",
+                    wind.speed_ms
+                );
+            }
+            println!(
+                "{station}: {} levels from {key}, volume {} ({} minutes old)",
+                profile.winds.len(),
+                profile.volume_time.to_rfc3339(),
+                age.num_minutes()
+            );
+        }
+        assert!(
+            answered > 0,
+            "no site published a wind profile, which means the product or the key format moved"
         );
     }
 

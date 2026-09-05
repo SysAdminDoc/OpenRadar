@@ -98,6 +98,7 @@ describe("the panel while the loop moves on", () => {
   const column = (volume: string) => ({
     volume,
     collected: "2026-09-04T18:00:00Z",
+    source: "fitted" as const,
     levels: [
       {
         heightKm: 1,
@@ -110,6 +111,34 @@ describe("the panel while the loop moves on", () => {
         refused: null,
       },
     ],
+  });
+
+  it("says which of the two measurements each column is", async () => {
+    // The radar publishes its own wind profile for most volumes and this app
+    // fits the rest. They are two measurements of the same air, and a reader
+    // comparing one column against the next has to be able to see which is
+    // which; a loop that mixes them and says nothing is a loop that looks
+    // like the wind changed.
+    const read = () =>
+      Promise.resolve([
+        { ...column("published"), source: "product" as const },
+        column("fitted"),
+      ]);
+    render(
+      <VwpPanel
+        station="KDMX"
+        times={["a", "b"]}
+        read={read}
+        onClose={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(document.querySelectorAll(".vwp-source")).toHaveLength(2),
+    );
+    const said = [...document.querySelectorAll(".vwp-source")].map(
+      (node) => node.textContent,
+    );
+    expect(said).toEqual([en["vwp.sourceProduct"], en["vwp.sourceFitted"]]);
   });
 
   it("asks again for a new volume without going back to the spinner", async () => {

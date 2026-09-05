@@ -73,6 +73,7 @@ describe("scaling a hodograph", () => {
     const column = (speeds: Array<number | null>): VwpColumn => ({
       volume: "KDMX20260501_200000_V06",
       collected: null,
+      source: "fitted" as const,
       levels: speeds.map((speedMs) => level({ speedMs, fromDegrees: 270 })),
     });
     expect(fastestMs([column([4, 9, null]), column([null, 21])])).toBe(21);

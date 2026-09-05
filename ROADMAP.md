@@ -317,13 +317,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P2
 
-- [ ] AUD-266 (P2): Read the radar's own wind profile product first, and fit the volume only when it has none
-      Why: Every WSR-88D and TDWR publishes Level III NVW (product 48), the RPG's own VAD wind profile: 354 objects a day at DMX, 233 at TLX, 235 at TDJT on 2026-09-03. The app fits every ring itself from Level II (`src-tauri/src/level2.rs:1124` `fitted_wind`, `src-tauri/src/vwp.rs`), which is a whole volume fetched and decoded before storm-relative velocity can paint. Anvil reads NVW first and falls back to its own fit, and cut first paint of SRV from 19.7 to 5.9 s.
-      Evidence: bucket listings `DMX_NVW_2026_09_03`, `TLX_NVW_2026_09_03`, `DJT_NVW_2026_09_03` verified 2026-09-04; https://github.com/jhammon88219/Anvil/commit/9783bf8 ; ICD 2620001 product 48 packet 8/9 text and the VAD wind profile in 2620003.
-      Touches: `src-tauri/src/level3.rs` (the NVW decoder: heights, direction, speed, RMS per level), `src-tauri/src/vwp.rs` (a column from NVW carries the RPG's own RMS as its trust number; the fit remains the fallback and the source is named on the column), `src-tauri/src/level2.rs` (storm motion from NVW when present), `src/panels/VwpPanel.tsx` (which source each column came from), `src/i18n/*`, tests with a real NVW object as fixture.
-      Acceptance: With NVW available the panel's column names the product and appears before the volume finishes decoding; with it absent (stub 404) the fitted column appears as today; a level the RPG marked ND stays ND; a fixture NVW decodes to the heights and winds its packet text states.
-      Complexity: M
-
 ### P3
 
 - [ ] AUD-269 (P3): Keep the display awake while the second-monitor view is showing

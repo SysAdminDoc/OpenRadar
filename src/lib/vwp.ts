@@ -11,7 +11,23 @@ import { isDesktopRuntime } from "./settings";
 
 /** Why a level has no wind on it. The native side's own words. */
 export type VwpRefusal =
-  "outOfReach" | "noFit" | "residual" | "symmetry" | "lopsided" | "gates";
+  | "outOfReach"
+  | "noFit"
+  | "residual"
+  | "symmetry"
+  | "lopsided"
+  | "gates"
+  | "notPublished";
+
+/**
+ * Where a column came from.
+ *
+ * The radar published its own answer for this volume, or it did not and the
+ * volume was fitted here. A reader comparing two columns of a loop should be
+ * able to see which is which, because they are two different measurements of
+ * the same air and only one of them is the office's.
+ */
+export type VwpSource = "product" | "fitted";
 
 export interface VwpLevel {
   heightKm: number;
@@ -21,6 +37,11 @@ export interface VwpLevel {
   fromDegrees: number | null;
   elevationDegrees: number | null;
   rangeKm: number | null;
+  /**
+   * What the fit did not explain, or, on a column from the radar's own
+   * product, the root mean square difference the office published for the
+   * level.
+   */
   residualMs: number | null;
   symmetryMs: number | null;
   refused: VwpRefusal | null;
@@ -30,6 +51,7 @@ export interface VwpColumn {
   /** The archive object this came out of, so a column can be traced back. */
   volume: string;
   collected: string | null;
+  source: VwpSource;
   levels: VwpLevel[];
 }
 

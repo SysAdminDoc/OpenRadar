@@ -508,7 +508,9 @@ export const fr: Catalogue = {
   "vwp.historical":
     "Le profil du vent lit les volumes qu'un radar publie en ce moment. Revenez au présent pour le voir.",
   "vwp.note":
-    "Le vent dans lequel se déplace chaque hauteur, ajusté sur un anneau de la vitesse mesurée par le radar. Une hauteur marquée ND est une hauteur où l'ajustement n'a pas pu être garanti : c'est un trou, pas de l'air calme.",
+    "Le vent dans lequel se déplace chaque hauteur. La plupart des colonnes viennent du profil de vent que le radar publie pour ce volume, tel que le service l'a écrit ; un volume qu'il n'a pas publié est ajusté ici à partir de sa propre vitesse. Une hauteur marquée ND est une hauteur qu'aucun des deux n'a pu garantir : c'est un trou, pas de l'air calme.",
+  "vwp.sourceProduct": "Du radar",
+  "vwp.sourceFitted": "Ajusté ici",
   "vwp.columnLabel": "Vent par hauteur pour le volume {volume}",
   "vwp.hodographLabel": "Hodographe du vent par hauteur",
   "layers.spcOutlookChoice": "Prévision convective",
