@@ -144,6 +144,29 @@ export function defenderVerdict({ status, output }) {
 }
 
 /**
+ * What the release does about what Defender said.
+ *
+ * The half of the scan that matters, kept out of the script so it can be read
+ * without a scanner on the machine: a detection stops the release, a scan that
+ * did not happen does not, and only a clean scan is a pass. Separated because
+ * the alternative was that "fails the release on a detection" was asserted by
+ * nobody.
+ */
+export function defenderOutcome(verdict, { engine = null, file = "" } = {}) {
+  const named = engine ? `Defender ${engine}` : "Defender";
+  if (verdict.scanned && verdict.clean) {
+    return { action: "pass", say: `${named}: ${verdict.detail}.` };
+  }
+  if (verdict.scanned) {
+    return {
+      action: "fail",
+      say: `${named} flagged ${file}: ${verdict.detail}`,
+    };
+  }
+  return { action: "skip", say: `${named} could not scan: ${verdict.detail}.` };
+}
+
+/**
  * The newest Defender platform's own scanner, or null where there is none.
  *
  * Defender keeps one directory per platform build and the newest is the one

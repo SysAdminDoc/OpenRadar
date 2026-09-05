@@ -19,7 +19,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use nexrad_data::aws::realtime::{
     project_scan_timing, Chunk, ChunkIdentifier, ChunkType, ElevationChunkMapper, VolumeIndex,
 };
@@ -58,26 +58,37 @@ pub struct LiveTiming {
     pub next_chunk: DateTime<Utc>,
     /// When the last piece of this volume is due.
     pub ends: DateTime<Utc>,
-    /// Past this, the radar has stopped adding to the volume.
+    /// How long a piece may be missing before the radar has stopped.
     ///
-    /// One whole projected interval past the moment the piece was due. A
-    /// stream that is a little behind is a stream, and a stream that has
-    /// missed a whole piece has stopped.
-    pub stalled_after: DateTime<Utc>,
+    /// The wait until the next piece is due plus one more interval: a stream
+    /// that is a little behind is a stream, and a stream that has missed a
+    /// whole piece has stopped. A length rather than a moment, because the
+    /// projection is made when a volume is read and the question is asked at
+    /// the next poll, by which time the moment it was anchored on has gone
+    /// past whether or not anything is wrong.
+    pub patience: Duration,
 }
 
 /// Whether the radar has stopped adding to the volume on screen.
 ///
-/// With a projection in hand the answer comes from the coverage pattern: a
-/// piece is late when it is a whole projected interval past due, and the
-/// interval is the pattern's own rather than one number for every cut. With
-/// no projection, which is a volume nobody has read a start chunk for yet, it
-/// falls back to the fixed minute this used before there was anything better.
+/// Measured from the newest piece actually in the listing, every time, rather
+/// than from a projection made a poll ago: the projection says how long to
+/// wait, and the listing says how long it has been. Asking whether a moment
+/// computed at the last read has passed says only that time has passed.
+///
+/// The pattern can make the wait longer and never shorter. A slow sweep at
+/// the bottom of a pattern, or the gap between one volume and the next, takes
+/// far longer than the fixed minute this used to allow, which is what the
+/// projection is for. Less than a minute it cannot ask for: nothing is
+/// observed faster than the volume is polled, so a shorter wait would call a
+/// running stream finished on the strength of not having looked.
 pub fn stalled(timing: Option<LiveTiming>, newest: DateTime<Utc>, now: DateTime<Utc>) -> bool {
-    match timing {
-        Some(timing) => now > timing.stalled_after,
-        None => (now - newest).num_seconds() > LIVE_SECONDS,
-    }
+    let waited = now - newest;
+    let patience = match timing {
+        Some(timing) => timing.patience.max(Duration::seconds(LIVE_SECONDS)),
+        None => Duration::seconds(LIVE_SECONDS),
+    };
+    waited > patience
 }
 
 /// What the coverage pattern says about the rest of the volume.
@@ -125,7 +136,11 @@ pub fn project(
             return Some(LiveTiming {
                 next_chunk: due,
                 ends: projection.volume_end_time(),
-                stalled_after: due + next.interval_from_previous(),
+                // How long, not when: the wait to the next piece plus one
+                // more interval, measured from the piece this was anchored
+                // on so it can be applied to whatever the next listing says
+                // is newest.
+                patience: (due - uploaded) + next.interval_from_previous(),
             });
         }
     }
@@ -393,6 +408,16 @@ fn held_timing(station: &str, volume: u32) -> Option<LiveTiming> {
 }
 
 /// The keys that still have to be fetched, in the order they were published.
+/// The piece the listing says arrived last, name and time together.
+///
+/// `max_by_key` hands back the last of equal maxima, which is the later of
+/// two pieces stamped the same second: the listing is in publication order,
+/// because every piece of a volume shares a prefix and differs only in a
+/// sequence number padded to three digits.
+fn newest_listed(keys: &[ChunkKey]) -> Option<ChunkKey> {
+    keys.iter().max_by_key(|chunk| chunk.uploaded).cloned()
+}
+
 fn still_wanted(pieces: &BTreeMap<String, Vec<u8>>, keys: &[ChunkKey]) -> Vec<String> {
     keys.iter()
         .filter(|chunk| !pieces.contains_key(&chunk.key))
@@ -500,11 +525,13 @@ async fn assemble(
     let mut nyquist: BTreeMap<u8, f32> = BTreeMap::new();
     let mut timing: Option<LiveTiming> = None;
     let mut readable = Vec::with_capacity(pieces.len());
-    // The last key in the map is the newest piece, because every piece of a
-    // volume shares a prefix and differs only in a sequence number padded to
-    // three digits, so the map's own order is the order they were published.
-    // Pinned by `the_newest_piece_is_the_last_key` below.
-    let newest_key = pieces.keys().next_back().cloned().unwrap_or_default();
+    // The projection is anchored on the newest piece the listing names, with
+    // that piece's own upload time. Both off one entry: a piece whose
+    // download failed is still in the listing and not in `pieces`, so
+    // anchoring on what is in hand would pair one piece's sequence number
+    // with another's arrival and project every moment an interval late.
+    // Pinned by `the_anchor_takes_its_name_and_its_time_from_one_piece`.
+    let anchor = newest_listed(&keys);
     for (key, bytes) in &pieces {
         match Chunk::new(bytes.clone()) {
             Ok(piece) => {
@@ -513,9 +540,10 @@ async fn assemble(
                 // record it was decoded from, so the projection is made here
                 // rather than kept.
                 if timing.is_none() {
-                    if let Chunk::Start(file) = &piece {
+                    if let (Chunk::Start(file), Some(anchor)) = (&piece, anchor.as_ref()) {
                         if let Ok(records) = file.records() {
-                            timing = project(station, volume, &newest_key, newest, &records);
+                            timing =
+                                project(station, volume, &anchor.key, anchor.uploaded, &records);
                         }
                     }
                 }
@@ -587,36 +615,36 @@ mod tests {
     }
 
     #[test]
-    fn the_newest_piece_is_the_last_key() {
-        // The projection is anchored on the newest piece in hand, and what
-        // picks it is the order of the map the pieces are held in. That is
-        // only the order they were published because the sequence number is
-        // padded to three digits: unpadded, "10" sorts before "2" and the
-        // projection would be anchored on a piece from the middle of the
-        // volume with the newest one's upload time beside it.
-        let held: BTreeMap<String, Vec<u8>> = [
-            "KTLX/114/20260830-161604-001-S",
-            "KTLX/114/20260830-161604-002-I",
-            "KTLX/114/20260830-161604-010-I",
-            "KTLX/114/20260830-161604-009-I",
-            "KTLX/114/20260830-161604-017-I",
-        ]
-        .iter()
-        .map(|key| ((*key).to_string(), Vec::new()))
-        .collect();
-        assert_eq!(
-            held.keys().next_back().map(String::as_str),
-            Some("KTLX/114/20260830-161604-017-I")
-        );
+    fn the_anchor_takes_its_name_and_its_time_from_one_piece() {
+        // A piece whose download failed is a gap in the picture and is still
+        // in the listing. Anchored on what is in hand, its sequence number
+        // would have been paired with the arrival of the piece that is
+        // missing, and every projected moment would come out an interval
+        // late: the next piece due later than it is, the volume ending later
+        // than it does, and the stall waited out longer than it should be.
+        let listed = |key: &str, second: u32| ChunkKey {
+            key: key.to_string(),
+            uploaded: at(16, 16, second),
+        };
+        let keys = vec![
+            listed("KTLX/114/20260830-161604-001-S", 8),
+            listed("KTLX/114/20260830-161604-002-I", 20),
+            listed("KTLX/114/20260830-161604-003-I", 32),
+        ];
 
-        // And the end chunk, which sorts after every intermediate one at the
-        // same sequence, is still the last thing published.
-        let mut ended = held;
-        ended.insert("KTLX/114/20260830-161604-018-E".to_string(), Vec::new());
-        assert_eq!(
-            ended.keys().next_back().map(String::as_str),
-            Some("KTLX/114/20260830-161604-018-E")
-        );
+        let anchor = newest_listed(&keys).expect("a listing with pieces in it");
+        assert_eq!(anchor.key, "KTLX/114/20260830-161604-003-I");
+        assert_eq!(anchor.uploaded, at(16, 16, 32));
+
+        // Which is the piece that arrived last rather than the one that sorts
+        // last, when a listing hands them over out of order.
+        let mut shuffled = keys.clone();
+        shuffled.reverse();
+        assert_eq!(newest_listed(&shuffled), newest_listed(&keys));
+
+        // Nothing listed is nothing to anchor on, which is a fallback to the
+        // fixed wait rather than a guess.
+        assert_eq!(newest_listed(&[]), None);
     }
 
     #[test]
@@ -668,29 +696,74 @@ mod tests {
         // of a slow sweep at the bottom of the pattern takes far longer than
         // one at the top. One minute for all of them called a live volume
         // finished while it was still being swept.
-        let timing = LiveTiming {
-            next_chunk: at(16, 17, 0),
-            ends: at(16, 20, 0),
-            // A twenty second interval, so the piece is late at 16:17:20.
-            stalled_after: at(16, 17, 20),
+        // A slow cut: three minutes to the next piece and three more before
+        // it counts as missing.
+        let slow = LiveTiming {
+            next_chunk: at(16, 20, 0),
+            ends: at(16, 24, 0),
+            patience: Duration::seconds(360),
         };
         let newest = at(16, 16, 40);
 
-        // Due, and a little past due, is a stream that is running.
-        assert!(!stalled(Some(timing), newest, at(16, 17, 0)));
-        assert!(!stalled(Some(timing), newest, at(16, 17, 20)));
-        // A whole interval past due is a stream that has stopped.
-        assert!(stalled(Some(timing), newest, at(16, 17, 21)));
+        // Six minutes of patience, so five minutes of quiet is a radar still
+        // working through a cut rather than one that has stopped. The fixed
+        // minute called this finished, which is what the projection is for.
+        assert!(!stalled(Some(slow), newest, at(16, 21, 40)));
+        assert!(stalled(None, newest, at(16, 21, 40)));
+        // And past its own wait it is finished on the pattern's word too.
+        assert!(!stalled(Some(slow), newest, at(16, 22, 40)));
+        assert!(stalled(Some(slow), newest, at(16, 22, 41)));
 
         // With no projection it is the fixed minute it always was, which is
         // what a volume nobody has read a start chunk for still gets.
         assert!(!stalled(None, newest, at(16, 17, 40)));
         assert!(stalled(None, newest, at(16, 17, 41)));
+    }
 
-        // And the two disagree, which is the point: at 16:17:30 the pattern
-        // says the radar has stopped and the fixed minute says it has not.
-        assert!(stalled(Some(timing), newest, at(16, 17, 30)));
-        assert!(!stalled(None, newest, at(16, 17, 30)));
+    /// The half of the rule that a projection may not take away.
+    ///
+    /// A pattern whose pieces are seconds apart still gets the fixed minute,
+    /// because the volume is polled every twenty seconds: a wait shorter than
+    /// the look would call a running stream finished on the strength of not
+    /// having looked at it yet. The projection is there to be more patient
+    /// than a minute, never less.
+    #[test]
+    fn the_pattern_can_only_make_the_wait_longer() {
+        let brisk = LiveTiming {
+            next_chunk: at(16, 16, 43),
+            ends: at(16, 17, 0),
+            // Under six seconds, which is what a super-res cut projects to.
+            patience: Duration::milliseconds(5_400),
+        };
+        let newest = at(16, 16, 40);
+
+        // One poll later, with a piece three seconds old. A live volume.
+        assert!(!stalled(Some(brisk), newest, at(16, 17, 0)));
+        // And still live right up to the minute the fallback allows.
+        assert!(!stalled(Some(brisk), newest, at(16, 17, 40)));
+        assert!(stalled(Some(brisk), newest, at(16, 17, 41)));
+    }
+
+    /// The stall is measured from what the listing says now.
+    ///
+    /// The projection is made when a volume is read and the question is asked
+    /// at the next poll. Asked as "has this moment passed", the answer is yes
+    /// on every poll after the first, whatever the radar is doing, and a live
+    /// site went to one frame a volume.
+    #[test]
+    fn a_piece_that_just_arrived_keeps_the_volume_live() {
+        let timing = LiveTiming {
+            next_chunk: at(16, 16, 51),
+            ends: at(16, 20, 0),
+            patience: Duration::seconds(22),
+        };
+        // The projection was anchored at 16:16:40 and two pieces have arrived
+        // since. Twenty seconds later the reader polls again.
+        let newest = at(16, 17, 2);
+        assert!(
+            !stalled(Some(timing), newest, at(16, 17, 5)),
+            "a volume whose newest piece is three seconds old is not finished"
+        );
     }
 
     #[test]

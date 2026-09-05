@@ -1938,6 +1938,8 @@ export const es: Catalogue = {
     "El mapa sin nada más encima, un reloj y lo que está mostrando. La animación sigue y se ralentiza cuando nadie toca nada durante un rato, para que una pantalla encendida toda la noche no pida una imagen cada minuto. Un aviso donde vigilas la quita y devuelve el espacio de trabajo.",
   "ambientScreen.leave": "Salir de la vista a pantalla completa",
   "ambientScreen.awake": "Mantener la pantalla encendida mientras se muestra",
+  "ambientScreen.awakeUnavailable":
+    "Solo Windows por ahora, así que aquí no hay ninguna pantalla que mantener encendida.",
   "ambientScreen.awakeDetail":
     "Windows apaga un monitor con su propio temporizador, lo que no sirve de mucho para una vista pensada para dejarse puesta. Esto mantiene la pantalla encendida solo mientras se muestra la vista a pantalla completa, y la devuelve en cuanto sales. Solo en Windows.",
   "ambientScreen.idle": "Entrar sola después de",

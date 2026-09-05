@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  defenderOutcome,
   defenderScanner,
   defenderVerdict,
   assertReleaseAssetNames,
@@ -112,6 +113,46 @@ describe("what Defender said about the installer", () => {
     // An exit code of zero with nothing to say is not a pass either: the
     // words are half the answer.
     expect(defenderVerdict({ status: 0, output: "" }).scanned).toBe(false);
+  });
+
+  it("needs the words and the exit code together to call a scan clean", () => {
+    // The words on their own are not a pass. A run that printed a clean
+    // summary and then exited nonzero did something else as well, and taking
+    // the line at face value is exactly the "did not run" for "found
+    // nothing" swap the whole of this is written to prevent.
+    const said = "Scanning OpenRadar.msi found no threats.";
+    expect(defenderVerdict({ status: 0, output: said }).clean).toBe(true);
+    for (const status of [1, 2, 5, null, undefined]) {
+      const verdict = defenderVerdict({ status, output: said });
+      expect(verdict.clean, `exit ${status}`).toBe(false);
+    }
+  });
+
+  it("stops the release on a detection and never on a missing scanner", () => {
+    // The half of this the acceptance is actually about. A detection is a
+    // release that does not happen; a machine with no Defender on it is a
+    // release that happens and says so.
+    const flagged = defenderOutcome(
+      { scanned: true, clean: false, detail: "Win32/Wacapew.A!ml" },
+      { engine: "4.18.26080.3-0", file: "OpenRadar.msi" },
+    );
+    expect(flagged.action).toBe("fail");
+    expect(flagged.say).toContain("Win32/Wacapew.A!ml");
+    expect(flagged.say).toContain("OpenRadar.msi");
+
+    expect(
+      defenderOutcome({ scanned: true, clean: true, detail: "found no threats" })
+        .action,
+    ).toBe("pass");
+
+    const skipped = defenderOutcome({
+      scanned: false,
+      clean: false,
+      detail: "no scanner installed",
+    });
+    expect(skipped.action).toBe("skip");
+    // And it does not read as a pass in the log either.
+    expect(skipped.say).toContain("could not scan");
   });
 
   it("takes the newest platform Defender has installed", () => {
