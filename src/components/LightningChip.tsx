@@ -31,7 +31,11 @@ export function LightningChip({ lightning, clock }: LightningChipProps) {
   // The distance below is the reader's own measure, and without this the chip
   // goes on saying miles after the switch until something else redraws it.
   useMeasurements();
-  const step = lightningStep(lightning?.newest ?? null, clock);
+  const step = lightningStep(
+    lightning?.newest ?? null,
+    clock,
+    lightning?.checkedAt ?? null,
+  );
   if (!lightning || step === null || lightning.newest === null) return null;
   const since = formatAge(Math.max(0, clock - lightning.newest) / 60_000);
   return (

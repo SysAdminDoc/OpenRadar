@@ -1241,6 +1241,28 @@ pub(crate) async fn wind_profile(
 /// forever or closed to never and every test would stay green, which is the
 /// same reason `rotations_for` is one.
 fn describes_volume(profile: &WindProfile, wanted: Option<DateTime<Utc>>) -> bool {
+    describes_volume_at(profile, wanted, Utc::now())
+}
+
+/// How stale the newest published profile may be and still answer "now".
+///
+/// Nothing is asked for by name on the live path, so the newest file in the
+/// bucket is what comes back, and the bucket has no opinion about how old that
+/// is. A site whose RPG has stopped publishing while its volumes keep arriving
+/// would otherwise draw an hour-old wind profile under a live clock, where
+/// fitting the volume would have drawn the current one.
+///
+/// Three clear-air volumes and the publication behind them. A site scanning
+/// VCP 31 takes about ten minutes a volume, which is the slowest anything
+/// gets, so this is generous enough not to reject a working site and short
+/// enough that a stopped one loses to the fit.
+const LIVE_PRODUCT_MAX_AGE_SECONDS: i64 = 30 * 60;
+
+fn describes_volume_at(
+    profile: &WindProfile,
+    wanted: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> bool {
     // A product with no readable level in it is not an answer either. The
     // office publishes a header and nothing else when its algorithm found
     // no wind at all, and drawing that as a column of ND would say the radar
@@ -1249,7 +1271,7 @@ fn describes_volume(profile: &WindProfile, wanted: Option<DateTime<Utc>>) -> boo
         return false;
     }
     let Some(at) = wanted else {
-        return true;
+        return (now - profile.volume_time).num_seconds() <= LIVE_PRODUCT_MAX_AGE_SECONDS;
     };
     (profile.volume_time - at).num_seconds().abs() <= SAME_VOLUME_SECONDS
 }
@@ -1689,35 +1711,76 @@ mod tests {
         // saying so.
         let profile = read_wind_profile(NVW).expect("the fixture is a wind profile");
         let when = profile.volume_time;
-        assert!(describes_volume(&profile, None));
-        assert!(describes_volume(&profile, Some(when)));
+        // Read at the moment it was published, which is what the live path
+        // is asking about; how old it may be is its own test below.
+        assert!(describes_volume_at(&profile, None, when));
+        assert!(describes_volume_at(&profile, Some(when), when));
         // Seconds out is the ordinary case: a volume time read off the
         // Level II file is not to the second the same as the product's.
-        assert!(describes_volume(
-            &profile,
-            Some(when + Duration::seconds(SAME_VOLUME_SECONDS))
-        ));
-        assert!(describes_volume(
-            &profile,
-            Some(when - Duration::seconds(SAME_VOLUME_SECONDS))
-        ));
+        for out in [SAME_VOLUME_SECONDS, -SAME_VOLUME_SECONDS] {
+            assert!(describes_volume_at(
+                &profile,
+                Some(when + Duration::seconds(out)),
+                when
+            ));
+        }
         // A whole volume out is a different volume, in both directions.
-        assert!(!describes_volume(
-            &profile,
-            Some(when + Duration::seconds(SAME_VOLUME_SECONDS + 1))
-        ));
-        assert!(!describes_volume(
-            &profile,
-            Some(when - Duration::seconds(SAME_VOLUME_SECONDS + 1))
-        ));
+        for out in [SAME_VOLUME_SECONDS + 1, -SAME_VOLUME_SECONDS - 1] {
+            assert!(!describes_volume_at(
+                &profile,
+                Some(when + Duration::seconds(out)),
+                when
+            ));
+        }
 
         // And a product with no level in it answers nothing, whoever asked.
         let empty = WindProfile {
             volume_time: when,
             winds: Vec::new(),
         };
-        assert!(!describes_volume(&empty, None));
-        assert!(!describes_volume(&empty, Some(when)));
+        assert!(!describes_volume_at(&empty, None, when));
+        assert!(!describes_volume_at(&empty, Some(when), when));
+    }
+
+    #[test]
+    fn the_newest_published_profile_still_has_to_be_recent() {
+        // Nothing is asked for by name on the live path, so the newest file in
+        // the bucket comes back whatever its age. A site whose RPG stopped
+        // publishing an hour ago while its volumes kept arriving would draw an
+        // hour-old wind under a live clock, and the fit it replaced would have
+        // drawn the current one.
+        let profile = read_wind_profile(NVW).expect("the fixture is a wind profile");
+        let when = profile.volume_time;
+        assert!(describes_volume_at(&profile, None, when));
+        assert!(describes_volume_at(
+            &profile,
+            None,
+            when + Duration::seconds(LIVE_PRODUCT_MAX_AGE_SECONDS)
+        ));
+        assert!(!describes_volume_at(
+            &profile,
+            None,
+            when + Duration::seconds(LIVE_PRODUCT_MAX_AGE_SECONDS + 1)
+        ));
+        assert!(!describes_volume_at(
+            &profile,
+            None,
+            when + Duration::hours(1)
+        ));
+        // A clock behind the product is a clock disagreeing with the office,
+        // not a product from the future to be thrown away.
+        assert!(describes_volume_at(
+            &profile,
+            None,
+            when - Duration::minutes(5)
+        ));
+        // Asking for a volume by name is a different question and this bound
+        // is not part of it: an archived afternoon is hours old by design.
+        assert!(describes_volume_at(
+            &profile,
+            Some(when),
+            when + Duration::hours(6)
+        ));
     }
 
     #[test]

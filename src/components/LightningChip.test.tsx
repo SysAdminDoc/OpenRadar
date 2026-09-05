@@ -18,6 +18,9 @@ function counted(overrides: Partial<PlaceLightning> = {}): PlaceLightning {
     newest: NOW,
     nearestMiles: 6,
     nearestBearing: 90,
+    // Read just now, so the age below is the sky going quiet rather than
+    // nobody looking.
+    checkedAt: NOW + QUIET_AFTER_MS,
     radiusMiles: 10,
     ...overrides,
   };
