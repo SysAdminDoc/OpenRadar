@@ -277,16 +277,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### P2
 
-- [ ] AUD-321 (P2): The full-screen view's source line is unreadable over a light basemap
-      Category: a11y
-      Where: `src/index.css:2992-2994` (`.ambient-readout small { color: #a9b6c6 }`), `src/index.css:2976-2979` (`.ambient-readout[data-over-light]`, which recolours the parent and sets a white halo but not `small`), `src/index.css:2999-3006` (`.ambient-readout__leave`, a fixed dark chip), `src/components/AmbientReadout.tsx` (`overLight` sets the attribute).
-      Problem: Over a light basemap (Light theme with Auto, or Roads, Daylight, Radar Light) the clock flips to dark ink with a white halo but the line under it, the one that says which source the picture is and how old it is, stays pale grey on a white halo: about 1.8:1 against the map's land, far under the 4.5:1 the rest of the app is held to by `e2e/support/contrast.ts`. That line is what the view exists to show across a room.
-      Evidence: Measured 2026-09-05, Light theme, `pro-light` basemap, full-screen view on: `.ambient-readout` carried `data-over-light="1"` with color rgb(15, 23, 42); `.ambient-readout small` computed color rgb(169, 182, 198) with text-shadow rgba(255, 255, 255, 0.85); the screenshot shows "NWS RIDGE II · 5 minutes old" nearly invisible over the Yucatán. `data-over-light` appears once in `index.css` (line 2976) with no `small` or `__leave` counterpart.
-      Fix: Add `.ambient-readout[data-over-light] small { color: #334155; }` beside the existing rule (the light palette's muted ink), and a light chip for `.ambient-readout[data-over-light] .ambient-readout__leave`; extend `e2e/ambient-screen.spec.ts` to run the contrast helper on the source line over `pro-light` as well as `pro-dark`.
-      Acceptance: The ambient contrast check reads at or above 4.5:1 for `.ambient-readout small` over both basemaps.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-322 (P2): The rail's tool list cuts off mid-button with nothing that reads as "more below"
       Category: ux
       Where: `src/index.css:4113-4168` (`.command-scroll-region`: `scrollbar-width: none`, the `[data-more-below]` mask of 12px, a scrollbar only on hover), `src/components/CommandBar.tsx:165-175` (sets `data-more-above` and `data-more-below`).
@@ -316,26 +306,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Evidence: Code as cited; no debounce between the input and the effect; effect deps `[available, settings.incidentPacks.diskLimitMb]`.
       Fix: Debounce the native write (a `window.setTimeout` of 250 ms after the last change, cleared in the effect cleanup), guard with `let open = true` like the poll effect, and skip the write when the value equals the library's reported limit. The settings save is already queued and can stay.
       Acceptance: A test in `IncidentPackManager.test.tsx` that fires ten `change` events within 100 ms and asserts `incident_pack_set_limit` is invoked once with the last value, and that an unmount before the reply does not set state.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-325 (P3): A crafted replay bundle can make the cached scheme's response builder panic
-      Category: reliability
-      Where: `src-tauri/src/lib.rs:203-227` (the `cached` handler builds `Content-Type` from `served.content_type` and `X-OpenRadar-Bundle` from `served.bundle`, then `.expect("a cached response is well formed")`), `src-tauri/src/bundles.rs:468-545` (`read_bundle` accepts any UTF-8 `content_type` and any `manifest.id`), `src-tauri/src/tiles.rs:106-118` (an open bundle answers first).
-      Problem: The content type and the bundle id come out of the `.orb` file a reader opens with `replay_bundle_open`, which is a file somebody else may have made. `read_bundle` checks only that the entry's type equals the manifest's record, and both live in the same file. A value with a control byte or a non-ASCII character (`image/png\r\nX: 1`, an id with an accent) fails `HeaderValue` construction; the builder returns `Err` at `.body()` and the `.expect` panics inside the spawned task. The process survives, the tile request never answers, and the reader sees a map that stops drawing with nothing said.
-      Evidence: `http::Response::builder().header(...)` defers an invalid value to `.body()`'s `Result`, and `lib.rs:226` unwraps it with `expect`. `bundles.rs` has no character check on `content_type` or `id`; the `text/html` test at `:1032` covers only a mismatch between entry and manifest; `slug()` at `:625` constrains ids on the write side only.
-      Fix: In `read_bundle`, refuse a `content_type` that is not visible ASCII in `type/subtype` form and an `id` that is not `[a-z0-9-]{1,40}` (the shape `slug()` produces); in `lib.rs` replace the three `.expect` calls on the scheme responders with a fallback 500 response so a builder error can never take the task down.
-      Acceptance: Unit tests in `bundles.rs` where a manifest with `content_type: "image/png\r\nX: 1"` and one with `id: "café"` are refused as `Corrupt`; a test in `tiles.rs` that the three scheme registrations in `lib.rs` no longer contain `.expect(` (the way `the_cached_scheme_serves_nothing_a_browser_will_guess_at` already reads that source).
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-326 (P3): The map panes keep a dark ground in the light theme
-      Category: visual
-      Where: `src/index.css:90-101` (`.map-stage`, its radial glow and `#0b1018`), `:110-116` (`.map-viewport`, `background: #0c111a`), `:3961` (`.map-stage { background: #0b1018 }` inside the palette block, also dark-only).
-      Problem: In the light theme every tile that has not painted yet shows as a near-black block: the second pane the moment Dual Pane is switched on, the whole stage on a cold start before the style loads, any gap while panning fast. The chrome around it is light, so it reads as a broken pane.
-      Evidence: Computed `.map-viewport` background rgb(12, 17, 26) and `.map-stage` rgb(11, 16, 24) with `data-theme="light"` on 2026-09-05; the full-screen view screenshot in the light theme showed the right pane as dark blocks while it re-tiled. No `[data-theme="light"]` rule names either selector.
-      Fix: Put both on a token, `background: var(--map-ground)`, with `--map-ground: #0b1018` in the dark palette and `#e9edf2` in the light one at `index.css:3929-3958`, and keep the radial glow dark-only.
-      Acceptance: With `data-theme="light"`, `getComputedStyle(document.querySelector(".map-viewport")).backgroundColor` is the light ground, asserted in `e2e/theme.spec.ts`.
       Confidence: Verified
       Effort: S
 

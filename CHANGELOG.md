@@ -2,6 +2,12 @@
 
 ## OpenRadar v0.11.0
 
+- A replay bundle somebody else made can no longer stop the map drawing. Two things in a `.orb` file travel back out as HTTP headers, the content type of each saved response and the bundle's own name, and neither was checked against what a header may hold: a file carrying a control character in either one took the tile handler's task down without a word, and the map waited on that tile for the rest of the session. Both are checked when the file is read now, a service that answers with a type that cannot be sent is recorded as missing rather than written into a bundle that will not open, and the handler answers rather than falling over if anything still slips through.
+
+- The full-screen view says what it is showing, over a light basemap as well as a dark one. The clock flipped to dark ink over a pale map and the line under it, the one naming the source and how old the picture is, stayed pale grey: about 1.2:1 against the water, which is not readable at arm's length let alone across a room. The way out got the same treatment.
+
+- The map has a light ground in the light theme. Wherever a tile has not arrived yet, the second pane the moment you open it, a cold start, a fast pan, you were looking at a near-black rectangle in an otherwise pale workspace.
+
 - In dual pane, the compare card no longer hides behind the zoom buttons or behind an open panel. It sat in the same corner as the zoom stack, so the time it was showing read as "4:58 P" with the rest under the compass, and it was not on the list of things that move aside when Settings opens on the right, so its Live and 3 back buttons could not be reached at all. The cursor coordinates had the same problem with the panel. Both move now, and the card wraps rather than pushing its time off the end when the words are longer in another language.
 
 - The national grids are drawn at the zoom you are actually at. They stopped at zoom ten and anything closer was that picture stretched, so past it you were looking at the tile’s own pixel grid rather than at the weather. Nothing new is known about the sky past ten; what changed is that the drawing is made for the view instead of blown up to fit it.

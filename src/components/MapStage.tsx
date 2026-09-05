@@ -275,7 +275,13 @@ export function MapStage({
           // whenever the fetch failed. The mosaic underneath is the honest
           // answer while there is no volume to draw.
           sweep={compareSweep}
-          nightAt={nightMoment(compareFrame?.time, clock)}
+          // The primary pane's moment where this one has no frame of its own,
+          // which is every offset asking for more history than the loop holds.
+          // The pane still draws: the basemap, the overlays and the wash are
+          // not gated on having a radar frame, so falling back to the clock
+          // here put tonight's terminator on the right-hand side of a 2011
+          // replay, which is the whole defect this was fixing.
+          nightAt={nightMoment(compareFrame?.time ?? activeFrame?.time, clock)}
         />
       ) : null}
 

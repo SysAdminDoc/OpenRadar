@@ -62,6 +62,20 @@ pub mod fuzzing {
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
+/// What a scheme answers when the response itself will not build.
+///
+/// Only its own constants go into it, so it cannot fail for the reason the
+/// response it stands in for did. Being told nothing arrived beats a task
+/// that panicked and a map waiting on a tile for ever.
+fn refused_response() -> tauri::http::Response<Vec<u8>> {
+    tauri::http::Response::builder()
+        .status(502)
+        .header("Content-Type", "text/plain")
+        .header("Access-Control-Allow-Origin", "*")
+        .body(b"OpenRadar could not build a response for that.".to_vec())
+        .expect("a response of constants is well formed")
+}
+
 const LOG_MAX_FILE_SIZE_BYTES: u128 = 2_000_000;
 const LOG_ROTATED_FILE_COUNT: usize = 3;
 
@@ -223,7 +237,15 @@ pub fn run() {
                             "X-OpenRadar-Age, X-OpenRadar-Bundle",
                         )
                         .body(served.body)
-                        .expect("a cached response is well formed"),
+                        // Two of these headers are not ours: the content type
+                        // is whatever the upstream service said and the bundle
+                        // name comes out of a file a reader may have been
+                        // handed. `bundles::read_bundle` refuses both shapes
+                        // now, and a service could still answer with something
+                        // a header value may not hold. Panicking here takes
+                        // the responder's task down and leaves the map waiting
+                        // for a tile that never arrives, with nothing said.
+                        .unwrap_or_else(|_| refused_response()),
                 );
             });
         })

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { routeWorkspace, stubHost } from "./support/fixtures";
+import { contrast } from "./support/contrast";
 
 /**
  * The workspace as something to leave on a second monitor.
@@ -12,8 +13,14 @@ import { routeWorkspace, stubHost } from "./support/fixtures";
 
 const HOME: [number, number] = [-96.8, 32.78];
 
-async function start(page: Page, warning = false) {
-  await page.addInitScript(() => {
+/**
+ * @param radar Leave the mosaic off, for a test about what is under it. The
+ * fixture's radar tile is a one-pixel opaque PNG stretched over the whole map,
+ * so with the layer on every pixel of the canvas is that tile at the layer's
+ * own opacity and nothing can be measured against the basemap.
+ */
+async function start(page: Page, warning = false, radar = true) {
+  await page.addInitScript((withRadar) => {
     window.localStorage.setItem(
       "openradar.settings",
       JSON.stringify({
@@ -22,6 +29,7 @@ async function start(page: Page, warning = false) {
         seenReveal: true,
         catchUp: false,
         curiosities: false,
+        radar: { enabled: withRadar },
         watch: {
           enabled: true,
           sound: false,
@@ -32,7 +40,7 @@ async function start(page: Page, warning = false) {
         },
       }),
     );
-  });
+  }, radar);
   await routeWorkspace(page);
   await stubHost(
     page,
@@ -195,4 +203,115 @@ test("the second-monitor setting reads like the switches above it", async ({
   expect(shape.detail.leading).toBe(shape.rowDetail.leading);
   expect(shape.field.left).toBe(shape.row.left);
   expect(shape.field.rule).toBe(shape.row.rule);
+});
+
+test("keeps the source line readable over a light basemap", async ({
+  page,
+}) => {
+  // The clock flips to dark ink over a light map and the line under it did
+  // not: it declares its own colour, so it beat the inheritance and stayed
+  // pale grey on a white halo. About 1.2:1 over the ocean, against ten for
+  // the clock beside it. That line is what the view exists to show.
+  //
+  // Without the mosaic, because this is a question about the basemap: the
+  // fixture's radar tile is one opaque pixel stretched over the world, so
+  // with the layer on every sample is that tile at its own opacity.
+  await start(page, false, false);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Light", exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Close Settings" }).click();
+  await enter(page);
+
+  const readout = page.locator("[data-ambient-readout]");
+  await expect(readout).toBeVisible();
+  // The positive control. Without it a readout that never got the attribute,
+  // or a basemap that resolved dark, would pass every ratio below for the
+  // wrong reason.
+  await expect(readout).toHaveAttribute("data-over-light", "1");
+
+  // The line has to be on screen before its colour means anything: it is a
+  // flex child, so with no source yet it keeps the container's width and no
+  // height at all, and a rectangle of no height samples whatever single row
+  // of pixels it lands on.
+  await expect(readout.locator("small")).toContainText(/\w/);
+
+  const measured = await page.evaluate(() => {
+    const line = document.querySelector("[data-ambient-readout] small");
+    const clock = document.querySelector("[data-ambient-readout] strong");
+    if (!line || !clock) return null;
+    const box = line.getBoundingClientRect();
+    if (box.height < 8 || box.width < 20) return "the line has no box";
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return null;
+    // The ground is the map, not a CSS colour: this text is drawn straight
+    // over the basemap. Sample what the reader is looking through.
+    const target = document.createElement("canvas");
+    target.width = canvas.width;
+    target.height = canvas.height;
+    const context = target.getContext("2d");
+    if (!context) return null;
+    context.drawImage(canvas, 0, 0);
+    // Canvas coordinates, not window ones. The map is inset by the rail and
+    // the timeline and its buffer is its own size, so scaling by innerWidth
+    // read a rectangle off the bottom of the picture and measured the colour
+    // of nothing.
+    const frame = canvas.getBoundingClientRect();
+    const scale = canvas.width / frame.width;
+    const left = Math.round((box.left - frame.left) * scale);
+    const top = Math.round((box.top - frame.top) * scale);
+    const width = Math.max(1, Math.round(box.width * scale));
+    const height = Math.max(1, Math.round(box.height * scale));
+    if (
+      left < 0 ||
+      top < 0 ||
+      left + width > target.width ||
+      top + height > target.height
+    ) {
+      return "the line is not over the map";
+    }
+    const pixels = context.getImageData(left, top, width, height).data;
+    // The colour the line mostly sits on. Not the single darkest pixel: one
+    // antialiased edge of a coastline is not the ground, and this is a
+    // question about the basemap under a label rather than about the worst
+    // pixel in the box.
+    const counts = new Map<string, number>();
+    for (let at = 0; at < pixels.length; at += 4) {
+      const alpha = pixels[at + 3];
+      // A WebGL readback is premultiplied, so a layer part-way through its
+      // fade comes back as the right colour scaled down: the light ground
+      // read as rgb(70, 71, 73) while the style was still arriving, which is
+      // a dark grey nothing ever painted. Take the colour back out.
+      if (alpha === 0) continue;
+      const scale = 255 / alpha;
+      const key = `rgb(${Math.round(pixels[at] * scale)}, ${Math.round(
+        pixels[at + 1] * scale,
+      )}, ${Math.round(pixels[at + 2] * scale)})`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const ranked = [...counts.entries()].sort((one, two) => two[1] - one[1]);
+    if (ranked.length === 0) return "nothing is painted under the line";
+    return {
+      line: getComputedStyle(line).color,
+      clock: getComputedStyle(clock).color,
+      ground: ranked[0][0],
+      spread: ranked.slice(0, 3).map(([colour]) => colour),
+      // In the failure message, because a ground nothing in the style paints
+      // means a layer is drawn over the whole map and the ratio is a fact
+      // about that layer rather than about the basemap.
+      drawn: document.querySelector(".map-viewport")?.getAttribute("data-layer-stack") ?? "",
+    };
+  });
+
+  expect(measured, "the line could not be measured over the map").not.toBeNull();
+  if (typeof measured === "string" || measured === null) {
+    throw new Error(`the source line could not be sampled: ${measured}`);
+  }
+  const ratio = contrast(measured.line, measured.ground);
+  expect(
+    ratio,
+    `the source line reads at ${ratio.toFixed(2)}:1 over ${measured.ground}, under ${measured.spread.join(" ")}, drawn ${measured.drawn}`,
+  ).toBeGreaterThanOrEqual(4.5);
+  // Still quieter than the clock, which is the hierarchy this always had.
+  expect(contrast(measured.clock, measured.ground)).toBeGreaterThan(ratio);
 });
