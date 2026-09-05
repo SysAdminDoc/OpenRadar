@@ -267,6 +267,34 @@ describe("what a place is remembered as having had", () => {
       expect(twice).toEqual(once);
     });
 
+    it("survives a poll that failed", () => {
+      // The feed answers with nothing when a bucket listing fails, when the
+      // held window ages out, and whenever the reader hides the window with
+      // the notice switched off. None of those is a place that has never seen
+      // a flash, and reading them as one put the chip back to blank two
+      // minutes after a strike.
+      rememberLightning(
+        lightningNear(window_([flash(41.6, -93.6, NOW)]), [FIELD], ON),
+      );
+      const outage = rememberLightning(lightningNear(null, [FIELD], ON));
+      expect(outage[0].newest).toBe(NOW);
+      // And nothing was read, so nothing can be called clear off it however
+      // long the outage runs.
+      expect(outage[0].checkedAt).toBeNull();
+      expect(
+        lightningStep(
+          outage[0].newest,
+          NOW + QUIET_AFTER_MS * 2,
+          outage[0].checkedAt,
+        ),
+      ).toBe("recent");
+
+      // The feed comes back with an empty window, which is a real answer.
+      const back = rememberLightning(lightningNear(window_([]), [FIELD], ON));
+      expect(back[0].newest).toBe(NOW);
+      expect(back[0].checkedAt).toBe(NOW);
+    });
+
     it("forgets a place that is no longer watched", () => {
       rememberLightning(
         lightningNear(window_([flash(41.6, -93.6, NOW)]), [FIELD], ON),

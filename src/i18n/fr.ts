@@ -2108,6 +2108,9 @@ export const fr: Catalogue = {
   "guidance.loading": "Lecture des modèles",
   "guidance.failedTitle": "Les modèles n'ont pas pu être lus",
   "guidance.unknown": "La demande d'orientation a échoué.",
+  "guidance.answeredFor": "Réponse pour {place}, lue il y a {age}.",
+  "guidance.refreshFailed":
+    "Les chiffres ci-dessus sont les derniers reçus. {answer}",
   "guidance.noValue": "—",
   "guidance.compare": "Comparer avec la sortie d'hier",
   "guidance.compareDetail":

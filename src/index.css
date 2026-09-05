@@ -5513,6 +5513,20 @@ label.settings-field > span {
   padding: 6px 8px;
 }
 
+/* A panel asking again for what it is already showing. Dimmed rather than
+   emptied: the numbers underneath are the last real answer and are worth more
+   than a spinner, and the panel says which they are in words as well. */
+.surface-panel[data-busy] {
+  transition: opacity 160ms ease;
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-panel[data-busy] {
+    transition: none;
+  }
+}
+
 .watch-place .source-note {
   margin: 0;
 }
