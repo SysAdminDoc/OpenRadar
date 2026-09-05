@@ -2,6 +2,10 @@
 
 ## OpenRadar v0.10.0
 
+- Most of the national grids draw now. Rotation tracks, hail size and lightning density were the only three with a lane on the map; every grid added since, including four of the five rotation windows and both shear heights, fetched its data and then drew nothing, with nothing to say why. Each product has its own lane, with the scattered ones over the fields that cover the country so a hail core is not buried under the rain around it.
+
+- The Guidance panel says when it is fetching again. Move the map far enough, or turn a model on, and it used to sit there with the previous answer and no sign it was working. It now dims and says so, and a refetch that fails keeps the table with a line saying which place and which moment those numbers are for, with the failure under them instead of a "could not load" banner over a full table.
+
 - Placefile icons saved in a workspace before today draw again. The address of the icon sheet is written into each feature, and it started being escaped on 4 September; reading an older one back through the unescaping turned a percent sign the site itself had written into a different character, so the app asked for a file that was not there, and an address with a bare percent in it threw and left the icon drawing nothing at all. Both shapes are now read the way they were written.
 
 - You can look at one height of the national grid now, instead of only the whole column at once. The composite is the strongest reflectivity anywhere in the column, which answers "is it raining hard" and not "where is the hail core". The network also publishes the three-dimensional grid the composite is built from, at thirty-three heights, and the new layer reads a slice of it: reflectivity, correlation, or differential reflectivity, at any height from half a kilometre to nineteen. A slider picks the height and says it in your own units. Correlation is the one worth knowing about if you have not used it: below about 0.8 what the radar is seeing is usually not weather, which is how debris lofted by a tornado shows up.
