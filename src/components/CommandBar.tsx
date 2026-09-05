@@ -28,8 +28,10 @@ import {
   Waves,
   Gauge,
   Wind,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
-import { useEffect, useRef, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import { useT } from "../i18n";
 
 export type SurfaceId =
@@ -56,6 +58,42 @@ export type SurfaceId =
   | null;
 
 export type ToolMode = "draw" | "range" | "inspect" | "section" | null;
+
+/**
+ * What one button of the rail is worth, from the stylesheet's own rule.
+ *
+ * Only the paging step uses it, and only as a minimum and an overlap, so it
+ * being a point or two out costs nothing: a rail with no room for a whole
+ * button still scrolls by one.
+ */
+const RAIL_BUTTON_HEIGHT = 48;
+
+/**
+ * Where the tool list may come to rest, as offsets into its own content.
+ *
+ * Every button's top edge, and zero. A rail resting anywhere else shows a
+ * button cut at one end or the other, whatever its height is fitted to.
+ */
+function restingOffsets(region: HTMLElement): number[] {
+  return [
+    0,
+    // The far end. Without it the nearest button top is always a little short
+    // of the bottom, so the last button could not be reached and the rail went
+    // on saying there was more below when there was not. Nothing is cut there:
+    // the content ends where the region does.
+    Math.max(0, region.scrollHeight - region.clientHeight),
+    ...[...region.querySelectorAll<HTMLElement>(".command-button")].map(
+      (button) => button.offsetTop - region.offsetTop,
+    ),
+  ];
+}
+
+/** The one of those nearest a wanted offset. */
+function nearestOffset(offsets: number[], wanted: number): number {
+  return offsets.reduce((best, offset) =>
+    Math.abs(offset - wanted) < Math.abs(best - wanted) ? offset : best,
+  );
+}
 
 interface CommandBarProps {
   activeSurface: SurfaceId;
@@ -152,24 +190,78 @@ export function CommandBar({
   }, [activeSurface]);
 
   /**
-   * Whether there is more of the rail above or below what is on screen.
+   * Whether there is more of the rail above or below what is on screen, and
+   * where the region may end.
    *
-   * The region scrolls, its scrollbar is hidden, and at 1440 by 900 it ends
-   * partway through a button: a label cut in half was the only sign that
-   * anything was down there, and it reads as a layout fault rather than as
-   * "there is more". The two attributes drive a fade at whichever edge has
-   * something behind it.
+   * The region scrolls with its scrollbar hidden, so the only sign that
+   * eleven tools are below the fold was a twelve-pixel fade and, at 1440 by
+   * 900, the Range button cut through the middle: an icon with no caption,
+   * which reads as a layout fault rather than as "there is more". Export and
+   * Upload, the two a reader looks for first, were among the hidden.
+   *
+   * Two things happen here. The height is floored to the bottom edge of a
+   * whole button, so the region never ends part-way through one: a button is
+   * either wholly there or wholly not, and the fade lands on a boundary
+   * instead of on a word. And the two edges are held as state rather than as
+   * bare attributes, because the chevron below is rendered from them.
    */
+  const [edges, setEdges] = useState({ above: false, below: false });
   useEffect(() => {
     const region = advancedRef.current;
     if (!region) return;
     const mark = () => {
+      const buttons = () => [
+        ...region.querySelectorAll<HTMLElement>(".command-button"),
+      ];
+
+      // The top edge first, because the height is fitted to wherever it ends
+      // up. A resting scroll of 290 cuts a button at both ends however well
+      // the box is sized, and the browser puts it there on its own: shrinking
+      // a scroller makes Chromium adjust the offset to keep the content under
+      // the reader still. Zero is a resting place too, and the nearest one
+      // wins so this never fights a reader who scrolled on purpose. Setting
+      // it fires another scroll, which finds it aligned and stops.
+      const nearest = nearestOffset(restingOffsets(region), region.scrollTop);
+      if (Math.abs(nearest - region.scrollTop) > 1) region.scrollTop = nearest;
+
+      // Measured against the room flex gives it, not against the height this
+      // last left behind, or each pass would shrink the region again.
+      region.style.maxHeight = "";
+      // Asking for a height is not getting it: the rest of the rail has its
+      // own claims, so a cap the box will not grant leaves the region shorter
+      // than the boundary that was chosen and the button at that boundary cut
+      // anyway. Re-measure and floor again until the cap and the room agree.
+      // The room only ever shrinks, so three passes is generous.
+      for (let pass = 0; pass < 3; pass += 1) {
+        const room = region.clientHeight;
+        let fits = 0;
+        for (const button of buttons()) {
+          // Against what is on screen rather than against the content, so a
+          // region scrolled to its second button is fitted from there.
+          const bottom =
+            button.offsetTop -
+            region.offsetTop +
+            button.offsetHeight -
+            region.scrollTop;
+          if (bottom <= room && bottom > fits) fits = bottom;
+        }
+        // Nothing fits whole on a very short window: leave the room alone
+        // rather than collapsing the region to nothing.
+        if (fits === 0 || fits === room) break;
+        region.style.maxHeight = `${fits}px`;
+      }
+
       const top = region.scrollTop;
       const more = region.scrollHeight - region.clientHeight;
-      region.toggleAttribute("data-more-above", top > 1);
       // One pixel of slack: a fractional layout leaves a hair of scroll that
       // nothing can reach, and a fade over a dead edge is a lie.
-      region.toggleAttribute("data-more-below", more - top > 1);
+      const above = top > 1;
+      const below = more - top > 1;
+      region.toggleAttribute("data-more-above", above);
+      region.toggleAttribute("data-more-below", below);
+      setEdges((held) =>
+        held.above === above && held.below === below ? held : { above, below },
+      );
     };
     mark();
     region.addEventListener("scroll", mark, { passive: true });
@@ -178,13 +270,36 @@ export function CommandBar({
     // the whole workspace down over.
     const watcher =
       typeof ResizeObserver === "function" ? new ResizeObserver(mark) : null;
-    watcher?.observe(region);
+    // The rail itself rather than the region: the region's own height is what
+    // this writes, so watching it would answer its own change for ever.
+    if (watcher && region.parentElement) watcher.observe(region.parentElement);
     if (watcher) for (const child of region.children) watcher.observe(child);
     return () => {
       region.removeEventListener("scroll", mark);
       watcher?.disconnect();
     };
   }, []);
+
+  /**
+   * Pages the tool list by what is on screen, less one button of overlap.
+   *
+   * Straight to a resting offset rather than smoothly by a distance: the
+   * effect above snaps the rail back to a boundary on every scroll event, so
+   * an animation would spend its whole length being pulled back to where it
+   * started. In a rail this size there is nothing for an animation to explain.
+   */
+  const pageRail = (direction: 1 | -1) => {
+    const region = advancedRef.current;
+    if (!region) return;
+    const step = Math.max(
+      RAIL_BUTTON_HEIGHT,
+      region.clientHeight - RAIL_BUTTON_HEIGHT,
+    );
+    region.scrollTop = nearestOffset(
+      restingOffsets(region),
+      region.scrollTop + step * direction,
+    );
+  };
 
   return (
     <nav className="command-bar" aria-label={t("bar.label")}>
@@ -388,6 +503,39 @@ export function CommandBar({
             onClick={() => toggleSurface("upload")}
           />
         </div>
+      </div>
+
+      {/* Something is down there, and a fade is not a control. Eleven tools
+          sat below the fold with nothing to press: the scrollbar is hidden,
+          this project has no keyboard shortcuts, and a reader who has never
+          dragged inside a 68px rail has no reason to think there is more.
+          Rendered only when there is somewhere to go, so the rail is not
+          carrying a dead button on a tall window. */}
+      {/* The strip is always here, empty or not, because the region above is
+          measured against the room this leaves: a strip that appeared with
+          the chevrons would shrink the region after it had been fitted to it,
+          and the last button would be cut by exactly this height. */}
+      <div className="command-page">
+        {edges.above ? (
+          <button
+            type="button"
+            className="command-page__step"
+            aria-label={t("bar.scrollUp")}
+            onClick={() => pageRail(-1)}
+          >
+            <ChevronUp size={16} strokeWidth={2} />
+          </button>
+        ) : null}
+        {edges.below ? (
+          <button
+            type="button"
+            className="command-page__step"
+            aria-label={t("bar.scrollDown")}
+            onClick={() => pageRail(1)}
+          >
+            <ChevronDown size={16} strokeWidth={2} />
+          </button>
+        ) : null}
       </div>
 
       <div className="command-spacer" />

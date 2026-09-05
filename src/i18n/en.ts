@@ -1468,6 +1468,8 @@ export const en = {
   "bar.soundingShort": "Sounding",
   "bar.vwpShort": "Profile",
   "bar.uploadShort": "Upload",
+  "bar.scrollUp": "Earlier tools",
+  "bar.scrollDown": "More tools",
   "bar.location": "Location",
   "bar.locate": "Locate",
   "bar.commands": "Commands",

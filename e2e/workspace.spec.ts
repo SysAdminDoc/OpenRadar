@@ -1105,3 +1105,56 @@ test("keeps the compare card and the cursor readout out from under everything", 
     "true",
   );
 });
+
+test("shows whole buttons on the rail and a way to reach the rest", async ({
+  page,
+}) => {
+  // The tool list scrolls with its scrollbar hidden. At 1440 by 900 it ended
+  // through the middle of the Range button, so the only sign that eleven more
+  // tools existed was an icon with no caption, which reads as a rendering
+  // fault. Export and Upload, the two a reader looks for first, were among
+  // the hidden.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const region = page.locator(".command-scroll-region");
+  const cut = async () =>
+    region.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return [...node.querySelectorAll(".command-button")]
+        .map((button) => {
+          const seen = button.getBoundingClientRect();
+          return { label: button.getAttribute("aria-label") ?? "", seen, box };
+        })
+        // Part in and part out: the case this exists to stop. Two pixels of
+        // slack, because a fractional layout leaves a hair of a button over
+        // an edge and that is not a caption anybody loses; the failure this
+        // guards against is half a button.
+        .filter(
+          ({ seen, box: within }) =>
+            (seen.top < within.bottom - 2 && seen.bottom > within.bottom + 2) ||
+            (seen.top < within.top - 2 && seen.bottom > within.top + 2),
+        )
+        .map(
+          ({ label, seen, box: within }) =>
+            `${label} ${Math.round(seen.top)}..${Math.round(seen.bottom)} in ${Math.round(within.top)}..${Math.round(within.bottom)} at ${node.scrollTop}`,
+        );
+    });
+
+  expect(await cut()).toEqual([]);
+
+  // A control, not just a fade. It is only there when something is hidden,
+  // which on this window it is.
+  const down = page.getByRole("button", { name: "More tools" });
+  await expect(down).toBeVisible();
+  const before = await region.evaluate((node) => node.scrollTop);
+  await down.click();
+  await expect
+    .poll(() => region.evaluate((node) => node.scrollTop))
+    .toBeGreaterThan(before);
+
+  // And it still ends on a whole button after paging.
+  expect(await cut()).toEqual([]);
+  // Going back up is offered once there is something above.
+  await expect(page.getByRole("button", { name: "Earlier tools" })).toBeVisible();
+});

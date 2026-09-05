@@ -1491,6 +1491,8 @@ export const es: Catalogue = {
   "bar.soundingShort": "Sondeo",
   "bar.vwpShort": "Perfil",
   "bar.uploadShort": "Cargar",
+  "bar.scrollUp": "Herramientas anteriores",
+  "bar.scrollDown": "Más herramientas",
   "bar.location": "Ubicación",
   "bar.locate": "Ubicar",
   "welcome.detail":

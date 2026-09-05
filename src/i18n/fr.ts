@@ -1510,6 +1510,8 @@ export const fr: Catalogue = {
   "bar.soundingShort": "Sondage",
   "bar.vwpShort": "Profil",
   "bar.uploadShort": "Envoi",
+  "bar.scrollUp": "Outils précédents",
+  "bar.scrollDown": "Plus d'outils",
   "bar.location": "Position",
   "bar.locate": "Me localiser",
   "bar.commands": "Commandes",
