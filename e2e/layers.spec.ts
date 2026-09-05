@@ -1332,3 +1332,39 @@ test("draws the satellite that is actually over the view, while panning", async 
   // "Himawari has no Clean infrared here, so this is clean infrared."
   await expect(substitute).toContainText("GeoColor");
 });
+
+test("draws the night where the sun was at the frame on screen", async ({
+  page,
+}) => {
+  // The wash was worked out from the wall clock, so a reader scrubbed to the
+  // start of a two-hour loop saw tonight's terminator over ground the sun had
+  // stood thirty degrees further east over, and an exported still of a 2011
+  // replay carried tonight's night across it.
+  await page.getByRole("button", { name: "Layers", exact: true }).click();
+  await page
+    .locator(".toggle-row")
+    .filter({ hasText: "Day and night" })
+    .getByRole("checkbox")
+    .check();
+  await page.getByRole("button", { name: "Close Layers" }).click();
+
+  const pane = page.locator(".map-viewport").first();
+  await expect(pane).toHaveAttribute("data-layer-stack", /openradar-night/);
+  // Not the empty string: an empty attribute is the switch being off, and
+  // asserting only that it changes would pass on the layer being taken away.
+  await expect(pane).not.toHaveAttribute("data-night-at", "");
+
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+  const scrubber = page.getByLabel("Radar frame", { exact: true });
+
+  await scrubber.fill("0");
+  const oldest = await pane.getAttribute("data-night-at");
+  await scrubber.fill("2");
+  const newer = await pane.getAttribute("data-night-at");
+
+  expect(Number(oldest)).toBeGreaterThan(0);
+  expect(Number(newer)).toBeGreaterThan(Number(oldest));
+  // The frames the fixture plants are ten minutes apart, and the wash has to
+  // move with them rather than with the clock this ran at.
+  expect(Number(newer) - Number(oldest)).toBe(20 * 60_000);
+});

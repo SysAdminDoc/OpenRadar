@@ -914,7 +914,7 @@ export const fr: Catalogue = {
   "layer.counties": "Comtés",
   "layer.night": "Jour et nuit",
   "layers.nightDetail":
-    "Un voile sur la moitié du monde que le soleil n'éclaire pas, calculé à partir de l'horloge plutôt que téléchargé. Il avance chaque minute et passe sous tout le reste de la carte.",
+    "Un voile sur la moitié du monde que le soleil n'éclaire pas, calculé ici plutôt que téléchargé. Il suit l'image que vous regardez, donc en revenant en arrière ou en rejouant une vieille tempête il montre où était le soleil à ce moment, et il passe sous tout le reste de la carte.",
   "layer.gaugeQpe": "Pluie, corrigée par les pluviomètres",
   "layer.unitStreamflow": "Ruissellement modélisé",
   "layer.ffgThreeHour": "Seuil de crue soudaine, 3 h",

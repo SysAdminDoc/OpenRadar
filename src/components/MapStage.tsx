@@ -20,6 +20,7 @@ import { formatFrameTime, type RadarFrame } from "../lib/radar";
 import type { AppSettings, CameraState } from "../lib/settings";
 import { useT, type StringKey } from "../i18n";
 import { resolvedMapStyle } from "../lib/mapStyles";
+import { nightMoment } from "../lib/terminator";
 import { formatRadarTime } from "../lib/radar";
 import { formatAge, formatClock, useMeasurements } from "../lib/units";
 
@@ -31,10 +32,11 @@ interface MapStageProps {
   /**
    * The minute on the workspace clock.
    *
-   * Only the day and night wash reads it, and it reads it rather than the
-   * wall clock so the edge moves with the same tick everything else moves
-   * with: a still and the map it came from cannot then disagree about where
-   * the sun was.
+   * What the day and night wash falls back to, for a workspace with no frames
+   * yet. Where there is a frame the wash follows that instead, through
+   * `nightMoment`: each pane draws the sun where it stood at the moment that
+   * pane is showing, which is not the same moment in the two of them and is
+   * not now during a replay.
    */
   clock: number;
   mapRef: RefObject<MapViewportHandle | null>;
@@ -214,7 +216,6 @@ export function MapStage({
     route,
     counties: settings.layers.counties,
     night: settings.layers.night,
-    nightAt: clock,
     customOverlay: settings.layers.customOverlay ? customOverlay : null,
     stormTrack,
     sweep,
@@ -250,6 +251,9 @@ export function MapStage({
         onMapStatus={onMapStatus}
         {...shared}
         overlays={primaryOverlays}
+        // Stated per pane rather than shared, because the two panes are
+        // showing two moments and the sun was not in the same place at both.
+        nightAt={nightMoment(activeFrame?.time, clock)}
       />
       {dualPane ? (
         <MapViewport
@@ -271,6 +275,7 @@ export function MapStage({
           // whenever the fetch failed. The mosaic underneath is the honest
           // answer while there is no volume to draw.
           sweep={compareSweep}
+          nightAt={nightMoment(compareFrame?.time, clock)}
         />
       ) : null}
 

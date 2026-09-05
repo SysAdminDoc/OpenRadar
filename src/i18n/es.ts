@@ -903,7 +903,7 @@ export const es: Catalogue = {
   "layer.counties": "Condados",
   "layer.night": "Día y noche",
   "layers.nightDetail":
-    "Una capa tenue sobre la mitad del mundo donde no da el sol, calculada a partir del reloj en vez de descargada. Se mueve cada minuto y va por debajo de todo lo demás en el mapa.",
+    "Una capa tenue sobre la mitad del mundo donde no da el sol, calculada aquí en vez de descargada. Sigue al fotograma que estás viendo, así que al retroceder o repetir una tormenta antigua muestra dónde estaba el sol entonces, y va por debajo de todo lo demás en el mapa.",
   "layer.gaugeQpe": "Lluvia, corregida con pluviómetros",
   "layer.unitStreamflow": "Escorrentía modelada",
   "layer.ffgThreeHour": "Guía de crecidas, 3 h",

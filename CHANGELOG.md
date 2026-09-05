@@ -8,7 +8,7 @@
 
 - The map now names the colours on it. An outlook is a set of coloured areas, and the only thing that said what any of them meant was the popup, for the one under the pointer. With the convective outlook, the excessive rainfall outlook and the winter severity index all on, that was three sets of colours and nothing naming a single one. The key is built from what is actually drawn, in the service's own colours and its own words, with the window a forecast is valid for underneath. It stays out of a picture you export unless you ask for it, because a shared picture is usually a picture of one thing.
 
-- Day and night on the map, if you want it. A line of storms running through the night looked exactly like one running through the afternoon. The shading needs nothing from the network: where the sun is, is arithmetic. It sits under everything else, moves every minute, and is off until you turn it on.
+- Day and night on the map, if you want it. A line of storms running through the night looked exactly like one running through the afternoon. The shading needs nothing from the network, because where the sun is, is arithmetic. It follows the frame you are looking at rather than the clock on the wall, so scrubbing back through the loop walks the edge back with it and replaying a storm from 2011 shows that afternoon's daylight instead of tonight's. In dual pane each side gets its own, since the two sides are showing two different moments. It sits under everything else and is off until you turn it on.
 
 - The full-screen view can keep the screen on. It is meant to be left up on the monitor you are not typing at, and Windows turns that monitor off on its own timer. Off by default, and it lets the screen go the moment you leave the view.
 

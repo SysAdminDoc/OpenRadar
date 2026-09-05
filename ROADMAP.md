@@ -277,16 +277,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### P2
 
-- [ ] AUD-318 (P2): The day-and-night wash is drawn for the wall clock while the map shows another moment
-      Category: correctness
-      Where: `src/components/MapStage.tsx:217` (`nightAt: clock`), `src/App.tsx:323` (`const clock = useMinuteClock()`), `src/components/MapViewport.tsx:1760-1764` (`useMapSync(night && nightAt > 0 ? nightAt : 0, ...)` calling `nightPolygon(at)`), `src/lib/terminator.ts`.
-      Problem: The polygon is computed from the workspace minute clock and never from the frame on screen. Scrubbing to the start of a two-hour loop leaves the terminator thirty degrees of longitude east of where it stood when that frame was observed; a replay from Storm history (a 2011 outbreak, a 2022 hurricane) draws tonight's night over that afternoon's storms; the exported still, the wallpaper and the postcard burn that in. The switch's own detail copy says "worked out from the clock", so the setting is honest about the mechanism and wrong about the picture. The layer is off by default, so only readers who turned it on see it.
-      Evidence: `MapStage.tsx:217` passes `clock`; `activeFrame` is in scope on the same props (`MapStageProps.activeFrame`) and `App.tsx:1221` already derives `frameTime: activeFrame?.time` for another consumer. Nothing between MapStage and MapViewport substitutes a frame time, and nothing hides the lane during a replay. `src/lib/terminator.test.ts` covers the arithmetic only. Frame times are seconds (`framesWithinLoop` in `useRadarTimeline.ts` subtracts `loopMinutes * 60`), the clock is milliseconds.
-      Fix: In MapStage pass `nightAt: activeFrame ? activeFrame.time * 1000 : clock` for the primary pane and the compare frame's time for the second pane, rounded down to the minute so `useMapSync` (which keys on the raw number) does not rebuild the polygon on every frame of a loop; keep the minute clock only while there is no frame, since the `nightAt > 0` guard at `MapViewport.tsx:1760` would otherwise take the wash off an empty timeline. Reword `layers.nightDetail` (`en.ts:892`) in en/es/fr to say the wash follows the frame on screen. The refutation pass noted the alerts layer already goes dark during a replay at `App.tsx:1215-1217` for the same reason; this is the same rule applied to the wash.
-      Acceptance: A test that renders `MapStage` with an `activeFrame` at 2011-04-27T21:00Z and asserts the night source's `properties.subsolarLongitude` equals `subsolarLongitude(Date.UTC(2011, 3, 27, 21))` rather than the value for now; in `e2e/layers.spec.ts`, scrubbing the timeline with the layer on moves the wash; the exported still of a replay frame carries that frame's night.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-319 (P2): A panel docked on the right buries the compare card and the coordinate readout
       Category: visual
       Where: `src/index.css:1230-1234` (`.pane-compare`, `right: 12px`, `z-index: 18`), `src/index.css:1267-1279` (`.map-readout`, `right: 216px`, `z-index: 16`), `src/index.css:4572-4576` and its narrow twin at `:4685-4689` (the `[data-panel-side="right"]` shift, which lists `.zoom-controls`, `.product-legends`, `.source-attribution` and `.map-watermark` and not these two).

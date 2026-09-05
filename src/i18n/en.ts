@@ -890,7 +890,7 @@ export const en = {
   "layer.counties": "Counties",
   "layer.night": "Day and night",
   "layers.nightDetail":
-    "A wash over the half of the world the sun is not on, worked out from the clock rather than fetched. It moves every minute and sits under everything else on the map.",
+    "A wash over the half of the world the sun is not on, worked out here rather than fetched. It follows the frame you are looking at, so scrubbing back or replaying an old storm shows where the sun was then, and it sits under everything else on the map.",
   "layer.gaugeQpe": "Rain, gauge corrected",
   "layer.unitStreamflow": "Modelled runoff",
   "layer.ffgThreeHour": "Flash flood guidance, 3 h",
