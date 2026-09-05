@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { level2Source } from "../test/rustSource";
 import { describe, expect, it } from "vitest";
 import {
   HIGH_CONTRAST_REFLECTIVITY_RAMP,
@@ -125,9 +125,9 @@ describe("a loaded table's legend", () => {
  * from another describes a picture nobody is looking at.
  */
 function rustRamp(name: string): Array<[number, string]> {
-  const source = readFileSync("src-tauri/src/level2.rs", "utf8");
+  const source = level2Source();
   const start = source.indexOf(`const ${name}: &[(f32, [u8; 3])] = &[`);
-  if (start < 0) throw new Error(`${name} is gone from level2.rs`);
+  if (start < 0) throw new Error(`${name} is gone from the radar`);
   const end = source.indexOf("];", start);
   const body = source.slice(start, end);
   const stops: Array<[number, string]> = [];

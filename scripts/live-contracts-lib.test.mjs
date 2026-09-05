@@ -67,8 +67,14 @@ describe("the live contract list", () => {
     for (const contract of LIVE_CONTRACTS) {
       if (contract.kind !== "native") continue;
       const module = contract.filter.split("::")[0];
-      const file = path.join(root, "src-tauri", "src", `${module}.rs`);
-      expect(fs.existsSync(file), contract.filter).toBe(true);
+      // A module is one file or a directory of them. The single-site radar
+      // became the second on 2026-09-05 and this gate would have gone on
+      // passing while checking a path nothing writes to.
+      const at = path.join(root, "src-tauri", "src", module);
+      expect(
+        fs.existsSync(`${at}.rs`) || fs.existsSync(path.join(at, "mod.rs")),
+        contract.filter,
+      ).toBe(true);
     }
   });
 
