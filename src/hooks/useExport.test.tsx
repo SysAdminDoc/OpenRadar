@@ -80,6 +80,7 @@ describe("loop export workspace restoration", () => {
         dataSources: [],
         sweep: null,
         siteLoop: null,
+        keys: [],
         pushToast,
       }),
     );
@@ -130,6 +131,7 @@ describe("the record written beside the picture", () => {
         dataSources: [],
         sweep: null,
         siteLoop: null,
+        keys: [],
         pushToast: vi.fn(),
         ...over,
       }),
@@ -641,6 +643,7 @@ describe("the picture that goes on the desktop", () => {
         dataSources: [],
         sweep: null,
         siteLoop: null,
+        keys: [],
         pushToast: vi.fn(),
         ...over,
       }),

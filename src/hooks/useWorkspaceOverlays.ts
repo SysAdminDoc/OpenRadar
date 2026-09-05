@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SurfaceId } from "../components/CommandBar";
 import type { ToastMessage } from "../components/ToastHost";
-import type { OverlayBounds, OverlayData, OverlayId } from "../lib/overlays";
+import {
+  overlayLegends,
+  type OverlayBounds,
+  type OverlayData,
+  type OverlayId,
+  type OverlayLegend,
+} from "../lib/overlays";
 import { watchedPlaces, type AppSettings } from "../lib/settings";
 import { watchAlertBody, type WatchAlert } from "../lib/watch";
 import { useAlertWatch } from "./useAlertWatch";
@@ -14,6 +20,8 @@ import { translate } from "../i18n";
 export interface WorkspaceOverlays {
   /** Fetch state per layer, including the ones that are switched off. */
   states: OverlayStates;
+  /** The key for each layer on screen that draws bands, in drawing order. */
+  keys: OverlayLegend[];
   /** What the map should draw: null for a layer the user has switched off. */
   data: Partial<Record<OverlayId, OverlayData | null>>;
   /** Raises one harmless alert, so the reader can see the path works. */
@@ -273,8 +281,17 @@ export function useWorkspaceOverlays(options: {
     [shown, states],
   );
 
+  // The keys for whatever bands are on screen, built here because this is
+  // where both halves of the question live: what the reader chose, and what
+  // actually came back for it.
+  const keys = useMemo(
+    () => overlayLegends(states_, choices),
+    [states_, choices],
+  );
+
   return {
     states: states_,
+    keys,
     data,
     sendWatchTest: watch.sendTest,
     alertActive: watch.alertActive,

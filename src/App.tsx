@@ -104,7 +104,7 @@ import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { CommandAction } from "./lib/commands";
 import type { GeoPoint } from "./lib/geo";
 import { log, recentLog, subscribeLog } from "./lib/log";
-import type { OverlayBounds } from "./lib/overlays";
+import type { OverlayBounds, OverlayLegend } from "./lib/overlays";
 import {
   providerHealth,
   providerIncidents,
@@ -248,6 +248,10 @@ const PanelSurfaces = lazy(async () => {
  * against a four-hour threshold, so five minutes of slack costs nothing and
  * saves fifty-five settings writes an hour.
  */
+/** One list rather than a fresh one each render, so nothing downstream of
+    an export re-arms on a picture nobody asked to be keyed. */
+const EMPTY_KEYS: OverlayLegend[] = [];
+
 const LAST_SEEN_EVERY_MS = 5 * 60_000;
 
 export default function App() {
@@ -1385,6 +1389,9 @@ export default function App() {
     frameIndex,
     source,
     timeline,
+    // Only when the reader asked for them. A shared picture carries the
+    // weather; the scales beside it are a choice.
+    keys: settings.exportKeys ? overlays.keys : EMPTY_KEYS,
     // The map under the weather, for the style on screen: an aerial picture
     // credits USGS and a topographic one credits OpenTopoMap, rather than
     // both crediting a service that did not draw them.
@@ -2677,6 +2684,7 @@ export default function App() {
             activeSurface={activeSurface}
             productOpen={productOpen}
             settings={settings}
+            overlayKeys={overlays.keys}
             overlays={
               replay
                 ? {
@@ -2940,6 +2948,7 @@ export default function App() {
           })
         }
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
+        overlayKeys={overlays.keys}
         lightning={singleSite.historical ? null : lightning.window}
         smoke={drawnForecastSmoke ? null : (overlays.data.smoke ?? null)}
         classification={classification.report}

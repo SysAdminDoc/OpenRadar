@@ -5,7 +5,7 @@ import type { SurfaceId } from "./CommandBar";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GeoPoint } from "../lib/geo";
 import type { LogEntry } from "../lib/log";
-import type { OverlayBounds } from "../lib/overlays";
+import type { OverlayBounds, OverlayLegend } from "../lib/overlays";
 import type { ProviderHealth } from "../lib/providers";
 import type {
   AppSettings,
@@ -119,6 +119,8 @@ interface PanelSurfacesProps {
   productOpen: boolean;
   settings: AppSettings;
   overlays: OverlayStates;
+  /** The keys for the banded layers on screen, which the export can carry. */
+  overlayKeys: OverlayLegend[];
   viewport: OverlayBounds | null;
   centerPoint: GeoPoint;
   frameCount: number;
@@ -468,6 +470,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           busy={props.exportState.busy}
           progress={props.exportState.progress}
           dataExports={props.dataExports}
+          keyCount={props.overlayKeys.length}
+          keysInExport={settings.exportKeys}
+          onKeysInExport={(exportKeys) =>
+            props.onSettings((now) => ({ ...now, exportKeys }))
+          }
           onExportImage={props.exportState.exportImage}
           onExportPostcard={props.exportState.exportPostcard}
           placeName={settings.watch.name?.trim() ?? ""}

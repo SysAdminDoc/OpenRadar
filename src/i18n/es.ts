@@ -11,6 +11,9 @@ export const es: Catalogue = {
   "export.eyebrow": "Llévatelo",
   "export.title": "Exportar",
   "export.image": "Exportar imagen",
+  "export.keys": "Incluir las leyendas en la imagen",
+  "export.keysDetail":
+    "{count, plural, one {La escala de la única capa con bandas en pantalla va por el lado derecho de lo que guardes.} other {Las escalas de las # capas con bandas en pantalla van por el lado derecho de lo que guardes.}}",
   "export.loop": "Exportar animación (WebM)",
   "export.mp4": "Exportar animación (MP4)",
   "export.gif": "Exportar GIF",

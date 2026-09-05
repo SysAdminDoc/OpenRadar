@@ -73,7 +73,15 @@ async function startIn(page: Page, language: string) {
   await page.addInitScript((value) => {
     window.localStorage.setItem(
       "openradar.settings",
-      JSON.stringify({ schemaVersion: 2, language: value }),
+      JSON.stringify({
+        schemaVersion: 2,
+        language: value,
+        // The convective outlook, so the key for its bands is on the map
+        // while the sweep below measures. That surface is in the scope
+        // `clipped` walks and it is empty on a map with no banded layer on,
+        // so without this the key would be measured in no language at all.
+        layers: { spcOutlooks: true },
+      }),
     );
   }, language);
   await routeWorkspace(page);

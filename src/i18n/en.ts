@@ -13,6 +13,9 @@ export const en = {
   "export.eyebrow": "Take it with you",
   "export.title": "Export",
   "export.image": "Export picture",
+  "export.keys": "Put the layer keys in the picture",
+  "export.keysDetail":
+    "{count, plural, one {The scale for the one banded layer on screen goes down the right-hand side of anything you save.} other {The scales for the # banded layers on screen go down the right-hand side of anything you save.}}",
   "export.loop": "Export loop (WebM)",
   "export.mp4": "Export loop (MP4)",
   "export.loopFrames": " ({count, plural, one {# frame} other {# frames}})",

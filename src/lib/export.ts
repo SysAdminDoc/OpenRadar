@@ -1,3 +1,4 @@
+import type { OverlayLegend } from "./overlays";
 import { translate } from "../i18n";
 import { encodeGifOffThread } from "./gifWorker";
 import { log } from "./log";
@@ -8,6 +9,15 @@ export interface ExportCaption {
   /** Frame time, source name, and anything else that names the picture. */
   lines: string[];
   attribution: string;
+  /**
+   * The keys for the banded layers on screen, when the reader asked for them.
+   *
+   * Empty by default. A picture somebody shares is usually a picture of one
+   * thing, and a column of colour scales down its side is chrome rather than
+   * weather; a reader who is sharing an outlook wants the opposite, so it is
+   * a choice rather than a rule either way.
+   */
+  keys?: OverlayLegend[];
 }
 
 /** Nothing wider than this is worth the file size for a shared loop. */
@@ -41,6 +51,8 @@ export function drawFrame(
     Math.max(...lines.map((line) => context.measureText(line).width)) +
     CAPTION_PADDING * 2;
 
+  drawKeys(context, target, caption.keys ?? []);
+
   context.fillStyle = "rgba(9, 11, 16, 0.78)";
   context.fillRect(
     CAPTION_PADDING,
@@ -59,6 +71,61 @@ export function drawFrame(
       target.height - boxHeight + index * lineHeight,
     );
   });
+}
+
+/** How tall one row of a key is, and how wide its colour patch. */
+const KEY_ROW = 16;
+const KEY_SWATCH = 12;
+
+/**
+ * The keys down the right-hand side, one block per layer.
+ *
+ * Opposite the caption, because the caption is already in the bottom left and
+ * a picture with both in the same corner has one of them over the weather.
+ * Each block is its own panel: a run of them reads as a list rather than as
+ * one long column somebody has to work out the divisions of.
+ */
+function drawKeys(
+  context: CanvasRenderingContext2D,
+  target: HTMLCanvasElement,
+  keys: OverlayLegend[],
+): void {
+  if (keys.length === 0) return;
+  context.font = "12px 'Segoe UI', system-ui, sans-serif";
+  context.textBaseline = "top";
+
+  const rows = keys.map((key) => [key.title, ...key.bands.map((b) => b.label)]);
+  const width =
+    Math.max(...rows.flat().map((line) => context.measureText(line).width)) +
+    KEY_SWATCH +
+    CAPTION_PADDING * 3;
+  const height =
+    keys.reduce((tall, key) => tall + (key.bands.length + 1) * KEY_ROW, 0) +
+    CAPTION_PADDING * (keys.length + 1);
+
+  let top = CAPTION_PADDING;
+  const left = target.width - width - CAPTION_PADDING;
+  context.fillStyle = "rgba(9, 11, 16, 0.78)";
+  context.fillRect(left, top, width, height);
+
+  top += CAPTION_PADDING;
+  for (const key of keys) {
+    context.fillStyle = "#e7edf7";
+    context.fillText(key.title, left + CAPTION_PADDING, top);
+    top += KEY_ROW;
+    for (const band of key.bands) {
+      context.fillStyle = band.color;
+      context.fillRect(left + CAPTION_PADDING, top + 2, KEY_SWATCH, KEY_SWATCH);
+      context.fillStyle = "#c8d2e0";
+      context.fillText(
+        band.label,
+        left + CAPTION_PADDING + KEY_SWATCH + 6,
+        top,
+      );
+      top += KEY_ROW;
+    }
+    top += CAPTION_PADDING;
+  }
 }
 
 function exportCanvas(

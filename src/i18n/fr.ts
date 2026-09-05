@@ -19,6 +19,9 @@ export const fr: Catalogue = {
   "export.eyebrow": "Emportez-la",
   "export.title": "Exporter",
   "export.image": "Exporter l'image",
+  "export.keys": "Inclure les légendes dans l'image",
+  "export.keysDetail":
+    "{count, plural, one {L'échelle de la seule couche à bandes affichée figure sur le côté droit de ce que vous enregistrez.} other {Les échelles des # couches à bandes affichées figurent sur le côté droit de ce que vous enregistrez.}}",
   "export.loop": "Exporter la boucle (WebM)",
   "export.mp4": "Exporter la boucle (MP4)",
   "export.loopFrames": " ({count, plural, one {# image} other {# images}})",

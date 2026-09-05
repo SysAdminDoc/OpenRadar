@@ -2,10 +2,13 @@ import { translate } from "../../i18n";
 import type { LayerSpecification } from "maplibre-gl";
 import {
   arcgisQuery,
+  bandsIn,
   relativeTime,
   type OverlayAdapter,
   type OverlayData,
   type OverlayFeature,
+  type OverlayId,
+  type OverlayLegend,
 } from "./registry";
 
 /**
@@ -193,6 +196,34 @@ function fillAndLine(sourceId: string): LayerSpecification[] {
   ];
 }
 
+/**
+ * The key for one of the Center's outlooks.
+ *
+ * The window is the service's own words rather than two reformatted
+ * timestamps, for the same reason the popup uses them: it writes
+ * "16Z 09/03/26 - 12Z 09/04/26", which says plainly that the window crosses
+ * a midnight.
+ */
+function outlookLegend(
+  data: OverlayData,
+  id: OverlayId,
+  title: string,
+): OverlayLegend | null {
+  const bands = bandsIn(data, (properties) => ({
+    label: String(properties.risk ?? ""),
+    color: String(properties.fill ?? ""),
+    rank: Number(properties.rank) || 0,
+  }));
+  if (bands.length === 0) return null;
+  const window = String(data.features[0]?.properties?.window ?? "");
+  return {
+    id,
+    title,
+    bands,
+    note: window ? translate("wpc.validWindow", { window }) : null,
+  };
+}
+
 export const wpcExcessiveRainOverlay: OverlayAdapter = {
   id: "wpcExcessiveRain",
   nameKey: "layer.wpcExcessiveRain",
@@ -233,6 +264,12 @@ export const wpcExcessiveRainOverlay: OverlayAdapter = {
       url: "https://www.wpc.ncep.noaa.gov/qpf/excessive_rainfall_outlook_interp.shtml",
     };
   },
+  legend: (data) =>
+    outlookLegend(
+      data,
+      "wpcExcessiveRain",
+      translate("layer.wpcExcessiveRain"),
+    ),
 };
 
 export const wpcWinterSeverityOverlay: OverlayAdapter = {
@@ -280,4 +317,10 @@ export const wpcWinterSeverityOverlay: OverlayAdapter = {
       url: "https://www.wpc.ncep.noaa.gov/wwd/wssi/wssi.php",
     };
   },
+  legend: (data) =>
+    outlookLegend(
+      data,
+      "wpcWinterSeverity",
+      translate("layer.wpcWinterSeverity"),
+    ),
 };
