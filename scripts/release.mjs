@@ -11,6 +11,8 @@ import path from "node:path";
 import {
   assertReleaseAssetNames,
   cargoVersion,
+  defenderScanner,
+  defenderVerdict,
   publishedLag,
   publishedLagLine,
   releaseAssetNames,
@@ -259,6 +261,64 @@ verifyUpdaterSignature({
   publicKey: conf.plugins?.updater?.pubkey,
   expectedFileName: installerName,
 });
+/**
+ * Scans the staged installer with Defender, when this machine has one.
+ *
+ * A detection stops the release. An absent scanner is reported as skipped
+ * rather than as a pass: a release note that says "Defender found nothing"
+ * when nothing looked is worse than one that says nothing at all.
+ */
+function scanWithDefender(file) {
+  const platformRoot = path.join(
+    process.env.ProgramData ?? "C:\\ProgramData",
+    "Microsoft",
+    "Windows Defender",
+    "Platform",
+  );
+  let scanner = null;
+  try {
+    scanner = defenderScanner(
+      fs
+        .readdirSync(platformRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name),
+    );
+  } catch {
+    scanner = null;
+  }
+  if (!scanner) {
+    console.log("Defender: no scanner on this machine, skipped.");
+    return { scanned: false, clean: false, detail: "no scanner installed" };
+  }
+
+  const exe = path.join(platformRoot, scanner, "MpCmdRun.exe");
+  if (!fs.existsSync(exe)) {
+    console.log(`Defender: ${scanner} has no MpCmdRun, skipped.`);
+    return { scanned: false, clean: false, detail: "no scanner installed" };
+  }
+
+  const result = spawnSync(exe, ["-Scan", "-ScanType", "3", "-File", file], {
+    encoding: "utf8",
+  });
+  const verdict = {
+    ...defenderVerdict({
+      status: result.status,
+      output: `${result.stdout ?? ""}\n${result.stderr ?? ""}`,
+    }),
+    engine: scanner,
+  };
+  if (verdict.scanned && verdict.clean) {
+    console.log(`Defender ${scanner}: ${verdict.detail}.`);
+  } else if (verdict.scanned) {
+    fail(`Defender ${scanner} flagged ${path.basename(file)}: ${verdict.detail}`);
+  } else {
+    console.log(`Defender ${scanner} could not scan: ${verdict.detail}.`);
+  }
+  return verdict;
+}
+
+const defender = scanWithDefender(installer);
+
 const proof = {
   schemaVersion: 1,
   version,
@@ -267,6 +327,7 @@ const proof = {
   installer: installerName,
   installerSha256: sha256File(installer),
   signatureSha256: sha256File(signaturePath),
+  defender,
 };
 
 if (skipBuild) {

@@ -147,6 +147,8 @@ Windows will show a SmartScreen warning the first time. The installer is not Aut
 Get-FileHash OpenRadar_0.10.0_x64-setup.exe -Algorithm SHA256
 ```
 
+Antivirus is a separate thing from SmartScreen, and worth a word because two other unsigned weather apps have run into it. A machine-learning heuristic sometimes flags a small unsigned Rust program as `Win32/Wacapew.A!ml`, which is a guess about what the file looks like rather than anything found in it. Every release is scanned with Defender before it is published and the verdict goes into `release-metadata.json` beside the hashes, so a build that trips one never ships. If your own scanner objects anyway, check the hash above against `SHA256SUMS`, and report it to your vendor as a false positive: that is what gets the heuristic corrected for everybody.
+
 Updates are a different matter. OpenRadar checks for them only when you ask it to, from Diagnostics, and an update is signed with the project's own key and refused if the signature does not match. The SmartScreen gap does not extend to what arrives afterwards.
 
 What the app offers you is whatever `latest.json` on the newest published release says, which is not always the newest version in this repository: a release can be built and staged without being published, and while it sits there the app tells you that you are up to date. The releases page is the truth about what has actually shipped. Building a release now prints the published version beside this one and stops if the gap has grown.

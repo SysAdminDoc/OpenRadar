@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  defenderScanner,
+  defenderVerdict,
   assertReleaseAssetNames,
   cargoVersion,
   publishedLag,
@@ -60,6 +62,65 @@ function signedFixture(fileName, bytes) {
     signatureEnvelope: Buffer.from(`${signatureText}\n`).toString("base64"),
   };
 }
+
+describe("what Defender said about the installer", () => {
+  // Two unsigned Rust weather apps have been flagged `Win32/Wacapew.A!ml` and
+  // both publish a false-positive FAQ about it. Finding that out from a
+  // reader is the thing this exists to stop.
+  //
+  // The clean case is the exact words this machine's Defender printed for the
+  // 0.10.0 installer on 2026-09-05, rather than a shape invented here.
+  const clean = [
+    "Scan starting...",
+    "Scan finished.",
+    "Scanning C:\\repos\\OpenRadar\\artifacts\\OpenRadar_0.10.0_x64-setup.exe found no threats.",
+  ].join("\n");
+
+  it("passes only a scan that ran and found nothing", () => {
+    expect(defenderVerdict({ status: 0, output: clean })).toEqual({
+      scanned: true,
+      clean: true,
+      detail: "found no threats",
+    });
+  });
+
+  it("names what it found, which is what a false-positive report carries", () => {
+    const found = defenderVerdict({
+      status: 2,
+      output:
+        "Scan starting...\nThreat  : Trojan:Win32/Wacapew.A!ml\nScan finished.",
+    });
+    expect(found.scanned).toBe(true);
+    expect(found.clean).toBe(false);
+    expect(found.detail).toBe("Trojan:Win32/Wacapew.A!ml");
+
+    // The count without the name is still a detection.
+    expect(
+      defenderVerdict({ status: 2, output: "Scanning x.exe found 1 threats." })
+        .clean,
+    ).toBe(false);
+  });
+
+  it("says it did not scan rather than that it found nothing", () => {
+    // The two answers that must never be confused. A release note saying
+    // Defender found nothing, written when nothing looked, is worse than one
+    // that says nothing at all.
+    const broken = defenderVerdict({ status: 1, output: "cannot open file" });
+    expect(broken.scanned).toBe(false);
+    expect(broken.clean).toBe(false);
+
+    // An exit code of zero with nothing to say is not a pass either: the
+    // words are half the answer.
+    expect(defenderVerdict({ status: 0, output: "" }).scanned).toBe(false);
+  });
+
+  it("takes the newest platform Defender has installed", () => {
+    expect(
+      defenderScanner(["4.18.24010.1-0", "4.18.26080.3-0", "4.18.25010.1-0"]),
+    ).toBe("4.18.26080.3-0");
+    expect(defenderScanner([])).toBeNull();
+  });
+});
 
 describe("release integrity", () => {
   it("verifies the installer, key, trusted filename, and global signature", () => {

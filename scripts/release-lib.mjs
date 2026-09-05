@@ -106,6 +106,56 @@ export function verifyUpdaterSignature({
   }
 }
 
+/**
+ * What Windows Defender said about a file, read from what it printed.
+ *
+ * Two unsigned Rust weather apps have been flagged `Win32/Wacapew.A!ml` and
+ * both publish a false-positive FAQ about it. An installer that trips the
+ * machine-learning heuristic is not something to find out about from a
+ * reader, so the release scans what it is about to publish.
+ *
+ * Three answers, and only one of them is a pass. A clean scan says so in
+ * words as well as in its exit code, and a run that failed for any other
+ * reason is reported as not having scanned rather than as having found
+ * nothing: "Defender did not run" and "Defender found nothing" are the two
+ * answers that must never be confused.
+ */
+export function defenderVerdict({ status, output }) {
+  const said = String(output ?? "");
+  if (/found no threats/i.test(said) && status === 0) {
+    return { scanned: true, clean: true, detail: "found no threats" };
+  }
+  // The documented exit code for a detection is 2, and the line naming what
+  // it found is the useful half: it is what a false-positive report to
+  // Microsoft has to carry.
+  const threat = /\bThreat(?:\s+Name)?\s*:\s*(\S+)/i.exec(said);
+  if (status === 2 || threat || /found \d+ threats?/i.test(said)) {
+    return {
+      scanned: true,
+      clean: false,
+      detail: threat ? threat[1] : `exit ${status}`,
+    };
+  }
+  return {
+    scanned: false,
+    clean: false,
+    detail: `exit ${status}`,
+  };
+}
+
+/**
+ * The newest Defender platform's own scanner, or null where there is none.
+ *
+ * Defender keeps one directory per platform build and the newest is the one
+ * in service. Sorted as text on purpose: the names are dotted version
+ * numbers with a trailing revision, so a numeric sort would need a parser
+ * for a string that is only ever compared with its own siblings.
+ */
+export function defenderScanner(platforms) {
+  const newest = [...platforms].sort().pop();
+  return newest ?? null;
+}
+
 export function validateReleaseProof(proof, expected) {
   if (!proof || typeof proof !== "object") {
     throw new Error("The release proof is missing or unreadable.");
