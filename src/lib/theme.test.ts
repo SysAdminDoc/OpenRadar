@@ -127,7 +127,7 @@ describe("a theme reaches the chrome and nothing else", () => {
     }
     const lastAccent = (mode: "dark" | "light") => accents[mode];
     const panel = readFileSync(
-      join(ROOT, "panels", "MapOptionsPanels.tsx"),
+      join(ROOT, "panels", "SettingsPanel.tsx"),
       "utf8",
     );
     const shown = (mode: string) =>

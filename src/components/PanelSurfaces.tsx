@@ -58,17 +58,17 @@ const SoundingPanel = lazy(async () => {
  * dynamic import is quietly ignored and everything stays where it was.
  */
 const SettingsPanel = lazy(async () => {
-  const module = await import("../panels/MapOptionsPanels");
+  const module = await import("../panels/SettingsPanel");
   return { default: module.SettingsPanel };
 });
 
 const LayersPanel = lazy(async () => {
-  const module = await import("../panels/MapOptionsPanels");
+  const module = await import("../panels/LayersPanel");
   return { default: module.LayersPanel };
 });
 
 const MapTypePanel = lazy(async () => {
-  const module = await import("../panels/MapOptionsPanels");
+  const module = await import("../panels/MapTypePanel");
   return { default: module.MapTypePanel };
 });
 import { AlertsPanel } from "../panels/AlertsPanel";
