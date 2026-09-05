@@ -1,5 +1,5 @@
-import { expect, test, type Locator } from "@playwright/test";
-import { routeWorkspace, transparentPng } from "./support/fixtures";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { routeWorkspace, stubHost, transparentPng } from "./support/fixtures";
 import { expectClean } from "./support/axe";
 import { contrast } from "./support/contrast";
 
@@ -275,6 +275,70 @@ test("offers the infrared band beside GeoColor and swaps only itself", async ({
   expect(await pane.getAttribute("data-layer-stack")).toBe(before);
   expect(await pane.getAttribute("data-mosaic-opacity")).toBe(mosaicBefore);
   expect(nonSatellite()).toBe(otherBefore);
+});
+
+/**
+ * How many pixels of the sheet's own colour the map is drawing.
+ *
+ * Zero is the assertion that works. The other direction, a sheet that loads
+ * and paints, could not be made to read back: see `AUD-247` in
+ * `Roadmap_Blocked.md` for how far it gets and where it stops.
+ */
+async function magentaPixels(page: Page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return 0;
+    const target = document.createElement("canvas");
+    target.width = canvas.width;
+    target.height = canvas.height;
+    const context = target.getContext("2d");
+    if (!context) return 0;
+    context.drawImage(canvas, 0, 0);
+    const pixels = context.getImageData(0, 0, target.width, target.height).data;
+    let magenta = 0;
+    for (let at = 0; at < pixels.length; at += 4) {
+      if (pixels[at] > 200 && pixels[at + 1] < 80 && pixels[at + 2] > 200) {
+        magenta += 1;
+      }
+    }
+    return magenta;
+  });
+}
+
+test("draws a dot where the icon sheet will not load", async ({ page }) => {
+  // The other half. A sheet that answers 404 must not leave the position
+  // drawing nothing at all: the circle layer skips a feature that has an
+  // icon on purpose, so without the fallback the report vanishes.
+  await stubHost(
+    page,
+    "https://mesonet.agron.iastate.edu/pictures/**",
+    async (route) => {
+      await route.fulfill({ status: 404, body: "gone" });
+    },
+  );
+
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.setInputFiles('.drop-zone input[type="file"]', {
+    name: "spotters.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      [
+        "Title: Spotters",
+        'IconFile: 1, 15, 25, 7, 24, "https://mesonet.agron.iastate.edu/pictures/sheet.png"',
+        "Object: 25.5,-85.5",
+        'Icon: 0, 0, 0, 1, 1, "Chaser"',
+        "End:",
+      ].join(String.fromCharCode(10)),
+    ),
+  });
+
+  await expect(page.getByText(/spotters.txt added/)).toBeVisible();
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /custom-points/);
+  // Nothing of the sheet's colour, because the sheet never arrived.
+  await expect.poll(() => magentaPixels(page)).toBe(0);
 });
 
 test("draws a GRLevelX placefile in its own colours", async ({ page }) => {

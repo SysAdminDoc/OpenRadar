@@ -108,9 +108,11 @@ export const CELL_LAYER_IDS = [
  * They go on top of the ones that cover the country, because a hail core is a
  * smaller target than the rain around it and a continuous field drawn over
  * one buries it. The same split decides how each is drawn on the native side,
- * where it is `Sampling::Cells` against `Sampling::Nearest`; the two lists are
- * held together by `every_product_is_drawn_the_way_its_data_is_shaped` there
- * and by the test beside this one here.
+ * where it is `Sampling::Cells` against `Sampling::Nearest`. The two lists are
+ * one decision written twice, so a test reads the Rust table own verdicts and
+ * holds them to this: nothing else would notice them drifting, because a
+ * scattered grid that ends up under the continuous fields is buried by them
+ * and the layer still draws.
  */
 const SCATTERED_MRMS_PRODUCTS = [
   "rotation",
