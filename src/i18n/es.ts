@@ -895,6 +895,9 @@ export const es: Catalogue = {
   "layers.qpeHourDetail": "Cuánta ha caído en la última hora",
   "layer.qpeDay": "Lluvia, último día",
   "layer.counties": "Condados",
+  "layer.night": "Día y noche",
+  "layers.nightDetail":
+    "Una capa tenue sobre la mitad del mundo donde no da el sol, calculada a partir del reloj en vez de descargada. Se mueve cada minuto y va por debajo de todo lo demás en el mapa.",
   "layer.gaugeQpe": "Lluvia, corregida con pluviómetros",
   "layer.unitStreamflow": "Escorrentía modelada",
   "layer.ffgThreeHour": "Guía de crecidas, 3 h",
@@ -1104,6 +1107,7 @@ export const es: Catalogue = {
   "keywords.qpeHour": "acumulacion hora lluvia",
   "keywords.qpeDay": "acumulacion lluvia",
   "keywords.counties": "condados limites fronteras estados",
+  "keywords.night": "noche día oscuridad sol terminador crepúsculo",
   "keywords.gaugeQpe": "acumulacion multisensor lluvia medida",
   "keywords.unitStreamflow": "caudal agua inundacion",
   "keywords.ffgThreeHour": "inundacion repentina tres horas proporcion",

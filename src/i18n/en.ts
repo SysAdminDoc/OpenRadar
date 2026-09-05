@@ -882,6 +882,9 @@ export const en = {
   "layers.qpeHourDetail": "How much has fallen in the last hour",
   "layer.qpeDay": "Rain, Past Day",
   "layer.counties": "Counties",
+  "layer.night": "Day and night",
+  "layers.nightDetail":
+    "A wash over the half of the world the sun is not on, worked out from the clock rather than fetched. It moves every minute and sits under everything else on the map.",
   "layer.gaugeQpe": "Rain, gauge corrected",
   "layer.unitStreamflow": "Modelled runoff",
   "layer.ffgThreeHour": "Flash flood guidance, 3 h",
@@ -1088,6 +1091,7 @@ export const en = {
   "keywords.qpeHour": "accumulation hour rainfall",
   "keywords.qpeDay": "accumulation day rainfall",
   "keywords.counties": "county borders boundaries state lines",
+  "keywords.night": "night day dark sun terminator twilight",
   "keywords.gaugeQpe": "gauge corrected accumulation multisensor",
   "keywords.unitStreamflow": "runoff streamflow flood water",
   "keywords.ffgThreeHour": "flash flood guidance three hours ratio",

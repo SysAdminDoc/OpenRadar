@@ -75,6 +75,7 @@ import { overlayBandOrder } from "../lib/overlayOrder";
 import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { loadCounties } from "../lib/counties";
+import { nightPolygon } from "../lib/terminator";
 import { casingFor } from "../lib/lineOnMap";
 import { isLightBasemap } from "../lib/mapStyles";
 import { useMapSync } from "../hooks/useMapSync";
@@ -120,6 +121,8 @@ import {
   COUNTY_LAYER_ID,
   COUNTY_LAYER_IDS,
   COUNTY_SOURCE_ID,
+  NIGHT_LAYER_ID,
+  NIGHT_SOURCE_ID,
   ROUTE_LAYER_ID,
   SATELLITE_LAYER_ID,
   SURGE_LAYER_ID,
@@ -248,6 +251,16 @@ interface MapViewportProps {
   route?: Record<string, unknown> | null;
   /** Whether county and state lines are drawn. */
   counties?: boolean;
+  /** A wash over the half of the world the sun is not on. */
+  night?: boolean;
+  /**
+   * The minute the wash is drawn for.
+   *
+   * Passed in rather than read off the clock here, so the edge moves with the
+   * same tick everything else on this map moves with and a still export and
+   * the map it came from cannot disagree about where the sun was.
+   */
+  nightAt?: number;
   customOverlay?: Record<string, unknown> | null;
   /** A past storm's best track, drawn while one is picked in Storm history. */
   stormTrack?: Record<string, unknown> | null;
@@ -381,6 +394,8 @@ function MapViewportInner(
     overlays = {},
     route = null,
     counties = false,
+    night = false,
+    nightAt = 0,
     customOverlay = null,
     stormTrack = null,
     toolMode = null,
@@ -480,6 +495,7 @@ function MapViewportInner(
   const routeRef = useRef(route);
   // The bundled outlines, once they have been read, or null while the switch
   // is off and for as long as the read takes.
+  const nightRef = useRef<Record<string, unknown> | null>(null);
   const countiesRef = useRef<Record<string, unknown> | null>(null);
   const countiesRequestRef = useRef(0);
   const projectionRef = useRef(projection);
@@ -909,6 +925,38 @@ function MapViewportInner(
    * makes it read over aerial imagery and over anything else nobody picked
    * with these lines in mind.
    */
+  /**
+   * The dark half of the world, as one polygon under everything else.
+   *
+   * A flat wash rather than a gradient at the edge: the terminator itself is
+   * about fifty kilometres wide at the equator and a soft edge at this scale
+   * says something about twilight that the wash is not measuring.
+   */
+  const NIGHT_LANE: VectorLane = {
+    sourceId: NIGHT_SOURCE_ID,
+    layers: () => [
+      {
+        id: NIGHT_LAYER_ID,
+        type: "fill",
+        source: NIGHT_SOURCE_ID,
+        paint: {
+          "fill-color": "#020617",
+          // Light enough that the map underneath is still a map. It is a
+          // sense of where it is dark, not a curtain.
+          "fill-opacity": 0.22,
+        },
+      },
+    ],
+  };
+
+  const syncNight = () => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (syncVectorLane(map, NIGHT_LANE, nightRef.current, under)) {
+      publishLayers();
+    }
+  };
+
   const COUNTY_LANE: VectorLane = {
     sourceId: COUNTY_SOURCE_ID,
     layers: () => {
@@ -1700,6 +1748,16 @@ function MapViewportInner(
   // Read when the switch first goes on rather than at start-up: it is a
   // megabyte of outlines and most readers never turn it on. Kept afterwards,
   // so switching it off and on again costs nothing.
+  // The wash is redrawn on the switch and on the minute, because a minute of
+  // clock moves the edge a quarter of a degree and a map left open overnight
+  // would otherwise still be showing where the sun was at launch.
+  useMapSync(night && nightAt > 0 ? nightAt : 0, (at) => {
+    nightRef.current = at
+      ? (nightPolygon(at) as unknown as Record<string, unknown>)
+      : null;
+    syncNight();
+  });
+
   useMapSync(counties, (next) => {
     // Which switch flip this read belongs to. A megabyte takes long enough to
     // read that somebody can turn the switch off inside it, and a reply that
@@ -1953,6 +2011,7 @@ function MapViewportInner(
       syncOverlays();
       syncRoute();
       syncCounties();
+      syncNight();
       syncStormTrack();
       syncCustomOverlay();
       onMapStatus?.("ready");

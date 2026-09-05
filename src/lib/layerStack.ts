@@ -18,6 +18,15 @@ import { MRMS_PRODUCT_IDS } from "./providers/mrms";
 /** Every overlay names its source and its layers from this. */
 export const OVERLAY_SOURCE_PREFIX = "openradar-overlay-";
 
+/**
+ * The unlit half of the world, worked out from the sun's position.
+ *
+ * Under every other layer, including the satellite picture: it is where the
+ * light is rather than something that happened, and a wash over a warning
+ * would be the one arrangement the panel refuses to let anybody make.
+ */
+export const NIGHT_SOURCE_ID = "openradar-night-source";
+export const NIGHT_LAYER_ID = "openradar-night-layer";
 export const SATELLITE_LAYER_ID = "openradar-satellite-layer";
 export const SURGE_LAYER_ID = "openradar-surge-layer";
 export const MRMS_SOURCE_PREFIX = "openradar-mrms-";
@@ -187,6 +196,7 @@ export const RADAR_LANE_LAYER_IDS = [
  */
 export function layerStackOrder(overlays: readonly string[]): string[] {
   return [
+    NIGHT_LAYER_ID,
     SATELLITE_LAYER_ID,
     // Surge sits above the satellite and under the radar: it is the ground
     // the weather is happening over, not weather itself.

@@ -2585,6 +2585,7 @@ export default function App() {
         stormTrack={stormTrackData}
         sweep={singleSite.sweep}
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
+        clock={clock}
         cells={stormCells.features}
         classification={drawnClassification}
         forecastSmoke={drawnForecastSmoke}
