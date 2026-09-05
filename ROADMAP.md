@@ -350,16 +350,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### Unaudited, needs a pass
 
-- [ ] AUD-310 (P3): Spanish and French rendered on screen
-      Category: testing
-      Where: `e2e/language.spec.ts` (renders the pseudolocale only); `src/i18n/es.ts`, `fr.ts`
-      Problem: The clipping sweep proves labels survive a third more text; nothing renders the real Spanish or French and looks at it. A translation that is correct and too long for its control, or a French string that wraps inside a segmented button, is invisible to every gate.
-      Evidence: `rg -n "es\"|fr\"" e2e/language.spec.ts` matches nothing but the pseudolocale selector.
-      Fix: Run the same sweep in `es` and `fr` at 1024x720 and 1487x1058, and add the two screenshots to the visual set.
-      Acceptance: The sweep passes in all three languages.
-      Confidence: Needs-repro
-      Effort: S
-
 - [ ] AUD-311 (P3): What this pass could not observe
       Category: testing
       Where: the packaged Tauri window (tray launch, `visibilitychange` on first show, the notification permission prompt, the opener, the updater); a real screen reader (the ARIA findings above are traced, not heard); the MP4 export (Playwright's Chromium has no H.264; Edge does, per the 2026-09-03 note); a long-running session (`AUD-166`); the live TDWR and Level II decode paths under real network conditions

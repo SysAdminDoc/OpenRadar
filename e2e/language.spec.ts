@@ -160,6 +160,19 @@ test.describe("a workspace in another language", () => {
     expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
   });
 
+  test("fits its labels in Spanish at 1024 by 720", async ({ page }) => {
+    // For the same reason French is here: it is copy somebody wrote rather
+    // than copy a function generated, and Spanish runs long in different
+    // places than French does. A translation that is correct and too long for
+    // its control is invisible to every other gate.
+    await startIn(page, "es");
+    await expect(page.locator(".command-bar")).toContainText("Capas");
+
+    const offenders = await clippedAcrossPanels(page, (key) => es[key]);
+    expect(offenders).toEqual([]);
+    expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
   test("shows French copy the moment the language is switched", async ({
     page,
   }) => {
@@ -378,4 +391,28 @@ test("the map's own controls follow a language change, not only a launch", async
     "aria-label",
     fr["map.toggleAttribution"],
   );
+});
+
+test.describe("the workspace at the size the screenshots are taken at", () => {
+  test.use({ viewport: { width: 1487, height: 1058 } });
+
+  // A wider window is not automatically a safer one: the panels keep their
+  // width and the rail grows, so a label that fits at 1024 can still be cut
+  // here, and this is the size a first reader sees in the README.
+  for (const [language, catalogue, word] of [
+    ["es", es, "Capas"],
+    ["fr", fr, "Couches"],
+  ] as const) {
+    test(`fits its labels in ${language} at 1487 by 1058`, async ({ page }) => {
+      await startIn(page, language);
+      await expect(page.locator(".command-bar")).toContainText(word);
+
+      const offenders = await clippedAcrossPanels(
+        page,
+        (key) => catalogue[key],
+      );
+      expect(offenders).toEqual([]);
+      expect(await sidewaysOverflow(page)).toBeLessThanOrEqual(0);
+    });
+  }
 });
