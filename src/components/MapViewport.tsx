@@ -1754,13 +1754,19 @@ function MapViewportInner(
   // Read when the switch first goes on rather than at start-up: it is a
   // megabyte of outlines and most readers never turn it on. Kept afterwards,
   // so switching it off and on again costs nothing.
-  // The wash is redrawn on the switch and on the minute, because a minute of
-  // clock moves the edge a quarter of a degree and a map left open overnight
-  // would otherwise still be showing where the sun was at launch.
+  // The wash is redrawn on the switch and whenever the moment it is drawn for
+  // changes: the minute, on a live map, and the frame under the scrubber
+  // otherwise, which is what `nightMoment` decides before this is handed it.
   useMapSync(night && nightAt > 0 ? nightAt : 0, (at) => {
     nightRef.current = at
       ? (nightPolygon(at) as unknown as Record<string, unknown>)
       : null;
+    // The moment the wash on the map belongs to, beside the frame it belongs
+    // with. Written where the polygon is built rather than from the prop, so
+    // it reports what was drawn rather than what was asked for.
+    if (containerRef.current) {
+      containerRef.current.dataset.nightAt = at ? String(at) : "";
+    }
     syncNight();
   });
 

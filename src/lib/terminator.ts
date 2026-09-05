@@ -124,6 +124,34 @@ export function solarElevation(
 }
 
 /**
+ * The moment the wash belongs to, in milliseconds.
+ *
+ * The frame on screen, not the wall clock. A reader scrubbed to the start of a
+ * two-hour loop is looking at ground the sun stood thirty degrees further east
+ * over, and a replay of a 2011 afternoon drew tonight's night across it. What
+ * the map shows and where the sun was have to be the same moment, and the
+ * frame is the one that knows.
+ *
+ * Rounded down to the minute, because the wash is redrawn whenever this number
+ * changes and a minute of clock moves the edge a quarter of a degree: at frame
+ * resolution the whole polygon would be rebuilt on every step of a loop for an
+ * edge nobody could see move.
+ *
+ * The clock is the fallback rather than the rule. With no frames yet there is
+ * no moment to draw for, and the caller's own guard treats zero as "no wash",
+ * so answering zero here would take the layer off an empty timeline.
+ */
+export function nightMoment(
+  frameTimeSeconds: number | undefined,
+  clock: number,
+): number {
+  if (frameTimeSeconds === undefined || !Number.isFinite(frameTimeSeconds)) {
+    return clock;
+  }
+  return Math.floor(frameTimeSeconds / 60) * 60_000;
+}
+
+/**
  * The unlit half of the world as one polygon.
  *
  * The edge is the set of places where the sun is on the horizon, which for a
