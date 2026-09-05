@@ -10,6 +10,7 @@ import {
   MRMS_LAYER_IDS,
   MRMS_SOURCE_PREFIX,
   RADAR_LANE_LAYER_IDS,
+  NIGHT_LAYER_ID,
   SATELLITE_LAYER_ID,
   stackHeight,
   SWEEP_LAYER_ID,
@@ -203,6 +204,23 @@ describe("every grid the panel can switch on has a lane to draw in", () => {
           lane(field),
         );
       }
+    }
+  });
+});
+
+describe("where it is dark", () => {
+  it("sits under every layer there is", () => {
+    // It is where the light is, not something that happened. A wash over a
+    // warning would be the one arrangement the panel refuses to let anybody
+    // make by hand, and this one is not on the panel's list at all.
+    const order = layerStackOrder(["openradar-overlay-alerts"]);
+    expect(stackHeight(order, NIGHT_LAYER_ID)).toBe(0);
+    for (const over of order) {
+      if (over === NIGHT_LAYER_ID) continue;
+      expect(
+        stackHeight(order, over),
+        `${over} over the night wash`,
+      ).toBeGreaterThan(stackHeight(order, NIGHT_LAYER_ID));
     }
   });
 });

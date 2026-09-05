@@ -217,6 +217,14 @@ export interface LayerSettings {
   /** Rain against the guidance for flash flooding, over one hour and three. */
   /** County and state lines, which is how warnings are read. */
   counties: boolean;
+  /**
+   * A wash over the half of the world the sun is not on.
+   *
+   * Off. It costs nothing and asks nothing of anybody, but it is a change to
+   * the colour of the whole map, and a reader who opens this app to look at a
+   * storm has not asked for one.
+   */
+  night: boolean;
   /** Rain measured by radar and corrected against the rain gauges. */
   gaugeQpe: boolean;
   ffgHour: boolean;
@@ -718,6 +726,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     qpeHour: false,
     qpeDay: false,
     counties: false,
+    night: false,
     gaugeQpe: false,
     ffgHour: false,
     ffgThreeHour: false,
@@ -1735,6 +1744,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       qpeHour: bool(layers.qpeHour, DEFAULT_SETTINGS.layers.qpeHour),
       qpeDay: bool(layers.qpeDay, DEFAULT_SETTINGS.layers.qpeDay),
       counties: bool(layers.counties, DEFAULT_SETTINGS.layers.counties),
+      night: bool(layers.night, DEFAULT_SETTINGS.layers.night),
       gaugeQpe: bool(layers.gaugeQpe, DEFAULT_SETTINGS.layers.gaugeQpe),
       ffgHour: bool(layers.ffgHour, DEFAULT_SETTINGS.layers.ffgHour),
       ffgThreeHour: bool(

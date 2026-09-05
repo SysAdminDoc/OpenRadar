@@ -229,6 +229,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["county", "counties", "state", "borders", "boundaries"],
   },
   {
+    layer: "night",
+    key: "layer.night",
+    extra: "keywords.night",
+    keywords: ["night", "day", "dark", "sun", "terminator", "twilight"],
+  },
+  {
     layer: "gaugeQpe",
     key: "layer.gaugeQpe",
     extra: "keywords.gaugeQpe",

@@ -12,6 +12,7 @@ import {
   Flame,
   Thermometer,
   Map,
+  Moon,
   MapPin,
   MessageSquareWarning,
   MoveUp,
@@ -418,6 +419,12 @@ const LAYER_OPTIONS: Array<{
     labelKey: "layer.counties",
     detailKey: "layers.countiesDetail",
     icon: Map,
+  },
+  {
+    key: "night",
+    labelKey: "layer.night",
+    detailKey: "layers.nightDetail",
+    icon: Moon,
   },
   {
     key: "gaugeQpe",

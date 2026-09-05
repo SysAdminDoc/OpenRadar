@@ -296,6 +296,21 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
     derivedFrom: "estimated rain accumulated over twenty-four hours",
     freshForMs: MRMS_REFRESH,
   },
+  night: {
+    sourceId: "solar-terminator",
+    label: "Day and night",
+    // Nobody publishes this. It is the sun's position for the moment on the
+    // clock, off the equations the NOAA solar calculator uses, so the credit
+    // is the method rather than a service and there is nothing to be offline
+    // from.
+    attribution: "Computed locally",
+    kind: "derived",
+    derivedFrom: "solar position for the frame's own time, NOAA equations",
+    // A minute of clock moves the edge a quarter of a degree, which is why
+    // the layer redraws on the minute; nothing about it can be stale in the
+    // sense the rest of this table means.
+    freshForMs: null,
+  },
   counties: {
     sourceId: "census-counties",
     label: "US Census cartographic boundaries",

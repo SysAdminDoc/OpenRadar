@@ -28,6 +28,15 @@ const COMPARE_OFFSETS = [0, 3, 6, 12];
 
 interface MapStageProps {
   settings: AppSettings;
+  /**
+   * The minute on the workspace clock.
+   *
+   * Only the day and night wash reads it, and it reads it rather than the
+   * wall clock so the edge moves with the same tick everything else moves
+   * with: a still and the map it came from cannot then disagree about where
+   * the sun was.
+   */
+  clock: number;
   mapRef: RefObject<MapViewportHandle | null>;
   secondMapRef: RefObject<MapViewportHandle | null>;
   activeFrame: RadarFrame | undefined;
@@ -134,6 +143,7 @@ export function MapStage({
   onSection,
   onOverlayAction,
   onMapStatus,
+  clock,
 }: MapStageProps) {
   const t = useT();
   // Redraws when the units or the clock change, since this is on screen the
@@ -203,6 +213,8 @@ export function MapStage({
     overlays,
     route,
     counties: settings.layers.counties,
+    night: settings.layers.night,
+    nightAt: clock,
     customOverlay: settings.layers.customOverlay ? customOverlay : null,
     stormTrack,
     sweep,

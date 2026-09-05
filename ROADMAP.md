@@ -210,13 +210,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: With the map focused, arrow keys move a visible cursor and the live region announces the reflectivity, the velocity and the nearest place with bearing and distance; Escape returns focus to the rail; the pseudolocale clipping test covers the announcement; the cursor is off the export.
   Complexity: M
 
-- [ ] AUD-230 (P3): Day and night on the map
-  Why: A globe with no terminator gives no sense of where it is dark, which matters to a reader watching an overnight line of storms; the shading needs no network and no data source, and the owner's StormScope already ships it below every data layer.
-  Evidence: no terminator or solar code in `src/` (`grep -ri terminator src` matches only unrelated Rust); `C:\repos\StormScope\README.md` "Day/Night Orientation".
-  Touches: new `src/lib/terminator.ts` (NOAA solar position equations), a vector layer under the overlays in `src/lib/layerStack.ts`, `src/panels/MapOptionsPanels.tsx` switch, `src/i18n/*`, the layer-stack and provenance tests.
-  Acceptance: Day/night shading draws with no request, updates each minute, sits below every data layer, is off by default, and is listed in the provenance table as computed locally.
-  Complexity: S
-
 ## Audit Findings, 2026-09-03 (evening)
 
 Read-only audit of `168271b` (v0.9.0). Baseline at that commit, all green: `npm run check` 176 files / 1622 passed / 37 skipped, lint 0 errors 1 pre-existing warning, every bundle inside budget; `cargo test` 412 passed / 28 ignored; `cargo clippy --all-targets` clean; `cargo audit` 0 vulnerabilities with 17 documented allowances; `gitleaks` 344 commits clean; `npm audit --omit=dev` 0; `grype` one Medium in `glib`, already documented as unreachable in `src-tauri/.cargo/audit.toml`. The GitHub tracker holds zero issues and zero pull requests (open or closed), so there was nothing to take in from reporters. Every P1 below survived a fresh-context refutation pass. Items are numbered on from `AUD-236`.

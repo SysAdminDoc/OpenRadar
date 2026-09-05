@@ -211,6 +211,7 @@ describe("settings normalization", () => {
       "lightningForecast",
       "lightningJump",
       "metar",
+      "night",
       "posh",
       "precipRate",
       "precipType",
