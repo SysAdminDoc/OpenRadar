@@ -36,6 +36,18 @@ const MAX_GRID_POINTS: usize = GRID_BYTES / std::mem::size_of::<u16>();
 /// one grid per product, so the grid is reduced to the resolution the app
 /// draws at on the way in rather than the budget being raised to hold it.
 const MAX_SOURCE_REDUCTION: usize = 2;
+/// What one of those finer grids costs unfolded.
+const FINE_GRID_BYTES: usize = GRID_BYTES * MAX_SOURCE_REDUCTION * MAX_SOURCE_REDUCTION;
+/// How many points a grid may hold when the reader is close enough to see the
+/// fold, which is the finest anything published arrives at.
+const MAX_DETAIL_POINTS: usize = MAX_GRID_POINTS * MAX_SOURCE_REDUCTION * MAX_SOURCE_REDUCTION;
+/// The products the network publishes finer than the grid this app draws at.
+///
+/// Named rather than counted from the table, because what makes a product fine
+/// is the resolution the network publishes it at and nothing in the entry says
+/// so. Pinned by `the_fine_products_are_in_the_table`, which fails if one of
+/// these is renamed out from under the budget below.
+const FINE_PRODUCTS: &[&str] = &["az-shear-low", "az-shear-mid"];
 const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
 // Raised from 512 MiB at eleven products and again at fourteen, when the
 // flash flood grids arrived: the point of the budget is a ceiling, and the
@@ -44,8 +56,6 @@ const MAX_DECOMPRESSED_BYTES: usize = GRID_BYTES + 16 * 1024 * 1024;
 // than a reservation; nothing is allocated until a grid is actually decoded,
 // and nobody has fourteen layers on.
 const CACHE_BUDGET_BYTES: usize = 768 * 1024 * 1024;
-/// As many grids as the budget holds, which is sixteen.
-const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
 
 /// How many grids one screen can be drawing at once, generously.
 ///
@@ -54,23 +64,40 @@ const MAX_CACHE_SLOTS: usize = CACHE_BUDGET_BYTES / GRID_BYTES;
 /// the country once per layer. Well past what anybody runs, and far short of
 /// one slot for every product in the table.
 const LAYERS_AT_ONCE: usize = 8;
-/// As many grids as the budget holds.
+/// How many grids the cache holds on to whatever they weigh.
 ///
-/// Not one per product. A product nobody has switched on holds no grid, so a
-/// slot reserved for each of them reserved memory nothing could ever use, and
-/// made every new grid a reason to raise the ceiling: it had been raised at
-/// eleven products and again at fourteen, and at seventeen it was at the
-/// limit. What the cache actually owes is that a busy screen never evicts a
-/// grid it is about to want, and that is `LAYERS_AT_ONCE` rather than the
-/// size of the table.
+/// The guarantee, stated rather than derived: a busy screen and the composite
+/// loop's next frame on top of it. Counting slots of a fixed size stopped
+/// working when the shear grids started arriving unfolded, because a slot is
+/// no longer one size. Past this the budget rules and the oldest goes, so
+/// somebody who turns on every layer at once pays in downloads rather than in
+/// an unbounded pile of grids.
+const CACHE_FLOOR: usize = LAYERS_AT_ONCE + 1;
+// The floor and the budget have to be able to hold each other: the worst
+// screen is every fine product unfolded with coarse grids filling the rest.
+// 735 MB against a 768 MiB ceiling on 2026-09-05. A third fine product does
+// not fit, and this fails the build rather than the cache quietly evicting a
+// grid the screen is about to want.
+const _: () = assert!(
+    FINE_PRODUCTS.len() * FINE_GRID_BYTES + (CACHE_FLOOR - FINE_PRODUCTS.len()) * GRID_BYTES
+        <= CACHE_BUDGET_BYTES
+);
+const _: () = assert!(CACHE_FLOOR > LAYERS_AT_ONCE);
+
+/// The cell size of the grid this app draws at, in degrees.
+const DRAWN_CELL_DEGREES: f64 = 0.01;
+
+/// Whether a reader at this zoom is close enough to see the fold.
 ///
-/// Past the budget the oldest goes: somebody who turns on every layer at once
-/// pays for it in downloads rather than in an unbounded pile of grids.
-const CACHE_CAPACITY: usize = MAX_CACHE_SLOTS;
-const _: () = assert!(CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES);
-// The guarantee itself rather than a description of it, with the composite
-// loop's next frame on top of the layers being drawn.
-const _: () = assert!(CACHE_CAPACITY > LAYERS_AT_ONCE);
+/// Web Mercator draws 360 degrees across 256 pixels at zoom zero, so one pixel
+/// is `360 / (256 * 2^zoom)` degrees wide. The fold is invisible while a
+/// folded cell is under a pixel across: 0.011 degrees a pixel at zoom seven,
+/// 0.0055 at zoom eight. Worked out rather than written down, so a change to
+/// the grid the app draws at moves the answer with it.
+fn fold_shows(zoom: u32) -> bool {
+    let degrees_a_pixel = 360.0 / (256.0 * f64::from(1u32 << zoom.min(30)));
+    degrees_a_pixel < DRAWN_CELL_DEGREES
+}
 /// A drawn tile is a few kilobytes, so thousands of them cost less than one
 /// grid. This is what makes a loop replay cheap: the second pass over a frame
 /// never decodes anything.
@@ -1387,6 +1414,15 @@ impl Grid {
     }
 
     /// The row and column a point falls in, or None when it is off the grid.
+    /// What this grid is holding, in bytes.
+    ///
+    /// The samples are what costs: a folded CONUS grid is 49 MB and an
+    /// unfolded shear grid is four times that, which is the whole reason the
+    /// cache counts bytes rather than slots.
+    pub fn bytes(&self) -> usize {
+        self.samples.len() * std::mem::size_of::<u16>()
+    }
+
     pub fn locate(&self, latitude: f64, longitude: f64) -> Option<(usize, usize)> {
         let row = ((self.north - latitude) / self.d_lat).round();
         let column = ((longitude - self.west) / self.d_lon).round();
@@ -1404,6 +1440,9 @@ impl Grid {
 struct CachedGrid {
     key: String,
     grid: Grid,
+    /// How much the grid was folded by on the way in. One is unfolded, which
+    /// is the only thing that answers a request for detail.
+    reduce: usize,
 }
 
 static CACHE: Mutex<VecDeque<CachedGrid>> = Mutex::new(VecDeque::new());
@@ -1520,7 +1559,19 @@ fn blend(low: u8, high: u8, position: f32) -> u8 {
 /// Walks the GRIB2 sections for the grid definition, the packing parameters,
 /// and the PNG the data lives in. Only what OpenRadar reads is understood; a
 /// file packed any other way is refused rather than guessed at.
+#[cfg(any(test, feature = "fuzzing"))]
 pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
+    decode_grib_to_fit(bytes, MAX_GRID_POINTS).map(|(grid, _)| grid)
+}
+
+/// The same decode, told how many points it is allowed to keep.
+///
+/// The ceiling is what decides whether a finer grid is folded on the way in or
+/// kept as published: a reader zoomed past the point the fold shows asks for
+/// the whole thing, and everybody else gets the grid this app draws at. The
+/// reduction is handed back with the grid because the cache has to know
+/// whether what it is holding can answer the next request for detail.
+pub fn decode_grib_to_fit(bytes: &[u8], ceiling: usize) -> Result<(Grid, usize), MrmsError> {
     if bytes.len() < 16 || &bytes[0..4] != b"GRIB" || bytes[7] != 2 {
         return Err(MrmsError::NotGrib);
     }
@@ -1568,7 +1619,7 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
                 // the way in rather than refused; anything that no allowed
                 // reduction can fit is still refused here, before a byte of
                 // it is read.
-                if reduction_for(columns, rows, points, MAX_GRID_POINTS).is_none() {
+                if reduction_for(columns, rows, points, ceiling).is_none() {
                     return Err(MrmsError::Decode(format!(
                         "the grid claims {columns} by {rows} points"
                     )));
@@ -1629,12 +1680,12 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
     let points = columns
         .checked_mul(rows)
         .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
-    let reduce = reduction_for(columns, rows, points, MAX_GRID_POINTS)
+    let reduce = reduction_for(columns, rows, points, ceiling)
         .ok_or_else(|| MrmsError::Decode("the grid dimensions are invalid".into()))?;
     // A grid packed wider than sixteen bits comes back shifted down to
     // sixteen, and the binary exponent is moved by the same amount so the
     // values it produces are unchanged. See `decode_png_samples`.
-    let (samples, shift) = decode_png_samples(payload, points, columns, reduce)?;
+    let (samples, shift) = decode_png_samples(payload, points, columns, reduce, ceiling)?;
     let binary = binary
         .checked_add(shift)
         .ok_or_else(|| MrmsError::Decode("the packing scale is out of range".into()))?;
@@ -1655,18 +1706,21 @@ pub fn decode_grib(bytes: &[u8]) -> Result<Grid, MrmsError> {
     }
 
     let (north, west, d_lat, d_lon) = reduced_geometry(north, west, d_lat, d_lon, reduce);
-    Ok(Grid {
-        columns: columns / reduce,
-        rows: rows / reduce,
-        north,
-        west,
-        d_lat,
-        d_lon,
-        reference,
-        binary,
-        decimal,
-        samples,
-    })
+    Ok((
+        Grid {
+            columns: columns / reduce,
+            rows: rows / reduce,
+            north,
+            west,
+            d_lat,
+            d_lon,
+            reference,
+            binary,
+            decimal,
+            samples,
+        },
+        reduce,
+    ))
 }
 
 /// How much to shrink a grid by so it fits what this app draws at, or None
@@ -1738,6 +1792,7 @@ fn decode_png_samples(
     expected: usize,
     columns: usize,
     reduce: usize,
+    ceiling: usize,
 ) -> Result<(Vec<u16>, i16), MrmsError> {
     // The ceiling is on the SOURCE image, which is up to a reduction squared
     // larger than what is kept. It is a limit rather than an allocation.
@@ -1755,7 +1810,7 @@ fn decode_png_samples(
     let image_points = (info.width as usize)
         .checked_mul(info.height as usize)
         .ok_or_else(|| MrmsError::Decode("the image dimensions overflowed".into()))?;
-    if image_points != expected || image_points / (reduce * reduce) > MAX_GRID_POINTS {
+    if image_points != expected || image_points / (reduce * reduce) > ceiling {
         return Err(MrmsError::Decode(format!(
             "the image holds {image_points} values, the grid wants {expected}"
         )));
@@ -2076,7 +2131,10 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
     if let Some(bytes) = cached_tile(&drawn) {
         return bytes;
     }
-    if grid_for(&key).await.is_err() {
+    // Unfolded only from the zoom the fold starts to show at. Below it the
+    // reader cannot see the difference and the grid costs four times as much,
+    // which is the whole of why this is asked for rather than always on.
+    if grid_for(&key, fold_shows(zoom)).await.is_err() {
         return EMPTY_TILE.to_vec();
     }
     let bytes = tile_from_cache(&key, entry, zoom, x, y, threshold, high_contrast)
@@ -2457,11 +2515,48 @@ pub static FETCHES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUs
 #[cfg(test)]
 pub static DECODES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+#[cfg(test)]
 fn is_cached(key: &str) -> bool {
-    CACHE
-        .lock()
-        .map(|cache| cache.iter().any(|entry| entry.key == key))
-        .unwrap_or(false)
+    cached_reduction(key).is_some()
+}
+
+/// How folded the grid in hand for this key is, if there is one.
+fn cached_reduction(key: &str) -> Option<usize> {
+    CACHE.lock().ok().and_then(|cache| {
+        cache
+            .iter()
+            .find(|entry| entry.key == key)
+            .map(|entry| entry.reduce)
+    })
+}
+
+/// Whether what is in hand already answers this request.
+///
+/// A request for detail is answered only by an unfolded grid. Everything else
+/// is answered by whatever is there: a finer grid draws a coarse request
+/// perfectly well, it just cost more to get.
+fn cached_enough(key: &str, detail: bool) -> bool {
+    match cached_reduction(key) {
+        Some(reduce) => !detail || reduce == 1,
+        None => false,
+    }
+}
+
+/// How many of the oldest grids have to go, given what each of them holds.
+///
+/// Split out from the cache so the arithmetic can be read against real grid
+/// sizes without a test allocating a gigabyte to see it happen. The floor wins
+/// over the budget: the promise the cache makes is that a busy screen never
+/// evicts a grid it is about to want, and the const assertion beside
+/// `CACHE_FLOOR` is what keeps the two from contradicting each other.
+fn evict_count(sizes: &[usize], budget: usize, floor: usize) -> usize {
+    let mut held: usize = sizes.iter().sum();
+    let mut gone = 0;
+    while held > budget && sizes.len() - gone > floor {
+        held -= sizes[gone];
+        gone += 1;
+    }
+    gone
 }
 
 /// Fetches and decodes a grid, or hands back the one already in hand.
@@ -2470,13 +2565,13 @@ fn is_cached(key: &str) -> bool {
 /// the fetch and the decode are behind a gate and the cache is checked again on
 /// the other side of it. Without that, one screen downloads and decodes the
 /// same fifty megabytes a dozen times over.
-pub async fn grid_for(key: &str) -> Result<(), MrmsError> {
-    if is_cached(key) {
+pub async fn grid_for(key: &str, detail: bool) -> Result<(), MrmsError> {
+    if cached_enough(key, detail) {
         return Ok(());
     }
     let _gate = DECODING.lock().await;
     // Whoever was ahead in the queue may have been fetching this very grid.
-    if is_cached(key) {
+    if cached_enough(key, detail) {
         return Ok(());
     }
 
@@ -2484,34 +2579,69 @@ pub async fn grid_for(key: &str) -> Result<(), MrmsError> {
     FETCHES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let bytes = http::get_bytes(&format!("{BUCKET}/{key}")).await?;
     let owned = key.to_string();
-    let grid = tauri::async_runtime::spawn_blocking(move || {
+    let ceiling = if detail {
+        MAX_DETAIL_POINTS
+    } else {
+        MAX_GRID_POINTS
+    };
+    let (grid, reduce) = tauri::async_runtime::spawn_blocking(move || {
         #[cfg(test)]
         DECODES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let plain = gunzip(&bytes)?;
-        decode_grib(&plain)
+        decode_grib_to_fit(&plain, ceiling)
     })
     .await
     .map_err(|error| MrmsError::Decode(error.to_string()))??;
 
-    remember_grid(&owned, grid);
+    remember_grid(&owned, grid, reduce);
     Ok(())
 }
 
-/// Puts a decoded grid in the cache, evicting the oldest when it is full.
-fn remember_grid(key: &str, grid: Grid) {
+/// Puts a decoded grid in the cache, dropping the oldest to stay in budget.
+///
+/// A finer grid replaces the folded one it supersedes rather than sitting
+/// beside it: they are the same ground, and holding both would pay for the
+/// same country twice. A folded one never replaces a finer one, because the
+/// reader who asked for the detail is still looking at it.
+fn remember_grid(key: &str, grid: Grid, reduce: usize) {
+    remember_grid_within(key, grid, reduce, CACHE_BUDGET_BYTES);
+}
+
+/// The same, against a budget said out loud.
+///
+/// Only so the eviction can be watched happening without a test allocating the
+/// better part of a gigabyte of real grids to cross the real ceiling.
+fn remember_grid_within(key: &str, grid: Grid, reduce: usize, budget: usize) {
     let Ok(mut cache) = CACHE.lock() else {
         return;
     };
-    if cache.iter().any(|entry| entry.key == key) {
-        return;
+    if let Some(at) = cache.iter().position(|entry| entry.key == key) {
+        if cache[at].reduce <= reduce {
+            return;
+        }
+        cache.remove(at);
     }
     cache.push_back(CachedGrid {
         key: key.to_string(),
         grid,
+        reduce,
     });
-    while cache.len() > CACHE_CAPACITY {
+    let sizes: Vec<usize> = cache.iter().map(|entry| entry.grid.bytes()).collect();
+    for _ in 0..evict_count(&sizes, budget, CACHE_FLOOR) {
         cache.pop_front();
     }
+}
+
+/// How many points the grid in hand for this key holds, for the tests that
+/// need to tell one grid from another without reading it.
+#[cfg(test)]
+fn grid_points(key: &str) -> Option<usize> {
+    CACHE.lock().ok().and_then(|cache| {
+        cache
+            .iter()
+            .find(|entry| entry.key == key)
+            .map(|entry| entry.grid.samples.len())
+    })
 }
 
 /// The part of a decoded grid inside a bounding box, as floats.
@@ -2713,7 +2843,7 @@ mod tests {
 
     #[test]
     fn a_window_holds_the_cells_the_view_touches() {
-        remember_grid("window/whole", countable_grid());
+        remember_grid("window/whole", countable_grid(), 1);
         // A box inside the grid, running from the centre of (row 1, column 1)
         // to the centre of (row 3, column 3). A cell counts when the box
         // touches any of it, so all nine come back rather than only the ones
@@ -2735,7 +2865,7 @@ mod tests {
 
     #[test]
     fn a_window_takes_the_cells_the_box_is_actually_over() {
-        remember_grid("window/offset", countable_grid());
+        remember_grid("window/offset", countable_grid(), 1);
         // A box whose corners fall inside cells rather than on their centres,
         // which is every real view. Cell c covers centre plus or minus half a
         // cell, so -98.4 is inside column 2 (which spans -98.5 to -97.5) and
@@ -2752,7 +2882,7 @@ mod tests {
 
     #[test]
     fn a_window_stops_at_the_edge_of_the_grid() {
-        remember_grid("window/edge", countable_grid());
+        remember_grid("window/edge", countable_grid(), 1);
         // Asking for the whole world gets the whole grid and no more, rather
         // than rows of nothing padded out to the box.
         let cut = grid_window("window/edge", -180.0, -90.0, 180.0, 90.0, 100)
@@ -2776,7 +2906,7 @@ mod tests {
 
     #[test]
     fn a_window_too_large_is_refused_before_it_is_built() {
-        remember_grid("window/large", countable_grid());
+        remember_grid("window/large", countable_grid(), 1);
         assert_eq!(
             grid_window("window/large", -180.0, -90.0, 180.0, 90.0, 19).err(),
             Some(WindowError::TooLarge(20))
@@ -2874,7 +3004,7 @@ mod tests {
 
         let started = std::time::Instant::now();
         runtime
-            .block_on(grid_for(&newest.key))
+            .block_on(grid_for(&newest.key, false))
             .expect("the grid decodes");
         let decoded = started.elapsed();
 
@@ -3004,7 +3134,7 @@ mod tests {
 
             let started = std::time::Instant::now();
             runtime
-                .block_on(grid_for(&newest.key))
+                .block_on(grid_for(&newest.key, false))
                 .unwrap_or_else(|error| panic!("{id} did not decode: {error}"));
             let decoded = started.elapsed();
 
@@ -3207,31 +3337,204 @@ mod tests {
 
     #[test]
     fn the_cache_does_not_grow_with_the_product_table() {
-        // What replaced one slot per product. That rule made every new grid
-        // cost fifty megabytes of ceiling whether or not anybody drew it, and
-        // the ceiling had already been raised twice to keep up; at seventeen
-        // products it sat exactly at the limit and the next one would have
-        // failed the build.
+        // What replaced one slot per product, and then a count of slots.
+        // One slot per product made every new grid cost fifty megabytes of
+        // ceiling whether or not anybody drew it. A count of same-sized slots
+        // stopped meaning anything once a shear grid could arrive unfolded at
+        // four times the size of the one beside it.
         //
         // In `const` blocks because every operand is a constant: the same
         // words, checked when the crate is compiled rather than when the
         // suite is run, which is the stronger of the two and the form clippy
         // asks for.
         const {
-            assert!(CACHE_CAPACITY == MAX_CACHE_SLOTS);
             assert!(
-                CACHE_CAPACITY > LAYERS_AT_ONCE,
+                CACHE_FLOOR > LAYERS_AT_ONCE,
                 "a busy screen would evict a grid it is about to want"
             );
+            // The worst screen the floor has to hold: every fine product
+            // unfolded, with coarse grids filling the rest of the floor.
             assert!(
-                CACHE_CAPACITY * GRID_BYTES <= CACHE_BUDGET_BYTES,
-                "the capacity is past the budget"
+                FINE_PRODUCTS.len() * FINE_GRID_BYTES
+                    + (CACHE_FLOOR - FINE_PRODUCTS.len()) * GRID_BYTES
+                    <= CACHE_BUDGET_BYTES,
+                "the floor cannot be held inside the budget"
             );
             // The property the change was made for: the table is already
-            // longer than a busy screen, and the capacity does not follow it.
+            // longer than a busy screen, and the floor does not follow it.
             assert!(
                 PRODUCTS.len() > LAYERS_AT_ONCE,
                 "the table is smaller than a busy screen, so this proves nothing"
+            );
+        }
+    }
+
+    /// The two products the budget above reserves the unfolded room for.
+    ///
+    /// Nothing in an entry says what resolution the network publishes it at,
+    /// so the list is written down. What can be checked is that both are still
+    /// in the table under those names: renamed out from under the budget, the
+    /// arithmetic would be reserving room for products that no longer exist
+    /// while the ones that replaced them evicted a busy screen's grids.
+    #[test]
+    fn the_fine_products_are_in_the_table() {
+        for id in FINE_PRODUCTS {
+            assert!(
+                product_by_id(id).is_some(),
+                "{id} is named in the cache budget and is not in the table"
+            );
+        }
+    }
+
+    /// Where the fold stops being invisible, worked out rather than asserted.
+    ///
+    /// Web Mercator draws 360 degrees across 256 pixels at zoom zero. The fold
+    /// shows once the grid's own cell is wider than a screen pixel, because
+    /// that is when a reader is looking at cell edges rather than through
+    /// them.
+    #[test]
+    fn the_fold_shows_from_the_zoom_the_finer_grid_is_asked_for() {
+        // Zoom eight is where a folded cell first covers more than a screen
+        // pixel. Below it the reader cannot see the difference and the grid
+        // costs four times as much, which is the whole of why it is asked for
+        // rather than always on.
+        assert!(!fold_shows(0));
+        assert!(!fold_shows(7), "a whole grid was fetched nobody could see");
+        assert!(
+            fold_shows(8),
+            "the fold shows and the grid was not asked for"
+        );
+        assert!(fold_shows(12), "the deepest tile this serves");
+        // A zoom no address can carry, which must not shift the answer by
+        // overflowing the shift it is worked out with.
+        assert!(fold_shows(u32::MAX));
+    }
+
+    /// What the cache drops, read against grids the size they really are.
+    ///
+    /// The arithmetic on its own, because watching it happen through
+    /// `remember_grid` at these sizes would mean a test allocating the better
+    /// part of a gigabyte to see one eviction.
+    #[test]
+    fn the_budget_counts_bytes_and_the_floor_beats_the_budget() {
+        // A busy screen at its worst: both shear grids unfolded and coarse
+        // ones filling the rest of the floor. Nothing goes.
+        let mut busy = vec![FINE_GRID_BYTES; FINE_PRODUCTS.len()];
+        busy.resize(CACHE_FLOOR, GRID_BYTES);
+        assert_eq!(
+            evict_count(&busy, CACHE_BUDGET_BYTES, CACHE_FLOOR),
+            0,
+            "a busy screen lost a grid it was about to want"
+        );
+
+        // The floor wins even when what is held is past the budget, because
+        // the promise is about the screen rather than the ceiling.
+        let over = vec![FINE_GRID_BYTES; CACHE_FLOOR];
+        assert_eq!(evict_count(&over, CACHE_BUDGET_BYTES, CACHE_FLOOR), 0);
+
+        // Past the floor the budget rules, and it is the oldest that go:
+        // enough of them to fit, and not one more.
+        let mut crowded = vec![GRID_BYTES; CACHE_FLOOR + 8];
+        crowded[0] = FINE_GRID_BYTES;
+        let gone = evict_count(&crowded, CACHE_BUDGET_BYTES, CACHE_FLOOR);
+        assert!(
+            gone > 0,
+            "the cache grew past its budget instead of evicting"
+        );
+        let kept: usize = crowded[gone..].iter().sum();
+        assert!(
+            kept <= CACHE_BUDGET_BYTES,
+            "eviction stopped short of the budget"
+        );
+        let one_fewer: usize = crowded[gone - 1..].iter().sum();
+        assert!(
+            one_fewer > CACHE_BUDGET_BYTES,
+            "one more grid went than had to"
+        );
+
+        // A cache that already fits drops nothing.
+        assert_eq!(
+            evict_count(&[GRID_BYTES], CACHE_BUDGET_BYTES, CACHE_FLOOR),
+            0
+        );
+        assert_eq!(evict_count(&[], CACHE_BUDGET_BYTES, CACHE_FLOOR), 0);
+    }
+
+    /// A finer grid takes the folded one's place rather than sitting beside it.
+    #[test]
+    fn the_unfolded_grid_replaces_the_folded_one_and_not_the_other_way_round() {
+        let _turn = live_test();
+        clear_caches();
+        let grid = |points: usize| Grid {
+            columns: points,
+            rows: 1,
+            north: 41.0,
+            west: -94.0,
+            d_lat: 0.01,
+            d_lon: 0.01,
+            reference: -9990.0,
+            binary: 0,
+            decimal: 1,
+            samples: vec![10_500; points],
+        };
+
+        remember_grid("shear", grid(1), 2);
+        // Folded, so a reader who has zoomed in is not answered from it.
+        assert!(is_cached("shear"));
+        assert!(!cached_enough("shear", true));
+
+        remember_grid("shear", grid(4), 1);
+        assert!(cached_enough("shear", true));
+        assert_eq!(grid_points("shear"), Some(4), "both grids were kept");
+
+        // And the folded one does not come back over it: the reader who asked
+        // for the detail is still looking at it.
+        remember_grid("shear", grid(1), 2);
+        assert_eq!(grid_points("shear"), Some(4));
+        assert!(cached_enough("shear", true));
+        clear_caches();
+    }
+
+    /// The whole point of the change: the fold is a decision, not a property
+    /// of the file.
+    ///
+    /// The same bytes come back folded or as published depending only on how
+    /// many points the caller says it can hold, and the caller says that from
+    /// how close the reader is standing. A shear couplet is a few hundred
+    /// metres across, so a reader zoomed in on one is looking at the fold.
+    #[test]
+    fn the_same_file_folds_or_stays_whole_depending_on_what_was_asked_for() {
+        let file = synthetic_grib(0, 41, 0, 4, 2, (4, 2), &[10, 20, 30, 40, 50, 60, 70, 80]);
+
+        // Four points is all this caller can hold, so the grid is folded.
+        let (folded, reduce) = decode_grib_to_fit(&file, 4).expect("a folded grid");
+        assert_eq!(reduce, 2);
+        assert_eq!((folded.columns, folded.rows), (2, 1));
+        assert_eq!(folded.samples.len(), 2, "two columns by one row");
+
+        // Eight, and the same bytes come back as the network published them.
+        let (whole, reduce) = decode_grib_to_fit(&file, 8).expect("a whole grid");
+        assert_eq!(reduce, 1);
+        assert_eq!((whole.columns, whole.rows), (4, 2));
+        assert_eq!(whole.samples, vec![10, 20, 30, 40, 50, 60, 70, 80]);
+
+        // And it is the same ground: the folded grid's cells are twice as
+        // wide and start half a source cell in, so the two cover the same
+        // country rather than the finer one covering a quarter of it.
+        assert!(
+            (f64::from(folded.d_lon as f32) - f64::from(whole.d_lon as f32) * 2.0).abs() < 1e-9
+        );
+        let folded_span = folded.d_lon * folded.columns as f64;
+        let whole_span = whole.d_lon * whole.columns as f64;
+        assert!((folded_span - whole_span).abs() < 1e-9);
+
+        // The fold keeps the largest of each block, which is what makes it
+        // safe on a maximum-over-a-window product: nothing a folded grid
+        // reports is missing from the whole one.
+        for value in &folded.samples {
+            assert!(
+                whole.samples.contains(value),
+                "the fold invented a reading the file does not hold"
             );
         }
     }
@@ -3305,7 +3608,8 @@ mod tests {
         // 137.64 percent this family peaked at on 2026-09-02, and the widest
         // sample sixteen bits still holds.
         let png_bytes = rgb_png(4, 1, &[0x00_00_01, 0x00_01_00, 0x00_35_C4, 0x00_FF_FF]);
-        let (samples, shift) = decode_png_samples(&png_bytes, 4, 4, 1).expect("a wide grid");
+        let (samples, shift) =
+            decode_png_samples(&png_bytes, 4, 4, 1, MAX_GRID_POINTS).expect("a wide grid");
         assert_eq!(shift, 0, "nothing here needs narrowing");
         assert_eq!(samples, vec![1, 256, 13_764, 65_535]);
     }
@@ -3322,19 +3626,22 @@ mod tests {
         // 13764 is the packed reading behind the 137.64 percent this grid
         // family peaked at on 2026-09-02.
         let narrow = rgb_png(2, 1, &[13_764, 65_535]);
-        let (samples, shift) = decode_png_samples(&narrow, 2, 2, 1).expect("a wide grid");
+        let (samples, shift) =
+            decode_png_samples(&narrow, 2, 2, 1, MAX_GRID_POINTS).expect("a wide grid");
         assert_eq!(shift, 0);
         assert_eq!(samples, vec![13_764, 65_535]);
 
         // One bit past what sixteen holds costs exactly one bit.
         let wide = rgb_png(2, 1, &[13_764, 65_536]);
-        let (samples, shift) = decode_png_samples(&wide, 2, 2, 1).expect("a wide grid");
+        let (samples, shift) =
+            decode_png_samples(&wide, 2, 2, 1, MAX_GRID_POINTS).expect("a wide grid");
         assert_eq!(shift, 1);
         assert_eq!(samples, vec![13_764 / 2, 32_768]);
 
         // And a genuinely twenty-four bit grid costs eight.
         let widest = rgb_png(2, 1, &[0x00_00_10, 0xFF_FF_FF]);
-        let (samples, shift) = decode_png_samples(&widest, 2, 2, 1).expect("a wide grid");
+        let (samples, shift) =
+            decode_png_samples(&widest, 2, 2, 1, MAX_GRID_POINTS).expect("a wide grid");
         assert_eq!(shift, 8);
         assert_eq!(samples, vec![0, 0xFF_FF]);
     }
@@ -3390,12 +3697,14 @@ mod tests {
             let raw: Vec<u8> = samples.iter().flat_map(|s| s.to_be_bytes()).collect();
             writer.write_image_data(&raw).expect("image data");
         }
-        let (folded, shift) = decode_png_samples(&png_bytes, 16, 4, 2).expect("a folded grid");
+        let (folded, shift) =
+            decode_png_samples(&png_bytes, 16, 4, 2, MAX_GRID_POINTS).expect("a folded grid");
         assert_eq!(folded, vec![60, 8, 200, 12]);
         assert_eq!(shift, 0);
 
         // And a grid that needs no folding comes back exactly as it was.
-        let (whole, _) = decode_png_samples(&png_bytes, 16, 4, 1).expect("a whole grid");
+        let (whole, _) =
+            decode_png_samples(&png_bytes, 16, 4, 1, MAX_GRID_POINTS).expect("a whole grid");
         assert_eq!(whole.len(), 16);
         assert_eq!(whole[0], 60);
         assert_eq!(whole[12], 200);
@@ -3608,7 +3917,7 @@ mod tests {
                 .key
                 .clone();
             runtime
-                .block_on(grid_for(&key))
+                .block_on(grid_for(&key, false))
                 .unwrap_or_else(|error| panic!("{named} did not decode: {error}"));
 
             let cache = CACHE.lock().expect("the cache");
@@ -3720,7 +4029,7 @@ mod tests {
             .expect("MRMS publishes the precipitation flag");
         let key = frames.last().expect("a frame").key.clone();
         runtime
-            .block_on(grid_for(&key))
+            .block_on(grid_for(&key, false))
             .unwrap_or_else(|error| panic!("the flag did not decode: {error}"));
 
         let cache = CACHE.lock().expect("the cache");
@@ -3780,7 +4089,9 @@ mod tests {
             .block_on(mrms_frames("rotation".into(), 1, None, None))
             .expect("MRMS publishes rotation tracks");
         let key = frames.last().expect("a frame").key.clone();
-        runtime.block_on(grid_for(&key)).expect("the grid decodes");
+        runtime
+            .block_on(grid_for(&key, false))
+            .expect("the grid decodes");
 
         let cache = CACHE.lock().expect("the cache");
         let grid = &cache
@@ -4171,7 +4482,7 @@ mod tests {
             assert!(key.starts_with(domain), "{key} is not in {domain}");
 
             runtime
-                .block_on(grid_for(&key))
+                .block_on(grid_for(&key, false))
                 .unwrap_or_else(|failure| panic!("{domain}: {failure}"));
 
             // The geometry comes out of the file, so this is the file saying
@@ -4302,11 +4613,9 @@ mod tests {
         // the composite loop's next frame beside them. None of these may be
         // evicted before the screen is drawn, which is the whole of what the
         // cache promises.
-        let busy: Vec<String> = (0..=LAYERS_AT_ONCE)
-            .map(|at| format!("layer {at}"))
-            .collect();
+        let busy: Vec<String> = (0..CACHE_FLOOR).map(|at| format!("layer {at}")).collect();
         for id in &busy {
-            remember_grid(id, grid());
+            remember_grid(id, grid(), 1);
         }
         for id in &busy {
             assert!(
@@ -4315,15 +4624,21 @@ mod tests {
             );
         }
 
-        // Past capacity the oldest goes rather than the cache growing.
-        for extra in 0..=CACHE_CAPACITY {
-            remember_grid(&format!("extra {extra}"), grid());
+        // Past the floor the oldest goes rather than the cache growing. The
+        // budget is handed in rather than taken from the constant, because
+        // these grids are two bytes each and a test that allocated enough of
+        // the real thing to cross 768 MB would be allocating most of a
+        // gigabyte to watch one eviction. What is being read here is the
+        // wiring: that the cache asks, and drops what it is told to drop.
+        let tight = grid().bytes() * CACHE_FLOOR;
+        for extra in 0..4 {
+            remember_grid_within(&format!("extra {extra}"), grid(), 1, tight);
         }
         assert!(
             !is_cached(&busy[0]),
             "the cache grew past its budget instead of evicting"
         );
-        assert!(is_cached(&format!("extra {CACHE_CAPACITY}")));
+        assert!(is_cached("extra 3"));
         clear_caches();
     }
 
