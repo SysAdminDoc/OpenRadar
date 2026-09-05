@@ -130,10 +130,17 @@ interface Sheet {
  * `https://example.test/a|b.png` survives `new URL()` whole, and a sheet at
  * such an address produced an id with eight parts that read back as nothing
  * at all. The icon was then neither fetched nor drawn as a point.
+ *
+ * The first part says which of the two shapes it is, because a feature is
+ * stored in the workspace and a workspace outlives the build that wrote it.
+ * An id written before the address was escaped holds the address as it stood,
+ * and reading one of those through the unescaping turns `%2B` into a plus:
+ * a different object, fetched and not found, or a bare `%` that throws and
+ * leaves the icon drawing nothing at all.
  */
 export function iconId(sheet: Sheet, index: number): string {
   return [
-    "icon",
+    "icon2",
     encodeURIComponent(sheet.url),
     sheet.iconWidth,
     sheet.iconHeight,
@@ -147,23 +154,35 @@ export interface IconRef extends Sheet {
   index: number;
 }
 
-/** Reads back what `iconId` wrote, or null for anything else. */
+/**
+ * Reads back what `iconId` wrote, in either of its two shapes, or null for
+ * anything else.
+ *
+ * `icon2` holds an escaped address and `icon` the raw one a build before
+ * 2026-09-05 wrote. An old id whose address held a `|` was already unreadable
+ * when it was written, so it stays unreadable; what this recovers is every
+ * other one, which is nearly all of them.
+ */
 export function parseIconId(id: string): IconRef | null {
   const parts = id.split("|");
-  if (parts.length !== 7 || parts[0] !== "icon") return null;
+  const escaped = parts[0] === "icon2";
+  if (parts.length !== 7 || (!escaped && parts[0] !== "icon")) return null;
   const [iconWidth, iconHeight, hotX, hotY, index] = parts.slice(2).map(Number);
   if (![iconWidth, iconHeight, hotX, hotY, index].every(Number.isFinite)) {
     return null;
   }
   if (iconWidth <= 0 || iconHeight <= 0 || index < 1) return null;
-  let url: string;
-  try {
-    url = decodeURIComponent(parts[1]);
-  } catch {
-    // A stored workspace can be edited by hand, and a stray percent sign is
-    // not an address.
-    return null;
+  let url = parts[1];
+  if (escaped) {
+    try {
+      url = decodeURIComponent(url);
+    } catch {
+      // A stored workspace can be edited by hand, and a stray percent sign is
+      // not an address.
+      return null;
+    }
   }
+  if (!url) return null;
   return { url, iconWidth, iconHeight, hotX, hotY, index };
 }
 

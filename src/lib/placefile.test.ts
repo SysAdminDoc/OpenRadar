@@ -243,11 +243,38 @@ describe("icons", () => {
   });
 
   it("refuses to read back anything it did not write", () => {
-    expect(parseIconId("icon|https%3A%2F%2Fx.test|15|25|7|24")).toBeNull();
-    expect(parseIconId("icon|https%3A%2F%2Fx.test|0|25|7|24|1")).toBeNull();
-    expect(parseIconId("icon|https%3A%2F%2Fx.test|15|25|7|24|0")).toBeNull();
-    expect(parseIconId("icon|%E0%A4%A|15|25|7|24|1")).toBeNull();
+    expect(parseIconId("icon2|https%3A%2F%2Fx.test|15|25|7|24")).toBeNull();
+    expect(parseIconId("icon2|https%3A%2F%2Fx.test|0|25|7|24|1")).toBeNull();
+    expect(parseIconId("icon2|https%3A%2F%2Fx.test|15|25|7|24|0")).toBeNull();
+    // A stray percent sign is not an address, in the shape that is escaped.
+    expect(parseIconId("icon2|%E0%A4%A|15|25|7|24|1")).toBeNull();
+    expect(parseIconId("icon2||15|25|7|24|1")).toBeNull();
     expect(parseIconId("something else")).toBeNull();
+    expect(parseIconId("icon3|https%3A%2F%2Fx.test|15|25|7|24|1")).toBeNull();
+  });
+
+  it("still reads an id written before the address was escaped", () => {
+    // A feature is stored in the workspace and a workspace outlives the build
+    // that wrote it. Before 2026-09-05 the address went in as it stood, so
+    // reading one of those through the unescaping is wrong twice over: a
+    // `%2B` the site itself wrote becomes a plus, which is a different object
+    // and a 404, and a bare `%` throws and leaves the icon drawing nothing.
+    const old = parseIconId(
+      "icon|https://spotters.example/a%2Bb.png|15|25|7|24|3",
+    );
+    expect(old?.url).toBe("https://spotters.example/a%2Bb.png");
+    expect(old?.index).toBe(3);
+    expect(old?.iconWidth).toBe(15);
+
+    // The one that used to throw, and then drew neither the sheet nor a dot.
+    expect(parseIconId("icon|https://x.test/50%.png|15|25|7|24|1")?.url).toBe(
+      "https://x.test/50%.png",
+    );
+
+    // The numbers are read the same way in both shapes.
+    expect(parseIconId("icon|https://x.test/a.png|0|25|7|24|1")).toBeNull();
+    expect(parseIconId("icon|https://x.test/a.png|15|25|7|24|0")).toBeNull();
+    expect(parseIconId("icon||15|25|7|24|1")).toBeNull();
   });
 
   it("takes the position of one it cannot fetch rather than losing it", () => {
