@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   domainFor,
   frameLimit,
   MAX_LOOP_FRAMES,
+  MRMS_MAX_ZOOM,
   mrmsProvider,
   thinFrames,
   tileUrl,
@@ -128,6 +131,32 @@ describe("MRMS tiles", () => {
     expect(nearest).not.toContain("smooth=1");
     expect(between).toContain("smooth=1");
     expect(between).not.toBe(nearest);
+  });
+
+  it("never asks for a tile the native side refuses", () => {
+    // The ceiling is written down twice: here, where the map is told how deep
+    // to ask, and in the tile handler, which answers a transparent pixel to
+    // anything past its own limit. Drifting apart does not fail: the map
+    // simply goes blank at the zoom nobody tested, which is the deepest one
+    // and the one somebody looking closely at a storm is at.
+    const native = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "..",
+        "src-tauri",
+        "src",
+        "mrms.rs",
+      ),
+      "utf8",
+    );
+    const refused = /zoom > (\d+)\s*\{/.exec(native);
+    expect(
+      refused,
+      "the tile handler no longer names a zoom ceiling, so this gate reads nothing",
+    ).not.toBeNull();
+    expect(MRMS_MAX_ZOOM).toBeLessThanOrEqual(Number(refused![1]));
   });
 
   it("asks for one frame per two minutes of loop, within reason", () => {

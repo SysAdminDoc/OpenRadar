@@ -76,6 +76,7 @@ import { popupFrom, safePopupUrl } from "../lib/mapPopup";
 import { cameraMotion, useHighContrast } from "../hooks/useClock";
 import { loadCounties } from "../lib/counties";
 import { nightPolygon } from "../lib/terminator";
+import { MRMS_MAX_ZOOM } from "../lib/providers/mrms";
 import { casingFor } from "../lib/lineOnMap";
 import { isLightBasemap } from "../lib/mapStyles";
 import { useMapSync } from "../hooks/useMapSync";
@@ -1395,7 +1396,12 @@ function MapViewportInner(
     // No fade at all. These carry discrete ramps, and a cross-fade between
     // two tiles blends two colours into a value that is in neither grid.
     fadeMs: 0,
-    maxZoom: 10,
+    // Drawn at the zoom the reader is actually at, rather than stretched
+    // from a shallower tile. The grid holds no more detail past ten, but the
+    // drawing does: a tile made for zoom ten and blown up four times shows
+    // its own pixel grid as blocks, which is the thing that reads as
+    // pixellation. The native side has always served to twelve.
+    maxZoom: MRMS_MAX_ZOOM,
     replaceOnChange: true,
     tileUrl: (url) => url,
   });

@@ -25,6 +25,16 @@ export const MRMS_HOST = "mrms.localhost";
  * these per MRMS-backed switch, and without something to check against, a
  * renamed id there fails silently by reporting a made-up observation time.
  */
+/**
+ * The deepest zoom the map may ask an MRMS tile for.
+ *
+ * Written once because it is a promise to the native side rather than a
+ * matter of taste: the tile handler answers a transparent pixel past its own
+ * ceiling, so a map asking deeper goes blank rather than wrong. Held to it by
+ * `never asks for a tile the native side refuses`.
+ */
+export const MRMS_MAX_ZOOM = 12;
+
 export const MRMS_PRODUCT_IDS = [
   "composite",
   "rotation",
@@ -362,8 +372,12 @@ export const mrmsProvider: RadarProvider & {
           mrmsProvider.highContrast,
         ),
         tileSize: 256,
-        // The grid is one kilometre, which runs out of detail past here.
-        maxZoom: 10,
+        // The grid is one kilometre and holds no more detail past ten, but the
+        // DRAWING does: a tile made for zoom ten and blown up to fill zoom
+        // twelve shows its own pixel grid as blocks. Held to what the native
+        // side will actually serve by `the map never asks for a tile the
+        // native side refuses`.
+        maxZoom: MRMS_MAX_ZOOM,
         attribution:
           '<a href="https://www.nssl.noaa.gov/projects/mrms/">NOAA MRMS</a>',
       })),
