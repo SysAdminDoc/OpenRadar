@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.10.0
 
+- A bug report now says what the sources have been doing, not just what they are doing this second. Diagnostics could tell you a service had failed three times in a row and nothing about an outage that ended an hour ago, which is usually the one you are writing about. It keeps the last fifty times a source changed its mind about whether it was working, with the time and what it said, and those go into the copied report. It survives a restart, it is capped, and there is a button to end it.
+
 - A radar you are holding that stops sending now says so, and offers the nearest one that is still working. KLWX went down inside a tornado warning last month. The app already passed over a downed radar when it picked one for you, but a site you chose by hand kept being drawn with nothing but the age of the last sweep to say anything was wrong, which looks a lot like a quiet afternoon. The last volume stays on screen, because it is still the last thing anybody knows; what changes is that the app says the transmitter has stopped and gives you one click to the next radar that can see the same weather.
 
 - Most of the national grids draw now. Rotation tracks, hail size and lightning density were the only three with a lane on the map; every grid added since, including four of the five rotation windows and both shear heights, fetched its data and then drew nothing, with nothing to say why. Each product has its own lane, with the scattered ones over the fields that cover the country so a hail core is not buried under the rain around it.

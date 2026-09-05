@@ -231,12 +231,16 @@ export function resetRadarBudgets() {
 
 export { BLANK_TILE_URL } from "./budget";
 export {
+  clearIncidents,
+  loadProviderIncidents,
   providerHealth,
+  providerIncidents,
   recordFailure,
   recordSuccess,
   resetHealth,
   subscribeHealth,
   type ProviderHealth,
+  type ProviderIncident,
 } from "./health";
 export type {
   ForecastStamp,

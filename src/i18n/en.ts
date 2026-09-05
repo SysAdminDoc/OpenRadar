@@ -635,6 +635,8 @@ export const en = {
   "diagnostics.ago": "{age} ago",
   "diagnostics.recentEvents": "Recent events",
   "diagnostics.openLogs": "Open log folder",
+  "diagnostics.forget": "Forget source history",
+  "diagnostics.forgot": "Forgotten. New reports start from here.",
   "diagnostics.copy": "Copy for a bug report",
   "diagnostics.whatIsCopied":
     "The report carries the app version, this machine's renderer and platform, which sources answered, what is held on disk, and the recent log. Coordinates in the log are rounded to about a kilometre and account names are taken out of file paths.",

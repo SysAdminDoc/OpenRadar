@@ -106,6 +106,8 @@ import { log, recentLog, subscribeLog } from "./lib/log";
 import type { OverlayBounds } from "./lib/overlays";
 import {
   providerHealth,
+  providerIncidents,
+  loadProviderIncidents,
   satelliteFrameTime,
   subscribeHealth,
 } from "./lib/providers";
@@ -315,6 +317,11 @@ export default function App() {
 
   const clock = useMinuteClock();
   const health = useSyncExternalStore(subscribeHealth, providerHealth);
+  // Read once, where the workspace starts. What the sources did before the
+  // last restart is most of what a report about an outage is written from.
+  useEffect(() => {
+    loadProviderIncidents();
+  }, []);
   const logEntries = useSyncExternalStore(subscribeLog, recentLog);
   const toasts = useToasts();
   const pushToast = toasts.push;
@@ -1936,6 +1943,7 @@ export default function App() {
         radarReady: timeline.frames.length > 0,
         activeSource: timeline.sourceLabel,
         health,
+        incidents: providerIncidents(),
         log: logEntries,
         layers,
         now,

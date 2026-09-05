@@ -655,6 +655,8 @@ export const fr: Catalogue = {
   "diagnostics.ago": "il y a {age}",
   "diagnostics.recentEvents": "Événements récents",
   "diagnostics.openLogs": "Ouvrir le dossier des journaux",
+  "diagnostics.forget": "Oublier l'historique des sources",
+  "diagnostics.forgot": "Oublié. Les prochains rapports partent d'ici.",
   "diagnostics.copy": "Copier pour un rapport de bogue",
   "diagnostics.whatIsCopied":
     "Le rapport contient la version de l'application, le moteur de rendu et la plateforme de cet ordinateur, les sources qui ont répondu, ce qui est gardé sur le disque et le journal récent. Les coordonnées du journal sont arrondies au kilomètre près et les noms de compte sont retirés des chemins de fichiers.",
