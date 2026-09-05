@@ -174,13 +174,6 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Acceptance: No file under `level2/` exceeds 2,000 lines; `cargo test` passes the same count; clippy is clean; the four derived-product items name their target module.
   Complexity: M
   Note 2026-09-04: `level2.rs` is 7,019 lines on 2026-09-04 (+552 in one day, with `level2_vwp` beside `level2_cross_section`); `mrms.rs` is 4,467. See also `AUD-272` for the four hottest frontend files, which have no split item.
-- [ ] AUD-220 (P3): Tests for the twelve panels that have none
-  Why: Coverage floors are 63/56/57/64 and the panels are most of what is missing; twelve panels have no sibling test, so their empty, loading and error states are held only by e2e specs that stub the world.
-  Evidence: `src/panels/` listing against `*.test.tsx` on 2026-09-03: CuriositySection, ExportPanel, GuidancePanel, IncidentPackManager, JournalSection, MapOptionsPanels, RecapSection, RoutePanel, SearchPanel, SoundingPanel, TidesPanel, UtilityPanels; `vitest.config.ts:34-47`.
-  Touches: one `*.test.tsx` per panel, `vitest.config.ts` floors.
-  Acceptance: Each panel has a sibling test covering its empty, loading and error states with the catalogue's copy; every floor rises by at least two points and none falls.
-  Complexity: M
-  Note 2026-09-04: The list is stale: `IncidentPackManager.test.tsx` now exists, and `StorageSection.tsx` and `VwpPanel.tsx` have no test. Thirteen panels, different membership; derive the list from `src/panels/*.tsx` minus `*.test.tsx` rather than naming them.
 - [ ] AUD-222 (P3): Save the volume on screen as the file it came from
   Why: A reader who found the sweep that matters can export a picture, a CSV or a GeoTIFF but not the Archive II object itself, so the case study cannot be reopened in the app or handed to another tool; Supercell Wx has a pull request for the same ask.
   Evidence: `src-tauri/src/exports.rs:24` (`png`, `webm`, `gif`, `json`, `jsonl`, `md` only); the app opens local Archive II files already (`src-tauri/src/level2.rs` local mode); https://github.com/dpaulat/supercell-wx/pull/688.
