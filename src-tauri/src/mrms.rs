@@ -64,25 +64,27 @@ const CACHE_BUDGET_BYTES: usize = 768 * 1024 * 1024;
 /// the country once per layer. Well past what anybody runs, and far short of
 /// one slot for every product in the table.
 const LAYERS_AT_ONCE: usize = 8;
-/// How many grids the cache holds on to whatever they weigh.
+/// How many grids a busy screen has in hand at once.
 ///
-/// The guarantee, stated rather than derived: a busy screen and the composite
-/// loop's next frame on top of it. Counting slots of a fixed size stopped
-/// working when the shear grids started arriving unfolded, because a slot is
-/// no longer one size. Past this the budget rules and the oldest goes, so
-/// somebody who turns on every layer at once pays in downloads rather than in
-/// an unbounded pile of grids.
-const CACHE_FLOOR: usize = LAYERS_AT_ONCE + 1;
-// The floor and the budget have to be able to hold each other: the worst
-// screen is every fine product unfolded with coarse grids filling the rest.
-// 735 MB against a 768 MiB ceiling on 2026-09-05. A third fine product does
-// not fit, and this fails the build rather than the cache quietly evicting a
-// grid the screen is about to want.
+/// Every layer somebody actually has on, and the composite loop's next frame
+/// on top of them. Not a floor under the eviction: it was one, and that was a
+/// hole rather than a guarantee. The cache is keyed by bucket object and a
+/// loop replay has one object per frame, so a floor of nine entries held
+/// whatever they weighed let one product's replay sit on nine unfolded grids,
+/// 1.6 GB against a stated ceiling of 768 MiB. The budget is the bound now,
+/// and this is what the budget has to be big enough for.
+const BUSY_SCREEN: usize = LAYERS_AT_ONCE + 1;
+// The promise, as arithmetic: a busy screen fits inside the budget, so
+// nothing it is about to want is ever evicted. The worst one is every fine
+// product unfolded with coarse grids filling the rest, 735 MB against a
+// 768 MiB ceiling on 2026-09-05. A third fine product does not fit, and this
+// fails the build rather than the cache quietly dropping a grid the screen
+// needs.
 const _: () = assert!(
-    FINE_PRODUCTS.len() * FINE_GRID_BYTES + (CACHE_FLOOR - FINE_PRODUCTS.len()) * GRID_BYTES
+    FINE_PRODUCTS.len() * FINE_GRID_BYTES + (BUSY_SCREEN - FINE_PRODUCTS.len()) * GRID_BYTES
         <= CACHE_BUDGET_BYTES
 );
-const _: () = assert!(CACHE_FLOOR > LAYERS_AT_ONCE);
+const _: () = assert!(BUSY_SCREEN > LAYERS_AT_ONCE);
 
 /// The cell size of the grid this app draws at, in degrees.
 const DRAWN_CELL_DEGREES: f64 = 0.01;
@@ -1469,6 +1471,7 @@ fn tile_key(
     y: u32,
     threshold: Option<f32>,
     high_contrast: bool,
+    reduce: usize,
 ) -> String {
     // The threshold is part of what the tile shows, so two tiles drawn at two
     // thresholds are two tiles. Leaving it out of the key served the first one
@@ -1477,12 +1480,14 @@ fn tile_key(
         Some(value) => format!("{value}"),
         None => String::from("-"),
     };
+    // The reduction is part of what the tile shows too: the same grid folded
+    // and unfolded draws the same weather at two cell sizes.
     // The ramp is part of what the tile shows for the same reason: a tile
     // drawn on the ordinary ramp must never be served to a reader who asked
     // for the high-contrast one.
     let ramp = if high_contrast { "hc" } else { "-" };
     format!(
-        "{key}|{zoom}/{x}/{y}|{floor}|{ramp}|{}",
+        "{key}|{zoom}/{x}/{y}|{floor}|{ramp}|r{reduce}|{}",
         palette::generation()
     )
 }
@@ -2025,6 +2030,12 @@ pub struct TileRequest {
     pub zoom: u32,
     pub x: u32,
     pub y: u32,
+    /// Whether the reader is close enough to see the fold.
+    ///
+    /// On the request rather than worked out where the grid is asked for, so
+    /// the whole decision from a tile address to what is fetched can be read
+    /// in one place and tested without a bucket.
+    pub detail: bool,
     /// Hide anything below this, in the product's own unit.
     pub threshold: Option<f32>,
     /// Draw with the ramp built for a reader who asked for more contrast.
@@ -2096,6 +2107,7 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         zoom,
         x,
         y,
+        detail: fold_shows(zoom),
         threshold,
         high_contrast,
     })
@@ -2116,6 +2128,7 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         zoom,
         x,
         y,
+        detail,
         threshold,
         high_contrast,
     } = asked;
@@ -2126,16 +2139,38 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
     // A frame that has been drawn once never decodes again, which is what
     // makes replaying the loop cheap.
     // The key already names the region, so it separates one region's tiles
-    // from another's without anything else being said.
-    let drawn = tile_key(&key, zoom, x, y, threshold, high_contrast);
-    if let Some(bytes) = cached_tile(&drawn) {
+    // from another's without anything else being said. It also names how
+    // folded the grid that drew it was: a shear tile drawn from the folded
+    // grid and the same tile drawn from the unfolded one are two pictures,
+    // and served under one address they leave a seam along a tile boundary
+    // that stays there for the session.
+    //
+    // Looked up under what is in hand and stored under what actually drew
+    // it. A guess that turns out wrong costs one redraw; storing under the
+    // guess would serve one grid's tile as the other's, which is the whole
+    // of what this is for.
+    let asking = tile_key(
+        &key,
+        zoom,
+        x,
+        y,
+        threshold,
+        high_contrast,
+        cached_reduction(&key).unwrap_or(1),
+    );
+    if let Some(bytes) = cached_tile(&asking) {
         return bytes;
     }
     // Unfolded only from the zoom the fold starts to show at. Below it the
     // reader cannot see the difference and the grid costs four times as much,
     // which is the whole of why this is asked for rather than always on.
-    if grid_for(&key, fold_shows(zoom)).await.is_err() {
+    if grid_for(&key, detail).await.is_err() {
         return EMPTY_TILE.to_vec();
+    }
+    let reduce = cached_reduction(&key).unwrap_or(1);
+    let drawn = tile_key(&key, zoom, x, y, threshold, high_contrast, reduce);
+    if let Some(bytes) = cached_tile(&drawn) {
+        return bytes;
     }
     let bytes = tile_from_cache(&key, entry, zoom, x, y, threshold, high_contrast)
         .unwrap_or_else(|| EMPTY_TILE.to_vec());
@@ -2545,14 +2580,17 @@ fn cached_enough(key: &str, detail: bool) -> bool {
 /// How many of the oldest grids have to go, given what each of them holds.
 ///
 /// Split out from the cache so the arithmetic can be read against real grid
-/// sizes without a test allocating a gigabyte to see it happen. The floor wins
-/// over the budget: the promise the cache makes is that a busy screen never
-/// evicts a grid it is about to want, and the const assertion beside
-/// `CACHE_FLOOR` is what keeps the two from contradicting each other.
-fn evict_count(sizes: &[usize], budget: usize, floor: usize) -> usize {
+/// sizes without a test allocating a gigabyte to see it happen. The budget is
+/// the only rule: what the cache promises a busy screen is kept by the budget
+/// being large enough for one, which is the const assertion beside
+/// `BUSY_SCREEN`, and not by refusing to evict.
+fn evict_count(sizes: &[usize], budget: usize) -> usize {
     let mut held: usize = sizes.iter().sum();
     let mut gone = 0;
-    while held > budget && sizes.len() - gone > floor {
+    // One is always kept: a grid larger than the whole budget is still the
+    // grid somebody is looking at, and evicting it would mean decoding it
+    // again for the next tile of the same screen.
+    while held > budget && sizes.len() - gone > 1 {
         held -= sizes[gone];
         gone += 1;
     }
@@ -2627,7 +2665,7 @@ fn remember_grid_within(key: &str, grid: Grid, reduce: usize, budget: usize) {
         reduce,
     });
     let sizes: Vec<usize> = cache.iter().map(|entry| entry.grid.bytes()).collect();
-    for _ in 0..evict_count(&sizes, budget, CACHE_FLOOR) {
+    for _ in 0..evict_count(&sizes, budget) {
         cache.pop_front();
     }
 }
@@ -2694,6 +2732,15 @@ pub fn grid_window(
         .find(|held| held.key == key)
         .ok_or(WindowError::NotCached)?
         .grid;
+    // Folded to the grid this app draws at, if what is in hand is finer.
+    //
+    // What is in hand depends on where the reader had been looking, and a
+    // file whose cell size and whose cell count turn on that is a file
+    // nobody can reproduce: the same product for the same moment over the
+    // same box came out at 1201 by 1201 or refused as too large. Folded by
+    // the same rule the decoder uses on the way in, the largest of each
+    // block, so the two answers are the same numbers either way.
+    let fold = fold_to_drawn(grid);
 
     // Column and row indices of the cells the box touches, clamped to the
     // grid. The grid's north and west are cell CENTRES, so cell c covers
@@ -2717,29 +2764,61 @@ pub fn grid_window(
     let last_column = (last_column as usize).min(grid.columns - 1);
     let last_row = (last_row as usize).min(grid.rows - 1);
 
-    let columns = last_column - first_column + 1;
-    let rows = last_row - first_row + 1;
+    // Counted after the fold, because that is the file: the same product for
+    // the same moment over the same box has to come out the same size
+    // whether or not the reader had zoomed in far enough to be shown the
+    // finer grid.
+    let columns = (last_column - first_column).div_euclid(fold) + 1;
+    let rows = (last_row - first_row).div_euclid(fold) + 1;
     let cells = columns * rows;
     if cells > max_cells {
         return Err(WindowError::TooLarge(cells));
     }
 
     let mut values = Vec::with_capacity(cells);
-    for row in first_row..=last_row {
-        for column in first_column..=last_column {
-            values.push(grid.value(row, column));
+    for row in (first_row..=last_row).step_by(fold) {
+        for column in (first_column..=last_column).step_by(fold) {
+            // The largest of the block, which is the decoder's own rule and
+            // the only safe one here: these grids are maxima over a window,
+            // so taking one cell of four drops three quarters of a rotation
+            // track or a hail swath on the floor.
+            let mut most = f32::NEG_INFINITY;
+            for down in 0..fold {
+                for across in 0..fold {
+                    let row = (row + down).min(last_row);
+                    let column = (column + across).min(last_column);
+                    most = most.max(grid.value(row, column));
+                }
+            }
+            values.push(most);
         }
     }
 
     Ok(GridWindow {
         columns,
         rows,
-        west: grid.west + first_column as f64 * grid.d_lon - grid.d_lon / 2.0,
-        north: grid.north - first_row as f64 * grid.d_lat + grid.d_lat / 2.0,
-        d_lon: grid.d_lon,
-        d_lat: grid.d_lat,
+        west: grid.west + first_column as f64 * grid.d_lon - grid.d_lon / 2.0
+            + (fold - 1) as f64 * grid.d_lon / 2.0,
+        north: grid.north - first_row as f64 * grid.d_lat + grid.d_lat / 2.0
+            - (fold - 1) as f64 * grid.d_lat / 2.0,
+        d_lon: grid.d_lon * fold as f64,
+        d_lat: grid.d_lat * fold as f64,
         values,
     })
+}
+
+/// How many cells of this grid go into one cell of the grid the app draws at.
+///
+/// One whenever the grid is already at the drawn resolution or coarser, which
+/// is every product but the two shear grids and those only when a reader was
+/// close enough to be shown them unfolded.
+fn fold_to_drawn(grid: &Grid) -> usize {
+    let ratio = (DRAWN_CELL_DEGREES / grid.d_lat).round();
+    if ratio.is_finite() && ratio >= 2.0 {
+        (ratio as usize).min(MAX_SOURCE_REDUCTION)
+    } else {
+        1
+    }
 }
 
 /// Draws a tile from a grid already decoded, without holding it across an await.
@@ -3349,19 +3428,19 @@ mod tests {
         // asks for.
         const {
             assert!(
-                CACHE_FLOOR > LAYERS_AT_ONCE,
-                "a busy screen would evict a grid it is about to want"
+                BUSY_SCREEN > LAYERS_AT_ONCE,
+                "the loop's next frame is not counted in a busy screen"
             );
-            // The worst screen the floor has to hold: every fine product
-            // unfolded, with coarse grids filling the rest of the floor.
+            // The worst screen the budget has to hold: every fine product
+            // unfolded, with coarse grids filling the rest of it.
             assert!(
                 FINE_PRODUCTS.len() * FINE_GRID_BYTES
-                    + (CACHE_FLOOR - FINE_PRODUCTS.len()) * GRID_BYTES
+                    + (BUSY_SCREEN - FINE_PRODUCTS.len()) * GRID_BYTES
                     <= CACHE_BUDGET_BYTES,
-                "the floor cannot be held inside the budget"
+                "a busy screen does not fit inside the budget"
             );
             // The property the change was made for: the table is already
-            // longer than a busy screen, and the floor does not follow it.
+            // longer than a busy screen, and the budget does not follow it.
             assert!(
                 PRODUCTS.len() > LAYERS_AT_ONCE,
                 "the table is smaller than a busy screen, so this proves nothing"
@@ -3410,33 +3489,172 @@ mod tests {
         assert!(fold_shows(u32::MAX));
     }
 
+    /// A tile address carries the decision, so the whole path can be read.
+    ///
+    /// The decision used to be made where the grid was asked for, one line
+    /// inside a function nothing runnable reaches: replacing it with a flat
+    /// `false`, which is the shear grids never coming unfolded and exactly
+    /// the bug this was written to fix, left the whole suite green.
+    #[test]
+    fn a_tile_address_says_whether_the_reader_can_see_the_fold() {
+        let asked = |zoom: u32| {
+            parse_tile_path(&format!("az-shear-low/1756800000/{zoom}/10/20.png"))
+                .expect("a tile address")
+        };
+        assert!(!asked(6).detail);
+        assert!(
+            !asked(7).detail,
+            "a whole grid was fetched nobody could see"
+        );
+        assert!(asked(8).detail, "the fold shows and it was not asked for");
+        assert!(asked(12).detail);
+        // The same address under a region prefix, which is a different arm of
+        // the parser and had its own way of forgetting.
+        assert!(
+            parse_tile_path("CONUS/az-shear-low/1756800000/9/10/20.png")
+                .expect("a regional tile address")
+                .detail
+        );
+    }
+
+    /// And the fetch is asked for what the address said.
+    ///
+    /// Read off the source, because everything between the two is a bucket.
+    /// A pure function tested on its own and then not called is the shape
+    /// this whole feature failed in once already.
+    #[test]
+    fn the_grid_is_asked_for_what_the_address_said() {
+        let source = include_str!("mrms.rs");
+        let body = source
+            .split("pub async fn serve_tile(")
+            .nth(1)
+            .expect("the tile handler is in this file");
+        let body = &body[..body.find("\npub fn ").unwrap_or(body.len())];
+        assert!(
+            body.contains("grid_for(&key, detail)"),
+            "the tile handler no longer asks for the grid the address called for"
+        );
+    }
+
+    /// The same export whatever the reader had been looking at.
+    ///
+    /// A window read off an unfolded grid is four times the cells of the same
+    /// window read off the folded one: the same product for the same moment
+    /// over the same box came out at one cell size or another, or was refused
+    /// as too large, depending only on whether the reader had zoomed in
+    /// first. A file nobody can reproduce.
+    #[test]
+    fn an_export_is_the_same_file_whichever_grid_is_in_hand() {
+        let _turn = live_test();
+        clear_caches();
+
+        // The same ground twice: a grid at the resolution this app draws at,
+        // and the same ground at twice that in each axis.
+        let coarse = ramp_grid(8, 8, 0.01);
+        let fine = ramp_grid(16, 16, 0.005);
+
+        remember_grid("shear/whole", coarse, 2);
+        let folded = grid_window("shear/whole", -94.0, 40.0, -93.9, 40.1, 4_000_000)
+            .expect("a window off the folded grid");
+
+        clear_caches();
+        remember_grid("shear/whole", fine, 1);
+        let whole = grid_window("shear/whole", -94.0, 40.0, -93.9, 40.1, 4_000_000)
+            .expect("a window off the unfolded grid");
+
+        assert_eq!(
+            (whole.columns, whole.rows),
+            (folded.columns, folded.rows),
+            "the same box came out a different size"
+        );
+        assert!(
+            (whole.d_lat - folded.d_lat).abs() < 1e-9,
+            "the exported cell size followed the cache rather than the product"
+        );
+        assert_eq!(
+            whole.values, folded.values,
+            "the readings changed with what happened to be cached"
+        );
+        clear_caches();
+    }
+
+    /// A grid whose cells count up, so a fold is visible in the numbers.
+    fn ramp_grid(columns: usize, rows: usize, step: f64) -> Grid {
+        Grid {
+            columns,
+            rows,
+            north: 40.1,
+            west: -94.0,
+            d_lat: step,
+            d_lon: step,
+            reference: 0.0,
+            binary: 0,
+            decimal: 0,
+            // The largest of each block is what a fold keeps, and at half the
+            // step each drawn cell is four of these: written so the two
+            // grids' maxima agree cell for cell.
+            samples: (0..columns * rows)
+                .map(|at| {
+                    let row = at / columns;
+                    let column = at % columns;
+                    let scale = if step < 0.0075 { 2 } else { 1 };
+                    ((row / scale) * 100 + (column / scale)) as u16
+                })
+                .collect(),
+        }
+    }
+
+    /// Two grids of the same ground are two pictures at the same address.
+    #[test]
+    fn a_tile_says_which_grid_drew_it() {
+        // A shear tile drawn from the folded grid and the same tile drawn
+        // from the unfolded one differ along their cell edges. Served under
+        // one address they leave a seam at a tile boundary that stays for the
+        // session, because nothing invalidates a drawn tile when a finer grid
+        // replaces the one it came from.
+        let folded = tile_key("k", 7, 3, 5, None, false, 2);
+        let whole = tile_key("k", 7, 3, 5, None, false, 1);
+        assert_ne!(folded, whole);
+        assert_eq!(whole, tile_key("k", 7, 3, 5, None, false, 1));
+    }
+
     /// What the cache drops, read against grids the size they really are.
     ///
     /// The arithmetic on its own, because watching it happen through
     /// `remember_grid` at these sizes would mean a test allocating the better
     /// part of a gigabyte to see one eviction.
     #[test]
-    fn the_budget_counts_bytes_and_the_floor_beats_the_budget() {
+    fn the_budget_is_the_bound_and_a_busy_screen_fits_inside_it() {
         // A busy screen at its worst: both shear grids unfolded and coarse
-        // ones filling the rest of the floor. Nothing goes.
+        // ones filling the rest. Nothing goes, because it fits.
         let mut busy = vec![FINE_GRID_BYTES; FINE_PRODUCTS.len()];
-        busy.resize(CACHE_FLOOR, GRID_BYTES);
+        busy.resize(BUSY_SCREEN, GRID_BYTES);
+        assert!(
+            busy.iter().sum::<usize>() <= CACHE_BUDGET_BYTES,
+            "the budget is too small for the screen it promises to hold"
+        );
         assert_eq!(
-            evict_count(&busy, CACHE_BUDGET_BYTES, CACHE_FLOOR),
+            evict_count(&busy, CACHE_BUDGET_BYTES),
             0,
             "a busy screen lost a grid it was about to want"
         );
 
-        // The floor wins even when what is held is past the budget, because
-        // the promise is about the screen rather than the ceiling.
-        let over = vec![FINE_GRID_BYTES; CACHE_FLOOR];
-        assert_eq!(evict_count(&over, CACHE_BUDGET_BYTES, CACHE_FLOOR), 0);
+        // A replay of one fine product, which is what a floor of entries
+        // could not see: the cache is keyed by bucket object and a loop has
+        // one object per frame, so nine of them were nine unfolded grids and
+        // 1.6 GB against a ceiling of 768 MiB. The budget is a bound now.
+        let replay = vec![FINE_GRID_BYTES; BUSY_SCREEN];
+        let gone = evict_count(&replay, CACHE_BUDGET_BYTES);
+        let held: usize = replay[gone..].iter().sum();
+        assert!(
+            held <= CACHE_BUDGET_BYTES,
+            "a loop of the biggest grids held {held} against a budget of {CACHE_BUDGET_BYTES}"
+        );
 
-        // Past the floor the budget rules, and it is the oldest that go:
-        // enough of them to fit, and not one more.
-        let mut crowded = vec![GRID_BYTES; CACHE_FLOOR + 8];
+        // The oldest go, enough of them to fit and not one more.
+        let mut crowded = vec![GRID_BYTES; BUSY_SCREEN + 8];
         crowded[0] = FINE_GRID_BYTES;
-        let gone = evict_count(&crowded, CACHE_BUDGET_BYTES, CACHE_FLOOR);
+        let gone = evict_count(&crowded, CACHE_BUDGET_BYTES);
         assert!(
             gone > 0,
             "the cache grew past its budget instead of evicting"
@@ -3452,12 +3670,17 @@ mod tests {
             "one more grid went than had to"
         );
 
-        // A cache that already fits drops nothing.
+        // One is always kept, however big. A grid past the whole budget is
+        // still the grid somebody is looking at, and dropping it would mean
+        // decoding it again for the next tile of the same screen.
         assert_eq!(
-            evict_count(&[GRID_BYTES], CACHE_BUDGET_BYTES, CACHE_FLOOR),
+            evict_count(&[CACHE_BUDGET_BYTES * 2], CACHE_BUDGET_BYTES),
             0
         );
-        assert_eq!(evict_count(&[], CACHE_BUDGET_BYTES, CACHE_FLOOR), 0);
+
+        // A cache that already fits drops nothing.
+        assert_eq!(evict_count(&[GRID_BYTES], CACHE_BUDGET_BYTES), 0);
+        assert_eq!(evict_count(&[], CACHE_BUDGET_BYTES), 0);
     }
 
     /// A finer grid takes the folded one's place rather than sitting beside it.
@@ -4234,15 +4457,15 @@ mod tests {
         // The threshold is part of what the tile shows, so it has to be part
         // of the address the drawn tile is remembered under. Leaving it out
         // served the first reader's picture to the second.
-        let plain = tile_key("k", 4, 3, 5, None, false);
-        let low = tile_key("k", 4, 3, 5, Some(20.0), false);
-        let high = tile_key("k", 4, 3, 5, Some(45.0), false);
+        let plain = tile_key("k", 4, 3, 5, None, false, 1);
+        let low = tile_key("k", 4, 3, 5, Some(20.0), false, 1);
+        let high = tile_key("k", 4, 3, 5, Some(45.0), false, 1);
         assert_ne!(plain, low);
         assert_ne!(low, high);
         assert_ne!(plain, high);
         // The same threshold is the same tile, or nothing would ever be
         // remembered at all.
-        assert_eq!(low, tile_key("k", 4, 3, 5, Some(20.0), false));
+        assert_eq!(low, tile_key("k", 4, 3, 5, Some(20.0), false, 1));
     }
 
     /// A block of live cells over the plains, for the zoom tests below.
@@ -4613,7 +4836,7 @@ mod tests {
         // the composite loop's next frame beside them. None of these may be
         // evicted before the screen is drawn, which is the whole of what the
         // cache promises.
-        let busy: Vec<String> = (0..CACHE_FLOOR).map(|at| format!("layer {at}")).collect();
+        let busy: Vec<String> = (0..BUSY_SCREEN).map(|at| format!("layer {at}")).collect();
         for id in &busy {
             remember_grid(id, grid(), 1);
         }
@@ -4624,13 +4847,13 @@ mod tests {
             );
         }
 
-        // Past the floor the oldest goes rather than the cache growing. The
+        // Past the budget the oldest goes rather than the cache growing. The
         // budget is handed in rather than taken from the constant, because
         // these grids are two bytes each and a test that allocated enough of
         // the real thing to cross 768 MB would be allocating most of a
         // gigabyte to watch one eviction. What is being read here is the
         // wiring: that the cache asks, and drops what it is told to drop.
-        let tight = grid().bytes() * CACHE_FLOOR;
+        let tight = grid().bytes() * BUSY_SCREEN;
         for extra in 0..4 {
             remember_grid_within(&format!("extra {extra}"), grid(), 1, tight);
         }
@@ -5070,10 +5293,10 @@ mod tests {
 
     #[test]
     fn two_contrast_choices_are_two_tiles() {
-        let plain = tile_key("k", 4, 3, 5, None, false);
-        let contrast = tile_key("k", 4, 3, 5, None, true);
+        let plain = tile_key("k", 4, 3, 5, None, false, 1);
+        let contrast = tile_key("k", 4, 3, 5, None, true, 1);
         assert_ne!(plain, contrast);
-        assert_eq!(contrast, tile_key("k", 4, 3, 5, None, true));
+        assert_eq!(contrast, tile_key("k", 4, 3, 5, None, true, 1));
     }
 
     /// And the pixels actually differ, so the address is separating two

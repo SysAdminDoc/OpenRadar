@@ -642,6 +642,30 @@ mod tests {
         shuffled.reverse();
         assert_eq!(newest_listed(&shuffled), newest_listed(&keys));
 
+        // Two pieces stamped the same second, which S3 does: the later of
+        // them is the one further down a listing held in publication order,
+        // and that order is only publication order because the sequence
+        // number is padded to three digits. Unpadded, "010" would sort before
+        // "002" and the anchor would be a piece from the middle of the volume
+        // with the newest one's arrival beside it.
+        let tied = vec![
+            listed("KTLX/114/20260830-161604-002-I", 20),
+            listed("KTLX/114/20260830-161604-009-I", 20),
+            listed("KTLX/114/20260830-161604-010-I", 20),
+        ];
+        assert_eq!(
+            newest_listed(&tied).expect("a listing").key,
+            "KTLX/114/20260830-161604-010-I",
+            "a tie on the second took the wrong piece"
+        );
+        let mut sorted: Vec<String> = tied.iter().map(|piece| piece.key.clone()).collect();
+        sorted.sort();
+        assert_eq!(
+            sorted.last().map(String::as_str),
+            Some("KTLX/114/20260830-161604-010-I"),
+            "the padding that makes the listing's order publication order is gone"
+        );
+
         // Nothing listed is nothing to anchor on, which is a fallback to the
         // fixed wait rather than a guess.
         assert_eq!(newest_listed(&[]), None);
@@ -861,6 +885,64 @@ mod tests {
             }
         }
         pieces
+    }
+
+    /// The wait comes out of the pattern, and nothing else pins it.
+    ///
+    /// Every other test here hands `stalled` a `LiveTiming` built by hand,
+    /// so the one line that reads the radar's own coverage pattern could be
+    /// replaced with a zero and the whole suite stayed green. A zero there
+    /// sends every projected volume back to the fixed minute, which is the
+    /// bug the projection exists to fix.
+    #[test]
+    fn the_wait_is_read_off_the_radar_s_own_coverage_pattern() {
+        let at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 40, 0).unwrap();
+        let cuts = vec![
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    gates: 8,
+                    reflectivity: fixture::Gate::Reading(30.0),
+                    ..fixture::Cut::default()
+                },
+            ),
+            fixture::flat_cut(
+                at,
+                fixture::Cut {
+                    number: 2,
+                    degrees: 1.5,
+                    gates: 8,
+                    reflectivity: fixture::Gate::Reading(30.0),
+                    ..fixture::Cut::default()
+                },
+            ),
+        ];
+        let pieces = chunked_volume(&cuts);
+        let Ok(Chunk::Start(file)) = Chunk::new(pieces[0].clone()) else {
+            panic!("the first piece of a volume is its start chunk");
+        };
+        let records = file.records().expect("the start chunk's records");
+
+        let timing = project("KTLX", 114, "KTLX/114/20260830-234000-001-S", at, &records)
+            .expect("a projection out of the pattern in the start chunk");
+
+        assert!(
+            timing.next_chunk > at,
+            "the next piece is due before the one it was anchored on"
+        );
+        assert!(timing.ends >= timing.next_chunk);
+        // The wait is the gap to the next piece plus one more of them, which
+        // is what makes a missed piece a stall rather than a slow one.
+        let to_next = timing.next_chunk - at;
+        assert!(to_next > Duration::zero(), "the pattern gave no interval");
+        assert!(
+            timing.patience >= to_next,
+            "the wait is shorter than the piece it is waiting for"
+        );
+        assert!(
+            timing.patience > Duration::zero(),
+            "a wait of nothing sends every volume back to the fixed minute"
+        );
     }
 
     #[test]
