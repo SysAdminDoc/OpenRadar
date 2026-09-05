@@ -81,6 +81,7 @@ import {
   wallpaperDue,
   writeWallpaperIfDue,
 } from "./lib/wallpaper";
+import { useDisplayAwake } from "./hooks/useDisplayAwake";
 import { useWelcomeHint } from "./hooks/useWelcomeHint";
 import { mrmsTimeFor, useMrmsOverlays } from "./hooks/useMrmsOverlays";
 import { COUNTY_VINTAGE, loadCounties } from "./lib/counties";
@@ -1608,6 +1609,20 @@ export default function App() {
       (settings.ambientIdleMinutes > 0 &&
         idleMs >= settings.ambientIdleMinutes * 60_000)) &&
     !overlays.alertActive;
+
+  // The screen kept on while that view is showing, if the reader asked for
+  // it. Logged and left alone when the system refuses: a screen that sleeps
+  // anyway is a disappointment rather than a fault, and a toast over a view
+  // somebody walked away from helps nobody.
+  useDisplayAwake({
+    wanted: settings.displayAwake,
+    showing: ambientScreen,
+    onFailure: (failure) =>
+      log.warn(
+        "display",
+        failure instanceof Error ? failure.message : "The hold was refused.",
+      ),
+  });
 
   const handleCameraChange = useCallback(
     (camera: CameraState) => {

@@ -560,6 +560,13 @@ export interface AppSettings {
    */
   ambientIdleMinutes: number;
   /**
+   * Whether the full-screen view keeps the screen on while it is showing.
+   *
+   * Off, because holding somebody's monitor awake is a thing to be asked
+   * for. On, it stands only while the view is actually showing.
+   */
+  displayAwake: boolean;
+  /**
    * Whether there is an icon in the tray at all.
    *
    * On, because it is the one place the app can say something useful while
@@ -758,6 +765,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seenReveal: false,
   calm: false,
   ambientIdleMinutes: 0,
+  displayAwake: false,
   wallpaperMinutes: 0,
   tray: true,
   closeToTray: false,
@@ -1910,6 +1918,7 @@ export function normalizeSettings(value: unknown): AppSettings {
     )
       ? Number(raw.ambientIdleMinutes)
       : DEFAULT_SETTINGS.ambientIdleMinutes,
+    displayAwake: bool(raw.displayAwake, DEFAULT_SETTINGS.displayAwake),
     journal: bool(raw.journal, DEFAULT_SETTINGS.journal),
     catchUp: bool(raw.catchUp, DEFAULT_SETTINGS.catchUp),
     curiosities: bool(raw.curiosities, DEFAULT_SETTINGS.curiosities),

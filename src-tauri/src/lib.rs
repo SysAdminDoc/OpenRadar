@@ -12,6 +12,7 @@ mod crash;
 mod cross_section;
 mod data_export;
 mod dealias;
+mod display;
 mod exports;
 #[cfg(test)]
 mod fixture;
@@ -300,6 +301,8 @@ pub fn run() {
             tray::glance_on_top,
             tray::glance_showing,
             tray::glance_open,
+            display::display_awake,
+            display::display_awake_available,
             wallpaper::wallpaper_available,
             wallpaper::wallpaper_set,
             wallpaper::wallpaper_restore,

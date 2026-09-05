@@ -262,13 +262,6 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 
 ### P3
 
-- [ ] AUD-269 (P3): Keep the display awake while the second-monitor view is showing
-      Why: README says the full-screen view "is meant to be left running on the screen you are not typing on"; Windows turns that screen off on its own timer, and the page cannot stop it: the Screen Wake Lock API is unsupported in WebView2. One Win32 call from the native side is.
-      Evidence: https://caniwebview.com/features/web-feature-screen-wake-lock/ ; `grep -rn wakeLock src` empty; `SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED)`.
-      Touches: `src-tauri/src/lib.rs` (a `display_awake(bool)` command), the ambient-view enter and leave path in `src/App.tsx`, Settings (off by default, beside the ambient options), `src/i18n/*`, a test that the command is asked on enter and released on leave and on window close.
-      Acceptance: With the option on, entering the ambient view asks the native side to hold the display and leaving it releases; the hold is released when the app exits; the option is off by default and says what it does.
-      Complexity: S
-
 - [ ] AUD-270 (P3): Speak a warning at a watched place with the Windows voice, off by default
       Why: HookEcho made spoken warnings the default on 2026-09-03 (#298: county, towns in path, distance and bearing from a saved place, a tone then speech, a queue); Supercell Wx #581 asks for voice lightning alerts. The app's watched places already compose the sentence (which place, which warning, how many minutes); speaking it through the page's own `speechSynthesis` is offline and keyless, and is the one form a reader away from the screen can take in.
       Evidence: https://github.com/d4vid87/HookEcho/pull/298 ; https://github.com/dpaulat/supercell-wx/issues/581 ; `src/lib/notify.ts`, `src/hooks/useAlertWatch.ts`, `src/hooks/useApproachWatch.ts`.

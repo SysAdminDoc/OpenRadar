@@ -17,6 +17,7 @@ import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
 import { openGlance } from "../lib/tray";
 import { giveSpeculationBack, putSpeculationAway } from "../lib/calm";
+import { displayAwakeAvailable } from "../lib/display";
 import { WALLPAPER_EVERY, wallpaperAvailable } from "../lib/wallpaper";
 import { RecapSection } from "./RecapSection";
 import { CuriositySection } from "./CuriositySection";
@@ -130,6 +131,20 @@ export function SettingsPanel({
     let alive = true;
     void wallpaperAvailable().then((ok) => {
       if (alive) setWallpaperOk(ok);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Same question, same reason: whether this build can hold the screen on
+  // cannot change while it is running, and null until the answer is back so
+  // the switch neither promises nor refuses before it knows.
+  const [awakeOk, setAwakeOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void displayAwakeAvailable().then((ok) => {
+      if (alive) setAwakeOk(ok);
     });
     return () => {
       alive = false;
@@ -258,6 +273,24 @@ export function SettingsPanel({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="toggle-row toggle-row--plain">
+            <span>
+              <strong>{t("ambientScreen.awake")}</strong>
+              <small>{t("ambientScreen.awakeDetail")}</small>
+            </span>
+            <input
+              type="checkbox"
+              // Off where it cannot be honoured, rather than drawn on and
+              // doing nothing: a switch that says the screen will stay on
+              // when it will not is worse than no switch.
+              checked={settings.displayAwake && awakeOk !== false}
+              disabled={awakeOk !== true}
+              onChange={(event) =>
+                onSettings({ ...settings, displayAwake: event.target.checked })
+              }
+            />
+            <i className="toggle-track" aria-hidden="true" />
           </label>
         </div>
         <ToggleSetting
