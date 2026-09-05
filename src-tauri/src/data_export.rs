@@ -135,6 +135,11 @@ pub struct GridDataRequest {
     pub time: i64,
     #[serde(default)]
     pub domain: Option<String>,
+    /// Which height of the merged grid, for the three products published at
+    /// more than one. Absent for every other product, and for a stale request
+    /// that predates the height being askable.
+    #[serde(default)]
+    pub level: Option<String>,
     pub west: f64,
     pub south: f64,
     pub east: f64,
@@ -598,7 +603,7 @@ fn wanted_grid(
         .clone()
         .unwrap_or_else(|| "CONUS".to_string())
         .to_uppercase();
-    let key = mrms::key_for(&domain, entry, request.time)
+    let key = mrms::key_for(&domain, entry, request.level.as_deref(), request.time)
         .ok_or_else(|| DataExportError::NoProduct(request.product.clone()))?;
     Ok((entry, key))
 }
@@ -998,6 +1003,7 @@ mod tests {
             product: "rotation".to_string(),
             time: 1_756_747_800,
             domain: None,
+            level: None,
             west: -94.5,
             south: 41.0,
             east: -93.0,

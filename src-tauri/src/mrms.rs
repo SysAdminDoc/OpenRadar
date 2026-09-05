@@ -17,6 +17,8 @@ use crate::http;
 // Reflectivity under more contrast is the same ramp the single-site radar
 // draws, so one storm is the same colours whichever picture it is read from.
 use crate::level2::HIGH_CONTRAST_REFLECTIVITY_RAMP;
+use std::borrow::Cow;
+
 use crate::palette;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
@@ -168,6 +170,17 @@ pub struct MrmsProduct {
     /// rather than a quantity. A grid with categories is never interpolated:
     /// halfway between snow and hail is not sleet, it is nothing.
     pub categories: Option<&'static [Category]>,
+    /// The heights this one is published at, for the three that are published
+    /// at more than one.
+    ///
+    /// The network builds a three-dimensional grid and publishes reflectivity,
+    /// correlation and differential reflectivity at every height of it, which
+    /// is thirty-three folders each. Ninety-nine rows in this table would say
+    /// the same thing ninety-nine times, so a family is one row and the height
+    /// travels beside the product wherever it goes: into the folder name, and
+    /// so into the object key and the grid cache, which is what keeps two
+    /// heights of one field from being the same picture.
+    pub levels: Option<&'static [(&'static str, f32)]>,
 }
 
 /// One value of a categorical grid: what it is, and what it is called.
@@ -181,6 +194,37 @@ pub struct Category {
 }
 
 impl MrmsProduct {
+    /// The height to read this product at, given what was asked for.
+    ///
+    /// `None` for a product published at one height, whatever was asked: a
+    /// height on the composite is a reader's address being wrong rather than a
+    /// different picture. For a family, the asked-for height when the network
+    /// publishes it and the lowest otherwise, so a stale address or a level
+    /// the network drops still draws something rather than nothing.
+    pub fn level_for(&self, asked: Option<&str>) -> Option<&'static str> {
+        let levels = self.levels?;
+        let found = asked.and_then(|want| {
+            levels
+                .iter()
+                .find(|(name, _)| *name == want)
+                .map(|(name, _)| *name)
+        });
+        Some(found.unwrap_or(levels[0].0))
+    }
+
+    /// The bucket folder this product's grids live in at a height.
+    ///
+    /// The folder is the whole address: it goes into the listing and into the
+    /// object key, and the object key is the grid cache's own key, so two
+    /// heights of one field cannot be confused for one another anywhere
+    /// downstream of here.
+    pub fn folder_at(&self, level: Option<&str>) -> Cow<'static, str> {
+        match self.level_for(level) {
+            Some(level) => Cow::Owned(format!("{}_{level}", self.folder)),
+            None => Cow::Borrowed(self.folder),
+        }
+    }
+
     /// The ramp this grid is drawn with, given what the reader asked for.
     pub fn ramp_for(&self, high_contrast: bool) -> &'static [(f32, [u8; 3])] {
         if high_contrast {
@@ -706,6 +750,106 @@ const PRECIP_TYPE_RAMP: &[(f32, [u8; 3])] = &[
     (96.0, [0xde, 0x6a, 0xa8]),
 ];
 
+/// The heights the merged three-dimensional grid is published at, as the
+/// bucket spells them and as the kilometres they mean.
+///
+/// Thirty-three of them, unevenly spaced: a quarter of a kilometre apart
+/// through the lowest three, then half a kilometre to nine, then whole ones to
+/// nineteen. That is the network's own choice and not something to smooth
+/// over, because the spacing is where the detail is: a reader looking for a
+/// ZDR column or the height of a hail core is looking in the bottom three
+/// kilometres.
+pub const CUBE_LEVELS: &[(&str, f32)] = &[
+    ("00.50", 0.50),
+    ("00.75", 0.75),
+    ("01.00", 1.00),
+    ("01.25", 1.25),
+    ("01.50", 1.50),
+    ("01.75", 1.75),
+    ("02.00", 2.00),
+    ("02.25", 2.25),
+    ("02.50", 2.50),
+    ("02.75", 2.75),
+    ("03.00", 3.00),
+    ("03.50", 3.50),
+    ("04.00", 4.00),
+    ("04.50", 4.50),
+    ("05.00", 5.00),
+    ("05.50", 5.50),
+    ("06.00", 6.00),
+    ("06.50", 6.50),
+    ("07.00", 7.00),
+    ("07.50", 7.50),
+    ("08.00", 8.00),
+    ("08.50", 8.50),
+    ("09.00", 9.00),
+    ("10.00", 10.00),
+    ("11.00", 11.00),
+    ("12.00", 12.00),
+    ("13.00", 13.00),
+    ("14.00", 14.00),
+    ("15.00", 15.00),
+    ("16.00", 16.00),
+    ("17.00", 17.00),
+    ("18.00", 18.00),
+    ("19.00", 19.00),
+];
+
+/// Correlation coefficient, which is a ratio and not a quantity of anything.
+///
+/// Rain alone sits at 0.98 and above. The stops below that are what the field
+/// is read for: melting snow around 0.95, a mix of rain and hail around 0.9,
+/// and non-meteorological returns, which is birds, chaff and tornado debris,
+/// below 0.8. The bottom stop is deliberately not zero, because a grid of
+/// clear air would otherwise paint the whole country.
+const RHOHV_RAMP: &[(f32, [u8; 3])] = &[
+    (0.20, [0x5b, 0x21, 0xb6]),
+    (0.50, [0x7c, 0x3a, 0xed]),
+    (0.80, [0xdb, 0x27, 0x77]),
+    (0.90, [0xf9, 0x73, 0x16]),
+    (0.95, [0xfa, 0xcc, 0x15]),
+    (0.97, [0x4a, 0xde, 0x80]),
+    (0.99, [0x22, 0xd3, 0xee]),
+    (1.00, [0xe0, 0xf2, 0xfe]),
+];
+
+const HIGH_CONTRAST_RHOHV_RAMP: &[(f32, [u8; 3])] = &[
+    (0.20, HIGH_CONTRAST_STEPS[0]),
+    (0.50, HIGH_CONTRAST_STEPS[1]),
+    (0.80, HIGH_CONTRAST_STEPS[2]),
+    (0.90, HIGH_CONTRAST_STEPS[3]),
+    (0.95, HIGH_CONTRAST_STEPS[4]),
+    (1.00, HIGH_CONTRAST_STEPS[5]),
+];
+
+/// Differential reflectivity, in decibels.
+///
+/// Around zero is hail or a dry aggregate, which tumbles and looks the same
+/// in both polarisations. Big oblate raindrops run to three and above, and the
+/// column of it above a storm's updraught is what the field is opened for.
+/// Negative happens and is drawn: it is usually a wet, conical graupel or an
+/// artefact, and hiding it would make a reader think the grid stopped.
+const ZDR_RAMP: &[(f32, [u8; 3])] = &[
+    (-2.0, [0x31, 0x2e, 0x81]),
+    (-0.5, [0x1d, 0x4e, 0xd8]),
+    (0.5, [0x0e, 0xa5, 0xe9]),
+    (1.0, [0x22, 0xc5, 0x5e]),
+    (1.5, [0xa3, 0xe6, 0x35]),
+    (2.0, [0xfa, 0xcc, 0x15]),
+    (3.0, [0xf9, 0x73, 0x16]),
+    (4.0, [0xdc, 0x26, 0x26]),
+    (6.0, [0xfb, 0xcf, 0xe8]),
+];
+
+const HIGH_CONTRAST_ZDR_RAMP: &[(f32, [u8; 3])] = &[
+    (-2.0, HIGH_CONTRAST_STEPS[0]),
+    (0.0, HIGH_CONTRAST_STEPS[1]),
+    (1.0, HIGH_CONTRAST_STEPS[2]),
+    (2.0, HIGH_CONTRAST_STEPS[3]),
+    (3.5, HIGH_CONTRAST_STEPS[4]),
+    (6.0, HIGH_CONTRAST_STEPS[5]),
+];
+
 pub const PRODUCTS: &[MrmsProduct] = &[
     MrmsProduct {
         id: "composite",
@@ -717,6 +861,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 5.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "rotation",
@@ -728,6 +873,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     // The other windows the same track is published over. One switch with a
     // duration beside it rather than five switches: they are the same
@@ -742,6 +888,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "rotation-120",
@@ -753,6 +900,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "rotation-240",
@@ -764,6 +912,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "rotation-1440",
@@ -775,6 +924,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     // Shear as it stands rather than the largest a cell has held. Published on
     // the finer 0.005 degree grid, which the decoder folds by two on the way
@@ -789,6 +939,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "az-shear-mid",
@@ -800,6 +951,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "mesh",
@@ -811,6 +963,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 6.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "echo-tops",
@@ -822,6 +975,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 3.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "vil",
@@ -833,6 +987,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 1.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "vil-density",
@@ -844,6 +999,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.5,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "shi",
@@ -855,6 +1011,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 10.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "posh",
@@ -866,6 +1023,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 10.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "vii",
@@ -877,6 +1035,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "precip-rate",
@@ -888,6 +1047,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.2,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "qpe-hour",
@@ -899,6 +1059,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.5,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "qpe-day",
@@ -910,6 +1071,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "gauge-qpe-hour",
@@ -921,6 +1083,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.5,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "gauge-qpe-day",
@@ -932,6 +1095,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 2.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "gauge-qpe-three-day",
@@ -943,6 +1107,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 5.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "ffg-hour",
@@ -956,6 +1121,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 25.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "ffg-three-hour",
@@ -967,6 +1133,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 25.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "unit-streamflow",
@@ -978,6 +1145,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.05,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "hail-swath",
@@ -989,6 +1157,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 6.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "lightning",
@@ -1000,6 +1169,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.01,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     // The rest of the cloud-to-ground density windows. One ramp across all
     // four on purpose: the unit is the same and the windows are only worth
@@ -1015,6 +1185,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.01,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "lightning-15min",
@@ -1026,6 +1197,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.01,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "lightning-30min",
@@ -1037,6 +1209,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.01,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     // The two that are forecasts rather than observations. Everything the
     // workspace says about them has to carry that, which is why they are
@@ -1051,6 +1224,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 10.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "lightning-probability-60min",
@@ -1062,6 +1236,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 10.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "lightning-jump",
@@ -1073,6 +1248,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 1.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "lightning-jump-max",
@@ -1084,6 +1260,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 1.0,
         sampling: Sampling::Cells,
         categories: None,
+        levels: None,
     },
     // Reflectivity at the height the air is cold enough for ice, which is
     // what a forecaster reads for lightning initiation rather than for rain.
@@ -1097,6 +1274,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 5.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "reflectivity-minus-20c",
@@ -1108,6 +1286,7 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 5.0,
         sampling: Sampling::Nearest,
         categories: None,
+        levels: None,
     },
     MrmsProduct {
         id: "precip-type",
@@ -1125,6 +1304,50 @@ pub const PRODUCTS: &[MrmsProduct] = &[
         floor: 0.5,
         sampling: Sampling::Nearest,
         categories: Some(PRECIP_TYPES),
+        levels: None,
+    },
+    MrmsProduct {
+        id: "cappi-reflectivity",
+        // A prefix rather than a folder: this one is published at every height
+        // in `CUBE_LEVELS` and the height chosen finishes the name.
+        folder: "MergedReflectivityQC",
+        label: "MRMS reflectivity at a height",
+        unit: "dBZ",
+        ramp: REFLECTIVITY_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_REFLECTIVITY_RAMP,
+        floor: 5.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+        levels: Some(CUBE_LEVELS),
+    },
+    MrmsProduct {
+        id: "cappi-rhohv",
+        folder: "MergedRhoHV",
+        label: "MRMS correlation at a height",
+        unit: "",
+        ramp: RHOHV_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_RHOHV_RAMP,
+        // Below this is noise rather than a reading, and drawing it paints
+        // every clear-air cell in the country.
+        floor: 0.2,
+        sampling: Sampling::Nearest,
+        categories: None,
+        levels: Some(CUBE_LEVELS),
+    },
+    MrmsProduct {
+        id: "cappi-zdr",
+        folder: "MergedZdr",
+        label: "MRMS differential reflectivity at a height",
+        unit: "dB",
+        ramp: ZDR_RAMP,
+        high_contrast_ramp: HIGH_CONTRAST_ZDR_RAMP,
+        // The bottom of the ramp. This field is signed, so the floor is not
+        // near zero the way every other one here is, and a floor above the
+        // lowest stop would hide the negative values the ramp draws.
+        floor: -2.0,
+        sampling: Sampling::Nearest,
+        categories: None,
+        levels: Some(CUBE_LEVELS),
     },
 ];
 
@@ -1716,7 +1939,12 @@ pub fn key_time(key: &str) -> Option<i64> {
 /// The object a product's grid for one moment lives in. The folder name is
 /// repeated inside the file name, which is what makes this derivable rather
 /// than something the frontend has to carry around.
-pub fn key_for(domain: &str, entry: &MrmsProduct, time: i64) -> Option<String> {
+pub fn key_for(
+    domain: &str,
+    entry: &MrmsProduct,
+    level: Option<&str>,
+    time: i64,
+) -> Option<String> {
     if !is_domain(domain) {
         return None;
     }
@@ -1725,7 +1953,7 @@ pub fn key_for(domain: &str, entry: &MrmsProduct, time: i64) -> Option<String> {
     let stamp = at.format("%Y%m%d-%H%M%S");
     Some(format!(
         "{domain}/{folder}/{day}/MRMS_{folder}_{stamp}.grib2.gz",
-        folder = entry.folder
+        folder = entry.folder_at(level)
     ))
 }
 
@@ -1734,6 +1962,10 @@ pub struct TileRequest {
     /// Which of the network's regions the tile is from.
     pub domain: String,
     pub entry: &'static MrmsProduct,
+    /// Which height of the merged grid, for the three products published at
+    /// more than one. Already checked against what the product publishes, so
+    /// a level here is one the network has.
+    pub level: Option<&'static str>,
     pub time: i64,
     pub zoom: u32,
     pub x: u32,
@@ -1744,7 +1976,8 @@ pub struct TileRequest {
     pub high_contrast: bool,
 }
 
-/// Reads `/domain/product/time/z/x/y.png`, and an optional `?min=` or `?hc=`.
+/// Reads `/domain/product/time/z/x/y.png`, and an optional `?min=`, `?hc=`
+/// or `?level=`.
 ///
 /// The domain may be left out, and then it is the lower forty-eight: that is
 /// the address every tile had before the other regions were read, and a
@@ -1782,7 +2015,17 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
         }
         _ => "CONUS".to_string(),
     };
+    // The height, for the three products published at more than one. Read
+    // through the product's own list rather than trusted, so an address
+    // naming a height the network does not publish draws the lowest instead
+    // of asking the bucket for a folder that is not there.
+    let asked = query.and_then(|query| {
+        query
+            .split('&')
+            .find_map(|pair| pair.strip_prefix("level="))
+    });
     let entry = product_by_id(parts.next()?)?;
+    let level = entry.level_for(asked);
     let time = parts.next()?.parse::<i64>().ok()?;
     let zoom = parts.next()?.parse::<u32>().ok()?;
     let x = parts.next()?.parse::<u32>().ok()?;
@@ -1793,6 +2036,7 @@ pub fn parse_tile_path(path: &str) -> Option<TileRequest> {
     Some(TileRequest {
         domain,
         entry,
+        level,
         time,
         zoom,
         x,
@@ -1812,6 +2056,7 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
     let TileRequest {
         domain,
         entry,
+        level,
         time,
         zoom,
         x,
@@ -1819,7 +2064,7 @@ pub async fn serve_tile(path: &str) -> Vec<u8> {
         threshold,
         high_contrast,
     } = asked;
-    let Some(key) = key_for(&domain, entry, time) else {
+    let Some(key) = key_for(&domain, entry, level, time) else {
         return EMPTY_TILE.to_vec();
     };
 
@@ -1934,6 +2179,9 @@ pub async fn mrms_frames(
     // Which of the network's regions to read. Absent means the lower
     // forty-eight, which is what every caller wanted before there were others.
     domain: Option<String>,
+    // Which height of the merged grid, for the three products published at
+    // more than one. Absent, and for those it is the lowest.
+    level: Option<String>,
 ) -> Result<Vec<MrmsFrame>, MrmsError> {
     let domain = domain.unwrap_or_else(|| "CONUS".to_string());
     if !is_domain(&domain) {
@@ -1947,7 +2195,12 @@ pub async fn mrms_frames(
     // Just after midnight UTC the day's folder holds only a frame or two, so
     // yesterday has to make up the rest of the loop.
     for day in [now - Duration::days(1), now] {
-        let listing = http::get_bytes(&listing_url(&domain, entry.folder, day)).await?;
+        let listing = http::get_bytes(&listing_url(
+            &domain,
+            &entry.folder_at(level.as_deref()),
+            day,
+        ))
+        .await?;
         let listing = String::from_utf8_lossy(&listing);
         if !listing.contains("<ListBucketResult") {
             return Err(MrmsError::BadListing);
@@ -2598,7 +2851,7 @@ mod tests {
         let entry = product_by_id("composite").expect("the composite product");
 
         let frames = runtime
-            .block_on(mrms_frames("composite".into(), 10, None))
+            .block_on(mrms_frames("composite".into(), 10, None, None))
             .expect("MRMS publishes a grid every two minutes");
         assert!(frames.len() >= 5, "got {} frames", frames.len());
         assert!(
@@ -2614,7 +2867,7 @@ mod tests {
 
         let newest = frames.last().unwrap();
         assert_eq!(
-            key_for("CONUS", entry, newest.time).as_deref(),
+            key_for("CONUS", entry, None, newest.time).as_deref(),
             Some(newest.key.as_str()),
             "the derived key has to match the one the bucket published"
         );
@@ -2707,7 +2960,7 @@ mod tests {
             clear_caches();
             let entry = product_by_id(id).expect("the product is in the table");
             let frames = runtime
-                .block_on(mrms_frames(id.into(), 3, None))
+                .block_on(mrms_frames(id.into(), 3, None, None))
                 .unwrap_or_else(|error| panic!("{id} publishes nothing: {error}"));
             let newest = frames.last().unwrap_or_else(|| panic!("{id} has no grid"));
 
@@ -2818,7 +3071,7 @@ mod tests {
             .expect("a runtime");
 
         let frames = runtime
-            .block_on(mrms_frames("composite".into(), 3, None))
+            .block_on(mrms_frames("composite".into(), 3, None, None))
             .expect("MRMS publishes grids");
         let time = frames.last().expect("a frame").time;
 
@@ -3258,7 +3511,7 @@ mod tests {
             .build()
             .expect("a runtime");
         let frames = runtime
-            .block_on(mrms_frames("composite".into(), 1, None))
+            .block_on(mrms_frames("composite".into(), 1, None, None))
             .expect("MRMS publishes grids");
         let time = frames.last().expect("a frame").time;
 
@@ -3318,26 +3571,45 @@ mod tests {
             .build()
             .expect("a runtime");
 
-        for product in PRODUCTS {
+        // Every product, and for the three published through the whole depth
+        // of the merged grid, three heights of each: the bottom of the cube,
+        // the middle where a reader looks for a ZDR column, and ten
+        // kilometres, where the folders exist but the air is often empty.
+        // One height would say nothing about whether the folder name is
+        // built correctly for the others.
+        const SAMPLED: [&str; 3] = ["00.50", "03.00", "10.00"];
+        let asked = PRODUCTS.iter().flat_map(|product| {
+            match product.levels {
+                Some(_) => SAMPLED.iter().map(Some).collect::<Vec<_>>(),
+                None => vec![None],
+            }
+            .into_iter()
+            .map(move |level| (product, level.copied()))
+        });
+
+        for (product, level) in asked {
             clear_caches();
+            let named = match level {
+                Some(level) => format!("{} at {level}", product.id),
+                None => product.id.to_string(),
+            };
+            let folder = product.folder_at(level);
             let frames = runtime
-                .block_on(mrms_frames(product.id.into(), 1, None))
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "{} publishes nothing at {}: {error}",
-                        product.id, product.folder
-                    )
-                });
+                .block_on(mrms_frames(
+                    product.id.into(),
+                    1,
+                    None,
+                    level.map(str::to_owned),
+                ))
+                .unwrap_or_else(|error| panic!("{named} publishes nothing at {folder}: {error}"));
             let key = frames
                 .last()
-                .unwrap_or_else(|| {
-                    panic!("{} has no recent grid in {}", product.id, product.folder)
-                })
+                .unwrap_or_else(|| panic!("{named} has no recent grid in {folder}"))
                 .key
                 .clone();
             runtime
                 .block_on(grid_for(&key))
-                .unwrap_or_else(|error| panic!("{} did not decode: {error}", product.id));
+                .unwrap_or_else(|error| panic!("{named} did not decode: {error}"));
 
             let cache = CACHE.lock().expect("the cache");
             let grid = &cache
@@ -3370,8 +3642,7 @@ mod tests {
             }
             let top = product.ramp[product.ramp.len() - 1].0;
             println!(
-                "{}: {above_floor} of {finite} cells over the {} floor, peak {} {}, ramp ends at {top}",
-                product.id,
+                "{named}: {above_floor} of {finite} cells over the {} floor, peak {} {}, ramp ends at {top}",
                 product.floor,
                 peak.map_or("none".into(), |value| format!("{value:.2}")),
                 product.unit
@@ -3381,23 +3652,21 @@ mod tests {
             // that a grid decoded to something readable could never fail: a
             // field of nothing but missing values passed it. An option says
             // what the maximum of an empty set actually is.
-            let peak = peak.unwrap_or_else(|| panic!("{} decoded to nothing readable", product.id));
+            let peak = peak.unwrap_or_else(|| panic!("{named} decoded to nothing readable"));
             // Not "has data": a cell outside radar coverage decodes to a
             // large negative number rather than to NaN, so almost every cell
             // in the domain counts here. It catches a decode that came back
             // with a grid a fraction of the size it should be.
             assert!(
                 finite > 1_000_000,
-                "{}: only {finite} cells in the whole grid decoded",
-                product.id
+                "{named}: only {finite} cells in the whole grid decoded"
             );
 
             // The ramp has to be in the same world as the data. An order of
             // magnitude either way and the map is one flat colour or nothing.
             assert!(
                 peak < top * 10.0,
-                "{}: peak {peak} is far past the {top} the ramp ends at",
-                product.id
+                "{named}: peak {peak} is far past the {top} the ramp ends at"
             );
             // And the other way, which nothing checked: a grid published in a
             // unit a thousand times smaller than the ramp assumes draws an
@@ -3447,7 +3716,7 @@ mod tests {
 
         let entry = product_by_id("precip-type").expect("the precipitation flag");
         let frames = runtime
-            .block_on(mrms_frames("precip-type".into(), 1, None))
+            .block_on(mrms_frames("precip-type".into(), 1, None, None))
             .expect("MRMS publishes the precipitation flag");
         let key = frames.last().expect("a frame").key.clone();
         runtime
@@ -3508,7 +3777,7 @@ mod tests {
         // something somewhere in the country to draw.
         let entry = product_by_id("rotation").expect("the rotation product");
         let frames = runtime
-            .block_on(mrms_frames("rotation".into(), 1, None))
+            .block_on(mrms_frames("rotation".into(), 1, None, None))
             .expect("MRMS publishes rotation tracks");
         let key = frames.last().expect("a frame").key.clone();
         runtime.block_on(grid_for(&key)).expect("the grid decodes");
@@ -3857,7 +4126,7 @@ mod tests {
     fn a_moment_names_the_object_it_was_published_in() {
         let entry = product_by_id("composite").expect("the composite product");
         assert_eq!(
-            key_for("CONUS", entry, 1788083202).as_deref(),
+            key_for("CONUS", entry, None, 1788083202).as_deref(),
             Some(
                 "CONUS/MergedReflectivityQCComposite_00.50/20260830/MRMS_MergedReflectivityQCComposite_00.50_20260830-094642.grib2.gz"
             )
@@ -3886,14 +4155,19 @@ mod tests {
 
         for domain in DOMAINS {
             let frames = runtime
-                .block_on(mrms_frames("composite".into(), 1, Some((*domain).into())))
+                .block_on(mrms_frames(
+                    "composite".into(),
+                    1,
+                    Some((*domain).into()),
+                    None,
+                ))
                 .unwrap_or_else(|failure| panic!("{domain}: {failure}"));
             let newest = frames
                 .last()
                 .unwrap_or_else(|| panic!("{domain}: no frames"));
 
-            let key =
-                key_for(domain, entry, newest.time).unwrap_or_else(|| panic!("{domain}: no key"));
+            let key = key_for(domain, entry, None, newest.time)
+                .unwrap_or_else(|| panic!("{domain}: no key"));
             assert!(key.starts_with(domain), "{key} is not in {domain}");
 
             runtime
@@ -4113,11 +4387,125 @@ mod tests {
             ("reflectivity-minus-10c", Sampling::Nearest),
             ("reflectivity-minus-20c", Sampling::Nearest),
             ("precip-type", Sampling::Nearest),
+            // A slice of the merged grid at one height is as continuous as
+            // the composite taken from the same cube.
+            ("cappi-reflectivity", Sampling::Nearest),
+            ("cappi-rhohv", Sampling::Nearest),
+            ("cappi-zdr", Sampling::Nearest),
         ];
         assert_eq!(expected.len(), PRODUCTS.len(), "a product has no verdict");
         for (id, sampling) in expected {
             let entry = product_by_id(id).unwrap_or_else(|| panic!("{id} is missing"));
             assert_eq!(entry.sampling, sampling, "{id} is drawn the wrong way");
+        }
+    }
+
+    #[test]
+    fn a_height_only_belongs_to_the_products_published_at_more_than_one() {
+        // Asking the composite for three kilometres is an address being wrong
+        // rather than a different picture, and answering it with a folder
+        // that does not exist would turn a working layer into an empty one.
+        let composite = product_by_id("composite").expect("the composite");
+        assert_eq!(composite.level_for(Some("03.00")), None);
+        assert_eq!(
+            composite.folder_at(Some("03.00")),
+            "MergedReflectivityQCComposite_00.50"
+        );
+        assert_eq!(
+            composite.folder_at(None),
+            "MergedReflectivityQCComposite_00.50"
+        );
+
+        for id in ["cappi-reflectivity", "cappi-rhohv", "cappi-zdr"] {
+            let family = product_by_id(id).unwrap_or_else(|| panic!("{id} is missing"));
+            let levels = family
+                .levels
+                .unwrap_or_else(|| panic!("{id} has no heights"));
+            assert_eq!(levels.len(), 33, "{id}");
+            // A height the network publishes.
+            assert_eq!(family.level_for(Some("03.00")), Some("03.00"));
+            // One it does not. The lowest rather than nothing: a stale
+            // address, or a height the network drops, still draws a picture.
+            assert_eq!(family.level_for(Some("03.25")), Some("00.50"));
+            assert_eq!(family.level_for(Some("../CONUS")), Some("00.50"));
+            assert_eq!(family.level_for(None), Some("00.50"));
+        }
+    }
+
+    #[test]
+    fn two_heights_of_one_field_are_two_different_grids() {
+        // The height reaches the object key, and the object key is the grid
+        // cache's own key. Anything less and the second height asked for is
+        // served the first height's grid, which looks like a field that does
+        // not change with altitude.
+        let family = product_by_id("cappi-reflectivity").expect("the family");
+        let low = key_for("CONUS", family, Some("00.50"), 1_788_083_202).expect("a key");
+        let high = key_for("CONUS", family, Some("10.00"), 1_788_083_202).expect("a key");
+        assert_eq!(
+            low,
+            "CONUS/MergedReflectivityQC_00.50/20260830/\
+             MRMS_MergedReflectivityQC_00.50_20260830-094642.grib2.gz"
+        );
+        assert_eq!(
+            high,
+            "CONUS/MergedReflectivityQC_10.00/20260830/\
+             MRMS_MergedReflectivityQC_10.00_20260830-094642.grib2.gz"
+        );
+        assert_ne!(low, high);
+        // And the file name the listing reader parses is still one this
+        // decoder can read a time out of.
+        assert_eq!(key_time(&high), Some(1_788_083_202));
+    }
+
+    #[test]
+    fn a_tile_address_carries_the_height_it_was_drawn_at() {
+        let asked = parse_tile_path("/CONUS/cappi-zdr/1788083202/6/15/24.png?level=03.00")
+            .expect("a readable address");
+        assert_eq!(asked.entry.id, "cappi-zdr");
+        assert_eq!(asked.level, Some("03.00"));
+
+        // Without one, the lowest, which is what an address written before
+        // the height was askable means.
+        let bare = parse_tile_path("/CONUS/cappi-zdr/1788083202/6/15/24.png").expect("readable");
+        assert_eq!(bare.level, Some("00.50"));
+
+        // On a product with one height it stays absent whatever is asked, so
+        // the folder cannot be built with a suffix that does not exist.
+        let flat = parse_tile_path("/CONUS/composite/1788083202/6/15/24.png?level=03.00")
+            .expect("readable");
+        assert_eq!(flat.level, None);
+
+        // Beside the other two query pieces, in either order.
+        let both = parse_tile_path("/CONUS/cappi-rhohv/1788083202/6/15/24.png?hc=1&level=06.00")
+            .expect("readable");
+        assert_eq!(both.level, Some("06.00"));
+        assert!(both.high_contrast);
+    }
+
+    #[test]
+    fn the_heights_are_the_ones_the_bucket_publishes() {
+        // Read off the CONUS prefix listing on 2026-09-05: thirty-three
+        // folders per family, a quarter of a kilometre apart to three, half a
+        // kilometre to nine, then whole ones to nineteen. The names are the
+        // folder suffixes verbatim, because a mis-spelled one is a listing
+        // that answers with nothing and a layer that draws nothing.
+        assert_eq!(CUBE_LEVELS.len(), 33);
+        assert_eq!(CUBE_LEVELS.first(), Some(&("00.50", 0.50)));
+        assert_eq!(CUBE_LEVELS.last(), Some(&("19.00", 19.00)));
+        for (name, km) in CUBE_LEVELS {
+            assert_eq!(
+                *name,
+                format!("{km:05.2}"),
+                "the folder suffix and the height disagree"
+            );
+        }
+        for pair in CUBE_LEVELS.windows(2) {
+            assert!(
+                pair[1].1 > pair[0].1,
+                "{:?} is not above {:?}",
+                pair[1],
+                pair[0]
+            );
         }
     }
 
