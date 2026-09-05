@@ -179,3 +179,40 @@ The item, kept whole so it can go back to `ROADMAP.md` unchanged:
           Acceptance: The item may close with a documented no-go if a desktop redistribution quota is unavailable; any shipped adapter embeds no secret, names product-level license and attribution, respects rate limits, distinguishes OPERA composite from national products, and has 24-hour cache and schema fixtures.
           Complexity: XL
 
+## AUD-247: a placefile icon that really paints cannot be asserted from the browser suite
+
+The fixture half of this is fixed and shipped: the sheet is fetched, and the
+half that can be asserted is now a test. `e2e/layers.spec.ts` covers a sheet
+that answers 404, where the position keeps a dot and none of the sheet's own
+colour reaches the canvas. What could not be made to work is the other
+direction, a sheet that loads and paints.
+
+Traced on 2026-09-05, with the loader instrumented and the map exposed to the
+spec. Everything up to the last step is right:
+
+- the request reaches the stub, once, at the sheet's own address, which is
+  what the earlier attempt could not get past (a plain `page.route` is never
+  consulted, because the fetch goes through the cached scheme; registering
+  through the fixture's own `stubHost` fixes that);
+- the sheet decodes at 15 by 25, `sliceIcon` cuts a 15 by 49 image with 375
+  solid magenta pixels in it, and `map.addImage` is called with it;
+- the feature is on the map at the camera centre with `kind: "icon"` and the
+  matching id, the icons layer is on the published stack, `map.hasImage(id)`
+  is true, and `map.queryRenderedFeatures` for that layer returns the symbol.
+
+And nothing of the sheet's colour appears in a canvas readback, over fifteen
+seconds, with the camera centred on the point. The readback itself works: the
+same read returns a fully painted frame, and the same method is what the
+magenta-line test in that file asserts on today.
+
+So the last step is unexplained. Two candidates, neither settled: the symbol
+is placed and reported as rendered but painted with something other than the
+image, or the readback is a frame that predates the `addImage` reload and
+never catches up. Worth an hour with a headed browser and the MapLibre debug
+overlay, which is what this pass did not have.
+
+Note that no pixel-free assertion discriminates the regression this item
+exists for: under the `coalesce` the icon id is still added and the symbol is
+still rendered, so `hasImage` and `queryRenderedFeatures` both stay true. The
+source-reading gate in `placefileIcons.test.ts` remains the only thing
+holding that mistake down.

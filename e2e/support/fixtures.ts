@@ -70,13 +70,33 @@ function answering(handler: Handler): Handler {
         return (held as (...args: unknown[]) => unknown).bind(target);
       },
     });
-    await handler(watched);
-    if (answered) return;
-    await route.fulfill({
-      status: 599,
-      contentType: "text/plain",
-      body: `no stub answered ${route.request().url()}`,
-    });
+    // In a `finally`, because a handler that throws leaves the request
+    // pending exactly as surely as one that returns without answering, and it
+    // is the likelier of the two: a `new URL` on a string that is not an
+    // address, or an `.exec(...)[1]` on a line that did not match.
+    let blewUp: unknown = null;
+    try {
+      await handler(watched);
+    } catch (failure) {
+      blewUp = failure;
+    } finally {
+      if (!answered) {
+        await route.fulfill({
+          status: 599,
+          contentType: "text/plain",
+          body: blewUp
+            ? `the stub for ${route.request().url()} threw: ${String(blewUp)}`
+            : `no stub answered ${route.request().url()}`,
+        });
+      }
+    }
+    // Not rethrown. The request is answered and the reason is in the body,
+    // which is what the spec waiting on it can act on; rethrowing here fails
+    // the run with an unhandled route error instead, which is the same
+    // "somewhere else entirely" this exists to stop.
+    if (blewUp) {
+      console.error(`stub for ${route.request().url()} threw`, blewUp);
+    }
   };
 }
 

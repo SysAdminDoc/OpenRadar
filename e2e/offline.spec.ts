@@ -371,6 +371,25 @@ test("a stub that answers nothing fails the request rather than hanging", async 
   expect(status.body).toContain("https://silent.example/anything.json");
 });
 
+test("a stub that throws fails the request rather than hanging", async ({
+  page,
+}) => {
+  // The likelier half of the same failure. A handler that blows up part way
+  // through leaves the request open exactly as surely as one that returns
+  // without answering, and a `new URL` on a string that is not an address or
+  // an `.exec(...)[1]` on a line that did not match is how it happens.
+  await stubHost(page, "https://angry.example/**", async () => {
+    throw new Error("the handler blew up");
+  });
+  const status = await page.evaluate(async () => {
+    const reply = await fetch("https://angry.example/anything.json");
+    return { code: reply.status, body: await reply.text() };
+  });
+  expect(status.code).toBe(599);
+  expect(status.body).toContain("threw");
+  expect(status.body).toContain("the handler blew up");
+});
+
 test("an unrecognised path answers with what was asked for", async ({
   page,
 }) => {

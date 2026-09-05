@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MRMS_PRODUCT_IDS } from "./providers/mrms";
 import {
@@ -142,6 +144,51 @@ describe("every grid the panel can switch on has a lane to draw in", () => {
       ).toBe(true);
     }
     expect(drawn.has("composite")).toBe(false);
+  });
+
+  it("splits them the way the decoder does", () => {
+    // Which grids are scattered cells and which cover the country is one
+    // decision written in two languages: here it decides what is drawn over
+    // what, and in `mrms.rs` it decides whether a tile is sampled per pixel
+    // or walked cell by cell. Nothing else would notice them drifting,
+    // because a scattered grid buried under a continuous field still draws.
+    //
+    // Read out of the Rust test that already writes the verdict per product,
+    // the way `tiles.rs` is read by the sweep gate: the table itself is a
+    // hundred lines of struct literals, and its verdicts are a list.
+    const rust = readFileSync(
+      join(import.meta.dirname, "..", "..", "src-tauri", "src", "mrms.rs"),
+      "utf8",
+    );
+    const verdicts = rust.slice(
+      rust.indexOf("fn every_product_is_drawn_the_way_its_data_is_shaped"),
+    );
+    const table = verdicts.slice(0, verdicts.indexOf("assert_eq!(expected."));
+    const cells = new Set<string>();
+    const fields = new Set<string>();
+    for (const [, id, sampling] of table.matchAll(
+      /\("([a-z0-9-]+)",\s*Sampling::(Cells|Nearest)\)/g,
+    )) {
+      (sampling === "Cells" ? cells : fields).add(id);
+    }
+    // The read itself has to be worth something: an expression that matched
+    // nothing would make every assertion below vacuous.
+    expect(cells.size + fields.size).toBe(MRMS_PRODUCT_IDS.length);
+    expect(cells.size).toBeGreaterThan(5);
+
+    // The property, which is about order rather than membership: every grid
+    // the decoder walks cell by cell is drawn over every grid that covers the
+    // map, so a hail core is not buried under the rain around it.
+    const order = layerStackOrder([]);
+    const lane = (product: string) =>
+      stackHeight(order, `${MRMS_SOURCE_PREFIX}${product}`);
+    const lowestScattered = Math.min(...[...cells].map(lane));
+    for (const product of fields) {
+      if (product === "composite") continue;
+      expect(lane(product), `${product} covers the map`).toBeLessThan(
+        lowestScattered,
+      );
+    }
   });
 
   it("keeps the scattered grids over the fields that cover the map", () => {

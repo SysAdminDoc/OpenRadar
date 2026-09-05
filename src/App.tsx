@@ -124,6 +124,7 @@ import {
   isLightBasemap,
   resolvedMapStyle,
 } from "./lib/mapStyles";
+import { supportedProduct } from "./lib/radarKinds";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
 import { featureBounds } from "./lib/overlays";
@@ -2901,7 +2902,18 @@ export default function App() {
         onHoldSite={(station) =>
           applySettings({
             ...settingsRef.current,
-            radar: { ...settingsRef.current.radar, station },
+            radar: {
+              ...settingsRef.current.radar,
+              station,
+              // The same rule the picker's own row applies. A terminal radar
+              // draws products no WSR-88D has, so moving off one without this
+              // left the panel showing a choice the map was not drawing and a
+              // threshold slider writing to a product nothing read.
+              product: supportedProduct(
+                station,
+                settingsRef.current.radar.product,
+              ),
+            },
           })
         }
         mrmsLayers={singleSite.historical ? [] : mrms.layers}
