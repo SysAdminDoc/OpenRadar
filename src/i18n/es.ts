@@ -522,6 +522,7 @@ export const es: Catalogue = {
   "keywords.lightningForecast": "probabilidad pronostico rayo proximo",
   "keywords.lightningJump": "salto aumento tasa sigma rayo",
   "keywords.isothermReflectivity": "reflectividad isotermica hielo frio dbz",
+  "keywords.cappi": "cappi altura nivel combinada rejilla correlacion",
   "layers.lightningForecastDetail":
     "La probabilidad de que caiga un rayo donde todavía no ha caído.",
   "layers.lightningJumpDetail":
@@ -1305,6 +1306,19 @@ export const es: Catalogue = {
   "mrms.hailSwath": "Granizo más grande del último día",
   "mrms.lightning": "Rayos nube-tierra, 5 min",
   "mrms.precipType": "Tipo de precipitación",
+  "mrms.cappiReflectivity": "Reflectividad combinada a una altura",
+  "mrms.cappiRhohv": "Correlación combinada a una altura",
+  "mrms.cappiZdr": "Reflectividad diferencial combinada a una altura",
+  "layer.cappi": "Rejilla combinada a una altura",
+  "layer.cappiDetail":
+    "Una altura de la rejilla nacional con la que se construye el compuesto, en lugar de toda la columna a la vez. Dónde está el núcleo de granizo, no de qué tamaño es el granizo.",
+  "layers.cappiField": "Qué campo",
+  "layers.cappiReflectivity": "Reflectividad",
+  "layers.cappiCorrelation": "Correlación",
+  "layers.cappiDifferential": "Diferencial",
+  "layers.cappiHeight": "Altura",
+  "layers.cappiNote":
+    "La red publica esto a treinta y tres alturas. Una correlación por debajo de 0,8 no suele ser meteorología: aves, señuelos o restos levantados por un tornado.",
 
   "layers.note":
     "Los interruptores de capas se guardan al instante y se aplican al mapa de inmediato. Las alertas vienen del NWS, los sismos del USGS y los perímetros de incendios del NIFC.",

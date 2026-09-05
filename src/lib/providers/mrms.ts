@@ -7,6 +7,7 @@ import type {
   LightningWindow,
 } from "../lightningGrids";
 import type { AzShearLevel, RotationPeriod } from "../rotationTrack";
+import type { CappiField, CubeLevel } from "../cappi";
 import { withinLoop, type RadarFrame, type RadarProvider } from "./types";
 
 /**
@@ -61,6 +62,12 @@ export const MRMS_PRODUCT_IDS = [
   "unit-streamflow",
   "hail-swath",
   "precip-type",
+  // One row each for the three fields the network publishes through the whole
+  // depth of its merged grid. Which height is a separate choice, because
+  // ninety-nine ids would be the same three products said thirty-three times.
+  "cappi-reflectivity",
+  "cappi-rhohv",
+  "cappi-zdr",
 ] as const;
 
 export type MrmsProductId = (typeof MRMS_PRODUCT_IDS)[number];
@@ -111,6 +118,13 @@ export const LIGHTNING_FORECAST_PRODUCTS: Record<
 export const LIGHTNING_JUMP_PRODUCTS: Record<LightningJump, MrmsProductId> = {
   now: "lightning-jump",
   max: "lightning-jump-max",
+};
+
+/** Which of the merged fields the height switch is pointing at. */
+export const CAPPI_PRODUCTS: Record<CappiField, MrmsProductId> = {
+  reflectivity: "cappi-reflectivity",
+  correlation: "cappi-rhohv",
+  differential: "cappi-zdr",
 };
 
 /** Which temperature the isothermal reflectivity is sampled at. */
@@ -225,11 +239,16 @@ export function tileUrl(
   // address for the same reason the other two are: it is a different picture,
   // and the map's own cache must not serve one for the other.
   highContrast = false,
+  // Which height of the merged grid, for the three products published at more
+  // than one. In the address like the rest: a different height is a different
+  // picture and the map's own cache must not serve one for the other.
+  level: CubeLevel | null = null,
 ): string {
   const floor =
     threshold !== null && Number.isFinite(threshold) ? `&min=${threshold}` : "";
   const contrast = highContrast ? "&hc=1" : "";
-  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}${contrast}`;
+  const height = level ? `&level=${level}` : "";
+  return `${root}${domain}/${product}/${time}/{z}/{x}/{y}.png?p=${palette}${floor}${contrast}${height}`;
 }
 
 /** The base URL for the local tile scheme, once Tauri has spelled it out. */
@@ -250,9 +269,11 @@ export async function mrmsFrames(
   limit: number,
   /** Which region's grid, since each is published on its own. */
   domain?: string,
+  /** Which height, for the three products published at more than one. */
+  level?: CubeLevel,
 ): Promise<MrmsFrame[]> {
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<MrmsFrame[]>("mrms_frames", { product, limit, domain });
+  return invoke<MrmsFrame[]>("mrms_frames", { product, limit, domain, level });
 }
 
 /** The grids are decoded here, so a browser preview has none of this. */

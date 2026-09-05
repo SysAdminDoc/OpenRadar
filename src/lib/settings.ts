@@ -43,6 +43,13 @@ import {
   type LightningWindow,
 } from "./lightningGrids";
 import {
+  isCappiField,
+  isCubeLevel,
+  DEFAULT_CUBE_LEVEL,
+  type CappiField,
+  type CubeLevel,
+} from "./cappi";
+import {
   isAzShearLevel,
   isRotationPeriod,
   type AzShearLevel,
@@ -226,6 +233,8 @@ export interface LayerSettings {
   lightningJump: boolean;
   /** Reflectivity at the level the air is cold enough for ice. */
   isothermReflectivity: boolean;
+  /** One height of the merged grid, rather than the whole column at once. */
+  cappi: boolean;
   /** GLM total-lightning flashes from GOES-East. */
   lightningFlashes: boolean;
   /** Animated GFS wind particles. */
@@ -465,6 +474,10 @@ export interface AppSettings {
   isothermLevel: IsothermLevel;
   /** Which slab the merged shear is measured through. */
   azShearLevel: AzShearLevel;
+  /** Which of the three merged fields the height switch is showing. */
+  cappiField: CappiField;
+  /** Which height of the merged grid all three are read at. */
+  cappiLevel: CubeLevel;
   /**
    * Places beside home, up to nine of them, so home plus these is ten. Kept
    * as its own key rather than folded into `watch`, which every build since
@@ -698,6 +711,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     lightningForecast: false,
     lightningJump: false,
     isothermReflectivity: false,
+    cappi: false,
     lightningFlashes: false,
     wind: false,
     surge: false,
@@ -732,6 +746,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lightningJumpWindow: "max",
   isothermLevel: "minus10",
   azShearLevel: "low",
+  cappiField: "reflectivity",
+  cappiLevel: DEFAULT_CUBE_LEVEL,
   presets: [null, null, null, null],
   incidentPacks: {
     diskLimitMb: 4096,
@@ -1728,6 +1744,7 @@ export function normalizeSettings(value: unknown): AppSettings {
         layers.isothermReflectivity,
         DEFAULT_SETTINGS.layers.isothermReflectivity,
       ),
+      cappi: bool(layers.cappi, DEFAULT_SETTINGS.layers.cappi),
       lightningFlashes: bool(
         layers.lightningFlashes,
         DEFAULT_SETTINGS.layers.lightningFlashes,
@@ -1838,6 +1855,12 @@ export function normalizeSettings(value: unknown): AppSettings {
     azShearLevel: isAzShearLevel(raw.azShearLevel)
       ? raw.azShearLevel
       : DEFAULT_SETTINGS.azShearLevel,
+    cappiField: isCappiField(raw.cappiField)
+      ? raw.cappiField
+      : DEFAULT_SETTINGS.cappiField,
+    cappiLevel: isCubeLevel(raw.cappiLevel)
+      ? raw.cappiLevel
+      : DEFAULT_SETTINGS.cappiLevel,
     watchPlaces: normalizeWatchPlaces(raw.watchPlaces),
     alertTypes: normalizeAlertTypes(raw.alertTypes),
     overlayOpacity: normalizeOverlayOpacity(raw.overlayOpacity),

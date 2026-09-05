@@ -87,6 +87,7 @@ import type {
   LightningWindow,
 } from "../lib/lightningGrids";
 import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
+import type { CappiField, CubeLevel } from "../lib/cappi";
 import type { PlaceLightning } from "../lib/lightningWatch";
 import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
@@ -208,6 +209,8 @@ interface PanelSurfacesProps {
   onLightningJumpWindow: (window: LightningJump) => void;
   onIsothermLevel: (level: IsothermLevel) => void;
   onAzShearLevel: (level: AzShearLevel) => void;
+  onCappiField: (field: CappiField) => void;
+  onCappiLevel: (level: CubeLevel) => void;
   onWpcDay: (day: number) => void;
   onWssiDay: (day: number) => void;
   onHistoryStorm: (storm: Storm | null) => void;
@@ -318,6 +321,10 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onIsothermLevel={props.onIsothermLevel}
             azShearLevel={settings.azShearLevel}
             onAzShearLevel={props.onAzShearLevel}
+            cappiField={settings.cappiField}
+            onCappiField={props.onCappiField}
+            cappiLevel={settings.cappiLevel}
+            onCappiLevel={props.onCappiLevel}
             spcDay={props.spcDay}
             spcHazard={props.spcHazard}
             onSpcDay={props.onSpcDay}

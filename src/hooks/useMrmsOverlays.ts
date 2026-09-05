@@ -12,6 +12,7 @@ import {
   ROTATION_PRODUCTS,
   AZ_SHEAR_PRODUCTS,
   ISOTHERM_PRODUCTS,
+  CAPPI_PRODUCTS,
   LIGHTNING_DENSITY_PRODUCTS,
   LIGHTNING_FORECAST_PRODUCTS,
   LIGHTNING_JUMP_PRODUCTS,
@@ -43,6 +44,10 @@ export interface MrmsChoices {
   lightningJumpWindow: LightningJump;
   isothermLevel: IsothermLevel;
   azShearLevel: AzShearLevel;
+  /** Which of the three merged fields the height switch is showing. */
+  cappiField: CappiField;
+  /** Which height of the merged grid all three are read at. */
+  cappiLevel: CubeLevel;
 }
 
 import type {
@@ -51,6 +56,7 @@ import type {
   LightningJump,
   LightningWindow,
 } from "../lib/lightningGrids";
+import type { CappiField, CubeLevel } from "../lib/cappi";
 
 /** Which layer switch drives which MRMS product. */
 export const MRMS_LAYERS: Array<{
@@ -88,6 +94,10 @@ export const MRMS_LAYERS: Array<{
   { layer: "ffgThreeHour", product: "ffg-three-hour" },
   { layer: "unitStreamflow", product: "unit-streamflow" },
   { layer: "precipType", product: "precip-type" },
+  // One switch over three fields at any of thirty-three heights; the entry
+  // names the default and the hook swaps in whichever the reader chose. See
+  // `CAPPI_PRODUCTS` and `levelFor`.
+  { layer: "cappi", product: "cappi-reflectivity" },
 ];
 
 /**
@@ -137,6 +147,9 @@ const LABEL_KEYS: Record<MrmsProductId, StringKey> = {
   "ffg-three-hour": "mrms.ffgThreeHour",
   "unit-streamflow": "mrms.unitStreamflow",
   "precip-type": "mrms.precipType",
+  "cappi-reflectivity": "mrms.cappiReflectivity",
+  "cappi-rhohv": "mrms.cappiRhohv",
+  "cappi-zdr": "mrms.cappiZdr",
 };
 
 /**
@@ -172,8 +185,27 @@ export function productFor(
   if (layer === "isothermReflectivity") {
     return ISOTHERM_PRODUCTS[choices.isothermLevel];
   }
+  if (layer === "cappi") return CAPPI_PRODUCTS[choices.cappiField];
   return product;
 }
+
+/**
+ * The height a grid is read at, or nothing for one published at one height.
+ *
+ * The height is not part of the product id, so it has to travel beside it
+ * everywhere the id goes: into the listing that says when the grid was
+ * published, and into the tile address. Passing it where it does not belong
+ * would ask the bucket for a folder that does not exist, so this answers for
+ * the three families and nothing else.
+ */
+export function levelFor(
+  product: MrmsProductId,
+  choices: MrmsChoices,
+): CubeLevel | undefined {
+  return CAPPI_PRODUCT_IDS.has(product) ? choices.cappiLevel : undefined;
+}
+
+const CAPPI_PRODUCT_IDS = new Set<MrmsProductId>(Object.values(CAPPI_PRODUCTS));
 
 /**
  * When the grid behind a switch was published, in milliseconds, or undefined
@@ -257,6 +289,10 @@ export function useMrmsOverlays(options: {
   const wanted = MRMS_LAYERS.filter(({ layer }) => layers[layer])
     .map(({ layer, product }) => productFor(layer, product, choices))
     .join(",");
+  // The height is not part of a product id, so it is not in the key above,
+  // and it is a different picture: without it here a reader moving the height
+  // slider kept the grid from the height before it.
+  const height = choices.cappiLevel;
 
   useEffect(() => {
     if (!ready || !available || !wanted) return;
@@ -290,7 +326,12 @@ export function useMrmsOverlays(options: {
       try {
         const found = await Promise.all(
           products.map(async (product) => {
-            const frames = await mrmsFrames(product, 1);
+            const frames = await mrmsFrames(
+              product,
+              1,
+              undefined,
+              levelFor(product, choices),
+            );
             return [product, frames.at(-1)?.time ?? 0] as const;
           }),
         );
@@ -328,7 +369,10 @@ export function useMrmsOverlays(options: {
       open = false;
       stop();
     };
-  }, [available, pageVisible, ready, wanted]);
+    // `choices` is a new object every render; the field is already folded
+    // into `wanted` and the height is the rest of it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [available, height, pageVisible, ready, wanted]);
 
   return useMemo(() => {
     if (!root || !wanted) return { layers: [], error: null };
@@ -350,11 +394,22 @@ export function useMrmsOverlays(options: {
             null,
             "CONUS",
             highContrast,
+            levelFor(entry.id, choices) ?? null,
           ),
           stops: entry.stops,
           ...(entry.categories ? { categories: entry.categories } : {}),
         })),
       error,
     };
-  }, [catalog, error, highContrast, paletteGeneration, root, times, wanted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    catalog,
+    error,
+    height,
+    highContrast,
+    paletteGeneration,
+    root,
+    times,
+    wanted,
+  ]);
 }

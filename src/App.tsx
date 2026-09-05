@@ -1116,9 +1116,13 @@ export default function App() {
       lightningJumpWindow: settings.lightningJumpWindow,
       isothermLevel: settings.isothermLevel,
       azShearLevel: settings.azShearLevel,
+      cappiField: settings.cappiField,
+      cappiLevel: settings.cappiLevel,
     }),
     [
       settings.azShearLevel,
+      settings.cappiField,
+      settings.cappiLevel,
       settings.gaugeQpePeriod,
       settings.rotationPeriod,
       settings.lightningWindow,
@@ -2761,6 +2765,12 @@ export default function App() {
             }
             onAzShearLevel={(azShearLevel) =>
               applySettings({ ...settingsRef.current, azShearLevel })
+            }
+            onCappiField={(cappiField) =>
+              applySettings({ ...settingsRef.current, cappiField })
+            }
+            onCappiLevel={(cappiLevel) =>
+              applySettings({ ...settingsRef.current, cappiLevel })
             }
             spcDay={settings.spcDay}
             spcHazard={settings.spcHazard}

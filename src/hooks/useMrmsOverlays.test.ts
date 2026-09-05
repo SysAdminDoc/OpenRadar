@@ -11,7 +11,12 @@ import {
   LIGHTNING_JUMPS,
   LIGHTNING_WINDOWS,
 } from "../lib/lightningGrids";
-import { MRMS_LAYERS, productFor, type MrmsChoices } from "./useMrmsOverlays";
+import {
+  MRMS_LAYERS,
+  levelFor,
+  productFor,
+  type MrmsChoices,
+} from "./useMrmsOverlays";
 import { GAUGE_QPE_PERIODS } from "../lib/gaugeQpe";
 import {
   AZ_SHEAR_LEVELS,
@@ -20,8 +25,15 @@ import {
   type RotationPeriod,
 } from "../lib/rotationTrack";
 import { MRMS_PRODUCT_IDS } from "../lib/providers/mrms";
+import {
+  CAPPI_FIELDS,
+  CUBE_LEVELS,
+  DEFAULT_CUBE_LEVEL,
+  cubeLevelKm,
+} from "../lib/cappi";
+import { tileUrl } from "../lib/providers/mrms";
 
-/** Every combination of the seven choices behind a switch. */
+/** Every combination of the eight choices behind a switch. */
 const EVERY_CHOICE: MrmsChoices[] = GAUGE_QPE_PERIODS.flatMap(
   (gaugeQpePeriod) =>
     ROTATION_PERIODS.flatMap((rotationPeriod) =>
@@ -29,15 +41,22 @@ const EVERY_CHOICE: MrmsChoices[] = GAUGE_QPE_PERIODS.flatMap(
         LIGHTNING_WINDOWS.flatMap((lightningWindow) =>
           LIGHTNING_FORECASTS.flatMap((lightningForecastWindow) =>
             LIGHTNING_JUMPS.flatMap((lightningJumpWindow) =>
-              ISOTHERM_LEVELS.map((isothermLevel) => ({
-                gaugeQpePeriod,
-                rotationPeriod,
-                azShearLevel,
-                lightningWindow,
-                lightningForecastWindow,
-                lightningJumpWindow,
-                isothermLevel,
-              })),
+              ISOTHERM_LEVELS.flatMap((isothermLevel) =>
+                CAPPI_FIELDS.map((cappiField) => ({
+                  gaugeQpePeriod,
+                  rotationPeriod,
+                  azShearLevel,
+                  lightningWindow,
+                  lightningForecastWindow,
+                  lightningJumpWindow,
+                  isothermLevel,
+                  cappiField,
+                  // The height does not decide which grid a switch means, so
+                  // it is not crossed here. What reads it is `levelFor`, and
+                  // that is checked against every one of the thirty-three.
+                  cappiLevel: DEFAULT_CUBE_LEVEL,
+                })),
+              ),
             ),
           ),
         ),
@@ -45,7 +64,7 @@ const EVERY_CHOICE: MrmsChoices[] = GAUGE_QPE_PERIODS.flatMap(
     ),
 );
 
-/** The seven switches that stand for more than one grid. */
+/** The eight switches that stand for more than one grid. */
 const CHOOSING = new Set([
   "gaugeQpe",
   "rotationTracks",
@@ -54,7 +73,71 @@ const CHOOSING = new Set([
   "lightningForecast",
   "lightningJump",
   "isothermReflectivity",
+  "cappi",
 ]);
+
+describe("which height a grid is read at", () => {
+  const at = (cappiLevel: (typeof CUBE_LEVELS)[number]): MrmsChoices => ({
+    ...EVERY_CHOICE[0],
+    cappiLevel,
+  });
+
+  it("answers for the three published at more than one, and nothing else", () => {
+    // The height finishes a folder name, so handing one to a product
+    // published at a single height asks the bucket for a folder that is not
+    // there, and the layer draws nothing with a log line to say why.
+    const families = new Set([
+      "cappi-reflectivity",
+      "cappi-rhohv",
+      "cappi-zdr",
+    ]);
+    for (const product of MRMS_PRODUCT_IDS) {
+      const answered = levelFor(product, at("06.00"));
+      expect(answered, product).toBe(
+        families.has(product) ? "06.00" : undefined,
+      );
+    }
+  });
+
+  it("passes every height the network publishes", () => {
+    for (const level of CUBE_LEVELS) {
+      expect(levelFor("cappi-zdr", at(level))).toBe(level);
+    }
+    expect(CUBE_LEVELS).toHaveLength(33);
+  });
+
+  it("puts the height in the tile address, and only for a family", () => {
+    // A different height is a different picture, and the map caches tiles by
+    // their address: without it there the second height a reader asks for is
+    // served the first one's tiles.
+    const low = tileUrl("x/", "cappi-zdr", 1, 0, null, "CONUS", false, "00.50");
+    const high = tileUrl(
+      "x/",
+      "cappi-zdr",
+      1,
+      0,
+      null,
+      "CONUS",
+      false,
+      "19.00",
+    );
+    expect(low).toContain("&level=00.50");
+    expect(high).toContain("&level=19.00");
+    expect(low).not.toBe(high);
+    // The composite is published at one height and its address says nothing
+    // about one.
+    expect(tileUrl("x/", "composite", 1)).not.toContain("level=");
+  });
+
+  it("names a height a reader can read", () => {
+    // The folder suffix is the kilometres, zero padded, which is how the
+    // bucket spells it and not something to show anybody.
+    expect(cubeLevelKm("00.50")).toBe(0.5);
+    expect(cubeLevelKm("03.00")).toBe(3);
+    expect(cubeLevelKm("19.00")).toBe(19);
+    expect(cubeLevelKm(DEFAULT_CUBE_LEVEL)).toBe(3);
+  });
+});
 
 describe("which grid is behind a switch", () => {
   it("is the one the table names, for every ordinary layer", () => {
@@ -81,6 +164,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow: "30m",
         lightningJumpWindow: "max",
         isothermLevel: "minus10",
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(chosen).toEqual([
@@ -106,6 +191,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow: "30m",
         lightningJumpWindow: "max",
         isothermLevel: "minus10",
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(chosen).toEqual([
@@ -130,6 +217,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow: "30m",
         lightningJumpWindow: "max",
         isothermLevel: "minus10",
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(chosen).toEqual(["az-shear-low", "az-shear-mid"]);
@@ -151,6 +240,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow: "30m",
         lightningJumpWindow: "max",
         isothermLevel: "minus10",
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(chosen).toEqual([
@@ -178,6 +269,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow,
         lightningJumpWindow: "max",
         isothermLevel: "minus10",
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(chosen).toEqual([
@@ -199,6 +292,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow: "30m",
         lightningJumpWindow,
         isothermLevel: "minus10",
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(jumps).toEqual(["lightning-jump", "lightning-jump-max"]);
@@ -216,6 +311,8 @@ describe("which grid is behind a switch", () => {
         lightningForecastWindow: "30m",
         lightningJumpWindow: "max",
         isothermLevel,
+        cappiField: "reflectivity",
+        cappiLevel: DEFAULT_CUBE_LEVEL,
       }),
     );
     expect(levels).toEqual([
@@ -236,6 +333,8 @@ describe("which grid is behind a switch", () => {
       lightningForecastWindow: "30m",
       lightningJumpWindow: "max",
       isothermLevel: "minus10",
+      cappiField: "reflectivity",
+      cappiLevel: DEFAULT_CUBE_LEVEL,
     };
     const moved: Array<[Partial<MrmsChoices>, string]> = [
       [{ rotationPeriod: "24h" as RotationPeriod }, "rotationTracks"],

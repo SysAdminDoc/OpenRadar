@@ -507,6 +507,7 @@ export const en = {
   "keywords.lightningForecast": "",
   "keywords.lightningJump": "",
   "keywords.isothermReflectivity": "",
+  "keywords.cappi": "",
   "layers.lightningForecastDetail":
     "The chance lightning strikes ground it has not struck yet.",
   "layers.lightningJumpDetail":
@@ -1285,6 +1286,19 @@ export const en = {
   "mrms.hailSwath": "Largest hail in the past day",
   "mrms.lightning": "Cloud-to-ground lightning, 5 min",
   "mrms.precipType": "Precipitation type",
+  "mrms.cappiReflectivity": "Merged reflectivity at a height",
+  "mrms.cappiRhohv": "Merged correlation at a height",
+  "mrms.cappiZdr": "Merged differential reflectivity at a height",
+  "layer.cappi": "Merged grid at a height",
+  "layer.cappiDetail":
+    "One height of the national grid the composite is built from, rather than the whole column at once. Where the hail core is, not how big the hail is.",
+  "layers.cappiField": "Which field",
+  "layers.cappiReflectivity": "Reflectivity",
+  "layers.cappiCorrelation": "Correlation",
+  "layers.cappiDifferential": "Differential",
+  "layers.cappiHeight": "Height",
+  "layers.cappiNote":
+    "The network publishes these at thirty-three heights. Correlation below 0.8 is usually not weather: birds, chaff, or debris lofted by a tornado.",
 
   "layers.note":
     "Layer switches save immediately and take effect on the map right away. Alerts come from the NWS, earthquakes from the USGS, and fire perimeters from NIFC.",

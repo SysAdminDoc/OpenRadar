@@ -9,6 +9,11 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { LayersPanel } from "./LayersPanel";
+import {
+  DEFAULT_CUBE_LEVEL,
+  type CappiField,
+  type CubeLevel,
+} from "../lib/cappi";
 import type {
   IsothermLevel,
   LightningForecast,
@@ -36,6 +41,10 @@ function panel(overrides: {
   onRotationPeriod?: (period: RotationPeriod) => void;
   azShearLevel?: AzShearLevel;
   onAzShearLevel?: (level: AzShearLevel) => void;
+  cappiField?: CappiField;
+  onCappiField?: (field: CappiField) => void;
+  cappiLevel?: CubeLevel;
+  onCappiLevel?: (level: CubeLevel) => void;
   lightningWindow?: LightningWindow;
   onLightningWindow?: (window: LightningWindow) => void;
   lightningForecastWindow?: LightningForecast;
@@ -72,6 +81,10 @@ function panel(overrides: {
       onRotationPeriod={overrides.onRotationPeriod ?? vi.fn()}
       azShearLevel={overrides.azShearLevel ?? DEFAULT_SETTINGS.azShearLevel}
       onAzShearLevel={overrides.onAzShearLevel ?? vi.fn()}
+      cappiField={overrides.cappiField ?? "reflectivity"}
+      onCappiField={overrides.onCappiField ?? vi.fn()}
+      cappiLevel={overrides.cappiLevel ?? DEFAULT_CUBE_LEVEL}
+      onCappiLevel={overrides.onCappiLevel ?? vi.fn()}
       lightningWindow={
         overrides.lightningWindow ?? DEFAULT_SETTINGS.lightningWindow
       }
@@ -176,6 +189,63 @@ describe("one accumulation over three windows", () => {
       within(control).getByRole("button", { name: en["gaugeQpe.72h"] }),
     );
     expect(onGaugeQpePeriod).toHaveBeenCalledWith("72h");
+  });
+});
+
+describe("one grid at any of thirty-three heights", () => {
+  it("keeps the field and the height out of the way until the layer is on", () => {
+    render(panel({ layers: { cappi: false } }));
+    expect(screen.queryByLabelText(en["layers.cappiField"])).toBeNull();
+    expect(
+      screen.queryByRole("slider", { name: en["layers.cappiHeight"] }),
+    ).toBeNull();
+  });
+
+  it("offers the three fields and marks the one in use", () => {
+    render(panel({ layers: { cappi: true }, cappiField: "correlation" }));
+    const control = screen.getByLabelText(en["layers.cappiField"]);
+    const chosen = within(control).getByRole("button", { pressed: true });
+    expect(chosen.textContent).toBe(en["layers.cappiCorrelation"]);
+    expect(within(control).getAllByRole("button")).toHaveLength(3);
+  });
+
+  it("asks for the field that was pressed", () => {
+    const onCappiField = vi.fn();
+    render(panel({ layers: { cappi: true }, onCappiField }));
+    fireEvent.click(
+      within(screen.getByLabelText(en["layers.cappiField"])).getByRole(
+        "button",
+        { name: en["layers.cappiDifferential"] },
+      ),
+    );
+    expect(onCappiField).toHaveBeenCalledWith("differential");
+  });
+
+  it("steps the slider through the list rather than through kilometres", () => {
+    // The heights are not evenly spaced: a quarter of a kilometre apart at the
+    // bottom and whole ones at the top. A slider running over the kilometres
+    // would land between two of them, and the network publishes nothing there.
+    const onCappiLevel = vi.fn();
+    render(panel({ layers: { cappi: true }, onCappiLevel }));
+    const slider = screen.getByRole("slider", {
+      name: en["layers.cappiHeight"],
+    });
+    expect(slider.getAttribute("max")).toBe("32");
+    fireEvent.change(slider, { target: { value: "0" } });
+    expect(onCappiLevel).toHaveBeenCalledWith("00.50");
+    fireEvent.change(slider, { target: { value: "32" } });
+    expect(onCappiLevel).toHaveBeenCalledWith("19.00");
+  });
+
+  it("announces the height rather than the position behind the thumb", () => {
+    // The value on the input is an index. Read out as it stands a reader
+    // hears "ten", which is a place in a list and not a height.
+    render(panel({ layers: { cappi: true }, cappiLevel: "03.00" }));
+    const slider = screen.getByRole("slider", {
+      name: en["layers.cappiHeight"],
+    });
+    expect(slider.getAttribute("value")).toBe("10");
+    expect(slider.getAttribute("aria-valuetext")).toBe("9,843 ft");
   });
 });
 

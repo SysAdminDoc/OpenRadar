@@ -19,6 +19,7 @@ import {
   Satellite,
   ShieldAlert,
   Sigma,
+  Layers,
   Snowflake,
   Tornado,
   Umbrella,
@@ -30,6 +31,13 @@ import {
 import { useEffect, useRef } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { rangeFill } from "../lib/rangeFill";
+import { formatHeight } from "../lib/units";
+import {
+  CUBE_LEVELS,
+  cubeLevelFeet,
+  type CappiField,
+  type CubeLevel,
+} from "../lib/cappi";
 import { GAUGE_QPE_PERIODS, type GaugeQpePeriod } from "../lib/gaugeQpe";
 import {
   ISOTHERM_LEVELS,
@@ -191,6 +199,12 @@ interface LayersPanelProps {
   /** Which slab the merged shear is measured through. */
   azShearLevel: AzShearLevel;
   onAzShearLevel: (level: AzShearLevel) => void;
+  /** Which of the three merged fields the height switch is showing. */
+  cappiField: CappiField;
+  onCappiField: (field: CappiField) => void;
+  /** Which height of the merged grid all three are read at. */
+  cappiLevel: CubeLevel;
+  onCappiLevel: (level: CubeLevel) => void;
   /** Which of the lightning grids each of its three switches is showing. */
   lightningWindow: LightningWindow;
   onLightningWindow: (window: LightningWindow) => void;
@@ -460,6 +474,12 @@ const LAYER_OPTIONS: Array<{
     icon: Snowflake,
   },
   {
+    key: "cappi",
+    labelKey: "layer.cappi",
+    detailKey: "layer.cappiDetail",
+    icon: Layers,
+  },
+  {
     key: "lightningFlashes",
     labelKey: "layer.lightningFlashes",
     detailKey: "layers.lightningFlashesDetail",
@@ -509,6 +529,10 @@ export function LayersPanel({
   onRotationPeriod,
   azShearLevel,
   onAzShearLevel,
+  cappiField,
+  onCappiField,
+  cappiLevel,
+  onCappiLevel,
   lightningWindow,
   onLightningWindow,
   lightningForecastWindow,
@@ -1207,6 +1231,71 @@ export function LayersPanel({
               </button>
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {layers.cappi ? (
+        <div className="settings-section" data-cappi-level={cappiLevel}>
+          <div className="settings-section__title">
+            <span>{t("layers.cappiField")}</span>
+          </div>
+          <div
+            className="segmented-control segmented-control--full"
+            role="group"
+            aria-label={t("layers.cappiField")}
+          >
+            {/* Written out rather than built from the field, so the
+                catalogue coverage gate can see all three keys. */}
+            {(
+              [
+                ["reflectivity", "layers.cappiReflectivity"],
+                ["correlation", "layers.cappiCorrelation"],
+                ["differential", "layers.cappiDifferential"],
+              ] as const
+            ).map(([field, key]) => (
+              <button
+                key={field}
+                type="button"
+                className={cappiField === field ? "is-active" : ""}
+                aria-pressed={cappiField === field}
+                onClick={() => onCappiField(field)}
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
+          {/* A slider rather than thirty-three buttons. The heights are not
+              evenly spaced, so it steps through the list by position and
+              says the height it landed on in the reader's own measure. */}
+          <label className="range-row">
+            <span>
+              <strong>{t("layers.cappiHeight")}</strong>
+              <output>{formatHeight(cubeLevelFeet(cappiLevel))}</output>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={CUBE_LEVELS.length - 1}
+              step={1}
+              value={CUBE_LEVELS.indexOf(cappiLevel)}
+              aria-label={t("layers.cappiHeight")}
+              // The value behind the thumb is a position in the list, because
+              // the heights are not evenly spaced. Announced as it stands it
+              // would read "twelve".
+              aria-valuetext={formatHeight(cubeLevelFeet(cappiLevel))}
+              style={rangeFill(
+                CUBE_LEVELS.indexOf(cappiLevel),
+                0,
+                CUBE_LEVELS.length - 1,
+              )}
+              onChange={(event) =>
+                onCappiLevel(
+                  CUBE_LEVELS[Number(event.target.value)] ?? cappiLevel,
+                )
+              }
+            />
+          </label>
+          <p className="source-note">{t("layers.cappiNote")}</p>
         </div>
       ) : null}
 

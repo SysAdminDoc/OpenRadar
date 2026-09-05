@@ -531,6 +531,7 @@ export const fr: Catalogue = {
   "keywords.lightningForecast": "chance prevision foudre prochain",
   "keywords.lightningJump": "saut hausse taux sigma foudre",
   "keywords.isothermReflectivity": "isotherme glace froid dbz zero",
+  "keywords.cappi": "cappi niveau altitude tranche correlation",
   "layers.lightningForecastDetail":
     "La probabilité que la foudre tombe là où elle n'est pas encore tombée.",
   "layers.lightningJumpDetail":
@@ -1321,6 +1322,19 @@ export const fr: Catalogue = {
   "mrms.hailSwath": "Plus grosse grêle du dernier jour",
   "mrms.lightning": "Foudre nuage-sol, 5 min",
   "mrms.precipType": "Type de précipitation",
+  "mrms.cappiReflectivity": "Réflectivité combinée à une hauteur",
+  "mrms.cappiRhohv": "Corrélation combinée à une hauteur",
+  "mrms.cappiZdr": "Réflectivité différentielle combinée à une hauteur",
+  "layer.cappi": "Grille combinée à une hauteur",
+  "layer.cappiDetail":
+    "Une hauteur de la grille nationale dont le composite est tiré, plutôt que toute la colonne à la fois. Où se trouve le cœur de grêle, pas la taille des grêlons.",
+  "layers.cappiField": "Quel champ",
+  "layers.cappiReflectivity": "Réflectivité",
+  "layers.cappiCorrelation": "Corrélation",
+  "layers.cappiDifferential": "Différentielle",
+  "layers.cappiHeight": "Hauteur",
+  "layers.cappiNote":
+    "Le réseau publie ces champs à trente-trois hauteurs. Une corrélation sous 0,8 n'est généralement pas de la météo : oiseaux, paillettes, ou débris soulevés par une tornade.",
 
   "layers.note":
     "Les interrupteurs de couche s'enregistrent tout de suite et agissent aussitôt sur la carte. Les alertes viennent du NWS, les séismes de l'USGS et les périmètres de feu du NIFC.",

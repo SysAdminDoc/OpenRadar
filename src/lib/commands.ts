@@ -283,6 +283,12 @@ const LAYER_COMMANDS: Array<{
     keywords: ["reflectivity", "isothermal", "ice", "freezing", "dbz", "cold"],
   },
   {
+    layer: "cappi",
+    key: "layer.cappi",
+    extra: "keywords.cappi",
+    keywords: ["cappi", "height", "level", "merged", "cube", "correlation"],
+  },
+  {
     layer: "lightningFlashes",
     key: "layer.lightningFlashes",
     extra: "keywords.lightningFlashes",
