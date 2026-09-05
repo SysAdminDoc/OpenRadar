@@ -11,7 +11,7 @@
 
 [Download](#install) · [What it does](#what-it-does) · [Build from source](#build-from-source) · [Where the data comes from](#where-the-data-comes-from)
 
-<img width="1487" height="1058" alt="OpenRadar alerts workspace" src="assets/screenshots/openradar-main.png" />
+<img width="1487" height="1058" alt="The OpenRadar workspace in its dark theme: the national radar mosaic over county lines across Iowa and Nebraska, watch and warning polygons beside it, and the Alerts panel open on an Extreme Heat Warning" src="assets/screenshots/openradar-main.png" />
 
 </div>
 
