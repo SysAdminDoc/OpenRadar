@@ -1,7 +1,7 @@
 [package]
 name = "openradar"
-version = "0.9.0"
-description = "OpenRadar v0.9.0 desktop weather radar"
+version = "0.10.0"
+description = "OpenRadar v0.10.0 desktop weather radar"
 authors = ["SysAdminDoc <matt_parker@outlook.com>"]
 edition = "2021"
 rust-version = "1.85"
