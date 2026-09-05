@@ -386,16 +386,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-315 (P3): Placefile icon ids saved before the escape fix decode wrongly or throw, and the icon vanishes silently
-      Category: reliability
-      Where: `src/lib/placefile.ts:137` (encodes the sheet address into the id at write), `:161` (`decodeURIComponent` at read); `src/components/MapViewport.tsx:1519` (`parseIconId` null means the feature enters neither `bySheet` nor the fallback)
-      Problem: Overlay features are the part of a workspace that survives being stored. A workspace saved before `8ca33d3` holds `icon|https://h/a%2Bb.png|...`, which now decodes to `a+b.png` (a different object), and one with a bare `%` throws, parses to null, and gets neither the sheet nor the dot: the exact `AUD-241` failure mode again, for readers who imported a placefile before 2026-09-04.
-      Evidence: The three sites read together; no saved pre-fix workspace was available to load.
-      Fix: Version the id (`icon2|...` for escaped, treat the bare `icon|` prefix as raw) or migrate stored features in `normalizeSettings`; a test that loads a fixture feature with the old shape and asserts the sheet address round-trips. Also worth a line on screen: `iconsAskedRef` (`MapViewport.tsx:1505`) means a sheet that 404s once stays a dot until a basemap switch, and nothing says so.
-      Acceptance: The fixture test passes; a `%`-bearing old id draws its icon.
-      Confidence: Needs-repro
-      Effort: S
-
 ### Unaudited, needs a pass
 
 - [ ] AUD-310 (P3): Spanish and French rendered on screen
