@@ -128,6 +128,12 @@ export const fr: Catalogue = {
   "layers.moveUp": "Monter {layer}",
   "layers.moveDown": "Descendre {layer}",
   "layers.opacity": "Opacité des couches",
+  "layers.smoothGrids": "Comment les grilles nationales sont dessinées",
+  "layers.smoothGridsDetail":
+    "Une cellule de la mosaïque fait environ un kilomètre, donc de près c'est un carré d'une seule couleur contre le carré d'à côté.",
+  "layers.smoothGridsLabel": "Interpoler entre les cellules",
+  "layers.smoothGridsNote":
+    "Lisse les champs qui couvrent le pays, pas les champs épars comme la grêle et la rotation, et jamais au-dessus d'un terrain que le réseau n'a pas couvert. Les valeurs qu'écrit une exportation restent les cellules elles-mêmes.",
   "layers.opacityDetail":
     "Chacune séparément, pour pouvoir atténuer une couche au lieu de l'éteindre",
   "layers.opacityFor": "{layer}, {percent} % d'opacité",

@@ -147,6 +147,23 @@ export interface RadarSettings {
    * measured one.
    */
   smoothSweep: boolean;
+  /**
+   * Draw the national grids by reading between their cells rather than by
+   * taking the nearest one.
+   *
+   * The same bargain as `smoothSweep` and the same limits. A cell of the
+   * mosaic is about a kilometre across, so zoomed in it is a square of one
+   * colour with a hard edge against the square beside it, and the terraces
+   * between colour bands read as the resolution of the instrument when they
+   * are the resolution of the ramp.
+   *
+   * The picture only. The readings an export writes and the number the
+   * inspector answers with are the cells themselves either way. It never
+   * reads across a cell the network says it had no coverage of, because
+   * smoothing towards a low reading is an estimate of the air between two
+   * measurements and smoothing towards an absence is an invention.
+   */
+  smoothGrids: boolean;
   /** A motion the viewer gave, rather than one read off the sweep. */
   stormMotion: { speedMs: number; fromDegrees: number } | null;
   /** The site to hold, or null to follow whichever one the view is over. */
@@ -686,6 +703,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     live: false,
     persistence: false,
     smoothSweep: false,
+    smoothGrids: false,
     stormMotion: null,
     station: null,
     product: "reflectivity",
@@ -1651,6 +1669,7 @@ export function normalizeSettings(value: unknown): AppSettings {
       live: bool(radar.live, DEFAULT_SETTINGS.radar.live),
       persistence: bool(radar.persistence, DEFAULT_SETTINGS.radar.persistence),
       smoothSweep: bool(radar.smoothSweep, DEFAULT_SETTINGS.radar.smoothSweep),
+      smoothGrids: bool(radar.smoothGrids, DEFAULT_SETTINGS.radar.smoothGrids),
       dealias: bool(radar.dealias, DEFAULT_SETTINGS.radar.dealias),
       stormMotion: normalizeStormMotion(radar.stormMotion),
       station:

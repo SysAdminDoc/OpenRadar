@@ -281,8 +281,11 @@ export function useMrmsOverlays(options: {
   paletteGeneration: number;
   /** Which grid each of the switches that stands for several is pointing at. */
   choices: MrmsChoices;
+  /** Read between the cells rather than take the nearest one. */
+  smooth: boolean;
 }): MrmsOverlayState {
-  const { ready, layers, pageVisible, paletteGeneration, choices } = options;
+  const { ready, layers, pageVisible, paletteGeneration, choices, smooth } =
+    options;
   const [catalog, setCatalog] = useState<MrmsProductInfo[]>([]);
   const [times, setTimes] = useState<Partial<Record<MrmsProductId, number>>>(
     {},
@@ -406,6 +409,7 @@ export function useMrmsOverlays(options: {
             "CONUS",
             highContrast,
             levelFor(entry.id, choices) ?? null,
+            smooth,
           ),
           stops: entry.stops,
           ...(entry.categories ? { categories: entry.categories } : {}),
@@ -420,6 +424,7 @@ export function useMrmsOverlays(options: {
     highContrast,
     paletteGeneration,
     root,
+    smooth,
     times,
     wanted,
   ]);

@@ -534,11 +534,20 @@ export const spcOutlooksOverlay: OverlayAdapter = {
  * that day.
  */
 function outlookLegend(data: OverlayData, day: number): OverlayLegend | null {
-  const bands = bandsIn(data, (properties) => ({
-    label: String(properties.risk || properties.label || ""),
-    color: String(properties.fill ?? ""),
-    rank: Number(properties.rank) || 0,
-  }));
+  const bands = bandsIn(data, (properties) =>
+    // The hatched significant area rides in the same collection and is drawn
+    // with a pattern rather than a colour, so listing it put a solid grey
+    // swatch in the key for something the map never draws in grey. Its own
+    // rank is a plain one, which sorted the strongest qualifier on the
+    // outlook below Thunderstorms.
+    properties.significant === true
+      ? null
+      : {
+          label: String(properties.risk || properties.label || ""),
+          color: String(properties.fill ?? ""),
+          rank: Number(properties.rank) || 0,
+        },
+  );
   if (bands.length === 0) return null;
   const first = data.features[0]?.properties ?? {};
   const valid = Number(first.valid);

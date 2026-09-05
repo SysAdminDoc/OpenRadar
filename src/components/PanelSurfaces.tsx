@@ -311,6 +311,13 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             spacecraft={spacecraftFor(settings.camera.center[0])}
             gaugeQpePeriod={settings.gaugeQpePeriod}
             onGaugeQpePeriod={props.onGaugeQpePeriod}
+            smoothGrids={settings.radar.smoothGrids}
+            onSmoothGrids={(smoothGrids) =>
+              props.onSettings((now) => ({
+                ...now,
+                radar: { ...now.radar, smoothGrids },
+              }))
+            }
             rotationPeriod={settings.rotationPeriod}
             onRotationPeriod={props.onRotationPeriod}
             lightningWindow={settings.lightningWindow}

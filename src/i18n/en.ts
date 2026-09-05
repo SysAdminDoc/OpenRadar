@@ -119,6 +119,12 @@ export const en = {
   "layers.moveUp": "Move {layer} up",
   "layers.moveDown": "Move {layer} down",
   "layers.opacity": "How solid the overlays are",
+  "layers.smoothGrids": "How the national grids are drawn",
+  "layers.smoothGridsDetail":
+    "A cell of the mosaic is about a kilometre across, so zoomed in it is a square of one colour against the square beside it.",
+  "layers.smoothGridsLabel": "Read between the cells",
+  "layers.smoothGridsNote":
+    "Smooths the fields that cover the country, not the scattered ones like hail and rotation, and never across ground the network had no coverage of. The readings an export writes are the cells themselves either way.",
   "layers.opacityDetail":
     "Each one on its own, so a layer can be faded rather than switched off",
   "layers.opacityFor": "{layer}, {percent}% solid",

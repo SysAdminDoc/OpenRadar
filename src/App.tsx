@@ -1151,6 +1151,7 @@ export default function App() {
     pageVisible,
     paletteGeneration,
     choices: mrmsChoices,
+    smooth: settings.radar.smoothGrids,
   });
   // What the radar’s own tracker says is heading for each watched place.
   // Not a warning, and never worded as one: the panel lists it, the notice

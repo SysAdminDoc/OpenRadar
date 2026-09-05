@@ -91,6 +91,10 @@ function drawKeys(
   keys: OverlayLegend[],
 ): void {
   if (keys.length === 0) return;
+  // Put back before returning. The caption is measured at one size and
+  // drawn after this, so a font left behind here drew it at the wrong size
+  // inside a box sized for the right one.
+  const measured = context.font;
   context.font = "12px 'Segoe UI', system-ui, sans-serif";
   context.textBaseline = "top";
 
@@ -126,6 +130,7 @@ function drawKeys(
     }
     top += CAPTION_PADDING;
   }
+  context.font = measured;
 }
 
 function exportCanvas(

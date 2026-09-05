@@ -143,6 +143,20 @@ test.describe("a workspace in another language", () => {
     // so seeing one means the screen really is drawn in it.
     await expect(page.locator(".command-bar")).toContainText("⟦");
 
+    // The map key is not a panel and does not clip: a long band name makes
+    // it WIDE, and a box that grew across the map is not something the clip
+    // sweep can see. So it is measured for what actually goes wrong with it.
+    const key = page.locator(".product-legends");
+    await expect(key).toBeVisible();
+    const room = await key.evaluate((box) => ({
+      wide: box.getBoundingClientRect().width,
+      window: window.innerWidth,
+    }));
+    expect(
+      room.wide,
+      "the layer key ran out across the map it is there to explain",
+    ).toBeLessThanOrEqual(room.window * 0.34);
+
     const offenders = await clippedAcrossPanels(
       page,
       (key) => pseudoize(en[key]),

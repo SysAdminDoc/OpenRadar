@@ -123,6 +123,12 @@ export const es: Catalogue = {
   "layers.moveUp": "Subir {layer}",
   "layers.moveDown": "Bajar {layer}",
   "layers.opacity": "Opacidad de las capas",
+  "layers.smoothGrids": "Cómo se dibujan las mallas nacionales",
+  "layers.smoothGridsDetail":
+    "Una celda del mosaico mide alrededor de un kilómetro, así que de cerca es un cuadrado de un solo color contra el cuadrado de al lado.",
+  "layers.smoothGridsLabel": "Interpolar entre celdas",
+  "layers.smoothGridsNote":
+    "Suaviza los campos que cubren el país, no los dispersos como el granizo y la rotación, y nunca sobre terreno del que la red no tuvo cobertura. Los valores que escribe una exportación son las celdas mismas en cualquier caso.",
   "layers.opacityDetail":
     "Cada una por su cuenta, para atenuar una capa en vez de apagarla",
   "layers.opacityFor": "{layer}, {percent}% de opacidad",

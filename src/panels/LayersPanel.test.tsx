@@ -118,6 +118,8 @@ function panel(overrides: {
       onLayers={vi.fn()}
       onAlertTypes={vi.fn()}
       onSurgeCategory={vi.fn()}
+      smoothGrids={false}
+      onSmoothGrids={vi.fn()}
       onClose={vi.fn()}
     />
   );
