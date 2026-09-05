@@ -616,7 +616,7 @@ pub async fn export_grid_data(
 ) -> Result<DataExportReport, DataExportError> {
     let folder = exports::export_folder(&app).map_err(|_| DataExportError::NoFolder)?;
     let (entry, key) = wanted_grid(&request)?;
-    mrms::grid_for(&key).await?;
+    mrms::grid_for(&key, false).await?;
 
     let written_at = Utc::now();
     // Copying four million cells out from under a global lock, encoding them
