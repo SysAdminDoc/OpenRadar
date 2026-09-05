@@ -3179,7 +3179,7 @@ dependencies = [
 
 [[package]]
 name = "openradar"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "arbitrary",
  "base64 0.23.1",
