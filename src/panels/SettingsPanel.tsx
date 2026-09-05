@@ -277,7 +277,15 @@ export function SettingsPanel({
           <label className="toggle-row toggle-row--plain">
             <span>
               <strong>{t("ambientScreen.awake")}</strong>
-              <small>{t("ambientScreen.awakeDetail")}</small>
+              {/* The checkbox is drawn as a track and the box itself is
+                  transparent, so a disabled one is indistinguishable from an
+                  enabled one that is off. The line under it is what says
+                  which, the way the watch settings do. */}
+              <small>
+                {awakeOk === false
+                  ? t("ambientScreen.awakeUnavailable")
+                  : t("ambientScreen.awakeDetail")}
+              </small>
             </span>
             <input
               type="checkbox"

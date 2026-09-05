@@ -11,7 +11,8 @@ import { en } from "../i18n/en";
 import { DEFAULT_SETTINGS } from "../lib/settings";
 import type { SweepImage } from "../lib/level2";
 import type { SiteStatus } from "../lib/radarStatus";
-import { formatDistance, setUnits } from "../lib/units";
+import { formatClock, formatDistance, setUnits } from "../lib/units";
+
 import type { RadarTimelineState } from "../hooks/useRadarTimeline";
 
 /**
@@ -187,7 +188,13 @@ describe("the legend over a live sweep", () => {
       }),
     );
     expect(screen.getByText(/NEXT PIECE IN 8 S/)).toBeTruthy();
-    expect(screen.getByText(/ENDS /)).toBeTruthy();
+    // The end of the volume, and not the next piece over again. Three
+    // minutes apart on purpose, because a legend that printed the piece time
+    // under the volume's heading would read as a volume ending in eight
+    // seconds and nothing about the line would say otherwise.
+    const line = screen.getByText(/NEXT PIECE IN 8 S/).textContent ?? "";
+    expect(line).toContain(`ENDS ${formatClock(at + 190_000)}`);
+    expect(line).not.toContain(`ENDS ${formatClock(at + 8_000)}`);
   });
 
   it("stops counting down once the piece is overdue", () => {

@@ -64,8 +64,12 @@ describe("the diagnostics panel", () => {
         ],
       }),
     );
-    expect(screen.getByText(/the service returned 503/)).toBeTruthy();
-    expect(screen.getByText(/3/)).toBeTruthy();
+    // The count in full, not a digit that happens to be somewhere on the
+    // line: the error string carries a 503, so a bare digit match reads as
+    // green whatever number the panel puts in the count.
+    expect(
+      screen.getByText("the service returned 503 (3 in a row)"),
+    ).toBeTruthy();
   });
 
   it("says nothing is wrong rather than showing an empty list", () => {

@@ -11,6 +11,7 @@ import path from "node:path";
 import {
   assertReleaseAssetNames,
   cargoVersion,
+  defenderOutcome,
   defenderScanner,
   defenderVerdict,
   publishedLag,
@@ -286,15 +287,27 @@ function scanWithDefender(file) {
   } catch {
     scanner = null;
   }
+  // The same shape either way, so a reader of the proof does not have to
+  // know which of the two ways a scan can be absent happened to it.
   if (!scanner) {
     console.log("Defender: no scanner on this machine, skipped.");
-    return { scanned: false, clean: false, detail: "no scanner installed" };
+    return {
+      scanned: false,
+      clean: false,
+      detail: "no scanner installed",
+      engine: null,
+    };
   }
 
   const exe = path.join(platformRoot, scanner, "MpCmdRun.exe");
   if (!fs.existsSync(exe)) {
     console.log(`Defender: ${scanner} has no MpCmdRun, skipped.`);
-    return { scanned: false, clean: false, detail: "no scanner installed" };
+    return {
+      scanned: false,
+      clean: false,
+      detail: "no scanner installed",
+      engine: scanner,
+    };
   }
 
   const result = spawnSync(exe, ["-Scan", "-ScanType", "3", "-File", file], {
@@ -307,12 +320,14 @@ function scanWithDefender(file) {
     }),
     engine: scanner,
   };
-  if (verdict.scanned && verdict.clean) {
-    console.log(`Defender ${scanner}: ${verdict.detail}.`);
-  } else if (verdict.scanned) {
-    fail(`Defender ${scanner} flagged ${path.basename(file)}: ${verdict.detail}`);
+  const outcome = defenderOutcome(verdict, {
+    engine: scanner,
+    file: path.basename(file),
+  });
+  if (outcome.action === "fail") {
+    fail(outcome.say);
   } else {
-    console.log(`Defender ${scanner} could not scan: ${verdict.detail}.`);
+    console.log(outcome.say);
   }
   return verdict;
 }
