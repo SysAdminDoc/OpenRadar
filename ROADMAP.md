@@ -281,12 +281,3 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### Unaudited, needs a pass
 
-- [ ] AUD-311 (P3): What this pass could not observe
-      Category: testing
-      Where: the packaged Tauri window (tray launch, `visibilitychange` on first show, the notification permission prompt, the opener, the updater); a real screen reader (the ARIA findings above are traced, not heard); the MP4 export (Playwright's Chromium has no H.264; Edge does, per the 2026-09-03 note); a long-running session (`AUD-166`); the live TDWR and Level II decode paths under real network conditions
-      Problem: Each is a place where the e2e suite also cannot see, and each has an item or a `Roadmap_Blocked.md` entry already; this line exists so the next pass does not assume they were covered.
-      Evidence: This audit ran headless browser automation, read the packaged configuration, and queried two live services; it did not drive the installed app on a display.
-      Fix: The desktop-session checks in `Roadmap_Blocked.md`, plus a NVDA or Narrator pass over the rail, the settings panel and one popup once `AUD-299` to `AUD-302` land.
-      Acceptance: Each named surface has a recorded observation or a reason it cannot be made.
-      Confidence: Needs-repro
-      Effort: M

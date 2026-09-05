@@ -41,6 +41,46 @@ Blocked on: a fix in `netcdf-reader` or `hdf5-reader`, or a depth limit either o
 - Confirming that an export lands in the downloads folder of the desktop build needs the Tauri window on a real display. The browser path is covered end to end, including the burned-in caption and the file headers, and the Rust side that picks the folder and sanitizes the name has its own tests.
 - Confirming that a frontend log line lands in the app log directory, which on Windows is under `%LOCALAPPDATA%\com.sysadmindoc.openradar\logs\`, needs the Tauri window on a real display. This machine reserves GUI validation for an isolated monitor or a virtual session, so the file itself has not been observed. The wiring is covered by the Diagnostics panel and an end-to-end test, and the Rust side already registers the LogDir target.
 
+## AUD-311: what a terminal pass cannot observe, and what turned out to be observable
+
+The 2026-09-03 audit listed five surfaces it could not see. Three of them
+could be, and were, on 2026-09-05. Two cannot be from here.
+
+Observed:
+
+- **The live TDWR and Level II decode paths under real network conditions.**
+  `cargo test -- --ignored` runs them against the real buckets, and five of
+  them cover exactly this: `tdwr::tests::draws_a_live_dallas_sweep`,
+  `level2::draw::tests::decodes_and_draws_a_live_kdmx_volume`,
+  `level2::decode::tests::unfolding_a_live_velocity_sweep_takes_the_folds_out`,
+  `chunks::tests::reads_the_volume_a_radar_is_sweeping_now` and
+  `mrms::tests::serves_a_tile_the_way_the_map_asks_for_one`. All five green on
+  2026-09-05, the chunk and unfolding pair in 57 seconds. They are ignored by
+  default because they need the network, not because they cannot run.
+- **The MP4 export.** The premise was out of date. Playwright's bundled
+  Chromium is 151 now and all four of the app's candidate H.264 codec strings
+  answer supported there, as they do in `msedge`. So the export has an
+  end-to-end test that writes a real MP4 and reads its boxes rather than a
+  note saying it cannot be tested.
+- **A long-running session.** `AUD-166` still stands and its own acceptance
+  is a recorded eight-hour run. That is not something to start on a machine
+  somebody is using: it belongs on an idle one, and the item says so.
+
+Not observable from here, and already carried above with their identifiers:
+
+- The packaged Tauri window: the tray launch, the resize on first show, the
+  notification permission prompt, the deep-link opener and the updater. Every
+  one ends at a window somebody has to look at, which is `AUD-003`,
+  `AUD-004` and `AUD-165`.
+- **A real screen reader.** The accessibility findings are traced through the
+  accessibility tree rather than heard: axe and the role queries say what is
+  exposed, and neither says what NVDA or Narrator reads out, in what order, or
+  what it does with a live region that changes twice in a second. It needs a
+  screen reader running on a display this machine may drive, which is the same
+  blocker as the four above. Until then the tree is checked and the speech is
+  not, and no item should claim otherwise.
+
+
 ## Placefile parts the security model rules out
 
 - Loading a placefile from a URL the user types cannot work under a fixed content security policy, and the Rust boundary refuses an address handed over by the frontend for the same reason. Allowing arbitrary placefile hosts is a security decision, not an implementation detail, so it needs a call on whether to add a trusted-host list and what belongs on it. Local placefiles load today through the Upload panel, and the refresh interval the file asks for is read and reported back when it loads, even though nothing refetches a local file.

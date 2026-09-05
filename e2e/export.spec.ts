@@ -111,6 +111,38 @@ test("writes the loop as a WebM the size cap allows", async ({ page }) => {
   await expect(page.getByText(/.webm saved/)).toBeVisible();
 });
 
+test("writes the loop as an MP4 a phone will play", async ({ page }) => {
+  // The one people actually send each other, and the one nothing here had
+  // ever written: the note beside this suite said Playwright's Chromium has
+  // no H.264 encoder. It has one as of Chromium 151, so the path the export
+  // panel offers can be walked rather than reasoned about.
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const button = page.getByRole("button", { name: /Export loop \(MP4\)/ });
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+
+  const download = page.waitForEvent("download", { timeout: 60_000 });
+  await button.click();
+  const file = await download;
+
+  expect(file.suggestedFilename()).toMatch(/^openradar-loop-.*\.mp4$/);
+  const path = await file.path();
+  const bytes = await import("node:fs/promises").then((fs) =>
+    fs.readFile(path),
+  );
+  // An ISO base media file names its brand in the first box.
+  expect(bytes.subarray(4, 8).toString("latin1")).toBe("ftyp");
+  expect(bytes.subarray(8, 12).toString("latin1")).toMatch(/isom|mp42|avc1/);
+  // An H.264 track rather than an empty container. The sample description
+  // sits in the index, which this muxer writes after the media data, so the
+  // whole file is searched rather than its head: looking only at the first
+  // few kilobytes would have failed on a file that is perfectly good.
+  expect(bytes.toString("latin1")).toContain("avcC");
+  expect(bytes.byteLength).toBeGreaterThan(2_500);
+  expect(bytes.byteLength).toBeLessThan(20 * 1024 * 1024);
+  await expect(page.getByText(/.mp4 saved/)).toBeVisible();
+});
+
 test("writes the loop as a GIF that a picture viewer opens", async ({
   page,
 }) => {
