@@ -366,16 +366,6 @@ Where this pass dug: the eleven items drained on 2026-09-04 that had no refutati
 
 ### P3
 
-- [ ] AUD-287 (P3): Guidance refetches on a pan with no busy signal, and a failed refetch stacks its error on somebody else's table
-      Category: ux
-      Where: `src/panels/GuidancePanel.tsx:240` (spinner gated on `loading && !guidance`), `:78-100` (the catch sets `error` and leaves `guidance` as it was)
-      Problem: Once one answer exists, moving the map far enough to refetch shows nothing (no `aria-busy`, no age) while the old table stays; when that refetch fails the reader sees "could not load" above a full table for the previous place. `guidance.spec.ts` covers the first load and cancel-on-close only.
-      Evidence: The two sites above.
-      Fix: Keep the table but mark the panel `aria-busy` and dim it during a refetch (the `panel-loading` treatment `SoundingPanel` uses on remount is the pattern); on a failed refetch keep the table, stamp it with the place it answers for and the age, and put the error under it rather than over it. An e2e that pans after the first answer and asserts the busy state, then stubs the second request 503 and asserts the stamp.
-      Acceptance: The e2e passes; the first-load test is unchanged.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-295 (P3): Microcopy consistency sweep
       Category: ux
       Where: `src/i18n/en.ts` and the two translations
