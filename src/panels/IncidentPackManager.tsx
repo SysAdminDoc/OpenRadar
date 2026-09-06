@@ -153,12 +153,40 @@ export function IncidentPackManager({
     };
   }, [available, refresh]);
 
+  /**
+   * The ceiling, written to the store once the reader has stopped moving it.
+   *
+   * A range input fires on every step of a drag, and this one has 128 of them.
+   * Each write takes the store lock, writes `config.json` and lists the whole
+   * library back, and the download worker takes that same lock for every tile
+   * it saves, so dragging the slider while a pack was downloading queued a
+   * hundred and twenty-eight config writes in front of it. The replies also
+   * landed unguarded, so a slow one could set the library back to an older
+   * answer.
+   *
+   * A quarter second after the last change, and only when it differs from
+   * what the store already reported: on mount this used to write the value
+   * back for nothing.
+   */
   useEffect(() => {
     if (!available) return;
-    void setIncidentPackLimit(settings.incidentPacks.diskLimitMb)
-      .then((next) => setLibrary(next))
-      .catch((failure) => setError(packErrorText(failure)));
-  }, [available, settings.incidentPacks.diskLimitMb]);
+    const wanted = settings.incidentPacks.diskLimitMb;
+    if (library.diskLimitBytes === wanted * 1024 * 1024) return;
+    let open = true;
+    const timer = window.setTimeout(() => {
+      void setIncidentPackLimit(wanted)
+        .then((next) => {
+          if (open) setLibrary(next);
+        })
+        .catch((failure) => {
+          if (open) setError(packErrorText(failure));
+        });
+    }, 250);
+    return () => {
+      open = false;
+      window.clearTimeout(timer);
+    };
+  }, [available, library.diskLimitBytes, settings.incidentPacks.diskLimitMb]);
 
   useEffect(() => {
     let open = true;

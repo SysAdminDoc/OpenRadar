@@ -27,6 +27,7 @@ const restorePack = vi.fn<(id: string) => Promise<IncidentPack>>();
 const reapPack = vi.fn<(id: string) => Promise<void>>();
 const cancelPack = vi.fn<(id: string) => Promise<void>>();
 const listPacks = vi.fn<() => Promise<IncidentPackLibrary>>();
+const setLimit = vi.fn<(mb: number) => Promise<IncidentPackLibrary>>();
 
 vi.mock("../lib/incidentPacks", async () => {
   const real = await vi.importActual<typeof import("../lib/incidentPacks")>(
@@ -36,7 +37,7 @@ vi.mock("../lib/incidentPacks", async () => {
     ...real,
     incidentPacksAvailable: () => true,
     listIncidentPacks: () => listPacks(),
-    setIncidentPackLimit: () => listPacks(),
+    setIncidentPackLimit: (mb: number) => setLimit(mb),
     estimateIncidentPack: () =>
       Promise.reject(new Error("no estimate in this test")),
     deleteIncidentPack: (id: string) => deletePack(id),
@@ -127,6 +128,7 @@ beforeEach(() => {
   reapPack.mockReset().mockResolvedValue(undefined);
   restorePack.mockReset().mockResolvedValue(pack());
   listPacks.mockReset().mockResolvedValue(library([pack()]));
+  setLimit.mockReset().mockImplementation(() => listPacks());
 });
 
 afterEach(() => {
@@ -299,5 +301,48 @@ describe("a pack whose state on screen is not its state on disk", () => {
       });
       expect(reapPack).not.toHaveBeenCalled();
     })();
+  });
+});
+
+describe("the disk ceiling", () => {
+  it("writes the store once the reader stops moving the slider", async () => {
+    // A range input fires on every step, and this one has 128 of them. Each
+    // write takes the store lock, writes a config file and lists the library
+    // back, and the download worker takes that same lock for every tile it
+    // saves: dragging while a pack downloaded queued a hundred and twenty
+    // eight writes in front of it.
+    render(<Harness start={DEFAULT_SETTINGS} />);
+    const slider = await screen.findByLabelText("Pack disk ceiling");
+
+    // Settled first, so the mount's own write is not counted against the drag.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    setLimit.mockClear();
+
+    await act(async () => {
+      for (const megabytes of [4352, 4608, 4864, 5120, 5376]) {
+        fireEvent.change(slider, { target: { value: String(megabytes) } });
+      }
+    });
+    // Nothing yet: the reader is still dragging.
+    expect(setLimit).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(setLimit).toHaveBeenCalledTimes(1);
+    expect(setLimit).toHaveBeenCalledWith(5376);
+  });
+
+  it("does not write back the value the store already holds", async () => {
+    // The library the poll reads says 4096 MB and so do the settings, so a
+    // mount has nothing to say to the native side. It used to say it anyway.
+    render(<Harness start={DEFAULT_SETTINGS} />);
+    await screen.findByLabelText("Pack disk ceiling");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(setLimit).not.toHaveBeenCalled();
   });
 });

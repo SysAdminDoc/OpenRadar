@@ -1,5 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { rangeFill } from "../lib/rangeFill";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
@@ -15,6 +15,8 @@ import { formatNumber, LANGUAGES, useT } from "../i18n";
 import { themeAccent, themeFromAccent } from "../lib/theme";
 import type { AmbientState } from "../hooks/useAmbient";
 import { JournalSection } from "./JournalSection";
+import { journalRows, type JournalRow } from "../lib/journal";
+import { log } from "../lib/log";
 import { openGlance } from "../lib/tray";
 import { giveSpeculationBack, putSpeculationAway } from "../lib/calm";
 import { displayAwakeAvailable } from "../lib/display";
@@ -150,6 +152,47 @@ export function SettingsPanel({
       alive = false;
     };
   }, []);
+
+  /**
+   * The reader's own record, read once for the two sections that show it.
+   *
+   * The list and the year card are both keyed on the minute clock and both
+   * used to read the whole file for themselves, so a panel left open made two
+   * passes a minute over a four megabyte JSONL for a file that had not
+   * changed between them. The recap's read had no cancellation either, so a
+   * slow reply could land after a newer one.
+   *
+   * `undefined` until it has been read, which is what lets both sections hold
+   * back the "nothing recorded yet" sentence rather than showing it for a
+   * frame over a record that is full.
+   */
+  const [journal, setJournal] = useState<JournalRow[] | undefined>(undefined);
+  const [journalAsked, setJournalAsked] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    // A rejection has to land somewhere. Left uncaught, this stays undefined
+    // and both sections render nothing at all: a silent blank card, which is
+    // worse than an empty one.
+    void journalRows()
+      .then((rows) => {
+        if (alive) setJournal(rows);
+      })
+      .catch((failure: unknown) => {
+        log.warn(
+          "journal",
+          failure instanceof Error ? failure.message : String(failure),
+        );
+        if (alive) setJournal([]);
+      });
+    return () => {
+      alive = false;
+    };
+    // On the clock as well as on mount: a warning arriving while the panel is
+    // open used to leave the list, the count and the export holding the
+    // snapshot from when it opened. `journalAsked` is what the list bumps
+    // after it has changed the file itself.
+  }, [clock, journalAsked]);
+  const reloadJournal = useCallback(() => setJournalAsked((at) => at + 1), []);
 
   const accent = themeAccent(settings.workspaceTheme);
 
@@ -473,6 +516,8 @@ export function SettingsPanel({
 
       <JournalSection
         clock={clock}
+        read={journal}
+        onReload={reloadJournal}
         writing={settings.journal}
         onWriting={(journal) => onSettings({ ...settings, journal })}
         onSaved={(path) => onJournalSaved(path)}
@@ -519,6 +564,7 @@ export function SettingsPanel({
 
       <RecapSection
         clock={clock}
+        read={journal}
         onSaved={(path) => onJournalSaved(path)}
         onFailed={(why) => onJournalFailed(why)}
       />
