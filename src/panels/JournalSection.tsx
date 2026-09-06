@@ -9,7 +9,6 @@ import {
   journalAvailable,
   journalMarkdown,
   journalPath,
-  journalRows,
   journalText,
   journalThumbData,
   journalThumbFileName,
@@ -61,6 +60,8 @@ const SPANS = [0, 7, 30, 365] as const;
 export function JournalSection({
   /** Ticks once a minute, which is how the list notices a row that arrived. */
   clock,
+  read,
+  onReload,
   /** False when the reader has stopped the record being written to. */
   writing,
   onWriting,
@@ -70,6 +71,17 @@ export function JournalSection({
   onRemoved,
 }: {
   clock: number;
+  /**
+   * The record, or undefined until it has been read.
+   *
+   * The panel reads it, once per tick, and hands it to this section and to the
+   * year card below. Both used to read the whole file for themselves on the
+   * same clock: two passes over a four megabyte JSONL a minute for a file that
+   * had not changed between them.
+   */
+  read: JournalRow[] | undefined;
+  /** Ask the panel to read it again, after this section has changed it. */
+  onReload: () => void;
   writing: boolean;
   onWriting: (on: boolean) => void;
   onSaved: (path: string | null) => void;
@@ -86,14 +98,6 @@ export function JournalSection({
   onRemoved: (undo: () => void) => void;
 }) {
   const t = useT();
-  /**
-   * Undefined until the record has actually been read.
-   *
-   * Starting at an empty array meant "Nothing recorded yet." rendered for a
-   * frame on every open of a record that is not empty, which is the one
-   * sentence that must not be shown to somebody whose journal is full.
-   */
-  const [read, setRead] = useState<JournalRow[] | undefined>(undefined);
   // Memoised, so the two memos below do not see a new array every render.
   const rows = useMemo(() => read ?? [], [read]);
   const [where, setWhere] = useState<string | null>(null);
@@ -102,29 +106,30 @@ export function JournalSection({
     null,
   );
 
-  const reload = useCallback(() => {
-    // A rejection has to land somewhere. Left uncaught, `read` stays
-    // undefined and both the list and the empty sentence render nothing at
-    // all: a silent blank card, which is worse than the one-frame wrong
-    // sentence this replaced. The command itself cannot fail, so anything
-    // here is the bridge, and an empty record is the honest thing to show.
-    void journalRows()
-      .then(setRead)
+  const reload = onReload;
+
+  // Where the file is, once. It cannot move while the panel is open, and it
+  // was being asked for again on every tick of the clock beside the rows.
+  useEffect(() => {
+    let alive = true;
+    void journalPath()
+      .then((path) => {
+        if (alive) setWhere(path);
+      })
       .catch((failure: unknown) => {
+        // A path nobody could read is a line this section leaves out, not a
+        // reason to render nothing. It was uncaught, which in the desktop
+        // build meant an unhandled rejection and a blank line either way.
         log.warn(
           "journal",
           failure instanceof Error ? failure.message : String(failure),
         );
-        setRead([]);
+        if (alive) setWhere(null);
       });
-    void journalPath().then(setWhere);
+    return () => {
+      alive = false;
+    };
   }, []);
-
-  // Re-read on the clock as well as on mount. A warning arriving while the
-  // panel is open used to leave the list, the count and the export holding
-  // the snapshot from when it opened, so what a reader took away was not the
-  // whole file.
-  useEffect(reload, [reload, clock]);
 
   const shown = useMemo(
     () => filterJournal(rows, filter, clock),

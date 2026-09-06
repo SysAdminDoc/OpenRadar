@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { runOnce, useInFlight } from "../lib/inFlight";
 import { ImageDown, LoaderCircle } from "lucide-react";
 import { useT } from "../i18n";
-import { journalAvailable, journalRows, type JournalRow } from "../lib/journal";
+import { journalAvailable, type JournalRow } from "../lib/journal";
 import { recapCredits, recapFrom, recapLines } from "../lib/recap";
 import { drawRecapCard } from "../lib/recapCard";
 import { exportFileName } from "../lib/export";
-import { log } from "../lib/log";
 import { saveFile } from "../lib/saveFile";
 
 /** Named so a remount of this panel finds the save that is already going. */
@@ -30,17 +29,28 @@ const SPANS = [30, 90, 365] as const;
 
 export function RecapSection({
   clock,
+  read,
   onSaved,
   onFailed,
 }: {
   clock: number;
+  /**
+   * The record, or undefined until it has been read.
+   *
+   * Handed in rather than read here. This and the journal list are two
+   * sections of one panel, both keyed on the same minute clock, and both used
+   * to read the whole file for themselves: two passes over a four megabyte
+   * JSONL every minute the panel was open, for one file that had not changed
+   * between them. The read is the panel's now, made once.
+   *
+   * Undefined rather than an empty array while it is unread, so the empty
+   * sentence does not render for a frame over a year somebody actually had.
+   */
+  read: JournalRow[] | undefined;
   onSaved: (path: string | null) => void;
   onFailed: (why: string) => void;
 }) {
   const t = useT();
-  // Undefined until the record has been read, so the empty sentence does not
-  // render for a frame over a year somebody actually had.
-  const [read, setRead] = useState<JournalRow[] | undefined>(undefined);
   const rows = useMemo(() => read ?? [], [read]);
   const [days, setDays] = useState<number>(365);
   const [withPlaces, setWithPlaces] = useState(false);
@@ -48,20 +58,6 @@ export function RecapSection({
   // for the whole of it, and outside this component, so closing Settings and
   // opening it again mid-save does not hand the reader a second press.
   const saving = useInFlight(RECAP_SAVE);
-
-  useEffect(() => {
-    // Same as the journal list: an uncaught rejection leaves this rendering
-    // nothing at all rather than saying the record is empty.
-    void journalRows()
-      .then(setRead)
-      .catch((failure: unknown) => {
-        log.warn(
-          "recap",
-          failure instanceof Error ? failure.message : String(failure),
-        );
-        setRead([]);
-      });
-  }, [clock]);
 
   const recap = useMemo(
     () => recapFrom(rows, clock - days * 86_400_000, clock),

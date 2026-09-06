@@ -279,16 +279,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### P3
 
-- [ ] AUD-324 (P3): The incident-pack ceiling slider writes the store config on every drag step, unguarded
-      Category: reliability
-      Where: `src/panels/IncidentPackManager.tsx:155-161` (the effect on `settings.incidentPacks.diskLimitMb`), `:355-390` (`<input type="range" min={256} max={32_768} step={256}>` whose `onChange` writes settings), `src-tauri/src/incident_packs.rs:1490-1500` (`incident_pack_set_limit` takes the store write lock, writes `config.json` atomically, then lists the whole library).
-      Problem: A range input fires `change` on every step of a drag, so one drag across the slider is up to 128 settings saves, 128 native config writes under the store lock (each an atomic JSON write plus a directory listing), and 128 unguarded `setLibrary` calls whose replies can land out of order. The effect has no cancellation flag and no cleanup, unlike its neighbours at `:131` and `:163`. A download in progress waits on the same lock in `write_tile_under_quota`. On mount the effect also writes the current value back once for nothing.
-      Evidence: Code as cited; no debounce between the input and the effect; effect deps `[available, settings.incidentPacks.diskLimitMb]`.
-      Fix: Debounce the native write (a `window.setTimeout` of 250 ms after the last change, cleared in the effect cleanup), guard with `let open = true` like the poll effect, and skip the write when the value equals the library's reported limit. The settings save is already queued and can stay.
-      Acceptance: A test in `IncidentPackManager.test.tsx` that fires ten `change` events within 100 ms and asserts `incident_pack_set_limit` is invoked once with the last value, and that an unmount before the reply does not set state.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-327 (P3): Settings files desktop and character controls under "Appearance", and puts language, units and clock last
       Category: ux
       Where: `src/panels/SettingsPanel.tsx:168` (the Appearance section, which runs to about `:520` and holds theme, accent, weather on the chrome, the full-screen view and its screen hold, the tray icon, Start with Windows, close-to-tray, the glance window, the wallpaper, calm mode, curiosities, catch-up, on-this-date and the seasonal look), `:540` Language, `:576` Backup, `:619` Units, `:648` Clock, `:674` Text size, `:698` Radar, `:819` Camera.
@@ -308,16 +298,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Acceptance: The panel shows the seven headings; `LayersPanel.test.tsx` asserts every option belongs to a group and every group renders; the pseudolocale clipping test covers the headings.
       Confidence: Verified
       Effort: M
-
-- [ ] AUD-329 (P3): Two whole-record reads a minute while Settings is open
-      Category: perf
-      Where: `src/panels/RecapSection.tsx:52-64` (`journalRows()` in an effect keyed on `clock`, no cancellation guard), `src/panels/JournalSection.tsx:123-127` (the same read, deliberately, on the same clock), `src/panels/SettingsPanel.tsx:475` and `:521` (both fed the minute clock from `App.tsx:323`).
-      Problem: Every minute Settings is open, both sections invoke `journal_rows`, which reads and parses the whole JSONL record (up to 4 MB) on the native side, twice. The recap's read has no guard, so a slow reply can land after a faster one.
-      Evidence: Code as cited; `clock` is `useMinuteClock()`.
-      Fix: Lift the read into `SettingsPanel` (one guarded `journalRows()` per tick) and hand `rows` to both sections, or read once on mount in the recap and re-read only when the journal section's reload runs.
-      Acceptance: With Settings open for three minutes a spy on `journalRows` counts three calls, not six; an unmounted `RecapSection` does not set state.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-330 (P3): `mrms.rs` is 6,237 lines with three test modules inside it
       Category: maintainability
