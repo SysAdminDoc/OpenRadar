@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- Escape leaves the full-screen view and the capture layout. Neither of them listened for it, so the only way out of either was a small button in the corner, and only while it happened to hold focus. The buttons are a proper size now too, which matters for the one you reach for from across a room.
+
 - The tool rail shows whole buttons and says how to reach the rest. Its middle section scrolls with the scrollbar hidden, and it used to end through the middle of a button: an icon with no caption, which reads as a rendering fault rather than as "there is more". Eleven tools sat below that line with nothing to press, Export and Upload among them. Now the list ends on a button's own edge wherever it is scrolled to, the fade at the edge is a button tall instead of twelve pixels, and a pair of chevrons under it pages through the rest.
 
 - A replay bundle somebody else made can no longer stop the map drawing. Two things in a `.orb` file travel back out as HTTP headers, the content type of each saved response and the bundle's own name, and neither was checked against what a header may hold: a file carrying a control character in either one took the tile handler's task down without a word, and the map waited on that tile for the rest of the session. Both are checked when the file is read now, a service that answers with a type that cannot be sent is recorded as missing rather than written into a bundle that will not open, and the handler answers rather than falling over if anything still slips through.

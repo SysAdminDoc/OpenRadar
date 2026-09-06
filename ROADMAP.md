@@ -279,16 +279,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
 
 ### P3
 
-- [ ] AUD-323 (P3): Escape does nothing in the full-screen and capture views, and the code says it does
-      Category: a11y
-      Where: `src/App.tsx:1729-1735` (`if (capture || ambientScreen) return;` under a comment saying "the same press is already what leaves them"), `src/components/AmbientReadout.tsx:100-110` (leave button, no key handler), `src/components/CaptureBar.tsx:140-150`, `src/components/PanelShell.tsx:80` (the only other Escape handler).
-      Problem: Neither of the app's two Escape handlers leaves the full-screen view or the capture layout, and the comment claims one does, so the early return looks intentional and the promise is unkept. The keyboard way out is the focused 26x30 leave button (Enter or Space), which works only while it holds focus.
-      Evidence: 2026-09-05 in the browser: entered the full-screen view from the command list; `.app-shell` dataset `{ambientScreen: "1", capture: "1"}`; `document.activeElement` was `.ambient-readout__leave`; pressed Escape; dataset unchanged 400 ms later. `grep -rn '"Escape"' src` outside tests lists only `App.tsx:1734` and `PanelShell.tsx:80`.
-      Fix: In the App effect, before the panel branch, run the readout's `onLeave` body when `ambientScreen` (`setAmbientAsked(false); setTouchedAt(Date.now())`) and `setCapture(false)` when `capture`, then return; correct the comment. Raise both leave buttons to 44x44.
-      Acceptance: `e2e/ambient-screen.spec.ts` and `e2e/capture.spec.ts` press Escape and assert the workspace returns with the panel that was open; both leave buttons measure at least 44x44.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-324 (P3): The incident-pack ceiling slider writes the store config on every drag step, unguarded
       Category: reliability
       Where: `src/panels/IncidentPackManager.tsx:155-161` (the effect on `settings.incidentPacks.diskLimitMb`), `:355-390` (`<input type="range" min={256} max={32_768} step={256}>` whose `onChange` writes settings), `src-tauri/src/incident_packs.rs:1490-1500` (`incident_pack_set_limit` takes the store write lock, writes `config.json` atomically, then lists the whole library).
