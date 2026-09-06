@@ -1229,3 +1229,30 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
     true,
   );
 });
+
+test("asks for an icon it actually has", async ({ page }) => {
+  // Both pages declared none, so the webview asked for /favicon.ico on every
+  // launch and was answered with a 404: the first error in the console of a
+  // working build, and the one a reader looking for a real fault finds first.
+  const missed: string[] = [];
+  page.on("response", (response) => {
+    if (response.status() === 404) missed.push(response.url());
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toBeVisible();
+
+  const declared = await page.evaluate(() =>
+    [...document.querySelectorAll('link[rel="icon"]')].map(
+      (link) => link.getAttribute("href") ?? "",
+    ),
+  );
+  expect(declared.length).toBeGreaterThan(0);
+  // And what it names is there.
+  for (const href of declared) {
+    const answer = await page.request.get(href);
+    expect(answer.status(), `${href} is declared but not served`).toBe(200);
+  }
+  expect(missed.filter((url) => url.includes("favicon"))).toEqual([]);
+});

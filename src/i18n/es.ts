@@ -1022,7 +1022,7 @@ export const es: Catalogue = {
   "layer.customOverlay": "Capa propia",
   "panel.search": "Buscar",
   "panel.alerts": "Alertas",
-  "panel.tropical": "Panel tropical",
+  "panel.tropical": "Tropical",
   "panel.history": "Historial de tormentas",
   "panel.route": "Ruta",
   "panel.forecast": "Pronóstico",

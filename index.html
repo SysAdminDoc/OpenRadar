@@ -8,6 +8,17 @@
       content="OpenRadar is a map-first desktop weather radar with flat and globe navigation."
     />
     <meta name="theme-color" content="#090b10" />
+    <!-- The app's own icon, at the two sizes a tab and a task switcher ask
+         for. Without these the webview requests /favicon.ico on every launch
+         and logs a 404, which is the first error in the console of a working
+         build. Copied from the icons the installer already ships. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="128x128"
+      href="/openradar-128.png"
+    />
     <title>OpenRadar</title>
     <script>
       // The theme, before anything is painted.
