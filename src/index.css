@@ -3032,7 +3032,15 @@ input[type="range"]:disabled {
   pointer-events: auto;
   align-self: flex-start;
   margin-top: 8px;
-  padding: 4px;
+  /* A target somebody reaches for from across a room, on a screen they are
+     not sitting at. It was 26 by 30, which is under the 44 this app holds
+     every other control to, and it was the only way out of this view until
+     Escape was wired to it. */
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: rgba(9, 11, 16, 0.6);
@@ -3908,9 +3916,11 @@ input[type="range"]:disabled {
   /* What the map is painted on where no tile has arrived: the second pane the
      moment it opens, a cold start before the style loads, a fast pan. It was
      one near-black colour in both themes, so a light workspace showed those
-     as black holes. Kept in step with `MAP_GROUND_DARK` and
-     `MAP_GROUND_LIGHT` in `src/lib/mapStyles.ts`, which is the same ground
-     for the basemap the browser suite draws. */
+     as black holes.
+     Close to, but not the same as, `MAP_GROUND_DARK` in `mapStyles.ts`: that
+     one is the basemap's own background layer, painted over this, and the two
+     have always been a shade apart. What matters is that both are dark here
+     and both are light in the block below, which `theme.spec.ts` measures. */
   --map-ground: #0b1018;
   --border: rgba(166, 184, 207, 0.16);
   --border-strong: rgba(166, 184, 207, 0.28);
@@ -4199,20 +4209,29 @@ input[type="range"]:disabled {
 .command-page {
   display: flex;
   flex: 0 0 auto;
-  /* Held whether or not there is anything in it. The region above is fitted
-     to the room this leaves, so a strip that appeared along with the chevrons
-     would take that room back and cut the last button by its own height. */
   height: 24px;
   justify-content: center;
   align-items: center;
   gap: 2px;
 }
 
+/* And nothing at all when there is nowhere to go. Holding the space whether
+   or not it was used cost the rail 24px on every window, which at 1024 by 680
+   with the text at 130 percent was the difference between a tool list and no
+   tool list: the region came out at zero and the footer was clipped by the
+   bar's own overflow. The fit runs again when these appear, so the region is
+   measured against the room they leave rather than the room before them. */
+.command-page:empty {
+  display: none;
+}
+
 .command-page__step {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 22px;
+  /* The 24 by 24 a target may not go under. It was 26 by 22, which made the
+     newest control in the rail the smallest thing in it. */
+  width: 28px;
+  height: 24px;
   padding: 0;
   color: var(--command-ink-muted);
   background: transparent;
@@ -5905,8 +5924,10 @@ label.settings-field > span {
 .capture-bar__leave {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  /* The same 44 the rest of the app holds a target to. It was 30 square, and
+     until Escape was wired to this view it was the only way out of it. */
+  width: 44px;
+  height: 44px;
   padding: 0;
   color: #f5f8ff;
   background: transparent;

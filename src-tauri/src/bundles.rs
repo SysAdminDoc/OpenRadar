@@ -674,7 +674,11 @@ fn media_type_safe(value: &str) -> bool {
         })
 }
 
-/// The shape `slug` produces, which is what an id written here looks like.
+/// The shape an id written here takes: 24 characters of a SHA-256 digest.
+///
+/// Written wider than that on purpose, because this runs against files other
+/// builds wrote and the question it has to answer is whether the value can be
+/// sent as a header, not whether this build would have produced it.
 fn id_safe(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 80
@@ -1165,8 +1169,12 @@ pub(crate) mod tests {
                 read_bundle(&bytes).expect_err(&format!("{bad:?} is not an id this may serve"));
             assert!(matches!(refused, BundleError::Corrupt(_)), "{refused:?}");
         }
-        // The shape `slug` writes.
-        assert!(id_safe(&slug("Hurricane Ian (landfall) 2022")));
+        // And the shape this app's own capture writes: 24 characters off a
+        // SHA-256. `slug` is the file's NAME rather than the manifest's id,
+        // so asserting on that said nothing about the value that travels.
+        let written = sha256_hex(b"Hurricane Ian|2026-08-30T12:00:00Z|1")[..24].to_string();
+        assert_eq!(written.len(), 24);
+        assert!(id_safe(&written), "{written} is what capture writes");
     }
 
     #[test]

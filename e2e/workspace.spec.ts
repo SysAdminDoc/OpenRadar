@@ -1118,8 +1118,19 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
   await page.getByRole("button", { name: "Close Layers" }).click();
 
   const region = page.locator(".command-scroll-region");
-  const cut = async () =>
-    region.evaluate((node) => {
+  /**
+   * Buttons the region shows part of.
+   *
+   * The argument says which end to ask about. At rest both have to be clean,
+   * which is the state this exists for: it is what a reader opens the app to,
+   * and where the Range button was cut in half. Scrolled, the top is held to
+   * the same standard and the bottom is not. The list is a run of 48px buttons
+   * broken by group dividers, so an offset that starts on a button cannot also
+   * end on one at every height, and the fade at that edge is a button tall and
+   * says so.
+   */
+  const cut = async (edge: "both" | "top" = "both") =>
+    region.evaluate((node, which) => {
       const box = node.getBoundingClientRect();
       return [...node.querySelectorAll(".command-button")]
         .map((button) => {
@@ -1132,14 +1143,16 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
         // guards against is half a button.
         .filter(
           ({ seen, box: within }) =>
-            (seen.top < within.bottom - 2 && seen.bottom > within.bottom + 2) ||
+            (which !== "top" &&
+              seen.top < within.bottom - 2 &&
+              seen.bottom > within.bottom + 2) ||
             (seen.top < within.top - 2 && seen.bottom > within.top + 2),
         )
         .map(
           ({ label, seen, box: within }) =>
             `${label} ${Math.round(seen.top)}..${Math.round(seen.bottom)} in ${Math.round(within.top)}..${Math.round(within.bottom)} at ${node.scrollTop}`,
         );
-    });
+    }, edge);
 
   expect(await cut()).toEqual([]);
 
@@ -1153,8 +1166,66 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
     .poll(() => region.evaluate((node) => node.scrollTop))
     .toBeGreaterThan(before);
 
-  // And it still ends on a whole button after paging.
-  expect(await cut()).toEqual([]);
+  // And it still starts on a whole button after paging.
+  expect(await cut("top")).toEqual([]);
   // Going back up is offered once there is something above.
   await expect(page.getByRole("button", { name: "Earlier tools" })).toBeVisible();
+
+  // All the way to the end, one press at a time. Pressing once and stopping
+  // was the whole of this check before, and it missed both of the ways this
+  // can go wrong: a step that shrinks with the region until the chevron does
+  // nothing at all, and a last page that regrows the box and cuts a button at
+  // the top edge instead of the bottom.
+  const started = await region.evaluate((node) => node.scrollTop);
+  let moves = 0;
+  for (let press = 0; press < 30; press += 1) {
+    if ((await down.count()) === 0) break;
+    const at = await region.evaluate((node) => node.scrollTop);
+    await down.click();
+    const now = await region.evaluate((node) => node.scrollTop);
+    if (now === at) break;
+    moves += 1;
+    // Every rest on the way down starts on a button. The last rest is the
+    // content's own end rather than a button top, because the list is broken
+    // by dividers and no height makes both edges land on a boundary at every
+    // offset; that one is checked below by what it shows instead.
+    //
+    // Both facts read in one go: the chevron unmounts a render after the
+    // scroll, so asking the DOM about it separately races the React that is
+    // taking it away.
+    const straddling = await region.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const ended = node.scrollHeight - node.clientHeight - node.scrollTop <= 1;
+      if (ended) return [];
+      return [...node.querySelectorAll(".command-button")]
+        .filter((button) => {
+          const seen = button.getBoundingClientRect();
+          return seen.top < box.top - 2 && seen.bottom > box.top + 2;
+        })
+        .map((button) => button.getAttribute("aria-label") ?? "");
+    });
+    expect(straddling, `after press ${press + 1}`).toEqual([]);
+  }
+  expect(moves, "the chevron stopped moving the list").toBeGreaterThan(0);
+  // It reached the end rather than stalling in the middle, which is what the
+  // paging step used to do: shrink with the region until a press moved
+  // nothing while eighteen tools were still below.
+  await expect(down).toHaveCount(0);
+  expect(await region.evaluate((node) => node.scrollTop)).toBeGreaterThan(
+    started,
+  );
+
+  // And the end shows the end: the last tool in the list, whole.
+  const last = await region.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    const buttons = [...node.querySelectorAll(".command-button")];
+    const seen = buttons[buttons.length - 1]!.getBoundingClientRect();
+    return {
+      label: buttons[buttons.length - 1]!.getAttribute("aria-label"),
+      inside: seen.top >= box.top - 2 && seen.bottom <= box.bottom + 2,
+    };
+  });
+  expect(last.inside, `${last.label} is not wholly on screen at the end`).toBe(
+    true,
+  );
 });

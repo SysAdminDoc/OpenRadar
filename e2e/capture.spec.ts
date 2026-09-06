@@ -200,3 +200,25 @@ test("draws the same map it drew before", async ({ page }) => {
   expect(await pane.getAttribute("data-camera")).toBe(before.camera);
   expect(await pane.getAttribute("data-layer-stack")).toBe(before.layers);
 });
+
+test("Escape leaves the capture layout, and the way out is a real target", async ({
+  page,
+}) => {
+  // The keydown handler returned without doing anything here, under a comment
+  // saying the press was already what left it. It was not: the only way out
+  // was a 30 by 30 button, and only while it held focus.
+  await enterCapture(page);
+  await expect(page.locator("[data-capture-bar]")).toBeVisible();
+
+  const leave = page.getByRole("button", { name: "Leave capture layout" });
+  const box = (await leave.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+
+  // From the map, so this is the workspace's handling rather than the
+  // button's own.
+  await page.locator(".map-viewport").first().click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-capture-bar]")).toHaveCount(0);
+  await expect(page.locator(".command-bar")).toBeVisible();
+});

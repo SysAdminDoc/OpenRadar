@@ -1725,14 +1725,27 @@ export default function App() {
    * put the tool away and erased the reader's measurement, three things they
    * asked for one of.
    *
-   * Nothing at all while a full-screen mode is on. Both of those promise the
-   * workspace comes back exactly as it was, panel and tool included, and the
-   * same press is already what leaves them.
+   * A full-screen mode goes first and takes nothing else with it. Both of
+   * them promise the workspace comes back exactly as it was, panel and tool
+   * included, so one press leaves the mode and the next press is about the
+   * workspace underneath. This used to return without doing anything, under a
+   * comment saying the press was already what left them: it was not. The only
+   * way out was a 30 by 26 button, and only while it happened to hold focus.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (capture || ambientScreen) return;
+      if (ambientScreen) {
+        setAmbientAsked(false);
+        // Also counts as being here, which is what stops the idle rule
+        // putting it straight back.
+        setTouchedAt(Date.now());
+        return;
+      }
+      if (capture) {
+        setCapture(false);
+        return;
+      }
       if (activeSurface || productOpen) {
         setActiveSurface(null);
         setProductOpen(false);

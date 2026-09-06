@@ -206,50 +206,68 @@ export function CommandBar({
    * bare attributes, because the chevron below is rendered from them.
    */
   const [edges, setEdges] = useState({ above: false, below: false });
+  /** What the region was last fitted to, so paging does not shrink with it. */
+  const pageStep = useRef(RAIL_BUTTON_HEIGHT);
+  const refit = useRef(() => {});
   useEffect(() => {
     const region = advancedRef.current;
     if (!region) return;
-    const mark = () => {
-      const buttons = () => [
-        ...region.querySelectorAll<HTMLElement>(".command-button"),
-      ];
 
-      // The top edge first, because the height is fitted to wherever it ends
-      // up. A resting scroll of 290 cuts a button at both ends however well
-      // the box is sized, and the browser puts it there on its own: shrinking
-      // a scroller makes Chromium adjust the offset to keep the content under
-      // the reader still. Zero is a resting place too, and the nearest one
-      // wins so this never fights a reader who scrolled on purpose. Setting
-      // it fires another scroll, which finds it aligned and stops.
-      const nearest = nearestOffset(restingOffsets(region), region.scrollTop);
-      if (Math.abs(nearest - region.scrollTop) > 1) region.scrollTop = nearest;
-
-      // Measured against the room flex gives it, not against the height this
-      // last left behind, or each pass would shrink the region again.
+    /**
+     * The height, and only when the room changes.
+     *
+     * Deliberately not on scroll. Writing a height from inside a scroll
+     * handler made the rail breathe: the region's own height fed the paging
+     * step, which fed the next scroll, which re-fitted the height, and five
+     * wheel ticks walked it from 353 to 321 and back while the footer moved
+     * under the reader's pointer. Worse, the step shrank with it until the
+     * chevron was scrolling by a single button and then by nothing at all,
+     * with eighteen tools still below and the control still on screen.
+     */
+    const fit = () => {
+      // Clearing the cap makes the region taller for a moment, which shrinks
+      // how far it can scroll, and the browser pulls the offset back to suit.
+      // A rail scrolled to its last button came back one page short and said
+      // there was more below when there was not. Put it back afterwards; the
+      // browser clamps it if the content really did change.
+      const held = region.scrollTop;
       region.style.maxHeight = "";
-      // Asking for a height is not getting it: the rest of the rail has its
-      // own claims, so a cap the box will not grant leaves the region shorter
-      // than the boundary that was chosen and the button at that boundary cut
-      // anyway. Re-measure and floor again until the cap and the room agree.
+      // Asking a flex box for a height is not getting it: the rest of the rail
+      // has its own claims, so a cap it will not grant leaves the region
+      // shorter than the boundary that was chosen and the button at that
+      // boundary cut anyway. Re-measure and floor again until the two agree.
       // The room only ever shrinks, so three passes is generous.
       for (let pass = 0; pass < 3; pass += 1) {
         const room = region.clientHeight;
         let fits = 0;
-        for (const button of buttons()) {
-          // Against what is on screen rather than against the content, so a
-          // region scrolled to its second button is fitted from there.
+        for (const button of region.querySelectorAll<HTMLElement>(
+          ".command-button",
+        )) {
           const bottom =
-            button.offsetTop -
-            region.offsetTop +
-            button.offsetHeight -
-            region.scrollTop;
+            button.offsetTop - region.offsetTop + button.offsetHeight;
           if (bottom <= room && bottom > fits) fits = bottom;
         }
-        // Nothing fits whole on a very short window: leave the room alone
-        // rather than collapsing the region to nothing.
+        // Nothing fits whole in a very short rail: leave the room alone rather
+        // than collapsing the region to nothing.
         if (fits === 0 || fits === room) break;
         region.style.maxHeight = `${fits}px`;
       }
+      if (Math.abs(region.scrollTop - held) > 1) region.scrollTop = held;
+      pageStep.current = Math.max(
+        RAIL_BUTTON_HEIGHT,
+        region.clientHeight - RAIL_BUTTON_HEIGHT,
+      );
+    };
+
+    /** Where it rests and what it says about its edges, on every scroll. */
+    const mark = () => {
+      // Chromium's scroll anchoring parks a scroller it has just shrunk at an
+      // arbitrary offset, and no height fits a rail resting mid-button. Zero
+      // and the far end are resting places too, and the nearest one wins so
+      // this never fights a reader who scrolled on purpose. Setting it fires
+      // another scroll, which finds it aligned and stops.
+      const nearest = nearestOffset(restingOffsets(region), region.scrollTop);
+      if (Math.abs(nearest - region.scrollTop) > 1) region.scrollTop = nearest;
 
       const top = region.scrollTop;
       const more = region.scrollHeight - region.clientHeight;
@@ -263,13 +281,19 @@ export function CommandBar({
         held.above === above && held.below === below ? held : { above, below },
       );
     };
-    mark();
+
+    const both = () => {
+      fit();
+      mark();
+    };
+    refit.current = both;
+    both();
     region.addEventListener("scroll", mark, { passive: true });
     // Guarded the way `matchMedia` is elsewhere: a plain jsdom has no
     // ResizeObserver, and a fade at the edge of a rail is not worth taking
     // the whole workspace down over.
     const watcher =
-      typeof ResizeObserver === "function" ? new ResizeObserver(mark) : null;
+      typeof ResizeObserver === "function" ? new ResizeObserver(both) : null;
     // The rail itself rather than the region: the region's own height is what
     // this writes, so watching it would answer its own change for ever.
     if (watcher && region.parentElement) watcher.observe(region.parentElement);
@@ -277,8 +301,16 @@ export function CommandBar({
     return () => {
       region.removeEventListener("scroll", mark);
       watcher?.disconnect();
+      refit.current = () => {};
     };
   }, []);
+
+  // The chevrons take room from the region, and they are rendered from the
+  // edges the fit works out, so the first fit runs without them and the second
+  // has to account for them. One extra pass, only when the pair changes.
+  useEffect(() => {
+    refit.current();
+  }, [edges.above, edges.below]);
 
   /**
    * Pages the tool list by what is on screen, less one button of overlap.
@@ -287,18 +319,24 @@ export function CommandBar({
    * effect above snaps the rail back to a boundary on every scroll event, so
    * an animation would spend its whole length being pulled back to where it
    * started. In a rail this size there is nothing for an animation to explain.
+   *
+   * The step is what the region was fitted to rather than what it measures
+   * now, because a height read here is a height this scroll is about to
+   * change.
    */
   const pageRail = (direction: 1 | -1) => {
     const region = advancedRef.current;
     if (!region) return;
-    const step = Math.max(
-      RAIL_BUTTON_HEIGHT,
-      region.clientHeight - RAIL_BUTTON_HEIGHT,
+    const at = region.scrollTop;
+    // Only offsets the press would actually move to. Taking the nearest to
+    // where a page lands can be the one it started from, and then the chevron
+    // is on screen doing nothing with eighteen tools still below it: measured
+    // at 1024 by 680, where a press walked 0, 65, 113, 178, 178, 178.
+    const ahead = restingOffsets(region).filter((offset) =>
+      direction === 1 ? offset > at + 1 : offset < at - 1,
     );
-    region.scrollTop = nearestOffset(
-      restingOffsets(region),
-      region.scrollTop + step * direction,
-    );
+    if (ahead.length === 0) return;
+    region.scrollTop = nearestOffset(ahead, at + pageStep.current * direction);
   };
 
   return (
@@ -511,10 +549,10 @@ export function CommandBar({
           dragged inside a 68px rail has no reason to think there is more.
           Rendered only when there is somewhere to go, so the rail is not
           carrying a dead button on a tall window. */}
-      {/* The strip is always here, empty or not, because the region above is
-          measured against the room this leaves: a strip that appeared with
-          the chevrons would shrink the region after it had been fitted to it,
-          and the last button would be cut by exactly this height. */}
+      {/* Rendered always and empty when there is nowhere to go: the stylesheet
+          takes an empty one out of the flow, and the fit runs again whenever
+          the pair changes, so the region is measured against the room these
+          actually leave rather than the room before them. */}
       <div className="command-page">
         {edges.above ? (
           <button
