@@ -1007,7 +1007,7 @@ export const en = {
   "layer.customOverlay": "Custom Overlay",
   "panel.search": "Search",
   "panel.alerts": "Alerts",
-  "panel.tropical": "Tropical panel",
+  "panel.tropical": "Tropical",
   "panel.history": "Storm history",
   "panel.route": "Route",
   "panel.forecast": "Forecast",

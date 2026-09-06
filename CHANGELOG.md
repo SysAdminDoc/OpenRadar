@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- Three small things. The window has its own icon in the tab and the task switcher, where it used to ask for one that was not there and log a 404 on every launch. The command list calls the tropical panel "Tropical", the way the rail always has, rather than "Tropical panel". And the Diagnostics event list drops its leading zero, so it reads 5:34:03 PM like every other clock in the app rather than 05:34:03 PM.
+
 - Settings reads your record once a minute instead of twice, and the offline pack ceiling waits until you let go of the slider. The record's list and the year card each read the whole file for themselves on the same clock, and the slider wrote the setting to disk on every one of its 128 steps, each write queueing behind a download that was using the same lock.
 
 - Escape leaves the full-screen view and the capture layout. Neither of them listened for it, so the only way out of either was a small button in the corner, and only while it happened to hold focus. The buttons are a proper size now too, which matters for the one you reach for from across a room.

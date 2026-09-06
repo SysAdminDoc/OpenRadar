@@ -1035,7 +1035,7 @@ export const fr: Catalogue = {
   "layer.customOverlay": "Couche personnalisée",
   "panel.search": "Recherche",
   "panel.alerts": "Alertes",
-  "panel.tropical": "Panneau tropical",
+  "panel.tropical": "Tropical",
   "panel.history": "Historique des tempêtes",
   "panel.route": "Trajet",
   "panel.forecast": "Prévisions",

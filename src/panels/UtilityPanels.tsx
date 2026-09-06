@@ -169,7 +169,7 @@ interface MorePanelProps extends CloseOnlyProps {
 
 function clockLabel(at: number): string {
   return formatClock(new Date(at), {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
   });

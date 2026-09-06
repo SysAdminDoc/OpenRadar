@@ -309,16 +309,6 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-331 (P3): Small things outside `AUD-295`'s list
-      Category: ux
-      Where: `src/i18n/en.ts:1010` (`panel.tropical: "Tropical panel"`) and `:1011` (`panel.history: "Storm history"`); `src/panels/UtilityPanels.tsx:171-175` (`clockLabel` with `hour: "2-digit"`); `index.html` and `glance.html` (no `<link rel="icon">`).
-      Problem: (1) The command list renders "Tropical panel · Panel" and the rail says "Tropical"; every other panel command is the panel's own title. (2) The Diagnostics event list reads "05:34:03 PM" while every other clock in the app uses `hour: "numeric"` and reads "3:44 PM"; the leading zero is the only one in the product. (3) Neither page declares an icon, so the webview requests `/favicon.ico` and logs a 404 on every load; `assets/brand/openradar-icon.png` exists.
-      Evidence: The command list's accessibility tree and the Diagnostics panel's on 2026-09-05; the page console's first error on load is the favicon 404.
-      Fix: `panel.tropical` becomes "Tropical" in the three catalogues (the rail already says so); `clockLabel` drops to `hour: "numeric"`; a `<link rel="icon" href="/openradar-icon.png">` in both pages with the file copied under `public/`.
-      Acceptance: The command list shows "Tropical · Panel"; the Diagnostics list shows "5:34:03 PM"; a fresh load logs no 404.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-332 (P3): A green browser run carries 184 unhandled rejections, and two of them are the app's own
       Category: testing
       Where: `src/App.tsx:826` (`void journalRows().then(...)` with no catch: the catch-up read on launch), `src/panels/JournalSection.tsx:120` (`void journalPath().then(setWhere)`, no catch), `src/App.tsx:753-755` (`whenGlanceOpens(...).then((unlisten) => { if (alive) stop = unlisten; else unlisten(); })`), `e2e/support/fixtures.ts` (the `__TAURI_INTERNALS__` stub, which throws "`<command>` is not stubbed" for any command a spec did not stub, and has no `__TAURI_EVENT_PLUGIN_INTERNALS__`).
