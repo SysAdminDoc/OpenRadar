@@ -189,6 +189,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Complexity: L
 
 - [ ] AUD-228 (P3): Import a PMTiles basemap of your own
+  Note 2026-09-07: the fuzz target for the PMTiles reader belongs with this item rather than with `AUD-338`, which shipped the `.orb` half. Today every pack the reader opens is one this app downloaded, hashed tile by tile and renamed into place under its own app-data folder, and no command opens a pack from anywhere else, so those bytes are not a stranger's. The moment a reader can hand the app an archive they are, and `AsyncPmTilesReader` begins by parsing a header and a directory tree somebody else wrote. Fuzzing it wants an in-memory `AsyncBackend` over a slice and a current-thread runtime per case, because the shipped backend reads a file.
   Why: Basemap dependence broke two open-source radar tools this fortnight when Carto began requiring a key; the app's incident packs already store verified PMTiles, but only USGS sets the app fetches itself, so a reader with a licensed regional archive cannot use it.
   Evidence: `src-tauri/src/incident_packs.rs` (fetch-only USGS sets); https://github.com/jpettitt/weather-radar-card/issues/253 and https://github.com/JoshuaKimsey/LibreWXR/issues (Carto breakage, 2026-08-26 to 08-29); https://github.com/jhammon88219/Anvil (offline PMTiles with editable style); `C:\repos\StormDeck` importer with validation and licence text.
   Touches: `src-tauri/src/incident_packs.rs` (accept a user file: header, tile type, bounds and size checks; copy into the store under the same hashing; an attribution string stored beside), `src/panels/IncidentPackManager.tsx`, `src/panels/UtilityPanels.tsx` accept list, `docs/asset-ledger.md`, `src/i18n/*`, tests with a small fixture archive.
@@ -377,13 +378,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Complexity: M
 
 ### P3
-
-- [ ] AUD-343 (P3): Make the fold-cost live gate relative, or run it alone
-      Why: `a_finer_grid_is_folded_and_costs_what_a_coarse_one_does` holds the decode to an absolute three seconds. It failed at 3.38 s on 2026-09-07 while six research processes shared the machine and passed at 316 ms an hour later, alone. A wall-clock budget in a gate that `npm run check:live` runs beside twenty-five network tests reports the machine's load, not the decoder's cost, and a red contract that is wrong costs the next audit an hour of triage.
-      Evidence: `src-tauri/src/mrms.rs:3327-3440`; the two runs on 2026-09-07 (3.3796 s under load, 316 ms and 314 ms idle); `scripts/live-contracts.mjs`.
-      Touches: `src-tauri/src/mrms.rs` (decode the composite in the same test and assert the fine grid costs no more than twice it, keeping the absolute budget only as a generous ceiling such as ten seconds), `scripts/live-contracts.mjs` (or run the mrms row before the rest).
-      Acceptance: The gate passes under `npm run check:live` with the browser suite running beside it, and still fails when the fold is removed (mutation: skip the fold and watch the ratio).
-      Complexity: S
 
 - [ ] AUD-345 (P3): Say fresh, fetching, stale or failed on every layer row, with an age
       Why: Feed loss is the complaint of the season: two paid apps lost their feed on 2026-09-03, five radars were down at once in July, and a Windy reader watched months of rain the radar did not show. HookEcho answered it on 2026-09-05 with fresh, fetching, stale, failed and waiting plus a compact age on every network layer row, a popover with attempts and the last error, and stale imagery kept on screen marked degraded. The app knows all of that per adapter and shows it in Diagnostics and the legend; the Layers panel, where a reader switches a layer on and wonders why nothing changed, says nothing.

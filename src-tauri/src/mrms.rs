@@ -3331,6 +3331,28 @@ mod tests {
             .build()
             .expect("a runtime");
 
+        // What a coarse grid costs on this machine, right now. The claim here
+        // is that folding makes a fine grid cost what a coarse one does, and
+        // that is a ratio; holding it to a number of seconds instead measures
+        // whatever else the machine is doing. On 2026-09-07 this failed at
+        // 3.38 s with six other jobs running and passed at 316 ms an hour
+        // later on the same bytes, which is a red gate that means nothing.
+        clear_caches();
+        let coarse_frames = runtime
+            .block_on(mrms_frames("composite".into(), 1, None, None))
+            .expect("the composite publishes");
+        let coarse_key = coarse_frames
+            .last()
+            .expect("the composite has a grid")
+            .key
+            .clone();
+        let started = std::time::Instant::now();
+        runtime
+            .block_on(grid_for(&coarse_key, false))
+            .expect("the composite decodes");
+        let coarse_decode = started.elapsed();
+        println!("composite: decode {coarse_decode:?}");
+
         for id in ["az-shear-low", "az-shear-mid"] {
             clear_caches();
             let entry = product_by_id(id).expect("the product is in the table");
@@ -3432,9 +3454,20 @@ mod tests {
             let drawn = drawing.elapsed();
             println!("{id}: decode {decoded:?}, tile {drawn:?}");
 
-            // The same budget the composite is held to, not a looser one.
+            // Against the composite decoded a moment ago on this machine,
+            // rather than against a number of seconds. Twice is generous for
+            // a claim of "the same", and it is the ratio that fails when the
+            // fold stops happening: unfolded, this grid is four times the
+            // cells.
             assert!(
-                decoded < std::time::Duration::from_secs(3),
+                decoded < coarse_decode * 2,
+                "{id} took {decoded:?} to decode against the composite's {coarse_decode:?}"
+            );
+            // And a ceiling, so a machine slow enough to make the ratio
+            // meaningless still says something. Deliberately far above what
+            // either grid costs, because the ratio is the real assertion.
+            assert!(
+                decoded < std::time::Duration::from_secs(10),
                 "{id} took {decoded:?} to decode"
             );
             assert!(
