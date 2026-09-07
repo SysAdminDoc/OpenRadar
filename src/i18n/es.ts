@@ -2137,6 +2137,8 @@ export const es: Catalogue = {
   "tides.unknown": "La consulta de mareas falló.",
   "tides.stationWithState": "{name}, {state}",
   "tides.distance": "a {miles} {unit} del centro del mapa",
+  "tides.diurnal": "Aquí hay una pleamar y una bajamar al día",
+  "tides.semidiurnal": "Aquí hay dos pleamares y dos bajamares al día",
   "tides.rising": "subiendo",
   "tides.falling": "bajando",
   "tides.high": "Pleamar",

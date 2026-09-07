@@ -8,6 +8,7 @@ import {
   loadStations,
   nearestStation,
   state,
+  tideRegime,
   upcoming,
   type TideReading,
 } from "../lib/tides";
@@ -119,6 +120,9 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
 
   const next = reading ? upcoming(reading.extremes, clock, 6) : [];
   const now = reading ? state(reading.extremes, clock) : null;
+  // Why a Gulf reader sees half as many rows as an Atlantic one. Left out
+  // when the predictions are too few or too short to say.
+  const regime = reading ? tideRegime(reading.extremes) : "unknown";
 
   return (
     <PanelShell
@@ -174,6 +178,13 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
                   miles: distanceValue(reading.distanceMiles),
                 })}
               </small>
+              {regime === "unknown" ? null : (
+                <small data-tide-regime={regime}>
+                  {regime === "diurnal"
+                    ? t("tides.diurnal")
+                    : t("tides.semidiurnal")}
+                </small>
+              )}
               {now ? (
                 <small data-tide-state={now.rising ? "rising" : "falling"}>
                   {now.rising ? <ArrowUp size={12} /> : <ArrowDown size={12} />}

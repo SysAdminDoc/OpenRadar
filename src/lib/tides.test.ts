@@ -9,7 +9,9 @@ import {
   parseStationTime,
   state,
   stationDate,
+  tideRegime,
   upcoming,
+  type TideExtreme,
   type TideStation,
 } from "./tides";
 import { en } from "../i18n/en";
@@ -163,6 +165,39 @@ describe("asking NOAA for a range of days", () => {
   });
 });
 
+describe("how many times a day the tide turns", () => {
+  /** A run of turns at a fixed spacing, alternating high and low. */
+  const turns = (count: number, hoursApart: number): TideExtreme[] =>
+    Array.from({ length: count }, (_, at) => ({
+      time: Date.UTC(2026, 8, 7) + at * hoursApart * 3_600_000,
+      feet: at % 2 === 0 ? 0.4 : 2.4,
+      high: at % 2 === 1,
+    }));
+
+  it("reads one high and one low a day as diurnal", () => {
+    // New Canal Station, Lake Pontchartrain, over the three days this app
+    // asks for on 2026-09-07: seven turns across 3.09 days, 1.94 a day.
+    expect(tideRegime(turns(7, 12.4))).toBe("diurnal");
+  });
+
+  it("reads two of each a day as semidiurnal", () => {
+    // The Battery the same day: fifteen turns across 3.62 days, 3.87 a day.
+    // San Francisco, which NOAA calls Mixed rather than Semidiurnal, came out
+    // at 3.81 and belongs on this side: a mixed coast still turns four times
+    // a day and differs in the heights, which the rows already show.
+    expect(tideRegime(turns(15, 6.2))).toBe("semidiurnal");
+    expect(tideRegime(turns(15, 6.3))).toBe("semidiurnal");
+  });
+
+  it("says nothing rather than guessing from too little", () => {
+    // Half a day of turns says nothing about the next three.
+    expect(tideRegime(turns(3, 6))).toBe("unknown");
+    // Two turns carry one interval, which is not a rate.
+    expect(tideRegime(turns(2, 12))).toBe("unknown");
+    expect(tideRegime([])).toBe("unknown");
+  });
+});
+
 /**
  * Against the live service. Off by default, the way the Rust live tests are:
  * `OPENRADAR_LIVE=1 npx vitest run src/lib/tides.test.ts`.
@@ -202,9 +237,38 @@ live("against NOAA itself", () => {
       expect(extreme.feet).toBeLessThan(20);
     }
 
-    // Roughly two of each a day, so three days is somewhere near a dozen.
-    expect(reading.extremes.length).toBeGreaterThanOrEqual(8);
+    // How many turns to expect is a fact about the coast, and NOAA holds it
+    // per station. This asked for eight in three days until 2026-09-07 under
+    // a comment saying "roughly two of each a day", which is the Atlantic
+    // shape; the nearest station to New Orleans is on Lake Pontchartrain,
+    // NOAA calls it Diurnal, and it published seven. The floor now follows
+    // the station rather than the assumption.
+    const described = await fetch(
+      `https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/${found!.station.id}.json`,
+    );
+    expect(described.ok).toBe(true);
+    const noaaType = String(
+      ((await described.json()) as { stations?: { tideType?: unknown }[] })
+        .stations?.[0]?.tideType ?? "",
+    );
+    expect(noaaType, "NOAA no longer says what kind of tide this is").not.toBe(
+      "",
+    );
+
+    // Diurnal is one high and one low a day, so three days is six or seven.
+    // Semidiurnal and Mixed both turn four times a day, and Mixed differs in
+    // the heights rather than the count.
+    const diurnal = noaaType === "Diurnal";
+    expect(reading.extremes.length).toBeGreaterThanOrEqual(diurnal ? 2 : 8);
     expect(reading.extremes.length).toBeLessThanOrEqual(30);
+
+    // And the shape read off the predictions agrees with the shape NOAA
+    // publishes for the station. Two answers from two endpoints: neither is
+    // derived from the other, so this is a real comparison rather than the
+    // count being checked against itself.
+    expect(tideRegime(reading.extremes)).toBe(
+      diurnal ? "diurnal" : "semidiurnal",
+    );
 
     // And the times are inside the window that was asked for.
     const first = reading.extremes[0].time;

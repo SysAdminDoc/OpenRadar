@@ -2097,6 +2097,8 @@ export const en = {
   "tides.unknown": "The tide request failed.",
   "tides.stationWithState": "{name}, {state}",
   "tides.distance": "{miles} {unit} from the map centre",
+  "tides.diurnal": "One high and one low a day here",
+  "tides.semidiurnal": "Two highs and two lows a day here",
   "tides.rising": "coming in",
   "tides.falling": "going out",
   "tides.high": "High",

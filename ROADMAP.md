@@ -348,13 +348,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P2
 
-- [ ] AUD-336 (P2): The tide live contract asks a diurnal station for a semidiurnal count, and is red
-      Why: The New Orleans contract requires at least eight extremes in three days under a comment saying "roughly two of each a day". `nearestStation` picks 8761927 New Canal Station on Lake Pontchartrain, which NOAA's metadata API lists as `tideType: "Diurnal"` and which published two extremes for the 72 hours from 2026-09-07. NOAA's own tutorial says the Gulf of Mexico has one high and one low a day. The gate is wrong about the coast it tests, and a Gulf reader of the Tides panel sees the same sparse list with nothing saying why.
-      Evidence: `src/lib/tides.test.ts:170-207`; https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8761927.json (`tideType`); the `hilo` predictions read live on 2026-09-07 (two rows); https://oceanservice.noaa.gov/education/tutorial_tides/tides07_cycles.html.
-      Touches: `src/lib/tides.test.ts`, `src/lib/tides.ts` (read `tideType` from the station metadata, or carry it in `public/tide-stations.json` through `scripts/build-tide-stations.mjs`), `src/panels/TidesPanel.tsx` (name the regime), `src/i18n/*`.
-      Acceptance: The count floor follows the station's regime (diurnal at least two per 72 hours, semidiurnal at least eight), the alternation and forward-time assertions stay, a unit test with a diurnal fixture passes, the panel names the station's tide type, and the tides row is ok in `npm run check:live`.
-      Complexity: S
-
 - [ ] AUD-338 (P2): Fuzz the `.orb` reader and the pack's PMTiles reader
       Why: `bundles::read_bundle(bytes: &[u8])` is a pure function over a file somebody else made, and it is the one untrusted-file decoder in Rust with no fuzz target; the header injection fixed on 2026-09-05 (`AUD-326`) was found by reading, not by fuzzing. The incident pack reader hashes every tile before an atomic rename, which is the right shape, and has never been fuzzed either.
       Evidence: `src-tauri/src/bundles.rs:468`; `src-tauri/fuzz/fuzz_targets` (`grib_complex`, `grib_message`, `level2_volume`, `level3_message`, `mrms_grib`, `netcdf_flashes`); `SECURITY.md` "Local files are parsed, not trusted"; the `last-input.bin` and `-rss_limit_mb` notes in `CLAUDE.md`.

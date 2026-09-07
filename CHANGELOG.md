@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- The tide panel says how often the tide turns where you are looking. Most of the American coast has two highs and two lows a day and the Gulf of Mexico has one of each, so somebody reading it in New Orleans saw half as many rows as somebody in Boston, with nothing on screen to say why. The pattern is read off the predictions already fetched, so it costs no extra request.
+
 - Three paths that failed silently now say so. Reading your record for the catch-up card, finding where that record lives, and letting go of the small window's listener all threw where nothing was listening for the failure. In this build that meant a card that never appeared and a line that stayed blank, with nothing in the log to say why.
 
 - Three small things. The window has its own icon in the tab and the task switcher, where it used to ask for one that was not there and log a 404 on every launch. The command list calls the tropical panel "Tropical", the way the rail always has, rather than "Tropical panel". And the Diagnostics event list drops its leading zero, so it reads 5:34:03 PM like every other clock in the app rather than 05:34:03 PM.
