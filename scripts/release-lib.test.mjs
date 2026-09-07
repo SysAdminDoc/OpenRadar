@@ -141,11 +141,8 @@ describe("what Defender said about the installer", () => {
     expect(flagged.say).toContain("OpenRadar.msi");
 
     expect(
-      defenderOutcome({
-        scanned: true,
-        clean: true,
-        detail: "found no threats",
-      }).action,
+      defenderOutcome({ scanned: true, clean: true, detail: "found no threats" })
+        .action,
     ).toBe("pass");
 
     const skipped = defenderOutcome({

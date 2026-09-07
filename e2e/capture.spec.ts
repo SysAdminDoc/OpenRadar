@@ -217,10 +217,7 @@ test("Escape leaves the capture layout, and the way out is a real target", async
 
   // From the map, so this is the workspace's handling rather than the
   // button's own.
-  await page
-    .locator(".map-viewport")
-    .first()
-    .click({ position: { x: 5, y: 5 } });
+  await page.locator(".map-viewport").first().click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-capture-bar]")).toHaveCount(0);
   await expect(page.locator(".command-bar")).toBeVisible();
