@@ -19,6 +19,20 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const ASSETS = resolve(process.cwd(), "dist", "assets");
+const DIST = resolve(process.cwd(), "dist");
+
+/**
+ * What the page asks for that is not a built chunk.
+ *
+ * `public/` is copied to the root of `dist` rather than into `assets`, so
+ * anything there was outside every budget below and outside the first-load
+ * total: the two icons `index.html` declares added twenty-four kilobytes to a
+ * cold load that no gate measured. Only what the pages actually reference,
+ * because the same folder holds the data files a layer fetches when the
+ * reader turns it on, and those are not part of opening the app.
+ */
+const STATIC_FIRST_LOAD = ["favicon.png", "openradar-128.png"];
+const STATIC_GZIP_KB = 30;
 
 /**
  * One budget per chunk that matters, in kilobytes of the file itself and of
@@ -121,9 +135,17 @@ const BUDGETS = [
     firstLoad: false,
   },
   {
+    // 2026-09-05: raw 160 to 164, and the gzip figure deliberately left where
+    // it was. Four fixes added about a kilobyte of rules between them: the
+    // full-screen readout's ink over a light basemap, the map's own ground as
+    // a token per theme, the tool rail's paging chevrons, and the compare
+    // card's move out from under the zoom stack and an open panel. What a
+    // reader downloads did not change at all, which is the number the gzip
+    // budget holds and the reason this is a note rather than a feature being
+    // let through: at 25 against 26 there is no room in that one either.
     name: "styles",
     match: /^main-.*\.css$/,
-    raw: 160,
+    raw: 164,
     gzip: 26,
   },
 ];
@@ -182,6 +204,36 @@ for (const budget of BUDGETS) {
     );
   }
 }
+
+// The icons and anything else the pages name out of `public/`, which Vite
+// copies beside the chunks rather than into them.
+let staticGzip = 0;
+for (const name of STATIC_FIRST_LOAD) {
+  let bytes;
+  try {
+    bytes = readFileSync(join(DIST, name));
+  } catch {
+    failures.push(
+      `${name} is declared by a page but is not in the build. A renamed asset ` +
+        `needs this list updating rather than dropping.`,
+    );
+    continue;
+  }
+  staticGzip += kilobytes(gzipSync(bytes).length);
+}
+if (staticGzip > STATIC_GZIP_KB) {
+  failures.push(
+    `the static assets are ${staticGzip} kB gzipped, over their ${STATIC_GZIP_KB} kB budget.`,
+  );
+}
+firstLoadGzip += staticGzip;
+rows.push({
+  name: "static",
+  file: STATIC_FIRST_LOAD.join(" "),
+  raw: staticGzip,
+  gzip: staticGzip,
+  budget: { gzip: STATIC_GZIP_KB },
+});
 
 const width = Math.max(...rows.map((row) => row.name.length), 5);
 console.log("chunk".padEnd(width), "     raw    gzip   budget");

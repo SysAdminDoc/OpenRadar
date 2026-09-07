@@ -5,6 +5,7 @@ import {
   smokeKml,
   stubHost,
   transparentPng,
+  unhandledRejections,
 } from "./support/fixtures";
 
 /**
@@ -1715,4 +1716,22 @@ test("reads the wind out of the volumes a held site is showing", async ({
   await expect(panel.locator(".vwp-hodograph")).toHaveCount(2);
   // Each column says which volume it came from.
   await expect(panel.locator(".vwp-volume").first()).not.toBeEmpty();
+});
+
+test("drops no promise on the floor while a spec stubs only what it needs", async ({
+  page,
+}) => {
+  // A full run of this suite carried 184 unhandled rejections and passed. Every
+  // one came from the workspace asking a bridge that this spec, quite
+  // reasonably, does not stub: the catch-up read, the record's path, and the
+  // glance listener's teardown. A rejection nobody catches is a path with no
+  // error handling on it, and in the packaged build it is a feature that goes
+  // quiet with nothing in the log.
+  //
+  // This spec is the right place to ask, because its own stub answers a
+  // handful of commands and rejects the rest by name, which is the state that
+  // produced most of them.
+  await open(page, 9);
+  await page.waitForTimeout(1200);
+  expect(await unhandledRejections(page)).toEqual([]);
 });

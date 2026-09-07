@@ -2,11 +2,13 @@
 
 ## OpenRadar v0.11.0
 
+- Three paths that failed silently now say so. Reading your record for the catch-up card, finding where that record lives, and letting go of the small window's listener all threw where nothing was listening for the failure. In this build that meant a card that never appeared and a line that stayed blank, with nothing in the log to say why.
+
 - Three small things. The window has its own icon in the tab and the task switcher, where it used to ask for one that was not there and log a 404 on every launch. The command list calls the tropical panel "Tropical", the way the rail always has, rather than "Tropical panel". And the Diagnostics event list drops its leading zero, so it reads 5:34:03 PM like every other clock in the app rather than 05:34:03 PM.
 
 - Settings reads your record once a minute instead of twice, and the offline pack ceiling waits until you let go of the slider. The record's list and the year card each read the whole file for themselves on the same clock, and the slider wrote the setting to disk on every one of its 128 steps, each write queueing behind a download that was using the same lock.
 
-- Escape leaves the full-screen view and the capture layout. Neither of them listened for it, so the only way out of either was a small button in the corner, and only while it happened to hold focus. The buttons are a proper size now too, which matters for the one you reach for from across a room.
+- Escape leaves the full-screen view and the capture layout. Neither listened for it, so if you had asked for either one deliberately the only way out was a small button in the corner, and only while it happened to hold focus. A full-screen view that came up on its own after an idle spell always went away on any key, because a key is what tells it you are back. The buttons are a proper size now too, which matters for the one you reach for from across a room.
 
 - The tool rail shows whole buttons and says how to reach the rest. Its middle section scrolls with the scrollbar hidden, and it used to end through the middle of a button: an icon with no caption, which reads as a rendering fault rather than as "there is more". Eleven tools sat below that line with nothing to press, Export and Upload among them. Now the list ends on a button's own edge wherever it is scrolled to, the fade at the edge is a button tall instead of twelve pixels, and a pair of chevrons under it pages through the rest.
 

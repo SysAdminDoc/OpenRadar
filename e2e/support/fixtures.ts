@@ -713,7 +713,53 @@ function outlookForLayer(layer: number) {
   };
 }
 
+/**
+ * Promises the workspace dropped on the floor, kept for a spec to check.
+ *
+ * A full run of this suite carried 184 `[Unhandled rejection]` lines and
+ * passed: the catch-up read, the record's path and the glance listener's
+ * teardown all threw where no spec stubs the command, and nothing failed for
+ * any of them. A rejection nobody catches is a code path with no error
+ * handling, and in the packaged build it is a feature that goes quiet with no
+ * line in the log.
+ *
+ * Recorded rather than thrown, because a spec is entitled to provoke one on
+ * purpose; `unhandledRejections` is what a spec asks at the end.
+ */
+async function recordRejections(page: Page) {
+  await page.addInitScript(() => {
+    const held: string[] = [];
+    (window as unknown as { __rejections: string[] }).__rejections = held;
+    window.addEventListener("unhandledrejection", (event) => {
+      const why: unknown = event.reason;
+      held.push(why instanceof Error ? why.message : String(why));
+    });
+
+    // The event plugin's own half of the bridge, which the specs that fake
+    // `__TAURI_INTERNALS__` do not fake. `listen` hands back an unlisten that
+    // reads this global and does not await what it calls, so tearing a
+    // listener down threw inside the library with no way for the caller to
+    // catch it: fifty unhandled rejections in a green run, every one of them
+    // the fixture's gap rather than the app's. A packaged build has it.
+    (
+      window as unknown as {
+        __TAURI_EVENT_PLUGIN_INTERNALS__?: Record<string, unknown>;
+      }
+    ).__TAURI_EVENT_PLUGIN_INTERNALS__ ??= {
+      unregisterListener: () => {},
+    };
+  });
+}
+
+/** What the page has dropped since it loaded. */
+export async function unhandledRejections(page: Page): Promise<string[]> {
+  return page.evaluate(
+    () => (window as unknown as { __rejections?: string[] }).__rejections ?? [],
+  );
+}
+
 export async function routeWorkspace(page: Page) {
+  await recordRejections(page);
   const stub = (pattern: string, handler: Handler) =>
     stubHost(page, pattern, handler);
   // The cached scheme, answered from the stubbed hosts. See `stubs` above for

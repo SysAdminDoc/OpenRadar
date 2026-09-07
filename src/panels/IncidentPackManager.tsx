@@ -120,10 +120,13 @@ export function IncidentPackManager({
     [onSettings],
   );
 
+  /** Whether the store has answered once, which is not "the library is empty". */
+  const [read, setRead] = useState(false);
   const refresh = useCallback(async () => {
     if (!available) return EMPTY_LIBRARY;
     const next = await listIncidentPacks();
     setLibrary(next);
+    setRead(true);
     syncReady(next.packs);
     return next;
   }, [available, syncReady]);
@@ -171,6 +174,12 @@ export function IncidentPackManager({
   useEffect(() => {
     if (!available) return;
     const wanted = settings.incidentPacks.diskLimitMb;
+    // Nothing to say until the store has been read. The library starts empty
+    // with a ceiling of zero, which can never equal what the settings ask
+    // for, so comparing against it wrote the value back on mount whenever the
+    // first listing took longer than the debounce. It takes the same store
+    // lock a download holds, so that is not a rare race.
+    if (!read) return;
     if (library.diskLimitBytes === wanted * 1024 * 1024) return;
     let open = true;
     const timer = window.setTimeout(() => {
@@ -186,7 +195,12 @@ export function IncidentPackManager({
       open = false;
       window.clearTimeout(timer);
     };
-  }, [available, library.diskLimitBytes, settings.incidentPacks.diskLimitMb]);
+  }, [
+    available,
+    read,
+    library.diskLimitBytes,
+    settings.incidentPacks.diskLimitMb,
+  ]);
 
   useEffect(() => {
     let open = true;

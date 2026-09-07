@@ -318,17 +318,17 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-332 (P3): A green browser run carries 184 unhandled rejections, and two of them are the app's own
-      Category: testing
-      Where: `src/App.tsx:826` (`void journalRows().then(...)` with no catch: the catch-up read on launch), `src/panels/JournalSection.tsx:120` (`void journalPath().then(setWhere)`, no catch), `src/App.tsx:753-755` (`whenGlanceOpens(...).then((unlisten) => { if (alive) stop = unlisten; else unlisten(); })`), `e2e/support/fixtures.ts` (the `__TAURI_INTERNALS__` stub, which throws "`<command>` is not stubbed" for any command a spec did not stub, and has no `__TAURI_EVENT_PLUGIN_INTERNALS__`).
-      Problem: The 2026-09-05 full run passed 690 tests and logged 184 `[Unhandled rejection]` lines in the page console: 114 `journal_rows is not stubbed` from `App.tsx:826`, 20 `journal_path is not stubbed` from `JournalSection.tsx:120`, and 50 `Cannot read properties of undefined (reading 'unregisterListener')` from `App.tsx:755` when an effect was torn down before `listen` resolved. Two things follow. In the desktop build, a `journal_rows` failure on launch (an unreadable app-data folder) leaves the catch-up card silently absent with an unhandled rejection in the log, and `JournalSection` would leave its path line blank the same way; `JournalSection.tsx:111` catches the sibling call three lines above and explains why. And nothing in the fixture turns an unhandled rejection into a failure, so a real one anywhere in the app passes the suite.
-      Evidence: The run's `[WebServer]` output, counted with `grep -c "Unhandled rejection"`; the callers as cited; `useWorkspaceActions.ts:853` has the same early-`unlisten()` shape.
-      Fix: Catch at `App.tsx:826` and `JournalSection.tsx:120` the way `:111` does (log and fall back); wrap the early `unlisten()` at `App.tsx:755` and `useWorkspaceActions.ts:853` in a try that logs; stub `journal_rows` (`[]`), `journal_path` (`null`) and `window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} }` in the desktop fixture; and register a `page.on("pageerror")` plus a console filter for "Unhandled rejection" in the fixture that fails the test at teardown, with an allowlist for the known network refusals.
-      Acceptance: The full suite runs with zero "Unhandled rejection" lines in its output; a planted `Promise.reject()` in a spec's page fails that spec.
-      Confidence: Verified
-      Effort: S
-
 ### Unaudited, needs a pass
+
+- [ ] AUD-334 (P3): Fail any spec that drops a promise, not just the one that asks
+      Category: testing
+      Where: `e2e/support/fixtures.ts` (`recordRejections`, `unhandledRejections`), `e2e/level2.spec.ts` (the one spec that asserts), every other spec's `import { expect, test } from "@playwright/test"`.
+      Problem: The three unhandled rejections a green run used to carry are caught at the source now, and `routeWorkspace` records any that happen, but only one spec asks. A new one somewhere else still passes silently, which is the condition that let 184 of them accumulate.
+      Evidence: `grep -c "unhandledRejections" e2e/*.spec.ts` is 1. The recorder is installed for every spec that calls `routeWorkspace`, so the data is already there; nothing reads it.
+      Fix: Export a `test` from `e2e/support/fixtures.ts` built with `base.extend({ page: async ({ page }, use) => { await use(page); expect(await unhandledRejections(page)).toEqual([]); } })`, and change every spec's import of `test` to come from there. A spec that provokes a rejection on purpose opts out by clearing the record. Roughly 40 import lines, mechanical; run the whole suite after, because a spec that has been quietly dropping one will start failing and that is the point.
+      Acceptance: A planted `void Promise.reject(new Error("x"))` in any spec's page fails that spec; the full suite passes without one.
+      Confidence: Verified
+      Effort: M
 
 - [ ] AUD-333: The secondary panels in the light theme, and the map overlay colours over a light basemap
       Category: visual
