@@ -130,9 +130,10 @@ async function main() {
               "--ignored",
               contract.filter,
               // A module-wide filter catches every ignored test under it,
-              // including the ones that write a fuzz seed corpus rather than
-              // asking a provider anything.
-              ...(contract.skip ? ["--skip", contract.skip] : []),
+              // including ones that write a fuzz seed corpus or record a
+              // week off the archive rather than asking a provider
+              // anything. libtest takes --skip as many times as it is given.
+              ...(contract.skip ?? []).flatMap((name) => ["--skip", name]),
             ],
             "src-tauri",
           )

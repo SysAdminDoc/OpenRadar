@@ -184,17 +184,23 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
             found.broken_before,
             found.broken_after
         );
-        // Some of the folded gates have to come back to the branch they
-        // started on. Not most: a patch with no boundary to anything
-        // outside itself has nothing to be placed by, and how much of a
-        // sweep is isolated like that is a property of the weather.
-        assert!(
-            found.rejoined * 20 > found.wrapped,
-            "only {} of {} folded gates came back to their own branch",
-            found.rejoined,
-            found.wrapped
-        );
     }
+    // There is deliberately no per-station floor on how many of the folded
+    // gates come back to the branch they started on. There was one, at a
+    // twentieth, and `recording_the_days_unfolding_is_held_against` is what
+    // took it out: over the 39 station-days it measured from 2026-09-01 to
+    // 2026-09-07, five of them fell under that line, at four different
+    // stations. KTLX read 3,648 of 13,254 on the 1st, 15 of 2,220 on the
+    // 3rd and 41 of 16,528 on the 4th. KFWS read 130 of 5,661 on the 3rd,
+    // KAMX 61 of 3,366 on the 4th, KTBW 429 of 13,984 on the 7th.
+    //
+    // The comment the assertion sat under had it right and the assertion
+    // did not believe it: a patch with no boundary to anything outside
+    // itself has nothing to place it, and how much of a sweep is isolated
+    // like that is a property of the weather. A quantity that moves by two
+    // orders of magnitude at one station between two days cannot carry a
+    // fixed floor. The share is claimed across the stations together
+    // below, where the record says it is steady.
 
     // And across the stations together, which is far steadier than any one
     // of them, most of the picture has to come back. This is the claim the
@@ -209,12 +215,29 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
              {wrapped} folded gates back on their own branch",
         measured.len()
     );
+    // Both lines below come from the eight days on record rather than from
+    // one afternoon, which is the mistake the per-station floor made.
+    //
+    // Broken pairs left, as a share of the pairs folding broke, over the
+    // six stations together: 0.561, 0.574, 0.465, 0.663, 0.702, 0.658 and
+    // 0.699 on the seven days `recording_the_days_unfolding_is_held_against`
+    // read at 21:00 UTC, and 0.752 on the live volumes of 2026-09-07. The
+    // worst of those is what broke the old line of three quarters, and it
+    // broke it on a day nothing had gone wrong. Seventeen twentieths sits
+    // clear of every day recorded and still fails a dealiaser that leaves
+    // the picture roughly as it found it.
     assert!(
-        after * 4 < before * 3,
+        after * 20 < before * 17,
         "folding broke {before} pairs across {} stations and unfolding left \
              {after} of them",
         measured.len()
     );
+    // Folded gates back on their own branch, over the stations together:
+    // 0.393, 0.276, 0.322, 0.403, 0.289, 0.330 and 0.305 on those same
+    // seven days, and 0.269 live on the 7th. A fifth is under all of them
+    // with room to spare, and nothing that failed to unfold can reach it:
+    // a dealiaser that did nothing would score zero here, because no gate
+    // it left folded is back on its own branch.
     assert!(
         rejoined * 5 > wrapped,
         "only {rejoined} of {wrapped} folded gates came back to their own branch"
@@ -377,5 +400,61 @@ fn every_type_number_the_stream_could_carry_is_survivable() {
             read.is_ok(),
             "message type {message_type} made the whole stream unreadable"
         );
+    }
+}
+
+/// Where the numbers in the contract above came from, and how to get them
+/// again.
+///
+/// The contract asks each station for its latest volume, which is the sweep
+/// a reader would be looking at and makes every run a sample of one
+/// afternoon. Thresholds picked from one afternoon are how it ended up with
+/// a per-station floor that five station-days of an ordinary week walk
+/// straight through.
+///
+/// This reads the same measurement off the archive instead, so a week can
+/// be recorded in an hour rather than waited out, and prints it as CSV.
+/// Run it before touching any line in that test, and put what it prints in
+/// the comments beside the line it justifies:
+///
+/// ```text
+/// cargo test --lib recording_the_days -- --ignored --nocapture
+/// ```
+///
+/// It is not a contract. It asserts nothing, it fetches 42 volumes, and
+/// `scripts/live-contracts-lib.mjs` skips it by name for both reasons.
+#[test]
+#[ignore = "records a week off the archive; asserts nothing"]
+fn recording_the_days_unfolding_is_held_against() {
+    let _guard = decoded_cache_test();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("a runtime");
+    println!("station,day,broken_before,broken_after,rejoined,wrapped,invented,rejoined_share");
+    for day in 1..=7 {
+        for station in ["KDMX", "KTLX", "KAMX", "KTBW", "KGRR", "KFWS"] {
+            // Held one volume at a time: 42 decoded volumes at once is a
+            // machine swapping rather than a measurement.
+            clear_cache();
+            let at = Utc
+                .with_ymd_and_hms(2026, 9, day, 21, 0, 0)
+                .single()
+                .expect("a UTC time");
+            match measure_unfolding_at(&runtime, station, at) {
+                Some(found) => println!(
+                    "{station},2026-09-{day:02},{},{},{},{},{},{:.4}",
+                    found.broken_before,
+                    found.broken_after,
+                    found.rejoined,
+                    found.wrapped,
+                    found.invented,
+                    found.rejoined as f64 / found.wrapped.max(1) as f64,
+                ),
+                // A station with no Doppler cut worth measuring that day,
+                // which the contract also passes over.
+                None => println!("{station},2026-09-{day:02},none,,,,,"),
+            }
+        }
     }
 }

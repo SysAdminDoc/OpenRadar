@@ -711,6 +711,27 @@ pub(crate) fn measure_unfolding(
     station: &str,
 ) -> Option<Measured> {
     let (_key, data) = runtime.block_on(latest_volume(station)).ok()?;
+    measure_unfolding_bytes(data)
+}
+
+/// The same measurement, against the volume a station published nearest a
+/// named time.
+///
+/// The contract asks each station for its latest, which is the sweep a
+/// reader would be looking at and makes every run a sample of one
+/// afternoon. The archive keeps the days that have already happened, so a
+/// claim about one station can be held against several of them without
+/// waiting a week for the days to arrive.
+pub(crate) fn measure_unfolding_at(
+    runtime: &tokio::runtime::Runtime,
+    station: &str,
+    at: DateTime<Utc>,
+) -> Option<Measured> {
+    let (_key, data) = runtime.block_on(archive_volume_at(station, at)).ok()?;
+    measure_unfolding_bytes(data)
+}
+
+fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
     let file = volume::File::new(data);
     let scan = file.scan().ok()?;
     let chosen = sweep_field(&scan, Product::Velocity, 1)?;
