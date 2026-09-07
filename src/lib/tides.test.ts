@@ -279,23 +279,36 @@ live("against NOAA itself", () => {
     expect(reading.extremes.length).toBeGreaterThanOrEqual(fourADay ? 8 : 2);
     expect(reading.extremes.length).toBeLessThanOrEqual(30);
 
-    // And in the one direction the sample supports, the count has to agree
-    // with NOAA: a station NOAA says turns four times a day must not read as
-    // turning once.
-    //
-    // Only that direction. The other one would be asserting something the
-    // data does not carry: across 44 bundled stations on 2026-09-07 the
-    // Diurnal group ran from 1.90 to 3.45 turns a day, which reaches into the
-    // band above where `tideRegime` starts answering "semidiurnal", so a
-    // Diurnal station a little livelier than Shell Island would fail a test
-    // that was right about the tide. An "unknown" is the function declining,
-    // which is the behaviour, not a failure.
+    // The premise this test rests on, asserted rather than assumed. The
+    // station nearest New Orleans is on Lake Pontchartrain and NOAA calls it
+    // Diurnal, so `fourADay` is false here every time. This carried a
+    // `if (fourADay && ...)` check of the reading against NOAA until
+    // 2026-09-07, which could not run at this station on any day: it was not
+    // an assertion that might be skipped, it was one that never executed, and
+    // a green run said nothing whatever about `tideRegime`. If NOAA ever
+    // reclassifies the station, this line says so instead of the test quietly
+    // starting to check something else.
+    expect(
+      fourADay,
+      `NOAA now calls ${found!.station.id} ${noaaType}, so this test is no longer reading a diurnal coast`,
+    ).toBe(false);
+
+    // What can be claimed here, and it is claimed unconditionally. The
+    // function has to answer in its own vocabulary, and the turns have to
+    // land in the band a diurnal station actually keeps: 44 bundled stations
+    // sampled on 2026-09-07 put the Diurnal group between 1.90 and 3.45 a
+    // day. A semidiurnal coast read by mistake lands above four, and a
+    // misparsed reply lands near zero.
     const read = tideRegime(reading.extremes);
-    if (fourADay && read !== "unknown") {
-      expect(read, `NOAA calls ${found!.station.id} ${noaaType}`).toBe(
-        "semidiurnal",
-      );
-    }
+    expect(["diurnal", "semidiurnal", "unknown"]).toContain(read);
+
+    const span = reading.extremes.at(-1)!.time - reading.extremes[0].time;
+    const perDay = (reading.extremes.length - 1) / (span / (24 * 3_600_000));
+    expect(
+      perDay,
+      `${found!.station.id} turned ${perDay} times a day`,
+    ).toBeGreaterThan(1.5);
+    expect(perDay).toBeLessThan(4);
 
     // And the times are inside the window that was asked for.
     const first = reading.extremes[0].time;

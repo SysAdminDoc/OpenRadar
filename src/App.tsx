@@ -2104,12 +2104,6 @@ export default function App() {
     ],
   );
 
-  // Copy the block, then open the form. The block goes on the clipboard
-  // rather than into the address, because a GitHub issue URL is a GET: its
-  // query travels through history and every hop between here and there,
-  // and this one would be carrying the renderer, the sources and forty
-  // lines of log. It is also far past the length several browsers will
-  // open.
   // A table back out as the file it came in as. Colour tables are what
   // this hobby actually shares, and one tuned here used to live and die
   // inside the settings file.
@@ -2118,9 +2112,13 @@ export default function App() {
       const name = `${palette.name.replace(/\.pal$/i, "")}.pal`;
       void saveFile(name, new Blob([writePalette(palette)]))
         .then((saved) => {
-          if (saved) {
-            pushToast({ title: translate("upload.paletteSaved", { name }) });
-          }
+          // Where it landed, the way every other export says it. `saveFile`
+          // answers with a record rather than a flag, so testing the record
+          // itself only ever asked whether an object is an object.
+          pushToast({
+            title: translate("upload.paletteSaved", { name }),
+            detail: saved.path ?? translate("toast.settingsSavedBody"),
+          });
         })
         .catch((failure: unknown) => {
           pushToast({
@@ -2134,6 +2132,13 @@ export default function App() {
     },
     [pushToast],
   );
+
+  // Copy the block, then open the form. The block goes on the clipboard
+  // rather than into the address, because a GitHub issue URL is a GET: its
+  // query travels through history and every hop between here and there,
+  // and this one would be carrying the renderer, the sources and forty
+  // lines of log. It is also far past the length several browsers will
+  // open.
   const reportIssue = useCallback(
     (withPlace: boolean) => {
       copyDiagnostics(withPlace);

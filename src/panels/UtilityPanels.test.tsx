@@ -155,6 +155,29 @@ describe("the upload panel", () => {
     expect(screen.getByText(en["upload.libraryHeading"])).toBeTruthy();
     expect(screen.getByText(/My reflectivity/)).toBeTruthy();
   });
+
+  it("names each table button with the words that are on it", () => {
+    // WCAG 2.5.3. What a control is called has to contain what it says, or
+    // "click Save as a file" reaches nothing at all. Save shipped named
+    // "Save {name} as a .pal file" while reading "Save as a file", so not
+    // one word on the button was in its name; Remove beside it was right
+    // from the start, which is the shape both follow now.
+    render(upload([table("My reflectivity")]));
+    const buttons = screen
+      .getAllByRole("button")
+      .filter((each) =>
+        each.getAttribute("aria-label")?.includes("My reflectivity"),
+      );
+    // Both of them, so a row that stopped rendering one would not pass by
+    // having nothing left to check.
+    expect(buttons.length).toBe(2);
+    for (const button of buttons) {
+      const named = button.getAttribute("aria-label") ?? "";
+      const shown = (button.textContent ?? "").trim();
+      expect(shown.length, `${named} has no visible words`).toBeGreaterThan(0);
+      expect(named.toLowerCase()).toContain(shown.toLowerCase());
+    }
+  });
 });
 
 describe("opening a report from the diagnostics panel", () => {
@@ -173,5 +196,23 @@ describe("opening a report from the diagnostics panel", () => {
     // The argument is whether the reader asked for their watched place, which
     // is off until they say so, the same as the Copy button beside it.
     expect(onReportIssue).toHaveBeenCalledWith(false);
+  });
+
+  it("carries the watched place only once the reader has asked for it", () => {
+    // The half that matters for privacy, and the half the test above cannot
+    // reach: with no watched place the switch is never rendered, so `false`
+    // is the only answer it could ever have given and a hardcoded `false`
+    // would have passed it.
+    const onReportIssue = vi.fn();
+    render(diagnostics({ onReportIssue, hasWatchedPlace: true }));
+
+    const consent = screen.getByRole("checkbox");
+    expect(consent).toHaveProperty("checked", false);
+
+    fireEvent.click(consent);
+    fireEvent.click(
+      screen.getByRole("button", { name: en["diagnostics.report"] }),
+    );
+    expect(onReportIssue).toHaveBeenCalledWith(true);
   });
 });

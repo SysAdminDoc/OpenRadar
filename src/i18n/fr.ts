@@ -636,7 +636,7 @@ export const fr: Catalogue = {
   "upload.forReflectivity": " · réflectivité",
   "upload.skipped": "{names} laissés de côté",
   "upload.savePalette": "Enregistrer comme fichier",
-  "upload.exportPalette": "Enregistrer {name} comme fichier .pal",
+  "upload.exportPalette": "Enregistrer comme fichier : {name}",
   "upload.paletteSaved": "{name} enregistré",
   "upload.paletteNotSaved": "Cette table n’a pas pu être enregistrée",
   "upload.clearPalette": "Retirer",
