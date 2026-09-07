@@ -204,13 +204,20 @@ export type TideRegime = "diurnal" | "semidiurnal" | "unknown";
  * shape fails on the Gulf: the live contract asked for eight turns in three
  * days and New Canal Station on Lake Pontchartrain published seven.
  *
- * NOAA classifies each station itself, as Diurnal, Semidiurnal or Mixed, and
- * this is deliberately not that. It describes the predictions actually on
- * screen, which is what the panel is naming, and it costs no second request.
- * The two are held against each other in the live test rather than either
- * being trusted to stand in for the other. Mixed counts as semidiurnal here
- * because a mixed coast still turns four times a day; what differs is the
- * heights, which the rows already show.
+ * NOAA classifies each station itself, and this is deliberately not that, for
+ * a reason worth writing down. Sampling 44 stations from the bundled list on
+ * 2026-09-07 against their own published classification, the two do not line
+ * up: stations NOAA calls Diurnal run from 1.90 to 2.88 turns a day and Shell
+ * Island in Atchafalaya Bay, also Diurnal, publishes 3.45, while the Mixed
+ * group starts at 3.17. The ranges overlap, so no count can name NOAA's label.
+ * "Mixed Diurnal" appeared at both 1.92 and 3.93, which says the label itself
+ * is not a rate.
+ *
+ * What the count can honestly answer is the question the panel is for: why one
+ * reader sees seven rows and another fifteen. So it answers only where the
+ * answer is not in doubt, and says nothing through the middle rather than
+ * picking a side. A station whose predictions land in that band gets no line,
+ * which is the right amount to say about it.
  */
 export function tideRegime(extremes: readonly TideExtreme[]): TideRegime {
   // Three turns is the fewest that can carry a rate at all, and a window
@@ -223,10 +230,12 @@ export function tideRegime(extremes: readonly TideExtreme[]): TideRegime {
   // Intervals rather than turns, because a window that starts and ends on a
   // turn holds one more of them than it does gaps.
   const perDay = (extremes.length - 1) / days;
-  // Measured on 2026-09-07 over the three days this app asks for: New Canal
-  // Station 1.94 a day, The Battery 3.87, San Francisco 3.81. Three sits in
-  // the gap with room on either side.
-  return perDay < 3 ? "diurnal" : "semidiurnal";
+  // The two clear cases from that sample, with the disputed band left out:
+  // everything under 2.5 was Diurnal, everything over 3.6 turned four times a
+  // day, and between them sat Diurnal, Mixed and Mixed Diurnal together.
+  if (perDay < 2.5) return "diurnal";
+  if (perDay > 3.6) return "semidiurnal";
+  return "unknown";
 }
 
 /** The next few turns of the tide, counted from a moment. */

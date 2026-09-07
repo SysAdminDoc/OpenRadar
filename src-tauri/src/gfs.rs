@@ -750,10 +750,19 @@ mod tests {
     /// answers from rather than taking the one it is given, so the reply's own
     /// coordinates are the only place both sides can be sampled; and it
     /// prefers a cell on land, which at a coastal point is a different air
-    /// mass rather than a nearby one. Measured the same day, the 10 m wind
-    /// varies by up to 1.5 m/s across a single quarter degree cell even well
-    /// inland, so a tolerance this tight only means anything when both
-    /// readings are for the same ground.
+    /// mass rather than a nearby one.
+    ///
+    /// Sampling this side where they answered leaves one difference that
+    /// cannot be removed: their grid is finer than this quarter degree one, so
+    /// their cell centre and the nearest cell centre here can be an eighth of
+    /// a degree apart in each axis. Measured on 2026-09-07 across a whole
+    /// quarter degree cell the 10 m wind moved by as much as 1.5 m/s even well
+    /// inland, and across the half cell that actually separates the two
+    /// readings it was 0.48 m/s at Brasilia and 0.33 at London. So roughly
+    /// half the one metre budget can go on the offset before the decoders are
+    /// compared at all, which is why the places are chosen inland and why the
+    /// failure message names both cells: the number is only meaningful
+    /// alongside the two points it came from.
     #[test]
     #[ignore = "fetches a live wind field and a second opinion"]
     fn agrees_with_a_second_reading_of_the_same_model() {
@@ -816,6 +825,11 @@ mod tests {
             rest[..end].parse().ok()
         }
 
+        // The reading, and the cell it came out of. Both, because a failure
+        // that names only the point asked for leaves the reader to redo this
+        // rounding by hand to find out which cell was actually read: at Alice
+        // Springs 133.88 rounds to 134.00 and the cell Open-Meteo answered
+        // from rounds to 133.75, which are different columns.
         let at = |latitude: f64, longitude: f64| {
             let row = ((90.0 - latitude) / 0.25).round() as usize;
             let east = if longitude < 0.0 {
@@ -825,7 +839,16 @@ mod tests {
             };
             let column = (east / 0.25).round() as usize % GRID_COLUMNS;
             let index = row * GRID_COLUMNS + column;
-            (u[index], v[index])
+            let cell_lat = 90.0 - row as f64 * 0.25;
+            let cell_lon = {
+                let east = column as f64 * 0.25;
+                if east > 180.0 {
+                    east - 360.0
+                } else {
+                    east
+                }
+            };
+            (u[index], v[index], cell_lat, cell_lon)
         };
 
         let hour_iso = run.format("%Y-%m-%dT%H:00").to_string();
@@ -860,15 +883,15 @@ mod tests {
                 continue;
             };
 
-            let (u_value, v_value) = at(their_lat, their_lon);
+            let (u_value, v_value, cell_lat, cell_lon) = at(their_lat, their_lon);
             let speed = (u_value * u_value + v_value * v_value).sqrt();
 
             println!(
-                "{name}: ours {speed:.1} m/s at {latitude},{longitude}, theirs {theirs:.1} m/s at {their_lat},{their_lon}"
+                "{name}: ours {speed:.1} m/s from {cell_lat},{cell_lon}, theirs {theirs:.1} m/s from {their_lat},{their_lon}"
             );
             assert!(
                 (speed - theirs).abs() < 1.0,
-                "{name}: this decode says {speed:.1} m/s for the quarter degree cell nearest {their_lat},{their_lon} and Open-Meteo says {theirs:.1} for its own cell there"
+                "{name}: this decode says {speed:.1} m/s for its cell at {cell_lat},{cell_lon} and Open-Meteo says {theirs:.1} for its own at {their_lat},{their_lon}"
             );
             checked += 1;
         }

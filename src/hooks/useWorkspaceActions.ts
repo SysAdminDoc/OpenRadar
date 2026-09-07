@@ -837,6 +837,19 @@ export function useWorkspaceActions(options: {
     if (!hydrated || !isDesktopRuntime()) return;
     let stop: (() => void) | null = null;
     let active = true;
+    // `unlisten` is asynchronous and rejects rather than throwing: it reaches
+    // into `window.__TAURI_EVENT_PLUGIN_INTERNALS__`, so on a page that has no
+    // such object the failure arrives as a rejected promise. Called bare, as
+    // both of these were, that promise is dropped and lands in the console as
+    // an unhandled rejection nothing catches.
+    const release = (unlisten: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(() => unlisten())
+        .catch(() => {
+          // The listener goes away with the page regardless, and a build
+          // without the bridge never had one to let go of.
+        });
+    };
 
     void (async () => {
       const { getCurrent, onOpenUrl } =
@@ -850,14 +863,14 @@ export function useWorkspaceActions(options: {
         if (urls.length) applySharedView(urls[0]);
       });
       if (active) stop = unlisten;
-      else unlisten();
+      else release(unlisten);
     })().catch(() => {
       log.warn("app", "Shared links are not available in this build.");
     });
 
     return () => {
       active = false;
-      stop?.();
+      if (stop) release(stop);
     };
   }, [applySharedView, hydrated]);
 

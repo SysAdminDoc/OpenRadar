@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
-import { fakeDesktop, routeWorkspace, stubHost } from "./support/fixtures";
+import {
+  fakeDesktop,
+  routeWorkspace,
+  stubHost,
+  unhandledRejections,
+} from "./support/fixtures";
 
 /**
  * What the weather did at your places while the app was closed.
@@ -221,4 +226,37 @@ test("stands down while a warning is in force where you watch", async ({
   // A map with a warning on it is a serious instrument, and this is a card
   // about last Tuesday. It waits.
   await expect(page.locator(".catch-up")).toHaveCount(0);
+});
+
+test("drops nothing on the floor when letting a listener go fails", async ({
+  page,
+}) => {
+  // The glance window's listener is torn down through Tauri's own `unlisten`,
+  // which reaches into `window.__TAURI_EVENT_PLUGIN_INTERNALS__` and reports
+  // failure by rejecting rather than by throwing where the caller stands.
+  // Called as a bare statement, as this app did until 2026-09-07, that
+  // rejection lands nowhere: fifty of them in a green run. The fixture stubs
+  // that global because a packaged build has it, which means the app's own
+  // handling goes untested unless something breaks it on purpose. This does.
+  await page.addInitScript(() => {
+    (
+      window as unknown as {
+        __TAURI_EVENT_PLUGIN_INTERNALS__?: Record<string, unknown>;
+      }
+    ).__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: () => {
+        throw new Error("the bridge went away");
+      },
+    };
+  });
+  await start(page, { rows: [journalRow(5, "Dallas", "Hail to 1 inch")] });
+  await expect(page.locator(".map-stage")).toBeVisible();
+
+  // Leave the page, which is what runs every teardown at once.
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("beforeunload"));
+  });
+  await page.waitForTimeout(250);
+
+  expect(await unhandledRejections(page)).toEqual([]);
 });
