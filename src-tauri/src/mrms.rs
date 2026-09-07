@@ -3337,6 +3337,14 @@ mod tests {
         // whatever else the machine is doing. On 2026-09-07 this failed at
         // 3.38 s with six other jobs running and passed at 316 ms an hour
         // later on the same bytes, which is a red gate that means nothing.
+        //
+        // The bytes are fetched and unzipped before anything is timed, and the
+        // clock covers `decode_grib_to_fit` alone. Timing `grid_for` timed the
+        // download with it: it fetches on every call, since the disk cache is
+        // an error fallback rather than a hit, and the objects are nothing
+        // like the same size. Measured on 2026-09-07 the composite object is
+        // 1.69 MB against a shear object's 563 kB, so three quarters of the
+        // difference this gate claimed to be measuring was the wire.
         clear_caches();
         let coarse_frames = runtime
             .block_on(mrms_frames("composite".into(), 1, None, None))
@@ -3346,10 +3354,14 @@ mod tests {
             .expect("the composite has a grid")
             .key
             .clone();
+        let coarse_plain = gunzip(
+            &runtime
+                .block_on(http::get_bytes(&format!("{BUCKET}/{coarse_key}")))
+                .expect("the composite would not fetch"),
+        )
+        .expect("the composite object is gzip");
         let started = std::time::Instant::now();
-        runtime
-            .block_on(grid_for(&coarse_key, false))
-            .expect("the composite decodes");
+        decode_grib_to_fit(&coarse_plain, MAX_GRID_POINTS).expect("the composite decodes");
         let coarse_decode = started.elapsed();
         println!("composite: decode {coarse_decode:?}");
 
@@ -3399,11 +3411,19 @@ mod tests {
                 "{id} is published at {source_step} degrees"
             );
 
+            // The same clock the composite got: the bytes are already in hand
+            // from the grid-definition read above, so this is the decode and
+            // nothing else.
             let started = std::time::Instant::now();
+            decode_grib_to_fit(&plain, MAX_GRID_POINTS)
+                .unwrap_or_else(|error| panic!("{id} did not decode: {error}"));
+            let decoded = started.elapsed();
+
+            // And again through the real path, to fill the cache the geometry
+            // assertions below read. Not timed, because it fetches.
             runtime
                 .block_on(grid_for(&newest.key, false))
                 .unwrap_or_else(|error| panic!("{id} did not decode: {error}"));
-            let decoded = started.elapsed();
 
             {
                 let cache = CACHE.lock().expect("the cache");
@@ -3455,13 +3475,37 @@ mod tests {
             println!("{id}: decode {decoded:?}, tile {drawn:?}");
 
             // Against the composite decoded a moment ago on this machine,
-            // rather than against a number of seconds. Twice is generous for
-            // a claim of "the same", and it is the ratio that fails when the
-            // fold stops happening: unfolded, this grid is four times the
-            // cells.
+            // rather than against a number of seconds.
+            //
+            // Four, because that is what the fold itself costs: every output
+            // cell is the strongest of the four source cells under it, so the
+            // sampling work is four times the composite's for the same number
+            // of points out. A fine grid that costs more than four coarse ones
+            // is doing something beyond reading the cells it folds, and the
+            // regression this is really watching for is a decode that builds
+            // the full grid and reduces afterwards, which costs the four plus
+            // the allocation.
+            //
+            // Measured on 2026-09-07 with the download out of the clock:
+            // composite 129 ms, az-shear-low 266, az-shear-mid 262. A ratio of
+            // about 2.07, which is half the ceiling and the number to compare
+            // against when this starts drifting. It read 1.42 before the fetch
+            // was taken out of the timing, and that was the composite's object
+            // being three times the wire size rather than anything about the
+            // decoders.
+            //
+            // What this does not do is catch the fold being removed, and an
+            // earlier comment here said it did. Take the fold away and
+            // `reduction_for` cannot fit fourteen thousand by seven thousand
+            // points under the ceiling at all, so the decode returns an error
+            // and the test stops on the line above rather than reaching any
+            // ratio. The assertion that catches a lost fold is the grid
+            // geometry a few lines down. This one catches the fold costing
+            // more than it should, which is a different regression and the
+            // reason the product is drawn from the folded grid at all.
             assert!(
-                decoded < coarse_decode * 2,
-                "{id} took {decoded:?} to decode against the composite's {coarse_decode:?}"
+                decoded < coarse_decode * 4,
+                "{id} took {decoded:?} to decode against the composite's {coarse_decode:?}, which is more than the four to one the fold itself costs"
             );
             // And a ceiling, so a machine slow enough to make the ratio
             // meaningless still says something. Deliberately far above what

@@ -279,14 +279,21 @@ live("against NOAA itself", () => {
     expect(reading.extremes.length).toBeGreaterThanOrEqual(fourADay ? 8 : 2);
     expect(reading.extremes.length).toBeLessThanOrEqual(30);
 
-    // And where the count is unambiguous it has to agree with NOAA. It is
-    // allowed to say nothing: the two labels overlap through a band in the
-    // middle, which is exactly why `tideRegime` refuses to answer there, so
-    // an "unknown" is the function working rather than failing.
+    // And in the one direction the sample supports, the count has to agree
+    // with NOAA: a station NOAA says turns four times a day must not read as
+    // turning once.
+    //
+    // Only that direction. The other one would be asserting something the
+    // data does not carry: across 44 bundled stations on 2026-09-07 the
+    // Diurnal group ran from 1.90 to 3.45 turns a day, which reaches into the
+    // band above where `tideRegime` starts answering "semidiurnal", so a
+    // Diurnal station a little livelier than Shell Island would fail a test
+    // that was right about the tide. An "unknown" is the function declining,
+    // which is the behaviour, not a failure.
     const read = tideRegime(reading.extremes);
-    if (read !== "unknown" && (noaaType === "Diurnal" || fourADay)) {
+    if (fourADay && read !== "unknown") {
       expect(read, `NOAA calls ${found!.station.id} ${noaaType}`).toBe(
-        noaaType === "Diurnal" ? "diurnal" : "semidiurnal",
+        "semidiurnal",
       );
     }
 
