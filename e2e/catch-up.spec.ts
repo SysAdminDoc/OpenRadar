@@ -251,12 +251,15 @@ test("drops nothing on the floor when letting a listener go fails", async ({
   });
   await start(page, { rows: [journalRow(5, "Dallas", "Hail to 1 inch")] });
   await expect(page.locator(".map-stage")).toBeVisible();
-
-  // Leave the page, which is what runs every teardown at once.
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("beforeunload"));
-  });
   await page.waitForTimeout(250);
 
+  // What this reaches, said plainly because an earlier version of it claimed
+  // more. It dispatched `beforeunload` under a comment about running every
+  // teardown at once, and that event runs none: React does not unmount on it
+  // and nothing in this app listens for it. What does run is the development
+  // double-mount, which tears the first effect down before `listen` has
+  // resolved and so takes the "let it go at once" branch. The cleanup branch
+  // beside it, and the two in `useWorkspaceActions`, are the same three lines
+  // and are not covered here.
   expect(await unhandledRejections(page)).toEqual([]);
 });

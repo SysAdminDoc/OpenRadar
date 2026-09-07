@@ -1132,26 +1132,32 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
   const cut = async (edge: "both" | "top" = "both") =>
     region.evaluate((node, which) => {
       const box = node.getBoundingClientRect();
-      return [...node.querySelectorAll(".command-button")]
-        .map((button) => {
-          const seen = button.getBoundingClientRect();
-          return { label: button.getAttribute("aria-label") ?? "", seen, box };
-        })
-        // Part in and part out: the case this exists to stop. Two pixels of
-        // slack, because a fractional layout leaves a hair of a button over
-        // an edge and that is not a caption anybody loses; the failure this
-        // guards against is half a button.
-        .filter(
-          ({ seen, box: within }) =>
-            (which !== "top" &&
-              seen.top < within.bottom - 2 &&
-              seen.bottom > within.bottom + 2) ||
-            (seen.top < within.top - 2 && seen.bottom > within.top + 2),
-        )
-        .map(
-          ({ label, seen, box: within }) =>
-            `${label} ${Math.round(seen.top)}..${Math.round(seen.bottom)} in ${Math.round(within.top)}..${Math.round(within.bottom)} at ${node.scrollTop}`,
-        );
+      return (
+        [...node.querySelectorAll(".command-button")]
+          .map((button) => {
+            const seen = button.getBoundingClientRect();
+            return {
+              label: button.getAttribute("aria-label") ?? "",
+              seen,
+              box,
+            };
+          })
+          // Part in and part out: the case this exists to stop. Two pixels of
+          // slack, because a fractional layout leaves a hair of a button over
+          // an edge and that is not a caption anybody loses; the failure this
+          // guards against is half a button.
+          .filter(
+            ({ seen, box: within }) =>
+              (which !== "top" &&
+                seen.top < within.bottom - 2 &&
+                seen.bottom > within.bottom + 2) ||
+              (seen.top < within.top - 2 && seen.bottom > within.top + 2),
+          )
+          .map(
+            ({ label, seen, box: within }) =>
+              `${label} ${Math.round(seen.top)}..${Math.round(seen.bottom)} in ${Math.round(within.top)}..${Math.round(within.bottom)} at ${node.scrollTop}`,
+          )
+      );
     }, edge);
 
   expect(await cut()).toEqual([]);
@@ -1169,7 +1175,9 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
   // And it still starts on a whole button after paging.
   expect(await cut("top")).toEqual([]);
   // Going back up is offered once there is something above.
-  await expect(page.getByRole("button", { name: "Earlier tools" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Earlier tools" }),
+  ).toBeVisible();
 
   // All the way to the end, one press at a time. Pressing once and stopping
   // was the whole of this check before, and it missed both of the ways this

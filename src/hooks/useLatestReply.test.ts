@@ -96,9 +96,15 @@ describe("telling an older answer from the newest one", () => {
  *
  * Ten effects wrote this guard by hand and two more that needed it went
  * without, which is what a pattern nobody enforces looks like after a week.
- * The four below keep their own flag for a reason, and each reason is written
+ * The ones below keep their own flag for a reason, and each reason is written
  * out; the list is exact in both directions, so a file that stops needing an
  * exemption fails this as loudly as a file that starts.
+ *
+ * The vocabulary is the whole gate. The first cut looked for `alive`, `live`,
+ * `active`, `current`, `cancelled` and `stale`, and missed `mounted`, which is
+ * what half of them actually say. It shipped advertising that nobody could
+ * roll their own again while being blind to the commonest spelling of exactly
+ * that, and a clean run meant nothing. Add a name here before believing one.
  */
 describe("nobody rolls their own again", () => {
   /** Why each of these is not a reply to be dropped. */
@@ -119,9 +125,21 @@ describe("nobody rolls their own again", () => {
       "src/hooks/useWelcomeHint.ts",
       "the same, around the greeting's own station lookup",
     ],
+    [
+      "src/hooks/useAlertWatch.ts",
+      "an AbortController beside it again, and the flag gates a second variable the effect carries as well",
+    ],
+    [
+      "src/hooks/useArchiveWarnings.ts",
+      "the same shape around the archive's own fetch",
+    ],
+    [
+      "src/hooks/useRadarTimeline.ts",
+      "keeps a generation per request rather than per effect run, because one run of that effect makes several, which is finer than this hook offers",
+    ],
   ]);
 
-  it("finds no hand-rolled run flag outside the four that are not replies", async () => {
+  it("finds no hand-rolled run flag outside the ones that are not replies", async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");
     const { join, relative, sep } = await import("node:path");
 
@@ -138,7 +156,10 @@ describe("nobody rolls their own again", () => {
         if (name === "useLatestReply.ts") continue;
         const text = readFileSync(path, "utf8");
         if (
-          /\blet (alive|live|active|current|cancelled|stale) = (true|false)\b/.test(
+          // Every name this codebase has actually used, and whitespace a
+          // formatter could take away. A name missing from this list is a
+          // hole in the gate rather than a file that is clean.
+          /\blet\s+(alive|live|active|current|mounted|cancelled|canceled|stale|done|running)\s*=\s*(true|false)\b/.test(
             text,
           )
         ) {

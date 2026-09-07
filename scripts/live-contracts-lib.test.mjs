@@ -78,6 +78,76 @@ describe("the live contract list", () => {
     }
   });
 
+  /**
+   * Where a cargo test filter lands in the source tree, or why it lands
+   * nowhere.
+   *
+   * Null when the whole path resolves. A string when it does not, naming the
+   * file that was being read and the segment it does not declare, because
+   * "the filter is wrong" without those two is a morning of grep.
+   */
+  function resolveFilter(filter) {
+    const [module, ...rest] = filter.split("::").filter(Boolean);
+    const at = path.join(root, "src-tauri", "src", module);
+    let file = fs.existsSync(`${at}.rs`) ? `${at}.rs` : path.join(at, "mod.rs");
+    let dir = path.dirname(file);
+    if (!fs.existsSync(file)) return `there is no ${module} module`;
+    for (const segment of rest) {
+      const text = fs.readFileSync(file, "utf8");
+      if (!new RegExp(`\\b(mod|fn)\\s+${segment}\\b`).test(text)) {
+        return `${path.relative(root, file)} declares no ${segment}`;
+      }
+      // Where the next segment is read. A module can name its own file with
+      // `#[path]`, which every test module under `level2` does, and missing
+      // that rejected a filter naming a test that genuinely exists: the walk
+      // stayed in `decode.rs` and never looked at `decode_tests.rs`.
+      const declared = new RegExp(
+        `#\\[path\\s*=\\s*"([^"]+)"\\]\\s*(?:pub(?:\\([^)]*\\))?\\s+)?mod\\s+${segment}\\b`,
+      ).exec(text);
+      const candidates = [
+        declared ? path.join(dir, declared[1]) : null,
+        path.join(dir, `${segment}.rs`),
+        path.join(dir, segment, "mod.rs"),
+      ].filter(Boolean);
+      // No file at all means an inline `mod`, or the test at the end of the
+      // path, and either way the next segment is read where we are.
+      const found = candidates.find((each) => fs.existsSync(each));
+      if (found) {
+        file = found;
+        dir = path.dirname(found);
+      }
+    }
+    return null;
+  }
+
+  it("resolves a filter the way cargo reads it", () => {
+    // The two that broke, and the shapes around them. `level2::tests` is what
+    // the contract carried for two days after the module split while matching
+    // nothing; the deep one below it is a test that genuinely exists and that
+    // an earlier version of this walk rejected, because every test module
+    // under `level2` is declared `#[path = "..._tests.rs"]`.
+    expect(resolveFilter("level2::")).toBeNull();
+    expect(resolveFilter("mrms::tests")).toBeNull();
+    expect(resolveFilter("chunks::tests")).toBeNull();
+    expect(
+      resolveFilter(
+        "tdwr::tests::every_site_in_the_table_is_one_the_office_still_lists",
+      ),
+    ).toBeNull();
+    expect(
+      resolveFilter(
+        "level2::decode::tests::unfolding_a_live_velocity_sweep_takes_the_folds_out",
+      ),
+    ).toBeNull();
+
+    expect(resolveFilter("level2::tests")).toMatch(/declares no tests/);
+    expect(resolveFilter("level2::nope")).toMatch(/declares no nope/);
+    expect(resolveFilter("chunks::tests::no_such_test_name")).toMatch(
+      /declares no no_such_test_name/,
+    );
+    expect(resolveFilter("nosuchmodule::tests")).toMatch(/no nosuchmodule/);
+  });
+
   it("names a native path that cargo can actually match tests against", () => {
     // The check above resolves only the first segment of the filter, which is
     // why it went on passing after 2026-09-05: `level2` was still a module,
@@ -87,28 +157,12 @@ describe("the live contract list", () => {
     // only thing anyone saw was a red run with nothing failing in it.
     for (const contract of LIVE_CONTRACTS) {
       if (contract.kind !== "native") continue;
-      const [module, ...rest] = contract.filter.split("::").filter(Boolean);
+      const module = contract.filter.split("::").filter(Boolean)[0];
       const at = path.join(root, "src-tauri", "src", module);
-      // Walk the path one segment at a time, the way cargo reads it. Looking
-      // for the segment anywhere under the module instead is what let this
-      // pass: `level2/decode.rs` declares a `tests` module, so `level2::tests`
-      // looked resolvable while naming a module that does not exist.
-      let file = fs.existsSync(`${at}.rs`) ? `${at}.rs` : path.join(at, "mod.rs");
-      let dir = path.dirname(file);
-      for (const segment of rest) {
-        const text = fs.readFileSync(file, "utf8");
-        expect(
-          new RegExp(`\\b(mod|fn)\\s+${segment}\\b`).test(text),
-          `${contract.filter}: ${path.relative(root, file)} declares no ${segment}`,
-        ).toBe(true);
-        // A module in its own file means the next segment is read there. An
-        // inline one, and the test at the end of the path, stay put.
-        const beside = path.join(dir, `${segment}.rs`);
-        if (fs.existsSync(beside)) {
-          file = beside;
-          dir = path.dirname(beside);
-        }
-      }
+      expect(
+        resolveFilter(contract.filter),
+        `${contract.filter} names a path cargo will match nothing against`,
+      ).toBeNull();
 
       // And the path has to reach an ignored test, or the contract asks the
       // network for nothing however well it resolves.
@@ -119,7 +173,9 @@ describe("the live contract list", () => {
             .filter((name) => name.endsWith(".rs"))
             .map((name) => path.join(at, name));
       expect(
-        under.some((each) => fs.readFileSync(each, "utf8").includes("#[ignore")),
+        under.some((each) =>
+          fs.readFileSync(each, "utf8").includes("#[ignore"),
+        ),
         `${contract.filter} reaches no ignored test`,
       ).toBe(true);
     }
