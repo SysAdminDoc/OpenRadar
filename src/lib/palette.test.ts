@@ -5,6 +5,7 @@ import {
   paletteForRenderer,
   paletteRange,
   parsePalette,
+  writePalette,
 } from "./palette";
 
 /** A cut-down version of the reflectivity palettes people actually pass round. */
@@ -175,5 +176,45 @@ describe("handing a palette to the renderer", () => {
     expect(paletteApplies(unsaid!, "dBZ")).toBe(true);
     expect(paletteApplies(unsaid!, "m/s")).toBe(false);
     expect(paletteApplies(unsaid!, "mm")).toBe(false);
+  });
+});
+
+describe("writing a table back out", () => {
+  it("comes back through the parser as the same table", () => {
+    // The claim the export rests on. A reader who tuned a table here and sent
+    // it to somebody has to be sending the table they are looking at.
+    const first = parsePalette(FILE, "sample.pal")!;
+    const again = parsePalette(writePalette(first), "sample.pal")!;
+
+    expect(again.stops).toEqual(first.stops);
+    expect(again.product).toBe(first.product);
+    expect(again.units).toBe(first.units);
+    expect(again.step).toBe(first.step);
+    expect(again.rangeFolded).toBe(first.rangeFolded);
+  });
+
+  it("writes the directives a .pal file is made of", () => {
+    const written = writePalette(parsePalette(FILE, "sample.pal")!);
+    expect(written).toContain("Product: BR");
+    expect(written).toContain("Units: dBZ");
+    // A two-colour stop keeps both, a solid one keeps one, and the
+    // range-folded colour is not a stop.
+    expect(written).toContain("Color: 5 4 233 231 1 159 244");
+    expect(written).toContain("SolidColor: 75 253 253 253");
+    expect(written).toContain("RF: 119 0 125");
+    expect(written.endsWith("\n")).toBe(true);
+  });
+
+  it("keeps nothing it could not read, and says so by leaving it out", () => {
+    // `skipped` holds the directive's name and never its values, so a writer
+    // cannot put one back. Writing a guess would be worse than dropping it.
+    const table = parsePalette(
+      ["Color: 5 4 233 231", "Scale: 1.0", "Offset: 0"].join("\n"),
+      "extra.pal",
+    )!;
+    expect(table.skipped.length).toBeGreaterThan(0);
+    const written = writePalette(table);
+    expect(written).not.toContain("Scale");
+    expect(written).not.toContain("Offset");
   });
 });

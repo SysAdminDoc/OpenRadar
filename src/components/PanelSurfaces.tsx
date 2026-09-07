@@ -1,4 +1,5 @@
 import type { VwpColumn } from "../lib/vwp";
+import type { Palette } from "../lib/palette";
 import type { SpcHazard } from "../lib/overlays/registry";
 import { Suspense, lazy } from "react";
 import type { SurfaceId } from "./CommandBar";
@@ -174,6 +175,7 @@ interface PanelSurfacesProps {
   onCommand: (action: CommandAction) => void;
   onAssignPalette: (unit: string, name: string | null) => void;
   onRemovePalette: (name: string) => void;
+  onExportPalette: (palette: Palette) => void;
   onAlertTypes: (types: Partial<Record<AlertType, boolean>>) => void;
   onOverlayOpacity: (opacity: Record<string, number>) => void;
   onOverlayOrder: (order: string[]) => void;
@@ -502,6 +504,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           paletteAssignments={settings.paletteAssignments}
           onAssignPalette={props.onAssignPalette}
           onRemovePalette={props.onRemovePalette}
+          onExportPalette={props.onExportPalette}
         />
       ) : null}
 

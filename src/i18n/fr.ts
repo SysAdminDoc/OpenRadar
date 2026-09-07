@@ -635,6 +635,10 @@ export const fr: Catalogue = {
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · réflectivité",
   "upload.skipped": "{names} laissés de côté",
+  "upload.savePalette": "Enregistrer comme fichier",
+  "upload.exportPalette": "Enregistrer {name} comme fichier .pal",
+  "upload.paletteSaved": "{name} enregistré",
+  "upload.paletteNotSaved": "Cette table n’a pas pu être enregistrée",
   "upload.clearPalette": "Retirer",
   "upload.libraryHeading": "Vos tables de couleurs",
   "upload.libraryBody":
