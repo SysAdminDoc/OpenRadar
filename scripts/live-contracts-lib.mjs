@@ -33,7 +33,14 @@ export const LIVE_CONTRACTS = [
     label: "NEXRAD Level II archive",
     host: "unidata-nexrad-level2.s3.amazonaws.com",
     kind: "native",
-    filter: "level2::tests",
+    // The whole module, not `level2::tests`. Splitting the single-site radar
+    // into modules on 2026-09-05 moved every one of these into a submodule of
+    // its own, so the old filter matched nothing and this required contract
+    // ran zero tests for two days while calling itself skipped.
+    filter: "level2::",
+    // Which sweeps up the seed writer, because that is ignored too and it
+    // touches no network. It is not a contract with anybody.
+    skip: "writes_the_fuzz_seed_corpus",
     required: true,
   },
   {

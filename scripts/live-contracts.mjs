@@ -123,7 +123,17 @@ async function main() {
       contract.kind === "native"
         ? await run(
             CARGO,
-            ["test", "--lib", "--", "--ignored", contract.filter],
+            [
+              "test",
+              "--lib",
+              "--",
+              "--ignored",
+              contract.filter,
+              // A module-wide filter catches every ignored test under it,
+              // including the ones that write a fuzz seed corpus rather than
+              // asking a provider anything.
+              ...(contract.skip ? ["--skip", contract.skip] : []),
+            ],
             "src-tauri",
           )
         : await run(
