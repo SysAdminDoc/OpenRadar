@@ -12,6 +12,7 @@ import {
   type ProjectionMode,
 } from "../lib/settings";
 import { radarFromSearch } from "../lib/deepLink";
+import { useLatestReply } from "./useLatestReply";
 import { supportedProduct } from "../lib/radarKinds";
 
 /** Camera moves arrive in bursts, so the file is written once the map settles. */
@@ -49,6 +50,7 @@ export function useSettings(options: {
   onPersistError: () => void;
 }): SettingsState {
   const { onPersistError } = options;
+  const latest = useLatestReply();
   const [settings, setSettings] = useState<AppSettings>(() =>
     normalizeSettings(DEFAULT_SETTINGS),
   );
@@ -101,9 +103,9 @@ export function useSettings(options: {
   );
 
   useEffect(() => {
-    let active = true;
+    const reply = latest();
     void loadSettings().then(async (stored) => {
-      if (!active) return;
+      if (!reply.current()) return;
       // A shared view in the address bar wins over what was last saved.
       const params = new URLSearchParams(window.location.search);
       const projection: ProjectionMode =
@@ -154,7 +156,7 @@ export function useSettings(options: {
       // is the difference between a Spanish first screen and an English one
       // that turns Spanish a moment later.
       await ensureLanguage(next.language);
-      if (!active) return;
+      if (!reply.current()) return;
       setLanguage(next.language);
       document.documentElement.lang =
         next.language === "pseudo" ? "en" : next.language;
@@ -162,10 +164,8 @@ export function useSettings(options: {
       setSettings(next);
       setHydrated(true);
     });
-    return () => {
-      active = false;
-    };
-  }, []);
+    return reply.close;
+  }, [latest]);
 
   // The language store is external state the whole tree reads, kept in step
   // with the setting the same way the theme attribute is.

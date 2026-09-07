@@ -48,6 +48,7 @@ import { saveFile } from "../lib/saveFile";
 import { APP_VERSION } from "../lib/settings";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { translate } from "../i18n";
+import { useLatestReply } from "./useLatestReply";
 
 /**
  * How long a frame waits for its volume to arrive before the walk moves on.
@@ -209,16 +210,15 @@ export function useExport(options: {
   // Whether an MP4 can be written here at all. Asked once, because the answer
   // is a property of the build and not of the picture, and held as null until
   // it comes back so the panel does not offer a button and then take it away.
+  const latest = useLatestReply();
   const [mp4Ready, setMp4Ready] = useState<boolean | null>(null);
   useEffect(() => {
-    let live = true;
+    const reply = latest();
     void mp4Available().then((ready) => {
-      if (live) setMp4Ready(ready);
+      if (reply.current()) setMp4Ready(ready);
     });
-    return () => {
-      live = false;
-    };
-  }, []);
+    return reply.close;
+  }, [latest]);
 
   // What the encoder actually put in the file, by frame index.
   //

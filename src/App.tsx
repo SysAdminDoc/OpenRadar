@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
+import { useLatestReply } from "./hooks/useLatestReply";
 import { useAppearance } from "./hooks/useAppearance";
 import { FirstRunReveal } from "./components/FirstRunReveal";
 import { CatchUpCard } from "./components/CatchUpCard";
@@ -625,6 +626,15 @@ export default function App() {
     }
   }, [applySettings, pushToast, settingsRef]);
 
+  // One token per effect run, so an answer that arrives after a newer
+  // question is recognised and dropped. Shared by every effect below that
+  // reads something and writes what it gets back.
+  // One per effect: a single counter shared between them would mean each
+  // effect that started invalidated whichever sibling was still waiting.
+  const latestSound = useLatestReply();
+  const latestGlance = useLatestReply();
+  const latestWallpaper = useLatestReply();
+
   // Read once, when the path changes. A file that has moved away, grown too
   // big or stopped being audio is reported here and the built-in kit answers
   // instead, rather than a warning arriving in silence.
@@ -635,9 +645,9 @@ export default function App() {
     // Guarded, because choosing a second file while the first is still being
     // read used to let the older answer land last: it cleared the sound that
     // had just loaded and blamed a file the reader had already replaced.
-    let current = true;
+    const reply = latestSound();
     void loadAlertSound(path).then((answer) => {
-      if (!current || answer.ok) return;
+      if (!reply.current() || answer.ok) return;
       setAlertSound(null);
       pushToast({
         title: translate("alerts.soundFileFailed"),
@@ -647,10 +657,14 @@ export default function App() {
       if (keepSoundPath(answer.reason)) return;
       applySettings({ ...settingsRef.current, alertSoundPath: null });
     });
-    return () => {
-      current = false;
-    };
-  }, [settings.alertSoundPath, pushToast, applySettings, settingsRef]);
+    return reply.close;
+  }, [
+    settings.alertSoundPath,
+    pushToast,
+    applySettings,
+    settingsRef,
+    latestSound,
+  ]);
 
   const journalFrame = useCallback(async () => {
     const canvas = mapRef.current?.canvas();
@@ -735,14 +749,12 @@ export default function App() {
   // workspace never hears about.
   const [glanceOpen, setGlanceOpen] = useState(false);
   useEffect(() => {
-    let alive = true;
+    const reply = latestGlance();
     void glanceIsShowing().then((showing) => {
-      if (alive) setGlanceOpen(showing);
+      if (reply.current()) setGlanceOpen(showing);
     });
-    return () => {
-      alive = false;
-    };
-  }, [clock, settings.tray]);
+    return reply.close;
+  }, [clock, settings.tray, latestGlance]);
   // The poll is once a minute, which is fine for noticing the window has gone
   // and far too slow for noticing it arrived: opened from the tray menu, the
   // reader watched a small window with words and no map. The window says so
@@ -1478,14 +1490,12 @@ export default function App() {
   // can apply, every hour, for ever.
   const [wallpaperOk, setWallpaperOk] = useState(false);
   useEffect(() => {
-    let alive = true;
+    const reply = latestWallpaper();
     void wallpaperAvailable().then((ok) => {
-      if (alive) setWallpaperOk(ok);
+      if (reply.current()) setWallpaperOk(ok);
     });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    return reply.close;
+  }, [latestWallpaper]);
   const { writeWallpaper } = exportState;
   useEffect(() => {
     if (!wallpaperOk || wallpaperBusy.current) return;

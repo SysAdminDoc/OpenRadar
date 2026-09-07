@@ -4,6 +4,7 @@ import {
   displayShouldHold,
   holdDisplayAwake,
 } from "../lib/display";
+import { useLatestReply } from "./useLatestReply";
 
 /**
  * The screen kept on while the full-screen view is showing.
@@ -21,16 +22,15 @@ export function useDisplayAwake(state: {
   onFailure?: (failure: unknown) => void;
 }): boolean {
   const { wanted, showing, onFailure } = state;
+  const latest = useLatestReply();
   const [available, setAvailable] = useState(false);
   useEffect(() => {
-    let alive = true;
+    const reply = latest();
     void displayAwakeAvailable().then((ok) => {
-      if (alive) setAvailable(ok);
+      if (reply.current()) setAvailable(ok);
     });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    return reply.close;
+  }, [latest]);
 
   const hold = displayShouldHold({ available, wanted, showing });
   useEffect(() => {

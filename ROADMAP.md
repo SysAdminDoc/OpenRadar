@@ -364,13 +364,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: At zoom 12 over a storm the gate wedges are drawn as wedges rather than as blocks; a Playwright test renders the fixture volume at zooms 8 and 12 and finds edges at different pixel spacings; the readout, the cross-section and the CSV still read the nearest gate; the compare pane and the loop stay in step.
       Complexity: L
 
-- [ ] AUD-342 (P2): One helper for "ignore an older reply", and a scan for the hand-rolled ones
-      Why: Eight files each write their own `let alive = true` guard around an async read, and the 2026-09-05 refutation found two more places that needed one and had none (`AUD-324`, `AUD-329`), the same class as `AUD-313` and `AUD-314` the day before. A guard written by hand eight times is a guard that will be forgotten a ninth; the helper carries the test once, and a source scan turns a forgotten guard into a failing test rather than a refutation finding.
-      Evidence: `src/hooks/useAmbient.ts`, `useDisplayAwake.ts`, `useExport.ts`, `useSettings.ts`, `useWelcomeHint.ts`, `useWorkspaceActions.ts`, `src/panels/JournalSection.tsx`, `SettingsPanel.tsx` (each `let alive = true`), 38 matches for the wider pattern; commits `7829ac9` and `82fa772`; the `CLAUDE.md` lesson of 2026-09-05 on testing what a guard protects (an older reply must not overwrite a newer one).
-      Touches: a new `src/hooks/useLatestReply.ts` (a token per effect run, `isCurrent()` checked before every state write, tested by resolving two replies out of order), the eight call sites, and a source-reading test beside `src/lib/journal.test.ts` that lists the files allowed to write state from a `.then` without the helper.
-      Acceptance: The eight sites use the helper; removing the helper's check fails its own test; adding a new hand-rolled `let alive = true` fails the scan; `npm run check` green.
-      Complexity: M
-
 ### P3
 
 - [ ] AUD-345 (P3): Say fresh, fetching, stale or failed on every layer row, with an age

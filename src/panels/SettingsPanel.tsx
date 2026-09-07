@@ -1,6 +1,7 @@
 import { RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
+import { useLatestReply } from "../hooks/useLatestReply";
 import { rangeFill } from "../lib/rangeFill";
 import { MAX_LOOP_VOLUMES, MIN_LOOP_VOLUMES } from "../lib/siteLoop";
 import type { NotifyPermission } from "../lib/notify";
@@ -128,30 +129,31 @@ export function SettingsPanel({
   // Asked once: whether this machine can have its wallpaper set cannot change
   // while the app is running. Null until the answer comes back, so the
   // control neither promises nor refuses before it knows.
+  // One per effect. They share nothing: a single counter would mean each
+  // effect that started invalidated whichever of its siblings was waiting.
+  const latestWallpaper = useLatestReply();
+  const latestAwake = useLatestReply();
+  const latestJournal = useLatestReply();
   const [wallpaperOk, setWallpaperOk] = useState<boolean | null>(null);
   useEffect(() => {
-    let alive = true;
+    const reply = latestWallpaper();
     void wallpaperAvailable().then((ok) => {
-      if (alive) setWallpaperOk(ok);
+      if (reply.current()) setWallpaperOk(ok);
     });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    return reply.close;
+  }, [latestWallpaper]);
 
   // Same question, same reason: whether this build can hold the screen on
   // cannot change while it is running, and null until the answer is back so
   // the switch neither promises nor refuses before it knows.
   const [awakeOk, setAwakeOk] = useState<boolean | null>(null);
   useEffect(() => {
-    let alive = true;
+    const awake = latestAwake();
     void displayAwakeAvailable().then((ok) => {
-      if (alive) setAwakeOk(ok);
+      if (awake.current()) setAwakeOk(ok);
     });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    return awake.close;
+  }, [latestAwake]);
 
   /**
    * The reader's own record, read once for the two sections that show it.
@@ -169,29 +171,27 @@ export function SettingsPanel({
   const [journal, setJournal] = useState<JournalRow[] | undefined>(undefined);
   const [journalAsked, setJournalAsked] = useState(0);
   useEffect(() => {
-    let alive = true;
+    const reply = latestJournal();
     // A rejection has to land somewhere. Left uncaught, this stays undefined
     // and both sections render nothing at all: a silent blank card, which is
     // worse than an empty one.
     void journalRows()
       .then((rows) => {
-        if (alive) setJournal(rows);
+        if (reply.current()) setJournal(rows);
       })
       .catch((failure: unknown) => {
         log.warn(
           "journal",
           failure instanceof Error ? failure.message : String(failure),
         );
-        if (alive) setJournal([]);
+        if (reply.current()) setJournal([]);
       });
-    return () => {
-      alive = false;
-    };
+    return reply.close;
     // On the clock as well as on mount: a warning arriving while the panel is
     // open used to leave the list, the count and the export holding the
     // snapshot from when it opened. `journalAsked` is what the list bumps
     // after it has changed the file itself.
-  }, [clock, journalAsked]);
+  }, [clock, journalAsked, latestJournal]);
   const reloadJournal = useCallback(() => setJournalAsked((at) => at + 1), []);
 
   const accent = themeAccent(settings.workspaceTheme);
