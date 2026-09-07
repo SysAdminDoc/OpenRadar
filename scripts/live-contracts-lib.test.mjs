@@ -181,6 +181,36 @@ describe("the live contract list", () => {
     }
   });
 
+  // A skip is a filter too, and a filter that matches nothing fails the same
+  // quiet way: it does not error, it just stops skipping. The level2 contract
+  // sweeps a whole module and has to hold back two ignored tests under it that
+  // ask no provider anything, one of which fetches 42 volumes. If either name
+  // goes stale the live gate silently grows a ten-minute leg.
+  it("skips by names that are really there", () => {
+    for (const contract of LIVE_CONTRACTS) {
+      if (contract.skip === undefined) continue;
+      expect(Array.isArray(contract.skip), contract.id).toBe(true);
+
+      const module = contract.filter.split("::").filter(Boolean)[0];
+      const at = path.join(root, "src-tauri", "src", module);
+      const under = fs.existsSync(`${at}.rs`)
+        ? [`${at}.rs`]
+        : fs
+            .readdirSync(at)
+            .filter((name) => name.endsWith(".rs"))
+            .map((name) => path.join(at, name));
+      const bodies = under.map((each) => fs.readFileSync(each, "utf8"));
+
+      for (const name of contract.skip) {
+        expect(name.length, contract.id).toBeGreaterThan(0);
+        expect(
+          bodies.some((body) => new RegExp(`fn ${name}`).test(body)),
+          `${contract.id} skips ${name}, which names no test under ${module}`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("requires the sources a release actually depends on", () => {
     const required = LIVE_CONTRACTS.filter((contract) => contract.required).map(
       (contract) => contract.id,

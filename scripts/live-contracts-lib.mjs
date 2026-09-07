@@ -38,9 +38,12 @@ export const LIVE_CONTRACTS = [
     // its own, so the old filter matched nothing and this required contract
     // ran zero tests for two days while calling itself skipped.
     filter: "level2::",
-    // Which sweeps up the seed writer, because that is ignored too and it
-    // touches no network. It is not a contract with anybody.
-    skip: "writes_the_fuzz_seed_corpus",
+    // Which sweeps up the two ignored tests under it that ask nobody for
+    // anything: the one that writes a fuzz seed corpus, and the one that
+    // records a week of unfolding off the archive to justify the thresholds
+    // in the contract beside it. Neither is a contract with a provider, and
+    // the recorder alone fetches 42 volumes.
+    skip: ["writes_the_fuzz_seed_corpus", "recording_the_days"],
     required: true,
   },
   {
