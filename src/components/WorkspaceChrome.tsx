@@ -77,6 +77,15 @@ const TOOL_LABELS: Record<Exclude<ToolMode, null>, StringKey> = {
 
 interface WorkspaceChromeProps {
   settings: AppSettings;
+  /**
+   * The version a quiet check found, or null.
+   *
+   * A chip and nothing else. The app asks once a day whether a release
+   * exists and this is the whole of what it does with the answer: no toast,
+   * no window, no download. It stays up in calm mode and in the full-screen
+   * view, because it says nothing and asks for nothing.
+   */
+  updateVersion: string | null;
   timeline: RadarTimelineState;
   frames: RadarFrame[];
   /** The single-site sweep on the map, which the legend names. */
@@ -165,6 +174,7 @@ interface WorkspaceChromeProps {
 
 /** Everything drawn over the map: the timeline, the controls, and the credits. */
 export function WorkspaceChrome({
+  updateVersion,
   settings,
   timeline,
   frames,
@@ -370,6 +380,11 @@ export function WorkspaceChrome({
                 ? t("timeline.live")
                 : t("chrome.standby")}
           </span>
+          {updateVersion ? (
+            <span className="live-chip" data-update-version={updateVersion}>
+              {t("chrome.updateFound", { version: updateVersion })}
+            </span>
+          ) : null}
         </div>
       </header>
 

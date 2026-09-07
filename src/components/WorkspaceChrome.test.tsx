@@ -92,10 +92,13 @@ function chrome(
     /** The site the reader is holding, which is what can stop sending. */
     station?: string;
     overlayKeys?: OverlayLegend[];
+    /** The version a quiet update check found, when one has. */
+    updateVersion?: string | null;
   } = {},
 ) {
   return (
     <WorkspaceChrome
+      updateVersion={overrides.updateVersion ?? null}
       settings={
         overrides.station
           ? {
@@ -507,5 +510,21 @@ describe("a held radar that has stopped", () => {
     const line = document.querySelector(".site-down");
     expect(line?.textContent).toContain("KLWX");
     expect(line?.querySelector("button")).toBeNull();
+  });
+});
+
+describe("a release the app found on its own", () => {
+  it("names the version, and shows nothing at all until there is one", () => {
+    // The whole of what a quiet daily check is allowed to do. No toast, no
+    // window, no download: a chip that says a version exists, beside the one
+    // that says whether the radar is live.
+    render(chrome(113));
+    expect(document.querySelector("[data-update-version]")).toBeNull();
+
+    cleanup();
+    render(chrome(113, { updateVersion: "0.12.0" }));
+    const chip = document.querySelector("[data-update-version]");
+    expect(chip?.getAttribute("data-update-version")).toBe("0.12.0");
+    expect(chip?.textContent).toContain("0.12.0");
   });
 });

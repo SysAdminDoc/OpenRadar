@@ -1,6 +1,10 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useUpdates } from "./useUpdates";
+import {
+  FIRST_QUIET_CHECK_MS,
+  QUIET_CHECK_EVERY_MS,
+  useUpdates,
+} from "./useUpdates";
 import type { UpdateOffer } from "../lib/updates";
 
 const check = vi.fn<() => Promise<UpdateOffer | null>>();
@@ -183,5 +187,127 @@ describe("the update button", () => {
     available.mockReturnValue(false);
     const { result } = renderHook(() => useUpdates({ onToast: vi.fn() }));
     expect(result.current.act).toBeNull();
+  });
+});
+
+/**
+ * A copy left open on a second monitor for a month.
+ *
+ * The West Palm Beach radar was dark for thirty-three days in every installed
+ * build while a fix sat on the release page, and nothing in the app would have
+ * said so: the check ran only from a button, inside a panel. These hold the
+ * line the fix has to stay on. It asks, and it does nothing else.
+ */
+describe("finding out on its own that a release exists", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("asks an hour after launch, then once a day, and installs nothing", async () => {
+    check.mockResolvedValue(null);
+    renderHook(() => useUpdates({ onToast: vi.fn() }));
+
+    // Not on mount. The first minutes of a launch belong to the map.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FIRST_QUIET_CHECK_MS - 60_000);
+    });
+    expect(check).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+
+    // A day, not an hour: twenty-three more hours is still one ask.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(23 * 3_600_000);
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2 * 3_600_000);
+    });
+    expect(check).toHaveBeenCalledTimes(2);
+
+    expect(install).not.toHaveBeenCalled();
+  });
+
+  it("names what it found, and says nothing out loud about it", async () => {
+    check.mockResolvedValue(offer);
+    const onToast = vi.fn();
+    const { result } = renderHook(() => useUpdates({ onToast }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FIRST_QUIET_CHECK_MS + 1_000);
+    });
+
+    expect(result.current.state).toEqual({ status: "available", offer });
+    // No toast, in any mode. Nobody asked, and a workspace that interrupts a
+    // storm to talk about itself is the notification this app does not send.
+    expect(onToast).not.toHaveBeenCalled();
+    expect(install).not.toHaveBeenCalled();
+  });
+
+  it("leaves a failed ask in the log and tries again tomorrow", async () => {
+    check.mockRejectedValue(new Error("the release page could not be read"));
+    const onToast = vi.fn();
+    const { result } = renderHook(() => useUpdates({ onToast }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FIRST_QUIET_CHECK_MS + 1_000);
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+    // Still idle: a check nobody asked for must not put an error on a panel.
+    expect(result.current.state).toEqual({ status: "idle" });
+    expect(onToast).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(QUIET_CHECK_EVERY_MS);
+    });
+    expect(check).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not ask while the machine says it has no network", async () => {
+    check.mockResolvedValue(null);
+    // `onLine` lives on the prototype, so there is no own descriptor to put
+    // back: the property has to be deleted again or every test after this one
+    // runs offline. That is what this file did for one commit, and the next
+    // test failed with nothing to say why.
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+    try {
+      renderHook(() => useUpdates({ onToast: vi.fn() }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(
+          FIRST_QUIET_CHECK_MS + 2 * QUIET_CHECK_EVERY_MS,
+        );
+      });
+      expect(check).not.toHaveBeenCalled();
+    } finally {
+      delete (navigator as { onLine?: boolean }).onLine;
+    }
+    expect(navigator.onLine).toBe(true);
+  });
+
+  it("does not overwrite an offer the reader is already acting on", async () => {
+    // The daily ask and a download in flight are the same object. A second
+    // answer landing mid-install must not reset what the button is doing.
+    check.mockResolvedValue(offer);
+    const { result } = renderHook(() => useUpdates({ onToast: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FIRST_QUIET_CHECK_MS + 1_000);
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+
+    // A day later there is already an offer, so nothing is asked at all.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(QUIET_CHECK_EVERY_MS);
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(result.current.state).toEqual({ status: "available", offer });
   });
 });

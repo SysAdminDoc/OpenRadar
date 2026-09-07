@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- The app notices on its own that a new version exists. It asks an hour after it starts and once a day after that, and all it does with the answer is put the version beside the Live chip and change what the button in More says. Nothing downloads until you press that button, which is the way it has always worked and the way it stays. The reason for the change: the West Palm Beach radar was dark for thirty-three days in every installed copy while the fix sat on the release page, and a copy left open on a second monitor had no way of finding out.
+
 - The tide panel says how often the tide turns where you are looking. Most of the American coast has two highs and two lows a day and the Gulf of Mexico has one of each, so somebody reading it in New Orleans saw half as many rows as somebody in Boston, with nothing on screen to say why. The pattern is read off the predictions already fetched, so it costs no extra request.
 
 - Two paths that failed silently now say so. Reading your record for the catch-up card, and letting go of the small window's listener, both failed where nothing was listening, so a card that never appeared had nothing in the log to explain it. Letting go of a listener turns out to be the harder of the two: it happens in the background and reports its failure the same way, so calling it and walking away left the failure with nowhere to land.

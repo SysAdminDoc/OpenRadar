@@ -1581,6 +1581,7 @@ export const fr: Catalogue = {
   "chrome.connecting": "Connexion au radar",
   "chrome.updatedNow": "Mis à jour à l'instant",
   "chrome.updatedAge": "Mis à jour il y a {age}",
+  "chrome.updateFound": "{version} disponible",
   "chrome.standby": "En veille",
   "chrome.toolClear": "Effacer",
   "chrome.toolKeyboard":
