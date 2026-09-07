@@ -2966,6 +2966,11 @@ export default function App() {
       ) : null}
 
       <WorkspaceChrome
+        updateVersion={
+          updates.state.status === "available"
+            ? updates.state.offer.version
+            : null
+        }
         settings={settings}
         liveClock={liveClock}
         timeline={timeline}

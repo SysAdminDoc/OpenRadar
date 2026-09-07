@@ -1538,6 +1538,7 @@ export const en = {
   "chrome.connecting": "Connecting to radar",
   "chrome.updatedNow": "Updated just now",
   "chrome.updatedAge": "Updated {age} ago",
+  "chrome.updateFound": "{version} ready",
   "chrome.standby": "Standby",
   "chrome.toolClear": "Clear",
   "chrome.toolKeyboard":

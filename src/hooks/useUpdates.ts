@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../lib/log";
+import { pollWhileOnline } from "../lib/poll";
 import {
   checkForUpdate,
   installUpdate,
@@ -8,6 +9,17 @@ import {
   type UpdateState,
 } from "../lib/updates";
 import { translate } from "../i18n";
+
+/**
+ * How long after launch the first quiet check happens, and how often after
+ * that.
+ *
+ * An hour, because the first minutes of a launch belong to the map. A day,
+ * because that is how often a release could possibly appear and a copy left
+ * open on a second monitor for a month should not have to be asked.
+ */
+export const FIRST_QUIET_CHECK_MS = 3_600_000;
+export const QUIET_CHECK_EVERY_MS = 24 * 3_600_000;
 
 export interface UpdatesState {
   state: UpdateState;
@@ -94,6 +106,51 @@ export function useUpdates(options: {
       })
       .finally(done);
   }, [onToast]);
+
+  // A copy left open never learned anything. The West Palm Beach radar was
+  // dark for thirty-three days in every installed build while a fix sat on the
+  // release page, and the only way to find out was to open a panel and press a
+  // button. So the app asks, once an hour after launch and once a day after
+  // that, and does nothing else with the answer: no download, no toast, no
+  // window. The button is still the only thing that installs anything, which
+  // is the promise this hook was written around and the promise SECURITY.md
+  // makes. What changes is what the button says before it is pressed.
+  useEffect(() => {
+    if (!updatesAvailable()) return;
+    let stopPolling: (() => void) | null = null;
+
+    const quietly = () => {
+      // Not while the reader's own press is in flight, and not once there is
+      // an offer: a second answer cannot say anything the first did not, and
+      // overwriting it would reset a download the reader had started.
+      if (busyRef.current || offerRef.current) return;
+      void checkForUpdate()
+        .then((offer) => {
+          if (!offer || busyRef.current || offerRef.current) return;
+          offerRef.current = offer;
+          setState({ status: "available", offer });
+        })
+        .catch((failure: unknown) => {
+          // The log and nowhere else. Nobody asked, so nobody is waiting to
+          // hear that it failed, and a workspace that announces its own
+          // failed update check at three in the morning is exactly the
+          // notification this app does not send.
+          log.warn("app", messageFor(failure, translate("update.checkFailed")));
+        });
+    };
+
+    const first = window.setTimeout(() => {
+      // `pollWhileOnline` asks straight away and then on the timer, and it
+      // skips an ask while the machine says it has no network rather than
+      // failing on one.
+      stopPolling = pollWhileOnline(quietly, QUIET_CHECK_EVERY_MS);
+    }, FIRST_QUIET_CHECK_MS);
+
+    return () => {
+      window.clearTimeout(first);
+      stopPolling?.();
+    };
+  }, []);
 
   return { state, act: updatesAvailable() ? act : null };
 }

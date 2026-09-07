@@ -1560,6 +1560,7 @@ export const es: Catalogue = {
   "chrome.connecting": "Conectando con el radar",
   "chrome.updatedNow": "Actualizado ahora mismo",
   "chrome.updatedAge": "Actualizado hace {age}",
+  "chrome.updateFound": "{version} disponible",
   "chrome.standby": "En espera",
   "chrome.toolClear": "Borrar",
   "chrome.toolKeyboard":
