@@ -41,6 +41,7 @@ Two things to know before draining. First, most of what follows lives where the 
 These could not be observed in this pass, which ran headless browser automation and read the packaged binary's configuration but did not drive the installed app on a screen. Each is a place where the e2e suite also cannot see.
 
 - [ ] AUD-166: Long-session memory and the two-day-old cached view
+      Note 2026-09-07: Anvil measured this instead of estimating it (commit 0f5972d, 2026-09-04): a retained-geometry sampler walking the frames every 5 s, deduped by ArrayBuffer identity, beside performance.memory. The ceiling was a per-renderer V8 heap cap of about 4,192 MB unrelated to machine RAM, a 26-frame replay retained 2,178 MB, and capping the dual-pol prefetch at 12 frames on that evidence took a 39-frame peak from 3,427 to 2,042 MB. That sampler is the shape this item's soak script wants.
       Category: perf
       Where: `src/hooks/useRadarTimeline.ts`, `src-tauri/src/cache.rs`, the map's tile sources
       Problem: The product is meant to be left open on a second monitor for days. Nothing in this pass ran longer than a few minutes; whether the webview's memory stays flat over a day of loops, palette changes and panel opens is unmeasured.
@@ -61,6 +62,7 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
 ### P3
   Note 2026-09-04: Retention evidence: a Bluesky reader stays on RadarScope for being "the lightest running" (2026-08-26); Anvil's memory sampler (`0f5972d`) shows a 26-frame replay retaining 2,178 MB, which is the comparison the README number would sit against.
 - [ ] AUD-189 (P3): Azimuthal shear from the volume itself, with a rotation product and a debris flag
+      Note 2026-09-07: The published kernel is Mahalik et al. 2019 (LLSD with every off-diagonal term kept; the older simplification is what draws a false shear ring at 5 to 10 km): AzShear 2,500 m azimuthal by 750 m radial, DivShear 750 by 1,500 m, a 3 by 3 median prefilter needing five of eight valid neighbours, at most 51 radials at 0.5 degrees, masked to reflectivity over 20 dBZ. The debris flag is reflectivity over 30 dBZ, correlation under 0.85 to 0.90, differential reflectivity near zero and a collocated couplet, with the couplet dilated by the 95th percentile of AzShear over 4 radials by 8 gates (Snyder and Ryzhkov 2015) so advected debris still scores. Sources in RESEARCH.md of the same date.
   Why: MRMS AzShear is a 2-minute national grid; the same LLSD method on the held site's own dealiased velocity gives rotation at gate resolution seconds after the sweep, which is what GR2Analyst's NROT is and what no open-source app ships; a tornado debris flag needs it.
   Evidence: Mahalik et al. 2019 (NOAA IR PDF): 2500 m azimuthal by 750 m radial kernel, radial count adapted per range, cap 51 radials, minimum 3x3, 3x3 median pre-filter, mask to reflectivity at or above 20 dBZ; WDTD thresholds; the RLX NROT deck (5x5 fit, range-normalised, above 1.0 significant, above 2.5 extreme); PyMeso as a reference implementation; TDS criteria (correlation coefficient below 0.8, ZDR below 0.5 dB, reflectivity above 30 dBZ, collocated with strong shear).
   Touches: new `src-tauri/src/shear.rs`, `src-tauri/src/level2/ramp.rs` product table (`azimuthal-shear`, `rotation`) and `src-tauri/src/level2/sweep.rs` for the cut it reads, ramps with the colour-vision test, `RadarProductPanel.tsx`, legends and catalogues, `data_export.rs` (`derivation` records the kernel).
@@ -68,6 +70,7 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Complexity: M
 
 - [ ] AUD-190 (P3): Single-site vertical products: composite, echo tops, VIL and hail size from the volume
+      Note 2026-09-07: Use the Murillo and Homeyer 2019 MESH refit (5,897 reports against Witt's 107; the 75th and 95th percentile fits are in Zenodo record 13887225) rather than Witt 1998 alone, VIL density as VIL over the 18 dBZ echo top, and the three-body scatter spike (Lemon 1998: under 20 dBZ, 10 to 30 km down the radial of a 60 dBZ core, aloft only) as a cheap flag beside the size.
   Why: GR2Analyst ships ET, VIL, VILD, POSH and MEHS from the volume and readers compare them against MRMS; the app has the MRMS grids and the sounding heights the hail algorithm needs, but nothing derived from the site.
   Evidence: ROC algorithm descriptions (echo tops NX-DR-03-013, VIL NX-DR-03-006 with the 56 dBZ ice cap), WDTD SHI/POSH/MESH pages (Witt et al. 1998: ramp 40 to 50 dBZ, weights between the 0 °C and −20 °C heights, POSH = 29 ln(SHI/WT) + 50, MESH = 2.54·SHI^0.5), the Skew-T in `src/lib/sounding.ts` already supplying those heights.
   Touches: new `src-tauri/src/derive.rs`, `src-tauri/src/level2/ramp.rs` product table with `src-tauri/src/level2/decode.rs` for the whole volume it reads, `src/lib/sounding.ts` (expose the freezing levels to the native side), legends, ramps, catalogues, `data_export.rs`.
@@ -82,6 +85,7 @@ Added by the 2026-09-02 research pass (`RESEARCH.md` of the same date carries th
   Complexity: M
 
 - [ ] AUD-192 (P3): Continuity across tilts in the dealiaser
+      Note 2026-09-07: WSR-88D Build 24.0 carried 2DVDA fixes for dealiasing failures under high vertical shear (ROC software engineering page; Likely). Read them before choosing the interval rule.
   Why: The region method fixes a sweep only up to a whole Nyquist interval and can flip a whole region in strong shear; UNRAVEL's 3D pass uses the cut above and below to settle the interval, at modest cost on top of the existing core.
   Evidence: `src-tauri/src/dealias.rs` (region growing, largest patch keeps its reading); Louf et al. 2020 (JTECH) and the MIT numba implementation at `vlouf/dealias`; the live multi-site test in `src-tauri/src/level2/decode_tests.rs` that measures refold recovery.
   Touches: `src-tauri/src/dealias.rs` (a pass that votes a cut's interval against its neighbours in elevation), `src-tauri/src/level2/sweep.rs` (hand adjacent cuts to the unfolder), the live aggregate test.
@@ -169,6 +173,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Complexity: M
 
 - [ ] AUD-226 (P3): Keyless European radar from MET Norway and the OPERA composite
+      Note 2026-09-07: HookEcho v0.12.0-beta.2 (2026-08-31) reads OPERA through a WMS bridge it hosts, which is the server class the blocked note rules out; MET Norway stays the keyless half of this item.
   Why: Outside NOAA, ECCC and DWD coverage the timeline falls to RainViewer, which now calls itself personal-use only and caps zoom at 7; MET Norway serves its radar with no usage restrictions and EUMETNET's OPERA composites are on MeteoGate with an anonymous tier under CC BY 4.0, which changes the `Roadmap_Blocked.md` verdict that European radar needs keys.
   Evidence: https://api.met.no/weatherapi/radar/2.0/documentation and https://api.met.no/doc/TermsOfService (User-Agent required, 20 requests a second, CC BY 4.0); https://eumetnet.github.io/openradardata-documentation/1-ORD-API-overview/ (three composites as ODIM HDF5 and cloud-optimised GeoTIFF, anonymous tier with low rate limits, key optional); https://www.rainviewer.com/api/transition-faq.html. Needs live validation: the anonymous rate limit is undocumented as a number.
   Touches: `src/lib/providers/` (a MET Norway PNG provider by area; a MeteoGate GeoTIFF lane through `src-tauri/src/geotiff.rs`), `src-tauri/src/http.rs` and the CSP (`api.met.no`, `api.meteogate.eu`), `docs/asset-ledger.md`, `src/lib/providers/coverage.ts` (Norway, then OPERA members), two live contracts that measure the anonymous limit, `src/i18n/*`.
@@ -176,6 +181,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Complexity: L
   Note 2026-09-04: FMI renames every radar layer in autumn 2026 (`Radar:suomi_dbz_eureffin` becomes `Radar:radar_finland_cappi_dbzh`, old names removed end of November 2026); KNMI rotated its anonymous key on 2026-06-30 (old key dead 2026-08-01); SMHI's old API docs page 404s. Use the new FMI names from the start if FMI is wired.
 - [ ] AUD-227 (P3): MeteoAlarm warnings for the rest of Europe
+      Note 2026-09-07: MeteoAlarm deprecated its legacy RSS feeds on 2026-01-14; target the Atom feeds (meteoalarm-legacy-atom-<country>). HookEcho ranks the warnings on its own severity scale rather than each service's.
   Why: Canadian and German warnings proved the adapter shape and MeteoAlarm publishes every other European service's warnings under CC BY 4.0 with no registration; HookEcho reads it, and a reader in France or Italy with the DWD composite on has no warnings at all.
   Evidence: https://feeds.meteoalarm.org/ (CC BY 4.0, attribution to EUMETNET members, Atom only since 2026-01-14); `src/lib/overlays/dwdWarnings.ts` and `ecccAlerts.ts`; the 2026-09-02 lesson that every ECCC alert shared one identity because the watch keyed on `url`.
   Touches: new `src/lib/overlays/meteoalarm.ts` (Atom per country, CAP links, awareness type and level mapped in `src/lib/alertTypes.ts`), `src-tauri/src/http.rs` and the CSP, ledger, `src/lib/watch.ts` (identity per CAP identifier), `src/i18n/*`, live contract, fixture e2e.
@@ -190,6 +196,7 @@ Added by the 2026-09-03 research pass (`RESEARCH.md` of the same date carries th
   Complexity: M
 
 - [ ] AUD-229 (P3): A keyboard cursor that reads the sweep aloud
+      Note 2026-09-07: wxaccess (w9fyi, macOS, pushed 2026-08-06) reads the probed gate aloud, hides the canvas from the screen reader, and sonifies radar values along a bearing as a tone; the UXPA sonified-map prototypes were evaluated with blind users. A tone along the cursor's bearing is a natural second step for this item.
   Why: The Nearby panel gives a screen-reader user the summary; the map itself is a canvas they cannot enter, so "what is the radar showing ten miles north of me" has no answer; the arrow-key virtual cursor is the pattern the accessible-maps field settled on.
   Evidence: `src/components/MapViewport.tsx` (keyboard handling for the map, no cursor), `src/components/LiveRegion.tsx`; Esri's "Pressing the Up Arrow" pattern https://www.esri.com/about/newsroom/arcnews/pressing-the-up-arrow-big-step-forward-in-accessibility; Audiom, the only WCAG-conformant map viewer https://gaad.foundation/what-we-do/gaadys/winners/audiom.
   Touches: `src/components/MapViewport.tsx` (arrow keys step a cursor in map space by a reader-chosen distance when the map has focus; the readout sampling already used by the pointer), `src/components/LiveRegion.tsx`, `src/i18n/*`, `e2e/accessibility.spec.ts`.
@@ -222,6 +229,7 @@ Seventh pass, 2026-09-04. Evidence in RESEARCH.md of the same date.
 ### P3
 
 - [ ] AUD-270 (P3): Speak a warning at a watched place with the Windows voice, off by default
+      Note 2026-09-07: HookEcho #302 (2026-09-05) lets an emergency pre-empt the speech queue, and #298 plays the tone before the words; both belong in the queue this item builds.
       Why: HookEcho made spoken warnings the default on 2026-09-03 (#298: county, towns in path, distance and bearing from a saved place, a tone then speech, a queue); Supercell Wx #581 asks for voice lightning alerts. The app's watched places already compose the sentence (which place, which warning, how many minutes); speaking it through the page's own `speechSynthesis` is offline and keyless, and is the one form a reader away from the screen can take in.
       Evidence: https://github.com/d4vid87/HookEcho/pull/298 ; https://github.com/dpaulat/supercell-wx/issues/581 ; `src/lib/notify.ts`, `src/hooks/useAlertWatch.ts`, `src/hooks/useApproachWatch.ts`.
       Touches: `src/lib/notify.ts` (a `speak` beside `announceOnDesktop`, queued, cancelled by a newer warning for the same place), the watch settings (per place, off by default, honouring quiet hours and calm mode), `src/i18n/*` (the spoken sentence in the reader's language), tests with a stubbed `speechSynthesis`.
@@ -290,6 +298,7 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Effort: M
 
 - [ ] AUD-328 (P3): Forty-seven layer switches in one unbroken list
+      Note 2026-09-07: Pair with AUD-345, which puts a fresh, stale or failed state and an age on the same rows.
       Category: ux
       Where: `src/panels/LayersPanel.tsx:234` (`LAYER_OPTIONS`), `:600` (rendered as one list), `:627` (the first section title, after all of them).
       Problem: The Layers panel opens on 47 switches with no heading between Weather Alerts and Custom Overlay: hazards, the MRMS hail family, rainfall, flood guidance, lightning, satellite, wind and the reader's own files run together in the order they were added. Finding "Rain or Snow" means reading past thirty rows; the command list, which sorts by kind, is the only grouped view of them.
@@ -330,3 +339,174 @@ Where this pass dug: the six commits of 2026-09-05 that landed after the last re
       Acceptance: Each panel observed and any defect logged here; the cell strokes either pass the pixel read over a light basemap or gain a light variant keyed on `isLightBasemap`.
       Confidence: Needs-repro
       Effort: M
+
+## Research-Driven Additions, 2026-09-07
+
+Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contracts were red when this pass ran, all three for reasons inside the tests, and those come first.
+
+### P1
+
+### P2
+
+- [ ] AUD-335 (P2): The GFS live contract compares the wrong cell, and is red
+      Why: The cross-check against Open-Meteo failed on 2026-09-07 with "Sydney: this decode says 11.8 m/s and Open-Meteo says 7.8". Open-Meteo answers `gfs_global` from a cell at -33.914734, 151.17188, not the 0.25 degree grid, and its `cell_selection` defaults to `land`, which "finds a suitable grid-cell on land with similar elevation"; the `sea` cell reads 12.01 m/s and the app's nearest 0.25 degree point, -34.0, 151.25, is over the water. Des Moines and London passed. Two places are being compared and called one.
+      Evidence: `src-tauri/src/gfs.rs:760-822` (`agrees_with_a_second_reading_of_the_same_model`); https://open-meteo.com/en/docs (`cell_selection`); the live reads on 2026-09-07 with `cell_selection=land`, `sea` and `nearest`, and `models=gfs025` returning null at the analysis hour.
+      Touches: `src-tauri/src/gfs.rs` (the `places` table and the Open-Meteo URL in the live test).
+      Acceptance: The compared places are inland (keep Des Moines and London; replace Sydney, Tokyo and Sao Paulo with places at least 100 km from a coast, for example Novosibirsk, Nairobi, Brasilia and Alice Springs), the URL carries `cell_selection=nearest`, the assertion message prints both cells' coordinates, and `npm run check:live` shows the gfs row ok on three separate days.
+      Complexity: S
+
+- [ ] AUD-336 (P2): The tide live contract asks a diurnal station for a semidiurnal count, and is red
+      Why: The New Orleans contract requires at least eight extremes in three days under a comment saying "roughly two of each a day". `nearestStation` picks 8761927 New Canal Station on Lake Pontchartrain, which NOAA's metadata API lists as `tideType: "Diurnal"` and which published two extremes for the 72 hours from 2026-09-07. NOAA's own tutorial says the Gulf of Mexico has one high and one low a day. The gate is wrong about the coast it tests, and a Gulf reader of the Tides panel sees the same sparse list with nothing saying why.
+      Evidence: `src/lib/tides.test.ts:170-207`; https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8761927.json (`tideType`); the `hilo` predictions read live on 2026-09-07 (two rows); https://oceanservice.noaa.gov/education/tutorial_tides/tides07_cycles.html.
+      Touches: `src/lib/tides.test.ts`, `src/lib/tides.ts` (read `tideType` from the station metadata, or carry it in `public/tide-stations.json` through `scripts/build-tide-stations.mjs`), `src/panels/TidesPanel.tsx` (name the regime), `src/i18n/*`.
+      Acceptance: The count floor follows the station's regime (diurnal at least two per 72 hours, semidiurnal at least eight), the alternation and forward-time assertions stay, a unit test with a diurnal fixture passes, the panel names the station's tide type, and the tides row is ok in `npm run check:live`.
+      Complexity: S
+
+- [ ] AUD-338 (P2): Fuzz the `.orb` reader and the pack's PMTiles reader
+      Why: `bundles::read_bundle(bytes: &[u8])` is a pure function over a file somebody else made, and it is the one untrusted-file decoder in Rust with no fuzz target; the header injection fixed on 2026-09-05 (`AUD-326`) was found by reading, not by fuzzing. The incident pack reader hashes every tile before an atomic rename, which is the right shape, and has never been fuzzed either.
+      Evidence: `src-tauri/src/bundles.rs:468`; `src-tauri/fuzz/fuzz_targets` (`grib_complex`, `grib_message`, `level2_volume`, `level3_message`, `mrms_grib`, `netcdf_flashes`); `SECURITY.md` "Local files are parsed, not trusted"; the `last-input.bin` and `-rss_limit_mb` notes in `CLAUDE.md`.
+      Touches: `src-tauri/fuzz/fuzz_targets/orb_bundle.rs`, `src-tauri/fuzz/fuzz_targets/pmtiles_pack.rs`, `src-tauri/fuzz/Cargo.toml`, the `fuzzing` feature exports in `src-tauri/src/lib.rs`, a seed corpus from the test fixtures.
+      Acceptance: Both targets build and run for thirty minutes each with the corpus seeded, every artifact is replayed alone before being believed, findings are fixed or logged here with the input, and the README's fuzzing section names the two new targets.
+      Complexity: M
+
+- [ ] AUD-339 (P2): Draw the single-site sweep at the zoom the reader is at
+      Why: The sweep is rendered once in Rust as a 1,024 pixel Mercator raster over a 460 km disc, 449 m per pixel against 250 m super-resolution gates, and placed on the map as one image source that MapLibre stretches. At zoom 12 (about 29 m per screen pixel at 40 degrees) one raster pixel covers fifteen screen pixels, so a reader zoomed in on a couplet is looking at the raster's grid, not the radar's. The national grids had exactly this defect until 2026-09-05, when `a9407d4` rendered them per zoom through the `mrms` scheme; the sweep can take the same road.
+      Evidence: `src-tauri/src/level2/mod.rs:50` (`IMAGE_SIZE = 1024`), `:52` (`MAX_RANGE_KM = 230.0`); `src-tauri/src/level2/render.rs:23-70`; `src/components/MapViewport.tsx:1693` (`type: "image"`); https://maplibre.org/maplibre-gl-js/docs/API/classes/ImageSource/ ; commit `a9407d4`; https://github.com/wesleygrimes/omastorm (gates drawn as glyphs, 2026-09-04).
+      Touches: `src-tauri/src/level2/render.rs` and `commands.rs` (a per-tile render that samples the polar field for a Web Mercator tile at any zoom, reusing `geo_to_polar`), a `sweep` URI scheme beside `mrms` in `src-tauri/src/lib.rs` and `tauri.conf.json` (`src/lib/csp.test.ts` holds the policy to what is registered), `src/hooks/useSingleSiteRadar.ts` and `MapViewport.tsx` (a raster tile source in place of the image source), the smoothing switch, the readout, and the export, which keep reading the gate.
+      Acceptance: At zoom 12 over a storm the gate wedges are drawn as wedges rather than as blocks; a Playwright test renders the fixture volume at zooms 8 and 12 and finds edges at different pixel spacings; the readout, the cross-section and the CSV still read the nearest gate; the compare pane and the loop stay in step.
+      Complexity: L
+
+- [ ] AUD-341 (P2): Check for an update once a day while the app stays open, say so, and download nothing
+      Why: `useUpdates` runs the check only from the button, by design, because "an update that downloads itself in the middle of a storm is not much use to anyone". That reasoning covers the download and not the check. The app is meant to be left open on a second monitor for months, and a copy left open never learns anything: the West Palm Beach radar was dark for 33 days in every installed build with nothing to say a fix existed. A daily check that only changes a chip and the button's label keeps the promise and drops the silence.
+      Evidence: `src/hooks/useUpdates.ts:22-26`; `src/lib/updates.ts:28-32`; `SECURITY.md` "downloads an update only when you ask it to"; `CHANGELOG.md` v0.10.0 (the TDJT repair, renamed 2026-08-03, fixed 2026-09-05); `src/lib/poll.ts` (`pollWhileOnline`).
+      Touches: `src/hooks/useUpdates.ts` (a `pollWhileOnline` at 24 hours after the first hour, writing only `state`), `src/components/WorkspaceChrome.tsx` (a chip naming the version), the Settings button's label, `src/i18n/*`, calm mode and the full-screen view (a chip only, no toast).
+      Acceptance: A test advancing fake timers sees one `check()` per day and zero `downloadAndInstall`; the chip and the button name the version found; nothing is fetched while offline; calm mode and the full-screen view show no toast for it.
+      Complexity: S
+
+- [ ] AUD-342 (P2): One helper for "ignore an older reply", and a scan for the hand-rolled ones
+      Why: Eight files each write their own `let alive = true` guard around an async read, and the 2026-09-05 refutation found two more places that needed one and had none (`AUD-324`, `AUD-329`), the same class as `AUD-313` and `AUD-314` the day before. A guard written by hand eight times is a guard that will be forgotten a ninth; the helper carries the test once, and a source scan turns a forgotten guard into a failing test rather than a refutation finding.
+      Evidence: `src/hooks/useAmbient.ts`, `useDisplayAwake.ts`, `useExport.ts`, `useSettings.ts`, `useWelcomeHint.ts`, `useWorkspaceActions.ts`, `src/panels/JournalSection.tsx`, `SettingsPanel.tsx` (each `let alive = true`), 38 matches for the wider pattern; commits `7829ac9` and `82fa772`; the `CLAUDE.md` lesson of 2026-09-05 on testing what a guard protects (an older reply must not overwrite a newer one).
+      Touches: a new `src/hooks/useLatestReply.ts` (a token per effect run, `isCurrent()` checked before every state write, tested by resolving two replies out of order), the eight call sites, and a source-reading test beside `src/lib/journal.test.ts` that lists the files allowed to write state from a `.then` without the helper.
+      Acceptance: The eight sites use the helper; removing the helper's check fails its own test; adding a new hand-rolled `let alive = true` fails the scan; `npm run check` green.
+      Complexity: M
+
+### P3
+
+- [ ] AUD-343 (P3): Make the fold-cost live gate relative, or run it alone
+      Why: `a_finer_grid_is_folded_and_costs_what_a_coarse_one_does` holds the decode to an absolute three seconds. It failed at 3.38 s on 2026-09-07 while six research processes shared the machine and passed at 316 ms an hour later, alone. A wall-clock budget in a gate that `npm run check:live` runs beside twenty-five network tests reports the machine's load, not the decoder's cost, and a red contract that is wrong costs the next audit an hour of triage.
+      Evidence: `src-tauri/src/mrms.rs:3327-3440`; the two runs on 2026-09-07 (3.3796 s under load, 316 ms and 314 ms idle); `scripts/live-contracts.mjs`.
+      Touches: `src-tauri/src/mrms.rs` (decode the composite in the same test and assert the fine grid costs no more than twice it, keeping the absolute budget only as a generous ceiling such as ten seconds), `scripts/live-contracts.mjs` (or run the mrms row before the rest).
+      Acceptance: The gate passes under `npm run check:live` with the browser suite running beside it, and still fails when the fold is removed (mutation: skip the fold and watch the ratio).
+      Complexity: S
+
+- [ ] AUD-345 (P3): Say fresh, fetching, stale or failed on every layer row, with an age
+      Why: Feed loss is the complaint of the season: two paid apps lost their feed on 2026-09-03, five radars were down at once in July, and a Windy reader watched months of rain the radar did not show. HookEcho answered it on 2026-09-05 with fresh, fetching, stale, failed and waiting plus a compact age on every network layer row, a popover with attempts and the last error, and stale imagery kept on screen marked degraded. The app knows all of that per adapter and shows it in Diagnostics and the legend; the Layers panel, where a reader switches a layer on and wonders why nothing changed, says nothing.
+      Evidence: https://github.com/d4vid87/hookecho/pull/306 (merged 2026-09-05); https://community.windy.com/topic/44326/weather-radar-constantly-malfunctioning ; `src/hooks/useOverlays.ts` (per-adapter status), `src/panels/LayersPanel.tsx` (no status text on any row), `src/lib/providers/health.ts`.
+      Touches: `src/panels/LayersPanel.tsx` (a small state and age per row, from the snapshot the hook already holds), `src/hooks/useOverlays.ts` (expose the state), `src/i18n/*`, `e2e/layers.spec.ts`. Pair with `AUD-328`, which regroups the same rows.
+      Acceptance: A row whose adapter failed says so with the last error in a popover, a stale row says how old, a fetching row says so; a Playwright test fails one adapter's route and reads the row; the pseudolocale clipping test covers the new text.
+      Complexity: M
+
+- [ ] AUD-344 (P3): Replay a day through the watch rules and list what would have fired
+      Why: Ten watched places carry arrival, lightning and warning rules, and the only way to know what they would have said on 2011-04-27 is to have been there. HookEcho shipped "alert-rule backtests run in the browser" on 2026-08-31. The app has the archive warnings and reports for any day, the replayed lightning window, the rules, and the sentences; a backtest is those four joined and told to a panel instead of a toast.
+      Evidence: https://github.com/d4vid87/hookecho/releases/tag/v0.12.0-beta.2 ; `src/lib/archiveWarnings.ts`, `src/hooks/useAlertWatch.ts`, `useApproachWatch.ts`, `useLightningWatch.ts`, `src/lib/approach.ts`; `AUD-216` (the replayed day's outlook and reports).
+      Touches: a `src/lib/backtest.ts` that runs the three rule functions over a day's archive without side effects, a section in the watch settings or the History panel, `src/i18n/*`, tests with a fixed day.
+      Acceptance: Pick a replayed day and each watched place lists what it would have been told and when, in the reader's language, with nothing notified, nothing written to the record, and quiet hours shown as applied.
+      Complexity: M
+
+- [ ] AUD-346 (P3): Write the provenance into the picture itself
+      Why: Every export writes a `-provenance.json` beside the picture, and the picture is the file that gets sent on, without the sidecar. PNG carries text chunks for exactly this, the `png` crate the exporter already uses exposes `add_itxt_chunk`, and a viewer or a script can then ask the picture what it is.
+      Evidence: `README.md` "What the export record holds"; `src-tauri/src/exports.rs` (no text chunk written); https://docs.rs/png/latest/png/struct.Encoder.html (`add_text_chunk`, `add_ztxt_chunk`, `add_itxt_chunk`, png 0.18.1).
+      Touches: `src-tauri/src/exports.rs` (an `iTXt` chunk keyed `OpenRadar-Provenance` holding the same JSON), the export tests (read the chunk back), `README.md`.
+      Acceptance: A PNG export carries the provenance JSON in an `iTXt` chunk that `pngcheck` or the test's own reader returns byte for byte equal to the sidecar; the sidecar stays.
+      Complexity: S
+
+- [ ] AUD-353 (P3): Keep the last good settings file beside the live one
+      Why: A store file that will not parse falls to defaults with no way back; the reader's ten places, palettes and themes are gone with nothing said. PowerToys backs its settings up before every update and restores them when it detects corruption, and Supercell Wx's export writing five-byte files (#675) is what the loss looks like in practice. A copy taken before each write, offered back with a toast, is a few lines and an undo.
+      Evidence: `src/lib/settings.ts:2033` and `:2104` (parse paths, defaults on failure); https://learn.microsoft.com/en-us/windows/powertoys/general (2026-08-25); https://github.com/dpaulat/supercell-wx/issues/675.
+      Touches: the settings store write path (`src/hooks/useSettings.ts` or the store plugin call), a `settings.previous.json` beside the live file, a toast with Undo on a failed parse, `e2e/storage.spec.ts`.
+      Acceptance: A corrupt store file at launch restores the previous good one and says so; the corrupt file is kept renamed; a spec plants a corrupt file and finds the reader's places intact.
+      Complexity: S
+
+- [ ] AUD-354 (P3): Thin the lightning circles by zoom
+      Why: "I can't see the rain levels for some of those areas because of all the lightning strike symbols" (Bluesky, 2026-08-27). The flash layer draws every flash as a circle of the same radius at every zoom, so a national view under an active line is a sheet of dots over the reflectivity it is meant to sit on.
+      Evidence: https://bsky.app/profile/zakalwe2024.bsky.social/post/3mu3ovquftc2t ; `src/components/MapViewport.tsx:1255` (`"circle-radius": 3 * heavier`).
+      Touches: `src/components/MapViewport.tsx` (an `interpolate` on zoom for the radius and the opacity, or a heatmap layer below zoom 6), `e2e/lightning.spec.ts`.
+      Acceptance: At zoom 4 the flashes read as density rather than as discs and the reflectivity under them stays legible (a Playwright pixel sample finds ramp colours under a flash cluster); at zoom 9 each flash is a disc as today.
+      Complexity: S
+
+- [ ] AUD-349 (P3): Snow-squall colour tables in the box
+      Why: The NWS trains forecasters on two AWIPS colour tables built for squalls, reflectivity over 30 dBZ and velocity over 30 kt lit and everything else dimmed, and publishes them. The app already holds up to twelve GRLevelX tables per product; shipping these two, named for what they are, gives the winter reader the office's own view with no file to find.
+      Evidence: https://vlab.noaa.gov/web/snow-squalls-and-snow-squall-warnings/radar-color-tables ; `src/lib/palette.ts`; the palette legend (`src/lib/legend.ts`).
+      Touches: `src-tauri/src/palette.rs` or `src/lib/palette.ts` (two built-in tables), the palette picker in `src/panels/RadarProductPanel.tsx`, `src/i18n/*`, the contrast gate the built-in ramps are held to.
+      Acceptance: The two tables appear in the picker, the legend names them, they pass the contrast test the other ramps pass, and the README's colour-table paragraph names them.
+      Complexity: S
+
+- [ ] AUD-337 (P3): Export a colour table
+      Why: Colour tables are what the community shares: 151 of the 225 mods on grlevelxusers are tables, and a forecaster asked publicly for better MESH palettes on 2026-09-06. The app reads GRLevelX tables and cannot write one, so a table tuned here dies with the settings file.
+      Evidence: https://grlevelxusers.com/grlevelx-goodies/categories/placefiles/ (the category counts); https://bsky.app/profile/pmarshwx.com/post/3muum2aigec2a ; `src/lib/palette.ts` (parse only).
+      Touches: `src/lib/palette.ts` (a writer that round-trips the parser), `src/panels/RadarProductPanel.tsx` (an Export beside Load), `src-tauri/src/exports.rs` (the `.pal` extension in the allow list and in `every_file_this_app_writes_can_be_written`).
+      Acceptance: A loaded table exported and loaded again is stop-for-stop identical (a round-trip test against the fixtures); GRLevel3 opens the file.
+      Complexity: S
+
+- [ ] AUD-357 (P3): Open a prefilled issue from Diagnostics
+      Why: The README's bug-report path is copy the block, open the issue form, paste. PowerToys collects the report, then offers to open a prefilled issue. The app has the block and the form; one button that opens the form with the title and version filled and the block on the clipboard removes the step where a report is abandoned.
+      Evidence: `README.md` "Reporting something that is wrong"; https://learn.microsoft.com/en-us/windows/powertoys/general (2026-08-25); `src/lib/diagnostics.ts`.
+      Touches: `src/panels/UtilityPanels.tsx` (Diagnostics), `src/lib/diagnostics.ts` (an issue URL with `title` and `template` query parameters), the opener plugin, `src/i18n/*`.
+      Acceptance: The button opens the issue form in the browser with the title `OpenRadar 0.11.0:` and the template selected, the block is on the clipboard, and nothing about the machine is in the URL.
+      Complexity: S
+
+- [ ] AUD-355 (P3): Raise the toolchain floor and take the routine bumps
+      Why: Tauri 2.12 carries an `msrv-1.90` change and the tree says `rust-version = 1.85` while stable is 1.98.1; a floor raised before the release forces it is a floor raised on a quiet day. Beside it: `@playwright/test` 1.63.0, `eslint` 10.10.0, `typescript-eslint` 8.70.0, `lucide-react` 1.42.0, `image` 0.25.10. TypeScript stays on 5.8: 7.0 ships no programmatic API until 7.1 and `typescript-eslint` caps at `<6.1.0`.
+      Evidence: https://github.com/tauri-apps/tauri/tree/dev/.changes (`msrv-1.90`); https://github.com/rust-lang/rust/releases (1.98.1, 2026-09-03); `npm outdated` on 2026-09-07; https://github.com/typescript-eslint/typescript-eslint/releases/tag/v8.70.0 ; https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/.
+      Touches: `src-tauri/Cargo.toml` (`rust-version`, `image`), `package.json`, `package-lock.json`, `Cargo.lock`, `CLAUDE.md` build notes.
+      Acceptance: `cargo clippy --all-targets` clean at the new floor, `npm run check` and `cargo test` green, the browser suite green on Playwright 1.63, TypeScript unchanged.
+      Complexity: S
+
+- [ ] AUD-352 (P3): Size the full-screen view's type from a viewing distance
+      Why: The full-screen view is meant to be read across a room, and its type is a fixed size chosen for a desk. The human-factors rule for a glanceable display is a glyph subtending about nineteen arcminutes from the furthest viewer, which at four metres is a different number from one metre. One setting, "how far away is the screen", and the view sizes itself.
+      Evidence: https://www.rocketcom.com/insights/designing-ux-for-giant-screens/ ; `CHANGELOG.md` v0.11.0 ("not readable at arm's length let alone across a room"); `src/index.css` (`.ambient-readout` sizes).
+      Touches: the ambient settings in `src/lib/settings.ts`, a rule function in `src/lib/ambient.ts` (distance and the monitor's physical size to a font size, with `window.screen` and `devicePixelRatio` as the inputs the page has), `src/index.css` (a custom property), `e2e/ambient-screen.spec.ts`.
+      Acceptance: The rule is a tested function; at the default distance nothing changes; at four metres the clock and the source line grow to the computed size and stay inside the viewport at 1024 by 680.
+      Complexity: S
+
+- [ ] AUD-351 (P3): Pick the monitor for the full-screen view and the glance window
+      Why: The full-screen view takes whichever monitor the window happens to be on, so the second-monitor reader drags the window across first, every time. OBS opens a projector on a named display and reopens it there next launch; Sunshine remembers a monitor by its device id because indices reorder. Nothing in the tree asks Tauri which monitors exist.
+      Evidence: no `availableMonitors` or `currentMonitor` in `src` or `src-tauri` (2026-09-07); https://obsproject.com/kb/power-of-projectors ; https://github.com/LizardByte/Sunshine/releases/tag/v2026.906.222525 ; `src-tauri/src/display.rs`, `src-tauri/src/tray.rs`.
+      Touches: `src/lib/settings.ts` (a remembered monitor name and position for each of the two windows), `src-tauri/src/display.rs` or a new `monitors.rs` (list, match by name then by position, fall back to the current one), the full-screen entry in `src/App.tsx`, the glance window in `src-tauri/src/tray.rs`, Settings.
+      Acceptance: With two monitors, the full-screen view opens on the chosen one and returns the window to where it was; a monitor that is gone falls back to the current one with a toast; the choice survives a restart.
+      Complexity: M
+
+- [ ] AUD-347 (P3): First paint of a held site from a range read of the first cut
+      Why: A held site's first picture waits for a whole archive volume, five to ten megabytes, when the lowest cut is the first megabyte and a half of it. FX-Net-NextGen reads exactly that by HTTP range and has the 0.5 degree cut in 1.6 to 1.9 s, choosing the cut by median radial elevation because the first radial's header is written while the antenna settles. The app already reads GFS fields by byte range and the chunk bucket for the live sector; the archive path reads whole objects.
+      Evidence: https://github.com/Cuevman81/FX-Net-NextGen/commit/7eed8f1 (2026-09-04); `src-tauri/src/http.rs` (`get_range`), `src-tauri/src/level2/listing.rs` and `decode.rs`; the truncated-volume sweep in `level2::tests::malformed`.
+      Touches: `src-tauri/src/level2/decode.rs` (decode what a truncated object holds and say which cuts arrived), `commands.rs` (first paint from the range, the rest of the volume behind it for the tilts, the profile and the cross-section), `src/hooks/useSingleSiteRadar.ts` (a legend note while the rest loads).
+      Acceptance: Holding a site paints reflectivity from the first range read inside two seconds on the fixture volume served with latency, the higher tilts appear when the rest lands, the wind profile and the cross-section wait for the whole volume, and nothing is drawn twice.
+      Complexity: M
+
+- [ ] AUD-348 (P3): A non-weather echo mask for the single-site sweep
+      Why: Bird blooms, wind farms and chaff draw like rain, and the office's own quality control removes them with four thresholds on fields the app already decodes: correlation coefficient under 0.95, its texture over 0.10, only under 0.7 inside the melting layer, with hail let back in by echo top and reflectivity. Sweep 2.6.0 (2026-09-06) added the same idea as a third noise-filter state and made the legend say when the mask did not run.
+      Evidence: https://vlab.noaa.gov/web/wdtd/-/dual-pol-quality-control ; https://github.com/Aryeh95/pi-weather-station/commits/main (2.6.0); `src-tauri/src/level2/draw.rs`, `sweep.rs` (the clutter exclusion for the fit), `src/lib/level2.ts` (the correlation product).
+      Touches: `src-tauri/src/level2/draw.rs` (a mask computed from the correlation and reflectivity cuts of the same volume), `commands.rs` (a switch beside smoothing), `src/panels/RadarProductPanel.tsx`, the legend (says the mask is on, or that it could not run on a single-pol or terminal radar), `src/i18n/*`. The readout, the export and the cross-section keep the gate.
+      Acceptance: With the mask on, a fixture volume with a planted low-correlation bloom draws without it and a planted hail core stays; the legend says so; greyed with the reason on a TDWR; off by default.
+      Complexity: M
+
+- [ ] AUD-350 (P3): A flash-flood severity readout from the four grids
+      Why: The Central Region's four-panel method reads one-hour QPE, its return period, the QPE-to-guidance ratio and the FLASH unit streamflow against published thresholds (advisory, warning, considerable, catastrophic) and calls the tier when three of four agree. The app draws the QPE, the ratio and the unit streamflow already; the readout is the thresholds and the rule, and the rule is the part a reader in a flood cannot do in their head.
+      Evidence: https://www.weather.gov/media/crh/publications/TA/TA_2303.pdf (thresholds: QPE 1.5/2.0/2.5/2.7 in, ARI 1/5/125/175 yr, ratio 125/140/325/375 per cent, unit streamflow 200/230/850/1100); `src-tauri/src/mrms.rs` (the QPE, ratio and FLASH products); `CHANGELOG.md` v0.9.0 (rain against the guidance).
+      Touches: `src-tauri/src/mrms.rs` (the ARI product, if `CONUS/` publishes it; Needs live validation), `src/lib/flashFlood.ts` (the tier rule as a tested function), the readout and the Nearby panel, `src/i18n/*`.
+      Acceptance: Under the cursor and at each watched place the four values and the tier are shown with the thresholds editable in Settings; a fixture where three of four panels agree yields that tier and one where two do yields none; the ARI product is verified on the bucket before the layer is added.
+      Complexity: M
+
+- [ ] AUD-356 (P3): Read the 5 km composite for the national loop when zoomed out
+      Why: `noaa-mrms-pds` publishes `CONUS_5KM/` with the composite and the lowest-altitude reflectivity at a twenty-fifth of the cells of the 1 km grid. The national loop decodes about sixty 1 km composites for a two-hour loop whatever the zoom, and at zoom 5 the map cannot show the difference. The fold already trades resolution for memory at the fine grids' zoom; this is the same trade one step further out, on a product the bucket already publishes.
+      Evidence: https://noaa-mrms-pds.s3.amazonaws.com/?list-type=2&prefix=CONUS_5KM/&delimiter=/ (two products, 2026-09-07); `src-tauri/src/mrms.rs` (`DOMAINS`, `listing_url`, the fold); commit `82c8699`.
+      Touches: `src-tauri/src/mrms.rs` (a domain-like source for the 5 km composite chosen by the tile's zoom, the same key replaced on zoom-in), `src/lib/providers/mrms.ts`, the live contract (the 5 km product's cadence and history depth need live validation before the loop depends on it).
+      Acceptance: Zoomed out, the loop's decode time and memory drop by an order of magnitude in the diagnostics history; zooming past the switch draws the 1 km grid with no gap; the export still reads the 1 km grid.
+      Complexity: M
+
+- [ ] AUD-340 (P3): Colour the national grids on the GPU
+      Why: Colour is applied in Rust and a palette load, a threshold or a contrast toggle bumps a generation into every tile address and cache key, so each one re-renders and re-fetches the whole screen of tiles. MapLibre has no `raster-color`, and the request for one has been open since 2024-07-31, but 6.7.0 ships a `color-relief` layer over a `raster-dem` source with a custom encoding: the tile carries the value, the style carries the ramp as an expression, and a new ramp is a style change with no fetch. The value under the cursor comes from the same tile.
+      Evidence: https://maplibre.org/maplibre-style-spec/sources/ (raster-dem `custom` encoding, `redFactor`, `greenFactor`, `blueFactor`, `baseShift`, added 3.4.0); https://maplibre.org/maplibre-gl-js/docs/examples/add-a-color-relief-layer/ (6.7.0); https://github.com/maplibre/maplibre-gl-js/issues/4479 ; `CLAUDE.md` (the palette generation in the tile address); `src-tauri/src/mrms.rs` (`tile_from_cache`, `TileLook`).
+      Touches: `src-tauri/src/mrms.rs` (a value-encoded PNG per tile, the missing value below `baseShift`), `src/lib/providers/mrms.ts` and `MapViewport.tsx` (a `raster-dem` source and a `color-relief` layer per product, the ramp built from `src/lib/palette.ts`, the threshold as a transparent stop), the compare pane, the export caption, the between-the-cells smoothing (`b81d5e0`), the readout.
+      Acceptance: Loading a colour table redraws with zero `mrms:` requests in the network log (a Playwright test proves it); the drawn colours match the Rust ramp within one step on the fixture; the readout still reports the value; the fine grids and the sparse products (rotation, hail, lightning) draw as before.
+      Complexity: L
