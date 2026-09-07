@@ -346,3 +346,69 @@ describe("the disk ceiling", () => {
     expect(setLimit).not.toHaveBeenCalled();
   });
 });
+
+describe("a reply that lands after the panel is gone", () => {
+  it("lets the newer answer win when an older one lands last", async () => {
+    // What the guard actually protects. React 19 says nothing about a state
+    // write after unmount, so a test that watched for a warning passed with
+    // the guard removed; what is observable is the effect's cleanup marking
+    // the reply it is no longer waiting for, so a slow first answer cannot
+    // overwrite the one the reader is looking at.
+    const replies: Array<(library: IncidentPackLibrary) => void> = [];
+    setLimit.mockImplementation(
+      () =>
+        new Promise<IncidentPackLibrary>((resolve) => replies.push(resolve)),
+    );
+    render(<Harness start={DEFAULT_SETTINGS} />);
+    const slider = await screen.findByLabelText("Pack disk ceiling");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+
+    fireEvent.change(slider, { target: { value: "8192" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    fireEvent.change(slider, { target: { value: "16384" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(replies).toHaveLength(2);
+
+    // The second answer, then the first: the panel has to keep the second.
+    await act(async () => {
+      replies[1]({
+        packs: [],
+        usedBytes: 900 * 1024 * 1024,
+        diskLimitBytes: 16384 * 1024 * 1024,
+      });
+      await Promise.resolve();
+      replies[0]({
+        packs: [],
+        usedBytes: 100 * 1024 * 1024,
+        diskLimitBytes: 8192 * 1024 * 1024,
+      });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/900 MB used/)).toBeTruthy();
+  });
+
+  it("waits for the store to answer before writing anything back", async () => {
+    // The library starts with a ceiling of zero, which can never equal what
+    // the settings ask for, so comparing against it wrote the value back on
+    // mount whenever the first listing took longer than the debounce. It
+    // takes the same lock a download holds, so that is not a rare race.
+    listPacks.mockImplementation(
+      () =>
+        new Promise<IncidentPackLibrary>((resolve) =>
+          setTimeout(() => resolve(library([pack()])), 900),
+        ),
+    );
+    render(<Harness start={DEFAULT_SETTINGS} />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(setLimit).not.toHaveBeenCalled();
+  });
+});

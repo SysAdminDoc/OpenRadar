@@ -157,6 +157,59 @@ describe("a record the panel cannot read", () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
 
+  it("lets the newer read win when an older one lands last", async () => {
+    // The recap's read had no cancellation, so a slow reply could land after
+    // a newer one and put an older record back on screen. React 19 says
+    // nothing about a state write after unmount, so the guard has to be
+    // measured by what it keeps rather than by a warning.
+    const replies: Array<(rows: journal.JournalRow[]) => void> = [];
+    vi.spyOn(journal, "journalRows").mockImplementation(
+      () =>
+        new Promise<journal.JournalRow[]>((resolve) => replies.push(resolve)),
+    );
+    function Harness({ clock }: { clock: number }) {
+      const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+      return (
+        <SettingsPanel
+          settings={settings}
+          onSettings={setSettings}
+          onRemoved={vi.fn()}
+          autostart={false}
+          onAutostart={vi.fn()}
+          onWatchHere={vi.fn()}
+          onAddWatchPlace={vi.fn()}
+          onSendWatchTest={vi.fn()}
+          ambient={{ seen: null, dropped: false }}
+          onJournalSaved={vi.fn()}
+          onJournalFailed={vi.fn()}
+          onImportSettings={vi.fn()}
+          onStorageCleared={vi.fn()}
+          onStorageFailed={vi.fn()}
+          onJournalCleared={vi.fn()}
+          onJournalRemoved={vi.fn()}
+          onChooseSound={vi.fn()}
+          clock={clock}
+          onReset={vi.fn()}
+          onExportSettings={vi.fn()}
+          placeLightning={[]}
+          onClose={vi.fn()}
+        />
+      );
+    }
+    const { rerender } = render(<Harness clock={0} />);
+    rerender(<Harness clock={60_000} />);
+    expect(replies).toHaveLength(2);
+
+    // The second answer first, then the first: the panel keeps the second.
+    await act(async () => {
+      replies[1]([]);
+      await Promise.resolve();
+      replies[0]([ROW]);
+      await Promise.resolve();
+    });
+    expect(screen.getAllByText(en["journal.empty"]).length).toBeGreaterThan(0);
+  });
+
   it("reads the record once a minute rather than twice", async () => {
     // Both sections are keyed on the same clock and both used to read the
     // whole file for themselves: two passes over a four megabyte JSONL every
@@ -212,6 +265,25 @@ describe("a record the panel cannot read", () => {
  * map or a network to reach the state worth checking, and the question here is
  * whether the code has a branch for it at all.
  */
+describe("the ages on the diagnostics panel", () => {
+  it("are driven by a clock rather than by whatever re-renders next", () => {
+    // `ageLabel` reads `Date.now()` at render and the panel subscribed to
+    // nothing, so a quiet source sat on "3 minutes ago" until something
+    // unrelated moved. Read from the source, because a test that mounted the
+    // panel and advanced a timer would pass on any hook that happens to
+    // re-render, including one that does not tick.
+    const source = readFileSync(
+      join(import.meta.dirname, "UtilityPanels.tsx"),
+      "utf8",
+    );
+    const at = source.indexOf("export function MorePanel");
+    expect(at).toBeGreaterThan(-1);
+    const rest = source.slice(at);
+    const body = rest.slice(0, rest.search(/\n(export |function )/));
+    expect(body).toContain("useMinuteClock()");
+  });
+});
+
 describe("panels that wait", () => {
   it("holds a waiting state rather than an empty one", () => {
     const source = readFileSync(

@@ -750,10 +750,18 @@ export default function App() {
   useEffect(() => {
     let stop: (() => void) | null = null;
     let alive = true;
-    void whenGlanceOpens(() => setGlanceOpen(true)).then((unlisten) => {
-      if (alive) stop = unlisten;
-      else unlisten();
-    });
+    void whenGlanceOpens(() => setGlanceOpen(true))
+      .then((unlisten) => {
+        if (alive) {
+          stop = unlisten;
+          return;
+        }
+        // Unmounted before the listener was registered, so let it go at once.
+        unlisten();
+      })
+      .catch(() => {
+        // No bridge to listen through, which is every browser preview.
+      });
     return () => {
       alive = false;
       stop?.();
@@ -823,9 +831,19 @@ export default function App() {
     awaySince.current = settingsRef.current.lastSeen;
     if (!settingsRef.current.catchUp) return;
     const since = awaySince.current;
-    void journalRows().then((rows) => {
-      setCatchUp(catchUpFrom(rows, since, Date.now()));
-    });
+    void journalRows()
+      .then((rows) => {
+        setCatchUp(catchUpFrom(rows, since, Date.now()));
+      })
+      .catch((failure: unknown) => {
+        // A record that cannot be read is a launch with nothing to catch up
+        // on, which is what a reader who has no record sees anyway. Left
+        // uncaught it was an unhandled rejection with no card and no line.
+        log.warn(
+          "catch-up",
+          failure instanceof Error ? failure.message : String(failure),
+        );
+      });
   }, [hydrated, settingsRef]);
 
   // Written while the window is open rather than on the way out. A process
@@ -1725,12 +1743,17 @@ export default function App() {
    * put the tool away and erased the reader's measurement, three things they
    * asked for one of.
    *
-   * A full-screen mode goes first and takes nothing else with it. Both of
-   * them promise the workspace comes back exactly as it was, panel and tool
-   * included, so one press leaves the mode and the next press is about the
-   * workspace underneath. This used to return without doing anything, under a
-   * comment saying the press was already what left them: it was not. The only
-   * way out was a 30 by 26 button, and only while it happened to hold focus.
+   * A full-screen mode goes first and takes nothing else with it: one press
+   * leaves the mode, and the next press is about the workspace underneath.
+   *
+   * This used to return without doing anything, under a comment saying the
+   * press was already what left them. It was not. Entering either mode from
+   * the command list clears the tool and the surface on the way in, so there
+   * was nothing for the press to fall through to and nothing to protect; what
+   * there was, was no way out but a 30 by 26 button, and only while it
+   * happened to hold focus. A view entered by the idle timer did leave on any
+   * key, because any key is what resets the idle clock; one asked for
+   * deliberately did not leave on anything.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
