@@ -249,6 +249,7 @@ interface PanelSurfacesProps {
   onStorageFailed: (why: string) => void;
   onOpenLogFolder: () => void;
   onCopyDiagnostics: (withPlace: boolean) => void;
+  onReportIssue: (withPlace: boolean) => void;
   hasWatchedPlace: boolean;
   onReset: () => void;
   onExportSettings: () => Promise<void>;
@@ -515,6 +516,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
           log={props.log}
           onOpenLogFolder={props.onOpenLogFolder}
           onCopyDiagnostics={props.onCopyDiagnostics}
+          onReportIssue={props.onReportIssue}
           hasWatchedPlace={props.hasWatchedPlace}
           onClose={onClose}
         />

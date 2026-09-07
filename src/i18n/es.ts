@@ -657,6 +657,10 @@ export const es: Catalogue = {
   "diagnostics.openLogs": "Abrir la carpeta de registros",
   "diagnostics.forget": "Olvidar el historial de fuentes",
   "diagnostics.forgot": "Olvidado. Los informes nuevos empiezan aquí.",
+  "diagnostics.report": "Copiar y abrir un informe",
+  "diagnostics.reportFailed": "No se pudo abrir la página del informe",
+  "diagnostics.reportFailedDetail":
+    "El bloque está en el portapapeles. Abra el formulario en la página del proyecto y péguelo.",
   "diagnostics.copy": "Copiar para un informe de fallo",
   "diagnostics.whatIsCopied":
     "El informe lleva la versión de la app, el renderizador y la plataforma de esta máquina, qué fuentes respondieron, qué hay guardado en disco y el registro reciente. Las coordenadas del registro se redondean a un kilómetro aproximado y los nombres de cuenta se quitan de las rutas de archivo.",

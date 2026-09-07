@@ -431,3 +431,26 @@ export function diagnosticsBlock(input: DiagnosticsInput): string {
     : "Log:";
   return [...head, "", header, ...logged].join("\n");
 }
+
+/** Where a report goes, and the one issue form this repository offers. */
+const ISSUE_FORM = "https://github.com/SysAdminDoc/OpenRadar/issues/new";
+const ISSUE_TEMPLATE = "bug_report.yml";
+
+/**
+ * The address of a new report, with the form chosen and the version in the
+ * title.
+ *
+ * The block itself goes on the clipboard rather than into the address. A
+ * GitHub issue URL is a GET, so everything in it travels through the
+ * browser's history and whatever sits between here and there, and the block
+ * carries this machine's renderer, its sources and forty lines of log. It is
+ * also thousands of characters, which is past what several browsers will
+ * open. So the address names the form and the version and nothing else, and
+ * the reader pastes.
+ */
+export function issueUrl(version: string): string {
+  const url = new URL(ISSUE_FORM);
+  url.searchParams.set("template", ISSUE_TEMPLATE);
+  url.searchParams.set("title", `OpenRadar ${version}: `);
+  return url.toString();
+}

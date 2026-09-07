@@ -190,7 +190,9 @@ So a build on macOS or Linux may well work, and it is untested and unsupported. 
 
 ## Reporting something that is wrong
 
-Open **Diagnostics** in the app and press **Copy**, then open an issue and paste the block in with what you did and what you expected. The [issue form](https://github.com/SysAdminDoc/OpenRadar/issues/new/choose) asks for both.
+Open **Diagnostics** in the app and press **Copy and open a report**. That puts the block on your clipboard and opens the [issue form](https://github.com/SysAdminDoc/OpenRadar/issues/new/choose) with the version already filled in, so all that is left is to paste and say what you did and what you expected. **Copy** on its own is still there if you would rather not open a browser.
+
+The block stays on the clipboard rather than travelling in the address, on purpose. A link carries its contents through your browser history and everything between here and GitHub, and this one would be carrying your renderer, your sources and forty lines of log.
 
 What the block contains: the version, this machine's renderer and platform, which sources answered and what they failed with, what is held on disk, a count of the recent warnings and errors by area, and the last forty log lines. What it does not contain: your watched place, your routes, your account name, or full file paths. Coordinates in the log are rounded to about a kilometre and account names are cut out of paths before anything reaches the clipboard. If where you are is part of the problem, there is a switch beside the Copy button that adds your watched place, still rounded.
 

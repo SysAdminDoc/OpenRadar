@@ -12,10 +12,12 @@ function diagnostics(
     log?: Array<{ at: number; level: string; scope: string; message: string }>;
     hasWatchedPlace?: boolean;
     onCopyDiagnostics?: (withPlace: boolean) => void;
+    onReportIssue?: (withPlace: boolean) => void;
   } = {},
 ) {
   return (
     <MorePanel
+      onReportIssue={overrides.onReportIssue ?? vi.fn()}
       onClose={vi.fn()}
       update={{ status: "idle" } as never}
       onUpdate={null}
@@ -151,5 +153,24 @@ describe("the upload panel", () => {
     render(upload([table("My reflectivity")]));
     expect(screen.getByText(en["upload.libraryHeading"])).toBeTruthy();
     expect(screen.getByText(/My reflectivity/)).toBeTruthy();
+  });
+});
+
+describe("opening a report from the diagnostics panel", () => {
+  it("copies the block and opens the form in one press", () => {
+    // Two halves of one act. The block cannot travel in the address, so the
+    // press has to do both or the reader arrives at an empty form.
+    const onReportIssue = vi.fn();
+    render(diagnostics({ onReportIssue }));
+
+    const button = screen.getByRole("button", {
+      name: en["diagnostics.report"],
+    });
+    fireEvent.click(button);
+
+    expect(onReportIssue).toHaveBeenCalledTimes(1);
+    // The argument is whether the reader asked for their watched place, which
+    // is off until they say so, the same as the Copy button beside it.
+    expect(onReportIssue).toHaveBeenCalledWith(false);
   });
 });
