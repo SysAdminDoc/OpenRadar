@@ -3,6 +3,7 @@ import {
   Download,
   FileUp,
   ClipboardCopy,
+  ExternalLink,
   FolderOpen,
   Info,
   ShieldCheck,
@@ -163,6 +164,13 @@ interface MorePanelProps extends CloseOnlyProps {
    * watched place to be in it, which is off until they say so.
    */
   onCopyDiagnostics: (withPlace: boolean) => void;
+  /**
+   * Copies the report and opens a new issue with the form and the version
+   * already chosen. Two things at once because they are one act, and the
+   * report is on the clipboard rather than in the address for a reason the
+   * URL builder writes out.
+   */
+  onReportIssue: (withPlace: boolean) => void;
   /** Whether there is a watched place to offer in the first place. */
   hasWatchedPlace: boolean;
 }
@@ -193,6 +201,7 @@ export function MorePanel({
   log,
   onOpenLogFolder,
   onCopyDiagnostics,
+  onReportIssue,
   hasWatchedPlace,
 }: MorePanelProps) {
   const t = useT();
@@ -285,6 +294,9 @@ export function MorePanel({
           <span>{t("diagnostics.recentEvents")}</span>
           <button type="button" onClick={() => onCopyDiagnostics(withPlace)}>
             <ClipboardCopy size={14} /> {t("diagnostics.copy")}
+          </button>
+          <button type="button" onClick={() => onReportIssue(withPlace)}>
+            <ExternalLink size={14} /> {t("diagnostics.report")}
           </button>
           <button type="button" onClick={onOpenLogFolder}>
             <FolderOpen size={14} /> {t("diagnostics.openLogs")}

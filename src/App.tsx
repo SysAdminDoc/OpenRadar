@@ -178,6 +178,7 @@ import type {
   RadarSettings,
 } from "./lib/settings";
 import {
+  APP_VERSION,
   watchedPlaces,
   isDesktopRuntime,
   withPalette,
@@ -198,7 +199,7 @@ import {
 } from "./i18n";
 import { fetchVwp, vwpAvailable } from "./lib/vwp";
 import type { SpcHazard } from "./lib/overlays/registry";
-import { diagnosticsBlock } from "./lib/diagnostics";
+import { diagnosticsBlock, issueUrl } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
 import {
   overlayProvenance,
@@ -2097,6 +2098,29 @@ export default function App() {
     ],
   );
 
+  // Copy the block, then open the form. The block goes on the clipboard
+  // rather than into the address, because a GitHub issue URL is a GET: its
+  // query travels through history and every hop between here and there,
+  // and this one would be carrying the renderer, the sources and forty
+  // lines of log. It is also far past the length several browsers will
+  // open.
+  const reportIssue = useCallback(
+    (withPlace: boolean) => {
+      copyDiagnostics(withPlace);
+      void import("@tauri-apps/plugin-opener")
+        .then((opener) => opener.openUrl(issueUrl(APP_VERSION)))
+        .catch(() => {
+          // A build with no bridge to a browser still has the block on the
+          // clipboard, which is the half that cannot be done by hand.
+          pushToast({
+            title: translate("diagnostics.reportFailed"),
+            detail: translate("diagnostics.reportFailedDetail"),
+          });
+        });
+    },
+    [copyDiagnostics, pushToast],
+  );
+
   // Loading a colour table is work: a file found, opened and dropped on the
   // window. Removing one was the action that threw that away with nothing to
   // say so and no way back.
@@ -2904,6 +2928,7 @@ export default function App() {
             notifications={notifications}
             onOpenLogFolder={actions.openLogFolder}
             onCopyDiagnostics={copyDiagnostics}
+            onReportIssue={reportIssue}
             hasWatchedPlace={settings.watch.enabled}
             onReset={actions.resetSettings}
             almanac={settings.almanac && !overlays.alertActive}

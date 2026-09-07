@@ -3,6 +3,7 @@ import {
   blurCoordinates,
   blurUserPaths,
   diagnosticsBlock,
+  issueUrl,
   redact,
 } from "./diagnostics";
 
@@ -559,5 +560,34 @@ describe("whether anything starts the app after a reboot", () => {
     // The crash screen builds a report with no app left to ask. A line
     // claiming the answer is no would be a statement it cannot make.
     expect(diagnosticsBlock(base())).not.toContain("Starts with the machine");
+  });
+});
+
+describe("opening a report", () => {
+  it("names the form and the version, and carries nothing about the machine", () => {
+    const url = issueUrl("0.11.0");
+    expect(
+      url.startsWith("https://github.com/SysAdminDoc/OpenRadar/issues/new"),
+    ).toBe(true);
+    const query = new URL(url).searchParams;
+    expect(query.get("template")).toBe("bug_report.yml");
+    expect(query.get("title")).toBe("OpenRadar 0.11.0: ");
+    // Nothing else at all. The block goes on the clipboard, because a GET
+    // carries its query through history and every hop in between, and this
+    // one would be carrying the log.
+    expect([...query.keys()].sort()).toEqual(["template", "title"]);
+  });
+
+  it("points at a form this repository actually offers", async () => {
+    // A template name is a file name. Renaming the form without renaming it
+    // here opens a blank issue with no fields, which reads as the app being
+    // broken rather than as a stale link.
+    const { existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const named = new URL(issueUrl("0.0.0")).searchParams.get("template")!;
+    expect(
+      existsSync(join(process.cwd(), ".github", "ISSUE_TEMPLATE", named)),
+      `.github/ISSUE_TEMPLATE/${named} does not exist`,
+    ).toBe(true);
   });
 });

@@ -646,6 +646,10 @@ export const en = {
   "diagnostics.openLogs": "Open log folder",
   "diagnostics.forget": "Forget source history",
   "diagnostics.forgot": "Forgotten. New reports start from here.",
+  "diagnostics.report": "Copy and open a report",
+  "diagnostics.reportFailed": "The report page could not be opened",
+  "diagnostics.reportFailedDetail":
+    "The block is on your clipboard. Open the issue form on the project page and paste it in.",
   "diagnostics.copy": "Copy for a bug report",
   "diagnostics.whatIsCopied":
     "The report carries the app version, this machine's renderer and platform, which sources answered, what is held on disk, and the recent log. Coordinates in the log are rounded to about a kilometre and account names are taken out of file paths.",

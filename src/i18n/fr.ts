@@ -666,6 +666,10 @@ export const fr: Catalogue = {
   "diagnostics.openLogs": "Ouvrir le dossier des journaux",
   "diagnostics.forget": "Oublier l'historique des sources",
   "diagnostics.forgot": "Oublié. Les prochains rapports partent d'ici.",
+  "diagnostics.report": "Copier et ouvrir un rapport",
+  "diagnostics.reportFailed": "La page du rapport n'a pas pu être ouverte",
+  "diagnostics.reportFailedDetail":
+    "Le bloc est dans le presse-papiers. Ouvrez le formulaire sur la page du projet et collez-le.",
   "diagnostics.copy": "Copier pour un rapport de bogue",
   "diagnostics.whatIsCopied":
     "Le rapport contient la version de l'application, le moteur de rendu et la plateforme de cet ordinateur, les sources qui ont répondu, ce qui est gardé sur le disque et le journal récent. Les coordonnées du journal sont arrondies au kilomètre près et les noms de compte sont retirés des chemins de fichiers.",
