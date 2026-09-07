@@ -51,6 +51,10 @@ mod window_geometry;
 /// shipped library exports exactly what it did before.
 #[cfg(feature = "fuzzing")]
 pub mod fuzzing {
+    pub use crate::bundles::read_bundle;
+    /// Renamed on the way out. `MAGIC` says nothing on its own in a fuzz
+    /// target that also reaches three other decoders.
+    pub use crate::bundles::MAGIC as BUNDLE_MAGIC;
     pub use crate::gfs::{decode_complex, decode_message};
     pub use crate::hrrr::{parse_grid, read_message};
     pub use crate::level2::{scan_volume, Level2Error};

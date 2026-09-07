@@ -274,13 +274,13 @@ The Rust suite has a second half that reaches the live NOAA buckets and is skipp
 
 Every binary format this app reads arrives from a public server, and none of it is a format you get to choose. Level II, GRIB2 in two packings decoded here by hand, and NetCDF-4 on top of HDF5. The bug worth finding is not a wrong picture, it is a panic or an unbounded allocation in length arithmetic reached from bytes somebody else sent, which in an app that fetches on a timer is a remote denial of service.
 
-`src-tauri/fuzz` holds one target per entry point: `level2_volume`, `grib_message`, `grib_complex`, `mrms_grib`, `level3_message` and `netcdf_flashes`. They need a nightly toolchain and the Visual Studio AddressSanitizer component, which the C++ build tools install as `clang_rt.asan_dynamic-x86_64`:
+`src-tauri/fuzz` holds one target per entry point: `level2_volume`, `grib_message`, `grib_complex`, `mrms_grib`, `level3_message`, `netcdf_flashes` and `orb_bundle`. The last of those is the odd one out, because a replay bundle is not a file a server sent. It is a file another person handed you, and it carries the manifest's own lengths, each entry's address and body lengths, and a content type that rides back out as an HTTP header. They need a nightly toolchain and the Visual Studio AddressSanitizer component, which the C++ build tools install as `clang_rt.asan_dynamic-x86_64`:
 
 ```powershell
 rustup toolchain install nightly
 cargo install cargo-fuzz
 cd src-tauri
-cargo +nightly fuzz build                             # all six
+cargo +nightly fuzz build                             # all seven
 cargo +nightly fuzz run mrms_grib -- -max_total_time=3600 -rss_limit_mb=4096
 ```
 
@@ -293,7 +293,7 @@ them died on an allocation of a few hundred kilobytes, which reads exactly like
 a real finding and is not. Replay any artifact in a fresh process before
 believing it.
 
-Seeds are committed under `fuzz/seeds`, written by two ignored tests that build them from the same fixtures the unit tests use, so they can be rebuilt when a fixture changes. Copy them into `fuzz/corpus/<target>` before a session; that directory is where libFuzzer grows its own corpus and is not committed, because the seeds are what is worth keeping and a hundred thousand mutations are not.
+Seeds are committed under `fuzz/seeds`, written by three ignored tests that build them from the same fixtures the unit tests use, so they can be rebuilt when a fixture changes. The bundle's seeds carry an extra job: that reader checks a SHA-256 over the whole file before it parses a byte of it, so the target frames what it is handed as a body and appends the checksum that body needs. Without that, every input would stop at the door and the layout underneath would never be reached. Copy them into `fuzz/corpus/<target>` before a session; that directory is where libFuzzer grows its own corpus and is not committed, because the seeds are what is worth keeping and a hundred thousand mutations are not.
 
 ```powershell
 cargo test --lib writes_the_fuzz_seed_corpus -- --ignored
