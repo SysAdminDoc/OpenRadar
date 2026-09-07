@@ -18,6 +18,8 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, VecDeque};
 
+use crate::vad;
+
 /// How far two touching gates may read apart and still be one piece of air,
 /// as a fraction of the Nyquist velocity.
 ///
@@ -39,6 +41,21 @@ const CONTINUITY: f32 = 0.5;
 /// A patch has to be worth listening to before it is allowed to move its
 /// neighbours. Anything smaller is shifted by whatever it is attached to.
 const MIN_REGION_GATES: usize = 10;
+
+/// How many range rings the ambient wind is fitted from.
+///
+/// Rings rather than the sweep at once, because a tilted beam climbs as it
+/// goes out and the wind turns with height, which is the whole reason a wind
+/// profile is a profile. Spread evenly across the sweep and cheap: two dozen
+/// rings of a few hundred gates against the hundred thousand the sweep holds.
+const REFERENCE_RINGS: usize = 24;
+
+/// How much of a patch has to agree on which interval it belongs in before
+/// the wind is taken as evidence about that patch.
+///
+/// A patch whose gates cannot agree is not one piece of air, and placing it
+/// anywhere would be a guess dressed as a reading.
+const REFERENCE_AGREEMENT: f64 = 0.6;
 
 /// One gate's place in the sweep: which radial, and how far along it.
 fn index(azimuth: usize, gate: usize, gates: usize) -> usize {
@@ -127,19 +144,93 @@ impl Edge {
     }
 }
 
+/// Where a sweep's radials point, how long they are, and how far up the cut
+/// is tilted.
+///
+/// Grouped because the three always travel together and the reference pass
+/// needs all of them: without an azimuth in degrees and a tilt there is no
+/// way to say what a gate ought to read.
+struct Geometry<'a> {
+    azimuth_degrees: &'a [f32],
+    gates: usize,
+    elevation_degrees: f32,
+}
+
+/// The ambient wind, fitted from the gates the boundaries already settled.
+///
+/// The patches reached from the root are consistent with each other whatever
+/// interval the picture as a whole landed in, so a wave fitted through them
+/// says what any other gate in the same air ought to read. That is the
+/// reference field Py-ART reaches for when the regions do not connect, built
+/// here out of the profile fit this app already carries rather than a
+/// sounding it would have to fetch.
+///
+/// `None` when no ring can be trusted, which is the honest answer for a sweep
+/// with too little settled echo to say anything about the sky.
+fn reference_wind(
+    values: &[f32],
+    valid: &[bool],
+    region: &[usize],
+    shift: &[Option<i32>],
+    sweep: &Geometry<'_>,
+    interval: f32,
+) -> Option<vad::Wind> {
+    let gates = sweep.gates;
+    let mut winds = Vec::with_capacity(REFERENCE_RINGS);
+    for ring in 0..REFERENCE_RINGS {
+        // Spread across the sweep and never at either end: the first gates
+        // are inside the radar's own clutter and the last are where the beam
+        // has climbed out of the weather.
+        let gate = gates * (ring * 2 + 1) / (REFERENCE_RINGS * 2);
+        let mut samples = Vec::with_capacity(sweep.azimuth_degrees.len());
+        for (index, azimuth) in sweep.azimuth_degrees.iter().enumerate() {
+            let at = index * gates + gate;
+            if !valid[at] {
+                continue;
+            }
+            let label = region[at];
+            if label == usize::MAX {
+                continue;
+            }
+            // Read as the traversal placed it, not as the radar reported it.
+            let Some(by) = shift[label] else { continue };
+            samples.push((*azimuth, values[at] + interval * by as f32));
+        }
+        let Some(fit) = vad::fit_ring_checked(&samples, sweep.elevation_degrees) else {
+            continue;
+        };
+        // The profile's own bar, deliberately, and it is not too high for
+        // this. Relaxing it to "enough gates and a small residual" was tried
+        // on 2026-09-07 and it is what a poorly conditioned fit looks like:
+        // on KTLX of the 3rd the settled gates covered 34 to 118 radials of
+        // 720, all down one side, and each ring fitted them beautifully at a
+        // residual under 1.9 m/s while saying nothing true about the rest of
+        // the circle. That run took the sweep from 3,913 broken pairs to
+        // 4,227, worse than it found it, which is the one thing this must
+        // never do. A wave through a sixth of a circle is not a wind.
+        if fit.trusted() {
+            winds.push(fit.wind);
+        }
+    }
+    vad::median_wind(&winds)
+}
+
 /// Shifts whole patches of a velocity sweep back onto the flow they belong to.
 ///
 /// `values` is the sweep laid out radial by radial, `valid` marks the gates
-/// that hold a reading at all, and `nyquist` is the velocity the radar folds
-/// at. Returns how many gates were moved, which is zero for a sweep that never
-/// folded in the first place.
+/// that hold a reading at all, `azimuth_degrees` says where each radial
+/// points, and `nyquist` is the velocity the radar folds at. Returns how many
+/// gates were moved, which is zero for a sweep that never folded in the first
+/// place.
 pub fn dealias(
     values: &mut [f32],
     valid: &[bool],
-    azimuths: usize,
+    azimuth_degrees: &[f32],
     gates: usize,
     nyquist: f32,
+    elevation_degrees: f32,
 ) -> usize {
+    let azimuths = azimuth_degrees.len();
     if azimuths == 0 || gates == 0 || values.len() != azimuths * gates || !nyquist.is_finite() {
         return 0;
     }
@@ -260,8 +351,56 @@ pub fn dealias(
         }
     }
     // Anything still unplaced touches nothing that was settled: patches of
-    // their own, with no boundary to judge them by. Leaving them where they
-    // are is the honest answer.
+    // their own, with no boundary to judge them by.
+    //
+    // Leaving them where they are used to be the whole answer, and on a
+    // fragmented sweep that is most of the picture. Measured across 39
+    // station-days on 2026-09-01 to 09-07: KTLX on the 3rd grew 8,536 patches
+    // and the traversal reached 26 of them, so 73,254 of its 91,388 gates
+    // were left exactly as the radar folded them and the sweep came back as
+    // broken as it went in. Five of those 39 went the same way. A patch with
+    // no neighbour still has a sky above it, so the ones the boundaries could
+    // not reach are offered to the wind instead.
+    let sweep = Geometry {
+        azimuth_degrees,
+        gates,
+        elevation_degrees,
+    };
+    if let Some(wind) = reference_wind(values, valid, &region, &shift, &sweep, interval) {
+        let mut loose: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+        for at in 0..values.len() {
+            if !valid[at] {
+                continue;
+            }
+            let label = region[at];
+            if label == usize::MAX || shift[label].is_some() {
+                continue;
+            }
+            loose.entry(label).or_default().push(at);
+        }
+
+        for (label, members) in loose {
+            let mut votes: BTreeMap<i32, usize> = BTreeMap::new();
+            for &at in &members {
+                let azimuth = azimuth_degrees[at / gates];
+                let expected = wind.along_beam(azimuth, elevation_degrees);
+                let by = ((expected - values[at]) / interval).round() as i32;
+                *votes.entry(by).or_default() += 1;
+            }
+            // The interval most of the patch reads as, if most of it agrees.
+            // Ties go to the smaller move, the same way a boundary vote does.
+            let Some((&by, &agreed)) = votes
+                .iter()
+                .max_by_key(|(offset, count)| (**count, Reverse(offset.abs())))
+            else {
+                continue;
+            };
+            if (agreed as f64) < members.len() as f64 * REFERENCE_AGREEMENT {
+                continue;
+            }
+            shift[label] = Some(by);
+        }
+    }
 
     let mut moved = 0;
     for at in 0..values.len() {
@@ -286,6 +425,19 @@ mod tests {
     use super::*;
 
     const NYQUIST: f32 = 25.0;
+
+    /// The lowest cut of a real pattern, which is what every fixture here
+    /// stands for.
+    const ELEVATION: f32 = 0.5;
+
+    /// Where each radial of a fixture points, at even spacing round the
+    /// circle. The reference-field pass reads these; the boundary vote does
+    /// not care and never did.
+    fn pointing(azimuths: usize) -> Vec<f32> {
+        (0..azimuths)
+            .map(|at| at as f32 * 360.0 / azimuths as f32)
+            .collect()
+    }
 
     /// Wraps a true velocity the way the radar would report it.
     fn fold(value: f32, nyquist: f32) -> f32 {
@@ -355,7 +507,7 @@ mod tests {
             "the folded sweep should have a jump in it, worst was {before}"
         );
 
-        let moved = dealias(&mut values, &valid, 360, 200, NYQUIST);
+        let moved = dealias(&mut values, &valid, &pointing(360), 200, NYQUIST, ELEVATION);
         assert!(moved > 0, "nothing was shifted");
 
         // The flow is continuous again.
@@ -405,7 +557,14 @@ mod tests {
             "the quadrant should fold"
         );
 
-        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+        dealias(
+            &mut values,
+            &valid,
+            &pointing(azimuths),
+            gates,
+            NYQUIST,
+            ELEVATION,
+        );
 
         let after = worst_jump(&values, &valid, azimuths, gates);
         assert!(after < 1.0, "a jump of {after} m/s is left in the echo");
@@ -453,7 +612,14 @@ mod tests {
         for seed in 0..300u32 {
             let (mut values, valid) = generated_sweep(seed, azimuths, gates);
             let before = big_jumps(&values, &valid, azimuths, gates);
-            dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+            dealias(
+                &mut values,
+                &valid,
+                &pointing(azimuths),
+                gates,
+                NYQUIST,
+                ELEVATION,
+            );
             let after = big_jumps(&values, &valid, azimuths, gates);
             before_total += before;
             after_total += after;
@@ -526,7 +692,14 @@ mod tests {
         }
 
         let started = std::time::Instant::now();
-        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+        dealias(
+            &mut values,
+            &valid,
+            &pointing(azimuths),
+            gates,
+            NYQUIST,
+            ELEVATION,
+        );
         let took = started.elapsed();
         assert!(
             took < std::time::Duration::from_secs(5),
@@ -544,7 +717,14 @@ mod tests {
         let before = values.clone();
         let valid = vec![true; values.len()];
 
-        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+        dealias(
+            &mut values,
+            &valid,
+            &pointing(azimuths),
+            gates,
+            NYQUIST,
+            ELEVATION,
+        );
         assert_eq!(values, before, "a sweep inside the limit must not move");
     }
 
@@ -567,7 +747,14 @@ mod tests {
         let mut values: Vec<f32> = truth.iter().map(|value| fold(*value, NYQUIST)).collect();
         let valid = vec![true; values.len()];
 
-        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+        dealias(
+            &mut values,
+            &valid,
+            &pointing(azimuths),
+            gates,
+            NYQUIST,
+            ELEVATION,
+        );
 
         for azimuth in 0..azimuths {
             let next = (azimuth + 1) % azimuths;
@@ -596,7 +783,14 @@ mod tests {
         }
         let before = values.clone();
 
-        dealias(&mut values, &valid, azimuths, gates, NYQUIST);
+        dealias(
+            &mut values,
+            &valid,
+            &pointing(azimuths),
+            gates,
+            NYQUIST,
+            ELEVATION,
+        );
 
         for azimuth in 0..azimuths {
             for gate in 20..gates {
@@ -611,8 +805,109 @@ mod tests {
         let (mut values, valid, _) = folded_sweep(30, 20);
         let before = values.clone();
         for nyquist in [0.0, -5.0, f32::NAN] {
-            dealias(&mut values, &valid, 30, 20, nyquist);
+            dealias(&mut values, &valid, &pointing(30), 20, nyquist, ELEVATION);
             assert_eq!(values, before, "nyquist {nyquist} should be refused");
+        }
+    }
+    /// A sweep in a steady wind with an island of echo cut off from the rest.
+    ///
+    /// The body folds where the wind points straight down the beam, and the
+    /// two halves of it touch, so the boundary vote settles the whole thing.
+    /// The island sits past a band of empty gates at the azimuth where the
+    /// fold is deepest, touching nothing at all, which is the shape a boundary
+    /// vote has no answer for: there is no boundary.
+    ///
+    /// `body_azimuths` is how much of the circle the body covers. All of it
+    /// gives a ring a wave can be fitted through; a sliver does not, and the
+    /// difference is the whole question of whether the wind is evidence.
+    fn sweep_with_an_island(
+        speed: f32,
+        body_azimuths: usize,
+    ) -> (Vec<f32>, Vec<bool>, Vec<f32>, Vec<f32>) {
+        let azimuths = 360;
+        let gates = 200;
+        let pointing = pointing(azimuths);
+        let mut truth = vec![0.0f32; azimuths * gates];
+        let mut valid = vec![false; azimuths * gates];
+        for (index, azimuth) in pointing.iter().enumerate() {
+            let along = speed * azimuth.to_radians().sin();
+            for gate in 0..gates {
+                let body = gate < 80 && index < body_azimuths;
+                let island = (150..170).contains(&gate) && (85..95).contains(&index);
+                if !body && !island {
+                    continue;
+                }
+                let at = index * gates + gate;
+                truth[at] = along;
+                valid[at] = true;
+            }
+        }
+        let observed: Vec<f32> = truth.iter().map(|value| fold(*value, NYQUIST)).collect();
+        (observed, valid, truth, pointing)
+    }
+
+    /// Which gates the island holds.
+    fn island_gates() -> Vec<usize> {
+        (85..95)
+            .flat_map(|index| (150..170).map(move |gate| index * 200 + gate))
+            .collect()
+    }
+
+    #[test]
+    fn places_an_island_of_echo_against_the_wind_when_nothing_touches_it() {
+        // Thirty metres a second against a twenty-five limit, so the flow
+        // folds either side of the beam it points along and the unfolded arcs
+        // stay the largest patches, which is what keeps the root on the branch
+        // the radar actually read.
+        let (mut values, valid, truth, pointing) = sweep_with_an_island(30.0, 360);
+        let island = island_gates();
+
+        // The premise, asserted rather than assumed: the island is really
+        // there, and it really is a whole interval away from the truth.
+        assert!(island.iter().all(|at| valid[*at]));
+        assert!(
+            island
+                .iter()
+                .all(|at| (values[*at] - truth[*at]).abs() > NYQUIST),
+            "the island was not folded, so this test proves nothing"
+        );
+
+        dealias(&mut values, &valid, &pointing, 200, NYQUIST, ELEVATION);
+
+        for at in island {
+            assert!(
+                (values[at] - truth[at]).abs() < 0.001,
+                "gate {at} came back at {} rather than {}",
+                values[at],
+                truth[at]
+            );
+        }
+    }
+
+    #[test]
+    fn leaves_an_island_alone_when_the_sweep_cannot_say_what_the_wind_is() {
+        // The same island, with a body covering a sixth of the circle instead
+        // of all of it. A wave fitted through a sixth of a ring matches those
+        // gates beautifully and says nothing true about the rest, which is
+        // exactly what KTLX looked like on 2026-09-03: settled gates over 34
+        // to 118 radials of 720, residuals under 1.9 m/s, and a wind taken
+        // from them moved that sweep from 3,913 broken pairs to 4,227. Worse
+        // than it was found, which is the one thing this must never be.
+        let (mut values, valid, truth, pointing) = sweep_with_an_island(30.0, 60);
+        let island = island_gates();
+        let before: Vec<f32> = island.iter().map(|at| values[*at]).collect();
+
+        dealias(&mut values, &valid, &pointing, 200, NYQUIST, ELEVATION);
+
+        for (at, was) in island.iter().zip(before) {
+            assert!(
+                (values[*at] - was).abs() < 0.001,
+                "gate {at} was moved to {} on a sweep with no wind to move it by",
+                values[*at]
+            );
+            // And it is still wrong, which is the honest answer rather than a
+            // lucky one: nothing here knew where it belonged.
+            assert!((values[*at] - truth[*at]).abs() > NYQUIST);
         }
     }
 }
