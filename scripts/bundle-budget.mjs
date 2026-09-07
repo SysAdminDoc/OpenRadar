@@ -33,6 +33,11 @@ const DIST = resolve(process.cwd(), "dist");
  */
 const STATIC_FIRST_LOAD = ["favicon.png", "openradar-128.png"];
 const STATIC_GZIP_KB = 30;
+// PNG is already deflated, so gzipping it again buys nothing and can cost a
+// kilobyte. Raw is the number that actually moves when somebody re-exports an
+// icon at a larger size, and it was going unbudgeted while the gzip figure was
+// printed in its column.
+const STATIC_RAW_KB = 30;
 
 /**
  * One budget per chunk that matters, in kilobytes of the file itself and of
@@ -208,6 +213,7 @@ for (const budget of BUDGETS) {
 // The icons and anything else the pages name out of `public/`, which Vite
 // copies beside the chunks rather than into them.
 let staticGzip = 0;
+let staticRawBytes = 0;
 for (const name of STATIC_FIRST_LOAD) {
   let bytes;
   try {
@@ -219,7 +225,14 @@ for (const name of STATIC_FIRST_LOAD) {
     );
     continue;
   }
+  staticRawBytes += bytes.length;
   staticGzip += kilobytes(gzipSync(bytes).length);
+}
+const staticRaw = kilobytes(staticRawBytes);
+if (staticRaw > STATIC_RAW_KB) {
+  failures.push(
+    `the static assets are ${staticRaw} kB, over their ${STATIC_RAW_KB} kB budget.`,
+  );
 }
 if (staticGzip > STATIC_GZIP_KB) {
   failures.push(
@@ -230,9 +243,9 @@ firstLoadGzip += staticGzip;
 rows.push({
   name: "static",
   file: STATIC_FIRST_LOAD.join(" "),
-  raw: staticGzip,
+  raw: staticRaw,
   gzip: staticGzip,
-  budget: { gzip: STATIC_GZIP_KB },
+  budget: { raw: STATIC_RAW_KB, gzip: STATIC_GZIP_KB },
 });
 
 const width = Math.max(...rows.map((row) => row.name.length), 5);

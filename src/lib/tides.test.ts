@@ -196,6 +196,18 @@ describe("how many times a day the tide turns", () => {
     expect(tideRegime(turns(2, 12))).toBe("unknown");
     expect(tideRegime([])).toBe("unknown");
   });
+
+  it("says nothing through the band where the count cannot tell", () => {
+    // Sampled on 2026-09-07 across 44 stations of the bundled list against
+    // NOAA's own classification. Shell Island in Atchafalaya Bay is Diurnal
+    // and publishes 3.45 turns a day; station 8726436 is Mixed and publishes
+    // 3.17. Both sit between the clear cases, so neither answer would be
+    // right and the panel is better off silent.
+    expect(tideRegime(turns(13, 6.95))).toBe("unknown"); // 3.45 a day
+    expect(tideRegime(turns(11, 7.57))).toBe("unknown"); // 3.17 a day
+    // And a Diurnal station at the top of its own range, 2.88 a day.
+    expect(tideRegime(turns(12, 8.33))).toBe("unknown");
+  });
 });
 
 /**
@@ -215,7 +227,12 @@ live("against NOAA itself", () => {
     expect(found).not.toBeNull();
 
     const reading = await fetchTides(found!.station, found!.distanceMiles);
-    expect(reading.extremes.length).toBeGreaterThan(4);
+    // Enough to alternate, and no more of a claim than that. This asked for
+    // more than four until 2026-09-07, which is the Atlantic assumption this
+    // test was rewritten to remove, and it sat ahead of the regime-aware
+    // floor below where it made that floor unreachable: anything clearing
+    // "more than four" clears "at least two" on the way past.
+    expect(reading.extremes.length).toBeGreaterThan(1);
 
     // A tide goes high, low, high, low. Two of the same in a row means the
     // rows were read in the wrong order or the type column was misread.
@@ -250,25 +267,28 @@ live("against NOAA itself", () => {
     const noaaType = String(
       ((await described.json()) as { stations?: { tideType?: unknown }[] })
         .stations?.[0]?.tideType ?? "",
-    );
-    expect(noaaType, "NOAA no longer says what kind of tide this is").not.toBe(
-      "",
-    );
+    ).trim();
 
     // Diurnal is one high and one low a day, so three days is six or seven.
-    // Semidiurnal and Mixed both turn four times a day, and Mixed differs in
-    // the heights rather than the count.
-    const diurnal = noaaType === "Diurnal";
-    expect(reading.extremes.length).toBeGreaterThanOrEqual(diurnal ? 2 : 8);
+    // A station NOAA calls Mixed or Semi Diurnal turns four times a day.
+    // Everything else carries no floor: 24 of 44 stations sampled from the
+    // bundled list on 2026-09-07 publish no classification at all, which is
+    // a subordinate station rather than a service that has changed, and
+    // "Mixed Diurnal" showed up at both 1.92 and 3.93 turns a day.
+    const fourADay = noaaType === "Mixed" || /^Semi/.test(noaaType);
+    expect(reading.extremes.length).toBeGreaterThanOrEqual(fourADay ? 8 : 2);
     expect(reading.extremes.length).toBeLessThanOrEqual(30);
 
-    // And the shape read off the predictions agrees with the shape NOAA
-    // publishes for the station. Two answers from two endpoints: neither is
-    // derived from the other, so this is a real comparison rather than the
-    // count being checked against itself.
-    expect(tideRegime(reading.extremes)).toBe(
-      diurnal ? "diurnal" : "semidiurnal",
-    );
+    // And where the count is unambiguous it has to agree with NOAA. It is
+    // allowed to say nothing: the two labels overlap through a band in the
+    // middle, which is exactly why `tideRegime` refuses to answer there, so
+    // an "unknown" is the function working rather than failing.
+    const read = tideRegime(reading.extremes);
+    if (read !== "unknown" && (noaaType === "Diurnal" || fourADay)) {
+      expect(read, `NOAA calls ${found!.station.id} ${noaaType}`).toBe(
+        noaaType === "Diurnal" ? "diurnal" : "semidiurnal",
+      );
+    }
 
     // And the times are inside the window that was asked for.
     const first = reading.extremes[0].time;

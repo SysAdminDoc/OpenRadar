@@ -750,6 +750,21 @@ export default function App() {
   useEffect(() => {
     let stop: (() => void) | null = null;
     let alive = true;
+    // Letting go of a listener is asynchronous and it can fail, which is the
+    // part that took a while to see. `unlisten` from the event plugin returns
+    // a promise and reaches into `window.__TAURI_EVENT_PLUGIN_INTERNALS__` to
+    // do its work, so on a page without that object it rejects rather than
+    // throwing where the caller stands. Calling it as a bare statement drops
+    // that promise on the floor, which is where fifty of a green run's
+    // unhandled rejections came from. Both calls are chained now.
+    const release = (unlisten: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(() => unlisten())
+        .catch(() => {
+          // Nothing to do and nobody to tell. The listener is going away with
+          // the page either way, and a preview has no bridge to let go of.
+        });
+    };
     void whenGlanceOpens(() => setGlanceOpen(true))
       .then((unlisten) => {
         if (alive) {
@@ -757,14 +772,14 @@ export default function App() {
           return;
         }
         // Unmounted before the listener was registered, so let it go at once.
-        unlisten();
+        release(unlisten);
       })
       .catch(() => {
         // No bridge to listen through, which is every browser preview.
       });
     return () => {
       alive = false;
-      stop?.();
+      if (stop) release(stop);
     };
   }, []);
   // With no tray there is no way to have opened it, whatever the last answer
