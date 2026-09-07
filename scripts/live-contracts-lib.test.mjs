@@ -78,6 +78,53 @@ describe("the live contract list", () => {
     }
   });
 
+  it("names a native path that cargo can actually match tests against", () => {
+    // The check above resolves only the first segment of the filter, which is
+    // why it went on passing after 2026-09-05: `level2` was still a module,
+    // `level2::tests` had become `level2::decode::tests` and four siblings,
+    // and the contract matched nothing. It ran zero tests, reported itself
+    // skipped, and because a skipped required contract exits non-zero the
+    // only thing anyone saw was a red run with nothing failing in it.
+    for (const contract of LIVE_CONTRACTS) {
+      if (contract.kind !== "native") continue;
+      const [module, ...rest] = contract.filter.split("::").filter(Boolean);
+      const at = path.join(root, "src-tauri", "src", module);
+      // Walk the path one segment at a time, the way cargo reads it. Looking
+      // for the segment anywhere under the module instead is what let this
+      // pass: `level2/decode.rs` declares a `tests` module, so `level2::tests`
+      // looked resolvable while naming a module that does not exist.
+      let file = fs.existsSync(`${at}.rs`) ? `${at}.rs` : path.join(at, "mod.rs");
+      let dir = path.dirname(file);
+      for (const segment of rest) {
+        const text = fs.readFileSync(file, "utf8");
+        expect(
+          new RegExp(`\\b(mod|fn)\\s+${segment}\\b`).test(text),
+          `${contract.filter}: ${path.relative(root, file)} declares no ${segment}`,
+        ).toBe(true);
+        // A module in its own file means the next segment is read there. An
+        // inline one, and the test at the end of the path, stay put.
+        const beside = path.join(dir, `${segment}.rs`);
+        if (fs.existsSync(beside)) {
+          file = beside;
+          dir = path.dirname(beside);
+        }
+      }
+
+      // And the path has to reach an ignored test, or the contract asks the
+      // network for nothing however well it resolves.
+      const under = fs.existsSync(`${at}.rs`)
+        ? [`${at}.rs`]
+        : fs
+            .readdirSync(at)
+            .filter((name) => name.endsWith(".rs"))
+            .map((name) => path.join(at, name));
+      expect(
+        under.some((each) => fs.readFileSync(each, "utf8").includes("#[ignore")),
+        `${contract.filter} reaches no ignored test`,
+      ).toBe(true);
+    }
+  });
+
   it("requires the sources a release actually depends on", () => {
     const required = LIVE_CONTRACTS.filter((contract) => contract.required).map(
       (contract) => contract.id,
