@@ -25,6 +25,7 @@ import {
 import { log } from "../lib/log";
 import { saveFile } from "../lib/saveFile";
 import { figureLines, figuresFrom } from "../lib/figures";
+import { useLatestReply } from "../hooks/useLatestReply";
 
 /** Named so a remount of this panel finds the run that is already going. */
 const JOURNAL_EXPORT = "journal-export";
@@ -106,15 +107,16 @@ export function JournalSection({
     null,
   );
 
+  const latest = useLatestReply();
   const reload = onReload;
 
   // Where the file is, once. It cannot move while the panel is open, and it
   // was being asked for again on every tick of the clock beside the rows.
   useEffect(() => {
-    let alive = true;
+    const reply = latest();
     void journalPath()
       .then((path) => {
-        if (alive) setWhere(path);
+        if (reply.current()) setWhere(path);
       })
       .catch((failure: unknown) => {
         // A path nobody could read is a line this section leaves out, not a
@@ -124,12 +126,10 @@ export function JournalSection({
           "journal",
           failure instanceof Error ? failure.message : String(failure),
         );
-        if (alive) setWhere(null);
+        if (reply.current()) setWhere(null);
       });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    return reply.close;
+  }, [latest]);
 
   const shown = useMemo(
     () => filterJournal(rows, filter, clock),
