@@ -190,6 +190,45 @@ export async function fetchTides(
   };
 }
 
+/** How many times a day the tide turns where this station is. */
+export type TideRegime = "diurnal" | "semidiurnal" | "unknown";
+
+/**
+ * Which of the two shapes a stretch of coast has, read off the turns
+ * themselves.
+ *
+ * Most of the American coast turns four times a day and the Gulf of Mexico
+ * turns twice, which is a fact about the water rather than about the station
+ * being sparse. Without it a Gulf reader sees half as many rows as a Boston
+ * reader with nothing on screen to say why, and a test written on the Atlantic
+ * shape fails on the Gulf: the live contract asked for eight turns in three
+ * days and New Canal Station on Lake Pontchartrain published seven.
+ *
+ * NOAA classifies each station itself, as Diurnal, Semidiurnal or Mixed, and
+ * this is deliberately not that. It describes the predictions actually on
+ * screen, which is what the panel is naming, and it costs no second request.
+ * The two are held against each other in the live test rather than either
+ * being trusted to stand in for the other. Mixed counts as semidiurnal here
+ * because a mixed coast still turns four times a day; what differs is the
+ * heights, which the rows already show.
+ */
+export function tideRegime(extremes: readonly TideExtreme[]): TideRegime {
+  // Three turns is the fewest that can carry a rate at all, and a window
+  // shorter than a day cannot: two highs six hours apart say nothing about
+  // what the next three days do.
+  if (extremes.length < 3) return "unknown";
+  const span = extremes[extremes.length - 1].time - extremes[0].time;
+  const days = span / (24 * 3_600_000);
+  if (days < 1) return "unknown";
+  // Intervals rather than turns, because a window that starts and ends on a
+  // turn holds one more of them than it does gaps.
+  const perDay = (extremes.length - 1) / days;
+  // Measured on 2026-09-07 over the three days this app asks for: New Canal
+  // Station 1.94 a day, The Battery 3.87, San Francisco 3.81. Three sits in
+  // the gap with room on either side.
+  return perDay < 3 ? "diurnal" : "semidiurnal";
+}
+
 /** The next few turns of the tide, counted from a moment. */
 export function upcoming(
   extremes: readonly TideExtreme[],

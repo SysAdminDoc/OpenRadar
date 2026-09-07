@@ -2163,6 +2163,8 @@ export const fr: Catalogue = {
   "tides.unknown": "La demande de marée a échoué.",
   "tides.stationWithState": "{name}, {state}",
   "tides.distance": "à {miles} {unit} du milieu de la carte",
+  "tides.diurnal": "Ici, une marée haute et une marée basse par jour",
+  "tides.semidiurnal": "Ici, deux marées hautes et deux marées basses par jour",
   "tides.rising": "montante",
   "tides.falling": "descendante",
   "tides.high": "Haute",
