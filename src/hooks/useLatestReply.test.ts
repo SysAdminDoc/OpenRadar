@@ -105,6 +105,14 @@ describe("telling an older answer from the newest one", () => {
  * what half of them actually say. It shipped advertising that nobody could
  * roll their own again while being blind to the commonest spelling of exactly
  * that, and a clean run meant nothing. Add a name here before believing one.
+ *
+ * It then did the same thing twice: the list that replaced it called itself
+ * every name this codebase had actually used, and `open` was not on it. That
+ * is 30 effects across 16 files, more than every other spelling together, so
+ * for a second time the gate read clean while missing the majority of what it
+ * was looking for. Those 30 are correct as written, which is why they are a
+ * backlog and not a bug list, and `outstanding` below names every one of them
+ * so a new one cannot join them quietly. AUD-361 converts them.
  */
 describe("nobody rolls their own again", () => {
   /** Why each of these is not a reply to be dropped. */
@@ -139,6 +147,36 @@ describe("nobody rolls their own again", () => {
     ],
   ]);
 
+  /**
+   * The `open` guards written before this hook existed, which the gate could
+   * not see until 2026-09-07. Every one of them is correct as written, so
+   * converting them is AUD-361 rather than a fix. The list is exact in both
+   * directions: converting a file fails this until the file leaves the list,
+   * and a hand-rolled guard in a file that is not here fails it too.
+   *
+   * `src/App.tsx` is in both lists. The scan reads whole files, and that one
+   * holds an exempt listener handle as well as four of these, so neither list
+   * describes all of it on its own.
+   */
+  const outstanding = new Set([
+    "src/App.tsx",
+    "src/glance.tsx",
+    "src/hooks/useClassification.ts",
+    "src/hooks/useCuriosities.ts",
+    "src/hooks/useLightning.ts",
+    "src/hooks/useMrmsOverlays.ts",
+    "src/hooks/usePalette.ts",
+    "src/hooks/useProbSevere.ts",
+    "src/hooks/useRadarStatus.ts",
+    "src/hooks/useSingleSiteRadar.ts",
+    "src/hooks/useStormCells.ts",
+    "src/hooks/useWind.ts",
+    "src/panels/CuriositySection.tsx",
+    "src/panels/HistoryPanel.tsx",
+    "src/panels/IncidentPackManager.tsx",
+    "src/panels/SearchPanel.tsx",
+  ]);
+
   it("finds no hand-rolled run flag outside the ones that are not replies", async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");
     const { join, relative, sep } = await import("node:path");
@@ -156,10 +194,11 @@ describe("nobody rolls their own again", () => {
         if (name === "useLatestReply.ts") continue;
         const text = readFileSync(path, "utf8");
         if (
-          // Every name this codebase has actually used, and whitespace a
-          // formatter could take away. A name missing from this list is a
-          // hole in the gate rather than a file that is clean.
-          /\blet\s+(alive|live|active|current|mounted|cancelled|canceled|stale|done|running)\s*=\s*(true|false)\b/.test(
+          // Whitespace a formatter could take away, and every name that has
+          // turned up here so far. A name missing from this list is a hole in
+          // the gate rather than a file that is clean, which it has proved
+          // twice: once shipping without `mounted`, once without `open`.
+          /\blet\s+(alive|live|active|current|mounted|open|cancelled|canceled|stale|done|running)\s*=\s*(true|false)\b/.test(
             text,
           )
         ) {
@@ -171,14 +210,23 @@ describe("nobody rolls their own again", () => {
 
     for (const file of found) {
       expect(
-        allowed.has(file),
-        `${file} rolls its own "is this run still current" flag. Use useLatestReply, or add it here with the reason it is not a reply.`,
+        allowed.has(file) || outstanding.has(file),
+        `${file} rolls its own "is this run still current" flag. Use useLatestReply, or add it to the exemptions with the reason it is not a reply.`,
       ).toBe(true);
     }
     for (const [file, why] of allowed) {
       expect(
         found.has(file),
         `${file} is exempted for "${why}" and no longer has a flag at all. Drop it from the list.`,
+      ).toBe(true);
+    }
+    // The backlog only shrinks. A file converted off its hand-rolled guard
+    // leaves this list in the same commit, or the next reader is told there
+    // is more left to do than there is.
+    for (const file of outstanding) {
+      expect(
+        found.has(file),
+        `${file} is on the AUD-361 backlog and has no hand-rolled flag left. Drop it from the list.`,
       ).toBe(true);
     }
   });

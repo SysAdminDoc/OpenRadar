@@ -616,7 +616,7 @@ export const en = {
   "upload.forReflectivity": " · reflectivity",
   "upload.skipped": "{names} left out",
   "upload.savePalette": "Save as a file",
-  "upload.exportPalette": "Save {name} as a .pal file",
+  "upload.exportPalette": "Save as a file: {name}",
   "upload.paletteSaved": "{name} saved",
   "upload.paletteNotSaved": "That table could not be saved",
   "upload.clearPalette": "Remove",

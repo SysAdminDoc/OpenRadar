@@ -3360,6 +3360,14 @@ mod tests {
                 .expect("the composite would not fetch"),
         )
         .expect("the composite object is gzip");
+        // Once untimed first. This is the baseline every ratio below is taken
+        // against, and it was the first decode in the whole run: it paid the
+        // first-touch faults on a fresh 49-million-cell allocation, while the
+        // fine grids that get compared to it run afterwards against an
+        // allocation the process has already had and given back. That put the
+        // bias in the direction the test wanted, which is the one direction a
+        // measurement must never be wrong in.
+        decode_grib_to_fit(&coarse_plain, MAX_GRID_POINTS).expect("the composite decodes");
         let started = std::time::Instant::now();
         decode_grib_to_fit(&coarse_plain, MAX_GRID_POINTS).expect("the composite decodes");
         let coarse_decode = started.elapsed();
@@ -3503,9 +3511,16 @@ mod tests {
             // geometry a few lines down. This one catches the fold costing
             // more than it should, which is a different regression and the
             // reason the product is drawn from the folded grid at all.
+            // Four is headroom over a measured two, not a derivation, and
+            // saying otherwise was overclaiming: reading four source cells per
+            // output cell is only one of the terms in this timing. The inflate
+            // scales with the compressed object, which runs the other way here
+            // (the composite's 1.69 MB against the shear's 563 kB), and the
+            // section walk and the output allocation are the same on both
+            // sides. That is why the number measured is 2.07 and not 4.
             assert!(
                 decoded < coarse_decode * 4,
-                "{id} took {decoded:?} to decode against the composite's {coarse_decode:?}, which is more than the four to one the fold itself costs"
+                "{id} took {decoded:?} to decode against the composite's {coarse_decode:?}, which is past the headroom over the two to one this measures"
             );
             // And a ceiling, so a machine slow enough to make the ratio
             // meaningless still says something. Deliberately far above what

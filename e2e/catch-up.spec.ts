@@ -261,5 +261,12 @@ test("drops nothing on the floor when letting a listener go fails", async ({
   // resolved and so takes the "let it go at once" branch. The cleanup branch
   // beside it, and the two in `useWorkspaceActions`, are the same three lines
   // and are not covered here.
+  //
+  // That branch is genuinely covered, which is worth writing down because it
+  // is not obvious from the stub: `unregisterListener` throws where it stands,
+  // but Tauri's `_unlisten` is `async`, so the throw comes back as a rejected
+  // promise. Put the bare `void unlisten()` back at `App.tsx:794` and this
+  // fails, checked on 2026-09-07. `void` discards that promise instead of
+  // returning it, so the chain's own `.catch` never sees it.
   expect(await unhandledRejections(page)).toEqual([]);
 });

@@ -67,7 +67,8 @@ export const LIVE_CONTRACTS = [
     label: "Terminal radar station list",
     host: "api.weather.gov",
     kind: "native",
-    filter: "tdwr::tests::every_site_in_the_table_is_one_the_office_still_lists",
+    filter:
+      "tdwr::tests::every_site_in_the_table_is_one_the_office_still_lists",
     required: false,
   },
   {

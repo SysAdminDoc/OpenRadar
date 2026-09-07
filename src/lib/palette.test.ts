@@ -212,9 +212,44 @@ describe("writing a table back out", () => {
       ["Color: 5 4 233 231", "Scale: 1.0", "Offset: 0"].join("\n"),
       "extra.pal",
     )!;
-    expect(table.skipped.length).toBeGreaterThan(0);
-    const written = writePalette(table);
-    expect(written).not.toContain("Scale");
-    expect(written).not.toContain("Offset");
+    // Named, so the panel can say so before the reader sends the file on.
+    // Asserting the written file has no "Scale" in it proved nothing: no
+    // branch of the writer can emit one, so that assertion held for every
+    // input including the ones that do lose something.
+    expect(table.skipped).toContain("scale");
+    expect(table.skipped).toContain("offset");
+  });
+
+  it("names the alpha it drops from a four-channel table", () => {
+    // Color4 carries an alpha this app does not keep, which is invisible
+    // while the table stays here and not invisible at all once the file
+    // reaches somebody whose tool does read it. The colours still have to
+    // survive; the alpha alone goes, and the reader is told that it did.
+    const table = parsePalette(
+      ["Product: BR", "Color4: 5 4 233 231 128 1 159 244 64"].join("\n"),
+      "wide.pal",
+    )!;
+    expect(table.stops).toHaveLength(1);
+    expect(table.stops[0].color).toBe("#04e9e7");
+    expect(table.stops[0].toColor).toBe("#019ff4");
+    expect(table.skipped).toContain("color4 alpha");
+    expect(writePalette(table)).toContain("Color: 5 4 233 231 1 159 244");
+  });
+
+  it("reads a solid four-channel stop rather than dropping the band", () => {
+    // SolidColor4 reached none of the colour handling and fell through to
+    // the skipped list, which threw the stop away with it: a band missing
+    // from the ramp on the map, not only from an exported file.
+    const table = parsePalette(
+      ["Color: 5 4 233 231", "SolidColor4: 75 253 253 253 255"].join("\n"),
+      "solid.pal",
+    )!;
+    expect(table.stops).toHaveLength(2);
+    const solid = table.stops[1];
+    expect(solid.value).toBe(75);
+    expect(solid.color).toBe("#fdfdfd");
+    expect(solid.solid).toBe(true);
+    expect(solid.toColor).toBeNull();
+    expect(writePalette(table)).toContain("SolidColor: 75 253 253 253");
   });
 });

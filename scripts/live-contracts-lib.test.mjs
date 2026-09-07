@@ -85,24 +85,51 @@ describe("the live contract list", () => {
    * Null when the whole path resolves. A string when it does not, naming the
    * file that was being read and the segment it does not declare, because
    * "the filter is wrong" without those two is a morning of grep.
+   *
+   * This is a pre-flight check and not an oracle. It reads whole files rather
+   * than module bodies, so a segment declared anywhere in a file satisfies it
+   * even when cargo would look for it inside a different `mod` block, and it
+   * can say a filter resolves when cargo would still match nothing. What
+   * actually protects the gate is the runner counting the tests that ran and
+   * treating zero as a skip, which fails a required contract; this only turns
+   * that into a message naming the file and the segment instead of a silence.
    */
   function resolveFilter(filter) {
-    const [module, ...rest] = filter.split("::").filter(Boolean);
+    const segments = String(filter ?? "").split("::");
+    // A trailing `::` is how the level2 contract sweeps a whole module, so an
+    // empty last segment is fine. An empty one anywhere else is a typo that
+    // cargo matches nothing with, and dropping them quietly is how
+    // `mrms::::tests` used to come back clean.
+    const rest = segments.slice(1);
+    const module = segments[0];
+    if (!module) return "the filter names no module";
+    if (rest.slice(0, -1).some((segment) => !segment)) {
+      return `${filter} has an empty segment`;
+    }
     const at = path.join(root, "src-tauri", "src", module);
     let file = fs.existsSync(`${at}.rs`) ? `${at}.rs` : path.join(at, "mod.rs");
     let dir = path.dirname(file);
     if (!fs.existsSync(file)) return `there is no ${module} module`;
-    for (const segment of rest) {
+    for (const segment of rest.filter(Boolean)) {
       const text = fs.readFileSync(file, "utf8");
-      if (!new RegExp(`\\b(mod|fn)\\s+${segment}\\b`).test(text)) {
+      // Escaped, because a segment is text from the contract list and a stray
+      // bracket in it used to throw a SyntaxError out of the gate rather than
+      // return the message this promises.
+      const quoted = segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!new RegExp(`\\b(mod|fn)\\s+${quoted}\\b`).test(text)) {
         return `${path.relative(root, file)} declares no ${segment}`;
       }
       // Where the next segment is read. A module can name its own file with
       // `#[path]`, which every test module under `level2` does, and missing
       // that rejected a filter naming a test that genuinely exists: the walk
       // stayed in `decode.rs` and never looked at `decode_tests.rs`.
+      //
+      // Any other attributes may sit between the two. Every site in this tree
+      // writes `#[cfg(test)]` first and `#[path]` last, and requiring that
+      // order made the whole gate depend on which way round two lines of
+      // equally valid Rust happen to be.
       const declared = new RegExp(
-        `#\\[path\\s*=\\s*"([^"]+)"\\]\\s*(?:pub(?:\\([^)]*\\))?\\s+)?mod\\s+${segment}\\b`,
+        `#\\[path\\s*=\\s*"([^"]+)"\\]\\s*(?:#\\[[^\\]]*\\]\\s*)*(?:pub(?:\\([^)]*\\))?\\s+)?mod\\s+${quoted}\\b`,
       ).exec(text);
       const candidates = [
         declared ? path.join(dir, declared[1]) : null,
@@ -146,6 +173,42 @@ describe("the live contract list", () => {
       /declares no no_such_test_name/,
     );
     expect(resolveFilter("nosuchmodule::tests")).toMatch(/no nosuchmodule/);
+
+    // Nothing at all, which used to throw out of path.join rather than say
+    // what was wrong with it.
+    expect(resolveFilter("")).toMatch(/names no module/);
+    expect(resolveFilter("::")).toMatch(/names no module/);
+    expect(resolveFilter(undefined)).toMatch(/names no module/);
+
+    // An empty segment in the middle is a typo cargo matches nothing with.
+    // Dropping empties quietly is what let this come back clean.
+    expect(resolveFilter("mrms::::tests")).toMatch(/empty segment/);
+
+    // A segment is text off the contract list, so it cannot be spliced into a
+    // regex raw: this used to throw a SyntaxError out of the gate, and the
+    // wildcard used to resolve against a file it does not name.
+    expect(resolveFilter("mrms::tests::a(b")).toMatch(/declares no/);
+    expect(resolveFilter("mrms::.*")).toMatch(/declares no/);
+  });
+
+  it("finds a #[path] module whichever way round its attributes are", () => {
+    // The walk reads `#[path = "..."]` to follow a test module into its own
+    // file. Requiring that attribute to be the last one before `mod` made the
+    // gate depend on the order of two interchangeable lines: every site here
+    // writes `#[cfg(test)]` first, and swapping them is equally valid Rust
+    // that would have put the false reject this walk exists to prevent
+    // straight back.
+    const both = [
+      '#[cfg(test)]\n#[path = "decode_tests.rs"]\nmod tests;',
+      '#[path = "decode_tests.rs"]\n#[cfg(test)]\nmod tests;',
+    ];
+    const pattern = (segment) =>
+      new RegExp(
+        `#\\[path\\s*=\\s*"([^"]+)"\\]\\s*(?:#\\[[^\\]]*\\]\\s*)*(?:pub(?:\\([^)]*\\))?\\s+)?mod\\s+${segment}\\b`,
+      );
+    for (const text of both) {
+      expect(pattern("tests").exec(text)?.[1], text).toBe("decode_tests.rs");
+    }
   });
 
   it("names a native path that cargo can actually match tests against", () => {

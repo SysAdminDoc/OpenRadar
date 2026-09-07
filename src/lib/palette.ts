@@ -121,23 +121,38 @@ export function parsePalette(text: string, name: string): Palette | null {
       }
       continue;
     }
-    if (key === "color" || key === "solidcolor" || key === "color4") {
+    if (
+      key === "color" ||
+      key === "solidcolor" ||
+      key === "color4" ||
+      key === "solidcolor4"
+    ) {
       if (palette.stops.length >= MAX_STOPS) continue;
       const parts = numbers(rest);
       // Value, then a colour, and optionally a second colour to blend towards.
-      // Color4 carries an alpha after each colour, which is dropped: the layer
-      // has its own opacity and a palette fighting it helps nobody.
-      const width = key === "color4" ? 4 : 3;
+      // The four-channel spellings carry an alpha after each colour, which is
+      // dropped: the layer has its own opacity and a palette fighting it helps
+      // nobody. Dropping it is only invisible while the table stays here, so
+      // the alpha is named in `skipped`: saving the table back out is where
+      // the loss would otherwise leave with the file and turn up in somebody
+      // else's tool as an opaque band.
+      const wide = key === "color4" || key === "solidcolor4";
+      const width = wide ? 4 : 3;
       if (parts.length < 1 + width) continue;
+      if (wide) skipped.add("color4 alpha");
+      // `SolidColor4` used to reach none of this and fell through to the
+      // skipped list, which dropped the stop itself: a band missing from the
+      // ramp on the map, not only from the file.
+      const solid = key === "solidcolor" || key === "solidcolor4";
       const [value] = parts;
       const first = parts.slice(1, 4);
       const second = parts.slice(1 + width, 1 + width + 3);
       palette.stops.push({
         value,
         color: hex(first[0], first[1], first[2]),
-        solid: key === "solidcolor",
+        solid,
         toColor:
-          key !== "solidcolor" && second.length === 3
+          !solid && second.length === 3
             ? hex(second[0], second[1], second[2])
             : null,
       });
