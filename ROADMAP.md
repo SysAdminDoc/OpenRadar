@@ -383,7 +383,7 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 - [ ] AUD-346 (P3): Write the provenance into the picture itself
       Why: Every export writes a `-provenance.json` beside the picture, and the picture is the file that gets sent on, without the sidecar. PNG carries text chunks for exactly this, the `png` crate the exporter already uses exposes `add_itxt_chunk`, and a viewer or a script can then ask the picture what it is.
       Evidence: `README.md` "What the export record holds"; `src-tauri/src/exports.rs` (no text chunk written); https://docs.rs/png/latest/png/struct.Encoder.html (`add_text_chunk`, `add_ztxt_chunk`, `add_itxt_chunk`, png 0.18.1).
-      Touches: `src-tauri/src/exports.rs` (an `iTXt` chunk keyed `OpenRadar-Provenance` holding the same JSON), the export tests (read the chunk back), `README.md`.
+      Touches: `src/hooks/useExport.ts` and a new `src/lib/pngText.ts`, not `src-tauri/src/exports.rs`. Corrected 2026-09-07: the still is encoded by the browser and `save_export` only writes the bytes it is handed, so the `png` crate never sees the picture. The chunk has to go in on the frontend, where the blob and the provenance document are already in hand together, which means writing the `iTXt` chunk by hand: length, type, the keyword and the text, and a CRC-32 over both, inserted before `IEND`.
       Acceptance: A PNG export carries the provenance JSON in an `iTXt` chunk that `pngcheck` or the test's own reader returns byte for byte equal to the sidecar; the sidecar stays.
       Complexity: S
 
@@ -392,13 +392,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Evidence: `src/lib/settings.ts:2033` and `:2104` (parse paths, defaults on failure); https://learn.microsoft.com/en-us/windows/powertoys/general (2026-08-25); https://github.com/dpaulat/supercell-wx/issues/675.
       Touches: the settings store write path (`src/hooks/useSettings.ts` or the store plugin call), a `settings.previous.json` beside the live file, a toast with Undo on a failed parse, `e2e/storage.spec.ts`.
       Acceptance: A corrupt store file at launch restores the previous good one and says so; the corrupt file is kept renamed; a spec plants a corrupt file and finds the reader's places intact.
-      Complexity: S
-
-- [ ] AUD-354 (P3): Thin the lightning circles by zoom
-      Why: "I can't see the rain levels for some of those areas because of all the lightning strike symbols" (Bluesky, 2026-08-27). The flash layer draws every flash as a circle of the same radius at every zoom, so a national view under an active line is a sheet of dots over the reflectivity it is meant to sit on.
-      Evidence: https://bsky.app/profile/zakalwe2024.bsky.social/post/3mu3ovquftc2t ; `src/components/MapViewport.tsx:1255` (`"circle-radius": 3 * heavier`).
-      Touches: `src/components/MapViewport.tsx` (an `interpolate` on zoom for the radius and the opacity, or a heatmap layer below zoom 6), `e2e/lightning.spec.ts`.
-      Acceptance: At zoom 4 the flashes read as density rather than as discs and the reflectivity under them stays legible (a Playwright pixel sample finds ramp colours under a flash cluster); at zoom 9 each flash is a disc as today.
       Complexity: S
 
 - [ ] AUD-349 (P3): Snow-squall colour tables in the box
