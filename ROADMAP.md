@@ -357,13 +357,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: Either a defect in `dealias.rs` is found and fixed with the sweep that showed it kept as a fixture, or the per-station assertion is replaced by one that is stable across the recorded days, with those days' numbers written into the test. `npm run check:live` green either way.
       Complexity: M
 
-- [ ] AUD-338 (P2): Fuzz the `.orb` reader and the pack's PMTiles reader
-      Why: `bundles::read_bundle(bytes: &[u8])` is a pure function over a file somebody else made, and it is the one untrusted-file decoder in Rust with no fuzz target; the header injection fixed on 2026-09-05 (`AUD-326`) was found by reading, not by fuzzing. The incident pack reader hashes every tile before an atomic rename, which is the right shape, and has never been fuzzed either.
-      Evidence: `src-tauri/src/bundles.rs:468`; `src-tauri/fuzz/fuzz_targets` (`grib_complex`, `grib_message`, `level2_volume`, `level3_message`, `mrms_grib`, `netcdf_flashes`); `SECURITY.md` "Local files are parsed, not trusted"; the `last-input.bin` and `-rss_limit_mb` notes in `CLAUDE.md`.
-      Touches: `src-tauri/fuzz/fuzz_targets/orb_bundle.rs`, `src-tauri/fuzz/fuzz_targets/pmtiles_pack.rs`, `src-tauri/fuzz/Cargo.toml`, the `fuzzing` feature exports in `src-tauri/src/lib.rs`, a seed corpus from the test fixtures.
-      Acceptance: Both targets build and run for thirty minutes each with the corpus seeded, every artifact is replayed alone before being believed, findings are fixed or logged here with the input, and the README's fuzzing section names the two new targets.
-      Complexity: M
-
 - [ ] AUD-339 (P2): Draw the single-site sweep at the zoom the reader is at
       Why: The sweep is rendered once in Rust as a 1,024 pixel Mercator raster over a 460 km disc, 449 m per pixel against 250 m super-resolution gates, and placed on the map as one image source that MapLibre stretches. At zoom 12 (about 29 m per screen pixel at 40 degrees) one raster pixel covers fifteen screen pixels, so a reader zoomed in on a couplet is looking at the raster's grid, not the radar's. The national grids had exactly this defect until 2026-09-05, when `a9407d4` rendered them per zoom through the `mrms` scheme; the sweep can take the same road.
       Evidence: `src-tauri/src/level2/mod.rs:50` (`IMAGE_SIZE = 1024`), `:52` (`MAX_RANGE_KM = 230.0`); `src-tauri/src/level2/render.rs:23-70`; `src/components/MapViewport.tsx:1693` (`type: "image"`); https://maplibre.org/maplibre-gl-js/docs/API/classes/ImageSource/ ; commit `a9407d4`; https://github.com/wesleygrimes/omastorm (gates drawn as glyphs, 2026-09-04).

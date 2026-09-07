@@ -1002,6 +1002,34 @@ pub(crate) mod tests {
         (manifest(&entries), entries)
     }
 
+    /// Seeds for the `orb_bundle` fuzz target.
+    ///
+    /// The reader checks a SHA-256 over the whole file before it parses
+    /// anything, so the target frames what it is given as a body and appends
+    /// the checksum that body needs. That is what the `body` seed is: a real
+    /// bundle with the magic and the checksum taken off, so a mutation of it
+    /// lands in the manifest and the entry table rather than on the door.
+    /// `whole` is the file as written, which is the other pass, and one that
+    /// stops in the middle proves the length arithmetic gets a short read.
+    ///
+    /// Ignored, because it writes files rather than checking anything. Run it
+    /// when the builder changes:
+    /// `cargo test --lib bundles::tests::writes -- --ignored`
+    #[test]
+    #[ignore = "writes the fuzz seed corpus rather than checking anything"]
+    fn writes_the_fuzz_seed_corpus() {
+        let into = std::path::Path::new("fuzz/seeds/orb_bundle");
+        std::fs::create_dir_all(into).expect("a corpus directory");
+
+        let entries = entries();
+        let whole = write_bundle(&manifest(&entries), &entries).expect("writes");
+        std::fs::write(into.join("whole"), &whole).expect("a seed");
+
+        let body = &whole[MAGIC.len()..whole.len() - 32];
+        std::fs::write(into.join("body"), body).expect("a seed");
+        std::fs::write(into.join("half-a-body"), &body[..body.len() / 2]).expect("a seed");
+    }
+
     #[test]
     fn a_box_that_ends_on_a_tile_edge_does_not_pull_in_the_next_tile() {
         // The east and south edges belong to the tile after them. At zoom 3 a

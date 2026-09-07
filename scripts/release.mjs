@@ -245,6 +245,20 @@ if (!skipBuild) {
     "warnings",
   ]);
   run("cargo", ["test", "--manifest-path", "src-tauri/Cargo.toml", "--lib"]);
+  // The facade the fuzz targets reach the decoders through is behind a
+  // feature nothing else turns on, so nothing else compiles it. Splitting
+  // `level2.rs` into modules on 2026-09-05 re-exported its contents with
+  // `pub(crate) use`, which a `pub use` cannot widen, and the whole fuzz
+  // workspace stopped building; it was three days before anyone asked it to.
+  // Five seconds here, and no nightly toolchain needed to find it.
+  run("cargo", [
+    "check",
+    "--manifest-path",
+    "src-tauri/Cargo.toml",
+    "--lib",
+    "--features",
+    "fuzzing",
+  ]);
   run("npm", ["run", "test:e2e"]);
   run("npm", ["run", "tauri", "--", "build", "--bundles", "nsis"], {
     env: {

@@ -366,6 +366,17 @@ mod testing;
 
 pub(crate) use commands::*;
 pub(crate) use decode::*;
+
+/// The volume scanner, reachable from outside the crate for the fuzz targets
+/// and nowhere else.
+///
+/// The glob above re-exports it only within the crate, which is right for
+/// every ordinary caller and is why `lib.rs`'s fuzzing facade stopped
+/// compiling when this module was split on 2026-09-05: a `pub use` cannot
+/// widen what a `pub(crate) use` brought in. Behind the same feature the
+/// facade is, so the shipped library exports exactly what it did before.
+#[cfg(feature = "fuzzing")]
+pub use decode::scan_volume;
 pub(crate) use draw::*;
 pub(crate) use listing::*;
 pub(crate) use ramp::*;
