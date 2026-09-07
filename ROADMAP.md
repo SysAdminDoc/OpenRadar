@@ -403,13 +403,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: The two tables appear in the picker, the legend names them, they pass the contrast test the other ramps pass, and the README's colour-table paragraph names them.
       Complexity: S
 
-- [ ] AUD-337 (P3): Export a colour table
-      Why: Colour tables are what the community shares: 151 of the 225 mods on grlevelxusers are tables, and a forecaster asked publicly for better MESH palettes on 2026-09-06. The app reads GRLevelX tables and cannot write one, so a table tuned here dies with the settings file.
-      Evidence: https://grlevelxusers.com/grlevelx-goodies/categories/placefiles/ (the category counts); https://bsky.app/profile/pmarshwx.com/post/3muum2aigec2a ; `src/lib/palette.ts` (parse only).
-      Touches: `src/lib/palette.ts` (a writer that round-trips the parser), `src/panels/RadarProductPanel.tsx` (an Export beside Load), `src-tauri/src/exports.rs` (the `.pal` extension in the allow list and in `every_file_this_app_writes_can_be_written`).
-      Acceptance: A loaded table exported and loaded again is stop-for-stop identical (a round-trip test against the fixtures); GRLevel3 opens the file.
-      Complexity: S
-
 - [ ] AUD-355 (P3): Raise the toolchain floor and take the routine bumps
       Why: Tauri 2.12 carries an `msrv-1.90` change and the tree says `rust-version = 1.85` while stable is 1.98.1; a floor raised before the release forces it is a floor raised on a quiet day. Beside it: `@playwright/test` 1.63.0, `eslint` 10.10.0, `typescript-eslint` 8.70.0, `lucide-react` 1.42.0, `image` 0.25.10. TypeScript stays on 5.8: 7.0 ships no programmatic API until 7.1 and `typescript-eslint` caps at `<6.1.0`.
       Evidence: https://github.com/tauri-apps/tauri/tree/dev/.changes (`msrv-1.90`); https://github.com/rust-lang/rust/releases (1.98.1, 2026-09-03); `npm outdated` on 2026-09-07; https://github.com/typescript-eslint/typescript-eslint/releases/tag/v8.70.0 ; https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/.

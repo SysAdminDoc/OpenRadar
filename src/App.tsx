@@ -201,6 +201,7 @@ import { fetchVwp, vwpAvailable } from "./lib/vwp";
 import type { SpcHazard } from "./lib/overlays/registry";
 import { diagnosticsBlock, issueUrl } from "./lib/diagnostics";
 import { OVERLAY_ADAPTERS } from "./lib/overlays";
+import { saveFile } from "./lib/saveFile";
 import {
   overlayProvenance,
   timelineProvenance,
@@ -229,7 +230,12 @@ import {
   forecastSmokeValid,
 } from "./lib/forecastSmoke";
 import { nearbyCells, nearbySummary, warningsOver } from "./lib/nearby";
-import { activePalettes, paletteUnit } from "./lib/palette";
+import {
+  activePalettes,
+  type Palette,
+  paletteUnit,
+  writePalette,
+} from "./lib/palette";
 import { METAR_MIN_ZOOM } from "./lib/overlays/metar";
 import { GAUGE_MIN_ZOOM } from "./lib/overlays/rivers";
 import { useProbSevere } from "./hooks/useProbSevere";
@@ -2104,6 +2110,30 @@ export default function App() {
   // and this one would be carrying the renderer, the sources and forty
   // lines of log. It is also far past the length several browsers will
   // open.
+  // A table back out as the file it came in as. Colour tables are what
+  // this hobby actually shares, and one tuned here used to live and die
+  // inside the settings file.
+  const exportPalette = useCallback(
+    (palette: Palette) => {
+      const name = `${palette.name.replace(/\.pal$/i, "")}.pal`;
+      void saveFile(name, new Blob([writePalette(palette)]))
+        .then((saved) => {
+          if (saved) {
+            pushToast({ title: translate("upload.paletteSaved", { name }) });
+          }
+        })
+        .catch((failure: unknown) => {
+          pushToast({
+            title: translate("upload.paletteNotSaved"),
+            detail:
+              failure instanceof Error
+                ? failure.message
+                : translate("upload.paletteNotSaved"),
+          });
+        });
+    },
+    [pushToast],
+  );
   const reportIssue = useCallback(
     (withPlace: boolean) => {
       copyDiagnostics(withPlace);
@@ -2844,6 +2874,7 @@ export default function App() {
             onFollowStorm={actions.followStorm}
             onCommand={runCommand}
             onAssignPalette={assignPalette}
+            onExportPalette={exportPalette}
             onRemovePalette={removePalette}
             onAlertTypes={(alertTypes) =>
               applySettings({ ...settingsRef.current, alertTypes })

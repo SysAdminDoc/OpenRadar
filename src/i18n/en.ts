@@ -615,6 +615,10 @@ export const en = {
   "upload.forUnits": " · {units}",
   "upload.forReflectivity": " · reflectivity",
   "upload.skipped": "{names} left out",
+  "upload.savePalette": "Save as a file",
+  "upload.exportPalette": "Save {name} as a .pal file",
+  "upload.paletteSaved": "{name} saved",
+  "upload.paletteNotSaved": "That table could not be saved",
   "upload.clearPalette": "Remove",
   "upload.libraryHeading": "Your colour tables",
   "upload.libraryBody":

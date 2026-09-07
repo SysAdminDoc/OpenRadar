@@ -21,7 +21,7 @@ const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// it here as well, and `every_file_this_app_writes_can_be_written` is the
 /// test that says so out loud: the journal export shipped writing nothing at
 /// all for as long as `jsonl` was missing from this list.
-const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "mp4", "gif", "json", "jsonl", "md"];
+const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal"];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
@@ -266,6 +266,7 @@ mod tests {
             "openradar-journal.md",
             "openradar-journal-a1b2c3.png",
             "openradar-year-2026-09-02.png",
+            "reflectivity.pal",
         ] {
             assert!(
                 sanitize_file_name(name).is_ok(),
@@ -288,7 +289,7 @@ mod tests {
         let said = ExportError::BadExtension.to_string();
         assert_eq!(
             said,
-            "only png, webm, mp4, gif, json, jsonl and md files can be exported"
+            "only png, webm, mp4, gif, json, jsonl, md and pal files can be exported"
         );
     }
 

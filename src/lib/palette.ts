@@ -311,3 +311,42 @@ export function activePalettes(
   }
   return active;
 }
+
+/** A `#rrggbb` back to the three numbers a `.pal` line carries. */
+function channels(color: string): string {
+  const parsed = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color);
+  if (!parsed) return "0 0 0";
+  return [parsed[1], parsed[2], parsed[3]]
+    .map((part) => String(parseInt(part, 16)))
+    .join(" ");
+}
+
+/**
+ * A table back out as a `.pal` file, so one tuned here can be shared.
+ *
+ * Colour tables are the currency of this hobby: most of what people publish
+ * for GRLevelX is a palette, and a table adjusted in this app used to live and
+ * die inside its settings file. What comes out is what GRLevel3 reads.
+ *
+ * It writes what the parser understood and nothing else. A directive this app
+ * skips is recorded by name only, its values never kept, so it cannot be put
+ * back; the file that comes out is the table as this app is actually drawing
+ * it, which is the honest thing for it to be. The panel already names the
+ * skipped directives where the table is listed.
+ */
+export function writePalette(palette: Palette): string {
+  const lines: string[] = [];
+  if (palette.product) lines.push(`Product: ${palette.product}`);
+  if (palette.units) lines.push(`Units: ${palette.units}`);
+  if (palette.step !== null) lines.push(`Step: ${palette.step}`);
+  for (const stop of palette.stops) {
+    const head = `${stop.value} ${channels(stop.color)}`;
+    lines.push(
+      stop.solid
+        ? `SolidColor: ${head}`
+        : `Color: ${head}${stop.toColor ? ` ${channels(stop.toColor)}` : ""}`,
+    );
+  }
+  if (palette.rangeFolded) lines.push(`RF: ${channels(palette.rangeFolded)}`);
+  return `${lines.join("\n")}\n`;
+}

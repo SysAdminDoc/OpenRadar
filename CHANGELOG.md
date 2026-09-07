@@ -2,6 +2,8 @@
 
 ## OpenRadar v0.11.0
 
+- A colour table you loaded can be saved back out. Tables are what radar people actually swap, and one you had tuned here only existed inside this app: there was a way in and no way out. Each table in the Upload panel now has a Save beside it, and what comes out is an ordinary GRLevelX `.pal` file. It writes what the app understood, so a directive it does not read is left out rather than guessed at, and the panel already names those where the table is listed.
+
 - Diagnostics can open a report for you. One press copies the block and opens the issue form with the version already in the title, so the step where a report gets abandoned is gone. The block stays on the clipboard rather than going into the address, because a link carries its contents through your browser history and everything between here and GitHub, and that block has your renderer and forty lines of log in it.
 
 - The app notices on its own that a new version exists. It asks an hour after it starts and once a day after that, and all it does with the answer is put the version beside the Live chip and change what the button in More says. Nothing downloads until you press that button, which is the way it has always worked and the way it stays. The reason for the change: the West Palm Beach radar was dark for thirty-three days in every installed copy while the fix sat on the release page, and a copy left open on a second monitor had no way of finding out.

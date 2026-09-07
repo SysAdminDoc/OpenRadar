@@ -139,6 +139,7 @@ describe("the upload panel", () => {
         palettes={palettes as never}
         paletteAssignments={{}}
         onAssignPalette={vi.fn()}
+        onExportPalette={vi.fn()}
         onRemovePalette={vi.fn()}
       />
     );

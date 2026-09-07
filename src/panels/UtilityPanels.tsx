@@ -38,6 +38,8 @@ interface UploadPanelProps extends CloseOnlyProps {
   paletteAssignments: Record<string, string>;
   onAssignPalette: (unit: string, name: string | null) => void;
   onRemovePalette: (name: string) => void;
+  /** Writes the table back out as a `.pal` file the way it came in. */
+  onExportPalette: (palette: Palette) => void;
 }
 
 export function UploadPanel({
@@ -47,6 +49,7 @@ export function UploadPanel({
   paletteAssignments,
   onAssignPalette,
   onRemovePalette,
+  onExportPalette,
 }: UploadPanelProps) {
   const t = useT();
   // A loaded table is somebody's own scale, often one they read other tools
@@ -127,6 +130,15 @@ export function UploadPanel({
                       ) : (
                         t("upload.useFor", { unit })
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t("upload.exportPalette", {
+                        name: palette.name,
+                      })}
+                      onClick={() => onExportPalette(palette)}
+                    >
+                      <Download size={14} /> {t("upload.savePalette")}
                     </button>
                     <button
                       type="button"
