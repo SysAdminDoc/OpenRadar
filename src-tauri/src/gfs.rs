@@ -744,6 +744,16 @@ mod tests {
     /// same point. The model has to be named: the default is a blend that
     /// downscales onto local terrain, and comparing against that would be
     /// comparing against a different forecast.
+    ///
+    /// Two things make "the same point" harder than it sounds, and both were
+    /// getting this wrong until 2026-09-07. Open-Meteo picks the cell it
+    /// answers from rather than taking the one it is given, so the reply's own
+    /// coordinates are the only place both sides can be sampled; and it
+    /// prefers a cell on land, which at a coastal point is a different air
+    /// mass rather than a nearby one. Measured the same day, the 10 m wind
+    /// varies by up to 1.5 m/s across a single quarter degree cell even well
+    /// inland, so a tolerance this tight only means anything when both
+    /// readings are for the same ground.
     #[test]
     #[ignore = "fetches a live wind field and a second opinion"]
     fn agrees_with_a_second_reading_of_the_same_model() {
@@ -774,14 +784,37 @@ mod tests {
         )
         .expect("v decodes");
 
-        // A spread of places, away from the poles and the date line.
+        // A spread of places, away from the poles, the date line and the
+        // coast. Sydney, Tokyo and Sao Paulo were here until 2026-09-07 and
+        // all three sit on a shoreline, which is where this comparison breaks:
+        // Open-Meteo's `cell_selection` defaults to `land`, so it answered
+        // Sydney from a cell inland while the nearest point of this 0.25
+        // degree grid is over the water. On 2026-09-07 that read 7.7 m/s
+        // against this decode's 11.8, and the sea cell agreed at 12.0. Nothing
+        // was wrong with the decoder; two different places were being compared
+        // and called one.
         let places = [
             (41.7, -93.7, "Des Moines"),
             (51.5, -0.1, "London"),
-            (-33.9, 151.2, "Sydney"),
-            (35.7, 139.7, "Tokyo"),
-            (-23.5, -46.6, "Sao Paulo"),
+            (55.03, 82.92, "Novosibirsk"),
+            (-15.79, -47.88, "Brasilia"),
+            (-23.7, 133.88, "Alice Springs"),
         ];
+
+        /// A top-level number out of Open-Meteo's answer.
+        ///
+        /// The reply says which cell it used, which is not the point that was
+        /// asked for: the global GFS is served from a finer grid than the
+        /// quarter degree this decodes, so the two only describe the same air
+        /// if this side is sampled where that side actually answered.
+        fn number_after(text: &str, key: &str) -> Option<f64> {
+            let start = text.find(key)? + key.len();
+            let rest = &text[start..];
+            let end = rest
+                .find(|c: char| !(c.is_ascii_digit() || c == '-' || c == '.' || c == 'e'))
+                .unwrap_or(rest.len());
+            rest[..end].parse().ok()
+        }
 
         let at = |latitude: f64, longitude: f64| {
             let row = ((90.0 - latitude) / 0.25).round() as usize;
@@ -798,11 +831,11 @@ mod tests {
         let hour_iso = run.format("%Y-%m-%dT%H:00").to_string();
         let mut checked = 0;
         for (latitude, longitude, name) in places {
-            let (u_value, v_value) = at(latitude, longitude);
-            let speed = (u_value * u_value + v_value * v_value).sqrt();
-
+            // `cell_selection=nearest` rather than the default, which hunts
+            // for a cell on land at a similar elevation and so can cross a
+            // coastline or a ridge to find one.
             let url = format!(
-                "https://api.open-meteo.com/v1/gfs?latitude={latitude}&longitude={longitude}&hourly=wind_speed_10m&wind_speed_unit=ms&start_hour={hour_iso}&end_hour={hour_iso}&models=gfs_global"
+                "https://api.open-meteo.com/v1/gfs?latitude={latitude}&longitude={longitude}&hourly=wind_speed_10m&wind_speed_unit=ms&start_hour={hour_iso}&end_hour={hour_iso}&models=gfs_global&cell_selection=nearest"
             );
             let Ok(body) = runtime.block_on(http::get_bytes(&url)) else {
                 continue;
@@ -816,11 +849,26 @@ mod tests {
             let Ok(theirs) = rest[..end].trim().parse::<f32>() else {
                 continue;
             };
+            // Where they answered from, not where they were asked. Falling
+            // back to the asked-for point would quietly restore the defect
+            // this test was rewritten for, so a reply that does not say is
+            // skipped instead.
+            let (Some(their_lat), Some(their_lon)) = (
+                number_after(&text, "\"latitude\":"),
+                number_after(&text, "\"longitude\":"),
+            ) else {
+                continue;
+            };
 
-            println!("{name}: ours {speed:.1} m/s, theirs {theirs:.1} m/s");
+            let (u_value, v_value) = at(their_lat, their_lon);
+            let speed = (u_value * u_value + v_value * v_value).sqrt();
+
+            println!(
+                "{name}: ours {speed:.1} m/s at {latitude},{longitude}, theirs {theirs:.1} m/s at {their_lat},{their_lon}"
+            );
             assert!(
                 (speed - theirs).abs() < 1.0,
-                "{name}: this decode says {speed:.1} m/s and Open-Meteo says {theirs:.1}"
+                "{name}: this decode says {speed:.1} m/s for the quarter degree cell nearest {their_lat},{their_lon} and Open-Meteo says {theirs:.1} for its own cell there"
             );
             checked += 1;
         }

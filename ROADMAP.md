@@ -348,13 +348,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P2
 
-- [ ] AUD-335 (P2): The GFS live contract compares the wrong cell, and is red
-      Why: The cross-check against Open-Meteo failed on 2026-09-07 with "Sydney: this decode says 11.8 m/s and Open-Meteo says 7.8". Open-Meteo answers `gfs_global` from a cell at -33.914734, 151.17188, not the 0.25 degree grid, and its `cell_selection` defaults to `land`, which "finds a suitable grid-cell on land with similar elevation"; the `sea` cell reads 12.01 m/s and the app's nearest 0.25 degree point, -34.0, 151.25, is over the water. Des Moines and London passed. Two places are being compared and called one.
-      Evidence: `src-tauri/src/gfs.rs:760-822` (`agrees_with_a_second_reading_of_the_same_model`); https://open-meteo.com/en/docs (`cell_selection`); the live reads on 2026-09-07 with `cell_selection=land`, `sea` and `nearest`, and `models=gfs025` returning null at the analysis hour.
-      Touches: `src-tauri/src/gfs.rs` (the `places` table and the Open-Meteo URL in the live test).
-      Acceptance: The compared places are inland (keep Des Moines and London; replace Sydney, Tokyo and Sao Paulo with places at least 100 km from a coast, for example Novosibirsk, Nairobi, Brasilia and Alice Springs), the URL carries `cell_selection=nearest`, the assertion message prints both cells' coordinates, and `npm run check:live` shows the gfs row ok on three separate days.
-      Complexity: S
-
 - [ ] AUD-336 (P2): The tide live contract asks a diurnal station for a semidiurnal count, and is red
       Why: The New Orleans contract requires at least eight extremes in three days under a comment saying "roughly two of each a day". `nearestStation` picks 8761927 New Canal Station on Lake Pontchartrain, which NOAA's metadata API lists as `tideType: "Diurnal"` and which published two extremes for the 72 hours from 2026-09-07. NOAA's own tutorial says the Gulf of Mexico has one high and one low a day. The gate is wrong about the coast it tests, and a Gulf reader of the Tides panel sees the same sparse list with nothing saying why.
       Evidence: `src/lib/tides.test.ts:170-207`; https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8761927.json (`tideType`); the `hilo` predictions read live on 2026-09-07 (two rows); https://oceanservice.noaa.gov/education/tutorial_tides/tides07_cycles.html.
