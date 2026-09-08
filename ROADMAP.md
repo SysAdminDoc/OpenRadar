@@ -655,15 +655,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-417 (P3): Three English strings that say something untrue or ungrammatical
-      Category: ux
-      Where: `src/i18n/en.ts:1251` (`layers.satelliteDetail`: "GOES-East GeoColor under the radar"); `:58-59` (`dataExport.error.gridUnreadable`: "That grid is packed a way this build does not read."); `:2137` (`radar.rainviewerEmpty`: "RainViewer returned no usable frames.").
-      Problem: The satellite layer chooses GOES-East, GOES-West or Himawari by where the map is pointed (`src/lib/providers/satellite.ts:199-247`) and the switch's own detail names one of them, so a reader over Hawaii is told they are looking at GOES-East. The export error is missing "in". The RainViewer line names a fallback source the reader never chose and uses "returned", where every sibling says a service "answered" or "published"; `es.ts` and `fr.ts` copied both faults.
-      Evidence: Read on 2026-09-08; `AUD-295`'s list does not carry these three.
-      Fix: "Satellite imagery under the radar, from whichever of GOES-East, GOES-West and Himawari is over the view"; "packed in a way"; "The fallback radar source answered with nothing to draw." Correct the two translations with them.
-      Acceptance: The three keys read as above in all three catalogues; the pseudolocale clipping test stays green.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-427 (P3): Toasts sit on top of any right-hand panel's title and first rows, the one piece of map chrome that does not step aside for a panel
       Category: visual
@@ -675,15 +666,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-428 (P3): The Guidance panel labels its units with the service's own tokens, "mp/h" and "inch", in every language
-      Category: ux
-      Where: `src/lib/guidance.ts:256-262` (`unit` is read straight out of Open-Meteo's `hourly_units` object for the variable, or the empty string); `src/panels/GuidancePanel.tsx` where each section's heading prints `guidance.disagree` / `guidance.agree` ("they disagree, in {unit}", `en.ts:2097-2098`); `src/i18n/en.ts:203-205` (`units.mph` "mph", `units.inches` "in", the app's own spellings).
-      Problem: The service writes its units as `mp/h`, `inch` and `°F` under imperial and `km/h`, `mm` and `°C` under metric, and those tokens go on screen unchanged: "they disagree, in mp/h", "they disagree, in inch". Everywhere else the app writes "mph" and "in", and a Spanish or French reader gets an English token the catalogue never saw. Observed on 2026-09-08 at both widths in both themes.
-      Evidence: `scratchpad/obs/tour/guidance-dark-compact.png` (the three section headings); the code paths above.
-      Fix: Map each `GuidanceVariable` to the app's own unit label through `units.ts` (`formatSpeedUnit`, `units.inches`, the degree sign with the chosen scale) and stop reading `hourly_units`, keeping the service's token only in the log. Pin it in `guidance.test.ts` with a reply carrying `"mp/h"` and assert the reading's unit is `mph`.
-      Acceptance: The three headings read "in mph", "in in" (or "in inches"), "in °F" under imperial and their metric equivalents under metric, in all three languages; `npm run check` green.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-429 (P3): The Map Type cards wrap into rows of uneven height, seven lines beside two
       Category: visual
@@ -770,6 +752,13 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
   Evidence: `src/hooks/useAlertWatch.ts:287`, `:358`, `:406`; `src/hooks/useApproachWatch.ts:155`; `src/hooks/useExport.ts:423`, `:457`, `:545`, `:623`, `:634`; `src/hooks/useForecastSmoke.ts:134`; `src/hooks/useLightningWatch.ts:181`; `src/hooks/useMrmsOverlays.ts:324`, `:363`; `src/panels/JournalSection.tsx:127`, `:198`; `src/panels/RecapSection.tsx:136`; `src/panels/SettingsPanel.tsx:185`; `src/panels/StorageSection.tsx:102`. `src/lib/serviceAnswer.ts` (`failureSentence`, and `isOwnError` as the rule the sweep should hold everything to). The five fixed on 2026-09-08 are in `useStormCells.ts`, `useClassification.ts`, `useProbSevere.ts`, `useLightning.ts` and `useRadarTimeline.ts:419`.
   Touches: each site above, split by whether its value is logged or rendered; `src/i18n/*` for a translated fallback wherever one is rendered; a new lint rule or a test in `src/lib/` that reads the sources and fails on `failure.message` reaching a `setError`, an `onFailed` or a `recordFailure` without going through `failureSentence`, which is the part that stops this coming back.
   Acceptance: Every rendered failure path in `src/panels` and `src/hooks` goes through `failureSentence`; every fallback beside one is a catalogue key rather than a literal; the new gate fails when a `setError(failure.message)` is planted and passes on the tree; `npm run check` green.
+  Complexity: M
+
+- [ ] AUD-431 (P3): The panels chunk sits on both its budgets with nothing left
+  Why: `scripts/bundle-budget.mjs` allows the panels chunk 105 kB raw and 29 kB gzipped, and on 2026-09-08 it measures exactly 105 and 29. Every change to a panel since has had to find its own bytes back before it could land: `AUD-426` paid for a prop and a branch by collapsing three duplicated note blocks into one component, and `AUD-428` paid for a unit lookup by dropping a mismatch warning that was worth having. That is the budget working, and it is also a gate that now fails on the next honest change rather than on a regression, which is how a budget stops being read. The vault's rule is that a budget is never raised to fit a feature, so the answer is to make the chunk smaller, not the number bigger.
+  Evidence: `node scripts/bundle-budget.mjs` on 2026-09-08 (`panels 105 kB 29 kB` against `105 / 29`); `node scripts/bundle-report.mjs` (`PanelSurfaces` is 190 kB of modules: 120 kB `src/panels`, 43 kB `src/lib`, 17 kB `src/components`, 10 kB `lucide-react`); the two commits above.
+  Touches: `vite.config.ts` (the chunking), `src/components/PanelSurfaces.tsx` (which panels travel together), the `src/lib` modules the chunk pulls in that only one panel needs, `scripts/bundle-budget.mjs` only if the split changes which chunks exist.
+  Acceptance: The panels chunk has at least a tenth of its budget free on both measures, with no budget raised; every panel still opens in the e2e suite; `npm run check` green.
   Complexity: M
 
 ### Notes on existing items

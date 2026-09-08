@@ -56,7 +56,7 @@ export const en = {
   "dataExport.error.gridNoFrames": "No {0} grid has been published yet.",
   "dataExport.error.gridNotGrib": "That file is not a GRIB2 grid.",
   "dataExport.error.gridUnreadable":
-    "That grid is packed a way this build does not read.",
+    "That grid is packed in a way this build does not read.",
   "dataExport.error.gridNotDrawn": "The grid could not be drawn.",
   "dataExport.error.unknown": "The export could not be written.",
   "dataExport.error.gridHttpStatus": "The grid service {0}.",
@@ -203,6 +203,7 @@ export const en = {
   "units.mph": "mph",
   "units.feet": "ft",
   "units.inches": "in",
+  "units.inchesLong": "inches",
   "units.mile": "mi",
   "history.trackPoint": "{kind} {knots} kt",
   "storm.status.TD": "Tropical depression",
@@ -1262,7 +1263,8 @@ export const en = {
   "sounding.credit": "From {source}.",
   "sounding.mixingNote": "Mixing ratio lines, in grams per kilogram: {values}.",
   "layers.tropicalDetail": "NHC cones, tracks, and development outlooks",
-  "layers.satelliteDetail": "GOES-East GeoColor under the radar",
+  "layers.satelliteDetail":
+    "Satellite imagery under the radar, from whichever of GOES-East, GOES-West and Himawari is over the view",
   "layers.rotationDetail":
     "MRMS azimuthal shear accumulated over the window you choose",
   "layers.rotationPeriod": "How far back the track reaches",
@@ -2151,7 +2153,8 @@ export const en = {
   "radar.noFrames": "No frames were published.",
   "radar.noProvider": "No radar source answered.",
   "radar.noTimes": "No radar times were published.",
-  "radar.rainviewerEmpty": "RainViewer returned no usable frames.",
+  "radar.rainviewerEmpty":
+    "The fallback radar source answered with nothing to draw.",
   "radar.requestFailedShort": "The request failed.",
   "radar.noRun": "The forecast has not published a new run yet.",
   "radar.archive": "Iowa State radar archive",

@@ -7,9 +7,11 @@ import {
   parseGuidance,
   parseModelRun,
   runIsStale,
+  variableUnit,
   type GuidanceModelId,
 } from "./guidance";
 import { forecastUnits, setUnits } from "./units";
+import { ensureLanguage, setLanguage } from "../i18n";
 
 const POINT = { lat: 29.95, lon: -90.07 };
 const MODELS: GuidanceModelId[] = ["gfs_seamless", "ecmwf_ifs025"];
@@ -298,5 +300,35 @@ describe("when a model last ran", () => {
     expect(
       runIsStale({ ...run, intervalSeconds: 0 }, Date.UTC(2027, 0, 1)),
     ).toBe(false);
+  });
+});
+
+describe("how the panel labels a unit", () => {
+  afterEach(() => setUnits("imperial"));
+
+  it("uses this app's own spellings rather than the service's tokens", () => {
+    // Open-Meteo writes its units as `mp/h`, `inch` and `°F`, and those went
+    // on screen unchanged: "they disagree, in mp/h", in every language, where
+    // the rest of the app writes "mph" and a Spanish reader had never seen
+    // either spelling. The numbers were always in the reader's own system,
+    // because the request asks for it; only the label was wrong.
+    setUnits("imperial");
+    expect(variableUnit("wind_speed_10m")).toBe("mph");
+    expect(variableUnit("temperature_2m")).toBe("°F");
+    // Spelled out, because the sentence around it is "they agree, in {unit}".
+    expect(variableUnit("precipitation")).toBe("inches");
+
+    setUnits("metric");
+    expect(variableUnit("wind_speed_10m")).toBe("km/h");
+    expect(variableUnit("temperature_2m")).toBe("°C");
+    expect(variableUnit("precipitation")).toBe("mm");
+  });
+
+  it("says it in the reader's language", async () => {
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    setUnits("imperial");
+    expect(variableUnit("precipitation")).toBe("pouces");
+    setLanguage("en");
   });
 });
