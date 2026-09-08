@@ -38,20 +38,13 @@ export const SUB_SATELLITE_LONGITUDE: Record<Spacecraft, number> = {
 };
 
 /** What a reader chooses. Not every satellite carries every one. */
-export const SATELLITE_BANDS = [
-  "geocolor",
-  "clean-ir",
-  "red-visible",
-  "air-mass",
-  "dust",
-  "fire-temp",
-] as const;
+import {
+  SATELLITE_BANDS,
+  isSatelliteBand,
+  type SatelliteBandId,
+} from "../satelliteBands";
 
-export type SatelliteBandId = (typeof SATELLITE_BANDS)[number];
-
-export function isSatelliteBand(value: unknown): value is SatelliteBandId {
-  return SATELLITE_BANDS.includes(value as SatelliteBandId);
-}
+export { SATELLITE_BANDS, isSatelliteBand, type SatelliteBandId };
 
 /** A satellite and a band together, which is what one lane draws. */
 export type SatelliteProductId = `${Spacecraft}:${SatelliteBandId}`;

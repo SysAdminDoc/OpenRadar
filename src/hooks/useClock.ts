@@ -1,4 +1,8 @@
 import { useSyncExternalStore } from "react";
+import {
+  highContrastRequested,
+  reducedMotionRequested,
+} from "../lib/displayPreference";
 
 const TICK_MS = 60_000;
 
@@ -80,15 +84,7 @@ export function useSecondClock(wanted: boolean): number {
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 /** Read at the moment an animation starts, so a live preference change wins. */
-export function reducedMotionRequested(): boolean {
-  // Guarded for the same reason `highContrastRequested` is, and found the
-  // same way: this is now read on the way into fetching a radar sweep, and an
-  // environment with no media query at all, which includes a plain jsdom,
-  // would otherwise take the whole picture down over a question about
-  // animation. A preference nobody can answer is not a preference.
-  if (typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(REDUCED_MOTION).matches;
-}
+export { highContrastRequested, reducedMotionRequested };
 
 /** MapLibre animation options that never override the reader's preference. */
 export function cameraMotion(duration: number): {
@@ -145,15 +141,10 @@ const MORE_CONTRAST = "(prefers-contrast: more)";
  * asked. The native side has no view of a media query, which is why this
  * travels as an argument.
  */
-export function highContrastRequested(): boolean {
-  // A preference nobody can answer is not a preference for more contrast, and
-  // it is certainly not a reason to fail. This is read on the way into
-  // fetching a radar sweep, and an environment without the media query, which
-  // includes a plain jsdom, would otherwise take the whole picture down over a
-  // question about colour.
-  if (typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(MORE_CONTRAST).matches;
-}
+// Both answers live in `src/lib/displayPreference.ts` now, because two
+// modules under `lib/` want them and a library reaching up into the hooks
+// above it cannot be read or tested without them. Re-exported here so the
+// hooks and components that already ask this file keep asking it.
 
 const subscribeContrast = subscribeMedia(MORE_CONTRAST);
 

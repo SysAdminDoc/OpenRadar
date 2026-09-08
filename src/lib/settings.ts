@@ -1,5 +1,5 @@
-import { SPC_HAZARDS } from "./overlays/spc";
-import type { SpcHazard } from "./overlays/registry";
+import { SPC_HAZARDS } from "./spcHazards";
+import type { SpcHazard } from "./spcHazards";
 import { Store } from "@tauri-apps/plugin-store";
 import { isLevel2Product, type Level2ProductId } from "./level2";
 import {
@@ -19,7 +19,7 @@ import {
   MAX_LOOP_VOLUMES,
   MIN_LOOP_VOLUMES,
 } from "./siteLoop";
-import { isSatelliteBand, type SatelliteBandId } from "./providers/satellite";
+import { isSatelliteBand, type SatelliteBandId } from "./satelliteBands";
 import { isGaugeQpePeriod, type GaugeQpePeriod } from "./gaugeQpe";
 import {
   APPROACH_MINUTES,
