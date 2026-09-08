@@ -592,3 +592,123 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
   Touches: `src-tauri/src/crash.rs` or `lib.rs` (a `running` sentinel in app data written in the setup hook and removed on a clean exit, with a count of consecutive unclean starts), `src/hooks/useSettings.ts` (on the second unclean start in a row, load with imported overlays, placefiles, the custom theme and the seasonal look off and the camera at home, and say so in a toast with one press to put everything back), `src/i18n/*`, `e2e/storage.spec.ts` with a planted sentinel.
   Acceptance: A planted sentinel with a count of two at launch opens the workspace plain with the toast; pressing Restore puts every switch back and clears the count; a clean exit removes the sentinel; a single unclean exit changes nothing; the spec covers all three.
   Complexity: M
+
+## Verification Findings, 2026-09-07
+
+Raised by an adversarial review of `293424c..f027953` instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
+
+### P1
+
+- [ ] AUD-391 (P1): The layering gate cannot detect the import ring it was written to stop
+      Category: correctness
+      Where: `src/lib/layering.test.ts:47-59` (`valueImports`), used by both rules at `:70-79` and `:81-96`.
+      Problem: The regex is `/^\s*(?:import|export)\s+([\s\S]*?)from\s+"([^"]+)"/gm`, and the rule then filters specifiers against `^\./(providers|overlays)/`. Seven shapes that close the exact ring the test's own docblock describes are not seen at all: a side-effect `import "./overlays/spc";` (no `from`), `await import("./overlays/spc")`, single-quoted specifiers, a second `import` on the same line as a first, and a barrel `import { OVERLAY_ADAPTERS } from "./overlays"` with no trailing slash. The barrel is the damaging one: `src/lib/overlays/index.ts:1` imports `./alerts`, which imports `../tileCache`, which imports `./settings`, so that one line reintroduces the ring with the gate green. Rule two misses `../hooks/useClock` written as a side-effect import and any barrel import of `../hooks`. It also has false positives in the safe direction: `import { type A } from "x"` is erased by the compiler but flagged, and three such clauses already live in the tree (`src/lib/overlays/metar.ts`, `rivers.ts`, `smoke.ts`).
+      Evidence: Harness run against the verbatim regex on 2026-09-07; each of the seven inputs above returned no violation. `src/lib/overlays/index.ts:1`.
+      Fix: Read the imports with the TypeScript compiler rather than a regex, which is already a dependency: walk each source file's statements for `ImportDeclaration`, `ExportDeclaration` and dynamic `import()` calls, skip a declaration whose `importClause.isTypeOnly` is set and named bindings that are individually type-only, and resolve the specifier to a file so a barrel is followed rather than matched by spelling. Then state both rules against the resolved graph: `settings.ts` must not reach `providers/` or `overlays/`, and nothing under `lib/` may reach `hooks/`, `panels/` or `components/`.
+      Acceptance: Each of the seven shapes above, planted one at a time, fails the gate; the three existing `{ type A }` clauses do not; a barrel import of `./overlays` in `settings.ts` fails; `npm run check` green.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-392 (P1): `settings.ts` is still inside a runtime import cycle, which AUD-375 said it had left
+      Category: correctness
+      Where: `src/lib/settings.ts:4` and `src/lib/level2.ts:1`; `src/lib/settings.ts:76` through `watch.ts:6`, `overlays/alerts.ts:8`, `tileCache.ts:14`; `src/lib/settings.ts:29` through `approach.ts:2`, `cells.ts:1`.
+      Problem: Tarjan over the value-import graph of `src/` finds exactly one cyclic component with the same 24 members before AUD-375 and after it, `settings.ts` included. The commit removed one edge, `settings.ts` to `overlays/spc.ts`, and the ring it names in its own message, "settings imports the adapter, the adapter imports the tile cache, the tile cache imports settings", is still closed one hop longer through `watch.ts`. There is also a plain two-cycle with `level2.ts`. The runtime hazard the commit describes is unchanged: it still works only because nothing in the ring reads a half-initialised module during evaluation, which is a property of the order the bundler happens to choose.
+      Evidence: Module graph built with the TypeScript parser on 2026-09-07, value edges only, run against both `5030b1e` and `f027953`: one cyclic component, 24 members, identical membership.
+      Fix: Take the three named edges out of `settings.ts`. `isLevel2Product` and its neighbours move to a leaf beside `spcHazards.ts` and `satelliteBands.ts`; the same for whatever `settings.ts:29` and `:76` reach into `approach.ts` and `watch.ts`. Then hold the whole graph rather than three spellings: the gate from AUD-391 gains a third rule that finds no cycle containing `settings.ts`.
+      Acceptance: The cycle finder reports no cyclic component containing `src/lib/settings.ts`; putting any one of the three removed edges back fails the gate; `npm run check` green.
+      Confidence: Verified
+      Effort: M
+
+### P2
+
+- [ ] AUD-393 (P2): The generator's backslash test contains no backslash
+      Category: testing
+      Where: `scripts/build-radar-sites.test.mjs:128-142` (`roundTrip("Back\slash")`).
+      Problem: In JavaScript `"Back\slash"` is `"Backslash"`, nine characters with no backslash in them, because `\s` is not an escape and the backslash is dropped. The test that was written to pin the escaping fix therefore feeds it a string it could never have broken. Weakening `unescaped()` back to handling quotes only, which restores the exact doubling bug the commit says it fixed, leaves all three tests passing while a real backslash in a city name doubles on every regeneration: `Back\slash` becomes `Back\\slash`, then `Back\\\\slash`.
+      Evidence: `node -e 'console.log("Back\slash".length)'` prints 9 on 2026-09-07. Mutation run with `unescaped()` weakened: three tests passed, the name drifted on each of three runs.
+      Fix: `roundTrip("Back\\slash")`.
+      Acceptance: With `unescaped()` weakened to quotes only the test fails; with it whole the test passes and a regenerated table is byte-identical.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-394 (P2): The two export extensions can be swapped with nothing failing
+      Category: testing
+      Where: `src-tauri/src/data_export.rs:59` (`const EXTENSIONS: &[&str] = &["csv", "tif"]`), read as `EXTENSIONS[0]` at `:511` and `EXTENSIONS[1]` at `:677`.
+      Problem: The test added with the constant iterates the array and is order-agnostic, and the two tests that do pin extensions pass `"csv"` and `"tif"` as literals rather than through the constant. Swapping the array's two entries makes every CSV export write a `.tif` and every GeoTIFF export write a `.csv`, and the suite stays green.
+      Evidence: Mutation run on 2026-09-07 with `&["tif", "csv"]`: `cargo test --lib` 483 passed, 0 failed.
+      Fix: Name them rather than index them: two consts, `CSV_EXTENSION` and `GEOTIFF_EXTENSION`, with the allowlist check iterating both. The call sites then say which they mean.
+      Acceptance: Swapping the two values fails a test; `cargo test --lib` green.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-395 (P2): A dead branch in the bundle validator, with a comment saying why it is not dead
+      Category: correctness
+      Where: `src-tauri/src/bundles.rs:405-409`, inside `addresses`.
+      Problem: `addresses` calls `validate(request)?` at `:380`, after which tiles are at most `MAX_TILES` (`:393`) and extra URLs at most `MAX_EXTRA_URLS` (`:372`), so `urls.len() > MAX_TILES + MAX_EXTRA_URLS` cannot hold. The comment says "the two are reached by different callers", which is not true: `addresses` is the only entry and it calls `validate` itself. The new test proves the branch is unreachable rather than covering it, because it matches `TooManyDocuments`, which only `validate` produces, while the dead branch returns `TooManyTiles`.
+      Evidence: Deleting `:405-409` on 2026-09-07: `cargo test --lib` 483 passed, 0 failed.
+      Fix: Delete the branch and the comment. If the belt-and-braces check is wanted, make it a `debug_assert!` so it says it is an invariant rather than a code path.
+      Acceptance: `cargo test --lib` green with the branch gone; `cargo clippy --all-targets` clean.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-396 (P2): A corrupt KMZ still reports the browser engine's empty error
+      Category: correctness
+      Where: `src/lib/kmz.ts:79-115` (`inflate`), surfaced by `src/hooks/useWorkspaceActions.ts:388`.
+      Problem: AUD-366 closed the directory-name case, which is the rarer one. Compression method 8 is what virtually every real KMZ uses, and `inflate` catches nothing around `DecompressionStream`. Three ordinary corruptions each throw `TypeError` with an empty message: bytes that are not deflate, a stream truncated by two bytes, and a deflate entry with zero compressed bytes. The reader sees "Overlay could not be added" with nothing after it, because the handler falls through to `failure.message` and that is the empty string. `kmz.tooBigUnpacked` and `kmz.truncated` exist in the catalogue and neither is reached.
+      Evidence: Probe against the bundled module on 2026-09-07: all three cases threw `TypeError: ""`. Same at `5030b1e`, so it is not a regression.
+      Fix: Wrap the decompression and turn anything thrown into the catalogue's own sentence, the way the directory read already does.
+      Acceptance: Each of the three corruptions raises the catalogue sentence rather than an empty message; a good KMZ is unaffected; the three cases are pinned in `src/lib/kmz.test.ts`.
+      Confidence: Verified
+      Effort: S
+
+### P3
+
+- [ ] AUD-397 (P3): The new KMZ bound is stricter than the read it guards
+      Category: correctness
+      Where: `src/lib/kmz.ts:61`.
+      Problem: The check is `at + 46 + nameLength + extraLength + commentLength > byteLength`, but the read it guards, at `:64-66`, only needs `at + 46 + nameLength`, and the advance of `at` is already guarded by the `at + 46 > byteLength` break at `:49`. So an archive whose last entry carries a bogus comment length, with the name intact, was read before and is refused now.
+      Evidence: Probe on 2026-09-07, last entry with `commentLength` `0xffff`: `5030b1e` returns `<kml/>`, `f027953` throws "That archive is cut short."
+      Fix: Bound the name read at `at + 46 + nameLength`, and check the full advance separately where `at` is advanced.
+      Acceptance: The bogus-comment archive reads again; a name longer than the file still refuses with the catalogue sentence; both pinned.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-398 (P3): `normalizePalette` quietly stopped reporting two kinds of skipped field
+      Category: correctness
+      Where: `src/lib/settings.ts`, `normalizePalette` after AUD-370's rewrite through `writePalette`.
+      Problem: A differential run against the previous implementation over 33 hostile inputs differs on eight. A `product` or `units` that is not a string, `5`, `true`, `["BR"]`, `{}`, used to be kept stringified and reported in `skipped`; it is now dropped and `skipped` comes back empty, so the panel says nothing was skipped when something was. Separately, `solid: true` with a valid `toColor` used to keep the second colour and clear the flag, and now keeps the flag and drops the colour; that one is documented and intended, but it silently discards a stored value.
+      Evidence: Differential harness on 2026-09-07 driving both implementations through the real `parsePalette` and `writePalette`; 8 of 33 differ, listed above. No difference on the other 25, which include the value, colour, step, name, stops and injection cases.
+      Fix: Report a non-string `product` or `units` in `skipped` the way the old code did, whether or not it is kept.
+      Acceptance: Each of the six non-string cases reports its field in `skipped`; the 25 agreeing cases still agree; `npm run check` green.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-399 (P3): The palette round-trip test passes on a fixture that hides what it claims to check
+      Category: testing
+      Where: `src/lib/palette.test.ts`, "comes back the way it went in"; `src/lib/palette.ts:103`, `:114`, `:167`.
+      Problem: `parsePalette` recomputes `skipped` from whether a `Product:` or `Step:` line is present rather than reading it back, so `skipped` does not round-trip. The test survives only because its fixture happens to set both. A stored `skipped` of `["color4 alpha", "product", "step"]` comes back as `["product", "step"]`, and a palette with `product: null, step: null, skipped: ["product", "step"]` comes back with `skipped` empty.
+      Evidence: Measured on 2026-09-07 against both cases. Same behaviour before this session's changes.
+      Fix: Either carry `skipped` through the written form so it round-trips, or say in the test's name and its docblock that `skipped` is recomputed rather than restored, and add a case that pins the recomputation.
+      Acceptance: The test fails if the fixture drops its `Product:` line while claiming `skipped: ["product"]` survives; the recomputation is pinned by name.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-400 (P3): Two media queries written twice after the consolidation that was meant to end that
+      Category: correctness
+      Where: `src/hooks/useClock.ts:84` (`REDUCED_MOTION`) and `:133` (`MORE_CONTRAST`) against `src/lib/displayPreference.ts:15-16` (`MORE_CONTRAST`, `LESS_MOTION`).
+      Problem: AUD-375 moved the getters into a leaf module and left the subscriptions reading their own copies of the same two query strings. They are character-identical today. If one moves, `useReducedMotion()` subscribes to one query and reads another, and stops re-rendering when the preference changes, which is the failure that is hardest to notice. The `typeof window === "undefined"` guard added to the leaf was also not applied to `subscribeMedia` at `:112` or `forcedColoursActive` at `:163`.
+      Evidence: Read on 2026-09-07 at `f027953`.
+      Fix: Export the two query strings from `displayPreference.ts` and have `useClock.ts` subscribe with those; carry the guard to both remaining readers.
+      Acceptance: `grep` finds each query string written once in `src/`; a test drives the subscription and the getter from the same constant; `npm run check` green.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-401 (P3): Two comments that say something the code does not do
+      Category: documentation
+      Where: `src/lib/displayPreference.ts:9`; `src-tauri/src/level3.rs:2766`.
+      Problem: The first says "two modules under `lib/` want the answer" and exactly one does, `src/lib/overlays/alerts.ts:17`. The second says the URL is built "the same shape in `mrms.rs` and `hrrr.rs`"; `mrms.rs:2736` is that shape, but `hrrr.rs` splices no listing key at all, since its only URL at `:567` is built entirely from integers.
+      Evidence: Read on 2026-09-07 at `f027953`.
+      Fix: Say what is true in both.
+      Acceptance: Both comments match the code they sit on.
+      Confidence: Verified
+      Effort: S
