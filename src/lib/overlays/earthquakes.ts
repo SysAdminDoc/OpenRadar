@@ -125,7 +125,16 @@ export const earthquakesOverlay: OverlayAdapter = {
           ? translate("popup.recorded", { when: relativeTime(time) })
           : translate("popup.timeUnknown"),
         Number.isFinite(depth)
-          ? translate("popup.depth", { distance: formatDistanceKm(depth) })
+          ? translate("popup.depth", {
+              // A depth the service gives as negative is an event above the
+              // datum, and a distance formatter is the wrong tool for one:
+              // it reads "-3,937 ft". The sign is kept and the magnitude is
+              // formatted.
+              distance:
+                depth < 0
+                  ? `-${formatDistanceKm(-depth)}`
+                  : formatDistanceKm(depth),
+            })
           : translate("popup.depthUnknown"),
         translate("popup.usgs"),
       ],

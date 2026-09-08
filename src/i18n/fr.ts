@@ -596,7 +596,7 @@ export const fr: Catalogue = {
     "Les signalements viennent du service météo et non de l'archive habituelle, qui n'a pas répondu.",
   "toast.sharedViewPartly":
     "Vue partagée ouverte. Elle nommait un radar ou un produit que cette version n'a pas, donc cette partie a été laissée telle quelle.",
-  "service.busy": "est occupé",
+  "service.busy": "ne suit plus",
   "service.notFound": "n'a rien trouvé",
   "service.tooMany": "a reçu trop de demandes",
   "service.refused": "a refusé de répondre",
@@ -1235,7 +1235,7 @@ export const fr: Catalogue = {
   "layers.earthquakesDetail":
     "Séismes de magnitude supérieure à 2,5 relevés par l'USGS depuis un jour",
   "layers.wildfiresDetail":
-    "Périmètres du NIFC, au-delà des cent acres qu'ils publient",
+    "Périmètres du NIFC, à partir des cent acres qu'il publie",
   "layers.smokeDetail":
     "L'analyse tracée à la main par la NOAA, une fois par jour",
   "layers.forecastSmokeDetail":

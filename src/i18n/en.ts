@@ -1202,7 +1202,7 @@ export const en = {
   "layers.alertsDetail": "Official watches and warnings",
   "layers.earthquakesDetail": "USGS events above magnitude 2.5 in the past day",
   "layers.wildfiresDetail":
-    "NIFC perimeters, over the hundred acres they publish",
+    "NIFC perimeters, from the hundred acres NIFC publishes",
   "layers.smokeDetail": "NOAA's hand-drawn analysis, once a day",
   "layers.forecastSmokeDetail":
     "Where the HRRR model expects smoke near the ground to go, hour by hour along the forecast tail",
