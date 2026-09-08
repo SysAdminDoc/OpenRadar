@@ -164,7 +164,11 @@ export function drawFrame(
     );
     if (laid.lines.length > fits) {
       const kept = laid.lines.slice(0, fits);
-      kept[fits - 1] = `${kept[fits - 1]} …`;
+      // Room made for the ellipsis rather than added to the line. Appending
+      // it after the wrap can push the widest line past what the box was
+      // measured for, which walks the box into its own margin.
+      const last = kept[fits - 1];
+      kept[fits - 1] = `${last.length > 2 ? last.slice(0, -2) : last} …`;
       laid = {
         ...laid,
         lines: kept,

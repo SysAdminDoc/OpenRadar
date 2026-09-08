@@ -228,12 +228,26 @@ describe("what an allowance rests on", () => {
         [{ name: "base64", version: "0.22.1" }],
       ),
     ).toEqual([]);
-    // And a release candidate is inside its own series, because the character
-    // after the prefix is the component separator.
+    // A release candidate and a build stamp are inside their own version, not
+    // past it. Both shapes are in this repository's lock, and a boundary rule
+    // that only accepted a full stop would have voided those allowances the
+    // next time somebody wrote the whole version out.
     expect(
       unmetNeeds(
         [{ crate: "nexrad-model", version: "1.0" }],
         [{ name: "nexrad-model", version: "1.0.0-rc.2" }],
+      ),
+    ).toEqual([]);
+    expect(
+      unmetNeeds(
+        [{ crate: "nexrad-model", version: "1.0.0" }],
+        [{ name: "nexrad-model", version: "1.0.0-rc.2" }],
+      ),
+    ).toEqual([]);
+    expect(
+      unmetNeeds(
+        [{ crate: "ndk-sys", version: "0.6.0" }],
+        [{ name: "ndk-sys", version: "0.6.0+11769913" }],
       ),
     ).toEqual([]);
   });
