@@ -43,7 +43,25 @@ export const LIVE_CONTRACTS = [
     // records a week of unfolding off the archive to justify the thresholds
     // in the contract beside it. Neither is a contract with a provider, and
     // the recorder alone fetches 42 volumes.
-    skip: ["writes_the_fuzz_seed_corpus", "recording_the_days"],
+    // And the radar table's own contract, which asks a different service
+    // about a different question and has its own row below.
+    skip: [
+      "writes_the_fuzz_seed_corpus",
+      "recording_the_days",
+      "the_radar_table_matches_the_office_list",
+    ],
+    required: true,
+  },
+  {
+    id: "radar-sites",
+    label: "The list of radars that exist",
+    host: "api.weather.gov",
+    kind: "native",
+    filter: "level2::registry::tests::the_radar_table_matches_the_office_list",
+    // Required, because the table is the app's answer to "which radar can see
+    // this place" and a stale one offers a decommissioned radar and hides the
+    // one that replaced it. That is what the crate's own table did for five
+    // months at New Orleans.
     required: true,
   },
   {

@@ -205,7 +205,7 @@ pub fn cross_section_from_scan(
     Ok(CrossSection {
         station: station.to_string(),
         site_name: entry
-            .map(|site| format!("{}, {}", site.city, site.state))
+            .map(|site| site.label())
             .unwrap_or_else(|| station.to_string()),
         product_id: asked.product_name.to_string(),
         product: label.to_string(),

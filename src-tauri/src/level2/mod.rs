@@ -30,7 +30,6 @@ use nexrad_data::volume;
 use nexrad_decode::messages::MessageContents;
 use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 use nexrad_model::geo::{GeoPoint, RadarCoordinateSystem};
-use nexrad_model::meta::registry;
 use serde::Serialize;
 
 use crate::chunks;
@@ -369,6 +368,8 @@ mod decode;
 mod draw;
 mod listing;
 mod ramp;
+pub(crate) mod registry;
+mod registry_table;
 mod render;
 mod section;
 mod sites;
