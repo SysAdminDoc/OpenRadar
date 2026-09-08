@@ -206,6 +206,28 @@ export function isLightBasemap(id: MapStyleId): boolean {
   }
 }
 
+/**
+ * Whether the ground the map is drawing is a pale one.
+ *
+ * Which is a different question from which style the reader picked, and a
+ * different question again from which theme the workspace wears. An incident
+ * pack replaces the basemap outright, so the picked style says nothing about
+ * what is on screen while one is open; every pack is USGS Topo, which is a
+ * pale sheet whatever the reader had chosen before.
+ *
+ * This is what the chrome sitting straight on the map keys off, so getting it
+ * wrong means the credits, the watermark and the readout are dressed for a map
+ * that is not there.
+ */
+export function drawnOverLight(
+  id: MapStyleId,
+  theme: ThemeMode,
+  packSelected: boolean,
+): boolean {
+  if (packSelected) return true;
+  return isLightBasemap(resolvedMapStyle(id, theme));
+}
+
 export function resolvedMapStyle(id: MapStyleId, theme: ThemeMode): MapStyleId {
   if (id !== "auto") return id;
   return theme === "light" ? "pro-light" : "pro-dark";

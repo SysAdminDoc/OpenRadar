@@ -123,11 +123,7 @@ import {
   trackBounds,
   type Storm,
 } from "./lib/hurdat";
-import {
-  basemapCredit,
-  isLightBasemap,
-  resolvedMapStyle,
-} from "./lib/mapStyles";
+import { basemapCredit, drawnOverLight } from "./lib/mapStyles";
 import { supportedProduct } from "./lib/radarKinds";
 import { level2Available } from "./lib/level2";
 import { pairingById } from "./lib/alertPairings";
@@ -2642,13 +2638,17 @@ export default function App() {
           source={timeline.sourceLabel ?? ""}
           frameAgeMinutes={radarAge}
           idleMs={idleMs}
-          // Resolved first. "auto" is the default and `isLightBasemap`
-          // has no case for it, so this asked whether the word "auto" was
-          // a light style, was told no, and the fix never fired for
-          // anybody who had not gone and picked a style by hand. The
-          // county lines read a resolved style; this now does too.
-          overLight={isLightBasemap(
-            resolvedMapStyle(settings.mapStyle, settings.theme),
+          // What is drawn, not what was picked. Two ways of getting this
+          // wrong have been fixed here. "auto" is the default and
+          // `isLightBasemap` has no case for it, so this once asked whether
+          // the word "auto" was a light style, was told no, and never fired
+          // for anybody who had not gone and picked a style by hand. And an
+          // incident pack replaces the basemap outright, so the picked style
+          // says nothing at all about the ground while one is open.
+          overLight={drawnOverLight(
+            settings.mapStyle,
+            settings.theme,
+            settings.incidentPacks.selectedId !== null,
           )}
           onLeave={() => {
             setAmbientAsked(false);

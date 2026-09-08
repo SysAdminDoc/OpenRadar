@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { applyTheme, type WorkspaceTheme } from "../lib/theme";
-import { isLightBasemap, resolvedMapStyle } from "../lib/mapStyles";
+import { drawnOverLight } from "../lib/mapStyles";
 import {
   occasionOn,
   occasionTheme,
@@ -104,7 +104,18 @@ export function useAppearance(
     // alone, which is how the OpenStreetMap credit came to be 72 per cent
     // pale grey on pale water: readable in neither screenshot anybody took,
     // because the dark theme's looked right and the light theme's was right.
-    if (isLightBasemap(resolvedMapStyle(settings.mapStyle, settings.theme))) {
+    //
+    // Asked of what is drawn rather than of what was picked. It used to read
+    // the chosen style, and an incident pack replaces the basemap outright, so
+    // a reader with a pack open got the chrome dressed for the style they had
+    // picked before rather than for the tiles under it.
+    if (
+      drawnOverLight(
+        settings.mapStyle,
+        settings.theme,
+        settings.incidentPacks.selectedId !== null,
+      )
+    ) {
       document.documentElement.dataset.overLight = "1";
     } else {
       delete document.documentElement.dataset.overLight;
@@ -123,7 +134,13 @@ export function useAppearance(
     } catch {
       // Nothing to do about it, and nothing depends on it having worked.
     }
-  }, [settings.calm, settings.mapStyle, settings.theme, wanted]);
+  }, [
+    settings.calm,
+    settings.incidentPacks.selectedId,
+    settings.mapStyle,
+    settings.theme,
+    wanted,
+  ]);
 
   return {
     occasion,

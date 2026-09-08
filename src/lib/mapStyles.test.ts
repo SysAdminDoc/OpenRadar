@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   MAP_STYLE_OPTIONS,
+  drawnOverLight,
   isLightBasemap,
   mapStyleDefinition,
   resolvedMapStyle,
@@ -83,17 +84,41 @@ describe("asking whether the drawn basemap is a light one", () => {
     expect(isLightBasemap(resolvedMapStyle("auto", "dark"))).toBe(false);
   });
 
-  it("is asked that way by the readout that draws over the map", () => {
-    // A test that calls the helper directly leaves the call site free to go
-    // back to the setting, which is exactly what was wrong. Read the caller.
-    const app = readFileSync(
-      join(import.meta.dirname, "..", "App.tsx"),
-      "utf8",
-    );
+  it("says a pack is a light ground whatever style was picked", () => {
+    // A pack replaces the basemap outright and every one of them is USGS
+    // Topo, a pale sheet. Reading the picked style while one is open dresses
+    // the credits, the watermark and the readout for a map that is not there.
+    expect(drawnOverLight("pro-dark", "dark", true)).toBe(true);
+    expect(drawnOverLight("aerial", "dark", true)).toBe(true);
+    expect(drawnOverLight("auto", "dark", true)).toBe(true);
+    // And with no pack it is still the resolved style that answers.
+    expect(drawnOverLight("auto", "dark", false)).toBe(false);
+    expect(drawnOverLight("auto", "light", false)).toBe(true);
+    expect(drawnOverLight("roads", "dark", false)).toBe(true);
+    // A dark basemap the reader picked under the light theme is a dark
+    // ground, whatever the workspace is wearing.
+    expect(drawnOverLight("aerial", "light", false)).toBe(false);
+    expect(drawnOverLight("pro-dark", "light", false)).toBe(false);
+  });
+
+  it("is asked that way by both things that draw over the map", () => {
+    // A test that calls the helper directly leaves the call sites free to go
+    // back to the setting, which is exactly what was wrong. Read the callers.
+    const read = (...where: string[]) =>
+      readFileSync(join(import.meta.dirname, "..", ...where), "utf8");
+
+    const app = read("App.tsx");
     const at = app.indexOf("overLight={");
     expect(at).toBeGreaterThan(-1);
-    const said = app.slice(at, at + 160);
-    expect(said).toContain("resolvedMapStyle(");
-    expect(said).not.toMatch(/isLightBasemap\(\s*settings\.mapStyle\s*\)/);
+    const said = app.slice(at, at + 200);
+    expect(said).toContain("drawnOverLight(");
+    expect(said).toContain("selectedId");
+
+    const appearance = read("hooks", "useAppearance.ts");
+    const flag = appearance.indexOf("dataset.overLight");
+    expect(flag).toBeGreaterThan(-1);
+    const asked = appearance.slice(Math.max(0, flag - 300), flag);
+    expect(asked).toContain("drawnOverLight(");
+    expect(asked).toContain("selectedId");
   });
 });
