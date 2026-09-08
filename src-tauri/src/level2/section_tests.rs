@@ -147,4 +147,52 @@ fn a_velocity_slice_reports_whether_it_was_unfolded() {
     assert_eq!(section.unit, "m/s");
     assert!(!section.dealiased);
     assert_eq!(section.lowest_cut, Some(0.5));
+    // Nothing folded, so nothing was left unplaced either.
+    assert_eq!(section.unplaced_share, 0.0);
+}
+
+#[test]
+fn a_slice_says_how_much_of_its_volume_would_not_unfold() {
+    // `unplaced_share` reached the panel through `CrossSection` and was
+    // asserted nowhere in Rust: the accumulation in `cross_section_from_volume`
+    // and the division under it could both be replaced by a nought and every
+    // test here stayed green. The panel's own test hand-builds the number, so
+    // it never touched the code that produces it, and a missing field is
+    // silent on the way out too, because `Math.round(undefined * 100) > 0` is
+    // false rather than an error.
+    let _guard = decoded_cache_test();
+    clear_cache();
+    let (_, key, data) = stranded_patch_volume();
+    let east = |km: f64| (-93.723 + km / KM_PER_DEGREE_EAST, 41.731);
+    let section = cross_section_from_volume(
+        "KDMX",
+        &key,
+        data,
+        SectionRequest {
+            product_name: "velocity",
+            from: east(5.0),
+            to: east(110.0),
+            unfold: true,
+            threshold: None,
+            high_contrast: false,
+        },
+    )
+    .expect("a velocity slice");
+
+    // The patch is walled off from the anchor by a band of no data, so no
+    // boundary reaches it and the wind has nothing to place it against.
+    assert!(
+        section.unplaced_share > 0.0,
+        "a volume with a stranded patch reported {} unplaced",
+        section.unplaced_share
+    );
+    // Both cuts carry the same two regions, so the share is the patch against
+    // the whole of the echo: 20 radials of 40 gates against that plus 45
+    // radials of 200 gates.
+    let expected = 800.0 / (800.0 + 9000.0);
+    assert!(
+        (section.unplaced_share - expected).abs() < 0.02,
+        "expected about {expected}, got {}",
+        section.unplaced_share
+    );
 }

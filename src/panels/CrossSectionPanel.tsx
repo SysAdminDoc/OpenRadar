@@ -150,12 +150,18 @@ export function CrossSectionPanel({
             </li>
             <li>{t("section.gaps")}</li>
             {section.dealiased ? <li>{t("section.unfolded")}</li> : null}
-            {/* The same sentence the map's own legend uses, rounded the same
-                way and silent at nought: a slice with a handful of gates
-                nothing could place is not worth a line. */}
+            {/* Rounded the way the map's own legend rounds it and silent at
+                nought: a slice with a handful of gates nothing could place is
+                not worth a line. Its own sentence rather than the legend's,
+                because the share is measured over every cut the slice was
+                taken from and not along the slice. The legend's wording said
+                "{share}% still folded" beside three bullets that all describe
+                the slice, so a clean slice through a volume whose far side
+                would not unfold read as a picture that was itself a third
+                folded. */}
             {Math.round(section.unplacedShare * 100) > 0 ? (
               <li>
-                {t("legend.partlyUnfolded", {
+                {t("section.partlyUnfolded", {
                   share: String(Math.round(section.unplacedShare * 100)),
                 })}
               </li>
