@@ -1509,7 +1509,11 @@ test("the workspace never grows wider than the window it is drawn in", async ({
         }),
       );
     }, scale);
-    for (const width of [1440, 1024, 900, 800, 700, 660]) {
+    // 981 and 681 are here because they are where the shell actually
+    // overflowed worst before the breakpoints were fixed: 26 pixels over at
+    // 981 and 34 at 681, against 20 at 700. A list that held only 700 was
+    // catching the smallest of the four.
+    for (const width of [1440, 1024, 981, 900, 800, 700, 681, 660]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/?testMode=1");
       await expect(page.getByRole("application")).toBeVisible();
@@ -1524,7 +1528,13 @@ test("the workspace never grows wider than the window it is drawn in", async ({
       // rather than an overflow.
       await page.evaluate(() =>
         Promise.all(
-          document.getAnimations().map((animation) => animation.finished),
+          // Swallowed on purpose: `finished` rejects with an AbortError when
+          // an animation is cancelled, which turns a cancelled panel entry
+          // into a test error rather than a measurement. What is wanted here
+          // is only that nothing is still moving.
+          document
+            .getAnimations()
+            .map((animation) => animation.finished.catch(() => undefined)),
         ),
       );
 
