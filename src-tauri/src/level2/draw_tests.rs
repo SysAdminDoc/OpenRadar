@@ -993,3 +993,51 @@ fn the_beam_marker_is_drawn_where_the_beam_is() {
         "{wrong} of {lifted} marked pixels are not on the beam; the furthest is {worst} degrees off"
     );
 }
+
+#[test]
+fn a_sweep_carries_its_own_radar_and_not_the_two_numbers_the_other_way_round() {
+    // The site travels on the sweep because the reader's click needs a range
+    // from the radar, and nothing held it: swapping longitude and latitude at
+    // both places that build a SweepImage left the whole suite green. Under
+    // that swap KTLX sits in the Mediterranean, every range from the radar is
+    // wrong and the beam-height line silently stops being drawn.
+    let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+    let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+    let (_, live) = faded_pair(older_at, live_at);
+    let none = |_: u8| None;
+    let drawn = sweep_from_scan(
+        "KTLX",
+        "live",
+        &live,
+        &none,
+        SweepRequest {
+            product_name: "reflectivity",
+            ..SweepRequest::default()
+        },
+    )
+    .expect("the synthetic volume draws");
+
+    let site = registry::site_by_id("KTLX").expect("KTLX is in the registry");
+    assert!(
+        (drawn.site_lon - f64::from(site.longitude)).abs() < 1e-9,
+        "the sweep says the radar is at longitude {} and the registry says {}",
+        drawn.site_lon,
+        site.longitude
+    );
+    assert!(
+        (drawn.site_lat - f64::from(site.latitude)).abs() < 1e-9,
+        "the sweep says the radar is at latitude {} and the registry says {}",
+        drawn.site_lat,
+        site.latitude
+    );
+    // And the two are not interchangeable here, which is what makes the pair
+    // above a pin rather than two numbers that happen to be close.
+    assert!(
+        (drawn.site_lon - drawn.site_lat).abs() > 1.0,
+        "this site's two coordinates are too close together to catch a swap"
+    );
+    // The radar is inside the ground its own sweep was drawn over. True of
+    // every site, and the one thing a swapped pair could never satisfy.
+    assert!(drawn.west < drawn.site_lon && drawn.site_lon < drawn.east);
+    assert!(drawn.south < drawn.site_lat && drawn.site_lat < drawn.north);
+}
