@@ -52,7 +52,6 @@ function sweepOf(live: boolean): SweepImage {
     smoothed: false,
     dealiased: false,
     unplacedShare: 0,
-    windPlacedShare: 0,
     live,
     liveTilts: live ? 3 : 0,
     nextChunkAt: null,

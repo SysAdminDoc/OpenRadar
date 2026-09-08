@@ -433,7 +433,6 @@ pub async fn sweep(
             // An airport radar's velocity arrives unfolded, so there was
             // nothing to place and nothing left unplaced.
             unplaced_share: 0.0,
-            wind_placed_share: 0.0,
             storm_motion: None,
             unit: asked.unit.to_string(),
             elevation_degrees: elevation,

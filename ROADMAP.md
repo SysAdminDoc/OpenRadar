@@ -361,7 +361,38 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
       Acceptance: At zoom 12 over a storm the gate wedges are drawn as wedges rather than as blocks; a Playwright test renders the fixture volume at zooms 8 and 12 and finds edges at different pixel spacings; the readout, the cross-section and the CSV still read the nearest gate; the compare pane and the loop stay in step.
       Complexity: L
 
+### P2
+
+- [ ] AUD-385 (P2): A fragmented sweep still comes back folded, and the wind cannot help it
+  Why: The reference-wind pass placed nothing at all on the five station-days it was written for. On those days the settled echo covers a sliver of the circle, no ring can be trusted, and `reference_wind` returns nothing, so every unreached patch keeps its fold: KTLX on 2026-09-04 came back with 26,425 of 26,486 broken pairs and 41 of 16,528 folded gates back on their own branch, exactly as it did before the pass existed. The reader on those afternoons is looking at a velocity cut with the folds still in it. This is `AUD-360`'s original acceptance, which the wind cannot meet on its own, and the legend now at least says so.
+  Evidence: `recording_the_days_unfolding_is_held_against` over 2026-09-01 to 09-07, three variants on identical volumes, recorded 2026-09-07 evening. With no reference pass 0.6221 of the folded pairs stay broken, with the pass as first shipped 0.5391, with the plausibility bar it has now 0.5866; the five bad days are identical in the first and third. Settling those groups by their own boundary votes was tried the same evening, took the aggregate to 0.4710, and was reverted: it reads a velocity couplet as a fold, measured at a 40 m/s couplet coming back at -10, which `a_couplet_that_never_folded_is_not_read_as_a_fold` now holds down.
+  Note: the shape that makes boundary evidence usable inside an isolated group is R2D2's (Feldmann et al. 2020, JTECH 37(12), 2341-2355): mark every gate whose difference from a neighbour exceeds 0.8 of the Nyquist velocity as shear, dilate that mark over a 5 by 5 window, exclude those gates from region placement entirely, and settle what is left. A couplet is then a buffer rather than a boundary, and the boundaries that remain are the ones worth voting on. R2D2 also runs top down through the tilts, each settled sweep guiding the one below, which is `AUD-192`.
+  Touches: `src-tauri/src/dealias.rs` (a shear mark before `grow_regions`, carried through the traversal; the settling of unreached groups, which is currently deliberately absent and commented as such), `src-tauri/src/level2/decode_tests.rs` (the recorded figures), the couplet test as the thing that must stay green.
+  Acceptance: WHEN a sweep fragments so that no ring can be trusted, THEN the dealiaser SHALL still take the folds out of each group of touching patches, AND a planted couplet of 40 m/s shear SHALL come back with its shear unchanged; the five station-days above each show a materially better figure than the ones recorded here; no recorded day gets worse; `invented` stays at zero.
+  Complexity: L
+
 ### P3
+
+- [ ] AUD-386 (P3): The unfolding generator never builds the shapes the reference pass acts on
+  Why: `no_sweep_comes_out_more_discontinuous_than_it_went_in` runs 300 generated sweeps and is the property test standing behind the whole module, and almost none of them reach the code under test: 1,119 of 3,023,990 valid gates, 0.037 per cent, reach the reference vote at all. Its field is a smooth cosine plus symmetric noise, so unreached patches read alike, vote alike, and never build the two shapes that went wrong on 2026-09-07: a group of touching patches that disagree, and an isolated cell reported correctly whose velocity is far from the ambient wind. A mutation that reverted the vote to one patch at a time survived the entire suite.
+  Evidence: measured on 2026-09-07 by a refutation pass; `src-tauri/src/dealias.rs` `generated_sweep` is byte-identical to `74cf9be`.
+  Touches: `src-tauri/src/dealias.rs` (`generated_sweep`: seeds that plant an isolated patch at a velocity unrelated to the field, and a group of two or three touching patches straddling a fold edge), the property test's own assertions.
+  Acceptance: over 300 seeds, at least one in ten sweeps holds a group of two or more touching unreached patches and at least one in ten holds an isolated correctly reported cell; reverting the vote to one patch at a time fails the suite; the existing bar still passes.
+  Complexity: M
+
+- [ ] AUD-387 (P3): The unplaced share describes the newer half of a composite and none of a cross-section
+  Why: A live sweep is drawn as the volume in progress composited over the last finished one, and both halves go through the same unfolding. Only the newer half's report reaches the legend, so a reader looking at a composite whose older half is a third unplaced is told nothing about it. The cross-section drops the counts entirely and carries only whether anything was unfolded.
+  Evidence: `src-tauri/src/level2/draw.rs` destructures `under: Prepared` and never reads `under.unfolding`; `src-tauri/src/level2/section.rs:132` keeps only `dealiased |= ... .moved > 0` and `CrossSection` carries no share.
+  Touches: `src-tauri/src/level2/draw.rs` (take the larger of the two shares, or report them separately), `src-tauri/src/level2/section.rs` and `src/lib/crossSection.ts`, `src/panels/CrossSectionPanel.tsx`.
+  Acceptance: a composite whose older half is largely unplaced says so; the cross-section panel says it too; both pinned by a test with a planted field.
+  Complexity: S
+
+- [ ] AUD-388 (P3): `misplaced` is aggregated where the damage is per station
+  Why: The refold contract asserts only aggregates across six stations, and one station can be badly wrong inside a green run. On 2026-09-07 KFWS moved 2,247 gates that never folded onto a foreign branch while putting only 568 folded gates back, and the contract passed. A per-station relation between the two is the shape that would have caught it, and it is the measure that separates a wrong boundary vote from a wrong wind placement.
+  Evidence: the live run of `unfolding_a_live_velocity_sweep_takes_the_folds_out` on 2026-09-07 evening; `src-tauri/src/level2/decode_tests.rs`, where `misplaced` is printed and not asserted, with the reasoning for that written in.
+  Touches: `src-tauri/src/level2/decode_tests.rs` (a per-station bound recorded from a week rather than an afternoon, in the way the two aggregate lines already are), `src-tauri/src/level2/testing.rs` if the measure needs splitting into gates the boundary placed and gates the wind placed.
+  Acceptance: a per-station line that the recorded week clears with room and that fails when the wind's plausibility bar is removed; the recorder prints whatever the line is drawn against.
+  Complexity: M
 
 - [ ] AUD-361 (P3): Convert the 30 hand-rolled `open` guards to `useLatestReply`
       Why: `useLatestReply` exists so one tested helper answers "is this run still the current one", and 30 effects across 16 files still answer it with `let open = true` and a cleanup that sets it false. Every one is correct as written, which is why this is a conversion and not a fix, but the gate that was supposed to stop new ones was blind to `open` for two days while calling itself complete. The list is the second time that has happened, after `mounted`.

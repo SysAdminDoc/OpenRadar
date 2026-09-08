@@ -104,8 +104,6 @@ export interface SweepImage {
    * legend says so.
    */
   unplacedShare: number;
-  /** The share placed against the fitted wind rather than against a boundary. */
-  windPlacedShare: number;
   /** What was taken out to make a storm relative sweep, when one was. */
   stormMotion: StormMotion | null;
   product: string;
