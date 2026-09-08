@@ -400,6 +400,33 @@ describe("a stored palette", () => {
     ]);
   });
 
+  it("keeps a product or a unit that was not stored as text", () => {
+    // Both arrive from a stored settings file, so an older build or a hand
+    // edit puts a number or a one-element array where a string belongs. The
+    // units are what decide which readings a table colours, so dropping them
+    // for being the wrong type silently repoints the table at something else.
+    const [numbered] = normalizeSettings({
+      palettes: [{ ...loaded, product: 5, units: 5 }],
+    }).palettes;
+    expect(numbered.product).toBe("5");
+    expect(numbered.units).toBe("5");
+    // And reported, for the product, which is read and then not acted on.
+    expect(numbered.skipped).toContain("product");
+
+    const [listed] = normalizeSettings({
+      palettes: [{ ...loaded, units: ["dBZ"] }],
+    }).palettes;
+    expect(listed.units).toBe("dBZ");
+
+    // Nothing at all still means nothing, rather than "null" or "false" as
+    // four characters of units.
+    const [empty] = normalizeSettings({
+      palettes: [{ ...loaded, product: null, units: false }],
+    }).palettes;
+    expect(empty.product).toBeNull();
+    expect(empty.units).toBeNull();
+  });
+
   it("is nothing when there is nothing usable in it", () => {
     expect(normalizeSettings({}).palettes).toEqual([]);
     expect(normalizeSettings({ palette: null }).palettes).toEqual([]);

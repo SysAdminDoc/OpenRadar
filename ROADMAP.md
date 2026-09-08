@@ -601,16 +601,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P3
 
-- [ ] AUD-398 (P3): `normalizePalette` quietly stopped reporting two kinds of skipped field
-      Category: correctness
-      Where: `src/lib/settings.ts`, `normalizePalette` after AUD-370's rewrite through `writePalette`.
-      Problem: A differential run against the previous implementation over 33 hostile inputs differs on eight. A `product` or `units` that is not a string, `5`, `true`, `["BR"]`, `{}`, used to be kept stringified and reported in `skipped`; it is now dropped and `skipped` comes back empty, so the panel says nothing was skipped when something was. Separately, `solid: true` with a valid `toColor` used to keep the second colour and clear the flag, and now keeps the flag and drops the colour; that one is documented and intended, but it silently discards a stored value.
-      Evidence: Differential harness on 2026-09-07 driving both implementations through the real `parsePalette` and `writePalette`; 8 of 33 differ, listed above. No difference on the other 25, which include the value, colour, step, name, stops and injection cases.
-      Fix: Report a non-string `product` or `units` in `skipped` the way the old code did, whether or not it is kept.
-      Acceptance: Each of the six non-string cases reports its field in `skipped`; the 25 agreeing cases still agree; `npm run check` green.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-399 (P3): The palette round-trip test passes on a fixture that hides what it claims to check
       Category: testing
       Where: `src/lib/palette.test.ts`, "comes back the way it went in"; `src/lib/palette.ts:103`, `:114`, `:167`.
