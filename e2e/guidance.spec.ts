@@ -216,7 +216,10 @@ test("never breaks a header inside a word", async ({ page }) => {
   const measured = await block.evaluate((node) => {
     const heads = [...node.querySelectorAll("th")];
     const heights = heads.map((th) => th.getBoundingClientRect().height);
-    const scroller = node.closest(".guidance-block") ?? node;
+    // What actually scrolls is the box around the table, not the block: the
+    // block carries the heading too, and scrolling that takes the name of
+    // the reading away sideways along with the hours.
+    const scroller = node.querySelector(".guidance-scroll");
     return {
       count: heads.length,
       words: heads.map((th) => (th.textContent ?? "").trim()),
@@ -224,8 +227,13 @@ test("never breaks a header inside a word", async ({ page }) => {
       shortest: Math.min(...heights),
       // Whatever does not fit is reachable by scrolling rather than folded
       // into a second line.
-      scrolls: scroller.scrollWidth > scroller.clientWidth,
-      overflowX: getComputedStyle(scroller).overflowX,
+      scrolls: (scroller?.scrollWidth ?? 0) > (scroller?.clientWidth ?? 0),
+      overflowX: scroller ? getComputedStyle(scroller).overflowX : "",
+      // And reachable from the keyboard, which a scroll box holding nothing
+      // focusable is not unless it is a tab stop itself.
+      tabStop: scroller?.getAttribute("tabindex") ?? "",
+      // The heading stays put while the hours move under it.
+      blockOverflowX: getComputedStyle(node).overflowX,
     };
   });
 
@@ -239,6 +247,11 @@ test("never breaks a header inside a word", async ({ page }) => {
     `headers of different heights, so one has wrapped: ${measured.words.join(", ")}`,
   ).toBeLessThan(2);
   expect(measured.overflowX).toBe("auto");
+  expect(measured.tabStop, "the scroll box is not a tab stop").toBe("0");
+  expect(
+    measured.blockOverflowX,
+    "the block scrolls too, which takes the heading sideways with the hours",
+  ).toBe("visible");
 });
 
 test("says it is refetching, and keeps the table when the refetch fails", async ({
