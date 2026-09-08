@@ -129,7 +129,10 @@ export function expectedUnitToken(
  * only systems the app can put in the URL, so they are the only ones a reply
  * can disagree with it in.
  */
-const CONVERSIONS: Record<string, (value: number) => number> = {
+// Written with `undefined` in the value type because a lookup here misses for
+// every token outside the six, and a plain `Record` tells the compiler the
+// answer is always a function.
+const CONVERSIONS: Record<string, ((value: number) => number) | undefined> = {
   "°C>°F": (celsius) => celsius * 1.8 + 32,
   "°F>°C": (fahrenheit) => (fahrenheit - 32) / 1.8,
   "km/h>mp/h": (kmh) => kmh / MILES_TO_KM,
