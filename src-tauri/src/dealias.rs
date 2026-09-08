@@ -50,12 +50,54 @@ const MIN_REGION_GATES: usize = 10;
 /// rings of a few hundred gates against the hundred thousand the sweep holds.
 const REFERENCE_RINGS: usize = 24;
 
-/// How much of a patch has to agree on which interval it belongs in before
-/// the wind is taken as evidence about that patch.
+/// How much of a component has to agree on which interval it belongs in
+/// before the wind is taken as evidence about it.
 ///
-/// A patch whose gates cannot agree is not one piece of air, and placing it
-/// anywhere would be a guess dressed as a reading.
+/// A component whose gates cannot agree is not one piece of air, and placing
+/// it anywhere would be a guess dressed as a reading.
 const REFERENCE_AGREEMENT: f64 = 0.6;
+
+/// How far a component may sit from the fitted wind, once placed, and still
+/// be placed by it.
+///
+/// A vote alone cannot say no. Rounding to the nearest interval always names
+/// one, so every isolated patch in the sweep gets an answer whether or not
+/// the wind knows anything about it, and a storm cell is precisely the thing
+/// that does not move with the air around it. An inbound cell reading -10 m/s
+/// under a 25 m/s limit is nearer the +30 m/s environment as +40 than it is
+/// as itself, so the vote says +40 unanimously, and that is a reading nothing
+/// measured: fifty metres a second of fabricated outbound flow.
+///
+/// So the wind has to actually account for the component, not merely prefer
+/// it. The bar is the profile's own: `vad::MAX_RESIDUAL_MS` is what a ring of
+/// gates may scatter from a fitted wave before that wave is refused as a
+/// description of them, and a patch further than that from the wind is one
+/// the fit does not vouch for either.
+///
+/// Which way to be wrong is the whole question here, and the two ways are not
+/// equal. A component left where it was carries the fold this module exists
+/// to remove, which is what it did before the wind was consulted at all and
+/// is recoverable by the eye. A component moved a whole interval on a guess
+/// is a velocity nobody read, drawn in the colours of a measurement.
+const REFERENCE_MARGIN_MS: f32 = vad::MAX_RESIDUAL_MS;
+
+/// What the unfolder was able to do with a sweep.
+///
+/// The counts are gates rather than patches, because a patch is an artefact of
+/// how the sweep happened to break up and a gate is a reading somebody is
+/// looking at.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Dealiased {
+    /// Gates whose reading was shifted onto another branch.
+    pub moved: usize,
+    /// Gates placed by the fitted wind rather than by a boundary, which is the
+    /// weaker of the two kinds of evidence this module has.
+    pub by_wind: usize,
+    /// Gates in a group nothing could place. Their neighbours agree with each
+    /// other and which interval the group belongs in is unknown, so they are
+    /// left exactly as the radar reported them, folds and all.
+    pub unplaced: usize,
+}
 
 /// One gate's place in the sweep: which radial, and how far along it.
 fn index(azimuth: usize, gate: usize, gates: usize) -> usize {
@@ -144,6 +186,62 @@ impl Edge {
     }
 }
 
+/// Places every patch reachable from `start` relative to it, along the
+/// strongest boundaries first.
+///
+/// `start` must already carry an offset, and only patches with none are
+/// written to, so this can be run once from the largest patch of the sweep and
+/// again from the largest patch of each group the first run never reached.
+///
+/// Ordered by boundary strength, with any patch too small to trust left until
+/// every substantial one has had its say. A strong boundary is a long one:
+/// hundreds of gates agreeing is worth more than three.
+fn settle_from(
+    start: usize,
+    adjacency: &[Vec<(usize, i32, usize)>],
+    sizes: &[usize],
+    shift: &mut [Option<i32>],
+) {
+    let weigh = |target: usize, shared: usize| {
+        if sizes[target] >= MIN_REGION_GATES {
+            shared + 1_000_000
+        } else {
+            shared
+        }
+    };
+    // The tie-break matters more than it looks. Nearly every boundary in a
+    // speckled field is one or two gates long, so most of the queue is tied on
+    // strength, and a tuple compares straight through to whatever comes next.
+    // With the accumulated shift sitting there, a max-heap quietly prefers the
+    // path that has drifted furthest from the reading the radar gave, which on
+    // 499 generated sweeps left half again as much discontinuity as picking the
+    // smallest drift, and made five of them worse than not running at all.
+    let mut queue: BinaryHeap<(usize, Reverse<i32>, usize, i32)> = BinaryHeap::new();
+    let offer = |queue: &mut BinaryHeap<(usize, Reverse<i32>, usize, i32)>,
+                 other: usize,
+                 shift: i32,
+                 shared: usize| {
+        queue.push((weigh(other, shared), Reverse(shift.abs()), other, shift));
+    };
+    let base = shift[start].unwrap_or(0);
+    for &(other, offset, shared) in &adjacency[start] {
+        offer(&mut queue, other, base + offset, shared);
+    }
+
+    while let Some((_, _, target, offset)) = queue.pop() {
+        if shift[target].is_some() {
+            continue;
+        }
+        shift[target] = Some(offset);
+        for &(other, step, shared) in &adjacency[target] {
+            if shift[other].is_some() {
+                continue;
+            }
+            offer(&mut queue, other, offset + step, shared);
+        }
+    }
+}
+
 /// Where a sweep's radials point, how long they are, and how far up the cut
 /// is tilted.
 ///
@@ -219,8 +317,8 @@ fn reference_wind(
 ///
 /// `values` is the sweep laid out radial by radial, `valid` marks the gates
 /// that hold a reading at all, `azimuth_degrees` says where each radial
-/// points, and `nyquist` is the velocity the radar folds at. Returns how many
-/// gates were moved, which is zero for a sweep that never folded in the first
+/// points, and `nyquist` is the velocity the radar folds at. Reports what it
+/// managed, which is all zeroes for a sweep that never folded in the first
 /// place.
 pub fn dealias(
     values: &mut [f32],
@@ -229,18 +327,20 @@ pub fn dealias(
     gates: usize,
     nyquist: f32,
     elevation_degrees: f32,
-) -> usize {
+) -> Dealiased {
     let azimuths = azimuth_degrees.len();
     if azimuths == 0 || gates == 0 || values.len() != azimuths * gates || !nyquist.is_finite() {
-        return 0;
+        return Dealiased::default();
     }
     if nyquist <= 0.0 {
-        return 0;
+        return Dealiased::default();
     }
 
     let (region, region_count) = grow_regions(values, valid, azimuths, gates, nyquist);
+    // One patch is the whole sweep agreeing with itself, which is the answer
+    // rather than a failure to place anything.
     if region_count < 2 {
-        return 0;
+        return Dealiased::default();
     }
 
     let mut sizes = vec![0usize; region_count];
@@ -305,89 +405,93 @@ pub fn dealias(
     // interval the whole picture belongs to. This is what Py-ART does when it
     // is given no reference field, for the same reason.
     let Some(root) = (0..region_count).max_by_key(|label| sizes[*label]) else {
-        return 0;
+        return Dealiased::default();
     };
 
     let mut shift = vec![Option::<i32>::None; region_count];
     shift[root] = Some(0);
-
-    // Ordered by boundary strength, with any patch too small to trust left
-    // until every substantial one has had its say.
-    let weigh = |target: usize, shared: usize| {
-        if sizes[target] >= MIN_REGION_GATES {
-            shared + 1_000_000
-        } else {
-            shared
-        }
-    };
-    // The tie-break matters more than it looks. Nearly every boundary in a
-    // speckled field is one or two gates long, so most of the queue is tied on
-    // strength, and a tuple compares straight through to whatever comes next.
-    // With the accumulated shift sitting there, a max-heap quietly prefers the
-    // path that has drifted furthest from the reading the radar gave, which on
-    // 499 generated sweeps left half again as much discontinuity as picking the
-    // smallest drift, and made five of them worse than not running at all.
-    let mut queue: BinaryHeap<(usize, Reverse<i32>, usize, i32)> = BinaryHeap::new();
-    let offer = |queue: &mut BinaryHeap<(usize, Reverse<i32>, usize, i32)>,
-                 other: usize,
-                 shift: i32,
-                 shared: usize| {
-        queue.push((weigh(other, shared), Reverse(shift.abs()), other, shift));
-    };
-    for &(other, offset, shared) in &adjacency[root] {
-        offer(&mut queue, other, offset, shared);
-    }
-
-    while let Some((_, _, target, offset)) = queue.pop() {
-        if shift[target].is_some() {
-            continue;
-        }
-        shift[target] = Some(offset);
-        for &(other, step, shared) in &adjacency[target] {
-            if shift[other].is_some() {
-                continue;
-            }
-            offer(&mut queue, other, offset + step, shared);
-        }
-    }
-    // Anything still unplaced touches nothing that was settled: patches of
-    // their own, with no boundary to judge them by.
+    settle_from(root, &adjacency, &sizes, &mut shift);
+    // Anything still unplaced sits in a group the root never reached. A patch
+    // left unplaced cannot touch a placed one, because the traversal offers
+    // every neighbour of everything it settles, so what is left is groups
+    // joined only to each other.
     //
     // Leaving them where they are used to be the whole answer, and on a
     // fragmented sweep that is most of the picture. Measured across 39
     // station-days on 2026-09-01 to 09-07: KTLX on the 3rd grew 8,536 patches
     // and the traversal reached 26 of them, so 73,254 of its 91,388 gates
     // were left exactly as the radar folded them and the sweep came back as
-    // broken as it went in. Five of those 39 went the same way. A patch with
-    // no neighbour still has a sky above it, so the ones the boundaries could
-    // not reach are offered to the wind instead.
+    // broken as it went in. Five of those 39 went the same way.
+    //
+    // Two kinds of evidence bear on them, and the order matters. A group may
+    // hold several patches that touch each other, and the boundaries between
+    // those are the same strong evidence the traversal runs on, already
+    // sitting in the edge list: settling each group from its own largest patch
+    // takes the folds out of its inside without asking the sky anything. What
+    // no boundary can say is which interval the group as a whole belongs in,
+    // and there the wind is the only witness, so it moves a group as one piece
+    // and only when it can account for where it puts it.
     let sweep = Geometry {
         azimuth_degrees,
         gates,
         elevation_degrees,
     };
-    if let Some(wind) = reference_wind(values, valid, &region, &shift, &sweep, interval) {
-        let mut loose: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let wind = reference_wind(values, valid, &region, &shift, &sweep, interval);
+    let mut placed: Vec<bool> = shift.iter().map(|offset| offset.is_some()).collect();
+    let mut by_wind = vec![false; region_count];
+
+    let groups = loose_groups(&adjacency, &shift, region_count);
+    for group in &groups {
+        // Its own largest patch keeps whatever it read, exactly as the root
+        // does for the sweep as a whole, and the rest of the group is placed
+        // relative to it by the boundaries between them.
+        let Some(anchor) = group
+            .iter()
+            .copied()
+            .max_by_key(|label| (sizes[*label], Reverse(*label)))
+        else {
+            continue;
+        };
+        shift[anchor] = Some(0);
+        settle_from(anchor, &adjacency, &sizes, &mut shift);
+    }
+
+    if let Some(wind) = wind {
+        let mut group_of = vec![usize::MAX; region_count];
+        for (which, group) in groups.iter().enumerate() {
+            for &label in group {
+                group_of[label] = which;
+            }
+        }
+        // For every gate of every group: which interval it reads as once its
+        // own group has been settled around it, and how far it would then sit
+        // from the wind.
+        let mut asked: Vec<Vec<(i32, f32)>> = vec![Vec::new(); groups.len()];
         for at in 0..values.len() {
             if !valid[at] {
                 continue;
             }
             let label = region[at];
-            if label == usize::MAX || shift[label].is_some() {
+            if label == usize::MAX || group_of[label] == usize::MAX {
                 continue;
             }
-            loose.entry(label).or_default().push(at);
+            let inside = shift[label].unwrap_or(0);
+            let settled = values[at] + interval * inside as f32;
+            let expected = wind.along_beam(azimuth_degrees[at / gates], elevation_degrees);
+            let gap = settled - expected;
+            asked[group_of[label]].push(((-gap / interval).round() as i32, gap));
         }
 
-        for (label, members) in loose {
-            let mut votes: BTreeMap<i32, usize> = BTreeMap::new();
-            for &at in &members {
-                let azimuth = azimuth_degrees[at / gates];
-                let expected = wind.along_beam(azimuth, elevation_degrees);
-                let by = ((expected - values[at]) / interval).round() as i32;
-                *votes.entry(by).or_default() += 1;
+        for (which, group) in groups.iter().enumerate() {
+            let readings = &asked[which];
+            if readings.is_empty() {
+                continue;
             }
-            // The interval most of the patch reads as, if most of it agrees.
+            let mut votes: BTreeMap<i32, usize> = BTreeMap::new();
+            for (by, _) in readings {
+                *votes.entry(*by).or_default() += 1;
+            }
+            // The interval most of the group reads as, if most of it agrees.
             // Ties go to the smaller move, the same way a boundary vote does.
             let Some((&by, &agreed)) = votes
                 .iter()
@@ -395,14 +499,30 @@ pub fn dealias(
             else {
                 continue;
             };
-            if (agreed as f64) < members.len() as f64 * REFERENCE_AGREEMENT {
+            if (agreed as f64) < readings.len() as f64 * REFERENCE_AGREEMENT {
                 continue;
             }
-            shift[label] = Some(by);
+            // And the wind has to account for the group where it wants to put
+            // it, not merely prefer that place to the alternatives.
+            let mut apart: Vec<f32> = readings
+                .iter()
+                .map(|(_, gap)| (gap + interval * by as f32).abs())
+                .collect();
+            apart.sort_by(f32::total_cmp);
+            if apart[apart.len() / 2] > REFERENCE_MARGIN_MS {
+                continue;
+            }
+            for &label in group {
+                if let Some(offset) = shift[label].as_mut() {
+                    *offset += by;
+                }
+                placed[label] = true;
+                by_wind[label] = true;
+            }
         }
     }
 
-    let mut moved = 0;
+    let mut found = Dealiased::default();
     for at in 0..values.len() {
         if !valid[at] {
             continue;
@@ -411,13 +531,54 @@ pub fn dealias(
         if label == usize::MAX {
             continue;
         }
+        if !placed[label] {
+            found.unplaced += 1;
+        } else if by_wind[label] {
+            found.by_wind += 1;
+        }
         let Some(offset) = shift[label] else { continue };
         if offset != 0 {
             values[at] += interval * offset as f32;
-            moved += 1;
+            found.moved += 1;
         }
     }
-    moved
+    found
+}
+
+/// The groups of patches the traversal never reached, each one everything in
+/// it touching something else in it.
+fn loose_groups(
+    adjacency: &[Vec<(usize, i32, usize)>],
+    shift: &[Option<i32>],
+    region_count: usize,
+) -> Vec<Vec<usize>> {
+    let mut groups = Vec::new();
+    let mut seen = vec![false; region_count];
+    let mut walk = Vec::new();
+    for label in 0..region_count {
+        if shift[label].is_some() || seen[label] {
+            continue;
+        }
+        seen[label] = true;
+        walk.push(label);
+        let mut group = Vec::new();
+        while let Some(here) = walk.pop() {
+            group.push(here);
+            for &(other, _, _) in &adjacency[here] {
+                // A settled neighbour cannot happen: anything with a path to
+                // the root was reached from it. Skipped rather than asserted,
+                // because a group that quietly grew a settled patch would move
+                // gates the traversal had already answered for.
+                if seen[other] || shift[other].is_some() {
+                    continue;
+                }
+                seen[other] = true;
+                walk.push(other);
+            }
+        }
+        groups.push(group);
+    }
+    groups
 }
 
 #[cfg(test)]
@@ -507,8 +668,8 @@ mod tests {
             "the folded sweep should have a jump in it, worst was {before}"
         );
 
-        let moved = dealias(&mut values, &valid, &pointing(360), 200, NYQUIST, ELEVATION);
-        assert!(moved > 0, "nothing was shifted");
+        let found = dealias(&mut values, &valid, &pointing(360), 200, NYQUIST, ELEVATION);
+        assert!(found.moved > 0, "nothing was shifted");
 
         // The flow is continuous again.
         let after = worst_jump(&values, &valid, 360, 200);
@@ -880,6 +1041,148 @@ mod tests {
                 "gate {at} came back at {} rather than {}",
                 values[at],
                 truth[at]
+            );
+        }
+    }
+
+    /// A sweep whose body covers the whole circle, with a patch of echo out
+    /// past a band of empty gates that touches nothing else.
+    ///
+    /// `body_speed` is the wind the body is drawn in, folded the way the radar
+    /// would report it. `island` says what each gate from 150 outward reads,
+    /// exactly, so a test can put a shape there the body's own flow would
+    /// never produce.
+    fn sweep_with_a_body(body_speed: f32, island: &[f32]) -> (Vec<f32>, Vec<bool>, Vec<f32>) {
+        let azimuths = 360;
+        let gates = 200;
+        let pointing = pointing(azimuths);
+        let mut values = vec![0.0f32; azimuths * gates];
+        let mut valid = vec![false; azimuths * gates];
+        for (index, azimuth) in pointing.iter().enumerate() {
+            let along = body_speed * azimuth.to_radians().sin();
+            for gate in 0..80 {
+                let at = index * gates + gate;
+                values[at] = fold(along, NYQUIST);
+                valid[at] = true;
+            }
+            if !(85..95).contains(&index) {
+                continue;
+            }
+            for (offset, reading) in island.iter().enumerate() {
+                let at = index * gates + 150 + offset;
+                values[at] = *reading;
+                valid[at] = true;
+            }
+        }
+        (values, valid, pointing)
+    }
+
+    #[test]
+    fn a_seam_inside_a_component_the_root_never_reached_survives_the_wind() {
+        // Two patches that touch each other and nothing else. "Unreached by
+        // the root" is not "touching nothing": the boundary between these two
+        // is the same strong evidence the traversal runs on, and it is already
+        // sitting in the edge list. Voting each of them against the wind on
+        // its own throws that away and can shift them by different intervals,
+        // which turns a seam that was continuous into a fold. That is not a
+        // worse answer than before, it is a defect the pass introduces.
+        let mut island = vec![-20.1f32; 10];
+        island.extend_from_slice(&[-7.0, 0.0, 7.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0]);
+        let (mut values, valid, pointing) = sweep_with_a_body(20.0, &island);
+
+        // The premise, asserted rather than assumed: two patches, touching,
+        // and neither of them the body's.
+        let (region, _) = grow_regions(&values, &valid, 360, 200, NYQUIST);
+        let left = region[85 * 200 + 155];
+        let right = region[85 * 200 + 165];
+        assert_ne!(left, right, "the island should be two patches");
+        assert!(
+            left != region[0] && right != region[0],
+            "neither should be part of the body"
+        );
+        let before = big_jumps(&values, &valid, 360, 200);
+        assert_eq!(before, 0, "the sweep goes in with nothing to unfold");
+
+        dealias(&mut values, &valid, &pointing, 200, NYQUIST, ELEVATION);
+
+        let after = big_jumps(&values, &valid, 360, 200);
+        assert_eq!(
+            after, 0,
+            "a seam was broken that nothing asked to be broken"
+        );
+    }
+
+    #[test]
+    fn a_fold_inside_an_unreached_group_comes_out_even_when_the_wind_will_not_place_it() {
+        // The other half of the same point, and the half a margin alone does
+        // not cover. This island straddles the folding limit, so there is a
+        // real fold inside it and a real boundary vote about that fold, but
+        // the air it is in sits further from the fitted wind than the wind can
+        // account for. The two questions are separate: what the boundary says
+        // about the two patches relative to each other is good evidence
+        // whatever the sky is doing, and it is the only thing that takes this
+        // fold out.
+        let mut island = vec![fold(24.5, NYQUIST); 10];
+        island.extend(std::iter::repeat_n(fold(25.5, NYQUIST), 10));
+        let (mut values, valid, pointing) = sweep_with_a_body(20.0, &island);
+
+        let (region, _) = grow_regions(&values, &valid, 360, 200, NYQUIST);
+        assert_ne!(
+            region[85 * 200 + 155],
+            region[85 * 200 + 165],
+            "the island should be two patches with a fold between them"
+        );
+        assert!(
+            big_jumps(&values, &valid, 360, 200) > 0,
+            "the island should go in folded"
+        );
+
+        dealias(&mut values, &valid, &pointing, 200, NYQUIST, ELEVATION);
+
+        assert_eq!(
+            big_jumps(&values, &valid, 360, 200),
+            0,
+            "the fold inside the island is still there"
+        );
+        // And the group as a whole stayed on the branch the radar read, which
+        // is the honest answer: no boundary joins it to anything settled, and
+        // the wind is too far away to vouch for it.
+        for index in 85..95 {
+            let near = values[index * 200 + 155];
+            assert!(
+                (near - 24.5).abs() < 0.01,
+                "the near half moved to {near} on nobody's evidence"
+            );
+        }
+    }
+
+    #[test]
+    fn a_cell_the_radar_reported_correctly_is_left_where_it_was() {
+        // An isolated inbound cell in a strongly outbound environment. Both
+        // readings are legal: minus ten as it stands, or plus forty if it
+        // folded, and nothing in the sweep says which. The wind says plus
+        // forty is nearer, but a storm cell is exactly the thing that does not
+        // move with the wind around it, so nearness to the ambient flow is not
+        // evidence enough to move a reading a whole interval.
+        //
+        // Which way to be wrong is the whole question, and the two are not
+        // equal. Leaving a fold in is what this module did before the wind was
+        // consulted at all. Drawing an inbound cell as a fifty metre a second
+        // outbound one is a reading nothing measured.
+        let (mut values, valid, pointing) = sweep_with_a_body(30.0, &[-10.0; 20]);
+        let island = island_gates();
+        assert!(
+            island.iter().all(|at| valid[*at] && values[*at] == -10.0),
+            "the cell should be there to begin with"
+        );
+
+        dealias(&mut values, &valid, &pointing, 200, NYQUIST, ELEVATION);
+
+        for at in island {
+            assert!(
+                (values[at] + 10.0).abs() < 0.001,
+                "gate {at} came back at {} rather than the -10 the radar reported",
+                values[at]
             );
         }
     }

@@ -252,8 +252,8 @@ pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
     // can only be put back against the wind the rest of the sweep is in.
     let pointing = field.azimuths().to_vec();
     let elevation = field.elevation_degrees();
-    let moved = dealias::dealias(&mut values, &valid, &pointing, gates, nyquist, elevation);
-    if moved == 0 {
+    let found = dealias::dealias(&mut values, &valid, &pointing, gates, nyquist, elevation);
+    if found.moved == 0 {
         return false;
     }
 
