@@ -611,15 +611,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 
 
-- [ ] AUD-419 (P3): The approach watch is the one watch hook with no test of its own
-      Category: testing
-      Where: `src/hooks/useApproachWatch.ts` (0 per cent lines, branches and functions in the 2026-09-08 coverage run; no `useApproachWatch.test.ts`), beside `src/hooks/useAlertWatch.test.ts` (10 cases) and `src/hooks/useLightningWatch.test.ts` (5 cases).
-      Problem: `src/lib/approach.test.ts` covers the rules, and the hook holds its own state: a per-place map of storms already announced, forgetting a place that moved or was switched off, forgetting a storm the tracker dropped so a reused identifier does not stay suppressed, a clock-driven re-run that must not re-announce, and the desktop notification against the toast fallback. Every one of those is exactly the class of thing the lightning watch's five tests exist for, and this hook has none. The comment at `:66-69` records a bug of that class ("a per-run flag meant a notification permission prompt that outlived one minute swallowed the notice") that a test would have held.
-      Evidence: `coverage-summary.json` from `npx vitest run --coverage` on 2026-09-08; `ls src/hooks/useApproachWatch.test.ts` fails.
-      Fix: Write `useApproachWatch.test.ts` in the shape of `useLightningWatch.test.ts`: announced once per storm per place across clock ticks; a second place is a second notice; a place switched off is forgotten and re-announced when switched back on to a storm still coming; a storm that leaves the report and returns under the same identifier is announced again; the fallback fires when the desktop notification does not land.
-      Acceptance: The file exists with those five cases, each fails when the guard it pins is removed, and the hook's line coverage is above 80 per cent.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-420 (P3): Uninstalling with the desktop wallpaper switched on leaves the desktop pointing at OpenRadar's picture
       Category: reliability
