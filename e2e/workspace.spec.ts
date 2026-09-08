@@ -1347,10 +1347,15 @@ test("a toast stays readable when the whole workspace is drawn larger", async ({
     );
   });
 
-  // Both sides of the narrow edge, and the band the first two attempts got
-  // wrong in opposite directions: 884 is where a raw media query stopped
-  // agreeing with `data-narrow`, and where standing the rule down on
-  // `data-narrow` instead put the host over the panel's own title.
+  // Both sides of the narrow edge. 884 used to be inside a band where a raw
+  // media query and `data-narrow` disagreed, and this asserted the toast
+  // cleared the panel at all three because the panel was still drawn as a
+  // side panel there whatever `data-narrow` said. Those queries read the
+  // scaled width now, so at 130 per cent 884 and 800 are the narrow layout,
+  // where the panel covers the map on purpose and a toast over it is the
+  // design rather than a collision. What has to hold at every width is that
+  // the toast is readable and on screen, and that it clears the panel
+  // wherever the panel is still a panel.
   for (const width of [900, 884, 800]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/?testMode=1");
@@ -1377,14 +1382,26 @@ test("a toast stays readable when the whole workspace is drawn larger", async ({
       `at ${width} the host has collapsed to ${Math.round(over!.width)}`,
     ).toBeGreaterThanOrEqual(240);
 
-    // Beside the panel at every one of these, whatever `data-narrow` says:
-    // the panel is an ordinary side panel here and there is room for a
-    // readable toast next to it.
+    // On screen, wherever it is. The failure this test was written for put
+    // the host at an x of minus 34.
+    const room = page.viewportSize()!.width;
     expect(
-      over!.x + over!.width <= under!.x + 0.5,
-      `at ${width} the toast ${JSON.stringify(over)} runs into the panel ${JSON.stringify(under)}`,
-    ).toBe(true);
-    void narrow;
+      over!.x,
+      `at ${width} the toast starts at ${over!.x}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      over!.x + over!.width,
+      `at ${width} the toast ends at ${over!.x + over!.width} of ${room}`,
+    ).toBeLessThanOrEqual(room + 0.5);
+
+    // And beside the panel wherever the panel is a panel rather than the
+    // whole surface.
+    if (!(narrow ?? "").split(" ").includes("680")) {
+      expect(
+        over!.x + over!.width <= under!.x + 0.5,
+        `at ${width} the toast ${JSON.stringify(over)} runs into the panel ${JSON.stringify(under)}`,
+      ).toBe(true);
+    }
   }
 });
 
@@ -1468,5 +1485,69 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
       measured.tallest,
       `${language}: every card stands ${measured.tallest} tall`,
     ).toBeLessThanOrEqual(96);
+  }
+});
+
+test("the workspace never grows wider than the window it is drawn in", async ({
+  page,
+}) => {
+  // Once anything can scroll the shell sideways, every absolutely positioned
+  // piece of map chrome moves with it and some of it goes off the left edge:
+  // the toast host was measured at an x of minus 34 at 681 pixels and 130 per
+  // cent. Nothing was watching for the overflow itself, only for the pieces
+  // that fell off it, so each one got its own fix and the cause stayed.
+  for (const scale of [100, 130]) {
+    await page.addInitScript((textScale) => {
+      window.localStorage.setItem(
+        "openradar.settings",
+        JSON.stringify({
+          schemaVersion: 3,
+          textScale,
+          unitsChosen: true,
+          seenWelcome: true,
+          seenReveal: true,
+        }),
+      );
+    }, scale);
+    for (const width of [1440, 1024, 900, 800, 700, 660]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/?testMode=1");
+      await expect(page.getByRole("application")).toBeVisible();
+      // Opened, because a panel is the widest thing the shell ever holds and
+      // the measured overflow was with one open.
+      await page.getByRole("button", { name: "Commands", exact: true }).click();
+      await page.locator('[data-command="surface:upload"]').click();
+      await expect(page.getByRole("dialog", { name: "Upload" })).toBeVisible();
+      // After the panel has finished sliding in. It enters on a translateX of
+      // eight pixels, so measuring while that is running reports the panel
+      // eight past the shell's edge at every width, which is an animation
+      // rather than an overflow.
+      await page.evaluate(() =>
+        Promise.all(
+          document.getAnimations().map((animation) => animation.finished),
+        ),
+      );
+
+      const measured = await page.evaluate(() => {
+        const shell = document.querySelector(".app-shell");
+        const root = document.documentElement;
+        return {
+          shell: shell
+            ? { scroll: shell.scrollWidth, client: shell.clientWidth }
+            : null,
+          root: { scroll: root.scrollWidth, client: root.clientWidth },
+        };
+      });
+      const where = `${width}px at ${scale}%`;
+      expect(measured.shell, where).not.toBeNull();
+      // A pixel of slack for sub-pixel layout, and no more: the measured
+      // failure was 34 over.
+      expect(measured.shell!.scroll, `shell at ${where}`).toBeLessThanOrEqual(
+        measured.shell!.client + 1,
+      );
+      expect(measured.root.scroll, `document at ${where}`).toBeLessThanOrEqual(
+        measured.root.client + 1,
+      );
+    }
   }
 });
