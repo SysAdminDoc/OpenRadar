@@ -23,6 +23,7 @@ mod display;
 mod exports;
 #[cfg(test)]
 mod fixture;
+mod gates;
 mod geotiff;
 mod gfs;
 mod glance;

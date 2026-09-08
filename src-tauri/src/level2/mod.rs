@@ -384,6 +384,10 @@ mod sweep;
 #[cfg(test)]
 mod testing;
 
+#[cfg(test)]
+use crate::gates::{gate_centre_km, gate_covering};
+use crate::gates::{last_gate_edge_km, reading_at};
+
 pub(crate) use commands::*;
 pub(crate) use decode::*;
 

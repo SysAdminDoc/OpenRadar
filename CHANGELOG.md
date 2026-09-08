@@ -116,6 +116,8 @@
 
 - An exported grid is the same file every time. The same product, for the same moment, over the same box came out at one cell size or another, or was refused as too big, depending on how far in you had zoomed a minute earlier.
 
+- Every reading sits where the radar measured it. The format says the number a sweep carries is the range to the middle of its first gate, and the library that decodes it treats that number as the near edge instead. The app had picked the same shift up in three more places of its own, so the picture, the reading under the cursor, the vertical slice and the wind profile were all drawn a quarter of a kilometre further out than they belong. On a wide view that is nothing you could see. Zoomed in on a couplet it's half a gate of the thing you're looking at, and the readout beside it named a range the colour underneath didn't come from. One place now answers where a gate is, and everything asks it.
+
 - The picture in the README is of this version.
 
 ## OpenRadar v0.10.0 (2026-09-05)

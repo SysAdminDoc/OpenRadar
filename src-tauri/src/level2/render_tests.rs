@@ -518,3 +518,93 @@ fn drawing_over_less_ground_spends_the_same_pixels_on_more_of_the_radar() {
     let generous = paint(Some([west - 10.0, south - 10.0, east + 10.0, north + 10.0]));
     assert_eq!(generous.1, [west, south, east, north]);
 }
+
+#[test]
+fn every_reading_of_where_a_gate_begins_agrees_with_the_one_that_reads_gates() {
+    // Four places read `first_gate_range_km` and three of them read it as an
+    // edge, which is half a gate out and invisible in a picture. The ICD is
+    // not ambiguous: `data_moment_range` is the range to the *centre* of the
+    // first gate. So gate `g` covers half an interval either side of
+    // `first + g * interval`, and every reading below is held to that.
+    let (field, _) = stepped_field(Product::Reflectivity);
+    let first = field.first_gate_range_km();
+    let interval = field.gate_interval_km();
+    let half = interval / 2.0;
+    let sliver = interval / 100.0;
+
+    // Where a gate is. Written out rather than derived, so the helper cannot
+    // define its own answer.
+    for gate in [0usize, 1, 7, 150] {
+        assert!(
+            (gate_centre_km(&field, gate) - (first + gate as f64 * interval)).abs() < 1e-12,
+            "gate {gate} is not centred where the ICD puts it"
+        );
+    }
+
+    // Which gate a range falls in, held at both edges of three gates. A shift
+    // of half an interval moves every boundary onto a centre, so each of these
+    // pairs catches it from one side.
+    for gate in [0usize, 49, 149] {
+        let centre = gate_centre_km(&field, gate);
+        for (range, expected, side) in [
+            (centre - half + sliver, gate, "just inside its near edge"),
+            (centre, gate, "at its own centre"),
+            (centre + half - sliver, gate, "just inside its far edge"),
+            (centre + half + sliver, gate + 1, "just past its far edge"),
+        ] {
+            assert_eq!(
+                gate_covering(&field, range),
+                Some(expected),
+                "the range {side} of gate {gate} did not read gate {expected}"
+            );
+            assert_eq!(
+                reading_at(&field, 10.0, range).map(|read| read.0),
+                Some(field.get(10, expected).0),
+                "the reading {side} of gate {gate} did not come from gate {expected}"
+            );
+        }
+    }
+
+    // The sweep begins half an interval inside the first gate's centre, and
+    // ends half an interval past the last one's. Both were a whole gate out
+    // while the field's own numbers were taken as edges.
+    assert_eq!(gate_covering(&field, first - half - sliver), None);
+    assert_eq!(reading_at(&field, 10.0, first - half - sliver), None);
+    let last = field.gate_count() - 1;
+    assert!((last_gate_edge_km(&field) - (gate_centre_km(&field, last) + half)).abs() < 1e-12);
+    assert_eq!(
+        gate_covering(&field, last_gate_edge_km(&field) - sliver),
+        Some(last)
+    );
+    assert_eq!(
+        gate_covering(&field, last_gate_edge_km(&field) + sliver),
+        None
+    );
+
+    // And the smoothing walks the same axis. At a centre there is nothing to
+    // interpolate and the weight is all on that gate; at a boundary the two
+    // neighbours share it evenly. Half an interval anywhere in that arithmetic
+    // swaps the two, which is what these gates are chosen to show: the fixture
+    // steps every fifty, so inside a step both readings are the same number.
+    for gate in [49usize, 149] {
+        let centre = gate_centre_km(&field, gate);
+        let mine = field.get(10, gate).0;
+        let next = field.get(10, gate + 1).0;
+        assert_ne!(mine, next, "gate {gate} reads the same as the one past it");
+        let at_centre = smoothed_gate(&field, Product::Reflectivity, 10.0, centre)
+            .expect("inside the sweep")
+            .0;
+        assert!(
+            (at_centre - mine).abs() < 1e-3,
+            "smoothing at gate {gate}'s centre read {at_centre} rather than {mine}"
+        );
+        let between = smoothed_gate(&field, Product::Reflectivity, 10.0, centre + half)
+            .expect("inside the sweep")
+            .0;
+        assert!(
+            (between - (mine + next) / 2.0).abs() < 1e-3,
+            "smoothing between gates {gate} and {} read {between} rather than the mean of              {mine} and {next}",
+            gate + 1
+        );
+    }
+}

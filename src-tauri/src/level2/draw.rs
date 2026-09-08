@@ -472,8 +472,10 @@ pub(crate) fn swept_pixels(field: &SweepField, coordinates: &RadarCoordinateSyst
         }
     }
 
-    let near = field.first_gate_range_km();
-    let far = field.max_range_km();
+    // The edges of the first and last gates, half an interval either side of
+    // the centres the field names.
+    let near = field.first_gate_range_km() - field.gate_interval_km() / 2.0;
+    let far = last_gate_edge_km(field);
     let extent = coordinates.sweep_extent(MAX_RANGE_KM);
     let west = extent.min.longitude;
     let east = extent.max.longitude;
@@ -535,7 +537,7 @@ pub(crate) fn lay_over(older: Vec<u8>, newer: Vec<u8>, swept: &[bool], keep: f32
 
 /// The reading at one point of a prepared cut, if the cut covers it.
 ///
-/// The same `value_at_polar` the renderer asks, so the number a reader is
+/// The same reading the renderer asks for, so the number a reader is
 /// shown is the number the pixel under the cursor was painted from rather
 /// than a colour sampled back out of the picture.
 pub(crate) fn gate_at(
@@ -557,7 +559,7 @@ pub(crate) fn gate_at(
     if polar.range_km > MAX_RANGE_KM {
         return None;
     }
-    // `value_at_polar` takes the nearest radial it holds, whatever the gap. On
+    // The model takes the nearest radial it holds, whatever the gap. On
     // a cut in progress that means a bearing the radar has not swept comes
     // back with the reading from wherever it stopped, which is not a reading
     // at that point at all. A radial stands for the wedge it was measured
@@ -570,7 +572,7 @@ pub(crate) fn gate_at(
     if !covered {
         return None;
     }
-    let (value, status) = field.value_at_polar(polar.azimuth_degrees, polar.range_km)?;
+    let (value, status) = reading_at(field, polar.azimuth_degrees, polar.range_km)?;
     // A gate the radar could not read is not a reading. Range folding is the
     // radar saying it cannot tell where the echo is, which is worse than
     // nothing to put in front of somebody as a number.

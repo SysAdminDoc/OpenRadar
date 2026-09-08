@@ -130,8 +130,14 @@ pub(crate) fn flat_field(value: f32, product: Product) -> (SweepField, RadarCoor
 }
 
 /// The smoothed picture of the stepped fixture, pinned.
+///
+/// Re-pinned once, deliberately, when the gate geometry was corrected. Every
+/// reading used to take `first_gate_range_km` for the near edge of the first
+/// gate, and the ICD says it is that gate's centre, so the whole picture sat
+/// half an interval further out than the radar measured it. The digest below
+/// is the same fixture drawn where its gates actually are. See `crate::gates`.
 pub(crate) const SMOOTHED_SWEEP_DIGEST: &str =
-    "d7d772a92d793e564dd8a68add8f711da7b55fdc408cf6db09251d73e613d3fe";
+    "c817431ad4fc4b4d1e868b987dca1a0d00f26965fcd9e278c78b941c49a6cdad";
 
 /// A sweep whose gates rise in steps, so smoothing has something to do.
 ///
@@ -175,11 +181,6 @@ pub(crate) fn stepped_field(product: Product) -> (SweepField, RadarCoordinateSys
     let site = registry::site_by_id("KDMX").expect("KDMX").to_site();
     let coordinates = RadarCoordinateSystem::new(&site);
     (field, coordinates)
-}
-
-/// The range of the centre of a gate, which is what a reading belongs to.
-pub(crate) fn gate_centre_km(field: &SweepField, gate: usize) -> f64 {
-    field.first_gate_range_km() + (gate as f64 + 0.5) * field.gate_interval_km()
 }
 
 pub(crate) fn table(range_folded: Option<&str>) -> Palette {

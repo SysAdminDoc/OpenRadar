@@ -90,7 +90,7 @@ pub fn render_sweep(
             let sample = if smooth {
                 smoothed_gate(field, product, polar.azimuth_degrees, polar.range_km)
             } else {
-                field.value_at_polar(polar.azimuth_degrees, polar.range_km)
+                reading_at(field, polar.azimuth_degrees, polar.range_km)
             };
             let Some((value, status)) = sample else {
                 continue;
@@ -169,7 +169,7 @@ pub(crate) fn smoothed_gate(
     azimuth_degrees: f32,
     range_km: f64,
 ) -> Option<(f32, GateStatus)> {
-    let nearest = field.value_at_polar(azimuth_degrees, range_km)?;
+    let nearest = reading_at(field, azimuth_degrees, range_km)?;
     if nearest.1 != GateStatus::Valid {
         return Some(nearest);
     }
@@ -178,8 +178,10 @@ pub(crate) fn smoothed_gate(
     if interval <= 0.0 {
         return Some(nearest);
     }
-    // Gate centres sit half an interval past the edge the index counts from.
-    let along = (range_km - field.first_gate_range_km()) / interval - 0.5;
+    // Gate `g` is centred at `first + g * interval`, so this is the gate
+    // coordinate directly: whole at a centre, and half way between two of
+    // them where the reading is half of each.
+    let along = (range_km - field.first_gate_range_km()) / interval;
     let first = along.floor();
     let into_gate = (along - first) as f32;
     let gates = field.gate_count();
