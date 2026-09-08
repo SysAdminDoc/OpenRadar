@@ -175,7 +175,7 @@ pub fn sweep_from_scan(
 }
 
 /// One count as a share of another, and zero when there is nothing to divide.
-fn share_of(part: usize, whole: usize) -> f32 {
+pub(crate) fn share_of(part: usize, whole: usize) -> f32 {
     if whole == 0 {
         return 0.0;
     }
@@ -342,6 +342,14 @@ pub(crate) fn draw_sweep(
         asked.within,
     );
 
+    // Read before the composite consumes it. Both halves of a composite go
+    // through the same unfolding and both are on screen, and only the newer
+    // one's report reached the legend, so a reader looking at a picture whose
+    // older half was a third unplaced was told nothing about it.
+    let beneath_unplaced = beneath.as_ref().map_or(0.0, |under| {
+        share_of(under.unfolding.unplaced, under.unfolding.valid)
+    });
+
     let mut beneath_collected = None;
     if let Some(under) = beneath {
         // Every render covers the same extent at the same size, so the two
@@ -421,7 +429,19 @@ pub(crate) fn draw_sweep(
         product: label.to_string(),
         unit: unit.to_string(),
         dealiased,
-        unplaced_share: share_of(unfolding.unplaced, unfolding.valid),
+        // The larger of the two halves of a composite, not the newer one.
+        // Both halves go through the same unfolding and both are on screen, so
+        // a reader looking at a picture whose older half is a third unplaced
+        // was told nothing about it. Larger rather than combined, because the
+        // two halves cover overlapping ground and neither count is a share of
+        // what is actually drawn: what a reader needs from this line is the
+        // worst of what they are looking at.
+        // The worse of the two halves rather than the newer one. Larger
+        // rather than combined, because the halves cover overlapping ground
+        // and neither count is a share of what is actually drawn: what a
+        // reader needs from this line is the worst of what is in front of
+        // them.
+        unplaced_share: share_of(unfolding.unplaced, unfolding.valid).max(beneath_unplaced),
         storm_motion,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts_offered,

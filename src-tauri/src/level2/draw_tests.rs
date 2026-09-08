@@ -1041,3 +1041,76 @@ fn a_sweep_carries_its_own_radar_and_not_the_two_numbers_the_other_way_round() {
     assert!(drawn.west < drawn.site_lon && drawn.site_lon < drawn.east);
     assert!(drawn.south < drawn.site_lat && drawn.site_lat < drawn.north);
 }
+
+#[test]
+fn a_composite_reports_the_worse_of_its_two_halves() {
+    // A live sweep is the volume in progress drawn over the last finished one,
+    // and both halves go through the same unfolding. Only the newer half's
+    // report reached the legend, so a reader looking at a picture whose older
+    // half was two fifths unplaced was told the sweep was clean.
+    let older_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 35, 0).unwrap();
+    let live_at = Utc.with_ymd_and_hms(2026, 8, 30, 23, 41, 0).unwrap();
+    let (older, live) = faded_pair(older_at, live_at);
+    let none = |_: u8| None;
+    let asked = SweepRequest {
+        product_name: "reflectivity",
+        ..SweepRequest::default()
+    };
+
+    let over = prepare_sweep("KTLX", &live, &none, asked, None).expect("the newer half");
+    let mut under = prepare_sweep("KTLX", &older, &none, asked, None).expect("the older half");
+    // Planted rather than decoded, because what is under test is which of the
+    // two halves the number comes from and not how either was worked out.
+    under.unfolding = crate::dealias::Dealiased {
+        moved: 10,
+        unplaced: 400,
+        valid: 1000,
+    };
+
+    let drawn = draw_sweep(
+        "KTLX",
+        "live",
+        tilts(&live),
+        0,
+        over,
+        Some(under),
+        asked,
+        None,
+        None,
+    )
+    .expect("a composite");
+    assert!(
+        (drawn.unplaced_share - 0.4).abs() < 1e-6,
+        "the composite says {} of it is unplaced, and its older half is 0.4",
+        drawn.unplaced_share
+    );
+
+    // And the newer half still wins when it is the worse of the two, so this
+    // is the larger of them rather than the older one.
+    let over = prepare_sweep("KTLX", &live, &none, asked, None).expect("the newer half");
+    let mut under = prepare_sweep("KTLX", &older, &none, asked, None).expect("the older half");
+    under.unfolding = crate::dealias::Dealiased {
+        moved: 0,
+        unplaced: 1,
+        valid: 1000,
+    };
+    let mut over = over;
+    over.unfolding = crate::dealias::Dealiased {
+        moved: 0,
+        unplaced: 700,
+        valid: 1000,
+    };
+    let drawn = draw_sweep(
+        "KTLX",
+        "live",
+        tilts(&live),
+        0,
+        over,
+        Some(under),
+        asked,
+        None,
+        None,
+    )
+    .expect("a composite");
+    assert!((drawn.unplaced_share - 0.7).abs() < 1e-6);
+}

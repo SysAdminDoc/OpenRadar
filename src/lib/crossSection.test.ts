@@ -14,6 +14,7 @@ function sliceOf(distanceKm: number, topKm = 18): CrossSection {
     productId: "reflectivity",
     product: "Reflectivity",
     unit: "dBZ",
+    unplacedShare: 0,
     paletteApplied: false,
     highContrast: false,
     dealiased: false,

@@ -15,6 +15,7 @@ function sliceOf(overrides: Partial<CrossSection> = {}): CrossSection {
     productId: "reflectivity",
     product: "Reflectivity",
     unit: "dBZ",
+    unplacedShare: 0,
     paletteApplied: false,
     highContrast: false,
     dealiased: false,
@@ -77,6 +78,40 @@ describe("the panel a slice is read in", () => {
     expect(
       await screen.findByText(/No cut of this volume reaches the line/),
     ).toBeTruthy();
+  });
+
+  it("says how much of the slice the unfolding could not place", async () => {
+    // The map's own legend has carried this for a while. A slice through the
+    // same volume said only that the velocity had been unfolded, which tells a
+    // reader it was worked on and not how much of what they are looking at is
+    // still a guess.
+    render(
+      <CrossSectionPanel
+        line={line}
+        take={() =>
+          Promise.resolve(sliceOf({ dealiased: true, unplacedShare: 0.34 }))
+        }
+        onClose={vi.fn()}
+      />,
+    );
+    await screen.findByRole("img");
+    expect(screen.getByText(/34% still folded/)).toBeTruthy();
+  });
+
+  it("says nothing about it when there is nothing to say", async () => {
+    // Rounded to whole per cent and silent at nought, the same way the legend
+    // is: a slice with a handful of gates nothing could place is not a line.
+    render(
+      <CrossSectionPanel
+        line={line}
+        take={() =>
+          Promise.resolve(sliceOf({ dealiased: true, unplacedShare: 0.001 }))
+        }
+        onClose={vi.fn()}
+      />,
+    );
+    await screen.findByRole("img");
+    expect(screen.queryByText(/still folded/)).toBeNull();
   });
 
   it("shows what the native side said went wrong", async () => {
