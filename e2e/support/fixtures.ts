@@ -1,4 +1,4 @@
-import type { Page, Route } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 
 type Handler = (route: Route) => Promise<void>;
 
@@ -756,6 +756,53 @@ export async function unhandledRejections(page: Page): Promise<string[]> {
   return page.evaluate(
     () => (window as unknown as { __rejections?: string[] }).__rejections ?? [],
   );
+}
+
+/**
+ * Every control the selector finds, held to a box the app actually defines.
+ *
+ * A native `input` the stylesheet says nothing about is drawn by the browser:
+ * white with black text under a light `color-scheme` and a flat grey under a
+ * dark one, in its own font, with its own border. Comparing against a probe
+ * rather than a pixel value means a token that moves moves these with it,
+ * while a control that has fallen back to the browser's own box fails.
+ */
+export async function wearsTheApp(page: Page, where: string, what: string) {
+  const paint = await page.evaluate(() => {
+    const read = (background: string) => {
+      const probe = document.createElement("div");
+      probe.style.background = background;
+      probe.style.color = "var(--text)";
+      document.body.append(probe);
+      const style = getComputedStyle(probe);
+      const seen = { background: style.backgroundColor, colour: style.color };
+      probe.remove();
+      return seen;
+    };
+    const surface = read("var(--surface)");
+    return {
+      colour: surface.colour,
+      surfaces: [surface.background, read("var(--surface-raised)").background],
+    };
+  });
+  const controls = page.locator(where);
+  const count = await controls.count();
+  expect(count, `${what}: nothing was on screen to look at`).toBeGreaterThan(0);
+  for (let at = 0; at < count; at += 1) {
+    const worn = await controls.nth(at).evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        background: style.backgroundColor,
+        colour: style.color,
+        border: `${style.borderTopWidth} ${style.borderTopStyle}`,
+      };
+    });
+    expect(paint.surfaces, `${what} ${at} background`).toContain(
+      worn.background,
+    );
+    expect(worn.colour, `${what} ${at} colour`).toBe(paint.colour);
+    expect(worn.border, `${what} ${at} border`).toBe("1px solid");
+  }
 }
 
 export async function routeWorkspace(page: Page) {

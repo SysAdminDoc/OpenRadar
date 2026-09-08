@@ -532,16 +532,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
   Acceptance: All three are checked in both the light theme and the dark theme over a light basemap; removing any one of the three CSS selectors fails the spec.
   Complexity: S
 
-- [ ] AUD-373 (P3): Five native form controls render as bare operating-system widgets inside styled panels
-      Category: visual
-      Where: `src/panels/UtilityPanels.tsx:70-77` (`<input type="file">` in the Upload dropzone, drawn as the browser's "Choose File / No file chosen"), `src/panels/RoutePanel.tsx:181` and `src/panels/RadarProductPanel.tsx:492` (`type="datetime-local"`), `src/panels/WatchSection.tsx:536` and `:558` (`type="time"`); `src/index.css` has no rule for any of them (`grep -n 'input\[type="file"\]\|datetime-local\|input\[type="time"\]' src/index.css` is empty).
-      Problem: Every other control in the panels is drawn with the app's tokens; these five are the WebView's defaults, with their own font, border, height and (for the file input) a grey system button beside "No file chosen", which is the one unstyled element on the Upload panel and the first thing a reader sees there. In the light theme they are the more visible for it.
-      Evidence: Observed on 2026-09-07 (`audit-shots/audit-light-upload.jpeg`, `audit-light-route.jpeg`).
-      Fix: For the file input, a visually hidden input with a styled `<label>` that carries the button treatment (`.secondary-button`) and the chosen file's name beside it; for the date and time inputs, the same border, background and height tokens as the text inputs in the same panels, with `color-scheme` set so the picker follows the theme. Keep the native semantics; only the box changes.
-      Acceptance: The five controls share the panels' input treatment in both themes, screenshots re-captured; the Upload panel's file picker is a button in the app's own style; axe stays green.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-377 (P3): Chrome colour written outside the theme system, and rules that no longer win
       Category: visual
       Where: `src/hooks/useAppearance.ts:13-16` (`CHROME_COLOR` `#090b10` / `#eef2f6`) and `index.html:10` and `:46` (the same pair twice more) against `--bg` `#070b10` / `#e9eef4` at `src/index.css:3901` and `:3978`; dead declarations overridden later at equal specificity by the rail rules: `.command-bar` `:219` (`background: rgba(31, 35, 41, 0.97)`, `box-shadow`) against `:4143` (`background: #0b1118`), `.brand-mark` `:150-161` against `:4041`, the forced-colours `.command-bar { background: Canvas }` inside `@media (forced-colors: active)` at about `:3233` against `:4143`, and `.product-legend` `:3529` (`var(--surface-raised, rgb(15 23 42 / 82%))`, a fallback behind a token that is always defined); single-look chrome literals with no light counterpart: `.legend-ramp` border `:591` (`rgba(255, 255, 255, 0.18)`), `.track-swatch` border `:3313`, `@keyframes ambient-flash` `:345` and `:351` (pale blue on `--border-strong`), `.fatal-error__mark` `:2761` (`#130309` on `--danger`); the capture bar block `:5842-5967` (about fifteen literals, no light look); `src/glance.css:15-31` (a five-token palette of its own outside `THEME_TOKENS`).

@@ -622,6 +622,7 @@ export const es: Catalogue = {
   "upload.eyebrow": "Datos locales",
   "upload.title": "Cargar",
   "upload.dropTitle": "Añade una capa o una tabla de colores",
+  "upload.dropChoose": "Elegir un archivo",
   "upload.dropBody":
     "Elige un archivo GeoJSON local, un placefile de GRLevelX o una tabla de colores .pal. No se envía nada a ningún servidor.",
   "upload.colours": "{count, plural, one {# color} other {# colores}}",

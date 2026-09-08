@@ -6,6 +6,7 @@ import {
   stubHost,
   transparentPng,
   unhandledRejections,
+  wearsTheApp,
 } from "./support/fixtures";
 
 /**
@@ -968,6 +969,19 @@ test("browses the public archive and refuses a malformed local file", async ({
 }) => {
   await open(page, 9);
   await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
+
+  // The date box is the app's own rather than the browser's. Left alone a
+  // `datetime-local` comes with its own font, its own height and its own
+  // border, next to a text field two lines above it that has the panel's.
+  // The rest of the app's date, time and file controls are held to the same
+  // thing in `theme.spec.ts`; this one is here because reaching it means
+  // handing the view over to a single radar, which needs the fixture above.
+  await expect(page.getByLabel("UTC date and time")).toBeVisible();
+  await wearsTheApp(
+    page,
+    '.archive-form input[type="datetime-local"]',
+    "the archive time",
+  );
 
   await page.getByRole("textbox", { name: "NEXRAD site" }).fill("KDMX");
   await page.getByLabel("UTC date and time").fill("2021-12-10T03:15");

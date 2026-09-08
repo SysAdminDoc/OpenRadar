@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import { routeWorkspace, wearsTheApp } from "./support/fixtures";
 
 /**
  * A theme restyles the workspace around the map and nothing on it.
@@ -210,6 +210,75 @@ test("paints every control a panel puts on screen", async ({ page }) => {
     expect(painted.colour, `control ${at} colour`).toBe(panel.colour);
   }
 });
+
+/**
+ * The native date, time and file controls, which the browser will happily
+ * draw itself if nothing stops it.
+ *
+ * A `<input type="file">` left alone renders a grey system button and the
+ * words "No file chosen" in the browser's own font, and the Upload panel's
+ * drop zone had one sitting in the middle of it. The date and time boxes in
+ * Route and the quiet-hours fields are painted by rules that were already
+ * there, and this is what says so: they had been checked by reading the
+ * stylesheet, which is exactly the kind of reading that is right until
+ * somebody adds another control.
+ *
+ * The fifth of them, the radar archive form's UTC date and time, belongs to a
+ * single site rather than to the national mosaic and only appears once the
+ * app has handed the view over to one, which needs the native side faked.
+ * `level2.spec.ts` already has that fixture, so it is checked there.
+ */
+
+for (const look of ["dark", "light"] as const) {
+  test(`draws the date, time and file controls in the ${look} look`, async ({
+    page,
+  }) => {
+    await startWith(page, null, look);
+
+    // The file picker. The input is still there and still reachable from the
+    // keyboard, because a button nobody can tab to is not a button; what
+    // changed is that the label around it is what gets drawn.
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Upload" })).toBeVisible();
+    const picker = page.locator('.drop-zone input[type="file"]');
+    const box = await picker.boundingBox();
+    expect(box?.width ?? 0, "the raw file input is still on show").toBeLessThan(
+      2,
+    );
+    await picker.focus();
+    expect(
+      await page.evaluate(
+        () => document.activeElement?.getAttribute("type") ?? "",
+      ),
+      "hiding the input took it off the keyboard",
+    ).toBe("file");
+    await wearsTheApp(page, ".drop-zone__button", "the file picker");
+    await page.getByRole("button", { name: "Close Upload" }).click();
+
+    // Route's departure time.
+    await page.getByRole("button", { name: "Route", exact: true }).click();
+    await expect(page.getByText("Leaving")).toBeVisible();
+    await wearsTheApp(
+      page,
+      '.route-field input[type="datetime-local"]',
+      "the route departure",
+    );
+    await page.getByRole("button", { name: "Close Route" }).click();
+
+    // Both quiet-hours clocks, which only appear once the switch is on.
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("checkbox", { name: /Quiet hours/ }).check();
+    await expect(page.locator('.quiet-hours input[type="time"]')).toHaveCount(
+      2,
+    );
+    await wearsTheApp(
+      page,
+      '.quiet-hours input[type="time"]',
+      "a quiet-hours clock",
+    );
+    await page.getByRole("button", { name: "Close Settings" }).click();
+  });
+}
 
 test("the reader's own accent reaches the command rail", async ({ page }) => {
   // The rail is a fixed dark surface, so it cannot take the workspace accent
