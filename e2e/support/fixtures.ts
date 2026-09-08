@@ -769,39 +769,78 @@ export async function unhandledRejections(page: Page): Promise<string[]> {
  */
 export async function wearsTheApp(page: Page, where: string, what: string) {
   const paint = await page.evaluate(() => {
-    const read = (background: string) => {
-      const probe = document.createElement("div");
-      probe.style.background = background;
-      probe.style.color = "var(--text)";
-      document.body.append(probe);
+    const probe = document.createElement("div");
+    document.body.append(probe);
+    const read = (property: string, of: "background" | "color" | "border") => {
+      probe.style.cssText = "";
+      if (of === "border") probe.style.border = `1px solid ${property}`;
+      else probe.style[of] = property;
       const style = getComputedStyle(probe);
-      const seen = { background: style.backgroundColor, colour: style.color };
-      probe.remove();
-      return seen;
+      if (of === "background") return style.backgroundColor;
+      if (of === "color") return style.color;
+      return style.borderTopColor;
     };
-    const surface = read("var(--surface)");
-    return {
-      colour: surface.colour,
-      surfaces: [surface.background, read("var(--surface-raised)").background],
+    const seen = {
+      colour: read("var(--text)", "color"),
+      surfaces: [
+        read("var(--surface)", "background"),
+        read("var(--surface-raised)", "background"),
+      ],
+      borders: [
+        read("var(--border)", "border"),
+        read("var(--border-strong)", "border"),
+        read("var(--accent)", "border"),
+      ],
+      // The panel's own face, which every control in one inherits. The browser
+      // draws an unstyled control in a font of its own.
+      font: getComputedStyle(document.body).fontFamily,
     };
+    probe.remove();
+    return seen;
   });
   const controls = page.locator(where);
   const count = await controls.count();
   expect(count, `${what}: nothing was on screen to look at`).toBeGreaterThan(0);
   for (let at = 0; at < count; at += 1) {
+    // Drawn, rather than merely matched by the selector. A computed style is
+    // still resolved for a control with `display: none`, so without this the
+    // check passed on one that had stopped being drawn at all.
+    await expect(
+      controls.nth(at),
+      `${what} ${at} is not on screen`,
+    ).toBeVisible({ timeout: 2000 });
     const worn = await controls.nth(at).evaluate((node) => {
       const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      // Joined with a character no colour holds, because an `rgba(...)` is
+      // full of spaces and splitting one back apart loses everything after
+      // the first channel.
+      const side = (of: "Top" | "Right" | "Bottom" | "Left") =>
+        [
+          style[`border${of}Width` as "borderTopWidth"],
+          style[`border${of}Style` as "borderTopStyle"],
+          style[`border${of}Color` as "borderTopColor"],
+        ].join("|");
       return {
         background: style.backgroundColor,
         colour: style.color,
-        border: `${style.borderTopWidth} ${style.borderTopStyle}`,
+        font: style.fontFamily,
+        area: Math.round(box.width) * Math.round(box.height),
+        // All four sides, because reading only the top passed a control with
+        // `border: none` and a single `border-top` on it.
+        sides: [side("Top"), side("Right"), side("Bottom"), side("Left")],
       };
     });
+    expect(worn.area, `${what} ${at} has no box`).toBeGreaterThan(0);
     expect(paint.surfaces, `${what} ${at} background`).toContain(
       worn.background,
     );
     expect(worn.colour, `${what} ${at} colour`).toBe(paint.colour);
-    expect(worn.border, `${what} ${at} border`).toBe("1px solid");
+    expect(worn.font, `${what} ${at} font`).toBe(paint.font);
+    expect(new Set(worn.sides).size, `${what} ${at} borders differ`).toBe(1);
+    const [width, style, colour] = worn.sides[0].split("|");
+    expect(`${width} ${style}`, `${what} ${at} border`).toBe("1px solid");
+    expect(paint.borders, `${what} ${at} border colour`).toContain(colour);
   }
 }
 
