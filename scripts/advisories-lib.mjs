@@ -48,6 +48,13 @@ export function cratesIn(lock) {
  * under both. The lock spells it `block-buffer`, the advisory says
  * `block_buffer`, and a query for either one alone answers "nothing known"
  * about the other.
+ *
+ * Three spellings, not every one: as written, all dashes, all underscores. A
+ * name holding both separators has more forms than that, and `winapi-x86_64-
+ * pc-windows-gnu` alone has thirty-two, which is a batch of questions about
+ * names nobody files anything under. Three covers what a database actually
+ * uses, and the limit is written here rather than left as a claim to "every
+ * spelling".
  */
 export function spellings(name) {
   return [...new Set([name, name.replace(/-/g, "_"), name.replace(/_/g, "-")])];
@@ -96,7 +103,6 @@ export function hits(asked, results) {
         version: question.version,
         spelling: question.spelling,
         id: vuln.id,
-        summary: vuln.summary ?? "",
       });
     }
   }
@@ -127,7 +133,8 @@ export function allowanceIn(text) {
       continue;
     }
     if (reason.length) {
-      allowed.set(bare, reason.join("\n"));
+      const [id, ...rest] = bare.split(/\s+/);
+      allowed.set(id, { reason: reason.join("\n"), needs: needsIn(rest) });
     } else {
       unexplained.push(bare);
     }
@@ -137,18 +144,62 @@ export function allowanceIn(text) {
 }
 
 /**
+ * The crates an allowance's reasoning rests on, written after the identifier.
+ *
+ * `GHSA-qwgh-2vcv-g2f7 needs sha2 0.11` says: allowed for only while the lock
+ * holds a sha2 whose version starts 0.11. Every reason in that file is a claim
+ * about the shape of the tree, and without this the claim and the tree drift
+ * apart in silence. Putting this app's own hashing back on sha2 0.10 restores
+ * exactly the reachable position that entry says has been fixed, and the run
+ * stayed green: the identifier, the crate and the version the advisory is
+ * filed against had not moved. What moved was the thing the reason rested on.
+ *
+ * A version matches as a prefix, so `0.11` covers every patch of it and a move
+ * to 0.12 is a reason to read the entry again.
+ */
+function needsIn(words) {
+  const needs = [];
+  if (words[0] !== "needs") return needs;
+  for (let at = 1; at < words.length; at += 2) {
+    needs.push({ crate: words[at], version: words[at + 1] ?? "" });
+  }
+  return needs;
+}
+
+/** Whether the lock still holds what an allowance says it rests on. */
+export function unmetNeeds(needs, crates) {
+  return needs.filter(
+    (one) =>
+      !crates.some(
+        (crate) =>
+          crate.name === one.crate &&
+          (!one.version || crate.version.startsWith(one.version)),
+      ),
+  );
+}
+
+/**
  * What a run has to say, given what was found and what is allowed.
  *
  * `stale` is the allowance's own key. An entry naming something no longer in
  * the tree is a reason nobody has re-read, and reporting it is what keeps the
  * file from becoming a list of advisories that stopped applying years ago.
  */
-export function verdict(found, allowed) {
-  const unexplained = found.filter((one) => !allowed.has(one.id));
-  const explained = found.filter((one) => allowed.has(one.id));
+export function verdict(found, allowed, crates = []) {
+  // An allowance whose reasoning no longer holds is not an allowance. It
+  // stands down rather than quietly covering an advisory whose position in
+  // the tree has moved underneath it.
+  const voided = new Map();
+  for (const [id, entry] of allowed) {
+    const missing = unmetNeeds(entry.needs ?? [], crates);
+    if (missing.length) voided.set(id, missing);
+  }
+  const covers = (one) => allowed.has(one.id) && !voided.has(one.id);
+  const unexplained = found.filter((one) => !covers(one));
+  const explained = found.filter(covers);
   const live = new Set(found.map((one) => one.id));
   const stale = [...allowed.keys()].filter((id) => !live.has(id));
-  return { unexplained, explained, stale };
+  return { unexplained, explained, stale, voided };
 }
 
 /**

@@ -197,7 +197,7 @@ export function useSettings(options: {
   }, [settings.textScale]);
 
   useEffect(() => {
-    // Which of the layout's three widths the workspace is under. A media query
+    // Which of the layout's four widths the workspace is under. A media query
     // reads the real viewport and knows nothing about the whole thing being
     // drawn at 130 percent, so at that size a wide screen kept a wide layout
     // in a space a third smaller than the query thought it was.
