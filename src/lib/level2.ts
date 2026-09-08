@@ -344,6 +344,9 @@ export async function fetchArchiveSweep(
   motion: [number, number] | null,
   threshold: number | null,
   highContrast: boolean,
+  // The ground to draw over, so a held frame covers the same place as the
+  // live sweep beside it rather than dropping to the whole disc as it plays.
+  within: [number, number, number, number] | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_archive_sweep", {
@@ -355,6 +358,7 @@ export async function fetchArchiveSweep(
     motion,
     threshold,
     highContrast,
+    within,
   });
 }
 
@@ -366,6 +370,9 @@ export async function fetchLocalSweep(
   motion: [number, number] | null,
   threshold: number | null,
   highContrast: boolean,
+  // The ground to draw over. A file the reader opened is drawn into the same
+  // pane as everything else, so it follows the zoom the same way.
+  within: [number, number, number, number] | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_local_sweep", {
@@ -376,6 +383,7 @@ export async function fetchLocalSweep(
     motion,
     threshold,
     highContrast,
+    within,
   });
 }
 

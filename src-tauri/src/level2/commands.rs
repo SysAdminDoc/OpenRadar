@@ -251,6 +251,9 @@ pub async fn level2_archive_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
+    // The ground to draw over, so a frame the loop holds covers the same
+    // place as the live sweep beside it.
+    within: Option<[f64; 4]>,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     wsr88d_only(&station)?;
@@ -272,10 +275,7 @@ pub async fn level2_archive_sweep(
                 high_contrast,
                 ..Look::default()
             },
-            // The whole disc. The loop and the compare pane hold frames that
-            // are placed against each other, and a frame drawn over less
-            // ground than the one beside it is a picture that jumps.
-            None,
+            within,
         );
         let mut sweep = sweep_from_volume(&station, &key, data, asked)?;
         sweep.source = SweepSource {
@@ -299,6 +299,9 @@ pub async fn level2_local_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
+    // The ground to draw over. A file the reader opened is drawn into the same
+    // pane as everything else, so it follows the zoom the same way.
+    within: Option<[f64; 4]>,
 ) -> Result<SweepImage, Level2Error> {
     tauri::async_runtime::spawn_blocking(move || {
         let local = read_local_volume(&PathBuf::from(path))?;
@@ -314,10 +317,7 @@ pub async fn level2_local_sweep(
                 high_contrast,
                 ..Look::default()
             },
-            // The whole disc. The loop and the compare pane hold frames that
-            // are placed against each other, and a frame drawn over less
-            // ground than the one beside it is a picture that jumps.
-            None,
+            within,
         );
         let mut sweep = sweep_from_volume(&local.station, &local.key, local.data, asked)?;
         sweep.source = SweepSource {
