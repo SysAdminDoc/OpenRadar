@@ -599,16 +599,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P1
 
-- [ ] AUD-391 (P1): The layering gate cannot detect the import ring it was written to stop
-      Category: correctness
-      Where: `src/lib/layering.test.ts:47-59` (`valueImports`), used by both rules at `:70-79` and `:81-96`.
-      Problem: The regex is `/^\s*(?:import|export)\s+([\s\S]*?)from\s+"([^"]+)"/gm`, and the rule then filters specifiers against `^\./(providers|overlays)/`. Seven shapes that close the exact ring the test's own docblock describes are not seen at all: a side-effect `import "./overlays/spc";` (no `from`), `await import("./overlays/spc")`, single-quoted specifiers, a second `import` on the same line as a first, and a barrel `import { OVERLAY_ADAPTERS } from "./overlays"` with no trailing slash. The barrel is the damaging one: `src/lib/overlays/index.ts:1` imports `./alerts`, which imports `../tileCache`, which imports `./settings`, so that one line reintroduces the ring with the gate green. Rule two misses `../hooks/useClock` written as a side-effect import and any barrel import of `../hooks`. It also has false positives in the safe direction: `import { type A } from "x"` is erased by the compiler but flagged, and three such clauses already live in the tree (`src/lib/overlays/metar.ts`, `rivers.ts`, `smoke.ts`).
-      Evidence: Harness run against the verbatim regex on 2026-09-07; each of the seven inputs above returned no violation. `src/lib/overlays/index.ts:1`.
-      Fix: Read the imports with the TypeScript compiler rather than a regex, which is already a dependency: walk each source file's statements for `ImportDeclaration`, `ExportDeclaration` and dynamic `import()` calls, skip a declaration whose `importClause.isTypeOnly` is set and named bindings that are individually type-only, and resolve the specifier to a file so a barrel is followed rather than matched by spelling. Then state both rules against the resolved graph: `settings.ts` must not reach `providers/` or `overlays/`, and nothing under `lib/` may reach `hooks/`, `panels/` or `components/`.
-      Acceptance: Each of the seven shapes above, planted one at a time, fails the gate; the three existing `{ type A }` clauses do not; a barrel import of `./overlays` in `settings.ts` fails; `npm run check` green.
-      Confidence: Verified
-      Effort: M
-
 - [ ] AUD-392 (P1): `settings.ts` is still inside a runtime import cycle, which AUD-375 said it had left
       Category: correctness
       Where: `src/lib/settings.ts:4` and `src/lib/level2.ts:1`; `src/lib/settings.ts:76` through `watch.ts:6`, `overlays/alerts.ts:8`, `tileCache.ts:14`; `src/lib/settings.ts:29` through `approach.ts:2`, `cells.ts:1`.
