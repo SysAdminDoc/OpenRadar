@@ -1060,6 +1060,8 @@ export const en = {
   "nearby.cellsUnavailable":
     "Storm tracking is read from the radar itself, which only the desktop build does.",
   "nearby.cellsLoading": "Reading the radar's tracker.",
+  "nearby.cellsFailed":
+    "The radar's tracker could not be read, so this cannot say what it is following.",
   "nearby.cellAt": "{id} is {distance} to the {direction}.",
   "nearby.cellMoving": "Moving {direction} at {speed}.",
   "nearby.cellNewlyFound": "Newly found, so it has no track yet.",

@@ -35,6 +35,7 @@ function markup(names: ReadonlyMap<string, string>, onName: () => void) {
       station="KFWS"
       observed={Date.now()}
       alertsFetchedAt={Date.now()}
+      alertsError={null}
       placeLightning={[]}
       clock={CLOCK}
       onClose={() => undefined}
@@ -97,7 +98,7 @@ describe("naming a storm in the nearby list", () => {
 function approachPanel(
   overrides: {
     approaching?: Approach[];
-    cellsNote?: "off" | "unavailable" | "loading" | null;
+    cellsNote?: "off" | "unavailable" | "loading" | "failed" | null;
   } = {},
 ) {
   return (
@@ -115,6 +116,7 @@ function approachPanel(
       station="KFWS"
       observed={Date.now()}
       alertsFetchedAt={Date.now()}
+      alertsError={null}
       placeLightning={[]}
       clock={CLOCK}
       onClose={() => undefined}
@@ -168,6 +170,16 @@ describe("what the panel says is heading for a watched place", () => {
     const section = document.querySelector("[data-approaching]");
     expect(section?.textContent).toContain("Nothing the radar is tracking");
   });
+
+  it("does not claim nothing is coming when the tracker could not be read", () => {
+    // The same claim-about-the-sky, from the fourth state the note gained
+    // last: a read that failed leaves no report and no loading flag, so the
+    // section had nothing to distinguish it from a clear afternoon.
+    render(approachPanel({ approaching: [], cellsNote: "failed" }));
+    const section = document.querySelector("[data-approaching]");
+    expect(section?.textContent).toContain("could not be read");
+    expect(section?.textContent).not.toContain("Nothing the radar is tracking");
+  });
 });
 
 /**
@@ -200,6 +212,7 @@ function warningsSection(
       station="KFWS"
       observed={CLOCK}
       alertsFetchedAt={alertsNote === null ? CLOCK : null}
+      alertsError={alertsNote === "failed" ? "The service is busy." : null}
       placeLightning={[]}
       clock={CLOCK}
       onClose={() => undefined}
@@ -246,5 +259,50 @@ describe("what the warnings section says when it has nothing to list", () => {
     ]);
     expect(screen.getByText(/tornado warning over casa/i)).toBeTruthy();
     expect(screen.queryByText(/could not be checked/i)).toBeNull();
+  });
+});
+
+/**
+ * The line under the whole panel, which answers for the same request the
+ * warnings section does.
+ *
+ * The section was taught the four states and the footer was not, so on a
+ * refused connection the section said the warnings could not be checked while
+ * the line three sections below it said they were still loading. Both were on
+ * screen at once, describing one request. A test scoped to the section cannot
+ * see that, which is why these read the whole panel.
+ */
+describe("what the line under the panel says about the same request", () => {
+  it("does not say the warnings are loading once the feed has failed", () => {
+    warningsSection("failed");
+    const note = document.querySelector(".source-note");
+    expect(note?.textContent ?? "").not.toMatch(
+      /loading watches and warnings/i,
+    );
+    expect(note?.textContent ?? "").toMatch(/the service is busy/i);
+  });
+
+  it("says the layer is off rather than that it is still loading", () => {
+    warningsSection("off");
+    const note = document.querySelector(".source-note");
+    expect(note?.textContent ?? "").not.toMatch(
+      /loading watches and warnings/i,
+    );
+    expect(note?.textContent ?? "").toMatch(/while the layer is off/i);
+  });
+
+  it("still says it is loading before the first answer", () => {
+    warningsSection("loading");
+    const note = document.querySelector(".source-note");
+    expect(note?.textContent ?? "").toMatch(/loading watches and warnings/i);
+  });
+
+  it("says when it was checked once the feed has answered", () => {
+    warningsSection(null);
+    const note = document.querySelector(".source-note");
+    expect(note?.textContent ?? "").toMatch(/checked/i);
+    expect(note?.textContent ?? "").not.toMatch(
+      /loading watches and warnings/i,
+    );
   });
 });
