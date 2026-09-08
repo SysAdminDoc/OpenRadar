@@ -1,6 +1,11 @@
 import { haversineMiles, type GeoPoint } from "./geo";
 import { alertsOfKind } from "./overlays/alerts";
-import { SEVERITY_RANK, type AlertSeverity } from "./alertSeverity";
+import {
+  alertAgency,
+  SEVERITY_RANK,
+  type AlertAgency,
+  type AlertSeverity,
+} from "./alertSeverity";
 import type { AlertType } from "./alertTypes";
 import {
   featureBounds,
@@ -230,6 +235,14 @@ export interface WatchAlert {
   /** How far up the damage scale this one is, for the record of what was said. */
   rank: number;
   headline: string;
+  /**
+   * Which office issued it.
+   *
+   * Carried through because a warning that reaches a watched place is written
+   * into the reader's own record with who said it, and that row said NWS for
+   * every warning including the Canadian and German ones.
+   */
+  agency: AlertAgency;
   /** The damage threat the office attached, or empty for most warnings. */
   impact: string;
   severity: AlertSeverity;
@@ -374,6 +387,7 @@ export function alertsToAnnounce(
       id,
       rank,
       headline: String(feature.properties.headline ?? translate("watch.alert")),
+      agency: alertAgency(feature.properties.agency),
       impact: String(feature.properties.impact ?? ""),
       severity,
       issued: typeof issued === "number" ? issued : null,
@@ -467,6 +481,8 @@ export function testWatchAlert(place: WatchPlace): WatchAlert {
     places: [{ id: place.id, name: place.name, named: place.named !== false }],
     rank: 0,
     headline: translate("watch.testHeadline"),
+    // This app's own, because nobody's office issued it.
+    agency: "nws",
     impact: "",
     severity: place.minSeverity,
     issued: Date.now(),

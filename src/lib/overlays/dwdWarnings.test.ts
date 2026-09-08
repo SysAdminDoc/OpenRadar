@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { alertsOverlay } from "./alerts";
 import {
   dwdHazard,
   dwdSeverity,
@@ -151,5 +152,15 @@ describe.runIf(LIVE)("against the live service", () => {
     for (const feature of drawn) {
       expect(String(feature.properties.headline)).not.toBe("");
     }
+  });
+});
+
+describe("whose warning a popup says it is", () => {
+  it("names the German office rather than the American one", () => {
+    const [german] = parseDwdWarnings(feed);
+    const said = alertsOverlay.describe(german.properties);
+    const source = said!.lines.at(-1)!;
+    expect(source).toContain("Deutscher Wetterdienst");
+    expect(source).not.toContain("NWS");
   });
 });

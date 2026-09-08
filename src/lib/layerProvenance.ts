@@ -32,6 +32,7 @@ export interface LayerSource {
 
 const NWS = "NOAA National Weather Service";
 const ECCC = "Environment and Climate Change Canada";
+const DWD = "Deutscher Wetterdienst";
 const MRMS = "NOAA MRMS";
 /** MRMS grids are published every two minutes. */
 const MRMS_REFRESH = 120_000;
@@ -40,11 +41,12 @@ export const LAYER_SOURCES: Record<keyof LayerSettings, LayerSource> = {
   weatherAlerts: {
     sourceId: "alerts",
     label: "Watches and warnings",
-    // Two offices on one layer. A Canadian warning is drawn beside an
-    // American one and treated the same way by the watch and the filters, so
-    // the credit has to name both: the reader is looking at one switch, and
-    // whose warning it is depends on where they are looking.
-    attribution: `${NWS} and ${ECCC}`,
+    // Three offices on one layer. A Canadian or German warning is drawn
+    // beside an American one and treated the same way by the watch and the
+    // filters, so the credit has to name all of them: the reader is looking
+    // at one switch, and whose warning it is depends on where they are
+    // looking. The German half was added to the layer and not to this line.
+    attribution: `${NWS}, ${ECCC} and ${DWD}`,
     attributionUrl: "https://www.weather.gov/",
     kind: "observation",
     freshForMs: 60_000,
