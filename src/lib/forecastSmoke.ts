@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 import { utcHourLabel } from "./units";
 import { translate } from "../i18n";
 import type { RadarFrame } from "./providers/types";

@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 import { formatNumber, translate, type StringKey } from "../i18n";
 import { en } from "../i18n/en";
 import { nativeErrorParams } from "./nativeError";

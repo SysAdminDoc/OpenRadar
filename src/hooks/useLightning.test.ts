@@ -14,11 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: () => flashes(),
 }));
 
-vi.mock("../lib/settings", async () => {
-  const actual =
-    await vi.importActual<typeof import("../lib/settings")>("../lib/settings");
-  return { ...actual, isDesktopRuntime: () => true };
-});
+vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => true }));
 
 const NEWEST = 1_788_083_202;
 

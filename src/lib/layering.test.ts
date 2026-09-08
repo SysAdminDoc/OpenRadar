@@ -149,6 +149,67 @@ function resolveImport(from: string, where: string): string | null {
  */
 const named = (path: string) => relative(ROOT, path).replace(/\\/g, "/");
 
+/**
+ * Every import ring the given file sits in, each named by its members.
+ *
+ * Tarjan over the whole of `src/`, because a ring is a property of the graph
+ * rather than of any one file: the edge that closes it is usually somewhere
+ * else entirely, and reading a single module's imports can never see it.
+ */
+function ringsThrough(file: string): string[][] {
+  const edges = new Map<string, string[]>();
+  const walk = (from: string) => {
+    if (edges.has(from)) return;
+    const found: string[] = [];
+    edges.set(from, found);
+    for (const where of valueImports(readFileSync(from, "utf8"), from)) {
+      const landed = resolveImport(from, where);
+      if (!landed) continue;
+      found.push(landed);
+      walk(landed);
+    }
+  };
+  for (const path of filesUnder(ROOT)) walk(path);
+
+  const index = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const rings: string[][] = [];
+  let counter = 0;
+
+  const visit = (at: string) => {
+    index.set(at, counter);
+    low.set(at, counter);
+    counter += 1;
+    stack.push(at);
+    onStack.add(at);
+    for (const next of edges.get(at) ?? []) {
+      if (!index.has(next)) {
+        visit(next);
+        low.set(at, Math.min(low.get(at)!, low.get(next)!));
+      } else if (onStack.has(next)) {
+        low.set(at, Math.min(low.get(at)!, index.get(next)!));
+      }
+    }
+    if (low.get(at) !== index.get(at)) return;
+    const component: string[] = [];
+    for (;;) {
+      const member = stack.pop()!;
+      onStack.delete(member);
+      component.push(member);
+      if (member === at) break;
+    }
+    // A component of one is a module, not a ring, unless it imports itself.
+    const cyclic = component.length > 1 || (edges.get(at) ?? []).includes(at);
+    if (cyclic && component.includes(file)) {
+      rings.push(component.map(named).sort());
+    }
+  };
+  for (const node of edges.keys()) if (!index.has(node)) visit(node);
+  return rings;
+}
+
 describe("what may import what", () => {
   const libFiles = filesUnder(join(ROOT, "lib"));
 
@@ -230,6 +291,22 @@ describe("what may import what", () => {
       wrong,
       "a module under lib/ cannot be read or moved without whatever it " +
         "imports, and these reach up into the layers above it",
+    ).toEqual([]);
+  });
+
+  it("leaves settings out of every import ring", () => {
+    // The two rules above are about single edges, and neither catches a ring
+    // that goes round the long way. `settings.ts` reached an overlay adapter
+    // directly on 2026-09-04, that edge was taken out, and the same ring was
+    // still closed a hop longer through `watch.ts`, which imports the alerts
+    // adapter, which imports the tile cache, which imports `settings.ts`.
+    // Nothing said so, because nothing was looking at the graph.
+    const cycles = ringsThrough(join(ROOT, "lib", "settings.ts"));
+    expect(
+      cycles,
+      "these modules and settings.ts import each other in a ring that " +
+        "evaluates at runtime, so whether it works depends on the order the " +
+        "bundler picks. Put what settings.ts needs in a leaf of its own.",
     ).toEqual([]);
   });
 });

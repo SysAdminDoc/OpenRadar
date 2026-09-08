@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 /**
  * The wind profile a held site's own volume gives, as the panel reads it.

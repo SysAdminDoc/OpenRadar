@@ -4,12 +4,8 @@ import { diagnosticsBlock } from "../lib/diagnostics";
 import { gpuSupport } from "../lib/gpu";
 import { knownWebviewVersion } from "../lib/crashReport";
 import { recentLog } from "../lib/log";
-import {
-  isDesktopRuntime,
-  readSettings,
-  resetLayout,
-  saveSettings,
-} from "../lib/settings";
+import { isDesktopRuntime } from "../lib/runtime";
+import { readSettings, resetLayout, saveSettings } from "../lib/settings";
 
 interface ErrorBoundaryProps {
   children: ReactNode;

@@ -177,10 +177,10 @@ import type {
   MapStyleId,
   RadarSettings,
 } from "./lib/settings";
+import { isDesktopRuntime } from "./lib/runtime";
 import {
   APP_VERSION,
   watchedPlaces,
-  isDesktopRuntime,
   withPalette,
   withPaletteAssigned,
   withoutPalette,

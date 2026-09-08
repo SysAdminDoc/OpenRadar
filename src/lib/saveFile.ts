@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 export interface SavedFile {
   /** Where it landed, when the desktop app could say. */

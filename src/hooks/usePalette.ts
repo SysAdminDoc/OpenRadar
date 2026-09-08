@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { log } from "../lib/log";
 import { paletteForRenderer, type Palette } from "../lib/palette";
 import { applyPalettesToRenderer } from "../lib/paletteRenderer";
-import { isDesktopRuntime } from "../lib/settings";
+import { isDesktopRuntime } from "../lib/runtime";
 
 /**
  * Hands a loaded colour table to the native renderers and reports back the

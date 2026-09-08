@@ -8,7 +8,7 @@
  * can see is restarting.
  */
 
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 import { formatAge } from "./units";
 import { translate } from "../i18n";
 

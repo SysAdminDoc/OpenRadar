@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 import { log } from "./log";
 
 /**

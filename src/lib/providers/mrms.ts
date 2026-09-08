@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "../settings";
+import { isDesktopRuntime } from "../runtime";
 import type { GaugeQpePeriod } from "../gaugeQpe";
 import type {
   IsothermLevel,

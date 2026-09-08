@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 /**
  * The current view on the desktop, refreshed on a schedule.

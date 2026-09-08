@@ -6,11 +6,7 @@ import {
   resetTileCache,
 } from "./tileCache";
 
-vi.mock("./settings", async () => {
-  const actual =
-    await vi.importActual<typeof import("./settings")>("./settings");
-  return { ...actual, isDesktopRuntime: () => desktop };
-});
+vi.mock("./runtime", () => ({ isDesktopRuntime: () => desktop }));
 
 vi.mock("@tauri-apps/api/core", () => ({
   // What Tauri hands back on Windows. The trailing marker is what the caller

@@ -1,4 +1,5 @@
-import { isDesktopRuntime, type CameraState } from "./settings";
+import { isDesktopRuntime } from "./runtime";
+import { type CameraState } from "./settings";
 import type { OverlayBounds } from "./overlays";
 import type { RadarFrame } from "./providers/types";
 import type { ArchiveReplay } from "../hooks/useRadarTimeline";

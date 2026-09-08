@@ -3,7 +3,7 @@ import {
   info as logInfo,
   warn as logWarn,
 } from "@tauri-apps/plugin-log";
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 export type LogLevel = "info" | "warn" | "error";
 

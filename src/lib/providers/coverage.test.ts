@@ -9,10 +9,7 @@ import { covers, type RadarProvider } from "./types";
 // them and the whole question of which one is being watched does not arise.
 // The bug this file covers only exists on the desktop, so that is what is
 // measured here.
-vi.mock("../settings", async (original) => ({
-  ...(await original<typeof import("../settings")>()),
-  isDesktopRuntime: () => true,
-}));
+vi.mock("../runtime", () => ({ isDesktopRuntime: () => true }));
 
 /**
  * Which source answers for a place, and whether it has anything to draw there.

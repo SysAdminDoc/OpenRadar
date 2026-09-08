@@ -19,10 +19,7 @@ vi.mock("@tauri-apps/plugin-autostart", () => ({
 
 const desktop = vi.fn<() => boolean>();
 
-vi.mock("./settings", async () => {
-  const real = await vi.importActual<typeof import("./settings")>("./settings");
-  return { ...real, isDesktopRuntime: () => desktop() };
-});
+vi.mock("./runtime", () => ({ isDesktopRuntime: () => desktop() }));
 
 const { setStartWithMachine, startsWithMachine } = await import("./autostart");
 

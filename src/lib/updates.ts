@@ -1,4 +1,5 @@
-import { APP_VERSION, isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
+import { APP_VERSION } from "./settings";
 import { translate } from "../i18n";
 
 export interface UpdateOffer {

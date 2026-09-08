@@ -11,7 +11,7 @@
  * straight out as it always did, so a style that reaches somewhere unexpected
  * cannot be broken by this.
  */
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 /**
  * Hosts worth keeping a copy of: the radar services, the base maps under them,
