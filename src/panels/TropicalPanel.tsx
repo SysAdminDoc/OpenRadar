@@ -3,7 +3,8 @@ import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
 import { relativeTime, stormCategory, type OverlayData } from "../lib/overlays";
 import { safePopupUrl } from "../lib/mapPopup";
-import { activeStorms } from "../lib/tropical";
+import { activeStorms, type ActiveStorm } from "../lib/tropical";
+import { formatClock } from "../lib/units";
 import { useT } from "../i18n";
 
 interface TropicalPanelProps {
@@ -14,6 +15,25 @@ interface TropicalPanelProps {
   onEnableLayer: () => void;
   onFollow: (point: GeoPoint, name: string) => void;
   onClose: () => void;
+}
+
+/**
+ * When an advisory was issued, in the reader's own clock.
+ *
+ * Every other time in the app is local and this one was the forecast
+ * office's, so a reader in Florida had to convert Hawaii time to know whether
+ * an advisory was an hour old or six. A sentence the parser does not
+ * recognise keeps the office's own words, which is the honest answer and what
+ * was on screen before any of this.
+ */
+function advisoryClock(storm: ActiveStorm): string {
+  if (storm.advisoryAt === null) return storm.advisoryDate;
+  return formatClock(storm.advisoryAt, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export function TropicalPanel({
@@ -82,10 +102,15 @@ export function TropicalPanel({
                       ? t("tropical.pressure", { value: storm.pressureMb })
                       : ""}
                   </small>
-                  <small>
+                  {/* The reader's own clock, the way every other time in the
+                      app is shown, with the office's own sentence kept on the
+                      element so the source of record is still there to read.
+                      An advisory the parser does not recognise keeps the
+                      office's words rather than a guessed hour. */}
+                  <small title={storm.advisoryDate || undefined}>
                     {t("tropical.advisory", {
                       number: storm.advisoryNumber,
-                      date: storm.advisoryDate,
+                      date: advisoryClock(storm),
                     })}
                   </small>
                 </div>

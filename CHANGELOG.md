@@ -10,6 +10,8 @@
 
   And the legend says the share of a cut that could not be placed, when it rounds to a whole per cent or more. Which branch such a patch belongs on is not in the data, so it keeps the radar's own reading, and a reader watching a couplet inside one deserves to know it might be a fold rather than rotation. On the worst recorded days that is a third of the picture.
 
+- Tropical advisories are timed by your clock, not the forecast office's. The panel read "Advisory 47 · 1100 AM HST Mon Sep 07 2026" beside a timeline and a tide table that both show local time, so somebody in Florida had to convert Hawaii time to know whether an advisory was an hour old or six. The office's own sentence is still there if you hover it, and an advisory stamped with something the app cannot read keeps those words rather than a guessed hour.
+
 - The Guidance table stops breaking its headers in half. Nine columns were divided between a panel about 320 px wide whatever the words were, so "Model" came out as "Mode" over "l" and "ECMWF" as "ECM" over "WF". The table is as wide as its own words need now, and scrolls sideways inside the panel when that is wider than the panel is.
 
 - Two controls say what they are called. The slider that hides weak readings was announced as "Hide readings below this value" while reading "Hide below", so saying the words in front of you reached nothing at all; it is named by its own label now. And the close button on a map popup said "Close" twice, once as its name and once as its tooltip, which some screen readers read out twice. It says what it closes, once.
