@@ -611,6 +611,7 @@ export const en = {
   "upload.eyebrow": "Local data",
   "upload.title": "Upload",
   "upload.dropTitle": "Add an overlay or a colour table",
+  "upload.dropChoose": "Choose a file",
   "upload.dropBody":
     "Choose a local GeoJSON file, a GRLevelX placefile, or a .pal colour table. Nothing is sent to a server.",
   "upload.colours": "{count, plural, one {# colour} other {# colours}}",
