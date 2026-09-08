@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "./runtime";
+import { failureSentence } from "./serviceAnswer";
 import { formatNumber, translate, type StringKey } from "../i18n";
 import { en } from "../i18n/en";
 import { nativeErrorParams } from "./nativeError";
@@ -93,9 +94,8 @@ export function dataExportErrorText(failure: unknown): string {
     if (shared in en) return translate(shared as StringKey, params);
     if (typeof named.text === "string" && named.text) return named.text;
   }
-  if (failure instanceof Error && failure.message) return failure.message;
   if (typeof failure === "string" && failure) return failure;
-  return translate("dataExport.error.unknown");
+  return failureSentence(failure, translate("dataExport.error.unknown"));
 }
 
 /** How big the file is, in the units a person reads sizes in. */

@@ -9,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { failureSentence } from "./lib/serviceAnswer";
 import type { SurfaceId, ToolMode } from "./components/CommandBar";
 import { MapStage } from "./components/MapStage";
 import { useLatestReply } from "./hooks/useLatestReply";
@@ -625,10 +626,10 @@ export default function App() {
     } catch (failure) {
       pushToast({
         title: translate("alerts.soundFileFailed"),
-        detail:
-          failure instanceof Error
-            ? failure.message
-            : translate("alerts.soundFile.decode"),
+        // Not `failure.message`. A file the dialog or the decoder refused
+        // throws the engine's own words, in English whatever language the
+        // app is in, and this goes straight into a toast.
+        detail: failureSentence(failure, translate("alerts.soundFile.decode")),
       });
     }
   }, [applySettings, pushToast, settingsRef]);
@@ -2006,10 +2007,7 @@ export default function App() {
         .catch((failure: unknown) =>
           pushToast({
             title: translate("history.unknownStorm"),
-            detail:
-              failure instanceof Error
-                ? failure.message
-                : translate("history.unknownStorm"),
+            detail: failureSentence(failure, translate("history.unknownStorm")),
           }),
         );
     },
@@ -2160,10 +2158,10 @@ export default function App() {
         .catch((failure: unknown) => {
           pushToast({
             title: translate("upload.paletteNotSaved"),
-            detail:
-              failure instanceof Error
-                ? failure.message
-                : translate("upload.paletteNotSaved"),
+            detail: failureSentence(
+              failure,
+              translate("upload.paletteNotSaved"),
+            ),
           });
         });
     },

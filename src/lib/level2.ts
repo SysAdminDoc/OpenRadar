@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "./runtime";
+import { failureSentence } from "./serviceAnswer";
 import { translate, type StringKey } from "../i18n";
 import { nativeErrorParams } from "./nativeError";
 import { en } from "../i18n/en";
@@ -438,10 +439,9 @@ export function sweepErrorText(failure: unknown): string {
     if (typeof named.text === "string" && named.text) return named.text;
   }
   if (typeof failure === "string") return failure;
-  if (failure instanceof Error) return failure.message;
   // Something with no shape this build recognises. Saying the volume listing
   // could not be read would be a specific diagnosis of something else.
-  return translate("radar.error.unknown");
+  return failureSentence(failure, translate("radar.error.unknown"));
 }
 
 /** The four corners MapLibre wants, clockwise from the top left. */

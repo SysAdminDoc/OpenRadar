@@ -2,6 +2,7 @@ import { formatNumber, translate } from "../i18n";
 import { en } from "../i18n/en";
 import type { StringKey } from "../i18n/en";
 import { nativeErrorParams } from "./nativeError";
+import { failureSentence } from "./serviceAnswer";
 import type { IncidentPackReference } from "./settings";
 import { isDesktopRuntime } from "./runtime";
 
@@ -222,6 +223,8 @@ export function packErrorText(failure: unknown, args: string[] = []): string {
     const text = (failure as { text?: unknown }).text;
     if (typeof text === "string" && text) return text;
   }
-  if (failure instanceof Error) return failure.message;
-  return translate("packs.error.failed");
+  // Not `failure.message`. A pack fetched over the network fails with a
+  // TypeError reading "Failed to fetch", in English whatever language the
+  // app is in, and this text is what the panel shows.
+  return failureSentence(failure, translate("packs.error.failed"));
 }
