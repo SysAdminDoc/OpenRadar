@@ -601,16 +601,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P3
 
-- [ ] AUD-400 (P3): Two media queries written twice after the consolidation that was meant to end that
-      Category: correctness
-      Where: `src/hooks/useClock.ts:84` (`REDUCED_MOTION`) and `:133` (`MORE_CONTRAST`) against `src/lib/displayPreference.ts:15-16` (`MORE_CONTRAST`, `LESS_MOTION`).
-      Problem: AUD-375 moved the getters into a leaf module and left the subscriptions reading their own copies of the same two query strings. They are character-identical today. If one moves, `useReducedMotion()` subscribes to one query and reads another, and stops re-rendering when the preference changes, which is the failure that is hardest to notice. The `typeof window === "undefined"` guard added to the leaf was also not applied to `subscribeMedia` at `:112` or `forcedColoursActive` at `:163`.
-      Evidence: Read on 2026-09-07 at `f027953`.
-      Fix: Export the two query strings from `displayPreference.ts` and have `useClock.ts` subscribe with those; carry the guard to both remaining readers.
-      Acceptance: `grep` finds each query string written once in `src/`; a test drives the subscription and the getter from the same constant; `npm run check` green.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-401 (P3): Two comments that say something the code does not do
       Category: documentation
       Where: `src/lib/displayPreference.ts:9`; `src-tauri/src/level3.rs:2766`.
