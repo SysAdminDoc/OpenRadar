@@ -68,6 +68,45 @@ const LayersPanel = lazy(async () => {
   return { default: module.LayersPanel };
 });
 
+/**
+ * Five more that most readers never open, for the same reason.
+ *
+ * The panels chunk sat on both its budgets with nothing left, so every change
+ * to any panel had to find its own bytes back somewhere else before it could
+ * land. That is a budget doing its job right up until it starts failing the
+ * next honest change, and the answer to it is a smaller chunk rather than a
+ * larger number.
+ *
+ * These five are the ones a reader either wants or never thinks about: the
+ * forecast models, the storm archive, the tides, the hurricane season and a
+ * route along a drive. None of them is on the way to anything else, and each
+ * brings its own reading of a service with it.
+ */
+const GuidancePanel = lazy(async () => {
+  const module = await import("../panels/GuidancePanel");
+  return { default: module.GuidancePanel };
+});
+
+const HistoryPanel = lazy(async () => {
+  const module = await import("../panels/HistoryPanel");
+  return { default: module.HistoryPanel };
+});
+
+const TidesPanel = lazy(async () => {
+  const module = await import("../panels/TidesPanel");
+  return { default: module.TidesPanel };
+});
+
+const TropicalPanel = lazy(async () => {
+  const module = await import("../panels/TropicalPanel");
+  return { default: module.TropicalPanel };
+});
+
+const RoutePanel = lazy(async () => {
+  const module = await import("../panels/RoutePanel");
+  return { default: module.RoutePanel };
+});
+
 const MapTypePanel = lazy(async () => {
   const module = await import("../panels/MapTypePanel");
   return { default: module.MapTypePanel };
@@ -75,9 +114,6 @@ const MapTypePanel = lazy(async () => {
 import { AlertsPanel } from "../panels/AlertsPanel";
 import { ExportPanel, type DataExportOffer } from "../panels/ExportPanel";
 import { ForecastPanel } from "../panels/ForecastPanel";
-import { GuidancePanel } from "../panels/GuidancePanel";
-import { TidesPanel } from "../panels/TidesPanel";
-import { HistoryPanel } from "../panels/HistoryPanel";
 import { RadarProductPanel } from "../panels/RadarProductPanel";
 import type { SiteStatus } from "../lib/radarStatus";
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
@@ -90,9 +126,7 @@ import type {
 import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
 import type { CappiField, CubeLevel } from "../lib/cappi";
 import type { PlaceLightning } from "../lib/lightningWatch";
-import { RoutePanel } from "../panels/RoutePanel";
 import { SearchPanel } from "../panels/SearchPanel";
-import { TropicalPanel } from "../panels/TropicalPanel";
 import { NearbyPanel, type NearbyPlaceOption } from "../panels/NearbyPanel";
 import { MorePanel, UploadPanel } from "../panels/UtilityPanels";
 import type { SurgeCategory } from "../lib/surge";
@@ -407,19 +441,23 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "tropical" ? (
-        <TropicalPanel
-          products={overlays.tropical.data}
-          fetchedAt={overlays.tropical.fetchedAt}
-          error={overlays.tropical.error}
-          layerOn={settings.layers.tropical}
-          onEnableLayer={() => props.onEnableLayer("tropical")}
-          onFollow={props.onFollowStorm}
-          onClose={onClose}
-        />
+        <Suspense fallback={null}>
+          <TropicalPanel
+            products={overlays.tropical.data}
+            fetchedAt={overlays.tropical.fetchedAt}
+            error={overlays.tropical.error}
+            layerOn={settings.layers.tropical}
+            onEnableLayer={() => props.onEnableLayer("tropical")}
+            onFollow={props.onFollowStorm}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "route" ? (
-        <RoutePanel onRoute={props.onRoute} onClose={onClose} />
+        <Suspense fallback={null}>
+          <RoutePanel onRoute={props.onRoute} onClose={onClose} />
+        </Suspense>
       ) : null}
 
       {activeSurface === "forecast" ? (
@@ -427,15 +465,19 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "guidance" ? (
-        <GuidancePanel point={props.centerPoint} onClose={onClose} />
+        <Suspense fallback={null}>
+          <GuidancePanel point={props.centerPoint} onClose={onClose} />
+        </Suspense>
       ) : null}
 
       {activeSurface === "tides" ? (
-        <TidesPanel
-          point={props.centerPoint}
-          clock={props.clock}
-          onClose={onClose}
-        />
+        <Suspense fallback={null}>
+          <TidesPanel
+            point={props.centerPoint}
+            clock={props.clock}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "settings" ? (
@@ -471,19 +513,21 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "history" ? (
-        <HistoryPanel
-          selectedId={props.historyStormId}
-          replayId={props.replayId}
-          onSelect={props.onHistoryStorm}
-          onReplay={props.onReplayStorm}
-          onStopReplay={props.onStopReplay}
-          onSaveBundle={props.onSaveReplayBundle}
-          onOpenBundle={props.onOpenReplayBundle}
-          bundlesAvailable={props.bundlesAvailable}
-          almanac={props.almanac}
-          onFlyTo={props.onFlyTo}
-          onClose={onClose}
-        />
+        <Suspense fallback={null}>
+          <HistoryPanel
+            selectedId={props.historyStormId}
+            replayId={props.replayId}
+            onSelect={props.onHistoryStorm}
+            onReplay={props.onReplayStorm}
+            onStopReplay={props.onStopReplay}
+            onSaveBundle={props.onSaveReplayBundle}
+            onOpenBundle={props.onOpenReplayBundle}
+            bundlesAvailable={props.bundlesAvailable}
+            almanac={props.almanac}
+            onFlyTo={props.onFlyTo}
+            onClose={onClose}
+          />
+        </Suspense>
       ) : null}
 
       {activeSurface === "export" ? (
