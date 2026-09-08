@@ -192,12 +192,10 @@ export const en = {
     "Pan the map or zoom out to check a wider area. Alerts refresh every minute.",
   "alerts.noteOff": "Nothing is being fetched while the layer is off.",
   "alerts.noteError": "Showing the last good list. {error}",
-  "alerts.noteChecked":
-    "Watches and warnings from the NWS, ECCC and DWD, checked {when}.",
+  "alerts.noteChecked": "Watches and warnings, checked {when}.",
   "alerts.noteArchived":
     "The warnings that were in force at the moment on screen, from the Iowa State archive.",
-  "alerts.noteLoading":
-    "Loading watches and warnings from the NWS, ECCC and DWD.",
+  "alerts.noteLoading": "Loading watches and warnings.",
   "alerts.noteSafety": "Use official warnings for life-safety decisions.",
 
   "units.miles": "miles",
@@ -2107,7 +2105,6 @@ export const en = {
   "guidance.compareDetail":
     "What each model said about these same hours a day ago, and how far it has moved since",
   "guidance.runAt": "{model} last ran {when}, {hours} h ago",
-  "guidance.runUnknown": "{model} did not say when it last ran",
   "guidance.runStale": "· older than its own schedule",
   "guidance.noPrevious": "no earlier run",
   "guidance.agree": "they agree, in {unit}",

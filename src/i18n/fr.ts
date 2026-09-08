@@ -204,12 +204,10 @@ export const fr: Catalogue = {
     "Déplacez la carte ou éloignez-vous pour couvrir une zone plus large. Les alertes se rafraîchissent chaque minute.",
   "alerts.noteOff": "Rien n'est récupéré tant que la couche est éteinte.",
   "alerts.noteError": "Affichage de la dernière liste valide. {error}",
-  "alerts.noteChecked":
-    "Veilles et alertes du NWS, d'ECCC et du DWD, vérifiées {when}.",
+  "alerts.noteChecked": "Veilles et alertes, vérifiées {when}.",
   "alerts.noteArchived":
     "Les alertes qui étaient en vigueur au moment affiché, tirées des archives de l'Iowa State.",
-  "alerts.noteLoading":
-    "Chargement des veilles et alertes du NWS, d'ECCC et du DWD.",
+  "alerts.noteLoading": "Chargement des veilles et alertes.",
   "alerts.noteSafety":
     "Fiez-vous aux alertes officielles pour les décisions touchant la sécurité.",
 
@@ -2173,8 +2171,6 @@ export const fr: Catalogue = {
     "Ce que chaque modèle disait de ces mêmes heures il y a un jour, et de combien il a bougé depuis",
   "guidance.runAt":
     "{model} a tourné pour la dernière fois {when}, il y a {hours} h",
-  "guidance.runUnknown":
-    "{model} n'a pas dit quand il a tourné la dernière fois",
   "guidance.runStale": "· plus vieux que son propre horaire",
   "guidance.noPrevious": "aucune sortie antérieure",
   "guidance.agree": "ils s'entendent, en {unit}",

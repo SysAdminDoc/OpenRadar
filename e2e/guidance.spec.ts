@@ -480,6 +480,28 @@ test("says when each model last ran and how far it has moved since", async ({
   ).toContainText("+1");
 });
 
+test("says nothing about a run nobody could ask for", async ({ page }) => {
+  // The run times come from a second request against a different host from
+  // the forecast, and `fetchModelRuns` swallows each model's failure on its
+  // own. Refuse only that host and the forecast still lands, so the panel
+  // used to draw a full table with "GFS did not say when it last ran" under
+  // it, three times over, about three requests that never reached anybody.
+  // A model that answered without a date and a model nobody reached are the
+  // same missing entry, so the panel cannot tell that story either way.
+  await routeData(page);
+  await page.route("**/static/meta.json*", (route) => route.abort());
+  await page.goto("/?testMode=1&lon=-93.7&lat=41.7&zoom=6");
+  await page.getByRole("button", { name: "Guidance", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Guidance" });
+  await expect(panel).toBeVisible();
+
+  // The forecast itself is there, which is what makes the run list's silence
+  // the point rather than a consequence of an empty panel.
+  await expect(panel.locator(".guidance-table").first()).toBeVisible();
+  await expect(panel.locator(".model-runs li")).toHaveCount(0);
+  await expect(panel).not.toContainText("did not say when it last ran");
+});
+
 test("the run ages and the changes are readable in the light theme", async ({
   page,
 }) => {

@@ -155,6 +155,17 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
     formatClock(at, { weekday: "short", hour: "numeric" });
 
   const answered = guidance ? modelsThatAnswered(guidance) : [];
+  // The chosen models that answered with a run time, paired with it. A model
+  // missing from `runs` said nothing this panel can report, and which of the
+  // several reasons for that it was is not knowable from here.
+  const shown = GUIDANCE_MODELS.filter((model) => chosen.includes(model.id))
+    .map((model) => ({ model, run: runs[model.id] }))
+    .filter(
+      (
+        pair,
+      ): pair is { model: (typeof GUIDANCE_MODELS)[number]; run: ModelRun } =>
+        pair.run !== undefined,
+    );
   // The shared minute clock rather than a reading taken during a render: an
   // age in hours does not need finer, and the workspace already has one tick
   // everything follows.
@@ -219,42 +230,37 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
 
       {/* When each model last ran, which is the difference between two models
           disagreeing and one of them being twelve hours behind the other.
-          Left out entirely while there is no answer at all: "GFS did not say
-          when it last ran" describes a model that answered without a date,
-          and after a failed request it was said of all three, none of which
-          had been reached. */}
-      {guidance ? (
+
+          Only the models that answered with a date. "GFS did not say when it
+          last ran" describes a model that answered without one, and nothing
+          here can tell that apart from a model nobody reached: the run times
+          come from a second request against a different host, which swallows
+          each model's failure on its own, so a missing entry is silence about
+          the reason as well as about the date. Guarding the list on the
+          forecast was not enough, because the forecast lands on its own and
+          the sentence was then said of all three beside a full table. */}
+      {shown.length ? (
         <ul role="list" className="model-runs">
-          {GUIDANCE_MODELS.filter((model) => chosen.includes(model.id)).map(
-            (model) => {
-              const run = runs[model.id];
-              if (!run) {
-                return (
-                  <li key={model.id}>
-                    {t("guidance.runUnknown", { model: t(model.key) })}
-                  </li>
-                );
-              }
-              const hours = Math.max(
-                0,
-                Math.round((clock - run.initUtc) / 3_600_000),
-              );
-              return (
-                <li key={model.id} data-stale={runIsStale(run, clock)}>
-                  {t("guidance.runAt", {
-                    model: t(model.key),
-                    when: formatClock(new Date(run.initUtc), {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                    }),
-                    hours,
-                  })}
-                  {runIsStale(run, clock) ? ` ${t("guidance.runStale")}` : ""}
-                </li>
-              );
-            },
-          )}
+          {shown.map(({ model, run }) => {
+            const hours = Math.max(
+              0,
+              Math.round((clock - run.initUtc) / 3_600_000),
+            );
+            return (
+              <li key={model.id} data-stale={runIsStale(run, clock)}>
+                {t("guidance.runAt", {
+                  model: t(model.key),
+                  when: formatClock(new Date(run.initUtc), {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                  }),
+                  hours,
+                })}
+                {runIsStale(run, clock) ? ` ${t("guidance.runStale")}` : ""}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 

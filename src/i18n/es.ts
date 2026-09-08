@@ -199,11 +199,10 @@ export const es: Catalogue = {
   "alerts.noteOff":
     "No se está consultando nada mientras la capa esté apagada.",
   "alerts.noteError": "Mostrando la última lista buena. {error}",
-  "alerts.noteChecked":
-    "Vigilancias y avisos del NWS, ECCC y DWD, consultados {when}.",
+  "alerts.noteChecked": "Vigilancias y avisos, consultados {when}.",
   "alerts.noteArchived":
     "Los avisos que estaban en vigor en el momento que se ve, del archivo de Iowa State.",
-  "alerts.noteLoading": "Cargando vigilancias y avisos del NWS, ECCC y DWD.",
+  "alerts.noteLoading": "Cargando vigilancias y avisos.",
   "alerts.noteSafety":
     "Usa los avisos oficiales para decisiones que afecten la seguridad.",
 
@@ -2147,7 +2146,6 @@ export const es: Catalogue = {
     "Lo que decía cada modelo de estas mismas horas hace un día, y cuánto ha cambiado desde entonces",
   "guidance.runAt":
     "{model} se ejecutó por última vez el {when}, hace {hours} h",
-  "guidance.runUnknown": "{model} no dice cuándo se ejecutó por última vez",
   "guidance.runStale": "· más antigua de lo que marca su propio horario",
   "guidance.noPrevious": "sin pasada anterior",
   "guidance.agree": "coinciden, en {unit}",
