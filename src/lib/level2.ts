@@ -562,9 +562,13 @@ export function sweepAgeMinutes(sweep: SweepImage, nowMs: number): number {
  * minutes in precipitation mode and about ten in clear air, so twenty minutes
  * of silence is the site being down rather than a slow scan.
  *
- * The site's own position is the middle of the extent the sweep was drawn
- * over, which is the site by construction: the renderer squares the picture
- * on the radar.
+ * The site's own position comes off the sweep, which carries it. It used to
+ * be the middle of the extent, which was the radar for as long as the picture
+ * always covered the whole disc and stopped being the radar the moment a
+ * zoomed-in reader started getting a box: it became the snapped map centre,
+ * and this line reported the distance from home to that, labelled as the
+ * station's. Measured at 152 miles for a reader looking at the north-west of
+ * KDMX's disc while standing on the radar itself.
  */
 export const STATION_QUIET_AFTER_MINUTES = 20;
 
@@ -573,10 +577,7 @@ export function stationSummary(
   watch: { center: [number, number]; name?: string },
   nowMs: number,
 ): string {
-  const site = {
-    lon: (sweep.west + sweep.east) / 2,
-    lat: (sweep.south + sweep.north) / 2,
-  };
+  const site = sweepSite(sweep);
   const minutes = sweepAgeMinutes(sweep, nowMs);
   const publishing =
     sweep.source.kind === "recent" && minutes < STATION_QUIET_AFTER_MINUTES;
