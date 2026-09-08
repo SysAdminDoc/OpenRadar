@@ -592,21 +592,3 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
   Touches: `src-tauri/src/crash.rs` or `lib.rs` (a `running` sentinel in app data written in the setup hook and removed on a clean exit, with a count of consecutive unclean starts), `src/hooks/useSettings.ts` (on the second unclean start in a row, load with imported overlays, placefiles, the custom theme and the seasonal look off and the camera at home, and say so in a toast with one press to put everything back), `src/i18n/*`, `e2e/storage.spec.ts` with a planted sentinel.
   Acceptance: A planted sentinel with a count of two at launch opens the workspace plain with the toast; pressing Restore puts every switch back and clears the count; a clean exit removes the sentinel; a single unclean exit changes nothing; the spec covers all three.
   Complexity: M
-
-## Verification Findings, 2026-09-07
-
-Raised by an adversarial review of `293424c..f027953` instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
-
-### P2
-
-### P3
-
-- [ ] AUD-401 (P3): Two comments that say something the code does not do
-      Category: documentation
-      Where: `src/lib/displayPreference.ts:9`; `src-tauri/src/level3.rs:2766`.
-      Problem: The first says "two modules under `lib/` want the answer" and exactly one does, `src/lib/overlays/alerts.ts:17`. The second says the URL is built "the same shape in `mrms.rs` and `hrrr.rs`"; `mrms.rs:2736` is that shape, but `hrrr.rs` splices no listing key at all, since its only URL at `:567` is built entirely from integers.
-      Evidence: Read on 2026-09-07 at `f027953`.
-      Fix: Say what is true in both.
-      Acceptance: Both comments match the code they sit on.
-      Confidence: Verified
-      Effort: S

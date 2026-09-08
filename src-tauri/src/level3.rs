@@ -2765,7 +2765,9 @@ mod tests {
     fn a_listing_key_cannot_move_the_host_it_is_fetched_from() {
         // A key comes out of an S3 listing, which is remote input, and it is
         // spliced into an address as text: `format!("https://{BUCKET}/{key}")`
-        // here, and the same shape in `mrms.rs` and `hrrr.rs`.
+        // here, and the same shape at `mrms.rs:2736`. Not `hrrr.rs`, which
+        // was named here and splices no listing key at all: its one address
+        // is built entirely from integers.
         //
         // What makes that safe is the slash. An authority ends at the first
         // slash after the scheme, so a key can only ever land in the path,
