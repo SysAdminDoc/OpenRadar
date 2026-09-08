@@ -363,13 +363,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
   Acceptance: a per-station line that the recorded week clears with room and that fails when the wind's plausibility bar is removed; the recorder prints whatever the line is drawn against.
   Complexity: M
 
-- [ ] AUD-361 (P3): Convert the 30 hand-rolled `open` guards to `useLatestReply`
-      Why: `useLatestReply` exists so one tested helper answers "is this run still the current one", and 30 effects across 16 files still answer it with `let open = true` and a cleanup that sets it false. Every one is correct as written, which is why this is a conversion and not a fix, but the gate that was supposed to stop new ones was blind to `open` for two days while calling itself complete. The list is the second time that has happened, after `mounted`.
-      Evidence: `src/hooks/useLatestReply.test.ts` holds the 16 files in `outstanding`, with the ratchet that fails if a converted file stays on the list or an unconverted file leaves it. `src/hooks/useWind.ts:40-72` is the shape: `let open = true`, three `if (!open) return` guards, `open = false` in the cleanup.
-      Touches: the 16 files named in `outstanding`, and that list itself, which shrinks with each one.
-      Acceptance: WHEN an effect in one of those files needs to know whether its run is still current, it SHALL ask `useLatestReply` rather than a local boolean, with one token per effect; the file leaves `outstanding` in the same commit, and the scan stays green in both directions. `src/App.tsx` keeps its exemption for the listener handle, which is a different thing and stays.
-      Complexity: M
-
 - [ ] AUD-345 (P3): Say fresh, fetching, stale or failed on every layer row, with an age
       Why: Feed loss is the complaint of the season: two paid apps lost their feed on 2026-09-03, five radars were down at once in July, and a Windy reader watched months of rain the radar did not show. HookEcho answered it on 2026-09-05 with fresh, fetching, stale, failed and waiting plus a compact age on every network layer row, a popover with attempts and the last error, and stale imagery kept on screen marked degraded. The app knows all of that per adapter and shows it in Diagnostics and the legend; the Layers panel, where a reader switches a layer on and wonders why nothing changed, says nothing.
       Evidence: https://github.com/d4vid87/hookecho/pull/306 (merged 2026-09-05); https://community.windy.com/topic/44326/weather-radar-constantly-malfunctioning ; `src/hooks/useOverlays.ts` (per-adapter status), `src/panels/LayersPanel.tsx` (no status text on any row), `src/lib/providers/health.ts`.

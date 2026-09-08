@@ -24,6 +24,7 @@ import {
 } from "../lib/hurdat";
 import { formatNumber, locale, translate, useT } from "../i18n";
 import { almanacFor, readNotes, type AlmanacNote } from "../lib/almanac";
+import { useLatestReply } from "../hooks/useLatestReply";
 
 /** The curated notes, beside the track record, in the app's own bundle. */
 const ALMANAC_URL = "/almanac.json";
@@ -95,24 +96,25 @@ export function HistoryPanel({
   // a decade at a time, so two clicks can finish in the opposite order.
   const selectionGenerationRef = useRef(0);
 
+  const latestStorms = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latestStorms();
     void loadStorms()
       .then((loaded) => {
-        if (!open) return;
+        if (!reply.current()) return;
         setStorms(loaded);
         setError(null);
       })
       .catch((failure: unknown) => {
-        if (!open) return;
+        if (!reply.current()) return;
         setError(failureMessage(failure));
       });
     inputRef.current?.focus();
     return () => {
-      open = false;
+      reply.close();
       selectionGenerationRef.current += 1;
     };
-  }, []);
+  }, [latestStorms]);
 
   const clearSelection = () => {
     selectionGenerationRef.current += 1;
@@ -157,21 +159,22 @@ export function HistoryPanel({
   // path is the bundle on disk, so this works with networking off, which is
   // most of the point of an almanac built from what is already here.
   const [notes, setNotes] = useState<AlmanacNote[]>([]);
+  const latestNotes = useLatestReply();
   useEffect(() => {
     if (!almanac) return;
-    let open = true;
+    const reply = latestNotes();
     void fetch(ALMANAC_URL)
       .then((response) => (response.ok ? response.json() : []))
       .then((value) => {
-        if (open) setNotes(readNotes(value));
+        if (reply.current()) setNotes(readNotes(value));
       })
       // A card is not worth an error in front of somebody. Without the notes
       // the track record still answers.
       .catch(() => undefined);
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [almanac]);
+  }, [almanac, latestNotes]);
 
   // The card is for a reader who has not asked about anything in particular.
   // Somebody in the middle of a search has.
@@ -193,28 +196,31 @@ export function HistoryPanel({
   // over from the last pick, is simply not the selection yet.
   const selected = loadedStorm?.id === selectedId ? loadedStorm : null;
 
+  const latestSelected = useLatestReply();
   useEffect(() => {
     if (!selectedId) {
       selectionGenerationRef.current += 1;
       return;
     }
     if (loadedStorm?.id === selectedId) return;
-    let open = true;
+    const reply = latestSelected();
     const generation = ++selectionGenerationRef.current;
     void loadStorm(selectedId)
       .then((storm) => {
-        if (!open || generation !== selectionGenerationRef.current) return;
+        if (!reply.current() || generation !== selectionGenerationRef.current)
+          return;
         setLoadedStorm(storm);
         setError(null);
       })
       .catch((failure: unknown) => {
-        if (!open || generation !== selectionGenerationRef.current) return;
+        if (!reply.current() || generation !== selectionGenerationRef.current)
+          return;
         setError(failureMessage(failure));
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [loadedStorm?.id, selectedId]);
+  }, [latestSelected, loadedStorm?.id, selectedId]);
   // What a replay would be about, which is what the note at the bottom names.
   const focus = useMemo(
     () => (selected && canReplay(selected) ? replayFocus(selected) : null),

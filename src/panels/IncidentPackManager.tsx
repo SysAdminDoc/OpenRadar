@@ -36,6 +36,7 @@ import type { AppSettings } from "../lib/settings";
 import type { UndoableRemoval } from "../components/ToastHost";
 import { UNDO_LIFETIME_MS } from "../hooks/useToasts";
 import { rangeFill } from "../lib/rangeFill";
+import { useLatestReply } from "../hooks/useLatestReply";
 
 const EMPTY_LIBRARY: IncidentPackLibrary = {
   packs: [],
@@ -131,30 +132,31 @@ export function IncidentPackManager({
     return next;
   }, [available, syncReady]);
 
+  const latestLibrary = useLatestReply();
   useEffect(() => {
     if (!available) return;
-    let open = true;
+    const reply = latestLibrary();
     let timer = 0;
     const poll = async () => {
       try {
         const next = await refresh();
-        if (!open) return;
+        if (!reply.current()) return;
         const active = next.packs.some((pack) =>
           ["queued", "downloading", "finalizing"].includes(pack.status),
         );
         timer = window.setTimeout(poll, active ? 650 : 1000);
       } catch (failure) {
-        if (!open) return;
+        if (!reply.current()) return;
         setError(packErrorText(failure));
         timer = window.setTimeout(poll, 1000);
       }
     };
     void poll();
     return () => {
-      open = false;
+      reply.close();
       window.clearTimeout(timer);
     };
-  }, [available, refresh]);
+  }, [available, latestLibrary, refresh]);
 
   /**
    * The ceiling, written to the store once the reader has stopped moving it.
@@ -171,6 +173,7 @@ export function IncidentPackManager({
    * what the store already reported: on mount this used to write the value
    * back for nothing.
    */
+  const latestLimit = useLatestReply();
   useEffect(() => {
     if (!available) return;
     const wanted = settings.incidentPacks.diskLimitMb;
@@ -181,29 +184,31 @@ export function IncidentPackManager({
     // lock a download holds, so that is not a rare race.
     if (!read) return;
     if (library.diskLimitBytes === wanted * 1024 * 1024) return;
-    let open = true;
+    const reply = latestLimit();
     const timer = window.setTimeout(() => {
       void setIncidentPackLimit(wanted)
         .then((next) => {
-          if (open) setLibrary(next);
+          if (reply.current()) setLibrary(next);
         })
         .catch((failure) => {
-          if (open) setError(packErrorText(failure));
+          if (reply.current()) setError(packErrorText(failure));
         });
     }, 250);
     return () => {
-      open = false;
+      reply.close();
       window.clearTimeout(timer);
     };
   }, [
+    latestLimit,
     available,
     read,
     library.diskLimitBytes,
     settings.incidentPacks.diskLimitMb,
   ]);
 
+  const latestEstimate = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latestEstimate();
     const timer = window.setTimeout(() => {
       if (!available || !bounds || minZoom > maxZoom) {
         setEstimate(null);
@@ -211,21 +216,21 @@ export function IncidentPackManager({
       }
       void estimateIncidentPack({ bounds, minZoom, maxZoom })
         .then((next) => {
-          if (!open) return;
+          if (!reply.current()) return;
           setEstimate(next);
           setError(null);
         })
         .catch((failure) => {
-          if (!open) return;
+          if (!reply.current()) return;
           setEstimate(null);
           setError(packErrorText(failure));
         });
     }, 180);
     return () => {
-      open = false;
+      reply.close();
       window.clearTimeout(timer);
     };
-  }, [available, bounds, maxZoom, minZoom]);
+  }, [available, bounds, latestEstimate, maxZoom, minZoom]);
 
   const act = useCallback(
     async (key: string, action: () => Promise<unknown>, done: string) => {

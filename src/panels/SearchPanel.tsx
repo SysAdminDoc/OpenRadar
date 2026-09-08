@@ -9,6 +9,7 @@ import {
 } from "../lib/hurdat";
 import { PanelShell } from "../components/PanelShell";
 import { formatNumber, useT } from "../i18n";
+import { useLatestReply } from "../hooks/useLatestReply";
 
 /**
  * How many storms are shown before the rest are put behind a press.
@@ -54,17 +55,18 @@ export function SearchPanel({
   // file on the disk, so this answers with networking off, and a failure to
   // read it leaves the place search exactly as it was.
   const [storms, setStorms] = useState<StormSummary[]>([]);
+  const latest = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latest();
     void loadStorms()
       .then((found) => {
-        if (open) setStorms(found);
+        if (reply.current()) setStorms(found);
       })
       .catch(() => undefined);
     return () => {
-      open = false;
+      reply.close();
     };
-  }, []);
+  }, [latest]);
 
   // Every storm that carried the name, not the first one: five storms have
   // been called Bonnie, and answering with one of them is answering a

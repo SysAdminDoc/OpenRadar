@@ -58,6 +58,7 @@ import type {
 } from "../lib/lightningGrids";
 import type { CappiField, CubeLevel } from "../lib/cappi";
 import { failureSentence } from "../lib/serviceAnswer";
+import { useLatestReply } from "./useLatestReply";
 
 /** Which layer switch drives which MRMS product. */
 export const MRMS_LAYERS: Array<{
@@ -308,17 +309,18 @@ export function useMrmsOverlays(options: {
   // slider kept the grid from the height before it.
   const height = choices.cappiLevel;
 
+  const latestLayers = useLatestReply();
   useEffect(() => {
     if (!ready || !available || !wanted) return;
-    let open = true;
+    const reply = latestLayers();
     void Promise.all([tileRoot(), mrmsProducts(highContrast)])
       .then(([base, list]) => {
-        if (!open) return;
+        if (!reply.current()) return;
         setRoot(base);
         setCatalog(list);
       })
       .catch((failure: unknown) => {
-        if (!open) return;
+        if (!reply.current()) return;
         log.warn(
           "radar",
           failure instanceof Error
@@ -327,13 +329,14 @@ export function useMrmsOverlays(options: {
         );
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [available, highContrast, ready, wanted]);
+  }, [available, highContrast, latestLayers, ready, wanted]);
 
+  const latestFrames = useLatestReply();
   useEffect(() => {
     if (!ready || !available || !wanted) return;
-    let open = true;
+    const reply = latestFrames();
     const products = wanted.split(",") as MrmsProductId[];
 
     const refresh = async () => {
@@ -349,14 +352,14 @@ export function useMrmsOverlays(options: {
             return [product, frames.at(-1)?.time ?? 0] as const;
           }),
         );
-        if (!open) return;
+        if (!reply.current()) return;
         // Only what is switched on now. A product that was turned off and back
         // on must not draw the grid it had an hour ago while it waits for a
         // fresh one.
         setTimes(Object.fromEntries(found.filter(([, time]) => time > 0)));
         setError(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!reply.current()) return;
         const message =
           typeof failure === "string"
             ? failure
@@ -373,12 +376,12 @@ export function useMrmsOverlays(options: {
 
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     const stop = pollWhileOnline(() => void refresh(), REFRESH_MS, false);
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
     // `choices` is a new object every render; the field is already folded

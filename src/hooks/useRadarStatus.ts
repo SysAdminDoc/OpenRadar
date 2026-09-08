@@ -7,6 +7,7 @@ import {
   radarStatusAvailable,
   type SiteStatus,
 } from "../lib/radarStatus";
+import { useLatestReply } from "./useLatestReply";
 
 /**
  * How often the office is asked.
@@ -40,22 +41,23 @@ export function useRadarStatus(options: {
   // reader dragging the map sent one request per tenth of a degree.
   const askedRef = useRef(0);
 
+  const latest = useLatestReply();
   useEffect(() => {
     if (!enabled || !radarStatusAvailable()) return;
-    let open = true;
+    const reply = latest();
     const ask = () => {
       if (Date.now() - askedRef.current < REFRESH_MS) return;
       askedRef.current = Date.now();
       void radarStatus()
         .then((found) => {
-          if (open) setSaid(found);
+          if (reply.current()) setSaid(found);
         })
         .catch((failure: unknown) => {
           // A status feed that cannot be read is not a report that anything is
           // wrong with any radar. The picker loses its reasons, the
           // nearest-site choice falls back to watching the archive, and the
           // picture on the map is unaffected.
-          if (!open) return;
+          if (!reply.current()) return;
           log.warn(
             "radar",
             failure instanceof Error
@@ -71,15 +73,15 @@ export function useRadarStatus(options: {
 
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     const stop = pollWhileOnline(ask, REFRESH_MS, false);
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
-  }, [enabled, pageVisible]);
+  }, [enabled, latest, pageVisible]);
 
   // Held rather than cleared when the reader zooms out, so coming back to a
   // site draws its status straight away; not handed out, so nothing can show

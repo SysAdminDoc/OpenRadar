@@ -13,6 +13,7 @@ import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/runtime";
 import { translate } from "../i18n";
 import { failureSentence } from "../lib/serviceAnswer";
+import { useLatestReply } from "./useLatestReply";
 
 /** Level III is decoded natively, so a browser preview has none of it. */
 export function classificationAvailable(): boolean {
@@ -52,22 +53,23 @@ export function useClassification(options: {
   const wanted =
     ready && enabled && classificationAvailable() && station !== null;
 
+  const latest = useLatestReply();
   useEffect(() => {
     // Nothing is cleared here. What comes back is gated below on the question
     // being asked now, so a report for a site or a product nobody is looking
     // at is never drawn whatever is still held.
     if (!wanted || !station) return;
-    let open = true;
+    const reply = latest();
 
     const refresh = async () => {
       setLoading(true);
       try {
         const next = await fetchClassification(station, product);
-        if (!open) return;
+        if (!reply.current()) return;
         setReport(next);
         setError(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!reply.current()) return;
         // A native rejection is a string this app wrote; anything else goes
         // through the shared reader, which keeps a sentence this app wrote
         // and never prints the engine's own words at somebody.
@@ -82,7 +84,7 @@ export function useClassification(options: {
         setReport(null);
         setError(message);
       } finally {
-        if (open) setLoading(false);
+        if (reply.current()) setLoading(false);
       }
     };
 
@@ -93,7 +95,7 @@ export function useClassification(options: {
 
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     const stop = pollWhileOnline(
@@ -101,10 +103,10 @@ export function useClassification(options: {
       CLASSIFICATION_REFRESH_MS,
     );
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
-  }, [pageVisible, product, station, wanted]);
+  }, [latest, pageVisible, product, station, wanted]);
 
   const current = useMemo(() => {
     if (!report || !wanted) return null;

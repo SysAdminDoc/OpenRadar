@@ -6,6 +6,7 @@ import {
   readCuriosities,
   type Curiosity,
 } from "../lib/curiosities";
+import { useLatestReply } from "../hooks/useLatestReply";
 
 /**
  * The places you have found, and the switch that stops there being any.
@@ -26,18 +27,19 @@ export function CuriositySection({
   const t = useT();
   const [set, setSet] = useState<Curiosity[]>([]);
 
+  const latest = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latest();
     void fetch(CURIOSITY_URL)
       .then((response) => (response.ok ? response.json() : []))
       .then((value) => {
-        if (open) setSet(readCuriosities(value));
+        if (reply.current()) setSet(readCuriosities(value));
       })
       .catch(() => undefined);
     return () => {
-      open = false;
+      reply.close();
     };
-  }, []);
+  }, [latest]);
 
   return (
     <div className="curiosity-found" data-curiosity-list>
