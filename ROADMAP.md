@@ -579,20 +579,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 
 
-- [ ] AUD-416 (P3): Translation drift the type gate cannot see: one usted in a tú catalogue, two collapsed terms, and spacing that changes per key
-      Category: i18n
-      Where: `src/i18n/es.ts:670-671` (`diagnostics.reportFailedDetail`: "Abra el formulario … y péguelo", usted imperatives in a catalogue that is tú everywhere else, `settings.watchCentre` es "Vigilar", 120 tú strings); `src/i18n/fr.ts`, sixteen `bundle.*` strings rendering the replay bundle as "dossier" (`bundle.replayLabel` "Dossier de reprise") while `diagnostics.openLogs:674` ("Ouvrir le dossier des journaux") and `export.downloads:1834` ("votre dossier de téléchargements") use "dossier" for a folder, and three `bundle.*` strings use "paquet" for the same bundle; `src/i18n/es.ts`, "paquete" for both the incident pack (19 `packs.*` strings) and the replay bundle (17 `bundle.*` strings), two different objects the English keeps apart; `fr.ts` `legend.partlyUnfolded` ("{share}% encore replié") is the only French percentage without the space the other eight carry, and `es.ts` `diagnostics.updateDownloading` ("{percent} %") the only Spanish one with it; `es.ts:1204` (`layers.earthquakesDetail`: "2.5" where the app writes "2,5"); `fr.ts:2203` (`radar.rainviewerEmpty`: "retourné" for returned, where Canadian French says "renvoyé").
-      Problem: Each is small and none is caught by the build: the type gate holds key parity, not register, terminology or typography. Together they are what makes a translation read as translated. The two collapsed terms are the ones that can mislead: a French reader told to "ouvrir le dossier" cannot tell a bundle from a folder, and a Spanish reader is told about "paquetes" in two panels that mean different things.
-      Evidence: The 2026-09-08 copy sweep of all three catalogues, each string confirmed by reading.
-      Fix: Rewrite `diagnostics.reportFailedDetail` es in tú; pick one French word for the bundle ("paquet de reprise" is free, "dossier" is taken by folders) and one Spanish word that is not the pack's; make the percentage spacing one rule per language (French wants the narrow no-break space, Spanish none); write 2,5; renvoyé. Add a small `i18n/typography.test.ts` that holds the two percentage rules and refuses "Abra|Pegue|Haga|Abra" forms in `es.ts`.
-      Acceptance: The strings above read as listed in Fix; the new test passes and fails when a key regresses.
-      Confidence: Verified
-      Effort: S
-
-
-
-
-
 
 - [ ] AUD-420 (P3): Uninstalling with the desktop wallpaper switched on leaves the desktop pointing at OpenRadar's picture
       Category: reliability

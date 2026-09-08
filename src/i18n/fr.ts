@@ -434,17 +434,17 @@ export const fr: Catalogue = {
   "history.closestApproach": "son approche la plus proche",
   "history.noteReplaySource":
     "Les reprises viennent de l'archive radar de l'Iowa State.",
-  "history.bundleHeading": "Dossier de reprise",
+  "history.bundleHeading": "Paquet de reprise",
   "history.bundleNote":
-    "Un dossier conserve les images de cette reprise et les alertes qui étaient en vigueur, octet pour octet, avec leurs adresses et leurs empreintes, pour qu'elle rejoue à l'identique sans réseau. La vue que vous regardez y entre avec elles, parce que les images qu'il contient sont celles que cette vue couvre.",
+    "Un paquet conserve les images de cette reprise et les alertes qui étaient en vigueur, octet pour octet, avec leurs adresses et leurs empreintes, pour qu'elle rejoue à l'identique sans réseau. La vue que vous regardez y entre avec elles, parce que les images qu'il contient sont celles que cette vue couvre.",
   "history.includeWorkspace": "Inclure mon espace de travail",
   "history.includeWorkspaceDetail":
     "Le domicile, les endroits surveillés, les vues enregistrées et les réglages. Exclus à moins que vous ne cochiez, chaque fois.",
-  "history.saveBundle": "Enregistrer le dossier de reprise",
-  "history.openBundle": "Ouvrir un dossier de reprise",
-  "bundle.replayLabel": "Dossier de reprise",
-  "bundle.openTitle": "Ouvrir un dossier de reprise OpenRadar",
-  "bundle.fileKind": "Dossier de reprise OpenRadar",
+  "history.saveBundle": "Enregistrer le paquet de reprise",
+  "history.openBundle": "Ouvrir un paquet de reprise",
+  "bundle.replayLabel": "Paquet de reprise",
+  "bundle.openTitle": "Ouvrir un paquet de reprise OpenRadar",
+  "bundle.fileKind": "Paquet de reprise OpenRadar",
   "bundle.missingTiles":
     "{count, plural, one {# tuile ne figurait pas} other {# tuiles ne figuraient pas}} dans le paquet.",
   "bundle.missingWarnings":
@@ -452,26 +452,26 @@ export const fr: Catalogue = {
   "bundle.missingBoth":
     "{tiles, plural, one {# tuile} other {# tuiles}} et {warnings, plural, one {# flux d'alertes} other {# flux d'alertes}} ne figuraient pas dans le paquet.",
   "bundle.error.invalidRequest":
-    "Cette reprise ne peut pas être mise en dossier : {0}.",
+    "Cette reprise ne peut pas être mise en paquet : {0}.",
   "bundle.error.tooManyTiles":
     "La vue couvre {0, plural, one {# tuile} other {# tuiles}} sur toute la relecture. Zoomez, ou dézoomez, pour qu'elle en couvre moins.",
   "bundle.error.tooManyDocuments":
-    "La relecture demande {0, plural, one {# document} other {# documents}} à côté de la carte, plus qu'un dossier n'en contient.",
-  "bundle.error.tooLarge": "Le dossier dépasserait 256 Mo.",
-  "bundle.error.noFolder": "Il n'y a nulle part où écrire le dossier.",
-  "bundle.error.write": "Le dossier n'a pas pu être écrit : {0}",
-  "bundle.error.read": "Le dossier n'a pas pu être lu : {0}",
+    "La relecture demande {0, plural, one {# document} other {# documents}} à côté de la carte, plus qu'un paquet n'en contient.",
+  "bundle.error.tooLarge": "Le paquet dépasserait 256 Mo.",
+  "bundle.error.noFolder": "Il n'y a nulle part où écrire le paquet.",
+  "bundle.error.write": "Le paquet n'a pas pu être écrit : {0}",
+  "bundle.error.read": "Le paquet n'a pas pu être lu : {0}",
   "bundle.error.notABundle":
-    "Ce fichier n'est pas un dossier de reprise OpenRadar.",
+    "Ce fichier n'est pas un paquet de reprise OpenRadar.",
   "bundle.error.newer":
-    "Ce dossier a été fait par un OpenRadar plus récent. Mettez à jour pour l'ouvrir.",
-  "bundle.error.corrupt": "Ce dossier est endommagé : {0}",
-  "bundle.error.noView": "La carte n'a pas encore de vue à mettre en dossier.",
+    "Ce paquet a été fait par un OpenRadar plus récent. Mettez à jour pour l'ouvrir.",
+  "bundle.error.corrupt": "Ce paquet est endommagé : {0}",
+  "bundle.error.noView": "La carte n'a pas encore de vue à mettre en paquet.",
   "bundle.error.noFrames":
-    "Ce dossier ne contient aucune image que cette version sait dessiner.",
+    "Ce paquet ne contient aucune image que cette version sait dessiner.",
   "bundle.error.letGo":
-    "Le dossier qui était ouvert a été relâché; la carte est donc revenue au radar en direct.",
-  "bundle.error.unknown": "Le dossier n'a pas pu être traité.",
+    "Le paquet qui était ouvert a été relâché ; la carte est donc revenue au radar en direct.",
+  "bundle.error.unknown": "Le paquet n'a pas pu être traité.",
   "route.eyebrow": "La météo en chemin",
   "route.title": "Trajet",
   "route.start": "Départ",
@@ -1582,7 +1582,7 @@ export const fr: Catalogue = {
   "palette.none": "Rien ici ne correspond. Essayez un mot plus court.",
   "legend.hidden": "RADAR MASQUÉ",
   "legend.smoothed": "Lissé entre les portes",
-  "legend.partlyUnfolded": "{share}% encore replié",
+  "legend.partlyUnfolded": "{share} % encore replié",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",
   "timeline.play": "Lancer l'animation du radar",
@@ -1727,21 +1727,21 @@ export const fr: Catalogue = {
   "toast.paletteFull":
     "Vos tables de couleurs sont pleines à {count}. Retirez-en une pour faire de la place à celle-ci.",
   "toast.replayStopped": "Reprise arrêtée",
-  "toast.bundleSaving": "Enregistrement du dossier de reprise",
-  "toast.bundleSaved": "Dossier de reprise enregistré",
+  "toast.bundleSaving": "Enregistrement du paquet de reprise",
+  "toast.bundleSaved": "Paquet de reprise enregistré",
   "toast.bundleSavedBody":
     "{entries, plural, one {# fichier} other {# fichiers}}, {size} Mo, dans {path}.",
   "toast.bundleMissing":
-    "{count} d'entre eux n'ont pas pu être récupérés et sont énumérés dans le dossier.",
-  "toast.bundleFailed": "Le dossier de reprise a échoué",
-  "toast.bundleOpened": "Reprise de {label} depuis un dossier",
+    "{count} d'entre eux n'ont pas pu être récupérés et sont énumérés dans le paquet.",
+  "toast.bundleFailed": "Le paquet de reprise a échoué",
+  "toast.bundleOpened": "Reprise de {label} depuis un paquet",
   "toast.bundleOpenedBody":
     "{frames, plural, one {# image conservée} other {# images conservées}} le {made}. Rien n'est demandé pour elles ; le paquet répond.",
   "toast.bundleApplyWorkspace": "Appliquer son espace de travail",
   "toast.bundleWorkspaceApplied":
-    "L'espace de travail du dossier est en vigueur",
+    "L'espace de travail du paquet est en vigueur",
   "toast.bundleWorkspacePartly":
-    "L'espace de travail du dossier est en vigueur, en partie",
+    "L'espace de travail du paquet est en vigueur, en partie",
   "toast.replayStoppedBody": "La carte est revenue à la boucle en direct.",
   "toast.shareTitle": "Vue OpenRadar",
   "toast.shared": "Vue de la carte partagée",
