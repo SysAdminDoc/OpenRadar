@@ -247,6 +247,15 @@ test("never breaks a header inside a word", async ({ page }) => {
     `headers of different heights, so one has wrapped: ${measured.words.join(", ")}`,
   ).toBeLessThan(2);
   expect(measured.overflowX).toBe("auto");
+  // The measurement above was computed and never read, so `overflow-x: auto`
+  // was held while whether anything actually overflowed was not: a table
+  // shrunk to the panel satisfies every line here and answers a different
+  // question, because eight hours across three models in three hundred pixels
+  // is either a scroll or a column too narrow to read.
+  expect(
+    measured.scrolls,
+    "the table fits the panel, so the hours have been squeezed rather than made reachable",
+  ).toBe(true);
   expect(measured.tabStop, "the scroll box is not a tab stop").toBe("0");
   expect(
     measured.blockOverflowX,
