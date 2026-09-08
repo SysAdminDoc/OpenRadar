@@ -463,7 +463,10 @@ export function WorkspaceChrome({
         paletteScale={paletteScale}
         highContrast={drawnHighContrast}
         smoothed={Boolean(sweep?.smoothed)}
-        unplacedShare={sweep?.dealiased ? (sweep.unplacedShare ?? 0) : 0}
+        // Not gated on `dealiased`, which says only that something moved: a
+        // sweep the unfolder could not move at all, leaving a third of the
+        // echo unplaced, is exactly the one worth saying it about.
+        unplacedShare={sweep?.unplacedShare ?? 0}
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length ||

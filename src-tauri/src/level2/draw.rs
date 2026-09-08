@@ -406,7 +406,6 @@ pub(crate) fn draw_sweep(
         unit: unit.to_string(),
         dealiased,
         unplaced_share: share_of(unfolding.unplaced, unfolding.valid),
-        wind_placed_share: share_of(unfolding.by_wind, unfolding.valid),
         storm_motion,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts_offered,

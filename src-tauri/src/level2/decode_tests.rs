@@ -191,17 +191,14 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         // to a whole patch moving as one piece, and it is the only one that
         // can see a correctly reported cell snapped onto the fitted wind.
         //
-        // It cannot be held to zero, because region dealiasing recovers each
-        // group of patches up to its own whole interval and no further. A
-        // group nothing joins to the rest of the sweep is internally
-        // continuous on a branch that nothing in the data determines, so about
-        // half of them land on the other one. Measured over the same 42
-        // station-days from the archive on 2026-09-07: 159,771 such gates with
-        // no reference pass at all, 178,265 with the one shipped in 74cf9be,
-        // 243,306 once loose groups are settled internally. The rise is the
-        // cost of those groups becoming coherent at all, and it is bought with
-        // continuity going from 0.6221 of the folds left in to 0.4710 and
-        // folded gates back on their own branch from 0.3254 to 0.4642.
+        // It cannot be held to zero, and the reason is the root traversal
+        // rather than the reference pass: a boundary vote that gets a patch
+        // wrong puts every gate of it on a foreign branch, and that happens
+        // often enough that 159,771 of these exist with no reference pass at
+        // all. Measured over the same 42 station-days from the archive on
+        // 2026-09-07: 159,771 with no reference pass, 178,265 with the pass as
+        // it first shipped, 167,180 with the plausibility bar it has now. The
+        // bar is what took the middle figure back down.
         //
         // What holds the defect down is `dealias`'s own unit tests, where a
         // correctly reported cell and a seam inside an unreached group are
@@ -249,18 +246,20 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
     // afternoon, which is the mistake the per-station floor made.
     //
     // Broken pairs left, as a share of the pairs folding broke, over the six
-    // stations together, re-recorded on 2026-09-07 after unreached groups
-    // began being settled by their own boundaries: 0.495, 0.491, 0.279,
-    // 0.459, 0.650, 0.437 and 0.497 on the seven days
+    // stations together, re-recorded on 2026-09-07 once the reference pass
+    // gained its plausibility bar: 0.536, 0.555, 0.476, 0.646, 0.700, 0.554
+    // and 0.681 on the seven days
     // `recording_the_days_unfolding_is_held_against` reads at 21:00 UTC. The
-    // same seven days before that change read 0.519, 0.530, 0.410, 0.624,
-    // 0.675, 0.518 and 0.528, so every one of them improved and the worst
-    // day is the same day. Seventeen twentieths sits clear of all of it and
-    // still fails a dealiaser that leaves the picture roughly as it found
-    // it. It is deliberately not tightened to the record: the gate reads
-    // whatever volumes the six stations happen to be publishing, and a line
-    // drawn against the best week it has seen is a line that fails on the
-    // weather rather than on the code.
+    // same seven days with no reference pass at all read 0.552, 0.586, 0.522,
+    // 0.669, 0.702, 0.615 and 0.697, and with the pass but no bar 0.519,
+    // 0.530, 0.410, 0.624, 0.675, 0.518 and 0.528. The middle column is what
+    // ships: the bar gives up about two fifths of what the wind was buying
+    // and buys back that none of the rest is invented. Seventeen twentieths
+    // sits clear of all three and still fails a dealiaser that leaves the
+    // picture roughly as it found it. It is deliberately not tightened to the
+    // record: the gate reads whatever volumes the six stations happen to be
+    // publishing, and a line drawn against the best week it has seen is a
+    // line that fails on the weather rather than on the code.
     assert!(
         after * 20 < before * 17,
         "folding broke {before} pairs across {} stations and unfolding left \
@@ -268,12 +267,11 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         measured.len()
     );
     // Folded gates back on their own branch, over the stations together, on
-    // those same seven days: 0.456, 0.358, 0.450, 0.596, 0.363, 0.518 and
-    // 0.573, against 0.561, 0.382, 0.373, 0.454, 0.331, 0.492 and 0.553
-    // before the same change. A fifth is under all of them with room to
-    // spare, and nothing that failed to unfold can reach it: a dealiaser
-    // that did nothing would score zero here, because no gate it left folded
-    // is back on its own branch.
+    // those same seven days: 0.433, 0.318, 0.316, 0.432, 0.291, 0.462 and
+    // 0.332. A fifth is under all of them with room to spare, and nothing
+    // that failed to unfold can reach it: a dealiaser that did nothing would
+    // score zero here, because no gate it left folded is back on its own
+    // branch.
     assert!(
         rejoined * 5 > wrapped,
         "only {rejoined} of {wrapped} folded gates came back to their own branch"

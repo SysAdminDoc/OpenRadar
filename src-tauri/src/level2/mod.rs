@@ -225,9 +225,6 @@ pub struct SweepImage {
     /// folds and all, and a reader looking at a couplet in one of them is
     /// owed the fact that it might be a fold rather than rotation.
     pub unplaced_share: f32,
-    /// The share placed against the fitted wind rather than against a
-    /// boundary, which is the weaker of the two kinds of evidence.
-    pub wind_placed_share: f32,
     /// The motion taken out of a storm relative sweep, in metres a second and
     /// the compass direction it comes from. Absent on every other product.
     pub storm_motion: Option<StormMotion>,
