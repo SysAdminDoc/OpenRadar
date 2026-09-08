@@ -1179,11 +1179,21 @@ test("holds an airport's terminal radar and offers only what it has", async ({
   await site.selectOption("TDAL");
   const kind = page.locator("[data-radar-kind]");
   await expect(kind).toContainText("Terminal Doppler weather radar");
-  await expect(kind).toContainText("89 km");
+  // The reach in the units the reader is in. This asserted "89 km" whatever
+  // the setting said, which is the defect `AUD-415` was about: the number was
+  // formatted and the unit was written into the sentence, so an imperial
+  // reader was told a distance in kilometres beside a panel full of miles.
+  // Eighty-nine kilometres is fifty-five miles, and the default is imperial.
+  await expect(kind).toContainText("55 mi");
   await expect(kind).toContainText("Level III (TDWR)");
   await expect(page.locator("[data-terminal-note]")).toBeVisible();
   await expect(page.getByText("TDAL Reflectivity")).toBeVisible();
-  await expect(page.getByText(/TDWR · 89 km/)).toBeVisible();
+  await expect(page.getByText(/TDWR · 55 mi/)).toBeVisible();
+
+  // The metric half of the same claim is held in `src/i18n/numbers.test.ts`,
+  // against `formatDistanceKm` itself: what this needs to show is that both
+  // lines go through that formatter rather than writing a unit of their own,
+  // and a reach in miles where the fixture says kilometres shows it.
 
   // Checked as a property: Playwright's enabled matcher does not speak
   // for option elements, and the property is what the picker reads.
@@ -1199,7 +1209,9 @@ test("holds an airport's terminal radar and offers only what it has", async ({
   ).toHaveJSProperty("disabled", false);
   await products.selectOption("long-range-reflectivity");
   await expect(page.getByText("TDAL Long range reflectivity")).toBeVisible();
-  await expect(page.getByText(/TDWR · 417 km/)).toBeVisible();
+  // The long-range product reaches further, and the eyebrow says so in the
+  // same units as the line above it. 417 km is 259 miles.
+  await expect(page.getByText(/TDWR · 259 mi/)).toBeVisible();
   const asked = await page.evaluate(() =>
     (
       window as unknown as {
