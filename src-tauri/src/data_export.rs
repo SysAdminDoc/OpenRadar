@@ -48,6 +48,15 @@ const APP: &str = concat!("OpenRadar ", env!("CARGO_PKG_VERSION"));
 /// the gates that measured something are written, so a wall-to-wall storm
 /// lands around a million rows and 60 MB. The cap is above that and well below
 /// anything a spreadsheet or a text editor will not open.
+/// Every kind of file this module writes, and the one place it is written
+/// down.
+///
+/// This module builds its own names and writes through `write_atomically`,
+/// so `save_export`'s allowlist never sees them and the test named for every
+/// file this app writes was true of the other writer alone. The list below is
+/// what `every_name_this_module_writes_is_one_the_app_allows` reads, so a new
+/// kind of export here fails that test until it is allowed there too.
+const EXTENSIONS: &[&str] = &["csv", "tif"];
 const MAX_ROWS: usize = 4_000_000;
 
 /// How many cells one GeoTIFF may hold, at four bytes each.
@@ -502,7 +511,7 @@ pub async fn export_sweep_data(
                 .map(|at| at.format("%Y%m%d-%H%M%S").to_string())
                 .unwrap_or_else(|| "unknown".to_string()),
         ],
-        "csv",
+        EXTENSIONS[0],
     );
 
     let provenance = polar_provenance(&values, written_at, source);
@@ -668,7 +677,7 @@ pub async fn export_grid_data(
                 .map(|at| at.format("%Y%m%d-%H%M%S").to_string())
                 .unwrap_or_else(|| "unknown".to_string()),
         ],
-        "tif",
+        EXTENSIONS[1],
     );
 
     let provenance = Provenance {
@@ -1204,5 +1213,26 @@ mod tests {
         // than being wrapped in a second one the page has no words for.
         let wrapped = DataExportError::Sweep(Level2Error::UnknownSite("KXXX".into()));
         assert_eq!(wrapped.parts().0, "unknownSite");
+    }
+
+    #[test]
+    fn every_name_this_module_writes_is_one_the_app_allows() {
+        // The other half of `exports::tests::every_file_this_app_writes_can_
+        // be_written`, which was named for every file and covered one of the
+        // two writers. This module names its own files and writes them
+        // through `write_atomically`, so nothing held its extensions against
+        // the allowlist that decides what a packaged build may save. That is
+        // how the journal export shipped writing nothing at all: an extension
+        // missing from a list, and no test that looked.
+        for extension in EXTENSIONS {
+            let name = file_name(&["KDMX", "reflectivity", "20260901-173211"], extension);
+            exports::sanitize_file_name(&name)
+                .unwrap_or_else(|error| panic!("{name} cannot be written: {error:?}"));
+            // And the sidecar that goes beside every one of them, which is a
+            // second extension on the end of the first.
+            let sidecar = format!("{name}.provenance.json");
+            exports::sanitize_file_name(&sidecar)
+                .unwrap_or_else(|error| panic!("{sidecar} cannot be written: {error:?}"));
+        }
     }
 }

@@ -508,26 +508,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
 
 ### P3
 
-- [ ] AUD-368 (P3): Nothing ties the bucket-key interpolation to the guard that makes it safe
-      Category: testing
-      Where: `src-tauri/src/level3.rs:1509` and `:1530` (`format!("https://{BUCKET}/{key}")` with `key` parsed from an S3 listing at `:1292-1311`), the same shape in `src-tauri/src/mrms.rs` and `src-tauri/src/hrrr.rs`; `src-tauri/src/http.rs:111-124` (`is_allowed` refuses userinfo, a port and any scheme but https, which is what stops a key beginning `@evil.example/` from turning the bucket host into a credential).
-      Problem: A listing key is remote input and it is spliced into a URL as text. The only reason `https://unidata-nexrad-level3.s3.amazonaws.com@evil.example/...` is refused is the userinfo check three modules away, and no test in `level3.rs`, `mrms.rs` or `hrrr.rs` says so; a refactor of `is_allowed` that kept the host check and dropped the userinfo check would pass every existing test and open the swap.
-      Evidence: `grep -n "evil\|userinfo\|@" src-tauri/src/level3.rs` returns nothing in a test; the three refusals in `http.rs:115-123` are pinned only in `http.rs`'s own tests.
-      Fix: Either build these URLs with `Url::parse(BUCKET_ROOT)?.join(key)` and assert the host is unchanged before fetching, or add one test beside each interpolation that a key of `@evil.example/x` is refused by `get_bytes` with the allowlist error, and a comment naming `http::is_allowed` as the guard.
-      Acceptance: The tests exist, pass, and fail when the userinfo check in `is_allowed` is removed.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-369 (P3): `every_file_this_app_writes_can_be_written` covers one of the two writers
-      Category: testing
-      Where: `src-tauri/src/exports.rs:24` (`ALLOWED_EXTENSIONS`: png, webm, mp4, gif, json, jsonl, md, pal), `:258` (the test named for every file the app writes); `src-tauri/src/data_export.rs:216-235` (`file_name`, its own sanitiser), `:400` (`{name}.provenance.json`), `:505` (`csv`), `:671` (`tif`).
-      Problem: The data export writes `csv`, `tif` and `.provenance.json` through its own naming and never through `save_export`'s allowlist, so the test that says every file this app writes can be written is true of `save_export` alone. Nothing is unsafe today, since the names are built in Rust from constants, but the invariant reads wider than it is, which is how the journal export shipped writing nothing on 2026-09-02 (the working notes record it).
-      Evidence: Read on 2026-09-07; the three extensions are absent from `ALLOWED_EXTENSIONS` and present in `data_export.rs`.
-      Fix: Route `data_export`'s names through `exports::sanitize_file_name` with the three extensions added to the allowlist, or rename the test to what it covers and add `data_export::tests::every_extension_this_module_writes_is_named`, enumerating them from one constant both modules read.
-      Acceptance: One list names every extension any writer emits, and a writer adding an extension outside it fails a test.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-370 (P3): The bundle-budget and unused-exports gates have no tests of their own
       Category: testing
       Where: `scripts/bundle-budget.mjs` and `scripts/unused-exports.mjs` (0 per cent coverage in the `npm run check` run of 2026-09-07); `scripts/release-lib.test.mjs`, `live-contracts-lib.test.mjs` and `hurdat-parse.test.mjs` are the pattern for the scripts that do have tests.
