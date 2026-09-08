@@ -431,6 +431,8 @@ export const en = {
   "bundle.error.invalidRequest": "This replay cannot be bundled: {0}.",
   "bundle.error.tooManyTiles":
     "The view covers {0, plural, one {# tile} other {# tiles}} across the replay. Zoom in, or out, so it covers fewer.",
+  "bundle.error.tooManyDocuments":
+    "The replay asks for {0, plural, one {# document} other {# documents}} beside the map, which is more than a bundle holds.",
   "bundle.error.tooLarge": "The bundle would be larger than 256 MB.",
   "bundle.error.noFolder": "There is nowhere to write the bundle.",
   "bundle.error.write": "The bundle could not be written: {0}",

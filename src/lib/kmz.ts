@@ -51,6 +51,16 @@ function readDirectory(bytes: DataView): ZipEntry[] {
     const nameLength = bytes.getUint16(at + 28, true);
     const extraLength = bytes.getUint16(at + 30, true);
     const commentLength = bytes.getUint16(at + 32, true);
+    // The three lengths are the entry's own claim about itself, and the name
+    // is read straight out of the buffer at whatever length it says. Every
+    // other length in this module is checked before it is used and this one
+    // was not, so an archive claiming a two hundred byte name in the last
+    // sixty bytes of a file threw `RangeError: Invalid typed array length`
+    // out of the typed-array constructor, and the engine's own sentence went
+    // into the toast in place of the one this module has for exactly that.
+    if (at + 46 + nameLength + extraLength + commentLength > bytes.byteLength) {
+      throw new Error(translate("kmz.truncated"));
+    }
     const name = new TextDecoder().decode(
       new Uint8Array(bytes.buffer, bytes.byteOffset + at + 46, nameLength),
     );

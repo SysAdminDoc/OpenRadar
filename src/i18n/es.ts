@@ -444,6 +444,8 @@ export const es: Catalogue = {
   "bundle.error.invalidRequest": "Esta repetición no se puede empaquetar: {0}.",
   "bundle.error.tooManyTiles":
     "La vista abarca {0, plural, one {# tesela} other {# teselas}} a lo largo de la reproducción. Acerca o aleja el mapa para que abarque menos.",
+  "bundle.error.tooManyDocuments":
+    "La reproducción pide {0, plural, one {# documento} other {# documentos}} junto al mapa, más de los que cabe en un paquete.",
   "bundle.error.tooLarge": "El paquete superaría los 256 MB.",
   "bundle.error.noFolder": "No hay dónde escribir el paquete.",
   "bundle.error.write": "No se pudo escribir el paquete: {0}",

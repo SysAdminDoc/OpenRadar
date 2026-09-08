@@ -451,6 +451,8 @@ export const fr: Catalogue = {
     "Cette reprise ne peut pas être mise en dossier : {0}.",
   "bundle.error.tooManyTiles":
     "La vue couvre {0, plural, one {# tuile} other {# tuiles}} sur toute la relecture. Zoomez, ou dézoomez, pour qu'elle en couvre moins.",
+  "bundle.error.tooManyDocuments":
+    "La relecture demande {0, plural, one {# document} other {# documents}} à côté de la carte, plus qu'un dossier n'en contient.",
   "bundle.error.tooLarge": "Le dossier dépasserait 256 Mo.",
   "bundle.error.noFolder": "Il n'y a nulle part où écrire le dossier.",
   "bundle.error.write": "Le dossier n'a pas pu être écrit : {0}",

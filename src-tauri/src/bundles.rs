@@ -65,6 +65,16 @@ const MAX_ENTRY_BYTES: usize = 32 * 1024 * 1024;
 /// Tiles across every frame and zoom, so a request cannot be turned into a
 /// crawl of the archive.
 pub const MAX_TILES: usize = 4_000;
+/// Documents beside the tiles: the outlook, the reports, the warnings and the
+/// like, which the page names one by one rather than deriving from a box.
+///
+/// The bound above was doing nothing about these, so the promise it makes was
+/// narrower than it read: the page could name any number of addresses and the
+/// native side would fetch every one on the reader's connection. Each is still
+/// checked against the allowlist, so this is a crawl of a public service from
+/// the reader's own address rather than anything leaving the machine, and the
+/// caller sends a handful. Thirty-two is generous for a handful.
+pub const MAX_EXTRA_URLS: usize = 32;
 pub const MAX_FRAMES: usize = 200;
 const MIN_ZOOM: u8 = 2;
 const MAX_ZOOM: u8 = 12;
@@ -74,6 +84,8 @@ const CONCURRENCY: usize = 4;
 pub enum BundleError {
     #[error("the request is not one a bundle can be made from: {0}")]
     InvalidRequest(String),
+    #[error("the request names {0} documents, past the {MAX_EXTRA_URLS} a bundle holds")]
+    TooManyDocuments(usize),
     #[error("the view covers {0} tiles across the replay, past the {MAX_TILES} a bundle holds")]
     TooManyTiles(usize),
     #[error("the bundle would be larger than the {MAX_BUNDLE_BYTES} byte limit")]
@@ -99,6 +111,7 @@ impl BundleError {
         match self {
             Self::InvalidRequest(why) => ("invalidRequest", vec![why.clone()]),
             Self::TooManyTiles(count) => ("tooManyTiles", vec![count.to_string()]),
+            Self::TooManyDocuments(count) => ("tooManyDocuments", vec![count.to_string()]),
             Self::TooLarge => ("tooLarge", Vec::new()),
             Self::NoFolder => ("noFolder", Vec::new()),
             Self::Write(why) => ("write", vec![why.clone()]),
@@ -356,6 +369,9 @@ fn validate(request: &CaptureRequest) -> Result<(), BundleError> {
             "the camera is not a place".into(),
         ));
     }
+    if request.extra_urls.len() > MAX_EXTRA_URLS {
+        return Err(BundleError::TooManyDocuments(request.extra_urls.len()));
+    }
     Ok(())
 }
 
@@ -385,6 +401,11 @@ pub fn addresses(request: &CaptureRequest) -> Result<Vec<String>, BundleError> {
         if seen.insert(url.clone()) {
             urls.push(url.clone());
         }
+    }
+    // Checked here as well as in `validate`, because this builds the list that
+    // is actually fetched and the two are reached by different callers.
+    if urls.len() > MAX_TILES + MAX_EXTRA_URLS {
+        return Err(BundleError::TooManyTiles(urls.len()));
     }
     Ok(urls)
 }
@@ -1321,5 +1342,38 @@ pub(crate) mod tests {
         let json = serde_json::to_string(&BundleError::Newer(3)).expect("serialises");
         assert!(json.contains("\"code\":\"newer\""));
         assert!(json.contains("\"args\":[\"3\"]"));
+    }
+
+    #[test]
+    fn a_request_naming_more_documents_than_the_bound_is_refused() {
+        // `MAX_TILES` bounds the tiles a box works out to, and its comment
+        // says the point is that a request cannot be turned into a crawl of
+        // the archive. It was doing nothing about the addresses the page
+        // names one by one, so the promise read wider than the code kept.
+        // Every one is still checked against the allowlist, so what this
+        // stops is a crawl of a public service from the reader's own address.
+        let mut asked = request();
+        asked.extra_urls = (0..MAX_EXTRA_URLS + 1)
+            .map(|at| format!("https://mesonet.agron.iastate.edu/doc/{at}.json"))
+            .collect();
+        let refused = addresses(&asked).expect_err("more documents than the bound");
+        assert!(
+            matches!(refused, BundleError::TooManyDocuments(count) if count == MAX_EXTRA_URLS + 1),
+            "refused with {refused:?}"
+        );
+
+        // And the bound itself is reachable, so this is a limit rather than a
+        // ban: a request at exactly the bound goes through.
+        asked.extra_urls.pop();
+        let built = addresses(&asked).expect("a request at the bound");
+        assert!(
+            built.len() > MAX_EXTRA_URLS,
+            "the tiles should be in here too, {} addresses",
+            built.len()
+        );
+        for at in 0..MAX_EXTRA_URLS {
+            let wanted = format!("https://mesonet.agron.iastate.edu/doc/{at}.json");
+            assert!(built.contains(&wanted), "{wanted} was dropped");
+        }
     }
 }

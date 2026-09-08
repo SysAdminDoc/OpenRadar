@@ -10,6 +10,8 @@
 
   And the legend says the share of a cut that could not be placed, when it rounds to a whole per cent or more. Which branch such a patch belongs on is not in the data, so it keeps the radar's own reading, and a reader watching a couplet inside one deserves to know it might be a fold rather than rotation. On the worst recorded days that is a third of the picture.
 
+- Two things that read a file or a request now check a length before they trust it. A KMZ whose directory claims a filename longer than the file itself used to hand you the browser engine's own error text under "Overlay could not be added"; it says the archive is cut short, which is what happened. And a replay capture can name a bounded number of documents beside its tiles, the way it could already only ask for a bounded number of tiles. Nothing could reach either from outside the app, and both are the sort of guard that is only missing until it is not.
+
 - A tool's instructions no longer cover the card telling you what happened overnight. Both sit at the top centre of the map and the instructions sit above, so picking up Draw, Range, Inspector or Cross-section put a card over the card you were reading. The instructions go under it now, and back where they were once you send it away.
 
 - The Diagnostics panel's four buttons fit. A fourth went in beside three on the same line, and the line was not built for it: the last one ran off the end of its row and the labels broke over three lines to make room. They sit in a column now, each on one line, at every window size the app supports.

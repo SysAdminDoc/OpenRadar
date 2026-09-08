@@ -508,26 +508,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
 
 ### P3
 
-- [ ] AUD-366 (P3): The KMZ reader lets a raw `RangeError` out of a truncated central directory
-      Category: correctness
-      Where: `src/lib/kmz.ts:52-65` (`readDirectory`: `nameLength`, `extraLength` and `commentLength` are read from the entry and the name is sliced with `new Uint8Array(bytes.buffer, bytes.byteOffset + at + 46, nameLength)` before anyone checks that `at + 46 + nameLength` is inside the file); `src/hooks/useWorkspaceActions.ts:656-666` (the catch puts `error.message` into the toast detail).
-      Problem: The module's own doc says everything is bounded before it is read, and every other length is. This one is not: an archive whose central directory claims a name longer than the bytes left throws `RangeError: Invalid typed array length: 200` out of the typed-array constructor, and that engine sentence reaches the reader as the detail under "Overlay could not be added" instead of the catalogue's `kmz.truncated`. The 65,535-entry loop is bounded and the `at + 46` check is there, so this is the one field the guard missed.
-      Evidence: A 60-byte buffer with an end-of-central-directory record at 38 pointing at one entry at 0 whose name length is 200, run through `readKmz` on 2026-09-07 with vite-node: `threw: RangeError - Invalid typed array length: 200`. The caller at `:656` shows `error.message` for anything that is not the GeoJSON case.
-      Fix: In `readDirectory`, before slicing, require `at + 46 + nameLength + extraLength + commentLength <= bytes.byteLength` and throw `translate("kmz.truncated")` otherwise; the same check already exists for the local header at `:129-131`. Add the 60-byte case to `src/lib/kmz.test.ts`.
-      Acceptance: The probe archive is refused with the `kmz.truncated` sentence; no `RangeError` reaches the toast; the test fails with the guard removed.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-367 (P3): A bundle capture request can carry any number of `extra_urls` past the anti-crawl bound
-      Category: reliability
-      Where: `src-tauri/src/bundles.rs:325-359` (`validate`: bounds frames, zoom, box, window and camera, never `extra_urls`), `:363-389` (`addresses`: the `tiles > MAX_TILES` check at `:377` is inside the tile loop; `extra_urls` are appended at `:384-388` with no count), `:65-67` (the comment saying `MAX_TILES` exists so a request cannot become a crawl of the archive), `:725-728` (each becomes a live fetch), `src/lib/replayBundle.ts:183` (the only caller, which builds a fixed list of overlay documents).
-      Problem: The stated invariant is narrower than the code keeps. `MAX_TILES` bounds the tiles and nothing bounds the extra addresses, so the page can ask the native side to fetch an unbounded list on the reader's connection; `MAX_BUNDLE_BYTES` at `:756` caps what is retained, not what is requested. Every address is still checked against the allowlist, and today the caller is the app's own fixed list, so the harm is a self-inflicted crawl of NOAA from the reader's IP rather than anything leaving the machine; it is logged because the guard the comment promises is not there.
-      Evidence: Read on 2026-09-07; `validate` has no `extra_urls` check and `addresses` counts only tiles.
-      Fix: A `MAX_EXTRA_URLS` (the current caller sends a handful; 32 is generous) enforced in `validate` with the same `BundleError` shape as too many frames, and the total address count checked once in `addresses` after the loop. A test with 10,000 extra addresses is refused.
-      Acceptance: `bundles::tests` holds the refusal; a request at the bound passes; `npm run check` and `cargo test --lib` green.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-368 (P3): Nothing ties the bucket-key interpolation to the guard that makes it safe
       Category: testing
       Where: `src-tauri/src/level3.rs:1509` and `:1530` (`format!("https://{BUCKET}/{key}")` with `key` parsed from an S3 listing at `:1292-1311`), the same shape in `src-tauri/src/mrms.rs` and `src-tauri/src/hrrr.rs`; `src-tauri/src/http.rs:111-124` (`is_allowed` refuses userinfo, a port and any scheme but https, which is what stops a key beginning `@evil.example/` from turning the bucket host into a credential).
