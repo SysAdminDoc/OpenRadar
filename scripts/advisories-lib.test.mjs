@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   allowanceIn,
@@ -206,6 +208,85 @@ describe("what an allowance rests on", () => {
     expect(unmetNeeds([{ crate: "gone", version: "" }], crates)).toHaveLength(
       1,
     );
+  });
+
+  it("stops the prefix where a version component stops", () => {
+    // A bare `startsWith` let `needs base64 0.2` be satisfied by 0.22.1, which
+    // is five minor versions past the one the reason rests on. The pre-1.0
+    // Rust ecosystem runs into this constantly.
+    const later = [{ name: "base64", version: "0.22.1" }];
+    expect(
+      unmetNeeds([{ crate: "base64", version: "0.2" }], later),
+    ).toHaveLength(1);
+    expect(unmetNeeds([{ crate: "base64", version: "0.22" }], later)).toEqual(
+      [],
+    );
+    // An exact version with nothing after it still matches itself.
+    expect(
+      unmetNeeds(
+        [{ crate: "base64", version: "0.22.1" }],
+        [{ name: "base64", version: "0.22.1" }],
+      ),
+    ).toEqual([]);
+    // And a release candidate is inside its own series, because the character
+    // after the prefix is the component separator.
+    expect(
+      unmetNeeds(
+        [{ crate: "nexrad-model", version: "1.0" }],
+        [{ name: "nexrad-model", version: "1.0.0-rc.2" }],
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses a clause it cannot read rather than reading it as no clause", () => {
+    // The one silent failure in a file whose principle is that a silenced
+    // alarm is worse than a loud one. `need`, `Needs` and `requires` all
+    // parsed to an empty needs list, so the allowance applied unconditionally
+    // and nothing anywhere said the condition had stopped being checked.
+    for (const written of [
+      "GHSA-one need sha2 0.11",
+      "GHSA-one Needs sha2 0.11",
+      "GHSA-one requires sha2 0.11",
+      "GHSA-one needs sha2",
+      "GHSA-one needs",
+      "GHSA-one needs sha2 0.11 glib",
+    ]) {
+      const { allowed, malformed } = allowanceIn(
+        ["# A real reason.", written].join("\n"),
+      );
+      expect(allowed.size, written).toBe(0);
+      expect(malformed, written).toHaveLength(1);
+    }
+    // And an identifier on its own is still a perfectly good allowance.
+    const { allowed, malformed } = allowanceIn(
+      ["# A real reason.", "GHSA-one"].join("\n"),
+    );
+    expect([...allowed.keys()]).toEqual(["GHSA-one"]);
+    expect(malformed).toEqual([]);
+  });
+
+  it("reads this repository's own allowance file", () => {
+    // Ten entries and none of them was ever parsed by a test, so a clause that
+    // stopped being readable would have shown up as a green run rather than as
+    // a failure. `verdict` is given no crates, which voids every entry that
+    // rests on one: what is under test is that they parse and that each one
+    // carries a condition at all.
+    const text = readFileSync(
+      join(import.meta.dirname, "..", "src-tauri", ".cargo", "advisories.txt"),
+      "utf8",
+    );
+    const { allowed, unexplained, malformed } = allowanceIn(text);
+    expect(malformed).toEqual([]);
+    expect(unexplained).toEqual([]);
+    expect(allowed.size).toBeGreaterThan(5);
+    for (const [id, entry] of allowed) {
+      expect(entry.reason.length, id).toBeGreaterThan(40);
+      expect(entry.needs.length, id).toBeGreaterThan(0);
+      for (const one of entry.needs) {
+        expect(one.crate, id).toMatch(/^[a-z0-9_-]+$/);
+        expect(one.version, id).toMatch(/^\d+\.\d+/);
+      }
+    }
   });
 
   it("stands an allowance down when what it rests on has gone", () => {

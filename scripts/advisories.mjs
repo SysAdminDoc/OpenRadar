@@ -76,10 +76,20 @@ async function main() {
   const allowanceText = fs.existsSync(ALLOWANCE)
     ? fs.readFileSync(ALLOWANCE, "utf8")
     : "";
-  const { allowed, unexplained: silenced } = allowanceIn(allowanceText);
+  const {
+    allowed,
+    unexplained: silenced,
+    malformed,
+  } = allowanceIn(allowanceText);
   if (silenced.length) {
     console.error(
       `These are listed in ${ALLOWANCE} with nothing written above them:\n  ${silenced.join("\n  ")}\nAn allowance is a claim. Write the evidence and a date to look again above it.`,
+    );
+    process.exit(2);
+  }
+  if (malformed.length) {
+    console.error(
+      `These carry something after the identifier that is not a readable clause:\n  ${malformed.join("\n  ")}\nThe form is \`needs <crate> <version> [<crate> <version>...]\`. A clause nobody can read used to parse as no condition at all, which left the allowance holding for ever.`,
     );
     process.exit(2);
   }

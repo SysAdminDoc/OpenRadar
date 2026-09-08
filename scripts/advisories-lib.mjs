@@ -121,6 +121,7 @@ export function hits(asked, results) {
 export function allowanceIn(text) {
   const allowed = new Map();
   const unexplained = [];
+  const malformed = [];
   let reason = [];
   for (const line of text.split(/\r?\n/)) {
     const bare = line.trim();
@@ -134,13 +135,18 @@ export function allowanceIn(text) {
     }
     if (reason.length) {
       const [id, ...rest] = bare.split(/\s+/);
-      allowed.set(id, { reason: reason.join("\n"), needs: needsIn(rest) });
+      const read = needsIn(rest);
+      // A clause nobody can read is not an allowance with no condition on it,
+      // it is a condition that stopped being checked. Reported rather than
+      // dropped, for the same reason an identifier with nothing above it is.
+      if (read.malformed) malformed.push(`${id} ${rest.join(" ")}`);
+      else allowed.set(id, { reason: reason.join("\n"), needs: read.needs });
     } else {
       unexplained.push(bare);
     }
     reason = [];
   }
-  return { allowed, unexplained };
+  return { allowed, unexplained, malformed };
 }
 
 /**
@@ -154,26 +160,51 @@ export function allowanceIn(text) {
  * stayed green: the identifier, the crate and the version the advisory is
  * filed against had not moved. What moved was the thing the reason rested on.
  *
- * A version matches as a prefix, so `0.11` covers every patch of it and a move
- * to 0.12 is a reason to read the entry again.
+ * A version matches as a prefix at a component boundary, so `0.11` covers
+ * every patch of it and a move to 0.12 is a reason to read the entry again.
+ *
+ * Anything after the identifier that is not a well-formed clause comes back
+ * as malformed rather than as no clause at all. `needs` misspelled, given a
+ * capital, or written as `requires` used to parse to an empty list, which
+ * left the allowance applying unconditionally for ever: the one silent
+ * failure in a file whose whole principle is that a silenced alarm is worse
+ * than a loud one.
  */
 function needsIn(words) {
-  const needs = [];
-  if (words[0] !== "needs") return needs;
-  for (let at = 1; at < words.length; at += 2) {
-    needs.push({ crate: words[at], version: words[at + 1] ?? "" });
+  if (words.length === 0) return { needs: [], malformed: false };
+  // An odd number of words after `needs` means a crate with no version, which
+  // is a clause somebody meant to finish.
+  if (words[0] !== "needs" || words.length < 3 || words.length % 2 === 0) {
+    return { needs: [], malformed: true };
   }
-  return needs;
+  const needs = [];
+  for (let at = 1; at < words.length; at += 2) {
+    needs.push({ crate: words[at], version: words[at + 1] });
+  }
+  return { needs, malformed: false };
 }
 
-/** Whether the lock still holds what an allowance says it rests on. */
+/**
+ * Whether the lock still holds what an allowance says it rests on.
+ *
+ * The version is a prefix, but only one that ends where a version component
+ * ends. A bare `startsWith` let `needs base64 0.2` be satisfied by base64
+ * 0.22.1 and `needs foo 0.1` by foo 0.19.0, which the pre-1.0 Rust ecosystem
+ * runs into constantly: the entry would go on holding against a crate several
+ * minor versions past the one whose fix it rests on. No entry in this repo's
+ * own file was misled by it, checked against all six needed crates on
+ * 2026-09-08, but the mechanism was wrong.
+ */
 export function unmetNeeds(needs, crates) {
+  const holds = (version, wanted) =>
+    version === wanted ||
+    (version.startsWith(wanted) && version[wanted.length] === ".");
   return needs.filter(
     (one) =>
       !crates.some(
         (crate) =>
           crate.name === one.crate &&
-          (!one.version || crate.version.startsWith(one.version)),
+          (!one.version || holds(crate.version, one.version)),
       ),
   );
 }
