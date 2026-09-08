@@ -130,8 +130,16 @@ describe("the label round trip", () => {
   it("survives a backslash, and does not grow one each run", () => {
     // rowFor escapes and carriedLabels did not unescape, so every run added
     // another backslash to a name that had one.
-    const once = roundTrip("Back\slash");
-    expect(once).toEqual({ city: "Back\slash", state: "OK" });
+    //
+    // The backslash has to be written doubled. The first version of this test
+    // wrote it single, which JavaScript reads as "Backslash" with no backslash
+    // in it at all, because that is not an escape sequence and the backslash
+    // is simply dropped. So it fed the escaping fix a string that could never
+    // have broken it: weakening `unescaped` back to handling quotes only left
+    // this test green while a real backslash doubled on every run.
+    const name = "Back\\slash";
+    const once = roundTrip(name);
+    expect(once).toEqual({ city: name, state: "OK" });
     const twice = carriedLabels(
       rowFor({
         id: "KTLX",

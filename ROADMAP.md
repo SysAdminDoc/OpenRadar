@@ -599,16 +599,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P2
 
-- [ ] AUD-393 (P2): The generator's backslash test contains no backslash
-      Category: testing
-      Where: `scripts/build-radar-sites.test.mjs:128-142` (`roundTrip("Back\slash")`).
-      Problem: In JavaScript `"Back\slash"` is `"Backslash"`, nine characters with no backslash in them, because `\s` is not an escape and the backslash is dropped. The test that was written to pin the escaping fix therefore feeds it a string it could never have broken. Weakening `unescaped()` back to handling quotes only, which restores the exact doubling bug the commit says it fixed, leaves all three tests passing while a real backslash in a city name doubles on every regeneration: `Back\slash` becomes `Back\\slash`, then `Back\\\\slash`.
-      Evidence: `node -e 'console.log("Back\slash".length)'` prints 9 on 2026-09-07. Mutation run with `unescaped()` weakened: three tests passed, the name drifted on each of three runs.
-      Fix: `roundTrip("Back\\slash")`.
-      Acceptance: With `unescaped()` weakened to quotes only the test fails; with it whole the test passes and a regenerated table is byte-identical.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-394 (P2): The two export extensions can be swapped with nothing failing
       Category: testing
       Where: `src-tauri/src/data_export.rs:59` (`const EXTENSIONS: &[&str] = &["csv", "tif"]`), read as `EXTENSIONS[0]` at `:511` and `EXTENSIONS[1]` at `:677`.
