@@ -457,14 +457,39 @@ describe("historical volumes", () => {
       await result.current.openLocal();
     });
     expect(fetchLocalSweep).toHaveBeenCalled();
-    // Every call, not the last one. The leak is in the first fetch, which
-    // happens before the source is set and so still sees the previous view's
-    // station; once the file is on screen the station follows it and the box
-    // falls away on its own, which would hide the leak behind a second ask.
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The first ask is unboxed, because nothing yet knows which site the file
+    // holds: the box would have to come from the view's own station, and two
+    // discs that overlap in both axes clip to a sliver of the intersection.
     expect(
-      fetchLocalSweep.mock.calls.map((call) => call[3]),
+      fetchLocalSweep.mock.calls[0][3],
       "a file from disk was asked for over another site's box",
-    ).toEqual(fetchLocalSweep.mock.calls.map(() => null));
+    ).toBeNull();
+
+    // Its answer carries its own corners, so the second ask is measured on
+    // the file's own disc. Before this it was the one sweep in the app that
+    // never followed the reader's zoom: 460 kilometres at 449 metres a pixel
+    // however far in they went.
+    await waitFor(() =>
+      expect(fetchLocalSweep.mock.calls.length).toBeGreaterThan(1),
+    );
+    const boxed = fetchLocalSweep.mock.calls[1][3];
+    expect(
+      boxed,
+      "the second ask should carry the file's own box",
+    ).not.toBeNull();
+    // KTLX's disc, not KDMX's. The fixture puts both at the same corners, so
+    // what says this is the right disc is that it is inside them rather than
+    // the intersection of two.
+    expect(boxed![0]).toBeGreaterThanOrEqual(-96.5);
+    expect(boxed![2]).toBeLessThanOrEqual(-91);
+
+    // And it settles: the boxed answer's corners are the box rather than the
+    // disc, so recording them would walk the picture inwards a step at a time.
+    const asked = fetchLocalSweep.mock.calls.length;
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(fetchLocalSweep.mock.calls.length, "a third ask").toBe(asked);
   });
 
   it("keeps the last verified historical picture when another cut fails", async () => {
