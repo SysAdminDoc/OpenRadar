@@ -42,6 +42,7 @@ import {
   speedUnit,
 } from "../lib/units";
 import { formatNumber, translate, useT } from "../i18n";
+import { formatDistanceKm } from "../lib/units";
 
 /**
  * A storm motion in the reader's own units, since it is a wind like any other.
@@ -546,7 +547,7 @@ export function RadarProductPanel({
               {sweep?.radar === "TDWR" ? (
                 <p className="source-note" data-radar-kind>
                   {t("radar.terminalLine", {
-                    range: Math.round(sweep.rangeKm),
+                    range: formatDistanceKm(sweep.rangeKm),
                     source: sweep.source.label,
                   })}
                 </p>

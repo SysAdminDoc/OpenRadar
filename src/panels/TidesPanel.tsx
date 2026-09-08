@@ -22,6 +22,7 @@ import {
   formatDistance,
   formatTideHeight,
 } from "../lib/units";
+import { tideUnitName } from "../lib/units";
 
 interface TidesPanelProps {
   point: GeoPoint;
@@ -211,7 +212,7 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
         </>
       ) : null}
 
-      <p className="source-note">{t("tides.note")}</p>
+      <p className="source-note">{t("tides.note", { unit: tideUnitName() })}</p>
     </PanelShell>
   );
 }

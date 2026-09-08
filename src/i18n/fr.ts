@@ -218,6 +218,8 @@ export const fr: Catalogue = {
   "units.feet": "pi",
   "units.inches": "po",
   "units.inchesLong": "pouces",
+  "units.feetLong": "pieds",
+  "units.metresLong": "mètres",
   "units.mile": "mi",
   "history.trackPoint": "{kind} {knots} nœuds",
   "storm.status.TD": "Dépression tropicale",
@@ -852,7 +854,7 @@ export const fr: Catalogue = {
   "radar.faultNotOperating":
     "Le radar ne balaie pas. Le bureau le signale comme {state}.",
   "radar.terminalLine":
-    "Radar météorologique Doppler terminal, portée de {range} km · {source}",
+    "Radar météorologique Doppler terminal, portée de {range} · {source}",
   "radar.terminalProducts":
     "Le radar terminal d'un aéroport ne publie que la réflectivité et la vitesse, jusqu'à 48 milles marins, avec une réflectivité longue portée jusqu'à 225. Les autres produits restent indisponibles tant qu'il est retenu.",
   "radar.followMap": "Suivre la carte",
@@ -1232,7 +1234,8 @@ export const fr: Catalogue = {
   "layers.alertsDetail": "Veilles et alertes officielles",
   "layers.earthquakesDetail":
     "Séismes de magnitude supérieure à 2,5 relevés par l'USGS depuis un jour",
-  "layers.wildfiresDetail": "Périmètres du NIFC de plus de 100 acres",
+  "layers.wildfiresDetail":
+    "Périmètres du NIFC, au-delà des cent acres qu'ils publient",
   "layers.smokeDetail":
     "L'analyse tracée à la main par la NOAA, une fois par jour",
   "layers.forecastSmokeDetail":
@@ -1284,7 +1287,7 @@ export const fr: Catalogue = {
     "Température et point de rosée en fonction de la pression. Les isothermes penchent vers la droite pour que les deux tracés se séparent; les courbes fines derrière eux sont les adiabatiques sèches, les adiabatiques saturées et le rapport de mélange.",
   "sounding.hodographLabel": "Hodographe du vent dans la colonne",
   "sounding.hodographNote":
-    "Le vent des neuf premiers kilomètres, tracé à mesure qu'il tourne. Les anneaux sont espacés de dix nœuds et le point est le sol.",
+    "Le vent des neuf premiers kilomètres, tracé à mesure qu'il tourne. Les anneaux sont espacés de dix nœuds, l'unité dans laquelle un hodographe se trace toujours, et le point est le sol.",
   "sounding.cape": "CAPE",
   "sounding.cin": "CIN",
   "sounding.lcl": "Base des nuages (LCL)",
@@ -1633,7 +1636,7 @@ export const fr: Catalogue = {
     "ANGLE {degrees}° · DÉPLIÉ · DIRECT, IL Y A {seconds} S",
   "chrome.liveProduct": "PRODUIT EN DIRECT",
   "chrome.behind": "DERRIÈRE, {count} MIN",
-  "chrome.terminalRadar": "TDWR · {range} km",
+  "chrome.terminalRadar": "TDWR · {range}",
   "chrome.extraScales": "Échelles des autres produits",
   "chrome.wind": "Vent",
   "chrome.windReduced":
@@ -1796,7 +1799,7 @@ export const fr: Catalogue = {
   "popup.magnitude": "M {value} {place}",
   "popup.recorded": "Enregistré {when}",
   "popup.timeUnknown": "Heure inconnue",
-  "popup.depth": "Profondeur de {km} km",
+  "popup.depth": "Profondeur de {distance}",
   "popup.depthUnknown": "Profondeur inconnue",
   "popup.usgs": "Source : USGS",
   "popup.wildfire": "Feu de forêt",
@@ -2208,7 +2211,7 @@ export const fr: Catalogue = {
   "tides.low": "Basse",
   "tides.noneLeft": "Plus rien dans les trois prochains jours.",
   "tides.note":
-    "Prédictions de la NOAA CO-OPS, en pieds au-dessus du niveau des plus basses mers, affichées dans votre fuseau horaire. L'onde de tempête s'ajoute par-dessus, alors une tempête qui arrive à marée haute monte plus loin.",
+    "Prédictions de la NOAA CO-OPS, en {unit} au-dessus du niveau des plus basses mers, affichées dans votre fuseau horaire. L'onde de tempête s'ajoute par-dessus, alors une tempête qui arrive à marée haute monte plus loin.",
   "panel.guidance": "Orientation",
   "panel.sounding": "Radiosondage",
   "keywords.sounding":

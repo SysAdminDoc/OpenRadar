@@ -7,6 +7,7 @@ import {
 } from "./registry";
 import { cachedUrl } from "../tileCache";
 import { formatNumber, translate } from "../../i18n";
+import { formatDistanceKm } from "../units";
 
 const FEED =
   "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
@@ -124,7 +125,7 @@ export const earthquakesOverlay: OverlayAdapter = {
           ? translate("popup.recorded", { when: relativeTime(time) })
           : translate("popup.timeUnknown"),
         Number.isFinite(depth)
-          ? translate("popup.depth", { km: formatNumber(depth, 0) })
+          ? translate("popup.depth", { distance: formatDistanceKm(depth) })
           : translate("popup.depthUnknown"),
         translate("popup.usgs"),
       ],

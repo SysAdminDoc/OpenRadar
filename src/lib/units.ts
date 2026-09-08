@@ -260,6 +260,22 @@ export function formatDepth(feet: number): string {
   return `${formatNumber(Math.round(feet))} ${translate("units.feet")}`;
 }
 
+/**
+ * The word a sentence uses for the unit a tide is shown in.
+ *
+ * The panel's own note said "in feet above mean lower low water" directly
+ * under a table reading "1,23 m", because `formatTideHeight` follows the
+ * setting and the note was a fixed string.
+ */
+export function tideUnitName(): string {
+  return translate(units === "metric" ? "units.metresLong" : "units.feetLong");
+}
+
+/** A distance the service gave in kilometres, in whichever units are asked for. */
+export function formatDistanceKm(km: number): string {
+  return formatDistance(km / MILES_TO_KM);
+}
+
 /** A tide, which NOAA publishes in feet and which is read to a tenth. */
 export function formatTideHeight(feet: number): string {
   if (units === "metric") return `${formatNumber(feet * FEET_TO_METRES, 2)} m`;
