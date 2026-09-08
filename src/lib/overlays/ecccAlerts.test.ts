@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { alertsOverlay } from "./alerts";
 import {
   ecccSeverity,
   ecccUrl,
@@ -265,5 +266,19 @@ describe.runIf(LIVE)("against the live service", () => {
       expect(String(feature.properties.headline)).not.toBe("");
       expect(feature.properties.severityRank).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+describe("whose warning a popup says it is", () => {
+  it("names the office that issued it rather than the American one", () => {
+    // One layer draws three offices' warnings and every popup ended
+    // "Source: NWS {office}", with the office taken from the feature. A
+    // Canadian warning therefore read "Source: NWS Environment and Climate
+    // Change Canada", which credits the wrong agency and reads as nonsense.
+    const [canadian] = parseEcccAlerts(feed);
+    const said = alertsOverlay.describe(canadian.properties);
+    const source = said!.lines.at(-1)!;
+    expect(source).toContain("Environment and Climate Change Canada");
+    expect(source).not.toContain("NWS");
   });
 });

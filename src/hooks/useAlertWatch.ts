@@ -75,6 +75,13 @@ export interface AlertWatchState {
   sendTest: () => Promise<boolean>;
 }
 
+/** Which office's name goes into the record, by the agency the alert names. */
+const JOURNAL_SOURCE = {
+  nws: "journal.sourceNws",
+  eccc: "journal.sourceEccc",
+  dwd: "journal.sourceDwd",
+} as const;
+
 export function useAlertWatch(
   /** Every place being watched, home first. */
   places: WatchPlace[],
@@ -312,7 +319,10 @@ export function useAlertWatch(
                 at: new Date().toISOString(),
                 place: place.name,
                 kind: "alert",
-                source: translate("journal.sourceNws"),
+                // Whose warning it was, from the alert rather than from a
+                // constant. This is the reader's own permanent record, and it
+                // said NWS for a warning in Ontario.
+                source: translate(JOURNAL_SOURCE[alert.agency]),
                 // The office's own issue time when the alert carries one, and
                 // only the poll's time when it does not. A row that dates a
                 // warning by the moment the app noticed it is a row that says

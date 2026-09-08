@@ -10,7 +10,12 @@ import { translate } from "../../i18n";
 import { formatClock } from "../units";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { alertType, type AlertType } from "../alertTypes";
-import { alertSeverity, SEVERITY_COLOR, SEVERITY_RANK } from "../alertSeverity";
+import {
+  alertAgency,
+  alertSeverity,
+  SEVERITY_COLOR,
+  SEVERITY_RANK,
+} from "../alertSeverity";
 import { ecccUrl, parseEcccAlerts, reachesCanada } from "./ecccAlerts";
 import { dwdUrl, parseDwdWarnings, reachesGermany } from "./dwdWarnings";
 import { language } from "../../i18n";
@@ -332,6 +337,7 @@ export function parseAlerts(
         description: tagged?.description ?? "",
         instruction: tagged?.instruction ?? "",
         area: tagged?.area ?? "",
+        agency: "nws",
         office: text(properties.wfo),
         url: text(properties.url),
         issued: epoch(properties.issuance) ?? epoch(properties.onset),
@@ -568,11 +574,21 @@ export const alertsOverlay: OverlayAdapter = {
           : []),
         ...(properties.description ? [String(properties.description)] : []),
         ...(properties.instruction ? [String(properties.instruction)] : []),
-        translate("popup.alertSource", {
-          office:
-            String(properties.office ?? "").trim() ||
-            translate("popup.alertOffice"),
-        }),
+        // "NWS {office}" only where the office is a forecast office, which is
+        // what the American feed puts there. The other two name the agency
+        // itself, so prefixing it with a different agency's initials is how
+        // a Canadian warning came to read "Source: NWS Environment and
+        // Climate Change Canada".
+        translate(
+          alertAgency(properties.agency) === "nws"
+            ? "popup.alertSource"
+            : "popup.alertSourceOffice",
+          {
+            office:
+              String(properties.office ?? "").trim() ||
+              translate("popup.alertOffice"),
+          },
+        ),
       ],
       url: typeof properties.url === "string" ? properties.url : undefined,
       action: pairing

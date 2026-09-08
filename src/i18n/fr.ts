@@ -204,10 +204,12 @@ export const fr: Catalogue = {
     "Déplacez la carte ou éloignez-vous pour couvrir une zone plus large. Les alertes se rafraîchissent chaque minute.",
   "alerts.noteOff": "Rien n'est récupéré tant que la couche est éteinte.",
   "alerts.noteError": "Affichage de la dernière liste valide. {error}",
-  "alerts.noteChecked": "Veilles et alertes du NWS, vérifiées {when}.",
+  "alerts.noteChecked":
+    "Veilles et alertes du NWS, d'ECCC et du DWD, vérifiées {when}.",
   "alerts.noteArchived":
     "Les alertes qui étaient en vigueur au moment affiché, tirées des archives de l'Iowa State.",
-  "alerts.noteLoading": "Chargement des veilles et alertes du NWS.",
+  "alerts.noteLoading":
+    "Chargement des veilles et alertes du NWS, d'ECCC et du DWD.",
   "alerts.noteSafety":
     "Fiez-vous aux alertes officielles pour les décisions touchant la sécurité.",
 
@@ -1373,7 +1375,7 @@ export const fr: Catalogue = {
     "Le réseau publie ces champs à trente-trois hauteurs. Une corrélation sous 0,8 n'est généralement pas de la météo : oiseaux, paillettes, ou débris soulevés par une tornade.",
 
   "layers.note":
-    "Les interrupteurs de couche s'enregistrent tout de suite et agissent aussitôt sur la carte. Les alertes viennent du NWS, les séismes de l'USGS et les périmètres de feu du NIFC.",
+    "Les interrupteurs de couche s'enregistrent tout de suite et agissent aussitôt sur la carte. Les alertes viennent du NWS, d'ECCC et du DWD, les séismes de l'USGS et les périmètres de feu du NIFC.",
   "settings.eyebrow": "Préférences d'OpenRadar",
   "settings.title": "Réglages",
   "settings.appearance": "Apparence",
@@ -1780,6 +1782,7 @@ export const fr: Catalogue = {
   "popup.issued": "Émise {when}",
   "popup.expires": "Expire {when}",
   "popup.alertSource": "Source : NWS {office}",
+  "popup.alertSourceOffice": "Source : {office}",
   "popup.alertOffice": "veilles et alertes",
   "popup.magnitude": "M {value} {place}",
   "popup.recorded": "Enregistré {when}",
@@ -2066,6 +2069,8 @@ export const fr: Catalogue = {
   "journal.failed": "Le registre n'a pas pu être écrit.",
   "journal.saved": "Registre enregistré",
   "journal.sourceNws": "NWS",
+  "journal.sourceEccc": "ECCC",
+  "journal.sourceDwd": "DWD",
   "journal.obtainedWatch":
     "une alerte qui a atteint un endroit que vous surveillez",
   "journal.obtainedStation":

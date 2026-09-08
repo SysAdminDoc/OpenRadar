@@ -168,6 +168,7 @@ export function parseDwdWarnings(payload: unknown): OverlayFeature[] {
         impactRank: 0,
         hailSize: "",
         motion: "",
+        agency: "dwd",
         office: text(properties.SENDERNAME) || "Deutscher Wetterdienst",
         url: text(properties.WEB) || "https://www.dwd.de/warnungen",
         issued: epoch(properties.ONSET) ?? epoch(properties.EFFECTIVE),

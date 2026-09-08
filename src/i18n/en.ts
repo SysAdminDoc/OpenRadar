@@ -192,10 +192,12 @@ export const en = {
     "Pan the map or zoom out to check a wider area. Alerts refresh every minute.",
   "alerts.noteOff": "Nothing is being fetched while the layer is off.",
   "alerts.noteError": "Showing the last good list. {error}",
-  "alerts.noteChecked": "NWS watches and warnings, checked {when}.",
+  "alerts.noteChecked":
+    "Watches and warnings from the NWS, ECCC and DWD, checked {when}.",
   "alerts.noteArchived":
     "The warnings that were in force at the moment on screen, from the Iowa State archive.",
-  "alerts.noteLoading": "Loading NWS watches and warnings.",
+  "alerts.noteLoading":
+    "Loading watches and warnings from the NWS, ECCC and DWD.",
   "alerts.noteSafety": "Use official warnings for life-safety decisions.",
 
   "units.miles": "miles",
@@ -1337,7 +1339,7 @@ export const en = {
     "The network publishes these at thirty-three heights. Correlation below 0.8 is usually not weather: birds, chaff, or debris lofted by a tornado.",
 
   "layers.note":
-    "Layer switches save immediately and take effect on the map right away. Alerts come from the NWS, earthquakes from the USGS, and fire perimeters from NIFC.",
+    "Layer switches save immediately and take effect on the map right away. Alerts come from the NWS, ECCC and DWD, earthquakes from the USGS, and fire perimeters from NIFC.",
   "settings.eyebrow": "OpenRadar preferences",
   "settings.title": "Settings",
   "settings.appearance": "Appearance",
@@ -1726,6 +1728,7 @@ export const en = {
   "popup.issued": "Issued {when}",
   "popup.expires": "Expires {when}",
   "popup.alertSource": "Source: NWS {office}",
+  "popup.alertSourceOffice": "Source: {office}",
   "popup.alertOffice": "watches and warnings",
   "popup.magnitude": "M {value} {place}",
   "popup.recorded": "Recorded {when}",
@@ -2006,6 +2009,8 @@ export const en = {
   "journal.failed": "The record could not be written.",
   "journal.saved": "Record saved",
   "journal.sourceNws": "NWS",
+  "journal.sourceEccc": "ECCC",
+  "journal.sourceDwd": "DWD",
   "journal.obtainedWatch": "a warning that reached a place you watch",
   "journal.obtainedStation": "a station report near a place you watch",
   "journal.search": "Search the record",

@@ -38,6 +38,15 @@ vi.mock("../lib/sound", () => ({
 // notification plugin has to exist.
 vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => desktop }));
 
+/** The reader's own record, so a row can be read rather than written to disk. */
+const journalRow = vi.fn();
+vi.mock("../lib/journal", () => ({
+  appendJournalRow: (row: unknown) => {
+    journalRow(row);
+    return Promise.resolve();
+  },
+}));
+
 vi.mock("@tauri-apps/plugin-notification", () => ({
   isPermissionGranted: () => permission(),
   requestPermission: vi.fn(async () => "granted"),
@@ -66,6 +75,11 @@ const near: Array<[number, number]> = [
 ];
 
 function alerts(...headlines: string[]): OverlayData {
+  return alertsFrom("nws", ...headlines);
+}
+
+/** The same, from a named office, for the row a warning writes down. */
+function alertsFrom(agency: string, ...headlines: string[]): OverlayData {
   return {
     type: "FeatureCollection",
     features: headlines.map((headline) => ({
@@ -74,6 +88,7 @@ function alerts(...headlines: string[]): OverlayData {
       properties: {
         headline,
         severity: "extreme",
+        agency,
         // The kind the real parse works out from the product name, which is
         // what the switches are keyed on.
         kind: alertType(headline),
@@ -91,6 +106,7 @@ beforeEach(() => {
   permission.mockResolvedValue(true);
   notification.mockReset();
   desktop = false;
+  journalRow.mockReset();
   fetchData.mockResolvedValue(alerts());
 });
 
@@ -400,5 +416,28 @@ describe("watching a place for alerts", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("what the record says about who issued a warning", () => {
+  it("names the office that issued it, not the American one", async () => {
+    // The reader's own permanent record, which Settings hands back to them.
+    // Every row said NWS, including a warning in Ontario, because the source
+    // was a constant rather than the alert's own.
+    desktop = true;
+    fetchData.mockResolvedValue(alertsFrom("eccc", "Tornado Warning"));
+    renderHook(() => useAlertWatch(home, {}, vi.fn()));
+
+    await vi.waitFor(() => expect(journalRow).toHaveBeenCalled());
+    expect(journalRow.mock.calls[0][0]).toMatchObject({ source: "ECCC" });
+  });
+
+  it("still says NWS for an American one", async () => {
+    desktop = true;
+    fetchData.mockResolvedValue(alertsFrom("nws", "Tornado Warning"));
+    renderHook(() => useAlertWatch(home, {}, vi.fn()));
+
+    await vi.waitFor(() => expect(journalRow).toHaveBeenCalled());
+    expect(journalRow.mock.calls[0][0]).toMatchObject({ source: "NWS" });
   });
 });

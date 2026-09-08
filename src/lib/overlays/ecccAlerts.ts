@@ -160,6 +160,7 @@ export function parseEcccAlerts(
         impactRank: 0,
         hailSize: "",
         motion: "",
+        agency: "eccc",
         office: "Environment and Climate Change Canada",
         url: "https://weather.gc.ca/warnings/index_e.html",
         issued: epoch(properties.publication_datetime),

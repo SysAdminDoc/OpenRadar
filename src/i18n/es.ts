@@ -199,10 +199,11 @@ export const es: Catalogue = {
   "alerts.noteOff":
     "No se está consultando nada mientras la capa esté apagada.",
   "alerts.noteError": "Mostrando la última lista buena. {error}",
-  "alerts.noteChecked": "Vigilancias y avisos del NWS, consultados {when}.",
+  "alerts.noteChecked":
+    "Vigilancias y avisos del NWS, ECCC y DWD, consultados {when}.",
   "alerts.noteArchived":
     "Los avisos que estaban en vigor en el momento que se ve, del archivo de Iowa State.",
-  "alerts.noteLoading": "Cargando vigilancias y avisos del NWS.",
+  "alerts.noteLoading": "Cargando vigilancias y avisos del NWS, ECCC y DWD.",
   "alerts.noteSafety":
     "Usa los avisos oficiales para decisiones que afecten la seguridad.",
 
@@ -1357,7 +1358,7 @@ export const es: Catalogue = {
     "La red publica esto a treinta y tres alturas. Una correlación por debajo de 0,8 no suele ser meteorología: aves, señuelos o restos levantados por un tornado.",
 
   "layers.note":
-    "Los interruptores de capas se guardan al instante y se aplican al mapa de inmediato. Las alertas vienen del NWS, los sismos del USGS y los perímetros de incendios del NIFC.",
+    "Los interruptores de capas se guardan al instante y se aplican al mapa de inmediato. Las alertas vienen del NWS, ECCC y DWD, los sismos del USGS y los perímetros de incendios del NIFC.",
   "settings.eyebrow": "Preferencias de OpenRadar",
   "settings.title": "Ajustes",
   "settings.appearance": "Apariencia",
@@ -1757,6 +1758,7 @@ export const es: Catalogue = {
   "popup.issued": "Emitido {when}",
   "popup.expires": "Vence {when}",
   "popup.alertSource": "Fuente: NWS {office}",
+  "popup.alertSourceOffice": "Fuente: {office}",
   "popup.alertOffice": "vigilancias y avisos",
   "popup.magnitude": "M {value} {place}",
   "popup.recorded": "Registrado {when}",
@@ -2042,6 +2044,8 @@ export const es: Catalogue = {
   "journal.failed": "El registro no se pudo escribir.",
   "journal.saved": "Registro guardado",
   "journal.sourceNws": "NWS",
+  "journal.sourceEccc": "ECCC",
+  "journal.sourceDwd": "DWD",
   "journal.obtainedWatch": "un aviso que alcanzó un lugar que vigilas",
   "journal.obtainedStation":
     "un informe de estación cerca de un lugar que vigilas",
