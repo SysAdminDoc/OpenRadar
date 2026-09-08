@@ -552,16 +552,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-374 (P3): Guidance table headers break inside words at the panel's width
-      Category: visual
-      Where: `src/panels/GuidancePanel.tsx:294-313` (`.guidance-table`, `thead th` for the model column and eight hours, `tbody th` for the model names); `src/index.css:3667-3695` (the table rules; `width: 100%`, no `white-space` on the headers).
-      Problem: With three models and eight hours in a panel about 320 px wide, the first column header "Model" is drawn as "Mode" over "l", "ECMWF" as "ECM" over "WF", and the hour headers as "Sun 8" over "PM". A header split inside a word reads as a rendering fault. The pseudolocale clipping sweep does not report it because nothing overflows a box; the text wraps.
-      Evidence: Observed on 2026-09-07 in English at 1440x900 (`audit-shots/audit-light-guidance.jpeg`).
-      Fix: `white-space: nowrap` on `thead th` and `tbody th`, the model names as their short forms where they already are, and let the table scroll horizontally inside `.guidance-block` (`overflow-x: auto` on the block) rather than squeeze; or drop to four hours per row on the narrow panel. Add a check to `e2e/guidance.spec.ts` that no header cell's rendered text differs from its source text by a line break.
-      Acceptance: No header breaks inside a word at 1440x900 or 1024x720 in en, es, fr and the pseudolocale; the table scrolls or reflows instead.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-377 (P3): Chrome colour written outside the theme system, and rules that no longer win
       Category: visual
       Where: `src/hooks/useAppearance.ts:13-16` (`CHROME_COLOR` `#090b10` / `#eef2f6`) and `index.html:10` and `:46` (the same pair twice more) against `--bg` `#070b10` / `#e9eef4` at `src/index.css:3901` and `:3978`; dead declarations overridden later at equal specificity by the rail rules: `.command-bar` `:219` (`background: rgba(31, 35, 41, 0.97)`, `box-shadow`) against `:4143` (`background: #0b1118`), `.brand-mark` `:150-161` against `:4041`, the forced-colours `.command-bar { background: Canvas }` inside `@media (forced-colors: active)` at about `:3233` against `:4143`, and `.product-legend` `:3529` (`var(--surface-raised, rgb(15 23 42 / 82%))`, a fallback behind a token that is always defined); single-look chrome literals with no light counterpart: `.legend-ramp` border `:591` (`rgba(255, 255, 255, 0.18)`), `.track-swatch` border `:3313`, `@keyframes ambient-flash` `:345` and `:351` (pale blue on `--border-strong`), `.fatal-error__mark` `:2761` (`#130309` on `--danger`); the capture bar block `:5842-5967` (about fifteen literals, no light look); `src/glance.css:15-31` (a five-token palette of its own outside `THEME_TOKENS`).

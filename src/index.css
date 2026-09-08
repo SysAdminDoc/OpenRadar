@@ -3702,21 +3702,32 @@ input[type="range"]:disabled {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* The table inside is as wide as its own words need. Squeezing it into the
+     panel instead broke the headers inside words: "Model" came out as "Mode"
+     over "l" and "ECMWF" as "ECM" over "WF", which reads as a rendering fault
+     rather than as a narrow column. The clipping sweep says nothing about it,
+     because nothing overflows a box when the text wraps. */
+  overflow-x: auto;
 }
 
 .guidance-table {
-  width: 100%;
+  /* At least the panel's width so a short table still fills it, and wider
+     than the panel when nine columns of one-line headers need it. `fixed`
+     with `width: 100%` was what forced the breaking: it divides the panel
+     between the columns whatever the words are. */
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 10px;
   color: var(--muted);
-  table-layout: fixed;
 }
 
 .guidance-table th,
 .guidance-table td {
   padding: 3px 2px;
   text-align: right;
-  overflow-wrap: anywhere;
+  /* A model name and an hour are each one word and stay one line. The values
+     are numbers. There is nothing in this table worth breaking. */
+  white-space: nowrap;
 }
 
 .guidance-table thead th {
