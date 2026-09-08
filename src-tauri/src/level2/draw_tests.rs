@@ -836,3 +836,160 @@ fn the_tilt_asked_for_is_matched_by_angle_across_the_two_volumes() {
     assert!(!sweep.live);
     assert!((sweep.elevation_degrees - 0.5).abs() < 0.05);
 }
+
+#[test]
+fn the_sector_mask_is_measured_over_the_same_ground_the_picture_was_drawn_on() {
+    // `render_sweep` walks the box a zoomed-in reader asked for. The mask that
+    // decides which pixels of a composite the volume in progress keeps used to
+    // walk the whole disc, and `lay_over` indexes one array by the other, so
+    // the two agreed about a pixel only where the box and the disc happened to
+    // land on the same ground. Everywhere else the new sweep was thrown away
+    // and the older volume showed through.
+    let (field, coordinates) = stepped_field(Product::Reflectivity);
+    let disc = coordinates.sweep_extent(MAX_RANGE_KM);
+    let whole = [
+        disc.min.longitude,
+        disc.min.latitude,
+        disc.max.longitude,
+        disc.max.latitude,
+    ];
+    // The middle quarter, which is roughly where zoom eleven puts a reader.
+    let wide = whole[2] - whole[0];
+    let tall = whole[3] - whole[1];
+    let asked = [
+        whole[0] + wide / 4.0,
+        whole[1] + tall / 4.0,
+        whole[2] - wide / 4.0,
+        whole[3] - tall / 4.0,
+    ];
+    let (_, drawn) = render_sweep(
+        &field,
+        &coordinates,
+        Product::Reflectivity,
+        "dBZ",
+        Shading {
+            unfolded: false,
+            threshold: None,
+            high_contrast: false,
+        },
+        false,
+        Some(asked),
+    );
+    assert_eq!(drawn, asked, "the box was not the ground drawn");
+
+    // Where a place lands in a picture drawn over a given extent.
+    let at = |extent: [f64; 4], latitude: f64, longitude: f64| {
+        let [west, south, east, north] = extent;
+        let top = mercator_y(north);
+        let bottom = mercator_y(south);
+        let row = (((mercator_y(latitude) - top) / (bottom - top)) * IMAGE_SIZE as f64) as usize;
+        let column = (((longitude - west) / (east - west)) * IMAGE_SIZE as f64) as usize;
+        row.min(IMAGE_SIZE - 1) * IMAGE_SIZE + column.min(IMAGE_SIZE - 1)
+    };
+
+    let over_box = swept_pixels(&field, &coordinates, drawn);
+    let over_disc = swept_pixels(&field, &coordinates, whole);
+    assert_eq!(over_box.len(), IMAGE_SIZE * IMAGE_SIZE);
+
+    // The two are pictures of the same sweep at different scales, so they have
+    // to agree about any given piece of ground. They cannot agree by being the
+    // same array: that is the positive control below.
+    let mut disagreed = 0usize;
+    let mut swept = 0usize;
+    for step_row in 0..40 {
+        for step_column in 0..40 {
+            let latitude = asked[1] + (asked[3] - asked[1]) * (step_row as f64 + 0.5) / 40.0;
+            let longitude = asked[0] + (asked[2] - asked[0]) * (step_column as f64 + 0.5) / 40.0;
+            let mine = over_box[at(drawn, latitude, longitude)];
+            let theirs = over_disc[at(whole, latitude, longitude)];
+            if mine {
+                swept += 1;
+            }
+            if mine != theirs {
+                disagreed += 1;
+            }
+        }
+    }
+    assert!(swept > 200, "only {swept} of 1600 places were swept at all");
+    assert_eq!(
+        disagreed, 0,
+        "{disagreed} of 1600 places are swept in one picture and not in the other"
+    );
+    assert_ne!(
+        over_box, over_disc,
+        "the mask did not change with the ground, so it cannot be reading it"
+    );
+}
+
+#[test]
+fn the_beam_marker_is_drawn_where_the_beam_is() {
+    // Same fault as the sector mask, on the wedge that marks where the volume
+    // in progress has got to. It worked its pixel positions out from the disc
+    // while the picture underneath was the box, so a reader zoomed off to one
+    // side saw a due-north beam painted a hundred kilometres to the east.
+    let (field, coordinates) = stepped_field(Product::Reflectivity);
+    let disc = coordinates.sweep_extent(MAX_RANGE_KM);
+    // Off the radar on purpose: a reader zooms in on a storm, not on the site.
+    // The box holds the site's meridian, so a due-north beam crosses it, but
+    // is not centred on it. Centring it there would line the two longitude
+    // scales up at exactly the place the beam is, and a picture drawn over the
+    // wrong extent would land on the right pixels anyway.
+    let wide = disc.max.longitude - disc.min.longitude;
+    let tall = disc.max.latitude - disc.min.latitude;
+    let drawn = [
+        disc.min.longitude + wide * 0.40,
+        disc.min.latitude + tall * 0.55,
+        disc.min.longitude + wide * 0.80,
+        disc.min.latitude + tall * 0.85,
+    ];
+
+    let base = 40u8;
+    let mut pixels = vec![base; IMAGE_SIZE * IMAGE_SIZE * 4];
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel[3] = 255;
+    }
+    let due_north = 0.0f32;
+    draw_leading_edge(
+        &mut pixels,
+        &coordinates,
+        field.elevation_degrees(),
+        due_north,
+        drawn,
+    );
+
+    let [west, south, east, north] = drawn;
+    let top = mercator_y(north);
+    let bottom = mercator_y(south);
+    let mut lifted = 0usize;
+    let mut wrong = 0usize;
+    let mut worst = 0.0f32;
+    for row in 0..IMAGE_SIZE {
+        let latitude =
+            inverse_mercator_y(top + (bottom - top) * ((row as f64 + 0.5) / IMAGE_SIZE as f64));
+        for column in 0..IMAGE_SIZE {
+            if pixels[(row * IMAGE_SIZE + column) * 4] <= base {
+                continue;
+            }
+            lifted += 1;
+            let longitude = west + (east - west) * ((column as f64 + 0.5) / IMAGE_SIZE as f64);
+            let polar = coordinates.geo_to_polar(
+                GeoPoint {
+                    latitude,
+                    longitude,
+                },
+                field.elevation_degrees(),
+            );
+            let away = (polar.azimuth_degrees - due_north).rem_euclid(360.0);
+            let away = away.min(360.0 - away);
+            worst = worst.max(away);
+            if away > LEADING_EDGE_DEGREES {
+                wrong += 1;
+            }
+        }
+    }
+    assert!(lifted > 500, "only {lifted} pixels were marked at all");
+    assert_eq!(
+        wrong, 0,
+        "{wrong} of {lifted} marked pixels are not on the beam; the furthest is {worst} degrees off"
+    );
+}

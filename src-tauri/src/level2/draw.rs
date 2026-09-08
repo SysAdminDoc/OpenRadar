@@ -379,7 +379,7 @@ pub(crate) fn draw_sweep(
         pixels = lay_over(
             older,
             pixels,
-            &swept_pixels(&chosen.field, &coordinates),
+            &swept_pixels(&chosen.field, &coordinates, [west, south, east, north]),
             keep,
         );
         // Only over a composite, and only when the reader asked for the
@@ -391,6 +391,7 @@ pub(crate) fn draw_sweep(
                     &coordinates,
                     chosen.field.elevation_degrees(),
                     azimuth,
+                    [west, south, east, north],
                 );
             }
         }
@@ -458,7 +459,16 @@ pub(crate) const SECTOR_SLOTS: usize = 3600;
 /// volume is all there is to show. Inside it the new sweep is the whole answer,
 /// empty gates included: a storm that has moved on has to come off the picture
 /// rather than be left painted where it used to be.
-pub(crate) fn swept_pixels(field: &SweepField, coordinates: &RadarCoordinateSystem) -> Vec<bool> {
+pub(crate) fn swept_pixels(
+    field: &SweepField,
+    coordinates: &RadarCoordinateSystem,
+    // The ground `render_sweep` actually drew, which is the box when there is
+    // one. The mask is indexed against those pixels, so working it out from
+    // the disc instead puts every slot in the wrong place the moment a reader
+    // zooms in: the sweep in progress survives only where the two happen to
+    // overlap, and the rest of it is handed back to the older volume.
+    drawn: [f64; 4],
+) -> Vec<bool> {
     let mut ring = vec![false; SECTOR_SLOTS];
     let per_slot = 360.0 / SECTOR_SLOTS as f32;
     // A radial stands for the wedge it was measured across, not for a line.
@@ -476,11 +486,9 @@ pub(crate) fn swept_pixels(field: &SweepField, coordinates: &RadarCoordinateSyst
     // the centres the field names.
     let near = field.first_gate_range_km() - field.gate_interval_km() / 2.0;
     let far = last_gate_edge_km(field);
-    let extent = coordinates.sweep_extent(MAX_RANGE_KM);
-    let west = extent.min.longitude;
-    let east = extent.max.longitude;
-    let top = mercator_y(extent.max.latitude);
-    let bottom = mercator_y(extent.min.latitude);
+    let [west, south, east, north] = drawn;
+    let top = mercator_y(north);
+    let bottom = mercator_y(south);
     let elevation = field.elevation_degrees();
 
     let mut swept = vec![false; IMAGE_SIZE * IMAGE_SIZE];
@@ -606,12 +614,12 @@ pub(crate) fn draw_leading_edge(
     coordinates: &RadarCoordinateSystem,
     elevation: f32,
     azimuth: f32,
+    // The same ground the pixels beneath it were drawn over.
+    drawn: [f64; 4],
 ) {
-    let extent = coordinates.sweep_extent(MAX_RANGE_KM);
-    let west = extent.min.longitude;
-    let east = extent.max.longitude;
-    let top = mercator_y(extent.max.latitude);
-    let bottom = mercator_y(extent.min.latitude);
+    let [west, south, east, north] = drawn;
+    let top = mercator_y(north);
+    let bottom = mercator_y(south);
     for row in 0..IMAGE_SIZE {
         let y = top + (bottom - top) * ((row as f64 + 0.5) / IMAGE_SIZE as f64);
         let latitude = inverse_mercator_y(y);
