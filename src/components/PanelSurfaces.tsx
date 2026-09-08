@@ -387,6 +387,15 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
                   ? "loading"
                   : null
           }
+          alertsNote={
+            !settings.layers.weatherAlerts
+              ? "off"
+              : overlays.alerts.error
+                ? "failed"
+                : overlays.alerts.fetchedAt === null
+                  ? "loading"
+                  : null
+          }
           station={props.stormCells.report?.station ?? null}
           observed={observedAt(props.stormCells.report?.observed)}
           alertsFetchedAt={overlays.alerts.fetchedAt}

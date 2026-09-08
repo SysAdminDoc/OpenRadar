@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NearbyPanel } from "./NearbyPanel";
 import { cellKey, withName } from "../lib/cellNames";
 import type { Approach } from "../lib/approach";
+import type { NearbyWarning } from "../lib/nearby";
 
 /** A fixed moment, so nothing here depends on when the suite runs. */
 const CLOCK = Date.parse("2026-09-04T18:00:00Z");
@@ -30,6 +31,7 @@ function markup(names: ReadonlyMap<string, string>, onName: () => void) {
       cellNames={names}
       onNameCell={onName}
       cellsNote={null}
+      alertsNote={null}
       station="KFWS"
       observed={Date.now()}
       alertsFetchedAt={Date.now()}
@@ -109,6 +111,7 @@ function approachPanel(
       cellNames={new Map()}
       onNameCell={() => undefined}
       cellsNote={overrides.cellsNote ?? null}
+      alertsNote={null}
       station="KFWS"
       observed={Date.now()}
       alertsFetchedAt={Date.now()}
@@ -164,5 +167,84 @@ describe("what the panel says is heading for a watched place", () => {
     render(approachPanel({ approaching: [], cellsNote: null }));
     const section = document.querySelector("[data-approaching]");
     expect(section?.textContent).toContain("Nothing the radar is tracking");
+  });
+});
+
+/**
+ * What the warnings section is allowed to claim.
+ *
+ * "No warnings over this place" is a statement about the sky, and an empty
+ * list is not one: the layer may be off, the feed may never have arrived, or
+ * it may have failed. This panel is the whole of what a reader who cannot see
+ * the map has, so it said the safest-sounding of those four things whatever
+ * had actually happened. On a refused connection the section read "No
+ * warnings over this place" while the footer three sections down said
+ * "Loading NWS watches and warnings".
+ */
+function warningsSection(
+  alertsNote: "off" | "failed" | "loading" | null,
+  warnings: NearbyWarning[] = [],
+) {
+  render(
+    <NearbyPanel
+      places={[{ id: "home", name: "Casa" }]}
+      placeId="home"
+      onPlace={() => undefined}
+      warnings={warnings}
+      approaching={[]}
+      cells={[]}
+      cellNames={new Map()}
+      onNameCell={() => undefined}
+      cellsNote={null}
+      alertsNote={alertsNote}
+      station="KFWS"
+      observed={CLOCK}
+      alertsFetchedAt={alertsNote === null ? CLOCK : null}
+      placeLightning={[]}
+      clock={CLOCK}
+      onClose={() => undefined}
+    />,
+  );
+}
+
+describe("what the warnings section says when it has nothing to list", () => {
+  it("says nothing covers the place only when the feed answered", () => {
+    warningsSection(null);
+    expect(screen.getByText(/no warnings over this place/i)).toBeTruthy();
+  });
+
+  it("says the warnings could not be checked when the feed failed", () => {
+    warningsSection("failed");
+    expect(screen.queryByText(/no warnings over this place/i)).toBeNull();
+    expect(screen.getByText(/could not be checked/i)).toBeTruthy();
+  });
+
+  it("says it is still checking before the first answer", () => {
+    warningsSection("loading");
+    expect(screen.queryByText(/no warnings over this place/i)).toBeNull();
+    expect(screen.getByText(/checking the warnings/i)).toBeTruthy();
+  });
+
+  it("says the layer is off rather than that the sky is clear", () => {
+    warningsSection("off");
+    expect(screen.queryByText(/no warnings over this place/i)).toBeNull();
+    expect(screen.getByText(/switched off/i)).toBeTruthy();
+  });
+
+  it("reads a warning out whatever else is wrong", () => {
+    // The note answers for an empty list and never instead of one. A feed
+    // that failed after handing over a tornado warning still has the tornado
+    // warning, and that is the line this panel exists to say.
+    warningsSection("failed", [
+      {
+        id: "a",
+        sentence: "Tornado Warning over Casa.",
+        area: "",
+        description: "",
+        instruction: "",
+      } as NearbyWarning,
+    ]);
+    expect(screen.getByText(/tornado warning over casa/i)).toBeTruthy();
+    expect(screen.queryByText(/could not be checked/i)).toBeNull();
   });
 });

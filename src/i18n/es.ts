@@ -1055,6 +1055,11 @@ export const es: Catalogue = {
   "nearby.placeCentre": "El centro del mapa",
   "nearby.warningsHeading": "Avisos sobre este lugar",
   "nearby.noWarnings": "No hay avisos sobre este lugar.",
+  "nearby.warningsOff":
+    "Los avisos están apagados, así que no hay nada que listar. Enciende la capa para saber qué cubre este lugar.",
+  "nearby.warningsFailed":
+    "No se pudieron consultar los avisos, así que esto no puede decir qué cubre este lugar.",
+  "nearby.warningsLoading": "Consultando los avisos.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, marcado como {tag}.",
   "nearby.warningUntil": "Vigente hasta las {when}.",

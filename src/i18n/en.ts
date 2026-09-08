@@ -1040,6 +1040,11 @@ export const en = {
   "nearby.placeCentre": "The map centre",
   "nearby.warningsHeading": "Warnings over this place",
   "nearby.noWarnings": "No warnings over this place.",
+  "nearby.warningsOff":
+    "Warnings are switched off, so there is nothing to list. Turn the layer on to hear what covers this place.",
+  "nearby.warningsFailed":
+    "The warnings could not be checked, so this cannot say what covers this place.",
+  "nearby.warningsLoading": "Checking the warnings.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, tagged {tag}.",
   "nearby.warningUntil": "In force until {when}.",
