@@ -465,13 +465,16 @@ export function sweepCorners(
  * 512 times two to the zoom, which makes a screen pixel 14 metres at zoom 12
  * and forty degrees north, not the 29 the 256 pixel tile convention gives.
  *
- * Ten rather than seven because ten is where the doubling below first buys
- * anything. `steps` is one at zoom 9 and less at zoom 8, and both of those
- * spell the whole disc, so asking for a box there is a second render of the
- * same picture. Zooms 8 and 9 do have detail to gain and this does not reach
- * them; that needs a different exponent, not a lower threshold.
+ * Eight rather than seven because eight is where the single-site view opens,
+ * so below it there is no sweep to narrow. It was ten, with the exponent
+ * below written to start doubling there, and a reader at zoom 8 or 9 was left
+ * on a raster four times coarser than their own screen: 234 metres a pixel
+ * against 449 at zoom 8, and 117 against 449 at zoom 9. Lowering the
+ * threshold alone would not have reached them, because the old exponent gives
+ * one step at zoom 9 and half a step at zoom 8, and both spell the whole
+ * disc. The two moved together.
  */
-export const DISC_IS_ENOUGH_BELOW_ZOOM = 10;
+export const DISC_IS_ENOUGH_BELOW_ZOOM = 8;
 
 /**
  * How far the box may be narrowed, as a fraction of the disc.
@@ -519,6 +522,11 @@ export function sweepDetailBox(
   // one made a different box for every hundredth of a level: a held loop
   // frame was orphaned by any zoom change at all, and each miss is another
   // ten megabyte volume off the archive.
+  // Doubling from two at the threshold, which puts the raster within a few
+  // per cent of the reader's own screen at every level it reaches: 225 metres
+  // a pixel against 234 at zoom 8, 112 against 117 at 9, 56 against 58 at 10
+  // and 28 against 29 at 11. Past that the ceiling holds, because a quarter
+  // kilometre gate has nothing finer in it to draw.
   const steps = Math.min(
     FINEST_DETAIL_STEPS,
     2 ** (Math.floor(zoom) - DISC_IS_ENOUGH_BELOW_ZOOM + 1),

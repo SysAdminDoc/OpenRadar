@@ -337,10 +337,11 @@ describe("how much ground the sweep is drawn over", () => {
   const wide = disc.east - disc.west;
 
   it("draws the whole disc while a screen pixel is coarser than the raster", () => {
-    // 1,024 pixels over 460 kilometres is 449 metres a pixel. Below about
-    // zoom 10 a screen pixel covers more ground than that, so narrowing the
-    // box buys a reader nothing and costs a render.
-    for (const zoom of [4, 7, 9, 9.9]) {
+    // 1,024 pixels over 460 kilometres is 449 metres a pixel. Below zoom 8
+    // there is no single-site view to narrow at all, and by zoom 7 a screen
+    // pixel covers more ground than the raster does, so narrowing the box
+    // buys a reader nothing and costs a render.
+    for (const zoom of [4, 7, 7.9]) {
       expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toBeNull();
     }
   });
@@ -349,7 +350,7 @@ describe("how much ground the sweep is drawn over", () => {
     // The whole point: the same 1,024 pixels over less ground is more metres
     // of radar per metre of screen. Pinned as the halving rather than as "it
     // got smaller", which any monotone shrink would satisfy.
-    const spans = [10, 11, 12, 13].map((zoom) => {
+    const spans = [8, 9, 10, 11].map((zoom) => {
       const box = sweepDetailBox(disc, centre, zoom);
       expect(box, String(zoom)).not.toBeNull();
       return box![2] - box![0];
@@ -357,12 +358,18 @@ describe("how much ground the sweep is drawn over", () => {
     expect(spans[0]).toBeCloseTo(wide / 2, 9);
     for (const [at, span] of spans.entries()) {
       if (at > 0)
-        expect(span, `zoom ${10 + at}`).toBeCloseTo(spans[at - 1] / 2, 9);
+        expect(span, `zoom ${8 + at}`).toBeCloseTo(spans[at - 1] / 2, 9);
     }
+    // Zoom 8 is where the single-site view opens, and it used to be left on
+    // the whole disc: 449 metres a pixel against a screen pixel of 234.
     // And a floor, because 28 metres a pixel is already nine times finer than
-    // a gate and there is nothing left to resolve.
+    // a gate and there is nothing left to resolve. A sixteenth exactly, named
+    // rather than compared to whatever the last span happened to be: the
+    // ceiling is the promise, and the level it is first reached at moved when
+    // the exponent did.
+    expect(spans.at(-1)!).toBeCloseTo(wide / 16, 9);
     const deepest = sweepDetailBox(disc, centre, 18);
-    expect(deepest![2] - deepest![0]).toBeCloseTo(spans.at(-1)!, 9);
+    expect(deepest![2] - deepest![0]).toBeCloseTo(wide / 16, 9);
   });
 
   it("gives the same box for every camera inside one zoom level", () => {
@@ -370,13 +377,13 @@ describe("how much ground the sweep is drawn over", () => {
     // fly-tos and a wheel that moves in fractions. Unfloored, every hundredth
     // of a level was its own box, so a held loop frame was orphaned by any
     // zoom change and the next scrub re-fetched the volume behind it.
-    const level = sweepDetailBox(disc, centre, 12)!;
-    for (const zoom of [12, 12.0000001, 12.05, 12.5, 12.9999]) {
+    const level = sweepDetailBox(disc, centre, 9)!;
+    for (const zoom of [9, 9.0000001, 9.05, 9.5, 9.9999]) {
       expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toEqual(level);
     }
     // And the next level really is a different box, so this is quantising
     // rather than ignoring the zoom.
-    expect(sweepDetailBox(disc, centre, 13)).not.toEqual(level);
+    expect(sweepDetailBox(disc, centre, 10)).not.toEqual(level);
   });
 
   it("holds one box across a whole grid cell, wherever the reader started", () => {

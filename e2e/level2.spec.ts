@@ -615,14 +615,28 @@ test("spends the sweep's pixels on less ground as the reader goes in", async ({
         .map((call) => call.args.within as number[] | null),
     );
 
-  // At the zoom the single-site view opens at, a screen pixel is coarser than
-  // the raster and there is nothing to gain: the whole disc is asked for.
-  expect((await boxes()).at(-1) ?? null).toBeNull();
+  // The first ask is the whole disc, because nothing yet knows what the site
+  // reaches and the box has to be measured against it.
+  expect((await boxes())[0] ?? null).toBeNull();
 
-  // Two zooms in, and the app asks for a box instead.
-  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  // And the zoom the single-site view opens at gets a box of its own. It used
+  // to be left on the disc, which is 449 metres a pixel against a screen
+  // pixel of 117 at this level: the reader was looking at the app own
+  // sampling and not at the radar, at the one zoom every session passes
+  // through.
   await expect.poll(async () => (await boxes()).at(-1) ?? null).not.toBeNull();
+  const opened = (await boxes()).at(-1)!;
+
+  // One zoom in, and the app asks for less ground still, which is the whole
+  // claim: the picture gets finer as the reader goes in rather than staying
+  // the grid it was drawn on.
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const box = (await boxes()).at(-1);
+      return box ? box[2] - box[0] : null;
+    })
+    .toBeLessThan(opened[2] - opened[0]);
 
   const closer = (await boxes()).at(-1)!;
   expect(closer).toHaveLength(4);
@@ -631,16 +645,30 @@ test("spends the sweep's pixels on less ground as the reader goes in", async ({
   expect(closer[2]).toBeLessThanOrEqual(-91.0);
   expect(closer[2] - closer[0]).toBeLessThan((-91.0 - -96.5) / 2);
 
-  // And in again asks for less ground still, which is the whole claim: the
-  // picture gets finer as the reader goes in rather than staying the grid it
-  // was drawn on.
-  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-  await expect
-    .poll(async () => {
-      const box = (await boxes()).at(-1);
-      return box ? box[2] - box[0] : null;
-    })
-    .toBeLessThan(closer[2] - closer[0]);
+  // And it stops at a sixteenth. That is 28 metres a pixel, nine times finer
+  // than a gate is long, so past it there is nothing left in the data to
+  // resolve and a narrower box would spend a fetch on interpolation. Written
+  // as a floor under every box the session asked for rather than as the box
+  // at some particular level, because how many levels a click covers is a
+  // property of the window rather than of this rule.
+  for (let click = 0; click < 3; click += 1) {
+    await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  }
+  const floor = (-91.0 - -96.5) / 16;
+  const narrowest = async () =>
+    Math.min(
+      ...(await boxes())
+        .filter((box): box is number[] => Boolean(box))
+        .map((box) => box[2] - box[0]),
+    );
+  // Polled rather than waited on, because how long the map takes to settle
+  // and how many levels a click covers are both properties of the window.
+  await expect.poll(narrowest).toBeLessThan(floor * 1.001);
+  // And nothing ever went past it.
+  for (const box of await boxes()) {
+    if (!box) continue;
+    expect(box[2] - box[0]).toBeGreaterThan(floor * 0.999);
+  }
 
   // The map is given the ground that came back, not the disc: the picture is
   // placed where it was drawn.
