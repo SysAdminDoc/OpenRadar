@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { applyTheme, type WorkspaceTheme } from "../lib/theme";
+import { isLightBasemap, resolvedMapStyle } from "../lib/mapStyles";
 import {
   occasionOn,
   occasionTheme,
@@ -95,6 +96,19 @@ export function useAppearance(
     // held by `theme.test.ts`: chrome, never a reading.
     if (settings.calm) document.documentElement.dataset.calm = "1";
     else delete document.documentElement.dataset.calm;
+    // Whether the ground under the map is a light one, which is a different
+    // question from which theme the workspace wears. A reader on the dark
+    // theme who picks Roads or Topography gets dark chrome over a pale street
+    // map, and anything sitting straight on that map has to flip its ink for
+    // the map rather than for the theme. It was set on the ambient readout
+    // alone, which is how the OpenStreetMap credit came to be 72 per cent
+    // pale grey on pale water: readable in neither screenshot anybody took,
+    // because the dark theme's looked right and the light theme's was right.
+    if (isLightBasemap(resolvedMapStyle(settings.mapStyle, settings.theme))) {
+      document.documentElement.dataset.overLight = "1";
+    } else {
+      delete document.documentElement.dataset.overLight;
+    }
     const meta = document.querySelector<HTMLMetaElement>(
       'meta[name="theme-color"]',
     );
@@ -109,7 +123,7 @@ export function useAppearance(
     } catch {
       // Nothing to do about it, and nothing depends on it having worked.
     }
-  }, [settings.calm, settings.theme, wanted]);
+  }, [settings.calm, settings.mapStyle, settings.theme, wanted]);
 
   return {
     occasion,

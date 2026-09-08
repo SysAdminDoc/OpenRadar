@@ -12,19 +12,30 @@ import { routeWorkspace } from "./support/fixtures";
  */
 const ACCENT = "#ff8a3d";
 
-async function startWith(page: Page, theme: unknown, look = "dark") {
+async function startWith(
+  page: Page,
+  theme: unknown,
+  look = "dark",
+  mapStyle: string | null = null,
+) {
   await page.addInitScript(
     (value) => {
+      const seeded = value as {
+        look: string;
+        theme: unknown;
+        mapStyle: string | null;
+      };
       window.localStorage.setItem(
         "openradar.settings",
         JSON.stringify({
           schemaVersion: 3,
-          theme: (value as { look: string }).look,
-          workspaceTheme: (value as { theme: unknown }).theme,
+          theme: seeded.look,
+          workspaceTheme: seeded.theme,
+          ...(seeded.mapStyle ? { mapStyle: seeded.mapStyle } : {}),
         }),
       );
     },
-    { theme, look },
+    { theme, look, mapStyle },
   );
   await routeWorkspace(page);
   await page.goto("/?testMode=1");
@@ -269,18 +280,16 @@ test("the reader's own accent reaches the command rail", async ({ page }) => {
   ).toBeGreaterThanOrEqual(4.5);
 });
 
-test("the map credits are readable over the light basemap", async ({
-  page,
-}) => {
-  // The basemap follows the theme, so in light these three links sit on a
-  // light map. They were near-white with nothing behind them, at about
-  // 1.03:1. The readout beside them got a light counterpart when the theme
-  // was added and this did not.
-  await startWith(page, null, "light");
-  const credits = page.locator(".source-attribution");
-  await expect(credits).toBeVisible();
-
-  const paint = await credits.evaluate((node) => {
+/**
+ * Whether a line of chrome sitting straight on the basemap can be read.
+ *
+ * Ink dark enough to be ink, something opaque enough behind it to be a
+ * ground, and the two far enough apart. Over a map the ground is the only
+ * thing that makes the contrast a promise rather than a hope: whatever the
+ * basemap happens to be drawing underneath can be any colour at all.
+ */
+async function readableOnTheMap(page: Page, selector: string) {
+  const paint = await page.locator(selector).evaluate((node) => {
     const style = getComputedStyle(node);
     return { ink: style.color, ground: style.backgroundColor };
   });
@@ -296,14 +305,59 @@ test("the map credits are readable over the light basemap", async ({
     };
     return 0.2126 * part(red) + 0.7152 * part(green) + 0.0722 * part(blue);
   };
-
-  // Dark ink, and something behind it: over a map the ground is the only
-  // thing that makes the contrast a promise rather than a hope.
-  expect(luminance(paint.ink)).toBeLessThan(0.2);
-  expect(channels(paint.ground)[3] ?? 1).toBeGreaterThan(0.5);
+  expect(luminance(paint.ink), `${selector} ink`).toBeLessThan(0.2);
+  expect(
+    channels(paint.ground)[3] ?? 1,
+    `${selector} has nothing behind it`,
+  ).toBeGreaterThan(0.5);
   const light = Math.max(luminance(paint.ink), luminance(paint.ground));
   const dark = Math.min(luminance(paint.ink), luminance(paint.ground));
   expect((light + 0.05) / (dark + 0.05)).toBeGreaterThanOrEqual(4.5);
+}
+
+test("the map credits are readable over the light basemap", async ({
+  page,
+}) => {
+  // The basemap follows the theme, so in light these three links sit on a
+  // light map. They were near-white with nothing behind them, at about
+  // 1.03:1. The readout beside them got a light counterpart when the theme
+  // was added and this did not.
+  await startWith(page, null, "light");
+  await expect(page.locator(".source-attribution")).toBeVisible();
+  await readableOnTheMap(page, ".source-attribution");
+});
+
+test("the map credits are readable over a light basemap under the dark theme", async ({
+  page,
+}) => {
+  // Which theme the workspace wears and what the map is drawing are two
+  // questions, and these words are written on the map. A reader on the dark
+  // theme who picks Roads, Daylight, Topography, Greyscale or Radar Light got
+  // the OpenStreetMap credit as 72 per cent pale grey with nothing behind it
+  // over a pale street map, which is the one line on the map the basemap
+  // licence requires be there. It was missed because a screenshot of the dark
+  // theme looked right and a screenshot of the light theme was right.
+  await startWith(page, null, "dark", "roads");
+  await expect(page.getByRole("application")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.dataset.overLight ?? "absent",
+      ),
+    )
+    .toBe("1");
+  await readableOnTheMap(page, ".source-attribution");
+
+  // And a dark basemap under the same theme is left exactly as it was.
+  await page.evaluate(() => {
+    delete document.documentElement.dataset.overLight;
+  });
+  const overDark = await page
+    .locator(".source-attribution")
+    .evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect((overDark.match(/[\d.]+/g) ?? []).map(Number)[3] ?? 1).toBeLessThan(
+    0.5,
+  );
 });
 
 /**
