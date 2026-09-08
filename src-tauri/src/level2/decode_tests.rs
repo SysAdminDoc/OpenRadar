@@ -210,7 +210,38 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         // What holds the defect down is `dealias`'s own unit tests, where a
         // correctly reported cell and a seam inside an unreached group are
         // built to order and the truth is known.
-        let _ = found.misplaced;
+        //
+        // What can be held is its share of the folds the sweep actually had,
+        // which is the one form of it that scales with how much weather there
+        // was. Recorded per station-day over 2026-09-01 to 2026-09-07 at
+        // 21:00 UTC, the six stations' own worst days read 0.166, 0.633,
+        // 0.835, 0.953, 1.263 and 1.285. Twice the folds is more than half
+        // again the worst of those, and it still fails a boundary vote that
+        // scrambles the branches: on a two hundred thousand gate sweep that
+        // puts tens of thousands of never-folded gates on a foreign branch
+        // against seventeen thousand folds. The line is one-sided by
+        // construction, since a pass that did nothing would score zero here
+        // and is caught by the rejoined share across the stations instead.
+        //
+        // AUD-388 also asked that it fail when the wind's plausibility bar is
+        // removed, and the measurement says no line does both. The same week
+        // recorded with the bar taken out reads 1.329 at worst, so the window
+        // where a line clears the week and fails without the bar is 1.285 to
+        // 1.329: three and a half per cent wide, against single station-days
+        // that move by as much as 0.122 when the bar comes out and a spread
+        // between stations of 0.002 to 1.285. A line drawn in that window
+        // fails on the weather rather than on the code. The bar is worth
+        // keeping on its own evidence: over the 38 station-days both runs
+        // measured it is better on 33 and worse on none, 152,398 misplaced
+        // gates against 160,430. Bounding what the wind alone contributes
+        // needs `misplaced` split into gates a boundary placed and gates the
+        // wind placed, which is AUD-445.
+        assert!(
+            found.misplaced < found.wrapped * 2,
+            "{} gates that never folded came back on a foreign branch, against {} that folded",
+            found.misplaced,
+            found.wrapped
+        );
         // And it must never leave the picture more broken than it found it.
         assert!(
             found.broken_after <= found.broken_before,
@@ -691,7 +722,7 @@ fn recording_the_days_unfolding_is_held_against() {
         .build()
         .expect("a runtime");
     println!(
-        "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,rejoined_share,rpg_comparable,rpg_before,rpg_after,rpg_share"
+        "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,misplaced_share,rejoined_share,rpg_comparable,rpg_before,rpg_after,rpg_share"
     );
     for day in 1..=7 {
         for station in ["KDMX", "KTLX", "KAMX", "KTBW", "KGRR", "KFWS"] {
@@ -704,13 +735,14 @@ fn recording_the_days_unfolding_is_held_against() {
                 .expect("a UTC time");
             match measure_unfolding_at(&runtime, station, at) {
                 Some(found) => println!(
-                    "{station},2026-09-{day:02},{},{},{},{},{},{},{:.4},{}",
+                    "{station},2026-09-{day:02},{},{},{},{},{},{},{:.4},{:.4},{}",
                     found.broken_before,
                     found.broken_after,
                     found.rejoined,
                     found.wrapped,
                     found.invented,
                     found.misplaced,
+                    found.misplaced as f64 / found.wrapped.max(1) as f64,
                     found.rejoined as f64 / found.wrapped.max(1) as f64,
                     match &found.rpg {
                         Some(held) => format!(
@@ -725,7 +757,7 @@ fn recording_the_days_unfolding_is_held_against() {
                 ),
                 // A station with no Doppler cut worth measuring that day,
                 // which the contract also passes over.
-                None => println!("{station},2026-09-{day:02},none,,,,,,,,,,"),
+                None => println!("{station},2026-09-{day:02},none,,,,,,,,,,,"),
             }
         }
     }
