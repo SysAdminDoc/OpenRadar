@@ -663,9 +663,7 @@ export function useExport(options: {
               // whose message is the browser's own word for it in English.
               failure instanceof DOMException
                 ? translate("export.encoderFailed")
-                : failure instanceof Error
-                  ? failure.message
-                  : translate("export.nothingWritten"),
+                : failureSentence(failure, translate("export.nothingWritten")),
           });
         } finally {
           timeline.selectFrame(originalFrame);

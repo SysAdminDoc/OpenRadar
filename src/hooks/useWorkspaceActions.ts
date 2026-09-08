@@ -54,6 +54,7 @@ import {
   overlayShapeCount,
   type WorkspaceOverlayFile,
 } from "../lib/workspaceOverlays";
+import { failureSentence } from "../lib/serviceAnswer";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
@@ -353,10 +354,10 @@ export function useWorkspaceActions(options: {
     } catch (failure) {
       pushToast({
         title: translate("toast.settingsSaveFailed"),
-        detail:
-          failure instanceof Error
-            ? failure.message
-            : translate("toast.settingsSaveFailedBody"),
+        detail: failureSentence(
+          failure,
+          translate("toast.settingsSaveFailedBody"),
+        ),
       });
     }
   }, [overlayFiles, pushToast, settingsRef]);
@@ -662,9 +663,7 @@ export function useWorkspaceActions(options: {
             // need is which file to choose.
             error instanceof SyntaxError
               ? translate("toast.notGeoJson")
-              : error instanceof Error
-                ? error.message
-                : translate("toast.unreadable"),
+              : failureSentence(error, translate("toast.unreadable")),
         });
       }
     },

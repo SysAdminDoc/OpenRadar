@@ -8,6 +8,8 @@ import {
   windAvailable,
   type WindField,
 } from "../lib/wind";
+import { failureSentence } from "../lib/serviceAnswer";
+import { translate } from "../i18n";
 
 export interface WindState {
   field: WindField | null;
@@ -51,9 +53,7 @@ export function useWind(options: {
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The wind field did not arrive.";
+            : failureSentence(failure, translate("wind.unread"));
         log.warn("wind", message);
         setError(message);
       } finally {

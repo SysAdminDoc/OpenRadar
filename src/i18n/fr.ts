@@ -1445,6 +1445,9 @@ export const fr: Catalogue = {
   "settings.showRadarDetail":
     "Garder le fond de carte visible quand le radar est masqué",
   "cells.eyebrow": "Cellules orageuses",
+  "mrms.unanswered": "Les grilles MRMS n'ont pas répondu.",
+  "wind.unread": "Le champ de vent n'a pas pu être lu.",
+  "smoke.unanswered": "La fumée prévue n'est pas arrivée.",
   "cells.unread": "Les cellules orageuses n'ont pas pu être lues.",
   "cells.arriving":
     "{id} atteint l'endroit que vous surveillez dans {count} min",
