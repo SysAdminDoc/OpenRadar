@@ -573,6 +573,8 @@ export const en = {
   "service.tooMany": "has been asked too often",
   "service.refused": "refused",
   "service.unexpected": "answered in a way this could not read",
+  "service.unreachable": "The service could not be reached.",
+  "service.failed": "The request failed.",
   "route.routerRefused": "The road router {answer}.",
   "route.straightOffer": "Use a straight line instead",
   "route.straightNote":
@@ -1233,6 +1235,7 @@ export const en = {
     "No balloon near here in the last two days. Upper air launches are twice a day at about ninety sites, so a place far from one has nothing to show.",
   "sounding.noneForecast": "The model has no column for here.",
   "sounding.failedAny": "The sounding could not be read.",
+  "sounding.failedTitle": "The sounding could not be read",
   "sounding.chartLabel": "Skew-T log-P chart for {place}",
   "sounding.chartNote":
     "Temperature and dewpoint against pressure. The isotherms lean right so the two traces separate; the thin curves behind them are dry adiabats, moist adiabats and mixing ratio.",

@@ -1,6 +1,7 @@
 import { LoaderCircle, Route, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
+import { failureSentence } from "../lib/serviceAnswer";
 import {
   ESTIMATED_MPH,
   fetchRoute,
@@ -140,11 +141,7 @@ export function RoutePanel({ onRoute, onClose }: RoutePanelProps) {
         // A router that refused is not the end of the question: the weather along
         // the way does not depend on which road it is.
         setCanEstimate(routerFailed && !straight);
-        setError(
-          failure instanceof Error
-            ? failure.message
-            : translate("route.failed"),
-        );
+        setError(failureSentence(failure, translate("route.failed")));
       }
     },
     [departure, from, to],

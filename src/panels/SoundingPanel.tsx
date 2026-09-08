@@ -1,8 +1,9 @@
-import { LoaderCircle } from "lucide-react";
+import { CloudOff, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import { formatNumber, useT } from "../i18n";
 import { formatClock, formatHeight, useMeasurements } from "../lib/units";
+import { failureSentence } from "../lib/serviceAnswer";
 import {
   DEFAULT_BOX,
   MIXING_RATIOS,
@@ -190,10 +191,7 @@ function SoundingView({
         if (request !== requestRef.current) return;
         setAnswer({
           sounding: null,
-          error:
-            failure instanceof Error
-              ? failure.message
-              : t("sounding.failedAny"),
+          error: failureSentence(failure, t("sounding.failedAny")),
         });
       });
   }, [at, center, t, which]);
@@ -220,10 +218,23 @@ function SoundingView({
         </p>
       ) : null}
 
-      {error ? <p className="inline-error">{error}</p> : null}
+      {/* A failure gets the shape the other panels give one: a title saying
+          what could not be done and a sentence saying why. It shared the red
+          `inline-error` line with the empty state below, so a quiet afternoon
+          with no balloon near here and a refused connection were dressed
+          alike and neither said what to do next. */}
+      {error ? (
+        <div className="panel-error">
+          <CloudOff size={24} aria-hidden="true" />
+          <strong>{t("sounding.failedTitle")}</strong>
+          <span>{error}</span>
+        </div>
+      ) : null}
 
+      {/* Not an error. Ninety sites launch twice a day, so a place far from
+          one has nothing to show and nothing has gone wrong. */}
       {!loading && !error && !sounding ? (
-        <p className="inline-error">
+        <p className="empty-copy">
           {which === "observed"
             ? t("sounding.noneObserved")
             : t("sounding.noneForecast")}

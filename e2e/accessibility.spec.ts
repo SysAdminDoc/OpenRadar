@@ -311,6 +311,42 @@ test("never says a place is clear when the warnings did not arrive", async ({
   await expect(warnings).not.toContainText("No warnings over this place");
 });
 
+test("says why in its own words when nothing answered at all", async ({
+  page,
+}) => {
+  // A refused connection has no HTTP status, so the sentence builder every
+  // panel goes through was never reached and `fetch`'s own `TypeError` was
+  // printed instead: "Failed to fetch", in English, in every language.
+  //
+  // Alerts and Tropical are the two whose note is composed around it, so
+  // whatever lands there has to be a sentence that ends: theirs reads
+  // "Showing the last good list. ... Use official warnings for life-safety
+  // decisions." with this in the middle of it.
+  for (const host of [
+    "https://mapservices.weather.noaa.gov/**",
+    "https://api.weather.gov/alerts/**",
+    "https://api.open-meteo.com/**",
+  ]) {
+    await page.route(host, (route) => route.abort("connectionfailed"));
+  }
+  await page.goto("/?testMode=1");
+  await expect(page.getByRole("application")).toBeVisible();
+
+  await page.getByRole("button", { name: "Alerts", exact: true }).click();
+  const alerts = page.getByRole("dialog", { name: "Alerts" });
+  await expect(alerts).toContainText("could not be reached");
+  await expect(alerts).not.toContainText("Failed to fetch");
+  await page.getByRole("button", { name: "Close Alerts" }).click();
+
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page.locator('[data-command="surface:guidance"]').click();
+  const guidance = page.getByRole("dialog", { name: "Guidance" });
+  await expect(guidance).toContainText("could not be reached");
+  await expect(guidance).not.toContainText("Failed to fetch");
+  // And says nothing about when each model last ran, because none answered.
+  await expect(guidance).not.toContainText("did not say when it last ran");
+});
+
 test("moves the map from the keyboard, with no drag anywhere", async ({
   page,
 }) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serviceAnswer } from "./serviceAnswer";
+import { failureSentence, serviceAnswer } from "./serviceAnswer";
 import { recentLog } from "./log";
 
 /**
@@ -38,5 +38,66 @@ describe("what a service's answer means", () => {
       .map((entry) => entry.message)
       .join("\n");
     expect(said).toContain("503");
+  });
+});
+
+/**
+ * What a reader is told when the request never reached a service at all.
+ *
+ * Every fetch here turns a bad status into one of the catalogue's own
+ * sentences before it throws, so a panel could print what it caught. What
+ * nothing covered was the case with no status: a refused connection, a name
+ * that would not resolve, a captive portal, an aeroplane. `fetch` rejects
+ * with a `TypeError` there, and the panels printed its message, which is the
+ * browser engine's words in English whatever language the app is read in.
+ */
+describe("what a reader is told when nothing answered", () => {
+  it("does not repeat the engine's own words", () => {
+    // Chromium's is "Failed to fetch"; WebView2 on another channel differs,
+    // and neither is ever translated.
+    const said = failureSentence(new TypeError("Failed to fetch"));
+    expect(said).toBe("The service could not be reached.");
+    expect(said).not.toContain("Failed to fetch");
+  });
+
+  it("keeps a sentence this app wrote", () => {
+    // A bad status is already turned into a catalogue line by whichever
+    // adapter threw it, so the helper must not paint over one.
+    expect(failureSentence(new Error("The tide service is busy."))).toBe(
+      "The tide service is busy.",
+    );
+  });
+
+  it("has something to say about anything at all", () => {
+    for (const thrown of [null, undefined, "a string", 7, {}, new Error("")]) {
+      expect(failureSentence(thrown), String(thrown)).toBe(
+        "The request failed.",
+      );
+    }
+  });
+
+  it("lets the caller say it in its own words", () => {
+    // A rejection with nothing in it comes from the native bridge rather than
+    // from a service, and each panel has a better sentence for that than any
+    // general one.
+    expect(
+      failureSentence({ code: "nope" }, "The sounding could not be read."),
+    ).toBe("The sounding could not be read.");
+    // But a request that never reached anybody is still described by why,
+    // whatever the caller would rather say.
+    expect(
+      failureSentence(
+        new TypeError("Failed to fetch"),
+        "The sounding could not be read.",
+      ),
+    ).toBe("The service could not be reached.");
+  });
+
+  it("ends every answer as a sentence", () => {
+    // These are printed on their own and after a full stop, unlike the verb
+    // phrases above them, which complete a sentence somebody else started.
+    for (const thrown of [new TypeError("x"), null]) {
+      expect(failureSentence(thrown)).toMatch(/\.$/);
+    }
   });
 });

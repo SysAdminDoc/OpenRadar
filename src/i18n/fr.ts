@@ -597,6 +597,8 @@ export const fr: Catalogue = {
   "service.tooMany": "a reçu trop de demandes",
   "service.refused": "a refusé",
   "service.unexpected": "a répondu d'une manière illisible",
+  "service.unreachable": "Le service n'a pas pu être joint.",
+  "service.failed": "La demande a échoué.",
   "route.routerRefused": "Le calculateur d'itinéraire {answer}.",
   "route.straightOffer": "Utiliser plutôt une ligne droite",
   "route.straightNote":
@@ -1267,6 +1269,7 @@ export const fr: Catalogue = {
     "Aucun ballon près d'ici depuis deux jours. Les lâchers en altitude ont lieu deux fois par jour à une petite centaine de sites, alors un endroit loin de l'un d'eux n'a rien à montrer.",
   "sounding.noneForecast": "Le modèle n'a pas de colonne pour ici.",
   "sounding.failedAny": "Le sondage n'a pas pu être lu.",
+  "sounding.failedTitle": "Le sondage n'a pas pu être lu",
   "sounding.chartLabel": "Diagramme Skew-T log-P pour {place}",
   "sounding.chartNote":
     "Température et point de rosée en fonction de la pression. Les isothermes penchent vers la droite pour que les deux tracés se séparent; les courbes fines derrière eux sont les adiabatiques sèches, les adiabatiques saturées et le rapport de mélange.",

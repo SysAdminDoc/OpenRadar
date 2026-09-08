@@ -1,7 +1,9 @@
 import { ArrowDown, ArrowUp, LoaderCircle, Waves } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
+import { translate } from "../i18n";
 import type { GeoPoint } from "../lib/geo";
+import { failureSentence } from "../lib/serviceAnswer";
 import {
   MAX_STATION_MILES,
   fetchTides,
@@ -13,7 +15,6 @@ import {
   type TideReading,
 } from "../lib/tides";
 import { useT } from "../i18n";
-import { translate } from "../i18n";
 import {
   distanceUnit,
   distanceValue,
@@ -94,9 +95,7 @@ export function TidesPanel({ point, clock, onClose }: TidesPanelProps) {
         setReading(null);
         setTooFar(false);
         setLoading(false);
-        setError(
-          reason instanceof Error ? reason.message : translate("tides.unknown"),
-        );
+        setError(failureSentence(reason, translate("tides.unknown")));
       });
 
     return () => {

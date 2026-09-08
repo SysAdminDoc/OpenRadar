@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { noteReached } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
+import { failureSentence } from "../lib/serviceAnswer";
 import {
   EMPTY_OVERLAY,
   OVERLAY_ADAPTERS,
@@ -242,8 +243,7 @@ export function useOverlays(
           })
           .catch((error: unknown) => {
             if (controller.signal.aborted) return;
-            const message =
-              error instanceof Error ? error.message : "The request failed.";
+            const message = failureSentence(error);
             log.warn("overlay", `${adapter.label} failed: ${message}`);
             // The last good snapshot stays on the map; only the label changes.
             // Unless it answers a different question, in which case there is

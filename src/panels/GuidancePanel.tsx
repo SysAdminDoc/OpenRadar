@@ -2,6 +2,7 @@ import { LoaderCircle, Rows3 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PanelShell } from "../components/PanelShell";
 import type { GeoPoint } from "../lib/geo";
+import { failureSentence } from "../lib/serviceAnswer";
 import {
   GUIDANCE_MODELS,
   disagreement,
@@ -106,11 +107,7 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
               return;
             requestedRef.current = null;
             setLoading(false);
-            setError(
-              reason instanceof Error
-                ? reason.message
-                : translate("guidance.unknown"),
-            );
+            setError(failureSentence(reason, translate("guidance.unknown")));
           });
       },
       first ? 0 : FORECAST_DEBOUNCE_MS,
@@ -221,39 +218,45 @@ export function GuidancePanel({ point, onClose }: GuidancePanelProps) {
       </label>
 
       {/* When each model last ran, which is the difference between two models
-          disagreeing and one of them being twelve hours behind the other. */}
-      <ul role="list" className="model-runs">
-        {GUIDANCE_MODELS.filter((model) => chosen.includes(model.id)).map(
-          (model) => {
-            const run = runs[model.id];
-            if (!run) {
+          disagreeing and one of them being twelve hours behind the other.
+          Left out entirely while there is no answer at all: "GFS did not say
+          when it last ran" describes a model that answered without a date,
+          and after a failed request it was said of all three, none of which
+          had been reached. */}
+      {guidance ? (
+        <ul role="list" className="model-runs">
+          {GUIDANCE_MODELS.filter((model) => chosen.includes(model.id)).map(
+            (model) => {
+              const run = runs[model.id];
+              if (!run) {
+                return (
+                  <li key={model.id}>
+                    {t("guidance.runUnknown", { model: t(model.key) })}
+                  </li>
+                );
+              }
+              const hours = Math.max(
+                0,
+                Math.round((clock - run.initUtc) / 3_600_000),
+              );
               return (
-                <li key={model.id}>
-                  {t("guidance.runUnknown", { model: t(model.key) })}
+                <li key={model.id} data-stale={runIsStale(run, clock)}>
+                  {t("guidance.runAt", {
+                    model: t(model.key),
+                    when: formatClock(new Date(run.initUtc), {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                    }),
+                    hours,
+                  })}
+                  {runIsStale(run, clock) ? ` ${t("guidance.runStale")}` : ""}
                 </li>
               );
-            }
-            const hours = Math.max(
-              0,
-              Math.round((clock - run.initUtc) / 3_600_000),
-            );
-            return (
-              <li key={model.id} data-stale={runIsStale(run, clock)}>
-                {t("guidance.runAt", {
-                  model: t(model.key),
-                  when: formatClock(new Date(run.initUtc), {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                  }),
-                  hours,
-                })}
-                {runIsStale(run, clock) ? ` ${t("guidance.runStale")}` : ""}
-              </li>
-            );
-          },
-        )}
-      </ul>
+            },
+          )}
+        </ul>
+      ) : null}
 
       {loading && !guidance ? (
         <div className="panel-loading">
