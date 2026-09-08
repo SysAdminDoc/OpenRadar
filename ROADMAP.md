@@ -599,16 +599,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P2
 
-- [ ] AUD-395 (P2): A dead branch in the bundle validator, with a comment saying why it is not dead
-      Category: correctness
-      Where: `src-tauri/src/bundles.rs:405-409`, inside `addresses`.
-      Problem: `addresses` calls `validate(request)?` at `:380`, after which tiles are at most `MAX_TILES` (`:393`) and extra URLs at most `MAX_EXTRA_URLS` (`:372`), so `urls.len() > MAX_TILES + MAX_EXTRA_URLS` cannot hold. The comment says "the two are reached by different callers", which is not true: `addresses` is the only entry and it calls `validate` itself. The new test proves the branch is unreachable rather than covering it, because it matches `TooManyDocuments`, which only `validate` produces, while the dead branch returns `TooManyTiles`.
-      Evidence: Deleting `:405-409` on 2026-09-07: `cargo test --lib` 483 passed, 0 failed.
-      Fix: Delete the branch and the comment. If the belt-and-braces check is wanted, make it a `debug_assert!` so it says it is an invariant rather than a code path.
-      Acceptance: `cargo test --lib` green with the branch gone; `cargo clippy --all-targets` clean.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-396 (P2): A corrupt KMZ still reports the browser engine's empty error
       Category: correctness
       Where: `src/lib/kmz.ts:79-115` (`inflate`), surfaced by `src/hooks/useWorkspaceActions.ts:388`.
