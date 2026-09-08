@@ -192,6 +192,35 @@ describe("the split between the adapters and the table", () => {
     }
   });
 
+  /**
+   * Which of the two attributions a reader ever sees.
+   *
+   * `LAYER_SOURCES.weatherAlerts.attribution` is not it. The loop that reads
+   * the table skips every adapter-backed switch, so the credit in the ledger,
+   * in the map's own attribution control and burned into an exported picture
+   * all come from the adapter. Naming the Canadian and German offices in the
+   * table alone left all three of those still crediting the warnings to the
+   * American service, which is the obligation missed from the other side: the
+   * Canadian licence requires that office be named.
+   *
+   * Asserted on the record the app builds rather than on the constant, so a
+   * later change to which field the record takes its credit from fails here
+   * instead of quietly going back to one office.
+   */
+  it("credits every office the warnings layer draws, on the path a reader sees", () => {
+    const adapter = OVERLAY_ADAPTERS.find((one) => one.id === "alerts");
+    expect(adapter).toBeDefined();
+    const record = overlayProvenance({
+      adapter: adapter!,
+      fetchedAt: FETCHED_AT,
+      kind: LAYER_SOURCES.weatherAlerts.kind,
+    });
+    for (const office of ["NWS", "ECCC", "DWD"]) {
+      expect(record.attribution, office).toContain(office);
+    }
+    expect(provenanceProblems(record)).toEqual([]);
+  });
+
   it("gives every layer a source id of its own", () => {
     const ids = Object.values(LAYER_SOURCES).map((source) => source.sourceId);
     expect(new Set(ids).size).toBe(ids.length);

@@ -30,7 +30,12 @@ const feed = {
         EC_AREA_COLOR: "255 235 59",
         NAME: "Gemeinde Neufeld",
         AREADESC: "Neufeld",
-        SENDERNAME: "Deutscher Wetterdienst",
+        // What the live feed actually sends, rather than the agency's
+        // name on its own. With the tidy version in here the credit
+        // assertion below passed on the fixture's own wording and would
+        // have passed just as well with the office read from the wrong
+        // field.
+        SENDERNAME: "DWD / Nationales Warnzentrum Offenbach",
         WEB: "https://dwd.de/warnungen",
         ONSET: "2026-09-02T18:00:00Z",
         EXPIRES: "2026-09-02T23:00:00Z",
@@ -109,7 +114,9 @@ describe("German warnings", () => {
     expect(storm.properties.severity).toBe("severe");
     expect(wind.properties.kind).toBe("thunderstorm");
     expect(wind.properties.area).toBe("Gemeinde Neufeld");
-    expect(wind.properties.office).toBe("Deutscher Wetterdienst");
+    expect(wind.properties.office).toBe(
+      "DWD / Nationales Warnzentrum Offenbach",
+    );
     // The office's own text, in German, unaltered.
     expect(wind.properties.description).toContain("Windböen mit");
     expect(wind.properties.instruction).toContain("umherfliegende");
@@ -160,7 +167,12 @@ describe("whose warning a popup says it is", () => {
     const [german] = parseDwdWarnings(feed);
     const said = alertsOverlay.describe(german.properties);
     const source = said!.lines.at(-1)!;
-    expect(source).toContain("Deutscher Wetterdienst");
+    // The office the feature carries, whatever it is called, and not the
+    // American heading every popup used to end with.
+    expect(source).toContain(String(german.properties.office));
     expect(source).not.toContain("NWS");
+    // And the office really is the German one, so the line above is not
+    // satisfied by an empty string.
+    expect(String(german.properties.office)).toContain("DWD");
   });
 });
