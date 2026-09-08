@@ -3,6 +3,8 @@ import { ensureLanguage, setLanguage, translate } from "./index";
 import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
+import { hailLine } from "../lib/overlays/alerts";
+import { setUnits } from "../lib/units";
 
 /**
  * "1 warnings" is the sort of thing that makes careful writing look generated.
@@ -105,6 +107,49 @@ describe("counting things in the reader's own language", () => {
     // Which is the shape of the mistake: the words are right and the number
     // is simply gone. Pass the raw number.
     expect(translate("journal.count", { count: 1024 })).toBe("1,024 rows");
+  });
+
+  it("writes a fractional count the reader's way, in every plural block", async () => {
+    // The hail size in a warning popup was the one plural in the three
+    // catalogues that named its value as `{size}` rather than `#`. The block
+    // chose the arm on the number and then `translate` filled the name in with
+    // `String(...)`, so a 1.75 inch tag read "1.75 pulgadas de granizo" in a
+    // catalogue that writes every other number "1,75". This holds all of them
+    // rather than that one, because the mistake is invisible until a value
+    // with a decimal point goes through.
+    for (const [language, copy] of [
+      ["en", en],
+      ["es", es],
+      ["fr", fr],
+    ] as const) {
+      await ensureLanguage(language);
+      setLanguage(language);
+      for (const [key, value] of Object.entries(copy)) {
+        const block = /\{(\w+), plural,/.exec(value);
+        if (!block) continue;
+        expect(
+          value.slice(block.index).includes(`{${block[1]}}`),
+          `${language} ${key} names its own count inside an arm rather than using #`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("writes a hail size in the reader's notation and units", async () => {
+    await ensureLanguage("fr");
+    setLanguage("fr");
+    setUnits("imperial");
+    // French counts 1.75 as singular, which is the point of asking the
+    // catalogue rather than the value: `i = 1` picks the `one` arm and the
+    // noun stays singular after a decimal.
+    expect(hailLine(1.75)).toBe("1,75 pouce de grêle");
+    expect(hailLine(2.5)).toBe("2,5 pouces de grêle");
+    expect(hailLine(1)).toBe("1 pouce de grêle");
+    // And the one measurement in a warning popup follows the units setting
+    // like every other measurement in the app.
+    setUnits("metric");
+    expect(hailLine(1.75)).toBe("4,4 cm de grêle");
+    setUnits("imperial");
   });
 
   it("gives every plural block an other arm, in every language", () => {

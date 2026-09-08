@@ -59,7 +59,7 @@ export const en = {
     "That grid is packed a way this build does not read.",
   "dataExport.error.gridNotDrawn": "The grid could not be drawn.",
   "dataExport.error.unknown": "The export could not be written.",
-  "dataExport.error.gridHttpStatus": "The grid could not be fetched. {0}",
+  "dataExport.error.gridHttpStatus": "The grid service {0}.",
   "dataExport.error.gridHttpUnreachable":
     "The grid could not be fetched. Check that this machine is online.",
   "dataExport.error.gridHttpRefused":
@@ -185,8 +185,8 @@ export const en = {
   "alerts.severity.minor": "Minor",
   "alerts.impactLine": "The office tagged this one {tag}.",
   "alerts.impactBadge": "{tag}",
-  "alerts.hailTo":
-    "{size, plural, one {{size} inch} other {{size} inches}} of hail",
+  "alerts.hailTo": "{size, plural, one {# inch} other {# inches}} of hail",
+  "alerts.hailToCm": "{size} cm of hail",
   "alerts.noneTitle": "No active warnings in view",
   "alerts.noneBody":
     "Pan the map or zoom out to check a wider area. Alerts refresh every minute.",
@@ -282,7 +282,7 @@ export const en = {
   "packs.error.failed":
     "Something went wrong on this machine and the download stopped. The Diagnostics panel has the details.",
   "packs.error.pausedOnExit": "The download paused when OpenRadar closed.",
-  "packs.error.httpStatus": "The tile server could not be reached. {0}",
+  "packs.error.httpStatus": "The tile server {0}.",
   "packs.error.httpUnreachable":
     "The tile server could not be reached. Check that this machine is online.",
   "packs.error.httpRefused":
@@ -784,14 +784,14 @@ export const en = {
   "radar.error.localTooLarge": "The selected file is larger than 128 MB.",
   "radar.error.outOfRange":
     "Both ends of a cross-section have to be within range of {0}.",
-  "radar.error.httpStatus": "The radar archive could not be reached. {0}",
+  "radar.error.httpStatus": "The radar archive {0}.",
   "radar.error.httpUnreachable":
     "The radar archive could not be reached. Check that this machine is online.",
   "radar.error.httpRefused":
     "OpenRadar would not fetch that: the address is not one it is allowed to reach.",
   "radar.error.httpTooLarge":
     "The radar archive sent more than OpenRadar will read in one go.",
-  "bundle.error.httpStatus": "The replay could not be fetched. {0}",
+  "bundle.error.httpStatus": "The replay service {0}.",
   "bundle.error.httpUnreachable":
     "The replay could not be fetched. Check that this machine is online.",
   "bundle.error.httpRefused":
