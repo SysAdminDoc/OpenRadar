@@ -139,12 +139,12 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
   it("does not say who the reader is", () => {
     // Every profile path on every platform carries the account name.
     expect(
-      blurUserPaths("failed to open C:\\Users\\matthew\\AppData\\cache\\a.png"),
+      blurUserPaths("failed to open C:\\Users\\jdoe\\AppData\\cache\\a.png"),
     ).toBe("failed to open <home>\\AppData\\cache\\a.png");
-    expect(blurUserPaths("read /Users/matthew/Library/Caches/a.png")).toBe(
+    expect(blurUserPaths("read /Users/jdoe/Library/Caches/a.png")).toBe(
       "read <home>/Library/Caches/a.png",
     );
-    expect(blurUserPaths("read /home/matthew/.cache/a.png")).toBe(
+    expect(blurUserPaths("read /home/jdoe/.cache/a.png")).toBe(
       "read <home>/.cache/a.png",
     );
   });
@@ -176,7 +176,7 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
           level: "warn",
           scope: "radar",
           message:
-            "no tile for 41.7123,-93.7456 from C:\\Users\\matthew\\AppData\\Local\\tiles",
+            "no tile for 41.7123,-93.7456 from C:\\Users\\jdoe\\AppData\\Local\\tiles",
         },
       ],
     });
@@ -185,7 +185,7 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
     expect(block).toContain("ANGLE (NVIDIA)");
     expect(block).toContain("mrms");
     // And nothing that identifies the reader or their address.
-    expect(block).not.toContain("matthew");
+    expect(block).not.toContain("jdoe");
     expect(block).not.toContain("41.7123");
     expect(block).not.toContain("-93.7456");
     expect(block).toContain("41.7,-93.7");
@@ -219,16 +219,16 @@ describe("the diagnostics block somebody pastes into a bug report", () => {
 
   it("does not say who the reader is, however the path is written", () => {
     // Four ways a profile path names somebody that the first pass missed.
-    expect(blurUserPaths("open D:\\Profiles\\matthew\\radar.pal")).toBe(
+    expect(blurUserPaths("open D:\\Profiles\\jdoe\\radar.pal")).toBe(
       "open <home>\\radar.pal",
     );
     expect(
-      blurUserPaths("read \\\\fileserver\\users\\matthew.p\\NWSREF.pal"),
+      blurUserPaths("read \\\\fileserver\\users\\jdoe.p\\NWSREF.pal"),
     ).toBe("read <home>\\NWSREF.pal");
-    expect(blurUserPaths("fetch https://matthew@example.com/x failed")).toBe(
+    expect(blurUserPaths("fetch https://jdoe@example.com/x failed")).toBe(
       "fetch https://<user>@example.com/x failed",
     );
-    expect(blurUserPaths("open C:\\Users\\MATTHE~1\\radar.pal")).toBe(
+    expect(blurUserPaths("open C:\\Users\\JANEDO~1\\radar.pal")).toBe(
       "open <home>\\radar.pal",
     );
     // A name with a space in it. Stopping at the space left the surname
