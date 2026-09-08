@@ -11,6 +11,7 @@
  * models and not a smoothing of them.
  */
 import { cachedUrl } from "./tileCache";
+import { log } from "./log";
 import { serviceAnswer } from "./serviceAnswer";
 import { translate, type StringKey } from "../i18n";
 import type { GeoPoint } from "./geo";
@@ -71,6 +72,53 @@ export function variableUnit(variable: GuidanceVariable): string {
   }
 }
 
+/**
+ * The token the service answers with for each system a request can ask for.
+ *
+ * The request carries `temperature_unit`, `wind_speed_unit` and
+ * `precipitation_unit`, and the reply carries a token per column. Nothing held
+ * the two together: a reply that ignored the parameter would put every number
+ * a conversion away from the label beside it, and since `variableUnit` takes
+ * that label from this app's own vocabulary rather than from the reply,
+ * nothing downstream could notice. Thirty degrees Celsius under a label
+ * reading °F is a hot day drawn as a lethal one.
+ *
+ * Written out rather than derived, because these are the service's spellings
+ * and not this app's: it writes miles an hour as `mp/h` and inches as `inch`,
+ * neither of which appears anywhere else in the tree.
+ */
+const ANSWERS_WITH: Record<string, string> = {
+  celsius: "°C",
+  fahrenheit: "°F",
+  kmh: "km/h",
+  mph: "mp/h",
+  mm: "mm",
+  inch: "inch",
+};
+
+/** Which request parameter settles a variable's unit. */
+const ASKED_FOR: Record<GuidanceVariable, string> = {
+  temperature_2m: "temperature_unit",
+  precipitation: "precipitation_unit",
+  wind_speed_10m: "wind_speed_unit",
+};
+
+/**
+ * The token a reply should carry for a variable, given what was asked for.
+ *
+ * Null where the app asked for something this does not know a spelling for,
+ * which is a reason to say nothing rather than to report a service that may
+ * be perfectly correct.
+ */
+export function expectedUnitToken(
+  variable: GuidanceVariable,
+  asked: Record<string, string> = forecastUnits(),
+): string | null {
+  const parameter = ASKED_FOR[variable];
+  const wanted = parameter ? asked[parameter] : undefined;
+  return (wanted && ANSWERS_WITH[wanted]) ?? null;
+}
+
 export interface GuidanceHour {
   /** Milliseconds, UTC, which is what the whole app times things in. */
   time: number;
@@ -96,10 +144,9 @@ export interface GuidanceReading {
    * put the numbers a conversion away from their labels, and nothing else in
    * the tree could notice.
    *
-   * Nothing holds it to `forecastUnits()` today. The live test that reads it
-   * asserts a fixed "°C" beside a `setUnits("metric")` in its own setup, and
-   * it only runs under `OPENRADAR_LIVE`, so the coupling is two constants
-   * that happen to agree rather than a check. Writing that check is `AUD-436`.
+   * Held to `forecastUnits()` as the reply is read: a token that is not the
+   * one the request asked for is reported. `expectedUnitToken` knows the
+   * service's own spellings, which are not this app's.
    */
   unit: string;
   hours: GuidanceHour[];
@@ -298,14 +345,29 @@ export function parseGuidance(
       hours.push(hour);
     }
 
+    const answered =
+      typeof units[`${variable}_${models[0]}`] === "string"
+        ? String(units[`${variable}_${models[0]}`])
+        : typeof units[variable] === "string"
+          ? String(units[variable])
+          : "";
+    // A reply in the other system is not something the panel can see. The
+    // numbers come back in whatever the service used and the label beside them
+    // comes from this app's own vocabulary, so thirty degrees Celsius would be
+    // drawn under °F with nothing anywhere saying so. Said once per column
+    // rather than swallowed, because the alternative is a panel confidently
+    // wrong by a conversion.
+    const wanted = expectedUnitToken(variable);
+    if (answered && wanted && answered !== wanted) {
+      log.warn(
+        "guidance",
+        `${variable} came back in ${answered} where the request asked for ${wanted}`,
+      );
+    }
+
     readings.push({
       variable,
-      unit:
-        typeof units[`${variable}_${models[0]}`] === "string"
-          ? String(units[`${variable}_${models[0]}`])
-          : typeof units[variable] === "string"
-            ? String(units[variable])
-            : "",
+      unit: answered,
       hours,
       spread,
     });
