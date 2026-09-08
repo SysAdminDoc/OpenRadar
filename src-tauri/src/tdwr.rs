@@ -452,6 +452,8 @@ pub async fn sweep(
             south,
             east,
             north,
+            site_lon: f64::from(site.longitude),
+            site_lat: f64::from(site.latitude),
             image: level2::data_url(&png),
             volume: key,
             source: SweepSource {

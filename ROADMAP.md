@@ -354,16 +354,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P2
 
-- [ ] AUD-339 (P2): Draw the single-site sweep at the zoom the reader is at
-      Why: The sweep is rendered once in Rust as a 1,024 pixel Mercator raster over a 460 km disc, 449 m per pixel against 250 m super-resolution gates, and placed on the map as one image source that MapLibre stretches. At zoom 12 (about 29 m per screen pixel at 40 degrees) one raster pixel covers fifteen screen pixels, so a reader zoomed in on a couplet is looking at the raster's grid, not the radar's. The national grids had exactly this defect until 2026-09-05, when `a9407d4` rendered them per zoom through the `mrms` scheme; the sweep can take the same road.
-      Evidence: `src-tauri/src/level2/mod.rs:50` (`IMAGE_SIZE = 1024`), `:52` (`MAX_RANGE_KM = 230.0`); `src-tauri/src/level2/render.rs:23-70`; `src/components/MapViewport.tsx:1693` (`type: "image"`); https://maplibre.org/maplibre-gl-js/docs/API/classes/ImageSource/ ; commit `a9407d4`; https://github.com/wesleygrimes/omastorm (gates drawn as glyphs, 2026-09-04).
-      Touches: `src-tauri/src/level2/render.rs` and `commands.rs` (a per-tile render that samples the polar field for a Web Mercator tile at any zoom, reusing `geo_to_polar`), a `sweep` URI scheme beside `mrms` in `src-tauri/src/lib.rs` and `tauri.conf.json` (`src/lib/csp.test.ts` holds the policy to what is registered), `src/hooks/useSingleSiteRadar.ts` and `MapViewport.tsx` (a raster tile source in place of the image source), the smoothing switch, the readout, and the export, which keep reading the gate.
-      Acceptance: At zoom 12 over a storm the gate wedges are drawn as wedges rather than as blocks; a Playwright test renders the fixture volume at zooms 8 and 12 and finds edges at different pixel spacings; the readout, the cross-section and the CSV still read the nearest gate; the compare pane and the loop stay in step.
-      Reconnaissance, 2026-09-08 (no code kept; the tree is unchanged): the rendering half is small and the plumbing half is not. `render_sweep` in `src-tauri/src/level2/render.rs` already walks its own pixels and asks `geo_to_polar` where each falls, so lifting the box and the output size out of it into a shared painter and adding a `render_tile(zoom, x, y)` beside it is about 140 lines, with the tile extent and the miss test copied from `mrms::tile_pixels:2471-2489` and `mercator_y` confirmed to run north-positive over plus or minus pi. That much was written and compiled clean, then reverted rather than committed, because nothing calls it: an endpoint no user path reaches is worse than none. What makes this an L is everything between that function and a reader. `level2_sweep` decodes, unfolds, composites persistence and renders in one pass and hands back a whole `SweepImage`, so tiles need the decoded *field* cached under an address the page can put in a tile URL, keyed by station, volume key, product, tilt, dealias, motion, threshold and whether the live chunk stream was folded in. Persistence is the awkward one: it fades the finished sweep behind the one being made, which is a whole-image operation today and per tile becomes two fields composited at every address. Then the `sweep` scheme, the CSP entry `src/lib/csp.test.ts` holds, and the front end, where `MapViewport.tsx:1442` draws through `syncImageLane` and the loop and the compare pane both swap `SweepImage.image` between held frames; a raster tile source refetches on a URL change, so the loop needs whatever `mrms` does to stay smooth. Split it before starting: the field cache and its address are the item that unblocks the rest, and nothing above it is worth writing first.
-      Complexity: L
-
-### P2
-
 ### P3
 
 - [ ] AUD-386 (P3): The unfolding generator never builds the shapes the reference pass acts on
@@ -651,6 +641,14 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
   Touches: `e2e/support/fixtures.ts` (a routed TDWR sweep, the way the Level II fixtures are routed), `e2e/language.spec.ts` (hold the site so the sweep line and the chrome eyebrow are in the pseudolocale sweep), and `src/i18n/numbers.test.ts` if the template assertion should move to where the rendering one is.
   Acceptance: Both strings are rendered at 1440 and 1024 in the pseudolocale and in French, and clip nowhere; planting a fifty-character unit fails the sweep.
   Complexity: S
+
+- [ ] AUD-438 (P3): The loop and the compare pane still draw the whole disc
+      Why: `AUD-339` gave the live sweep a box: past about zoom ten it is drawn over less ground so a reader zoomed in on a couplet sees the radar's gates rather than this app's sampling. The two paths that hold frames were deliberately left on the whole disc, because they place their pictures against each other and a frame over less ground than the one beside it is a picture that jumps as it plays. So a reader who zooms in, then scrubs back or opens the compare pane, watches the picture drop to 449 metres a pixel and come back again.
+      Evidence: `src-tauri/src/level2/commands.rs` (`level2_archive_sweep` and `level2_local_sweep` pass `None` for the box, with the reason written beside it); `src/hooks/useSingleSiteRadar.ts` (`within` is used only by the live effect; the scrubbed path calls `fetchArchiveSweep`, which has no box); `loopKey` does not carry the box, so frames cached at one box would be served at another.
+      Touches: `src/lib/level2.ts` (`fetchArchiveSweep` takes the box), `src-tauri/src/level2/commands.rs` (the archive and local paths pass it through the way the live one does), `src/hooks/useSingleSiteRadar.ts` (`loopKey` carries the box, so a frame drawn over one is never served for another, and the held map is bounded per box rather than growing one set of frames per zoom the reader passes through).
+      Acceptance: WHEN the reader is zoomed past the point where the live sweep takes a box, THEN scrubbing back and opening the compare pane both draw over the same ground as the live sweep; a frame held for one box is not served for another; the held map does not grow without bound as the reader zooms through several boxes; `npm run check` and the level2 spec green.
+      Complexity: M
+
 
 ### Notes on existing items
 

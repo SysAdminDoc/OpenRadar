@@ -32,16 +32,37 @@ pub fn render_sweep(
     // inspector, the export and the cross section all deliberately keep
     // taking the nearest gate whatever this says.
     smooth: bool,
+    // The ground to draw over, or the whole disc when nothing is asked for.
+    //
+    // The picture is one raster of a fixed size, so the only way to give a
+    // reader zoomed in on a couplet more than the 449 metres a pixel the whole
+    // disc affords is to spend the same pixels on less ground. Clipped to the
+    // disc, because a box outside it is pixels spent on nothing.
+    within: Option<[f64; 4]>,
 ) -> (Vec<u8>, [f64; 4]) {
     // A loaded colour table replaces the built-in ramp for the product it says
     // it is for, and nothing else. That is the whole point of loading one: two
     // people comparing the same storm see the same colours.
     let table = palette::for_unit(unit);
     let extent = coordinates.sweep_extent(MAX_RANGE_KM);
-    let west = extent.min.longitude;
-    let east = extent.max.longitude;
-    let south = extent.min.latitude;
-    let north = extent.max.latitude;
+    let mut west = extent.min.longitude;
+    let mut east = extent.max.longitude;
+    let mut south = extent.min.latitude;
+    let mut north = extent.max.latitude;
+    if let Some([asked_west, asked_south, asked_east, asked_north]) = within {
+        let clipped_west = west.max(asked_west);
+        let clipped_east = east.min(asked_east);
+        let clipped_south = south.max(asked_south);
+        let clipped_north = north.min(asked_north);
+        // A box that misses the disc, or has no area once clipped, leaves the
+        // whole disc drawn: an empty picture is worse than a coarse one.
+        if clipped_east > clipped_west && clipped_north > clipped_south {
+            west = clipped_west;
+            east = clipped_east;
+            south = clipped_south;
+            north = clipped_north;
+        }
+    }
 
     let top = mercator_y(north);
     let bottom = mercator_y(south);

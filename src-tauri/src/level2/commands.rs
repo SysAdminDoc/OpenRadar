@@ -24,6 +24,8 @@ pub(crate) fn requested_sweep<'a>(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     look: Look,
+    // The ground to draw over, when the page has asked for less than the disc.
+    within: Option<[f64; 4]>,
 ) -> SweepRequest<'a> {
     let manual_motion = motion.map(|(speed, from_degrees)| {
         // A wind named by where it comes from, turned back into the components
@@ -44,6 +46,7 @@ pub(crate) fn requested_sweep<'a>(
         persistence: look.persistence,
         reduced_motion: look.reduced_motion,
         smooth: look.smooth,
+        within,
     }
 }
 
@@ -83,6 +86,15 @@ pub async fn level2_sweep(
     // only: the number the inspector answers with and the numbers an export
     // writes are the gates themselves either way.
     smooth: bool,
+    // The ground to draw over, west, south, east and north, or nothing for
+    // the whole disc.
+    //
+    // The page works this out from the zoom it is at and the disc the last
+    // sweep came back with, because one raster over the site's whole reach is
+    // 449 metres a pixel against gates a quarter of a kilometre long: past
+    // about zoom ten a reader is looking at this app's sampling rather than
+    // at the radar. What comes back carries its own corners either way.
+    within: Option<[f64; 4]>,
 ) -> Result<SweepImage, Level2Error> {
     let station = station.to_uppercase();
     // An airport's own radar is read from its Level III products; nothing
@@ -124,6 +136,7 @@ pub async fn level2_sweep(
                 reduced_motion,
                 smooth,
             },
+            within,
         );
         match live {
             Some(found) => {
@@ -259,6 +272,10 @@ pub async fn level2_archive_sweep(
                 high_contrast,
                 ..Look::default()
             },
+            // The whole disc. The loop and the compare pane hold frames that
+            // are placed against each other, and a frame drawn over less
+            // ground than the one beside it is a picture that jumps.
+            None,
         );
         let mut sweep = sweep_from_volume(&station, &key, data, asked)?;
         sweep.source = SweepSource {
@@ -297,6 +314,10 @@ pub async fn level2_local_sweep(
                 high_contrast,
                 ..Look::default()
             },
+            // The whole disc. The loop and the compare pane hold frames that
+            // are placed against each other, and a frame drawn over less
+            // ground than the one beside it is a picture that jumps.
+            None,
         );
         let mut sweep = sweep_from_volume(&local.station, &local.key, local.data, asked)?;
         sweep.source = SweepSource {

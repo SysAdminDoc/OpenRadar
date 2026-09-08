@@ -110,6 +110,7 @@ fn decodes_and_draws_a_live_kdmx_volume() {
             high_contrast: false,
         },
         false,
+        None,
     );
     let painted = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
     let total = IMAGE_SIZE * IMAGE_SIZE;

@@ -29,6 +29,16 @@ pub struct SweepRequest<'a> {
     /// nearest one. The picture only; the numbers a reader inspects and the
     /// numbers an export writes are the gates themselves either way.
     pub smooth: bool,
+    /// The ground to draw over, west, south, east and north, or the whole
+    /// disc when nothing is asked for.
+    ///
+    /// One raster of a fixed size over the site's whole reach is 449 metres a
+    /// pixel against gates a quarter of a kilometre long, so a reader zoomed
+    /// in past that is looking at this app's sampling rather than at the
+    /// radar. Spending the same pixels on less ground is the only answer a
+    /// single image has. What comes back carries its own corners, so nothing
+    /// downstream needs to know which was asked for.
+    pub within: Option<[f64; 4]>,
 }
 
 pub fn sweep_from_volume(
@@ -134,7 +144,7 @@ pub(crate) fn export_request<'a>(
     // export of the readings is not drawn.
     // Values rather than a picture, so neither the threshold nor any of the
     // drawing options apply.
-    requested_sweep(product, tilt, dealias, motion, None, Look::default())
+    requested_sweep(product, tilt, dealias, motion, None, Look::default(), None)
 }
 
 /// The same, from a scan that has already been put together.
@@ -207,6 +217,7 @@ pub(crate) fn prepare_sweep(
         persistence: _,
         reduced_motion: _,
         smooth: _,
+        within: _,
     } = asked;
     let (product, label, unit) = product_from_name(product_name)
         .ok_or_else(|| Level2Error::NoSweep(station.to_string(), product_name.to_string()))?;
@@ -328,6 +339,7 @@ pub(crate) fn draw_sweep(
             high_contrast: asked.high_contrast,
         },
         asked.smooth,
+        asked.within,
     );
 
     let mut beneath_collected = None;
@@ -345,6 +357,9 @@ pub(crate) fn draw_sweep(
                 high_contrast: asked.high_contrast,
             },
             asked.smooth,
+            // The same ground as the sweep above it, which is what lets the
+            // two composite pixel for pixel.
+            asked.within,
         );
         // The older cut's own time, which is what the legend says the oldest
         // thing on screen is. Without it a composite reports only the age of
@@ -420,6 +435,8 @@ pub(crate) fn draw_sweep(
         south,
         east,
         north,
+        site_lon: f64::from(site.longitude()),
+        site_lat: f64::from(site.latitude()),
         image: data_url(&png_bytes),
         volume: volume_key.to_string(),
         source: SweepSource {

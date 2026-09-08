@@ -24,6 +24,11 @@ async function fakeNativeSide(page: Page) {
         tilt: number,
         dealias: boolean,
         motion: [number, number] | null,
+        // The ground the page asked to be drawn over, or the whole disc. The
+        // real renderer clips it to the disc and answers with what it drew,
+        // and the map places the picture on those corners, so a stub that
+        // ignored it would test a different app.
+        within: [number, number, number, number] | null = null,
       ) => {
         const products: Record<string, [string, string]> = {
           reflectivity: ["Reflectivity", "dBZ"],
@@ -58,10 +63,12 @@ async function fakeNativeSide(page: Page) {
           tilts,
           tiltIndex: tilt,
           collected: new Date().toISOString(),
-          west: -96.5,
-          south: 39.6,
-          east: -91.0,
-          north: 43.8,
+          west: within ? Math.max(-96.5, within[0]) : -96.5,
+          south: within ? Math.max(39.6, within[1]) : 39.6,
+          east: within ? Math.min(-91.0, within[2]) : -91.0,
+          north: within ? Math.min(43.8, within[3]) : 43.8,
+          siteLon: -93.75,
+          siteLat: 41.7,
           image: png,
           volume: "2026/08/30/KDMX/KDMX20260830_092159_V06",
           source: {
@@ -457,6 +464,8 @@ async function fakeNativeSide(page: Page) {
                 Number(args.tilt),
                 Boolean(args.dealias),
                 (args.motion as [number, number] | null) ?? null,
+                (args.within as [number, number, number, number] | null) ??
+                  null,
               ),
             );
           }
@@ -580,6 +589,66 @@ async function open(page: Page, zoom: number) {
     page.getByRole("application", { name: "Interactive weather map" }),
   ).toBeVisible();
 }
+
+test("spends the sweep's pixels on less ground as the reader goes in", async ({
+  page,
+}) => {
+  // The sweep is one raster over the site's whole reach: 1,024 pixels over 460
+  // kilometres is 449 metres a pixel against gates a quarter of a kilometre
+  // long, so a reader zoomed in on a couplet was looking at this app's
+  // sampling and not at the radar. The same pixels over less ground is what a
+  // single image can do about it.
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+
+  const boxes = async () =>
+    await page.evaluate(() =>
+      (
+        window as unknown as {
+          __sweepCalls: Array<{
+            command: string;
+            args: Record<string, unknown>;
+          }>;
+        }
+      ).__sweepCalls
+        .filter((call) => call.command === "level2_sweep")
+        .map((call) => call.args.within as number[] | null),
+    );
+
+  // At the zoom the single-site view opens at, a screen pixel is coarser than
+  // the raster and there is nothing to gain: the whole disc is asked for.
+  expect((await boxes()).at(-1) ?? null).toBeNull();
+
+  // Two zooms in, and the app asks for a box instead.
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect.poll(async () => (await boxes()).at(-1) ?? null).not.toBeNull();
+
+  const closer = (await boxes()).at(-1)!;
+  expect(closer).toHaveLength(4);
+  // Inside the disc the whole-disc call came back with, and smaller than it.
+  expect(closer[0]).toBeGreaterThanOrEqual(-96.5);
+  expect(closer[2]).toBeLessThanOrEqual(-91.0);
+  expect(closer[2] - closer[0]).toBeLessThan((-91.0 - -96.5) / 2);
+
+  // And in again asks for less ground still, which is the whole claim: the
+  // picture gets finer as the reader goes in rather than staying the grid it
+  // was drawn on.
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const box = (await boxes()).at(-1);
+      return box ? box[2] - box[0] : null;
+    })
+    .toBeLessThan(closer[2] - closer[0]);
+
+  // The map is given the ground that came back, not the disc: the picture is
+  // placed where it was drawn.
+  const pane = page.getByRole("application", {
+    name: "Interactive weather map",
+  });
+  await expect(pane).toHaveAttribute("data-layer-stack", /sweep-layer/);
+});
 
 test("hands a close-in view over to the nearest site and back again", async ({
   page,

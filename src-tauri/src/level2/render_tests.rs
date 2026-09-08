@@ -106,6 +106,7 @@ fn smoothing_never_paints_where_the_radar_read_nothing() {
                 high_contrast: false,
             },
             smooth,
+            None,
         );
         pixels
             .chunks_exact(4)
@@ -190,6 +191,7 @@ fn the_smoothed_picture_is_the_one_that_was_pinned() {
             high_contrast: false,
         },
         true,
+        None,
     );
     let (plain, _) = render_sweep(
         &field,
@@ -202,6 +204,7 @@ fn the_smoothed_picture_is_the_one_that_was_pinned() {
             high_contrast: false,
         },
         false,
+        None,
     );
     // It is a different picture from the unsmoothed one, or the switch
     // does nothing.
@@ -249,6 +252,7 @@ fn the_threshold_reaches_the_picture_that_is_drawn() {
                 high_contrast: false,
             },
             false,
+            None,
         );
         pixels.chunks_exact(4).filter(|p| p[3] > 0).count()
     };
@@ -450,4 +454,67 @@ fn a_gate_under_the_table_s_floor_is_left_clear() {
         ),
         None
     );
+}
+
+#[test]
+fn drawing_over_less_ground_spends_the_same_pixels_on_more_of_the_radar() {
+    // The whole point of the box. The picture is one raster of a fixed size,
+    // so a reader zoomed in on a couplet gets more than the 449 metres a pixel
+    // the whole disc affords in exactly one way: the same pixels over less
+    // ground. What comes back has to say which ground it was.
+    let (field, coordinates) = stepped_field(Product::Reflectivity);
+    let paint = |within: Option<[f64; 4]>| {
+        render_sweep(
+            &field,
+            &coordinates,
+            Product::Reflectivity,
+            "dBZ",
+            Shading {
+                unfolded: false,
+                threshold: None,
+                high_contrast: false,
+            },
+            false,
+            within,
+        )
+    };
+
+    let (whole, [west, south, east, north]) = paint(None);
+    let wide = east - west;
+    let tall = north - south;
+    // A quarter of the disc, centred on it.
+    let quarter = [
+        west + wide * 0.375,
+        south + tall * 0.375,
+        west + wide * 0.625,
+        south + tall * 0.625,
+    ];
+    let (closer, box_asked) = paint(Some(quarter));
+
+    // The same number of pixels over a quarter of the width, which is four
+    // times the ground per pixel in each direction.
+    assert_eq!(whole.len(), closer.len());
+    assert!(
+        (box_asked[2] - box_asked[0] - wide * 0.25).abs() < 1e-9,
+        "the box came back {} wide against the {} asked for",
+        box_asked[2] - box_asked[0],
+        wide * 0.25
+    );
+    assert!(box_asked[0] > west && box_asked[2] < east);
+
+    // And it is a different picture, not the same one relabelled: a raster
+    // over a quarter of the ground paints the middle of the sweep where the
+    // whole-disc one paints its edge.
+    assert_ne!(whole, closer);
+
+    // A box that misses the disc entirely leaves the whole disc drawn, because
+    // an empty picture is worse than a coarse one.
+    let elsewhere = paint(Some([west - 10.0, south - 10.0, west - 9.0, south - 9.0]));
+    assert_eq!(elsewhere.1, [west, south, east, north]);
+    assert_eq!(elsewhere.0, whole);
+
+    // And one larger than the disc is clipped to it rather than painting
+    // pixels on ground the radar cannot see.
+    let generous = paint(Some([west - 10.0, south - 10.0, east + 10.0, north + 10.0]));
+    assert_eq!(generous.1, [west, south, east, north]);
 }
