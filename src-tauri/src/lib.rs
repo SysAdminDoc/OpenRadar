@@ -1,3 +1,10 @@
+// Under the fuzzing feature `run()` is compiled out, and with it everything
+// only `run()` reaches: 914 warnings on the last count, 479 of them functions
+// and 256 constants, none of them a defect. The check exists to catch the
+// facade breaking, and it cannot do that while a genuinely new warning is one
+// line in nine hundred.
+#![cfg_attr(feature = "fuzzing", allow(dead_code))]
+
 // The network boundary every Rust-side fetch goes through.
 mod http;
 
@@ -64,7 +71,13 @@ pub mod fuzzing {
     pub use crate::mrms::decode_grib;
 }
 
+// Only `run()` reaches these, and `run()` is compiled out under the fuzzing
+// feature. Gated with the same condition rather than allowed away, so that an
+// import nothing uses still warns in that build: the whole point of keeping
+// the fuzz check quiet is that a new warning in it is the whole output.
+#[cfg(not(feature = "fuzzing"))]
 use tauri::Manager;
+#[cfg(not(feature = "fuzzing"))]
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 /// What a scheme answers when the response itself will not build.
