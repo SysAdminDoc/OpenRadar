@@ -34,6 +34,12 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
+import {
+  FEWEST_PLAUSIBLE,
+  code,
+  declarationsIn,
+  findDead,
+} from "./unused-exports-lib.mjs";
 
 const ROOT = join(import.meta.dirname, "..", "src");
 
@@ -71,49 +77,23 @@ const declaring = files.filter(
     !NOT_ASKED.some((part) => path.includes(part)),
 );
 
+/** A path as the report writes it: from `src/`, forward-slashed. */
+const named = (path) =>
+  path
+    .slice(ROOT.length + 1)
+    .split(sep)
+    .join("/");
+
 const declared = [];
 for (const path of declaring) {
-  const source = readFileSync(path, "utf8");
-  for (const pattern of [
-    /^export (?:async )?function \*?([A-Za-z0-9_]+)/gm,
-    /^export (?:const|let) ([A-Za-z0-9_]+)/gm,
-    /^export class ([A-Za-z0-9_]+)/gm,
-    /^export (?:type|interface) ([A-Za-z0-9_]+)/gm,
-  ]) {
-    for (const match of source.matchAll(pattern)) {
-      declared.push({ path, name: match[1] });
-    }
-  }
+  declared.push(...declarationsIn(path, readFileSync(path, "utf8")));
 }
 
-if (declared.length < 100) {
+if (declared.length < FEWEST_PLAUSIBLE) {
   console.error(
     `Only ${declared.length} exports were found, which says this stopped reading the tree rather than that the tree stopped exporting.`,
   );
   process.exit(1);
-}
-
-/**
- * A file's code, with its comments and its catalogue strings out of the way.
- *
- * The scan is a word search, and a word search over raw text finds a symbol
- * named in a comment or, worse, in a translated string: `Appearance` is an
- * export in `useAppearance.ts` and also the English for a settings heading,
- * `Flash` is a type and also half of "Flash Flood Warning", and `Told` is a
- * type and also a word somebody used in a sentence. Each was permanently
- * unreportable. Stripping line comments is enough for those, and the
- * catalogues are dropped whole.
- *
- * Block comments are deliberately NOT stripped. A route glob such as
- * `"http://cached.localhost/**"` opens what looks like one and it runs to the
- * next real `*\/`: doing it took thirty-two thousand characters of live code
- * out of the scan, sixteen thousand of them from one spec, and any export
- * whose only mention fell inside a swallowed span would have been reported as
- * dead. A symbol named only in a block comment is a false negative; a symbol
- * hidden by one is a false positive that fails the build.
- */
-function code(source) {
-  return source.replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
 const said = new Map(
@@ -122,34 +102,11 @@ const said = new Map(
     .map((path) => [path, code(readFileSync(path, "utf8"))]),
 );
 
-const isTest = (path) => /\.test\.[tj]sx?$/.test(path);
-
-const dead = [];
-/** Exported, and named only by a test. */
-let testOnly = 0;
-/** Exported, and named only inside its own file. */
-let fileLocal = 0;
-for (const { path, name } of declared) {
-  const asked = new RegExp(`\\b${name}\\b`);
-  const elsewhere = [...said].filter(
-    ([other, source]) => other !== path && asked.test(source),
-  );
-  if (elsewhere.length) {
-    if (elsewhere.every(([other]) => isTest(other))) testOnly += 1;
-    continue;
-  }
-  {
-    const own = said.get(path) ?? "";
-    const times = (own.match(new RegExp(`\\b${name}\\b`, "g")) ?? []).length;
-    if (times > 1) fileLocal += 1;
-  }
-  // Its own file may still use it; what makes it dead is that nothing else
-  // in the tree, test or app, ever says the word.
-  const own = said.get(path) ?? "";
-  const times = (own.match(new RegExp(`\\b${name}\\b`, "g")) ?? []).length;
-  if (times > 1) continue;
-  dead.push(`${path.slice(ROOT.length + 1).replace(/\\/g, "/")}: ${name}`);
-}
+const { dead, testOnly, fileLocal } = findDead({
+  declared,
+  said,
+  isTest: (path) => /\.test\.[tj]sx?$/.test(path),
+});
 
 const shape = `${testOnly} are driven only by a test, ${fileLocal} only by their own file.`;
 
@@ -161,6 +118,8 @@ if (!dead.length) {
 }
 
 console.error("Exported and never named, here or anywhere:\n");
-for (const one of dead) console.error(`  ${one}`);
+for (const one of dead) {
+  console.error(`  ${named(one.path)}: ${one.name}`);
+}
 console.error("\nDelete it, or give it the caller it was written for.");
 process.exit(1);

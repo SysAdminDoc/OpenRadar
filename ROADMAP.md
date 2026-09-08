@@ -501,15 +501,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
 
 ### P3
 
-- [ ] AUD-370 (P3): The bundle-budget and unused-exports gates have no tests of their own
-      Category: testing
-      Where: `scripts/bundle-budget.mjs` and `scripts/unused-exports.mjs` (0 per cent coverage in the `npm run check` run of 2026-09-07); `scripts/release-lib.test.mjs`, `live-contracts-lib.test.mjs` and `hurdat-parse.test.mjs` are the pattern for the scripts that do have tests.
-      Problem: These two are what stop a chunk growing past its written budget and an export going unused, and neither has ever been shown to fail. The bundle gate has already been the thing that caught a settings chunk over budget (`AUD-272`'s note), so it matters, and a comparison that reads `>=` where it should read `>` would pass forever.
-      Evidence: The coverage table in the baseline run: `bundle-budget.mjs 0 | 0 | 0 | 0 | 21-283`, `unused-exports.mjs 0 | 0 | 0 | 0 | 38-166`; no `scripts/bundle-budget.test.mjs` or `scripts/unused-exports.test.mjs` exists.
-      Fix: Split each into a lib module the way `release.mjs` and `release-lib.mjs` are split, and pin: a chunk one kilobyte over its budget fails, at the budget passes, a chunk named in the budget and missing from `dist/` fails, the first-load row sums the right chunks; an export with no importer is reported, one imported only by its own file is counted in that bucket, a re-export is followed.
-      Acceptance: Both scripts are covered above zero; each new test fails when the comparison it pins is flipped.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-377 (P3): Chrome colour written outside the theme system, and rules that no longer win
       Category: visual

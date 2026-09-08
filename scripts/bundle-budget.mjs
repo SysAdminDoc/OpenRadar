@@ -17,6 +17,12 @@
 import { gzipSync } from "node:zlib";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import {
+  budgetTable,
+  firstLoadFailure,
+  measureChunks,
+  measureStatic,
+} from "./bundle-budget-lib.mjs";
 
 const ASSETS = resolve(process.cwd(), "dist", "assets");
 const DIST = resolve(process.cwd(), "dist");
@@ -163,10 +169,6 @@ const BUDGETS = [
  */
 const FIRST_LOAD_GZIP_KB = 600;
 
-function kilobytes(bytes) {
-  return Math.round(bytes / 1024);
-}
-
 let files;
 try {
   files = readdirSync(ASSETS);
@@ -177,99 +179,31 @@ try {
   process.exit(1);
 }
 
-const rows = [];
-const failures = [];
-let firstLoadGzip = 0;
-
-for (const budget of BUDGETS) {
-  const found = files.filter((file) => budget.match.test(file));
-  if (found.length !== 1) {
-    failures.push(
-      `${budget.name}: expected exactly one file matching ${budget.match}, found ${found.length}. ` +
-        `A renamed or split chunk needs its budget updating rather than skipping.`,
-    );
-    continue;
-  }
-  const path = join(ASSETS, found[0]);
-  const bytes = readFileSync(path);
-  const raw = kilobytes(statSync(path).size);
-  const gzip = kilobytes(gzipSync(bytes).length);
-  rows.push({ name: budget.name, file: found[0], raw, gzip, budget });
-  // The worker is fetched by the map rather than by the page, and it is on the
-  // way to the first frame either way. A chunk behind a `lazy` is not.
-  if (budget.firstLoad !== false) firstLoadGzip += gzip;
-  if (raw > budget.raw) {
-    failures.push(
-      `${budget.name} is ${raw} kB, over its ${budget.raw} kB budget.`,
-    );
-  }
-  if (gzip > budget.gzip) {
-    failures.push(
-      `${budget.name} is ${gzip} kB gzipped, over its ${budget.gzip} kB budget.`,
-    );
-  }
-}
-
-// The icons and anything else the pages name out of `public/`, which Vite
-// copies beside the chunks rather than into them.
-let staticGzip = 0;
-let staticRawBytes = 0;
-for (const name of STATIC_FIRST_LOAD) {
-  let bytes;
-  try {
-    bytes = readFileSync(join(DIST, name));
-  } catch {
-    failures.push(
-      `${name} is declared by a page but is not in the build. A renamed asset ` +
-        `needs this list updating rather than dropping.`,
-    );
-    continue;
-  }
-  staticRawBytes += bytes.length;
-  staticGzip += kilobytes(gzipSync(bytes).length);
-}
-const staticRaw = kilobytes(staticRawBytes);
-if (staticRaw > STATIC_RAW_KB) {
-  failures.push(
-    `the static assets are ${staticRaw} kB, over their ${STATIC_RAW_KB} kB budget.`,
-  );
-}
-if (staticGzip > STATIC_GZIP_KB) {
-  failures.push(
-    `the static assets are ${staticGzip} kB gzipped, over their ${STATIC_GZIP_KB} kB budget.`,
-  );
-}
-firstLoadGzip += staticGzip;
-rows.push({
-  name: "static",
-  file: STATIC_FIRST_LOAD.join(" "),
-  raw: staticRaw,
-  gzip: staticGzip,
-  budget: { raw: STATIC_RAW_KB, gzip: STATIC_GZIP_KB },
+const measured = measureChunks({
+  files,
+  budgets: BUDGETS,
+  sizeOf: (file) => statSync(join(ASSETS, file)).size,
+  gzipOf: (file) => gzipSync(readFileSync(join(ASSETS, file))).length,
 });
 
-const width = Math.max(...rows.map((row) => row.name.length), 5);
-console.log("chunk".padEnd(width), "     raw    gzip   budget");
-for (const row of rows) {
-  console.log(
-    row.name.padEnd(width),
-    `${String(row.raw).padStart(6)} kB`,
-    `${String(row.gzip).padStart(4)} kB`,
-    `${String(row.budget.gzip).padStart(5)} kB`,
-  );
-}
-console.log(
-  "first load".padEnd(width),
-  " ".repeat(9),
-  `${String(firstLoadGzip).padStart(4)} kB`,
-  `${String(FIRST_LOAD_GZIP_KB).padStart(5)} kB`,
-);
+const still = measureStatic({
+  names: STATIC_FIRST_LOAD,
+  read: (name) => readFileSync(join(DIST, name)),
+  gzipOf: (_name, bytes) => gzipSync(bytes).length,
+  rawKb: STATIC_RAW_KB,
+  gzipKb: STATIC_GZIP_KB,
+});
 
-if (firstLoadGzip > FIRST_LOAD_GZIP_KB) {
-  failures.push(
-    `the first load is ${firstLoadGzip} kB gzipped, over its ${FIRST_LOAD_GZIP_KB} kB budget.`,
-  );
+const rows = [...measured.rows, still.row];
+const firstLoadGzip = measured.firstLoadGzip + still.row.gzip;
+const failures = [...measured.failures, ...still.failures];
+
+for (const line of budgetTable(rows, firstLoadGzip, FIRST_LOAD_GZIP_KB)) {
+  console.log(line);
 }
+
+const late = firstLoadFailure(firstLoadGzip, FIRST_LOAD_GZIP_KB);
+if (late) failures.push(late);
 
 if (failures.length) {
   console.error("\nOver budget:");
