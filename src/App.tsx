@@ -342,18 +342,19 @@ export default function App() {
   // went looking after a warning did not arrive is opening a panel to do it.
   const [notifications, setNotifications] =
     useState<NotifyPermission>("unasked");
+  const latestPermission = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latestPermission();
     void notificationPermission().then((answer) => {
-      if (open) setNotifications(answer);
+      if (reply.current()) setNotifications(answer);
     });
     return () => {
-      open = false;
+      reply.close();
     };
     // Also on the minute, because a refusal recorded while a panel is
     // already open would otherwise not show until it was closed and opened
     // again, and that is the panel a reader is on when they go looking.
-  }, [activeSurface, clock]);
+  }, [activeSurface, clock, latestPermission]);
 
   const onPersistError = useCallback(
     () =>
@@ -487,27 +488,29 @@ export default function App() {
   >(undefined);
   // Asked in every runtime, unlike the two crash lookups: the browser preview
   // has an answer here and it is "there is no native runtime".
+  const latestRuntime = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latestRuntime();
     void webviewVersion()
       .then((version) => {
         rememberWebviewVersion(version);
-        if (open) setWebviewRuntime(version);
+        if (reply.current()) setWebviewRuntime(version);
       })
       .catch(() => {
         // The runtime would not say. Left undefined, which the report writes
         // as unknown rather than as a failure a reader has to act on.
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, []);
+  }, [latestRuntime]);
+  const latestWebviewCrash = useLatestReply();
   useEffect(() => {
     if (!crashReportAvailable()) return;
-    let open = true;
+    const reply = latestWebviewCrash();
     void lastWebviewReport()
       .then((found) => {
-        if (open) setLastWebviewCrash(found);
+        if (reply.current()) setLastWebviewCrash(found);
       })
       .catch(() => {
         // No folder is the ordinary state: it exists once the runtime has had
@@ -515,36 +518,37 @@ export default function App() {
       });
     void lastCrashDump()
       .then((found) => {
-        if (open) setLastCrash(found);
+        if (reply.current()) setLastCrash(found);
       })
       .catch(() => {
         // Nothing to say is the ordinary state, and a report that cannot be
         // read is not itself worth a line in the log.
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, []);
+  }, [latestWebviewCrash]);
 
   // Whether the county outlines are on the map, as opposed to switched on.
   // The file is a megabyte read on demand and it can fail; a report listing a
   // layer that drew nothing describes a picture the reader cannot see, which
   // is what the guards above it are for.
   const [countiesLoaded, setCountiesLoaded] = useState(false);
+  const latestCounties = useLatestReply();
   useEffect(() => {
     if (!settings.layers.counties) return;
-    let open = true;
+    const reply = latestCounties();
     void loadCounties()
       .then(() => {
-        if (open) setCountiesLoaded(true);
+        if (reply.current()) setCountiesLoaded(true);
       })
       .catch(() => {
-        if (open) setCountiesLoaded(false);
+        if (reply.current()) setCountiesLoaded(false);
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [settings.layers.counties]);
+  }, [latestCounties, settings.layers.counties]);
   // Derived rather than written from inside the effect, which would be a
   // state change on every render that turned the switch off.
   const countiesDrawn = settings.layers.counties && countiesLoaded;

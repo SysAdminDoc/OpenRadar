@@ -13,6 +13,7 @@ import {
 import { log } from "../lib/log";
 import { translate } from "../i18n";
 import { failureSentence } from "../lib/serviceAnswer";
+import { useLatestReply } from "./useLatestReply";
 
 export interface StormCellState {
   /** What the algorithm is tracking, or null when there is nothing to draw. */
@@ -86,24 +87,25 @@ export function useStormCells(options: {
 
   const wanted = ready && enabled && cellsAvailable() && station !== null;
 
+  const latest = useLatestReply();
   useEffect(() => {
     // Nothing is cleared here. Writing state during an effect cascades a
     // render, and it is not needed: what comes back below is gated on the
     // question being asked now, so a report for a site nobody is looking at
     // is never drawn whatever is still held.
     if (!wanted || !station) return;
-    let open = true;
+    const reply = latest();
 
     const refresh = async () => {
       setLoading(true);
       try {
         const next = await fetchCells(station);
-        if (!open) return;
+        if (!reply.current()) return;
         setReport(next);
         reportRef.current?.(next);
         setError(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!reply.current()) return;
         // A native rejection is a string this app wrote; anything else goes
         // through the shared reader, which keeps a sentence this app wrote
         // and never prints the engine's own words at somebody.
@@ -120,7 +122,7 @@ export function useStormCells(options: {
         reportRef.current?.(null);
         setError(message);
       } finally {
-        if (open) setLoading(false);
+        if (reply.current()) setLoading(false);
       }
     };
 
@@ -131,15 +133,15 @@ export function useStormCells(options: {
 
     if (!pageVisible && !keepPollingWhileHidden) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     const stop = pollWhileOnline(() => void refresh(), CELLS_REFRESH_MS, false);
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
-  }, [keepPollingWhileHidden, pageVisible, station, wanted]);
+  }, [keepPollingWhileHidden, latest, pageVisible, station, wanted]);
 
   // A volume from half an hour ago is not what is happening now, and cells are
   // the one layer somebody might act on.

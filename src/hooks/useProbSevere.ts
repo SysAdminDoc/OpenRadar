@@ -12,6 +12,7 @@ import {
 } from "../lib/probsevere";
 import { translate } from "../i18n";
 import { failureSentence } from "../lib/serviceAnswer";
+import { useLatestReply } from "./useLatestReply";
 
 export interface ProbSevereState {
   reading: ProbSevereReading | null;
@@ -41,18 +42,19 @@ export function useProbSevere(options: {
 
   const wanted = ready && enabled && probSevereAvailable();
 
+  const latest = useLatestReply();
   useEffect(() => {
     if (!wanted) return;
-    let open = true;
+    const reply = latest();
 
     const refresh = async () => {
       try {
         const next = await fetchProbSevere();
-        if (!open) return;
+        if (!reply.current()) return;
         setReading(next);
         setError(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!reply.current()) return;
         // A native rejection is a string this app wrote; anything else goes
         // through the shared reader, which keeps a sentence this app wrote
         // and never prints the engine's own words at somebody.
@@ -75,7 +77,7 @@ export function useProbSevere(options: {
 
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     const stop = pollWhileOnline(
@@ -84,10 +86,10 @@ export function useProbSevere(options: {
       false,
     );
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
-  }, [pageVisible, wanted]);
+  }, [latest, pageVisible, wanted]);
 
   const current = useMemo(() => {
     if (!reading || !wanted) return null;

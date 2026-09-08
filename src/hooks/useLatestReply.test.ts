@@ -108,11 +108,12 @@ describe("telling an older answer from the newest one", () => {
  *
  * It then did the same thing twice: the list that replaced it called itself
  * every name this codebase had actually used, and `open` was not on it. That
- * is 30 effects across 16 files, more than every other spelling together, so
+ * was 30 effects across 16 files, more than every other spelling together, so
  * for a second time the gate read clean while missing the majority of what it
- * was looking for. Those 30 are correct as written, which is why they are a
- * backlog and not a bug list, and `outstanding` below names every one of them
- * so a new one cannot join them quietly. AUD-361 converts them.
+ * was looking for. All 30 are converted now and `outstanding` is empty, which
+ * is the state it is meant to stay in: the ratchet below fails on a file that
+ * is on the list with nothing left to convert as loudly as on one that is not
+ * on the list and has a flag.
  */
 describe("nobody rolls their own again", () => {
   /** Why each of these is not a reply to be dropped. */
@@ -154,30 +155,13 @@ describe("nobody rolls their own again", () => {
    * directions: converting a file fails this until the file leaves the list,
    * and a hand-rolled guard in a file that is not here fails it too.
    *
-   * `src/App.tsx` is in both lists. The scan reads whole files, and that one
-   * holds an exempt listener handle as well as four of these, so neither list
-   * describes all of it on its own.
+   * Empty, and the point of keeping it is that it can fill again: an entry
+   * here says "this file has a hand-rolled flag and that is known", and the
+   * ratchet refuses an entry with nothing behind it. `src/App.tsx` is still
+   * in `allowed` above, for the listener handle it has always held, which is
+   * a different thing and stays.
    */
-  const outstanding = new Set([
-    "src/App.tsx",
-    // The glance window's own guard moved with it when the component was
-    // split out of the entry point, which is a move and not a new one.
-    "src/glanceWindow.tsx",
-    "src/hooks/useClassification.ts",
-    "src/hooks/useCuriosities.ts",
-    "src/hooks/useLightning.ts",
-    "src/hooks/useMrmsOverlays.ts",
-    "src/hooks/usePalette.ts",
-    "src/hooks/useProbSevere.ts",
-    "src/hooks/useRadarStatus.ts",
-    "src/hooks/useSingleSiteRadar.ts",
-    "src/hooks/useStormCells.ts",
-    "src/hooks/useWind.ts",
-    "src/panels/CuriositySection.tsx",
-    "src/panels/HistoryPanel.tsx",
-    "src/panels/IncidentPackManager.tsx",
-    "src/panels/SearchPanel.tsx",
-  ]);
+  const outstanding = new Set<string>([]);
 
   it("finds no hand-rolled run flag outside the ones that are not replies", async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");

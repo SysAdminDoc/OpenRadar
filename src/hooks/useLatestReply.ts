@@ -26,6 +26,14 @@ import { useCallback, useRef } from "react";
  *   return reply.close;
  * }, [path]);
  * ```
+ *
+ * One of these per effect, never one shared between several. The counter it
+ * closes over is per call, so two effects asking the same factory invalidate
+ * each other: whichever starts a run last closes the other's, and the other's
+ * reply is then dropped as stale although nothing about it moved on. Converting
+ * seven effects in `useSingleSiteRadar` onto one shared factory failed nine of
+ * that hook's own tests, which is how this line came to be here. Name each one
+ * after what its effect is waiting for, the way `App.tsx` does.
  */
 export function useLatestReply(): () => {
   /** True while this run is still the newest one. */

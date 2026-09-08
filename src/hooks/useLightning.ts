@@ -5,6 +5,7 @@ import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/runtime";
 import { translate } from "../i18n";
 import { failureSentence } from "../lib/serviceAnswer";
+import { useLatestReply } from "./useLatestReply";
 
 /** A file lands every twenty seconds; asking once a minute is plenty. */
 export const REFRESH_MS = 60_000;
@@ -157,9 +158,10 @@ export function useLightning(options: {
 
   const wanted = ready && enabled && lightningAvailable();
 
+  const latest = useLatestReply();
   useEffect(() => {
     if (!wanted) return;
-    let open = true;
+    const reply = latest();
     let requestGeneration = 0;
 
     const loadWindow = () => {
@@ -185,11 +187,11 @@ export function useLightning(options: {
       const request = ++requestGeneration;
       try {
         const next = await loadWindow();
-        if (!open || request !== requestGeneration) return;
+        if (!reply.current() || request !== requestGeneration) return;
         setWindow(next);
         setError(null);
       } catch (failure: unknown) {
-        if (!open || request !== requestGeneration) return;
+        if (!reply.current() || request !== requestGeneration) return;
         // A native rejection is a string this app wrote; anything else goes
         // through the shared reader, which keeps a sentence this app wrote
         // and never prints the engine's own words at somebody.
@@ -212,17 +214,17 @@ export function useLightning(options: {
 
     if (!pageVisible && !keepPollingWhileHidden) {
       return () => {
-        open = false;
+        reply.close();
         requestGeneration += 1;
       };
     }
     const stop = pollWhileOnline(() => void refresh(), REFRESH_MS, false);
     return () => {
-      open = false;
+      reply.close();
       requestGeneration += 1;
       stop();
     };
-  }, [keepPollingWhileHidden, pageVisible, wanted]);
+  }, [keepPollingWhileHidden, latest, pageVisible, wanted]);
 
   // Built once per fetch. What the map does with them changes every tick; what
   // they are does not.

@@ -30,6 +30,7 @@ import {
   type DataExportReport,
 } from "../lib/dataExport";
 import type { RadarSettings } from "../lib/settings";
+import { useLatestReply } from "./useLatestReply";
 
 export interface SingleSiteState {
   /** The sweep on the map, or null while the mosaic is still the picture. */
@@ -434,9 +435,10 @@ export function useSingleSiteRadar(options: {
   // volumes where it is there, which is the ordinary case at a small offset,
   // and fetched where it is not. Both go through the same resolved promise so
   // the answer always arrives after the render rather than during the effect.
+  const latestCoverage = useLatestReply();
   useEffect(() => {
     if (compareKey === null || compareVolume === null || !station) return;
-    let open = true;
+    const reply = latestCoverage();
     const motion: [number, number] | null =
       motionSpeed !== null && motionFrom !== null
         ? [motionSpeed, motionFrom]
@@ -468,20 +470,22 @@ export function useSingleSiteRadar(options: {
           });
           heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
         }
-        if (open) setFetchedCompare({ sweep: next, key: compareKey });
+        if (reply.current())
+          setFetchedCompare({ sweep: next, key: compareKey });
       })
       .catch((failure: unknown) => {
         // The pane draws the mosaic rather than the wrong volume, and says so
         // in the log; the first pane is untouched either way.
         fetchingRef.current.delete(compareKey);
-        if (open) {
+        if (reply.current()) {
           log.warn("radar", `${station} compare: ${sweepErrorText(failure)}`);
         }
       });
     return () => {
-      open = false;
+      reply.close();
     };
   }, [
+    latestCoverage,
     compareKey,
     compareVolume,
     loopVolumes,
@@ -506,18 +510,19 @@ export function useSingleSiteRadar(options: {
   // station, so nothing polls the office either: the list would have been
   // offered with no fault reasons on any of it, and a radar the office is
   // reporting as restarting would have looked like every other choice.
+  const latestStatus = useLatestReply();
   useEffect(() => {
     if (!available || !isSingleSiteViewport(zoom)) return;
-    let open = true;
+    const reply = latestStatus();
     const [lon, lat] = near.split(",").map(Number);
     void sitesInReach(lon, lat)
       .then((found) => {
-        if (open) setReach({ near, sites: found });
+        if (reply.current()) setReach({ near, sites: found });
       })
       .catch((failure: unknown) => {
         // No list is the picker as it was before this existed: follow the
         // map, hold what is on screen, or name an airport.
-        if (!open) return;
+        if (!reply.current()) return;
         log.warn(
           "radar",
           failure instanceof Error
@@ -526,23 +531,24 @@ export function useSingleSiteRadar(options: {
         );
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [available, near, zoom]);
+  }, [available, latestStatus, near, zoom]);
 
+  const latestNearest = useLatestReply();
   useEffect(() => {
     if (!wanted || radar.station) return;
-    let open = true;
+    const reply = latestNearest();
     const [lon, lat] = near.split(",").map(Number);
     void nearestSite(lon, lat)
       .then((found) => {
         // No answer means the view is outside every site's coverage, and the
         // position it was asked about is remembered either way so a later
         // view cannot inherit the answer.
-        if (open) setNearby(found ? { site: found, near } : null);
+        if (reply.current()) setNearby(found ? { site: found, near } : null);
       })
       .catch((failure: unknown) => {
-        if (!open) return;
+        if (!reply.current()) return;
         log.warn(
           "radar",
           failure instanceof Error
@@ -551,28 +557,29 @@ export function useSingleSiteRadar(options: {
         );
       });
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [near, radar.station, wanted]);
+  }, [latestNearest, near, radar.station, wanted]);
 
   // The times themselves, asked for once per site and refreshed on the same
   // cadence a finished volume lands on. A terminal radar has no archive to
   // list, and neither has a historical view, which is its own moment.
+  const latestListing = useLatestReply();
   useEffect(() => {
     // A terminal radar publishes no Level II archive, so it has no loop to
     // list; its picture is unaffected.
     if (!wanted || !station || isTdwrStation(station)) return;
-    let open = true;
+    const reply = latestListing();
     const site = station;
     const ask = () => {
       void recentVolumeTimes(site, loopVolumes)
         .then((found) => {
-          if (open) setListed({ site, times: found });
+          if (reply.current()) setListed({ site, times: found });
         })
         .catch(() => {
           // A site with no listing is a site with no loop, and the live
           // picture is unaffected: this is the only thing that reads it.
-          if (open) setListed({ site, times: [] });
+          if (reply.current()) setListed({ site, times: [] });
         });
     };
     // Held means held, including the ask this effect makes on its way in.
@@ -582,7 +589,7 @@ export function useSingleSiteRadar(options: {
     if (isOnline() && (!listingHeld?.() || listed.site !== station)) ask();
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     // The first ask always happens; only the refreshes are held. A site with
@@ -597,7 +604,7 @@ export function useSingleSiteRadar(options: {
       false,
     );
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
     // `listed` is deliberately not a dependency: this effect writes it, and
@@ -867,11 +874,12 @@ export function useSingleSiteRadar(options: {
     setLoading(false);
   }, []);
 
+  const latestHistorical = useLatestReply();
   useEffect(() => {
     if (!historicalWanted || !historicalSource) return;
     const key = historicalRequestKey(historicalSource);
     if (historicalRequestRef.current === key) return;
-    let open = true;
+    const reply = latestHistorical();
     const request = ++requestRef.current;
     setLoading(true);
     // Keep the last verified historical picture until its replacement is
@@ -879,36 +887,39 @@ export function useSingleSiteRadar(options: {
     // cannot expose the live mosaic underneath historical mode.
     void fetchHistorical(historicalSource)
       .then((next) => {
-        if (!open || request !== requestRef.current) return;
+        if (!reply.current() || request !== requestRef.current) return;
         historicalRequestRef.current = key;
         setSweep(next);
         setError(null);
       })
       .catch((failure: unknown) => {
-        if (!open || request !== requestRef.current) return;
+        if (!reply.current() || request !== requestRef.current) return;
         const message = sweepErrorText(failure);
         log.warn("radar", `Historical volume: ${message}`);
         setError(message);
       })
       .finally(() => {
-        if (open && request === requestRef.current) setLoading(false);
+        if (reply.current() && request === requestRef.current)
+          setLoading(false);
       });
     return () => {
-      open = false;
+      reply.close();
     };
   }, [
+    latestHistorical,
     fetchHistorical,
     historicalRequestKey,
     historicalSource,
     historicalWanted,
   ]);
 
+  const latestLive = useLatestReply();
   useEffect(() => {
     // Not while the reader is looking at an older volume: this effect draws
     // what the radar is doing now, on a timer, and it would overwrite the
     // frame under the scrubber a few seconds after they moved it.
     if (!wanted || !station || scrubbedBack) return;
-    let open = true;
+    const reply = latestLive();
 
     const refresh = async () => {
       const request = ++requestRef.current;
@@ -934,7 +945,7 @@ export function useSingleSiteRadar(options: {
           radar.smoothSweep,
           within,
         );
-        if (!open || request !== requestRef.current) return;
+        if (!reply.current() || request !== requestRef.current) return;
         // The site's whole reach, learned from the one sweep that covers it.
         // Recorded whether or not this answer is still the one on screen: it
         // is true about the site rather than about this request, and without
@@ -956,7 +967,7 @@ export function useSingleSiteRadar(options: {
         setDrawnVolume(newestVolumeRef.current);
         setError(null);
       } catch (failure: unknown) {
-        if (!open || request !== requestRef.current) return;
+        if (!reply.current() || request !== requestRef.current) return;
         // A Tauri command rejects with what the error serialized to, which
         // is a code the page has its own wording for.
         const message = sweepErrorText(failure);
@@ -967,7 +978,8 @@ export function useSingleSiteRadar(options: {
         setSweep(null);
         setError(message);
       } finally {
-        if (open && request === requestRef.current) setLoading(false);
+        if (reply.current() && request === requestRef.current)
+          setLoading(false);
       }
     };
 
@@ -978,7 +990,7 @@ export function useSingleSiteRadar(options: {
     // A hidden window keeps whatever it has rather than polling behind itself.
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     // A volume in progress grows every eleven or twelve seconds, so waiting
@@ -990,11 +1002,12 @@ export function useSingleSiteRadar(options: {
       false,
     );
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
     // A new colour table redraws the sweep, which is drawn natively.
   }, [
+    latestLive,
     pageVisible,
     paletteGeneration,
     radar.dealias,
@@ -1043,9 +1056,10 @@ export function useSingleSiteRadar(options: {
   }, [keyFor, newestVolume, scrubbedBack, sweep]);
 
   // The volume under the scrubber, decoded once and kept.
+  const latestVolume = useLatestReply();
   useEffect(() => {
     if (!wanted || !station || !scrubbedBack || shownVolume === null) return;
-    let open = true;
+    const reply = latestVolume();
     const motion: [number, number] | null =
       motionSpeed !== null && motionFrom !== null
         ? [motionSpeed, motionFrom]
@@ -1067,7 +1081,7 @@ export function useSingleSiteRadar(options: {
     const already = heldRef.current.get(key)?.image;
     if (already) {
       // Including the spinner. A fetch left in flight by the previous frame
-      // has already had its `open` flag cleared, so its `finally` will not
+      // has already been closed as a reply, so its `finally` will not
       // clear this, and a reader scrubbing over volumes they have already
       // seen kept a spinner that never stopped.
       requestRef.current += 1;
@@ -1098,24 +1112,26 @@ export function useSingleSiteRadar(options: {
         // reader moved first meant almost nothing was ever cached.
         heldRef.current.set(key, { image: next, arrivedAt: Date.now() });
         heldRef.current = trimHeld(heldRef.current, loopVolumes * 2);
-        if (!open || request !== requestRef.current) return;
+        if (!reply.current() || request !== requestRef.current) return;
         setSweep(next);
         setDrawnVolume(shownVolume);
         setError(null);
       })
       .catch((failure: unknown) => {
-        if (!open || request !== requestRef.current) return;
+        if (!reply.current() || request !== requestRef.current) return;
         const message = sweepErrorText(failure);
         log.warn("radar", `${station} loop: ${message}`);
         setError(message);
       })
       .finally(() => {
-        if (open && request === requestRef.current) setLoading(false);
+        if (reply.current() && request === requestRef.current)
+          setLoading(false);
       });
     return () => {
-      open = false;
+      reply.close();
     };
   }, [
+    latestVolume,
     motionFrom,
     motionSpeed,
     paletteGeneration,

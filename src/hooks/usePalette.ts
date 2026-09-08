@@ -3,6 +3,7 @@ import { log } from "../lib/log";
 import { paletteForRenderer, type Palette } from "../lib/palette";
 import { applyPalettesToRenderer } from "../lib/paletteRenderer";
 import { isDesktopRuntime } from "../lib/runtime";
+import { useLatestReply } from "./useLatestReply";
 
 /**
  * Hands a loaded colour table to the native renderers and reports back the
@@ -43,17 +44,18 @@ export function usePalette(options: {
     latest.current = palettes;
   }, [palettes]);
 
+  const reply = useLatestReply();
   useEffect(() => {
     if (!ready || !isDesktopRuntime()) return;
-    let open = true;
+    const run = reply();
 
     void (async () => {
       try {
         const next = await applyPalettesToRenderer(latest.current);
-        if (!open) return;
+        if (!run.current()) return;
         if (next !== null) setGeneration(next);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!run.current()) return;
         log.warn(
           "app",
           failure instanceof Error
@@ -64,9 +66,9 @@ export function usePalette(options: {
     })();
 
     return () => {
-      open = false;
+      run.close();
     };
-  }, [ready, sent]);
+  }, [ready, reply, sent]);
 
   return generation;
 }

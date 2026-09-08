@@ -9,6 +9,7 @@ import {
   type WindField,
 } from "../lib/wind";
 import { failureSentence } from "../lib/serviceAnswer";
+import { useLatestReply } from "./useLatestReply";
 import { translate } from "../i18n";
 
 export interface WindState {
@@ -34,22 +35,23 @@ export function useWind(options: {
   const [field, setField] = useState<WindField | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const latest = useLatestReply();
 
   const wanted = ready && enabled && windAvailable();
 
   useEffect(() => {
     if (!wanted) return;
-    let open = true;
+    const reply = latest();
 
     const refresh = async () => {
       setLoading(true);
       try {
         const next = await fetchWind();
-        if (!open) return;
+        if (!reply.current()) return;
         setField(next);
         setError(null);
       } catch (failure: unknown) {
-        if (!open) return;
+        if (!reply.current()) return;
         const message =
           typeof failure === "string"
             ? failure
@@ -57,7 +59,7 @@ export function useWind(options: {
         log.warn("wind", message);
         setError(message);
       } finally {
-        if (open) setLoading(false);
+        if (reply.current()) setLoading(false);
       }
     };
 
@@ -68,15 +70,15 @@ export function useWind(options: {
 
     if (!pageVisible) {
       return () => {
-        open = false;
+        reply.close();
       };
     }
     const stop = pollWhileOnline(() => void refresh(), WIND_REFRESH_MS, false);
     return () => {
-      open = false;
+      reply.close();
       stop();
     };
-  }, [pageVisible, wanted]);
+  }, [latest, pageVisible, wanted]);
 
   return useMemo(
     () => ({

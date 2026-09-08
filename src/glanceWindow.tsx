@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { translate } from "./i18n";
 import { formatClock } from "./lib/units";
+import { useLatestReply } from "./hooks/useLatestReply";
 
 /**
  * The glance window itself, in a file of its own.
@@ -45,11 +46,12 @@ export function Window() {
   const [held, setHeld] = useState<Glance | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
+  const latest = useLatestReply();
   useEffect(() => {
-    let open = true;
+    const reply = latest();
     const pull = () => {
       void read().then((next) => {
-        if (!open) return;
+        if (!reply.current()) return;
         setHeld(next);
         setNow(Date.now());
       });
@@ -57,10 +59,10 @@ export function Window() {
     pull();
     const timer = window.setInterval(pull, READ_EVERY_MS);
     return () => {
-      open = false;
+      reply.close();
       window.clearInterval(timer);
     };
-  }, []);
+  }, [latest]);
 
   if (!held) {
     return (

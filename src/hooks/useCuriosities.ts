@@ -5,6 +5,7 @@ import {
   readCuriosities,
   type Curiosity,
 } from "../lib/curiosities";
+import { useLatestReply } from "./useLatestReply";
 
 /**
  * The place the reader has just explored to, if it is one of the few.
@@ -30,20 +31,21 @@ export function useCuriosities(options: {
   const { enabled, camera, already, onFound } = options;
   const [set, setSet] = useState<Curiosity[]>([]);
 
+  const latest = useLatestReply();
   useEffect(() => {
     if (!enabled || set.length) return;
-    let open = true;
+    const reply = latest();
     void fetch(CURIOSITY_URL)
       .then((response) => (response.ok ? response.json() : []))
       .then((value) => {
-        if (open) setSet(readCuriosities(value));
+        if (reply.current()) setSet(readCuriosities(value));
       })
       // A set of curiosities is not worth an error in front of somebody.
       .catch(() => undefined);
     return () => {
-      open = false;
+      reply.close();
     };
-  }, [enabled, set.length]);
+  }, [enabled, latest, set.length]);
 
   // Read through refs so the check runs when the camera moves and not when a
   // list identity changes: `already` is rebuilt on every settings read, and
