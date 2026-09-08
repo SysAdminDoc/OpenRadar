@@ -325,3 +325,80 @@ canvas, re-read the crash handler's assumption about exit codes, and hold the
 release gate green.
 
 Re-checked 2026-09-07 (evening): still no 2.12 and no release candidate. Milestone 10 stands at 14 open and 32 closed, `.changes/` holds 76 files (60 that morning), `fix-unlisten-guard-missing-entry` merged to `dev` the same day, and `noRedirectionBitmap` is landed at the runtime, the JS API and the config. Stranded ahead of 2.11.5 in wry 0.56.1 and tao 0.37.0: the focus error when the host is minimised at creation (wry #1799), a teardown re-entry crash (wry #1795), the exit on `WM_ENDSESSION` (tao #1157) and a hidden-window maximise flash (tao #1306); tao 0.37 also drops Windows 7.
+
+## AUD-385: shear buffering needs a fold test that survives noise, and I do not have one
+
+Attempted on 2026-09-08 and reverted whole. The item is still worth doing and
+its diagnosis is still right; what is written below is seven measured dead ends
+so the next attempt starts from them rather than from the paper.
+
+The baseline this was measured against, recorded the same day off the archive
+over the same 42 station-days the item names, reproduces its figures exactly:
+736,347 broken pairs to 431,925, a share of 0.5866, 229,835 of 623,697 folded
+gates back on their own branch, `invented` at zero. The six weak station-days
+match too: KTLX 09-04 at 41 of 16,528, KFWS 09-03 at 130 of 5,661, KAMX 09-04
+at 61 of 3,366, KTBW 09-07 at 429 of 13,984, KTLX 09-03 at 15 of 2,220.
+
+**The item's prescribed threshold cannot be applied here as written.** R2D2
+marks a gate as shear when its difference from a neighbour exceeds 0.8 of the
+Nyquist velocity. That is written for regions grown on velocity bands. Here
+they are grown on continuity (`CONTINUITY`, half a Nyquist velocity), so a
+step above that is what makes a boundary at all and every boundary in the
+sweep is already steeper. Applied to the raw difference it marked essentially
+every boundary, silenced the votes the whole method runs on, and failed four
+of the module's own tests outright.
+
+**Reformulating on the residual is the right idea and is not sufficient.** A
+fold is a step of one whole interval and lands within a few metres a second of
+one; forty metres a second of real shear under a twenty-five limit is a step of
+forty against an interval of fifty, which rounds to a fold and sits ten away
+from it. So "a large step that does not read as a clean fold is shear" is the
+test, and it needs both halves: on the residual alone every ordinary gradient
+is marked, because a step anywhere near half an interval is half an interval
+from a whole one, and that left 0.83 of the generated sweeps' jumps in place.
+
+**The dilation turns speckle into a mark over the whole sweep.** A five by five
+window around every marked gate, with the generator's noisiest seeds carrying
+fourteen metres a second per gate, covers everything. Eroding first, keeping
+only marks with two or more marked neighbours, fixes that: a shear line is a
+line and every gate on one has neighbours along it, while a noise spike is a
+pair and each of the two has exactly one. With that, one generated sweep in
+three hundred came out worse, by two jumps.
+
+**Group settling needs a guard, and the guard works.** Settling each unreached
+group against its own largest patch made five of three hundred sweeps worse,
+because two patches that touch along a silenced boundary get settled by
+different paths and end an interval apart. Keeping a group's settling only
+where it reduced the discontinuity inside that group stops that completely:
+the "no sweep came out worse" assertion passes with it. Seeding must also be
+bounded to patches of at least `MIN_REGION_GATES` and ordered once by size, or
+it is quadratic in the patch count and takes a speckled sweep from
+milliseconds to 109 seconds.
+
+**What actually blocks it.** With all of the above, the aggregate collapses:
+952,394 jumps left of 1,327,850 across the generated sweeps, against about a
+tenth without any of it. The mark is silencing real fold boundaries. Under 14
+m/s of per-gate noise a genuine fold's residual routinely exceeds any bar low
+enough to catch a forty metre a second couplet, so the residual test cannot
+separate the two on a noisy field. Every attempt to move the bar trades one
+failure for the other.
+
+The next attempt needs a fold test that is robust to noise, which means
+measuring the step across a boundary from more than one pair of gates: the
+median step over the whole shared boundary between two patches rather than
+gate by gate, or a smoothed field for the shear detection the way R2D2 runs
+its own. `Edge` already accumulates a vote histogram per boundary and throws
+the raw steps away; keeping them, and asking whether the boundary's steps
+cluster near a whole interval or spread, is the shape to try first. That is a
+different piece of work from this item and should be measured before anything
+is built on it.
+
+Nothing here is committed. `src-tauri/src/dealias.rs` is untouched.
+
+- [ ] AUD-385 (P2): A fragmented sweep still comes back folded, and the wind cannot help it
+  Why: The reference-wind pass placed nothing at all on the five station-days it was written for. On those days the settled echo covers a sliver of the circle, no ring can be trusted, and `reference_wind` returns nothing, so every unreached patch keeps its fold: KTLX on 2026-09-04 came back with 26,425 of 26,486 broken pairs and 41 of 16,528 folded gates back on their own branch, exactly as it did before the pass existed. The reader on those afternoons is looking at a velocity cut with the folds still in it. This is `AUD-360`'s original acceptance, which the wind cannot meet on its own, and the legend now at least says so.
+  Evidence: `recording_the_days_unfolding_is_held_against` over 2026-09-01 to 09-07, three variants on identical volumes, recorded 2026-09-07 evening. With no reference pass 0.6221 of the folded pairs stay broken, with the pass as first shipped 0.5391, with the plausibility bar it has now 0.5866; the five bad days are identical in the first and third. Settling those groups by their own boundary votes was tried the same evening, took the aggregate to 0.4710, and was reverted: it reads a velocity couplet as a fold, measured at a 40 m/s couplet coming back at -10, which `a_couplet_that_never_folded_is_not_read_as_a_fold` now holds down.
+  Note: the shape that makes boundary evidence usable inside an isolated group is R2D2's (Feldmann et al. 2020, JTECH 37(12), 2341-2355): mark every gate whose difference from a neighbour exceeds 0.8 of the Nyquist velocity as shear, dilate that mark over a 5 by 5 window, exclude those gates from region placement entirely, and settle what is left. A couplet is then a buffer rather than a boundary, and the boundaries that remain are the ones worth voting on. R2D2 also runs top down through the tilts, each settled sweep guiding the one below, which is `AUD-192`.
+  Touches: `src-tauri/src/dealias.rs` (a shear mark before `grow_regions`, carried through the traversal; the settling of unreached groups, which is currently deliberately absent and commented as such), `src-tauri/src/level2/decode_tests.rs` (the recorded figures), the couplet test as the thing that must stay green.
+  Acceptance: WHEN a sweep fragments so that no ring can be trusted, THEN the dealiaser SHALL still take the folds out of each group of touching patches, AND a planted couplet of 40 m/s shear SHALL come back with its shear unchanged; the five station-days above each show a materially better figure than the ones recorded here; no recorded day gets worse; `invented` stays at zero.
+  Complexity: L

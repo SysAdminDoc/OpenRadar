@@ -363,14 +363,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P2
 
-- [ ] AUD-385 (P2): A fragmented sweep still comes back folded, and the wind cannot help it
-  Why: The reference-wind pass placed nothing at all on the five station-days it was written for. On those days the settled echo covers a sliver of the circle, no ring can be trusted, and `reference_wind` returns nothing, so every unreached patch keeps its fold: KTLX on 2026-09-04 came back with 26,425 of 26,486 broken pairs and 41 of 16,528 folded gates back on their own branch, exactly as it did before the pass existed. The reader on those afternoons is looking at a velocity cut with the folds still in it. This is `AUD-360`'s original acceptance, which the wind cannot meet on its own, and the legend now at least says so.
-  Evidence: `recording_the_days_unfolding_is_held_against` over 2026-09-01 to 09-07, three variants on identical volumes, recorded 2026-09-07 evening. With no reference pass 0.6221 of the folded pairs stay broken, with the pass as first shipped 0.5391, with the plausibility bar it has now 0.5866; the five bad days are identical in the first and third. Settling those groups by their own boundary votes was tried the same evening, took the aggregate to 0.4710, and was reverted: it reads a velocity couplet as a fold, measured at a 40 m/s couplet coming back at -10, which `a_couplet_that_never_folded_is_not_read_as_a_fold` now holds down.
-  Note: the shape that makes boundary evidence usable inside an isolated group is R2D2's (Feldmann et al. 2020, JTECH 37(12), 2341-2355): mark every gate whose difference from a neighbour exceeds 0.8 of the Nyquist velocity as shear, dilate that mark over a 5 by 5 window, exclude those gates from region placement entirely, and settle what is left. A couplet is then a buffer rather than a boundary, and the boundaries that remain are the ones worth voting on. R2D2 also runs top down through the tilts, each settled sweep guiding the one below, which is `AUD-192`.
-  Touches: `src-tauri/src/dealias.rs` (a shear mark before `grow_regions`, carried through the traversal; the settling of unreached groups, which is currently deliberately absent and commented as such), `src-tauri/src/level2/decode_tests.rs` (the recorded figures), the couplet test as the thing that must stay green.
-  Acceptance: WHEN a sweep fragments so that no ring can be trusted, THEN the dealiaser SHALL still take the folds out of each group of touching patches, AND a planted couplet of 40 m/s shear SHALL come back with its shear unchanged; the five station-days above each show a materially better figure than the ones recorded here; no recorded day gets worse; `invented` stays at zero.
-  Complexity: L
-
 ### P3
 
 - [ ] AUD-386 (P3): The unfolding generator never builds the shapes the reference pass acts on
