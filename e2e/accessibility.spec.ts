@@ -942,27 +942,23 @@ test.describe("under a system contrast theme", () => {
     ).toBe(true);
   });
 
-  test("every surface is still clean", async ({ page }) => {
-    // Eighteen surfaces, each opened, scanned and reloaded.
-    test.setTimeout(180_000);
-    // All of them, from the same list the dark scan walks. Four names
-    // written out here meant a surface added later joined the dark scan
-    // automatically and was silently left out of this one.
-    for (const id of Object.keys(SURFACES) as OpenSurface[]) {
+  // One test per surface, the way the dark and light scan beside it already
+  // runs. It was a single case walking all nineteen with a reload between
+  // each, which is nineteen chances for a mid-fade colour read to take the
+  // whole thing down and name none of them: it failed once in a combined
+  // wide and compact run and passed on every re-run, and the artefact naming
+  // the surface was overwritten before anybody read it. Unrolled, a transient
+  // costs one surface and says which.
+  //
+  // The list is read rather than written out. Four names written here meant a
+  // surface added later joined the dark scan automatically and was silently
+  // left out of this one.
+  for (const id of Object.keys(SURFACES) as OpenSurface[]) {
+    test(`${id} is still clean`, async ({ page }) => {
       await openSurface(page, id);
       expect(`${id}: ${describeViolations(await scan(page))}`).toBe(`${id}: `);
-      await page.reload();
-      // The emulation goes with the page, so it has to be asked for again,
-      // and the rail has to be back before the next surface is opened.
-      await page.emulateMedia({ forcedColors: "active" });
-      await expect(
-        page.getByRole("application", { name: "Interactive weather map" }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Commands", exact: true }),
-      ).toBeVisible();
-    }
-  });
+    });
+  }
 
   test("a colour chip still carries its own colour", async ({ page }) => {
     // The chips are the readings axe cannot see: every one is an
