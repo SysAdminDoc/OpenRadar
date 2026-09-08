@@ -1320,6 +1320,76 @@ test("a toast does not land on a right-hand panel's own title", async ({
   const width = page.viewportSize()?.width ?? 0;
   expect(over!.x).toBeGreaterThanOrEqual(0);
   expect(over!.x + over!.width).toBeLessThanOrEqual(width + 0.5);
+  // Wide enough to read. The first version of this rule took the host down to
+  // 78 pixels over a band of widths, which clears the panel and says nothing.
+  expect(over!.width).toBeGreaterThanOrEqual(240);
+});
+
+test("a toast stays readable when the whole workspace is drawn larger", async ({
+  page,
+}) => {
+  // The band the first version of this got wrong. `data-narrow` is set from
+  // the viewport divided by the text scale, and the rule meant to stand the
+  // panel-aware width down sat in a raw viewport query, so at 130 per cent the
+  // two disagreed over eighty pixels of width: the host was measured at 78
+  // across, which clears the panel and says nothing. Both read the same signal
+  // now.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "openradar.settings",
+      JSON.stringify({
+        schemaVersion: 3,
+        textScale: 130,
+        unitsChosen: true,
+        seenWelcome: true,
+        seenReveal: true,
+      }),
+    );
+  });
+
+  for (const width of [900, 800]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/?testMode=1");
+    await expect(page.getByRole("application")).toBeVisible();
+    await page.getByRole("button", { name: "Commands", exact: true }).click();
+    await page.locator('[data-command="surface:upload"]').click();
+    const panel = page.getByRole("dialog", { name: "Upload" });
+    await expect(panel).toBeVisible();
+    await page.locator('.drop-zone input[type="file"]').setInputFiles({
+      name: "rubbish.geojson",
+      mimeType: "application/geo+json",
+      buffer: Buffer.from("this is not geojson"),
+    });
+    const toast = page.locator(".toast-host .toast").first();
+    await expect(toast).toBeVisible();
+
+    const [over, under, narrow] = await Promise.all([
+      toast.boundingBox(),
+      panel.locator(".surface-panel__header").boundingBox(),
+      page.locator("html").getAttribute("data-narrow"),
+    ]);
+    expect(
+      over!.width,
+      `at ${width} the host has collapsed to ${Math.round(over!.width)}`,
+    ).toBeGreaterThanOrEqual(240);
+
+    if ((narrow ?? "").split(" ").includes("680")) {
+      // Below the narrow edge the panel covers the map and the toasts span
+      // the width over it, which is what the layout has always done. The
+      // panel-aware rule has to stand down here, and the two hundred and
+      // forty pixel floor alone would not make it: a host capped at 360 in
+      // this layout is the regression, not the fix.
+      expect(
+        over!.width,
+        `at ${width} the host is ${Math.round(over!.width)} of ${width} rather than spanning it`,
+      ).toBeGreaterThan(width - 120);
+    } else {
+      expect(
+        over!.x + over!.width <= under!.x + 0.5,
+        `at ${width} the toast ${JSON.stringify(over)} runs into the panel ${JSON.stringify(under)}`,
+      ).toBe(true);
+    }
+  }
 });
 
 test("the map style cards do not wrap into ragged rows", async ({ page }) => {
@@ -1334,7 +1404,11 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
     ["es", es],
     ["fr", fr],
   ] as const) {
-    await page.addInitScript((which: string) => {
+    // Set on the page rather than through `addInitScript`, which stacks: a
+    // script added inside a loop runs again on every later navigation, and
+    // three of these only agreed because they wrote the same key.
+    await page.goto("/?testMode=1");
+    await page.evaluate((which: string) => {
       window.localStorage.setItem(
         "openradar.settings",
         JSON.stringify({
@@ -1346,7 +1420,7 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
         }),
       );
     }, language);
-    await page.goto("/?testMode=1");
+    await page.reload();
     await expect(page.getByRole("application")).toBeVisible();
     // Named out of the catalogue rather than in English, because the button
     // this opens from is translated like everything else.
@@ -1384,5 +1458,14 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
       measured.tallest - measured.shortest,
       `${language}: cards run ${measured.shortest} to ${measured.tallest}`,
     ).toBeLessThanOrEqual(14);
+    // The rows are levelled by giving every one the height of the tallest
+    // card, so one card's copy growing a line grows the whole section while
+    // the spread above stays at zero. A ceiling is what sees that: two title
+    // lines and two detail lines with the card's own padding is about ninety,
+    // and the longest of the three languages measures 76.
+    expect(
+      measured.tallest,
+      `${language}: every card stands ${measured.tallest} tall`,
+    ).toBeLessThanOrEqual(96);
   }
 });

@@ -87,6 +87,16 @@ export interface GuidanceHour {
 
 export interface GuidanceReading {
   variable: GuidanceVariable;
+  /**
+   * The unit token the service answered with, which is not what the panel
+   * prints: that comes from `variableUnit` and this app's own vocabulary.
+   *
+   * Kept because it is the only record of whether the service honoured the
+   * system the request asked for. `the request asks for the units the reader
+   * is in` holds it against `forecastUnits()`, and a reply that ignored the
+   * parameter would put the numbers a conversion away from their labels with
+   * nothing else in the tree able to notice.
+   */
   unit: string;
   hours: GuidanceHour[];
   /** The largest gap between models at any hour, which is the disagreement. */

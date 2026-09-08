@@ -587,9 +587,9 @@ export const es: Catalogue = {
   "toast.sharedViewPartly":
     "Se abrió la vista compartida. Mencionaba un radar o producto que esta versión no tiene, así que esa parte se dejó como estaba.",
   "service.busy": "está ocupado",
-  "service.notFound": "no lo encontró",
+  "service.notFound": "no encontró nada",
   "service.tooMany": "ha recibido demasiadas consultas",
-  "service.refused": "lo rechazó",
+  "service.refused": "se negó a responder",
   "service.unexpected": "respondió de una forma que no se pudo leer",
   "service.unreachable": "No se pudo llegar al servicio.",
   "service.unreadable":
@@ -1200,7 +1200,7 @@ export const es: Catalogue = {
   "style.roads": "Carreteras",
   "style.roadsDetail": "Detalle de calles",
   "style.aerial": "Aéreo",
-  "style.aerialDetail": "Imágenes del USGS, EE. UU.",
+  "style.aerialDetail": "Imágenes del USGS, solo EE. UU.",
   "style.topography": "Topografía",
   "style.topographyDetail": "Relieve y curvas de nivel",
   "style.radarDark": "Radar oscuro",

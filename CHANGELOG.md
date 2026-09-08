@@ -28,9 +28,9 @@
 
 - Two small things in the way. Picking a file the app cannot read left its name sitting under "Choose a file" as though it had been taken, next to a message saying it had not. And the opacity sliders were named by their own current reading, so a screen reader heard the percentage twice on every step of a drag and the control's name changed while you held it.
 
-- Messages stop landing on top of the panel you just opened. Every other thing floating over the map steps aside for a panel, and the little notices in the corner did not, so three of them at once covered a panel's title and its first rows. On a fresh launch, which is when the first-run hint and two source notices all arrive together, that was the first thing a new reader saw.
+- Messages stop landing on top of the panel you just opened. Every other thing floating over the map steps aside for a panel, and the little notices in the corner did not, so three of them at once covered a panel's title and its first rows. On a fresh launch, which is when the first-run hint and two source notices all arrive together, that was the first thing a new reader saw. In a narrow window the panel covers the map and the notices still sit over it, which is how that layout has always worked.
 
-- The warnings panel and the Nearby footer stop offering a list that never arrived. On the first failed fetch they both said "Showing the last good list" with nothing on screen behind it. They now say no list has arrived, and keep the old sentence for the case it was written for, where a list really is standing.
+- The warnings panel and the Nearby footer stop offering a list that never arrived. On the first failed fetch they both said "Showing the last good list" with nothing on screen behind it. They now say no list has arrived, and keep the old sentence for the case it was written for, where a list really is standing. A replay whose warning archive would not answer was in the first of those states for its whole run and said it was in the second.
 
 - Two smoke-analysis failures say so in your own language rather than in English.
 

@@ -380,8 +380,7 @@ describe("what may import what", () => {
           named(from) !== "lib/runtime.ts" &&
           to.some((one) => named(one) === "lib/runtime.ts"),
       )
-      .map(([from]) => named(from))
-      .filter((path) => !/\.test\.tsx?$/.test(path));
+      .map(([from]) => named(from));
     expect(asks.length).toBe(33);
     expect(readFileSync(join(ROOT, "lib/runtime.ts"), "utf8")).toContain(
       "thirty-three modules ask this question",

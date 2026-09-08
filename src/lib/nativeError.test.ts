@@ -3,6 +3,7 @@ import { nativeErrorParams } from "./nativeError";
 import { dataExportErrorText } from "./dataExport";
 import { ensureLanguage, setLanguage, translate } from "../i18n";
 import { en } from "../i18n/en";
+import { es } from "../i18n/es";
 import { fr } from "../i18n/fr";
 
 /**
@@ -134,6 +135,47 @@ describe("a failure the native side blamed on a service", () => {
           expect(said, `${language} ${key} ${status}`).not.toContain(
             String(status),
           );
+        }
+      }
+    }
+  });
+
+  it("carries no object the subject has to agree with", () => {
+    // The four subjects are a service, a server, an archive and a replay
+    // service, and in Spanish and French the thing each of them could not
+    // find is a mesh, a tile, a volume and a rebroadcast: three of the four
+    // are feminine. A verb phrase carrying a fixed masculine object pronoun
+    // therefore disagreed with three of its four subjects, and the sentence
+    // gate above cannot see it because it looks only for a full stop followed
+    // by a lower-case letter.
+    //
+    // Held as a property of the phrases rather than of the sentences: they
+    // complete a sentence somebody else started and cannot know its object.
+    const gendered = [
+      // Spanish object pronouns, and the French elided one.
+      /\blo\b/,
+      /\bla\b/,
+      /\blos\b/,
+      /\blas\b/,
+      /\bl'/,
+      /\ble\b/,
+    ];
+    for (const [language, copy] of [
+      ["es", es],
+      ["fr", fr],
+    ] as const) {
+      for (const key of [
+        "service.busy",
+        "service.notFound",
+        "service.tooMany",
+        "service.refused",
+        "service.unexpected",
+      ] as const) {
+        for (const pattern of gendered) {
+          expect(
+            pattern.test(copy[key]),
+            `${language} ${key} reads "${copy[key]}"`,
+          ).toBe(false);
         }
       }
     }

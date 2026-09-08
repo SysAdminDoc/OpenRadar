@@ -158,3 +158,25 @@ describe("the alerts feed state", () => {
     expect(screen.getByText(/from the Iowa State archive/)).toBeTruthy();
   });
 });
+
+describe("what the line under the alerts panel offers", () => {
+  const said = () => document.querySelector(".source-note")?.textContent ?? "";
+
+  it("offers the last good list only when one is standing", () => {
+    // A fetched time is what says a list arrived. With one, the panel is
+    // showing what it last had and the error explains why it is not newer.
+    render(panel(EMPTY_OVERLAY, Date.now(), "The service is busy."));
+    expect(said()).toMatch(/last good list/i);
+    expect(said()).toMatch(/the service is busy/i);
+  });
+
+  it("does not offer one on the first failure, when nothing ever arrived", () => {
+    // The ordinary shape of a first failure, and the one a replay whose
+    // archive would not answer is in for its whole run: nothing on screen and
+    // a sentence claiming the last good list is on it.
+    render(panel(EMPTY_OVERLAY, null, "The archive did not answer."));
+    expect(said()).not.toMatch(/last good list/i);
+    expect(said()).toMatch(/no list has arrived/i);
+    expect(said()).toMatch(/the archive did not answer/i);
+  });
+});

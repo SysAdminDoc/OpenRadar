@@ -149,7 +149,19 @@ describe("counting things in the reader's own language", () => {
     // like every other measurement in the app.
     setUnits("metric");
     expect(hailLine(1.75)).toBe("4,4 cm de grêle");
+
+    // A tag that is not a number is remote input, and `maxHailSize` is
+    // trimmed and nothing else. Unguarded, metric printed "NaN cm de grêle"
+    // and imperial printed the unit with no number in front of it, because
+    // the plural block writes nothing for a value it cannot read. A line the
+    // popup cannot make sense of is one it leaves out.
+    for (const nonsense of [Number.NaN, Number.POSITIVE_INFINITY, 0, -1]) {
+      expect(hailLine(nonsense), String(nonsense)).toBeNull();
+    }
     setUnits("imperial");
+    for (const nonsense of [Number.NaN, Number.POSITIVE_INFINITY, 0, -1]) {
+      expect(hailLine(nonsense), String(nonsense)).toBeNull();
+    }
   });
 
   it("gives every plural block an other arm, in every language", () => {
