@@ -122,6 +122,8 @@
 
 - The held station line says how far the radar is, not how far the middle of the picture is. It read the radar's position off the corners of the sweep, which was the radar for as long as every picture covered the site's whole reach. Once the picture started following your zoom, those corners became wherever you were looking: standing on KDMX and looking at a storm in the north-west of its range, the line said the radar was 152 miles away.
 
+- The layout reads its own width, not the window's. If you run the text larger, the workspace is drawn at the window divided by that scale, and a handful of breakpoints were still asking the window instead. At 130 per cent they disagreed over a whole band of sizes: the map legend kept its full width in a layout that had already gone narrow, which squeezed the timeline into a column its own controls did not fit, and the twenty pixels of overspill let the whole workspace slide sideways whenever anything off the edge took focus. Every piece of chrome on the map moved with it. The side effect you'll actually notice is that a narrow window at large text now gets the narrow layout it was always meant to get, with the panel over the map instead of 200 pixels of map left beside it.
+
 - The picture in the README is of this version.
 
 ## OpenRadar v0.10.0 (2026-09-05)

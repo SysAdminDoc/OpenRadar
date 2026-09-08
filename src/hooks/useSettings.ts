@@ -44,7 +44,7 @@ export interface SettingsState {
  * `[data-narrow]` rules in index.css. Kept here because script is the only
  * place that can divide the viewport by the text scale.
  */
-const LAYOUT_WIDTHS = [1320, 980, 680] as const;
+const LAYOUT_WIDTHS = [1320, 980, 900, 680] as const;
 
 export function useSettings(options: {
   onPersistError: () => void;

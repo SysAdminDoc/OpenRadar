@@ -4879,113 +4879,116 @@ input[type="range"]:disabled {
   top: calc(var(--chrome-top) + 12px);
 }
 
-@media (max-width: 900px) {
-  :root {
-    --rail-width: 68px;
-    --legend-width: 220px;
-    --panel-width: 350px;
-  }
-
-  .app-brand {
-    min-width: 184px;
-  }
-
-  .app-brand small,
-  .top-status__health > span:nth-child(2) {
-    display: none;
-  }
-
-  .top-status {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 12px;
-  }
-
-  .radar-timeline,
-  :root[data-narrow~="1320"] .radar-timeline,
-  :root[data-narrow~="980"] .radar-timeline {
-    grid-template-columns: 42px minmax(110px, 160px) minmax(90px, 1fr) auto;
-    gap: 9px;
-    padding-inline: 10px;
-  }
+/* Gated on the layout's own width rather than the window's. These were a
+   raw `@media (max-width: 900px)`, which reads the device while everything
+   here is laid out at `innerWidth / textScale`. At 130 per cent and a 700
+   pixel window the query saw 700 and kept a 220 pixel legend, while the
+   layout was 538 wide and had already gone narrow: the timeline was pushed
+   into a 250 pixel column whose own contents wanted 270, and the twenty
+   over spilled into the shell's scrollable width. `.app-shell` is
+   `overflow: hidden`, so nothing could scroll it by hand, but focusing
+   anything past the edge scrolls it anyway and every absolutely positioned
+   piece of map chrome moves with it. */
+:root[data-narrow~="900"] {
+  --rail-width: 68px;
+  --legend-width: 220px;
+  --panel-width: 350px;
 }
 
-@media (max-width: 680px) {
-  :root {
-    --chrome-top: 52px;
-    --rail-width: 60px;
-    --legend-width: 0px;
-    --timeline-height: 72px;
-  }
+:root[data-narrow~="900"] .app-brand {
+  min-width: 184px;
+}
 
-  .app-brand {
-    min-width: 60px;
-    padding: 0 14px;
-  }
+:root[data-narrow~="900"] .app-brand small,
+:root[data-narrow~="900"] .top-status__health > span:nth-child(2) {
+  display: none;
+}
 
-  .app-brand > span:last-child,
-  .top-status__center > span:last-child,
-  .top-status__divider {
-    display: none;
-  }
+:root[data-narrow~="900"] .top-status {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+}
 
-  .radar-legend,
-  :root[data-narrow~="980"] .radar-legend {
-    display: none;
-  }
+:root[data-narrow~="900"] .radar-timeline {
+  grid-template-columns: 42px minmax(110px, 160px) minmax(90px, 1fr) auto;
+  gap: 9px;
+  padding-inline: 10px;
+}
 
-  .radar-timeline,
-  :root[data-narrow~="1320"] .radar-timeline,
-  :root[data-narrow~="980"] .radar-timeline {
-    left: var(--rail-width);
-    grid-template-columns: 38px minmax(0, 1fr) auto;
-    padding: 8px 10px;
-  }
+/* The same, for the narrow layout. See the note above. */
+:root[data-narrow~="680"] {
+  --chrome-top: 52px;
+  --rail-width: 60px;
+  --legend-width: 0px;
+  --timeline-height: 72px;
+}
 
-  .radar-timeline .timeline-copy {
-    display: none;
-  }
+:root[data-narrow~="680"] .app-brand {
+  min-width: 60px;
+  padding: 0 14px;
+}
 
-  .radar-timeline input {
-    grid-column: 2;
-  }
+:root[data-narrow~="680"] .app-brand > span:last-child,
+:root[data-narrow~="680"] .top-status__center > span:last-child,
+:root[data-narrow~="680"] .top-status__divider {
+  display: none;
+}
 
-  .timeline-live-button {
-    min-width: 54px;
-    padding-inline: 10px;
-  }
+:root[data-narrow~="680"] .radar-legend {
+  display: none;
+}
 
-  .surface-panel,
-  :root[data-narrow~="680"] .surface-panel,
-  :root[data-narrow~="680"] .surface-panel--left,
-  :root[data-narrow~="680"] .surface-panel--right,
-  :root[data-narrow~="680"] .surface-panel--settings,
-  :root[data-narrow~="680"] .surface-panel--wide {
-    right: 0;
-    left: var(--rail-width);
-    width: auto;
-  }
+:root[data-narrow~="680"] .radar-timeline {
+  left: var(--rail-width);
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  padding: 8px 10px;
+}
 
-  .app-shell[data-panel-side="right"] .zoom-controls,
-  .app-shell[data-panel-side="right"] .product-legends,
-  .app-shell[data-panel-side="right"] .source-attribution,
-  .app-shell[data-panel-side="right"] .map-watermark {
-    right: 16px;
-  }
+:root[data-narrow~="680"] .radar-timeline .timeline-copy {
+  display: none;
+}
 
-  /* The panel covers the map at this width, so nothing is shifted out of its
-     way; these two go back to where they sit with no panel open. The toasts
-     are not here: a raw viewport query and `data-narrow` disagree by the text
-     scale, and at 130 per cent that put the panel-aware width in force over a
-     band the reset thought it had covered, taking the host down to 78 pixels.
-     The rule above is gated on `data-narrow` instead, which is the same signal
-     the narrow layout itself reads. */
-  .app-shell[data-panel-side="right"] .pane-compare {
-    right: 12px;
-  }
+:root[data-narrow~="680"] .radar-timeline input {
+  grid-column: 2;
+}
 
-  .app-shell[data-panel-side="right"] .map-readout {
-    right: 216px;
-  }
+:root[data-narrow~="680"] .timeline-live-button {
+  min-width: 54px;
+  padding-inline: 10px;
+}
+
+:root[data-narrow~="680"] .surface-panel,
+:root[data-narrow~="680"] .surface-panel--left,
+:root[data-narrow~="680"] .surface-panel--right,
+:root[data-narrow~="680"] .surface-panel--settings,
+:root[data-narrow~="680"] .surface-panel--wide {
+  right: 0;
+  left: var(--rail-width);
+  width: auto;
+}
+
+:root[data-narrow~="680"] .app-shell[data-panel-side="right"] .zoom-controls,
+:root[data-narrow~="680"] .app-shell[data-panel-side="right"] .product-legends,
+:root[data-narrow~="680"]
+  .app-shell[data-panel-side="right"]
+  .source-attribution,
+:root[data-narrow~="680"] .app-shell[data-panel-side="right"] .map-watermark {
+  right: 16px;
+}
+
+/* The panel covers the map at this width, so nothing is shifted out of its
+   way; these two go back to where they sit with no panel open. The toasts
+   are not here: a raw viewport query and `data-narrow` disagree by the text
+   scale, and at 130 per cent that put the panel-aware width in force over a
+   band the reset thought it had covered, taking the host down to 78 pixels.
+   The rule above is gated on `data-narrow` instead, which is the same signal
+   the narrow layout itself reads. */
+:root[data-narrow~="680"] .app-shell[data-panel-side="right"] .pane-compare {
+  right: 12px;
+}
+
+:root[data-narrow~="680"] .app-shell[data-panel-side="right"] .map-readout {
+  right: 216px;
 }
 
 /* The quiet-hours fields, which only appear once the switch above them is on.
