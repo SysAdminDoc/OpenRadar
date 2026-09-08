@@ -95,7 +95,13 @@ describe("the panel a slice is read in", () => {
       />,
     );
     await screen.findByRole("img");
-    expect(screen.getByText(/34% still folded/)).toBeTruthy();
+    // The volume, not the slice. The share is measured over every cut the
+    // slice was taken from, and the map legend's wording ("34% still folded")
+    // read as a fact about the picture on screen: a clean slice through a
+    // volume whose far side would not unfold was described as a third folded.
+    expect(
+      screen.getByText(/34% of the volume this slice was taken from/),
+    ).toBeTruthy();
   });
 
   it("says nothing about it when there is nothing to say", async () => {

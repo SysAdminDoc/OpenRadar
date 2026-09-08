@@ -189,8 +189,8 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
             "{} gates came back at a value the radar never measured",
             found.invented
         );
-        // `misplaced` is recorded rather than asserted on, and the reason is
-        // worth writing down because the obvious assertion is wrong.
+        // `misplaced` carries a bound rather than an equality, and the reason
+        // is worth writing down because the obvious assertion is wrong.
         //
         // It counts gates that never wrapped and came back on a branch other
         // than the picture's own. That is the measure the reference-wind
@@ -216,12 +216,22 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         // was. Recorded per station-day over 2026-09-01 to 2026-09-07 at
         // 21:00 UTC, the six stations' own worst days read 0.166, 0.633,
         // 0.835, 0.953, 1.263 and 1.285. Twice the folds is more than half
-        // again the worst of those, and it still fails a boundary vote that
-        // scrambles the branches: on a two hundred thousand gate sweep that
-        // puts tens of thousands of never-folded gates on a foreign branch
-        // against seventeen thousand folds. The line is one-sided by
-        // construction, since a pass that did nothing would score zero here
-        // and is caught by the rejoined share across the stations instead.
+        // again the worst of those.
+        //
+        // What it catches, stated as narrowly as the evidence allows: a pass
+        // that puts more than twice the sweep's own folds onto foreign
+        // branches. A first draft of this comment said it "still fails a
+        // boundary vote that scrambles the branches" and put a figure to it,
+        // and the figure did not follow from its own arithmetic: on a sweep
+        // with seventeen thousand folds the line sits at thirty-four
+        // thousand, which the lower half of "tens of thousands" is under. No
+        // mutation has been run against it either, because this test reads
+        // live volumes off the archive and is `#[ignore]`d; what fails it is
+        // a real run, not a planted one.
+        //
+        // The line is one-sided by construction, since a pass that did
+        // nothing would score zero here, and that direction is caught by the
+        // rejoined share across the stations instead.
         //
         // AUD-388 also asked that it fail when the wind's plausibility bar is
         // removed, and the measurement says no line does both. The same week

@@ -233,6 +233,71 @@ pub(crate) fn local_archive_fixture(uncompressed: bool) -> (DateTime<Utc>, Vec<u
     (at, data)
 }
 
+/// A volume whose velocity carries a patch the unfolding cannot place.
+///
+/// Two cuts, each holding a large connected region of echo and a small one
+/// walled off from it by a band of no data. The large region is what the
+/// unfolding anchors on; the small one touches nothing, which is exactly the
+/// shape `unplaced` counts.
+///
+/// `flat_cut` cannot make this. Every gate of every radial reads the same
+/// there, so the whole sweep is one region and there is nothing for the
+/// unfolding to fail to place, which is why `two_cut_volume` reports a share
+/// of nought and why the cross-section's own accumulation could be mutated to
+/// zero with the suite still green.
+pub(crate) fn stranded_patch_volume() -> (DateTime<Utc>, String, Vec<u8>) {
+    let at = Utc
+        .with_ymd_and_hms(2026, 8, 30, 9, 21, 59)
+        .single()
+        .expect("a UTC time");
+    let site = fixture::Site {
+        id: *b"KDMX",
+        latitude: 41.731,
+        longitude: -93.723,
+        height_metres: 299,
+    };
+    const RADIALS: u16 = 180;
+    const GATES: usize = 400;
+    let spacing = 360.0 / RADIALS as f32;
+    let cut = |number: u8, degrees: f32, anchor: f32, stranded: f32| {
+        (0..RADIALS)
+            .map(|radial| {
+                let mut reflectivity = vec![fixture::Gate::Nothing; GATES];
+                let mut velocity = vec![fixture::Gate::Nothing; GATES];
+                // The anchor: a quarter of the circle out to half the reach.
+                if radial < 45 {
+                    for gate in 0..200 {
+                        reflectivity[gate] = fixture::Gate::Reading(35.0);
+                        velocity[gate] = fixture::Gate::Reading(anchor);
+                    }
+                }
+                // And a patch on the far side of the circle and the far half
+                // of the reach, so no gate of it touches a gate of the anchor.
+                if (120..140).contains(&radial) {
+                    for gate in 300..340 {
+                        reflectivity[gate] = fixture::Gate::Reading(30.0);
+                        velocity[gate] = fixture::Gate::Reading(stranded);
+                    }
+                }
+                fixture::Radial {
+                    azimuth_degrees: radial as f32 * spacing,
+                    azimuth_number: radial + 1,
+                    elevation_number: number,
+                    elevation_degrees: degrees,
+                    nyquist_ms: 8.0,
+                    collected: at,
+                    azimuth_spacing_degrees: spacing,
+                    reflectivity,
+                    velocity,
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    let cuts = vec![cut(1, 0.5, 6.0, -7.5), cut(2, 3.5, 6.0, -7.5)];
+    let key = format!("KDMX/KDMX{}_V06", at.format("%Y%m%d_%H%M%S"));
+    (at, key, fixture::volume(&site, at, &cuts))
+}
+
 /// A volume with two cuts of known readings, for slicing.
 pub(crate) fn two_cut_volume() -> (DateTime<Utc>, String, Vec<u8>) {
     let at = Utc

@@ -1131,6 +1131,8 @@ export const es: Catalogue = {
   "section.gaps":
     "Las bandas vacías son alturas por donde no pasó ningún haz, no un cielo despejado.",
   "section.unfolded": "La velocidad se desplegó antes de cortar.",
+  "section.partlyUnfolded":
+    "El {share}% del volumen del que se tomó este corte sigue plegado.",
   "section.palette": "Dibujado con la tabla de colores cargada.",
   "keywords.hailSwath": "rastro granizo dia",
   "keywords.azShear": "cizalladura azimutal mesociclon par rotacion",

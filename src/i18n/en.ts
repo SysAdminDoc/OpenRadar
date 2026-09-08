@@ -1112,6 +1112,8 @@ export const en = {
   "section.gaps":
     "Empty bands are heights no beam passed through, not weather that is not there.",
   "section.unfolded": "Velocity was unfolded before slicing.",
+  "section.partlyUnfolded":
+    "{share}% of the volume this slice was taken from is still folded.",
   "section.palette": "Drawn with the loaded colour table.",
   "keywords.hailSwath": "hail swath track past day",
   "keywords.azShear": "azimuthal shear mesocyclone couplet rotation",

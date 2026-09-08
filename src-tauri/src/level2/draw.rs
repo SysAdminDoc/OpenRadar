@@ -436,11 +436,6 @@ pub(crate) fn draw_sweep(
         // two halves cover overlapping ground and neither count is a share of
         // what is actually drawn: what a reader needs from this line is the
         // worst of what they are looking at.
-        // The worse of the two halves rather than the newer one. Larger
-        // rather than combined, because the halves cover overlapping ground
-        // and neither count is a share of what is actually drawn: what a
-        // reader needs from this line is the worst of what is in front of
-        // them.
         unplaced_share: share_of(unfolding.unplaced, unfolding.valid).max(beneath_unplaced),
         storm_motion,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,

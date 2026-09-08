@@ -1143,6 +1143,8 @@ export const fr: Catalogue = {
   "section.gaps":
     "Les bandes vides sont des hauteurs qu'aucun faisceau n'a traversées, pas une météo absente.",
   "section.unfolded": "La vitesse a été dépliée avant la découpe.",
+  "section.partlyUnfolded":
+    "{share} % du volume dont cette coupe est tirée est encore replié.",
   "section.palette": "Dessiné avec la table de couleurs chargée.",
   "keywords.hailSwath": "grêle couloir trace dernier jour",
   "keywords.azShear": "cisaillement azimutal mesocyclone couple rotation",
