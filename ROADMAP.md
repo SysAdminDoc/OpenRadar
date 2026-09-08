@@ -601,16 +601,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P3
 
-- [ ] AUD-399 (P3): The palette round-trip test passes on a fixture that hides what it claims to check
-      Category: testing
-      Where: `src/lib/palette.test.ts`, "comes back the way it went in"; `src/lib/palette.ts:103`, `:114`, `:167`.
-      Problem: `parsePalette` recomputes `skipped` from whether a `Product:` or `Step:` line is present rather than reading it back, so `skipped` does not round-trip. The test survives only because its fixture happens to set both. A stored `skipped` of `["color4 alpha", "product", "step"]` comes back as `["product", "step"]`, and a palette with `product: null, step: null, skipped: ["product", "step"]` comes back with `skipped` empty.
-      Evidence: Measured on 2026-09-07 against both cases. Same behaviour before this session's changes.
-      Fix: Either carry `skipped` through the written form so it round-trips, or say in the test's name and its docblock that `skipped` is recomputed rather than restored, and add a case that pins the recomputation.
-      Acceptance: The test fails if the fixture drops its `Product:` line while claiming `skipped: ["product"]` survives; the recomputation is pinned by name.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-400 (P3): Two media queries written twice after the consolidation that was meant to end that
       Category: correctness
       Where: `src/hooks/useClock.ts:84` (`REDUCED_MOTION`) and `:133` (`MORE_CONTRAST`) against `src/lib/displayPreference.ts:15-16` (`MORE_CONTRAST`, `LESS_MOTION`).
