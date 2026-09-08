@@ -441,31 +441,31 @@ export const es: Catalogue = {
   "bundle.openTitle": "Abrir un paquete de repetición de OpenRadar",
   "bundle.fileKind": "Paquete de repetición de OpenRadar",
   "bundle.missingTiles":
-    "{count, plural, one {# tesela no estaba} other {# teselas no estaban}} en el paquete.",
+    "{count, plural, one {# tesela no estaba} other {# teselas no estaban}} en la repetición.",
   "bundle.missingWarnings":
-    "{count, plural, one {# fuente de avisos no estaba} other {# fuentes de avisos no estaban}} en el paquete, así que sus avisos pueden estar incompletos.",
+    "{count, plural, one {# fuente de avisos no estaba} other {# fuentes de avisos no estaban}} en la repetición, así que sus avisos pueden estar incompletos.",
   "bundle.missingBoth":
-    "{tiles, plural, one {# tesela} other {# teselas}} y {warnings, plural, one {# fuente de avisos} other {# fuentes de avisos}} no estaban en el paquete.",
+    "{tiles, plural, one {# tesela} other {# teselas}} y {warnings, plural, one {# fuente de avisos} other {# fuentes de avisos}} no estaban en la repetición.",
   "bundle.error.invalidRequest": "Esta repetición no se puede empaquetar: {0}.",
   "bundle.error.tooManyTiles":
     "La vista abarca {0, plural, one {# tesela} other {# teselas}} a lo largo de la reproducción. Acerca o aleja el mapa para que abarque menos.",
   "bundle.error.tooManyDocuments":
-    "La reproducción pide {0, plural, one {# documento} other {# documentos}} junto al mapa, más de los que cabe en un paquete.",
-  "bundle.error.tooLarge": "El paquete superaría los 256 MB.",
-  "bundle.error.noFolder": "No hay dónde escribir el paquete.",
-  "bundle.error.write": "No se pudo escribir el paquete: {0}",
-  "bundle.error.read": "No se pudo leer el paquete: {0}",
+    "La reproducción pide {0, plural, one {# documento} other {# documentos}} junto al mapa, más de los que cabe en una repetición guardada.",
+  "bundle.error.tooLarge": "La repetición superaría los 256 MB.",
+  "bundle.error.noFolder": "No hay dónde escribir la repetición.",
+  "bundle.error.write": "No se pudo escribir la repetición: {0}",
+  "bundle.error.read": "No se pudo leer la repetición: {0}",
   "bundle.error.notABundle":
     "Ese archivo no es un paquete de repetición de OpenRadar.",
   "bundle.error.newer":
-    "Ese paquete lo hizo un OpenRadar más nuevo. Actualiza para abrirlo.",
-  "bundle.error.corrupt": "Ese paquete está dañado: {0}",
+    "Esa repetición lo hizo un OpenRadar más nuevo. Actualiza para abrirlo.",
+  "bundle.error.corrupt": "Esa repetición está dañada: {0}",
   "bundle.error.noView": "El mapa aún no tiene una vista que empaquetar.",
   "bundle.error.noFrames":
-    "Ese paquete no tiene cuadros que esta versión pueda dibujar.",
+    "Esa repetición no tiene cuadros que esta versión pueda dibujar.",
   "bundle.error.letGo":
-    "Se ha soltado el paquete que estaba abierto, así que el mapa vuelve al radar en vivo.",
-  "bundle.error.unknown": "No se pudo manejar el paquete.",
+    "Se ha soltado la repetición que estaba abierta, así que el mapa vuelve al radar en vivo.",
+  "bundle.error.unknown": "No se pudo manejar la repetición.",
   "route.eyebrow": "El tiempo en el camino",
   "route.title": "Ruta",
   "route.start": "Salida",
@@ -677,7 +677,7 @@ export const es: Catalogue = {
   "diagnostics.report": "Copiar y abrir un informe",
   "diagnostics.reportFailed": "No se pudo abrir la página del informe",
   "diagnostics.reportFailedDetail":
-    "El bloque está en el portapapeles. Abra el formulario en la página del proyecto y péguelo.",
+    "El bloque está en el portapapeles. Abre el formulario en la página del proyecto y pégalo.",
   "diagnostics.copy": "Copiar para un informe de fallo",
   "diagnostics.whatIsCopied":
     "El informe lleva la versión de la app, el renderizador y la plataforma de esta máquina, qué fuentes respondieron, qué hay guardado en disco y el registro reciente. Las coordenadas del registro se redondean a un kilómetro aproximado y los nombres de cuenta se quitan de las rutas de archivo.",
@@ -693,7 +693,7 @@ export const es: Catalogue = {
   "diagnostics.nothingWrong": "Todavía no ha fallado nada.",
   "diagnostics.updateAvailable": "Ya salió OpenRadar {version}",
   "diagnostics.updateReady": "Reiniciando en la versión nueva",
-  "diagnostics.updateDownloading": "Descargando, {percent} %",
+  "diagnostics.updateDownloading": "Descargando, {percent}%",
   "diagnostics.updateChecking": "Buscando una versión más nueva",
   "diagnostics.updateFailed": "La búsqueda de actualizaciones falló",
   "diagnostics.version": "OpenRadar v{version}",
@@ -1221,7 +1221,7 @@ export const es: Catalogue = {
   "layers.title": "Capas",
   "layers.alertsDetail": "Vigilancias y avisos oficiales",
   "layers.earthquakesDetail":
-    "Sismos del USGS de magnitud mayor a 2.5 en el último día",
+    "Sismos del USGS de magnitud mayor a 2,5 en el último día",
   "layers.wildfiresDetail":
     "Perímetros del NIFC, desde los cien acres que publica",
   "layers.smokeDetail": "El análisis a mano de la NOAA, una vez al día",
@@ -1713,16 +1713,16 @@ export const es: Catalogue = {
   "toast.bundleSavedBody":
     "{entries, plural, one {# archivo} other {# archivos}}, {size} MB, en {path}.",
   "toast.bundleMissing":
-    "{count} de ellos no se pudieron descargar y quedan anotados en el paquete.",
+    "{count} de ellos no se pudieron descargar y quedan anotados en la repetición.",
   "toast.bundleFailed": "El paquete de repetición falló",
-  "toast.bundleOpened": "Reproduciendo {label} desde un paquete",
+  "toast.bundleOpened": "Reproduciendo {label} desde una repetición",
   "toast.bundleOpenedBody":
-    "{frames, plural, one {# fotograma guardado} other {# fotogramas guardados}} el {made}. No se pide nada para ellos; responde el paquete.",
+    "{frames, plural, one {# fotograma guardado} other {# fotogramas guardados}} el {made}. No se pide nada para ellos; responde la repetición.",
   "toast.bundleApplyWorkspace": "Aplicar su espacio de trabajo",
   "toast.bundleWorkspaceApplied":
-    "El espacio de trabajo del paquete está en vigor",
+    "El espacio de trabajo de la repetición está en vigor",
   "toast.bundleWorkspacePartly":
-    "El espacio de trabajo del paquete está en vigor, en parte",
+    "El espacio de trabajo de la repetición está en vigor, en parte",
   "toast.replayStoppedBody": "El mapa vuelve al bucle en vivo.",
   "toast.shareTitle": "Vista de OpenRadar",
   "toast.shared": "Vista del mapa compartida",
