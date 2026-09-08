@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   GUIDANCE_MODELS,
   disagreement,
   fetchGuidance,
   modelsThatAnswered,
+  expectedUnitToken,
   parseGuidance,
   parseModelRun,
   runIsStale,
@@ -80,6 +81,58 @@ describe("reading several models at once", () => {
     expect(temperature.spread).toBeCloseTo(2, 5);
     // Three degrees of range across everything, two of it disagreement.
     expect(disagreement(temperature)).toBeCloseTo(2 / 3, 5);
+  });
+
+  it("says so when the service answers in the other system", async () => {
+    // The request carries the reader's system on every call and the reply
+    // carries a token per column, and nothing held the two together. The
+    // numbers arrive in whatever the service used and the label beside them
+    // comes from this app's own vocabulary, so a reply that ignored the
+    // parameter draws thirty degrees Celsius under °F and nothing anywhere
+    // says so.
+    setUnits("metric");
+    const { log } = await import("./log");
+    const said: string[] = [];
+    const warn = vi
+      .spyOn(log, "warn")
+      .mockImplementation((_area, message) => void said.push(String(message)));
+    try {
+      parseGuidance(
+        {
+          hourly_units: { temperature_2m_gfs_seamless: "°F" },
+          hourly: {
+            time: ["2026-08-30T00:00", "2026-08-30T03:00"],
+            temperature_2m_gfs_seamless: [78, 79],
+          },
+        },
+        POINT,
+        MODELS,
+      );
+    } finally {
+      warn.mockRestore();
+    }
+    expect(said.join(" ")).toMatch(/temperature_2m came back in °F/);
+    expect(said.join(" ")).toContain("°C");
+  });
+
+  it("says nothing when the service answers in the system that was asked for", () => {
+    // The other half, so the line above is a check rather than a warning that
+    // always fires.
+    setUnits("metric");
+    const said: string[] = [];
+    expect(expectedUnitToken("temperature_2m")).toBe("°C");
+    parseGuidance(
+      {
+        hourly_units: { temperature_2m_gfs_seamless: "°C" },
+        hourly: {
+          time: ["2026-08-30T00:00"],
+          temperature_2m_gfs_seamless: [26],
+        },
+      },
+      POINT,
+      MODELS,
+    );
+    expect(said).toEqual([]);
   });
 
   it("says nothing rather than zero where a model has no answer", () => {
@@ -159,7 +212,11 @@ live("against Open-Meteo itself", () => {
     // would have passed had the service ignored the parameter entirely.
     const asked = forecastUnits().temperature_unit;
     expect(asked).toBe("celsius");
-    expect(temperature.unit).toBe("°C");
+    // Derived rather than written out, so the assertion moves when the setting
+    // does. A literal here passed whether or not the service honoured the
+    // parameter, because the setup above and the string below were two
+    // constants that happened to agree.
+    expect(temperature.unit).toBe(expectedUnitToken("temperature_2m"));
     expect(temperature.hours.length).toBeGreaterThan(8);
 
     // Every column is on a three-hourly boundary and runs forwards.
