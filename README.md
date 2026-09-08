@@ -378,11 +378,27 @@ It is plain JSON with a `format` of `openradar-provenance` and a `formatVersion`
       "freshForMs": 240000,
       "cachedAgeSeconds": null
     }
+  ],
+  "layers": [
+    {
+      "sourceId": "alerts",
+      "label": "Weather Alerts",
+      "attribution": "NOAA NWS, ECCC and DWD",
+      "attributionUrl": "https://www.weather.gov/",
+      "kind": "observation",
+      "observed": "2026-08-31T18:02:11.000Z",
+      "valid": "2026-08-31T18:02:11.000Z",
+      "fetched": "2026-08-31T18:02:11.000Z",
+      "freshForMs": 60000,
+      "cachedAgeSeconds": null
+    }
   ]
 }
 ```
 
 One entry per frame that reached the file, in timeline order. A loop is not one source: its observed frames and its forecast tail come from different services, and a GIF holds only the last two dozen frames, so a single record for the whole file would be wrong for most of it.
+
+`layers` is everything drawn over the radar when the shutter opened, each in the same shape as a frame. Empty for a picture of the radar on its own. It was added after version 1 had shipped and the version did not move, because a field arriving beside the ones a reader already knows about does not break it. The same names go into the credit burned into the corner, so the picture and the file beside it agree.
 
 `basemap` is the credit for the map under the weather, and it follows the style that was on screen: five of the seven are OpenStreetMap data by way of OpenFreeMap, aerial is USGS orthoimagery, topography is OpenTopoMap's own exact line, and a picture drawn over a prepared incident pack credits the pack. It is the same string the map's attribution bar shows and the same one burned into the corner.
 

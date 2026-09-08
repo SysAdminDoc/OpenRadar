@@ -1432,6 +1432,151 @@ export default function App() {
     t,
   ]);
 
+  /**
+   * Every layer drawn over the radar right now, each saying where it came
+   * from and what it claims.
+   *
+   * Only what is both switched on and holding data, because a record for
+   * something the reader cannot see would describe a different picture from
+   * the one they are looking at.
+   *
+   * Two surfaces need this and only the diagnostics block had it. An
+   * exported picture credits the basemap and the radar out of its own
+   * records, so one made with the warnings, the outlooks or the smoke
+   * analysis over the radar said nothing about any of them, on the one
+   * artefact that leaves the machine and reaches somebody who cannot check
+   * it. The map's own attribution control has always credited them, which is
+   * what made that easy to miss.
+   *
+   * The radar frame is not in here. Diagnostics puts its own in front of
+   * these and an export already carries one record per frame.
+   */
+  const drawnOverlays = useCallback(
+    (now: number): Provenance[] => {
+      const layers: Provenance[] = [];
+      for (const adapter of OVERLAY_ADAPTERS) {
+        const state = overlays.states[adapter.id];
+        if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
+        // The analysis comes off the map while the model's smoke has it, and
+        // a record of a layer that is not drawn describes a picture the
+        // reader cannot see.
+        if (adapter.id === "smoke" && drawnForecastSmoke) continue;
+        // The adapter knows how to fetch itself; the table knows what kind of
+        // statement it makes, and three of these are forecasts rather than
+        // observations.
+        const described = Object.values(LAYER_SOURCES).find(
+          (source) => source.sourceId === adapter.id,
+        );
+        layers.push(
+          overlayProvenance({
+            adapter,
+            fetchedAt: state.fetchedAt,
+            kind: described?.kind,
+            // A derived layer has to say what was done to it, and the ledger
+            // beside the switch is where that sentence is written. Leaving it
+            // behind made the record malformed rather than incomplete, which
+            // suppressed the source, the credit and the times as well.
+            derivedFrom: described?.derivedFrom,
+          }),
+        );
+      }
+
+      // Everything else the reader can switch on. The overlay adapters above
+      // already speak for themselves, so this covers the rest: the locally
+      // decoded grids, both lightning layers, wind, satellite, and the two
+      // products the radar's own algorithms derive.
+      //
+      // Each takes the best time the app actually has for it. An MRMS grid knows
+      // when it was valid and a lightning window knows when it was observed;
+      // where nothing is known the record says it was fetched now, which is true
+      // and claims nothing more.
+
+      for (const [key, on] of Object.entries(settings.layers)) {
+        // Named rather than `typeof settings.layers`, which reads as a use of
+        // the whole settings object and puts it in this callback's
+        // dependencies, rebuilding it on every unrelated preference.
+        const layer = key as keyof LayerSettings;
+        if (!on) continue;
+        // Switched on is not the same as drawing. A record for a layer that
+        // fetched nothing describes a picture the reader cannot see, which is
+        // the opposite of what a report about the picture is for.
+        if (layer === "wind" && !wind.field) continue;
+        if (layer === "lightningFlashes" && !lightning.window) continue;
+        if (layer === "classification" && !classification.report) continue;
+        if (layer === "forecastSmoke" && !forecastSmoke.field) continue;
+        const source = LAYER_SOURCES[layer];
+        // Matched on the source rather than on the switch's own name, because
+        // the two do not agree: the alerts adapter is `alerts` and the switch
+        // that draws it is `weatherAlerts`. Comparing the names would have let
+        // that one layer be reported twice under both.
+        if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
+        // Reference geography with a vintage rather than a moment. Left to
+        // fall through it reported the Census boundaries as observed this
+        // instant, which is a freshness claim about something that has not
+        // moved since 2024.
+        if (layer === "counties" && !countiesDrawn) continue;
+        const observedAt =
+          (layer === "counties" ? COUNTY_VINTAGE : undefined) ??
+          mrmsTimeFor(mrms.layers, layer, mrmsChoices) ??
+          (layer === "lightningFlashes"
+            ? // The flash window carries seconds, like the radar frames and
+              // unlike everything in a record. Passed straight through it dated
+              // every lightning layer to 1970.
+              lightning.window
+              ? lightning.window.observed * 1000
+              : null
+            : layer === "classification" && classification.report
+              ? Date.parse(classification.report.observed)
+              : null);
+        // The wind layer is the one forecast here whose run the app already
+        // reads, so it can report a real one rather than saying it does not know.
+        const modelRun =
+          layer === "wind" && wind.field
+            ? {
+                initUtc: wind.field.init,
+                leadMinutes: wind.field.leadHours * 60,
+              }
+            : layer === "forecastSmoke" && forecastSmoke.field
+              ? {
+                  initUtc: forecastSmoke.field.init,
+                  leadMinutes: forecastSmoke.field.leadHours * 60,
+                }
+              : undefined;
+        // The smoke names the hour it is for; the wind's hour is worked
+        // forward from now because the field is the run's own analysis.
+        const validAt =
+          layer === "forecastSmoke" && forecastSmoke.field
+            ? Date.parse(forecastSmoke.field.valid)
+            : modelRun
+              ? now + modelRun.leadMinutes * 60_000
+              : (observedAt ?? now);
+        layers.push(
+          layerProvenance({
+            layer,
+            fetchedAt: now,
+            observedAt: observedAt ?? now,
+            validAt,
+            modelRun,
+          }),
+        );
+      }
+      return layers;
+    },
+    [
+      classification.report,
+      countiesDrawn,
+      drawnForecastSmoke,
+      forecastSmoke.field,
+      lightning.window,
+      mrms.layers,
+      mrmsChoices,
+      overlays.data,
+      overlays.states,
+      settings.layers,
+      wind.field,
+    ],
+  );
+
   const exportState = useExport({
     mapRef,
     frames,
@@ -1444,6 +1589,10 @@ export default function App() {
     // The map under the weather, for the style on screen: an aerial picture
     // credits USGS and a topographic one credits OpenTopoMap, rather than
     // both crediting a service that did not draw them.
+    // Everything drawn over the radar when the shutter opens, so the credit
+    // burned into the corner and the sidecar beside the file both name the
+    // offices and the models whose work is in the picture.
+    overlayProvenance: () => drawnOverlays(Date.now()),
     basemapCredit: basemapCredit(
       settings.mapStyle,
       settings.theme,
@@ -1917,109 +2066,7 @@ export default function App() {
         cachedAgeSeconds: timeline.cachedAgeSeconds,
       });
       if (shown) layers.push(shown);
-      for (const adapter of OVERLAY_ADAPTERS) {
-        const state = overlays.states[adapter.id];
-        if (!overlays.data[adapter.id] || !state?.fetchedAt) continue;
-        // The analysis comes off the map while the model's smoke has it, and
-        // a record of a layer that is not drawn describes a picture the
-        // reader cannot see.
-        if (adapter.id === "smoke" && drawnForecastSmoke) continue;
-        // The adapter knows how to fetch itself; the table knows what kind of
-        // statement it makes, and three of these are forecasts rather than
-        // observations.
-        const described = Object.values(LAYER_SOURCES).find(
-          (source) => source.sourceId === adapter.id,
-        );
-        layers.push(
-          overlayProvenance({
-            adapter,
-            fetchedAt: state.fetchedAt,
-            kind: described?.kind,
-            // A derived layer has to say what was done to it, and the ledger
-            // beside the switch is where that sentence is written. Leaving it
-            // behind made the record malformed rather than incomplete, which
-            // suppressed the source, the credit and the times as well.
-            derivedFrom: described?.derivedFrom,
-          }),
-        );
-      }
-
-      // Everything else the reader can switch on. The overlay adapters above
-      // already speak for themselves, so this covers the rest: the locally
-      // decoded grids, both lightning layers, wind, satellite, and the two
-      // products the radar's own algorithms derive.
-      //
-      // Each takes the best time the app actually has for it. An MRMS grid knows
-      // when it was valid and a lightning window knows when it was observed;
-      // where nothing is known the record says it was fetched now, which is true
-      // and claims nothing more.
-
-      for (const [key, on] of Object.entries(settings.layers)) {
-        const layer = key as keyof typeof settings.layers;
-        if (!on) continue;
-        // Switched on is not the same as drawing. A record for a layer that
-        // fetched nothing describes a picture the reader cannot see, which is
-        // the opposite of what a report about the picture is for.
-        if (layer === "wind" && !wind.field) continue;
-        if (layer === "lightningFlashes" && !lightning.window) continue;
-        if (layer === "classification" && !classification.report) continue;
-        if (layer === "forecastSmoke" && !forecastSmoke.field) continue;
-        const source = LAYER_SOURCES[layer];
-        // Matched on the source rather than on the switch's own name, because
-        // the two do not agree: the alerts adapter is `alerts` and the switch
-        // that draws it is `weatherAlerts`. Comparing the names would have let
-        // that one layer be reported twice under both.
-        if (COVERED_BY_ADAPTERS.has(source.sourceId)) continue;
-        // Reference geography with a vintage rather than a moment. Left to
-        // fall through it reported the Census boundaries as observed this
-        // instant, which is a freshness claim about something that has not
-        // moved since 2024.
-        if (layer === "counties" && !countiesDrawn) continue;
-        const observedAt =
-          (layer === "counties" ? COUNTY_VINTAGE : undefined) ??
-          mrmsTimeFor(mrms.layers, layer, mrmsChoices) ??
-          (layer === "lightningFlashes"
-            ? // The flash window carries seconds, like the radar frames and
-              // unlike everything in a record. Passed straight through it dated
-              // every lightning layer to 1970.
-              lightning.window
-              ? lightning.window.observed * 1000
-              : null
-            : layer === "classification" && classification.report
-              ? Date.parse(classification.report.observed)
-              : null);
-        // The wind layer is the one forecast here whose run the app already
-        // reads, so it can report a real one rather than saying it does not know.
-        const modelRun =
-          layer === "wind" && wind.field
-            ? {
-                initUtc: wind.field.init,
-                leadMinutes: wind.field.leadHours * 60,
-              }
-            : layer === "forecastSmoke" && forecastSmoke.field
-              ? {
-                  initUtc: forecastSmoke.field.init,
-                  leadMinutes: forecastSmoke.field.leadHours * 60,
-                }
-              : undefined;
-        // The smoke names the hour it is for; the wind's hour is worked
-        // forward from now because the field is the run's own analysis.
-        const validAt =
-          layer === "forecastSmoke" && forecastSmoke.field
-            ? Date.parse(forecastSmoke.field.valid)
-            : modelRun
-              ? now + modelRun.leadMinutes * 60_000
-              : (observedAt ?? now);
-        layers.push(
-          layerProvenance({
-            layer,
-            fetchedAt: now,
-            observedAt: observedAt ?? now,
-            validAt,
-            modelRun,
-          }),
-        );
-      }
+      layers.push(...drawnOverlays(now));
       const packs = settingsRef.current.incidentPacks;
       const block = diagnosticsBlock({
         lastCrash,
@@ -2077,24 +2124,14 @@ export default function App() {
     [
       autostart.on,
       notifications,
-      classification.report,
-      countiesDrawn,
-      drawnForecastSmoke,
+      drawnOverlays,
       lastCrash,
       lastWebviewCrash,
       webviewRuntime,
-      forecastSmoke.field,
       health,
-      lightning.window,
-      wind.field,
       logEntries,
-      mrms.layers,
-      mrmsChoices,
-      settings,
       settingsRef,
       mapStatus,
-      overlays.data,
-      overlays.states,
       pushToast,
       timeline,
     ],

@@ -453,6 +453,16 @@ export interface ProvenanceDocument {
   /** Credit for the map under the weather. */
   basemap: string;
   /**
+   * Every layer drawn over the radar when the picture was taken, each saying
+   * where it came from, what kind of statement it makes and when it was last
+   * read. Empty for a picture of the radar on its own.
+   *
+   * Added after `formatVersion` 1 shipped, and the version did not move,
+   * because nothing that read the old shape is affected by a field arriving
+   * beside the ones it already reads.
+   */
+  layers: ProvenanceRecordDocument[];
+  /**
    * One entry per frame that reached the file, in the order it was written.
    *
    * The index is the frame's position in the file rather than on the
@@ -541,6 +551,8 @@ export function provenanceDocument(options: {
   basemap: string;
   writtenAt: number;
   frames: Array<{ index: number; record: Provenance }>;
+  /** Everything drawn over the radar, in the order the map drew it. */
+  layers?: Provenance[];
 }): ProvenanceDocument {
   return {
     format: "openradar-provenance",
@@ -558,6 +570,9 @@ export function provenanceDocument(options: {
         index,
         ...provenanceRecordDocument(record),
       })),
+    // Additive, so `formatVersion` stays at 1: a reader written against the
+    // old shape finds every field it knew about exactly where it was.
+    layers: (options.layers ?? []).map(provenanceRecordDocument),
   };
 }
 
@@ -573,9 +588,24 @@ export function provenanceDocument(options: {
 export function provenanceCredit(
   basemap: string,
   record: Provenance | null,
+  /**
+   * What else was drawn over the radar when the picture was taken.
+   *
+   * Left out, the credit named the basemap and the radar and nothing else, so
+   * a picture exported with the warnings, the outlooks or the smoke analysis
+   * on it credited neither the offices that issued them nor the model that
+   * made them. The map's own attribution control has always credited them,
+   * which is what made this easy to miss: the credit existed and reached a
+   * reader, just not on the one artefact that leaves the machine.
+   */
+  layers: Provenance[] = [],
 ): string {
   const source = record ? attributionText(record.attribution) : "";
-  return ["OpenRadar", basemap, source]
+  const drawn = layers.map((layer) => attributionText(layer.attribution));
+  // One credit per source however many layers a service is behind, and in the
+  // order they were drawn: the same office issues the warnings and the storm
+  // reports, and naming it twice reads as a mistake rather than as thorough.
+  return [...new Set(["OpenRadar", basemap, source, ...drawn])]
     .filter((part): part is string => Boolean(part && part.trim()))
     .join(" · ");
 }

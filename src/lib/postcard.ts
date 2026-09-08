@@ -1,5 +1,5 @@
 import { translate } from "../i18n";
-import type { ExportCaption } from "./export";
+import { wrapped, type ExportCaption } from "./export";
 
 /**
  * The map as something to send somebody, rather than as evidence.
@@ -47,44 +47,6 @@ const MARGIN = 48;
 
 /** The least picture worth calling a picture of the map. */
 const MIN_PICTURE = 120;
-
-function wrapped(
-  context: CanvasRenderingContext2D,
-  text: string,
-  width: number,
-): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    let rest = word;
-    // A word wider than the line is broken inside itself, because `fillText`
-    // neither wraps nor clips and would draw it off the edge.
-    while (context.measureText(rest).width > width && rest.length > 1) {
-      let take = rest.length;
-      while (
-        take > 1 &&
-        context.measureText(rest.slice(0, take)).width > width
-      ) {
-        take -= 1;
-      }
-      if (line) {
-        lines.push(line);
-        line = "";
-      }
-      lines.push(rest.slice(0, take));
-      rest = rest.slice(take);
-    }
-    const next = line ? `${line} ${rest}` : rest;
-    if (line && context.measureText(next).width > width) {
-      lines.push(line);
-      line = rest;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
 
 export async function drawPostcard(options: {
   /** The map as it stands, which is what the picture is of. */

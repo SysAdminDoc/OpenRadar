@@ -19,7 +19,11 @@ function fakeCanvas(width: number, height: number) {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
     fillText: vi.fn((line: string) => drawn.push(line)),
-    measureText: () => ({ width: 40 }),
+    // Proportional to the text, because a fake that answers 40 for every
+    // string cannot see a line running off the edge, which is the one thing
+    // the caption's own arithmetic is for. Seven pixels a character is about
+    // what 13px Segoe UI measures.
+    measureText: (text: string) => ({ width: text.length * 7 }),
     getImageData: (_x: number, _y: number, w: number, h: number) => ({
       // A different colour per call, so a frame that was never redrawn would
       // be indistinguishable from the one before it.
@@ -71,6 +75,59 @@ describe("the keys burned into an exported picture", () => {
     const { canvas, drawn } = recording(1280, 720);
     drawFrame(canvas, canvas, caption);
     expect(drawn).toEqual(["2026-09-05 21:00Z", "NOAA"]);
+  });
+
+  it("keeps a long credit inside the picture at every export size", () => {
+    // The credit used to name the basemap and one radar and now names every
+    // layer drawn over the radar, which is several offices and a model on a
+    // busy day. `drawFrame` measured the widest line and drew a box that
+    // wide, so anything longer than the picture ran off the right edge along
+    // with its own backing box.
+    const long =
+      "OpenRadar · OpenStreetMap · NOAA MRMS · NOAA NWS, ECCC and DWD · " +
+      "NOAA SPC · NOAA WPC · NOAA NESDIS GOES · NASA FIRMS · USGS";
+    for (const [width, height] of [
+      [1920, 1080],
+      [1280, 720],
+      [800, 600],
+      [480, 320],
+    ]) {
+      const { canvas, drawn } = recording(width, height);
+      drawFrame(canvas, canvas, {
+        lines: ["2026-09-08 21:00Z"],
+        attribution: long,
+      });
+      const context = canvas.getContext("2d") as unknown as {
+        measureText: (text: string) => { width: number };
+      };
+      const widest = Math.max(
+        ...drawn.map((line) => context.measureText(line).width),
+      );
+      // Where the text starts, plus the widest line, plus the padding on the
+      // far side of its box. That is the right-hand edge of what is drawn.
+      // The text starts two paddings in and its box closes one padding past
+      // the longest line, so three of them plus the widest line is the
+      // right-hand edge of everything drawn. The padding is 12 in `export.ts`.
+      expect(widest + 12 * 3, `${width}x${height}`).toBeLessThanOrEqual(width);
+      // And nothing was dropped to make it fit: every word survives, in order.
+      expect(drawn.join(" ").replace(/\s+/g, " ")).toContain("NOAA MRMS");
+      expect(drawn.join(" ").replace(/\s+/g, " ")).toContain("USGS");
+    }
+  });
+
+  it("draws the whole credit in the quieter colour, however many lines it takes", () => {
+    // The old rule was "the last line is the credit". Once the credit wraps,
+    // that colours all but the final line of it as though it were a fact
+    // about the picture.
+    const { canvas, drawn, swatches } = recording(480, 320);
+    void swatches;
+    drawFrame(canvas, canvas, {
+      lines: ["2026-09-08 21:00Z"],
+      attribution:
+        "OpenRadar · OpenStreetMap · NOAA MRMS · NOAA NWS, ECCC and DWD · NOAA SPC",
+    });
+    expect(drawn.length).toBeGreaterThan(2);
+    expect(drawn[0]).toBe("2026-09-08 21:00Z");
   });
 
   it("names every band and paints it in the colour it is drawn in", () => {

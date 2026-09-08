@@ -418,10 +418,97 @@ describe("the record that travels with an exported file", () => {
     expect(replay).not.toContain("NOAA");
   });
 
+  it("credits everything drawn over the radar, not just the radar", () => {
+    // A picture that leaves the app reaches somebody who cannot check it, and
+    // it used to credit the basemap and the radar and nothing else however
+    // much was drawn on top. The map's own attribution bar always named them,
+    // which is what made it easy to miss: the credit existed and reached a
+    // reader, just not on the artefact that leaves the machine.
+    const credit = provenanceCredit(
+      "OpenStreetMap",
+      observation({ attribution: MRMS_ANCHOR }),
+      [
+        observation({ sourceId: "alerts", attribution: "NWS, ECCC and DWD" }),
+        observation({ sourceId: "spcOutlooks", attribution: "NOAA SPC" }),
+      ],
+    );
+    expect(credit).toBe(
+      "OpenRadar · OpenStreetMap · NOAA MRMS · NWS, ECCC and DWD · NOAA SPC",
+    );
+  });
+
+  it("names a service once however many layers it is behind", () => {
+    // The same office issues the warnings and the storm reports. Naming it
+    // twice in one line reads as a mistake rather than as thorough.
+    const credit = provenanceCredit("OpenStreetMap", null, [
+      observation({ sourceId: "alerts", attribution: "NOAA NWS" }),
+      observation({ sourceId: "stormReports", attribution: "NOAA NWS" }),
+    ]);
+    expect(credit).toBe("OpenRadar · OpenStreetMap · NOAA NWS");
+  });
+
+  it("is unchanged for a picture with nothing over the radar", () => {
+    // The other half of the acceptance. A still of the mosaic on its own has
+    // to read exactly as it did before any of this.
+    expect(
+      provenanceCredit("OpenStreetMap", observation({ attribution: "NOAA" })),
+    ).toBe("OpenRadar · OpenStreetMap · NOAA");
+    expect(
+      provenanceCredit(
+        "OpenStreetMap",
+        observation({ attribution: "NOAA" }),
+        [],
+      ),
+    ).toBe("OpenRadar · OpenStreetMap · NOAA");
+  });
+
   it("still credits the map when there is no frame to credit", () => {
     expect(provenanceCredit("OpenStreetMap", null)).toBe(
       "OpenRadar · OpenStreetMap",
     );
+  });
+
+  it("writes what was drawn over the radar beside the frames", () => {
+    // The sidecar is the machine half of the same credit. A reader handed the
+    // file can see the offices whose warnings are in the picture, when each
+    // was last read and what kind of statement it makes.
+    const document = provenanceDocument({
+      picture: "openradar-2026-08-31.png",
+      application: "OpenRadar 0.12.0",
+      basemap: "OpenStreetMap",
+      writtenAt: FETCHED_AT,
+      frames: [{ index: 0, record: observation() }],
+      layers: [
+        observation({
+          sourceId: "alerts",
+          label: "Weather Alerts",
+          attribution: "NOAA NWS",
+        }),
+      ],
+    });
+    expect(document.formatVersion).toBe(1);
+    expect(document.layers).toEqual([
+      expect.objectContaining({
+        sourceId: "alerts",
+        label: "Weather Alerts",
+        attribution: "NOAA NWS",
+        kind: "observation",
+      }),
+    ]);
+    // And the frames are untouched by any of it.
+    expect(document.frames).toHaveLength(1);
+    expect(document.frames[0].sourceId).toBe("mrms");
+  });
+
+  it("writes an empty list for a picture with nothing over the radar", () => {
+    const document = provenanceDocument({
+      picture: "openradar-2026-08-31.png",
+      application: "OpenRadar 0.12.0",
+      basemap: "OpenStreetMap",
+      writtenAt: FETCHED_AT,
+      frames: [{ index: 0, record: observation() }],
+    });
+    expect(document.layers).toEqual([]);
   });
 
   it("carries a live frame, a forecast, and a replay in timeline order", () => {

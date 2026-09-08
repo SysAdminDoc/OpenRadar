@@ -33,6 +33,54 @@ export const MIN_LOOP_BYTES = 2_000;
  * Draws the map as it stands with the caption burned into the corner, so a
  * picture that leaves the app still says what it is and where it came from.
  */
+/**
+ * One line of text as however many lines it takes to fit a width.
+ *
+ * Lived in `postcard.ts`, which is where the third caller of it was. The
+ * fourth is `drawFrame` below, which had no wrapping at all: it measured the
+ * widest line, drew a box that wide and filled the text into it, so a credit
+ * longer than the picture ran off the right edge along with its own backing
+ * box. That was survivable while the credit named a basemap and one radar,
+ * and stopped being survivable when it started naming every layer drawn.
+ */
+export function wrapped(
+  context: CanvasRenderingContext2D,
+  text: string,
+  width: number,
+): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    let rest = word;
+    // A word wider than the line is broken inside itself, because `fillText`
+    // neither wraps nor clips and would draw it off the edge.
+    while (context.measureText(rest).width > width && rest.length > 1) {
+      let take = rest.length;
+      while (
+        take > 1 &&
+        context.measureText(rest.slice(0, take)).width > width
+      ) {
+        take -= 1;
+      }
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+      lines.push(rest.slice(0, take));
+      rest = rest.slice(take);
+    }
+    const next = line ? `${line} ${rest}` : rest;
+    if (line && context.measureText(next).width > width) {
+      lines.push(line);
+      line = rest;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
 export function drawFrame(
   target: HTMLCanvasElement,
   source: HTMLCanvasElement,
@@ -43,10 +91,23 @@ export function drawFrame(
 
   context.drawImage(source, 0, 0, target.width, target.height);
 
-  const lines = [...caption.lines, caption.attribution].filter(Boolean);
+  context.font = "13px 'Segoe UI', system-ui, sans-serif";
+  // What the caption may occupy: the picture, less the margin its box sits in
+  // and the padding inside the box, on both sides.
+  const room = target.width - CAPTION_PADDING * 4;
+  // A picture with no room to lay a caption out in gets it whole. Wrapping to
+  // a couple of pixels puts one character on each of forty lines, which is a
+  // worse answer than a line that runs over.
+  const fit = (line: string) =>
+    room > 0 ? wrapped(context, line, room) : [line];
+  const lines = [...caption.lines, caption.attribution]
+    .filter(Boolean)
+    .flatMap(fit);
+  // The credit was the last line and is now the last several, and all of it
+  // is drawn in the quieter colour.
+  const creditLines = caption.attribution ? fit(caption.attribution).length : 0;
   const lineHeight = 18;
   const boxHeight = lines.length * lineHeight + CAPTION_PADDING;
-  context.font = "13px 'Segoe UI', system-ui, sans-serif";
   const width =
     Math.max(...lines.map((line) => context.measureText(line).width)) +
     CAPTION_PADDING * 2;
@@ -64,7 +125,8 @@ export function drawFrame(
   context.fillStyle = "#e7edf7";
   context.textBaseline = "top";
   lines.forEach((line, index) => {
-    context.fillStyle = index === lines.length - 1 ? "#9da9bb" : "#e7edf7";
+    context.fillStyle =
+      index >= lines.length - creditLines ? "#9da9bb" : "#e7edf7";
     context.fillText(
       line,
       CAPTION_PADDING * 2,

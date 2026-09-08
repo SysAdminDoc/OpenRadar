@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MapViewportHandle } from "../components/MapViewport";
 import type { RadarFrame } from "../lib/radar";
 import type { RadarTimelineState } from "./useRadarTimeline";
+import type { Provenance } from "../lib/provenance";
 import { useExport } from "./useExport";
 import { en } from "../i18n/en";
 
@@ -78,6 +79,7 @@ describe("loop export workspace restoration", () => {
         source: null,
         timeline,
         basemapCredit: "OpenStreetMap",
+        overlayProvenance: () => [],
         dataSources: [],
         sweep: null,
         siteLoop: null,
@@ -129,6 +131,7 @@ describe("the record written beside the picture", () => {
         source: null,
         timeline,
         basemapCredit: "OpenStreetMap",
+        overlayProvenance: () => [],
         dataSources: [],
         sweep: null,
         siteLoop: null,
@@ -175,6 +178,65 @@ describe("the record written beside the picture", () => {
     expect(written.frames).toHaveLength(1);
     expect(written.frames[0].index).toBe(1);
     expect(written.frames[0].sourceId).toBe("mrms");
+  });
+
+  it("credits what was drawn over the radar, in the picture and beside it", async () => {
+    // The whole of the defect. Both artefacts that leave the machine were
+    // built from the radar frame's own record, so a picture with the warnings
+    // and the outlooks on it credited the basemap and the radar and said
+    // nothing about either of them.
+    const drawn: Provenance[] = [
+      {
+        sourceId: "alerts",
+        label: "Weather Alerts",
+        attribution: "NOAA NWS",
+        kind: "observation",
+        observedAt: FETCHED_AT,
+        validAt: FETCHED_AT,
+        fetchedAt: FETCHED_AT,
+        freshForMs: 60_000,
+        cachedAgeSeconds: null,
+      },
+      {
+        sourceId: "spcOutlooks",
+        label: "SPC outlooks",
+        attribution: "NOAA SPC",
+        kind: "forecast",
+        observedAt: null,
+        validAt: FETCHED_AT,
+        fetchedAt: FETCHED_AT,
+        freshForMs: null,
+        cachedAgeSeconds: null,
+      },
+    ];
+    const { result } = renderExport({ overlayProvenance: () => drawn });
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+
+    const caption = exportStill.mock.calls[0][1] as { attribution: string };
+    expect(caption.attribution).toContain("NOAA NWS");
+    expect(caption.attribution).toContain("NOAA SPC");
+
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      layers: Array<{ sourceId: string; kind: string }>;
+    };
+    expect(written.layers.map((layer) => layer.sourceId)).toEqual([
+      "alerts",
+      "spcOutlooks",
+    ]);
+    expect(written.layers[1].kind).toBe("forecast");
+  });
+
+  it("is unchanged for a picture with nothing over the radar", async () => {
+    const { result } = renderExport();
+    act(() => result.current.exportImage());
+    await waitFor(() => expect(saveFile).toHaveBeenCalledTimes(2));
+    const caption = exportStill.mock.calls[0][1] as { attribution: string };
+    expect(caption.attribution).toBe("OpenRadar · OpenStreetMap · NOAA");
+    const written = (await sidecarFrom(saveFile.mock.calls[1])) as {
+      layers: unknown[];
+    };
+    expect(written.layers).toEqual([]);
   });
 
   // The credit used to be the literal string "OpenRadar · OpenStreetMap ·
@@ -651,6 +713,7 @@ describe("the picture that goes on the desktop", () => {
         source: null,
         timeline,
         basemapCredit: "OpenStreetMap",
+        overlayProvenance: () => [],
         dataSources: [],
         sweep: null,
         siteLoop: null,
