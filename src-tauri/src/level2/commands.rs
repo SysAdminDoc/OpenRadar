@@ -299,8 +299,10 @@ pub async fn level2_local_sweep(
     motion: Option<(f32, f32)>,
     threshold: Option<f32>,
     high_contrast: bool,
-    // The ground to draw over. A file the reader opened is drawn into the same
-    // pane as everything else, so it follows the zoom the same way.
+    // The ground to draw over. Always none from the app today for a file the
+    // reader opened: the box is measured on the disc of the site the map is
+    // on, and a file from disk carries whatever site it was recorded at. See
+    // `historicalWithin` in `useSingleSiteRadar.ts`.
     within: Option<[f64; 4]>,
 ) -> Result<SweepImage, Level2Error> {
     tauri::async_runtime::spawn_blocking(move || {

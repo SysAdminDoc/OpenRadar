@@ -13,8 +13,10 @@
 //! for a `first` that names an edge rather than a centre, and `max_range_km`
 //! adds a whole interval per gate for the same reason. Both are half a gate
 //! out against the ICD they decode, and everything that read a gate through
-//! them inherited the shift: a quarter of a kilometre at legacy resolution,
-//! and every picture drawn that much further out than the radar measured it.
+//! them inherited the shift: half a gate, which is 125 metres at the quarter
+//! kilometre gates every velocity and super-resolution reflectivity product
+//! uses and 500 at the kilometre gates of legacy reflectivity. Every picture
+//! was drawn that much further out than the radar measured it.
 //!
 //! Every reading in this crate comes through here so there is one answer.
 
@@ -41,7 +43,12 @@ pub(crate) fn gate_covering(field: &SweepField, range_km: f64) -> Option<usize> 
     if interval <= 0.0 {
         return None;
     }
-    let gate = ((range_km - field.first_gate_range_km()) / interval).round();
+    // Half up rather than `round`, which in Rust goes half away from zero.
+    // The two spellings agree everywhere except at exactly the near edge of
+    // gate 0, where `round` gives -1 and refuses a range `reading_at` reads
+    // happily. This is the same arithmetic `reading_at` gets out of
+    // `value_at_polar`: `floor(t + 0.5)`, spelled out.
+    let gate = ((range_km - field.first_gate_range_km()) / interval + 0.5).floor();
     if gate < 0.0 || gate >= field.gate_count() as f64 {
         return None;
     }
