@@ -170,6 +170,51 @@ describe("what the map is handed", () => {
     }
   });
 
+  it("does not print the engine's own words when a read goes wrong", async () => {
+    // The native bridge rejects with a string this app wrote, which the test
+    // above covers. Anything else is the engine's: a body that is not what it
+    // claimed makes `response.json()` throw a `SyntaxError` whose message is
+    // `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`, in English
+    // whatever language the app is read in. That went to the panel verbatim,
+    // and the fallback beside it was an untranslated English sentence.
+    read.mockRejectedValue(new SyntaxError("Unexpected token '<', \"<!DOCT\""));
+    const { result } = renderHook(() =>
+      useClassification({
+        ready: true,
+        enabled: true,
+        station: "KTLX",
+        product: "HHC",
+        pageVisible: true,
+        clock: NOW,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.error).not.toContain("DOCT");
+    expect(result.current.error).toBe(
+      "The service answered in a way this could not read.",
+    );
+  });
+
+  it("falls back to this app's own sentence, translated", async () => {
+    // A rejection carrying nothing at all, which is what the bridge does when
+    // it fails before it has anything to say.
+    read.mockRejectedValue({ code: "nope" });
+    const { result } = renderHook(() =>
+      useClassification({
+        ready: true,
+        enabled: true,
+        station: "KTLX",
+        product: "HHC",
+        pageVisible: true,
+        clock: NOW,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.error).toBe("The classification could not be read.");
+  });
+
   it("asks for nothing while the layer is off", async () => {
     renderHook(() =>
       useClassification({

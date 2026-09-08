@@ -866,6 +866,8 @@ export const es: Catalogue = {
   "probSevere.stale":
     "La última lectura tiene más de quince minutos, así que describe tormentas que ya se han movido. No se dibuja nada hasta que se publique una nueva.",
   "probSevere.title": "Probabilidad de tiempo severo",
+  "probSevere.unread":
+    "No se pudieron leer las probabilidades de tiempo severo.",
   "probSevere.headline":
     "{percent}% de probabilidad de tiempo severo en la próxima hora",
   "probSevere.kinds": "Granizo {hail}% · Viento {wind}% · Tornado {tornado}%",
@@ -889,6 +891,7 @@ export const es: Catalogue = {
   "hydrometeor.giantHail": "Granizo gigante",
   "hydrometeor.unknown": "Desconocido",
   "classification.lowestTilt": "Elevación más baja (N0H)",
+  "classification.unread": "No se pudo leer la clasificación.",
   "classification.hybridScan": "Barrido híbrido (HHC)",
   "chrome.classificationNote":
     "El propio algoritmo del radar nombrando a qué se parecen sus momentos de doble polarización. No es un informe desde el suelo.",
@@ -1034,6 +1037,7 @@ export const es: Catalogue = {
   "layer.vii": "Hielo integrado",
   "layer.lightningDensity": "Densidad de rayos",
   "layer.lightningFlashes": "Destellos de rayos",
+  "lightning.unanswered": "El servicio de rayos no respondió.",
   "layer.customOverlay": "Capa propia",
   "panel.search": "Buscar",
   "panel.alerts": "Alertas",
@@ -1420,6 +1424,7 @@ export const es: Catalogue = {
   "settings.showRadarDetail":
     "Deja ver el mapa base cuando el radar está oculto",
   "cells.eyebrow": "Células de tormenta",
+  "cells.unread": "No se pudieron leer las células de tormenta.",
   "cells.arriving": "{id} llega al punto vigilado en {count} min",
   "approach.title": "Tormenta en camino a {place}",
   "approach.titleHome": "Tormenta viniendo hacia ti",

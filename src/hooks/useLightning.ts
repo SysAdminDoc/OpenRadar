@@ -3,6 +3,8 @@ import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/runtime";
+import { translate } from "../i18n";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /** A file lands every twenty seconds; asking once a minute is plenty. */
 export const REFRESH_MS = 60_000;
@@ -188,12 +190,13 @@ export function useLightning(options: {
         setError(null);
       } catch (failure: unknown) {
         if (!open || request !== requestGeneration) return;
+        // A native rejection is a string this app wrote; anything else goes
+        // through the shared reader, which keeps a sentence this app wrote
+        // and never prints the engine's own words at somebody.
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The lightning feed did not answer.";
+            : failureSentence(failure, translate("lightning.unanswered"));
         log.warn("lightning", message);
         // A stale flash map is worse than none: lightning that has stopped is
         // exactly what a viewer needs to know about.

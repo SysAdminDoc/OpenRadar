@@ -875,6 +875,7 @@ export const fr: Catalogue = {
   "layers.probSevereDetail":
     "Ce qu'un modèle attend de chaque orage dans la prochaine heure, ce qui tient de l'orientation et non de l'alerte",
   "probSevere.title": "Probabilité de sévérité",
+  "probSevere.unread": "Les probabilités de sévérité n'ont pas pu être lues.",
   "probSevere.stale":
     "La dernière lecture a plus de quinze minutes, alors elle parle d'orages qui sont passés. Rien n'est dessiné avant la publication d'une lecture fraîche.",
   "probSevere.headline":
@@ -900,6 +901,7 @@ export const fr: Catalogue = {
   "hydrometeor.giantHail": "Grêle géante",
   "hydrometeor.unknown": "Indéterminé",
   "classification.lowestTilt": "Angle le plus bas (N0H)",
+  "classification.unread": "La classification n'a pas pu être lue.",
   "classification.hybridScan": "Balayage hybride (HHC)",
   "chrome.classificationNote":
     "L'algorithme du radar nomme ce à quoi ressemblent ses moments à double polarisation. Ce n'est pas un rapport venu du sol.",
@@ -1047,6 +1049,7 @@ export const fr: Catalogue = {
   "layer.vii": "Glace intégrée",
   "layer.lightningDensity": "Densité de foudre",
   "layer.lightningFlashes": "Éclairs",
+  "lightning.unanswered": "Le service d'éclairs n'a pas répondu.",
   "layer.customOverlay": "Couche personnalisée",
   "panel.search": "Recherche",
   "panel.alerts": "Alertes",
@@ -1436,6 +1439,7 @@ export const fr: Catalogue = {
   "settings.showRadarDetail":
     "Garder le fond de carte visible quand le radar est masqué",
   "cells.eyebrow": "Cellules orageuses",
+  "cells.unread": "Les cellules orageuses n'ont pas pu être lues.",
   "cells.arriving":
     "{id} atteint l'endroit que vous surveillez dans {count} min",
   "approach.title": "Orage en route vers {place}",

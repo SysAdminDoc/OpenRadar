@@ -11,6 +11,7 @@ import {
   type ProbSevereReading,
 } from "../lib/probsevere";
 import { translate } from "../i18n";
+import { failureSentence } from "../lib/serviceAnswer";
 
 export interface ProbSevereState {
   reading: ProbSevereReading | null;
@@ -52,12 +53,13 @@ export function useProbSevere(options: {
         setError(null);
       } catch (failure: unknown) {
         if (!open) return;
+        // A native rejection is a string this app wrote; anything else goes
+        // through the shared reader, which keeps a sentence this app wrote
+        // and never prints the engine's own words at somebody.
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The severe probabilities could not be read.";
+            : failureSentence(failure, translate("probSevere.unread"));
         log.warn("radar", message);
         // A reading nobody could refresh is a reading about storms that have
         // moved on, and this is a layer somebody might act on.
