@@ -430,8 +430,18 @@ export const alertsOverlay: OverlayAdapter = {
   id: "alerts",
   nameKey: "layer.weatherAlerts",
   label: "Weather Alerts",
+  // Three offices on one layer, and this is the line that reaches a reader:
+  // the map's own attribution control and the credit burned into an exported
+  // picture both read it, and the ledger beside the switch takes it from the
+  // adapter rather than from `LAYER_SOURCES`, whose entry for this layer is
+  // skipped because the adapter already speaks for itself. Crediting the
+  // Canadian and German warnings to the American service is the same
+  // obligation missed from the other side, and the Canadian licence requires
+  // that office be named.
   attribution:
-    '<a href="https://www.weather.gov/">NWS watches and warnings</a>',
+    '<a href="https://www.weather.gov/">NWS</a>, ' +
+    '<a href="https://weather.gc.ca/">ECCC</a> and ' +
+    '<a href="https://www.dwd.de/">DWD</a> watches and warnings',
   attributionUrl: "https://www.weather.gov/",
   host: "mapservices.weather.noaa.gov",
   refreshMs: 60_000,
