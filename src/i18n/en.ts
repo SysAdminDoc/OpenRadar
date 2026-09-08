@@ -1180,7 +1180,7 @@ export const en = {
   "style.roads": "Roads",
   "style.roadsDetail": "Street detail",
   "style.aerial": "Aerial",
-  "style.aerialDetail": "USGS orthoimagery, United States",
+  "style.aerialDetail": "USGS imagery, US only",
   "style.topography": "Topography",
   "style.topographyDetail": "Terrain and contours",
   "style.radarDark": "Radar Dark",
