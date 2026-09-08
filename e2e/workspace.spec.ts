@@ -1132,26 +1132,32 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
   const cut = async (edge: "both" | "top" = "both") =>
     region.evaluate((node, which) => {
       const box = node.getBoundingClientRect();
-      return [...node.querySelectorAll(".command-button")]
-        .map((button) => {
-          const seen = button.getBoundingClientRect();
-          return { label: button.getAttribute("aria-label") ?? "", seen, box };
-        })
-        // Part in and part out: the case this exists to stop. Two pixels of
-        // slack, because a fractional layout leaves a hair of a button over
-        // an edge and that is not a caption anybody loses; the failure this
-        // guards against is half a button.
-        .filter(
-          ({ seen, box: within }) =>
-            (which !== "top" &&
-              seen.top < within.bottom - 2 &&
-              seen.bottom > within.bottom + 2) ||
-            (seen.top < within.top - 2 && seen.bottom > within.top + 2),
-        )
-        .map(
-          ({ label, seen, box: within }) =>
-            `${label} ${Math.round(seen.top)}..${Math.round(seen.bottom)} in ${Math.round(within.top)}..${Math.round(within.bottom)} at ${node.scrollTop}`,
-        );
+      return (
+        [...node.querySelectorAll(".command-button")]
+          .map((button) => {
+            const seen = button.getBoundingClientRect();
+            return {
+              label: button.getAttribute("aria-label") ?? "",
+              seen,
+              box,
+            };
+          })
+          // Part in and part out: the case this exists to stop. Two pixels of
+          // slack, because a fractional layout leaves a hair of a button over
+          // an edge and that is not a caption anybody loses; the failure this
+          // guards against is half a button.
+          .filter(
+            ({ seen, box: within }) =>
+              (which !== "top" &&
+                seen.top < within.bottom - 2 &&
+                seen.bottom > within.bottom + 2) ||
+              (seen.top < within.top - 2 && seen.bottom > within.top + 2),
+          )
+          .map(
+            ({ label, seen, box: within }) =>
+              `${label} ${Math.round(seen.top)}..${Math.round(seen.bottom)} in ${Math.round(within.top)}..${Math.round(within.bottom)} at ${node.scrollTop}`,
+          )
+      );
     }, edge);
 
   expect(await cut()).toEqual([]);
@@ -1169,7 +1175,9 @@ test("shows whole buttons on the rail and a way to reach the rest", async ({
   // And it still starts on a whole button after paging.
   expect(await cut("top")).toEqual([]);
   // Going back up is offered once there is something above.
-  await expect(page.getByRole("button", { name: "Earlier tools" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Earlier tools" }),
+  ).toBeVisible();
 
   // All the way to the end, one press at a time. Pressing once and stopping
   // was the whole of this check before, and it missed both of the ways this
@@ -1255,4 +1263,58 @@ test("asks for an icon it actually has", async ({ page }) => {
     expect(answer.status(), `${href} is declared but not served`).toBe(200);
   }
   expect(missed.filter((url) => url.includes("favicon"))).toEqual([]);
+});
+
+test("a toast does not land on a right-hand panel's own title", async ({
+  page,
+}) => {
+  // Every other fixed piece of map chrome steps aside for a panel: the zoom
+  // stack, the legends, the credits, the watermark, the compare card and the
+  // cursor readout all shift by the panel's width. The toasts did not, and
+  // three at once is what the host allows, so they covered about 210 pixels
+  // of whatever was open: with Nearby the intro sentence and the warnings
+  // heading, with Alerts the panel's own title.
+  await page.goto("/?testMode=1");
+  await expect(page.getByRole("application")).toBeVisible();
+
+  // The Upload panel is a right-hand one, and refusing a file is the shortest
+  // way to a toast that arrives while it is open, which is the case the
+  // defect was found in.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+  await page.locator('[data-command="surface:upload"]').click();
+  const panel = page.getByRole("dialog", { name: "Upload" });
+  await expect(panel).toBeVisible();
+  await expect(page.locator('.app-shell[data-panel-side="right"]')).toHaveCount(
+    1,
+  );
+
+  await page.locator('.drop-zone input[type="file"]').setInputFiles({
+    name: "rubbish.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from("this is not geojson"),
+  });
+  const toast = page.locator(".toast-host .toast").first();
+  await expect(toast).toBeVisible();
+
+  const header = panel.locator(".surface-panel__header");
+  const [over, under] = await Promise.all([
+    toast.boundingBox(),
+    header.boundingBox(),
+  ]);
+  expect(over).not.toBeNull();
+  expect(under).not.toBeNull();
+  const apart =
+    over!.x + over!.width <= under!.x + 0.5 ||
+    under!.x + under!.width <= over!.x + 0.5 ||
+    over!.y + over!.height <= under!.y + 0.5 ||
+    under!.y + under!.height <= over!.y + 0.5;
+  expect(
+    apart,
+    `toast ${JSON.stringify(over)} overlaps the panel header ${JSON.stringify(under)}`,
+  ).toBe(true);
+
+  // And it is still on the screen rather than pushed off the side.
+  const width = page.viewportSize()?.width ?? 0;
+  expect(over!.x).toBeGreaterThanOrEqual(0);
+  expect(over!.x + over!.width).toBeLessThanOrEqual(width + 0.5);
 });

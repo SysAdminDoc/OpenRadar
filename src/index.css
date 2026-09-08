@@ -4794,6 +4794,18 @@ input[type="range"]:disabled {
   right: calc(var(--panel-width) + 16px);
 }
 
+/* And the toasts, which were the last piece of chrome standing still. Three
+   at once is what `MAX_VISIBLE` allows and covers about 210 pixels, so with a
+   right-hand panel open they landed over its eyebrow, its title and its first
+   section: with Nearby open the intro sentence and the warnings heading were
+   under them, with Alerts open the panel's own title was. Their own lead over
+   the zoom stack is kept rather than being moved to the same place as it, the
+   way the compare card and the readout keep theirs. */
+.app-shell[data-panel-side="right"] .toast-host {
+  right: calc(var(--panel-width) + 64px);
+  width: min(360px, calc(var(--screen-width) - var(--panel-width) - 96px));
+}
+
 /* The two that were left off the list above and were drawn under the panel:
    the compare card, whose offset buttons could not be clicked, and the cursor
    readout. Each keeps the lead it has over the zoom stack and the credits
@@ -4920,7 +4932,12 @@ input[type="range"]:disabled {
   }
 
   /* The panel covers the map at this width, so nothing is shifted out of its
-     way; these two go back to where they sit with no panel open. */
+     way; these three go back to where they sit with no panel open. */
+  .app-shell[data-panel-side="right"] .toast-host {
+    right: 64px;
+    width: min(360px, calc(var(--screen-width) - 32px));
+  }
+
   .app-shell[data-panel-side="right"] .pane-compare {
     right: 12px;
   }
