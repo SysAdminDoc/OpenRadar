@@ -525,13 +525,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
   Acceptance: With an incident pack open, the flag matches the tiles being drawn; the comment says what is true; a test covers a dark basemap under the light theme.
   Complexity: S
 
-- [ ] AUD-390 (P3): Only one of the three map-surface rules has a test
-  Why: `AUD-363` gave `.source-attribution`, `.map-watermark` and `.map-readout` the same treatment and `readableOnTheMap` is parameterised to check any of them, but it is only ever called with the attribution. The other two carry their own pills, which is why they survived the defect, and nothing holds them to it.
-  Evidence: `e2e/theme.spec.ts`, where `readableOnTheMap(page, selector)` takes a selector and is called twice with the same one.
-  Touches: `e2e/theme.spec.ts`.
-  Acceptance: All three are checked in both the light theme and the dark theme over a light basemap; removing any one of the three CSS selectors fails the spec.
-  Complexity: S
-
 - [ ] AUD-377 (P3): Chrome colour written outside the theme system, and rules that no longer win
       Category: visual
       Where: `src/hooks/useAppearance.ts:13-16` (`CHROME_COLOR` `#090b10` / `#eef2f6`) and `index.html:10` and `:46` (the same pair twice more) against `--bg` `#070b10` / `#e9eef4` at `src/index.css:3901` and `:3978`; dead declarations overridden later at equal specificity by the rail rules: `.command-bar` `:219` (`background: rgba(31, 35, 41, 0.97)`, `box-shadow`) against `:4143` (`background: #0b1118`), `.brand-mark` `:150-161` against `:4041`, the forced-colours `.command-bar { background: Canvas }` inside `@media (forced-colors: active)` at about `:3233` against `:4143`, and `.product-legend` `:3529` (`var(--surface-raised, rgb(15 23 42 / 82%))`, a fallback behind a token that is always defined); single-look chrome literals with no light counterpart: `.legend-ramp` border `:591` (`rgba(255, 255, 255, 0.18)`), `.track-swatch` border `:3313`, `@keyframes ambient-flash` `:345` and `:351` (pale blue on `--border-strong`), `.fatal-error__mark` `:2761` (`#130309` on `--danger`); the capture bar block `:5842-5967` (about fifteen literals, no light look); `src/glance.css:15-31` (a five-token palette of its own outside `THEME_TOKENS`).
