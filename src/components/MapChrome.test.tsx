@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RadarTimeline } from "./MapChrome";
+import { RadarLegend, RadarTimeline } from "./MapChrome";
 import type { RadarFrame } from "../lib/radar";
 
 afterEach(cleanup);
@@ -314,5 +314,36 @@ describe("what a slider announces is what it shows", () => {
       }
     }
     expect(offenders, offenders.join("\n  ")).toEqual([]);
+  });
+});
+
+describe("the legend says what unfolding could not do", () => {
+  const legend = (unplacedShare: number) => (
+    <RadarLegend
+      open={false}
+      radarEnabled
+      productLabel="Velocity"
+      eyebrow="KTLX"
+      scale="velocity-wide"
+      unplacedShare={unplacedShare}
+      onToggle={() => {}}
+    />
+  );
+
+  it("names the share of the cut that is still folded", () => {
+    render(legend(0.12));
+    expect(screen.getByText("12% still folded")).toBeTruthy();
+  });
+
+  it("says nothing when every patch was placed", () => {
+    render(legend(0));
+    expect(screen.queryByText(/still folded/)).toBeNull();
+  });
+
+  it("says nothing about a share that rounds away", () => {
+    // Four gates in a thousand is not something to put on the map, and a
+    // line reading "0% still folded" says less than no line at all.
+    render(legend(0.004));
+    expect(screen.queryByText(/still folded/)).toBeNull();
   });
 });

@@ -237,7 +237,7 @@ pub(crate) fn make_storm_relative(field: &mut SweepField, wind: vad::Wind) {
 /// Every gate a fold is taken out of lands at or beyond the limit by
 /// definition, since it started inside it and moved a whole interval, so
 /// counting them answers the same question with no hole in it.
-pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
+pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> dealias::Dealiased {
     let azimuths = field.azimuth_count();
     let gates = field.gate_count();
     let mut values = field.values().to_vec();
@@ -254,7 +254,7 @@ pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
     let elevation = field.elevation_degrees();
     let found = dealias::dealias(&mut values, &valid, &pointing, gates, nyquist, elevation);
     if found.moved == 0 {
-        return false;
+        return found;
     }
 
     // Whatever moved is written back. An earlier version threw the whole
@@ -271,7 +271,7 @@ pub(crate) fn unfold_velocity(field: &mut SweepField, nyquist: f32) -> bool {
             }
         }
     }
-    true
+    found
 }
 
 /// The sweep for a tilt, as a field of one product. A tilt past the end of the

@@ -1536,6 +1536,7 @@ export const es: Catalogue = {
   "palette.none": "Nada de aquí coincide. Prueba con una palabra más corta.",
   "legend.hidden": "RADAR OCULTO",
   "legend.smoothed": "Suavizado entre compuertas",
+  "legend.partlyUnfolded": "{share}% sigue plegado",
   "legend.scale": "{product} de {min} a {max} {unit}",
   "timeline.label": "Animación del radar",
   "timeline.play": "Reproducir la animación del radar",

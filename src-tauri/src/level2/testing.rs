@@ -769,7 +769,7 @@ fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
     if comparable < 10_000 || broken_before < 500 {
         return None;
     }
-    if !unfold_velocity(&mut folded, tight) {
+    if unfold_velocity(&mut folded, tight).moved == 0 {
         return None;
     }
     let (broken_after, _) = broken_pairs(&folded, &truth, interval);

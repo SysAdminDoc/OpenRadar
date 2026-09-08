@@ -70,7 +70,10 @@ fn a_sweep_the_radar_read_cleanly_is_left_as_it_gave_it() {
     // Every reading is well inside the folding limit, so there is nothing
     // to unfold and nothing should be written.
     let moved = unfold_velocity(&mut field, 30.0);
-    assert!(!moved, "a sweep with no folds in it was called unfolded");
+    assert_eq!(
+        moved.moved, 0,
+        "a sweep with no folds in it was called unfolded"
+    );
 
     let after: Vec<f32> = (0..field.azimuth_count())
         .flat_map(|azimuth| (0..field.gate_count()).map(move |gate| (azimuth, gate)))
@@ -522,7 +525,7 @@ fn a_sweep_that_was_changed_never_reports_itself_unchanged() {
         "the sweep has to be changed for this to measure"
     );
     assert!(
-        answered,
+        answered.moved > 0,
         "{changed} gates were rewritten and the sweep reported itself untouched"
     );
 }
@@ -543,7 +546,7 @@ fn a_sweep_with_nothing_to_unfold_is_left_alone_and_says_so() {
         }
     }
     let before: Vec<f32> = field.values().to_vec();
-    assert!(!unfold_velocity(&mut field, nyquist));
+    assert_eq!(unfold_velocity(&mut field, nyquist).moved, 0);
     assert_eq!(field.values(), before.as_slice());
 }
 
@@ -601,7 +604,7 @@ fn a_fold_over_one_corner_of_a_sweep_is_still_taken_out() {
     );
 
     assert!(
-        unfold_velocity(&mut field, nyquist),
+        unfold_velocity(&mut field, nyquist).moved > 0,
         "a sweep with {wrapped} folded gates in it is a folded sweep"
     );
 

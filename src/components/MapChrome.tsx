@@ -44,6 +44,13 @@ interface RadarLegendProps {
    * one.
    */
   smoothed?: boolean;
+  /**
+   * How much of the cut beside this bar unfolding could not place, from zero
+   * to one. Said out loud when it rounds to a whole per cent or more: those
+   * gates are exactly what the radar reported, folds and all, so a couplet
+   * inside one of them may be a fold rather than rotation.
+   */
+  unplacedShare?: number;
   onToggle: () => void;
 }
 
@@ -56,10 +63,15 @@ export function RadarLegend({
   paletteScale = null,
   highContrast = false,
   smoothed = false,
+  unplacedShare = 0,
   onToggle,
 }: RadarLegendProps) {
   const t = useT();
   const reading = paletteScale ?? legendScale(scale, highContrast);
+  // Rounded to whole per cent, and silent at nought: a sweep with a handful of
+  // gates nothing could place is not worth a line, and a share that reads "0%"
+  // says less than nothing.
+  const stillFolded = Math.round(unplacedShare * 100);
 
   return (
     <button
@@ -74,6 +86,11 @@ export function RadarLegend({
         <strong>{productLabel}</strong>
         {radarEnabled && smoothed ? (
           <small className="legend-smoothed">{t("legend.smoothed")}</small>
+        ) : null}
+        {radarEnabled && stillFolded > 0 ? (
+          <small className="legend-smoothed">
+            {t("legend.partlyUnfolded", { share: String(stillFolded) })}
+          </small>
         ) : null}
       </span>
       <ChevronDown size={16} />

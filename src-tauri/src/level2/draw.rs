@@ -164,6 +164,14 @@ pub fn sweep_from_scan(
     )
 }
 
+/// One count as a share of another, and zero when there is nothing to divide.
+fn share_of(part: usize, whole: usize) -> f32 {
+    if whole == 0 {
+        return 0.0;
+    }
+    part as f32 / whole as f32
+}
+
 /// One sweep found and worked on, before anything has been drawn.
 ///
 /// Splitting this from the drawing is what lets a volume in progress be laid
@@ -172,6 +180,7 @@ pub fn sweep_from_scan(
 pub(crate) struct Prepared {
     chosen: ChosenSweep,
     dealiased: bool,
+    unfolding: dealias::Dealiased,
     storm_motion: Option<StormMotion>,
     product: Product,
     label: &'static str,
@@ -220,9 +229,11 @@ pub(crate) fn prepare_sweep(
     // first whatever the switch says. A fit against a folded field collapses:
     // measured on a 20 m/s wind folded at 8, it comes back with 1.4.
     let mut dealiased = false;
+    let mut unfolding = dealias::Dealiased::default();
     if (unfold || storm_relative) && product == Product::Velocity {
         if let Some(nyquist) = nyquist_for(chosen.elevation_number) {
-            dealiased = unfold_velocity(&mut chosen.field, nyquist);
+            unfolding = unfold_velocity(&mut chosen.field, nyquist);
+            dealiased = unfolding.moved > 0;
         } else if storm_relative && manual_motion.is_none() {
             // No Nyquist velocity means no unfolding, and a wind read off a
             // sweep that may still be folded is not a wind. A motion the
@@ -252,6 +263,7 @@ pub(crate) fn prepare_sweep(
     Ok(Prepared {
         chosen,
         dealiased,
+        unfolding,
         storm_motion,
         product,
         label,
@@ -293,6 +305,7 @@ pub(crate) fn draw_sweep(
     let Prepared {
         chosen,
         dealiased,
+        unfolding,
         storm_motion,
         product,
         label,
@@ -392,6 +405,8 @@ pub(crate) fn draw_sweep(
         product: label.to_string(),
         unit: unit.to_string(),
         dealiased,
+        unplaced_share: share_of(unfolding.unplaced, unfolding.valid),
+        wind_placed_share: share_of(unfolding.by_wind, unfolding.valid),
         storm_motion,
         elevation_degrees: (chosen.elevation_degrees * 100.0).round() / 100.0,
         tilts: tilts_offered,

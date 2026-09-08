@@ -1557,6 +1557,7 @@ export const fr: Catalogue = {
   "palette.none": "Rien ici ne correspond. Essayez un mot plus court.",
   "legend.hidden": "RADAR MASQUÉ",
   "legend.smoothed": "Lissé entre les portes",
+  "legend.partlyUnfolded": "{share}% encore replié",
   "legend.scale": "{product} de {min} à {max} {unit}",
   "timeline.label": "Animation du radar",
   "timeline.play": "Lancer l'animation du radar",

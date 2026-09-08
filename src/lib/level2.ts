@@ -93,6 +93,19 @@ export interface SweepImage {
   smoothed: boolean;
   /** True when the velocity drawn here has been unfolded. */
   dealiased: boolean;
+  /**
+   * The share of this cut's readings unfolding could not place, from zero to
+   * one.
+   *
+   * A patch of echo joined to nothing else in the sweep can be made
+   * continuous with itself and no further: which whole interval it belongs in
+   * is not in the data. Those gates keep exactly what the radar reported, so a
+   * couplet inside one of them may be a fold rather than rotation, and the
+   * legend says so.
+   */
+  unplacedShare: number;
+  /** The share placed against the fitted wind rather than against a boundary. */
+  windPlacedShare: number;
   /** What was taken out to make a storm relative sweep, when one was. */
   stormMotion: StormMotion | null;
   product: string;

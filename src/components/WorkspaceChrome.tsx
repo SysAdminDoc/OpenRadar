@@ -463,6 +463,7 @@ export function WorkspaceChrome({
         paletteScale={paletteScale}
         highContrast={drawnHighContrast}
         smoothed={Boolean(sweep?.smoothed)}
+        unplacedShare={sweep?.dealiased ? (sweep.unplacedShare ?? 0) : 0}
         onToggle={onToggleProduct}
       />
       {mrmsLayers.length ||

@@ -129,7 +129,7 @@ pub fn cross_section_from_scan(
         };
         if asked.unfold && product == Product::Velocity {
             if let Some(folds_at) = nyquist_for(cut.elevation_number) {
-                dealiased |= unfold_velocity(&mut cut.field, folds_at);
+                dealiased |= unfold_velocity(&mut cut.field, folds_at).moved > 0;
             }
         }
         chosen.push(cut);
