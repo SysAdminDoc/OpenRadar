@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { routeWorkspace } from "./support/fixtures";
+import {
+  fakeDesktop,
+  holdsATerminalRadar,
+  routeWorkspace,
+} from "./support/fixtures";
 import { clipped } from "./support/layout";
 import { pseudoize } from "../src/i18n/pseudo";
 import { en, type StringKey } from "../src/i18n/en";
@@ -216,6 +220,56 @@ test.describe("a workspace in another language", () => {
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 });
+
+for (const language of ["pseudo", "fr"] as const) {
+  test(`draws a terminal radar in ${language} without clipping either line`, async ({
+    page,
+  }) => {
+    // `radar.terminalLine` and `chrome.terminalRadar` are both behind
+    // `sweep.radar === "TDWR"`, and the clipping sweep has never held one
+    // of those sites, so neither string had been drawn in any language but
+    // English. Both gained a formatted distance where they carried a fixed
+    // "km", which puts a translated string inside a translated string: the
+    // chrome eyebrow goes from twenty-two characters to twenty-five with a
+    // bracket nested in a bracket. That was measured as text and drawn by
+    // nothing.
+    await holdsATerminalRadar(page);
+    await fakeDesktop(page, {
+      settings: {
+        schemaVersion: 2,
+        language,
+        radar: { singleSite: true, station: "TDAL" },
+      },
+    });
+    await routeWorkspace(page);
+    await page.goto(
+      "/?testMode=1&lon=-96.97&lat=32.93&zoom=9&bearing=0&pitch=0",
+    );
+    await expect(page.getByRole("application")).toBeVisible();
+
+    // The eyebrow on the map, beside the tilt. Matched on the catalogue's
+    // own words up to the interpolation, so this reads the string the
+    // reader is actually in rather than an English one that happens to
+    // survive translation.
+    const said =
+      language === "fr"
+        ? fr["chrome.terminalRadar"]
+        : pseudoize(en["chrome.terminalRadar"]);
+    const legend = page.locator(".radar-legend small").first();
+    await expect(legend).toContainText(said.split("{range}")[0]);
+
+    // And the sentence in the product sheet, which is a different string in
+    // a different box.
+    await page.locator(".radar-legend").click();
+    const kind = page.locator("[data-radar-kind]");
+    await expect(kind).toBeVisible();
+
+    expect(
+      await clipped(page, true),
+      "a terminal radar's own lines did not fit",
+    ).toEqual([]);
+  });
+}
 
 test.describe("the Start with Windows row in a long language", () => {
   test.use({ viewport: { width: 1024, height: 720 } });
