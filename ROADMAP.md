@@ -562,16 +562,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-375 (P3): A live import cycle through `settings.ts`, against the rule written for the last one
-      Category: maintainability
-      Where: `src/lib/settings.ts:1` (`import { SPC_HAZARDS } from "./overlays/spc"`, added in `9059dba` on 2026-09-04) -> `src/lib/overlays/spc.ts:3` (`import { cachedUrl } from "../tileCache"`) -> `src/lib/tileCache.ts:14` (`import { isDesktopRuntime } from "./settings"`); `src/lib/settings.ts:22` (`import { isSatelliteBand, type SatelliteBandId } from "./providers/satellite"`); `src/lib/overlays/alerts.ts:17` (`import { highContrastRequested } from "../../hooks/useClock"`); the working notes' 2026-09-02 entry: "`settings.ts` must not import from `lib/providers/*` ... Don't: add an import to `settings.ts` from anything that already imports `settings.ts`."
-      Problem: All three edges of the cycle are value imports, so it closes at runtime. It works today only because `tileCache.ts` calls `isDesktopRuntime` inside functions and `spc.ts` calls `cachedUrl` inside a function, so nothing reads the half-initialised module during evaluation. The last time this shape appeared, the symptom was `mrmsProvider.coverage` loading empty and Alaska, Hawaii, Guam and Puerto Rico dropping off the radar chain with nothing said, and the rule was written two days before this cycle went in. `settings.ts:22` breaks the same rule's letter directly, and `alerts.ts:17` is a library module depending on the hooks layer, which is the inverted direction. Nothing enforces the rule.
-      Evidence: The three lines as cited, `git log -S` dating the first to `9059dba`, and the note at working-notes line 241.
-      Fix: Move `SPC_HAZARDS` and `SpcHazard` into a leaf module with no imports (the `src/lib/gaugeQpe.ts` pattern), `isSatelliteBand` likewise, and `highContrastRequested` into `src/lib/`; then add a source-scan test beside `theme.test.ts` that fails when `src/lib/settings.ts` imports from `providers/` or `overlays/`, or when any file under `src/lib/` imports from `hooks/`, `panels/` or `components/` (type-only imports excepted, and listed).
-      Acceptance: The gate exists, passes, and fails when either violation is planted; `npm run check` green.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-376 (P3): Two helpers exist twice, once with a different answer
       Category: maintainability
       Where: `src-tauri/src/gfs.rs:189` and `src-tauri/src/mrms.rs:1874` (`signed_grib`, byte-identical); `src/lib/palette.ts:331` (`channels`, regex-parsed, falls back to "0 0 0") and `src/lib/settings.ts:1374` (`channels`, slice-parsed, returns null), with `normalizePalette` at `settings.ts:1341-1371` re-serialising a stored palette through its own copy of what `writePalette` does, testing `toColor` before `solid` where `writePalette` tests `solid` first.

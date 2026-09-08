@@ -17,13 +17,7 @@ const OUTLOOKS = `${SERVICE}/outlooks/SPC_wx_outlks/MapServer`;
 
 /** The days the service publishes a convective outlook for. */
 export const SPC_DAYS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-/** The hazards Day 1 and Day 2 break their probabilities down by. */
-export const SPC_HAZARDS: SpcHazard[] = [
-  "categorical",
-  "tornado",
-  "hail",
-  "wind",
-];
+export { SPC_HAZARDS } from "../spcHazards";
 
 /**
  * Which numbered layer answers for a day and a hazard.

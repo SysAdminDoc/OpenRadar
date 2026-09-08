@@ -14,7 +14,7 @@ import { ecccUrl, parseEcccAlerts, reachesCanada } from "./ecccAlerts";
 import { dwdUrl, parseDwdWarnings, reachesGermany } from "./dwdWarnings";
 import { language } from "../../i18n";
 import { pairingFor } from "../alertPairings";
-import { highContrastRequested } from "../../hooks/useClock";
+import { highContrastRequested } from "../displayPreference";
 
 /**
  * How heavily a warning outline is stroked, by how much damage the office

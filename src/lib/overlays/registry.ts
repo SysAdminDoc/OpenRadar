@@ -54,7 +54,9 @@ export interface OverlayChoices {
   replay: { from: number; to: number } | null;
 }
 
-export type SpcHazard = "categorical" | "tornado" | "hail" | "wind";
+import type { SpcHazard } from "../spcHazards";
+
+export type { SpcHazard };
 
 /**
  * What a caller that has no reader to ask passes.
