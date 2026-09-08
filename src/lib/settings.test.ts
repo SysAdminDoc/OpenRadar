@@ -325,6 +325,40 @@ describe("a stored palette", () => {
     expect(settings.palettes).toEqual([loaded]);
   });
 
+  it("works out the skipped list again rather than believing the stored one", () => {
+    // Everything else here does round-trip: a stored table is written back out
+    // as a palette file and read in again, and what comes back is what went
+    // in. `skipped` is the exception, and it has to be. It is what the parser
+    // noticed while reading, not a field of the table, so a stored settings
+    // file cannot tell the panel that something was skipped when nothing was,
+    // or hide that something was.
+    //
+    // The test above survives only because its fixture happens to carry both
+    // the `Product:` and `Step:` lines that produce its `skipped`. Take one
+    // away and the claim goes with it, which is what this pins.
+    const [without] = normalizeSettings({
+      palettes: [{ ...loaded, product: null, skipped: ["product", "step"] }],
+    }).palettes;
+    expect(without.skipped).toEqual(["step"]);
+
+    // And a stored list nothing in the table justifies is not believed. That
+    // holds because the list is worked out from the text a table is written
+    // back out as, and never copied off the stored object. A normaliser that
+    // went back to copying fields across, which is the shape this one
+    // replaced, would pass a made-up list straight through to the panel.
+    const [invented] = normalizeSettings({
+      palettes: [
+        {
+          ...loaded,
+          product: null,
+          step: null,
+          skipped: ["product", "step", "colour of the sky"],
+        },
+      ],
+    }).palettes;
+    expect(invented.skipped).toEqual([]);
+  });
+
   it("is written back out by the one writer, not a copy of it", () => {
     // A stored table is re-read from its own text, and the text used to be
     // built here by a second copy of what `writePalette` does. The copy asked
