@@ -628,16 +628,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Effort: S
 
 
-- [ ] AUD-427 (P3): Toasts sit on top of any right-hand panel's title and first rows, the one piece of map chrome that does not step aside for a panel
-      Category: visual
-      Where: `src/index.css:2742-2752` and `:4834-4836` (`.toast-host { position: absolute; top: calc(var(--chrome-top) + 12px); right: 64px; z-index: 100 }`); `:4799-4814` and `:4924-4937` (`.app-shell[data-panel-side="right"]` shifts `.zoom-controls`, `.product-legends`, `.source-attribution`, `.map-watermark`, `.pane-compare` and `.map-readout` by `var(--panel-width)`, and not `.toast-host`); `:3049` (the narrow variant).
-      Problem: Every other fixed piece of chrome moves out from under a right-hand panel, and the toasts do not, so they land over the panel's eyebrow, its title and its first section. Three at once, which `MAX_VISIBLE` allows, cover about 210 pixels: with the Nearby panel open the intro sentence and the "Warnings over this place" heading were under them, and with Alerts open the panel's own title was. The first-run hint and the two "stopped drawing" source toasts arrive together on exactly the launch where a new reader opens their first panel.
-      Evidence: `scratchpad/obs/out/nearby-refused-dark-wide.png` and `alerts-refused-dark-wide.png`, 2026-09-08, 1440 by 900, dark; the CSS above, where `toast-host` is absent from both `[data-panel-side="right"]` groups.
-      Fix: Add `.toast-host` to the two `[data-panel-side="right"]` groups so it shifts by the panel's width like the rest, or anchor the host to the bottom-right above the timeline where nothing opens; check the compact `[data-narrow~="680"]` variant at `:3049` against the rail panel there. Add a case to `theme.spec.ts` or `workspace.spec.ts` that opens a right panel, pushes a toast, and asserts the toast's box does not intersect the panel's header.
-      Acceptance: With a right-hand panel open, a toast's bounding box does not overlap the panel's header at 1440 or 1024 wide; the pseudolocale clipping test stays green.
-      Confidence: Verified
-      Effort: S
-
 
 - [ ] AUD-429 (P3): The Map Type cards wrap into rows of uneven height, seven lines beside two
       Category: visual
