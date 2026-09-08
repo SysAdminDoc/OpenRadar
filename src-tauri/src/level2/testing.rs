@@ -1,5 +1,7 @@
 //! Fixtures the tests of more than one of these modules are written on.
 
+use std::collections::BTreeMap;
+
 use chrono::TimeZone;
 
 use super::*;
@@ -704,6 +706,17 @@ pub(crate) struct Measured {
     /// Gates that moved by something other than a whole interval, which is
     /// not unfolding but invention.
     pub(crate) invented: usize,
+    /// Gates that never wrapped and were moved anyway.
+    ///
+    /// The three measures above are all blind to this, which is how a pass
+    /// that snapped correctly reported echo a whole interval onto the
+    /// fitted wind scored perfectly on every one of them: a whole patch
+    /// moved as one piece stays exactly as continuous with itself as it
+    /// was, so `broken_pairs` cancels; the gate never wrapped, so
+    /// `wrapped` and `rejoined` never look at it; and a whole interval is
+    /// a whole interval, so `invented` does not fire either. This is the
+    /// measure that sees it.
+    pub(crate) misplaced: usize,
 }
 
 pub(crate) fn measure_unfolding(
@@ -761,9 +774,41 @@ fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
     }
     let (broken_after, _) = broken_pairs(&folded, &truth, interval);
 
+    // Which branch the picture as a whole came back on.
+    //
+    // Region dealiasing recovers a sweep up to a whole interval and no
+    // further: the largest patch keeps whatever it read and everything else
+    // is placed relative to it, so an answer that is perfect in every way the
+    // method promises can still sit a whole interval from the truth. Counting
+    // a gate as misplaced for agreeing with the rest of its own picture would
+    // measure that constant rather than any defect. `broken_pairs` above is
+    // written around the same fact, and this is the same allowance made once
+    // for the sweep instead of once per pair.
+    let mut branches: BTreeMap<i64, usize> = BTreeMap::new();
+    for azimuth in 0..truth.azimuth_count() {
+        for gate in 0..truth.gate_count() {
+            let (now, now_status) = folded.get(azimuth, gate);
+            let (was, was_status) = truth.get(azimuth, gate);
+            if !matches!(now_status, GateStatus::Valid) || !matches!(was_status, GateStatus::Valid)
+            {
+                continue;
+            }
+            let apart = (now - was) / interval;
+            if (apart - apart.round()).abs() <= 0.01 {
+                *branches.entry(apart.round() as i64).or_default() += 1;
+            }
+        }
+    }
+    let common = branches
+        .iter()
+        .max_by_key(|(_, count)| **count)
+        .map(|(branch, _)| *branch)
+        .unwrap_or(0);
+
     let mut wrapped = 0usize;
     let mut rejoined = 0usize;
     let mut invented = 0usize;
+    let mut misplaced = 0usize;
     for azimuth in 0..truth.azimuth_count() {
         for gate in 0..truth.gate_count() {
             let (now, now_status) = folded.get(azimuth, gate);
@@ -780,6 +825,13 @@ fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
             // Whether this gate wrapped when the limit was brought in.
             let refolded = was - interval * ((was + tight) / interval).floor();
             if (refolded - was).abs() <= 0.001 {
+                // It did not, so unfolding had nothing to put back here, and
+                // a gate that came back on a different branch from the rest
+                // of the picture was moved by something other than its own
+                // reading.
+                if apart.round() as i64 != common {
+                    misplaced += 1;
+                }
                 continue;
             }
             wrapped += 1;
@@ -795,6 +847,7 @@ fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
         wrapped,
         rejoined,
         invented,
+        misplaced,
     })
 }
 

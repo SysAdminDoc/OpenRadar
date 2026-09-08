@@ -442,9 +442,9 @@ pub fn dealias(
 
     let groups = loose_groups(&adjacency, &shift, region_count);
     for group in &groups {
-        // Its own largest patch keeps whatever it read, exactly as the root
-        // does for the sweep as a whole, and the rest of the group is placed
-        // relative to it by the boundaries between them.
+        // Its own largest patch anchors it, exactly as the root does for the
+        // sweep as a whole, and the rest of the group is placed relative to it
+        // by the boundaries between them.
         let Some(anchor) = group
             .iter()
             .copied()
@@ -452,6 +452,15 @@ pub fn dealias(
         else {
             continue;
         };
+        // Which patch anchors a group decides only which of them keeps the
+        // reading the radar gave it, and sliding the whole group afterwards
+        // onto the branch most of its gates already sit on was tried and
+        // measured on 2026-09-07: over the same 42 station-days it moved the
+        // count of gates on a branch other than the picture's own from 244,029
+        // to 243,306, three parts in a thousand, and changed no other figure.
+        // The largest patch is where most of a group's gates are in nearly
+        // every group, so the two rules pick the same branch. Not worth the
+        // code.
         shift[anchor] = Some(0);
         settle_from(anchor, &adjacency, &sizes, &mut shift);
     }
