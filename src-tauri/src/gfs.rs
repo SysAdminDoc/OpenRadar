@@ -13,6 +13,7 @@
 use chrono::{DateTime, Datelike, Duration, Timelike, Utc};
 use serde::Serialize;
 
+use crate::grib;
 use crate::http;
 
 const BUCKET: &str = "https://noaa-gfs-bdp-pds.s3.amazonaws.com";
@@ -185,15 +186,6 @@ fn signed(raw: u64, octets: u8) -> i64 {
     }
 }
 
-/// GRIB writes a signed integer as a sign bit plus magnitude.
-fn signed_grib(raw: i16) -> i16 {
-    if raw < 0 {
-        -(raw & 0x7fff)
-    } else {
-        raw
-    }
-}
-
 struct Packing {
     reference: f32,
     binary: i16,
@@ -225,8 +217,8 @@ pub fn decode_complex(section5: &[u8], section7: &[u8]) -> Result<Vec<f32>, GfsE
     let packing = Packing {
         points: u32::from_be_bytes(section5[5..9].try_into().unwrap()) as usize,
         reference: f32::from_be_bytes(section5[11..15].try_into().unwrap()),
-        binary: signed_grib(i16::from_be_bytes(section5[15..17].try_into().unwrap())),
-        decimal: signed_grib(i16::from_be_bytes(section5[17..19].try_into().unwrap())),
+        binary: grib::signed(i16::from_be_bytes(section5[15..17].try_into().unwrap())),
+        decimal: grib::signed(i16::from_be_bytes(section5[17..19].try_into().unwrap())),
         bits: section5[19],
         groups: u32::from_be_bytes(section5[31..35].try_into().unwrap()) as usize,
         width_reference: section5[35],
@@ -664,8 +656,8 @@ mod tests {
         assert_eq!(signed(0x8005, 2), -5);
         assert_eq!(signed(0x0005, 2), 5);
         assert_eq!(signed(0, 2), 0);
-        assert_eq!(signed_grib(0x8001u16 as i16), -1);
-        assert_eq!(signed_grib(3), 3);
+        assert_eq!(grib::signed(0x8001u16 as i16), -1);
+        assert_eq!(grib::signed(3), 3);
     }
 
     #[test]

@@ -10,6 +10,7 @@ import {
   MAX_PALETTES,
   paletteUnit,
   parsePalette,
+  writePalette,
   type Palette,
 } from "./palette";
 import { isLanguage, translate, type LanguageId } from "../i18n";
@@ -1338,46 +1339,56 @@ function normalizeTheme(value: unknown): WorkspaceTheme | null {
   return parseTheme(text, name)?.theme ?? null;
 }
 
+/**
+ * A stored colour table, re-read from its own text rather than trusted.
+ *
+ * Written back out with `writePalette` and parsed again, so a hand-edited
+ * settings file cannot put anything on the map the parser would not have
+ * produced. This used to carry its own copy of what `writePalette` does, and
+ * the copy asked about a stop's second colour before its solid flag where the
+ * original asks about solid first: one format written in two files, differing
+ * in the order they ask, which nothing would have caught until a palette
+ * arrived with both set.
+ *
+ * The sanitising stays, because `writePalette` takes a palette and this takes
+ * whatever was in the file: a stop with no number, or a colour that is not
+ * one, is dropped before the writer sees it. The writer's own fallback for a
+ * bad colour is black, and a black stop nobody chose is worse than a missing
+ * one.
+ */
 function normalizePalette(value: unknown): Palette | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Partial<Palette>;
   if (!Array.isArray(raw.stops) || !raw.stops.length) return null;
-  const lines = [
-    raw.product ? `Product: ${raw.product}` : "",
-    raw.units ? `Units: ${raw.units}` : "",
-    Number.isFinite(raw.step) ? `Step: ${raw.step}` : "",
-    ...raw.stops.map((stop) => {
-      const value = Number(stop?.value);
-      if (!Number.isFinite(value)) return "";
-      const first = channels(stop?.color);
-      if (!first) return "";
-      const second = channels(stop?.toColor ?? null);
-      if (second) return `Color: ${value} ${first} ${second}`;
-      // A plain line with one colour is not the same as a solid one, and
-      // writing every one of them back as solid would change how the map is
-      // drawn each time the app restarts.
-      return stop?.solid
-        ? `SolidColor: ${value} ${first}`
-        : `Color: ${value} ${first}`;
-    }),
-    channels(raw.rangeFolded ?? null)
-      ? `RF: ${channels(raw.rangeFolded ?? null)}`
-      : "",
-  ].filter(Boolean);
+  const colour = (from: unknown): string | null =>
+    typeof from === "string" && /^#[0-9a-fA-F]{6}$/.test(from) ? from : null;
+  const stops = raw.stops.flatMap((stop) => {
+    const at = Number(stop?.value);
+    const color = colour(stop?.color);
+    if (!Number.isFinite(at) || !color) return [];
+    return [
+      {
+        value: at,
+        color,
+        toColor: colour(stop?.toColor ?? null),
+        solid: Boolean(stop?.solid),
+      },
+    ];
+  });
+  if (!stops.length) return null;
+  const name = typeof raw.name === "string" ? raw.name.slice(0, 60) : "palette";
   return parsePalette(
-    lines.join("\n"),
-    typeof raw.name === "string" ? raw.name.slice(0, 60) : "palette",
+    writePalette({
+      name,
+      product: typeof raw.product === "string" ? raw.product : null,
+      units: typeof raw.units === "string" ? raw.units : null,
+      step: Number.isFinite(raw.step) ? Number(raw.step) : null,
+      stops,
+      rangeFolded: colour(raw.rangeFolded ?? null),
+      skipped: [],
+    }),
+    name,
   );
-}
-
-/** A stored colour as the three numbers a palette line is written with. */
-function channels(color: unknown): string | null {
-  if (typeof color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(color)) {
-    return null;
-  }
-  return [1, 3, 5]
-    .map((at) => Number.parseInt(color.slice(at, at + 2), 16))
-    .join(" ");
 }
 
 /** A hand-typed motion, held to something a storm could actually do. */

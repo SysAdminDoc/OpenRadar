@@ -19,6 +19,7 @@ use crate::http;
 use crate::level2::HIGH_CONTRAST_REFLECTIVITY_RAMP;
 use std::borrow::Cow;
 
+use crate::grib;
 use crate::palette;
 
 const BUCKET: &str = "https://noaa-mrms-pds.s3.amazonaws.com";
@@ -1767,7 +1768,7 @@ pub fn decode_grib_to_fit(bytes: &[u8], ceiling: usize) -> Result<(Grid, usize),
                 let reference = f32::from_be_bytes(section[11..15].try_into().unwrap());
                 let binary = i16::from_be_bytes(section[15..17].try_into().unwrap());
                 let decimal = i16::from_be_bytes(section[17..19].try_into().unwrap());
-                packing = Some((reference, signed_grib(binary), signed_grib(decimal)));
+                packing = Some((reference, grib::signed(binary), grib::signed(decimal)));
             }
             7 => payload = Some(&section[5..]),
             _ => {}
@@ -1871,14 +1872,6 @@ fn reduced_geometry(
 
 /// GRIB writes a signed integer as a sign bit plus magnitude, not two's
 /// complement, so a negative exponent read the usual way comes out enormous.
-fn signed_grib(raw: i16) -> i16 {
-    if raw < 0 {
-        -(raw & 0x7fff)
-    } else {
-        raw
-    }
-}
-
 /// Reads the packed image, shrinking it by `reduce` in each axis as it goes.
 ///
 /// Row by row, so a grid four times the size of the one this app draws never
@@ -3162,9 +3155,9 @@ mod tests {
     #[test]
     fn reads_a_negative_grib_exponent_as_negative() {
         // GRIB writes -1 as a sign bit plus one, not as two's complement.
-        assert_eq!(signed_grib(0x8001u16 as i16), -1);
-        assert_eq!(signed_grib(1), 1);
-        assert_eq!(signed_grib(0), 0);
+        assert_eq!(grib::signed(0x8001u16 as i16), -1);
+        assert_eq!(grib::signed(1), 1);
+        assert_eq!(grib::signed(0), 0);
     }
 
     #[test]
