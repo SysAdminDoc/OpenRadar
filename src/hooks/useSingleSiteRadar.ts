@@ -125,6 +125,14 @@ export interface SingleSiteState {
   exportValues: (() => Promise<DataExportReport>) | null;
 }
 
+/** A site's whole reach, in the corners the native side answers with. */
+interface Disc {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
 /** A decoded volume, and when this app took delivery of it. */
 interface Held {
   /**
@@ -236,7 +244,7 @@ export function useSingleSiteRadar(options: {
     listingHeld,
   } = options;
   /**
-   * The site's whole reach, from the last sweep drawn over all of it.
+   * Each site's whole reach, from the first sweep of it drawn over all of it.
    *
    * The box below is measured against this, and it cannot come from the sweep
    * on screen: once one has been drawn over less ground, its corners are the
@@ -244,14 +252,34 @@ export function useSingleSiteRadar(options: {
    * would walk the picture inwards a step at a time. A site's reach does not
    * move, so the first whole-disc sweep of a site is the answer for all of
    * them.
+   *
+   * One per site rather than one at a time. A file from disk carries whatever
+   * site it was recorded at, which may be nowhere near the map, and with a
+   * single disc there was nothing to measure its box against: it drew over its
+   * whole 460 kilometres at 449 metres a pixel however far the reader zoomed.
+   * Sending it the map's own site's box instead is worse and was the defect
+   * this replaced, because two discs that overlap in both axes clip to a
+   * sliver of the intersection. Its own first answer carries its own corners,
+   * so after one whole-disc fetch the site is known and the next one can be
+   * measured properly.
    */
-  const [disc, setDisc] = useState<{
-    station: string;
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  } | null>(null);
+  const [discs, setDiscs] = useState<Record<string, Disc>>({});
+  /** Records a site's reach, from an answer that covered all of it. */
+  const rememberDisc = useCallback((answer: SweepImage) => {
+    setDiscs((now) =>
+      now[answer.station]
+        ? now
+        : {
+            ...now,
+            [answer.station]: {
+              west: answer.west,
+              south: answer.south,
+              east: answer.east,
+              north: answer.north,
+            },
+          },
+    );
+  }, []);
 
   // The site, and the coarse position it was resolved for. A site found for
   // somewhere else is not an answer to where the map is now, which is what
@@ -394,10 +422,9 @@ export function useSingleSiteRadar(options: {
   // the same four numbers, and rebuilding from the string is what keeps the
   // array's identity as steady as the numbers are. Everything that draws this
   // site can then simply depend on it.
-  const asking =
-    disc && disc.station === station
-      ? sweepDetailBox(disc, center, zoom)
-      : null;
+  const asking = station
+    ? (discs[station] && sweepDetailBox(discs[station], center, zoom)) || null
+    : null;
   const withinKey = asking ? asking.join(",") : "";
   const within = useMemo(
     () =>
@@ -405,6 +432,29 @@ export function useSingleSiteRadar(options: {
         ? (withinKey.split(",").map(Number) as [number, number, number, number])
         : null,
     [withinKey],
+  );
+
+  /**
+   * The same box for a file from disk, measured on the file's own site.
+   *
+   * Its own value rather than a branch inside `historicalWithin`, and rebuilt
+   * from its key the same way `within` is, because that callback's identity
+   * decides when the historical effect runs. Reading `center` and `zoom`
+   * inside it made it a new function on every render, and the effect then
+   * asked twice for the same box: once on the first run, and again before the
+   * first answer had come back to write the request key.
+   */
+  const fileStation =
+    sweep?.source.kind === "local" ? (sweep.station ?? null) : null;
+  const fileDisc = fileStation ? discs[fileStation] : undefined;
+  const fileAsking = fileDisc ? sweepDetailBox(fileDisc, center, zoom) : null;
+  const fileKey = fileAsking ? fileAsking.join(",") : "";
+  const fileWithin = useMemo(
+    () =>
+      fileKey
+        ? (fileKey.split(",").map(Number) as [number, number, number, number])
+        : null,
+    [fileKey],
   );
 
   // The volume the step on screen belongs to, and whether the reader has
@@ -643,12 +693,13 @@ export function useSingleSiteRadar(options: {
   /**
    * The ground a historical sweep may be drawn over.
    *
-   * The box is measured on the live station's disc, so an archived volume of
-   * that same station sits on it and gets the detail. A file from disk carries
-   * whatever site it was recorded at, which may be nowhere near: sending it
-   * the live station's box drew it over the intersection of two discs, a
-   * sliver, whenever the two happened to overlap. It gets the whole disc, and
-   * the corners it answers with put it on the map.
+   * An archived volume of the live station sits on that station's disc and
+   * gets the same box the live sweep does. A file from disk carries whatever
+   * site it was recorded at, which may be nowhere near, so it gets a box
+   * measured on its own site's disc: sending it the live station's box drew
+   * it over the intersection of two discs, a sliver, whenever the two
+   * happened to overlap, and sending it nothing left it the one sweep that
+   * never followed the reader's zoom.
    *
    * Named once because two things have to agree about it. `fetchHistorical`
    * asks with it and `historicalRequestKey` decides from it whether the answer
@@ -656,9 +707,18 @@ export function useSingleSiteRadar(options: {
    * re-fetches for ever or never follows the reader at all.
    */
   const historicalWithin = useCallback(
-    (source: HistoricalSource) =>
-      source.kind === "archive" && source.station === station ? within : null,
-    [station, within],
+    (source: HistoricalSource) => {
+      if (source.kind === "archive") {
+        return source.station === station ? within : null;
+      }
+      // A file from disk. Its site is whatever it was recorded at, which its
+      // own first answer is what says, so this is null until that answer is
+      // in hand and its disc has been recorded. The station comes off the
+      // sweep on screen rather than off the map, or a file recorded at KTLX
+      // gets a box measured on KDMX's disc, which is the sliver.
+      return fileWithin;
+    },
+    [fileWithin, station, within],
   );
 
   const historicalRequestKey = useCallback(
@@ -725,8 +785,13 @@ export function useSingleSiteRadar(options: {
       const request = ++requestRef.current;
       setLoading(true);
       try {
+        const asked = historicalWithin(source);
         const next = await fetchHistorical(source);
         if (request !== requestRef.current) return false;
+        // A whole-disc answer says what this site's reach is, wherever the
+        // site is. That is the only way a file recorded at a station the map
+        // has never been near ever gets a box of its own.
+        if (asked === null) rememberDisc(next);
         const key = historicalRequestKey(source);
         historicalRequestRef.current = key;
         // Held here as well as in the effect below, or the very first box a
@@ -757,7 +822,7 @@ export function useSingleSiteRadar(options: {
         if (request === requestRef.current) setLoading(false);
       }
     },
-    [fetchHistorical, historicalRequestKey],
+    [fetchHistorical, historicalRequestKey, historicalWithin, rememberDisc],
   );
 
   const openLocal = useCallback(async (): Promise<boolean> => {
@@ -930,6 +995,7 @@ export function useSingleSiteRadar(options: {
     }
     const reply = latestHistorical();
     const request = ++requestRef.current;
+    const asked = historicalWithin(historicalSource);
     setLoading(true);
     // Keep the last verified historical picture until its replacement is
     // decoded. Its own product and tilt travel with it, so a failed request
@@ -937,6 +1003,7 @@ export function useSingleSiteRadar(options: {
     void fetchHistorical(historicalSource)
       .then((next) => {
         if (!reply.current() || request !== requestRef.current) return;
+        if (asked === null) rememberDisc(next);
         historicalRequestRef.current = key;
         historicalHeldRef.current.set(key, {
           image: next,
@@ -965,6 +1032,8 @@ export function useSingleSiteRadar(options: {
   }, [
     latestHistorical,
     fetchHistorical,
+    historicalWithin,
+    rememberDisc,
     historicalRequestKey,
     historicalSource,
     historicalWanted,
@@ -1007,15 +1076,7 @@ export function useSingleSiteRadar(options: {
         // Recorded whether or not this answer is still the one on screen: it
         // is true about the site rather than about this request, and without
         // it there is nothing to measure the next box against.
-        if (within === null) {
-          setDisc({
-            station,
-            west: next.west,
-            south: next.south,
-            east: next.east,
-            north: next.north,
-          });
-        }
+        if (within === null) rememberDisc(next);
         setSweep(next);
         // Read from a ref rather than a dependency: this effect refetches on
         // every value it depends on, and the listing refreshes on its own
@@ -1065,6 +1126,7 @@ export function useSingleSiteRadar(options: {
     // A new colour table redraws the sweep, which is drawn natively.
   }, [
     latestLive,
+    rememberDisc,
     pageVisible,
     paletteGeneration,
     radar.dealias,
