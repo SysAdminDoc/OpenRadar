@@ -192,6 +192,7 @@ export const en = {
     "Pan the map or zoom out to check a wider area. Alerts refresh every minute.",
   "alerts.noteOff": "Nothing is being fetched while the layer is off.",
   "alerts.noteError": "Showing the last good list. {error}",
+  "alerts.noteFailed": "No list has arrived. {error}",
   "alerts.noteChecked": "Watches and warnings, checked {when}.",
   "alerts.noteArchived":
     "The warnings that were in force at the moment on screen, from the Iowa State archive.",
@@ -1755,6 +1756,8 @@ export const en = {
   "smoke.heavy": "Heavy smoke",
   "smoke.analysed": "Analysed {when}.",
   "smoke.analysedUnknown": "The analysis date is not in the file.",
+  "smoke.unreadable": "The smoke analysis could not be read.",
+  "smoke.notKml": "The smoke analysis was not the document it should be.",
   "smoke.clear":
     "The analysts found no smoke anywhere today. This is the day's file, and it is empty.",
   "smoke.note":

@@ -231,7 +231,12 @@ export function AlertsPanel({
         {!layerOn
           ? t("alerts.noteOff")
           : error
-            ? t("alerts.noteError", { error })
+            ? // The same distinction the Nearby footer makes: a failure with
+              // nothing behind it is not a list being held, and this is where
+              // that sentence came from.
+              fetchedAt
+              ? t("alerts.noteError", { error })
+              : t("alerts.noteFailed", { error })
             : historical
               ? t("alerts.noteArchived")
               : fetchedAt

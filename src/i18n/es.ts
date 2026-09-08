@@ -200,6 +200,7 @@ export const es: Catalogue = {
   "alerts.noteOff":
     "No se está consultando nada mientras la capa esté apagada.",
   "alerts.noteError": "Mostrando la última lista buena. {error}",
+  "alerts.noteFailed": "No ha llegado ninguna lista. {error}",
   "alerts.noteChecked": "Vigilancias y avisos, consultados {when}.",
   "alerts.noteArchived":
     "Los avisos que estaban en vigor en el momento que se ve, del archivo de Iowa State.",
@@ -1789,6 +1790,8 @@ export const es: Catalogue = {
   "smoke.heavy": "Humo denso",
   "smoke.analysed": "Analizado el {when}.",
   "smoke.analysedUnknown": "El archivo no trae la fecha del análisis.",
+  "smoke.unreadable": "No se pudo leer el análisis de humo.",
+  "smoke.notKml": "El análisis de humo no era el documento que debía ser.",
   "smoke.clear":
     "Hoy los analistas no encontraron humo en ninguna parte. Este es el archivo del día, y está vacío.",
   "smoke.note":

@@ -282,6 +282,19 @@ describe("what the line under the panel says about the same request", () => {
     expect(note?.textContent ?? "").toMatch(/the service is busy/i);
   });
 
+  it("does not offer a last good list when there has never been one", () => {
+    // The ordinary first failure: `useOverlays` answers a question that
+    // changed and then failed with the idle state and an error on it, so
+    // there is no fetched time and nothing is on screen. Saying "showing the
+    // last good list" there is the same kind of claim about the sky the
+    // section above was fixed for, in the paragraph that ends with the
+    // life-safety line.
+    warningsSection("failed");
+    const note = document.querySelector(".source-note");
+    expect(note?.textContent ?? "").not.toMatch(/last good list/i);
+    expect(note?.textContent ?? "").toMatch(/no list has arrived/i);
+  });
+
   it("says the layer is off rather than that it is still loading", () => {
     warningsSection("off");
     const note = document.querySelector(".source-note");

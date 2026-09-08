@@ -110,10 +110,10 @@ export function analysisDate(at: number, withYear = false): string {
 export function parseSmoke(xml: string): OverlayData {
   const document = new DOMParser().parseFromString(xml, "text/xml");
   if (document.getElementsByTagName("parsererror").length) {
-    throw new Error("the smoke analysis could not be read");
+    throw new Error(translate("smoke.unreadable"));
   }
   if (document.getElementsByTagName("kml").length === 0) {
-    throw new Error("the smoke analysis was not a KML document");
+    throw new Error(translate("smoke.notKml"));
   }
   const analysed = analysedOn(document);
   const features: OverlayFeature[] = [];

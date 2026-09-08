@@ -751,10 +751,18 @@ pub(crate) struct AgainstRpg {
 /// per radial and its own first gate and spacing; the radial product carries
 /// half-degree radials and quarter-kilometre bins from a first bin of its
 /// own. Each Level II gate is looked up by where it points and how far out it
-/// sits, which is the same walk `tdwr::render` makes to paint one of these,
-/// and the two grids land within half a bin of each other rather than exactly
-/// on top: over a patch of any size that rounding moves the boundary and not
-/// the count.
+/// sits, which is the same walk `tdwr::render` makes to paint one of these.
+///
+/// The bin is the one the reading falls inside, which is a floor and not a
+/// rounding, and getting that wrong is not a rounding error either. The model
+/// documents `first_gate_range_km` as the range to the centre of the first
+/// gate and a real cut puts it at 2.125 km against quarter-kilometre bins
+/// from a first bin of zero, so every gate sits at eight and a half bins plus
+/// its own index: rounded, every one of them is compared against the bin 250
+/// metres further out. That read as a disagreement of 1.8 per cent of the
+/// sweep where the honest figure is 0.9, and the first version of this
+/// measure explained the difference away in a comment as the two grids
+/// sitting half a bin apart.
 pub(crate) fn disagreed_with_rpg(
     field: &SweepField,
     reference: &crate::level3::RadialImage,
@@ -785,7 +793,7 @@ pub(crate) fn disagreed_with_rpg(
                 continue;
             }
             let range_km = first_km + gate as f64 * interval_km;
-            let bin = ((range_km - reference_first_km) / reference.bin_km).round();
+            let bin = ((range_km - reference_first_km) / reference.bin_km).floor();
             if bin < 0.0 {
                 continue;
             }
