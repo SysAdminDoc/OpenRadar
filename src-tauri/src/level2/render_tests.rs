@@ -565,6 +565,27 @@ fn every_reading_of_where_a_gate_begins_agrees_with_the_one_that_reads_gates() {
         }
     }
 
+    // The two readings are the same function, so they answer alike at every
+    // range including the edges, where they used to differ: `round` goes half
+    // away from zero in Rust, so a range at exactly the near edge of gate 0
+    // came out as gate -1 and was refused by one of them and read by the
+    // other.
+    for range in [
+        first - half,
+        first - half + sliver,
+        first,
+        first + half,
+        gate_centre_km(&field, 49) + half,
+        last_gate_edge_km(&field) - sliver,
+    ] {
+        let covering = gate_covering(&field, range).map(|gate| field.get(10, gate).0);
+        assert_eq!(
+            covering,
+            reading_at(&field, 10.0, range).map(|read| read.0),
+            "the two readings of {range} km do not agree"
+        );
+    }
+
     // The sweep begins half an interval inside the first gate's centre, and
     // ends half an interval past the last one's. Both were a whole gate out
     // while the field's own numbers were taken as edges.

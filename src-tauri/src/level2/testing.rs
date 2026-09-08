@@ -324,8 +324,8 @@ mod golden {
         assert_eq!(cut.elevation_number, 1);
         assert_eq!(cut.collected, Some(at));
 
-        // The gate geometry, which is what every reading's position is
-        // worked out from. These are the values the fixture writes into
+        // The gate geometry the decoder reports. These are the values the
+        // fixture writes into
         // the radial header, so a decoder that read them differently, or
         // scaled them differently, would show up here rather than as a
         // picture that is subtly in the wrong place.
@@ -340,7 +340,14 @@ mod golden {
         // What matters is that the decoder reads the code the same way it
         // did yesterday.
         assert!((cut.field.azimuth_spacing_degrees() - 1.0).abs() < 1e-6);
+        // Pinned as what the crate answers, not as where the sweep ends.
+        // `max_range_km` adds a whole interval per gate, which is the
+        // edge-referenced reading of a field the ICD defines by its centres,
+        // so the far edge of the last gate is half an interval nearer at
+        // 102.000. Nothing works a position out from this any more; it is
+        // here so a decoder that changed it would say so. See `crate::gates`.
         assert!((cut.field.max_range_km() - 102.125).abs() < 1e-6);
+        assert!((last_gate_edge_km(&cut.field) - 102.0).abs() < 1e-6);
 
         // And the units, which the legend is labelled from. A moment
         // relabelled upstream would put the wrong unit beside the bar.
