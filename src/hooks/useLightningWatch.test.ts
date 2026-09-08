@@ -14,9 +14,31 @@ vi.mock("../lib/sound", () => ({
   resetSound: () => {},
 }));
 
-// The browser path, so the fallback is what gets called and no notification
-// plugin has to exist.
-vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => false }));
+/**
+ * Which of the two ways a notice can be delivered, switched per test.
+ *
+ * It was pinned to the browser path with a comment saying so, and inverting
+ * it changed nothing: every test here asserts on the fallback, and on the
+ * desktop path `announceOnDesktop` has no notification plugin to reach, so it
+ * throws, `delivered` stays false and the fallback fires anyway. A mock that
+ * can be inverted without failing anything is not selecting between two
+ * paths; it was keeping one of them out of the way.
+ *
+ * Both are named now. `announceOnDesktop` is stubbed alongside it, because
+ * the desktop path is only worth a test if it can succeed.
+ */
+const delivery = vi.hoisted(() => ({ desktop: false, announces: true }));
+vi.mock("../lib/runtime", () => ({
+  isDesktopRuntime: () => delivery.desktop,
+}));
+vi.mock("../lib/notify", () => ({
+  announceOnDesktop: () => Promise.resolve(delivery.announces),
+}));
+
+afterEach(() => {
+  delivery.desktop = false;
+  delivery.announces = true;
+});
 
 afterEach(() => {
   cleanup();
@@ -192,6 +214,31 @@ describe("a place switched off while the feed is quiet", () => {
     });
     await vi.waitFor(() => expect(onFallback).toHaveBeenCalledTimes(2));
     expect(onFallback.mock.calls[1][0].kind).toBe("started");
+  });
+
+  it("hands a desktop notice to the desktop and does not repeat it", async () => {
+    // The branch the runtime mock exists to keep out of the way, named at
+    // last. On the desktop the notice goes to the operating system, and the
+    // in-app fallback is what happens when that could not deliver it: both at
+    // once would say the same thing twice.
+    delivery.desktop = true;
+    delivery.announces = true;
+    const onFallback = vi.fn();
+    watch(onFallback);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onFallback).not.toHaveBeenCalled();
+  });
+
+  it("falls back in the app when the desktop would not take it", async () => {
+    // A machine that refused the permission, or a plugin that is not there.
+    // The reader still has to be told.
+    delivery.desktop = true;
+    delivery.announces = false;
+    const onFallback = vi.fn();
+    watch(onFallback);
+    await vi.waitFor(() => expect(onFallback).toHaveBeenCalledTimes(1));
+    expect(onFallback.mock.calls[0][0].kind).toBe("started");
   });
 
   it("is not told twice for a place that stayed on", async () => {

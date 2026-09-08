@@ -575,26 +575,6 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
 
 ### P3
 
-- [ ] AUD-407 (P3): One of the nine repointed test mocks stubs nothing
-      Category: testing
-      Where: `src/hooks/useLightningWatch.test.ts`.
-      Problem: The mock carries a comment saying which path it forces, and inverting the answer changes no outcome: all five tests pass either way. The other eight all fail when inverted. `useLightningWatch.ts:170` does call the function, so the test is not exercising the branch its comment claims. It predates the change that repointed the mocks, but that commit said all nine "mocked `./settings` purely to stub this one function", which is true of eight.
-      Evidence: Inverting each of the nine mocks in turn on 2026-09-08: this one survived with 5 passed, the other eight failed with 10, 3, 6, 3, 4, 5, 2 and 3 failures.
-      Fix: Either reach the branch the comment names, or say the mock is there to keep the desktop path out rather than to select between two paths.
-      Acceptance: Inverting the mock fails a test, or the comment says what the mock is actually for and a test names the branch that is covered.
-      Confidence: Verified
-      Effort: S
-
-- [ ] AUD-408 (P3): The guidance test measures whether the table scrolls and never asserts it
-      Category: testing
-      Where: `e2e/guidance.spec.ts`, the `scrolls` field.
-      Problem: The field is computed, carries a comment describing the assertion ("Whatever does not fit is reachable by scrolling rather than folded into a second line"), and nothing reads it. It predates the rewrite that made the surrounding test stricter, and that rewrite made the field more defensive without noticing it was dead. The property does hold: all three boxes measure a scroll width of 439 against a client width of 307.
-      Evidence: Measured on 2026-09-08.
-      Fix: Assert it.
-      Acceptance: The assertion fails when the table is allowed to shrink to the panel.
-      Confidence: Verified
-      Effort: S
-
 
 
 ## Audit Findings, 2026-09-08
