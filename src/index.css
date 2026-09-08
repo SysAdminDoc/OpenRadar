@@ -4822,9 +4822,14 @@ input[type="range"]:disabled {
    under them, with Alerts open the panel's own title was. Their own lead over
    the zoom stack is kept rather than being moved to the same place as it, the
    way the compare card and the readout keep theirs. */
-.app-shell[data-panel-side="right"] .toast-host {
+:root:not([data-narrow~="680"])
+  .app-shell[data-panel-side="right"]
+  .toast-host {
   right: calc(var(--panel-width) + 64px);
-  width: min(360px, calc(var(--screen-width) - var(--panel-width) - 96px));
+  width: max(
+    240px,
+    min(360px, calc(var(--screen-width) - var(--panel-width) - 96px))
+  );
 }
 
 /* The two that were left off the list above and were drawn under the panel:
@@ -4953,12 +4958,12 @@ input[type="range"]:disabled {
   }
 
   /* The panel covers the map at this width, so nothing is shifted out of its
-     way; these three go back to where they sit with no panel open. */
-  .app-shell[data-panel-side="right"] .toast-host {
-    right: 64px;
-    width: min(360px, calc(var(--screen-width) - 32px));
-  }
-
+     way; these two go back to where they sit with no panel open. The toasts
+     are not here: a raw viewport query and `data-narrow` disagree by the text
+     scale, and at 130 per cent that put the panel-aware width in force over a
+     band the reset thought it had covered, taking the host down to 78 pixels.
+     The rule above is gated on `data-narrow` instead, which is the same signal
+     the narrow layout itself reads. */
   .app-shell[data-panel-side="right"] .pane-compare {
     right: 12px;
   }

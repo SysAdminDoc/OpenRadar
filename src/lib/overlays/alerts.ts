@@ -436,12 +436,23 @@ async function dwdFeatures(
  * pulgadas de granizo" in a catalogue that writes every other number "1,75".
  * `#` is the placeholder the block formats itself.
  *
- * Centimetres to a tenth under metric, which is how the Canadian and German
- * offices write a hail size. No plural block there: the abbreviation does not
- * take one in any of the three languages, and the number is formatted before
- * it goes in for the same reason the tide height is.
+ * Centimetres to a tenth under metric, which is the unit a reader who set the
+ * app to metric is reading everything else in. The Canadian and German feeds
+ * both hardcode an empty hail size, so this only ever converts an American
+ * inch value; naming those two offices as the reason it exists was wrong. No
+ * plural block on that side: the abbreviation does not take one in any of the
+ * three languages, and the number is formatted before it goes in for the same
+ * reason the tide height is.
+ *
+ * The size is remote input. `maxHailSize` is trimmed and nothing else, so a
+ * tag that is not a number reached the arithmetic: metric printed "NaN cm of
+ * hail" and imperial printed the unit with no number in front of it, because
+ * the plural block writes nothing for a value it cannot read. A tag this
+ * cannot make sense of is a line the popup leaves out, which is what it did
+ * before there was a tag at all.
  */
-export function hailLine(inches: number): string {
+export function hailLine(inches: number): string | null {
+  if (!Number.isFinite(inches) || inches <= 0) return null;
   if (isMetric()) {
     return translate("alerts.hailToCm", {
       size: formatNumber(inches * INCHES_TO_CM, 1),
@@ -452,6 +463,13 @@ export function hailLine(inches: number): string {
 
 /** Inches to centimetres, exactly. */
 const INCHES_TO_CM = 2.54;
+
+/** The hail line if there is one worth drawing, as a list to spread. */
+function hailLines(size: unknown): string[] {
+  if (!size) return [];
+  const said = hailLine(Number(size));
+  return said ? [said] : [];
+}
 
 export const alertsOverlay: OverlayAdapter = {
   id: "alerts",
@@ -599,7 +617,7 @@ export const alertsOverlay: OverlayAdapter = {
               }),
             ]
           : []),
-        ...(properties.hailSize ? [hailLine(Number(properties.hailSize))] : []),
+        ...hailLines(properties.hailSize),
         // What the office wrote, which is what the reader came for. Its own
         // words are not summarised, shortened or rewritten: an instruction
         // out of a warning is the one piece of text in this app that must

@@ -2818,7 +2818,22 @@ export default function App() {
                       // not a wait. Without this the panel spins for ever,
                       // because the live fetch it normally reads is switched
                       // off for the whole replay and never stamps a time.
-                      fetchedAt: archiveWarnings.loading ? null : clock,
+                      //
+                      // And a fetched time means a list is standing, which is
+                      // what the footer reads to decide between "showing the
+                      // last good list" and no list at all. An archive that
+                      // would not answer leaves `data` null, and stamping the
+                      // clock there had the panel offering a last good list
+                      // over nothing: `loading` is `wanted && !held` and the
+                      // error lives on `held`, so an error always implied a
+                      // finished load and the failure branch was unreachable
+                      // for the whole of a replay.
+                      fetchedAt:
+                        archiveWarnings.loading ||
+                        (archiveWarnings.error !== null &&
+                          !archiveWarnings.data)
+                          ? null
+                          : clock,
                       error: archiveWarnings.error,
                     },
                   }
