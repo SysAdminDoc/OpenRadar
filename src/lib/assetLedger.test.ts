@@ -35,9 +35,38 @@ function ledgerHosts(): string[] {
   return found;
 }
 
-/** Every path the ledger claims is bundled with the app. */
+/**
+ * The two halves of the ledger, split at their own headings.
+ *
+ * Which table a row sits in decides how many columns it has to answer, and
+ * the only honest way to know is to read the heading above it. Telling them
+ * apart by whether the path began with `public/` was right until something
+ * bundled lived somewhere else, and then it asked a four-column row for six.
+ */
+function bundledSection(): string {
+  return ledger.slice(
+    ledger.indexOf("## Bundled with the app"),
+    ledger.indexOf("## Fetched at runtime"),
+  );
+}
+
+function runtimeSection(): string {
+  return ledger.slice(ledger.indexOf("## Fetched at runtime"));
+}
+
+/**
+ * Every path the ledger claims is bundled with the app.
+ *
+ * Read from the first cell of each row and no further. The columns beside it
+ * name services, and `api.weather.gov/radar/stations` looks exactly like a
+ * path to a regular expression that is not told where to stop.
+ */
 function ledgerPaths(): string[] {
-  return [...ledger.matchAll(/`(public\/[^`]+)`/g)].map((match) => match[1]);
+  return bundledSection()
+    .split("\n")
+    .filter((line) => line.startsWith("| `"))
+    .map((line) => /^\| `([\w.-]+(?:\/[\w.-]+)+)`/.exec(line)?.[1])
+    .filter((path): path is string => Boolean(path));
 }
 
 describe("the asset ledger and the code it describes", () => {
@@ -101,10 +130,9 @@ describe("the asset ledger and the code it describes", () => {
   // that quietly drops one is how "what the service learns" goes unanswered
   // for the next host somebody adds.
   it("answers every column for every runtime host", () => {
-    const rows = ledger
+    const runtime = runtimeSection()
       .split("\n")
       .filter((line) => line.startsWith("| `") && line.includes("|"));
-    const runtime = rows.filter((row) => !row.includes("public/"));
     expect(runtime.length).toBeGreaterThan(0);
     for (const row of runtime) {
       const cells = row

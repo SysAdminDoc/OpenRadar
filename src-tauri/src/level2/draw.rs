@@ -84,7 +84,7 @@ pub(crate) fn sweep_values(
         .or_else(|| scan.time_range().map(|(start, _)| start));
     Ok(SweepValues {
         station: station.to_string(),
-        site_name: format!("{}, {}", site.city, site.state),
+        site_name: site.label(),
         site: site.to_site(),
         radar: WSR88D,
         product_id: asked.product_name.to_string(),
@@ -400,7 +400,7 @@ pub(crate) fn draw_sweep(
         high_contrast: asked.high_contrast,
         smoothed: asked.smooth,
         site_name: entry
-            .map(|site| format!("{}, {}", site.city, site.state))
+            .map(|site| site.label())
             .unwrap_or_else(|| station.to_string()),
         product: label.to_string(),
         unit: unit.to_string(),

@@ -16,6 +16,7 @@ The host table below is held to `ALLOWED_HOSTS` in `src-tauri/src/http.rs` by `s
 | `public/hurdat/` | NOAA HURDAT2 best track, Atlantic and eastern Pacific | US Government work, no copyright | Credited in the History panel. One index and one file per decade, rebuilt by `scripts/build-hurdat.mjs` |
 | `public/tide-stations.json` | NOAA CO-OPS station list | US Government work, no copyright | Credited in the Tides panel. Rebuilt by `scripts/build-tide-stations.mjs` |
 | `public/counties.json` | US Census cartographic boundary outlines, counties and states, 1:20,000,000, 2024 vintage | US Government work, no copyright | Credited in the provenance record for the Counties layer. Rebuilt by `scripts/build-counties.mjs`, which refuses anything over a megabyte |
+| `src-tauri/src/level2/registry_table.rs` | NWS radar station list, `api.weather.gov/radar/stations`, with each site's state from `api.weather.gov/points` | US Government work, no copyright | Rebuilt by `scripts/build-radar-sites.mjs`. Held to the office's live list by the `radar-sites` contract in `npm run check:live`, because a radar table goes stale as radars are commissioned and decommissioned |
 | Reference application screenshots | Local audit evidence only | Not licensed for redistribution | Never copied into the app or the repository |
 
 ## Fetched at runtime
