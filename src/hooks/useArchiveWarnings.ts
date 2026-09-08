@@ -1,5 +1,6 @@
 import { serviceAnswer } from "../lib/serviceAnswer";
 import { useEffect, useMemo, useState } from "react";
+import { useLatestReply } from "./useLatestReply";
 import {
   archiveCoverage,
   archiveTagsUrl,
@@ -59,6 +60,9 @@ export function useArchiveWarnings(options: {
 }): ArchiveWarnings {
   const { replay, enabled, frameTime } = options;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // Its own factory, because the counter one of these closes over is per
+  // call and this hook's one effect is the only thing waiting on it.
+  const latestArchive = useLatestReply();
 
   const window = useMemo(() => {
     if (!replay?.frames.length) return null;
@@ -78,7 +82,7 @@ export function useArchiveWarnings(options: {
     // window it came from, so it stops matching on its own.
     if (!window || !wanted) return;
 
-    let mounted = true;
+    const reply = latestArchive();
     const controller = new AbortController();
     const ask = async (url: string) => {
       const response = await fetch(cachedUrl(url), {
@@ -122,14 +126,14 @@ export function useArchiveWarnings(options: {
           ),
           ask(archiveTagsUrl(window.from, window.to)).catch(() => null),
         ]);
-        if (!mounted) return;
+        if (!reply.current()) return;
         setLoaded({
           key: window.key,
           data: parseArchiveWarnings(polygons, parseArchiveTags(tags)),
           error: short ? translate("replay.warningsSome") : null,
         });
       } catch (failure) {
-        if (!mounted || controller.signal.aborted) return;
+        if (!reply.current() || controller.signal.aborted) return;
         log.warn(
           "alerts",
           failure instanceof Error ? failure.message : "the archive failed",
@@ -145,10 +149,10 @@ export function useArchiveWarnings(options: {
     })();
 
     return () => {
-      mounted = false;
+      reply.close();
       controller.abort();
     };
-  }, [window, wanted]);
+  }, [latestArchive, window, wanted]);
 
   // Only an answer for the window on screen counts, which is what makes the
   // effect's lack of a reset safe. `wanted` is in it as well as in the effect:
