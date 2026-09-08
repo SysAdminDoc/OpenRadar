@@ -474,6 +474,7 @@ export const en = {
   "kmz.tooBig": "That archive is larger than this will read.",
   "kmz.noKml": "That archive holds no KML file.",
   "kmz.truncated": "That archive is cut short.",
+  "kmz.damaged": "That archive's contents are damaged.",
   "kmz.notZipLayout": "That archive is not laid out as a zip.",
   "kmz.compression": "That archive uses a compression this cannot read.",
   "kml.notXml": "That file could not be read as XML.",

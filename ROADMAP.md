@@ -599,16 +599,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P2
 
-- [ ] AUD-396 (P2): A corrupt KMZ still reports the browser engine's empty error
-      Category: correctness
-      Where: `src/lib/kmz.ts:79-115` (`inflate`), surfaced by `src/hooks/useWorkspaceActions.ts:388`.
-      Problem: AUD-366 closed the directory-name case, which is the rarer one. Compression method 8 is what virtually every real KMZ uses, and `inflate` catches nothing around `DecompressionStream`. Three ordinary corruptions each throw `TypeError` with an empty message: bytes that are not deflate, a stream truncated by two bytes, and a deflate entry with zero compressed bytes. The reader sees "Overlay could not be added" with nothing after it, because the handler falls through to `failure.message` and that is the empty string. `kmz.tooBigUnpacked` and `kmz.truncated` exist in the catalogue and neither is reached.
-      Evidence: Probe against the bundled module on 2026-09-07: all three cases threw `TypeError: ""`. Same at `5030b1e`, so it is not a regression.
-      Fix: Wrap the decompression and turn anything thrown into the catalogue's own sentence, the way the directory read already does.
-      Acceptance: Each of the three corruptions raises the catalogue sentence rather than an empty message; a good KMZ is unaffected; the three cases are pinned in `src/lib/kmz.test.ts`.
-      Confidence: Verified
-      Effort: S
-
 ### P3
 
 - [ ] AUD-397 (P3): The new KMZ bound is stricter than the read it guards

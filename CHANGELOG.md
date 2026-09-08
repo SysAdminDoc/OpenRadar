@@ -22,6 +22,8 @@
 
 - The radar picker names the three radars outside the states properly. Kunsan, Camp Humphreys and Kadena have no state to give, and the list showed "Kadena AB, " with a comma and nothing after it.
 
+- A damaged KMZ says it is damaged. Overlays that failed to unpack showed "Overlay could not be added" with nothing after it, because the browser's decompressor throws an error carrying no message at all and that empty message is what went on screen. Bytes that are not what the archive claims, a download that stopped early and an entry with nothing in it all landed there, and those are the three ordinary ways a KMZ goes wrong.
+
 - Two things that read a file or a request now check a length before they trust it. A KMZ whose directory claims a filename longer than the file itself used to hand you the browser engine's own error text under "Overlay could not be added"; it says the archive is cut short, which is what happened. And a replay capture can name a bounded number of documents beside its tiles, the way it could already only ask for a bounded number of tiles. Nothing could reach either from outside the app, and both are the sort of guard that is only missing until it is not.
 
 - A tool's instructions no longer cover the card telling you what happened overnight. Both sit at the top centre of the map and the instructions sit above, so picking up Draw, Range, Inspector or Cross-section put a card over the card you were reading. The instructions go under it now, and back where they were once you send it away.

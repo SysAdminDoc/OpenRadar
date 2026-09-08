@@ -490,6 +490,7 @@ export const es: Catalogue = {
   "kmz.tooBig": "Ese archivo es más grande de lo que se puede leer.",
   "kmz.noKml": "Ese archivo no contiene ningún KML.",
   "kmz.truncated": "Ese archivo está incompleto.",
+  "kmz.damaged": "El contenido de ese archivo está dañado.",
   "kmz.notZipLayout": "Ese archivo no tiene la estructura de un zip.",
   "kmz.compression": "Ese archivo usa una compresión que no se puede leer.",
   "kml.notXml": "Ese archivo no se pudo leer como XML.",
