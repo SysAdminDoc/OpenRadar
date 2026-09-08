@@ -20,6 +20,7 @@ import {
   activePalettes,
   assignedPalette,
   parsePalette,
+  writePalette,
   type Palette,
 } from "./palette";
 
@@ -322,6 +323,30 @@ describe("a stored palette", () => {
   it("comes back the way it went in", () => {
     const settings = normalizeSettings({ palettes: [loaded] });
     expect(settings.palettes).toEqual([loaded]);
+  });
+
+  it("is written back out by the one writer, not a copy of it", () => {
+    // A stored table is re-read from its own text, and the text used to be
+    // built here by a second copy of what `writePalette` does. The copy asked
+    // about a stop's second colour before its solid flag and the original asks
+    // about solid first, so the two would answer differently for a stop that
+    // set both: one writing a blend, the other a solid. Nothing produced such
+    // a stop, which is why it sat there.
+    const both = {
+      ...loaded,
+      skipped: [],
+      stops: [{ value: 5, color: "#04e9e7", solid: true, toColor: "#019ff4" }],
+    };
+    const [stored] = normalizeSettings({ palettes: [both] }).palettes;
+    const [written] = parsePalette(
+      writePalette({ ...both, name: both.name } as Palette),
+      both.name,
+    )!.stops;
+    expect(stored.stops[0]).toEqual(written);
+    // And what that agreed answer is, so this says something rather than
+    // comparing two calls to the same function: solid wins, and the second
+    // colour a solid stop cannot have is gone.
+    expect(stored.stops[0]).toMatchObject({ solid: true, toColor: null });
   });
 
   it("keeps the one table an older build held, and keeps it in force", () => {

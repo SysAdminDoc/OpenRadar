@@ -562,16 +562,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-376 (P3): Two helpers exist twice, once with a different answer
-      Category: maintainability
-      Where: `src-tauri/src/gfs.rs:189` and `src-tauri/src/mrms.rs:1874` (`signed_grib`, byte-identical); `src/lib/palette.ts:331` (`channels`, regex-parsed, falls back to "0 0 0") and `src/lib/settings.ts:1374` (`channels`, slice-parsed, returns null), with `normalizePalette` at `settings.ts:1341-1371` re-serialising a stored palette through its own copy of what `writePalette` does, testing `toColor` before `solid` where `writePalette` tests `solid` first.
-      Problem: The GRIB sign convention is one fact written in two files, and the palette serialiser is one format written in two files with the precedence inverted. The inversion is unreachable today because `parsePalette` never sets both, but the two will disagree for any `Palette` built outside the parser, and the 2026-09-07 refutation flagged it.
-      Evidence: The lines as cited.
-      Fix: One `grib` helper for the sign convention used by both decoders; `normalizePalette` builds its text with `writePalette` from `palette.ts` and drops its private `channels`.
-      Acceptance: One definition of each; `cargo test --lib`, `npm run check` unchanged.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-377 (P3): Chrome colour written outside the theme system, and rules that no longer win
       Category: visual
       Where: `src/hooks/useAppearance.ts:13-16` (`CHROME_COLOR` `#090b10` / `#eef2f6`) and `index.html:10` and `:46` (the same pair twice more) against `--bg` `#070b10` / `#e9eef4` at `src/index.css:3901` and `:3978`; dead declarations overridden later at equal specificity by the rail rules: `.command-bar` `:219` (`background: rgba(31, 35, 41, 0.97)`, `box-shadow`) against `:4143` (`background: #0b1118`), `.brand-mark` `:150-161` against `:4041`, the forced-colours `.command-bar { background: Canvas }` inside `@media (forced-colors: active)` at about `:3233` against `:4143`, and `.product-legend` `:3529` (`var(--surface-raised, rgb(15 23 42 / 82%))`, a fallback behind a token that is always defined); single-look chrome literals with no light counterpart: `.legend-ramp` border `:591` (`rgba(255, 255, 255, 0.18)`), `.track-swatch` border `:3313`, `@keyframes ambient-flash` `:345` and `:351` (pale blue on `--border-strong`), `.fatal-error__mark` `:2761` (`#130309` on `--danger`); the capture bar block `:5842-5967` (about fifteen literals, no light look); `src/glance.css:15-31` (a five-token palette of its own outside `THEME_TOKENS`).

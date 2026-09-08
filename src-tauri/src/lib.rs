@@ -19,6 +19,7 @@ mod fixture;
 mod geotiff;
 mod gfs;
 mod glance;
+mod grib;
 mod host;
 mod hrrr;
 mod incident_packs;
