@@ -76,13 +76,19 @@ const BUDGETS = [
   {
     name: "panels",
     match: /^PanelSurfaces-.*\.js$/,
-    // Every panel the command bar opens except the three in Settings' own
-    // module, fetched on the first one opened. Reclaimed after that split
-    // rather than left at the old number: a budget with fifty kilobytes of
-    // room in it is not a budget, and the point of moving the weight out was
-    // to keep it out.
-    raw: 105,
-    gzip: 29,
+    // Every panel the command bar opens except the ones in their own modules,
+    // fetched on the first one opened. Reclaimed after each split rather than
+    // left at the old number: a budget with fifty kilobytes of room in it is
+    // not a budget, and the point of moving the weight out was to keep it out.
+    //
+    // 105 and 29 held the chunk at exactly a hundred per cent of both, so
+    // every change to any panel had to find its own bytes back somewhere else
+    // before it could land. The forecast models, the storm archive, the tides,
+    // the hurricane season and a route along a drive went to their own chunks
+    // on 2026-09-08, which took it to 73 and 20. These leave about a tenth
+    // free, which is room for an honest change and not room to drift back.
+    raw: 82,
+    gzip: 23,
     // Which is to say: not before the map is interactive. It is behind a
     // `lazy` and a `Suspense` in App.tsx and nothing on the way to a first
     // frame touches it, so counting it in the first load was measuring
