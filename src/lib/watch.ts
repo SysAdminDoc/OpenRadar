@@ -1,9 +1,6 @@
 import { haversineMiles, type GeoPoint } from "./geo";
-import {
-  alertsOfKind,
-  SEVERITY_RANK,
-  type AlertSeverity,
-} from "./overlays/alerts";
+import { alertsOfKind } from "./overlays/alerts";
+import { SEVERITY_RANK, type AlertSeverity } from "./alertSeverity";
 import type { AlertType } from "./alertTypes";
 import {
   featureBounds,

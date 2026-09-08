@@ -1,6 +1,6 @@
 import type { OverlayBounds, OverlayFeature } from "./registry";
 import type { AlertType } from "../alertTypes";
-import { SEVERITY_RANK, type AlertSeverity } from "./alerts";
+import { SEVERITY_RANK, type AlertSeverity } from "../alertSeverity";
 
 /**
  * Public weather warnings for Germany, from the Deutscher Wetterdienst.

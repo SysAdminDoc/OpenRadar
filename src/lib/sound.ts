@@ -1,4 +1,4 @@
-import type { AlertSeverity } from "./overlays/alerts";
+import type { AlertSeverity } from "./alertSeverity";
 import { isDesktopRuntime } from "./runtime";
 
 /**
