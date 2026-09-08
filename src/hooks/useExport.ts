@@ -49,6 +49,7 @@ import { APP_VERSION } from "../lib/settings";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { translate } from "../i18n";
 import { useLatestReply } from "./useLatestReply";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /**
  * How long a frame waits for its volume to arrive before the walk moves on.
@@ -401,6 +402,7 @@ export function useExport(options: {
         index,
         record,
       }));
+      let recorded = true;
       if (drawn.length) {
         try {
           const sidecar = provenanceDocument({
@@ -417,17 +419,23 @@ export function useExport(options: {
             }),
           );
         } catch (failure) {
+          recorded = false;
           log.warn(
             "export",
-            failure instanceof Error
-              ? failure.message
-              : translate("export.failed"),
+            failureSentence(failure, translate("export.failed")),
           );
         }
       }
       pushToast({
         title: translate("export.saved", { name }),
-        detail: saved.path ?? translate("export.downloads"),
+        // The record is what the README promises beside every export, and
+        // somebody exporting a loop for a case study found out it was missing
+        // when they went looking for it. A log line is silent. The picture is
+        // still saved and the toast still says so; what it now also says is
+        // that the thing meant to describe it is not there.
+        detail: recorded
+          ? (saved.path ?? translate("export.downloads"))
+          : translate("export.noRecord"),
         actionLabel: saved.path ? translate("export.show") : undefined,
         onAction: saved.path
           ? () =>

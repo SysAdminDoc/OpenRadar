@@ -610,15 +610,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 
 
-- [ ] AUD-418 (P3): An export whose provenance record failed to write is announced as saved with nothing said
-      Category: reliability
-      Where: `src/hooks/useExport.ts:392-431` (`finish`: the picture is saved, the sidecar write is wrapped in `try { … } catch { log.warn(…) }`, and `pushToast({ title: translate("export.saved", { name }) … })` follows unconditionally); `src/i18n/en.ts:1779` (`"export.saved": "{name} saved"`).
-      Problem: The README promises a JSON record beside every export naming the source of every frame, and the code is right to keep the picture when the record fails. But the reader is told only that the picture saved. Someone exporting a loop for a case study finds out the record is missing when they go looking for it, which is the opposite of what the sidecar is for. The house rule is that nothing fails silently; a log line is silent.
-      Evidence: Read on 2026-09-08. The comment at `:396-399` explains keeping the picture and says the failure is "a fact worth logging", and the toast that follows has no branch for it.
-      Fix: Keep the picture and the toast, and when the sidecar write threw add a `detail` line ("The provenance record beside it could not be written") in place of the folder line, in the three catalogues. Pin it in `useExport.test.ts` by making the second `saveFile` reject.
-      Acceptance: With the sidecar write failing, the toast says the picture saved and the record did not; with both succeeding, the toast is unchanged; `npm run check` green.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-419 (P3): The approach watch is the one watch hook with no test of its own
       Category: testing

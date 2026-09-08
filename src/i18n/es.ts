@@ -1833,6 +1833,8 @@ export const es: Catalogue = {
   "export.hrrr": "HRRR, a {minutes} min",
   "export.saved": "{name} guardado",
   "export.downloads": "Mira en tu carpeta de descargas.",
+  "export.noRecord":
+    "La imagen se guardó. El registro de su procedencia no se pudo escribir a su lado.",
   "export.show": "Mostrar",
   "export.failed": "La exportación falló",
   "export.imageFailed": "No se pudo exportar la imagen",

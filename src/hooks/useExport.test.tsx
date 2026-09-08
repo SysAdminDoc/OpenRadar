@@ -4,6 +4,7 @@ import type { MapViewportHandle } from "../components/MapViewport";
 import type { RadarFrame } from "../lib/radar";
 import type { RadarTimelineState } from "./useRadarTimeline";
 import { useExport } from "./useExport";
+import { en } from "../i18n/en";
 
 const { exportLoop, exportStill, saveFile, setWallpaper } = vi.hoisted(() => ({
   exportLoop: vi.fn(),
@@ -601,12 +602,22 @@ describe("the record written beside the picture", () => {
     act(() => result.current.exportImage());
     await waitFor(() => expect(result.current.busy).toBeNull());
 
-    // The picture saved and the person was told so. The sidecar failing is a
-    // log line, not a lost export.
+    // The picture saved, and that is still the news. What this used to
+    // assert was that the reader is handed the folder and told nothing else,
+    // which is the defect rather than the behaviour: the README promises a
+    // record beside every export, and somebody exporting a loop for a case
+    // study found out it was missing when they went looking for it. A log
+    // line is silent. The folder line is replaced rather than added to,
+    // because a reader told where the picture is will not go looking for what
+    // is not beside it.
     expect(saveFile).toHaveBeenCalledTimes(2);
-    expect(pushToast).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: "C:/downloads/openradar.png" }),
-    );
+    const said = pushToast.mock.calls[0][0] as {
+      title: string;
+      detail?: string;
+    };
+    expect(said.title).toContain("saved");
+    expect(said.detail).toBe(en["export.noRecord"]);
+    expect(said.detail).not.toContain("C:/downloads");
   });
 });
 

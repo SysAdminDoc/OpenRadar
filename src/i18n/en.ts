@@ -1799,6 +1799,8 @@ export const en = {
   "export.hrrr": "HRRR, {minutes} min out",
   "export.saved": "{name} saved",
   "export.downloads": "Check your downloads folder.",
+  "export.noRecord":
+    "The picture saved. The record of where it came from could not be written beside it.",
   "export.show": "Show",
   "export.failed": "The export failed",
   "export.imageFailed": "The picture could not be exported",
