@@ -129,6 +129,20 @@ export function useExport(options: {
    * copy of that resolution would be a second thing to keep in step.
    */
   basemapCredit: string;
+  /**
+   * Everything drawn over the radar, read at the moment a picture is taken.
+   *
+   * A function rather than a value, because an export runs after the reader
+   * has finished pressing the button and what is on the map is settled then
+   * rather than when this hook last rendered.
+   *
+   * Passed in for the same reason `basemapCredit` is: what counts as drawn is
+   * settled where the map is, and a second copy of that reckoning would be a
+   * second thing to keep in step. It was missing entirely, so a picture made
+   * with the warnings or the outlooks over the radar credited the basemap and
+   * the radar and said nothing at all about them.
+   */
+  overlayProvenance: () => Provenance[];
   /** Datasets drawn right now, in the order the panel should offer them. */
   dataSources: DataExportSource[];
   /**
@@ -195,6 +209,7 @@ export function useExport(options: {
     source,
     timeline,
     basemapCredit,
+    overlayProvenance,
     dataSources,
     sweep,
     arrivedAt,
@@ -296,11 +311,15 @@ export function useExport(options: {
             product: sweep.product,
           }),
         ],
-        attribution: provenanceCredit(basemapCredit, record),
+        attribution: provenanceCredit(
+          basemapCredit,
+          record,
+          overlayProvenance(),
+        ),
         keys,
       };
     },
-    [arrivedAt, basemapCredit, keys],
+    [arrivedAt, basemapCredit, keys, overlayProvenance],
   );
 
   const captionFor = useCallback(
@@ -353,12 +372,17 @@ export function useExport(options: {
               ? record.label
               : translate("export.radar"),
         ].filter(Boolean),
-        attribution: provenanceCredit(basemapCredit, record),
+        attribution: provenanceCredit(
+          basemapCredit,
+          record,
+          overlayProvenance(),
+        ),
         keys,
       };
     },
     [
       basemapCredit,
+      overlayProvenance,
       drawnVolume,
       frames,
       keys,
@@ -409,6 +433,7 @@ export function useExport(options: {
             picture: name,
             application: `OpenRadar ${APP_VERSION}`,
             basemap: basemapCredit,
+            layers: overlayProvenance(),
             writtenAt: Date.now(),
             frames: drawn,
           });
@@ -445,7 +470,7 @@ export function useExport(options: {
           : undefined,
       });
     },
-    [basemapCredit, pushToast],
+    [basemapCredit, overlayProvenance, pushToast],
   );
 
   const exportImage = useCallback(() => {
