@@ -1,4 +1,5 @@
 import { isDesktopRuntime } from "./runtime";
+import { failureSentence } from "./serviceAnswer";
 import { type CameraState } from "./settings";
 import type { OverlayBounds } from "./overlays";
 import type { RadarFrame } from "./providers/types";
@@ -270,9 +271,11 @@ export function bundleErrorText(failure: unknown): string {
     if (key in en) return translate(key as StringKey, params);
     if (typeof named.text === "string" && named.text) return named.text;
   }
-  if (failure instanceof Error && failure.message) return failure.message;
   if (typeof failure === "string" && failure) return failure;
-  return translate("bundle.error.unknown");
+  // Not `failure.message`. A bundle read over the network fails with a
+  // TypeError whose message is "Failed to fetch", in English whatever
+  // language the app is in, and this text goes into a toast.
+  return failureSentence(failure, translate("bundle.error.unknown"));
 }
 
 export async function captureReplayBundle(

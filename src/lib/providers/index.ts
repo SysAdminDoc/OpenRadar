@@ -4,6 +4,7 @@ import {
   type RequestBudget,
 } from "./budget";
 import { log } from "../log";
+import { failureSentence } from "../serviceAnswer";
 import { recordFailure, recordSuccess } from "./health";
 import { HRRR_HOST } from "./hrrr";
 import { SATELLITE_HOST } from "./satellite";
@@ -185,10 +186,14 @@ export async function fetchRadarTimeline(
       if (signal?.aborted) throw error;
       if (error instanceof DOMException && error.name === "AbortError")
         throw error;
-      const message =
-        error instanceof Error
-          ? error.message
-          : translate("radar.requestFailedShort");
+      // Not `error.message`. This is written to `record.lastError`, which
+      // the Diagnostics panel renders, so a refused connection put the
+      // engine's own "Failed to fetch" on screen in English whatever
+      // language the app was set to.
+      const message = failureSentence(
+        error,
+        translate("radar.requestFailedShort"),
+      );
       recordFailure(provider.id, message);
       log.warn("radar", `${provider.label} failed: ${message}`);
       failures.push(`${provider.label}: ${message}`);

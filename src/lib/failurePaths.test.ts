@@ -17,18 +17,35 @@ import { describe, expect, it } from "vitest";
  *
  * So this reads the tree instead. A developer log is exempt and meant to be
  * English; what is not exempt is anything a reader sees.
+ *
+ * The first version of this could see neither of the two shapes it was
+ * written for once they were more than one expression apart. It looked only
+ * inside a sink call's own brackets, and it walked only `panels` and `hooks`.
+ * An adversarial pass on 2026-09-08 put `useWind.ts` back to handing
+ * `failure.message` to `setError` through a local and the run stayed green,
+ * and named three live leaks in `App.tsx` and one in `lib/providers` that the
+ * walk had never reached. It follows a value into a sink now, through a local
+ * and through a helper, and it reads the whole of `src`.
  */
 
 const ROOT = join(import.meta.dirname, "..");
 
-/** Every source file under `src/panels` and `src/hooks`, tests aside. */
+/**
+ * Everything under `src` a reader's words could travel through.
+ *
+ * `i18n` holds the catalogues, which ARE the English and have no sinks in
+ * them, and `test` is the harness. Everything else is in: the first version
+ * of this walked `panels` and `hooks` alone, and `App.tsx`, `components` and
+ * `lib` are where four of the live leaks turned out to be.
+ */
 function sources(): Array<{ path: string; text: string }> {
   const found: Array<{ path: string; text: string }> = [];
+  const skip = new Set(["i18n", "test", "assets", "workers"]);
   const walk = (at: string) => {
     for (const name of readdirSync(at)) {
       const here = join(at, name);
       if (statSync(here).isDirectory()) {
-        walk(here);
+        if (!skip.has(name)) walk(here);
         continue;
       }
       if (!/\.tsx?$/.test(name) || /\.test\.tsx?$/.test(name)) continue;
@@ -38,8 +55,7 @@ function sources(): Array<{ path: string; text: string }> {
       });
     }
   };
-  walk(join(ROOT, "panels"));
-  walk(join(ROOT, "hooks"));
+  walk(ROOT);
   return found;
 }
 
@@ -47,8 +63,8 @@ function sources(): Array<{ path: string; text: string }> {
  * What a reader ends up seeing, by the name of the thing it is handed to.
  *
  * Named rather than inferred, because there is no way to tell from the text
- * whether a value is rendered: these are the four shapes this tree uses, and a
- * fifth one arriving is a line to add here rather than a hole that stays open.
+ * whether a value is rendered: these are the shapes this tree uses, and a new
+ * one arriving is a line to add here rather than a hole that stays open.
  */
 const SINKS = [
   "setError",
@@ -58,89 +74,219 @@ const SINKS = [
   "setFailed",
 ];
 
+/** A failure's own message, which is the engine's words and never translated. */
+const OWN_WORDS = /\.message\b/;
+
 /**
- * The text of every call to one of those, from the opening bracket to the one
- * that closes it.
+ * A sentence rather than a word: a capital, a run of text and a full stop.
+ * A catalogue key has none of those.
+ */
+const ENGLISH = /"([A-Z][^"]{15,}\.)"/g;
+
+/** The text from a brace or bracket to the one that closes it. */
+function balanced(text: string, from: number, open: string, close: string) {
+  let depth = 0;
+  for (let at = from; at < text.length; at += 1) {
+    if (text[at] === open) depth += 1;
+    else if (text[at] === close) {
+      depth -= 1;
+      if (depth === 0) return text.slice(from, at + 1);
+    }
+  }
+  return text.slice(from);
+}
+
+/**
+ * Every call to one of those, from the opening bracket to the one that closes
+ * it, with where it starts.
  *
  * Brackets are counted rather than matched by expression, because an argument
  * is often a ternary several lines long with its own calls inside it, and that
  * is exactly the shape the two defects take.
  */
-function callsTo(text: string, sink: string): string[] {
-  const found: string[] = [];
+function callsTo(
+  text: string,
+  sink: string,
+): Array<{ at: number; call: string }> {
+  const found: Array<{ at: number; call: string }> = [];
   const opener = new RegExp(`\\b${sink}\\s*\\(`, "g");
   for (const match of text.matchAll(opener)) {
-    let depth = 0;
-    let at = match.index + match[0].length - 1;
-    const from = at;
-    for (; at < text.length; at += 1) {
-      if (text[at] === "(") depth += 1;
-      else if (text[at] === ")") {
-        depth -= 1;
-        if (depth === 0) break;
-      }
-    }
-    found.push(text.slice(from, at + 1));
+    const from = match.index + match[0].length - 1;
+    found.push({ at: from, call: balanced(text, from, "(", ")") });
   }
   return found;
 }
 
+/**
+ * Functions in a file that hand back a failure's own message.
+ *
+ * `sweepErrorText`, `packErrorText`, `messageFor` and `failureMessage` all end
+ * `if (failure instanceof Error) return failure.message;`, and their results
+ * go straight into a sink. Collected across every file rather than per file,
+ * because two of the four are exported and read somewhere else.
+ */
+function passesOwnWords(text: string): string[] {
+  const named: string[] = [];
+  const declared =
+    /(?:function\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)[^{;]*\{|(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)(?:\s*:[^=]*)?\s*=>\s*\{)/g;
+  for (const match of text.matchAll(declared)) {
+    const name = match[1] ?? match[2];
+    // `failureSentence` is the sanctioned route and reads `.message` on
+    // purpose, behind the check that decides whether the words are safe to
+    // show. Listing it here would make every correct call site a finding.
+    if (!name || name === "failureSentence") continue;
+    const body = balanced(text, match.index + match[0].length - 1, "{", "}");
+    // Handing the message BACK, not merely touching one. Every component and
+    // every hook of any size mentions `.message` somewhere, and a first cut
+    // that looked for the word alone called `App`, `SettingsPanel` and six
+    // hooks helpers of this kind.
+    if (!/return[^;]*\.message\b[^;]*;/.test(body)) continue;
+    if (body.includes("failureSentence")) continue;
+    named.push(name);
+  }
+  return named;
+}
+
+/**
+ * Whether a file can be talking about one of those helpers at all.
+ *
+ * The set is built across the tree, so a bare name in it would otherwise
+ * convict an unrelated local somewhere else: `useAmbient` has a helper called
+ * `read`, and `useWorkspaceActions` has a `const read = parseTheme(...)` that
+ * has nothing to do with it.
+ */
+function reaches(text: string, name: string): boolean {
+  const imported = new RegExp(`import[^;]*\\b${name}\\b[^;]*from`, "s");
+  const declares = new RegExp(
+    `(?:function\\s+${name}\\b|(?:const|let)\\s+${name}\\s*[=:])`,
+  );
+  return imported.test(text) || declares.test(text);
+}
+
+/**
+ * Whether something the call passes was given a failure's own words nearby.
+ *
+ * Two thousand characters back rather than the enclosing function, because
+ * finding that needs a parser and this needs to run in a test. Every leak the
+ * 2026-09-08 pass named sits inside twenty lines of its sink; a value carried
+ * further than that is what `passesOwnWords` is for.
+ */
+function taintedName(
+  text: string,
+  call: string,
+  at: number,
+  helpers: Set<string>,
+): string | null {
+  const names = [...call.matchAll(/[A-Za-z_$][\w$]*/g)].map((one) => one[0]);
+  const before = text.slice(Math.max(0, at - 2000), at);
+  for (const name of new Set(names)) {
+    if (helpers.has(name) && reaches(text, name)) return name;
+    const assigned = new RegExp(
+      `(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=([^;]*);`,
+      "g",
+    );
+    for (const match of before.matchAll(assigned)) {
+      if (OWN_WORDS.test(match[1]) && !match[1].includes("failureSentence")) {
+        return name;
+      }
+    }
+  }
+  return null;
+}
+
+/** Names an English sentence was worked out into, near a call. */
+function englishName(text: string, call: string, at: number): string | null {
+  const names = [...call.matchAll(/[A-Za-z_$][\w$]*/g)].map((one) => one[0]);
+  const before = text.slice(Math.max(0, at - 2000), at);
+  for (const name of new Set(names)) {
+    const assigned = new RegExp(
+      `(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=([^;]*);`,
+      "g",
+    );
+    for (const match of before.matchAll(assigned)) {
+      ENGLISH.lastIndex = 0;
+      if (ENGLISH.test(match[1])) return name;
+    }
+  }
+  return null;
+}
+
 describe("what a failure is allowed to say to a reader", () => {
+  const files = sources();
+  const helpers = new Set(files.flatMap((file) => passesOwnWords(file.text)));
+
   it("finds the calls it is looking for", () => {
     // The one way this gate fails that looks exactly like a clean tree. A
     // bracket counter that stops matching, or a sink renamed out from under
     // it, reports nothing wrong for ever.
-    const counted = sources()
+    const counted = files
       .flatMap((file) => SINKS.flatMap((sink) => callsTo(file.text, sink)))
-      .filter((call) => call.length > 2);
+      .filter((found) => found.call.length > 2);
     expect(counted.length).toBeGreaterThan(40);
-    expect(counted.every((call) => call.endsWith(")"))).toBe(true);
+    expect(counted.every((found) => found.call.endsWith(")"))).toBe(true);
+  });
+
+  it("reads the whole of src, not two directories of it", () => {
+    // Three live leaks sat in `App.tsx` and one in `lib/providers` for as long
+    // as the walk was `panels` and `hooks`. The count is what stops a walk
+    // that silently stops descending.
+    const walked = files.map((file) => file.path);
+    expect(walked).toContain("App.tsx");
+    expect(walked.some((path) => path.startsWith("components/"))).toBe(true);
+    expect(walked.some((path) => path.startsWith("lib/providers/"))).toBe(true);
+    expect(walked.length).toBeGreaterThan(150);
+  });
+
+  it("knows which helpers hand back a failure's own words", () => {
+    // `passesOwnWords` is the half that reaches across files, and a regex
+    // that stops matching declarations would empty it silently.
+    expect(helpers.size).toBeGreaterThan(0);
   });
 
   it("never hands one the engine's own words", () => {
     const wrong: string[] = [];
-    for (const file of sources()) {
+    for (const file of files) {
       for (const sink of SINKS) {
-        for (const call of callsTo(file.text, sink)) {
-          if (!/\.message\b/.test(call)) continue;
-          if (call.includes("failureSentence")) continue;
-          wrong.push(
-            `${file.path}: ${sink}${call.replace(/\s+/g, " ").slice(0, 90)}`,
-          );
+        for (const { at, call } of callsTo(file.text, sink)) {
+          const short = `${sink}${call.replace(/\s+/g, " ").slice(0, 90)}`;
+          if (OWN_WORDS.test(call)) {
+            if (call.includes("failureSentence")) continue;
+            wrong.push(`${file.path}: ${short}`);
+            continue;
+          }
+          const carried = taintedName(file.text, call, at, helpers);
+          if (carried) wrong.push(`${file.path}: ${short} <- ${carried}`);
         }
       }
     }
     expect(
       wrong,
-      "these hand a failure's own message to something a reader sees. A " +
-        "TypeError says 'Failed to fetch' in English whatever language the " +
-        "app is in. Put it through failureSentence, whose fallback is a " +
-        "catalogue key",
+      "these hand a failure's own message to something a reader sees, " +
+        "directly or through a name assigned one nearby. A TypeError says " +
+        "'Failed to fetch' in English whatever language the app is in. Put " +
+        "it through failureSentence, whose fallback is a catalogue key",
     ).toEqual([]);
   });
 
   it("never writes an English sentence where a catalogue key belongs", () => {
     // The other half, and the one a count of `.message` cannot see. Most of
     // these sites work the sentence out into a variable first, so the literal
-    // is nowhere near the thing that renders it. What is always local is the
-    // fallback handed to `failureSentence`, and that is the place a literal
-    // ends up: copy that can never be translated, sitting one argument along
-    // from the call that exists to stop exactly this.
+    // is nowhere near the thing that renders it.
     const wrong: string[] = [];
-    for (const file of sources()) {
-      for (const call of callsTo(file.text, "failureSentence")) {
-        // A sentence rather than a word: a capital, a run of text and a full
-        // stop. A catalogue key has none of those.
-        for (const [, said] of call.matchAll(/"([A-Z][^"]{15,}\.)"/g)) {
+    for (const file of files) {
+      for (const { call } of callsTo(file.text, "failureSentence")) {
+        for (const [, said] of call.matchAll(ENGLISH)) {
           wrong.push(`${file.path}: failureSentence(…, "${said}")`);
         }
       }
-      // And the same literal handed straight to something a reader sees.
       for (const sink of SINKS) {
-        for (const call of callsTo(file.text, sink)) {
-          for (const [, said] of call.matchAll(/"([A-Z][^"]{15,}\.)"/g)) {
+        for (const { at, call } of callsTo(file.text, sink)) {
+          for (const [, said] of call.matchAll(ENGLISH)) {
             wrong.push(`${file.path}: ${sink}(… "${said}")`);
           }
+          const carried = englishName(file.text, call, at);
+          if (carried)
+            wrong.push(`${file.path}: ${sink}(${carried}) <- English`);
         }
       }
     }
