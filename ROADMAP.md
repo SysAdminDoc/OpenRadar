@@ -578,3 +578,103 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
   Touches: `src-tauri/src/crash.rs` or `lib.rs` (a `running` sentinel in app data written in the setup hook and removed on a clean exit, with a count of consecutive unclean starts), `src/hooks/useSettings.ts` (on the second unclean start in a row, load with imported overlays, placefiles, the custom theme and the seasonal look off and the camera at home, and say so in a toast with one press to put everything back), `src/i18n/*`, `e2e/storage.spec.ts` with a planted sentinel.
   Acceptance: A planted sentinel with a count of two at launch opens the workspace plain with the toast; pressing Restore puts every switch back and clears the count; a clean exit removes the sentinel; a single unclean exit changes nothing; the spec covers all three.
   Complexity: M
+
+## Verification Findings, 2026-09-08
+
+Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
+
+### P1
+
+- [ ] AUD-404 (P1): The Upload drop zone stopped accepting a dropped file
+      Category: correctness
+      Where: `src/index.css`, `.drop-zone input`; `src/panels/UtilityPanels.tsx`.
+      Problem: Hiding the file input with `clip-path: inset(50%)` and a one-pixel box takes the clipped area out of hit testing, so the input has no drop target left. Nothing in `src/`, `e2e/` or `src-tauri/src` listens for `drop`, `dragover` or Tauri's `onDragDropEvent`, so the native input's own drop target was the whole of what made a drop zone a drop zone. Before the change, dropping a file on the visible widget worked; now dropping anywhere on the dashed box does nothing. The commit that did it says the input "keeps every bit of its behaviour, including the keyboard and the drop target", and the changelog says "Everything about how it works is unchanged", and both are wrong.
+      Evidence: Measured on 2026-09-08 at both revisions. At `ca36e7a` the input is 184 by 17 and `elementFromPoint` at its own centre returns the input; at `ddebfd1` it is 1 by 1 with `clip-path: inset(50%)` and `elementFromPoint` returns the span beside it. Handler count for `drop`/`dragover` anywhere in the ancestor chain: zero, at both.
+      Fix: The technique `.settings-import input` uses, which the commit claimed to be copying and was not: `position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0` inside a `position: relative` parent. That keeps the input's full hit area, which keeps the drop, and here it would grow the drop target from the old widget to the whole dashed box.
+      Acceptance: A file dropped anywhere on the drop zone is read, held by a Playwright test that dispatches a real drop; the input still takes the keyboard; the button is still what is drawn; `elementFromPoint` at the centre of the zone returns the input.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-402 (P1): The layering gate is walked past by a file extension
+      Category: correctness
+      Where: `src/lib/layering.test.ts`, `resolveImport`.
+      Problem: The resolver only tries the specifier plus `.ts`, `.tsx`, `/index.ts` and `/index.tsx`. A specifier that already carries an extension resolves to nothing, the edge is dropped before either rule or the ring finder sees it, and the gate says nothing. `import { APP_VERSION } from "./settings.js"` in `tileCache.ts` closes the ring the gate exists to stop, compiles under `tsc -b`, builds under Vite and ships, with all six tests green. The same hole defeats the second rule: `lib/units.ts` importing `"../hooks/useClock.js"` passes where `"../hooks/useClock"` fails.
+      Evidence: Measured on 2026-09-08 in a copy of the tree. With the `.js` spelling: `Tests 6 passed`, `tsc -b` OK, `vite build` OK. With the plain spelling: the ring rule fails and names both modules.
+      Fix: Add the specifier itself to the candidate list and strip a known extension before probing, so `./settings.js`, `./settings.ts` and `./settings` all land on the same file.
+      Acceptance: Each of `./settings.js`, `../hooks/useClock.js` and a bare `./settings` planted in turn fails the gate; the tree stays green with none of them.
+      Confidence: Verified
+      Effort: S
+
+### P2
+
+- [ ] AUD-403 (P2): A three-module ring survives, and the ring rule is scoped so it cannot report it
+      Category: correctness
+      Where: `src/lib/overlays/alerts.ts:13-14`, `src/lib/overlays/ecccAlerts.ts:3`, `src/lib/overlays/dwdWarnings.ts:3`; `src/lib/layering.test.ts`, the `component.includes(file)` filter.
+      Problem: `alerts.ts` value-imports both siblings and each imports `alertSeverity` or `SEVERITY_RANK` back, so the three of them close a ring. It works only because `SEVERITY_RANK` is read inside functions rather than at module scope, which is the same "works until the bundler picks a different order" property the gate's own docblock is about. The ring finder already computes every cyclic component and then throws away all but the one holding `settings.ts`, so this can never be reported. The commit that moved `isDesktopRuntime` also claimed the move "takes all twenty-four modules out of the ring at once"; it took twenty-one out and left three, and the changelog's "two dozen modules stop depending on each other in a circle" inherits that.
+      Evidence: The gate's own `ringsThrough` with the filter removed, run on 2026-09-08: at `ca36e7a` one component of 24; at `ddebfd1` one component of 3, `lib/overlays/{alerts,dwdWarnings,ecccAlerts}.ts`.
+      Fix: Move `SEVERITY_RANK` and `alertSeverity` into a leaf beside `alertTypes.ts`, then widen the rule to report every cyclic component in `src/` rather than only the one holding `settings.ts`. Correct the changelog entry.
+      Acceptance: The ring finder reports no cyclic component anywhere in `src/`; putting any one of the three edges back fails it; `npm run check` green.
+      Confidence: Verified
+      Effort: M
+
+- [ ] AUD-405 (P2): The control-dressing check passes on three kinds of undressed control
+      Category: testing
+      Where: `e2e/support/fixtures.ts`, `wearsTheApp`.
+      Problem: Three shapes pass in both looks. A control with `display: none` passes, because `getComputedStyle` still resolves the declared values and the count guard only proves the selector matched, so a control that stopped being drawn would keep the test green. A control with `border: none; border-top: 1px solid` passes, because only the top border's width and style are read and never its colour. And a control carrying the browser's own font at 22 pixels with square corners passes, because the check never looks at font, size, radius, padding or height, which is the first thing the commit it was written for complains about.
+      Evidence: Synthetic controls planted in a real panel on 2026-09-08: `display: none`, `border-top` only and browser font all passed in both looks, while a bare input, a background-only one and a transparent one over a surface parent all failed.
+      Fix: Require the control to be visible and to have a box, check the border colour as well as its width and style, and hold the font family and size to the panel's.
+      Acceptance: Each of the three shapes fails; a properly dressed control passes; the five real controls still pass in both looks.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-406 (P2): A reach from `lib/` up into `hooks/` launders through one hop at the source root
+      Category: correctness
+      Where: `src/lib/layering.test.ts`, the second rule.
+      Problem: The rule tests where an import lands against `^(hooks|panels|components)/`, so any module that is not under one of those three erases the violation. A module at `src/` root that imports a hook, imported in turn by a file under `lib/`, passes: the direct reach is caught, one hop through the root is not, and no ring forms so the third rule does not cover for it either.
+      Evidence: Planted on 2026-09-08 in a copy: `src/Bridge.ts` importing `./hooks/useClock` and `src/lib/units.ts` importing `../Bridge` gave `Tests 6 passed`.
+      Fix: Walk the graph from each file under `lib/` rather than reading its own imports, and report the path when it reaches `hooks/`, `panels/` or `components/`.
+      Acceptance: The one-hop case fails and names both edges; the direct case still fails; the tree stays green.
+      Confidence: Verified
+      Effort: S
+
+### P3
+
+- [ ] AUD-407 (P3): One of the nine repointed test mocks stubs nothing
+      Category: testing
+      Where: `src/hooks/useLightningWatch.test.ts`.
+      Problem: The mock carries a comment saying which path it forces, and inverting the answer changes no outcome: all five tests pass either way. The other eight all fail when inverted. `useLightningWatch.ts:170` does call the function, so the test is not exercising the branch its comment claims. It predates the change that repointed the mocks, but that commit said all nine "mocked `./settings` purely to stub this one function", which is true of eight.
+      Evidence: Inverting each of the nine mocks in turn on 2026-09-08: this one survived with 5 passed, the other eight failed with 10, 3, 6, 3, 4, 5, 2 and 3 failures.
+      Fix: Either reach the branch the comment names, or say the mock is there to keep the desktop path out rather than to select between two paths.
+      Acceptance: Inverting the mock fails a test, or the comment says what the mock is actually for and a test names the branch that is covered.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-408 (P3): The guidance test measures whether the table scrolls and never asserts it
+      Category: testing
+      Where: `e2e/guidance.spec.ts`, the `scrolls` field.
+      Problem: The field is computed, carries a comment describing the assertion ("Whatever does not fit is reachable by scrolling rather than folded into a second line"), and nothing reads it. It predates the rewrite that made the surrounding test stricter, and that rewrite made the field more defensive without noticing it was dead. The property does hold: all three boxes measure a scroll width of 439 against a client width of 307.
+      Evidence: Measured on 2026-09-08.
+      Fix: Assert it.
+      Acceptance: The assertion fails when the table is allowed to shrink to the panel.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-409 (P3): The Upload panel shows the chosen file's name only when the file was refused
+      Category: correctness
+      Where: `src/panels/UtilityPanels.tsx`.
+      Problem: A file that loads closes the panel, so the name is never seen for the case it was added for. A file that is refused leaves its name sitting under "Choose a file" as though it had been taken, beside a toast saying it was not. The reason given for adding it was also wrong: it was said to be "the one thing the native widget said that a styled one would otherwise stop saying", and the handler clears the input on every change, so the native widget went straight back to "No file chosen" too.
+      Evidence: Measured on 2026-09-08. A good pick: panel closed, no name. A refused pick: panel open, the zone reads "Choose a file | rubbish.geojson" with the refusal toast beside it. At the previous revision a refused pick left the native widget reading "No file chosen".
+      Fix: Take the name out, or show it only while the file is being read and clear it on either outcome.
+      Acceptance: A refused file leaves no name behind; the panel says what happened once rather than twice; a test covers the refusal.
+      Confidence: Verified
+      Effort: S
+
+- [ ] AUD-410 (P3): Three counts written down that the tree does not support
+      Category: documentation
+      Where: `src/lib/runtime.ts`; `CHANGELOG.md`, the import-ring entry.
+      Problem: `runtime.ts` says "forty-odd modules ask this question" and it is 34 non-text files, 33 importers and the definition, or 44 counting tests. The changelog says "Two dozen modules stop depending on each other in a circle" and twenty-one came out of the ring, not twenty-four. Two commit messages carry the same overstatements and cannot be corrected.
+      Evidence: Counted on 2026-09-08.
+      Fix: Say the numbers that are true, and say twenty-one rather than two dozen once AUD-403 has taken the last three out.
+      Acceptance: Each number matches a count anybody can repeat.
+      Confidence: Verified
+      Effort: S
