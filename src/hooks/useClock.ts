@@ -1,6 +1,9 @@
 import { useSyncExternalStore } from "react";
 import {
+  asked,
   highContrastRequested,
+  LESS_MOTION,
+  MORE_CONTRAST,
   reducedMotionRequested,
 } from "../lib/displayPreference";
 
@@ -81,8 +84,6 @@ export function useSecondClock(wanted: boolean): number {
   return at;
 }
 
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
-
 /** Read at the moment an animation starts, so a live preference change wins. */
 export { highContrastRequested, reducedMotionRequested };
 
@@ -108,6 +109,7 @@ export function cameraMotion(duration: number): {
  */
 function subscribeMedia(query: string): (listener: () => void) => () => void {
   return (listener) => {
+    if (typeof window === "undefined") return () => {};
     if (typeof window.matchMedia !== "function") return () => {};
     const watched = window.matchMedia(query);
     watched.addEventListener("change", listener);
@@ -115,7 +117,7 @@ function subscribeMedia(query: string): (listener: () => void) => () => void {
   };
 }
 
-const subscribeMotion = subscribeMedia(REDUCED_MOTION);
+const subscribeMotion = subscribeMedia(LESS_MOTION);
 
 /**
  * Whether the viewer has asked for less movement. Read as a live value rather
@@ -129,8 +131,6 @@ export function useReducedMotion(): boolean {
     () => false,
   );
 }
-
-const MORE_CONTRAST = "(prefers-contrast: more)";
 
 /**
  * Whether the reader has asked their system for more contrast.
@@ -160,11 +160,12 @@ const FORCED_COLOURS = "(forced-colors: active)";
  * that does nothing.
  */
 function forcedColoursActive(): boolean {
-  // The same guard as the contrast query above, and for the same reason: a
-  // plain jsdom has no `matchMedia`, and a question about colour must never
-  // be able to take a panel down.
-  if (typeof window.matchMedia !== "function") return false;
-  return window.matchMedia(FORCED_COLOURS).matches;
+  // Through the same reader the other two answers come from, so the guard
+  // against an environment that cannot answer is written once rather than
+  // once per question. There is no window at all in a server render and no
+  // `matchMedia` in a plain jsdom, and a question about colour must never be
+  // able to take a panel down.
+  return asked(FORCED_COLOURS);
 }
 
 const subscribeForcedColours = subscribeMedia(FORCED_COLOURS);

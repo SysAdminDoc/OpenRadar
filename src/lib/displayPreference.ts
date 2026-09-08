@@ -12,11 +12,19 @@
  * without them. `useClock.ts` still exports these names for its own callers
  * and takes them from here.
  */
-const MORE_CONTRAST = "(prefers-contrast: more)";
-const LESS_MOTION = "(prefers-reduced-motion: reduce)";
+/**
+ * The two queries themselves, exported because `useClock.ts` subscribes to
+ * them and used to spell them out again beside its own subscriptions. They
+ * were character-identical, which is the only state a fact written twice is
+ * ever in until it is not: a hook subscribing to one query and reading the
+ * answer to another never re-renders when the preference changes, and nothing
+ * would say so.
+ */
+export const MORE_CONTRAST = "(prefers-contrast: more)";
+export const LESS_MOTION = "(prefers-reduced-motion: reduce)";
 
 /** Whether a media query holds, and false wherever nothing can answer. */
-function asked(query: string): boolean {
+export function asked(query: string): boolean {
   // A preference nobody can answer is not a preference, and it is certainly
   // not a reason to fail. This is read on the way into fetching a radar
   // sweep, and an environment without the media query, which includes a plain
