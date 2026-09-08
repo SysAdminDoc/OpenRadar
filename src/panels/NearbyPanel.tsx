@@ -31,7 +31,7 @@ interface NearbyPanelProps {
   /** Naming one, or clearing the name by handing over nothing. */
   onNameCell: (id: string, name: string) => void;
   /** Why the storm list is empty, when it is empty for a reason. */
-  cellsNote: "off" | "unavailable" | "loading" | null;
+  cellsNote: "off" | "unavailable" | "loading" | "failed" | null;
   /**
    * Why the warning list cannot be read as an answer, when it cannot.
    *
@@ -48,16 +48,19 @@ interface NearbyPanelProps {
   observed: number | null;
   /** When the warnings were last fetched, which is the other half of it. */
   alertsFetchedAt: number | null;
+  /**
+   * What went wrong with the warnings, in the words the Alerts panel uses.
+   *
+   * The footer said "Loading watches and warnings" for as long as the feed
+   * stayed refused, because a fetch that never succeeds never sets a fetched
+   * time. The section above it had already been taught to say the warnings
+   * could not be checked, and the two sat on screen together saying different
+   * things about the same request.
+   */
+  alertsError: string | null;
   onClose: () => void;
 }
 
-/**
- * The map, answered in words.
- *
- * Everything here is also on the map. That is the point: a reader who cannot
- * see the canvas gets the same three answers from the same data rather than a
- * reduced version of the app.
- */
 /**
  * Why a section has nothing to list, said once.
  *
@@ -76,6 +79,13 @@ function Note({ text, waiting }: { text: string; waiting?: boolean }) {
   );
 }
 
+/**
+ * The map, answered in words.
+ *
+ * Everything here is also on the map. That is the point: a reader who cannot
+ * see the canvas gets the same three answers from the same data rather than a
+ * reduced version of the app.
+ */
 export function NearbyPanel({
   places,
   placeId,
@@ -92,6 +102,7 @@ export function NearbyPanel({
   station,
   observed,
   alertsFetchedAt,
+  alertsError,
   onClose,
 }: NearbyPanelProps) {
   const t = useT();
@@ -196,7 +207,9 @@ export function NearbyPanel({
                 ? "nearby.cellsLoading"
                 : cellsNote === "off"
                   ? "approach.needsCells"
-                  : "nearby.cellsUnavailable",
+                  : cellsNote === "failed"
+                    ? "nearby.cellsFailed"
+                    : "nearby.cellsUnavailable",
             )}
           />
         ) : approaching.length ? (
@@ -263,7 +276,9 @@ export function NearbyPanel({
                 ? "nearby.cellsLoading"
                 : cellsNote === "off"
                   ? "nearby.cellsOff"
-                  : "nearby.cellsUnavailable",
+                  : cellsNote === "failed"
+                    ? "nearby.cellsFailed"
+                    : "nearby.cellsUnavailable",
             )}
           />
         ) : cells.length ? (
@@ -306,9 +321,13 @@ export function NearbyPanel({
       </section>
 
       <p className="source-note">
-        {alertsFetchedAt
-          ? t("alerts.noteChecked", { when: relativeTime(alertsFetchedAt) })
-          : t("alerts.noteLoading")}{" "}
+        {alertsNote === "off"
+          ? t("alerts.noteOff")
+          : alertsError
+            ? t("alerts.noteError", { error: alertsError })
+            : alertsFetchedAt
+              ? t("alerts.noteChecked", { when: relativeTime(alertsFetchedAt) })
+              : t("alerts.noteLoading")}{" "}
         {station && observed
           ? t("nearby.source", { station, when: formatClock(observed) })
           : ""}{" "}

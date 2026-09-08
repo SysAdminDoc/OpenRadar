@@ -1088,6 +1088,8 @@ export const fr: Catalogue = {
   "nearby.cellsUnavailable":
     "Le pistage des orages est lu dans le radar lui-même, ce que seule la version de bureau fait.",
   "nearby.cellsLoading": "Lecture du pisteur du radar.",
+  "nearby.cellsFailed":
+    "Le pisteur du radar n'a pas pu être lu, donc ceci ne peut pas dire ce qu'il suit.",
   "nearby.cellAt": "{id} est à {distance} vers le {direction}.",
   "nearby.cellMoving": "Se déplace vers le {direction} à {speed}.",
   "nearby.cellNewlyFound":

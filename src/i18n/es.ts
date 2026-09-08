@@ -1075,6 +1075,8 @@ export const es: Catalogue = {
   "nearby.cellsUnavailable":
     "El seguimiento de tormentas se lee del propio radar, y eso solo lo hace la versión de escritorio.",
   "nearby.cellsLoading": "Leyendo el rastreador del radar.",
+  "nearby.cellsFailed":
+    "No se pudo leer el rastreador del radar, así que esto no puede decir qué está siguiendo.",
   "nearby.cellAt": "{id} está a {distance} al {direction}.",
   "nearby.cellMoving": "Se mueve hacia el {direction} a {speed}.",
   "nearby.cellNewlyFound": "Recién detectada, todavía sin trayectoria.",

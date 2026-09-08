@@ -383,9 +383,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
               ? "unavailable"
               : !settings.layers.stormCells
                 ? "off"
-                : props.stormCells.loading && !props.stormCells.report
-                  ? "loading"
-                  : null
+                : props.stormCells.error
+                  ? "failed"
+                  : props.stormCells.loading && !props.stormCells.report
+                    ? "loading"
+                    : null
           }
           alertsNote={
             !settings.layers.weatherAlerts
@@ -396,6 +398,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
                   ? "loading"
                   : null
           }
+          alertsError={overlays.alerts.error ?? null}
           station={props.stormCells.report?.station ?? null}
           observed={observedAt(props.stormCells.report?.observed)}
           alertsFetchedAt={overlays.alerts.fetchedAt}
