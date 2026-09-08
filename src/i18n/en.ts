@@ -576,6 +576,7 @@ export const en = {
   "service.refused": "refused",
   "service.unexpected": "answered in a way this could not read",
   "service.unreachable": "The service could not be reached.",
+  "service.unreadable": "The service answered in a way this could not read.",
   "service.failed": "The request failed.",
   "route.routerRefused": "The road router {answer}.",
   "route.straightOffer": "Use a straight line instead",

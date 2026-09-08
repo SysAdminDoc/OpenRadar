@@ -60,6 +60,44 @@ describe("what a reader is told when nothing answered", () => {
     expect(said).not.toContain("Failed to fetch");
   });
 
+  it("does not repeat the parser's words when a portal answers with a page", () => {
+    // The reported case, and the one the rule above was written for: a
+    // captive portal or a proxy answers 200 with a login page, so nothing
+    // upstream sees a bad status and `response.json()` throws. The message
+    // is the engine's, in English, and it landed in the paragraph that
+    // carries the life-safety line.
+    let thrown: unknown;
+    try {
+      JSON.parse("<!DOCTYPE html><html><body>Sign in</body></html>");
+    } catch (failure: unknown) {
+      thrown = failure;
+    }
+    expect(thrown).toBeInstanceOf(SyntaxError);
+    const said = failureSentence(thrown);
+    expect(said).toBe("The service answered in a way this could not read.");
+    expect(said).not.toContain("DOCTYPE");
+    expect(said).not.toContain("JSON");
+  });
+
+  it("passes over the rest of the engine's own error classes too", () => {
+    // The rule is the shape of the value rather than a list of the classes
+    // that have been seen going wrong so far. Each of these carries words
+    // this app did not write, and a caller with a better sentence gets to
+    // use it.
+    const engine = [
+      new RangeError("Invalid array length"),
+      new ReferenceError("x is not defined"),
+      new URIError("URI malformed"),
+      new EvalError("boom"),
+    ];
+    for (const failure of engine) {
+      expect(
+        failureSentence(failure, "The sounding could not be read."),
+        failure.constructor.name,
+      ).toBe("The sounding could not be read.");
+    }
+  });
+
   it("keeps a sentence this app wrote", () => {
     // A bad status is already turned into a catalogue line by whichever
     // adapter threw it, so the helper must not paint over one.

@@ -600,6 +600,8 @@ export const fr: Catalogue = {
   "service.refused": "a refusé",
   "service.unexpected": "a répondu d'une manière illisible",
   "service.unreachable": "Le service n'a pas pu être joint.",
+  "service.unreadable":
+    "Le service a répondu d'une manière que ceci n'a pas pu lire.",
   "service.failed": "La demande a échoué.",
   "route.routerRefused": "Le calculateur d'itinéraire {answer}.",
   "route.straightOffer": "Utiliser plutôt une ligne droite",
