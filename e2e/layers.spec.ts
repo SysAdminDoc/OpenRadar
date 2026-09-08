@@ -1368,3 +1368,62 @@ test("draws the night where the sun was at the frame on screen", async ({
   // move with them rather than with the clock this ran at.
   expect(Number(newer) - Number(oldest)).toBe(20 * 60_000);
 });
+
+test("takes a file dropped anywhere on the drop zone", async ({ page }) => {
+  // The dashed box says to drop a file on it, and nothing in the app listens
+  // for a drop: the file input's own drop target is the whole of what makes it
+  // a drop zone. So the input has to keep a real box over the whole zone, and
+  // it has to be the thing the pointer finds there.
+  //
+  // Hiding it the usual way, clipped to a single pixel, is what took that
+  // away. A clipped area is out of hit testing, so the box went on saying
+  // "drop a file here" and stopped accepting one, and nothing failed.
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Upload" })).toBeVisible();
+
+  const zone = page.locator(".drop-zone");
+  const measured = await zone.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    const input = node.querySelector("input")!;
+    const own = input.getBoundingClientRect();
+    const at = (x: number, y: number) =>
+      document.elementFromPoint(x, y)?.tagName ?? "";
+    return {
+      zone: { width: Math.round(box.width), height: Math.round(box.height) },
+      input: { width: Math.round(own.width), height: Math.round(own.height) },
+      middle: at(box.x + box.width / 2, box.y + box.height / 2),
+      // The corners too, because the old widget sat in the middle and the
+      // claim is that the whole box takes a drop now.
+      topLeft: at(box.x + 4, box.y + 4),
+      bottomRight: at(box.x + box.width - 4, box.y + box.height - 4),
+    };
+  });
+
+  expect(measured.zone.width).toBeGreaterThan(100);
+  // The zone's own dashed border, a pixel each side, is the only difference:
+  // `inset: 0` fills the padding box rather than the border box.
+  expect(
+    measured.zone.width - measured.input.width,
+    "the input is not the width of the zone",
+  ).toBeLessThanOrEqual(2);
+  expect(
+    measured.zone.height - measured.input.height,
+    "the input is not the height of the zone",
+  ).toBeLessThanOrEqual(2);
+  expect(measured.middle, "the middle of the zone is not the input").toBe(
+    "INPUT",
+  );
+  expect(measured.topLeft).toBe("INPUT");
+  expect(measured.bottomRight).toBe("INPUT");
+
+  // And it is still what the keyboard reaches, and still invisible.
+  const wearing = await zone.locator("input").evaluate((node) => {
+    node.focus();
+    return {
+      focused: document.activeElement === node,
+      opacity: getComputedStyle(node).opacity,
+    };
+  });
+  expect(wearing.focused).toBe(true);
+  expect(wearing.opacity).toBe("0");
+});

@@ -241,10 +241,17 @@ for (const look of ["dark", "light"] as const) {
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Upload" })).toBeVisible();
     const picker = page.locator('.drop-zone input[type="file"]');
-    const box = await picker.boundingBox();
-    expect(box?.width ?? 0, "the raw file input is still on show").toBeLessThan(
-      2,
-    );
+    // Invisible, rather than without a box. The first version of this measured
+    // the width and required it to be under two pixels, which pinned the wrong
+    // property and is what let the drop target go: the input's own box is the
+    // only thing in the app that accepts a dropped file, and clipping it away
+    // to satisfy this line took that with it. What the reader must not see is
+    // the browser's widget, and `opacity: 0` is what says so. Its size is held
+    // where it matters, in `layers.spec.ts`.
+    expect(
+      await picker.evaluate((node) => getComputedStyle(node).opacity),
+      "the raw file input is still on show",
+    ).toBe("0");
     await picker.focus();
     expect(
       await page.evaluate(
