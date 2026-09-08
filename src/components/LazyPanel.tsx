@@ -22,6 +22,7 @@ interface LazyPanelProps {
 
 interface ChunkBoundaryState {
   failed: boolean;
+  error: unknown;
 }
 
 /**
@@ -119,28 +120,56 @@ function PanelPlaceholder({
 }
 
 /**
- * Catches what one panel throws, so the workspace behind it stays up.
+ * What a chunk that did not arrive throws, as against anything else.
+ *
+ * Each engine words it differently and none gives it a class of its own, so
+ * the message is all there is to read. Being wrong in the generous direction
+ * is what matters: a render failure inside a panel that DID arrive must not
+ * be described to a reader as a download that did not happen, and must not
+ * cost them the fatal screen, which is where the report, the component stack
+ * and the way out of a layout the app cannot draw all live.
+ */
+function isChunkFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /dynamically imported module|Importing a module script failed/i.test(
+    error.message,
+  );
+}
+
+/**
+ * Catches a panel whose chunk did not arrive, so the workspace stays up.
  *
  * A class, because there is still no hook that catches a render failure.
+ * Anything that is not a failed download is thrown on to the boundary in
+ * `main.tsx`, which is the one that can write a report about it.
  */
 class ChunkBoundary extends Component<LazyPanelProps, ChunkBoundaryState> {
-  state: ChunkBoundaryState = { failed: false };
+  state: ChunkBoundaryState = { failed: false, error: null };
 
-  static getDerivedStateFromError(): ChunkBoundaryState {
-    return { failed: true };
+  static getDerivedStateFromError(error: unknown): ChunkBoundaryState {
+    return { failed: true, error };
   }
 
-  componentDidCatch(error: unknown): void {
+  componentDidCatch(
+    error: unknown,
+    info: { componentStack?: string | null },
+  ): void {
+    if (!isChunkFailure(error)) return;
     // The panel's own name rather than the module's, because the module is a
     // hashed chunk file and the reader's report says which panel they opened.
+    const stack = info.componentStack ? `\n${info.componentStack}` : "";
     log.error(
       "panel",
-      `${this.props.title} could not be drawn: ${error instanceof Error ? error.message : String(error)}`,
+      `${this.props.title} could not be fetched: ${error instanceof Error ? error.message : String(error)}${stack}`,
     );
   }
 
   render(): ReactNode {
     if (!this.state.failed) return this.props.children;
+    // Not this boundary's business. A panel that arrived and then threw is a
+    // render failure like any other, and the screen that handles those knows
+    // how to write a report about it.
+    if (!isChunkFailure(this.state.error)) throw this.state.error;
     return (
       <PanelShell
         eyebrow={translate("panelChunk.eyebrow")}

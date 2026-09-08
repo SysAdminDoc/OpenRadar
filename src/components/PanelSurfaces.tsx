@@ -619,9 +619,6 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "sounding" ? (
-        // Nothing while the chunk is on its way: the panel's own shell would
-        // be a frame around an empty rectangle, and the chunk is small enough
-        // that a flash of one is worse than a moment of nothing.
         <LazyPanel
           title={t("sounding.title")}
           className="surface-panel--right surface-panel--wide"

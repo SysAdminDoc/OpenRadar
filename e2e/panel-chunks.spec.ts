@@ -52,6 +52,28 @@ test("a panel whose chunk never arrives leaves the workspace standing", async ({
   await expect(panel).toHaveCount(0);
 });
 
+test("the module holding every panel is guarded too", async ({ page }) => {
+  // The eleventh `lazy` in the app is the parent of the other ten, and the
+  // first version of this work gave a boundary to the ten and not to it. It
+  // is the largest of the chunks and the one waited on the first time any
+  // panel is opened, so aborting it took the whole workspace down for every
+  // surface at once, including the ones that ship inside it uncompiled.
+  await page.route("**/PanelSurfaces*", (route) => route.abort());
+  await start(page);
+
+  // The command bar's own button rather than the palette, because the palette
+  // is inside the module being aborted. That is the point: with this chunk
+  // gone there is no way in to any surface, so the frame the reader gets has
+  // to come from outside it.
+  await page.getByRole("button", { name: "Commands", exact: true }).click();
+
+  await expect(page.getByText(/could not be fetched/)).toBeVisible();
+  await expect(page.getByRole("application", APP)).toBeVisible();
+  await expect(
+    page.getByText("The interface could not finish drawing."),
+  ).toHaveCount(0);
+});
+
 test("the wait for a chunk holds the room the panel is about to take", async ({
   page,
 }) => {

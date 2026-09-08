@@ -320,6 +320,18 @@ const LAYER_COMMANDS: Array<{
   },
 ];
 
+/**
+ * What a surface is called, for anything that has to name one without the
+ * module that draws it.
+ *
+ * The panels all live behind a `lazy`, including the module holding the lot
+ * of them, so the frame drawn while that chunk is on its way cannot ask the
+ * panel what it is called. This table is already here and already loaded.
+ */
+export function surfaceLabelKey(surface: string): StringKey | null {
+  return SURFACE_COMMANDS.find((one) => one.surface === surface)?.key ?? null;
+}
+
 const SURFACE_COMMANDS: Array<{
   surface: string;
   key: StringKey;
