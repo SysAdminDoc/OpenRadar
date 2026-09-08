@@ -388,6 +388,50 @@ describe("historical volumes", () => {
     expect(closer[2] - closer[0]).toBeLessThan(opened![2] - opened![0]);
   });
 
+  it("holds an archived box it has already drawn, the way the loop does", async () => {
+    // The scrubber has kept its frames since it was written and this path
+    // never learned to: it compared one string and kept nothing, so panning
+    // off a grid cell and back re-fetched the archived volume and re-decoded
+    // it. Ten megabytes and a decode for a picture already in hand.
+    const { result, rerender } = renderHook(
+      (props: { zoom: number }) => useSingleSiteRadar(options(props)),
+      { initialProps: { zoom: 12 } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const opened = fetchArchiveSweep.mock.calls.at(-1)![4];
+    expect(opened).not.toBeNull();
+    const settled = fetchArchiveSweep.mock.calls.length;
+
+    // Away to a different box, which is a fetch, and back to the first, which
+    // must not be. Waiting for each to land matters: the request key is only
+    // written when the answer arrives, so moving on before that early-returns
+    // on the unchanged key and would prove nothing about the cache.
+    rerender({ zoom: 13 });
+    await waitFor(() =>
+      expect(fetchArchiveSweep.mock.calls.at(-1)![4]).not.toEqual(opened),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ zoom: 12 });
+    await waitFor(() =>
+      expect(fetchArchiveSweep.mock.calls.at(-1)![4]).toEqual(opened),
+    ).catch(() => undefined);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // One fetch for the box moved to, and none for the one moved back to.
+    expect(
+      fetchArchiveSweep.mock.calls.length - settled,
+      "a there-and-back over an archived volume cost more than one fetch",
+    ).toBe(1);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
   it("does not send one site's box to a file recorded at another", async () => {
     // The box is measured on the live station's disc. A file from disk carries
     // whatever site it was recorded at, and the native side clips the box to

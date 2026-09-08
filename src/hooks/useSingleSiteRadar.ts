@@ -167,6 +167,15 @@ function answersTheRequest(
   );
 }
 
+/**
+ * How many historical pictures to keep, keyed by the whole request.
+ *
+ * Small on purpose. The case this exists for is a reader panning around one
+ * archived volume, which is a handful of boxes, and each of these is a decoded
+ * sweep rather than a tile.
+ */
+const HISTORICAL_HELD = 8;
+
 /** One shared empty list, so a site with no loop is a stable identity. */
 const EMPTY_TIMES: number[] = [];
 
@@ -288,6 +297,21 @@ export function useSingleSiteRadar(options: {
    * what it draws is not always a finished volume.
    */
   const heldRef = useRef<Map<string, Held>>(new Map());
+  /**
+   * The same idea for historical mode, keyed by the whole request.
+   *
+   * The scrubber has held its frames since it was written and this path never
+   * learned to: it compared one string and kept nothing, so a reader who
+   * panned off a grid cell and back re-fetched the archived volume and
+   * re-rendered it. The two were written months apart and the asymmetry was
+   * nobody's decision.
+   *
+   * `historicalRequestKey` already carries the product, the tilt, the
+   * dealiasing, the storm motion, the threshold, the palette, the contrast and
+   * the box, so a change to any of them is a different key and the old picture
+   * falls out on its own rather than needing to be cleared.
+   */
+  const historicalHeldRef = useRef<Map<string, Held>>(new Map());
   // The volumes being fetched right now. Both panes resolve their own moment
   // and the two often land on one volume, and without this they each asked
   // the archive for the same ten megabyte object at the same time.
@@ -703,7 +727,20 @@ export function useSingleSiteRadar(options: {
       try {
         const next = await fetchHistorical(source);
         if (request !== requestRef.current) return false;
-        historicalRequestRef.current = historicalRequestKey(source);
+        const key = historicalRequestKey(source);
+        historicalRequestRef.current = key;
+        // Held here as well as in the effect below, or the very first box a
+        // reader opens is the one box that is never kept: they zoom away, the
+        // effect fetches and holds the new one, and coming back to where they
+        // started is the only move that still costs a round trip.
+        historicalHeldRef.current.set(key, {
+          image: next,
+          arrivedAt: Date.now(),
+        });
+        historicalHeldRef.current = trimHeld(
+          historicalHeldRef.current,
+          HISTORICAL_HELD,
+        );
         setHistoricalSource(source);
         setSweep(next);
         setError(null);
@@ -879,6 +916,18 @@ export function useSingleSiteRadar(options: {
     if (!historicalWanted || !historicalSource) return;
     const key = historicalRequestKey(historicalSource);
     if (historicalRequestRef.current === key) return;
+    // A box this reader has already been at. Panning away and back is the
+    // ordinary thing to do with an archived volume open, and it cost a fetch
+    // and a decode every time.
+    const already = historicalHeldRef.current.get(key)?.image;
+    if (already) {
+      historicalRequestRef.current = key;
+      requestRef.current += 1;
+      setSweep(already);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     const reply = latestHistorical();
     const request = ++requestRef.current;
     setLoading(true);
@@ -889,6 +938,14 @@ export function useSingleSiteRadar(options: {
       .then((next) => {
         if (!reply.current() || request !== requestRef.current) return;
         historicalRequestRef.current = key;
+        historicalHeldRef.current.set(key, {
+          image: next,
+          arrivedAt: Date.now(),
+        });
+        historicalHeldRef.current = trimHeld(
+          historicalHeldRef.current,
+          HISTORICAL_HELD,
+        );
         setSweep(next);
         setError(null);
       })
