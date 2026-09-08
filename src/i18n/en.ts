@@ -127,7 +127,7 @@ export const en = {
     "Smooths the fields that cover the country, not the scattered ones like hail and rotation, and never across ground the network had no coverage of. The readings an export writes are the cells themselves either way.",
   "layers.opacityDetail":
     "Each one on its own, so a layer can be faded rather than switched off",
-  "layers.opacityFor": "{layer}, {percent}% solid",
+  "layers.opacityFor": "How solid {layer} is",
   "layers.files": "Files you imported",
   "layers.picturesCeiling":
     "{count, plural, one {# picture} other {# pictures}} in these files. The map draws {drawn} at a time, and leaves out any that are outside their own zoom or time range.",

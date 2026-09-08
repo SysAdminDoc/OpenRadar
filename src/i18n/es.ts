@@ -131,7 +131,7 @@ export const es: Catalogue = {
     "Suaviza los campos que cubren el país, no los dispersos como el granizo y la rotación, y nunca sobre terreno del que la red no tuvo cobertura. Los valores que escribe una exportación son las celdas mismas en cualquier caso.",
   "layers.opacityDetail":
     "Cada una por su cuenta, para atenuar una capa en vez de apagarla",
-  "layers.opacityFor": "{layer}, {percent}% de opacidad",
+  "layers.opacityFor": "Opacidad de {layer}",
   "layers.files": "Archivos que importaste",
   "layers.picturesCeiling":
     "{count, plural, one {# imagen} other {# imágenes}} en estos archivos. El mapa dibuja {drawn} a la vez, y deja fuera las que quedan fuera de su propio rango de zoom o de tiempo.",

@@ -136,7 +136,7 @@ export const fr: Catalogue = {
     "Lisse les champs qui couvrent le pays, pas les champs épars comme la grêle et la rotation, et jamais au-dessus d'un terrain que le réseau n'a pas couvert. Les valeurs qu'écrit une exportation restent les cellules elles-mêmes.",
   "layers.opacityDetail":
     "Chacune séparément, pour pouvoir atténuer une couche au lieu de l'éteindre",
-  "layers.opacityFor": "{layer}, {percent} % d'opacité",
+  "layers.opacityFor": "Opacité de {layer}",
   "layers.files": "Fichiers que vous avez importés",
   "layers.picturesCeiling":
     "{count, plural, one {# image} other {# images}} dans ces fichiers. La carte en dessine {drawn} à la fois, et laisse de côté celles qui sortent de leur propre plage de zoom ou de temps.",

@@ -57,6 +57,8 @@ function panel(overrides: {
   onWpcDay?: (day: number) => void;
   wssiDay?: number;
   onWssiDay?: (day: number) => void;
+  overlayOpacity?: Record<string, number>;
+  onOverlayOpacity?: (next: Record<string, number>) => void;
   overlayOrder?: string[];
   onOverlayOrder?: (order: string[]) => void;
   onOrderSaid?: (said: string) => void;
@@ -105,8 +107,10 @@ function panel(overrides: {
       wssiDay={overrides.wssiDay ?? DEFAULT_SETTINGS.wssiDay}
       onWssiDay={overrides.onWssiDay ?? vi.fn()}
       onSatelliteBand={vi.fn()}
-      overlayOpacity={DEFAULT_SETTINGS.overlayOpacity}
-      onOverlayOpacity={vi.fn()}
+      overlayOpacity={
+        overrides.overlayOpacity ?? DEFAULT_SETTINGS.overlayOpacity
+      }
+      onOverlayOpacity={overrides.onOverlayOpacity ?? vi.fn()}
       overlayOrder={overrides.overlayOrder ?? DEFAULT_SETTINGS.overlayOrder}
       onOverlayOrder={overrides.onOverlayOrder ?? vi.fn()}
       onOrderSaid={overrides.onOrderSaid ?? vi.fn()}
@@ -405,5 +409,45 @@ describe("reordering the layers from the keyboard", () => {
     expect(above).not.toBe(below);
     expect(said.filter((line) => line.includes(above))).toHaveLength(1);
     expect(said.filter((line) => line.includes(below))).toHaveLength(1);
+  });
+});
+
+describe("what an opacity slider is called", () => {
+  it("keeps its name while it is dragged, and announces the value beside it", () => {
+    // A control's name is what it is called. Both opacity sliders carried the
+    // live percentage in the name as well as in `aria-valuetext`, so a screen
+    // reader heard the reading twice on every step of a drag, and the name it
+    // announced on focus was a different name a moment later.
+    const onOverlayOpacity = vi.fn();
+    const { rerender } = render(
+      panel({
+        layers: { weatherAlerts: true },
+        overlayOpacity: { alerts: 0.35 },
+        onOverlayOpacity,
+      }),
+    );
+    const named = en["layers.opacityFor"].replace(
+      "{layer}",
+      en["layer.weatherAlerts"],
+    );
+    const slider = screen.getByRole("slider", { name: named });
+    expect(slider.getAttribute("aria-valuetext")).toBe("35%");
+    // The property, rather than the string: a name with the reading in it
+    // carries a digit, whatever the catalogue happens to word it as.
+    expect(slider.getAttribute("aria-label")).not.toMatch(/\d/);
+
+    rerender(
+      panel({
+        layers: { weatherAlerts: true },
+        overlayOpacity: { alerts: 0.7 },
+        onOverlayOpacity,
+      }),
+    );
+    // The same control, by the same name, reading something else.
+    const moved = screen.getByRole("slider", { name: named });
+    expect(moved.getAttribute("aria-valuetext")).toBe("70%");
+    expect(moved.getAttribute("aria-label")).toBe(
+      slider.getAttribute("aria-label"),
+    );
   });
 });

@@ -145,6 +145,42 @@ describe("the upload panel", () => {
     );
   }
 
+  it("leaves no name behind when a file is picked", () => {
+    // The name of the last pick used to be written under the button and never
+    // cleared. A file that loads closes this panel, so it was never seen for
+    // the case it was added for; a file that is refused left its name sitting
+    // there as though it had been taken, beside a toast saying it had not.
+    const onFile = vi.fn();
+    render(
+      <UploadPanel
+        onClose={vi.fn()}
+        onFile={onFile}
+        palettes={[]}
+        paletteAssignments={{}}
+        onAssignPalette={vi.fn()}
+        onExportPalette={vi.fn()}
+        onRemovePalette={vi.fn()}
+      />,
+    );
+    const input = document.querySelector<HTMLInputElement>(
+      ".drop-zone input[type='file']",
+    );
+    expect(input).not.toBeNull();
+    const picked = new File(["{}"], "rubbish.geojson", {
+      type: "application/geo+json",
+    });
+    Object.defineProperty(input!, "files", { value: [picked] });
+    fireEvent.change(input!);
+
+    // The file was handed over, which is the whole job of the control.
+    expect(onFile).toHaveBeenCalledWith(picked);
+    // And nothing on screen claims it was taken.
+    const zone = document.querySelector(".drop-zone");
+    expect(zone?.textContent ?? "").not.toContain("rubbish.geojson");
+    // The input is cleared too, so picking the same file twice fires twice.
+    expect(input!.value).toBe("");
+  });
+
   it("says nothing about a library nobody has put anything in", () => {
     render(upload([]));
     expect(screen.queryByText(en["upload.libraryHeading"])).toBeNull();

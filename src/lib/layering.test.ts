@@ -367,6 +367,27 @@ describe("what may import what", () => {
     ).toEqual([]);
   });
 
+  it("says how many modules ask the runtime question, and is right about it", () => {
+    // `runtime.ts` opens by saying why it is a file of its own, and the reason
+    // is a count: enough modules ask this that leaving it in the settings file
+    // put an edge back into the module the whole tree sits on. The count said
+    // "forty-odd" and the tree held thirty-three. A number in a comment is
+    // only worth writing down if something recounts it, so this does.
+    const graphed = graph();
+    const asks = [...graphed]
+      .filter(
+        ([from, to]) =>
+          named(from) !== "lib/runtime.ts" &&
+          to.some((one) => named(one) === "lib/runtime.ts"),
+      )
+      .map(([from]) => named(from))
+      .filter((path) => !/\.test\.tsx?$/.test(path));
+    expect(asks.length).toBe(33);
+    expect(readFileSync(join(ROOT, "lib/runtime.ts"), "utf8")).toContain(
+      "thirty-three modules ask this question",
+    );
+  });
+
   it("closes no import ring anywhere", () => {
     // The two rules above are about single edges, and neither catches a ring
     // that goes round the long way. `settings.ts` reached an overlay adapter

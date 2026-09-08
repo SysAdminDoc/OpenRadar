@@ -832,9 +832,13 @@ export function LayersPanel({
                         max={100}
                         step={5}
                         style={rangeFill(solid, 10, 100)}
+                        // The name of a control is what it is called, not
+                        // what it currently reads. Both of these carried the
+                        // percentage as well, so it was announced twice on
+                        // every step of a drag and the name a reader heard on
+                        // focus was a different name a moment later.
                         aria-label={t("layers.opacityFor", {
                           layer: file.name,
-                          percent: solid,
                         })}
                         // The same words the output beside it shows. A
                         // screen reader reads the raw value otherwise, so a
@@ -879,7 +883,6 @@ export function LayersPanel({
                     style={rangeFill(solid, 10, 100)}
                     aria-label={t("layers.opacityFor", {
                       layer: t(labelKey),
-                      percent: solid,
                     })}
                     aria-valuetext={`${solid}%`}
                     value={solid}
