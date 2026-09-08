@@ -1,7 +1,7 @@
 import { announceOnDesktop } from "../lib/notify";
 import { useEffect, useMemo, useRef } from "react";
 import { log } from "../lib/log";
-import { isDesktopRuntime } from "../lib/settings";
+import { isDesktopRuntime } from "../lib/runtime";
 import { playAlertTone } from "../lib/sound";
 import { distanceUnit, distanceValue } from "../lib/units";
 import { translate } from "../i18n";

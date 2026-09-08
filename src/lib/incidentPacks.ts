@@ -3,7 +3,7 @@ import { en } from "../i18n/en";
 import type { StringKey } from "../i18n/en";
 import { nativeErrorParams } from "./nativeError";
 import type { IncidentPackReference } from "./settings";
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 export interface PackBounds {
   west: number;

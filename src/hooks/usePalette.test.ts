@@ -9,11 +9,7 @@ vi.mock("../lib/paletteRenderer", () => ({
   applyPalettesToRenderer: (palettes: Palette[]) => applied(palettes),
 }));
 
-vi.mock("../lib/settings", async () => {
-  const actual =
-    await vi.importActual<typeof import("../lib/settings")>("../lib/settings");
-  return { ...actual, isDesktopRuntime: () => true };
-});
+vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => true }));
 
 const table = (name: string, units: string) =>
   parsePalette(`Units: ${units}\nColor: 5 4 233 231`, name)!;

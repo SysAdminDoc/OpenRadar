@@ -597,18 +597,6 @@ Ninth pass. Evidence in RESEARCH.md of the same date. Numbered on from `AUD-378`
 
 Raised by an adversarial review of `293424c..f027953` instructed to refute rather than confirm. Every one is a defect in this session's own work or in a claim it made.
 
-### P1
-
-- [ ] AUD-392 (P1): `settings.ts` is still inside a runtime import cycle, which AUD-375 said it had left
-      Category: correctness
-      Where: `src/lib/settings.ts:4` and `src/lib/level2.ts:1`; `src/lib/settings.ts:76` through `watch.ts:6`, `overlays/alerts.ts:8`, `tileCache.ts:14`; `src/lib/settings.ts:29` through `approach.ts:2`, `cells.ts:1`.
-      Problem: Tarjan over the value-import graph of `src/` finds exactly one cyclic component with the same 24 members before AUD-375 and after it, `settings.ts` included. The commit removed one edge, `settings.ts` to `overlays/spc.ts`, and the ring it names in its own message, "settings imports the adapter, the adapter imports the tile cache, the tile cache imports settings", is still closed one hop longer through `watch.ts`. There is also a plain two-cycle with `level2.ts`. The runtime hazard the commit describes is unchanged: it still works only because nothing in the ring reads a half-initialised module during evaluation, which is a property of the order the bundler happens to choose.
-      Evidence: Module graph built with the TypeScript parser on 2026-09-07, value edges only, run against both `5030b1e` and `f027953`: one cyclic component, 24 members, identical membership.
-      Fix: Take the three named edges out of `settings.ts`. `isLevel2Product` and its neighbours move to a leaf beside `spcHazards.ts` and `satelliteBands.ts`; the same for whatever `settings.ts:29` and `:76` reach into `approach.ts` and `watch.ts`. Then hold the whole graph rather than three spellings: the gate from AUD-391 gains a third rule that finds no cycle containing `settings.ts`.
-      Acceptance: The cycle finder reports no cyclic component containing `src/lib/settings.ts`; putting any one of the three removed edges back fails the gate; `npm run check` green.
-      Confidence: Verified
-      Effort: M
-
 ### P2
 
 - [ ] AUD-393 (P2): The generator's backslash test contains no backslash

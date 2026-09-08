@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { isOnline } from "../lib/online";
 import { pollWhileOnline } from "../lib/poll";
 import { log } from "../lib/log";
-import { isDesktopRuntime } from "../lib/settings";
+import { isDesktopRuntime } from "../lib/runtime";
 
 /** A file lands every twenty seconds; asking once a minute is plenty. */
 export const REFRESH_MS = 60_000;

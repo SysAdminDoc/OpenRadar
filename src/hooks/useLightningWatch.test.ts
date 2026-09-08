@@ -14,13 +14,9 @@ vi.mock("../lib/sound", () => ({
   resetSound: () => {},
 }));
 
-vi.mock("../lib/settings", async () => {
-  const actual =
-    await vi.importActual<typeof import("../lib/settings")>("../lib/settings");
-  // The browser path, so the fallback is what gets called and no
-  // notification plugin has to exist.
-  return { ...actual, isDesktopRuntime: () => false };
-});
+// The browser path, so the fallback is what gets called and no notification
+// plugin has to exist.
+vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => false }));
 
 afterEach(() => {
   cleanup();

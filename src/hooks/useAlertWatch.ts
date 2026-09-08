@@ -6,7 +6,7 @@ import { log } from "../lib/log";
 import { alertsOfKind, alertsOverlay } from "../lib/overlays/alerts";
 import { DEFAULT_OVERLAY_CHOICES } from "../lib/overlays/registry";
 import type { AlertType } from "../lib/alertTypes";
-import { isDesktopRuntime } from "../lib/settings";
+import { isDesktopRuntime } from "../lib/runtime";
 import {
   afterWatchPoll,
   alertsToAnnounceAcross,

@@ -1,3 +1,4 @@
+import { isDesktopRuntime } from "./runtime";
 import { SPC_HAZARDS } from "./spcHazards";
 import type { SpcHazard } from "./spcHazards";
 import { Store } from "@tauri-apps/plugin-store";
@@ -2018,11 +2019,6 @@ export function cameraFromSearch(
   return normalizeSettings({
     camera: { center: [lon, lat], zoom, bearing, pitch },
   }).camera;
-}
-
-/** True inside the Tauri window, false in a browser preview. */
-export function isDesktopRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
 async function getStore(): Promise<Store> {

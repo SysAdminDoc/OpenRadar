@@ -10,7 +10,7 @@ import {
   type ClassificationProduct,
 } from "../lib/classification";
 import { log } from "../lib/log";
-import { isDesktopRuntime } from "../lib/settings";
+import { isDesktopRuntime } from "../lib/runtime";
 
 /** Level III is decoded natively, so a browser preview has none of it. */
 export function classificationAvailable(): boolean {

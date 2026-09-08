@@ -1,4 +1,4 @@
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 import { bearingDegrees, haversineMiles, type GeoPoint } from "./geo";
 import { MILES_TO_KM } from "./units";
 

@@ -16,10 +16,7 @@ const invoke = vi.hoisted(() => vi.fn());
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-vi.mock("../lib/settings", async (original) => {
-  const real = await original<typeof import("../lib/settings")>();
-  return { ...real, isDesktopRuntime: () => true };
-});
+vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => true }));
 
 /**
  * Lets everything the hook started finish.

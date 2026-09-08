@@ -10,7 +10,7 @@
  * host for one in the allowlist; the app says where it is and stops there.
  */
 
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 export interface CrashRecord {
   /** Where the file is, so it can be found without being told how. */

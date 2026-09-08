@@ -1,6 +1,6 @@
 import { paletteForRenderer, type Palette } from "./palette";
 import { setMrmsPaletteGeneration } from "./providers/mrms";
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 /**
  * Applies the tables in force to the native renderer and resolves only after

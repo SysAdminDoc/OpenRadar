@@ -1,5 +1,5 @@
 import type { AlertSeverity } from "./overlays/alerts";
-import { isDesktopRuntime } from "./settings";
+import { isDesktopRuntime } from "./runtime";
 
 /**
  * A short sound for an alert reaching the place somebody is watching.

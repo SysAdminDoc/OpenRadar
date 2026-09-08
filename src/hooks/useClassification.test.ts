@@ -23,13 +23,9 @@ vi.mock("../lib/classification", async () => {
   };
 });
 
-vi.mock("../lib/settings", async () => {
-  const actual =
-    await vi.importActual<typeof import("../lib/settings")>("../lib/settings");
-  // Level III is decoded natively, and this is the switch that says there is
-  // a native side to ask.
-  return { ...actual, isDesktopRuntime: () => true };
-});
+// Level III is decoded natively, and this is the switch that says there is a
+// native side to ask.
+vi.mock("../lib/runtime", () => ({ isDesktopRuntime: () => true }));
 
 const NOW = Date.UTC(2026, 8, 1, 18, 0, 0);
 

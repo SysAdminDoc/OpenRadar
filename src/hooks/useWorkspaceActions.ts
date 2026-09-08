@@ -24,9 +24,9 @@ import { looksLikeKml, parseKml } from "../lib/kml";
 import { readKmz } from "../lib/kmz";
 import { looksLikeTheme, parseTheme } from "../lib/theme";
 import { MAX_PALETTES, looksLikePalette, parsePalette } from "../lib/palette";
+import { isDesktopRuntime } from "../lib/runtime";
 import {
   DEFAULT_SETTINGS,
-  isDesktopRuntime,
   looksLikeSettings,
   normalizeSettings,
   withPalette,
