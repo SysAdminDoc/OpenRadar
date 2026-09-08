@@ -167,3 +167,25 @@ describe("counting things in the reader's own language", () => {
     }
   });
 });
+
+describe("a key no catalogue has", () => {
+  it("returns something rather than taking the window down", () => {
+    // `translate` fell back from a translation to English and stopped there.
+    // With neither holding the key the template was `undefined` and the next
+    // line read `.includes` off it, so a string nobody wrote threw and the
+    // error boundary took the whole window: a reader saw nothing at all
+    // rather than one wrong word. Seen on 2026-09-08 restoring a panel that
+    // named a key removed the same day.
+    const said = translate("not.a.real.key" as never);
+    expect(typeof said).toBe("string");
+    expect(said).toBe("not.a.real.key");
+  });
+
+  it("does not throw when it is handed parameters either", () => {
+    // The plural block is read off the template first, which is where it
+    // threw. A caller passing parameters is the ordinary case.
+    expect(() =>
+      translate("not.a.real.key" as never, { count: 3 }),
+    ).not.toThrow();
+  });
+});

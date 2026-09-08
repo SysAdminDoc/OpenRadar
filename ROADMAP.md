@@ -662,12 +662,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
   Acceptance: One convention, named once with the model's own words beside it; every caller reads it the same way; a test fails if a caller shifts by half an interval again; the golden geometry tests and `cargo test --lib` stay green.
   Complexity: S
 
-- [ ] AUD-434 (P3): A translation key that is not there takes the whole window down
-  Why: `translate` reads `catalogue(which)[key] ?? en[key]`, and when neither has it the template is `undefined`; the next line calls `.includes(", plural,")` on it and throws. Nothing catches that, so the boundary is the error screen and a reader sees nothing at all rather than one wrong string. Found on 2026-09-08 by restoring a panel that referenced a key removed the same day: `TypeError: Cannot read properties of undefined (reading 'includes')` and a blank window. The fallback to English is there precisely because "a stored language from a future build should not paint the screen with identifiers", and it stops one step short of the case it was written for.
-  Evidence: `src/i18n/index.ts:307-310` and `:313`; the observed crash of 2026-09-08; `src/i18n/coverage.test.ts` catches a key nothing asks for and not a key nobody wrote.
-  Touches: `src/i18n/index.ts` (fall through to the key itself, or to a blank, and log once), `src/i18n/index.test.ts` (a key that exists in no catalogue renders something and does not throw).
-  Acceptance: `translate("not.a.key" as never)` returns a string and logs; no render path can throw on a missing key; `npm run check` green.
-  Complexity: S
 
 ### Notes on existing items
 

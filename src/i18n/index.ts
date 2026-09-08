@@ -20,6 +20,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { en, type Catalogue, type StringKey } from "./en";
 import { pseudo } from "./pseudo";
+import { log } from "../lib/log";
 
 export type LanguageId = "en" | "es" | "fr" | "pseudo";
 
@@ -306,7 +307,18 @@ export function translate(
   // A key missing from a translation falls back to English rather than showing
   // the key itself. The type checker stops this from happening, but a stored
   // language from a future build should not paint the screen with identifiers.
+  //
+  // And a key missing from English too falls back to the key, which is the
+  // step this stopped one short of. `template` was `undefined` there and the
+  // next line reads `.includes` off it, so a string nobody wrote took the
+  // whole window down through the error boundary: a reader saw nothing at all
+  // rather than one wrong word. Seen on 2026-09-08, restoring a panel that
+  // named a key removed the same day.
   const template = catalogue(which)[key] ?? en[key];
+  if (template === undefined) {
+    log.warn("i18n", `No catalogue has ${String(key)}.`);
+    return String(key);
+  }
   if (!params) return template;
   // Plural blocks first, because an arm can hold ordinary placeholders and
   // the arms that were not chosen must not be filled in and left on screen.
