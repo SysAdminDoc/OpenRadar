@@ -28,6 +28,7 @@ mod geotiff;
 mod gfs;
 mod glance;
 mod grib;
+mod hex;
 mod host;
 mod hrrr;
 mod incident_packs;

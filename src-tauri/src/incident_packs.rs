@@ -644,7 +644,7 @@ fn new_id(name: &str) -> String {
     );
     hash.update(sequence.to_le_bytes());
     hash.update(name.as_bytes());
-    format!("{:x}", hash.finalize())[..24].to_string()
+    crate::hex::lower(&hash.finalize())[..24].to_string()
 }
 
 pub(crate) fn tile_x(longitude: f64, zoom: u8) -> u32 {
@@ -706,7 +706,7 @@ fn estimated_bytes(tile_count: usize) -> u64 {
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    crate::hex::lower(&Sha256::digest(bytes))
 }
 
 fn sha256_file(path: &Path) -> Result<String, IncidentPackError> {
@@ -720,7 +720,7 @@ fn sha256_file(path: &Path) -> Result<String, IncidentPackError> {
         }
         hash.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", hash.finalize()))
+    Ok(crate::hex::lower(&hash.finalize()))
 }
 
 fn archive_fingerprint(

@@ -228,7 +228,7 @@ fn the_smoothed_picture_is_the_one_that_was_pinned() {
 
     let digest = <sha2::Sha256 as sha2::Digest>::digest(&smoothed);
     assert_eq!(
-        format!("{digest:x}"),
+        crate::hex::lower(&digest),
         SMOOTHED_SWEEP_DIGEST,
         "the smoothed sweep changed"
     );

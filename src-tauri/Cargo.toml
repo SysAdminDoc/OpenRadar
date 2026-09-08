@@ -80,7 +80,7 @@ bytes = "1.10.1"
 futures-util = "0.3.31"
 image = { version = "=0.25.8", default-features = false, features = ["jpeg", "png"] }
 pmtiles = { version = "=0.24.0", default-features = false, features = ["mmap-async-tokio", "write"] }
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 # The digital Level III products (the hydrometeor classification and its
 # hybrid) carry a bzip2 symbology block, where the graphic products this
 # decoder already read are small and plain. Already in the graph as a

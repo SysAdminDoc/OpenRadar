@@ -228,7 +228,7 @@ fn stamp(at: DateTime<Utc>) -> String {
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    crate::hex::lower(&Sha256::digest(bytes))
 }
 
 /// A file name that is the same shape every time and safe on every disk.

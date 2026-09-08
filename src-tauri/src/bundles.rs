@@ -287,7 +287,7 @@ pub struct Entry {
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    crate::hex::lower(&Sha256::digest(bytes))
 }
 
 /// Every tile address a frame's template names over a view, at each zoom.
