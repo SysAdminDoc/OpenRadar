@@ -1,6 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { en } from "../src/i18n/en";
+import { es } from "../src/i18n/es";
+import { fr } from "../src/i18n/fr";
 
 const transparentPng = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -1317,4 +1320,69 @@ test("a toast does not land on a right-hand panel's own title", async ({
   const width = page.viewportSize()?.width ?? 0;
   expect(over!.x).toBeGreaterThanOrEqual(0);
   expect(over!.x + over!.width).toBeLessThanOrEqual(width + 0.5);
+});
+
+test("the map style cards do not wrap into ragged rows", async ({ page }) => {
+  // The panel is 336 pixels wide at every window width, so each card's text
+  // column is about ninety. "Match the theme", the default and the first card
+  // a reader sees, wrapped its title onto two lines and its detail onto five,
+  // standing seven lines tall beside "Greyscale / Quiet labels" at two. The
+  // clipping test cannot see it because nothing is clipped, which is why this
+  // measures rather than looks.
+  for (const [language, copy] of [
+    ["en", en],
+    ["es", es],
+    ["fr", fr],
+  ] as const) {
+    await page.addInitScript((which: string) => {
+      window.localStorage.setItem(
+        "openradar.settings",
+        JSON.stringify({
+          schemaVersion: 3,
+          language: which,
+          unitsChosen: true,
+          seenWelcome: true,
+          seenReveal: true,
+        }),
+      );
+    }, language);
+    await page.goto("/?testMode=1");
+    await expect(page.getByRole("application")).toBeVisible();
+    // Named out of the catalogue rather than in English, because the button
+    // this opens from is translated like everything else.
+    await page
+      .getByRole("button", { name: copy["panel.mapType"], exact: true })
+      .click();
+    const grid = page.locator(".map-style-grid");
+    await expect(grid.locator(".map-style-card").first()).toBeVisible();
+
+    const measured = await grid.evaluate((node) => {
+      const cards = Array.from(
+        node.querySelectorAll<HTMLElement>(".map-style-card"),
+      );
+      const rest = cards
+        .slice(1)
+        .map((card) => card.getBoundingClientRect().height);
+      return {
+        firstSpans:
+          Math.abs(
+            (cards[0]?.getBoundingClientRect().width ?? 0) -
+              node.getBoundingClientRect().width,
+          ) < 2,
+        tallest: Math.max(...rest),
+        shortest: Math.min(...rest),
+        count: cards.length,
+      };
+    });
+
+    expect(measured.count, language).toBeGreaterThan(4);
+    // The one card with something to explain gets the width to explain it in.
+    expect(measured.firstSpans, language).toBe(true);
+    // And every pair under it stands within a line of the pair beside it. A
+    // line of the detail type is fourteen pixels.
+    expect(
+      measured.tallest - measured.shortest,
+      `${language}: cards run ${measured.shortest} to ${measured.tallest}`,
+    ).toBeLessThanOrEqual(14);
+  }
 });

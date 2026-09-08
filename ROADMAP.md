@@ -629,15 +629,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 
 
-- [ ] AUD-429 (P3): The Map Type cards wrap into rows of uneven height, seven lines beside two
-      Category: visual
-      Where: `src/index.css:1546-1551` (`.map-style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) }`), `:1553-1566` (`.map-style-card { grid-template-columns: 36px 1fr auto }`), `:3036-3038` (one column only below the 680 breakpoint); `src/panels/MapTypePanel.tsx:52-60`; `src/i18n/en.ts` (`mapStyle.autoDetail`: "Dark under the dark workspace, light under the light one").
-      Problem: The panel is 336 pixels wide at every window width, so each card's text column is about ninety pixels. "Match the theme", the default and the first card a reader sees, wraps its title onto two lines and its detail onto five, standing seven lines tall beside "Greyscale / Quiet labels" at two; "Aerial" runs to three lines beside "Roads" at one. The rows are ragged and the first row is dominated by the one card that says the most. The clipping test does not see it because nothing is clipped.
-      Evidence: `scratchpad/obs/tour/map-type-dark-wide.png` (1440 by 900) and `map-type-dark-compact.png` (1024 by 720), 2026-09-08, identical shape at both widths.
-      Fix: Let the first card span both columns (`grid-column: 1 / -1` on `.is-auto` or the first child) so the sentence has room, and set `grid-auto-rows: 1fr` with `align-items: start` so the remaining pairs share a height; shorten `mapStyle.autoDetail` to one clause ("Follows the theme") if the span alone is not enough. Check the Spanish and French details, which are longer, at the same width.
-      Acceptance: No card in the grid is more than one line taller than the card beside it at 1440 and 1024 in all three languages; `language.spec.ts` stays green.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-418 (P3): An export whose provenance record failed to write is announced as saved with nothing said
       Category: reliability

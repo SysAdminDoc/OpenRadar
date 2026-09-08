@@ -34,6 +34,8 @@
 
 - Two smoke-analysis failures say so in your own language rather than in English.
 
+- The Map Type cards stop wrapping into ragged rows. "Match the theme" is the default and the first one you see, and in a 336-pixel panel its title took two lines and its description five, standing seven lines tall beside a card of two. It now runs the full width, and the pairs under it share a height whichever language you read them in.
+
 - A captive portal no longer gets the browser's own error text printed at you. A hotel or airport network that answers a request with its own sign-in page looks like a success to everything upstream, so the failure only surfaced where the page was read as data. What came out was `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`, in English whatever language the app was in, in the same paragraph as the line about using official warnings for life-safety decisions. It now says the service answered in a way this could not read.
 
 - Nearby weather stops saying a place is clear when it does not know. The panel that answers the map in words listed the warnings over a place and, with nothing to list, said "No warnings over this place" whether that was true, the layer was switched off, the feed had not arrived yet or it had failed. On a bad connection it said that while the line under it said the warnings were still loading. Both halves now say which of those happened, and a warning already in hand is read out whatever else has gone wrong. The nearest-storms and approaching-storms sections got the same treatment: a tracker the app could not read no longer reads as an afternoon with nothing in it.

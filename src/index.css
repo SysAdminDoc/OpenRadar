@@ -1546,8 +1546,24 @@ input[type="range"]:disabled {
 .map-style-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Every row the height of the tallest, so a pair whose titles both fit on
+     one line does not sit visibly shorter than the pair under it. Which
+     titles wrap depends on the language, so a fixed height here would be a
+     number that is right in English and wrong in Spanish. */
+  grid-auto-rows: 1fr;
   gap: 8px;
   margin-top: 12px;
+}
+
+/* The first card across both columns, which is the default and the one that
+   has something to explain. The panel is 336 pixels wide at every window
+   width, so a card's text column is about ninety: "Match the theme" wrapped
+   onto two lines and its sentence onto five, seven lines tall beside
+   "Greyscale / Quiet labels" at two, and the row a reader meets first was the
+   raggedest thing in the panel. Given the width it reads as one line and a
+   sentence, and every pair under it is a pair of short ones. */
+.map-style-grid .map-style-card:first-child {
+  grid-column: 1 / -1;
 }
 
 .map-style-card {
@@ -1604,6 +1620,11 @@ input[type="range"]:disabled {
 .map-style-card small {
   color: var(--subtle);
   font-size: 9px;
+  /* Room for two lines whether or not it needs them, so a card whose detail
+     is one word stands the same height as the card beside it. The details are
+     written to fit two at ninety pixels in all three languages; the pair that
+     did not were the reason the rows came out ragged. */
+  min-height: 22px;
   /* Wraps for the same reason: the card grows by a line, which is better than
      describing the style with half a sentence. */
   overflow-wrap: anywhere;

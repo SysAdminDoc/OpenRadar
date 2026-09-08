@@ -1200,7 +1200,7 @@ export const es: Catalogue = {
   "style.roads": "Carreteras",
   "style.roadsDetail": "Detalle de calles",
   "style.aerial": "Aéreo",
-  "style.aerialDetail": "Ortoimágenes del USGS, Estados Unidos",
+  "style.aerialDetail": "Imágenes del USGS, EE. UU.",
   "style.topography": "Topografía",
   "style.topographyDetail": "Relieve y curvas de nivel",
   "style.radarDark": "Radar oscuro",

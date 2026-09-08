@@ -1212,7 +1212,7 @@ export const fr: Catalogue = {
   "style.roads": "Routes",
   "style.roadsDetail": "Détail des rues",
   "style.aerial": "Aérienne",
-  "style.aerialDetail": "Orthoimagerie de l'USGS, États-Unis",
+  "style.aerialDetail": "Imagerie USGS, États-Unis",
   "style.topography": "Topographie",
   "style.topographyDetail": "Relief et courbes de niveau",
   "style.radarDark": "Radar sombre",
