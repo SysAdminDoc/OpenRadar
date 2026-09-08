@@ -98,6 +98,47 @@ describe("a failure the native side blamed on a service", () => {
     expect(said).not.toContain(en["service.busy"]);
   });
 
+  it("reads as one sentence, whatever the status turns out to mean", async () => {
+    // The four sentences were written when the native side sent a bare status
+    // code and they ended "could not be reached. {0}". The verb phrases that
+    // replaced the code complete a sentence somebody else started, so a 503
+    // from the archive read "The radar archive could not be reached. is busy",
+    // and the same in Spanish and in French. Every one of the four keys has to
+    // hold every one of the five answers.
+    const keys = [
+      "radar.error.httpStatus",
+      "packs.error.httpStatus",
+      "bundle.error.httpStatus",
+      "dataExport.error.gridHttpStatus",
+    ] as const;
+    const statuses = [404, 429, 403, 503, 418];
+    for (const language of ["en", "es", "fr"] as const) {
+      await ensureLanguage(language);
+      setLanguage(language);
+      for (const key of keys) {
+        for (const status of statuses) {
+          const code = key.startsWith("dataExport")
+            ? "gridHttpStatus"
+            : "httpStatus";
+          const said = translate(
+            key,
+            nativeErrorParams(code, [String(status)]),
+          );
+          // The tell the defect leaves: a full stop, a space, then the verb
+          // phrase that was meant to follow a subject.
+          expect(said, `${language} ${key} ${status}`).not.toMatch(
+            /\.\s+\p{Ll}/u,
+          );
+          // And it is a whole sentence rather than a fragment.
+          expect(said, `${language} ${key} ${status}`).toMatch(/\.$/);
+          expect(said, `${language} ${key} ${status}`).not.toContain(
+            String(status),
+          );
+        }
+      }
+    }
+  });
+
   it("has a sentence for the failures that carry no status", () => {
     // A machine with no network, a host off the allowlist, and a reply larger
     // than the reader is going to be handed. None of them is a service saying

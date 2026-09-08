@@ -623,15 +623,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 ### P3
 
-- [ ] AUD-412 (P3): A hail size in a warning popup is written with an English decimal point in Spanish and French, and always in inches
-      Category: i18n
-      Where: `src/i18n/en.ts:188` (`"alerts.hailTo": "{size, plural, one {{size} inch} other {{size} inches}} of hail"`, same shape in `es.ts:194` and `fr.ts:200`); `src/i18n/index.ts:286` (`#` inside an arm goes through `formatMeasure`) against `:317` (a named placeholder is filled with `String(params[name])`); `src/lib/overlays/alerts.ts:560` (`translate("alerts.hailTo", { size: Number(properties.hailSize) })`).
-      Problem: The arms name the number as `{size}` rather than `#`, so the plural block is chosen correctly and then the number is written the JavaScript way: a 1.75 inch hail tag reads "1.75 pulgadas de granizo" and "1.75 pouces de grêle" where every other number in those catalogues is written "1,75". The unit is also fixed to inches whatever `settings.units` says, on the one line of the popup that carries a measurement.
-      Evidence: Read on 2026-09-08; `plural()` in `index.ts` only formats `#`. The docblock at `:213-228` says `#` is "the number, written the way the reader writes numbers", and this is the one plural in the three catalogues that does not use it. `formatTideHeight` in `units.ts:264` shows the pattern the app uses for a unit that follows the setting.
-      Fix: Write the arms with `#` (`one {# inch} other {# inches}`), and either convert to centimetres under metric before choosing the arm (`2.5 cm` is how the ECCC writes hail) or say `inch` only where the source is American. Add a case to `plural.test.ts` for a fractional value in French.
-      Acceptance: In French with a 1.75 inch tag the popup reads "1,75 pouces de grêle"; under metric the line carries a metric size; `npm run check` green.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-413 (P3): The opacity sliders put the live percentage into their accessible name
       Category: a11y
@@ -643,15 +634,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-414 (P3): Four native failures are spliced after a full stop and read "could not be reached. is busy" in three languages
-      Category: ux
-      Where: `src/i18n/en.ts:784` (`"radar.error.httpStatus": "The radar archive could not be reached. {0}"`), `:285` (`packs.error.httpStatus`, "The tile server could not be reached. {0}"), `:791` (`bundle.error.httpStatus`, "The replay could not be fetched. {0}"), `:62` (`dataExport.error.gridHttpStatus`, "The grid could not be fetched. {0}"), and their `es.ts` and `fr.ts` counterparts; `src/lib/nativeError.ts:30-46` (for the two `STATUS` codes the first argument is replaced by `serviceAnswer(status)`); `src/lib/serviceAnswer.ts` (returns `service.busy` "is busy", `service.notFound` "could not find it", `service.tooMany` "has been asked too often", `service.refused` "refused", written to complete "The weather service {answer}.").
-      Problem: The four sentences were written when the native side sent a bare status code, and `nativeError.ts` now turns that code into a verb phrase built for a different sentence. A 503 from the archive renders "The radar archive could not be reached. is busy", a 404 "The tile server could not be reached. could not find it", and the same in Spanish ("No se pudo llegar al servidor de teselas. está ocupado") and French ("Le serveur de tuiles est resté muet. est occupé"). This corrects the note under `AUD-295`, which says these end in a bare status: they did, and the change that fixed that produced this.
-      Evidence: Read on 2026-09-08: `nativeErrorParams` at `nativeError.ts:38-46`, the five `service.*` strings at `en.ts:571-575`, and the four sentences.
-      Fix: Rewrite the four keys in the shape the verb phrases complete, "The radar archive {0}." with the subject in front, in all three languages, and add a `nativeError.test.ts` case that renders `radar.error.httpStatus` with a 503 and asserts a single sentence with no ". is".
-      Acceptance: Each of the four keys with each of the five answers reads as one grammatical sentence in en, es and fr; the test pins one of them.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-415 (P3): Six lines of copy ignore the units setting, and the tide note contradicts the number above it
       Category: ux

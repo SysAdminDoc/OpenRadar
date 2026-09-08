@@ -67,7 +67,7 @@ export const fr: Catalogue = {
     "Cette grille est empaquetée d'une façon que cette version ne lit pas.",
   "dataExport.error.gridNotDrawn": "La grille n'a pas pu être dessinée.",
   "dataExport.error.unknown": "L'exportation n'a pas pu être écrite.",
-  "dataExport.error.gridHttpStatus": "La grille n'a pas pu être récupérée. {0}",
+  "dataExport.error.gridHttpStatus": "Le service de grilles {0}.",
   "dataExport.error.gridHttpUnreachable":
     "La grille n'a pas pu être récupérée. Vérifiez que cette machine est connectée.",
   "dataExport.error.gridHttpRefused":
@@ -197,8 +197,8 @@ export const fr: Catalogue = {
   "alerts.severity.minor": "Mineure",
   "alerts.impactLine": "Le bureau a qualifié celle-ci de {tag}.",
   "alerts.impactBadge": "{tag}",
-  "alerts.hailTo":
-    "{size, plural, one {{size} pouce} other {{size} pouces}} de grêle",
+  "alerts.hailTo": "{size, plural, one {# pouce} other {# pouces}} de grêle",
+  "alerts.hailToCm": "{size} cm de grêle",
   "alerts.noneTitle": "Aucune alerte en cours dans la vue",
   "alerts.noneBody":
     "Déplacez la carte ou éloignez-vous pour couvrir une zone plus large. Les alertes se rafraîchissent chaque minute.",
@@ -297,7 +297,7 @@ export const fr: Catalogue = {
     "Quelque chose a échoué sur cette machine et le téléchargement s'est arrêté. Le panneau Diagnostic en a le détail.",
   "packs.error.pausedOnExit":
     "Le téléchargement s'est mis en pause à la fermeture d'OpenRadar.",
-  "packs.error.httpStatus": "Le serveur de tuiles est resté muet. {0}",
+  "packs.error.httpStatus": "Le serveur de tuiles {0}.",
   "packs.error.httpUnreachable":
     "Le serveur de tuiles est resté muet. Vérifiez que cette machine est en ligne.",
   "packs.error.httpRefused":
@@ -807,14 +807,14 @@ export const fr: Catalogue = {
   "radar.error.localTooLarge": "Le fichier choisi dépasse 128 Mo.",
   "radar.error.outOfRange":
     "Les deux extrémités d'une coupe verticale doivent être à portée de {0}.",
-  "radar.error.httpStatus": "Les archives radar sont restées muettes. {0}",
+  "radar.error.httpStatus": "Le service d'archives radar {0}.",
   "radar.error.httpUnreachable":
     "Les archives radar sont restées muettes. Vérifiez que cette machine est en ligne.",
   "radar.error.httpRefused":
     "OpenRadar n'est pas allé chercher cela : l'adresse n'en est pas une qu'il a le droit d'atteindre.",
   "radar.error.httpTooLarge":
     "Les archives radar ont envoyé plus que ce qu'OpenRadar lit d'un coup.",
-  "bundle.error.httpStatus": "La rediffusion n'a pas pu être récupérée. {0}",
+  "bundle.error.httpStatus": "Le service de rediffusion {0}.",
   "bundle.error.httpUnreachable":
     "La rediffusion n'a pas pu être récupérée. Vérifiez que cette machine est en ligne.",
   "bundle.error.httpRefused":
@@ -1902,7 +1902,7 @@ export const fr: Catalogue = {
     "Fait ici, à partir de votre propre relevé, et jamais de quoi que ce soit recueilli à votre sujet.",
   "recap.period": "Du {from} au {to}",
   "recap.coveredWhole":
-    "Votre relevé couvre {period, plural, one {le seul jour} other {les {period} jours}}.",
+    "Votre relevé couvre {period, plural, one {le seul jour} other {les # jours}}.",
   "recap.began":
     "La plus ancienne chose que votre relevé garde encore date du {when}, ce qui remonte {days, plural, one {# jour} other {# jours}} sur ces {period, plural, one {# jour} other {# jours}}. Avant cela rien n'est conservé, ce qui ne veut pas dire qu'il ne s'est rien passé.",
   "recap.counted":

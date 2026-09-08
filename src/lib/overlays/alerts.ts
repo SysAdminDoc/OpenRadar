@@ -6,8 +6,8 @@ import {
   type OverlayFeature,
 } from "./registry";
 import { cachedUrl } from "../tileCache";
-import { translate } from "../../i18n";
-import { formatClock } from "../units";
+import { formatNumber, translate } from "../../i18n";
+import { formatClock, isMetric } from "../units";
 import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { alertType, type AlertType } from "../alertTypes";
 import {
@@ -426,6 +426,33 @@ async function dwdFeatures(
   }
 }
 
+/**
+ * How big the hail is, in the units the reader asked for.
+ *
+ * The one measurement in a warning popup, and it was the one line in this app
+ * that ignored the units setting and wrote its number the JavaScript way. The
+ * arms named the value as `{size}`, which the plural block chooses on and then
+ * `translate` fills in with `String(...)`, so a 1.75 inch tag read "1.75
+ * pulgadas de granizo" in a catalogue that writes every other number "1,75".
+ * `#` is the placeholder the block formats itself.
+ *
+ * Centimetres to a tenth under metric, which is how the Canadian and German
+ * offices write a hail size. No plural block there: the abbreviation does not
+ * take one in any of the three languages, and the number is formatted before
+ * it goes in for the same reason the tide height is.
+ */
+export function hailLine(inches: number): string {
+  if (isMetric()) {
+    return translate("alerts.hailToCm", {
+      size: formatNumber(inches * INCHES_TO_CM, 1),
+    });
+  }
+  return translate("alerts.hailTo", { size: inches });
+}
+
+/** Inches to centimetres, exactly. */
+const INCHES_TO_CM = 2.54;
+
 export const alertsOverlay: OverlayAdapter = {
   id: "alerts",
   nameKey: "layer.weatherAlerts",
@@ -572,9 +599,7 @@ export const alertsOverlay: OverlayAdapter = {
               }),
             ]
           : []),
-        ...(properties.hailSize
-          ? [translate("alerts.hailTo", { size: Number(properties.hailSize) })]
-          : []),
+        ...(properties.hailSize ? [hailLine(Number(properties.hailSize))] : []),
         // What the office wrote, which is what the reader came for. Its own
         // words are not summarised, shortened or rewritten: an instruction
         // out of a warning is the one piece of text in this app that must

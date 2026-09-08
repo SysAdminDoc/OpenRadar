@@ -62,7 +62,7 @@ export const es: Catalogue = {
     "Esa malla viene empaquetada de una forma que esta versión no lee.",
   "dataExport.error.gridNotDrawn": "No se pudo dibujar la malla.",
   "dataExport.error.unknown": "No se pudo escribir la exportación.",
-  "dataExport.error.gridHttpStatus": "No se pudo obtener la malla. {0}",
+  "dataExport.error.gridHttpStatus": "El servicio de mallas {0}.",
   "dataExport.error.gridHttpUnreachable":
     "No se pudo obtener la malla. Comprueba que este equipo tenga conexión.",
   "dataExport.error.gridHttpRefused":
@@ -192,7 +192,8 @@ export const es: Catalogue = {
   "alerts.impactLine": "La oficina la marcó como {tag}.",
   "alerts.impactBadge": "{tag}",
   "alerts.hailTo":
-    "{size, plural, one {{size} pulgada} other {{size} pulgadas}} de granizo",
+    "{size, plural, one {# pulgada} other {# pulgadas}} de granizo",
+  "alerts.hailToCm": "{size} cm de granizo",
   "alerts.noneTitle": "No hay alertas activas a la vista",
   "alerts.noneBody":
     "Mueve el mapa o aléjalo para ver una zona más amplia. Las alertas se actualizan cada minuto.",
@@ -289,7 +290,7 @@ export const es: Catalogue = {
   "packs.error.failed":
     "Algo falló en esta máquina y la descarga se detuvo. El panel de Diagnóstico tiene los detalles.",
   "packs.error.pausedOnExit": "La descarga se pausó cuando OpenRadar se cerró.",
-  "packs.error.httpStatus": "No se pudo llegar al servidor de teselas. {0}",
+  "packs.error.httpStatus": "El servidor de teselas {0}.",
   "packs.error.httpUnreachable":
     "No se pudo llegar al servidor de teselas. Comprueba que esta máquina esté en línea.",
   "packs.error.httpRefused":
@@ -792,14 +793,14 @@ export const es: Catalogue = {
   "radar.error.noStormMotion":
     "No se pudo leer el viento en {0}, así que no hay nada que quitar de la imagen.",
   "radar.error.encode": "No se pudo dibujar la imagen: {0}",
-  "radar.error.httpStatus": "No se pudo llegar al archivo de radar. {0}",
+  "radar.error.httpStatus": "El archivo de radar {0}.",
   "radar.error.httpUnreachable":
     "No se pudo llegar al archivo de radar. Comprueba que esta máquina esté en línea.",
   "radar.error.httpRefused":
     "OpenRadar no fue a buscar eso: la dirección no es una a la que se le permite llegar.",
   "radar.error.httpTooLarge":
     "El archivo de radar envió más de lo que OpenRadar lee de una vez.",
-  "bundle.error.httpStatus": "No se pudo obtener la repetición. {0}",
+  "bundle.error.httpStatus": "El servicio de repeticiones {0}.",
   "bundle.error.httpUnreachable":
     "No se pudo obtener la repetición. Comprueba que esta máquina esté en línea.",
   "bundle.error.httpRefused":
@@ -1878,7 +1879,7 @@ export const es: Catalogue = {
     "Hecho aquí, a partir de tu propio registro, y nunca de nada que alguien haya recopilado sobre ti.",
   "recap.period": "Del {from} al {to}",
   "recap.coveredWhole":
-    "Tu registro cubre {period, plural, one {el único día} other {los {period} días}}.",
+    "Tu registro cubre {period, plural, one {el único día} other {los # días}}.",
   "recap.began":
     "Lo más antiguo que guarda tu registro es del {when}, que llega {days, plural, one {# día} other {# días}} atrás de estos {period, plural, one {# día} other {# días}}. Antes de eso no queda nada guardado, que no es lo mismo que no haber pasado nada.",
   "recap.counted":
