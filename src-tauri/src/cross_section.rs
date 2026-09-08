@@ -19,6 +19,8 @@
 use nexrad_model::data::{GateStatus, SweepField};
 use nexrad_model::geo::{GeoPoint, RadarCoordinateSystem};
 
+use crate::gates::reading_at;
+
 /// The 4/3 effective earth radius, in kilometres.
 ///
 /// The same constant `nexrad_model` uses, and the same one the beam height in
@@ -184,9 +186,8 @@ pub fn slice(
         here.clear();
         for cut in cuts {
             let polar = coordinates.geo_to_polar(point, cut.elevation_degrees);
-            let Some((value, status)) = cut
-                .field
-                .value_at_polar(polar.azimuth_degrees, polar.range_km)
+            let Some((value, status)) =
+                reading_at(cut.field, polar.azimuth_degrees, polar.range_km)
             else {
                 continue;
             };

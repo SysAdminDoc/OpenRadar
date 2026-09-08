@@ -21,6 +21,7 @@ use nexrad_model::data::{GateStatus, Product, Scan, SweepField};
 use serde::Serialize;
 
 use crate::cross_section::beam_height_km;
+use crate::gates::gate_covering;
 use crate::level3;
 use crate::vad;
 
@@ -144,15 +145,7 @@ pub fn range_at_height(height_km: f64, elevation_degrees: f32) -> Option<f64> {
 
 /// The gates of one ring, as the fit wants them.
 fn ring_at(field: &SweepField, range_km: f64) -> Option<Vec<(f32, f32)>> {
-    let interval = field.gate_interval_km();
-    if interval <= 0.0 {
-        return None;
-    }
-    let gate = ((range_km - field.first_gate_range_km()) / interval).round();
-    if gate < 0.0 || gate >= field.gate_count() as f64 {
-        return None;
-    }
-    let gate = gate as usize;
+    let gate = gate_covering(field, range_km)?;
     let angles = field.azimuths();
     let mut samples = Vec::with_capacity(field.azimuth_count());
     for azimuth in 0..field.azimuth_count() {
