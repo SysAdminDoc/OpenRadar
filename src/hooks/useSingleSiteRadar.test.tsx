@@ -93,6 +93,8 @@ function sweepFor(
     south: 39.6,
     east: -91,
     north: 43.8,
+    siteLon: -93.75,
+    siteLat: 41.7,
     image: "data:image/png;base64,AAAA",
     volume: `${station}-${product}-${tilt}`,
     radar: "WSR-88D",

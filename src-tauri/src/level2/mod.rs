@@ -261,6 +261,16 @@ pub struct SweepImage {
     pub south: f64,
     pub east: f64,
     pub north: f64,
+    /// Where the radar itself stands.
+    ///
+    /// Carried rather than taken from the middle of the box above, which it
+    /// used to be by construction: the picture was always squared on the site.
+    /// It is not any more, because a reader zoomed past about zoom ten is
+    /// given the same pixels over less ground, and the beam height the
+    /// inspector answers with is measured from the radar rather than from the
+    /// middle of whatever was drawn.
+    pub site_lon: f64,
+    pub site_lat: f64,
     /// The rendered sweep as a data URL, ready for a MapLibre image source.
     pub image: String,
     /// The volume key, so a caller can tell one scan from the next.

@@ -13,6 +13,7 @@ import {
   recentVolumeTimes,
   sitesInReach,
   SWEEP_REFRESH_MS,
+  sweepDetailBox,
   sweepErrorText,
   type SiteInReach,
   type SweepImage,
@@ -224,6 +225,24 @@ export function useSingleSiteRadar(options: {
     compareTime = null,
     listingHeld,
   } = options;
+  /**
+   * The site's whole reach, from the last sweep drawn over all of it.
+   *
+   * The box below is measured against this, and it cannot come from the sweep
+   * on screen: once one has been drawn over less ground, its corners are the
+   * box rather than the disc, and measuring the next box against the last one
+   * would walk the picture inwards a step at a time. A site's reach does not
+   * move, so the first whole-disc sweep of a site is the answer for all of
+   * them.
+   */
+  const [disc, setDisc] = useState<{
+    station: string;
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  } | null>(null);
+
   // The site, and the coarse position it was resolved for. A site found for
   // somewhere else is not an answer to where the map is now, which is what
   // kept KDMX on screen over Bermuda.
@@ -239,6 +258,7 @@ export function useSingleSiteRadar(options: {
   });
   const [sweep, setSweep] = useState<SweepImage | null>(null);
   const [loading, setLoading] = useState(false);
+
   // The site's recent volume times, oldest first, and the pictures already
   // decoded for them. Held rather than refetched, because scrubbing back and
   // forth over the same stretch of a storm is what a loop is for.
@@ -806,6 +826,39 @@ export function useSingleSiteRadar(options: {
     historicalWanted,
   ]);
 
+  /**
+   * The ground the live sweep is drawn over, or null for the site's whole
+   * reach.
+   *
+   * One raster over 460 kilometres is 449 metres a pixel against gates a
+   * quarter of a kilometre long, so past about zoom ten a reader is looking
+   * at this app's sampling and not at the radar. Spending the same pixels on
+   * less ground is what a single image can do about that.
+   *
+   * Only the live path. The loop and the compare pane draw whole discs and
+   * are placed against each other, and a frame over less ground than the one
+   * beside it is a picture that jumps as it plays.
+   */
+  const within = useMemo(
+    () =>
+      disc && disc.station === station
+        ? sweepDetailBox(disc, center, zoom)
+        : null,
+    [disc, station, center, zoom],
+  );
+  // The dependency the fetch effect actually watches. `within` is a new array
+  // on every render and the numbers in it are what decide whether to ask
+  // again; the box is quantised, so this string only moves when the picture
+  // would.
+  const withinKey = within ? within.join(",") : "";
+  // Read from a ref inside the effect, the way the newest volume is. The
+  // array is rebuilt on every render and its identity says nothing; the key
+  // above is what actually decides whether to ask again.
+  const withinRef = useRef(within);
+  useEffect(() => {
+    withinRef.current = within;
+  }, [within]);
+
   useEffect(() => {
     // Not while the reader is looking at an older volume: this effect draws
     // what the radar is doing now, on a timer, and it would overwrite the
@@ -815,6 +868,7 @@ export function useSingleSiteRadar(options: {
 
     const refresh = async () => {
       const request = ++requestRef.current;
+      const asked = withinRef.current;
       setLoading(true);
       try {
         const next = await fetchSweep(
@@ -835,8 +889,22 @@ export function useSingleSiteRadar(options: {
           radar.live && radar.persistence,
           reducedMotionRequested(),
           radar.smoothSweep,
+          asked,
         );
         if (!open || request !== requestRef.current) return;
+        // The site's whole reach, learned from the one sweep that covers it.
+        // Recorded whether or not this answer is still the one on screen: it
+        // is true about the site rather than about this request, and without
+        // it there is nothing to measure the next box against.
+        if (asked === null) {
+          setDisc({
+            station,
+            west: next.west,
+            south: next.south,
+            east: next.east,
+            north: next.north,
+          });
+        }
         setSweep(next);
         // Read from a ref rather than a dependency: this effect refetches on
         // every value it depends on, and the listing refreshes on its own
@@ -901,6 +969,9 @@ export function useSingleSiteRadar(options: {
     station,
     wanted,
     scrubbedBack,
+    // The box rather than the zoom: the box is quantised, so a pan or a zoom
+    // that lands on the same ground asks for nothing.
+    withinKey,
   ]);
 
   /**

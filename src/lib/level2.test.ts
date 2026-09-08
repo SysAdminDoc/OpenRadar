@@ -8,6 +8,7 @@ import { ensureLanguage, setLanguage } from "../i18n";
 import {
   SINGLE_SITE_MIN_ZOOM,
   beamHeightFeet,
+  sweepDetailBox,
   isLevel2Product,
   isSingleSiteViewport,
   liveAgeSeconds,
@@ -46,6 +47,8 @@ const sweep: SweepImage = {
   south: 39.6,
   east: -91.0,
   north: 43.8,
+  siteLon: -93.75,
+  siteLat: 41.7,
   image: "data:image/png;base64,AAAA",
   volume: "2026/08/30/KDMX/KDMX20260830_092159_V06",
   radar: "WSR-88D",
@@ -112,19 +115,27 @@ describe("how high the beam is", () => {
     expect(beamHeightFeet(-10, 0.5)).toBe(0);
   });
 
-  it("reads the site back off the extent its sweep was drawn to", () => {
-    // The extent is the circle around the site, so its middle is the site,
-    // which is the only place the range to a clicked point can be measured
-    // from.
-    expect(
-      sweepSite({
-        ...sweep,
-        west: -96.5,
-        east: -91.0,
-        south: 39.6,
-        north: 43.8,
-      }),
-    ).toEqual({ lon: -93.75, lat: 41.7 });
+  it("reads the site off the sweep rather than off the middle of the box", () => {
+    // This asserted the middle of the extent, and it was right while the
+    // extent was always the circle around the site. It is not any more: a
+    // reader zoomed in past about zoom ten gets the same pixels over less
+    // ground, and that box is wherever they are looking. The site is carried
+    // now, and this is what says so.
+    const closer = {
+      ...sweep,
+      // Deliberately not centred on the site: that is the whole difference.
+      west: -94.2,
+      east: -93.0,
+      south: 41.2,
+      north: 42.4,
+    };
+    expect(sweepSite(closer)).toEqual({ lon: -93.75, lat: 41.7 });
+    // Not the middle of that box, which is where the old reading would land
+    // and where the beam height would then be measured from.
+    expect(sweepSite(closer)).not.toEqual({
+      lon: (closer.west + closer.east) / 2,
+      lat: (closer.south + closer.north) / 2,
+    });
   });
 });
 
@@ -294,5 +305,78 @@ describe("a station the reader is holding", () => {
   it("measures the distance in whatever the reader reads in", () => {
     setUnits("metric");
     expect(stationSummary(sweep, home, collected)).toMatch(/\d+ km/);
+  });
+});
+
+describe("how much ground the sweep is drawn over", () => {
+  // A real disc: KDMX reaches 230 km, which is about 4.1 degrees of longitude
+  // at 41.7 north and 4.14 of latitude.
+  const disc = { west: -96.06, south: 39.63, east: -91.5, north: 43.77 };
+  const centre: [number, number] = [-93.78, 41.7];
+  const wide = disc.east - disc.west;
+
+  it("draws the whole disc while a screen pixel is coarser than the raster", () => {
+    // 1,024 pixels over 460 kilometres is 449 metres a pixel. Below about
+    // zoom 10 a screen pixel covers more ground than that, so narrowing the
+    // box buys a reader nothing and costs a render.
+    for (const zoom of [4, 7, 9, 9.9]) {
+      expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toBeNull();
+    }
+  });
+
+  it("halves the ground again for every zoom past that", () => {
+    // The whole point: the same 1,024 pixels over less ground is more metres
+    // of radar per metre of screen.
+    const spans = [10, 11, 12, 13].map((zoom) => {
+      const box = sweepDetailBox(disc, centre, zoom);
+      expect(box, String(zoom)).not.toBeNull();
+      return box![2] - box![0];
+    });
+    for (const [at, span] of spans.entries()) {
+      expect(span, `zoom ${10 + at}`).toBeLessThan(wide);
+      if (at > 0) expect(span).toBeLessThan(spans[at - 1]);
+    }
+    // And a floor, so a reader zoomed to a street is not asking for a box
+    // they pan out of on the next drag.
+    const deepest = sweepDetailBox(disc, centre, 18);
+    expect(deepest![2] - deepest![0]).toBeCloseTo(spans.at(-1)!, 6);
+  });
+
+  it("does not move the box for a pan the reader would not notice", () => {
+    // A box taken straight from the viewport would be a new box, and a new
+    // render, on every drag. The centre snaps to a grid of half the box's own
+    // width first.
+    const held = sweepDetailBox(disc, centre, 12)!;
+    const nudged = sweepDetailBox(
+      disc,
+      [centre[0] + (held[2] - held[0]) / 8, centre[1]],
+      12,
+    )!;
+    expect(nudged).toEqual(held);
+  });
+
+  it("moves it for a pan that would leave the picture", () => {
+    const held = sweepDetailBox(disc, centre, 12)!;
+    const span = held[2] - held[0];
+    const moved = sweepDetailBox(disc, [centre[0] + span, centre[1]], 12)!;
+    expect(moved[0]).toBeGreaterThan(held[0]);
+  });
+
+  it("keeps the box inside the disc, and gives it up when it is most of it", () => {
+    // A reader zoomed in at the edge would otherwise get a clipped box that
+    // is nearly the whole disc again, which is the same render under another
+    // name.
+    const corner = sweepDetailBox(disc, [disc.west, disc.south], 10);
+    if (corner) {
+      expect(corner[0]).toBeGreaterThanOrEqual(disc.west);
+      expect(corner[1]).toBeGreaterThanOrEqual(disc.south);
+      expect(corner[2]).toBeLessThanOrEqual(disc.east);
+      expect(corner[3]).toBeLessThanOrEqual(disc.north);
+    }
+    // A disc with no size at all is not a box to draw over.
+    expect(
+      sweepDetailBox({ west: 1, south: 1, east: 1, north: 1 }, centre, 12),
+    ).toBeNull();
+    expect(sweepDetailBox(disc, centre, Number.NaN)).toBeNull();
   });
 });

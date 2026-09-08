@@ -144,6 +144,17 @@ export interface SweepImage {
   south: number;
   east: number;
   north: number;
+  /**
+   * Where the radar itself stands.
+   *
+   * Carried rather than taken from the middle of the box above, which it used
+   * to be: the picture was always squared on the site. It is not any more,
+   * because a reader zoomed in past about zoom ten is given the same pixels
+   * over less ground, and the beam height the inspector answers with is
+   * measured from the radar rather than from the middle of what was drawn.
+   */
+  siteLon: number;
+  siteLat: number;
   image: string;
   volume: string;
   source: {
@@ -237,6 +248,9 @@ export async function fetchSweep(
   // only: the number the inspector answers with and the numbers an export
   // writes are the gates themselves either way.
   smooth: boolean,
+  // The ground to draw over, west, south, east and north, or null for the
+  // site's whole reach. `sweepDetailBox` works it out from the zoom.
+  within: [number, number, number, number] | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<SweepImage>("level2_sweep", {
@@ -251,6 +265,7 @@ export async function fetchSweep(
     persistence,
     reducedMotion,
     smooth,
+    within,
   });
 }
 
@@ -432,6 +447,79 @@ export function sweepCorners(
   ];
 }
 
+/**
+ * The zoom at which the whole disc still resolves its own gates.
+ *
+ * The sweep is drawn as one raster over a 460 kilometre box. At 1,024 pixels
+ * that is 449 metres a pixel against gates a quarter of a kilometre long, so
+ * at any zoom where a screen pixel is coarser than 449 metres the reader is
+ * looking at the radar and not at this app's sampling. That crossover sits at
+ * about zoom 9 at forty degrees; below it there is nothing to gain.
+ */
+export const DISC_IS_ENOUGH_BELOW_ZOOM = 10;
+
+/**
+ * How far the box may be narrowed, as a fraction of the disc.
+ *
+ * Sixteenths of a 460 kilometre box is 29 kilometres over 1,024 pixels, which
+ * is 28 metres a pixel: finer than a screen pixel at zoom 13 and nine times
+ * finer than a gate is long. Past that the picture stops improving and the
+ * reader starts panning out of the box.
+ */
+export const FINEST_DETAIL_STEPS = 16;
+
+/**
+ * The box to draw the sweep over for a reader at this zoom, or null for the
+ * whole disc.
+ *
+ * The sweep is one image over the site's whole reach, so the only way to give
+ * a reader zoomed in on a couplet more than 449 metres a pixel is to draw the
+ * same 1,024 pixels over less ground. What comes back carries its own corners,
+ * so the map places it without knowing any of this.
+ *
+ * Quantised on purpose. A box taken straight from the viewport would be a new
+ * box on every pan and a re-render with it; snapping the centre to a grid of
+ * half the box's own width, and then drawing a box twice that wide, means a
+ * pan of up to a quarter of the picture changes nothing at all.
+ */
+export function sweepDetailBox(
+  disc: { west: number; south: number; east: number; north: number },
+  center: [number, number],
+  zoom: number,
+): [west: number, south: number, east: number, north: number] | null {
+  if (!Number.isFinite(zoom) || zoom < DISC_IS_ENOUGH_BELOW_ZOOM) return null;
+  const wide = disc.east - disc.west;
+  const tall = disc.north - disc.south;
+  if (!(wide > 0) || !(tall > 0)) return null;
+
+  const steps = Math.min(
+    FINEST_DETAIL_STEPS,
+    2 ** (zoom - DISC_IS_ENOUGH_BELOW_ZOOM + 1),
+  );
+  // Half the box, which is both what the corners are measured from and the
+  // grid the centre snaps to: a pan of up to a quarter of the picture lands
+  // on the same box and asks for nothing.
+  const halfWide = wide / (2 * steps);
+  const halfTall = tall / (2 * steps);
+  // The grid the centre snaps to, which is what a pan has to cross before
+  // anything is asked for again.
+  const snap = (value: number, step: number, from: number) =>
+    from + Math.round((value - from) / step) * step;
+  const lon = snap(center[0], halfWide, disc.west);
+  const lat = snap(center[1], halfTall, disc.south);
+
+  const west = Math.max(disc.west, lon - halfWide);
+  const east = Math.min(disc.east, lon + halfWide);
+  const south = Math.max(disc.south, lat - halfTall);
+  const north = Math.min(disc.north, lat + halfTall);
+  // A reader who has zoomed in on the edge of the disc can end up with a box
+  // that is most of it again, and drawing the same ground at the same size is
+  // a render nobody asked for.
+  if (east - west <= 0 || north - south <= 0) return null;
+  if ((east - west) * (north - south) > wide * tall * 0.5) return null;
+  return [west, south, east, north];
+}
+
 export function sweepAgeMinutes(sweep: SweepImage, nowMs: number): number {
   const collected = Date.parse(sweep.collected);
   if (!Number.isFinite(collected)) return 0;
@@ -512,10 +600,7 @@ export function beamHeightFeet(
   return height * FEET_PER_KM;
 }
 
-/** Where the site is, read back from the extent its sweep was drawn to. */
+/** Where the site is, as the sweep carries it. */
 export function sweepSite(sweep: SweepImage): { lon: number; lat: number } {
-  return {
-    lon: (sweep.west + sweep.east) / 2,
-    lat: (sweep.south + sweep.north) / 2,
-  };
+  return { lon: sweep.siteLon, lat: sweep.siteLat };
 }

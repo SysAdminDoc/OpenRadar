@@ -68,6 +68,8 @@ function sweepOf(live: boolean): SweepImage {
     south: 40,
     east: -90.5,
     north: 44,
+    siteLon: -93.7,
+    siteLat: 41.7,
     image: "data:image/png;base64,",
     volume: "v",
     radar: "WSR-88D",
