@@ -1378,11 +1378,21 @@ function normalizePalette(value: unknown): Palette | null {
   });
   if (!stops.length) return null;
   const name = typeof raw.name === "string" ? raw.name.slice(0, 60) : "palette";
+  // Anything truthy, written as text, rather than strings only. These two
+  // arrive from a stored `settings.json` that a reader or an older build may
+  // have written, so `units: 5` and `units: ["dBZ"]` both turn up, and it is
+  // the units that decide which readings a table colours. Refusing a non-string
+  // silently drops that decision and the table quietly starts colouring
+  // something else, or nothing. Written out, a nonsense one is at least
+  // visible: the parser puts `product` in the skipped list, and the units go
+  // on screen beside the table's name.
+  const said = (value: unknown): string | null =>
+    value ? String(value) : null;
   return parsePalette(
     writePalette({
       name,
-      product: typeof raw.product === "string" ? raw.product : null,
-      units: typeof raw.units === "string" ? raw.units : null,
+      product: said(raw.product),
+      units: said(raw.units),
       step: Number.isFinite(raw.step) ? Number(raw.step) : null,
       stops,
       rangeFolded: colour(raw.rangeFolded ?? null),
