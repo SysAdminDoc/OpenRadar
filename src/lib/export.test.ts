@@ -31,8 +31,12 @@ function fakeCanvas(width: number, height: number) {
     // Proportional to the text, because a fake that answers 40 for every
     // string cannot see a line running off the edge, which is the one thing
     // the caption's own arithmetic is for. Seven pixels a character is about
-    // what 13px Segoe UI measures.
-    measureText: (text: string) => ({ width: text.length * 7 }),
+    // what 13px Segoe UI measures, and it scales with the type size: without
+    // that, shrinking the font to make a caption fit changes nothing the fake
+    // can see and the height cap cannot be tested at all.
+    measureText: (text: string) => ({
+      width: (text.length * 7 * (parseFloat(context.font) || 13)) / 13,
+    }),
     getImageData: (_x: number, _y: number, w: number, h: number) => ({
       // A different colour per call, so a frame that was never redrawn would
       // be indistinguishable from the one before it.
@@ -68,9 +72,15 @@ describe("the keys burned into an exported picture", () => {
       fillRect: ReturnType<typeof vi.fn>;
       fillStyle: string;
     };
-    const swatches: Array<{ color: string; x: number }> = [];
-    context.fillRect = vi.fn((x: number) => {
-      swatches.push({ color: context.fillStyle, x });
+    const swatches: Array<{
+      color: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }> = [];
+    context.fillRect = vi.fn((x: number, y: number, w: number, h: number) => {
+      swatches.push({ color: context.fillStyle, x, y, w, h });
     });
     return { canvas, drawn, inked, swatches };
   }
@@ -122,6 +132,67 @@ describe("the keys burned into an exported picture", () => {
       expect(drawn.join(" ").replace(/\s+/g, " ")).toContain("NOAA MRMS");
       expect(drawn.join(" ").replace(/\s+/g, " ")).toContain("USGS");
     }
+  });
+
+  it("keeps the caption inside the picture from top to bottom too", () => {
+    // The width was bounded and the height was not. `boxHeight` is the line
+    // count times the line height, so a credit naming every adapter drawn was
+    // 14 per cent of a 1280 by 720 still, 38 per cent at 640 by 360, and at
+    // 320 by 180 stood 137 per cent of the picture tall with its top edge 78
+    // pixels above the frame. The test beside this one measured the width
+    // only, and its smallest size was 480 by 320.
+    const every =
+      "OpenRadar · OpenStreetMap contributors · NOAA MRMS · NOAA NWS · " +
+      "Environment and Climate Change Canada · Deutscher Wetterdienst · " +
+      "NOAA SPC · NOAA WPC · NOAA NESDIS GOES · NASA FIRMS · USGS · " +
+      "NOAA NHC · NOAA Tides and Currents · Iowa State Mesonet";
+    for (const [width, height] of [
+      [1280, 720],
+      [640, 360],
+      [480, 320],
+      [320, 180],
+    ]) {
+      const { canvas, swatches } = recording(width, height);
+      drawFrame(canvas, canvas, {
+        lines: ["2026-09-08 21:00Z", "KDMX 0.5° reflectivity"],
+        attribution: every,
+      });
+      // The caption's own backing box is the dark one.
+      const box = swatches.find((one) => one.color.startsWith("rgba(9, 11"));
+      expect(box, `${width}x${height}`).toBeTruthy();
+      expect(box!.y, `${width}x${height} top`).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.h, `${width}x${height} bottom`).toBeLessThanOrEqual(
+        height,
+      );
+      // And it does not swallow the picture to fit: the point of a still is
+      // the radar, not the credit under it.
+      expect(box!.h, `${width}x${height} share`).toBeLessThanOrEqual(
+        height * 0.45,
+      );
+    }
+  });
+
+  it("shrinks the type before it drops a word of the credit", () => {
+    // Which of the three answers the item offered. A credit is the one part
+    // of a caption nobody should be reading a shortened version of, so the
+    // words go last: at 320 by 180 every source still survives, in order, and
+    // the type is smaller than the 13px it starts at.
+    const every =
+      "OpenRadar · OpenStreetMap contributors · NOAA MRMS · NOAA NWS · " +
+      "Environment and Climate Change Canada · Deutscher Wetterdienst · " +
+      "NOAA SPC · NOAA WPC · NOAA NESDIS GOES · NASA FIRMS · USGS";
+    const { canvas, drawn } = recording(320, 180);
+    drawFrame(canvas, canvas, {
+      lines: ["2026-09-08 21:00Z"],
+      attribution: every,
+    });
+    const said = drawn.join(" ").replace(/\s+/g, " ");
+    for (const source of ["NOAA MRMS", "Deutscher Wetterdienst", "USGS"]) {
+      expect(said, source).toContain(source);
+    }
+    expect(said).not.toContain("…");
+    const context = canvas.getContext("2d") as unknown as { font: string };
+    expect(parseFloat(context.font)).toBeLessThan(13);
   });
 
   it("draws the whole credit in the quieter colour, however many lines it takes", () => {
