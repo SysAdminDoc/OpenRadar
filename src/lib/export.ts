@@ -81,6 +81,26 @@ export function wrapped(
   return lines;
 }
 
+/**
+ * The most of a picture the caption may cover, and how small its type may get
+ * trying to stay inside that.
+ *
+ * The width was bounded and the height was not. `boxHeight` is the wrapped
+ * line count times the line height, so a caption that grew took whatever room
+ * it needed and then some: measured with every one of the twelve overlay
+ * adapters credited, the box was 14 per cent of a 1280 by 720 still, 38 per
+ * cent at 640 by 360, and at 320 by 180 it stood 137 per cent of the picture
+ * tall with its top edge 78 pixels above the top of the frame. Nothing on
+ * screen today produces that, because the app's narrowest window exports at
+ * about 700 pixels, but the credit went from naming two sources to naming as
+ * many as are drawn and the height was the one dimension nothing watched.
+ */
+const CAPTION_MAX_SHARE = 0.45;
+const CAPTION_FONT = 13;
+const CAPTION_MIN_FONT = 9;
+/** Line height at the full size, kept as the ratio when the type shrinks. */
+const CAPTION_LINE_RATIO = 18 / CAPTION_FONT;
+
 export function drawFrame(
   target: HTMLCanvasElement,
   source: HTMLCanvasElement,
@@ -91,23 +111,70 @@ export function drawFrame(
 
   context.drawImage(source, 0, 0, target.width, target.height);
 
-  context.font = "13px 'Segoe UI', system-ui, sans-serif";
   // What the caption may occupy: the picture, less the margin its box sits in
   // and the padding inside the box, on both sides.
   const room = target.width - CAPTION_PADDING * 4;
+  const ceiling = target.height * CAPTION_MAX_SHARE;
   // A picture with no room to lay a caption out in gets it whole. Wrapping to
   // a couple of pixels puts one character on each of forty lines, which is a
   // worse answer than a line that runs over.
-  const fit = (line: string) =>
-    room > 0 ? wrapped(context, line, room) : [line];
-  const lines = [...caption.lines, caption.attribution]
-    .filter(Boolean)
-    .flatMap(fit);
-  // The credit was the last line and is now the last several, and all of it
-  // is drawn in the quieter colour.
-  const creditLines = caption.attribution ? fit(caption.attribution).length : 0;
-  const lineHeight = 18;
-  const boxHeight = lines.length * lineHeight + CAPTION_PADDING;
+  const layOut = (size: number) => {
+    context.font = `${size}px 'Segoe UI', system-ui, sans-serif`;
+    const fit = (line: string) =>
+      room > 0 ? wrapped(context, line, room) : [line];
+    const lines = [...caption.lines, caption.attribution]
+      .filter(Boolean)
+      .flatMap(fit);
+    // The credit was the last line and is now the last several, and all of it
+    // is drawn in the quieter colour.
+    const credit = caption.attribution ? fit(caption.attribution).length : 0;
+    const height = Math.round(size * CAPTION_LINE_RATIO);
+    return {
+      lines,
+      credit,
+      height,
+      box: lines.length * height + CAPTION_PADDING,
+    };
+  };
+
+  // A picture with no room for two lines of the smallest type gets the
+  // caption whole, the same way one with no width for it does. Cutting a
+  // caption down to a single line and an ellipsis on a thumbnail says nothing
+  // and loses the credit; a caption that runs over a picture that size was
+  // never going to be read either way.
+  const smallestLine = Math.round(CAPTION_MIN_FONT * CAPTION_LINE_RATIO);
+  const bounded = ceiling >= CAPTION_PADDING + smallestLine * 2;
+
+  // Smaller type before fewer words: a credit is the one part of this nobody
+  // should be reading a shortened version of. Only a caption that will not fit
+  // even at the floor loses lines, and it says so with an ellipsis rather than
+  // stopping mid-sentence.
+  let laid = layOut(CAPTION_FONT);
+  for (
+    let size = CAPTION_FONT - 1;
+    bounded && laid.box > ceiling && size >= CAPTION_MIN_FONT;
+    size -= 1
+  ) {
+    laid = layOut(size);
+  }
+  if (bounded && laid.box > ceiling) {
+    const fits = Math.max(
+      1,
+      Math.floor((ceiling - CAPTION_PADDING) / laid.height),
+    );
+    if (laid.lines.length > fits) {
+      const kept = laid.lines.slice(0, fits);
+      kept[fits - 1] = `${kept[fits - 1]} …`;
+      laid = {
+        ...laid,
+        lines: kept,
+        credit: Math.min(laid.credit, fits),
+        box: kept.length * laid.height + CAPTION_PADDING,
+      };
+    }
+  }
+  const { lines, credit: creditLines, height: lineHeight } = laid;
+  const boxHeight = laid.box;
   const width =
     Math.max(...lines.map((line) => context.measureText(line).width)) +
     CAPTION_PADDING * 2;
