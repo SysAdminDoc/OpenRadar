@@ -516,16 +516,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-365 (P2): The Diagnostics action row overflows its panel at the default window size
-      Category: visual
-      Where: `src/panels/UtilityPanels.tsx:305-328` (the "Recent events" title row holding four buttons: `diagnostics.copy`, `diagnostics.report`, `diagnostics.openLogs`, `diagnostics.forget`); `src/index.css:779-790` (`.diagnostics-log__title`: `display: flex; justify-content: space-between; gap: 8px`, no `flex-wrap`, and `.diagnostics-log__title button`).
-      Problem: The row was three buttons until `AUD-357` added "Copy and open a report" on 2026-09-07, and it does not wrap. At 1440x900 in English the row's `scrollWidth` is 344 against a `clientWidth` of 277, the fourth button ("Forget source history") spans x 1341-1411 while the panel ends at 1378, so a third of it is outside the panel, and the three that fit are 67 px wide with their labels broken over three lines ("Copy / for a / bug report"). The pseudolocale clipping sweep does not see it because the row sits inside the panel's vertical scroller, which that sweep skips (the 2026-09-03 note in the working notes says so).
-      Evidence: Measured on 2026-09-07 in the browser: `.diagnostics-log__title` `overflowX: visible`, `flexWrap: nowrap`, `scrollWidth 344`, `clientWidth 277`; button rects 1117-1185, 1193-1260, 1268-1333, 1341-1411 against a panel right edge of 1378. Screenshot `audit-shots/audit-light-diagnostics.jpeg`: the fourth button shows as a sliver of "F / s / h".
-      Fix: Let the row wrap (`flex-wrap: wrap`, the "Recent events" label on its own line above the buttons) or lay the four actions out as a two-by-two grid under the label; give the buttons `white-space: nowrap` so a label is one line. Add an assertion for this row in `e2e/accessibility.spec.ts` (or the clipping spec) that every button's right edge is inside the panel at 1440x900 and 1024x720, since the general sweep cannot reach it.
-      Acceptance: At both widths and in all three languages plus the pseudolocale, the four buttons lie inside the panel with one-line labels; the new assertion fails when `flex-wrap` is removed.
-      Confidence: Verified
-      Effort: S
-
 ### P3
 
 - [ ] AUD-366 (P3): The KMZ reader lets a raw `RangeError` out of a truncated central directory

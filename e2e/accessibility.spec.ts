@@ -1273,3 +1273,49 @@ test("a panel opened from the command palette leaves somewhere to go back to", a
     .poll(() => page.evaluate(() => document.activeElement?.tagName))
     .not.toBe("BODY");
 });
+
+test("the Diagnostics actions stay inside their row", async ({ page }) => {
+  // The general clipping sweep cannot answer this one. It walks the panels
+  // looking for text running out of its box, and it excuses a scroller and
+  // everything inside it; this row lives inside the Diagnostics panel's own
+  // vertical scroller. So a fourth button went into a row of three on
+  // 2026-09-07, took the row's content 27 px wider than the row, and every
+  // gate stayed green.
+  //
+  // Measured against the row's own box rather than the panel's, because that
+  // is where it breaks: the buttons stay inside the panel and spill out of
+  // the line they are laid out on, which is what puts a label under the one
+  // beside it or cuts it off. Runs at whatever width the project is, and the
+  // row was fine at 1920 and broken at 1440 and 1024.
+  await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Diagnostics" }),
+  ).toBeVisible();
+
+  const measured = await page.evaluate(() => {
+    const row = document.querySelector(".diagnostics-log__title");
+    if (!row) return null;
+    const heights = [...row.querySelectorAll("button")].map(
+      (button) => button.getBoundingClientRect().height,
+    );
+    return {
+      over: row.scrollWidth - row.clientWidth,
+      buttons: heights.length,
+      tallest: Math.max(...heights),
+      shortest: Math.min(...heights),
+    };
+  });
+
+  expect(
+    measured,
+    "the Diagnostics action row is not on the page",
+  ).not.toBeNull();
+  expect(measured!.buttons).toBeGreaterThan(3);
+  expect(
+    measured!.over,
+    `the actions overflow their row by ${measured!.over}px`,
+  ).toBeLessThanOrEqual(0);
+  // And every button the same height, so none has wrapped where its
+  // neighbours have not.
+  expect(measured!.tallest - measured!.shortest).toBeLessThan(2);
+});
