@@ -1310,6 +1310,78 @@ fn last_key(listing: &str) -> Option<String> {
     all_keys(listing).pop()
 }
 
+/// The product the office publishes its own dealiased velocity on.
+///
+/// The super-resolution digital base velocity, product 154, a quarter of a
+/// kilometre per bin and half a degree per radial: the same geometry as the
+/// Level II cut this app unfolds. Only the lowest cut is asked for. The
+/// family runs `N0G` through `N3G` and the numbering is the office's product
+/// list rather than the scan pattern's, so `N1G` came back at 1.3 degrees on
+/// every one of the six contract stations against a Level II second cut at
+/// 0.84. Whichever cut a file holds, its own description block says so, and
+/// that is what the caller checks it against.
+#[cfg(test)]
+const DEALIASED_VELOCITY: &str = "N0G";
+
+/// The product code that family carries, so a file holding something else is
+/// refused rather than read as though its bytes meant metres per second.
+#[cfg(test)]
+const DIGITAL_VELOCITY: u16 = 154;
+
+/// The office's own dealiased velocity for the lowest cut of one volume.
+///
+/// The RPG runs a two-dimensional dealiaser over the same radials this app
+/// unfolds and publishes what it decided. That is the only per-gate reference
+/// for an unfolding pass that exists without hand-truthing a sweep: every
+/// measure in `level2/testing.rs` scores a sweep against itself or against a
+/// refold of itself, and a patch moved as one piece is exactly as continuous
+/// with itself as it was before it moved.
+///
+/// The moment to ask with is the volume's own start, not a sweep's. Both
+/// buckets name a file after the volume it belongs to, and a pattern cuts the
+/// same angle several times, so the time a particular sweep was collected can
+/// sit three minutes inside its own volume and pick the volume before.
+///
+/// `None` rather than an error for every reason the office might have nothing
+/// to say: no listing, no file near that volume, or a file that is not
+/// velocity at all. Which cut it holds is the caller's to check, against the
+/// cut it means to compare.
+///
+/// Only the live contracts reach for this.
+#[cfg(test)]
+pub(crate) async fn dealiased_velocity(
+    station: &str,
+    at: DateTime<Utc>,
+) -> Option<(Description, RadialImage)> {
+    let site = bucket_site(station)?;
+
+    // The day the volume belongs to and the one before it. A volume a minute
+    // either side of midnight UTC has its neighbours in the other day's
+    // listing, and which key is nearest in time is the whole question here.
+    let mut keys = Vec::new();
+    for day in [at - Duration::days(1), at] {
+        let stamp = day.format("%Y_%m_%d").to_string();
+        if let Ok(mut found) = keys_for_day(&site, DEALIASED_VELOCITY, &stamp).await {
+            keys.append(&mut found);
+        }
+    }
+    keys.sort();
+    keys.dedup();
+
+    let key = key_for(&keys, Some(at))?;
+    let bytes = http::get_bytes(&format!("https://{BUCKET}/{key}"))
+        .await
+        .ok()?;
+    let (description, image) = read_radial_product(&bytes, QUARTER_KM).ok()?;
+    if description.product_code != DIGITAL_VELOCITY {
+        return None;
+    }
+    if (description.volume_time - at).num_seconds().abs() > SAME_VOLUME_SECONDS {
+        return None;
+    }
+    Some((description, image))
+}
+
 /// Everything one site is tracking right now.
 /// The classification for one site, as the page draws it.
 ///
