@@ -47,6 +47,12 @@ const PAYLOAD = {
 };
 
 describe("reading several models at once", () => {
+  // `PAYLOAD` answers in °C, mm and km/h, so the reader has to be on metric
+  // for it to be a reply in the system the request asked for. Without this
+  // the block ran on whatever the file's previous test left set, and every
+  // fixture here was a mismatch that nothing converted and nothing asserted.
+  beforeEach(() => setUnits("metric"));
+
   it("puts each model's value on the same hour", () => {
     const guidance = parseGuidance(PAYLOAD, POINT, MODELS);
     const temperature = guidance.readings.find(
@@ -83,26 +89,30 @@ describe("reading several models at once", () => {
     expect(disagreement(temperature)).toBeCloseTo(2 / 3, 5);
   });
 
-  it("says so when the service answers in the other system", async () => {
+  it("converts a column the service answered in the other system", async () => {
     // The request carries the reader's system on every call and the reply
     // carries a token per column, and nothing held the two together. The
     // numbers arrive in whatever the service used and the label beside them
     // comes from this app's own vocabulary, so a reply that ignored the
-    // parameter draws thirty degrees Celsius under °F and nothing anywhere
-    // says so.
+    // parameter drew seventy-eight degrees Fahrenheit under °C: a warm
+    // afternoon shown as one nobody has ever lived through. A warning in the
+    // log was the whole of the first answer to this, and a log line is not
+    // something a reader sees.
     setUnits("metric");
     const { log } = await import("./log");
     const said: string[] = [];
     const warn = vi
       .spyOn(log, "warn")
       .mockImplementation((_area, message) => void said.push(String(message)));
+    let parsed;
     try {
-      parseGuidance(
+      parsed = parseGuidance(
         {
           hourly_units: { temperature_2m_gfs_seamless: "°F" },
           hourly: {
             time: ["2026-08-30T00:00", "2026-08-30T03:00"],
             temperature_2m_gfs_seamless: [78, 79],
+            temperature_2m_ecmwf_ifs025: [79, 80],
           },
         },
         POINT,
@@ -113,26 +123,121 @@ describe("reading several models at once", () => {
     }
     expect(said.join(" ")).toMatch(/temperature_2m came back in °F/);
     expect(said.join(" ")).toContain("°C");
+
+    // What the reader is actually shown, which is the half a log line could
+    // never cover.
+    const temperature = parsed.readings.find(
+      (one) => one.variable === "temperature_2m",
+    );
+    expect(temperature?.unit).toBe("°C");
+    expect(temperature?.hours[0].values[0]).toBeCloseTo(25.5556, 3);
+    expect(temperature?.hours[1].values[0]).toBeCloseTo(26.1111, 3);
+    // The spread is the gap between the two models at an hour, so it has to
+    // be a gap between converted readings: one degree Fahrenheit of
+    // disagreement is not one degree Celsius of it.
+    expect(temperature?.spread).toBeCloseTo(0.5556, 3);
   });
 
-  it("says nothing when the service answers in the system that was asked for", () => {
-    // The other half, so the line above is a check rather than a warning that
-    // always fires.
+  it("leaves a column alone when the service answered in the system asked for", async () => {
+    // The other half, so the case above is a conversion rather than one that
+    // always fires. This one asserts on the log, which the version of it
+    // before 2026-09-08 declared an array for and never spied on: with the
+    // mismatch check mutated to warn on every column, it still passed.
     setUnits("metric");
+    const { log } = await import("./log");
     const said: string[] = [];
+    const warn = vi
+      .spyOn(log, "warn")
+      .mockImplementation((_area, message) => void said.push(String(message)));
     expect(expectedUnitToken("temperature_2m")).toBe("°C");
-    parseGuidance(
+    let parsed;
+    try {
+      parsed = parseGuidance(
+        {
+          hourly_units: { temperature_2m_gfs_seamless: "°C" },
+          hourly: {
+            time: ["2026-08-30T00:00"],
+            temperature_2m_gfs_seamless: [26],
+          },
+        },
+        POINT,
+        MODELS,
+      );
+    } finally {
+      warn.mockRestore();
+    }
+    expect(said).toEqual([]);
+    const temperature = parsed.readings.find(
+      (one) => one.variable === "temperature_2m",
+    );
+    expect(temperature?.unit).toBe("°C");
+    expect(temperature?.hours[0].values[0]).toBe(26);
+  });
+
+  it("leaves a system nothing here can convert exactly as it arrived", async () => {
+    // The residual `AUD-446` covers. Kelvin is not a unit the request can ask
+    // for, so a reply in it is a service answering something nobody wanted;
+    // guessing at it would be worse than carrying it through untouched with
+    // the reading saying which unit it is really in.
+    setUnits("metric");
+    const { log } = await import("./log");
+    const said: string[] = [];
+    const warn = vi
+      .spyOn(log, "warn")
+      .mockImplementation((_area, message) => void said.push(String(message)));
+    let parsed;
+    try {
+      parsed = parseGuidance(
+        {
+          hourly_units: { temperature_2m_gfs_seamless: "K" },
+          hourly: {
+            time: ["2026-08-30T00:00"],
+            temperature_2m_gfs_seamless: [299],
+          },
+        },
+        POINT,
+        MODELS,
+      );
+    } finally {
+      warn.mockRestore();
+    }
+    expect(said.join(" ")).toContain("nothing here can convert");
+    const temperature = parsed.readings.find(
+      (one) => one.variable === "temperature_2m",
+    );
+    expect(temperature?.unit).toBe("K");
+    expect(temperature?.hours[0].values[0]).toBe(299);
+  });
+
+  it("converts wind and precipitation the same way, in both directions", () => {
+    // Three variables share one path, and a table with an entry missing
+    // would leave one of them silently unconverted.
+    setUnits("imperial");
+    const parsed = parseGuidance(
       {
-        hourly_units: { temperature_2m_gfs_seamless: "°C" },
+        hourly_units: {
+          wind_speed_10m_gfs_seamless: "km/h",
+          precipitation_gfs_seamless: "mm",
+        },
         hourly: {
           time: ["2026-08-30T00:00"],
-          temperature_2m_gfs_seamless: [26],
+          wind_speed_10m_gfs_seamless: [16.09344],
+          precipitation_gfs_seamless: [25.4],
         },
       },
       POINT,
       MODELS,
     );
-    expect(said).toEqual([]);
+    const wind = parsed.readings.find(
+      (one) => one.variable === "wind_speed_10m",
+    );
+    const rain = parsed.readings.find(
+      (one) => one.variable === "precipitation",
+    );
+    expect(wind?.unit).toBe("mp/h");
+    expect(wind?.hours[0].values[0]).toBeCloseTo(10, 6);
+    expect(rain?.unit).toBe("inch");
+    expect(rain?.hours[0].values[0]).toBeCloseTo(1, 6);
   });
 
   it("says nothing rather than zero where a model has no answer", () => {
