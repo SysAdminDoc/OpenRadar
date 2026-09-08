@@ -214,6 +214,8 @@ export const es: Catalogue = {
   "units.feet": "ft",
   "units.inches": "in",
   "units.inchesLong": "pulgadas",
+  "units.feetLong": "pies",
+  "units.metresLong": "metros",
   "units.mile": "mi",
   "history.trackPoint": "{kind} {knots} kt",
   "storm.status.TD": "Depresión tropical",
@@ -843,7 +845,7 @@ export const es: Catalogue = {
   "radar.faultNotOperating":
     "El radar no está barriendo. La oficina lo reporta como {state}.",
   "radar.terminalLine":
-    "Radar Doppler de terminal, {range} km de alcance · {source}",
+    "Radar Doppler de terminal, {range} de alcance · {source}",
   "radar.terminalProducts":
     "El radar de terminal de un aeropuerto publica solo reflectividad y velocidad, hasta 48 millas náuticas, con una reflectividad de largo alcance hasta 225. Los demás productos quedan sin disponibilidad mientras se mantiene.",
   "radar.followMap": "Seguir el mapa",
@@ -1220,7 +1222,8 @@ export const es: Catalogue = {
   "layers.alertsDetail": "Vigilancias y avisos oficiales",
   "layers.earthquakesDetail":
     "Sismos del USGS de magnitud mayor a 2.5 en el último día",
-  "layers.wildfiresDetail": "Perímetros del NIFC de más de 100 acres",
+  "layers.wildfiresDetail":
+    "Perímetros del NIFC, de más de los cien acres que publican",
   "layers.smokeDetail": "El análisis a mano de la NOAA, una vez al día",
   "layers.forecastSmokeDetail":
     "Adónde espera el modelo HRRR que vaya el humo cerca del suelo, hora a hora a lo largo de la cola de pronóstico",
@@ -1271,7 +1274,7 @@ export const es: Catalogue = {
     "Temperatura y punto de rocío frente a la presión. Las isotermas se inclinan a la derecha para que las dos curvas se separen; las líneas finas del fondo son adiabáticas secas, adiabáticas saturadas y razón de mezcla.",
   "sounding.hodographLabel": "Hodógrafa del viento en la columna",
   "sounding.hodographNote":
-    "El viento en los nueve kilómetros más bajos, dibujado según gira. Los anillos van de diez en diez nudos y el punto es el suelo.",
+    "El viento en los nueve kilómetros más bajos, dibujado según gira. Los anillos van de diez en diez nudos, las unidades en que siempre se dibuja una hodógrafa, y el punto es el suelo.",
   "sounding.cape": "CAPE",
   "sounding.cin": "CIN",
   "sounding.lcl": "Base de la nube (LCL)",
@@ -1615,7 +1618,7 @@ export const es: Catalogue = {
     "ELEVACIÓN {degrees}° · DESPLEGADA · EN VIVO, HACE {seconds} S",
   "chrome.liveProduct": "PRODUCTO EN VIVO",
   "chrome.behind": "DETRÁS, DE HACE {count} MIN",
-  "chrome.terminalRadar": "TDWR · {range} km",
+  "chrome.terminalRadar": "TDWR · {range}",
   "chrome.extraScales": "Escalas de otros productos",
   "chrome.wind": "Viento",
   "chrome.windReduced":
@@ -1775,7 +1778,7 @@ export const es: Catalogue = {
   "popup.magnitude": "M {value} {place}",
   "popup.recorded": "Registrado {when}",
   "popup.timeUnknown": "Hora desconocida",
-  "popup.depth": "Profundidad {km} km",
+  "popup.depth": "Profundidad {distance}",
   "popup.depthUnknown": "Profundidad desconocida",
   "popup.usgs": "Fuente: USGS",
   "popup.wildfire": "Incendio",
@@ -2185,7 +2188,7 @@ export const es: Catalogue = {
   "tides.low": "Bajamar",
   "tides.noneLeft": "Nada más en los próximos tres días.",
   "tides.note":
-    "Predicciones de NOAA CO-OPS, en pies sobre la bajamar media inferior, en tu propia zona horaria. La marejada se suma a esto, así que una tormenta que llega en pleamar alcanza más lejos.",
+    "Predicciones de NOAA CO-OPS, en {unit} sobre la bajamar media inferior, en tu propia zona horaria. La marejada se suma a esto, así que una tormenta que llega en pleamar alcanza más lejos.",
   "panel.guidance": "Modelos",
   "panel.sounding": "Sondeo",
   "keywords.sounding":

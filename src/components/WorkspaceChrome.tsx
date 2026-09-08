@@ -45,6 +45,7 @@ import {
 } from "../i18n";
 import { formatAge, formatClock, useMeasurements } from "../lib/units";
 import { useHighContrast } from "../hooks/useClock";
+import { formatDistanceKm } from "../lib/units";
 
 /** Past this the loop is old enough that the timeline should say so. */
 const STALE_MINUTES = 20;
@@ -781,7 +782,7 @@ function sweepEyebrow(
   // say so where the tilt is said.
   if (sweep.radar !== "TDWR") return tilt;
   return `${tilt} · ${translate("chrome.terminalRadar", {
-    range: Math.round(sweep.rangeKm),
+    range: formatDistanceKm(sweep.rangeKm),
   })}`;
 }
 

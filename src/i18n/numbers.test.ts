@@ -6,7 +6,12 @@ import {
   formatMeasure,
   formatNumber,
   setLanguage,
+  translate,
 } from "./index";
+import { formatDistanceKm, setUnits, tideUnitName } from "../lib/units";
+import { en } from "./en";
+import { es } from "./es";
+import { fr } from "./fr";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -203,5 +208,45 @@ describe("numbers a reader reads", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("copy that names a unit the reader did not choose", () => {
+  afterEach(() => setUnits("imperial"));
+
+  it("names the unit the tide table is actually showing", () => {
+    // The panel's note said "in feet above mean lower low water" directly
+    // under a table reading "1,23 m", because `formatTideHeight` follows the
+    // setting and the note was a fixed string.
+    setUnits("imperial");
+    expect(translate("tides.note", { unit: tideUnitName() })).toContain("feet");
+    setUnits("metric");
+    const metric = translate("tides.note", { unit: tideUnitName() });
+    expect(metric).toContain("metres");
+    expect(metric).not.toContain("in feet");
+  });
+
+  it("gives a distance in kilometres to a reader who did not ask for them", () => {
+    // The terminal radar's reach and an earthquake's depth were both written
+    // "{n} km" with the number formatted and the unit fixed.
+    setUnits("imperial");
+    expect(formatDistanceKm(90)).toMatch(/mi\b/);
+    setUnits("metric");
+    expect(formatDistanceKm(90)).toMatch(/km\b/);
+    expect(formatDistanceKm(90)).toContain("90");
+  });
+
+  it("leaves no fixed metric unit in the keys that were fixed", () => {
+    // The tell the six shared: a unit written into the sentence beside a
+    // placeholder whose value already carries one.
+    for (const key of [
+      "radar.terminalLine",
+      "chrome.terminalRadar",
+      "popup.depth",
+    ] as const) {
+      for (const copy of [en, es, fr]) {
+        expect(copy[key], `${key}: ${copy[key]}`).not.toMatch(/\{\w+\}\s*km\b/);
+      }
+    }
   });
 });

@@ -578,15 +578,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 
 
-- [ ] AUD-415 (P3): Six lines of copy ignore the units setting, and the tide note contradicts the number above it
-      Category: ux
-      Where: `src/i18n/en.ts:2120` (`tides.note`: "in feet above mean lower low water") against `src/panels/TidesPanel.tsx:205` (`formatTideHeight(extreme.feet)`) and `src/lib/units.ts:264-267` (metres under metric); `en.ts:1187` (`layers.wildfiresDetail`: "over 100 acres"), `:826` (`radar.terminalLine`: "{range} km reach"), `:1574` (`chrome.terminalRadar`: "TDWR · {range} km"), `:1725` (`popup.depth`: "Depth {km} km"), `:1235-1236` (`sounding.hodographNote`: "The wind through the lowest nine kilometres … Rings are ten knots apart", two fixed units in one sentence); the same in `es.ts` and `fr.ts`.
-      Problem: A metric reader sees "1,23 m" in the tide table with a note directly under it saying the predictions are in feet. The other five state a unit the reader did not choose while the value beside them, or elsewhere on the same panel, follows their choice. Knots for a hodograph is a convention worth keeping, and a note can say so; the rest are plain drift.
-      Evidence: Read on 2026-09-08. `formatTideHeight` converts under metric and the note is a fixed string.
-      Fix: Give `tides.note` a `{unit}` placeholder filled from `units.ts`, convert acres and the terminal radar's reach through the existing distance helpers, and format earthquake depth with `formatDistance`. Where a unit is deliberately fixed (the hodograph rings, the hail sizes an office publishes), say whose unit it is.
-      Acceptance: With `settings.units` metric, the Tides panel note names metres, the terminal radar line and the wildfire detail follow the setting, and the pseudolocale clipping test covers the changed keys.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-416 (P3): Translation drift the type gate cannot see: one usted in a tú catalogue, two collapsed terms, and spacing that changes per key
       Category: i18n

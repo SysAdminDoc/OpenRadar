@@ -205,6 +205,8 @@ export const en = {
   "units.feet": "ft",
   "units.inches": "in",
   "units.inchesLong": "inches",
+  "units.feetLong": "feet",
+  "units.metresLong": "metres",
   "units.mile": "mi",
   "history.trackPoint": "{kind} {knots} kt",
   "storm.status.TD": "Tropical depression",
@@ -829,7 +831,7 @@ export const en = {
   "radar.faultNotOperating":
     "The radar is not sweeping. The office reports it as {state}.",
   "radar.terminalLine":
-    "Terminal Doppler weather radar, {range} km reach · {source}",
+    "Terminal Doppler weather radar, {range} reach · {source}",
   "radar.terminalProducts":
     "An airport's terminal radar publishes reflectivity and velocity only, to 48 nautical miles, with a long range reflectivity to 225. The other products stay unavailable while it is held.",
   "radar.followMap": "Follow the map",
@@ -1199,7 +1201,8 @@ export const en = {
   "layers.title": "Layers",
   "layers.alertsDetail": "Official watches and warnings",
   "layers.earthquakesDetail": "USGS events above magnitude 2.5 in the past day",
-  "layers.wildfiresDetail": "NIFC perimeters over 100 acres",
+  "layers.wildfiresDetail":
+    "NIFC perimeters, over the hundred acres they publish",
   "layers.smokeDetail": "NOAA's hand-drawn analysis, once a day",
   "layers.forecastSmokeDetail":
     "Where the HRRR model expects smoke near the ground to go, hour by hour along the forecast tail",
@@ -1249,7 +1252,7 @@ export const en = {
     "Temperature and dewpoint against pressure. The isotherms lean right so the two traces separate; the thin curves behind them are dry adiabats, moist adiabats and mixing ratio.",
   "sounding.hodographLabel": "Hodograph of the wind through the column",
   "sounding.hodographNote":
-    "The wind through the lowest nine kilometres, plotted as it turns. Rings are ten knots apart and the dot is the ground.",
+    "The wind through the lowest nine kilometres, plotted as it turns. Rings are ten knots apart, the units a hodograph is always drawn in, and the dot is the ground.",
   "sounding.cape": "CAPE",
   "sounding.cin": "CIN",
   "sounding.lcl": "Cloud base (LCL)",
@@ -1589,7 +1592,7 @@ export const en = {
     "{degrees}° TILT · UNFOLDED · LIVE, {seconds} SEC OLD",
   "chrome.liveProduct": "LIVE PRODUCT",
   "chrome.behind": "BEHIND IT, {count} MIN OLD",
-  "chrome.terminalRadar": "TDWR · {range} km",
+  "chrome.terminalRadar": "TDWR · {range}",
   "chrome.extraScales": "Extra product scales",
   "chrome.wind": "Wind",
   "chrome.windReduced": "Held back because this device asks for less movement.",
@@ -1741,7 +1744,7 @@ export const en = {
   "popup.magnitude": "M {value} {place}",
   "popup.recorded": "Recorded {when}",
   "popup.timeUnknown": "Time unknown",
-  "popup.depth": "Depth {km} km",
+  "popup.depth": "Depth {distance}",
   "popup.depthUnknown": "Depth unknown",
   "popup.usgs": "Source: USGS",
   "popup.wildfire": "Wildfire",
@@ -2142,7 +2145,7 @@ export const en = {
   "tides.low": "Low",
   "tides.noneLeft": "Nothing more in the next three days.",
   "tides.note":
-    "Predictions from NOAA CO-OPS, in feet above mean lower low water, shown in your own time zone. Surge rides on top of these, so a storm arriving at high water reaches further.",
+    "Predictions from NOAA CO-OPS, in {unit} above mean lower low water, shown in your own time zone. Surge rides on top of these, so a storm arriving at high water reaches further.",
   "panel.guidance": "Guidance",
   "panel.sounding": "Sounding",
   "keywords.sounding":
