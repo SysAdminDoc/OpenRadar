@@ -6,6 +6,7 @@ import {
   cratesIn,
   hits,
   spellings,
+  unmetNeeds,
   verdict,
 } from "./advisories-lib.mjs";
 
@@ -46,23 +47,35 @@ describe("reading the lock", () => {
     // `version = 4` sits at the top of a v4 lock with no package above it,
     // and reading it as one would ask an advisory database about whatever
     // name happened to be left over from the file before.
-    const lock = ['version = "4"', "", "[[package]]", 'name = "only"', 'version = "1.0.0"'].join(
-      "\n",
-    );
+    const lock = [
+      'version = "4"',
+      "",
+      "[[package]]",
+      'name = "only"',
+      'version = "1.0.0"',
+    ].join("\n");
     expect(cratesIn(lock)).toEqual([{ name: "only", version: "1.0.0" }]);
   });
 
   it("does not carry a name past the package it belongs to", () => {
-    // A package with no version of its own must not take the next one's.
+    // A package with no version of its own must not take the next one's. The
+    // first version of this gave the second package a name too, so that name
+    // overwrote the first and the reset at `[[package]]` was never needed:
+    // taking the reset out left every test in this file green. The second
+    // package here has no name of its own, which is the only shape that needs
+    // it.
     const lock = [
       "[[package]]",
       'name = "first"',
       "",
       "[[package]]",
-      'name = "second"',
       'version = "2.0.0"',
+      "",
+      "[[package]]",
+      'name = "third"',
+      'version = "3.0.0"',
     ].join("\n");
-    expect(cratesIn(lock)).toEqual([{ name: "second", version: "2.0.0" }]);
+    expect(cratesIn(lock)).toEqual([{ name: "third", version: "3.0.0" }]);
   });
 });
 
@@ -103,6 +116,10 @@ describe("what the answers mean", () => {
   ]);
 
   it("finds an advisory that only the other spelling answers to", () => {
+    // Only an identifier comes back from a batch: `querybatch` answers with
+    // that and a modified time, and nothing else. The reply here carries a
+    // summary the way a real one does not, so the reading cannot come to
+    // depend on a field the service does not send.
     const found = hits(asked, [
       {},
       { vulns: [{ id: "GHSA-qwgh-2vcv-g2f7", summary: "cursor corruption" }] },
@@ -114,7 +131,6 @@ describe("what the answers mean", () => {
         version: "0.10.4",
         spelling: "block_buffer",
         id: "GHSA-qwgh-2vcv-g2f7",
-        summary: "cursor corruption",
       },
     ]);
   });
@@ -144,7 +160,7 @@ describe("the allowance", () => {
       ].join("\n"),
     );
     expect([...allowed.keys()]).toEqual(["GHSA-qwgh-2vcv-g2f7"]);
-    expect(allowed.get("GHSA-qwgh-2vcv-g2f7")).toContain("2027-03-01");
+    expect(allowed.get("GHSA-qwgh-2vcv-g2f7").reason).toContain("2027-03-01");
     expect(unexplained).toEqual([]);
   });
 
@@ -167,6 +183,57 @@ describe("the allowance", () => {
   });
 });
 
+describe("what an allowance rests on", () => {
+  it("reads the crates named after the identifier", () => {
+    const { allowed } = allowanceIn(
+      ["# Fixed by moving our own hashing.", "GHSA-one needs sha2 0.11"].join(
+        "\n",
+      ),
+    );
+    expect(allowed.get("GHSA-one").needs).toEqual([
+      { crate: "sha2", version: "0.11" },
+    ]);
+  });
+
+  it("matches a version as a prefix, so a patch is the same claim", () => {
+    const crates = [{ name: "sha2", version: "0.11.4" }];
+    expect(unmetNeeds([{ crate: "sha2", version: "0.11" }], crates)).toEqual(
+      [],
+    );
+    expect(
+      unmetNeeds([{ crate: "sha2", version: "0.12" }], crates),
+    ).toHaveLength(1);
+    expect(unmetNeeds([{ crate: "gone", version: "" }], crates)).toHaveLength(
+      1,
+    );
+  });
+
+  it("stands an allowance down when what it rests on has gone", () => {
+    // The failure this exists for. An advisory allowed for on the strength of
+    // a fix stays allowed for after the fix is reverted, because its own
+    // identifier, crate and version have not moved: what moved is the tree
+    // around it. Putting this app's hashing back on sha2 0.10 restored the
+    // reachable position the entry says was fixed, and the run stayed green.
+    const found = [
+      { crate: "block-buffer", id: "GHSA-one", version: "0.10.4" },
+    ];
+    const allowed = new Map([
+      [
+        "GHSA-one",
+        {
+          reason: "we moved off it",
+          needs: [{ crate: "sha2", version: "0.11" }],
+        },
+      ],
+    ]);
+    const held = verdict(found, allowed, [{ name: "sha2", version: "0.11.0" }]);
+    expect(held.unexplained).toEqual([]);
+    const gone = verdict(found, allowed, [{ name: "sha2", version: "0.10.9" }]);
+    expect(gone.unexplained.map((one) => one.id)).toEqual(["GHSA-one"]);
+    expect([...gone.voided.keys()]).toEqual(["GHSA-one"]);
+  });
+});
+
 describe("the verdict", () => {
   const found = [
     { crate: "block-buffer", id: "GHSA-known", version: "0.10.4" },
@@ -176,7 +243,7 @@ describe("the verdict", () => {
   it("fails on an advisory nobody has written a reason for", () => {
     const { unexplained, explained } = verdict(
       found,
-      new Map([["GHSA-known", "why"]]),
+      new Map([["GHSA-known", { reason: "why" }]]),
     );
     expect(unexplained.map((one) => one.id)).toEqual(["GHSA-new"]);
     expect(explained.map((one) => one.id)).toEqual(["GHSA-known"]);
@@ -186,8 +253,8 @@ describe("the verdict", () => {
     const { unexplained } = verdict(
       found,
       new Map([
-        ["GHSA-known", "why"],
-        ["GHSA-new", "why"],
+        ["GHSA-known", { reason: "why" }],
+        ["GHSA-new", { reason: "why" }],
       ]),
     );
     expect(unexplained).toEqual([]);
@@ -199,9 +266,9 @@ describe("the verdict", () => {
     const { stale } = verdict(
       found,
       new Map([
-        ["GHSA-known", "why"],
-        ["GHSA-new", "why"],
-        ["GHSA-gone", "for a crate that was removed"],
+        ["GHSA-known", { reason: "why" }],
+        ["GHSA-new", { reason: "why" }],
+        ["GHSA-gone", { reason: "for a crate that was removed" }],
       ]),
     );
     expect(stale).toEqual(["GHSA-gone"]);

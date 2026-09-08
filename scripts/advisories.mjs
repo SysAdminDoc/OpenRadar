@@ -100,7 +100,11 @@ async function main() {
   if (process.stdout.isTTY) process.stdout.write(`${" ".repeat(40)}\r`);
 
   const found = hits(asked, results);
-  const { unexplained, explained, stale } = verdict(found, allowed);
+  const { unexplained, explained, stale, voided } = verdict(
+    found,
+    allowed,
+    crates,
+  );
 
   console.log(
     `${crates.length} crates, ${asked.length} questions, ${found.length} advisories.`,
@@ -110,16 +114,26 @@ async function main() {
       `  allowed  ${one.id}  ${one.crate} ${one.version} (filed as ${one.spelling})`,
     );
   }
+  for (const [id, missing] of voided) {
+    console.log(
+      `  VOID     ${id} is allowed for on the strength of ${missing
+        .map((one) => `${one.crate} ${one.version}`.trim())
+        .join(", ")}, which the lock no longer holds`,
+    );
+  }
   for (const id of stale) {
     console.log(
       `  stale    ${id} is allowed for and nothing in the tree answers to it any more`,
     );
   }
   for (const one of unexplained) {
+    // No summary line: `querybatch` answers with an identifier and a modified
+    // time and nothing else, so one was promised and could never be printed.
+    // Reading it needs a second call per advisory to `/v1/vulns/{id}`, which
+    // is a request per finding on a path that usually finds nothing.
     console.log(
       `  FOUND    ${one.id}  ${one.crate} ${one.version} (filed as ${one.spelling})`,
     );
-    if (one.summary) console.log(`           ${one.summary}`);
   }
 
   if (unexplained.length) {
