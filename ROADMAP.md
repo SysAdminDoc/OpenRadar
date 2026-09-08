@@ -356,13 +356,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P3
 
-- [ ] AUD-387 (P3): The unplaced share describes the newer half of a composite and none of a cross-section
-  Why: A live sweep is drawn as the volume in progress composited over the last finished one, and both halves go through the same unfolding. Only the newer half's report reaches the legend, so a reader looking at a composite whose older half is a third unplaced is told nothing about it. The cross-section drops the counts entirely and carries only whether anything was unfolded.
-  Evidence: `src-tauri/src/level2/draw.rs` destructures `under: Prepared` and never reads `under.unfolding`; `src-tauri/src/level2/section.rs:132` keeps only `dealiased |= ... .moved > 0` and `CrossSection` carries no share.
-  Touches: `src-tauri/src/level2/draw.rs` (take the larger of the two shares, or report them separately), `src-tauri/src/level2/section.rs` and `src/lib/crossSection.ts`, `src/panels/CrossSectionPanel.tsx`.
-  Acceptance: a composite whose older half is largely unplaced says so; the cross-section panel says it too; both pinned by a test with a planted field.
-  Complexity: S
-
 - [ ] AUD-388 (P3): `misplaced` is aggregated where the damage is per station
   Why: The refold contract asserts only aggregates across six stations, and one station can be badly wrong inside a green run. On 2026-09-07 KFWS moved 2,247 gates that never folded onto a foreign branch while putting only 568 folded gates back, and the contract passed. A per-station relation between the two is the shape that would have caught it, and it is the measure that separates a wrong boundary vote from a wrong wind placement.
   Evidence: the live run of `unfolding_a_live_velocity_sweep_takes_the_folds_out` on 2026-09-07 evening; `src-tauri/src/level2/decode_tests.rs`, where `misplaced` is printed and not asserted, with the reasoning for that written in.
