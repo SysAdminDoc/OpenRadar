@@ -532,16 +532,6 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
   Acceptance: All three are checked in both the light theme and the dark theme over a light basemap; removing any one of the three CSS selectors fails the spec.
   Complexity: S
 
-- [ ] AUD-372 (P3): Tropical advisory times are shown in the office's zone while every other clock is the reader's
-      Category: ux
-      Where: `src/lib/overlays/tropical.ts:94` (`advisoryDate: text(properties.advdate)`, the NHC string passed through), `src/panels/TropicalPanel.tsx:86-88` (`tropical.advisory` rendered with that string), `src/i18n/en.ts` `tropical.advisory`; compare `src/panels/TidesPanel.tsx`, whose note says times are shown in the reader's own zone, and `formatClock` in `src/lib/units.ts`.
-      Problem: The Tropical panel reads "Advisory 47 · 1100 AM HST Mon Sep 07 2026" and "Advisory 27 · 200 PM PDT Mon Sep 07 2026" beside a timeline, a tide table and a diagnostics log that all show the reader's local time. A reader in Florida has to convert Hawaii time to know whether the advisory is an hour old or six.
-      Evidence: Observed on 2026-09-07 in the light theme (`audit-shots/audit-light-tropical.jpeg`); the string is the raw `advdate` property.
-      Fix: Parse `advdate` (NHC's fixed form: `HHMM AM|PM ZONE Www Mmm DD YYYY`, with a small table for HST, PDT, PST, MDT, MST, CDT, CST, EDT, EST, AST) into a timestamp in `tropical.ts`, render it with `formatClock` in the reader's zone, and keep the office's own string in the popup title so the source of record is still quoted. A parser test over each zone string, and a fallback to the raw string when parsing fails.
-      Acceptance: The panel shows the advisory time in the reader's zone with the same clock format as the tide table; the raw string is still reachable; the parser test covers every zone the NHC uses.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-373 (P3): Five native form controls render as bare operating-system widgets inside styled panels
       Category: visual
       Where: `src/panels/UtilityPanels.tsx:70-77` (`<input type="file">` in the Upload dropzone, drawn as the browser's "Choose File / No file chosen"), `src/panels/RoutePanel.tsx:181` and `src/panels/RadarProductPanel.tsx:492` (`type="datetime-local"`), `src/panels/WatchSection.tsx:536` and `:558` (`type="time"`); `src/index.css` has no rule for any of them (`grep -n 'input\[type="file"\]\|datetime-local\|input\[type="time"\]' src/index.css` is empty).

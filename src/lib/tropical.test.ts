@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeStorms } from "./tropical";
+import { activeStorms, advisoryTime } from "./tropical";
 import { parseTropicalLayer, stormCategory } from "./overlays/tropical";
 import type { OverlayData } from "./overlays";
 
@@ -191,5 +191,98 @@ describe("the advisory address", () => {
       if (!url) continue;
       expect(new URL(url).origin, bin).toBe("https://www.nhc.noaa.gov");
     }
+  });
+});
+
+describe("when an advisory was issued", () => {
+  // Every other clock in the app is the reader's own, and this one was the
+  // forecast office's: "Advisory 47 · 1100 AM HST Mon Sep 07 2026" beside a
+  // timeline and a tide table both showing local time. A reader in Florida
+  // had to convert Hawaii time to know whether it was an hour old or six.
+  it("reads the sentence the office stamps on it", () => {
+    // 11:00 in Hawaii is 21:00 UTC.
+    expect(advisoryTime("1100 AM HST Mon Sep 07 2026")).toBe(
+      Date.UTC(2026, 8, 7, 21, 0),
+    );
+    // And an afternoon one with no leading zero on the hour.
+    expect(advisoryTime("200 PM PDT Mon Sep 07 2026")).toBe(
+      Date.UTC(2026, 8, 7, 21, 0),
+    );
+  });
+
+  it("knows every zone the office writes", () => {
+    // Each of these is a zone the Atlantic or one of the Pacific basins
+    // stamps its advisories with. A browser's own date parser reads some of
+    // them on some engines and "HST" on none, which is why the table is here.
+    const offsets: Array<[string, number]> = [
+      ["AST", -4],
+      ["EDT", -4],
+      ["EST", -5],
+      ["CDT", -5],
+      ["CST", -6],
+      ["MDT", -6],
+      ["MST", -7],
+      ["PDT", -7],
+      ["PST", -8],
+      ["AKDT", -8],
+      ["AKST", -9],
+      ["HST", -10],
+      ["SST", -11],
+      ["ChST", 10],
+      ["UTC", 0],
+      ["GMT", 0],
+    ];
+    for (const [zone, offset] of offsets) {
+      expect(
+        advisoryTime(`900 AM ${zone} Tue Sep 08 2026`),
+        `${zone} is a zone the office uses`,
+      ).toBe(Date.UTC(2026, 8, 8, 9 - offset, 0));
+    }
+  });
+
+  it("gets noon and midnight the right way round", () => {
+    expect(advisoryTime("1200 AM UTC Mon Sep 07 2026")).toBe(
+      Date.UTC(2026, 8, 7, 0, 0),
+    );
+    expect(advisoryTime("1200 PM UTC Mon Sep 07 2026")).toBe(
+      Date.UTC(2026, 8, 7, 12, 0),
+    );
+  });
+
+  it("says nothing rather than guessing", () => {
+    // A sentence it cannot read leaves the office's own words on screen,
+    // which is the honest answer and what a reader saw before any of this.
+    for (const said of [
+      "",
+      "Advisory 47",
+      "1100 AM XYZ Mon Sep 07 2026",
+      "1100 AM HST Mon Zzz 07 2026",
+      "1370 AM UTC Mon Sep 07 2026",
+      "1100 HST Mon Sep 07 2026",
+      "0000 AM UTC Mon Sep 07 2026",
+    ]) {
+      expect(
+        advisoryTime(said),
+        `${said || "an empty string"} is not a time`,
+      ).toBeNull();
+    }
+  });
+
+  it("reaches the storm the panel draws", () => {
+    // Sorted by wind, so the one carrying an advisory is not the first.
+    const storm = activeStorms(points()).find((one) =>
+      one.name.includes("Lowell"),
+    );
+    expect(storm?.advisoryDate).toBe("500 PM HST Sat Aug 29 2026");
+    // Five in the afternoon in Hawaii is three the next morning in UTC.
+    expect(storm?.advisoryAt).toBe(Date.UTC(2026, 7, 30, 3, 0));
+  });
+
+  it("leaves a storm with no advisory sentence with nothing to show", () => {
+    const storm = activeStorms(points()).find((one) =>
+      one.name.includes("Karina"),
+    );
+    expect(storm?.advisoryDate).toBe("");
+    expect(storm?.advisoryAt).toBeNull();
   });
 });
