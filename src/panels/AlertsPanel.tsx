@@ -8,7 +8,7 @@ import {
   type OverlayBounds,
   type OverlayData,
 } from "../lib/overlays";
-import type { AlertSeverity } from "../lib/overlays/alerts";
+import type { AlertSeverity } from "../lib/alertSeverity";
 import { translate, useT } from "../i18n";
 import { calmAdvice } from "../lib/calm";
 import { safePopupUrl } from "../lib/mapPopup";

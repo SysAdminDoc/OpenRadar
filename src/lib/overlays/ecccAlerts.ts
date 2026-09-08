@@ -1,6 +1,10 @@
 import type { OverlayBounds, OverlayFeature } from "./registry";
 import { alertType } from "../alertTypes";
-import { alertSeverity, SEVERITY_RANK, type AlertSeverity } from "./alerts";
+import {
+  alertSeverity,
+  SEVERITY_RANK,
+  type AlertSeverity,
+} from "../alertSeverity";
 
 /**
  * Public weather alerts for Canada, from Environment and Climate Change

@@ -162,13 +162,20 @@ function resolveImport(from: string, where: string): string | null {
 const named = (path: string) => relative(ROOT, path).replace(/\\/g, "/");
 
 /**
- * Every import ring the given file sits in, each named by its members.
+ * Every import ring in `src/`, each named by its members.
  *
- * Tarjan over the whole of `src/`, because a ring is a property of the graph
- * rather than of any one file: the edge that closes it is usually somewhere
- * else entirely, and reading a single module's imports can never see it.
+ * Tarjan over the whole tree, because a ring is a property of the graph rather
+ * than of any one file: the edge that closes it is usually somewhere else
+ * entirely, and reading a single module's imports can never see it.
+ *
+ * This was scoped to rings holding `settings.ts` when it was written, which
+ * meant it computed every one of them and reported one. There was another,
+ * three modules wide, sitting there the whole time: the American alerts
+ * adapter imports the Canadian and German ones to fold their warnings in, and
+ * both of those imported the severity vocabulary back out of it. It worked for
+ * the same reason the settings ring did, which is no reason at all.
  */
-function ringsThrough(file: string): string[][] {
+function everyRing(): string[][] {
   const edges = new Map<string, string[]>();
   const walk = (from: string) => {
     if (edges.has(from)) return;
@@ -214,12 +221,10 @@ function ringsThrough(file: string): string[][] {
     }
     // A component of one is a module, not a ring, unless it imports itself.
     const cyclic = component.length > 1 || (edges.get(at) ?? []).includes(at);
-    if (cyclic && component.includes(file)) {
-      rings.push(component.map(named).sort());
-    }
+    if (cyclic) rings.push(component.map(named).sort());
   };
   for (const node of edges.keys()) if (!index.has(node)) visit(node);
-  return rings;
+  return rings.sort((left, right) => left[0].localeCompare(right[0]));
 }
 
 describe("what may import what", () => {
@@ -331,19 +336,19 @@ describe("what may import what", () => {
     ).toEqual([]);
   });
 
-  it("leaves settings out of every import ring", () => {
+  it("closes no import ring anywhere", () => {
     // The two rules above are about single edges, and neither catches a ring
     // that goes round the long way. `settings.ts` reached an overlay adapter
     // directly on 2026-09-04, that edge was taken out, and the same ring was
     // still closed a hop longer through `watch.ts`, which imports the alerts
     // adapter, which imports the tile cache, which imports `settings.ts`.
     // Nothing said so, because nothing was looking at the graph.
-    const cycles = ringsThrough(join(ROOT, "lib", "settings.ts"));
     expect(
-      cycles,
-      "these modules and settings.ts import each other in a ring that " +
-        "evaluates at runtime, so whether it works depends on the order the " +
-        "bundler picks. Put what settings.ts needs in a leaf of its own.",
+      everyRing(),
+      "these modules import each other in a ring that evaluates at runtime, " +
+        "so whether it works depends on the order the bundler picks. Put what " +
+        "they share in a leaf of its own, the way spcHazards.ts, runtime.ts " +
+        "and alertSeverity.ts are.",
     ).toEqual([]);
   });
 });

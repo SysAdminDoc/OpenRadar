@@ -587,16 +587,6 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
 
 ### P2
 
-- [ ] AUD-403 (P2): A three-module ring survives, and the ring rule is scoped so it cannot report it
-      Category: correctness
-      Where: `src/lib/overlays/alerts.ts:13-14`, `src/lib/overlays/ecccAlerts.ts:3`, `src/lib/overlays/dwdWarnings.ts:3`; `src/lib/layering.test.ts`, the `component.includes(file)` filter.
-      Problem: `alerts.ts` value-imports both siblings and each imports `alertSeverity` or `SEVERITY_RANK` back, so the three of them close a ring. It works only because `SEVERITY_RANK` is read inside functions rather than at module scope, which is the same "works until the bundler picks a different order" property the gate's own docblock is about. The ring finder already computes every cyclic component and then throws away all but the one holding `settings.ts`, so this can never be reported. The commit that moved `isDesktopRuntime` also claimed the move "takes all twenty-four modules out of the ring at once"; it took twenty-one out and left three, and the changelog's "two dozen modules stop depending on each other in a circle" inherits that.
-      Evidence: The gate's own `ringsThrough` with the filter removed, run on 2026-09-08: at `ca36e7a` one component of 24; at `ddebfd1` one component of 3, `lib/overlays/{alerts,dwdWarnings,ecccAlerts}.ts`.
-      Fix: Move `SEVERITY_RANK` and `alertSeverity` into a leaf beside `alertTypes.ts`, then widen the rule to report every cyclic component in `src/` rather than only the one holding `settings.ts`. Correct the changelog entry.
-      Acceptance: The ring finder reports no cyclic component anywhere in `src/`; putting any one of the three edges back fails it; `npm run check` green.
-      Confidence: Verified
-      Effort: M
-
 - [ ] AUD-405 (P2): The control-dressing check passes on three kinds of undressed control
       Category: testing
       Where: `e2e/support/fixtures.ts`, `wearsTheApp`.

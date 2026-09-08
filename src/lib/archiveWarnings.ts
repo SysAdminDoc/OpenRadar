@@ -1,10 +1,6 @@
 import { alertType } from "./alertTypes";
-import {
-  alertSeverity,
-  IMPACT_RANK,
-  SEVERITY_RANK,
-  type ImpactTag,
-} from "./overlays/alerts";
+import { IMPACT_RANK, type ImpactTag } from "./overlays/alerts";
+import { alertSeverity, SEVERITY_RANK } from "./alertSeverity";
 import type { OverlayData } from "./overlays";
 
 /**

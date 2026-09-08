@@ -37,7 +37,7 @@ export function overlayAdapter(id: OverlayId): OverlayAdapter {
   return adapter;
 }
 
-export { alertSeverity, SEVERITY_COLOR, SEVERITY_RANK } from "./alerts";
+export { alertSeverity, SEVERITY_COLOR, SEVERITY_RANK } from "../alertSeverity";
 export { stormCategory, type TropicalKind } from "./tropical";
 export { parseDiscussions, parseOutlooks, outlookTime } from "./spc";
 export { parseReports, REPORT_HOURS } from "./reports";

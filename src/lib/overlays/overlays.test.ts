@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_OVERLAY_CHOICES } from "./registry";
 import {
-  alertSeverity,
   alertWidths,
   alertsOverlay,
   parseAlertTags,
   parseAlerts,
   resetAlertTags,
 } from "./alerts";
+import { alertSeverity } from "../alertSeverity";
 import { earthquakesOverlay, parseEarthquakes } from "./earthquakes";
 import { parseWildfires, wildfiresOverlay } from "./wildfires";
 import {

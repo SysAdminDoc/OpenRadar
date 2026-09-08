@@ -15,7 +15,7 @@ import {
 } from "./sound";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { SEVERITY_RANK } from "./overlays/alerts";
+import { SEVERITY_RANK } from "./alertSeverity";
 import { DEFAULT_SETTINGS } from "./settings";
 
 /** A stand-in for the browser's audio, counting what was asked of it. */
