@@ -1029,9 +1029,11 @@ test("hides the weak returns when the reader asks and puts them back", async ({
   await open(page, 9);
   await page.getByRole("button", { name: /Composite Radar|KDMX/ }).click();
 
-  const slider = page.getByRole("slider", {
-    name: "Hide readings below this value",
-  });
+  // Exactly, because the mosaic's own threshold is "Hide below, on the mosaic"
+  // and a substring match would find both. The name used to be "Hide readings
+  // below this value" while the label beside it read "Hide below", so saying
+  // the words in front of you reached nothing; the label is the name now.
+  const slider = page.getByRole("slider", { name: "Hide below", exact: true });
   // The mosaic has a threshold of its own and reads the same when it is off,
   // so this has to be the readout beside this slider rather than any.
   const readout = page
