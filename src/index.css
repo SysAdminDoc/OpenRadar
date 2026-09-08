@@ -4819,17 +4819,32 @@ input[type="range"]:disabled {
    at once is what `MAX_VISIBLE` allows and covers about 210 pixels, so with a
    right-hand panel open they landed over its eyebrow, its title and its first
    section: with Nearby open the intro sentence and the warnings heading were
-   under them, with Alerts open the panel's own title was. Their own lead over
-   the zoom stack is kept rather than being moved to the same place as it, the
-   way the compare card and the readout keep theirs. */
-:root:not([data-narrow~="680"])
-  .app-shell[data-panel-side="right"]
-  .toast-host {
-  right: calc(var(--panel-width) + 64px);
-  width: max(
-    240px,
-    min(360px, calc(var(--screen-width) - var(--panel-width) - 96px))
-  );
+   under them, with Alerts open the panel's own title was.
+
+   Written as one rule for every width rather than as a rule and a reset, and
+   the reason is two failed attempts. A reset in a raw `@media` block does not
+   agree with `data-narrow`, which is the viewport divided by the text scale,
+   so at 130 per cent the two disagreed over eighty pixels of width and the
+   host came out at 78 across. Standing the rule down on `data-narrow` instead
+   put it over the panel's own title across that same band, because the panel
+   only goes full width under a further condition of its own and is an
+   ordinary side panel there.
+
+   So: beside the panel wherever a readable toast fits, and over it where one
+   does not, because a toast pushed off the screen says nothing at all. The
+   `right` is capped at what leaves the narrowest readable host on screen, and
+   the width has the same floor. Both are worked out against the shell's own
+   width rather than against `--screen-width`, which is the viewport divided
+   by the text scale: mixing the two put the host six pixels off the left edge
+   at 130 per cent.
+
+   One case this cannot reach: below about 700 device pixels at 130 per cent
+   the shell itself is wider than the window, and everything positioned inside
+   it goes off the left edge with it. That is `AUD-435` and predates this
+   rule; a box cannot stay inside a container that does not. */
+.app-shell[data-panel-side="right"] .toast-host {
+  right: max(8px, min(calc(var(--panel-width) + 64px), calc(100% - 248px)));
+  width: max(240px, min(360px, calc(100% - var(--panel-width) - 96px)));
 }
 
 /* The two that were left off the list above and were drawn under the panel:

@@ -588,7 +588,7 @@ export const es: Catalogue = {
     "Los informes de tormenta vienen del servicio meteorológico y no del archivo habitual, que no respondió.",
   "toast.sharedViewPartly":
     "Se abrió la vista compartida. Mencionaba un radar o producto que esta versión no tiene, así que esa parte se dejó como estaba.",
-  "service.busy": "está ocupado",
+  "service.busy": "no da abasto",
   "service.notFound": "no encontró nada",
   "service.tooMany": "ha recibido demasiadas consultas",
   "service.refused": "se negó a responder",
@@ -1223,7 +1223,7 @@ export const es: Catalogue = {
   "layers.earthquakesDetail":
     "Sismos del USGS de magnitud mayor a 2.5 en el último día",
   "layers.wildfiresDetail":
-    "Perímetros del NIFC, de más de los cien acres que publican",
+    "Perímetros del NIFC, desde los cien acres que publica",
   "layers.smokeDetail": "El análisis a mano de la NOAA, una vez al día",
   "layers.forecastSmokeDetail":
     "Adónde espera el modelo HRRR que vaya el humo cerca del suelo, hora a hora a lo largo de la cola de pronóstico",

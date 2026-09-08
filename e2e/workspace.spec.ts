@@ -1347,7 +1347,11 @@ test("a toast stays readable when the whole workspace is drawn larger", async ({
     );
   });
 
-  for (const width of [900, 800]) {
+  // Both sides of the narrow edge, and the band the first two attempts got
+  // wrong in opposite directions: 884 is where a raw media query stopped
+  // agreeing with `data-narrow`, and where standing the rule down on
+  // `data-narrow` instead put the host over the panel's own title.
+  for (const width of [900, 884, 800]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/?testMode=1");
     await expect(page.getByRole("application")).toBeVisible();
@@ -1373,22 +1377,14 @@ test("a toast stays readable when the whole workspace is drawn larger", async ({
       `at ${width} the host has collapsed to ${Math.round(over!.width)}`,
     ).toBeGreaterThanOrEqual(240);
 
-    if ((narrow ?? "").split(" ").includes("680")) {
-      // Below the narrow edge the panel covers the map and the toasts span
-      // the width over it, which is what the layout has always done. The
-      // panel-aware rule has to stand down here, and the two hundred and
-      // forty pixel floor alone would not make it: a host capped at 360 in
-      // this layout is the regression, not the fix.
-      expect(
-        over!.width,
-        `at ${width} the host is ${Math.round(over!.width)} of ${width} rather than spanning it`,
-      ).toBeGreaterThan(width - 120);
-    } else {
-      expect(
-        over!.x + over!.width <= under!.x + 0.5,
-        `at ${width} the toast ${JSON.stringify(over)} runs into the panel ${JSON.stringify(under)}`,
-      ).toBe(true);
-    }
+    // Beside the panel at every one of these, whatever `data-narrow` says:
+    // the panel is an ordinary side panel here and there is room for a
+    // readable toast next to it.
+    expect(
+      over!.x + over!.width <= under!.x + 0.5,
+      `at ${width} the toast ${JSON.stringify(over)} runs into the panel ${JSON.stringify(under)}`,
+    ).toBe(true);
+    void narrow;
   }
 });
 
@@ -1404,11 +1400,14 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
     ["es", es],
     ["fr", fr],
   ] as const) {
-    // Set on the page rather than through `addInitScript`, which stacks: a
-    // script added inside a loop runs again on every later navigation, and
-    // three of these only agreed because they wrote the same key.
-    await page.goto("/?testMode=1");
-    await page.evaluate((which: string) => {
+    // An init script rather than a poke after the load, and the stacking is
+    // the point rather than a flaw: Playwright runs them in registration
+    // order, so the language this iteration asks for is the last one written
+    // and wins. Poking `localStorage` after the page is up races the
+    // workspace's own debounced persist, which writes the settings it already has
+    // back over it: measured, the French iteration came up in Spanish and the
+    // panel button could not be found by name.
+    await page.addInitScript((which: string) => {
       window.localStorage.setItem(
         "openradar.settings",
         JSON.stringify({
@@ -1420,7 +1419,7 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
         }),
       );
     }, language);
-    await page.reload();
+    await page.goto("/?testMode=1");
     await expect(page.getByRole("application")).toBeVisible();
     // Named out of the catalogue rather than in English, because the button
     // this opens from is translated like everything else.
@@ -1454,15 +1453,17 @@ test("the map style cards do not wrap into ragged rows", async ({ page }) => {
     expect(measured.firstSpans, language).toBe(true);
     // And every pair under it stands within a line of the pair beside it. A
     // line of the detail type is fourteen pixels.
-    expect(
-      measured.tallest - measured.shortest,
-      `${language}: cards run ${measured.shortest} to ${measured.tallest}`,
-    ).toBeLessThanOrEqual(14);
-    // The rows are levelled by giving every one the height of the tallest
-    // card, so one card's copy growing a line grows the whole section while
-    // the spread above stays at zero. A ceiling is what sees that: two title
-    // lines and two detail lines with the card's own padding is about ninety,
-    // and the longest of the three languages measures 76.
+    // No spread assertion here, and its absence is deliberate: the grid gives
+    // every row the height of its tallest card, so the spread is zero by
+    // construction and an assertion on it could never fail. What that levelling
+    // costs is that one card's copy growing a line grows the whole section, and
+    // a ceiling is what sees that.
+    //
+    // Ninety-six is a statement about the default text scale, which is what
+    // this test runs at: two title lines and two detail lines with the card's
+    // own padding, against a measured 60 in English, 74 in Spanish and 76 in
+    // French. At 130 per cent the same cards measure 78, 96 and 99, so a
+    // ceiling that covered every scale would be too loose to catch anything.
     expect(
       measured.tallest,
       `${language}: every card stands ${measured.tallest} tall`,

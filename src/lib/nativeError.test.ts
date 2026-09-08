@@ -181,6 +181,52 @@ describe("a failure the native side blamed on a service", () => {
     }
   });
 
+  it("keeps the five phrases as they were checked against every subject", () => {
+    // A regex cannot see agreement. "está ocupado" and "est occupé" were
+    // right after "el servidor de teselas" and wrong after "la búsqueda de
+    // lugares", "l'analyse de fumée", "la prévision" and "l'archive des
+    // avertissements", every one of which completes with one of these; the
+    // pronoun rule above looks for an object and saw none of it.
+    //
+    // So the phrases are pinned instead. Each was rendered after all twelve
+    // subjects in the tree that end with `{answer}` or `{0}` and read for
+    // agreement, and none of them now carries a gender at all. Changing one
+    // fails here, which is the point: the next person has to do that reading
+    // again rather than write a phrase that agrees with the subject they
+    // happened to be looking at.
+    expect({
+      es: {
+        busy: es["service.busy"],
+        notFound: es["service.notFound"],
+        tooMany: es["service.tooMany"],
+        refused: es["service.refused"],
+        unexpected: es["service.unexpected"],
+      },
+      fr: {
+        busy: fr["service.busy"],
+        notFound: fr["service.notFound"],
+        tooMany: fr["service.tooMany"],
+        refused: fr["service.refused"],
+        unexpected: fr["service.unexpected"],
+      },
+    }).toEqual({
+      es: {
+        busy: "no da abasto",
+        notFound: "no encontró nada",
+        tooMany: "ha recibido demasiadas consultas",
+        refused: "se negó a responder",
+        unexpected: "respondió de una forma que no se pudo leer",
+      },
+      fr: {
+        busy: "ne suit plus",
+        notFound: "n'a rien trouvé",
+        tooMany: "a reçu trop de demandes",
+        refused: "a refusé de répondre",
+        unexpected: "a répondu d'une manière illisible",
+      },
+    });
+  });
+
   it("has a sentence for the failures that carry no status", () => {
     // A machine with no network, a host off the allowlist, and a reply larger
     // than the reader is going to be handed. None of them is a service saying

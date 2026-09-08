@@ -299,6 +299,30 @@ function plural(template: string, params: Params, which: LanguageId): string {
  * same in every language and a sentence assembled by concatenation cannot be
  * translated at all.
  */
+/**
+ * Keys already reported, so a missing one is said once and not once a render.
+ *
+ * `translate` is called during render and `log.warn` notifies the log's own
+ * subscribers synchronously; the workspace holds one through
+ * `useSyncExternalStore` over a snapshot whose identity changes on every
+ * write. Warning from here therefore rendered, warned, re-rendered and warned
+ * again, which turned a missing key from one thrown error into an unbounded
+ * loop and `Maximum update depth exceeded`: worse than the crash it replaced,
+ * and on the desktop an IPC on every turn of it.
+ *
+ * Bounded by the key, and deferred out of the render pass, so the first call
+ * for a key writes one line after the paint and every call after it writes
+ * nothing.
+ */
+const reported = new Set<string>();
+
+function reportMissing(key: StringKey): void {
+  const named = String(key);
+  if (reported.has(named)) return;
+  reported.add(named);
+  queueMicrotask(() => log.warn("i18n", `No catalogue has ${named}.`));
+}
+
 export function translate(
   key: StringKey,
   params?: Params,
@@ -316,7 +340,7 @@ export function translate(
   // named a key removed the same day.
   const template = catalogue(which)[key] ?? en[key];
   if (template === undefined) {
-    log.warn("i18n", `No catalogue has ${String(key)}.`);
+    reportMissing(key);
     return String(key);
   }
   if (!params) return template;

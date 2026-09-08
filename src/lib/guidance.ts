@@ -92,10 +92,14 @@ export interface GuidanceReading {
    * prints: that comes from `variableUnit` and this app's own vocabulary.
    *
    * Kept because it is the only record of whether the service honoured the
-   * system the request asked for. `the request asks for the units the reader
-   * is in` holds it against `forecastUnits()`, and a reply that ignored the
-   * parameter would put the numbers a conversion away from their labels with
-   * nothing else in the tree able to notice.
+   * system the request asked for: a reply that ignored the parameter would
+   * put the numbers a conversion away from their labels, and nothing else in
+   * the tree could notice.
+   *
+   * Nothing holds it to `forecastUnits()` today. The live test that reads it
+   * asserts a fixed "°C" beside a `setUnits("metric")` in its own setup, and
+   * it only runs under `OPENRADAR_LIVE`, so the coupling is two constants
+   * that happen to agree rather than a check. Writing that check is `AUD-436`.
    */
   unit: string;
   hours: GuidanceHour[];
