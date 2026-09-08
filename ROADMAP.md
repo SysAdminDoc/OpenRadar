@@ -585,16 +585,6 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
 
 ### P1
 
-- [ ] AUD-402 (P1): The layering gate is walked past by a file extension
-      Category: correctness
-      Where: `src/lib/layering.test.ts`, `resolveImport`.
-      Problem: The resolver only tries the specifier plus `.ts`, `.tsx`, `/index.ts` and `/index.tsx`. A specifier that already carries an extension resolves to nothing, the edge is dropped before either rule or the ring finder sees it, and the gate says nothing. `import { APP_VERSION } from "./settings.js"` in `tileCache.ts` closes the ring the gate exists to stop, compiles under `tsc -b`, builds under Vite and ships, with all six tests green. The same hole defeats the second rule: `lib/units.ts` importing `"../hooks/useClock.js"` passes where `"../hooks/useClock"` fails.
-      Evidence: Measured on 2026-09-08 in a copy of the tree. With the `.js` spelling: `Tests 6 passed`, `tsc -b` OK, `vite build` OK. With the plain spelling: the ring rule fails and names both modules.
-      Fix: Add the specifier itself to the candidate list and strip a known extension before probing, so `./settings.js`, `./settings.ts` and `./settings` all land on the same file.
-      Acceptance: Each of `./settings.js`, `../hooks/useClock.js` and a bare `./settings` planted in turn fails the gate; the tree stays green with none of them.
-      Confidence: Verified
-      Effort: S
-
 ### P2
 
 - [ ] AUD-403 (P2): A three-module ring survives, and the ring rule is scoped so it cannot report it

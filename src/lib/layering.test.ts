@@ -122,19 +122,31 @@ function valueImports(source: string, path: string): string[] {
 /**
  * Where a specifier lands, or null when it leaves the tree.
  *
- * Bundler resolution, which is what Vite uses: no extension in the source, and
- * a directory means its `index`.
+ * Bundler resolution, which is what Vite uses: usually no extension in the
+ * source, and a directory means its `index`.
+ *
+ * A specifier may carry an extension all the same, and the first version of
+ * this could not see one. `import { APP_VERSION } from "./settings.js"` in
+ * `tileCache.ts` closes the ring this whole file exists to stop; it type-checks
+ * under `tsc -b`, it builds under Vite, it ships, and because `settings.js.ts`
+ * does not exist the edge was dropped before either rule or the ring finder
+ * saw it. One extra candidate and one strip is the difference between a gate
+ * and a gate anybody can walk round by writing four characters.
  */
 function resolveImport(from: string, where: string): string | null {
   if (!where.startsWith(".")) return null;
   const base = resolve(dirname(from), where);
+  const bare = base.replace(/\.(?:[cm]?[jt]sx?)$/, "");
   for (const candidate of [
-    `${base}.ts`,
-    `${base}.tsx`,
-    join(base, "index.ts"),
-    join(base, "index.tsx"),
+    base,
+    `${bare}.ts`,
+    `${bare}.tsx`,
+    join(bare, "index.ts"),
+    join(bare, "index.tsx"),
   ]) {
-    if (existsSync(candidate)) return candidate;
+    // A file, not a directory: `./overlays` names one and would otherwise
+    // answer for itself before its own `index` was tried.
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
   }
   return null;
 }
@@ -253,6 +265,31 @@ describe("what may import what", () => {
       "probe.ts",
     );
     expect(seen).toEqual(["./mixed", "./default-beside-a-type"]);
+  });
+
+  it("lands a specifier that carries its own extension", () => {
+    // Four characters were the whole of the way round this gate. `./x.js` is
+    // what the compiler tells you to write under some module settings, it
+    // resolves to `x.ts`, it type-checks and it ships, and reading it as a
+    // path that does not exist dropped the edge before any rule saw it.
+    const from = join(ROOT, "lib", "tileCache.ts");
+    const settings = join(ROOT, "lib", "settings.ts");
+    expect(resolveImport(from, "./settings")).toBe(settings);
+    expect(resolveImport(from, "./settings.js")).toBe(settings);
+    expect(resolveImport(from, "./settings.ts")).toBe(settings);
+
+    // A directory still means its own index rather than answering for itself.
+    expect(resolveImport(from, "./overlays")).toBe(
+      join(ROOT, "lib", "overlays", "index.ts"),
+    );
+    expect(resolveImport(from, "./overlays/index.js")).toBe(
+      join(ROOT, "lib", "overlays", "index.ts"),
+    );
+
+    // And something that is not there is still nothing, rather than a path
+    // that would quietly join the graph.
+    expect(resolveImport(from, "./not-a-module")).toBeNull();
+    expect(resolveImport(from, "@tauri-apps/api/core")).toBeNull();
   });
 
   it("keeps settings underneath the modules that read it", () => {
