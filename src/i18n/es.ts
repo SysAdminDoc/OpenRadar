@@ -590,6 +590,8 @@ export const es: Catalogue = {
   "service.refused": "lo rechazó",
   "service.unexpected": "respondió de una forma que no se pudo leer",
   "service.unreachable": "No se pudo llegar al servicio.",
+  "service.unreadable":
+    "El servicio respondió de una forma que esto no pudo leer.",
   "service.failed": "La consulta falló.",
   "route.routerRefused": "El servicio de rutas {answer}.",
   "route.straightOffer": "Usar una línea recta",

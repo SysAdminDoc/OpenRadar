@@ -37,9 +37,21 @@ export function serviceAnswer(status: number): string {
  * Chromium that is "Failed to fetch", in English, in every language the app
  * is read in, and WebView2 on another channel phrases it differently again.
  *
- * So the shape of the failure decides: a `TypeError` is the request never
- * reaching anybody, and any other `Error` is carrying a sentence this app
- * wrote and is used as it stands.
+ * So the shape of the failure decides, and it has to decide by class rather
+ * than by hope. "Any other `Error` carries a sentence this app wrote" is not
+ * true: a captive portal or a proxy that answers 200 with a login page makes
+ * `response.json()` throw a `SyntaxError`, and that one went straight through
+ * to the reader as `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`,
+ * in the paragraph that carries the life-safety line. The engine's error
+ * classes are a closed set and none of them is ever built by this app, which
+ * throws a plain `Error` everywhere it has something to say. So a plain
+ * `Error` is passed through and a subclass never is.
+ *
+ * The one case this cannot separate is a `TypeError` thrown by a bug in this
+ * app rather than by `fetch`, which will be reported as a service that could
+ * not be reached. There is nothing in the value to tell them apart, and of
+ * the two ways to be wrong, describing a bug as a network failure is the
+ * quieter one.
  *
  * The fallback is the panel's own words for a failure with nothing in it at
  * all, which is what a rejection from the native bridge looks like. Each
@@ -50,6 +62,23 @@ export function serviceAnswer(status: number): string {
  */
 export function failureSentence(failure: unknown, fallback?: string): string {
   if (failure instanceof TypeError) return translate("service.unreachable");
-  if (failure instanceof Error && failure.message) return failure.message;
+  // A body that is not what it claimed to be. The status was fine, so nothing
+  // upstream had anything to say about it, and the panel would otherwise
+  // print the parser's own words.
+  if (failure instanceof SyntaxError) return translate("service.unreadable");
+  if (isOwnError(failure) && failure.message) return failure.message;
   return fallback ?? translate("service.failed");
+}
+
+/**
+ * Whether a failure is carrying a sentence this app wrote.
+ *
+ * Every one of them is `new Error(...)` with a translated string in it, and
+ * nothing in `src/` extends `Error`. The engine's own failures are all
+ * subclasses, so the exact constructor is what separates them: a rule about
+ * the shape of the value rather than a list of the classes seen so far, which
+ * is what a `SyntaxError` walked through.
+ */
+function isOwnError(failure: unknown): failure is Error {
+  return failure instanceof Error && failure.constructor === Error;
 }
