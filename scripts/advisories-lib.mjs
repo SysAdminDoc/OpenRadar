@@ -196,9 +196,14 @@ function needsIn(words) {
  * 2026-09-08, but the mechanism was wrong.
  */
 export function unmetNeeds(needs, crates) {
+  // A component separator, a prerelease marker or build metadata all end a
+  // version component. `needs nexrad-model 1.0.0` has to hold against
+  // 1.0.0-rc.2, and `needs ndk-sys 0.6.0` against 0.6.0+11769913; both shapes
+  // are in this repository's own lock. Only a digit continuing the number is
+  // a different version, which is what `0.2` against 0.22.1 was.
   const holds = (version, wanted) =>
     version === wanted ||
-    (version.startsWith(wanted) && version[wanted.length] === ".");
+    (version.startsWith(wanted) && ".-+".includes(version[wanted.length]));
   return needs.filter(
     (one) =>
       !crates.some(

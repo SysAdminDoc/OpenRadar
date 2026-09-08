@@ -72,6 +72,14 @@ export function LazyPanel({
  * built out of it would take the focus, hand it on, and leave the real panel
  * recording the placeholder's heading as the control to return to when it
  * closes. This holds the box and says it is working, and moves nothing.
+ *
+ * Escape is not handled here. A first version of this had a keydown on the
+ * section, and the section is never focused, so nothing could ever reach it:
+ * what actually closes a panel on Escape is the window listener in `App.tsx`,
+ * for the placeholder exactly as for the panel. The button is the pointer's
+ * way out. One narrow case is left: a reader who tabs onto that button while
+ * the chunk loads gives the arriving panel a disconnected opener to return
+ * focus to, so Escape lands them on the body rather than on the rail button.
  */
 function PanelPlaceholder({
   title,
@@ -92,13 +100,6 @@ function PanelPlaceholder({
       // matches the arrived panel and the placeholder could stop existing
       // without anything noticing.
       data-panel-waiting="true"
-      // Escape closes it the way it closes the panel that is coming. A chunk
-      // that never arrives must not be a box with no way out of it.
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.stopPropagation();
-        onClose();
-      }}
     >
       <header className="surface-panel__header">
         <div>
