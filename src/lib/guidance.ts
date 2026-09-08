@@ -16,6 +16,7 @@ import { serviceAnswer } from "./serviceAnswer";
 import { translate, type StringKey } from "../i18n";
 import type { GeoPoint } from "./geo";
 import {
+  MILES_TO_KM,
   forecastUnits,
   isMetric,
   precipitationUnit,
@@ -116,7 +117,53 @@ export function expectedUnitToken(
 ): string | null {
   const parameter = ASKED_FOR[variable];
   const wanted = parameter ? asked[parameter] : undefined;
-  return (wanted && ANSWERS_WITH[wanted]) ?? null;
+  // Not `??`, which lets an empty asked-unit through as the empty string
+  // against a signature promising null.
+  return (wanted && ANSWERS_WITH[wanted]) || null;
+}
+
+/**
+ * Moving a reading from the unit the service used into the one asked for.
+ *
+ * Between the six tokens a request can ask for, and no further: these are the
+ * only systems the app can put in the URL, so they are the only ones a reply
+ * can disagree with it in.
+ */
+const CONVERSIONS: Record<string, (value: number) => number> = {
+  "°C>°F": (celsius) => celsius * 1.8 + 32,
+  "°F>°C": (fahrenheit) => (fahrenheit - 32) / 1.8,
+  "km/h>mp/h": (kmh) => kmh / MILES_TO_KM,
+  "mp/h>km/h": (mph) => mph * MILES_TO_KM,
+  "mm>inch": (mm) => mm / 25.4,
+  "inch>mm": (inch) => inch * 25.4,
+};
+
+/**
+ * What to do with a column the service answered in the wrong system.
+ *
+ * A warning in the log was the whole of the old answer to this, and a log
+ * line is not something a reader sees. The numbers went into the panel
+ * untouched and `variableUnit` labelled them out of this app's own
+ * vocabulary, so a reply of thirty degrees Celsius under an imperial setting
+ * was drawn as thirty degrees Fahrenheit: the exact reading the comment above
+ * calls a hot day drawn as a lethal one. The column is converted now.
+ *
+ * A token outside the six is left alone, values and all, because nothing here
+ * knows what it means. `AUD-446` is what decides how that column should be
+ * labelled; it has never been observed, since the service answers in what the
+ * request asked for or in its own default, and both are in the table.
+ */
+function intoAsked(
+  answered: string,
+  wanted: string | null,
+): { unit: string; convert: ((value: number) => number) | null } {
+  if (!answered || !wanted || answered === wanted) {
+    return { unit: answered, convert: null };
+  }
+  const convert = CONVERSIONS[`${answered}>${wanted}`];
+  return convert
+    ? { unit: wanted, convert }
+    : { unit: answered, convert: null };
 }
 
 export interface GuidanceHour {
@@ -136,17 +183,15 @@ export interface GuidanceHour {
 export interface GuidanceReading {
   variable: GuidanceVariable;
   /**
-   * The unit token the service answered with, which is not what the panel
-   * prints: that comes from `variableUnit` and this app's own vocabulary.
+   * The unit the numbers in `hours` are actually in, in the service's own
+   * spelling rather than this app's.
    *
-   * Kept because it is the only record of whether the service honoured the
-   * system the request asked for: a reply that ignored the parameter would
-   * put the numbers a conversion away from their labels, and nothing else in
-   * the tree could notice.
-   *
-   * Held to `forecastUnits()` as the reply is read: a token that is not the
-   * one the request asked for is reported. `expectedUnitToken` knows the
-   * service's own spellings, which are not this app's.
+   * Normally the one the request asked for, because a reply in the other
+   * system is converted as it is read: `variableUnit` labels the column out
+   * of this app's vocabulary and never looks here, so an unconverted reply
+   * would put every number a conversion away from its own label. The one
+   * case where this is not the asked-for token is a system nothing here can
+   * convert, which is `AUD-446`.
    */
   unit: string;
   hours: GuidanceHour[];
@@ -325,6 +370,31 @@ export function parseGuidance(
       ? columnFor(`${variable}_previous_day${PREVIOUS_DAYS}`)
       : null;
 
+    const answered =
+      typeof units[`${variable}_${models[0]}`] === "string"
+        ? String(units[`${variable}_${models[0]}`])
+        : typeof units[variable] === "string"
+          ? String(units[variable])
+          : "";
+    // Read before the hours rather than after them, because a column that
+    // came back in the other system is converted on the way in: the spread
+    // below is a difference between readings and has to be a difference
+    // between converted ones.
+    const wanted = expectedUnitToken(variable);
+    const { unit, convert } = intoAsked(answered, wanted);
+    if (answered && wanted && answered !== wanted) {
+      log.warn(
+        "guidance",
+        convert
+          ? `${variable} came back in ${answered} where the request asked for ${wanted}, and was converted`
+          : `${variable} came back in ${answered} where the request asked for ${wanted}, which nothing here can convert`,
+      );
+    }
+    const shown = (value: unknown) => {
+      const number = reading(value);
+      return number === null || !convert ? number : convert(number);
+    };
+
     const hours: GuidanceHour[] = [];
     let spread = 0;
     for (let index = 0; index < times.length; index += 1) {
@@ -333,41 +403,21 @@ export function parseGuidance(
       // Chosen by the hour it names rather than by its place in the array, so
       // the columns land on 00, 03, 06 whatever spacing the reply arrives in.
       if ((time / 3_600_000) % STEP_HOURS !== 0) continue;
-      const values = columns.map((column) => reading(column[index]));
+      const values = columns.map((column) => shown(column[index]));
       const present = values.filter((value): value is number => value !== null);
       if (present.length) {
         spread = Math.max(spread, Math.max(...present) - Math.min(...present));
       }
       const hour: GuidanceHour = { time, values };
       if (before) {
-        hour.previous = before.map((column) => reading(column[index]));
+        hour.previous = before.map((column) => shown(column[index]));
       }
       hours.push(hour);
     }
 
-    const answered =
-      typeof units[`${variable}_${models[0]}`] === "string"
-        ? String(units[`${variable}_${models[0]}`])
-        : typeof units[variable] === "string"
-          ? String(units[variable])
-          : "";
-    // A reply in the other system is not something the panel can see. The
-    // numbers come back in whatever the service used and the label beside them
-    // comes from this app's own vocabulary, so thirty degrees Celsius would be
-    // drawn under °F with nothing anywhere saying so. Said once per column
-    // rather than swallowed, because the alternative is a panel confidently
-    // wrong by a conversion.
-    const wanted = expectedUnitToken(variable);
-    if (answered && wanted && answered !== wanted) {
-      log.warn(
-        "guidance",
-        `${variable} came back in ${answered} where the request asked for ${wanted}`,
-      );
-    }
-
     readings.push({
       variable,
-      unit: answered,
+      unit,
       hours,
       spread,
     });
