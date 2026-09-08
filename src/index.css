@@ -1345,9 +1345,16 @@ input[type="range"]:disabled {
    there is nothing behind the words to make the problem visible in a
    screenshot of the dark theme. */
 /* Keyed on the ground rather than on the theme, because that is what these
-   words are written on. The light theme always draws a light basemap, so the
-   attribute covers the case this selector used to and the dark theme over
-   Roads, Daylight, Topography, Greyscale or Radar Light as well. */
+   words are written on. Both selectors are here because they answer different
+   questions: the attribute is set from the map that is actually being drawn,
+   which covers the dark theme over Roads, Daylight, Topography, Greyscale or
+   Radar Light, and an incident pack whatever style was picked before it. The
+   theme selector beside it is what the light theme had before the attribute
+   existed, and it is not covered by it: Aerial and Radar Dark are dark
+   basemaps and a reader on the light theme can pick either. It is kept
+   because a pale chip over an aerial photograph is still legible, measured at
+   8.4:1 either way, and losing it would leave the light theme's usual case
+   depending on one attribute being written in time. */
 :root[data-theme="light"] .source-attribution,
 :root[data-over-light] .source-attribution {
   padding: 2px 6px;

@@ -442,6 +442,27 @@ test("the map credits are readable over the light basemap", async ({
   }
 });
 
+test("leaves the flag off for a dark basemap under the light theme", async ({
+  page,
+}) => {
+  // The two questions come apart in both directions. A reader on the light
+  // theme who picks Aerial or Radar Dark is looking at a dark ground, and the
+  // flag is about the ground. The pale chip the light theme gives these three
+  // is still legible over an aerial photograph, which is why this is a rule
+  // that has to say what is true rather than something anybody can see.
+  await startWith(page, null, "light", "aerial");
+  await expect(page.getByRole("application")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.dataset.overLight ?? "absent",
+    ),
+  ).toBe("absent");
+  await showTheReadout(page);
+  for (const selector of ON_THE_MAP) {
+    await readableOnTheMap(page, selector);
+  }
+});
+
 test("the map credits are readable over a light basemap under the dark theme", async ({
   page,
 }) => {
