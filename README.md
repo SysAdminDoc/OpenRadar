@@ -236,7 +236,7 @@ The app sends the information needed to answer a request to fixed public provide
 
 ## Build from source
 
-You will need Node.js 22 or newer, Rust 1.85 or newer, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
+You will need Node 22.13 or newer, or Node 24, and Rust 1.85 or newer, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```powershell
 npm install

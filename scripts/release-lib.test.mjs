@@ -141,8 +141,11 @@ describe("what Defender said about the installer", () => {
     expect(flagged.say).toContain("OpenRadar.msi");
 
     expect(
-      defenderOutcome({ scanned: true, clean: true, detail: "found no threats" })
-        .action,
+      defenderOutcome({
+        scanned: true,
+        clean: true,
+        detail: "found no threats",
+      }).action,
     ).toBe("pass");
 
     const skipped = defenderOutcome({
@@ -294,6 +297,38 @@ describe("the release line the security policy names", () => {
     expect(supportedMinor(security)).toBe(
       conf.version.split(".").slice(0, 2).join("."),
     );
+  });
+
+  it("does not tell a reporter to name a version that does not exist", () => {
+    // The bug template's placeholder said "OpenRadar 0.5.0", which was never
+    // released and never will be: the releases page stops at 0.4.0 and every
+    // line above it is a tag in this repository. A placeholder is what a
+    // reporter copies, so one naming a build nobody can be running sends the
+    // report in wrong. Held against the version this tree builds, which is
+    // the ceiling: a placeholder may name an older release and may not name
+    // one that has not happened.
+    const template = fs.readFileSync(
+      path.join(root, ".github", "ISSUE_TEMPLATE", "bug_report.yml"),
+      "utf8",
+    );
+    const conf = JSON.parse(
+      fs.readFileSync(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"),
+    );
+    const named = /placeholder:\s*OpenRadar\s*(\d+)\.(\d+)\.(\d+)/.exec(
+      template,
+    );
+    expect(named, "the template no longer names a version at all").toBeTruthy();
+    const asked = [named[1], named[2], named[3]].map(Number);
+    const built = conf.version.split(".").map(Number);
+    const ahead =
+      asked[0] > built[0] ||
+      (asked[0] === built[0] &&
+        (asked[1] > built[1] ||
+          (asked[1] === built[1] && asked[2] > built[2])));
+    expect(
+      ahead,
+      `the template asks for ${asked.join(".")} and this tree builds ${built.join(".")}`,
+    ).toBe(false);
   });
 
   it("refuses a table that names nothing", () => {
