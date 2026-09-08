@@ -585,16 +585,6 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
 
 ### P1
 
-- [ ] AUD-404 (P1): The Upload drop zone stopped accepting a dropped file
-      Category: correctness
-      Where: `src/index.css`, `.drop-zone input`; `src/panels/UtilityPanels.tsx`.
-      Problem: Hiding the file input with `clip-path: inset(50%)` and a one-pixel box takes the clipped area out of hit testing, so the input has no drop target left. Nothing in `src/`, `e2e/` or `src-tauri/src` listens for `drop`, `dragover` or Tauri's `onDragDropEvent`, so the native input's own drop target was the whole of what made a drop zone a drop zone. Before the change, dropping a file on the visible widget worked; now dropping anywhere on the dashed box does nothing. The commit that did it says the input "keeps every bit of its behaviour, including the keyboard and the drop target", and the changelog says "Everything about how it works is unchanged", and both are wrong.
-      Evidence: Measured on 2026-09-08 at both revisions. At `ca36e7a` the input is 184 by 17 and `elementFromPoint` at its own centre returns the input; at `ddebfd1` it is 1 by 1 with `clip-path: inset(50%)` and `elementFromPoint` returns the span beside it. Handler count for `drop`/`dragover` anywhere in the ancestor chain: zero, at both.
-      Fix: The technique `.settings-import input` uses, which the commit claimed to be copying and was not: `position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0` inside a `position: relative` parent. That keeps the input's full hit area, which keeps the drop, and here it would grow the drop target from the old widget to the whole dashed box.
-      Acceptance: A file dropped anywhere on the drop zone is read, held by a Playwright test that dispatches a real drop; the input still takes the keyboard; the button is still what is drawn; `elementFromPoint` at the centre of the zone returns the input.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-402 (P1): The layering gate is walked past by a file extension
       Category: correctness
       Where: `src/lib/layering.test.ts`, `resolveImport`.
