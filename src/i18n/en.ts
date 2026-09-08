@@ -800,7 +800,6 @@ export const en = {
   "radar.thresholdMosaic": "Hide below, on the mosaic",
   "radar.thresholdMosaicDetail":
     "The mosaic is the strongest return anywhere in the column, so its numbers run higher than a single tilt's",
-  "radar.thresholdLabel": "Hide readings below this value",
   "radar.thresholdOff": "Everything",
   "radar.thresholdValue": "{value} {unit}",
   "radar.thresholdDetail":
@@ -812,7 +811,7 @@ export const en = {
   "radar.site": "Site",
   "radar.siteLabel": "Radar site",
   "radar.terminalRadars": "Terminal radars (TDWR)",
-  "radar.siteInReach": "{station} · {city}, {state} · {distance}",
+  "radar.siteInReach": "{station} · {place} · {distance}",
   "radar.sitesInReach": "Radars that can see this view",
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "nothing received for {age}",
@@ -2190,7 +2189,7 @@ export const en = {
   "notice.layerBack": "{layer} is drawing again",
   "notice.loopStalled": "The loop stalled",
   "notice.loopBack": "The loop is running again",
-  "map.popupClose": "Close",
+  "map.popupClose": "Close popup",
   "map.toggleAttribution": "Show who made this map",
   "map.mapFeedback": "Report a problem with this map",
   "layers.movedUp": "{layer} moved above {other}",

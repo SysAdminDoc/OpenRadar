@@ -583,7 +583,16 @@ export function RadarProductPanel({
 
               <label className="range-row">
                 <span>
-                  <strong>{t("radar.threshold")}</strong>
+                  {/* Named from the words that are on it. It carried an
+                      aria-label of its own that said the same thing another
+                      way, so a voice-control reader saying "Hide below", the
+                      words in front of them, reached nothing: WCAG 2.5.3. The
+                      value is announced by aria-valuetext below rather than
+                      being folded into the name, which would make the name
+                      change every time the thumb moves. */}
+                  <strong id="radar-threshold-label">
+                    {t("radar.threshold")}
+                  </strong>
                   <output>
                     {threshold === null
                       ? t("radar.thresholdOff")
@@ -606,7 +615,7 @@ export function RadarProductPanel({
                     shownRange.min,
                     shownRange.max,
                   )}
-                  aria-label={t("radar.thresholdLabel")}
+                  aria-labelledby="radar-threshold-label"
                   aria-valuetext={
                     threshold === null
                       ? t("radar.thresholdOff")
@@ -832,8 +841,7 @@ export function RadarProductPanel({
                           {siteLabel(
                             t("radar.siteInReach", {
                               station: site.station,
-                              city: site.city,
-                              state: site.state,
+                              place: site.label,
                               distance: formatDistance(
                                 site.distanceKm / MILES_TO_KM,
                               ),

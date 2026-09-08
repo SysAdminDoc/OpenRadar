@@ -518,15 +518,19 @@ Where this pass dug: the three drains since the last refutation (`AUD-359`, the 
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-371 (P3): The threshold slider's accessible name does not contain its visible label, and the popup close button is named twice
-      Category: a11y
-      Where: `src/panels/RadarProductPanel.tsx:586` (visible label `radar.threshold`, "Hide below") and `:609` (`aria-label={t("radar.thresholdLabel")}`, "Hide readings below this value"); `src/components/MapViewport.tsx:857-858` (the MapLibre popup close button given `aria-label` and `title` both `map.popupClose`, "Close"); `src/i18n/en.ts:797`, `:801`, `:2190` and the two translations.
-      Problem: WCAG 2.5.3, the same defect the palette row's Save button had until 2026-09-07 (`ac6967f`): the words on the control are not in its name, so a voice-control user who says "Hide below" reaches nothing, and the announced name and the visible text disagree. The popup close button carries the same word as both `aria-label` and `title`, which some screen readers announce twice, and "Close" names nothing it closes where `panel.close` ("Close {title}") shows the pattern.
-      Evidence: The two files as cited; the `UtilityPanels.test.tsx` test "names each table button with the words that are on it" added on 2026-09-07 is the assertion shape, and it covers only that row.
-      Fix: Name the slider from its visible label (`aria-labelledby` pointing at the `<strong>`, or an `aria-label` that begins with the visible words and adds the value: "Hide below: {value}"); give the popup close an `aria-label` of "Close popup" (a new key, with es and fr) and drop the `title`. Extend the label-in-name assertion to the product panel and the popup.
-      Acceptance: Both controls' accessible names contain their visible text; axe in `e2e/accessibility.spec.ts` stays green; the extended assertion fails when the old strings are put back.
-      Confidence: Verified
-      Effort: S
+- [ ] AUD-389 (P3): `data-over-light` describes the basemap that was chosen, not the one being drawn
+  Why: An incident pack replaces the basemap with its own tiles, and the flag that tells the map's own chrome which ground it sits on is computed from `settings.mapStyle`. A reader with a pack open therefore gets the attribution, the watermark and the readout dressed for the style they picked rather than for the tiles under them. Measured at 8.4:1 either way on the packs shipped today, so it is a rule that does not describe what it claims rather than something a reader can see.
+  Evidence: `src/hooks/useAppearance.ts` reads `resolvedMapStyle(settings.mapStyle, settings.theme)`; `src/components/MapViewport.tsx` builds the drawn style with `mapStyleDefinition(mapStyle, incidentPack)`. A refutation pass composited both cases on 2026-09-07 and found no readability failure. The same pass found the comment at `src/index.css` claiming "the light theme always draws a light basemap", which Aerial and Radar Dark disprove.
+  Touches: `src/hooks/useAppearance.ts` (take the flag from whatever the viewport actually draws, or move it to where the style is resolved), `src/index.css` (the claim in the comment), `e2e/theme.spec.ts` (a pack case).
+  Acceptance: With an incident pack open, the flag matches the tiles being drawn; the comment says what is true; a test covers a dark basemap under the light theme.
+  Complexity: S
+
+- [ ] AUD-390 (P3): Only one of the three map-surface rules has a test
+  Why: `AUD-363` gave `.source-attribution`, `.map-watermark` and `.map-readout` the same treatment and `readableOnTheMap` is parameterised to check any of them, but it is only ever called with the attribution. The other two carry their own pills, which is why they survived the defect, and nothing holds them to it.
+  Evidence: `e2e/theme.spec.ts`, where `readableOnTheMap(page, selector)` takes a selector and is called twice with the same one.
+  Touches: `e2e/theme.spec.ts`.
+  Acceptance: All three are checked in both the light theme and the dark theme over a light basemap; removing any one of the three CSS selectors fails the spec.
+  Complexity: S
 
 - [ ] AUD-372 (P3): Tropical advisory times are shown in the office's zone while every other clock is the reader's
       Category: ux

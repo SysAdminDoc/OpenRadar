@@ -141,6 +141,15 @@ mod tests {
     /// two tenths.
     const DRIFT_DEGREES: f32 = 0.01;
 
+    /// And how far its height may drift, in metres.
+    ///
+    /// Height is not decoration: it goes through `to_site` into the antenna
+    /// the coordinate system is built on, so every beam height the
+    /// cross-section draws is measured from it. The office publishes it to a
+    /// hundredth of a metre and the table rounds to whole ones, so anything
+    /// past a metre is a radar that moved rather than a rounding.
+    const DRIFT_METRES: f32 = 1.5;
+
     #[test]
     #[ignore = "asks the National Weather Service which radars exist"]
     fn the_radar_table_matches_the_office_list() {
@@ -189,6 +198,15 @@ mod tests {
                         "{id} is at {},{} here and {latitude},{longitude} there",
                         mine.latitude, mine.longitude
                     ));
+                }
+                let theirs = feature["properties"]["elevation"]["value"].as_f64();
+                if let Some(theirs) = theirs {
+                    if (f64::from(mine.elevation_meters) - theirs).abs() > f64::from(DRIFT_METRES) {
+                        adrift.push(format!(
+                            "{id} stands at {} m here and {theirs} m there",
+                            mine.elevation_meters
+                        ));
+                    }
                 }
             }
             theirs.insert(id);

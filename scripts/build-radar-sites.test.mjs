@@ -103,3 +103,51 @@ describe("a position as a Rust literal", () => {
     expect(degrees(-0)).toBe("0.0");
   });
 });
+
+describe("the label round trip", () => {
+  const roundTrip = (city, state = "OK") =>
+    carriedLabels(
+      rowFor({
+        id: "KTLX",
+        city,
+        state,
+        latitude: 35.3331,
+        longitude: -97.2778,
+        elevationMeters: 370,
+      }),
+    ).get("KTLX");
+
+  it("survives a quote in a name", () => {
+    // A quote ended the match early, so the row was never recognised: the
+    // label and the state were both dropped and the next run silently renamed
+    // the radar to whatever the office calls the nearest town.
+    expect(roundTrip('Quote"City')).toEqual({
+      city: 'Quote"City',
+      state: "OK",
+    });
+  });
+
+  it("survives a backslash, and does not grow one each run", () => {
+    // rowFor escapes and carriedLabels did not unescape, so every run added
+    // another backslash to a name that had one.
+    const once = roundTrip("Back\slash");
+    expect(once).toEqual({ city: "Back\slash", state: "OK" });
+    const twice = carriedLabels(
+      rowFor({
+        id: "KTLX",
+        ...once,
+        latitude: 35.3331,
+        longitude: -97.2778,
+        elevationMeters: 370,
+      }),
+    ).get("KTLX");
+    expect(twice).toEqual(once);
+  });
+
+  it("still reads an ordinary name", () => {
+    expect(roundTrip("Oklahoma City")).toEqual({
+      city: "Oklahoma City",
+      state: "OK",
+    });
+  });
+});

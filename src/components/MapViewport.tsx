@@ -854,8 +854,12 @@ function MapViewportInner(
       .getElement()
       ?.querySelector<HTMLElement>(".maplibregl-popup-close-button");
     if (closeButton) {
+      // One name, and one that says what it closes. It carried the same
+      // word as both the name and the tooltip, which some screen readers
+      // read out twice, and "Close" on its own names nothing: `panel.close`
+      // beside it is "Close {title}" for the same reason.
       closeButton.setAttribute("aria-label", translate("map.popupClose"));
-      closeButton.title = translate("map.popupClose");
+      closeButton.removeAttribute("title");
     }
     // The layer that explains what this popup is about. It closes with the
     // click, because the reader asked to look at something else.

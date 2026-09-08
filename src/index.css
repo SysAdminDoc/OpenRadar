@@ -778,18 +778,19 @@ input[type="range"]:disabled {
 
 /* The label on its own line, then the actions in a grid under it.
    It was one flex row of a label and three buttons, which fitted. A fourth
-   went in on 2026-09-07 and it does not: at 1440x900 in English the row
-   wanted 344 px in a 277 px panel, so the last button hung a third of its
-   width outside the panel and the three that fitted broke their labels over
-   three lines ("Copy / for a / bug report"). The pseudolocale clipping sweep
-   cannot see it, because this row lives inside the panel's own vertical
-   scroller and that sweep excuses a scroller.
+   went in on 2026-09-07 and it does not: at 1440x900 in English the row's
+   content wanted 314 px in a 287 px row, so the last button ran off the end
+   and the three that fitted broke their labels over three lines ("Copy / for
+   a / bug report"). The pseudolocale clipping sweep cannot see it, because
+   this row lives inside the panel's own vertical scroller and that sweep
+   excuses a scroller.
 
    A grid rather than a wrapping flex row: with `wrap` the buttons end up on
-   two lines of unequal width, which reads as a mistake. Two columns of equal
-   width is the same shape in every language, and `minmax(0, 1fr)` is what
-   keeps a long German label inside its own cell rather than pushing the
-   column wider than the panel. */
+   two lines of unequal width, which reads as a mistake. `auto-fit` with a
+   floor wide enough for a whole label gives one column in the panel's own
+   width and two wherever there is room, and no label wraps in either. Two
+   fixed columns was tried first and still broke "Copy for a bug report"
+   across two lines in a 135 px cell. */
 .diagnostics-log__title {
   display: grid;
   /* As many columns as fit a whole label, which in the panel's own width is
