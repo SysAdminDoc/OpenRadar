@@ -46,6 +46,7 @@ interface Selection {
 }
 
 import { ambientRefreshMs } from "../lib/ambientScreen";
+import { failureSentence } from "../lib/serviceAnswer";
 
 const REFRESH_MS = 5 * 60_000;
 /** Always fetch the longest loop so changing the setting needs no new request. */
@@ -415,8 +416,11 @@ export function useRadarTimeline(options: {
         ) {
           return;
         }
-        const message =
-          failure instanceof Error ? failure.message : "The request failed.";
+        // Read into the diagnostics list, where a reader sees it, so it goes
+        // through the shared reader like every other failure that surfaces:
+        // untranslated English and the engine's own words both reached that
+        // row from here.
+        const message = failureSentence(failure);
         recordFailure("hrrr", message);
         log.warn("radar", `Future radar failed: ${message}`);
       }

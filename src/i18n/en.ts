@@ -851,6 +851,7 @@ export const en = {
   "layers.probSevereDetail":
     "What a model expects of each storm in the next hour, which is guidance rather than a warning",
   "probSevere.title": "Severe Probability",
+  "probSevere.unread": "The severe probabilities could not be read.",
   "probSevere.stale":
     "The last reading is more than fifteen minutes old, so it is about storms that have moved on. Nothing is drawn until a fresh one is published.",
   "probSevere.headline": "{percent}% chance of severe weather in the next hour",
@@ -875,6 +876,7 @@ export const en = {
   "hydrometeor.giantHail": "Giant hail",
   "hydrometeor.unknown": "Unknown",
   "classification.lowestTilt": "Lowest tilt (N0H)",
+  "classification.unread": "The classification could not be read.",
   "classification.hybridScan": "Hybrid scan (HHC)",
   "chrome.classificationNote":
     "The radar's own algorithm naming what its dual-polarisation moments look like. It is not a report from the ground.",
@@ -1018,6 +1020,7 @@ export const en = {
   "layer.vii": "Integrated Ice",
   "layer.lightningDensity": "Lightning Density",
   "layer.lightningFlashes": "Lightning Flashes",
+  "lightning.unanswered": "The lightning feed did not answer.",
   "layer.customOverlay": "Custom Overlay",
   "panel.search": "Search",
   "panel.alerts": "Alerts",
@@ -1397,6 +1400,7 @@ export const en = {
   "settings.showRadar": "Show radar",
   "settings.showRadarDetail": "Keep the basemap visible when radar is hidden",
   "cells.eyebrow": "Storm cells",
+  "cells.unread": "The storm cells could not be read.",
   "cells.arriving": "{id} reaches the place you watch in {count} min",
   "approach.title": "Storm heading for {place}",
   "approach.titleHome": "Storm heading your way",

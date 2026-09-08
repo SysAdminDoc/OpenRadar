@@ -11,6 +11,8 @@ import {
   type CellReport,
 } from "../lib/cells";
 import { log } from "../lib/log";
+import { translate } from "../i18n";
+import { failureSentence } from "../lib/serviceAnswer";
 
 export interface StormCellState {
   /** What the algorithm is tracking, or null when there is nothing to draw. */
@@ -102,12 +104,13 @@ export function useStormCells(options: {
         setError(null);
       } catch (failure: unknown) {
         if (!open) return;
+        // A native rejection is a string this app wrote; anything else goes
+        // through the shared reader, which keeps a sentence this app wrote
+        // and never prints the engine's own words at somebody.
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The storm cells could not be read.";
+            : failureSentence(failure, translate("cells.unread"));
         log.warn("radar", `${station} cells: ${message}`);
         // A site with nothing to track is not a failure, but a site that could
         // not be read has nothing to draw either way, and drawing the last

@@ -11,6 +11,8 @@ import {
 } from "../lib/classification";
 import { log } from "../lib/log";
 import { isDesktopRuntime } from "../lib/runtime";
+import { translate } from "../i18n";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /** Level III is decoded natively, so a browser preview has none of it. */
 export function classificationAvailable(): boolean {
@@ -66,12 +68,13 @@ export function useClassification(options: {
         setError(null);
       } catch (failure: unknown) {
         if (!open) return;
+        // A native rejection is a string this app wrote; anything else goes
+        // through the shared reader, which keeps a sentence this app wrote
+        // and never prints the engine's own words at somebody.
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The classification could not be read.";
+            : failureSentence(failure, translate("classification.unread"));
         log.warn("radar", `${station} ${product}: ${message}`);
         // Drawing the last volume's classification over a newer picture would
         // be worse than drawing none: this is the layer that says what is
