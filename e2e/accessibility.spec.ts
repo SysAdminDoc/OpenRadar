@@ -282,6 +282,35 @@ test("reads out what the office says to do, not just that there is a warning", a
   await expect(warnings).toContainText("TAKE COVER NOW!");
 });
 
+test("never says a place is clear when the warnings did not arrive", async ({
+  page,
+}) => {
+  // The one surface a reader who cannot see the map has, so the sentence it
+  // reaches for when it has nothing to list is a claim about the sky. With
+  // the feed refused it said "No warnings over this place" while the footer
+  // three sections down said the warnings were still loading.
+  //
+  // Driven through the workspace rather than the panel, because the panel
+  // takes its state as a prop and the thing that broke was the workspace
+  // never telling it: unit tests of the panel pass either way.
+  await page.route("https://mapservices.weather.noaa.gov/**", (route) =>
+    route.abort("connectionfailed"),
+  );
+  await page.route("https://api.weather.gov/alerts/**", (route) =>
+    route.abort("connectionfailed"),
+  );
+  await page.goto("/?testMode=1");
+  await expect(page.getByRole("application")).toBeVisible();
+  await openNearby(page);
+
+  const warnings = page
+    .getByRole("dialog", { name: "Nearby weather" })
+    .locator("section")
+    .filter({ hasText: "Warnings over this place" });
+  await expect(warnings).toContainText("could not be checked");
+  await expect(warnings).not.toContainText("No warnings over this place");
+});
+
 test("moves the map from the keyboard, with no drag anywhere", async ({
   page,
 }) => {

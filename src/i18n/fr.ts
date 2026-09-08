@@ -1068,6 +1068,11 @@ export const fr: Catalogue = {
   "nearby.placeCentre": "Le centre de la carte",
   "nearby.warningsHeading": "Alertes au-dessus de cet endroit",
   "nearby.noWarnings": "Aucune alerte au-dessus de cet endroit.",
+  "nearby.warningsOff":
+    "Les alertes sont désactivées, il n'y a donc rien à lister. Activez la couche pour savoir ce qui couvre cet endroit.",
+  "nearby.warningsFailed":
+    "Les alertes n'ont pas pu être vérifiées, ceci ne peut donc pas dire ce qui couvre cet endroit.",
+  "nearby.warningsLoading": "Vérification des alertes.",
   "nearby.warning": "{headline}.",
   "nearby.warningTagged": "{headline}, qualifiée de {tag}.",
   "nearby.warningUntil": "En vigueur jusqu'à {when}.",

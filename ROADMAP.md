@@ -655,16 +655,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-426 (P2): The Nearby panel says "No warnings over this place" while the warnings feed has never loaded
-      Category: correctness
-      Where: `src/panels/NearbyPanel.tsx:131` (`<p className="nearby-empty">{t("nearby.noWarnings")}</p>` on the else branch of an empty warnings list); `:39` and `:64` (the only alerts state the panel receives is `alertsFetchedAt`); `:259-261` (the footer switches between `alerts.noteChecked` and `alerts.noteLoading` on that same value); `src/components/PanelSurfaces.tsx:392` (`alertsFetchedAt={overlays.alerts.fetchedAt}`, and nothing about `overlays.alerts.error`); `src/i18n/en.ts:1042` (`"nearby.noWarnings": "No warnings over this place."`).
-      Problem: This is the panel that exists for a reader who cannot see the map, and it answers "which warnings cover this place" from whatever the alerts overlay holds. When the feed has not loaded, or has failed, the list is empty and the panel states there are no warnings, with the footer three sections down saying "Loading NWS watches and warnings" at the same time. Observed on 2026-09-08 with the alerts host refused on a fresh page: both sentences on screen together. A screen-reader user on a bad connection during a tornado warning is told, on the one surface the README describes as the answer for "a reader who is not looking at the map", that nothing covers them. The README's own line for this panel is that "it cannot claim a warning stood somewhere it did not"; the inverse is worse.
-      Evidence: `scratchpad/obs/out/nearby-refused-dark-wide.txt` ("No warnings over this place." and "Loading NWS watches and warnings." in one dump); the branch at `NearbyPanel.tsx:129-132` has no case for the feed being absent or failed.
-      Fix: Pass `overlays.alerts.error` and the feed's presence into the panel beside `alertsFetchedAt`, and render three states in the warnings section: not loaded yet ("The warnings have not loaded yet"), failed ("The warnings could not be checked. Use official sources.", in the same words the footer uses, and never inside the live region as a "no warnings" sentence), and loaded-and-empty, which is the only case that may say "No warnings over this place". Do the same for the home place's block below it. Pin it in `NearbyPanel.test.tsx` with `alertsFetchedAt` null and with an error set.
-      Acceptance: With the alerts feed refused, the panel never says "No warnings over this place" and says why; with the feed loaded and empty it still does; `accessibility.spec.ts`'s Nearby cases stay green.
-      Confidence: Verified
-      Effort: S
-
 ### P3
 
 - [ ] AUD-412 (P3): A hail size in a warning popup is written with an English decimal point in Spanish and French, and always in inches

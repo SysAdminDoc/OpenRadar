@@ -32,6 +32,17 @@ interface NearbyPanelProps {
   onNameCell: (id: string, name: string) => void;
   /** Why the storm list is empty, when it is empty for a reason. */
   cellsNote: "off" | "unavailable" | "loading" | null;
+  /**
+   * Why the warning list cannot be read as an answer, when it cannot.
+   *
+   * The same shape as `cellsNote` and for the same reason. An empty list is
+   * not the same statement as "nothing covers this place": the layer may be
+   * off, the feed may never have arrived, or it may have failed and left the
+   * last good list standing. This panel is the one surface a reader who
+   * cannot see the map has, so a claim it cannot support is worse here than
+   * anywhere else in the app.
+   */
+  alertsNote: "off" | "failed" | "loading" | null;
   /** The radar the tracker read, and when it ran, like every other surface. */
   station: string | null;
   observed: number | null;
@@ -47,6 +58,24 @@ interface NearbyPanelProps {
  * see the canvas gets the same three answers from the same data rather than a
  * reduced version of the app.
  */
+/**
+ * Why a section has nothing to list, said once.
+ *
+ * Three sections here answer the same question in the same two shapes, a
+ * plain line or a line with a spinner, and each had written both out. The
+ * third arrived with the warnings, which is when a shape stops being a
+ * coincidence.
+ */
+function Note({ text, waiting }: { text: string; waiting?: boolean }) {
+  if (!waiting) return <p className="nearby-empty">{text}</p>;
+  return (
+    <p className="panel-loading">
+      <LoaderCircle className="spin" size={16} aria-hidden="true" />
+      <span>{text}</span>
+    </p>
+  );
+}
+
 export function NearbyPanel({
   places,
   placeId,
@@ -59,6 +88,7 @@ export function NearbyPanel({
   cellNames,
   onNameCell,
   cellsNote,
+  alertsNote,
   station,
   observed,
   alertsFetchedAt,
@@ -92,6 +122,11 @@ export function NearbyPanel({
         </select>
       </label>
 
+      {/* A warning in hand is read out whatever else is wrong, which is why
+          the list is asked for before the note: the storm sections below put
+          their note first, because a stale storm track is worth less than
+          saying the tracker is off, and a warning is never worth less than
+          that. The note answers only for an empty list. */}
       <section className="nearby-block">
         <h3>{t("nearby.warningsHeading")}</h3>
         {warnings.length ? (
@@ -128,7 +163,18 @@ export function NearbyPanel({
             ))}
           </ul>
         ) : (
-          <p className="nearby-empty">{t("nearby.noWarnings")}</p>
+          <Note
+            waiting={alertsNote === "loading"}
+            text={t(
+              alertsNote === "loading"
+                ? "nearby.warningsLoading"
+                : alertsNote === "off"
+                  ? "nearby.warningsOff"
+                  : alertsNote === "failed"
+                    ? "nearby.warningsFailed"
+                    : "nearby.noWarnings",
+            )}
+          />
         )}
       </section>
 
@@ -142,15 +188,17 @@ export function NearbyPanel({
             section is made of the same data: with the tracker off, or not
             answering, or not read yet, "nothing is heading for your places"
             is a claim nobody checked. */}
-        {cellsNote === "loading" ? (
-          <p className="panel-loading">
-            <LoaderCircle className="spin" size={16} aria-hidden="true" />
-            <span>{t("nearby.cellsLoading")}</span>
-          </p>
-        ) : cellsNote === "off" ? (
-          <p className="nearby-empty">{t("approach.needsCells")}</p>
-        ) : cellsNote === "unavailable" ? (
-          <p className="nearby-empty">{t("nearby.cellsUnavailable")}</p>
+        {cellsNote ? (
+          <Note
+            waiting={cellsNote === "loading"}
+            text={t(
+              cellsNote === "loading"
+                ? "nearby.cellsLoading"
+                : cellsNote === "off"
+                  ? "approach.needsCells"
+                  : "nearby.cellsUnavailable",
+            )}
+          />
         ) : approaching.length ? (
           <>
             <ul role="list" className="nearby-list">
@@ -175,10 +223,10 @@ export function NearbyPanel({
             {/* Said under the list rather than in each row: it is true of all
                 of them and repeating it four times is how somebody stops
                 reading it. */}
-            <p className="nearby-empty">{t("approach.note")}</p>
+            <Note text={t("approach.note")} />
           </>
         ) : (
-          <p className="nearby-empty">{t("approach.none")}</p>
+          <Note text={t("approach.none")} />
         )}
       </section>
 
@@ -207,15 +255,17 @@ export function NearbyPanel({
 
       <section className="nearby-block">
         <h3>{t("nearby.cellsHeading")}</h3>
-        {cellsNote === "loading" ? (
-          <p className="panel-loading">
-            <LoaderCircle className="spin" size={16} aria-hidden="true" />
-            <span>{t("nearby.cellsLoading")}</span>
-          </p>
-        ) : cellsNote === "off" ? (
-          <p className="nearby-empty">{t("nearby.cellsOff")}</p>
-        ) : cellsNote === "unavailable" ? (
-          <p className="nearby-empty">{t("nearby.cellsUnavailable")}</p>
+        {cellsNote ? (
+          <Note
+            waiting={cellsNote === "loading"}
+            text={t(
+              cellsNote === "loading"
+                ? "nearby.cellsLoading"
+                : cellsNote === "off"
+                  ? "nearby.cellsOff"
+                  : "nearby.cellsUnavailable",
+            )}
+          />
         ) : cells.length ? (
           <ul role="list" className="nearby-list">
             {cells.map((cell) => (
@@ -244,7 +294,7 @@ export function NearbyPanel({
             ))}
           </ul>
         ) : (
-          <p className="nearby-empty">{t("nearby.noCells")}</p>
+          <Note text={t("nearby.noCells")} />
         )}
       </section>
 
