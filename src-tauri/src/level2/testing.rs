@@ -717,6 +717,112 @@ pub(crate) struct Measured {
     /// a whole interval, so `invented` does not fire either. This is the
     /// measure that sees it.
     pub(crate) misplaced: usize,
+    /// The sweep held against the office's own dealiased velocity for
+    /// it, when the office published one for this cut of this volume.
+    /// `None` is a missing reference and not an agreement.
+    pub(crate) rpg: Option<HeldAgainstRpg>,
+}
+
+/// How far the app's answer sits from the office's own, gate for gate.
+///
+/// Every other measure in this file scores a sweep against itself or against
+/// a refold of itself, and all of them are blind to the same thing: a patch
+/// moved as one piece is exactly as continuous with itself as it was, wrapped
+/// no gate that had not wrapped, and moved by a whole interval, so
+/// `broken_pairs`, `rejoined` and `invented` all report it as perfect. This
+/// is the only measure here whose reference did not come out of the bytes
+/// being scored.
+pub(crate) struct AgainstRpg {
+    /// Gates both products hold and both call a real reading.
+    pub(crate) comparable: usize,
+    /// Of those, the ones the app placed more than half a Nyquist velocity
+    /// from what the office read.
+    ///
+    /// Half a Nyquist velocity rather than a whole interval, because the two
+    /// products quantise differently and a fold is four times this: anything
+    /// between the two is a disagreement about the reading rather than about
+    /// the folding, and there is no honest reason to let those through.
+    pub(crate) disagreed: usize,
+}
+
+/// The app's sweep held against a radial product covering the same cut.
+///
+/// The two are on different grids. The Level II cut carries its own azimuth
+/// per radial and its own first gate and spacing; the radial product carries
+/// half-degree radials and quarter-kilometre bins from a first bin of its
+/// own. Each Level II gate is looked up by where it points and how far out it
+/// sits, which is the same walk `tdwr::render` makes to paint one of these,
+/// and the two grids land within half a bin of each other rather than exactly
+/// on top: over a patch of any size that rounding moves the boundary and not
+/// the count.
+pub(crate) fn disagreed_with_rpg(
+    field: &SweepField,
+    reference: &crate::level3::RadialImage,
+    minimum: f32,
+    increment: f32,
+    nyquist: f32,
+) -> AgainstRpg {
+    let slots = crate::tdwr::radial_slots(reference);
+    let reference_first_km = f64::from(reference.first_bin) * reference.bin_km;
+    let first_km = field.first_gate_range_km();
+    let interval_km = field.gate_interval_km();
+    let apart = nyquist / 2.0;
+
+    let mut comparable = 0usize;
+    let mut disagreed = 0usize;
+    for (index, azimuth) in field.azimuths().iter().enumerate() {
+        let slot = ((azimuth * 10.0).round() as i64).rem_euclid(3600) as usize;
+        let found = slots[slot];
+        if found == u16::MAX {
+            continue;
+        }
+        let Some(radial) = reference.radials.get(found as usize) else {
+            continue;
+        };
+        for gate in 0..field.gate_count() {
+            let (value, status) = field.get(index, gate);
+            if !matches!(status, GateStatus::Valid) {
+                continue;
+            }
+            let range_km = first_km + gate as f64 * interval_km;
+            let bin = ((range_km - reference_first_km) / reference.bin_km).round();
+            if bin < 0.0 {
+                continue;
+            }
+            let Some(level) = radial.gates.get(bin as usize) else {
+                continue;
+            };
+            let (reading, read) = crate::tdwr::gate_value(*level, minimum, increment);
+            if !matches!(reading, GateStatus::Valid) {
+                continue;
+            }
+            comparable += 1;
+            if (value - read).abs() > apart {
+                disagreed += 1;
+            }
+        }
+    }
+
+    AgainstRpg {
+        comparable,
+        disagreed,
+    }
+}
+
+/// One sweep held against the office's own dealiased velocity for it.
+pub(crate) struct HeldAgainstRpg {
+    pub(crate) comparable: usize,
+    /// What the radar itself reported, against the office's answer, before
+    /// this app touched anything.
+    ///
+    /// The control. Level II velocity reaches the archive with the RDA's own
+    /// dealiasing already in it, so this is close to nothing when the two
+    /// grids are lined up correctly and large when they are not. Without it
+    /// a broken azimuth lookup and a broken dealiaser read the same.
+    pub(crate) before: usize,
+    /// The same sweep after this app unfolded it at the radar's own limit,
+    /// which is what a reader is shown.
+    pub(crate) after: usize,
 }
 
 pub(crate) fn measure_unfolding(
@@ -724,7 +830,7 @@ pub(crate) fn measure_unfolding(
     station: &str,
 ) -> Option<Measured> {
     let (_key, data) = runtime.block_on(latest_volume(station)).ok()?;
-    measure_unfolding_bytes(data)
+    measure_unfolding_bytes(runtime, station, data)
 }
 
 /// The same measurement, against the volume a station published nearest a
@@ -741,10 +847,14 @@ pub(crate) fn measure_unfolding_at(
     at: DateTime<Utc>,
 ) -> Option<Measured> {
     let (_key, data) = runtime.block_on(archive_volume_at(station, at)).ok()?;
-    measure_unfolding_bytes(data)
+    measure_unfolding_bytes(runtime, station, data)
 }
 
-fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
+fn measure_unfolding_bytes(
+    runtime: &tokio::runtime::Runtime,
+    station: &str,
+    data: Vec<u8>,
+) -> Option<Measured> {
     let file = volume::File::new(data);
     let scan = file.scan().ok()?;
     let chosen = sweep_field(&scan, Product::Velocity, 1)?;
@@ -841,6 +951,69 @@ fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
         }
     }
 
+    // And the same sweep held against the office's own answer for it, which
+    // is the one reference here that did not come out of these bytes.
+    //
+    // The lowest cut rather than the one measured above. The office publishes
+    // its dealiased velocity per cut and numbers the files by its own product
+    // list, not by the scan pattern, so nothing but the file's own
+    // description says which angle it holds; the lowest is the one every
+    // pattern cuts and the one a reader looks at. Unfolded at the radar's
+    // real limit rather than at the third of it the refold works in, because
+    // this is the sweep that goes on screen and holding a deliberately
+    // over-folded copy against an operational product would measure the
+    // fixture instead of the app.
+    let rpg = (|| {
+        let lowest = sweep_field(&scan, Product::Velocity, 0)?;
+        let limit = nyquist_velocity(&file, lowest.elevation_number)?;
+        if !(5.0..80.0).contains(&limit) {
+            return None;
+        }
+        // The volume's own start, which is what a key is named after. A
+        // pattern cuts the same angle several times and the sweep chosen here
+        // can be the later one, three minutes inside its own volume, which
+        // picks the volume before.
+        let at = scan
+            .sweeps()
+            .iter()
+            .filter_map(|sweep| sweep.time_range().map(|(start, _)| start))
+            .min()?;
+        let (description, image) =
+            runtime.block_on(crate::level3::dealiased_velocity(station, at))?;
+        // The same allowance `sweep_field_at` makes when it matches two
+        // volumes' cuts by angle. A file for a different cut is worse than no
+        // file, because then the disagreement is the geometry.
+        if (description.elevation_degrees - lowest.elevation_degrees).abs() > 0.15 {
+            return None;
+        }
+
+        let read = lowest.field;
+        let mut live = read.clone();
+        unfold_velocity(&mut live, limit);
+        let before = disagreed_with_rpg(
+            &read,
+            &image,
+            description.minimum,
+            description.increment,
+            limit,
+        );
+        let after = disagreed_with_rpg(
+            &live,
+            &image,
+            description.minimum,
+            description.increment,
+            limit,
+        );
+        // Unfolding writes values and never statuses, so the two passes see
+        // the same gates. Asserted rather than assumed, because a share is
+        // taken over this and a denominator that moved would hide the move.
+        (before.comparable == after.comparable).then_some(HeldAgainstRpg {
+            comparable: before.comparable,
+            before: before.disagreed,
+            after: after.disagreed,
+        })
+    })();
+
     Some(Measured {
         broken_before,
         broken_after,
@@ -848,6 +1021,7 @@ fn measure_unfolding_bytes(data: Vec<u8>) -> Option<Measured> {
         rejoined,
         invented,
         misplaced,
+        rpg,
     })
 }
 

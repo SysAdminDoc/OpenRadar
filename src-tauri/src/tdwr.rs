@@ -217,7 +217,7 @@ pub fn gate_value(level: u8, minimum: f32, increment: f32) -> (GateStatus, f32) 
 /// The antenna does not turn at a constant rate, so the radials carry their
 /// own start and width and the gaps between them are real; a lookup over the
 /// circle answers a pixel's bearing in one step rather than a search.
-fn radial_slots(image: &RadialImage) -> Vec<u16> {
+pub(crate) fn radial_slots(image: &RadialImage) -> Vec<u16> {
     let mut slots = vec![u16::MAX; 3600];
     for (index, radial) in image.radials.iter().enumerate() {
         let start = (radial.start_degrees * 10.0).round() as i64;

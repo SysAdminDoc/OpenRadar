@@ -161,6 +161,13 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
             found.invented,
             found.misplaced
         );
+        match &found.rpg {
+            Some(held) => println!(
+                "{station}: against the office's own reading, {} of {} comparable \n                     gates before unfolding and {} after",
+                held.before, held.comparable, held.after
+            ),
+            None => println!("{station}: the office published no velocity for that cut"),
+        }
         measured.push(found);
     }
     assert!(
@@ -212,6 +219,79 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
             found.broken_after
         );
     }
+    // And against the office's own dealiased velocity for the same volume,
+    // which is the only reference in this test that did not come out of the
+    // bytes being scored.
+    //
+    // What it can see and what it cannot, since both matter. It sees a whole
+    // sweep or a large patch placed an interval away, which every other
+    // measure here is blind to by construction. It cannot see a single cell
+    // moved: a mesocyclone-scale couplet is on the order of a thousand gates
+    // against two hundred thousand, which is under the bar below. That case
+    // is pinned exactly by
+    // `the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved`,
+    // where the truth is built rather than fetched.
+    let held: Vec<&HeldAgainstRpg> = measured.iter().filter_map(|f| f.rpg.as_ref()).collect();
+    assert!(
+        held.len() >= 3,
+        "only {} of {} stations had an office reading to be held against, \
+             which is the bucket rather than the weather",
+        held.len(),
+        measured.len()
+    );
+    for one in &held {
+        // A sweep with almost nothing in common with the reference would pass
+        // every share below on a handful of gates. Recorded over the 40
+        // station-days of 42 that had a reference at all, the smallest
+        // overlap was 59,585 gates.
+        assert!(
+            one.comparable > 20_000,
+            "only {} gates could be compared with the office's own reading",
+            one.comparable
+        );
+        // The claim: unfolding must not walk the picture away from what the
+        // office decided. Not a floor on the disagreement itself, which is
+        // two products' own difference and belongs to the weather, but on how
+        // much of it this app added.
+        //
+        // Recorded per station-day over 2026-09-01 to 2026-09-07 at 21:00
+        // UTC, worst 0.001822 at KTLX on the 4th and under 0.0007 everywhere
+        // else. Six thousandths is three times that, and on a two hundred
+        // thousand gate sweep it is twelve hundred gates: a patch, not a
+        // rounding.
+        let added = one.after.saturating_sub(one.before);
+        assert!(
+            added * 1000 <= one.comparable * 6,
+            "unfolding moved {added} more gates away from the office's reading \
+                 than it found there, of {} compared",
+            one.comparable
+        );
+    }
+    // And across the stations together, which is steadier than any one of
+    // them, most of the picture has to agree with the office outright.
+    //
+    // Six stations on one day is what this test reads, and that aggregate
+    // came to 0.0197, 0.0260, 0.0120, 0.0244, 0.0168, 0.0128 and 0.0194 on
+    // the seven days the recorder walked. A twelfth sits at three times the
+    // worst of those and still fails an unfolding pass that scrambles the
+    // sweep, which would disagree with the office over most of it rather than
+    // over a fortieth. The control the recorder prints beside it says why
+    // that fortieth is not zero: the same gates before this app touches them
+    // read 0.0186 over the whole week, which is the two products' own
+    // resolutions and the half bin their grids sit apart.
+    let comparable: usize = held.iter().map(|one| one.comparable).sum();
+    let disagreed: usize = held.iter().map(|one| one.after).sum();
+    println!(
+        "over {} stations with an office reading: {disagreed} of {comparable} \
+             gates disagree",
+        held.len()
+    );
+    assert!(
+        disagreed * 100 < comparable * 8,
+        "{disagreed} of {comparable} gates sit more than half a Nyquist \
+             velocity from the office's own reading"
+    );
+
     // There is deliberately no per-station floor on how many of the folded
     // gates come back to the branch they started on. There was one, at a
     // twentieth, and `recording_the_days_unfolding_is_held_against` is what
@@ -437,6 +517,125 @@ fn every_type_number_the_stream_could_carry_is_survivable() {
     }
 }
 
+/// The instrument the live contract above leans on, proved on a sweep whose
+/// truth is known.
+///
+/// A live number is only worth as much as the measure that produced it, and
+/// this measure is the only one in `level2/testing.rs` that reads a second
+/// product. Everything it could get wrong is geometry: the wrong radial, the
+/// wrong bin, the byte scale read backwards. All three fail the same way, by
+/// reporting a disagreement that is really a misregistration, so the fixture
+/// asserts a clean zero before it asserts the catch.
+///
+/// The sweep is probe C of `AUD-362`, built to order: an isolated inbound
+/// cell at minus ten in a thirty metres a second outbound flow, against a
+/// twenty-five limit. Both readings are legal, minus ten as it stands or plus
+/// forty if it folded, and nothing inside the sweep says which. `dealias` has
+/// its own test that the cell is left where the radar put it. This one is
+/// about what happens when it is not: the three measures beside it are blind
+/// to a patch moved as one piece, and the office's own answer is not.
+#[test]
+fn the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved() {
+    const NYQUIST: f32 = 25.0;
+    // The scale a digital product carries in its description block. The live
+    // path reads these off the file; the fixture picks a pair that covers the
+    // readings in it, which the real product's own does too.
+    const MINIMUM: f32 = -100.0;
+    const INCREMENT: f32 = 1.0;
+    const AZIMUTHS: usize = 360;
+    const GATES: usize = 200;
+    const CELL_RADIALS: std::ops::Range<usize> = 85..95;
+    const CELL_GATES: std::ops::Range<usize> = 150..170;
+
+    // A quarter kilometre per bin, from a first bin the field's own first
+    // gate sits exactly on. Two real products are half a bin apart and the
+    // measure rounds, which moves a patch's edge and not its size; lining
+    // them up here keeps the count below an exact number rather than an
+    // approximate one.
+    let bin_km = 0.25;
+    let first_bin = 8u16;
+    let first_km = f64::from(first_bin) * bin_km;
+
+    let azimuths: Vec<f32> = (0..AZIMUTHS).map(|at| at as f32).collect();
+    let mut field = SweepField::new_empty(
+        "Velocity", "m/s", 0.5, azimuths, 1.0, first_km, bin_km, GATES,
+    );
+    for index in 0..AZIMUTHS {
+        for gate in 0..GATES {
+            field.set(index, gate, 30.0, GateStatus::Valid);
+        }
+    }
+    for index in CELL_RADIALS {
+        for gate in CELL_GATES {
+            field.set(index, gate, -10.0, GateStatus::Valid);
+        }
+    }
+
+    // The office's answer for the same cut, on its own grid: half-degree
+    // radials over the whole circle, reading what the radar reported.
+    let radials = (0..720)
+        .map(|at| {
+            let start_degrees = at as f32 * 0.5;
+            let index = (start_degrees.round() as usize) % AZIMUTHS;
+            level3::Radial {
+                start_degrees,
+                width_degrees: 0.5,
+                gates: (0..GATES)
+                    .map(|gate| {
+                        let (value, _) = field.get(index, gate);
+                        (((value - MINIMUM) / INCREMENT).round() as i32 + 2).clamp(2, 255) as u8
+                    })
+                    .collect(),
+            }
+        })
+        .collect();
+    let reference = level3::RadialImage {
+        first_bin,
+        bins: GATES as u16,
+        bin_km,
+        radials,
+    };
+
+    // The control. A zero here is what says the radials, the bins and the
+    // byte scale all line up, so a count below is the dealiasing and not the
+    // plumbing.
+    let agreed = disagreed_with_rpg(&field, &reference, MINIMUM, INCREMENT, NYQUIST);
+    assert_eq!(
+        agreed.comparable,
+        AZIMUTHS * GATES,
+        "the two grids did not cover each other"
+    );
+    assert_eq!(
+        agreed.disagreed, 0,
+        "{} gates disagreed on a sweep the office read exactly the same way",
+        agreed.disagreed
+    );
+
+    // And the defect: the cell snapped a whole interval onto the flow around
+    // it, which is a reading nothing measured. `broken_pairs` cancels over
+    // it, it never wrapped so `wrapped` and `rejoined` never look at it, and
+    // a whole interval is a whole interval so `invented` stays at zero.
+    let mut moved = field.clone();
+    let mut cell = 0usize;
+    for index in CELL_RADIALS {
+        for gate in CELL_GATES {
+            let (value, status) = moved.get(index, gate);
+            moved.set(index, gate, value + 2.0 * NYQUIST, status);
+            cell += 1;
+        }
+    }
+    let caught = disagreed_with_rpg(&moved, &reference, MINIMUM, INCREMENT, NYQUIST);
+    assert_eq!(
+        caught.comparable, agreed.comparable,
+        "moving a reading changed how many gates could be compared"
+    );
+    assert_eq!(
+        caught.disagreed, cell,
+        "the measure caught {} of the {cell} gates that were moved",
+        caught.disagreed
+    );
+}
+
 /// Where the numbers in the contract above came from, and how to get them
 /// again.
 ///
@@ -466,7 +665,7 @@ fn recording_the_days_unfolding_is_held_against() {
         .build()
         .expect("a runtime");
     println!(
-        "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,rejoined_share"
+        "station,day,broken_before,broken_after,rejoined,wrapped,invented,misplaced,rejoined_share,rpg_comparable,rpg_before,rpg_after,rpg_share"
     );
     for day in 1..=7 {
         for station in ["KDMX", "KTLX", "KAMX", "KTBW", "KGRR", "KFWS"] {
@@ -479,7 +678,7 @@ fn recording_the_days_unfolding_is_held_against() {
                 .expect("a UTC time");
             match measure_unfolding_at(&runtime, station, at) {
                 Some(found) => println!(
-                    "{station},2026-09-{day:02},{},{},{},{},{},{},{:.4}",
+                    "{station},2026-09-{day:02},{},{},{},{},{},{},{:.4},{}",
                     found.broken_before,
                     found.broken_after,
                     found.rejoined,
@@ -487,10 +686,20 @@ fn recording_the_days_unfolding_is_held_against() {
                     found.invented,
                     found.misplaced,
                     found.rejoined as f64 / found.wrapped.max(1) as f64,
+                    match &found.rpg {
+                        Some(held) => format!(
+                            "{},{},{},{:.4}",
+                            held.comparable,
+                            held.before,
+                            held.after,
+                            held.after as f64 / held.comparable.max(1) as f64
+                        ),
+                        None => "none,,,".to_string(),
+                    },
                 ),
                 // A station with no Doppler cut worth measuring that day,
                 // which the contract also passes over.
-                None => println!("{station},2026-09-{day:02},none,,,,,,"),
+                None => println!("{station},2026-09-{day:02},none,,,,,,,,,,"),
             }
         }
     }
