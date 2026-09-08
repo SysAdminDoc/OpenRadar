@@ -324,7 +324,14 @@ export function NearbyPanel({
         {alertsNote === "off"
           ? t("alerts.noteOff")
           : alertsError
-            ? t("alerts.noteError", { error: alertsError })
+            ? // "Showing the last good list" is a claim about a list, and on
+              // the ordinary first failure there has never been one: a
+              // question that changed and then failed leaves the idle state
+              // with an error on it, so a fetched time is what says whether
+              // anything is standing.
+              alertsFetchedAt
+              ? t("alerts.noteError", { error: alertsError })
+              : t("alerts.noteFailed", { error: alertsError })
             : alertsFetchedAt
               ? t("alerts.noteChecked", { when: relativeTime(alertsFetchedAt) })
               : t("alerts.noteLoading")}{" "}

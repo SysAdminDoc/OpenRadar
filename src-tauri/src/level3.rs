@@ -1323,6 +1323,15 @@ fn last_key(listing: &str) -> Option<String> {
 #[cfg(test)]
 const DEALIASED_VELOCITY: &str = "N0G";
 
+/// How close to midnight UTC a volume has to be for the day either side of it
+/// to be worth listing.
+///
+/// A scan is four to six minutes and the product is written within a minute of
+/// the volume it describes, so ten is comfortably more than either and still
+/// leaves all but a few volumes a day asking for one listing.
+#[cfg(test)]
+const NEAR_A_BOUNDARY: i64 = 10 * 60;
+
 /// The product code that family carries, so a file holding something else is
 /// refused rather than read as though its bytes meant metres per second.
 #[cfg(test)]
@@ -1355,11 +1364,29 @@ pub(crate) async fn dealiased_velocity(
 ) -> Option<(Description, RadialImage)> {
     let site = bucket_site(station)?;
 
-    // The day the volume belongs to and the one before it. A volume a minute
-    // either side of midnight UTC has its neighbours in the other day's
-    // listing, and which key is nearest in time is the whole question here.
+    // The day the volume belongs to, and its neighbour when the volume is near
+    // enough to a boundary for the nearest key to be on the other side of it.
+    // A volume beginning just before midnight UTC is written up just after,
+    // which is what `wind_profile_keys` says and what the first version of
+    // this got backwards: it listed the day before and never the day after,
+    // so a late volume found nothing nearer than the one four to six minutes
+    // behind it and the check below threw that away.
+    let mut days = vec![at];
+    let into = (at
+        - at.date_naive()
+            .and_hms_opt(0, 0, 0)
+            .expect("midnight")
+            .and_utc())
+    .num_seconds();
+    if into < NEAR_A_BOUNDARY {
+        days.push(at - Duration::days(1));
+    }
+    if into > 86_400 - NEAR_A_BOUNDARY {
+        days.push(at + Duration::days(1));
+    }
+
     let mut keys = Vec::new();
-    for day in [at - Duration::days(1), at] {
+    for day in days {
         let stamp = day.format("%Y_%m_%d").to_string();
         if let Ok(mut found) = keys_for_day(&site, DEALIASED_VELOCITY, &stamp).await {
             keys.append(&mut found);

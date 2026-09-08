@@ -196,12 +196,19 @@ describe("the split between the adapters and the table", () => {
    * Which of the two attributions a reader ever sees.
    *
    * `LAYER_SOURCES.weatherAlerts.attribution` is not it. The loop that reads
-   * the table skips every adapter-backed switch, so the credit in the ledger,
-   * in the map's own attribution control and burned into an exported picture
-   * all come from the adapter. Naming the Canadian and German offices in the
-   * table alone left all three of those still crediting the warnings to the
-   * American service, which is the obligation missed from the other side: the
-   * Canadian licence requires that office be named.
+   * the table skips every adapter-backed switch, so both places this layer's
+   * credit reaches a reader take it from the adapter instead: the map's own
+   * attribution control, which `MapViewport` hands `adapter.attribution` on
+   * the source, and the ledger in the diagnostics block. Naming the Canadian
+   * and German offices in the table alone left both of those still crediting
+   * the warnings to the American service, which is the obligation missed from
+   * the other side: the Canadian licence requires that office be named.
+   *
+   * Not the burned-in credit on an exported picture and not the export
+   * sidecar. Those are built from the sweep's and the timeline's own
+   * provenance records and never from an overlay adapter's, so no layer's
+   * credit reaches either of them today. That is its own gap and is filed as
+   * `AUD-432` rather than papered over here.
    *
    * Asserted on the record the app builds rather than on the constant, so a
    * later change to which field the record takes its credit from fails here

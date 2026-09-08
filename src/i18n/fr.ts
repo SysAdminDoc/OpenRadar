@@ -204,6 +204,7 @@ export const fr: Catalogue = {
     "Déplacez la carte ou éloignez-vous pour couvrir une zone plus large. Les alertes se rafraîchissent chaque minute.",
   "alerts.noteOff": "Rien n'est récupéré tant que la couche est éteinte.",
   "alerts.noteError": "Affichage de la dernière liste valide. {error}",
+  "alerts.noteFailed": "Aucune liste n'est arrivée. {error}",
   "alerts.noteChecked": "Veilles et alertes, vérifiées {when}.",
   "alerts.noteArchived":
     "Les alertes qui étaient en vigueur au moment affiché, tirées des archives de l'Iowa State.",
@@ -1810,6 +1811,8 @@ export const fr: Catalogue = {
   "smoke.heavy": "Fumée dense",
   "smoke.analysed": "Analysée {when}.",
   "smoke.analysedUnknown": "La date de l'analyse ne figure pas au fichier.",
+  "smoke.unreadable": "L'analyse de fumée n'a pas pu être lue.",
+  "smoke.notKml": "L'analyse de fumée n'était pas le document attendu.",
   "smoke.clear":
     "Les analystes n'ont trouvé de fumée nulle part aujourd'hui. Voici le fichier du jour, et il est vide.",
   "smoke.note":

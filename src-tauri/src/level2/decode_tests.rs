@@ -163,7 +163,7 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
         );
         match &found.rpg {
             Some(held) => println!(
-                "{station}: against the office's own reading, {} of {} comparable \n                     gates before unfolding and {} after",
+                "{station}: {} of {} gates disagree with the office, {} after unfolding",
                 held.before, held.comparable, held.after
             ),
             None => println!("{station}: the office published no velocity for that cut"),
@@ -227,43 +227,52 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
     // sweep or a large patch placed an interval away, which every other
     // measure here is blind to by construction. It cannot see a single cell
     // moved: a mesocyclone-scale couplet is on the order of a thousand gates
-    // against two hundred thousand, which is under the bar below. That case
-    // is pinned exactly by
+    // against two hundred thousand, which is under the per-station bar below.
+    // That case is pinned exactly by
     // `the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved`,
     // where the truth is built rather than fetched.
     let held: Vec<&HeldAgainstRpg> = measured.iter().filter_map(|f| f.rpg.as_ref()).collect();
     assert!(
         held.len() >= 3,
-        "only {} of {} stations had an office reading to be held against, \
-             which is the bucket rather than the weather",
+        "only {} of {} stations had an office reading to be held against,              which is the bucket rather than the weather",
         held.len(),
         measured.len()
     );
     for one in &held {
         // A sweep with almost nothing in common with the reference would pass
-        // every share below on a handful of gates. Recorded over the 40
+        // every share below on a handful of gates. Recorded over the 39
         // station-days of 42 that had a reference at all, the smallest
-        // overlap was 59,585 gates.
+        // overlap was 78,422 gates.
         assert!(
             one.comparable > 20_000,
             "only {} gates could be compared with the office's own reading",
             one.comparable
         );
-        // The claim: unfolding must not walk the picture away from what the
-        // office decided. Not a floor on the disagreement itself, which is
-        // two products' own difference and belongs to the weather, but on how
-        // much of it this app added.
-        //
-        // Recorded per station-day over 2026-09-01 to 2026-09-07 at 21:00
-        // UTC, worst 0.001822 at KTLX on the 4th and under 0.0007 everywhere
-        // else. Six thousandths is three times that, and on a two hundred
-        // thousand gate sweep it is twelve hundred gates: a patch, not a
-        // rounding.
+        // No station may disagree with the office wholesale. Recorded per
+        // station-day over 2026-09-01 to 2026-09-07 at 21:00 UTC, the highest
+        // was 0.0335 at KDMX on the 2nd and the rest sat between 0.0044 and
+        // 0.0304. Three tenths is nearly ten times the worst of those and
+        // still fails a station drawing something the office does not
+        // recognise, which is the case an aggregate bar cannot see: one
+        // station at thirty per cent still leaves the six together under a
+        // bar written for all of them.
+        assert!(
+            one.after * 10 < one.comparable * 3,
+            "{} of {} gates at one station are half a Nyquist velocity or more from the office's reading",
+            one.after,
+            one.comparable
+        );
+        // And unfolding must not walk the picture away from what the office
+        // decided. Not a floor on the disagreement itself, which is two
+        // products' own difference and belongs to the weather, but on how
+        // much of it this app added. Worst over the same week was 0.002276 at
+        // KTLX on the 4th and under 0.0008 everywhere else. Eight thousandths
+        // is three and a half times that, and on a two hundred thousand gate
+        // sweep it is sixteen hundred gates: a patch, not a rounding.
         let added = one.after.saturating_sub(one.before);
         assert!(
-            added * 1000 <= one.comparable * 6,
-            "unfolding moved {added} more gates away from the office's reading \
-                 than it found there, of {} compared",
+            added * 1000 <= one.comparable * 8,
+            "unfolding moved {added} more gates away from the office's reading than it found there, of {} compared",
             one.comparable
         );
     }
@@ -271,25 +280,23 @@ fn unfolding_a_live_velocity_sweep_takes_the_folds_out() {
     // them, most of the picture has to agree with the office outright.
     //
     // Six stations on one day is what this test reads, and that aggregate
-    // came to 0.0197, 0.0260, 0.0120, 0.0244, 0.0168, 0.0128 and 0.0194 on
-    // the seven days the recorder walked. A twelfth sits at three times the
-    // worst of those and still fails an unfolding pass that scrambles the
-    // sweep, which would disagree with the office over most of it rather than
-    // over a fortieth. The control the recorder prints beside it says why
-    // that fortieth is not zero: the same gates before this app touches them
-    // read 0.0186 over the whole week, which is the two products' own
-    // resolutions and the half bin their grids sit apart.
+    // came to 0.0065, 0.0104, 0.0056, 0.0125, 0.0080, 0.0067 and 0.0044 on
+    // the seven days the recorder walked. A twenty-fifth sits at more than
+    // three times the worst of those and still fails an unfolding pass that
+    // scrambles the sweep, which would disagree with the office over most of
+    // it rather than over a hundredth. The control the recorder prints beside
+    // it says why that hundredth is not zero: the same gates before this app
+    // touches them read 0.0075 over the whole week, which is the two
+    // products' own resolutions and the readings they genuinely differ on.
     let comparable: usize = held.iter().map(|one| one.comparable).sum();
     let disagreed: usize = held.iter().map(|one| one.after).sum();
     println!(
-        "over {} stations with an office reading: {disagreed} of {comparable} \
-             gates disagree",
+        "over {} stations with an office reading: {disagreed} of {comparable} gates disagree",
         held.len()
     );
     assert!(
-        disagreed * 100 < comparable * 8,
-        "{disagreed} of {comparable} gates sit more than half a Nyquist \
-             velocity from the office's own reading"
+        disagreed * 25 < comparable,
+        "{disagreed} of {comparable} gates are half a Nyquist velocity or more from the office's reading"
     );
 
     // There is deliberately no per-station floor on how many of the folded
@@ -547,14 +554,21 @@ fn the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved() {
     const CELL_RADIALS: std::ops::Range<usize> = 85..95;
     const CELL_GATES: std::ops::Range<usize> = 150..170;
 
-    // A quarter kilometre per bin, from a first bin the field's own first
-    // gate sits exactly on. Two real products are half a bin apart and the
-    // measure rounds, which moves a patch's edge and not its size; lining
-    // them up here keeps the count below an exact number rather than an
-    // approximate one.
+    // The geometry the live path actually meets, and the whole reason this
+    // fixture exists. A real cut puts the centre of its first gate at 2.125
+    // km against a product whose bins start at zero and run a quarter of a
+    // kilometre each, so gate `g` sits at eight and a half bins plus `g` and
+    // the bin holding it is the eighth plus `g`. The first version of this
+    // test lined the two grids up exactly, which made the floor and a
+    // rounding return the same integer for every gate and hid a measure that
+    // was comparing every reading against the bin 250 metres further out.
     let bin_km = 0.25;
-    let first_bin = 8u16;
-    let first_km = f64::from(first_bin) * bin_km;
+    let first_bin = 0u16;
+    let first_km = 2.125;
+    // Which bin each gate falls in, and how many bins the reference needs to
+    // cover the field.
+    let bin_of = |gate: usize| ((first_km + gate as f64 * bin_km) / bin_km) as usize;
+    let bins = bin_of(GATES - 1) + 1;
 
     let azimuths: Vec<f32> = (0..AZIMUTHS).map(|at| at as f32).collect();
     let mut field = SweepField::new_empty(
@@ -572,7 +586,13 @@ fn the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved() {
     }
 
     // The office's answer for the same cut, on its own grid: half-degree
-    // radials over the whole circle, reading what the radar reported.
+    // radials over the whole circle, and bins from zero, reading what the
+    // radar reported wherever a bin holds one of its gates and nothing where
+    // none does.
+    let mut reading = vec![None; bins];
+    for gate in 0..GATES {
+        reading[bin_of(gate)] = Some(gate);
+    }
     let radials = (0..720)
         .map(|at| {
             let start_degrees = at as f32 * 0.5;
@@ -580,10 +600,16 @@ fn the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved() {
             level3::Radial {
                 start_degrees,
                 width_degrees: 0.5,
-                gates: (0..GATES)
-                    .map(|gate| {
-                        let (value, _) = field.get(index, gate);
-                        (((value - MINIMUM) / INCREMENT).round() as i32 + 2).clamp(2, 255) as u8
+                gates: reading
+                    .iter()
+                    .map(|held| match held {
+                        // Level zero is nothing above the threshold, which is
+                        // what a bin with no gate of this cut in it holds.
+                        None => 0u8,
+                        Some(gate) => {
+                            let (value, _) = field.get(index, *gate);
+                            (((value - MINIMUM) / INCREMENT).round() as i32 + 2).clamp(2, 255) as u8
+                        }
                     })
                     .collect(),
             }
@@ -591,7 +617,7 @@ fn the_office_s_reading_catches_a_correctly_reported_cell_that_was_moved() {
         .collect();
     let reference = level3::RadialImage {
         first_bin,
-        bins: GATES as u16,
+        bins: bins as u16,
         bin_km,
         radials,
     };
