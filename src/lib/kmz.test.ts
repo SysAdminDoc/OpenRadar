@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_KMZ_BYTES, readKmz } from "./kmz";
+import { MAX_KMZ_BYTES, MAX_KMZ_ENTRY_BYTES, readKmz } from "./kmz";
 import { en } from "../i18n/en";
 
 /**
@@ -211,5 +211,117 @@ describe("a deflated entry", () => {
     out.set(end, local.length + header.length);
 
     expect(await readKmz(out.buffer)).toContain("<name>Held</name>");
+  });
+});
+
+describe("a deflated entry the decompressor cannot read", () => {
+  /**
+   * One deflated entry, whose compressed bytes are whatever is handed in.
+   *
+   * The three ways a real KMZ goes wrong are all shaped like this: the entry
+   * says method 8, which is what virtually every KMZ uses, and what follows is
+   * not a stream the decompressor will finish. Left alone it threw a bare
+   * `TypeError` with an empty message, and the caller shows `failure.message`,
+   * so the reader got "Overlay could not be added" and nothing else.
+   */
+  function deflatedZip(packed: Uint8Array, uncompressed: number): ArrayBuffer {
+    const encoder = new TextEncoder();
+    const name = encoder.encode("doc.kml");
+    const local = new Uint8Array(30 + name.length + packed.length);
+    const view = new DataView(local.buffer);
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(8, 8, true);
+    view.setUint32(18, packed.length, true);
+    view.setUint32(22, uncompressed, true);
+    view.setUint16(26, name.length, true);
+    local.set(name, 30);
+    local.set(packed, 30 + name.length);
+
+    const header = new Uint8Array(46 + name.length);
+    const headerView = new DataView(header.buffer);
+    headerView.setUint32(0, 0x02014b50, true);
+    headerView.setUint16(10, 8, true);
+    headerView.setUint32(20, packed.length, true);
+    headerView.setUint32(24, uncompressed, true);
+    headerView.setUint16(28, name.length, true);
+    headerView.setUint32(42, 0, true);
+    header.set(name, 46);
+
+    const end = new Uint8Array(22);
+    const endView = new DataView(end.buffer);
+    endView.setUint32(0, 0x06054b50, true);
+    endView.setUint16(8, 1, true);
+    endView.setUint16(10, 1, true);
+    endView.setUint32(12, header.length, true);
+    endView.setUint32(16, local.length, true);
+
+    const out = new Uint8Array(local.length + header.length + end.length);
+    out.set(local, 0);
+    out.set(header, local.length);
+    out.set(end, local.length + header.length);
+    return out.buffer;
+  }
+
+  /** A real deflate of the sample document, from the platform's compressor. */
+  async function deflated(): Promise<Uint8Array> {
+    const raw = new TextEncoder().encode(KML);
+    return new Uint8Array(
+      await new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(raw);
+            controller.close();
+          },
+        }).pipeThrough(new CompressionStream("deflate-raw")),
+      ).arrayBuffer(),
+    );
+  }
+
+  it("says the contents are damaged when the bytes are not deflate", async () => {
+    if (typeof CompressionStream === "undefined") return;
+    const rubbish = new Uint8Array([0xff, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa]);
+    await expect(readKmz(deflatedZip(rubbish, 64))).rejects.toThrow(
+      en["kmz.damaged"],
+    );
+  });
+
+  it("says so when the stream stops two bytes early", async () => {
+    if (typeof CompressionStream === "undefined") return;
+    const whole = await deflated();
+    await expect(
+      readKmz(deflatedZip(whole.slice(0, whole.length - 2), KML.length)),
+    ).rejects.toThrow(en["kmz.damaged"]);
+  });
+
+  it("says so when there are no compressed bytes at all", async () => {
+    if (typeof CompressionStream === "undefined") return;
+    await expect(
+      readKmz(deflatedZip(new Uint8Array(0), KML.length)),
+    ).rejects.toThrow(en["kmz.damaged"]);
+  });
+
+  it("still says too big rather than damaged when it unpacks too far", async () => {
+    if (typeof CompressionStream === "undefined") return;
+    // The size check throws from inside the same loop the catch wraps, so a
+    // catch written carelessly swallows it and reports every oversized archive
+    // as damaged. The header here says the entry unpacks to sixty-four bytes,
+    // which gets it past the check on the claim, and the stream then delivers
+    // more than the cap: the in-loop check is the only thing left that can
+    // stop it. Zeroes deflate to almost nothing, which is what makes the
+    // archive itself small enough to reach the reader.
+    const huge = new Uint8Array(MAX_KMZ_ENTRY_BYTES + 1024);
+    const packed = new Uint8Array(
+      await new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(huge);
+            controller.close();
+          },
+        }).pipeThrough(new CompressionStream("deflate-raw")),
+      ).arrayBuffer(),
+    );
+    await expect(readKmz(deflatedZip(packed, 64))).rejects.toThrow(
+      en["kmz.tooBigUnpacked"],
+    );
   });
 });

@@ -498,6 +498,7 @@ export const fr: Catalogue = {
   "kmz.tooBig": "Cette archive est plus grande que ce qui peut être lu.",
   "kmz.noKml": "Cette archive ne contient aucun fichier KML.",
   "kmz.truncated": "Cette archive est tronquée.",
+  "kmz.damaged": "Le contenu de cette archive est endommagé.",
   "kmz.notZipLayout": "Cette archive n'a pas la structure d'un zip.",
   "kmz.compression": "Cette archive utilise une compression illisible ici.",
   "kml.notXml": "Ce fichier n'a pas pu être lu comme du XML.",

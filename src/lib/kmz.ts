@@ -93,17 +93,32 @@ async function inflate(raw: Uint8Array): Promise<Uint8Array> {
   const parts: Uint8Array[] = [];
   let total = 0;
   const reader = stream.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    // Checked as it arrives rather than from the header: a header is a claim
-    // and this is the thing that actually landed.
-    if (total > MAX_KMZ_ENTRY_BYTES) {
-      await reader.cancel();
-      throw new Error(translate("kmz.tooBigUnpacked"));
+  // What this module threw itself, so the catch below can tell its own
+  // sentence apart from the engine's.
+  let ours: Error | null = null;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      // Checked as it arrives rather than from the header: a header is a claim
+      // and this is the thing that actually landed.
+      if (total > MAX_KMZ_ENTRY_BYTES) {
+        ours = new Error(translate("kmz.tooBigUnpacked"));
+        await reader.cancel();
+        throw ours;
+      }
+      parts.push(value);
     }
-    parts.push(value);
+  } catch (failure) {
+    if (failure === ours) throw failure;
+    // `DecompressionStream` throws a bare `TypeError` with an empty message
+    // for anything it cannot read, and method 8 is what virtually every real
+    // KMZ uses, so this is the commonest way a damaged one fails. The caller
+    // shows `failure.message`, which meant "Overlay could not be added" with
+    // nothing after it: bytes that are not deflate, a stream cut two bytes
+    // short and an entry with no compressed bytes at all all read the same.
+    throw new Error(translate("kmz.damaged"), { cause: failure });
   }
   const out = new Uint8Array(total);
   let at = 0;
