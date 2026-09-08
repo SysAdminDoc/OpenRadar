@@ -214,7 +214,10 @@ describe("choosing a site", () => {
     );
 
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
-    expect(fetchSweep).toHaveBeenCalledTimes(1);
+    // The first answer is the whole disc and says what the site reaches; the
+    // second is the box measured on it. Both are the arrival, not the pan.
+    await waitFor(() => expect(fetchSweep.mock.calls.length).toBe(2));
+    const arrived = fetchSweep.mock.calls.length;
 
     // Inside one cell of the coarse grid the site is resolved on, so nothing
     // about which site to read has changed.
@@ -223,7 +226,7 @@ describe("choosing a site", () => {
     rerender({ center: [-93.73, 41.73] });
 
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
-    expect(fetchSweep).toHaveBeenCalledTimes(1);
+    expect(fetchSweep).toHaveBeenCalledTimes(arrived);
   });
 
   it("holds a site the panel pinned rather than following the map", async () => {
@@ -338,26 +341,26 @@ describe("historical volumes", () => {
     expect(result.current.historical).toBe(true);
     expect(result.current.mode).toBe("archive");
     expect(result.current.sweep?.source.kind).toBe("archive");
-    expect(fetchArchiveSweep).toHaveBeenLastCalledWith(
+    // The first four arguments only. Which ground the volume is drawn over
+    // is pinned by the box tests below and is not what this one is about.
+    expect(fetchArchiveSweep.mock.calls.at(-1)!.slice(0, 4)).toEqual([
       "KTLX",
       "2013-05-20T20:56:00.000Z",
       "reflectivity",
       0,
-      null,
-    );
+    ]);
 
     rerender({ product: "velocity", tilt: 2 });
     await waitFor(() => {
       expect(result.current.sweep?.productId).toBe("velocity");
       expect(result.current.sweep?.tiltIndex).toBe(2);
     });
-    expect(fetchArchiveSweep).toHaveBeenLastCalledWith(
+    expect(fetchArchiveSweep.mock.calls.at(-1)!.slice(0, 4)).toEqual([
       "KTLX",
       "2013-05-20T20:56:00.000Z",
       "velocity",
       2,
-      null,
-    );
+    ]);
   });
 
   it("draws an archived volume over the ground the reader is looking at", async () => {
@@ -367,7 +370,7 @@ describe("historical volumes", () => {
     // and it was a postage stamp on a map covering 460 kilometres.
     const { result, rerender } = renderHook(
       (props: { zoom: number }) => useSingleSiteRadar(options(props)),
-      { initialProps: { zoom: 12 } },
+      { initialProps: { zoom: 9 } },
     );
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
 
@@ -380,7 +383,7 @@ describe("historical volumes", () => {
       "an archived volume of the live site follows the zoom",
     ).not.toBeNull();
 
-    rerender({ zoom: 13 });
+    rerender({ zoom: 10 });
     await waitFor(() => {
       expect(fetchArchiveSweep.mock.calls.at(-1)![4]).not.toEqual(opened);
     });
@@ -395,7 +398,7 @@ describe("historical volumes", () => {
     // it. Ten megabytes and a decode for a picture already in hand.
     const { result, rerender } = renderHook(
       (props: { zoom: number }) => useSingleSiteRadar(options(props)),
-      { initialProps: { zoom: 12 } },
+      { initialProps: { zoom: 9 } },
     );
     await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
 
@@ -411,13 +414,13 @@ describe("historical volumes", () => {
     // must not be. Waiting for each to land matters: the request key is only
     // written when the answer arrives, so moving on before that early-returns
     // on the unchanged key and would prove nothing about the cache.
-    rerender({ zoom: 13 });
+    rerender({ zoom: 10 });
     await waitFor(() =>
       expect(fetchArchiveSweep.mock.calls.at(-1)![4]).not.toEqual(opened),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    rerender({ zoom: 12 });
+    rerender({ zoom: 9 });
     await waitFor(() =>
       expect(fetchArchiveSweep.mock.calls.at(-1)![4]).toEqual(opened),
     ).catch(() => undefined);
