@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useT } from "../i18n";
 import { awayFor, type CatchUp } from "../lib/catchUp";
 
@@ -24,9 +25,41 @@ export function CatchUpCard({
 }) {
   const t = useT();
   const hidden = summary.total - summary.lines.length;
+  const card = useRef<HTMLElement | null>(null);
+
+  // How tall this card is, published so anything else anchored to the top
+  // centre of the map can sit under it rather than on it.
+  //
+  // The tool hint is the other tenant of that corner, twelve pixels below
+  // this card's own top and twenty-seven z-levels above it, so starting Draw
+  // or Cross-section used to put an instruction card over this one's title.
+  // Both are the app's own words and both are meant to be read.
+  //
+  // Measured rather than assumed, because the height is however many lines
+  // the night produced, and observed rather than measured once, because the
+  // card grows when its language changes or its text wraps at a narrower
+  // window.
+  useEffect(() => {
+    const node = card.current;
+    if (!node) return;
+    const root = document.documentElement;
+    const publish = () => {
+      root.style.setProperty(
+        "--catch-up-stack",
+        `${Math.round(node.getBoundingClientRect().height)}px`,
+      );
+    };
+    publish();
+    const watching = new ResizeObserver(publish);
+    watching.observe(node);
+    return () => {
+      watching.disconnect();
+      root.style.removeProperty("--catch-up-stack");
+    };
+  }, []);
 
   return (
-    <section className="catch-up" aria-label={t("catchUp.title")}>
+    <section ref={card} className="catch-up" aria-label={t("catchUp.title")}>
       <div className="catch-up__title">
         <span>{t("catchUp.title")}</span>
         <small>

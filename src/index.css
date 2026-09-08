@@ -2593,7 +2593,14 @@ input[type="range"]:disabled {
 .tool-hud {
   position: absolute;
   z-index: 33;
-  top: 76px;
+  /* Under the catch-up card when there is one, on the map when there is not.
+     Both live at the top centre and the tool hint sits twenty-seven z-levels
+     above, so it used to cover the card's title the moment a reader picked up
+     Draw, Range, Inspector or Cross-section, which is the first thing anybody
+     does. `--catch-up-stack` is that card's own measured height, published by
+     the card and gone when it is; 76 is 64 plus the same 12 px gap, so with
+     no card this is exactly where it always was. */
+  top: calc(76px + var(--catch-up-stack));
   left: 50%;
   display: flex;
   min-width: 300px;
@@ -3930,6 +3937,12 @@ input[type="range"]:disabled {
   --legend-width: 260px;
   --timeline-height: 88px;
   --command-height: var(--timeline-height);
+  /* How far down the top-centre stack anything after the catch-up card
+     starts. Nought when there is no card, and the card's own measured height
+     while there is one, written on the root by `CatchUpCard`. Declared here
+     rather than left to a `var()` fallback: a fallback is the value nobody
+     chose, and this is the value for every reader who has no card. */
+  --catch-up-stack: 0px;
   --bg: #070b10;
   --surface: rgba(12, 18, 25, 0.97);
   --surface-solid: #0c1219;
