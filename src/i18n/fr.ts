@@ -1854,6 +1854,8 @@ export const fr: Catalogue = {
   "export.hrrr": "HRRR, à {minutes} min",
   "export.saved": "{name} enregistré",
   "export.downloads": "Regardez dans votre dossier de téléchargements.",
+  "export.noRecord":
+    "L'image est enregistrée. Le relevé de sa provenance n'a pas pu être écrit à côté.",
   "export.show": "Afficher",
   "export.failed": "L'exportation a échoué",
   "export.imageFailed": "L'image n'a pas pu être exportée",
