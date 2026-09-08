@@ -160,7 +160,9 @@ describe("nobody rolls their own again", () => {
    */
   const outstanding = new Set([
     "src/App.tsx",
-    "src/glance.tsx",
+    // The glance window's own guard moved with it when the component was
+    // split out of the entry point, which is a move and not a new one.
+    "src/glanceWindow.tsx",
     "src/hooks/useClassification.ts",
     "src/hooks/useCuriosities.ts",
     "src/hooks/useLightning.ts",

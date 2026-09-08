@@ -670,15 +670,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-422 (P3): Two gates print noise nobody reads, which is where the next real warning will hide
-      Category: maintainability
-      Where: `cargo check --lib --features fuzzing` (914 warnings, all `dead_code`: 479 functions, 256 constants, 105 structs, 32 statics, 18 enums, 9 methods, 3 aliases and 1 unused import, because `src-tauri/src/lib.rs:119` compiles `run()` out under the feature and everything only `run()` reaches is then unused); `npm run lint` (one standing `react-refresh/only-export-components` warning at `src/glance.tsx:53`, printed on every `npm run check`).
-      Problem: The fuzz-feature check exists to catch the facade breaking, which it does, and it also prints nine hundred lines every time; a genuinely new warning in that build, an unused import in the facade for instance, is one line in nine hundred and will not be seen. The lint warning is smaller and older: a gate that always prints one warning is a gate whose second warning goes unnoticed.
-      Evidence: Counted from the baseline run on 2026-09-08 (`sort | uniq -c` over the warning kinds); `npm run lint` output "1 problem (0 errors, 1 warning)".
-      Fix: `#![cfg_attr(feature = "fuzzing", allow(dead_code, unused_imports))]` at the top of `lib.rs` with a comment saying why, so the fuzz check is clean and any new warning is the whole output; move `Window` in `glance.tsx` into its own file or export it, whichever the refresh rule wants; then make `npm run lint` run with `--max-warnings 0` so the count stays at zero.
-      Acceptance: `cargo check --lib --features fuzzing` prints no warnings; `npm run lint` passes with `--max-warnings 0`.
-      Confidence: Verified
-      Effort: S
 
 - [ ] AUD-423 (P3): `settings.ts` is 2,138 lines that import nineteen leaf modules, and every ring this week ran through it
       Category: maintainability
