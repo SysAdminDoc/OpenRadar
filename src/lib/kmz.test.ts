@@ -340,5 +340,10 @@ describe("a deflated entry the decompressor cannot read", () => {
     await expect(readKmz(deflatedZip(packed, 64))).rejects.toThrow(
       en["kmz.tooBigUnpacked"],
     );
-  });
+    // Longer than the file's own budget, because this one allocates the whole
+    // cap, deflates it and inflates it again. Alone it takes about a second
+    // and a half; on a machine also running a build it has gone past ten
+    // seconds three times, and what the test is about is which error comes
+    // back rather than how quickly.
+  }, 40_000);
 });
