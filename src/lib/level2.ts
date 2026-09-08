@@ -370,8 +370,9 @@ export async function fetchLocalSweep(
   motion: [number, number] | null,
   threshold: number | null,
   highContrast: boolean,
-  // The ground to draw over. A file the reader opened is drawn into the same
-  // pane as everything else, so it follows the zoom the same way.
+  // The ground to draw over. Always null from the app today: the box is
+  // measured on the disc of the site the map is on, and a file from disk
+  // carries whatever site it was recorded at. See `historicalWithin`.
   within: [number, number, number, number] | null,
 ): Promise<SweepImage> {
   const { invoke } = await import("@tauri-apps/api/core");
