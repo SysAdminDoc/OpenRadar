@@ -349,6 +349,39 @@ export function useSingleSiteRadar(options: {
   const volumeTimes =
     station && listed.site === station ? listed.times : EMPTY_TIMES;
 
+  /**
+   * The ground the live sweep is drawn over, or null for the site's whole
+   * reach.
+   *
+   * One raster over 460 kilometres is 449 metres a pixel against gates a
+   * quarter of a kilometre long, so past about zoom ten a reader is looking
+   * at this app's sampling and not at the radar. Spending the same pixels on
+   * less ground is what a single image can do about that.
+   *
+   * Every path that draws this site, so a frame the loop holds covers the
+   * same place as the live sweep beside it. It is in the loop's own key too:
+   * a frame drawn over a sixteenth of the disc is not an answer for a reader
+   * who has zoomed back out.
+   */
+  // Worked out fresh every render, which is a subtraction and two rounds, and
+  // then rebuilt from its own key. The key is what decides whether anything
+  // asks again: the box is quantised, so a pan inside the picture produces
+  // the same four numbers, and rebuilding from the string is what keeps the
+  // array's identity as steady as the numbers are. Everything that draws this
+  // site can then simply depend on it.
+  const asking =
+    disc && disc.station === station
+      ? sweepDetailBox(disc, center, zoom)
+      : null;
+  const withinKey = asking ? asking.join(",") : "";
+  const within = useMemo(
+    () =>
+      withinKey
+        ? (withinKey.split(",").map(Number) as [number, number, number, number])
+        : null,
+    [withinKey],
+  );
+
   // The volume the step on screen belongs to, and whether the reader has
   // scrubbed off the newest one. Everything about the live picture, including
   // the volume in progress and its persistence, belongs to the newest step
@@ -387,6 +420,7 @@ export function useSingleSiteRadar(options: {
           threshold,
           palette: paletteGeneration,
           highContrast: highContrastRequested(),
+          within,
         });
   // Whatever has been settled for the key being asked about now. A reply for
   // a key the pane has moved off is not an answer to the question it is
@@ -422,6 +456,7 @@ export function useSingleSiteRadar(options: {
             motion,
             threshold,
             highContrastRequested(),
+            within,
           )
     )
       .then((next) => {
@@ -457,6 +492,10 @@ export function useSingleSiteRadar(options: {
     radar.tilt,
     station,
     threshold,
+    // The compare pane is placed beside the live sweep, so it follows the
+    // same ground. `compareKey` carries the box as well, so a frame held for
+    // one is never handed to the other.
+    within,
   ]);
 
   // The list for the picker. Asked for whether or not a site is pinned,
@@ -607,12 +646,21 @@ export function useSingleSiteRadar(options: {
         motion,
         threshold,
         highContrastRequested(),
+        within,
       ] as const;
       return source.kind === "archive"
         ? fetchArchiveSweep(source.station, source.at, ...common)
         : fetchLocalSweep(source.path, ...common);
     },
-    [motionFrom, motionSpeed, product, radar.dealias, radar.tilt, threshold],
+    [
+      motionFrom,
+      motionSpeed,
+      product,
+      radar.dealias,
+      radar.tilt,
+      threshold,
+      within,
+    ],
   );
 
   const activateHistorical = useCallback(
@@ -690,6 +738,7 @@ export function useSingleSiteRadar(options: {
             threshold,
             palette: paletteGeneration,
             highContrast: highContrastRequested(),
+            within,
           }),
     [
       motionFrom,
@@ -700,6 +749,8 @@ export function useSingleSiteRadar(options: {
       radar.tilt,
       station,
       threshold,
+      // Rebuilt from its own key, so this only moves when the ground does.
+      within,
     ],
   );
 
@@ -826,39 +877,6 @@ export function useSingleSiteRadar(options: {
     historicalWanted,
   ]);
 
-  /**
-   * The ground the live sweep is drawn over, or null for the site's whole
-   * reach.
-   *
-   * One raster over 460 kilometres is 449 metres a pixel against gates a
-   * quarter of a kilometre long, so past about zoom ten a reader is looking
-   * at this app's sampling and not at the radar. Spending the same pixels on
-   * less ground is what a single image can do about that.
-   *
-   * Only the live path. The loop and the compare pane draw whole discs and
-   * are placed against each other, and a frame over less ground than the one
-   * beside it is a picture that jumps as it plays.
-   */
-  const within = useMemo(
-    () =>
-      disc && disc.station === station
-        ? sweepDetailBox(disc, center, zoom)
-        : null,
-    [disc, station, center, zoom],
-  );
-  // The dependency the fetch effect actually watches. `within` is a new array
-  // on every render and the numbers in it are what decide whether to ask
-  // again; the box is quantised, so this string only moves when the picture
-  // would.
-  const withinKey = within ? within.join(",") : "";
-  // Read from a ref inside the effect, the way the newest volume is. The
-  // array is rebuilt on every render and its identity says nothing; the key
-  // above is what actually decides whether to ask again.
-  const withinRef = useRef(within);
-  useEffect(() => {
-    withinRef.current = within;
-  }, [within]);
-
   useEffect(() => {
     // Not while the reader is looking at an older volume: this effect draws
     // what the radar is doing now, on a timer, and it would overwrite the
@@ -868,7 +886,6 @@ export function useSingleSiteRadar(options: {
 
     const refresh = async () => {
       const request = ++requestRef.current;
-      const asked = withinRef.current;
       setLoading(true);
       try {
         const next = await fetchSweep(
@@ -889,14 +906,14 @@ export function useSingleSiteRadar(options: {
           radar.live && radar.persistence,
           reducedMotionRequested(),
           radar.smoothSweep,
-          asked,
+          within,
         );
         if (!open || request !== requestRef.current) return;
         // The site's whole reach, learned from the one sweep that covers it.
         // Recorded whether or not this answer is still the one on screen: it
         // is true about the site rather than about this request, and without
         // it there is nothing to measure the next box against.
-        if (asked === null) {
+        if (within === null) {
           setDisc({
             station,
             west: next.west,
@@ -969,9 +986,9 @@ export function useSingleSiteRadar(options: {
     station,
     wanted,
     scrubbedBack,
-    // The box rather than the zoom: the box is quantised, so a pan or a zoom
-    // that lands on the same ground asks for nothing.
-    withinKey,
+    // The box rather than the zoom: it is quantised, so a pan or a zoom that
+    // lands on the same ground asks for nothing.
+    within,
   ]);
 
   /**
@@ -1018,6 +1035,7 @@ export function useSingleSiteRadar(options: {
       threshold,
       palette: paletteGeneration,
       highContrast: contrast,
+      within,
     });
 
     const already = heldRef.current.get(key)?.image;
@@ -1045,6 +1063,7 @@ export function useSingleSiteRadar(options: {
       motion,
       threshold,
       contrast,
+      within,
     )
       .then((next) => {
         // Kept whether or not it is still the frame on screen. Decoding is
@@ -1083,6 +1102,9 @@ export function useSingleSiteRadar(options: {
     station,
     threshold,
     wanted,
+    // The ground the frame under the scrubber is drawn over, so it covers the
+    // same place as the live sweep the reader zoomed in for.
+    within,
   ]);
 
   return useMemo(() => {

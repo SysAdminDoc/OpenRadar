@@ -642,13 +642,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
   Acceptance: Both strings are rendered at 1440 and 1024 in the pseudolocale and in French, and clip nowhere; planting a fifty-character unit fails the sweep.
   Complexity: S
 
-- [ ] AUD-438 (P3): The loop and the compare pane still draw the whole disc
-      Why: `AUD-339` gave the live sweep a box: past about zoom ten it is drawn over less ground so a reader zoomed in on a couplet sees the radar's gates rather than this app's sampling. The two paths that hold frames were deliberately left on the whole disc, because they place their pictures against each other and a frame over less ground than the one beside it is a picture that jumps as it plays. So a reader who zooms in, then scrubs back or opens the compare pane, watches the picture drop to 449 metres a pixel and come back again.
-      Evidence: `src-tauri/src/level2/commands.rs` (`level2_archive_sweep` and `level2_local_sweep` pass `None` for the box, with the reason written beside it); `src/hooks/useSingleSiteRadar.ts` (`within` is used only by the live effect; the scrubbed path calls `fetchArchiveSweep`, which has no box); `loopKey` does not carry the box, so frames cached at one box would be served at another.
-      Touches: `src/lib/level2.ts` (`fetchArchiveSweep` takes the box), `src-tauri/src/level2/commands.rs` (the archive and local paths pass it through the way the live one does), `src/hooks/useSingleSiteRadar.ts` (`loopKey` carries the box, so a frame drawn over one is never served for another, and the held map is bounded per box rather than growing one set of frames per zoom the reader passes through).
-      Acceptance: WHEN the reader is zoomed past the point where the live sweep takes a box, THEN scrubbing back and opening the compare pane both draw over the same ground as the live sweep; a frame held for one box is not served for another; the held map does not grow without bound as the reader zooms through several boxes; `npm run check` and the level2 spec green.
-      Complexity: M
-
 
 ### Notes on existing items
 

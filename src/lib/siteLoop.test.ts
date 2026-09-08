@@ -133,6 +133,7 @@ describe("what one rendered volume is held under", () => {
       threshold: null,
       palette: 1,
       highContrast: false,
+      within: null,
     } as const;
     // Every one of these changes what is drawn, and a key that ignored any of
     // them would hand back a picture of a different question.
@@ -193,5 +194,37 @@ describe("the bound on a loop's length is written down once", () => {
       Number(clamp![1]),
       "src/lib/siteLoop.ts and src-tauri/src/level2.rs disagree about the shortest loop",
     ).toBe(MIN_LOOP_VOLUMES);
+  });
+});
+
+describe("which frames a held picture answers for", () => {
+  const parts = {
+    station: "KDMX",
+    at: 1_756_543_200_000,
+    product: "reflectivity",
+    tilt: 0,
+    dealias: false,
+    motion: null,
+    threshold: null,
+    palette: 1,
+    highContrast: false,
+  } as const;
+
+  it("does not hand a frame drawn over one box to a reader looking at another", () => {
+    // The live sweep is drawn over less ground as the reader zooms in, and
+    // the loop follows it. A frame held at a sixteenth of the disc is a
+    // picture of one place; serving it to a reader who has zoomed back out
+    // would put it on the corners of another.
+    const close = loopKey({ ...parts, within: [-94.2, 41.2, -93.3, 42.2] });
+    const wider = loopKey({ ...parts, within: [-95.1, 40.7, -92.4, 42.7] });
+    const whole = loopKey({ ...parts, within: null });
+    expect(new Set([close, wider, whole]).size).toBe(3);
+  });
+
+  it("hands it back for the same ground, which is what the cache is for", () => {
+    const box: [number, number, number, number] = [-94.2, 41.2, -93.3, 42.2];
+    expect(loopKey({ ...parts, within: box })).toBe(
+      loopKey({ ...parts, within: [...box] }),
+    );
   });
 });

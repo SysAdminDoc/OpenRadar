@@ -114,6 +114,14 @@ export function loopKey(parts: {
   threshold: number | null;
   palette: number;
   highContrast: boolean;
+  /**
+   * The ground the frame was drawn over, or null for the site's whole reach.
+   *
+   * In the key because a frame drawn over a sixteenth of the disc is not an
+   * answer for a reader who has zoomed back out, and serving it as one would
+   * put a picture of one place on the corners of another.
+   */
+  within: readonly number[] | null;
 }): string {
   return JSON.stringify([
     parts.station,
@@ -125,6 +133,7 @@ export function loopKey(parts: {
     parts.threshold,
     parts.palette,
     parts.highContrast,
+    parts.within,
   ]);
 }
 

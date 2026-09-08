@@ -650,6 +650,65 @@ test("spends the sweep's pixels on less ground as the reader goes in", async ({
   await expect(pane).toHaveAttribute("data-layer-stack", /sweep-layer/);
 });
 
+test("scrubbing back draws over the same ground the live sweep is on", async ({
+  page,
+}) => {
+  // The live sweep is drawn over less ground as the reader zooms in. A frame
+  // the loop holds is placed beside it, so one drawn over the whole disc would
+  // drop the picture to 449 metres a pixel and bring it back as it played.
+  const anchor = Math.floor(Date.now() / 120_000) * 120_000;
+  await page.addInitScript(
+    ({ frames, volumes }: { frames: unknown; volumes: unknown }) => {
+      (window as unknown as { __mrmsFrames: unknown }).__mrmsFrames = frames;
+      (window as unknown as { __siteVolumes: unknown }).__siteVolumes = volumes;
+    },
+    {
+      frames: [12, 10, 8, 6, 4, 2, 0].map((back) => ({
+        time: Math.round((anchor - back * 60_000) / 1000),
+        key: `plant/${back}`,
+      })),
+      volumes: [10, 5, 0].map((back) =>
+        new Date(anchor - back * 60_000).toISOString(),
+      ),
+    },
+  );
+
+  await open(page, 9);
+  await expect(page.getByText("KDMX Reflectivity")).toBeVisible();
+  await page.getByRole("button", { name: "Pause radar animation" }).click();
+
+  const calls = async (command: string) =>
+    await page.evaluate(
+      (wanted: string) =>
+        (
+          window as unknown as {
+            __sweepCalls: Array<{
+              command: string;
+              args: Record<string, unknown>;
+            }>;
+          }
+        ).__sweepCalls
+          .filter((call) => call.command === wanted)
+          .map((call) => call.args.within as number[] | null),
+      command,
+    );
+
+  // In far enough that the live sweep takes a box.
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect
+    .poll(async () => (await calls("level2_sweep")).at(-1))
+    .not.toBeNull();
+  const live = (await calls("level2_sweep")).at(-1)!;
+
+  // Then back to an older volume, which is the loop's own path.
+  await page.getByLabel("Radar frame").fill("1");
+  await expect
+    .poll(async () => (await calls("level2_archive_sweep")).at(-1) ?? null)
+    .not.toBeNull();
+  expect((await calls("level2_archive_sweep")).at(-1)).toEqual(live);
+});
+
 test("hands a close-in view over to the nearest site and back again", async ({
   page,
 }) => {
