@@ -1138,3 +1138,84 @@ export async function routeWorkspace(page: Page) {
     await route.fulfill({ contentType: "image/png", body: transparentPng });
   });
 }
+
+/**
+ * A terminal radar held on screen, for a spec that has to see one drawn.
+ *
+ * `radar.terminalLine` and `chrome.terminalRadar` are behind
+ * `sweep.radar === "TDWR"`, so a spec that never holds one of these sites
+ * never renders either. Both gained a formatted distance where they used to
+ * carry a fixed "km", and the pseudolocale sweep is what would have caught
+ * what that does to their boxes: the chrome eyebrow goes from twenty-two
+ * characters to twenty-five with a bracket nested inside a bracket, because
+ * the unit is now a translated string inside a translated string.
+ *
+ * Registers `window.__answer` for the level2 commands, so it goes BEFORE
+ * `fakeDesktop`, which reads that at call time.
+ */
+export async function holdsATerminalRadar(page: Page) {
+  await page.addInitScript(() => {
+    const site = {
+      station: "TDAL",
+      siteName: "Dallas Love Field, TX",
+      productId: "reflectivity",
+      product: "Reflectivity",
+      unit: "dBZ",
+      paletteApplied: false,
+      highContrast: false,
+      smoothed: false,
+      dealiased: false,
+      unplacedShare: 0,
+      live: false,
+      liveTilts: 0,
+      nextChunkAt: null,
+      volumeEndsAt: null,
+      stormMotion: null,
+      elevationDegrees: 0.5,
+      tilts: [0.5, 1.0, 3.1],
+      tiltIndex: 0,
+      collected: "2026-09-01T19:56:53Z",
+      beneathCollected: null,
+      west: -97.9,
+      south: 32.1,
+      east: -96.0,
+      north: 33.7,
+      siteLon: -96.97,
+      siteLat: 32.93,
+      image: "data:image/png;base64,AAAA",
+      volume: "DAL_TZ0_2026_09_01_19_56_53",
+      // The two lines this exists to draw.
+      radar: "TDWR",
+      rangeKm: 88.8,
+      source: {
+        kind: "recent",
+        label: "NOAA NEXRAD Level III (TDWR)",
+        url: "https://registry.opendata.aws/noaa-nexrad/",
+      },
+    };
+    const w = window as unknown as {
+      __answer?: (
+        command: string,
+        args: Record<string, unknown>,
+      ) => [unknown] | undefined;
+    };
+    w.__answer = (command) => {
+      if (command === "level2_nearest_site") return ["TDAL"];
+      if (command === "level2_sweep") return [site];
+      if (command === "level2_recent_times") return [[]];
+      if (command === "level2_sites_in_reach") {
+        return [
+          [
+            {
+              station: "TDAL",
+              name: "Dallas Love Field, TX",
+              distanceKm: 4,
+              radar: "TDWR",
+            },
+          ],
+        ];
+      }
+      return undefined;
+    };
+  });
+}

@@ -579,13 +579,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
   Acceptance: a reply in a token outside the six is never drawn under a label that contradicts it; whichever answer is chosen is asserted in `GuidancePanel.test.tsx` against a planted kelvin reply, and planting the mislabel fails it.
   Complexity: S
 
-- [ ] AUD-437 (P3): The two terminal-radar lines are rendered by no test, at any width or in any language
-  Why: `AUD-415` gave `radar.terminalLine` and `chrome.terminalRadar` a formatted distance in place of a fixed "km", and its acceptance said the pseudolocale clipping test would cover the changed keys. It does not. Both are rendered in English by `e2e/level2.spec.ts:1167`, which holds a terminal site and now asserts the reach in miles at both of its ranges, and that is the whole of the coverage: the clipping sweep never holds a terminal site, so neither line has been drawn in the pseudolocale or in French. The risk the clipping sweep exists for is real here: the chrome eyebrow goes from `⟦ŦĐŴŘ · 225 ķɱ ······⟧` at twenty-two characters to `⟦ŦĐŴŘ · 140 ⟦ɱí ·⟧ ·····⟧` at twenty-five with a nested bracket, because the unit is now a translated string inside a translated string. Measured as text, not as pixels: nobody has seen it drawn.
-  Evidence: A refutation pass of 2026-09-08 traced both call sites (`src/panels/RadarProductPanel.tsx:548` behind `sweep?.radar === "TDWR"`, `src/components/WorkspaceChrome.tsx:783` behind the same). `e2e/language.spec.ts` opens every panel and never holds a terminal site. The English rendering is held: the full suite of 2026-09-08 caught the `AUD-415` change through `level2.spec.ts` in both projects, which is how the two stale assertions were found.
-  Touches: `e2e/support/fixtures.ts` (a routed TDWR sweep, the way the Level II fixtures are routed), `e2e/language.spec.ts` (hold the site so the sweep line and the chrome eyebrow are in the pseudolocale sweep), and `src/i18n/numbers.test.ts` if the template assertion should move to where the rendering one is.
-  Acceptance: Both strings are rendered at 1440 and 1024 in the pseudolocale and in French, and clip nowhere; planting a fifty-character unit fails the sweep.
-  Complexity: S
-
 
 ### Notes on existing items
 
