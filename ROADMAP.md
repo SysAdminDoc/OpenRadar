@@ -587,16 +587,6 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
 
 ### P2
 
-- [ ] AUD-405 (P2): The control-dressing check passes on three kinds of undressed control
-      Category: testing
-      Where: `e2e/support/fixtures.ts`, `wearsTheApp`.
-      Problem: Three shapes pass in both looks. A control with `display: none` passes, because `getComputedStyle` still resolves the declared values and the count guard only proves the selector matched, so a control that stopped being drawn would keep the test green. A control with `border: none; border-top: 1px solid` passes, because only the top border's width and style are read and never its colour. And a control carrying the browser's own font at 22 pixels with square corners passes, because the check never looks at font, size, radius, padding or height, which is the first thing the commit it was written for complains about.
-      Evidence: Synthetic controls planted in a real panel on 2026-09-08: `display: none`, `border-top` only and browser font all passed in both looks, while a bare input, a background-only one and a transparent one over a surface parent all failed.
-      Fix: Require the control to be visible and to have a box, check the border colour as well as its width and style, and hold the font family and size to the panel's.
-      Acceptance: Each of the three shapes fails; a properly dressed control passes; the five real controls still pass in both looks.
-      Confidence: Verified
-      Effort: S
-
 ### P3
 
 - [ ] AUD-407 (P3): One of the nine repointed test mocks stubs nothing
