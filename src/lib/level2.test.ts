@@ -272,6 +272,27 @@ describe("a station the reader is holding", () => {
     expect(said).toContain("publishing");
   });
 
+  it("measures from the radar, not from the middle of what was drawn", () => {
+    // The distance used to be worked out from the midpoint of the sweep's own
+    // extent, which was the radar for as long as every picture covered the
+    // whole disc. A zoomed-in reader now gets a box, and the midpoint of that
+    // is the snapped map centre: the line reported the distance from home to
+    // wherever the reader was looking, labelled as the station's.
+    const boxed = {
+      ...sweep,
+      west: sweep.siteLon + 1.5,
+      east: sweep.siteLon + 2.1,
+      south: sweep.siteLat + 1.2,
+      north: sweep.siteLat + 1.7,
+    };
+    expect(stationSummary(boxed, home, collected)).toBe(
+      stationSummary(sweep, home, collected),
+    );
+    // And the box really is somewhere else, so the equality above is the
+    // sweep carrying its radar rather than two boxes that happen to agree.
+    expect((boxed.west + boxed.east) / 2).not.toBeCloseTo(boxed.siteLon, 1);
+  });
+
   it("falls back to the built-in word when home has no name", () => {
     expect(stationSummary(sweep, home, collected)).toContain("Home");
   });
