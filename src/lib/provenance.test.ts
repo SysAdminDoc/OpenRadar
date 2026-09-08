@@ -438,8 +438,12 @@ describe("the record that travels with an exported file", () => {
   });
 
   it("names a service once however many layers it is behind", () => {
-    // The same office issues the warnings and the storm reports. Naming it
-    // twice in one line reads as a mistake rather than as thorough.
+    // Nothing in the app shares a credit today: all twelve adapters carry a
+    // different one, and the storm reports come from the Iowa State Mesonet
+    // rather than from the office that issues the warnings. So this is a
+    // guard against a pair arriving rather than a description of one, and it
+    // is worth having because naming a service twice in one line reads as a
+    // mistake rather than as thorough.
     const credit = provenanceCredit("OpenStreetMap", null, [
       observation({ sourceId: "alerts", attribution: "NOAA NWS" }),
       observation({ sourceId: "stormReports", attribution: "NOAA NWS" }),

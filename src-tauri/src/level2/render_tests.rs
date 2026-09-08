@@ -565,11 +565,14 @@ fn every_reading_of_where_a_gate_begins_agrees_with_the_one_that_reads_gates() {
         }
     }
 
-    // The two readings are the same function, so they answer alike at every
-    // range including the edges, where they used to differ: `round` goes half
-    // away from zero in Rust, so a range at exactly the near edge of gate 0
-    // came out as gate -1 and was refused by one of them and read by the
-    // other.
+    // The two readings are the same function in exact arithmetic, so they
+    // answer alike at every range a reader can produce, including the edges,
+    // where they used to differ: `round` goes half away from zero in Rust, so
+    // a range at exactly the near edge of gate 0 came out as gate -1 and was
+    // refused by one of them and read by the other. They can still part at a
+    // range one unit in the last place below a whole kilometre, where one
+    // rounds twice and the other once; `gate_covering` is right at every such
+    // range and no reading in the app lands on one.
     for range in [
         first - half,
         first - half + sliver,

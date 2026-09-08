@@ -43,11 +43,17 @@ pub(crate) fn gate_covering(field: &SweepField, range_km: f64) -> Option<usize> 
     if interval <= 0.0 {
         return None;
     }
-    // Half up rather than `round`, which in Rust goes half away from zero.
-    // The two spellings agree everywhere except at exactly the near edge of
-    // gate 0, where `round` gives -1 and refuses a range `reading_at` reads
-    // happily. This is the same arithmetic `reading_at` gets out of
-    // `value_at_polar`: `floor(t + 0.5)`, spelled out.
+    // Half up rather than `round`, which in Rust goes half away from zero and
+    // so gives -1 at exactly the near edge of gate 0, refusing a range
+    // `reading_at` reads happily.
+    //
+    // This is the arithmetic `reading_at` gets out of `value_at_polar`,
+    // spelled out: `floor(t + 0.5)`. The same in exact arithmetic, and not
+    // quite the same in floating point, because this rounds once where the
+    // other adds half an interval and then divides. On the fixture geometry
+    // they part company at five ranges out of four hundred gates, each one
+    // unit in the last place below a whole kilometre, and this is the
+    // correct one at all five.
     let gate = ((range_km - field.first_gate_range_km()) / interval + 0.5).floor();
     if gate < 0.0 || gate >= field.gate_count() as f64 {
         return None;

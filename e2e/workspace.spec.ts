@@ -1356,7 +1356,10 @@ test("a toast stays readable when the whole workspace is drawn larger", async ({
   // design rather than a collision. What has to hold at every width is that
   // the toast is readable and on screen, and that it clears the panel
   // wherever the panel is still a panel.
-  for (const width of [900, 884, 800]) {
+  // 885 and 881 rather than 884, which divides by 1.3 to exactly 680.0 and
+  // leaves the narrow test deciding on `680 <= 680`. One unit in the last
+  // place the other way and it lands on the other side of the edge.
+  for (const width of [900, 885, 881, 800]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/?testMode=1");
     await expect(page.getByRole("application")).toBeVisible();
