@@ -3,7 +3,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { expectClean } from "./support/axe";
 import { routeWorkspace } from "./support/fixtures";
 
-/** Three models over the same six hours, shaped the way Open-Meteo answers. */
+/**
+ * Three models over the same eight hours, shaped the way Open-Meteo answers.
+ *
+ * Eight because that is what the panel draws, and the width of the table is
+ * what broke its headers: with four the columns had room and the defect could
+ * not be reproduced at all.
+ */
 const GUIDANCE = {
   hourly_units: {
     time: "iso8601",
@@ -23,16 +29,20 @@ const GUIDANCE = {
       "2026-08-30T03:00",
       "2026-08-30T06:00",
       "2026-08-30T09:00",
+      "2026-08-30T12:00",
+      "2026-08-30T15:00",
+      "2026-08-30T18:00",
+      "2026-08-30T21:00",
     ],
-    temperature_2m_gfs_seamless: [26, 27, 28, 29],
-    temperature_2m_ecmwf_ifs025: [24, 25, 26, 27],
-    temperature_2m_icon_seamless: [25, 26, 27, 28],
-    precipitation_gfs_seamless: [0, 1.4, 0, 0],
-    precipitation_ecmwf_ifs025: [0, 0.1, 0, 0],
-    precipitation_icon_seamless: [0, 0.6, 0, 0],
-    wind_speed_10m_gfs_seamless: [12, 14, 15, 16],
-    wind_speed_10m_ecmwf_ifs025: [11, 13, 14, 15],
-    wind_speed_10m_icon_seamless: [12, 13, 15, 16],
+    temperature_2m_gfs_seamless: [26, 27, 28, 29, 30, 29, 28, 27],
+    temperature_2m_ecmwf_ifs025: [24, 25, 26, 27, 28, 27, 26, 25],
+    temperature_2m_icon_seamless: [25, 26, 27, 28, 29, 28, 27, 26],
+    precipitation_gfs_seamless: [0, 1.4, 0, 0, 0, 0.2, 0, 0],
+    precipitation_ecmwf_ifs025: [0, 0.1, 0, 0, 0, 0.1, 0, 0],
+    precipitation_icon_seamless: [0, 0.6, 0, 0, 0, 0.3, 0, 0],
+    wind_speed_10m_gfs_seamless: [12, 14, 15, 16, 17, 16, 15, 14],
+    wind_speed_10m_ecmwf_ifs025: [11, 13, 14, 15, 16, 15, 14, 13],
+    wind_speed_10m_icon_seamless: [12, 13, 15, 16, 17, 16, 15, 14],
   },
 };
 
@@ -189,6 +199,46 @@ test("puts three models beside each other for the same hours", async ({
   await expect(
     temperature.getByRole("rowheader", { name: "ICON" }),
   ).toHaveCount(0);
+});
+
+test("never breaks a header inside a word", async ({ page }) => {
+  // The table was laid out fixed at the panel's width, so nine columns were
+  // divided between about 320 px and the headers wrapped wherever they
+  // happened to run out: "Model" as "Mode" over "l", "ECMWF" as "ECM" over
+  // "WF", "Sun 8" over "PM". A word split down the middle reads as a
+  // rendering fault rather than as a narrow column, and the clipping sweep
+  // says nothing about it, because nothing overflows a box when text wraps.
+  await page.getByRole("button", { name: "Guidance", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Guidance" })).toBeVisible();
+  const block = page.locator("[data-guidance='temperature_2m']");
+  await expect(block).toBeVisible();
+
+  const measured = await block.evaluate((node) => {
+    const heads = [...node.querySelectorAll("th")];
+    const heights = heads.map((th) => th.getBoundingClientRect().height);
+    const scroller = node.closest(".guidance-block") ?? node;
+    return {
+      count: heads.length,
+      words: heads.map((th) => (th.textContent ?? "").trim()),
+      tallest: Math.max(...heights),
+      shortest: Math.min(...heights),
+      // Whatever does not fit is reachable by scrolling rather than folded
+      // into a second line.
+      scrolls: scroller.scrollWidth > scroller.clientWidth,
+      overflowX: getComputedStyle(scroller).overflowX,
+    };
+  });
+
+  // One for the model column, eight hours, three model names.
+  expect(measured.count).toBe(12);
+  expect(measured.words).toContain("ECMWF");
+  // Every header the same height means not one of them has wrapped: a header
+  // broken over two lines is twice as tall as the ones beside it.
+  expect(
+    measured.tallest - measured.shortest,
+    `headers of different heights, so one has wrapped: ${measured.words.join(", ")}`,
+  ).toBeLessThan(2);
+  expect(measured.overflowX).toBe("auto");
 });
 
 test("says it is refetching, and keeps the table when the refetch fails", async ({
