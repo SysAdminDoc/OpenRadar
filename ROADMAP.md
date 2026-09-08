@@ -615,15 +615,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Verified
       Effort: M
 
-- [ ] AUD-424 (P3): One accessibility test walks nineteen surfaces in a single case and fails on any one transient
-      Category: testing
-      Where: `e2e/accessibility.spec.ts:880-900` ("under a system contrast theme › every surface is still clean": a `for` over `SURFACES` inside one `test`, with `page.reload()` and the emulation re-requested between surfaces).
-      Problem: It failed once in this session, in the combined wide and compact run of 2026-09-08 (the compact project), and passed in an isolated run, in a doubled run of the spec, and in a full compact-project run, 72 of 72 each time. The failure's `error-context.md` was overwritten by the next run before it was read, so which surface and which rule fired is not known. A loop of nineteen surfaces with a reload between each is nineteen chances for a mid-fade colour read or a slow rail, and the dark and light loop at `:160` already runs one test per surface so a single transient names one surface rather than the lot.
-      Evidence: The run log of 2026-09-08 (1 failed of 367 in wide+compact), then `--repeat-each=2` and the full compact project, both clean.
-      Fix: Unroll the loop into `for (const id of …) test(…)` the way `:160` does, keeping the emulation setup in a `beforeEach`; set `retries: 1` for that project only if the flake recurs, and keep the artefact by running the combined projects with `--output` to a dated folder until it is seen.
-      Acceptance: The forced-colours coverage is one test per surface; the combined wide and compact run passes three times in a row.
-      Confidence: Needs-repro
-      Effort: S
 
 - [ ] AUD-430 (P3): Sweep the remaining `.message` failure paths, and gate the class rather than the instances
   Why: `AUD-425` routed six panel call sites through `failureSentence`, and the refutation pass of 2026-09-08 showed its acceptance grep never passed: `grep -rn "\.message" src/panels src/hooks` reads 70 on 2026-09-08 after five more were fixed. Most are `log.warn` and `log.info` lines, which are for developers and are meant to be English, and the ones that matter are the few that reach a reader. Two shapes keep recurring and neither is visible from a grep count: `failure instanceof Error ? failure.message : "some English sentence"`, which is untranslated copy written into the code, and a bare `.message` pass-through, which prints the engine's own words whenever the failure is one of its classes. The five fixed on 2026-09-08 were found by reading, and reading is not a gate.
