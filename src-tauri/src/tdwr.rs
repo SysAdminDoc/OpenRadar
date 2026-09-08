@@ -686,6 +686,42 @@ mod tests {
     }
 
     #[test]
+    fn a_terminal_radar_keeps_its_two_coordinates_the_right_way_round() {
+        // `Site::new` takes latitude before longitude and `TdwrSite` writes
+        // them the other way round, so the one call that bridges them is a
+        // swap waiting to happen, and nothing was watching it. The sweep the
+        // reader clicks on measures its range from these two numbers.
+        let held = dallas();
+        assert!(
+            (f64::from(held.latitude) - f64::from(held.longitude)).abs() > 1.0,
+            "this site's coordinates are too close together to catch a swap"
+        );
+        let site = held.to_site();
+        assert!((site.latitude() - held.latitude).abs() < 1e-6);
+        assert!((site.longitude() - held.longitude).abs() < 1e-6);
+
+        // And the ground the picture is drawn over brackets the radar, which
+        // is what a swapped pair could never manage.
+        let (description, image) = level3::read_radial_product(TZ0, BASE_BIN_KM).expect("decodes");
+        let drawn = render(
+            &image,
+            &description,
+            held,
+            Product::Reflectivity,
+            "dBZ",
+            Shading {
+                unfolded: false,
+                threshold: None,
+                high_contrast: false,
+            },
+            BASE_RANGE_KM,
+        );
+        let [west, south, east, north] = drawn.bounds;
+        assert!(west < f64::from(held.longitude) && f64::from(held.longitude) < east);
+        assert!(south < f64::from(held.latitude) && f64::from(held.latitude) < north);
+    }
+
+    #[test]
     fn values_follow_the_scale_the_product_carries() {
         assert!(matches!(gate_value(0, -32.0, 0.5).0, GateStatus::NoData));
         assert!(matches!(
