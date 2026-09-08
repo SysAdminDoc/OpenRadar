@@ -100,7 +100,7 @@ pub async fn level2_sweep(
     // An airport's own radar is read from its Level III products; nothing
     // below applies to it, and nothing about a WSR-88D changes for it.
     if tdwr::is_tdwr(&station) {
-        return tdwr::sweep(station, product, tilt, threshold, high_contrast).await;
+        return tdwr::sweep(station, product, tilt, threshold, high_contrast, within).await;
     }
     wsr88d_only(&station)?;
     let (key, data) = latest_volume(&station).await?;
