@@ -350,6 +350,26 @@ test("the reader's own accent reaches the command rail", async ({ page }) => {
 });
 
 /**
+ * The three pieces of chrome that sit straight on the basemap.
+ *
+ * The credits are the one the defect was found in, because they had no pill
+ * of their own. The other two carry one, which is what carried them through,
+ * and nothing held them to it: the helper below took a selector from the
+ * start and was called twice with the same one.
+ */
+const ON_THE_MAP = [".source-attribution", ".map-watermark", ".map-readout"];
+
+/** Puts the pointer on the map, which is what brings the readout up. */
+async function showTheReadout(page: Page) {
+  const map = await page.getByRole("application").first().boundingBox();
+  await page.mouse.move(
+    (map?.x ?? 0) + (map?.width ?? 0) / 2,
+    (map?.y ?? 0) + (map?.height ?? 0) / 2,
+  );
+  await expect(page.locator(".map-readout")).toBeVisible();
+}
+
+/**
  * Whether a line of chrome sitting straight on the basemap can be read.
  *
  * Ink dark enough to be ink, something opaque enough behind it to be a
@@ -364,24 +384,47 @@ async function readableOnTheMap(page: Page, selector: string) {
   });
   const channels = (colour: string) =>
     (colour.match(/[\d.]+/g) ?? []).map(Number);
-  const luminance = (colour: string) => {
-    const [red, green, blue] = channels(colour);
-    const part = (value: number) => {
-      const ratio = value / 255;
-      return ratio <= 0.03928
-        ? ratio / 12.92
-        : ((ratio + 0.055) / 1.055) ** 2.4;
-    };
-    return 0.2126 * part(red) + 0.7152 * part(green) + 0.0722 * part(blue);
+  const part = (value: number) => {
+    const ratio = value / 255;
+    return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4;
   };
-  expect(luminance(paint.ink), `${selector} ink`).toBeLessThan(0.2);
+  const luminance = (rgb: number[]) =>
+    0.2126 * part(rgb[0]) + 0.7152 * part(rgb[1]) + 0.0722 * part(rgb[2]);
+  /** One translucent colour laid over another, the way the screen does it. */
+  const over = (fore: number[], back: number[]) => {
+    const alpha = fore[3] ?? 1;
+    return [0, 1, 2].map((at) => fore[at] * alpha + back[at] * (1 - alpha));
+  };
+  const contrast = (one: number[], other: number[]) => {
+    const light = Math.max(luminance(one), luminance(other));
+    const dark = Math.min(luminance(one), luminance(other));
+    return (light + 0.05) / (dark + 0.05);
+  };
+
+  // Something opaque enough to be a ground. Without one the contrast is a
+  // hope rather than a promise, because whatever the basemap is drawing
+  // underneath can be any colour at all.
   expect(
     channels(paint.ground)[3] ?? 1,
     `${selector} has nothing behind it`,
   ).toBeGreaterThan(0.5);
-  const light = Math.max(luminance(paint.ink), luminance(paint.ground));
-  const dark = Math.min(luminance(paint.ink), luminance(paint.ground));
-  expect((light + 0.05) / (dark + 0.05)).toBeGreaterThanOrEqual(4.5);
+
+  // And then read over both extremes the map could be, rather than by
+  // comparing the two declared colours and ignoring what shows through. Which
+  // way round the pair goes is not fixed: the credits and the watermark are
+  // dark ink on a pale chip and the readout is pale ink on a dark one, and
+  // both are legible. The measurement is the same either way.
+  for (const [name, backdrop] of [
+    ["a white basemap", [255, 255, 255]],
+    ["a black basemap", [0, 0, 0]],
+  ] as const) {
+    const ground = over(channels(paint.ground), [...backdrop]);
+    const ink = over(channels(paint.ink), ground);
+    expect(
+      contrast(ink, ground),
+      `${selector} over ${name}`,
+    ).toBeGreaterThanOrEqual(4.5);
+  }
 }
 
 test("the map credits are readable over the light basemap", async ({
@@ -392,8 +435,11 @@ test("the map credits are readable over the light basemap", async ({
   // 1.03:1. The readout beside them got a light counterpart when the theme
   // was added and this did not.
   await startWith(page, null, "light");
-  await expect(page.locator(".source-attribution")).toBeVisible();
-  await readableOnTheMap(page, ".source-attribution");
+  await showTheReadout(page);
+  for (const selector of ON_THE_MAP) {
+    await expect(page.locator(selector)).toBeVisible();
+    await readableOnTheMap(page, selector);
+  }
 });
 
 test("the map credits are readable over a light basemap under the dark theme", async ({
@@ -415,7 +461,11 @@ test("the map credits are readable over a light basemap under the dark theme", a
       ),
     )
     .toBe("1");
-  await readableOnTheMap(page, ".source-attribution");
+  await showTheReadout(page);
+  for (const selector of ON_THE_MAP) {
+    await expect(page.locator(selector)).toBeVisible();
+    await readableOnTheMap(page, selector);
+  }
 
   // And a dark basemap under the same theme is left exactly as it was.
   await page.evaluate(() => {
