@@ -103,9 +103,6 @@ const REFERENCE_MARGIN_MS: f32 = 5.0;
 pub struct Dealiased {
     /// Gates whose reading was shifted onto another branch.
     pub moved: usize,
-    /// Gates placed by the fitted wind rather than by a boundary, which is the
-    /// weaker of the two kinds of evidence this module has.
-    pub by_wind: usize,
     /// Gates in a group nothing could place. Their neighbours agree with each
     /// other and which interval the group belongs in is unknown, so they are
     /// left exactly as the radar reported them, folds and all.
@@ -478,7 +475,6 @@ pub fn dealias(
     };
     let wind = reference_wind(values, valid, &region, &shift, &sweep, interval);
     let mut placed: Vec<bool> = shift.iter().map(|offset| offset.is_some()).collect();
-    let mut by_wind = vec![false; region_count];
 
     if let Some(wind) = wind {
         // For every gate the traversal left unplaced: which interval it reads
@@ -528,7 +524,6 @@ pub fn dealias(
             }
             shift[label] = Some(by);
             placed[label] = true;
-            by_wind[label] = true;
         }
     }
 
@@ -544,8 +539,6 @@ pub fn dealias(
         found.valid += 1;
         if !placed[label] {
             found.unplaced += 1;
-        } else if by_wind[label] {
-            found.by_wind += 1;
         }
         let Some(offset) = shift[label] else { continue };
         if offset != 0 {

@@ -10,6 +10,10 @@
 
   And the legend says the share of a cut that could not be placed, when it rounds to a whole per cent or more. Which branch such a patch belongs on is not in the data, so it keeps the radar's own reading, and a reader watching a couplet inside one deserves to know it might be a fold rather than rotation. On the worst recorded days that is a third of the picture.
 
+- Two controls say what they are called. The slider that hides weak readings was announced as "Hide readings below this value" while reading "Hide below", so saying the words in front of you reached nothing at all; it is named by its own label now. And the close button on a map popup said "Close" twice, once as its name and once as its tooltip, which some screen readers read out twice. It says what it closes, once.
+
+- The radar picker names the three radars outside the states properly. Kunsan, Camp Humphreys and Kadena have no state to give, and the list showed "Kadena AB, " with a comma and nothing after it.
+
 - Two things that read a file or a request now check a length before they trust it. A KMZ whose directory claims a filename longer than the file itself used to hand you the browser engine's own error text under "Overlay could not be added"; it says the archive is cut short, which is what happened. And a replay capture can name a bounded number of documents beside its tiles, the way it could already only ask for a bounded number of tiles. Nothing could reach either from outside the app, and both are the sort of guard that is only missing until it is not.
 
 - A tool's instructions no longer cover the card telling you what happened overnight. Both sit at the top centre of the map and the instructions sit above, so picking up Draw, Range, Inspector or Cross-section put a card over the card you were reading. The instructions go under it now, and back where they were once you send it away.

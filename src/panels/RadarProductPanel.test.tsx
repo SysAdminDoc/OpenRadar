@@ -65,8 +65,8 @@ describe("the site picker and what the office says", () => {
     loop: null,
     volumes: [],
     inReach: [
-      { station: "KTLX", city: "Oklahoma City", state: "OK", distanceKm: 25.3 },
-      { station: "KFDR", city: "Frederick", state: "OK", distanceKm: 142.8 },
+      { station: "KTLX", label: "Oklahoma City, OK", distanceKm: 25.3 },
+      { station: "KFDR", label: "Frederick, OK", distanceKm: 142.8 },
     ],
     historical: false,
     mode: "recent",
@@ -311,5 +311,84 @@ describe("the site picker and what the office says", () => {
       expect((said as HTMLInputElement).checked).toBe(false);
       expect(screen.getByText(/nothing here to take out/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe("every slider in the panel", () => {
+  it("is named by the words in front of it", () => {
+    // WCAG 2.5.3: what a control is called has to contain what it says, or a
+    // voice-control reader saying the words they can see reaches nothing and
+    // a screen reader announces something other than what is on screen.
+    //
+    // The single-site threshold carried an aria-label of its own that said
+    // the same thing another way, "Hide readings below this value" against a
+    // visible "Hide below", so not one word on it was in its name. The mosaic
+    // threshold and the opacity slider beside it were right from the start,
+    // which is why this asks about every slider rather than the one that was
+    // wrong.
+    render(
+      <RadarProductPanel
+        radar={{ ...DEFAULT_SETTINGS.radar, singleSite: true, station: "KTLX" }}
+        clock={Date.parse("2026-09-03T02:06:00Z")}
+        singleSite={
+          {
+            sweep: null,
+            station: "KTLX",
+            loading: false,
+            error: null,
+            active: false,
+            loop: null,
+            volumes: [],
+            inReach: [
+              {
+                station: "KTLX",
+                label: "Oklahoma City, OK",
+                distanceKm: 25.3,
+              },
+            ],
+            historical: false,
+            mode: "recent",
+            openLocal: async () => false,
+            openArchive: async () => false,
+            resumeRecent: () => {},
+            crossSection: null,
+            exportValues: null,
+          } as unknown as SingleSiteState
+        }
+        siteStatus={[]}
+        stormCells={CELLS}
+        watch={DEFAULT_SETTINGS.watch}
+        onRadar={vi.fn()}
+        onClose={() => {}}
+      />,
+    );
+
+    const sliders = screen.getAllByRole("slider");
+    // The single-site threshold has to be one of them, or this passes by
+    // having nothing to look at.
+    const shownFor = (slider: HTMLElement) =>
+      slider.closest("label")?.querySelector("strong")?.textContent?.trim() ??
+      "";
+    expect(
+      sliders.map(shownFor),
+      "the threshold slider is not on screen, so this proves nothing",
+    ).toContain(en["radar.threshold"]);
+
+    for (const slider of sliders) {
+      const shown = shownFor(slider);
+      if (!shown) continue;
+      const named =
+        slider.getAttribute("aria-label") ??
+        document.getElementById(slider.getAttribute("aria-labelledby") ?? "")
+          ?.textContent ??
+        "";
+      expect(
+        named.toLowerCase(),
+        `a slider reading "${shown}" is called "${named}"`,
+      ).toContain(shown.toLowerCase());
+      // And the value is announced separately, so the name does not change
+      // every time the thumb moves.
+      expect(slider.getAttribute("aria-valuetext")).toBeTruthy();
+    }
   });
 });

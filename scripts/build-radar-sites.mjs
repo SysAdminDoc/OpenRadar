@@ -51,14 +51,41 @@ async function nws(url) {
   return answer.json();
 }
 
-/** The labels already committed, so a radar that has not moved is not renamed. */
+/**
+ * The labels already committed, so a radar that has not moved is not renamed.
+ *
+ * Read back through the same escaping `rowFor` writes, because the round trip
+ * is the point: a name carrying a backslash grew one more on every run, and a
+ * name carrying a quote ended the match early, so the row went unrecognised
+ * and the radar was silently renamed to whatever the office calls it. No
+ * station name holds either character today, which is exactly the kind of
+ * thing that is true until it is not.
+ */
 export function carriedLabels(source) {
   const found = new Map();
+  // A cell is anything but a quote or a backslash, or a backslash and
+  // whatever it escapes. Without the second half a name holding a quote ends
+  // the match at that quote and the row is never recognised.
+  const cell = String.raw`(?:[^"\\]|\\.)*`;
   const rows = source.matchAll(
-    /id:\s*"([A-Z0-9]{3,4})",\s*city:\s*"([^"]*)",\s*state:\s*"([^"]*)"/g,
+    new RegExp(
+      String.raw`id:\s*"([A-Z0-9]{3,4})",\s*city:\s*"(` +
+        cell +
+        String.raw`)",\s*state:\s*"(` +
+        cell +
+        String.raw`)"`,
+      "g",
+    ),
   );
-  for (const row of rows) found.set(row[1], { city: row[2], state: row[3] });
+  for (const row of rows) {
+    found.set(row[1], { city: unescaped(row[2]), state: unescaped(row[3]) });
+  }
   return found;
+}
+
+/** What `rowFor` escaped, put back, so a run of it is not a run of escaping. */
+function unescaped(text) {
+  return text.replace(/\\(["\\])/g, "$1");
 }
 
 /**

@@ -172,8 +172,14 @@ export function isSingleSiteViewport(zoom: number): boolean {
 /** One radar the view can see, as the picker lists it. */
 export interface SiteInReach {
   station: string;
-  city: string;
-  state: string;
+  /**
+   * What to call it, joined on the native side by `SiteEntry::label`.
+   *
+   * One field rather than a city and a state with the comma in the catalogue
+   * string, because the three radars the office lists outside the states have
+   * no state and read "Kadena AB, " that way.
+   */
+  label: string;
   distanceKm: number;
 }
 

@@ -822,7 +822,6 @@ export const fr: Catalogue = {
   "radar.thresholdMosaic": "Masquer sous, sur la mosaïque",
   "radar.thresholdMosaicDetail":
     "La mosaïque retient l'écho le plus fort de toute la colonne, alors ses valeurs montent plus haut que celles d'un seul angle",
-  "radar.thresholdLabel": "Masquer les valeurs sous ce seuil",
   "radar.thresholdOff": "Tout",
   "radar.thresholdValue": "{value} {unit}",
   "radar.thresholdDetail":
@@ -834,7 +833,7 @@ export const fr: Catalogue = {
   "radar.site": "Site",
   "radar.siteLabel": "Site radar",
   "radar.terminalRadars": "Radars terminaux (TDWR)",
-  "radar.siteInReach": "{station} · {city}, {state} · {distance}",
+  "radar.siteInReach": "{station} · {place} · {distance}",
   "radar.sitesInReach": "Radars qui couvrent cette vue",
   "radar.siteWithFault": "{site} ({reason})",
   "radar.faultNoRecentData": "aucune donnée depuis {age}",
@@ -2260,7 +2259,7 @@ export const fr: Catalogue = {
   "notice.layerBack": "{layer} se dessine de nouveau",
   "notice.loopStalled": "La boucle s'est arrêtée",
   "notice.loopBack": "La boucle fonctionne de nouveau",
-  "map.popupClose": "Fermer",
+  "map.popupClose": "Fermer la fenêtre",
   "map.toggleAttribution": "Voir qui a fait cette carte",
   "map.mapFeedback": "Signaler un problème avec cette carte",
   "layers.movedUp": "{layer} est passé au-dessus de {other}",

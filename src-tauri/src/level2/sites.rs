@@ -155,9 +155,17 @@ pub(crate) fn sites_worth_asking<'a>(
 #[serde(rename_all = "camelCase")]
 pub struct SiteInReach {
     pub station: String,
-    /// The town it is named after, and the state, as the registry has them.
-    pub city: String,
-    pub state: String,
+    /// What to call it: the town it is named after and its state, or just the
+    /// town for the sites the office lists outside the states.
+    ///
+    /// One field rather than two, and built by `SiteEntry::label`, because
+    /// the rule for joining them is a rule and belongs in one place. Sent as
+    /// a city and a state with the comma baked into the catalogue string, it
+    /// read "Kadena AB, " in the picker for the three overseas radars: the
+    /// same defect `label` was written to fix, one layer up, missed because
+    /// the fix went in where the name is formatted for the legend and not
+    /// where a reader picks a site.
+    pub label: String,
     /// How far the view's centre is from it, in kilometres.
     pub distance_km: f64,
 }
@@ -179,8 +187,7 @@ pub fn level2_sites_in_reach(latitude: f32, longitude: f32) -> Vec<SiteInReach> 
         .into_iter()
         .map(|site| SiteInReach {
             station: site.id.to_string(),
-            city: site.city.to_string(),
-            state: site.state.to_string(),
+            label: site.label(),
             distance_km: great_circle_km(
                 latitude as f64,
                 longitude as f64,

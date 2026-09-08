@@ -91,8 +91,18 @@ fn the_sites_in_reach_come_back_nearest_first_with_their_distances() {
     }
     let nearest = &over_oklahoma_city[0];
     assert_eq!(nearest.station, "KTLX");
-    assert!(!nearest.city.is_empty());
-    assert_eq!(nearest.state.len(), 2);
+    // The name a reader picks it by, joined once on this side so the picker
+    // does not have to know that three of the office's radars have no state.
+    assert_eq!(nearest.label, "Oklahoma City, OK");
+    for site in &over_oklahoma_city {
+        assert!(!site.label.is_empty(), "{} has no name", site.station);
+        assert!(
+            !site.label.ends_with(", ") && !site.label.ends_with(','),
+            "{} is named {:?}, which ends in a comma with nothing after it",
+            site.station,
+            site.label
+        );
+    }
     // The figures themselves, because the ordering comes from
     // `sites_in_reach` and would hold with every distance reported as
     // zero, or with the latitude and longitude handed over the wrong way
