@@ -25,6 +25,12 @@ pub struct CrossSection {
     pub high_contrast: bool,
     /// True when the velocity in this slice has been unfolded.
     pub dealiased: bool,
+    /// What share of the readings behind this slice the unfolding could not
+    /// place, across every cut it was taken from. The sweep's own legend has
+    /// carried this since the unfolding learned to say so; a slice through the
+    /// same volume kept only whether anything moved at all, which tells a
+    /// reader the velocity was worked on and not how much of it is a guess.
+    pub unplaced_share: f32,
     /// The two points the reader put down, as longitude and latitude.
     pub from: (f64, f64),
     pub to: (f64, f64),
@@ -123,13 +129,20 @@ pub fn cross_section_from_scan(
     let angles = tilts(scan);
     let mut chosen: Vec<ChosenSweep> = Vec::with_capacity(angles.len());
     let mut dealiased = false;
+    let mut unfolding = dealias::Dealiased::default();
     for angle in &angles {
         let Some(mut cut) = sweep_field_at(scan, product, *angle) else {
             continue;
         };
         if asked.unfold && product == Product::Velocity {
             if let Some(folds_at) = nyquist_for(cut.elevation_number) {
-                dealiased |= unfold_velocity(&mut cut.field, folds_at).moved > 0;
+                let found = unfold_velocity(&mut cut.field, folds_at);
+                dealiased |= found.moved > 0;
+                // Every cut the slice was taken from, because the picture is
+                // all of them and a reader is looking at the lot.
+                unfolding.valid += found.valid;
+                unfolding.unplaced += found.unplaced;
+                unfolding.moved += found.moved;
             }
         }
         chosen.push(cut);
@@ -213,6 +226,7 @@ pub fn cross_section_from_scan(
         palette_applied: table.is_some(),
         high_contrast: asked.high_contrast,
         dealiased,
+        unplaced_share: super::draw::share_of(unfolding.unplaced, unfolding.valid),
         from: asked.from,
         to: asked.to,
         distance_km: taken.distance_km,

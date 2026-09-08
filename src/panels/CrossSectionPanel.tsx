@@ -150,6 +150,16 @@ export function CrossSectionPanel({
             </li>
             <li>{t("section.gaps")}</li>
             {section.dealiased ? <li>{t("section.unfolded")}</li> : null}
+            {/* The same sentence the map's own legend uses, rounded the same
+                way and silent at nought: a slice with a handful of gates
+                nothing could place is not worth a line. */}
+            {Math.round(section.unplacedShare * 100) > 0 ? (
+              <li>
+                {t("legend.partlyUnfolded", {
+                  share: String(Math.round(section.unplacedShare * 100)),
+                })}
+              </li>
+            ) : null}
             {section.paletteApplied ? <li>{t("section.palette")}</li> : null}
             <li>{section.source.label}</li>
           </ul>

@@ -22,6 +22,14 @@ export interface CrossSection {
   highContrast: boolean;
   /** True when the velocity in the slice was unfolded. */
   dealiased: boolean;
+  /**
+   * What share of the readings behind the slice the unfolding could not place.
+   *
+   * The sweep's own legend has carried this for a while; a slice through the
+   * same volume said only that the velocity had been unfolded, which tells a
+   * reader it was worked on and not how much of it is still a guess.
+   */
+  unplacedShare: number;
   /** The two points, as longitude and latitude. */
   from: [number, number];
   to: [number, number];
