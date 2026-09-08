@@ -776,10 +776,27 @@ input[type="range"]:disabled {
   border-radius: 10px;
 }
 
+/* The label on its own line, then the actions in a grid under it.
+   It was one flex row of a label and three buttons, which fitted. A fourth
+   went in on 2026-09-07 and it does not: at 1440x900 in English the row
+   wanted 344 px in a 277 px panel, so the last button hung a third of its
+   width outside the panel and the three that fitted broke their labels over
+   three lines ("Copy / for a / bug report"). The pseudolocale clipping sweep
+   cannot see it, because this row lives inside the panel's own vertical
+   scroller and that sweep excuses a scroller.
+
+   A grid rather than a wrapping flex row: with `wrap` the buttons end up on
+   two lines of unequal width, which reads as a mistake. Two columns of equal
+   width is the same shape in every language, and `minmax(0, 1fr)` is what
+   keeps a long German label inside its own cell rather than pushing the
+   column wider than the panel. */
 .diagnostics-log__title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  /* As many columns as fit a whole label, which in the panel's own width is
+     one. Two fixed columns still broke "Copy for a bug report" over two lines
+     in a 135 px cell, and a button whose label wraps where its neighbour's
+     does not is the same defect showing from the other side. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
   color: var(--muted);
   font-size: 11px;
@@ -787,11 +804,18 @@ input[type="range"]:disabled {
   text-transform: uppercase;
 }
 
+.diagnostics-log__title > span {
+  grid-column: 1 / -1;
+}
+
 .diagnostics-log__title button {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  min-width: 0;
   padding: 4px 8px;
+  white-space: nowrap;
   color: var(--text);
   font-size: 11px;
   letter-spacing: 0;
