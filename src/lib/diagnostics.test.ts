@@ -565,13 +565,13 @@ describe("whether anything starts the app after a reboot", () => {
 
 describe("opening a report", () => {
   it("names the form and the version, and carries nothing about the machine", () => {
-    const url = issueUrl("0.11.0");
+    const url = issueUrl("0.12.0");
     expect(
       url.startsWith("https://github.com/SysAdminDoc/OpenRadar/issues/new"),
     ).toBe(true);
     const query = new URL(url).searchParams;
     expect(query.get("template")).toBe("bug_report.yml");
-    expect(query.get("title")).toBe("OpenRadar 0.11.0: ");
+    expect(query.get("title")).toBe("OpenRadar 0.12.0: ");
     // Nothing else at all. The block goes on the clipboard, because a GET
     // carries its query through history and every hop in between, and this
     // one would be carrying the log.

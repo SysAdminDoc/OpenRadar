@@ -1,6 +1,6 @@
 # Changelog
 
-## OpenRadar v0.11.0
+## OpenRadar v0.12.0
 
 - The velocity cut comes back unfolded on days it used to come back folded, and says when it could not. The dealiaser places each patch of echo by the patches touching it, and a patch touching nothing, echo cut off from the rest by a band of empty air, was left exactly as the radar reported it. On a scattered afternoon that is most of the picture: across a recorded week it happened about one sweep in eight, and the reader saw a couplet drawn in the wrong colours with nothing on screen to say so. Those patches are now offered to the wind the rest of the sweep is moving in, fitted the same way the wind profile already is.
 
