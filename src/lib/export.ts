@@ -168,7 +168,14 @@ export function drawFrame(
       laid = {
         ...laid,
         lines: kept,
-        credit: Math.min(laid.credit, fits),
+        // The credit is the TAIL of the list and truncation keeps the HEAD,
+        // so what survives of it is however much of the tail is still inside
+        // the cut. `Math.min(credit, fits)` was the first version and it is
+        // the wrong end: at 320 by 180 with every source credited it made the
+        // count equal the line count, so `index >= lines.length - credit` was
+        // true for every line and the whole caption, timestamp and all, was
+        // painted in the credit's quieter grey.
+        credit: Math.max(0, fits - (laid.lines.length - laid.credit)),
         box: kept.length * laid.height + CAPTION_PADDING,
       };
     }

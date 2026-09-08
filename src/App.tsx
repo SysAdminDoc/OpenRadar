@@ -1,7 +1,6 @@
 import { LoaderCircle, Radar } from "lucide-react";
 import {
   lazy,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -104,6 +103,8 @@ import { statusFor } from "./lib/radarStatus";
 import { useUpdates } from "./hooks/useUpdates";
 import { useWorkspaceActions } from "./hooks/useWorkspaceActions";
 import type { CommandAction } from "./lib/commands";
+import { surfaceLabelKey } from "./lib/commands";
+import { LazyPanel } from "./components/LazyPanel";
 import type { GeoPoint } from "./lib/geo";
 import { log, recentLog, subscribeLog } from "./lib/log";
 import type { OverlayBounds, OverlayLegend } from "./lib/overlays";
@@ -2638,6 +2639,16 @@ export default function App() {
       : activeSurface
         ? "right"
         : "none";
+  // What to call the frame the surfaces are drawn in while their own module
+  // is still arriving. The panels cannot answer for themselves: they are in
+  // the chunk being waited on, along with the eleventh `lazy` in this app,
+  // which is the module holding the other ten.
+  const openSurfaceLabel = activeSurface
+    ? surfaceLabelKey(activeSurface)
+    : null;
+  const openSurfaceTitle = openSurfaceLabel
+    ? t(openSurfaceLabel)
+    : t("panel.radarProducts");
 
   // A machine that passed the WebGL2 probe at start-up and could not make
   // the map's own context after all. It reaches here rather than through the
@@ -2771,7 +2782,18 @@ export default function App() {
       />
 
       {activeSurface || productOpen ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={openSurfaceTitle}
+          className={
+            panelSide === "left"
+              ? "surface-panel--left"
+              : "surface-panel--right"
+          }
+          onClose={() => {
+            setActiveSurface(null);
+            setProductOpen(false);
+          }}
+        >
           <PanelSurfaces
             layerNotes={{
               // During a replay this switch is drawing that day's polygons out
@@ -3076,7 +3098,7 @@ export default function App() {
             onExportSettings={actions.exportSettings}
             onChooseSound={chooseAlertSound}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {capture ? (

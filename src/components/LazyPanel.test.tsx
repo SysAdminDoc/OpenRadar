@@ -63,8 +63,41 @@ describe("a panel that arrives over the network", () => {
       (entry) => entry.scope === "panel" && entry.message.includes("Tides"),
     );
     expect(said.length).toBeGreaterThan(0);
-    expect(said.at(-1)?.message).toContain("could not be drawn");
+    expect(said.at(-1)?.message).toContain("could not be fetched");
     expect(said.at(-1)?.level).toBe("error");
+  });
+
+  it("passes a panel's own render failure on to the fatal screen", async () => {
+    // The boundary sits above the panel, so without a check it catches
+    // everything the panel throws for the rest of the session and tells the
+    // reader their download failed. It also costs them the screen that can
+    // write a report: this one has no component stack, no diagnostics and no
+    // way out of a layout the app cannot draw.
+    function Breaks(): never {
+      throw new Error("Cannot read properties of undefined (reading 'tilts')");
+    }
+    const noise = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { log } = await import("../lib/log");
+    const before = log ? recentLog().length : 0;
+    expect(() =>
+      render(
+        <LazyPanel
+          title="Settings"
+          className="surface-panel--right"
+          onClose={() => {}}
+        >
+          <Breaks />
+        </LazyPanel>,
+      ),
+    ).toThrow(/reading 'tilts'/);
+    noise.mockRestore();
+
+    // And it says nothing about a fetch, in the log or on screen.
+    expect(
+      recentLog()
+        .slice(before)
+        .filter((entry) => entry.message.includes("could not be fetched")),
+    ).toEqual([]);
   });
 
   it("holds the panel's own frame while the chunk is on the way", () => {

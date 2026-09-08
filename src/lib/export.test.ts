@@ -172,6 +172,30 @@ describe("the keys burned into an exported picture", () => {
     }
   });
 
+  it("still tells the facts from the credit when the caption is cut short", () => {
+    // The credit is the tail of the line list and truncation keeps the head,
+    // so the count of surviving credit lines is what is left of that tail,
+    // not `Math.min(credit, fits)`. With the wrong end the count equalled the
+    // line count, `index >= lines.length - credit` was true for every line,
+    // and the timestamp and the product were painted in the credit's grey.
+    const every = Array.from(
+      { length: 40 },
+      (_, at) => `Source number ${at} of the ones drawn`,
+    ).join(" · ");
+    const { canvas, inked } = recording(320, 180);
+    drawFrame(canvas, canvas, {
+      lines: ["2026-09-08 21:00Z", "KDMX 0.5° reflectivity"],
+      attribution: every,
+    });
+
+    expect(inked.length).toBeGreaterThan(1);
+    expect(inked.at(-1)!.line).toContain("…");
+    // The facts are the app's own colour; whatever credit survives is quieter.
+    expect(inked[0].line).toBe("2026-09-08 21:00Z");
+    expect(inked[0].color).toBe("#e7edf7");
+    expect(inked.some((one) => one.color === "#9da9bb")).toBe(true);
+  });
+
   it("shrinks the type before it drops a word of the credit", () => {
     // Which of the three answers the item offered. A credit is the one part
     // of a caption nobody should be reading a shortened version of, so the
