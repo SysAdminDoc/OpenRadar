@@ -1,0 +1,128 @@
+# What `npm run check:advisories` is allowed to stay quiet about, and why.
+#
+# The file beside this one is `cargo audit`'s, which reads RustSec. This one
+# is for the wider query, which asks an advisory database about every crate in
+# the lock under both spellings of its name. It finds everything RustSec has
+# and some things it does not, so it has more to account for.
+#
+# The rules are the same as next door. An allowance is a claim, and each one
+# carries the evidence for it and a date to be looked at again. An identifier
+# written here with nothing above it is refused rather than honoured: a
+# silenced alarm is worse than a loud one.
+#
+# Format: comment lines are the reason, the identifier goes underneath, and a
+# blank line ends the entry. Nothing else is read.
+
+# GHSA-qwgh-2vcv-g2f7: a caught panic can leave EagerBuffer's or ReadBuffer's
+# cursor corrupted, which allows out of bounds reads and writes. Fixed in
+# block-buffer 0.12.1. Medium, CVSS 4.0 AV:N/AC:L/AT:P.
+#
+# This app's own hashing moved to sha2 0.11 on 2026-09-08, which resolves to
+# block-buffer 0.12.1. Checked with `cargo tree -i block-buffer`: 0.10.4 is
+# still in the lock and arrives only through code this repository does not
+# call into.
+#
+#   block-buffer 0.10.4 <- digest 0.10.7 <- sha2 0.10.9
+#     <- tauri-codegen 2.6.3 (a build-time proc macro)
+#     <- nexrad-decode 1.0.0-rc.3, nexrad-model 1.0.0-rc.2
+#
+# The fault needs a panic caught inside a hash update. Nothing in this tree
+# catches a panic anywhere near one: the single `catch_unwind` wraps the
+# NetCDF read in `lightning.rs`, which hashes nothing. Clearing it for real
+# means the nexrad crates moving to sha2 0.11, which is upstream's call.
+#
+# Review when nexrad-model leaves release-candidate, or by 2027-03-01.
+GHSA-qwgh-2vcv-g2f7
+
+# RUSTSEC-2024-0429 and its GitHub identifier: unsoundness in glib's
+# VariantStrIter, fixed in glib 0.20.
+#
+# The same allowance as next door, written out again because this gate reads
+# its own file. glib 0.18.5 is not in the Windows dependency graph at all; it
+# arrives through the GTK3 bindings, which are Linux only.
+#
+#   cargo tree -i glib --target x86_64-pc-windows-msvc  -> nothing to print
+#   cargo tree -i glib --target all                     -> atk, gtk, muda, tao
+#
+# Windows x64 is the only target OpenRadar builds and ships. gtk-rs has
+# retired its GTK3 bindings rather than updating them, so the move belongs to
+# Tauri in muda and tao.
+#
+# Review when Tauri publishes a release whose muda and tao no longer depend on
+# gtk 0.18, or by 2027-03-01.
+RUSTSEC-2024-0429
+
+# The GitHub identifier for the same glib unsoundness. Listed separately
+# because a database answers under whichever identifier it filed the entry
+# with, and dropping one of the two would leave this gate reporting an
+# advisory the file above it already accounts for.
+GHSA-wrw7-89jp-8q8g
+
+# RUSTSEC-2026-0253: LruCache::pop is not panic safe. If the Drop impl of a
+# stored key panics during pop, detach is never called and the internal linked
+# list keeps dangling pointers, which a later eviction dereferences. Fixed in
+# lru 0.18.2.
+#
+# This is the one advisory here on a crate that runs at runtime rather than at
+# build time, so it was read properly rather than waved through.
+#
+#   lru 0.16.4 <- hdf5-reader 0.9.1 <- netcdf-reader 0.9.1 <- openradar
+#
+# Two things have to be true for it to bite, and neither is:
+#
+#   - `LruCache::pop` has to be called. hdf5-reader never calls it. Its two
+#     caches (`cache.rs`, `dataset.rs`) only insert and look up, and every
+#     other `.pop()` in that crate is on a `Vec`.
+#   - A stored key's Drop has to panic. The two key types are `ChunkKey` and
+#     `ChunkEntryCacheKey`, each a `u64` and one or two `SmallVec<[u64; 4]>`.
+#     Dropping those frees a buffer at most; none of it can panic.
+#
+# hdf5-reader asks for lru "0.16.3", so 0.18.2 is a semver-incompatible bump
+# that `cargo update` cannot make. It needs hdf5-reader to move.
+#
+# Review when hdf5-reader publishes a release on lru 0.18 or later, or by
+# 2027-03-01.
+RUSTSEC-2026-0253
+
+# RUSTSEC-2024-0370: proc-macro-error is unmaintained. No fix exists and none
+# is coming; the advisory is a notice, not a fault.
+#
+#   cargo tree -i proc-macro-error --target x86_64-pc-windows-msvc
+#     -> nothing to print
+#   cargo tree -i proc-macro-error --target all
+#     -> glib-macros 0.18.5 <- glib 0.18.5 <- atk <- gtk <- libappindicator
+#        <- tray-icon <- tauri
+#
+# So it is the GTK3 Linux chain again, and a build-time proc macro inside it.
+# It cannot be compiled into a Windows build, let alone run in one. It leaves
+# when glib does.
+#
+# Review with RUSTSEC-2024-0429, or by 2027-03-01.
+RUSTSEC-2024-0370
+
+# The five unic crates are unmaintained. Same shape as above: a notice with no
+# fix, on a build-time dependency.
+#
+#   unic-char-range <- unic-char-property <- unic-ucd-ident <- urlpattern
+#     <- tauri-utils <- tauri-build (a build dependency of this crate)
+#
+# They are compiled to validate URL patterns while Tauri generates its config,
+# and nothing they produce is in the shipped binary's execution path. Nothing
+# here can move them: it needs urlpattern to leave the rust-unic crates, which
+# is upstream's call.
+#
+# Review when Tauri's urlpattern moves to icu_properties or unicode-ident, or
+# by 2027-03-01.
+RUSTSEC-2025-0075
+
+# unic-char-property, part of the same unmaintained set. See above.
+RUSTSEC-2025-0081
+
+# unic-common, part of the same unmaintained set. See above.
+RUSTSEC-2025-0080
+
+# unic-ucd-ident, part of the same unmaintained set. See above.
+RUSTSEC-2025-0100
+
+# unic-ucd-version, part of the same unmaintained set. See above.
+RUSTSEC-2025-0098
