@@ -156,6 +156,23 @@ describe("the KML inside a KMZ", () => {
     expect((refused as Error).name).toBe("Error");
     expect((refused as Error).message).toBe(en["kmz.truncated"]);
   });
+
+  it("reads a last entry whose comment length is nonsense", async () => {
+    // Only the name is read out of a directory entry. The comment is skipped
+    // over, and where the skip lands is caught at the top of the next turn
+    // round the loop, so a bogus comment length on the last entry costs
+    // nothing. The first version of the bound above added all three lengths
+    // together and refused this archive, which the reader had been handling
+    // correctly for as long as it had existed.
+    const good = new Uint8Array(zipOf([{ name: "doc.kml", body: KML }]));
+    const view = new DataView(good.buffer);
+    // The single directory entry sits straight after the one local header.
+    const directoryAt = 30 + 7 + KML.length;
+    expect(view.getUint32(directoryAt, true)).toBe(0x02014b50);
+    view.setUint16(directoryAt + 32, 0xffff, true);
+
+    expect(await readKmz(good.buffer)).toContain("<name>Held</name>");
+  });
 });
 
 describe("a deflated entry", () => {

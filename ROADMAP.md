@@ -601,16 +601,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P3
 
-- [ ] AUD-397 (P3): The new KMZ bound is stricter than the read it guards
-      Category: correctness
-      Where: `src/lib/kmz.ts:61`.
-      Problem: The check is `at + 46 + nameLength + extraLength + commentLength > byteLength`, but the read it guards, at `:64-66`, only needs `at + 46 + nameLength`, and the advance of `at` is already guarded by the `at + 46 > byteLength` break at `:49`. So an archive whose last entry carries a bogus comment length, with the name intact, was read before and is refused now.
-      Evidence: Probe on 2026-09-07, last entry with `commentLength` `0xffff`: `5030b1e` returns `<kml/>`, `f027953` throws "That archive is cut short."
-      Fix: Bound the name read at `at + 46 + nameLength`, and check the full advance separately where `at` is advanced.
-      Acceptance: The bogus-comment archive reads again; a name longer than the file still refuses with the catalogue sentence; both pinned.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-398 (P3): `normalizePalette` quietly stopped reporting two kinds of skipped field
       Category: correctness
       Where: `src/lib/settings.ts`, `normalizePalette` after AUD-370's rewrite through `writePalette`.

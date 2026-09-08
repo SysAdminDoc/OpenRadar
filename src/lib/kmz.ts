@@ -58,7 +58,14 @@ function readDirectory(bytes: DataView): ZipEntry[] {
     // sixty bytes of a file threw `RangeError: Invalid typed array length`
     // out of the typed-array constructor, and the engine's own sentence went
     // into the toast in place of the one this module has for exactly that.
-    if (at + 46 + nameLength + extraLength + commentLength > bytes.byteLength) {
+    //
+    // Only the name is bounded here, because only the name is read. The first
+    // version of this added the extra and comment lengths to the sum as well,
+    // which refused a last entry carrying a bogus comment length that the
+    // reader had been reading correctly for as long as it had existed: the
+    // comment is never read, and where `at` lands after it is already caught
+    // by the check at the top of the next turn round the loop.
+    if (at + 46 + nameLength > bytes.byteLength) {
       throw new Error(translate("kmz.truncated"));
     }
     const name = new TextDecoder().decode(
