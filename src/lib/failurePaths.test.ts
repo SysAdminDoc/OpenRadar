@@ -80,8 +80,19 @@ const OWN_WORDS = /\.message\b/;
 /**
  * A sentence rather than a word: a capital, a run of text and a full stop.
  * A catalogue key has none of those.
+ *
+ * All three quote styles. Prettier writes double quotes here, so the other
+ * two are rare rather than impossible, and a gate that only reads one of them
+ * is a gate somebody walks past by changing a keystroke. Nothing in the tree
+ * matches the two new ones today, checked on 2026-09-08 across 223 files.
  */
-const ENGLISH = /"([A-Z][^"]{15,}\.)"/g;
+const ENGLISH =
+  /(?:"([A-Z][^"]{15,}\.)"|'([A-Z][^']{15,}\.)'|`([A-Z][^`]{15,}\.)`)/g;
+
+/** Whichever of the three quote styles matched. */
+function said(match: RegExpMatchArray): string {
+  return match[1] ?? match[2] ?? match[3] ?? "";
+}
 
 /** The text from a brace or bracket to the one that closes it. */
 function balanced(text: string, from: number, open: string, close: string) {
@@ -275,14 +286,14 @@ describe("what a failure is allowed to say to a reader", () => {
     const wrong: string[] = [];
     for (const file of files) {
       for (const { call } of callsTo(file.text, "failureSentence")) {
-        for (const [, said] of call.matchAll(ENGLISH)) {
-          wrong.push(`${file.path}: failureSentence(…, "${said}")`);
+        for (const match of call.matchAll(ENGLISH)) {
+          wrong.push(`${file.path}: failureSentence(…, "${said(match)}")`);
         }
       }
       for (const sink of SINKS) {
         for (const { at, call } of callsTo(file.text, sink)) {
-          for (const [, said] of call.matchAll(ENGLISH)) {
-            wrong.push(`${file.path}: ${sink}(… "${said}")`);
+          for (const match of call.matchAll(ENGLISH)) {
+            wrong.push(`${file.path}: ${sink}(… "${said(match)}")`);
           }
           const carried = englishName(file.text, call, at);
           if (carried)
