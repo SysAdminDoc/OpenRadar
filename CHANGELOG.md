@@ -10,6 +10,8 @@
 
   And the legend says the share of a cut that could not be placed, when it rounds to a whole per cent or more. Which branch such a patch belongs on is not in the data, so it keeps the radar's own reading, and a reader watching a couplet inside one deserves to know it might be a fold rather than rotation. On the worst recorded days that is a third of the picture.
 
+- A tool's instructions no longer cover the card telling you what happened overnight. Both sit at the top centre of the map and the instructions sit above, so picking up Draw, Range, Inspector or Cross-section put a card over the card you were reading. The instructions go under it now, and back where they were once you send it away.
+
 - The Diagnostics panel's four buttons fit. A fourth went in beside three on the same line, and the line was not built for it: the last one ran off the end of its row and the labels broke over three lines to make room. They sit in a column now, each on one line, at every window size the app supports.
 
 - The map's credits are readable over a pale basemap whatever theme you are in. Which theme the workspace wears and what the map is drawing are two different questions, and the OpenStreetMap credit is written on the map. Pick Roads, Daylight, Topography, Greyscale or Radar Light while the workspace is dark and that line was pale grey on a pale street map, with nothing behind it. It was the one line on the map the basemap licence requires be there, and it was missed because a screenshot of the dark theme looked right and a screenshot of the light theme was right. Anything sitting straight on the map now dresses for the map.

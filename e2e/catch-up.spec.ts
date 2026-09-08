@@ -270,3 +270,64 @@ test("drops nothing on the floor when letting a listener go fails", async ({
   // returning it, so the chain's own `.catch` never sees it.
   expect(await unhandledRejections(page)).toEqual([]);
 });
+
+test("a tool's instructions sit under the card, not on it", async ({
+  page,
+}) => {
+  // Both live at the top centre of the map and the tool hint sits
+  // twenty-seven z-levels above, so picking up Draw, Range, Inspector or
+  // Cross-section used to put an instruction card over this one's title.
+  // Both are the app's own words and both are meant to be read, and this is
+  // reachable every morning: the card is there on launch and a tool is the
+  // first thing a reader reaches for.
+  await start(page, {
+    rows: [
+      journalRow(30, "Casa", "Severe Thunderstorm Warning"),
+      journalRow(6, "Casa", "Tornado Warning"),
+    ],
+  });
+  const card = page.locator(".catch-up");
+  await expect(card).toBeVisible();
+  const hint = page.locator(".tool-hud");
+
+  for (const tool of ["Draw", "Range", "Inspector", "Cross-section"]) {
+    await page.getByRole("button", { name: tool, exact: true }).click();
+    await expect(hint).toBeVisible();
+    const boxes = await page.evaluate(() => {
+      const one = document.querySelector(".catch-up")?.getBoundingClientRect();
+      const two = document.querySelector(".tool-hud")?.getBoundingClientRect();
+      if (!one || !two) return null;
+      return {
+        cardBottom: Math.round(one.bottom),
+        hintTop: Math.round(two.top),
+        overlaps:
+          one.left < two.right &&
+          two.left < one.right &&
+          one.top < two.bottom &&
+          two.top < one.bottom,
+      };
+    });
+    expect(
+      boxes,
+      `${tool}: one of the two cards is not on the page`,
+    ).not.toBeNull();
+    expect(boxes!.overlaps, `${tool} draws over the catch-up card`).toBe(false);
+    expect(
+      boxes!.hintTop,
+      `${tool} is above the card rather than under it`,
+    ).toBeGreaterThanOrEqual(boxes!.cardBottom);
+  }
+
+  // And with the card sent away, the hint goes back where it has always been.
+  const before = await hint.evaluate(
+    (node) => node.getBoundingClientRect().top,
+  );
+  await card.getByRole("button", { name: /thanks|gracias|merci/i }).click();
+  await expect(card).toBeHidden();
+  await expect
+    .poll(() =>
+      hint.evaluate((node) => Math.round(node.getBoundingClientRect().top)),
+    )
+    .toBe(76);
+  expect(before).toBeGreaterThan(76);
+});
