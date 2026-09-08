@@ -631,16 +631,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
       Confidence: Likely
       Effort: M
 
-- [ ] AUD-421 (P3): The public documents describe versions nobody can install, and a Node range the README does not
-      Category: docs
-      Where: `SECURITY.md`, "Supported versions" (0.11.x Yes, 0.9.x No, 0.8.x and earlier No) against `gh release list` (v0.4.0 of 2026-08-31 is the newest of four published releases; 0.5.0 to 0.11.0 exist only as tags in this repository); `.github/ISSUE_TEMPLATE/bug_report.yml` (placeholder "OpenRadar 0.5.0", never released); `README.md:239` ("Node.js 22 or newer") against `package.json` `engines` (`^22.13.0 || >=24.0.0`, which excludes 22.0 to 22.12 and every Node 23) with no `.npmrc` making that strict.
-      Problem: The only build anybody can download is 0.4.0, and the security policy's table has no row for it: a 0.4.0 reader is told 0.8.x and earlier get no fixes, and that the fixed line is one that has not shipped. 0.10.x is missing from the table altogether. The template suggests reporting against a version that does not exist. The README's Node floor is wrong in both directions.
-      Evidence: `gh release list --limit 10` on 2026-09-08; the three files as quoted.
-      Fix: Make the supported-versions table say "the newest published release" and name it, or generate the row from `latest.json` in `npm run release`; set the template placeholder to the published version; state the engines range in the README ("Node 22.13 or newer, or 24") or widen `engines`. `Roadmap_Blocked.md`'s first entry, the three unpublished releases, is what makes all of this drift.
-      Acceptance: Each document names a version that exists on the releases page, and `release-lib.test.mjs` gains a check that `SECURITY.md` names the version being released.
-      Confidence: Verified
-      Effort: S
-
 
 - [ ] AUD-423 (P3): `settings.ts` is 2,138 lines that import nineteen leaf modules, and every ring this week ran through it
       Category: maintainability

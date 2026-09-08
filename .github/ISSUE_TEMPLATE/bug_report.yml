@@ -43,6 +43,6 @@ body:
     attributes:
       label: Version
       description: The first line of the block, if you would rather not paste the whole thing.
-      placeholder: OpenRadar 0.5.0
+      placeholder: OpenRadar 0.4.0
     validations:
       required: false
