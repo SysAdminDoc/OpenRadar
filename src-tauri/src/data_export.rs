@@ -42,21 +42,31 @@ use crate::mrms;
 /// The app's own version, for the provenance sidecar.
 const APP: &str = concat!("OpenRadar ", env!("CARGO_PKG_VERSION"));
 
+/// The readings, which a spreadsheet opens.
+const CSV_EXTENSION: &str = "csv";
+
+/// The grid, which is a single-band float raster.
+const GEOTIFF_EXTENSION: &str = "tif";
+
+/// Every kind of file this module writes, and the one place it is written
+/// down.
+///
+/// This module builds its own names and writes through `write_atomically`, so
+/// `save_export`'s allowlist never sees them and the test named for every file
+/// this app writes was true of the other writer alone. This list is what
+/// `every_name_this_module_writes_is_one_the_app_allows` reads, so a new kind
+/// of export here fails that test until it is allowed there too. Nothing that
+/// ships reads it, because a writer names its own kind of file rather than
+/// picking one out of a list by position.
+#[cfg(test)]
+const EXTENSIONS: &[&str] = &[CSV_EXTENSION, GEOTIFF_EXTENSION];
+
 /// How many gates one CSV may hold.
 ///
 /// A full 0.5 degree reflectivity cut is 720 azimuths by 1832 gates, and only
 /// the gates that measured something are written, so a wall-to-wall storm
 /// lands around a million rows and 60 MB. The cap is above that and well below
 /// anything a spreadsheet or a text editor will not open.
-/// Every kind of file this module writes, and the one place it is written
-/// down.
-///
-/// This module builds its own names and writes through `write_atomically`,
-/// so `save_export`'s allowlist never sees them and the test named for every
-/// file this app writes was true of the other writer alone. The list below is
-/// what `every_name_this_module_writes_is_one_the_app_allows` reads, so a new
-/// kind of export here fails that test until it is allowed there too.
-const EXTENSIONS: &[&str] = &["csv", "tif"];
 const MAX_ROWS: usize = 4_000_000;
 
 /// How many cells one GeoTIFF may hold, at four bytes each.
@@ -241,6 +251,34 @@ fn file_name(parts: &[&str], extension: &str) -> String {
         .filter(|part| !part.is_empty())
         .collect();
     format!("openradar-{}.{extension}", stem.join("-"))
+}
+
+/// The moment a reading was taken, in the shape a file name wants.
+///
+/// Not `stamp`, which writes the same moment as RFC 3339 for the provenance
+/// sidecar. A colon is fine in JSON and is not allowed in a file name.
+fn named_moment(at: Option<DateTime<Utc>>) -> String {
+    at.map(|at| at.format("%Y%m%d-%H%M%S").to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// What one sweep's readings are saved as.
+///
+/// Named rather than built inline at the call site, so which extension goes on
+/// which export is something a test can ask directly. The two used to be read
+/// out of one array by index, and swapping the array's two entries, which
+/// makes every CSV export write a `.tif` and every raster write a `.csv`, left
+/// the whole suite green.
+fn sweep_file_name(station: &str, product: &str, collected: Option<DateTime<Utc>>) -> String {
+    file_name(&[station, product, &named_moment(collected)], CSV_EXTENSION)
+}
+
+/// What one grid is saved as.
+fn grid_file_name(product: &str, at: i64) -> String {
+    file_name(
+        &[product, &named_moment(DateTime::from_timestamp(at, 0))],
+        GEOTIFF_EXTENSION,
+    )
 }
 
 /// One sweep as CSV: a header of everything needed to place the numbers, then
@@ -502,17 +540,7 @@ pub async fn export_sweep_data(
     .map_err(|error| DataExportError::Write(error.to_string()))??;
 
     let (csv, written, omitted) = polar_csv(&values, written_at)?;
-    let name = file_name(
-        &[
-            &values.station,
-            &values.product_id,
-            &values
-                .collected
-                .map(|at| at.format("%Y%m%d-%H%M%S").to_string())
-                .unwrap_or_else(|| "unknown".to_string()),
-        ],
-        EXTENSIONS[0],
-    );
+    let name = sweep_file_name(&values.station, &values.product_id, values.collected);
 
     let provenance = polar_provenance(&values, written_at, source);
 
@@ -670,15 +698,7 @@ pub async fn export_grid_data(
         .map_err(|error| DataExportError::Write(error.to_string()))??
     };
 
-    let name = file_name(
-        &[
-            &request.product,
-            &DateTime::from_timestamp(request.time, 0)
-                .map(|at| at.format("%Y%m%d-%H%M%S").to_string())
-                .unwrap_or_else(|| "unknown".to_string()),
-        ],
-        EXTENSIONS[1],
-    );
+    let name = grid_file_name(&request.product, request.time);
 
     let provenance = Provenance {
         format: "openradar-data-provenance",
@@ -1213,6 +1233,29 @@ mod tests {
         // than being wrapped in a second one the page has no words for.
         let wrapped = DataExportError::Sweep(Level2Error::UnknownSite("KXXX".into()));
         assert_eq!(wrapped.parts().0, "unknownSite");
+    }
+
+    #[test]
+    fn each_export_carries_its_own_kind_of_name() {
+        // The two extensions used to be read out of one array by index, and
+        // swapping the array's two entries left every test in the tree green
+        // while every CSV export wrote a `.tif` and every raster wrote a
+        // `.csv`. This drives the naming each writer actually calls, so the
+        // extension is pinned to the export rather than to a position.
+        let collected = DateTime::from_timestamp(1_788_283_931, 0);
+        assert_eq!(
+            sweep_file_name("KDMX", "reflectivity", collected),
+            "openradar-kdmx-reflectivity-20260901-173211.csv"
+        );
+        assert_eq!(
+            grid_file_name("MergedReflectivityQCComposite", 1_788_283_931),
+            "openradar-mergedreflectivityqccomposite-20260901-173211.tif"
+        );
+        // A reading with no time still gets a name rather than a bare stem.
+        assert_eq!(
+            sweep_file_name("KDMX", "velocity", None),
+            "openradar-kdmx-velocity-unknown.csv"
+        );
     }
 
     #[test]

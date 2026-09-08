@@ -599,16 +599,6 @@ Raised by an adversarial review of `293424c..f027953` instructed to refute rathe
 
 ### P2
 
-- [ ] AUD-394 (P2): The two export extensions can be swapped with nothing failing
-      Category: testing
-      Where: `src-tauri/src/data_export.rs:59` (`const EXTENSIONS: &[&str] = &["csv", "tif"]`), read as `EXTENSIONS[0]` at `:511` and `EXTENSIONS[1]` at `:677`.
-      Problem: The test added with the constant iterates the array and is order-agnostic, and the two tests that do pin extensions pass `"csv"` and `"tif"` as literals rather than through the constant. Swapping the array's two entries makes every CSV export write a `.tif` and every GeoTIFF export write a `.csv`, and the suite stays green.
-      Evidence: Mutation run on 2026-09-07 with `&["tif", "csv"]`: `cargo test --lib` 483 passed, 0 failed.
-      Fix: Name them rather than index them: two consts, `CSV_EXTENSION` and `GEOTIFF_EXTENSION`, with the allowlist check iterating both. The call sites then say which they mean.
-      Acceptance: Swapping the two values fails a test; `cargo test --lib` green.
-      Confidence: Verified
-      Effort: S
-
 - [ ] AUD-395 (P2): A dead branch in the bundle validator, with a comment saying why it is not dead
       Category: correctness
       Where: `src-tauri/src/bundles.rs:405-409`, inside `addresses`.
