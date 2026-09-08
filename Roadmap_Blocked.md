@@ -6,6 +6,8 @@ Re-checked 2026-09-04: the published manifest still answers v0.4.0; the tree is 
 
 Re-checked 2026-09-05 (evening): `gh repo view --json latestRelease` still answers `v0.4.0` (published 2026-08-31) and the tree is v0.11.0, so the gap is seven releases. Nothing else changed.
 
+Re-checked 2026-09-07 (evening): still `v0.4.0`; the tree is v0.11.0 with an unreleased section in the changelog. Nothing else changed.
+
 Found 2026-09-02, and confirmed live the same day: `https://github.com/SysAdminDoc/OpenRadar/releases/latest/download/latest.json` answers with `version: 0.4.0`, dated 31 August, while every manifest in this tree says 0.7.0 and the changelog carries an unreleased 0.8.0. The updater is the only channel an installed copy has, and it reads that one file, so every installed copy has been told it is up to date through 0.5, 0.6 and 0.7. Among the fixes sitting unpublished is the one that made every external link in the packaged build work again: in an installed 0.4.0, clicking the weather office's own page for a warning does nothing at all.
 
 **Done here.** `npm run release` now reads the published manifest, prints it beside the repository version, and refuses to stage a build when the gap is more than one release, naming the publish as the owner's act. `publishedLag` and `publishedLagLine` in `scripts/release-lib.mjs` carry the rule, with the live 0.4.0-against-0.7.0 case pinned as a test. The README's install section says what an installed copy is actually being offered and why that can lag this repository.
@@ -164,6 +166,8 @@ Three routes exist and each needs a decision rather than an edit:
 
 Nothing here blocks a release on its own terms: the risk is theoretical for this usage, and `npm audit --omit=dev` and the rest of `cargo audit` were clean on 2026-08-31. What it blocks is the promise the item made, which was to have the crate gone.
 
+Re-checked 2026-09-07 (evening): unchanged. `lru` 0.18.4 (2026-09-03) is the newest, `hdf5-reader` 0.9.1 still asks for `^0.16.3`, and roteiro-gis/netcdf-rust has no open issue.
+
 ## Audit items that need a desktop session, a clean VM, or a certificate
 
 Four audit items ask for evidence that cannot be produced from a terminal on this machine. They are the same blockers already described above, carried here with their identifiers so nothing looks unaccounted for.
@@ -199,6 +203,8 @@ The other half is that `tauri-plugin-notification` is text-only on Windows: its 
 
 What would unblock it is the same isolated desktop session the four above need, plus a packaged build to install.
 
+Evidence updated 2026-09-07 (evening): Microsoft's `AppNotificationManager` path for an unpackaged Win32 app now does its own COM registration in `Register()` with no shortcut or AUMID plumbing (document dated 2026-04-08), an elevated app's `Show` fails silently, and WebView2 itself raises `NotificationReceived` for non-persistent web notifications since Runtime 128 (August 2024). The blocker is unchanged: every one of those ends at a toast somebody has to see.
+
 ## RRFS cannot be evaluated before it is operational
 
 `AUD-080` asks for the replacement of HRRR by NOAA's Rapid Refresh Forecast System to begin only once the operational launch is confirmed. The launch is scheduled for 2026-10-06, which has not happened: SCN 26-48 AAB (2026-07-06) reconfirms that date and carries the usual clause allowing a slip for a critical weather day.
@@ -206,6 +212,8 @@ What would unblock it is the same isolated desktop session the four above need, 
 There is nothing to build against in the meantime. The parallel feeds moved to NOMADS on 2026-08-11 and the old prototype AWS bucket stopped updating then, so fixtures taken now would be taken from paths that will not be the operational ones. The item's own acceptance says the same thing in its first line, and writing an adapter against a bucket that is about to be replaced is how a forecast enhancement becomes a release risk.
 
 Unblocked by: the operational service notice for RRFS v1, at which point the bucket layout and the product inventory are worth fixturing. Check after 2026-10-06.
+
+Re-checked 2026-09-07 (evening): the operational bucket exists ahead of the notice. `noaa-rrfs-ops-pds` (registry entry 2026-08-13) has carried `rrfs.YYYYMMDD/HH/`, `refs.YYYYMMDD/` and `firewx.YYYYMMDD/` prefixes since 2026-08-12, and the prototype `noaa-rrfs-pds` froze the same day. The block holds until the notice, but fixtures can be taken from the operational layout now; the host is not in the ledger and would need its row, its CSP entry and a contract.
 
 The item, kept whole so it can go back to `ROADMAP.md` unchanged:
 
@@ -315,3 +323,5 @@ To pick this up: check the registry again, and when 2.12 is there, move
 `rust-version` to 1.90, try `noRedirectionBitmap` against the MapLibre
 canvas, re-read the crash handler's assumption about exit codes, and hold the
 release gate green.
+
+Re-checked 2026-09-07 (evening): still no 2.12 and no release candidate. Milestone 10 stands at 14 open and 32 closed, `.changes/` holds 76 files (60 that morning), `fix-unlisten-guard-missing-entry` merged to `dev` the same day, and `noRedirectionBitmap` is landed at the runtime, the JS API and the config. Stranded ahead of 2.11.5 in wry 0.56.1 and tao 0.37.0: the focus error when the host is minimised at creation (wry #1799), a teardown re-entry crash (wry #1795), the exit on `WM_ENDSESSION` (tao #1157) and a hidden-window maximise flash (tao #1306); tao 0.37 also drops Windows 7.
