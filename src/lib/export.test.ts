@@ -15,10 +15,19 @@ import {
  */
 function fakeCanvas(width: number, height: number) {
   const drawn: string[] = [];
+  // The colour each line was drawn in, recorded here rather than only on
+  // `fillRect`. The caption's last several lines are the credit and are drawn
+  // quieter than the facts above them, and nothing could see that: the fake
+  // kept the text and the box colours and threw the text colour away, so the
+  // rule that decides it could be removed with the whole suite green.
+  const inked: Array<{ line: string; color: string }> = [];
   const context = {
     drawImage: vi.fn(),
     fillRect: vi.fn(),
-    fillText: vi.fn((line: string) => drawn.push(line)),
+    fillText: vi.fn((line: string) => {
+      drawn.push(line);
+      inked.push({ line, color: context.fillStyle });
+    }),
     // Proportional to the text, because a fake that answers 40 for every
     // string cannot see a line running off the edge, which is the one thing
     // the caption's own arithmetic is for. Seven pixels a character is about
@@ -48,13 +57,13 @@ function fakeCanvas(width: number, height: number) {
     height,
     getContext: () => context,
   } as unknown as HTMLCanvasElement;
-  return { canvas, drawn };
+  return { canvas, drawn, inked };
 }
 
 describe("the keys burned into an exported picture", () => {
   /** The canvas above, with the colours each fill was made in recorded. */
   function recording(width: number, height: number) {
-    const { canvas, drawn } = fakeCanvas(width, height);
+    const { canvas, drawn, inked } = fakeCanvas(width, height);
     const context = canvas.getContext("2d") as unknown as {
       fillRect: ReturnType<typeof vi.fn>;
       fillStyle: string;
@@ -63,7 +72,7 @@ describe("the keys burned into an exported picture", () => {
     context.fillRect = vi.fn((x: number) => {
       swatches.push({ color: context.fillStyle, x });
     });
-    return { canvas, drawn, swatches };
+    return { canvas, drawn, inked, swatches };
   }
 
   const caption = {
@@ -118,16 +127,24 @@ describe("the keys burned into an exported picture", () => {
   it("draws the whole credit in the quieter colour, however many lines it takes", () => {
     // The old rule was "the last line is the credit". Once the credit wraps,
     // that colours all but the final line of it as though it were a fact
-    // about the picture.
-    const { canvas, drawn, swatches } = recording(480, 320);
-    void swatches;
+    // about the picture. Asserted on the colour each line was actually drawn
+    // in: the first version of this test looked at the line count and passed
+    // with the rule taken out.
+    const { canvas, inked } = recording(480, 320);
     drawFrame(canvas, canvas, {
       lines: ["2026-09-08 21:00Z"],
       attribution:
         "OpenRadar · OpenStreetMap · NOAA MRMS · NOAA NWS, ECCC and DWD · NOAA SPC",
     });
-    expect(drawn.length).toBeGreaterThan(2);
-    expect(drawn[0]).toBe("2026-09-08 21:00Z");
+    const FACT = "#e7edf7";
+    const CREDIT = "#9da9bb";
+    expect(inked.length).toBeGreaterThan(2);
+    expect(inked[0]).toEqual({ line: "2026-09-08 21:00Z", color: FACT });
+    // Every line after the fact is part of the credit, and all of it quiet.
+    const rest = inked.slice(1);
+    expect(rest.length).toBeGreaterThan(1);
+    expect(rest.every((one) => one.color === CREDIT)).toBe(true);
+    expect(rest.map((one) => one.line).join(" ")).toContain("NOAA SPC");
   });
 
   it("names every band and paints it in the colour it is drawn in", () => {

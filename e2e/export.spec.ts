@@ -75,6 +75,36 @@ test("credits the map that was actually under the weather", async ({
   expect(record.basemap).toBe("USDA, USGS The National Map: Orthoimagery");
 });
 
+test("names every layer that was drawn in the record beside the picture", async ({
+  page,
+}) => {
+  // The lib and the hook are both covered, and the line between them was not:
+  // replacing the app's `overlayProvenance` with one that answers nothing left
+  // the whole suite green, so the feature could be disconnected without a red
+  // test. Weather Alerts is on by default and stubbed, so a still exported
+  // here really does have a warning drawn over the radar.
+  await expect(
+    page.getByRole("application", { name: "Interactive weather map" }),
+  ).toHaveAttribute("data-layer-stack", /overlay-alerts-fill/);
+
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const sidecar = page.waitForEvent("download", {
+    predicate: (file) => file.suggestedFilename().endsWith(".json"),
+  });
+  await page.getByRole("button", { name: "Export picture" }).click();
+  const file = await sidecar;
+  const path = await file.path();
+  const record = JSON.parse(
+    await import("node:fs/promises").then((fs) => fs.readFile(path, "utf8")),
+  ) as { layers?: Array<{ sourceId: string; attribution: string }> };
+
+  const said = record.layers ?? [];
+  expect(said.map((one) => one.sourceId)).toContain("alerts");
+  expect(
+    said.find((one) => one.sourceId === "alerts")?.attribution,
+  ).toBeTruthy();
+});
+
 // The still test proves the caption is burned in; reading it back out of a
 // WebM would mean decoding video, so this covers the recording itself.
 test("writes the loop as a WebM the size cap allows", async ({ page }) => {
