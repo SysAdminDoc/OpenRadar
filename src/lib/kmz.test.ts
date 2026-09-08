@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_KMZ_BYTES, readKmz } from "./kmz";
+import { en } from "../i18n/en";
 
 /**
  * A zip built by hand, so the reader is held against the format rather than
@@ -125,6 +126,35 @@ describe("the KML inside a KMZ", () => {
     const archive = zipOf([{ name: "doc.kml", body: KML }]);
     const cut = new Uint8Array(archive).slice(0, 25).buffer as ArrayBuffer;
     await expect(readKmz(cut)).rejects.toThrow(/not a zip|truncated/);
+  });
+
+  it("refuses a directory entry claiming a name longer than the file", async () => {
+    // The three lengths in a central directory entry are the entry's own
+    // claim about itself, and the name was read at whatever length it said.
+    // Every other length here is checked and this one was not, so the reader
+    // got `RangeError: Invalid typed array length: 200` out of a typed-array
+    // constructor and the toast showed the engine's sentence rather than the
+    // one this module has for a truncated file.
+    const bytes = new Uint8Array(60);
+    const view = new DataView(bytes.buffer);
+    // One directory entry at 0, whose name runs two hundred bytes past the
+    // sixty this file holds.
+    view.setUint32(0, 0x02014b50, true);
+    view.setUint16(28, 200, true);
+    // The end-of-central-directory record at 38, saying one entry, there.
+    view.setUint32(38, 0x06054b50, true);
+    view.setUint16(38 + 10, 1, true);
+    view.setUint32(38 + 16, 0, true);
+
+    // The catalogue's own sentence, and not the engine's. Asserted by name
+    // as well as by text, because a RangeError carrying the right words would
+    // still be the wrong thing to have thrown.
+    const refused = await readKmz(bytes.buffer).catch(
+      (error: unknown) => error,
+    );
+    expect(refused).toBeInstanceOf(Error);
+    expect((refused as Error).name).toBe("Error");
+    expect((refused as Error).message).toBe(en["kmz.truncated"]);
   });
 });
 
