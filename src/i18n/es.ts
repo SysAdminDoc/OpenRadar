@@ -1673,6 +1673,11 @@ export const es: Catalogue = {
   "fatal.copied": "Copiado",
   "fatal.copyRefused": "El portapapeles lo rechazó",
   "fatal.copy": "Copiar diagnóstico",
+  "panelChunk.loading": "Abriendo",
+  "panelChunk.eyebrow": "OpenRadar conservó el mapa",
+  "panelChunk.failed":
+    "Este panel se descarga al abrirlo y no se pudo obtener. El mapa y todo lo demás siguen funcionando. Al recargar OpenRadar se intentará de nuevo.",
+  "panelChunk.reload": "Recargar OpenRadar",
   "stage.secondary": "Mapa meteorológico interactivo secundario",
   "stage.satelliteAge": " · de hace {age}",
   "stage.satellite": "{satellite} {product}",

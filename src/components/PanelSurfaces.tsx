@@ -1,7 +1,8 @@
 import type { VwpColumn } from "../lib/vwp";
 import type { Palette } from "../lib/palette";
 import type { SpcHazard } from "../lib/overlays/registry";
-import { Suspense, lazy } from "react";
+import { lazy } from "react";
+import { useT } from "../i18n";
 import type { SurfaceId } from "./CommandBar";
 import type { WorkspaceOverlayFile } from "../lib/workspaceOverlays";
 import type { GeoPoint } from "../lib/geo";
@@ -23,6 +24,7 @@ import type { ExportState } from "../hooks/useExport";
 import type { SingleSiteState } from "../hooks/useSingleSiteRadar";
 import type { UpdateState } from "../lib/updates";
 import { CommandPalette } from "./CommandPalette";
+import { LazyPanel } from "./LazyPanel";
 import type { WatchHealth } from "../lib/watch";
 import type { NotifyPermission } from "../lib/notify";
 import type { UndoableRemoval } from "./ToastHost";
@@ -295,6 +297,9 @@ interface PanelSurfacesProps {
 /** Every surface the command bar opens, and the radar product sheet. */
 export function PanelSurfaces(props: PanelSurfacesProps) {
   const { activeSurface, settings, overlays, onClose } = props;
+  // Only for the frames the lazy panels are drawn in before they arrive. Each
+  // panel still names itself once it is here.
+  const t = useT();
 
   return (
     <>
@@ -315,7 +320,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "map-type" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("mapType.title")}
+          className="surface-panel--left surface-panel--wide"
+          onClose={onClose}
+        >
           <MapTypePanel
             mapStyle={settings.mapStyle}
             projection={settings.projection}
@@ -323,11 +332,15 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onProjection={props.onProjection}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "layers" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("layers.title")}
+          className="surface-panel--left"
+          onClose={onClose}
+        >
           <LayersPanel
             layers={settings.layers}
             layerNotes={props.layerNotes}
@@ -382,7 +395,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onSatelliteBand={props.onSatelliteBand}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "alerts" ? (
@@ -441,7 +454,11 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "tropical" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("tropical.title")}
+          className="surface-panel--right"
+          onClose={onClose}
+        >
           <TropicalPanel
             products={overlays.tropical.data}
             fetchedAt={overlays.tropical.fetchedAt}
@@ -451,13 +468,17 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onFollow={props.onFollowStorm}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "route" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("route.title")}
+          className="surface-panel--right surface-panel--settings"
+          onClose={onClose}
+        >
           <RoutePanel onRoute={props.onRoute} onClose={onClose} />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "forecast" ? (
@@ -465,23 +486,35 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
       ) : null}
 
       {activeSurface === "guidance" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("guidance.title")}
+          className="surface-panel--right surface-panel--settings"
+          onClose={onClose}
+        >
           <GuidancePanel point={props.centerPoint} onClose={onClose} />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "tides" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("tides.title")}
+          className="surface-panel--right"
+          onClose={onClose}
+        >
           <TidesPanel
             point={props.centerPoint}
             clock={props.clock}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "settings" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("settings.title")}
+          className="surface-panel--right surface-panel--settings"
+          onClose={onClose}
+        >
           <SettingsPanel
             settings={settings}
             bounds={props.viewport}
@@ -509,11 +542,15 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             placeLightning={props.placeLightning}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "history" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("history.title")}
+          className="surface-panel--right"
+          onClose={onClose}
+        >
           <HistoryPanel
             selectedId={props.historyStormId}
             replayId={props.replayId}
@@ -527,7 +564,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             onFlyTo={props.onFlyTo}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "export" ? (
@@ -585,17 +622,25 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
         // Nothing while the chunk is on its way: the panel's own shell would
         // be a frame around an empty rectangle, and the chunk is small enough
         // that a flash of one is worse than a moment of nothing.
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("sounding.title")}
+          className="surface-panel--right surface-panel--wide"
+          onClose={onClose}
+        >
           <SoundingPanel
             center={settings.camera.center}
             at={props.soundingAt}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "vwp" ? (
-        <Suspense fallback={null}>
+        <LazyPanel
+          title={t("vwp.title")}
+          className="surface-panel--right"
+          onClose={onClose}
+        >
           <VwpPanel
             // A different site is a different question, and mounting fresh
             // for it is what lets "no answer yet" be where the panel starts.
@@ -623,7 +668,7 @@ export function PanelSurfaces(props: PanelSurfacesProps) {
             read={props.readVwp}
             onClose={onClose}
           />
-        </Suspense>
+        </LazyPanel>
       ) : null}
 
       {activeSurface === "section" && props.sectionLine ? (

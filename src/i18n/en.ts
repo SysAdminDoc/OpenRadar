@@ -1646,6 +1646,11 @@ export const en = {
   "fatal.copied": "Copied",
   "fatal.copyRefused": "The clipboard refused",
   "fatal.copy": "Copy diagnostics",
+  "panelChunk.loading": "Opening",
+  "panelChunk.eyebrow": "OpenRadar kept the map",
+  "panelChunk.failed":
+    "This panel is downloaded when you open it, and it could not be fetched. The map and everything else are still working. Reloading OpenRadar will try again.",
+  "panelChunk.reload": "Reload OpenRadar",
   "stage.secondary": "Secondary interactive weather map",
   "stage.satelliteAge": " · {age} old",
   "stage.satellite": "{satellite} {product}",

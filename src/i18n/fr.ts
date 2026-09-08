@@ -1692,6 +1692,11 @@ export const fr: Catalogue = {
   "fatal.copied": "Copié",
   "fatal.copyRefused": "Le presse-papiers a refusé",
   "fatal.copy": "Copier le diagnostic",
+  "panelChunk.loading": "Ouverture",
+  "panelChunk.eyebrow": "OpenRadar a conservé la carte",
+  "panelChunk.failed":
+    "Ce panneau est téléchargé au moment où vous l'ouvrez et il n'a pas pu être récupéré. La carte et tout le reste fonctionnent toujours. Recharger OpenRadar réessaiera.",
+  "panelChunk.reload": "Recharger OpenRadar",
   "stage.secondary": "Deuxième carte météo interactive",
   "stage.satelliteAge": " · {age}",
   "stage.satellite": "{satellite} {product}",
