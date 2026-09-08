@@ -356,13 +356,6 @@ Eighth pass. Evidence in RESEARCH.md of the same date. Three of the live contrac
 
 ### P3
 
-- [ ] AUD-386 (P3): The unfolding generator never builds the shapes the reference pass acts on
-  Why: `no_sweep_comes_out_more_discontinuous_than_it_went_in` runs 300 generated sweeps and is the property test standing behind the whole module, and almost none of them reach the code under test: 1,119 of 3,023,990 valid gates, 0.037 per cent, reach the reference vote at all. Its field is a smooth cosine plus symmetric noise, so unreached patches read alike, vote alike, and never build the two shapes that went wrong on 2026-09-07: a group of touching patches that disagree, and an isolated cell reported correctly whose velocity is far from the ambient wind. A mutation that reverted the vote to one patch at a time survived the entire suite.
-  Evidence: measured on 2026-09-07 by a refutation pass; `src-tauri/src/dealias.rs` `generated_sweep` is byte-identical to `74cf9be`.
-  Touches: `src-tauri/src/dealias.rs` (`generated_sweep`: seeds that plant an isolated patch at a velocity unrelated to the field, and a group of two or three touching patches straddling a fold edge), the property test's own assertions.
-  Acceptance: over 300 seeds, at least one in ten sweeps holds a group of two or more touching unreached patches and at least one in ten holds an isolated correctly reported cell; reverting the vote to one patch at a time fails the suite; the existing bar still passes.
-  Complexity: M
-
 - [ ] AUD-387 (P3): The unplaced share describes the newer half of a composite and none of a cross-section
   Why: A live sweep is drawn as the volume in progress composited over the last finished one, and both halves go through the same unfolding. Only the newer half's report reaches the legend, so a reader looking at a composite whose older half is a third unplaced is told nothing about it. The cross-section drops the counts entirely and carries only whether anything was unfolded.
   Evidence: `src-tauri/src/level2/draw.rs` destructures `under: Prepared` and never reads `under.unfolding`; `src-tauri/src/level2/section.rs:132` keeps only `dealiased |= ... .moved > 0` and `CrossSection` carries no share.
@@ -606,6 +599,13 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
   Touches: `src/lib/level2.ts` (`sweepDetailBox`, whose ceiling would come from the sweep rather than from a constant), `src/hooks/useSingleSiteRadar.ts` (the box is worked out from `disc`, which would have to carry the gate or bin size the site publishes at), `src-tauri/src/level2/mod.rs` and `src-tauri/src/tdwr.rs` if the sweep has to carry it, and `src/lib/level2.test.ts`, whose halving test pins the current progression.
   Acceptance: The box stops narrowing once a pixel is comfortably finer than the gate or bin the sweep carries, whichever radar it is; a terminal base product stops at the step that resolves its bins and the long-range one keeps its depth; a WSR-88D is no worse off than it is today; the halving test pins the new rule rather than a constant.
   Complexity: M
+
+- [ ] AUD-442 (P3): The reference pass's agreement bar is unreachable behind the margin, so nothing tests it
+  Why: `dealias` will not let the wind move an unreached patch unless most of the patch agrees which interval it belongs in (`REFERENCE_AGREEMENT`, 0.6) and the wind can account for the patch where it puts it (`REFERENCE_MARGIN_MS`, 5 metres a second). Taking the agreement bar out on its own leaves the whole suite green, and `AUD-386`'s generator did not change that: a patch whose readings spread far enough to split the vote also leaves a median gap far from the flow, so the margin refuses it either way. The shape that reaches the agreement bar and not the margin is a patch of two plateaus about an interval apart joined by a ramp shallow enough to keep them one patch: a bare majority reads as one interval and the rest as another, and the median gap after the majority's shift sits near zero, so the margin is happy and only the agreement bar stands between a real patch and having half of it placed fifty metres a second wrong.
+  Evidence: measured 2026-09-08 while draining `AUD-386`. Three mutations were run against `cargo test --lib dealias`: removing `REFERENCE_MARGIN_MS` fails two tests, reverting the whole reference pass fails one, and removing `REFERENCE_AGREEMENT` fails none. `src-tauri/src/dealias.rs` (the vote, and `generated_sweep`'s `Planted::ramp`).
+  Touches: `src-tauri/src/dealias.rs` (`generated_sweep`, a fourth planted shape, and a named test for it).
+  Acceptance: removing the agreement bar fails the suite; the plateau shape is planted on at least one seed in ten; the margin is not what refuses it, proved by the margin mutation failing a different test than the agreement mutation does.
+  Complexity: S
 
 - [ ] AUD-441 (P3): Historical mode re-fetches a box it drew a second ago, where the loop would have held it
   Why: The scrubber keys into `heldRef` with `loopKey({..., within})`, so a box it has already drawn costs nothing to come back to. The `historicalSource` effect compares one string in `historicalRequestRef` and keeps nothing, so a reader who pans off a grid cell and back re-fetches the archived volume and re-renders it. Correct as written, and asymmetric with the path beside it for no reason anybody chose: the two were written months apart and only one of them learned to hold frames.

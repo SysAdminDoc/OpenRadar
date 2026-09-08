@@ -701,7 +701,63 @@ mod tests {
 
     /// A cheap deterministic generator, so a failure names a seed that can be
     /// run again rather than a sweep nobody can reproduce.
-    fn generated_sweep(seed: u32, azimuths: usize, gates: usize) -> (Vec<f32>, Vec<bool>) {
+    /// What a generated sweep had deliberately put into it.
+    ///
+    /// The field on its own is a smooth cosine with symmetric noise, so the
+    /// traversal reaches almost all of it and the reference vote, which only
+    /// ever sees what the traversal could not reach, was offered 1,119 of
+    /// 3,023,990 valid gates: 0.037 per cent. A mutation reverting that pass
+    /// survived the whole suite. These are the two shapes it exists for, and
+    /// neither of them grows out of a smooth field.
+    #[derive(Default)]
+    struct Planted {
+        /// A block nothing else touches, holding the velocity the radar
+        /// actually measured rather than a folded one, far from the ambient
+        /// wind. The wind wants to move it and must not: that is a velocity
+        /// couplet, and moving it invents a reading nobody measured.
+        lone: Option<(usize, usize)>,
+        /// Two blocks that touch each other and nothing else, reading far
+        /// enough apart to be separate patches. Shifting one and not the other
+        /// pulls them apart into a step the radar could not have measured.
+        pair: Option<(usize, usize)>,
+        /// One block nothing else touches whose own readings run across a
+        /// whole interval, gate to gate by less than a patch boundary, so it
+        /// is one patch that never agrees on where the wind would put it. The
+        /// wind may not move any of it.
+        ramp: Option<(usize, usize)>,
+    }
+
+    /// How many gates on a side each planted block is.
+    const PLANTED_SIDE: usize = 4;
+
+    /// Marks a block valid and gives it one value, with a ring of nothing
+    /// around it so the traversal cannot walk in.
+    fn plant(
+        values: &mut [f32],
+        valid: &mut [bool],
+        azimuths: usize,
+        gates: usize,
+        at: (usize, usize),
+        width: usize,
+        readings: &dyn Fn(usize, usize) -> f32,
+    ) {
+        let (az0, g0) = at;
+        for az in 0..width + 2 {
+            for gate in 0..PLANTED_SIDE + 2 {
+                let here = index((az0 + az) % azimuths, g0 + gate, gates);
+                valid[here] = false;
+            }
+        }
+        for az in 0..width {
+            for gate in 0..PLANTED_SIDE {
+                let here = index((az0 + 1 + az) % azimuths, g0 + 1 + gate, gates);
+                valid[here] = true;
+                values[here] = readings(az, gate);
+            }
+        }
+    }
+
+    fn generated_sweep(seed: u32, azimuths: usize, gates: usize) -> (Vec<f32>, Vec<bool>, Planted) {
         let mut state = seed.wrapping_mul(2_654_435_761).wrapping_add(1);
         let mut next = || {
             state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
@@ -722,7 +778,83 @@ mod tests {
                 valid.push(seed % 3 != 0 || next() > -0.6);
             }
         }
-        (values, valid)
+
+        // Planted on a fifth of the seeds each, which is twice the one in
+        // ten the shapes are wanted at, because some of them cannot be
+        // reported at all: a couplet has to sit within the Nyquist velocity
+        // and four fifths of an interval from the wind at once, and where the
+        // ambient flow is slack there is no such reading.
+        let mut planted = Planted::default();
+        let az0 = (seed as usize * 7) % azimuths;
+        let g0 = 6 + (seed as usize * 11) % (gates - 6 - (PLANTED_SIDE + 4));
+        // What the wind is doing where the block goes. The block is measured
+        // against this rather than against a fixed number, because the whole
+        // question the reference pass asks is how far a reading sits from the
+        // flow around it.
+        let angle = (az0 as f32) * std::f32::consts::TAU / azimuths as f32;
+        let reach = (g0 + PLANTED_SIDE / 2) as f32 / gates as f32;
+        let ambient = strength * angle.cos() * (0.4 + reach);
+        let interval = 2.0 * NYQUIST;
+        // Four fifths of an interval from the flow: far enough that the wind
+        // rounds it to a whole fold, near enough that it is not one. That is
+        // what forty metres a second of shear across two gates looks like from
+        // here, and it is a mesocyclone rather than a fold.
+        let away = ambient - 0.8 * interval * ambient.signum();
+        let reportable = away.abs() <= NYQUIST && ambient.abs() >= 15.0;
+        if reportable && seed % 5 == 1 {
+            plant(
+                &mut values,
+                &mut valid,
+                azimuths,
+                gates,
+                (az0, g0),
+                PLANTED_SIDE,
+                &|_, _| away,
+            );
+            planted.lone = Some((az0 + 1, g0 + 1));
+        }
+        if reportable && seed % 5 == 2 {
+            // Two blocks side by side in azimuth, further apart than the half
+            // Nyquist that keeps two gates in one patch, so they grow as two.
+            // Both inside one ring of nothing, so neither is reachable, and
+            // they read far enough apart to vote differently: shifting one and
+            // not the other opens a step no radar could have measured.
+            let nearer = away + 18.0 * ambient.signum();
+            plant(
+                &mut values,
+                &mut valid,
+                azimuths,
+                gates,
+                (az0, g0),
+                PLANTED_SIDE * 2,
+                &|az, _| {
+                    if az < PLANTED_SIDE {
+                        away
+                    } else {
+                        nearer
+                    }
+                },
+            );
+            planted.pair = Some((az0 + 1, g0 + 1));
+        }
+        if seed % 5 == 3 {
+            // Readings that walk across a whole interval, eleven metres a
+            // second at a time. Each step is under the half Nyquist that
+            // splits a patch, so this is one patch; the span is wide enough
+            // that wherever the wind turns out to sit, the gates disagree
+            // about which interval it would put them in.
+            plant(
+                &mut values,
+                &mut valid,
+                azimuths,
+                gates,
+                (az0, g0),
+                PLANTED_SIDE,
+                &|_, gate| NYQUIST * 0.9 * (2.0 * gate as f32 / (PLANTED_SIDE - 1) as f32 - 1.0),
+            );
+            planted.ramp = Some((az0 + 1, g0 + 1));
+        }
+        (values, valid, planted)
     }
 
     #[test]
@@ -739,7 +871,7 @@ mod tests {
         let mut after_total = 0;
 
         for seed in 0..300u32 {
-            let (mut values, valid) = generated_sweep(seed, azimuths, gates);
+            let (mut values, valid, _) = generated_sweep(seed, azimuths, gates);
             let before = big_jumps(&values, &valid, azimuths, gates);
             dealias(
                 &mut values,
@@ -771,6 +903,109 @@ mod tests {
         assert!(
             after_total * 8 < before_total,
             "{after_total} jumps left of {before_total} across every sweep"
+        );
+    }
+
+    #[test]
+    fn the_generated_sweeps_reach_the_pass_that_places_what_the_traversal_missed() {
+        // The property test above runs three hundred sweeps and was the whole
+        // of the evidence for this module, and almost none of it reached the
+        // reference pass: 1,119 of 3,023,990 valid gates, 0.037 per cent. A
+        // smooth cosine with symmetric noise is one connected piece of air, so
+        // the traversal walks all of it and there is nothing left over to hand
+        // the wind. A mutation reverting that pass survived the entire suite.
+        let azimuths = 90;
+        let gates = 120;
+        let mut with_lone = 0;
+        let mut with_pair = 0;
+        let mut unreached = 0;
+        let mut with_ramp = 0;
+        let mut ramp_moved = Vec::new();
+        let mut lone_moved = 0;
+
+        for seed in 0..300u32 {
+            let (mut values, valid, planted) = generated_sweep(seed, azimuths, gates);
+            let before = values.clone();
+            let found = dealias(
+                &mut values,
+                &valid,
+                &pointing(azimuths),
+                gates,
+                NYQUIST,
+                ELEVATION,
+            );
+            if found.unplaced > 0 {
+                unreached += 1;
+            }
+            if let Some((az, gate)) = planted.lone {
+                with_lone += 1;
+                let here = index(az % azimuths, gate, gates);
+                assert!(valid[here], "seed {seed} planted nothing at {az},{gate}");
+                if (values[here] - before[here]).abs() > 1e-3 {
+                    lone_moved += 1;
+                }
+            }
+            if planted.pair.is_some() {
+                with_pair += 1;
+            }
+            if let Some((az, gate)) = planted.ramp {
+                with_ramp += 1;
+                for step in 0..PLANTED_SIDE {
+                    let here = index(az % azimuths, gate + step, gates);
+                    if (values[here] - before[here]).abs() > 1e-3 {
+                        ramp_moved
+                            .push(format!("seed {seed}: {} -> {}", before[here], values[here]));
+                    }
+                }
+            }
+        }
+
+        assert!(
+            with_lone * 10 >= 300,
+            "only {with_lone} of 300 sweeps hold a cell nothing else touches"
+        );
+        assert!(
+            with_pair * 10 >= 300,
+            "only {with_pair} of 300 sweeps hold a group of touching patches"
+        );
+        assert!(
+            unreached * 10 >= 300,
+            "only {unreached} of 300 sweeps left the traversal anything to hand the wind, so the pass that places it is barely under test"
+        );
+        // The lone blocks are counted rather than held to staying put, and
+        // the reason is worth writing down. The plant puts each one four
+        // fifths of an interval from the flow the field formula describes,
+        // which is the shape of a couplet: far enough that the wind rounds it
+        // to a whole fold, near enough that it is not one, so the margin
+        // refuses the move. But the wind the pass actually fits is a profile
+        // over the gates it managed to place, not that formula, and on some
+        // seeds it lands a whole interval from the block instead. Then the
+        // block reads exactly like a fold and moving it is the right answer.
+        // A generator cannot promise geometry against a fit it does not
+        // perform, so what is asserted is that the shape is planted, that the
+        // pass is reached, and that the margin is refusing some of them.
+        assert!(
+            lone_moved < with_lone,
+            "every one of the {with_lone} planted cells was moved, so none of them reached the margin"
+        );
+        // A patch that disagrees with itself, which the wind may not move.
+        //
+        // What actually refuses these is the margin rather than the agreement
+        // bar: readings spread across a whole interval leave a median gap far
+        // from the flow whichever way the patch is shifted. Measured, not
+        // assumed: taking the agreement bar out on its own still leaves every
+        // one of these where it was, and the whole suite green. Reaching that
+        // bar wants a patch of two plateaus an interval apart joined by a
+        // ramp, so a majority reads as one interval and the rest as another
+        // while the median stays near the flow. That is `AUD-442`.
+        assert!(
+            with_ramp * 10 >= 300,
+            "only {with_ramp} of 300 sweeps hold a patch that disagrees with itself"
+        );
+        assert!(
+            ramp_moved.is_empty(),
+            "the wind moved {} gates of a patch that never agreed where to go: {ramp_moved:?}",
+            ramp_moved.len()
         );
     }
 
