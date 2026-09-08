@@ -16,6 +16,10 @@ const fetchSweep =
       live: boolean,
     ) => Promise<SweepImage>
   >();
+// The box each of these is asked for travels with them, because whether a
+// historical sweep follows the reader's zoom is a property of the argument and
+// nothing could see it while the spies dropped it.
+type Box = [number, number, number, number] | null;
 const fetchArchiveSweep =
   vi.fn<
     (
@@ -23,6 +27,7 @@ const fetchArchiveSweep =
       at: string,
       product: Level2ProductId,
       tilt: number,
+      within: Box,
     ) => Promise<SweepImage>
   >();
 const fetchLocalSweep =
@@ -31,6 +36,7 @@ const fetchLocalSweep =
       path: string,
       product: Level2ProductId,
       tilt: number,
+      within: Box,
     ) => Promise<SweepImage>
   >();
 const pickArchiveFile = vi.fn<() => Promise<string | null>>();
@@ -54,9 +60,9 @@ vi.mock("../lib/level2", async () => {
       live: boolean,
     ) => fetchSweep(station, product, tilt, live),
     fetchArchiveSweep: (...args: Parameters<typeof actual.fetchArchiveSweep>) =>
-      fetchArchiveSweep(args[0], args[1], args[2], args[3]),
+      fetchArchiveSweep(args[0], args[1], args[2], args[3], args[8]),
     fetchLocalSweep: (...args: Parameters<typeof actual.fetchLocalSweep>) =>
-      fetchLocalSweep(args[0], args[1], args[2]),
+      fetchLocalSweep(args[0], args[1], args[2], args[7]),
     pickArchiveFile: () => pickArchiveFile(),
     recentVolumeTimes: (station: string, count: number) =>
       recentVolumeTimes(station, count),
@@ -118,12 +124,13 @@ function options(overrides: {
   radar?: Partial<RadarSettings>;
   showingTime?: number | null;
   compareTime?: number | null;
+  zoom?: number;
 }) {
   return {
     ready: true,
     radar: { ...radar, ...overrides.radar },
     center: overrides.center ?? ([-93.7, 41.7] as [number, number]),
-    zoom: 9,
+    zoom: overrides.zoom ?? 9,
     pageVisible: true,
     paletteGeneration: 0,
     showingTime: overrides.showingTime ?? null,
@@ -336,6 +343,7 @@ describe("historical volumes", () => {
       "2013-05-20T20:56:00.000Z",
       "reflectivity",
       0,
+      null,
     );
 
     rerender({ product: "velocity", tilt: 2 });
@@ -348,7 +356,71 @@ describe("historical volumes", () => {
       "2013-05-20T20:56:00.000Z",
       "velocity",
       2,
+      null,
     );
+  });
+
+  it("draws an archived volume over the ground the reader is looking at", async () => {
+    // The request key left the box out, so the effect that follows the reader
+    // early-returned on an unchanged key however far they zoomed. An archived
+    // volume opened at one zoom stayed clipped to that box for ever: zoom out
+    // and it was a postage stamp on a map covering 460 kilometres.
+    const { result, rerender } = renderHook(
+      (props: { zoom: number }) => useSingleSiteRadar(options(props)),
+      { initialProps: { zoom: 12 } },
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    const opened = fetchArchiveSweep.mock.calls.at(-1)![4];
+    expect(
+      opened,
+      "an archived volume of the live site follows the zoom",
+    ).not.toBeNull();
+
+    rerender({ zoom: 13 });
+    await waitFor(() => {
+      expect(fetchArchiveSweep.mock.calls.at(-1)![4]).not.toEqual(opened);
+    });
+    const closer = fetchArchiveSweep.mock.calls.at(-1)![4]!;
+    expect(closer[2] - closer[0]).toBeLessThan(opened![2] - opened![0]);
+  });
+
+  it("does not send one site's box to a file recorded at another", async () => {
+    // The box is measured on the live station's disc. A file from disk carries
+    // whatever site it was recorded at, and the native side clips the box to
+    // that site's own disc, so a neighbour overlapping in both axes drew as a
+    // sliver of the intersection rather than falling back to the whole disc.
+    pickArchiveFile.mockResolvedValue("C:/volumes/KTLX20130520_205600");
+    const { result } = renderHook(() =>
+      useSingleSiteRadar(options({ zoom: 13 })),
+    );
+    await waitFor(() => expect(result.current.sweep?.station).toBe("KDMX"));
+
+    // The control: an archived volume of the live site is on the same ground
+    // and does get a box. Without this the null below would pass on a view
+    // that had no box to leak in the first place.
+    await act(async () => {
+      await result.current.openArchive("kdmx", "2021-12-10T03:15:00.000Z");
+    });
+    await waitFor(() =>
+      expect(fetchArchiveSweep.mock.calls.at(-1)![4]).not.toBeNull(),
+    );
+
+    await act(async () => {
+      await result.current.openLocal();
+    });
+    expect(fetchLocalSweep).toHaveBeenCalled();
+    // Every call, not the last one. The leak is in the first fetch, which
+    // happens before the source is set and so still sees the previous view's
+    // station; once the file is on screen the station follows it and the box
+    // falls away on its own, which would hide the leak behind a second ask.
+    expect(
+      fetchLocalSweep.mock.calls.map((call) => call[3]),
+      "a file from disk was asked for over another site's box",
+    ).toEqual(fetchLocalSweep.mock.calls.map(() => null));
   });
 
   it("keeps the last verified historical picture when another cut fails", async () => {

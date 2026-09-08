@@ -609,6 +609,27 @@ export function useSingleSiteRadar(options: {
   const requestRef = useRef(0);
   const historicalRequestRef = useRef<string | null>(null);
 
+  /**
+   * The ground a historical sweep may be drawn over.
+   *
+   * The box is measured on the live station's disc, so an archived volume of
+   * that same station sits on it and gets the detail. A file from disk carries
+   * whatever site it was recorded at, which may be nowhere near: sending it
+   * the live station's box drew it over the intersection of two discs, a
+   * sliver, whenever the two happened to overlap. It gets the whole disc, and
+   * the corners it answers with put it on the map.
+   *
+   * Named once because two things have to agree about it. `fetchHistorical`
+   * asks with it and `historicalRequestKey` decides from it whether the answer
+   * in hand is stale, and a key that disagrees with the request either
+   * re-fetches for ever or never follows the reader at all.
+   */
+  const historicalWithin = useCallback(
+    (source: HistoricalSource) =>
+      source.kind === "archive" && source.station === station ? within : null,
+    [station, within],
+  );
+
   const historicalRequestKey = useCallback(
     (source: HistoricalSource) =>
       JSON.stringify([
@@ -621,8 +642,13 @@ export function useSingleSiteRadar(options: {
         threshold,
         paletteGeneration,
         highContrastRequested(),
+        // Without this the effect below early-returned on an unchanged key
+        // however far the reader zoomed, so an archived volume stayed clipped
+        // to whatever box it was opened with until the product or tilt moved.
+        historicalWithin(source),
       ]),
     [
+      historicalWithin,
       motionFrom,
       motionSpeed,
       paletteGeneration,
@@ -646,20 +672,20 @@ export function useSingleSiteRadar(options: {
         motion,
         threshold,
         highContrastRequested(),
-        within,
+        historicalWithin(source),
       ] as const;
       return source.kind === "archive"
         ? fetchArchiveSweep(source.station, source.at, ...common)
         : fetchLocalSweep(source.path, ...common);
     },
     [
+      historicalWithin,
       motionFrom,
       motionSpeed,
       product,
       radar.dealias,
       radar.tilt,
       threshold,
-      within,
     ],
   );
 
