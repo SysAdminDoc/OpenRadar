@@ -1431,6 +1431,9 @@ export const es: Catalogue = {
   "settings.showRadarDetail":
     "Deja ver el mapa base cuando el radar está oculto",
   "cells.eyebrow": "Células de tormenta",
+  "mrms.unanswered": "Las mallas MRMS no respondieron.",
+  "wind.unread": "No se pudo leer el campo de viento.",
+  "smoke.unanswered": "El humo previsto no llegó.",
   "cells.unread": "No se pudieron leer las células de tormenta.",
   "cells.arriving": "{id} llega al punto vigilado en {count} min",
   "approach.title": "Tormenta en camino a {place}",

@@ -124,6 +124,8 @@
 
 - The layout reads its own width, not the window's. If you run the text larger, the workspace is drawn at the window divided by that scale, and a handful of breakpoints were still asking the window instead. At 130 per cent they disagreed over a whole band of sizes: the map legend kept its full width in a layout that had already gone narrow, which squeezed the timeline into a column its own controls did not fit, and the twenty pixels of overspill let the whole workspace slide sideways whenever anything off the edge took focus. Every piece of chrome on the map moved with it. The side effect you'll actually notice is that a narrow window at large text now gets the narrow layout it was always meant to get, with the panel over the map instead of 200 pixels of map left beside it.
 
+- Nine more places that could fail now say so in your own language. The wind field, the MRMS grids, the forecast smoke, the journal, the recap, the storage cleaner, the export writer, a settings save and a workspace file each printed whatever the browser engine threw when the failure came from the engine rather than from a service. A network that isn't there says "Failed to fetch" in English however the app is set, and three of those nine had an English sentence written into the code as the fallback. A test now reads the panels and the hooks and fails on either shape, so the next one is caught rather than read.
+
 - The picture in the README is of this version.
 
 ## OpenRadar v0.10.0 (2026-09-05)

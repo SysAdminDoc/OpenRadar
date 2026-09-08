@@ -7,6 +7,7 @@ import { recapCredits, recapFrom, recapLines } from "../lib/recap";
 import { drawRecapCard } from "../lib/recapCard";
 import { exportFileName } from "../lib/export";
 import { saveFile } from "../lib/saveFile";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /** Named so a remount of this panel finds the save that is already going. */
 const RECAP_SAVE = "recap-save";
@@ -131,11 +132,7 @@ export function RecapSection({
                   );
                   onSaved(saved.path);
                 } catch (failure) {
-                  onFailed(
-                    failure instanceof Error
-                      ? failure.message
-                      : t("journal.failed"),
-                  );
+                  onFailed(failureSentence(failure, t("journal.failed")));
                 }
               });
             }}

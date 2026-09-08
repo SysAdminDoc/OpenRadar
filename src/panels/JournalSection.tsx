@@ -26,6 +26,7 @@ import { log } from "../lib/log";
 import { saveFile } from "../lib/saveFile";
 import { figureLines, figuresFrom } from "../lib/figures";
 import { useLatestReply } from "../hooks/useLatestReply";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /** Named so a remount of this panel finds the run that is already going. */
 const JOURNAL_EXPORT = "journal-export";
@@ -193,11 +194,7 @@ export function JournalSection({
 
   const failed = useCallback(
     (failure: unknown) =>
-      onFailed(
-        failure instanceof Error
-          ? failure.message
-          : translate("journal.failed"),
-      ),
+      onFailed(failureSentence(failure, translate("journal.failed"))),
     [onFailed],
   );
 

@@ -22,7 +22,7 @@ import {
 import type { GaugeQpePeriod } from "../lib/gaugeQpe";
 import type { AzShearLevel, RotationPeriod } from "../lib/rotationTrack";
 import type { LayerSettings } from "../lib/settings";
-import type { StringKey } from "../i18n";
+import { translate, type StringKey } from "../i18n";
 import { useHighContrast } from "./useClock";
 
 /** The grids land every two minutes, so this is the useful refresh. */
@@ -57,6 +57,7 @@ import type {
   LightningWindow,
 } from "../lib/lightningGrids";
 import type { CappiField, CubeLevel } from "../lib/cappi";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /** Which layer switch drives which MRMS product. */
 export const MRMS_LAYERS: Array<{
@@ -359,9 +360,7 @@ export function useMrmsOverlays(options: {
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The MRMS grids did not answer.";
+            : failureSentence(failure, translate("mrms.unanswered"));
         log.warn("radar", message);
         setError(message);
       }

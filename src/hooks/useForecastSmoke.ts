@@ -6,6 +6,8 @@ import {
   type SmokeField,
 } from "../lib/forecastSmoke";
 import { log } from "../lib/log";
+import { failureSentence } from "../lib/serviceAnswer";
+import { translate } from "../i18n";
 
 /** How many hours are kept on the page. A six-hour tail is six of them. */
 export const FORECAST_SMOKE_HELD = 24;
@@ -130,9 +132,7 @@ export function useForecastSmoke(options: {
         const message =
           typeof failure === "string"
             ? failure
-            : failure instanceof Error
-              ? failure.message
-              : "The forecast smoke did not arrive.";
+            : failureSentence(failure, translate("smoke.unanswered"));
         log.warn("smoke", `${valid}: ${message}`);
         setFailed({ valid, message });
       } finally {

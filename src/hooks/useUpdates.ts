@@ -9,6 +9,7 @@ import {
   type UpdateState,
 } from "../lib/updates";
 import { translate } from "../i18n";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /**
  * How long after launch the first quiet check happens, and how often after
@@ -29,7 +30,7 @@ export interface UpdatesState {
 
 function messageFor(failure: unknown, fallback: string): string {
   if (typeof failure === "string") return failure;
-  return failure instanceof Error ? failure.message : fallback;
+  return failureSentence(failure, fallback);
 }
 
 /**

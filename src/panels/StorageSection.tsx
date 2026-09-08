@@ -10,6 +10,7 @@ import {
   diskCacheAvailable,
   diskCacheSize,
 } from "../lib/tileCache";
+import { failureSentence } from "../lib/serviceAnswer";
 
 /** Named so a remount of this panel finds the clear that is already going. */
 const CACHE_CLEAR = "cache-clear";
@@ -98,12 +99,8 @@ export function StorageSection({
         // that would not cross. Stringifying an unknown put things like
         // [object Object] in a toast, which tells a reader nothing and
         // cannot be translated. The raw value goes to the log instead.
-        if (failure instanceof Error) {
-          onFailed(failure.message);
-        } else {
-          log.warn("storage", String(failure));
-          onFailed(t("storage.clearFailedUnknown"));
-        }
+        log.warn("storage", String(failure));
+        onFailed(failureSentence(failure, t("storage.clearFailedUnknown")));
       }
     });
   };
