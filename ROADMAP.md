@@ -595,25 +595,7 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-409 (P3): The Upload panel shows the chosen file's name only when the file was refused
-      Category: correctness
-      Where: `src/panels/UtilityPanels.tsx`.
-      Problem: A file that loads closes the panel, so the name is never seen for the case it was added for. A file that is refused leaves its name sitting under "Choose a file" as though it had been taken, beside a toast saying it was not. The reason given for adding it was also wrong: it was said to be "the one thing the native widget said that a styled one would otherwise stop saying", and the handler clears the input on every change, so the native widget went straight back to "No file chosen" too.
-      Evidence: Measured on 2026-09-08. A good pick: panel closed, no name. A refused pick: panel open, the zone reads "Choose a file | rubbish.geojson" with the refusal toast beside it. At the previous revision a refused pick left the native widget reading "No file chosen".
-      Fix: Take the name out, or show it only while the file is being read and clear it on either outcome.
-      Acceptance: A refused file leaves no name behind; the panel says what happened once rather than twice; a test covers the refusal.
-      Confidence: Verified
-      Effort: S
 
-- [ ] AUD-410 (P3): Three counts written down that the tree does not support
-      Category: documentation
-      Where: `src/lib/runtime.ts`; `CHANGELOG.md`, the import-ring entry.
-      Problem: `runtime.ts` says "forty-odd modules ask this question" and it is 34 non-text files, 33 importers and the definition, or 44 counting tests. The changelog says "Two dozen modules stop depending on each other in a circle" and twenty-one came out of the ring, not twenty-four. Two commit messages carry the same overstatements and cannot be corrected.
-      Evidence: Counted on 2026-09-08.
-      Fix: Say the numbers that are true, and say twenty-one rather than two dozen once AUD-403 has taken the last three out.
-      Acceptance: Each number matches a count anybody can repeat.
-      Confidence: Verified
-      Effort: S
 
 ## Audit Findings, 2026-09-08
 
@@ -623,16 +605,6 @@ Read-only pass at `2424f13`. Baseline: `npm run check` exit 0 (205 files, 2043 t
 
 ### P3
 
-
-- [ ] AUD-413 (P3): The opacity sliders put the live percentage into their accessible name
-      Category: a11y
-      Where: `src/panels/LayersPanel.tsx:835` and `:880` (`aria-label={t("layers.opacityFor", { layer, percent: solid })}` beside `aria-valuetext={`${solid}%`}`); `src/i18n/en.ts:130` (`"layers.opacityFor": "{layer}, {percent}% solid"`).
-      Problem: The control's name changes on every step of the drag and already carries the value the `aria-valuetext` beside it announces, so a screen reader hears the percentage twice per step and the name it announced on focus is no longer the name a moment later. A name is what a control is called, and these are called by their current reading.
-      Evidence: Read on 2026-09-08; both sliders set both attributes from the same `solid`.
-      Fix: Make the name stable, `"Opacity for {layer}"`, and leave the value to `aria-valuetext`, which is already there. Reuse `layers.opacityFor` with the placeholder removed rather than adding a key.
-      Acceptance: Dragging either slider changes `aria-valuetext` and not `aria-label`; `accessibility.spec.ts` stays green.
-      Confidence: Verified
-      Effort: S
 
 
 - [ ] AUD-415 (P3): Six lines of copy ignore the units setting, and the tide note contradicts the number above it

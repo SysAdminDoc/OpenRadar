@@ -2482,15 +2482,6 @@ input[type="range"]:disabled {
   outline-offset: 2px;
 }
 
-.drop-zone .drop-zone__chosen {
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Import is a file picker wearing a button. The input has to stay in the
    accessibility tree and stay focusable, so it is made invisible rather than
    hidden: `display: none` takes it out of the tab order and off a screen

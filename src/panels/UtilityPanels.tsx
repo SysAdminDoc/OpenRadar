@@ -56,11 +56,6 @@ export function UploadPanel({
   // with, so asking for more contrast leaves it alone. Saying so is the
   // difference between a deliberate choice and a switch that did nothing.
   const highContrast = useHighContrast();
-  // The name of the last file handed over, which is the one thing the native
-  // widget said that the styled one would otherwise stop saying. The input
-  // itself is cleared on every pick so choosing the same file twice fires
-  // twice, so it cannot be asked what it holds.
-  const [chosen, setChosen] = useState("");
   return (
     <PanelShell
       eyebrow={t("upload.eyebrow")}
@@ -76,16 +71,19 @@ export function UploadPanel({
           type="file"
           accept=".geojson,.json,.txt,.php,.pal,.kml,.kmz,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,text/plain"
           onChange={(event) => {
+            // Nothing is written under the button about what was picked.
+            // A file that loads closes this panel, so the name was never seen
+            // for the case it was added for, and a file that is refused left
+            // its name sitting under "Choose a file" as though it had been
+            // taken, beside a toast saying it had not. The input is cleared
+            // on every pick so that choosing the same file twice fires twice,
+            // which also means the native widget says nothing either way.
             const file = event.target.files?.[0];
-            if (file) {
-              setChosen(file.name);
-              onFile(file);
-            }
+            if (file) onFile(file);
             event.target.value = "";
           }}
         />
         <span className="drop-zone__button">{t("upload.dropChoose")}</span>
-        {chosen ? <span className="drop-zone__chosen">{chosen}</span> : null}
       </label>
 
       {palettes.length ? (
