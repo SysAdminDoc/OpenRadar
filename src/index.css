@@ -1294,7 +1294,8 @@ input[type="range"]:disabled {
   pointer-events: none;
 }
 
-:root[data-theme="light"] .map-readout {
+:root[data-theme="light"] .map-readout,
+:root[data-over-light] .map-readout {
   color: #dbeafe;
 }
 
@@ -1318,14 +1319,20 @@ input[type="range"]:disabled {
    its light counterpart and this did not, which is why it went unnoticed:
    there is nothing behind the words to make the problem visible in a
    screenshot of the dark theme. */
-:root[data-theme="light"] .source-attribution {
+/* Keyed on the ground rather than on the theme, because that is what these
+   words are written on. The light theme always draws a light basemap, so the
+   attribute covers the case this selector used to and the dark theme over
+   Roads, Daylight, Topography, Greyscale or Radar Light as well. */
+:root[data-theme="light"] .source-attribution,
+:root[data-over-light] .source-attribution {
   padding: 2px 6px;
   color: #172033;
   background: rgba(248, 250, 252, 0.72);
   border-radius: 4px;
 }
 
-:root[data-theme="light"] .source-attribution a:hover {
+:root[data-theme="light"] .source-attribution a:hover,
+:root[data-over-light] .source-attribution a:hover {
   color: #000;
 }
 
@@ -1333,7 +1340,8 @@ input[type="range"]:disabled {
    did not. Over a light basemap the dark chip reads as a smudge on grey
    water: the same failure, in the same corner, missed because a screenshot
    of the dark theme cannot show it. */
-:root[data-theme="light"] .map-watermark {
+:root[data-theme="light"] .map-watermark,
+:root[data-over-light] .map-watermark {
   color: #1e293b;
   background: rgba(248, 250, 252, 0.72);
 }
