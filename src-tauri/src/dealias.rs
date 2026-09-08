@@ -1433,6 +1433,56 @@ mod tests {
     }
 
     #[test]
+    fn a_patch_that_barely_agrees_with_itself_is_not_placed_by_the_wind() {
+        // `REFERENCE_AGREEMENT` had nothing behind it. Removing it left the
+        // whole suite green, and `AUD-386`'s generator did not change that:
+        // every shape it plants that splits the vote also leaves a median gap
+        // far from the flow, so `REFERENCE_MARGIN_MS` refuses the patch first
+        // and the agreement bar is never what decides.
+        //
+        // The shape that reaches one and not the other is two plateaus joined
+        // by a ramp shallow enough to keep them one patch. Twenty-one gates
+        // read what the wind would put a whole interval away, so the majority
+        // sits almost exactly on the flow and the margin is happy. Seventeen
+        // read half an interval off it and vote for a different interval, so
+        // the majority is 23 of 40, which is under three fifths. Only the
+        // agreement bar stands between this and shifting all forty: the
+        // seventeen would come back at sixty metres a second, past the folding
+        // velocity, which is a reading no radar could have produced.
+        let mut island = vec![-20.0f32; 21];
+        // Ten metres a second a step, under the half Nyquist that would split
+        // this into two patches, so the vote splits inside one region.
+        island.extend_from_slice(&[-10.0, 0.0]);
+        island.extend(std::iter::repeat_n(10.0f32, 17));
+        assert_eq!(island.len(), 40);
+        let (mut values, valid, pointing) = sweep_with_a_body(30.0, &island);
+        let gates: Vec<usize> = (85..95)
+            .flat_map(|index| (150..190).map(move |gate| index * 200 + gate))
+            .collect();
+
+        // The premise, asserted rather than assumed: one patch, unreached by
+        // the body, and it really does hold both readings.
+        let (region, _) = grow_regions(&values, &valid, 360, 200, NYQUIST);
+        let first = region[85 * 200 + 150];
+        assert!(
+            gates.iter().all(|at| region[*at] == first),
+            "the plateaus should grow as one patch"
+        );
+        assert_ne!(first, region[0], "it should not be part of the body");
+
+        let before: Vec<f32> = gates.iter().map(|at| values[*at]).collect();
+        dealias(&mut values, &valid, &pointing, 200, NYQUIST, ELEVATION);
+
+        for (at, was) in gates.iter().zip(before) {
+            assert!(
+                (values[*at] - was).abs() < 0.001,
+                "gate {at} came back at {} rather than the {was} the radar reported",
+                values[*at]
+            );
+        }
+    }
+
+    #[test]
     fn leaves_an_island_alone_when_the_sweep_cannot_say_what_the_wind_is() {
         // The same island, with a body covering a sixth of the circle instead
         // of all of it. A wave fitted through a sixth of a ring matches those
