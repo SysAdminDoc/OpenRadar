@@ -76,6 +76,8 @@ function sweepFor(
     highContrast: false,
     smoothed: false,
     dealiased: false,
+    unplacedShare: 0,
+    windPlacedShare: 0,
     live: false,
     liveTilts: 0,
     nextChunkAt: null,

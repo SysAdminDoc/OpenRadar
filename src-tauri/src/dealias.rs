@@ -97,6 +97,10 @@ pub struct Dealiased {
     /// other and which interval the group belongs in is unknown, so they are
     /// left exactly as the radar reported them, folds and all.
     pub unplaced: usize,
+    /// Gates that held a reading at all, which is what the three counts above
+    /// are shares of. Carried here so a caller does not have to walk the
+    /// statuses a second time to say "a tenth of this cut".
+    pub valid: usize,
 }
 
 /// One gate's place in the sweep: which radial, and how far along it.
@@ -540,6 +544,7 @@ pub fn dealias(
         if label == usize::MAX {
             continue;
         }
+        found.valid += 1;
         if !placed[label] {
             found.unplaced += 1;
         } else if by_wind[label] {

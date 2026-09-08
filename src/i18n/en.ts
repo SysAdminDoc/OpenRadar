@@ -1514,6 +1514,7 @@ export const en = {
   "palette.none": "Nothing here matches that. Try a shorter word.",
   "legend.hidden": "RADAR HIDDEN",
   "legend.smoothed": "Smoothed between gates",
+  "legend.partlyUnfolded": "{share}% still folded",
   "legend.scale": "{product} from {min} to {max} {unit}",
   "timeline.label": "Radar animation",
   "timeline.play": "Play radar animation",
