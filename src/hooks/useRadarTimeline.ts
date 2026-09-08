@@ -26,6 +26,7 @@ import {
 import { log } from "../lib/log";
 import { setMrmsHighContrast, setMrmsThreshold } from "../lib/providers/mrms";
 import { reducedMotionRequested, useHighContrast } from "./useClock";
+import { useLatestReply } from "./useLatestReply";
 import { animationIntervalMs, type RadarFrame } from "../lib/radar";
 import { translate } from "../i18n";
 
@@ -183,6 +184,11 @@ export function useRadarTimeline(options: {
   // so asking for more contrast is asking for a different picture.
   const highContrast = useHighContrast();
   setMrmsHighContrast(highContrast);
+  // One factory per effect, never one shared between the two. The counter
+  // each closes over is per call, so a single one would have the loop's
+  // refresh and the forecast run's refresh discarding each other's answers.
+  const latestTimeline = useLatestReply();
+  const latestHrrrRun = useLatestReply();
   const [observed, setObserved] = useState<RadarFrame[]>([]);
   const [run, setRun] = useState<HrrrRun | null>(null);
   const [source, setSource] = useState<RadarProvider | null>(null);
@@ -278,18 +284,23 @@ export function useRadarTimeline(options: {
   useEffect(() => {
     if (!ready) return;
     const controller = new AbortController();
-    let mounted = true;
-    let requestGeneration = 0;
+
+    // The newest run, so the cleanup can close whichever refresh is in
+    // flight when the effect goes.
+    let inFlight: ReturnType<ReturnType<typeof useLatestReply>> | null = null;
 
     const refresh = async () => {
-      const request = ++requestGeneration;
+      // One token per refresh, which is what the hand-rolled pair here did:
+      // a counter for an older request still in flight and a flag for the
+      // effect being torn down. Closing the run covers both.
+      const reply = (inFlight = latestTimeline());
       try {
         const timeline = await fetchRadarTimeline(
           liveRef.current.center,
           MAX_LOOP_MINUTES,
           controller.signal,
         );
-        if (!mounted || request !== requestGeneration) return;
+        if (!reply.current()) return;
         const live = liveRef.current;
         // The playhead may be sitting on a forecast frame, which this refresh
         // does not replace, so both halves take part in the decision.
@@ -324,8 +335,7 @@ export function useRadarTimeline(options: {
         );
       } catch (failure) {
         if (
-          !mounted ||
-          request !== requestGeneration ||
+          !reply.current() ||
           (failure instanceof DOMException && failure.name === "AbortError")
         ) {
           return;
@@ -374,15 +384,21 @@ export function useRadarTimeline(options: {
       void refresh();
     }, REFRESH_MS);
     return () => {
-      mounted = false;
-      requestGeneration += 1;
+      inFlight?.close();
       refreshRef.current = null;
       controller.abort();
       stop();
     };
     // A new colour table, a new threshold, or a new ramp means the locally
     // drawn tiles have to be asked for again under their new address.
-  }, [ready, coverage, paletteGeneration, mosaicThreshold, highContrast]);
+  }, [
+    latestTimeline,
+    ready,
+    coverage,
+    paletteGeneration,
+    mosaicThreshold,
+    highContrast,
+  ]);
 
   // A machine that has just found the network again has a loop on screen
   // that is at least as old as the outage. Asking again now is the difference
@@ -400,18 +416,20 @@ export function useRadarTimeline(options: {
   useEffect(() => {
     if (!ready || !futureRadar || !inModelDomain) return;
     const controller = new AbortController();
-    let mounted = true;
+
+    let inFlight: ReturnType<ReturnType<typeof useLatestReply>> | null = null;
 
     const refresh = async () => {
+      const reply = (inFlight = latestHrrrRun());
       try {
         const next = await fetchHrrrRun(controller.signal);
-        if (!mounted) return;
+        if (!reply.current()) return;
         setRun(next);
         // The run index carries no frames of its own; the tail is derived.
         recordSuccess("hrrr", 0);
       } catch (failure) {
         if (
-          !mounted ||
+          !reply.current() ||
           (failure instanceof DOMException && failure.name === "AbortError")
         ) {
           return;
@@ -428,11 +446,11 @@ export function useRadarTimeline(options: {
 
     const stop = pollWhileOnline(() => void refresh(), REFRESH_MS);
     return () => {
-      mounted = false;
+      inFlight?.close();
       controller.abort();
       stop();
     };
-  }, [futureRadar, inModelDomain, ready]);
+  }, [latestHrrrRun, futureRadar, inModelDomain, ready]);
 
   // The loop window applies to what has been observed. Forecast frames extend
   // the tail, so they must not drag the cutoff forward with them.

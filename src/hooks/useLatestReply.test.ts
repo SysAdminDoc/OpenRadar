@@ -138,15 +138,15 @@ describe("nobody rolls their own again", () => {
       "src/hooks/useAlertWatch.ts",
       "an AbortController beside it again, and the flag gates a second variable the effect carries as well",
     ],
-    [
-      "src/hooks/useArchiveWarnings.ts",
-      "the same shape around the archive's own fetch",
-    ],
-    [
-      "src/hooks/useRadarTimeline.ts",
-      "keeps a generation per request rather than per effect run, because one run of that effect makes several, which is finer than this hook offers",
-    ],
   ]);
+  // `useArchiveWarnings.ts` and `useRadarTimeline.ts` were both here and are
+  // converted. The second one's reason was wrong: it said a generation per
+  // request was finer than this hook offers, when asking the factory once per
+  // request is exactly that, and the effect's own `mounted` flag and its
+  // `requestGeneration` counter turned out to be the same guard written
+  // twice. The first one's reason was true and not a reason: an
+  // AbortController beside a flag cancels the fetch, and the flag was still
+  // deciding whether an answer that had already arrived was the current one.
 
   /**
    * The `open` guards written before this hook existed, which the gate could
