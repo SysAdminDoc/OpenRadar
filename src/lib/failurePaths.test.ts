@@ -72,6 +72,11 @@ const SINKS = [
   "pushToast",
   "recordFailure",
   "setFailed",
+  // The slice and the wind profile put a failure into an answer object rather
+  // than into an error of its own, which is how `sweepErrorText` reached a
+  // reader without passing anything on this list. Reverting that helper left
+  // the gate green.
+  "setAnswer",
 ];
 
 /** A failure's own message, which is the engine's words and never translated. */
@@ -175,6 +180,22 @@ function reaches(text: string, name: string): boolean {
 }
 
 /**
+ * The names a call passes as VALUES, rather than as property keys.
+ *
+ * `pushToast({ detail: translate("x") })` names `detail`, and the helper set
+ * is collected across the whole tree, so one helper called `detail` anywhere
+ * in `src` convicted every one of those: thirty findings in one file, none of
+ * them about the same thing. A key here is written `name:` with no space, and
+ * a ternary is written ` : ` with one, which prettier settles for the whole
+ * repository.
+ */
+function valueNames(call: string): string[] {
+  return [...call.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)(?![\w$:])/g)].map(
+    (one) => one[1],
+  );
+}
+
+/**
  * Whether something the call passes was given a failure's own words nearby.
  *
  * Two thousand characters back rather than the enclosing function, because
@@ -188,17 +209,23 @@ function taintedName(
   at: number,
   helpers: Set<string>,
 ): string | null {
-  const names = [...call.matchAll(/[A-Za-z_$][\w$]*/g)].map((one) => one[0]);
+  const names = valueNames(call);
   const before = text.slice(Math.max(0, at - 2000), at);
   for (const name of new Set(names)) {
     if (helpers.has(name) && reaches(text, name)) return name;
-    const assigned = new RegExp(
-      `(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=([^;]*);`,
-      "g",
-    );
-    for (const match of before.matchAll(assigned)) {
-      if (OWN_WORDS.test(match[1]) && !match[1].includes("failureSentence")) {
-        return name;
+    // A declaration, and a plain reassignment after one. The second is the
+    // most ordinary shape of all, `let detail = …;` and then
+    // `if (failure instanceof Error) detail = failure.message;`, and the
+    // declaration pattern alone cannot see it: the line that puts the
+    // engine's words in carries no `const`.
+    for (const assigned of [
+      new RegExp(`(?:const|let|var)\\s+${name}\\s*(?::[^=]*)?=([^;]*);`, "g"),
+      new RegExp(`(?<![.\\w$])${name}\\s*=([^;=][^;]*);`, "g"),
+    ]) {
+      for (const match of before.matchAll(assigned)) {
+        if (OWN_WORDS.test(match[1]) && !match[1].includes("failureSentence")) {
+          return name;
+        }
       }
     }
   }
@@ -207,7 +234,7 @@ function taintedName(
 
 /** Names an English sentence was worked out into, near a call. */
 function englishName(text: string, call: string, at: number): string | null {
-  const names = [...call.matchAll(/[A-Za-z_$][\w$]*/g)].map((one) => one[0]);
+  const names = valueNames(call);
   const before = text.slice(Math.max(0, at - 2000), at);
   for (const name of new Set(names)) {
     const assigned = new RegExp(
@@ -215,8 +242,12 @@ function englishName(text: string, call: string, at: number): string | null {
       "g",
     );
     for (const match of before.matchAll(assigned)) {
-      ENGLISH.lastIndex = 0;
-      if (ENGLISH.test(match[1])) return name;
+      // Its own copy rather than `ENGLISH.test`. That one is `g`-flagged and
+      // shared, and a successful `test` leaves `lastIndex` where it stopped;
+      // `matchAll` copies that onto its own clone, so the next call's scan
+      // would start partway through the string and the report would come out
+      // short.
+      if (new RegExp(ENGLISH.source).test(match[1])) return name;
     }
   }
   return null;
