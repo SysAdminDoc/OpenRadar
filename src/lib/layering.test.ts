@@ -175,7 +175,8 @@ const named = (path: string) => relative(ROOT, path).replace(/\\/g, "/");
  * both of those imported the severity vocabulary back out of it. It worked for
  * the same reason the settings ring did, which is no reason at all.
  */
-function everyRing(): string[][] {
+/** Every module in `src/`, and what each pulls in at runtime. */
+function graph(): Map<string, string[]> {
   const edges = new Map<string, string[]>();
   const walk = (from: string) => {
     if (edges.has(from)) return;
@@ -189,6 +190,40 @@ function everyRing(): string[][] {
     }
   };
   for (const path of filesUnder(ROOT)) walk(path);
+  return edges;
+}
+
+/**
+ * The shortest way from a file up into a layer above it, or null.
+ *
+ * Followed through the graph rather than read off the file's own imports. The
+ * first version of this compared where each import landed against the three
+ * directory names, so anything that was not one of them erased the violation:
+ * a module at `src/` root importing a hook, imported in turn by something
+ * under `lib/`, went straight past. One hop was the whole of the way round it,
+ * and no ring forms, so the rule above does not cover for it either.
+ */
+function reachesUp(
+  from: string,
+  edges: Map<string, string[]>,
+): string[] | null {
+  const seen = new Set([from]);
+  const queue: string[][] = [[from]];
+  while (queue.length) {
+    const path = queue.shift()!;
+    for (const next of edges.get(path[path.length - 1]) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      const walked = [...path, next];
+      if (/^(hooks|panels|components)\//.test(named(next))) return walked;
+      queue.push(walked);
+    }
+  }
+  return null;
+}
+
+function everyRing(): string[][] {
+  const edges = graph();
 
   const index = new Map<string, number>();
   const low = new Map<string, number>();
@@ -319,15 +354,11 @@ describe("what may import what", () => {
   });
 
   it("keeps the library underneath the hooks and the screen", () => {
+    const edges = graph();
     const wrong: string[] = [];
     for (const path of libFiles) {
-      for (const where of valueImports(readFileSync(path, "utf8"), path)) {
-        const landed = resolveImport(path, where);
-        if (!landed) continue;
-        if (/^(hooks|panels|components)\//.test(named(landed))) {
-          wrong.push(`${named(path)} -> ${named(landed)}`);
-        }
-      }
+      const walked = reachesUp(path, edges);
+      if (walked) wrong.push(walked.map(named).join(" -> "));
     }
     expect(
       wrong,

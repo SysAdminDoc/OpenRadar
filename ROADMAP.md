@@ -597,16 +597,6 @@ Raised by a second adversarial review, of `ca36e7a..ddebfd1`, instructed to refu
       Confidence: Verified
       Effort: S
 
-- [ ] AUD-406 (P2): A reach from `lib/` up into `hooks/` launders through one hop at the source root
-      Category: correctness
-      Where: `src/lib/layering.test.ts`, the second rule.
-      Problem: The rule tests where an import lands against `^(hooks|panels|components)/`, so any module that is not under one of those three erases the violation. A module at `src/` root that imports a hook, imported in turn by a file under `lib/`, passes: the direct reach is caught, one hop through the root is not, and no ring forms so the third rule does not cover for it either.
-      Evidence: Planted on 2026-09-08 in a copy: `src/Bridge.ts` importing `./hooks/useClock` and `src/lib/units.ts` importing `../Bridge` gave `Tests 6 passed`.
-      Fix: Walk the graph from each file under `lib/` rather than reading its own imports, and report the path when it reaches `hooks/`, `panels/` or `components/`.
-      Acceptance: The one-hop case fails and names both edges; the direct case still fails; the tree stays green.
-      Confidence: Verified
-      Effort: S
-
 ### P3
 
 - [ ] AUD-407 (P3): One of the nine repointed test mocks stubs nothing
