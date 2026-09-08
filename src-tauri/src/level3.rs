@@ -2760,4 +2760,49 @@ mod tests {
         let expected = site.1 + 1.0 / site.0.to_radians().cos();
         assert!((longitude - expected).abs() < 0.02, "{longitude}");
     }
+
+    #[test]
+    fn a_listing_key_cannot_move_the_host_it_is_fetched_from() {
+        // A key comes out of an S3 listing, which is remote input, and it is
+        // spliced into an address as text: `format!("https://{BUCKET}/{key}")`
+        // here, and the same shape in `mrms.rs` and `hrrr.rs`.
+        //
+        // What makes that safe is the slash. An authority ends at the first
+        // slash after the scheme, so a key can only ever land in the path,
+        // whatever it holds. It is not the userinfo refusal in
+        // `http::is_allowed`, which was the guess when this was written down
+        // as a finding: removing that check does not open this, and a probe
+        // of twelve hostile keys on 2026-09-07 put every one of them in the
+        // path with the host untouched. The check that would open it is
+        // dropping the slash, or joining some other way, so that is what this
+        // pins.
+        for key in [
+            "@evil.example/x",
+            "/@evil.example/x",
+            "/evil.example/x",
+            ".@evil.example",
+            "..%2f..%2fx",
+            "%2e%2e/%2e%2e/x",
+            "a b",
+            "x?a=b",
+            "x#frag",
+            "",
+        ] {
+            let text = format!("https://{BUCKET}/{key}");
+            let parsed = reqwest::Url::parse(&text).expect("a bucket address parses");
+            assert_eq!(
+                parsed.host_str(),
+                Some(BUCKET),
+                "the key {key:?} moved the host to {:?}",
+                parsed.host_str()
+            );
+            assert!(parsed.username().is_empty(), "{key:?} added a username");
+            assert!(parsed.password().is_none(), "{key:?} added a password");
+            assert_eq!(parsed.port(), None, "{key:?} added a port");
+            assert!(
+                http::is_allowed(&parsed),
+                "{key:?} produced an address the allowlist refuses"
+            );
+        }
+    }
 }

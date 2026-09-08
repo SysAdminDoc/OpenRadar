@@ -21,7 +21,16 @@ const MAX_BYTES: usize = 64 * 1024 * 1024;
 /// it here as well, and `every_file_this_app_writes_can_be_written` is the
 /// test that says so out loud: the journal export shipped writing nothing at
 /// all for as long as `jsonl` was missing from this list.
-const ALLOWED_EXTENSIONS: &[&str] = &["png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal"];
+///
+/// `csv` and `tif` are here for the data export, which builds its own names
+/// and writes through `write_atomically` rather than through `save_export`.
+/// The test above was named for every file this app writes and covered one of
+/// the two writers, so the promise read wider than it was;
+/// `data_export::tests::every_name_this_module_writes_is_one_the_app_allows`
+/// is the other half and reads this list.
+const ALLOWED_EXTENSIONS: &[&str] = &[
+    "png", "webm", "mp4", "gif", "json", "jsonl", "md", "pal", "csv", "tif",
+];
 /// Windows addresses these as devices no matter the extension or folder.
 const RESERVED_NAMES: &[&str] = &[
     "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
@@ -289,7 +298,7 @@ mod tests {
         let said = ExportError::BadExtension.to_string();
         assert_eq!(
             said,
-            "only png, webm, mp4, gif, json, jsonl, md and pal files can be exported"
+            "only png, webm, mp4, gif, json, jsonl, md, pal, csv and tif files can be exported"
         );
     }
 
