@@ -6,11 +6,12 @@
  * sweep was asked for. The native side has no view of a media query, which is
  * why these travel as arguments.
  *
- * A leaf in `lib/` rather than a hook, because two modules under `lib/` want
+ * A leaf in `lib/` rather than a hook, because `lib/overlays/alerts.ts` wants
  * the answer and reaching up into `hooks/` for it inverts the layering: a
- * library that depends on the hooks above it cannot be read, tested or moved
- * without them. `useClock.ts` still exports these names for its own callers
- * and takes them from here.
+ * library that depends on the hooks above it cannot be read or moved without
+ * them. `useClock.ts` still exports these names for its own callers, and
+ * subscribes with the two queries below, so the question and the answer are
+ * the same question.
  */
 /**
  * The two queries themselves, exported because `useClock.ts` subscribes to
