@@ -45,24 +45,15 @@ pub fn render_sweep(
     // people comparing the same storm see the same colours.
     let table = palette::for_unit(unit);
     let extent = coordinates.sweep_extent(MAX_RANGE_KM);
-    let mut west = extent.min.longitude;
-    let mut east = extent.max.longitude;
-    let mut south = extent.min.latitude;
-    let mut north = extent.max.latitude;
-    if let Some([asked_west, asked_south, asked_east, asked_north]) = within {
-        let clipped_west = west.max(asked_west);
-        let clipped_east = east.min(asked_east);
-        let clipped_south = south.max(asked_south);
-        let clipped_north = north.min(asked_north);
-        // A box that misses the disc, or has no area once clipped, leaves the
-        // whole disc drawn: an empty picture is worse than a coarse one.
-        if clipped_east > clipped_west && clipped_north > clipped_south {
-            west = clipped_west;
-            east = clipped_east;
-            south = clipped_south;
-            north = clipped_north;
-        }
-    }
+    let [west, south, east, north] = drawn_extent(
+        [
+            extent.min.longitude,
+            extent.min.latitude,
+            extent.max.longitude,
+            extent.max.latitude,
+        ],
+        within,
+    );
 
     let top = mercator_y(north);
     let bottom = mercator_y(south);

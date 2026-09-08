@@ -187,6 +187,35 @@ pub(crate) fn blend(low: u8, high: u8, position: f32) -> u8 {
     (low as f32 + (high as f32 - low as f32) * position).round() as u8
 }
 
+/// The ground a sweep is drawn over: the box a reader asked for, clipped to
+/// what the radar can see, and the whole disc when the two do not meet.
+///
+/// A sweep is one raster of a fixed size, so spending its pixels on less
+/// ground is the only way a zoomed-in reader gets finer than the disc's own
+/// metres per pixel. Named once because two renderers answer it and the mask
+/// that composites their pixels is indexed against the answer: a box that
+/// misses the disc, or has no area once clipped, leaves the whole disc drawn,
+/// because an empty picture is worse than a coarse one.
+///
+/// Corners are `[west, south, east, north]` at both ends.
+pub(crate) fn drawn_extent(disc: [f64; 4], within: Option<[f64; 4]>) -> [f64; 4] {
+    let Some([asked_west, asked_south, asked_east, asked_north]) = within else {
+        return disc;
+    };
+    let [west, south, east, north] = disc;
+    let clipped = [
+        west.max(asked_west),
+        south.max(asked_south),
+        east.min(asked_east),
+        north.min(asked_north),
+    ];
+    if clipped[2] > clipped[0] && clipped[3] > clipped[1] {
+        clipped
+    } else {
+        disc
+    }
+}
+
 pub(crate) fn mercator_y(latitude: f64) -> f64 {
     let clamped = latitude.clamp(-85.051_129, 85.051_129);
     (std::f64::consts::FRAC_PI_4 + clamped.to_radians() / 2.0)

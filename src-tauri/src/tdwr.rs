@@ -238,6 +238,7 @@ pub struct Rendered {
 
 /// Paints a radial product into the square the Level II renderer uses, so
 /// the same image lane draws either without knowing which it has.
+#[allow(clippy::too_many_arguments)]
 pub fn render(
     image: &RadialImage,
     description: &Description,
@@ -246,13 +247,23 @@ pub fn render(
     unit: &str,
     shading: Shading,
     range_km: f64,
+    // The ground to draw over, or the whole disc when nothing is asked for.
+    // A terminal radar reaches 89 kilometres rather than 230, so its own disc
+    // is what a box is clipped against and `MAX_RANGE_KM` has nothing to do
+    // with it.
+    within: Option<[f64; 4]>,
 ) -> Rendered {
     let coordinates = RadarCoordinateSystem::new(&site.to_site());
     let extent = coordinates.sweep_extent(range_km);
-    let west = extent.min.longitude;
-    let east = extent.max.longitude;
-    let south = extent.min.latitude;
-    let north = extent.max.latitude;
+    let [west, south, east, north] = level2::drawn_extent(
+        [
+            extent.min.longitude,
+            extent.min.latitude,
+            extent.max.longitude,
+            extent.max.latitude,
+        ],
+        within,
+    );
     let top = level2::mercator_y(north);
     let bottom = level2::mercator_y(south);
     let table = palette::for_unit(unit);
@@ -366,12 +377,107 @@ async fn tilt_angle(site: &TdwrSite, code: &'static str) -> Option<f32> {
 /// Unfolding, storm motion and the volume in progress do not apply: the
 /// products arrive already processed by the radar's own generator, there is
 /// no Level II to read a motion from, and nothing is published in pieces.
+/// The picture, from bytes that are already in hand.
+///
+/// Split out of `sweep` so a test can reach it. Everything below is decode
+/// and arithmetic, and while it sat inside the fetch nothing offline could
+/// see any of it: the box a reader asked for could be dropped on the floor
+/// here and the whole suite stayed green, and so could the site the sweep
+/// carries its own radar's position in.
+#[allow(clippy::too_many_arguments)]
+fn draw_product(
+    site: &TdwrSite,
+    asked: &Asked,
+    product: String,
+    bytes: &[u8],
+    key: String,
+    tilts: Vec<Option<f32>>,
+    threshold: Option<f32>,
+    high_contrast: bool,
+    within: Option<[f64; 4]>,
+) -> Result<SweepImage, Level2Error> {
+    let (description, image) =
+        level3::read_radial_product(bytes, asked.bin_km).map_err(decode_error)?;
+    product_matches(asked.code, description.product_code, asked.expected)?;
+    let shading = Shading {
+        unfolded: false,
+        threshold,
+        high_contrast,
+    };
+    let rendered = render(
+        &image,
+        &description,
+        site,
+        asked.moment,
+        asked.unit,
+        shading,
+        asked.range_km,
+        within,
+    );
+    let png = level2::encode_png(&rendered.pixels)?;
+    let [west, south, east, north] = rendered.bounds;
+    let elevation = description.elevation_degrees;
+    // A tilt the header could not be read for takes the angle of the one
+    // drawn, which is at least a number from this radar; the picker shows
+    // it beside its position rather than inventing one.
+    let tilts: Vec<f32> = tilts
+        .into_iter()
+        .map(|angle| angle.unwrap_or(elevation))
+        .collect();
+    Ok(SweepImage {
+        station: site.id.clone(),
+        site_name: format!("{}, {}", site.name, site.state),
+        product_id: product,
+        product: asked.label.to_string(),
+        palette_applied: palette::for_unit(asked.unit).is_some(),
+        high_contrast,
+        // An airport radar's products arrive as a picture already, so
+        // there are no gates here to read between.
+        smoothed: false,
+        dealiased: false,
+        // An airport radar's velocity arrives unfolded, so there was
+        // nothing to place and nothing left unplaced.
+        unplaced_share: 0.0,
+        storm_motion: None,
+        unit: asked.unit.to_string(),
+        elevation_degrees: elevation,
+        tilts,
+        tilt_index: asked.tilt_index,
+        live: false,
+        live_tilts: 0,
+        // A terminal radar publishes no chunk stream, so there is no volume in
+        // progress to project the rest of.
+        next_chunk_at: None,
+        volume_ends_at: None,
+        collected: description.volume_time.to_rfc3339(),
+        // A terminal radar publishes one finished product at a time, so
+        // there is never a second sweep under this one.
+        beneath_collected: None,
+        west,
+        south,
+        east,
+        north,
+        site_lon: f64::from(site.longitude),
+        site_lat: f64::from(site.latitude),
+        image: level2::data_url(&png),
+        volume: key,
+        source: SweepSource {
+            kind: "recent".to_string(),
+            label: SOURCE_LABEL.to_string(),
+            url: Some(SOURCE_URL.to_string()),
+        },
+        radar: RADAR,
+        range_km: asked.range_km,
+    })
+}
+
 pub async fn sweep(
     station: String,
     product: String,
     tilt: usize,
     threshold: Option<f32>,
     high_contrast: bool,
+    within: Option<[f64; 4]>,
 ) -> Result<SweepImage, Level2Error> {
     let site = site(&station).ok_or_else(|| Level2Error::UnknownSite(station.clone()))?;
     let asked = asked_for(&product, tilt)
@@ -392,78 +498,17 @@ pub async fn sweep(
 
     let site = site.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let (description, image) =
-            level3::read_radial_product(&bytes, asked.bin_km).map_err(decode_error)?;
-        product_matches(asked.code, description.product_code, asked.expected)?;
-        let shading = Shading {
-            unfolded: false,
+        draw_product(
+            &site,
+            &asked,
+            product,
+            &bytes,
+            key,
+            tilts,
             threshold,
             high_contrast,
-        };
-        let rendered = render(
-            &image,
-            &description,
-            &site,
-            asked.moment,
-            asked.unit,
-            shading,
-            asked.range_km,
-        );
-        let png = level2::encode_png(&rendered.pixels)?;
-        let [west, south, east, north] = rendered.bounds;
-        let elevation = description.elevation_degrees;
-        // A tilt the header could not be read for takes the angle of the one
-        // drawn, which is at least a number from this radar; the picker shows
-        // it beside its position rather than inventing one.
-        let tilts: Vec<f32> = tilts
-            .into_iter()
-            .map(|angle| angle.unwrap_or(elevation))
-            .collect();
-        Ok(SweepImage {
-            station: site.id.clone(),
-            site_name: format!("{}, {}", site.name, site.state),
-            product_id: product,
-            product: asked.label.to_string(),
-            palette_applied: palette::for_unit(asked.unit).is_some(),
-            high_contrast,
-            // An airport radar's products arrive as a picture already, so
-            // there are no gates here to read between.
-            smoothed: false,
-            dealiased: false,
-            // An airport radar's velocity arrives unfolded, so there was
-            // nothing to place and nothing left unplaced.
-            unplaced_share: 0.0,
-            storm_motion: None,
-            unit: asked.unit.to_string(),
-            elevation_degrees: elevation,
-            tilts,
-            tilt_index: asked.tilt_index,
-            live: false,
-            live_tilts: 0,
-            // A terminal radar publishes no chunk stream, so there is no volume in
-            // progress to project the rest of.
-            next_chunk_at: None,
-            volume_ends_at: None,
-            collected: description.volume_time.to_rfc3339(),
-            // A terminal radar publishes one finished product at a time, so
-            // there is never a second sweep under this one.
-            beneath_collected: None,
-            west,
-            south,
-            east,
-            north,
-            site_lon: f64::from(site.longitude),
-            site_lat: f64::from(site.latitude),
-            image: level2::data_url(&png),
-            volume: key,
-            source: SweepSource {
-                kind: "recent".to_string(),
-                label: SOURCE_LABEL.to_string(),
-                url: Some(SOURCE_URL.to_string()),
-            },
-            radar: RADAR,
-            range_km: asked.range_km,
-        })
+            within,
+        )
     })
     .await
     .map_err(|error| Level2Error::Decode(error.to_string()))?
@@ -686,6 +731,128 @@ mod tests {
     }
 
     #[test]
+    fn a_terminal_picture_follows_the_reader_in_the_same_way_the_others_do() {
+        // The box the page works out was dropped on the floor here, so a
+        // terminal radar paid the fetch, the decode and the render for every
+        // quantised pan and got back a picture identical to the one it had.
+        // Its own disc is 89 kilometres rather than 230, which is what a box
+        // is clipped against.
+        let (description, image) = level3::read_radial_product(TZ0, BASE_BIN_KM).expect("decodes");
+        let shading = Shading {
+            unfolded: false,
+            threshold: None,
+            high_contrast: false,
+        };
+        let paint = |within| {
+            render(
+                &image,
+                &description,
+                dallas(),
+                Product::Reflectivity,
+                "dBZ",
+                shading,
+                BASE_RANGE_KM,
+                within,
+            )
+        };
+
+        let whole = paint(None).bounds;
+        let [west, south, east, north] = whole;
+        let middle = [
+            west + (east - west) / 4.0,
+            south + (north - south) / 4.0,
+            east - (east - west) / 4.0,
+            north - (north - south) / 4.0,
+        ];
+        let closer = paint(Some(middle));
+        assert_eq!(closer.bounds, middle);
+        assert!(
+            (closer.bounds[2] - closer.bounds[0]) < (east - west) / 1.5,
+            "the box covers as much ground as the disc"
+        );
+        // The same pixels over less ground is the whole point, so more of them
+        // land on radar rather than on the empty corners outside the disc.
+        let painted = |rendered: &Rendered| {
+            rendered
+                .pixels
+                .chunks_exact(4)
+                .filter(|pixel| pixel[3] > 0)
+                .count()
+        };
+        assert!(
+            painted(&closer) > painted(&paint(None)),
+            "drawing over a quarter of the ground did not spend more pixels on the radar"
+        );
+
+        // And a box that misses the disc leaves the whole disc drawn, because
+        // an empty picture is worse than a coarse one.
+        let elsewhere = paint(Some([west - 20.0, south - 20.0, west - 10.0, south - 10.0]));
+        assert_eq!(elsewhere.bounds, whole);
+    }
+
+    #[test]
+    fn the_terminal_sweep_carries_the_box_and_the_radar_all_the_way_out() {
+        // Everything between the bytes and the answer used to sit inside the
+        // fetch, so nothing offline reached it: the box could be dropped here
+        // and the suite stayed green, and so could the two numbers that say
+        // where the radar is. This is the whole of that path.
+        let held = dallas();
+        let asked = asked_for("reflectivity", 0).expect("a terminal reflectivity product");
+        let whole = draw_product(
+            held,
+            &asked,
+            "reflectivity".to_string(),
+            TZ0,
+            "key".to_string(),
+            vec![None],
+            None,
+            false,
+            None,
+        )
+        .expect("the fixture draws");
+
+        // The radar is where the list says it is, and inside its own picture.
+        assert!((whole.site_lon - f64::from(held.longitude)).abs() < 1e-6);
+        assert!((whole.site_lat - f64::from(held.latitude)).abs() < 1e-6);
+        assert!(whole.west < whole.site_lon && whole.site_lon < whole.east);
+        assert!(whole.south < whole.site_lat && whole.site_lat < whole.north);
+
+        // And the box reaches the picture rather than being dropped on the
+        // way, which is what made every pan on a terminal radar cost a fetch,
+        // a decode and a render for a picture identical to the one in hand.
+        let middle = [
+            whole.west + (whole.east - whole.west) / 4.0,
+            whole.south + (whole.north - whole.south) / 4.0,
+            whole.east - (whole.east - whole.west) / 4.0,
+            whole.north - (whole.north - whole.south) / 4.0,
+        ];
+        let closer = draw_product(
+            held,
+            &asked,
+            "reflectivity".to_string(),
+            TZ0,
+            "key".to_string(),
+            vec![None],
+            None,
+            false,
+            Some(middle),
+        )
+        .expect("the fixture draws over a box");
+        assert!((closer.west - middle[0]).abs() < 1e-9);
+        assert!((closer.south - middle[1]).abs() < 1e-9);
+        assert!((closer.east - middle[2]).abs() < 1e-9);
+        assert!((closer.north - middle[3]).abs() < 1e-9);
+        assert_ne!(
+            closer.image, whole.image,
+            "the same picture came back for a quarter of the ground"
+        );
+        // The site travels with the box, so a reader zoomed in still gets a
+        // range from the radar rather than from a corner of what is drawn.
+        assert!((closer.site_lon - whole.site_lon).abs() < 1e-9);
+        assert!((closer.site_lat - whole.site_lat).abs() < 1e-9);
+    }
+
+    #[test]
     fn a_terminal_radar_keeps_its_two_coordinates_the_right_way_round() {
         // `Site::new` takes latitude before longitude and `TdwrSite` writes
         // them the other way round, so the one call that bridges them is a
@@ -715,6 +882,7 @@ mod tests {
                 high_contrast: false,
             },
             BASE_RANGE_KM,
+            None,
         );
         let [west, south, east, north] = drawn.bounds;
         assert!(west < f64::from(held.longitude) && f64::from(held.longitude) < east);
@@ -788,6 +956,7 @@ mod tests {
             "dBZ",
             shading,
             BASE_RANGE_KM,
+            None,
         );
         let size = level2::IMAGE_SIZE;
         assert_eq!(rendered.pixels.len(), size * size * 4);
@@ -829,6 +998,7 @@ mod tests {
                     high_contrast: false,
                 },
                 BASE_RANGE_KM,
+                None,
             );
             (0..size * size)
                 .filter(|at| drawn.pixels[at * 4 + 3] > 0)
@@ -857,6 +1027,7 @@ mod tests {
                 high_contrast: false,
             },
             LONG_RANGE_KM,
+            None,
         );
         let [west, _, east, _] = rendered.bounds;
         assert!(east - west > 8.5, "{} wide", east - west);
@@ -895,7 +1066,14 @@ mod tests {
             .build()
             .expect("a runtime");
         let sweep = runtime
-            .block_on(sweep("TDAL".into(), "reflectivity".into(), 0, None, false))
+            .block_on(sweep(
+                "TDAL".into(),
+                "reflectivity".into(),
+                0,
+                None,
+                false,
+                None,
+            ))
             .expect("Dallas publishes every six minutes");
         assert_eq!(sweep.station, "TDAL");
         assert_eq!(sweep.radar, RADAR);
