@@ -324,35 +324,73 @@ describe("how much ground the sweep is drawn over", () => {
     }
   });
 
-  it("halves the ground again for every zoom past that", () => {
+  it("halves the ground again for every whole zoom past that", () => {
     // The whole point: the same 1,024 pixels over less ground is more metres
-    // of radar per metre of screen.
+    // of radar per metre of screen. Pinned as the halving rather than as "it
+    // got smaller", which any monotone shrink would satisfy.
     const spans = [10, 11, 12, 13].map((zoom) => {
       const box = sweepDetailBox(disc, centre, zoom);
       expect(box, String(zoom)).not.toBeNull();
       return box![2] - box![0];
     });
+    expect(spans[0]).toBeCloseTo(wide / 2, 9);
     for (const [at, span] of spans.entries()) {
-      expect(span, `zoom ${10 + at}`).toBeLessThan(wide);
-      if (at > 0) expect(span).toBeLessThan(spans[at - 1]);
+      if (at > 0)
+        expect(span, `zoom ${10 + at}`).toBeCloseTo(spans[at - 1] / 2, 9);
     }
-    // And a floor, so a reader zoomed to a street is not asking for a box
-    // they pan out of on the next drag.
+    // And a floor, because 28 metres a pixel is already nine times finer than
+    // a gate and there is nothing left to resolve.
     const deepest = sweepDetailBox(disc, centre, 18);
-    expect(deepest![2] - deepest![0]).toBeCloseTo(spans.at(-1)!, 6);
+    expect(deepest![2] - deepest![0]).toBeCloseTo(spans.at(-1)!, 9);
   });
 
-  it("does not move the box for a pan the reader would not notice", () => {
-    // A box taken straight from the viewport would be a new box, and a new
-    // render, on every drag. The centre snaps to a grid of half the box's own
-    // width first.
+  it("gives the same box for every camera inside one zoom level", () => {
+    // The map's zoom is continuous and reaches this unrounded, through eased
+    // fly-tos and a wheel that moves in fractions. Unfloored, every hundredth
+    // of a level was its own box, so a held loop frame was orphaned by any
+    // zoom change and the next scrub re-fetched the volume behind it.
+    const level = sweepDetailBox(disc, centre, 12)!;
+    for (const zoom of [12, 12.0000001, 12.05, 12.5, 12.9999]) {
+      expect(sweepDetailBox(disc, centre, zoom), String(zoom)).toEqual(level);
+    }
+    // And the next level really is a different box, so this is quantising
+    // rather than ignoring the zoom.
+    expect(sweepDetailBox(disc, centre, 13)).not.toEqual(level);
+  });
+
+  it("holds one box across a whole grid cell, wherever the reader started", () => {
+    // The honest version of "a small pan costs nothing". Snapping the centre
+    // to a grid means the box moves whenever a pan crosses a grid line, so no
+    // pan of any size is free. What is true is that every camera inside one
+    // cell shares a box, and that is what a held loop frame depends on. An
+    // earlier version of this nudged one hand-picked centre by an eighth of
+    // the box and passed on the centre it chose.
     const held = sweepDetailBox(disc, centre, 12)!;
-    const nudged = sweepDetailBox(
+    // The grid is half the box's own width, and the two axes are not the same
+    // size: a disc is wider in longitude than it is tall in latitude.
+    const acrossCell = (held[2] - held[0]) / 2;
+    const upCell = (held[3] - held[1]) / 2;
+    const settled = sweepDetailBox(
       disc,
-      [centre[0] + (held[2] - held[0]) / 8, centre[1]],
+      [held[0] + acrossCell, held[1] + upCell],
       12,
     )!;
-    expect(nudged).toEqual(held);
+    for (const away of [-0.49, -0.25, 0, 0.25, 0.49]) {
+      const inside: [number, number] = [
+        settled[0] + acrossCell * (1 + away),
+        settled[1] + upCell * (1 + away),
+      ];
+      expect(sweepDetailBox(disc, inside, 12), String(away)).toEqual(settled);
+    }
+    // A whole cell over is a different box, which is what makes the cell a
+    // cell rather than the box never moving.
+    expect(
+      sweepDetailBox(
+        disc,
+        [settled[0] + 2 * acrossCell, settled[1] + upCell],
+        12,
+      ),
+    ).not.toEqual(settled);
   });
 
   it("moves it for a pan that would leave the picture", () => {
@@ -362,16 +400,30 @@ describe("how much ground the sweep is drawn over", () => {
     expect(moved[0]).toBeGreaterThan(held[0]);
   });
 
-  it("keeps the box inside the disc, and gives it up when it is most of it", () => {
-    // A reader zoomed in at the edge would otherwise get a clipped box that
-    // is nearly the whole disc again, which is the same render under another
-    // name.
-    const corner = sweepDetailBox(disc, [disc.west, disc.south], 10);
-    if (corner) {
-      expect(corner[0]).toBeGreaterThanOrEqual(disc.west);
-      expect(corner[1]).toBeGreaterThanOrEqual(disc.south);
-      expect(corner[2]).toBeLessThanOrEqual(disc.east);
-      expect(corner[3]).toBeLessThanOrEqual(disc.north);
+  it("keeps the box inside the disc and never asks for most of it", () => {
+    // A box is at most a quarter of the disc before clipping, because `steps`
+    // is never below two. There used to be a guard here against a clipped box
+    // that came out as most of the disc again, and a test that claimed to
+    // exercise it; over five million (centre, zoom) pairs the largest box is
+    // exactly a quarter and the guard never fired once.
+    const area = (wide * (disc.north - disc.south)) / 4;
+    for (const zoom of [10, 11, 12, 15]) {
+      for (const at of [
+        [disc.west, disc.south],
+        [disc.east, disc.north],
+        [disc.west, disc.north],
+        centre,
+      ] as [number, number][]) {
+        const box = sweepDetailBox(disc, at, zoom);
+        expect(box, `${at} at ${zoom}`).not.toBeNull();
+        expect(box![0]).toBeGreaterThanOrEqual(disc.west);
+        expect(box![1]).toBeGreaterThanOrEqual(disc.south);
+        expect(box![2]).toBeLessThanOrEqual(disc.east);
+        expect(box![3]).toBeLessThanOrEqual(disc.north);
+        expect((box![2] - box![0]) * (box![3] - box![1])).toBeLessThanOrEqual(
+          area + 1e-9,
+        );
+      }
     }
     // A disc with no size at all is not a box to draw over.
     expect(

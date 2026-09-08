@@ -456,23 +456,29 @@ export function sweepCorners(
 }
 
 /**
- * The zoom at which the whole disc still resolves its own gates.
+ * The zoom below which the whole disc is what gets drawn.
  *
- * The sweep is drawn as one raster over a 460 kilometre box. At 1,024 pixels
- * that is 449 metres a pixel against gates a quarter of a kilometre long, so
- * at any zoom where a screen pixel is coarser than 449 metres the reader is
- * looking at the radar and not at this app's sampling. That crossover sits at
- * about zoom 9 at forty degrees; below it there is nothing to gain.
+ * The sweep is one raster over a 460 kilometre box, so at 1,024 pixels it is
+ * 449 metres a pixel against gates a quarter of a kilometre long. A screen
+ * pixel is coarser than that only below about zoom 7: MapLibre's world is
+ * 512 times two to the zoom, which makes a screen pixel 14 metres at zoom 12
+ * and forty degrees north, not the 29 the 256 pixel tile convention gives.
+ *
+ * Ten rather than seven because ten is where the doubling below first buys
+ * anything. `steps` is one at zoom 9 and less at zoom 8, and both of those
+ * spell the whole disc, so asking for a box there is a second render of the
+ * same picture. Zooms 8 and 9 do have detail to gain and this does not reach
+ * them; that needs a different exponent, not a lower threshold.
  */
 export const DISC_IS_ENOUGH_BELOW_ZOOM = 10;
 
 /**
  * How far the box may be narrowed, as a fraction of the disc.
  *
- * Sixteenths of a 460 kilometre box is 29 kilometres over 1,024 pixels, which
- * is 28 metres a pixel: finer than a screen pixel at zoom 13 and nine times
- * finer than a gate is long. Past that the picture stops improving and the
- * reader starts panning out of the box.
+ * A sixteenth of a 460 kilometre box is 29 kilometres over 1,024 pixels, or
+ * 28 metres a pixel. That is nine times finer than a gate is long, so there
+ * is nothing left in the data to resolve past it and a narrower box would be
+ * spending fetches on interpolation.
  */
 export const FINEST_DETAIL_STEPS = 16;
 
@@ -485,10 +491,17 @@ export const FINEST_DETAIL_STEPS = 16;
  * same 1,024 pixels over less ground. What comes back carries its own corners,
  * so the map places it without knowing any of this.
  *
- * Quantised on purpose. A box taken straight from the viewport would be a new
- * box on every pan and a re-render with it; snapping the centre to a grid of
- * half the box's own width, and then drawing a box twice that wide, means a
- * pan of up to a quarter of the picture changes nothing at all.
+ * Quantised on purpose, in both the zoom and the centre. A box taken straight
+ * from the viewport would be a new box on every pan, every wheel notch and
+ * every eased fly-to, and a re-render with each. The zoom is taken to whole
+ * levels and the centre snaps to a grid of half the box's own width, so most
+ * small movements land on the box already in hand and ask for nothing.
+ *
+ * Most, not all. Snapping to a grid means the box moves whenever a pan
+ * crosses a grid line, however short the pan is, so nothing here promises a
+ * free drag of any particular size. What it promises is that two cameras
+ * close together usually share a box, which is what keeps the held frames of
+ * a loop worth holding.
  */
 export function sweepDetailBox(
   disc: { west: number; south: number; east: number; north: number },
@@ -500,13 +513,17 @@ export function sweepDetailBox(
   const tall = disc.north - disc.south;
   if (!(wide > 0) || !(tall > 0)) return null;
 
+  // Whole levels. The map's zoom is continuous, and it arrives here through
+  // an eased fly-to and a wheel that moves it in fractions, so an unrounded
+  // one made a different box for every hundredth of a level: a held loop
+  // frame was orphaned by any zoom change at all, and each miss is another
+  // ten megabyte volume off the archive.
   const steps = Math.min(
     FINEST_DETAIL_STEPS,
-    2 ** (zoom - DISC_IS_ENOUGH_BELOW_ZOOM + 1),
+    2 ** (Math.floor(zoom) - DISC_IS_ENOUGH_BELOW_ZOOM + 1),
   );
   // Half the box, which is both what the corners are measured from and the
-  // grid the centre snaps to: a pan of up to a quarter of the picture lands
-  // on the same box and asks for nothing.
+  // grid the centre snaps to.
   const halfWide = wide / (2 * steps);
   const halfTall = tall / (2 * steps);
   // The grid the centre snaps to, which is what a pan has to cross before
@@ -520,11 +537,11 @@ export function sweepDetailBox(
   const east = Math.min(disc.east, lon + halfWide);
   const south = Math.max(disc.south, lat - halfTall);
   const north = Math.min(disc.north, lat + halfTall);
-  // A reader who has zoomed in on the edge of the disc can end up with a box
-  // that is most of it again, and drawing the same ground at the same size is
-  // a render nobody asked for.
+  // A box wholly off the disc is no ground at all. There was a second guard
+  // here against a box that came out as most of the disc again; `steps` is
+  // never below two, so a box is at most a quarter of the disc before it is
+  // clipped and smaller after, and the guard could not fire.
   if (east - west <= 0 || north - south <= 0) return null;
-  if ((east - west) * (north - south) > wide * tall * 0.5) return null;
   return [west, south, east, north];
 }
 
